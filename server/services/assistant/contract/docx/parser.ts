@@ -11,7 +11,7 @@
  */
 import mammoth from 'mammoth'
 import { loadDocxZip, readTextFromZip } from './zipRewriter'
-import { parseOoxml, findFirst, walk, tagOf, paragraphText, hasRunChild, type NodeArray } from './xmlAst'
+import { parseOoxml, findFirst, walk, tagOf, paragraphText, hasRunChild, splitParagraphs, type NodeArray } from './xmlAst'
 
 export interface ParsedContract {
     paragraphs: string[]
@@ -41,10 +41,8 @@ function paragraphsFromAst(rawXml: string): string[] {
 
 export async function parseContractDocx(buffer: Buffer): Promise<ParsedContract> {
     const { value: rawText } = await mammoth.extractRawText({ buffer })
-    let paragraphs = rawText
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0)
+    // DOCX-R2：用 xmlAst.splitParagraphs 替代本地 split + trim + filter，统一段落口径
+    let paragraphs = splitParagraphs(rawText)
 
     const zip = await loadDocxZip(buffer)
     const rawXml = await readTextFromZip(zip, 'word/document.xml')

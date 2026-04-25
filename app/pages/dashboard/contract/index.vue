@@ -26,6 +26,7 @@ import {
     Search,
 } from 'lucide-vue-next'
 import type { ReviewListItem } from '#shared/types/contract'
+import { REVIEW_STATUS_LABEL } from '#shared/types/contract'
 
 definePageMeta({
     layout: 'dashboard-layout',
@@ -130,16 +131,22 @@ async function confirmDelete(item: ReviewListItem) {
 }
 
 // ===== 展示辅助 =====
-const STATUS_META: Record<string, { label: string; class: string }> = {
-    pending: { label: '待处理', class: 'bg-muted text-muted-foreground' },
-    reviewing: { label: '审查中', class: 'bg-primary/15 text-primary dark:bg-primary/20' },
-    awaiting_stance: { label: '等待立场', class: 'bg-primary/15 text-primary dark:bg-primary/20' },
-    rebuilding: { label: '重建中', class: 'bg-primary/15 text-primary dark:bg-primary/20' },
-    completed: { label: '已完成', class: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200' },
-    failed: { label: '失败', class: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200' },
+// UI-R6：label 部分从 shared/types/contract.REVIEW_STATUS_LABEL 单一数据源 import；
+// 仅 class 配色保留本地（属页面视觉表达，不进 shared 层）。
+const STATUS_CLASS: Record<string, string> = {
+    pending: 'bg-muted text-muted-foreground',
+    reviewing: 'bg-primary/15 text-primary dark:bg-primary/20',
+    awaiting_stance: 'bg-primary/15 text-primary dark:bg-primary/20',
+    rebuilding: 'bg-primary/15 text-primary dark:bg-primary/20',
+    completed: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200',
+    failed: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200',
 }
 function statusMeta(s: string) {
-    return STATUS_META[s] ?? { label: s, class: 'bg-muted text-muted-foreground' }
+    const label = (REVIEW_STATUS_LABEL as Record<string, string>)[s] ?? s
+    return {
+        label,
+        class: STATUS_CLASS[s] ?? 'bg-muted text-muted-foreground',
+    }
 }
 
 function formatDate(s: string | Date) {
