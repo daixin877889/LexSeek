@@ -1,4 +1,12 @@
-# 上下文机制评测基建（Context Governance Eval）实施计划
+# 上下文机制评测基建（Context Governance Eval）实施计划 v1（已废弃）
+
+> ⚠️ **本文档已被 v2 替代，请勿用作实施依据**：
+> - 实施依据：`2026-04-25-context-governance-eval-plan-v2.md`
+> - v1 含错误代码块（`prisma.case_memories` 应为 `caseMemories`、`runCaseChat` 签名错、SSE 协议虚构、`buildContextSegments` 签名错、`vi.mock` 在 bun runtime 不可用、ossMock 写不存在的 export 等）
+> - v1 末尾的"附录 A 修订记录"自身又含 4 个 P0 错（SSE/monkey-patch/users 字段/buildContextSegments 签名）
+> - v2 已合并所有修订到 Task 原文（单一信源），可直接按 Task 顺序实施
+
+> **本文档保留仅供审计追踪**。
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
