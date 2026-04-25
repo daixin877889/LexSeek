@@ -1,381 +1,380 @@
-# Design System
+# 设计系统
 
-The aesthetic layer. Read this before touching any script.
-This file answers "what should it look like and why."
-
----
-
-## The one rule
-
-Every design decision must be **rooted in the document's content and purpose**.
-Dark teal + cream is not "professional". Serif + beige is not "elegant".
-A color chosen because it fits the content will always outperform a color chosen
-because it seems safe.
+美学层。在接触任何脚本前读这个。
+这个文件回答"它应该看起来什么样，为什么"。
 
 ---
 
-## Palette logic
+## 唯一的规则
 
-`palette.py` takes a short content description and outputs `tokens.json`.
-Here is the reasoning it applies:
+每一个设计决策必须**根植于文档的内容和目的**。
+深青绿 + 奶油色不是"专业的"。衬线 + 米色不是"优雅的"。
+一个因为适合内容而选择的颜色总会比因为看起来安全而选择的颜色表现更好。
 
-### Mood → base palette
+---
 
-| Content signal | Mood | Background | Accent | Text |
+## 调色板逻辑
+
+`palette.py` 接收简短的内容描述并输出 `tokens.json`。
+以下是它应用的推理：
+
+### 气质 → 基础调色板
+
+| 内容信号 | 气质 | 背景 | 强调 | 文本 |
 |---|---|---|---|---|
-| Research, science, analysis | Authoritative | `#0F1F2E` deep ink | `#00B4A6` teal | `#F0EDE6` warm white |
-| Business, strategy, finance | Confident | `#1C1C2B` near-black | `#E8A020` amber | `#F5F2EC` cream |
-| Creative, portfolio, design | Expressive | `#1A0A2E` deep violet | `#FF6B6B` coral | `#FAF5FF` lavender white |
-| Education, academic paper | Scholarly | `#FAFAF7` warm white | `#2C4A7C` navy | `#1A1A2E` dark |
-| Healthcare, wellness | Calm | `#F5F9F8` pale mint | `#2D8B72` forest | `#1E3830` deep green |
-| Resume / personal | Clean | `#FFFFFF` white | pick from content | `#111111` near-black |
-| General / unknown | Neutral | `#F8F6F1` warm off-white | `#3D3D3D` dark gray | `#1A1A1A` black |
-| Formal publications, annual reports | Magazine | `#F2F0EC` warm linen | `#1C3557` deep navy | `#0D1A2B` near-black |
-| Premium/dark reports, tech reviews | Darkroom | `#151C27` deep navy | `#4A6FA5` steel blue | `#F0EDE6` warm white |
-| Technical docs, developer reports | Terminal | `#0D1117` near-black | `#39D353` neon green | `#E6EDF3` cool white |
-| Portfolios, creative, photography | Poster | `#FFFFFF` white | `#0A0A0A` near-black | `#0A0A0A` near-black |
+| 研究、科学、分析 | 权威 | `#0F1F2E` 深墨 | `#00B4A6` 青色 | `#F0EDE6` 暖白 |
+| 商业、战略、财务 | 自信 | `#1C1C2B` 近黑色 | `#E8A020` 琥珀色 | `#F5F2EC` 奶油色 |
+| 创意、作品集、设计 | 表现力 | `#1A0A2E` 深紫色 | `#FF6B6B` 珊瑚色 | `#FAF5FF` 薰衣草白 |
+| 教育、学术论文 | 学术 | `#FAFAF7` 暖白 | `#2C4A7C` 海军蓝 | `#1A1A2E` 深色 |
+| 医疗、健康 | 平静 | `#F5F9F8` 淡薄荷 | `#2D8B72` 森林绿 | `#1E3830` 深绿 |
+| 简历 / 个人 | 清洁 | `#FFFFFF` 白色 | 从内容选择 | `#111111` 近黑色 |
+| 通用 / 未知 | 中性 | `#F8F6F1` 暖灰白 | `#3D3D3D` 深灰 | `#1A1A1A` 黑色 |
+| 正式出版物、年报 | 杂志风 | `#F2F0EC` 暖亚麻色 | `#1C3557` 深海军蓝 | `#0D1A2B` 近黑色 |
+| 高端/深色报告、科技评论 | 暗室风 | `#151C27` 深海军蓝 | `#4A6FA5` 钢铁蓝 | `#F0EDE6` 暖白 |
+| 技术文档、开发者报告 | 终端风 | `#0D1117` 近黑色 | `#39D353` 霓虹绿 | `#E6EDF3` 冷白 |
+| 作品集、创意、摄影 | 海报风 | `#FFFFFF` 白色 | `#0A0A0A` 近黑色 | `#0A0A0A` 近黑色 |
 
-### Accent selection rules
+### 强调色选择规则
 
-- **One accent color only.** Using two accents splits visual energy.
-- Accent appears on: cover geometric elements, section rules, callout left borders,
-  table header background, page header rule. Nowhere else.
-- Accent must contrast with the cover background by at least 4.5:1 (WCAG AA).
-- Do not default to blue. Blue is the most overused accent in AI-generated documents.
+- **仅使用一种强调色。** 使用两种强调色会分散视觉能量。
+- 强调色出现位置：封面几何元素、分隔线、标注左边框、
+  表头背景、页眉规则。仅限于此。
+- 强调色与封面背景的对比度必须至少为 4.5:1 (WCAG AA)。
+- 不要默认使用蓝色。蓝色是 AI 生成文档中最过度使用的强调色。
 
-### Color pairing anti-patterns (never use these)
+### 配色反模式（绝不使用这些）
 
-| ❌ Avoid | Why |
+| ❌ 避免 | 原因 |
 |---|---|
-| Purple gradient on white | The default AI aesthetic — immediately signals "generated" |
-| Navy + gold | Overused corporate cliché |
-| All-black background | Prints badly, feels aggressive |
-| More than 3 colors in the system | Visual noise |
-| Accent on body text | Destroys readability |
+| 白底紫渐变 | AI 生成的默认美学 — 立即暗示"生成的" |
+| 深蓝 + 金色 | 过时的企业俗套 |
+| 纯黑背景 | 打印效果差，显得咄咄逼人 |
+| 系统中超过 3 种颜色 | 视觉噪声 |
+| 正文强调色 | 破坏可读性 |
 
 ---
 
-## Typography system
+## 排版系统
 
-### Font pairing logic
+### 字体配对逻辑
 
-Two typefaces maximum. Always.
+最多两种字体。总是如此。
 
-| Role | Criteria | Good choices (system-safe) |
+| 角色 | 标准 | 好选择（系统安全） |
 |---|---|---|
-| Display (cover title, H1) | Distinctive, strong contrast, high weight | Times New Roman, Georgia (serif) |
-| Text (body, captions, UI) | Highly readable at 10–11pt | Helvetica, Arial (sans) |
+| 展示（封面标题、H1） | 独特、强对比、高粗细度 | Times New Roman、Georgia（衬线） |
+| 文本（正文、标题、UI） | 10–11pt 高可读性 | Helvetica、Arial（无衬线） |
 
-Cover fonts are loaded live via `@import url(...)` in the cover HTML — Playwright
-fetches them at render time, no local caching. Body pages always use system fonts
-(Times-Bold / Helvetica) via ReportLab — consistent and offline-safe.
+封面字体通过 `@import url(...)` 在封面 HTML 中实时加载 — Playwright
+在渲染时获取，无本地缓存。正文页面始终通过 ReportLab 使用系统字体
+(Times-Bold / Helvetica) — 一致且离线安全。
 
-Pairs by mood (cover HTML only — body always uses system fonts):
-- Authoritative: `Playfair Display` / `IBM Plex Sans`
-- Confident: `Syne` / `Nunito Sans`
-- Expressive: `Fraunces` / `Inter`
-- Scholarly: `EB Garamond` / `Source Sans 3`
-- Clean: `DM Serif Display` / `DM Sans`
-- Restrained: `Cormorant Garamond` / `Jost`
-- Bold: `Barlow Condensed` / `Barlow`
-- Dynamic: `Montserrat` / `Montserrat`
-- Classical: `Cormorant` / `Crimson Pro`
-- Editorial: `Bebas Neue` / `Libre Franklin`
-- Body fallback (always): `Times-Bold` / `Helvetica` (ReportLab system fonts)
+按气质配对（仅封面 HTML — 正文始终使用系统字体）：
+- 权威：`Playfair Display` / `IBM Plex Sans`
+- 自信：`Syne` / `Nunito Sans`
+- 表现力：`Fraunces` / `Inter`
+- 学术：`EB Garamond` / `Source Sans 3`
+- 清洁：`DM Serif Display` / `DM Sans`
+- 克制：`Cormorant Garamond` / `Jost`
+- 大胆：`Barlow Condensed` / `Barlow`
+- 动态：`Montserrat` / `Montserrat`
+- 古典：`Cormorant` / `Crimson Pro`
+- 编辑：`Bebas Neue` / `Libre Franklin`
+- 正文备选（总是）：`Times-Bold` / `Helvetica`（ReportLab 系统字体）
 
-### Type scale
+### 类型标度
 
-All sizes in points. This scale is used by `palette.py` to populate `tokens.json`.
+所有大小以磅为单位。此标度由 `palette.py` 用于填充 `tokens.json`。
 
-| Token | Size | Leading | Usage |
+| 令牌 | 大小 | 行距 | 用途 |
 |---|---|---|---|
-| `display` | 54pt | 1.0 | Cover title |
-| `h1` | 22pt | 1.3 | Section headings |
-| `h2` | 15pt | 1.4 | Subsection headings |
-| `h3` | 11.5pt | 1.5 | Sub-subsection |
-| `body` | 10.5pt | 1.6 | Main prose |
-| `caption` | 8.5pt | 1.4 | Figure/table captions |
-| `meta` | 8pt | 1.3 | Header/footer text |
+| `display` | 54pt | 1.0 | 封面标题 |
+| `h1` | 22pt | 1.3 | 一级标题 |
+| `h2` | 15pt | 1.4 | 二级标题 |
+| `h3` | 11.5pt | 1.5 | 三级标题 |
+| `body` | 10.5pt | 1.6 | 主文本 |
+| `caption` | 8.5pt | 1.4 | 图表/表格标题 |
+| `meta` | 8pt | 1.3 | 页眉/页脚文本 |
 
-### Spacing system
+### 间距系统
 
-Margins and rhythm are what separate "looks designed" from "looks printed".
+边距和节奏是区分"看起来经过设计"和"看起来打印"的关键。
 
-| Token | Value | Notes |
+| 令牌 | 值 | 备注 |
 |---|---|---|
-| `margin_outer` | 2.8cm | Left/right page margin |
-| `margin_top` | 2.8cm | Top page margin |
-| `margin_bottom` | 2.5cm | Bottom page margin |
-| `section_gap` | 26pt | Space before H1 |
-| `para_gap` | 8pt | Space after paragraph |
-| `line_gap` | 17pt | Leading for body text |
+| `margin_outer` | 2.8cm | 左/右页边距 |
+| `margin_top` | 2.8cm | 顶部页边距 |
+| `margin_bottom` | 2.5cm | 底部页边距 |
+| `section_gap` | 26pt | H1 前的间隔 |
+| `para_gap` | 8pt | 段落后的间隔 |
+| `line_gap` | 17pt | 正文行距 |
 
-Never use ReportLab's default margins (too tight). Always set explicitly.
+永远不要使用 ReportLab 的默认边距（太紧）。始终显式设置。
 
 ---
 
-## Cover design
+## 封面设计
 
-The cover is the most important page. It determines whether a reader trusts the document.
+封面是最重要的页面。它决定了读者是否信任该文档。
 
-### Thirteen cover patterns
+### 十三种封面模式
 
-`cover.py` selects one based on `tokens.json["cover_pattern"]`.
+`cover.py` 根据 `tokens.json["cover_pattern"]` 选择一个。
 
-**1. `fullbleed`** — used for: `report`, `general`
-- Deep background fills 100% of page
-- Title: large, left-aligned, upper 60% of page
-- Accent: thin horizontal rule + top-right corner strip
-- Dot-grid background texture (subtle, 8–10% opacity)
-- Footer band: author + date metadata
-- Fonts: Playfair Display / IBM Plex Sans
+**1. `fullbleed`** — 用于：`report`、`general`
+- 深色背景填满 100% 页面
+- 标题：大号、左对齐、页面上 60%
+- 强调色：细水平线 + 右上角条纹
+- 点网格背景纹理（细微、8–10% 透明度）
+- 页脚条：作者 + 日期元数据
+- 字体：Playfair Display / IBM Plex Sans
 
-**2. `split`** — used for: `proposal`
-- Left 42% panel: solid cover color, title + author
-- Right 58%: off-white, dot-grid decoration
-- Hard vertical dividing line in accent color
-- No gradients — pure flat geometry
-- Fonts: Syne / Nunito Sans
+**2. `split`** — 用于：`proposal`
+- 左 42% 面板：纯色封面、标题 + 作者
+- 右 58%：灰白色、点网格装饰
+- 硬强调色竖分割线
+- 无渐变 — 纯平面几何
+- 字体：Syne / Nunito Sans
 
-**3. `typographic`** — used for: `resume`, `academic`
-- White/off-white background
-- Name or title as oversized display type (60–80pt), left-aligned
-- First word in accent color, remainder in dark
-- Thin rule below title block
-- Fonts: DM Serif Display / DM Sans (resume) · EB Garamond / Source Sans 3 (academic)
+**3. `typographic`** — 用于：`resume`、`academic`
+- 白色/灰白色背景
+- 名字或标题为超大显示型（60–80pt）、左对齐
+- 第一个单词用强调色，其余深色
+- 标题块下细线
+- 字体：DM Serif Display / DM Sans（简历）· EB Garamond / Source Sans 3（学术）
 
-**4. `atmospheric`** — used for: `portfolio`
-- Near-black background
-- Soft radial glow in accent color (upper-right quadrant)
-- Title centered-left, 2 lines max
-- Short rule in accent below title
-- Dot-grid texture at low opacity
-- Fonts: Fraunces / Inter
+**4. `atmospheric`** — 用于：`portfolio`
+- 近黑色背景
+- 强调色柔和径向发光（右上象限）
+- 标题居中偏左、最多 2 行
+- 标题下方强调色短线
+- 低透明度点网格纹理
+- 字体：Fraunces / Inter
 
-**5. `minimal`** — used for: `minimal`
-- Near-white background, 8px left accent bar is the only color
-- Title in very large, light-weight display type (300 weight)
-- Hairline rule, author + date as single muted line
-- Nothing else — the bar does all the visual work
-- Fonts: Cormorant Garamond / Jost
+**5. `minimal`** — 用于：`minimal`
+- 近白色背景、8px 左强调色条是唯一的颜色
+- 标题为超大、轻磅显示型（300 粗细度）
+- 发丝线、作者 + 日期为单行柔和文字
+- 仅此而已 — 色条承载所有视觉工作
+- 字体：Cormorant Garamond / Jost
 
-**6. `stripe`** — used for: `stripe`
-- Page cut into three horizontal bands: accent / dark / light
-- Top band: category label; middle: oversized title in white; bottom: metadata
-- Hard edges, no gradients, no textures — newspaper / brand poster aesthetic
-- Fonts: Barlow Condensed / Barlow
+**6. `stripe`** — 用于：`stripe`
+- 页面切成三条水平条纹：强调色 / 深色 / 浅色
+- 顶条：类别标签；中间：白色超大标题；底部：元数据
+- 硬边、无渐变、无纹理 — 报纸 / 品牌海报美学
+- 字体：Barlow Condensed / Barlow
 
-**7. `diagonal`** — used for: `diagonal`
-- SVG polygon cuts page diagonally: dark upper-left, light lower-right
-- Accent-colored edge line traces the diagonal cut
-- Title on dark area, metadata on light area
-- Fonts: Montserrat / Montserrat
+**7. `diagonal`** — 用于：`diagonal`
+- SVG 多边形对角线切割页面：深色左上、浅色右下
+- 强调色边线跟踪对角线切割
+- 标题在深色区域、元数据在浅色区域
+- 字体：Montserrat / Montserrat
 
-**8. `frame`** — used for: `frame`
-- White/cream background with an inset rectangular border (1.2px, 28px from edges)
-- Accent strips inside top + bottom of frame; small accent corner squares
-- Title centered in the frame space, centered alignment, classical weight
-- Formal, timeless — annual reports, legal documents, academic papers
-- Fonts: Cormorant / Crimson Pro
+**8. `frame`** — 用于：`frame`
+- 白色/奶油色背景，嵌入式矩形边框（1.2px、距边缘 28px）
+- 强调色条在框的顶部 + 底部内侧；小强调色角方块
+- 标题在框空间内居中、居中对齐、古典粗细度
+- 正式、永恒 — 年报、法律文件、学术论文
+- 字体：Cormorant / Crimson Pro
 
-**9. `editorial`** — used for: `editorial`
-- Ghost first-letter of title fills upper-right at 5% opacity — visual texture
-- 5px accent top bar; full-width uppercase title in condensed weight
-- Title all-caps, very large (80px), flush-left
-- Footer rule + author/date metadata
-- Fonts: Bebas Neue / Libre Franklin
+**9. `editorial`** — 用于：`editorial`
+- 标题首字母幽灵版本填充右上角，5% 透明度 — 视觉纹理
+- 5px 强调色顶条；全宽大写标题，冷凝粗细度
+- 标题全大写、超大（80px）、左对齐
+- 页脚线 + 作者/日期元数据
+- 字体：Bebas Neue / Libre Franklin
 
-**10. `magazine`** — used for: `magazine`
-- Warm cream/linen background; fully centered, vertical stack layout
-- Org/company name in small spaced caps + 2px accent rule beneath (top anchor)
-- Large bold serif title (52px) centered; short accent rule under title
-- Italic subtitle; optional `cover_image` URL renders as centered hero thumbnail
-- Optional `abstract` field: justified text block with bold "Abstract:" label
-- Author name in accent color (large, bold); date beneath
-- Fonts: Playfair Display / EB Garamond
+**10. `magazine`** — 用于：`magazine`
+- 暖奶油色/亚麻背景；完全居中、竖向堆叠布局
+- 组织/公司名称为小间距大写字母 + 下方 2px 强调色线（顶部锚点）
+- 大粗体衬线标题（52px）居中；标题下短强调色线
+- 斜体副标题；可选 `cover_image` URL 以居中主图缩略图呈现
+- 可选 `abstract` 字段：对齐文本块，加粗"摘要："标签
+- 强调色作者名字（大号、粗体）；日期下方
+- 字体：Playfair Display / EB Garamond
 
-**11. `darkroom`** — used for: `darkroom`
-- Same centered stack layout as `magazine` but deep navy background, white text
-- Org name + rules in semi-transparent white; accent rules desaturated
-- Hero image (if provided) gets `grayscale(20%) brightness(0.9)` filter
-- Fonts: Playfair Display / EB Garamond
+**11. `darkroom`** — 用于：`darkroom`
+- 与 `magazine` 相同的居中堆叠布局，但深海军蓝背景、白色文字
+- 组织名称 + 半透明白色线；强调色线去饱和
+- 主图（如果提供）获得 `grayscale(20%) brightness(0.9)` 滤镜
+- 字体：Playfair Display / EB Garamond
 
-**12. `terminal`** — used for: `terminal`
-- Near-black background; neon green accent; Space Mono monospace throughout
-- Grid overlay: faint horizontal + vertical lines at 48px intervals (7% opacity)
-- Status label top-left: green dot + `SYSTEM_REPORT // <date>`
-- Title inside a bracket frame (border-left + border-top + pseudo-element corner)
-- Subtitle prefixed with `>` in accent color
-- Abstract text left; author block right; status bar at bottom (UTF-8 / Ln 1)
-- Fonts: Space Mono / Space Mono
+**12. `terminal`** — 用于：`terminal`
+- 近黑色背景；霓虹绿强调色；始终使用 Space Mono 等宽
+- 栅格叠加层：淡水平 + 竖线，48px 间隔（7% 透明度）
+- 状态标签顶左：绿点 + `SYSTEM_REPORT // <date>`
+- 标题在括号框内（border-left + border-top + 伪元素角）
+- 副标题前缀 `>`，强调色
+- 摘要文本左侧；作者块右侧；状态栏底部（UTF-8 / Ln 1）
+- 字体：Space Mono / Space Mono
 
-**13. `poster`** — used for: `poster`
-- White background; thick 52px left sidebar in accent (typically near-black)
-- Title: 96px, 900-weight, all-caps, condensed — the dominant visual element
-- Subtitle in typewriter font below title; thin 2px rule as separator
-- Author + meta in Courier Prime monospace beneath rule
-- Optional `cover_image` rendered as 260×340 grayscale thumbnail, right-aligned
-- Accent square icon block (lower-right) with white horizontal lines
-- Fonts: Barlow Condensed / Courier Prime
+**13. `poster`** — 用于：`poster`
+- 白色背景；粗 52px 左侧栏，强调色（通常近黑色）
+- 标题：96px、900 粗细度、全大写、冷凝 — 主视觉元素
+- 副标题在打字机字体中标题下方；薄 2px 线作分隔符
+- 作者 + 元数据在 Courier Prime 等宽字体中线下方
+- 可选 `cover_image` 以 260×340 灰度缩略图呈现、右对齐
+- 强调色方形图标块（右下），白色水平线
+- 字体：Barlow Condensed / Courier Prime
 
-### Optional token: `cover_image`
+### 可选令牌：`cover_image`
 
-Patterns `magazine`, `darkroom`, and `poster` accept an optional `cover_image`
-token containing an absolute URL or `file://` path to an image.
-The image renders via `<img src="...">` — Playwright fetches it at render time.
-If omitted, the image area is simply skipped (layout adjusts gracefully).
+模式 `magazine`、`darkroom` 和 `poster` 接受可选的 `cover_image`
+令牌，包含绝对 URL 或 `file://` 路径指向图像。
+图像通过 `<img src="...">` 呈现 — Playwright 在渲染时获取它。
+如果省略，图像区域被跳过（布局优雅调整）。
 
-### Cover CSS requirements (critical for Playwright rendering)
+### 封面 CSS 要求（Playwright 渲染的关键）
 
-These three rules must appear in every cover HTML file or the output will have
-white borders / incorrect dimensions:
+这三条规则必须出现在每个封面 HTML 文件中，否则输出会有
+白色边框 / 错误的尺寸：
 
 ```css
 body { margin: 0; padding: 0; }
 html, body { width: 794px; height: 1123px; overflow: hidden; }
 ```
 
-No `@page` rules needed — Playwright handles page size via the `pdf()` call.
-Do NOT use CSS `background-image` for textures — use inline SVG or `<canvas>`.
-Always use `position: absolute` + `z-index` for layered elements.
+不需要 `@page` 规则 — Playwright 通过 `pdf()` 调用处理页面大小。
+不要用 CSS `background-image` 表现纹理 — 使用内联 SVG 或 `<canvas>`。
+始终对分层元素使用 `position: absolute` + `z-index`。
 
-### What always kills a cover
+### 什么会毁掉封面
 
-- Centered title on white background with a thin horizontal line underneath
-- Gradient from one color to another (reads as PowerPoint, not print design)
-- Drop shadows on text
-- More than one accent color
-- Emoji or icon fonts (fail silently on headless Chromium)
-
----
-
-## Inner page rules
-
-### What "restraint" means in practice
-
-Every design decision should remove something, not add something.
-The page is done when there is nothing left to remove.
-
-- Accent color appears on section rules only — not on headings, not on bullets
-- No card components (bordered boxes with colored headers)
-- No rounded corners on anything except callout boxes (4px max)
-- No shadows anywhere
-- Tables: header row in accent, alternating row tint, no grid lines except outer box
-- Callout boxes: left border in accent (4px), very light tint background, no icon
-
-### Page header / footer
-
-Header: document title (left, 7.5pt, muted) + accent rule (1.5pt, full width below)
-Footer: author name (left, 7.5pt, muted) + page number (right, 7.5pt, muted) + light rule above
+- 白色背景上居中标题，下方有细水平线
+- 从一种颜色到另一种颜色的渐变（看起来像 PowerPoint，不像印刷设计）
+- 文本上的投影
+- 超过一种强调色
+- Emoji 或图标字体（在无头 Chromium 上默默失败）
 
 ---
 
-## Quality bar
+## 页面内容规则
 
-A PDF passes if a designer would not be embarrassed to hand it to a client.
-Concretely:
+### "克制"在实践中的含义
 
-- Cover has a clear visual identity that is not "generic AI output"
-- Body text is readable at arm's length without squinting
-- Every page looks like it belongs to the same document
-- No element bleeds off the edge or overlaps another
-- Page numbers are present and correct
-- The accent color appears fewer than 8 times per page on average
+每个设计决策应移除某些东西，而非添加。
+当没有任何东西可移除时，页面就完成了。
+
+- 强调色仅出现在分隔线上 — 不在标题上、不在项目符号上
+- 无卡片组件（带色彩标题的边框框）
+- 除标注框外任何地方都不用圆角（4px 最大）
+- 任何地方都无投影
+- 表格：标题行用强调色、交替行色调、除外框外无栅格线
+- 标注框：强调色左边框（4px）、极浅色调背景、无图标
+
+### 页眉 / 页脚
+
+页眉：文档标题（左、7.5pt、柔和）+ 强调色线（1.5pt、下方全宽）
+页脚：作者名字（左、7.5pt、柔和）+ 页码（右、7.5pt、柔和）+ 上方浅色线
 
 ---
 
-## Block type reference
+## 质量标准
 
-All body blocks use the same token system — colors and fonts come from `tokens.json`, never hardcoded.
+如果设计师不会尴尬地把 PDF 交给客户，就算及格。
+具体来说：
 
-| Block | Rendering | Design notes |
+- 封面有清晰的视觉身份，不是"通用 AI 输出"
+- 正文在手臂距离内可读，无需眯眼
+- 每一页看起来都属于同一文档
+- 没有元素溢出边缘或与另一个重叠
+- 页码存在且正确
+- 强调色平均每页出现少于 8 次
+
+---
+
+## 块类型参考
+
+所有正文块使用相同的令牌系统 — 颜色和字体来自 `tokens.json`，不硬编码。
+
+| 块 | 渲染 | 设计备注 |
 |---|---|---|
-| `h1` | 22pt heading + full-width accent rule below | KeepTogether with rule — heading never orphaned |
-| `h2` | 15pt heading, dark text | No rule, no accent — visual hierarchy through size only |
-| `h3` | 11.5pt bold, dark text | **No accent color** — accent on body headings violates the one-accent-location rule |
-| `body` | 10.5pt justified, 17pt leading | Supports `<b>` `<i>` `<font>` markup |
-| `bullet` | Body size with `•` prefix, 14pt indent | Use for unordered lists |
-| `numbered` | Body size with `N.` prefix, hanging indent | Counter auto-resets on any non-numbered block — no manual numbering needed |
-| `callout` | Accent left-border (4px) + light tint background | Max one callout per section — overuse kills impact |
-| `table` | Accent header row, alternating row tint, outer box only | Supports `col_widths` (fractions, e.g. `[0.3, 0.5, 0.2]`) for custom column widths |
-| `image` | Scaled to column width, preserving aspect ratio | Use `path` or `src`; always provide a `caption` |
-| `figure` | Same as image, but caption auto-prefixed "Figure N:" | Figure counter increments across all `figure`, `chart`, `flowchart` blocks |
-| `code` | Courier 8.5pt, accent left-border, light tint background | Supports optional `language` label (rendered above block) |
-| `math` | Formula centered, optional right-aligned equation label | LaTeX syntax; matplotlib mathtext renderer |
-| `chart` | Bar / line / pie chart rendered via matplotlib | Color palette derived from document accent; figure auto-numbered |
-| `flowchart` | Process diagram with labeled arrows | Supports 4 node shapes; back-edges drawn as curved arcs |
-| `bibliography` | Numbered reference list with hanging indent | Heading rendered as h2 + accent rule; items as `[N] text` |
-| `divider` | Accent-colored 1.2pt rule with padding | Use sparingly — only for major thematic breaks |
-| `caption` | 8.5pt muted text, centered | Appears below images/tables via field or explicit block |
-| `pagebreak` | Force page break | — |
-| `spacer` | Vertical whitespace | `pt` field (default 12) |
+| `h1` | 22pt 标题 + 下方全宽强调色线 | 与线保持在一起 — 标题不孤立 |
+| `h2` | 15pt 标题、深色文本 | 无线、无强调色 — 仅通过大小实现视觉层级 |
+| `h3` | 11.5pt 粗体、深色文本 | **无强调色** — 正文标题上的强调色违反单强调色规则 |
+| `body` | 10.5pt 对齐、17pt 行距 | 支持 `<b>` `<i>` `<font>` 标记 |
+| `bullet` | 身体大小，带 `•` 前缀、14pt 缩进 | 用于无序列表 |
+| `numbered` | 身体大小，带 `N.` 前缀、悬挂缩进 | 计数器在任何非编号块上自动重置 — 无需手动编号 |
+| `callout` | 强调色左边框（4px）+ 浅色调背景 | 每节最多一个标注 — 过度使用杀死冲击力 |
+| `table` | 强调色标题行、交替行色调、仅外框 | 支持 `col_widths`（分数，例如 `[0.3, 0.5, 0.2]`）用于自定义列宽 |
+| `image` | 缩放到列宽、保持纵横比 | 使用 `path` 或 `src`；始终提供 `caption` |
+| `figure` | 与图像相同，但标题自动前缀"图 N:" | 图表计数器在所有 `figure`、`chart`、`flowchart` 块中递增 |
+| `code` | Courier 8.5pt、强调色左边框、浅色调背景 | 支持可选 `language` 标签（在块上方呈现） |
+| `math` | 公式居中、可选右对齐方程标签 | LaTeX 语法；matplotlib mathtext 渲染器 |
+| `chart` | 条形图 / 折线图 / 饼图，通过 matplotlib 呈现 | 颜色调色板从文档强调色得出；图表自动编号 |
+| `flowchart` | 带标签箭头的流程图 | 支持 4 种节点形状；回边绘制为曲线弧 |
+| `bibliography` | 编号参考列表，悬挂缩进 | 标题呈现为 h2 + 强调色线；项为 `[N] 文本` |
+| `divider` | 强调色 1.2pt 线，填充 | 谨慎使用 — 仅用于主要主题中断 |
+| `caption` | 8.5pt 柔和文本、居中 | 通过字段或显式块出现在图像/表格下方 |
+| `pagebreak` | 强制分页 | — |
+| `spacer` | 竖向空白 | `pt` 字段（默认 12） |
 
-### Math formula guidance
+### 数学公式指南
 
-**Input syntax:** standard LaTeX math notation — `\frac{}{}`, `\int`, `\sum`, `\alpha`, `^`, `_`, etc.
-**Rendering engine:** matplotlib mathtext — pure Python, no LaTeX compiler, no browser required.
+**输入语法：** 标准 LaTeX 数学记号 — `\frac{}{}`、`\int`、`\sum`、`\alpha`、`^`、`_` 等。
+**渲染引擎：** matplotlib mathtext — 纯 Python，无需 LaTeX 编译器，无需浏览器。
 
-| Syntax example | Rendered as |
+| 语法示例 | 呈现为 |
 |---|---|
-| `E = mc^2` | Inline expression |
-| `\frac{\sqrt{\pi}}{2}` | Fraction |
-| `\int_0^\infty e^{-x^2} dx` | Integral |
-| `\sum_{i=1}^{n} x_i` | Summation |
-| `\alpha + \beta = \gamma` | Greek letters |
+| `E = mc^2` | 内联表达式 |
+| `\frac{\sqrt{\pi}}{2}` | 分数 |
+| `\int_0^\infty e^{-x^2} dx` | 积分 |
+| `\sum_{i=1}^{n} x_i` | 求和 |
+| `\alpha + \beta = \gamma` | 希腊字母 |
 
-**Limitations:** matplotlib mathtext covers most common expressions but not advanced LaTeX environments (`align`, `cases`, `matrix`). Split complex multi-line proofs into multiple `math` blocks.
+**局限性：** matplotlib mathtext 涵盖大多数常见表达式，但不涵盖高级 LaTeX 环境（`align`、`cases`、`matrix`）。将复杂多行证明拆分为多个 `math` 块。
 
-**Fallback:** if matplotlib is not installed, renders as `expression` in code style. Run `make.sh fix` to install.
+**备选方案：** 如果未安装 matplotlib，则以代码样式呈现为 `expression`。运行 `make.sh fix` 以安装。
 
-**Equation labels:** `"label": "(1)"` — rendered right-aligned beside the formula.
+**方程标签：** `"label": "(1)"` — 在公式旁边右对齐呈现。
 
-### Chart guidance
+### 图表指南
 
-**Rendered entirely in Python** — no external chart services, image files, or internet required.
+**完全在 Python 中呈现** — 无需外部图表服务、图像文件或互联网。
 
-| chart_type | Use case | Required fields |
+| 图表类型 | 用例 | 必需字段 |
 |---|---|---|
-| `bar` | Comparing discrete categories | `labels`, `datasets` |
-| `line` | Trends over time or ordered categories | `labels`, `datasets` |
-| `pie` | Part-to-whole composition | `labels`, `datasets[0].values` |
+| `bar` | 比较离散类别 | `labels`、`datasets` |
+| `line` | 趋势随时间或有序类别 | `labels`、`datasets` |
+| `pie` | 部分与整体组成 | `labels`、`datasets[0].values` |
 
-- Colors are derived from the document accent for visual consistency — do not set custom colors.
-- Multi-series: add multiple objects to `datasets`, each with a `label` and `values` array.
-- Figure auto-numbering: set `"figure": true` (default) or `"figure": false` to suppress.
+- 颜色来自文档强调色以保证视觉一致性 — 不要设置自定义颜色。
+- 多系列：向 `datasets` 添加多个对象，每个对象都有 `label` 和 `values` 数组。
+- 图表自动编号：设置 `"figure": true`（默认）或 `"figure": false` 以禁用。
 
-### Flowchart guidance
+### 流程图指南
 
-**Node shapes:**
+**节点形状：**
 
-| shape | Use for |
+| 形状 | 用途 |
 |---|---|
-| `rect` (default) | Process step |
-| `diamond` | Decision / condition |
-| `oval` or `terminal` | Start / End |
-| `parallelogram` | Input / Output |
+| `rect`（默认） | 处理步骤 |
+| `diamond` | 决策 / 条件 |
+| `oval` 或 `terminal` | 开始 / 结束 |
+| `parallelogram` | 输入 / 输出 |
 
-- Nodes are placed in input order (top to bottom). This controls the layout.
-- Forward edges draw straight arrows; back-edges (to earlier nodes) draw curved arcs.
-- Keep labels short (3–5 words max) — the diagram is A4-column-width at 78% scale.
-- Figure auto-numbering applies same as chart.
+- 节点按输入顺序放置（从上到下）。这控制布局。
+- 前向边绘制直箭头；回边（到更早节点）绘制曲线弧。
+- 保持标签简短（最多 3–5 个词）— 图表为 A4 列宽的 78% 缩放。
+- 图表自动编号应用相同规则。
 
-### Bibliography guidance
+### 参考文献指南
 
-- `id` field is the reference label — use numbers ("1", "2") or alphanumeric ("Smith23").
-- Text should be in a consistent citation style (APA, Chicago, etc.) — the renderer does not enforce style.
-- The `title` field defaults to "References". Set `"title": ""` to suppress the heading.
-- A `bibliography` block always starts with a new section heading + accent rule.
+- `id` 字段是参考标签 — 使用数字（"1"、"2"）或字母数字（"Smith23"）。
+- 文本应采用一致的引用风格（APA、Chicago 等）— 渲染器不强制执行风格。
+- `title` 字段默认为"参考文献"。设置 `"title": ""` 以禁用标题。
+- `bibliography` 块始终以新的分隔标题 + 强调色线开头。
 
-### Image / figure guidance
+### 图像 / 图表指南
 
-- Preferred formats: PNG, JPEG
-- Scaled down if wider than the text column; never scaled up
-- `figure` blocks auto-number; `image` blocks do not — use `figure` for numbered figures
-- If the file does not exist at render time, a `[Image not found]` placeholder is substituted
+- 首选格式：PNG、JPEG
+- 如果宽于文本列则缩小；绝不放大
+- `figure` 块自动编号；`image` 块不会 — 对编号图表使用 `figure`
+- 如果文件在渲染时不存在，会替换为 `[找不到图像]` 占位符
 
-### Code block guidance
+### 代码块指南
 
-- Preserves whitespace exactly — do not indent code in the JSON value
-- Optional `language` field renders a small language label above the block (e.g., `"language": "python"`)
-- No syntax highlighting (by design) — consistent with restraint principle
-- Keep lines under ~90 characters for A4 column width
+- 精确保留空白 — 不要在 JSON 值中缩进代码
+- 可选 `language` 字段在块上方呈现小语言标签（例如 `"language": "python"`）
+- 无语法高亮（按设计）— 与克制原则一致
+- 将行保持在 ~90 个字符以下，以适应 A4 列宽
