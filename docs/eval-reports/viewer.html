@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>上下文机制评测报告 Viewer</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="bg-slate-50 text-slate-900">
+  <div class="max-w-7xl mx-auto p-6">
+    <h1 class="text-2xl font-bold mb-4">上下文机制评测报告</h1>
+
+    <div class="mb-4 flex items-center gap-3">
+      <label class="text-sm">报告：</label>
+      <select id="report-select" class="border border-gray-200 rounded px-2 py-1 bg-white"></select>
+    </div>
+
+    <div id="overview" class="mb-6"></div>
+    <div id="metrics" class="mb-6"></div>
+    <div id="cases"></div>
+  </div>
+
+  <script>
+    /**
+     * 已知业务缺陷清单（首跑预期 FAIL，但属于独立工单 — 区分回归 vs 已知 bug）
+     * 见 plan §A2.6 Task 19 + Task 23 README "已知业务 bug" 段落。
+     */
+    const KNOWN_BIZ_BUGS = new Set([
+      'sec-archived-write-memory',
+      'sec-archived-update-memory',
+      'sec-archived-initAnalysis',
+    ])
+
+    function escapeHtml(s) {
+      return String(s ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))
+    }
+
+    function bizBugTag(name) {
+      return KNOWN_BIZ_BUGS.has(name)
+        ? '<span class="ml-2 px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-xs">[业务缺陷]</span>'
+        : ''
+    }
+
+    async function loadIndex() {
+      try {
+        const res = await fetch('./index.json', { cache: 'no-store' })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const idx = await res.json()
+        const sel = document.getElementById('report-select')
+        sel.innerHTML = ''
+        const list = (idx.reports || []).slice().reverse()
+        if (list.length === 0) {
+          document.getElementById('overview').innerHTML =
+            '<div class="bg-white p-4 rounded shadow border border-gray-200 text-slate-600">index.json 为空，先跑 <code>bun run tests/eval/runEval.ts</code> 生成报告。</div>'
+          return
+        }
+        list.forEach(r => {
+          const o = document.createElement('option')
+          o.value = r.filename
+          o.textContent = `${r.runAt}  ${r.overallPass ? '[PASS]' : '[FAIL]'}  ${r.filename}`
+          sel.appendChild(o)
+        })
+        await loadReport(sel.value)
+      } catch (e) {
+        document.getElementById('overview').innerHTML =
+          `<div class="bg-white p-4 rounded shadow border border-gray-200 text-red-600">加载 index.json 失败：${escapeHtml(e.message || e)}<br><span class="text-xs text-slate-500">提示：viewer 必须通过 HTTP 打开（如 <code>python3 -m http.server</code>），不能直接 file:// 双击。</span></div>`
+      }
+    }
+
+    async function loadReport(filename) {
+      try {
+        const res = await fetch('./' + filename, { cache: 'no-store' })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const r = await res.json()
+        renderOverview(r)
+        renderMetrics(r)
+        renderCases(r)
+      } catch (e) {
+        document.getElementById('overview').innerHTML =
+          `<div class="bg-white p-4 rounded shadow border border-gray-200 text-red-600">加载 ${escapeHtml(filename)} 失败：${escapeHtml(e.message || e)}</div>`
+      }
+    }
+
+    function renderOverview(r) {
+      const el = document.getElementById('overview')
+      const badge = r.summary.overallPass
+        ? '<span class="px-3 py-1 bg-green-100 text-green-800 rounded font-bold">[PASS]</span>'
+        : '<span class="px-3 py-1 bg-red-100 text-red-800 rounded font-bold">[FAIL]</span>'
+      const failuresHtml = r.summary.criticalFailures.length > 0
+        ? `<div class="mt-3"><strong>CRITICAL 未通过：</strong><ul class="list-disc ml-6 mt-1">${
+            r.summary.criticalFailures.map(name =>
+              `<li>${escapeHtml(name)}${bizBugTag(name)}</li>`
+            ).join('')
+          }</ul></div>`
+        : ''
+      const erroredHtml = (r.errored && r.errored.length > 0)
+        ? `<div class="mt-3"><strong class="text-amber-700">运行错误（${r.errored.length}）：</strong><ul class="list-disc ml-6 mt-1 text-sm">${
+            r.errored.map(e => `<li>${escapeHtml(e.id)} — ${escapeHtml(e.reason)}</li>`).join('')
+          }</ul></div>`
+        : ''
+      el.innerHTML = `
+        <div class="bg-white p-4 rounded shadow border border-gray-200">
+          <div class="flex items-center gap-3 flex-wrap">
+            ${badge}
+            <span class="text-sm text-slate-600">${escapeHtml(r.runAt)} · commit ${escapeHtml(r.commit)} · ${(r.durationMs/1000).toFixed(1)}s</span>
+          </div>
+          <div class="mt-3 grid grid-cols-2 gap-2 text-sm">
+            <div>CRITICAL：${r.summary.passedCritical}/${r.summary.totalCritical} 通过</div>
+            <div>WARN：${r.summary.passedWarn}/${r.summary.totalWarn} 通过</div>
+          </div>
+          ${failuresHtml}
+          ${erroredHtml}
+        </div>
+      `
+    }
+
+    function renderMetrics(r) {
+      const el = document.getElementById('metrics')
+      const cats = Object.entries(r.metrics)
+      el.innerHTML = cats.map(([cat, ms]) => {
+        const failed = ms.filter(m => m.result !== 'pass').length
+        const summaryColor = failed > 0 ? 'text-red-700' : 'text-slate-700'
+        return `
+          <details class="bg-white p-4 rounded shadow border border-gray-200 mb-2" open>
+            <summary class="font-bold cursor-pointer ${summaryColor}">${escapeHtml(cat)}（${ms.length}${failed > 0 ? `，${failed} 项未通过` : ''}）</summary>
+            <table class="w-full mt-2 text-sm">
+              <thead>
+                <tr class="text-left text-slate-500 border-b border-gray-200">
+                  <th class="py-1">指标</th>
+                  <th>值</th>
+                  <th>阈值</th>
+                  <th>级别</th>
+                  <th>状态</th>
+                  <th>详情</th>
+                </tr>
+              </thead>
+              <tbody>${ms.map(m => `
+                <tr class="border-t border-gray-200">
+                  <td class="py-1">${escapeHtml(m.name)}${bizBugTag(m.name)}</td>
+                  <td>${escapeHtml(m.value)}</td>
+                  <td>${escapeHtml(m.threshold || '-')}</td>
+                  <td>${escapeHtml(m.severity)}</td>
+                  <td class="${m.result === 'pass' ? 'text-green-700' : m.result === 'fail' ? 'text-red-700' : 'text-amber-700'}">${escapeHtml(m.result)}</td>
+                  <td class="text-xs text-slate-500">${escapeHtml(m.detail || '')}</td>
+                </tr>`).join('')}</tbody>
+            </table>
+          </details>
+        `
+      }).join('')
+    }
+
+    function renderCases(r) {
+      const el = document.getElementById('cases')
+      el.innerHTML = `
+        <details class="bg-white p-4 rounded shadow border border-gray-200">
+          <summary class="font-bold cursor-pointer">逐 case 明细（${r.cases.length}）</summary>
+          ${r.cases.map(c => {
+            const resultColor = c.result === 'pass' ? 'text-green-700' : c.result === 'fail' ? 'text-red-700' : 'text-amber-700'
+            return `
+              <details class="border-t border-gray-200 pt-2 mt-2">
+                <summary class="cursor-pointer text-sm">
+                  <span class="${resultColor} font-mono">[${escapeHtml(c.result)}]</span>
+                  <span class="ml-1 font-mono text-xs text-slate-500">${escapeHtml(c.id)}</span>
+                  <span class="ml-2 text-xs text-slate-500">(${escapeHtml(c.group || '-')})</span>
+                  — ${escapeHtml(c.question)}
+                </summary>
+                <div class="mt-2 text-sm space-y-2">
+                  <div>
+                    <strong>回答：</strong>
+                    <pre class="whitespace-pre-wrap bg-slate-50 p-2 rounded text-xs border border-gray-200">${escapeHtml(c.answer)}</pre>
+                  </div>
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                    <div><strong>必含命中：</strong>${(c.mustHaveHits || []).map(escapeHtml).join(', ') || '-'}</div>
+                    <div><strong>必含未命中：</strong>${(c.mustHaveMisses || []).map(escapeHtml).join(', ') || '-'}</div>
+                    <div><strong>幻觉命中：</strong>${(c.hallucinationHits || []).map(escapeHtml).join(', ') || '-'}</div>
+                    <div><strong>事实命中率：</strong>${c.factsHitRate != null ? c.factsHitRate.toFixed(2) : '-'}</div>
+                  </div>
+                  <div class="text-xs">
+                    <strong>工具调用：</strong>${(c.toolCalls || []).length > 0 ? `<code class="bg-slate-100 px-1 rounded">${(c.toolCalls).map(escapeHtml).join(' → ')}</code>` : '-'}
+                    ${c.expectedTools ? `<br><strong>期望工具：</strong><code class="bg-slate-100 px-1 rounded">${c.expectedTools.map(escapeHtml).join(' → ')}</code>` : ''}
+                  </div>
+                  ${c.judgeResult ? `
+                    <div class="bg-slate-50 p-2 rounded border border-gray-200">
+                      <div class="text-xs">
+                        <strong>Judge：</strong>${c.judgeResult.overall}/5
+                        <span class="text-slate-500">（facts ${c.judgeResult.score_facts} · citation ${c.judgeResult.score_citation} · no_hallucination ${c.judgeResult.score_no_hallucination} · relevance ${c.judgeResult.score_relevance}）</span>
+                        <span class="ml-2">repeats=${c.judgeResult.repeats} stdev=${c.judgeResult.stdev.toFixed(2)}${c.judgeResult.unstable ? ' <span class="text-amber-700">unstable</span>' : ''}</span>
+                      </div>
+                      <div class="mt-1 text-xs text-slate-700"><em>${escapeHtml(c.judgeResult.reasoning)}</em></div>
+                    </div>
+                  ` : ''}
+                  <div class="text-xs text-slate-500">
+                    thread=<code>${escapeHtml(c.threadId || '-')}</code> ·
+                    latency ${c.latencyMs}ms ·
+                    tokens p=${c.tokens?.prompt ?? '-'} c=${c.tokens?.completion ?? '-'} cache=${c.tokens?.cacheHit ?? '-'}
+                  </div>
+                </div>
+              </details>
+            `
+          }).join('')}
+        </details>
+      `
+    }
+
+    document.getElementById('report-select').addEventListener('change', e => loadReport(e.target.value))
+    loadIndex()
+  </script>
+</body>
+</html>
