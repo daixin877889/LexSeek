@@ -16,7 +16,7 @@
 import {
     DownloadIcon, ChevronDownIcon, Loader2Icon, PlusIcon, PencilIcon, Trash2Icon,
     FileTextIcon, Pin, TriangleAlert, ClipboardList, CheckCircle2Icon, XCircleIcon,
-    SendIcon, MessageCircleIcon, UserIcon, BotIcon, EyeOffIcon, RotateCcwIcon,
+    SendIcon, MessageCircleIcon, UserIcon, EyeOffIcon, RotateCcwIcon,
     SparklesIcon,
 } from 'lucide-vue-next'
 import { useLocalStorage } from '@vueuse/core'
@@ -452,30 +452,13 @@ function handleArchive(riskStringId: string, status: RiskArchivedStatus | null) 
                                     <MessageCircleIcon class="size-3" />
                                     批注（{{ annotationsForRisk(r.id).length }}）
                                 </div>
-                                <div v-for="ann in annotationsForRisk(r.id)" :key="ann.id" class="flex gap-2 text-xs">
-                                    <div
-                                        class="size-5 rounded-full flex items-center justify-center shrink-0 mt-0.5"
-                                        :class="ann.authorType === 'ai' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'"
-                                    >
-                                        <BotIcon v-if="ann.authorType === 'ai'" class="size-3" />
-                                        <UserIcon v-else class="size-3" />
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <div class="flex items-center gap-1">
-                                            <span class="font-medium">{{ ann.authorType === 'ai' ? 'AI' : ann.authorName }}</span>
-                                            <span class="text-muted-foreground text-[10px]">{{ new Date(ann.createdAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) }}</span>
-                                            <button
-                                                v-if="!readOnly && ann.authorType === 'lawyer' && ann.authorUserId === currentUserId"
-                                                class="ml-auto text-muted-foreground hover:text-destructive"
-                                                aria-label="删除批注"
-                                                @click="emit('deleteAnnotation', ann.id)"
-                                            >
-                                                <Trash2Icon class="size-3" />
-                                            </button>
-                                        </div>
-                                        <div class="mt-0.5 text-muted-foreground leading-relaxed whitespace-pre-wrap break-words">{{ ann.content }}</div>
-                                    </div>
-                                </div>
+                                <AnnotationBubble
+                                    v-for="ann in annotationsForRisk(r.id)"
+                                    :key="ann.id"
+                                    :annotation="ann"
+                                    :can-delete="!readOnly && ann.authorType === 'lawyer' && ann.authorUserId === currentUserId"
+                                    @delete="emit('deleteAnnotation', $event)"
+                                />
                                 <div v-if="!readOnly && isCompleted" class="flex gap-2 mt-2">
                                     <Textarea
                                         v-model="replyContents[r.id]"
@@ -642,30 +625,13 @@ function handleArchive(riskStringId: string, status: RiskArchivedStatus | null) 
                                 批注（{{ annotationsForRisk(r.id).length }}）
                             </div>
 
-                            <div v-for="ann in annotationsForRisk(r.id)" :key="ann.id" class="flex gap-2 text-xs">
-                                <div
-                                    class="size-5 rounded-full flex items-center justify-center shrink-0 mt-0.5"
-                                    :class="ann.authorType === 'ai' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'"
-                                >
-                                    <BotIcon v-if="ann.authorType === 'ai'" class="size-3" />
-                                    <UserIcon v-else class="size-3" />
-                                </div>
-                                <div class="flex-1 min-w-0">
-                                    <div class="flex items-center gap-1">
-                                        <span class="font-medium">{{ ann.authorType === 'ai' ? 'AI' : ann.authorName }}</span>
-                                        <span class="text-muted-foreground text-[10px]">{{ new Date(ann.createdAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) }}</span>
-                                        <button
-                                            v-if="!readOnly && ann.authorType === 'lawyer' && ann.authorUserId === currentUserId"
-                                            class="ml-auto text-muted-foreground hover:text-destructive"
-                                            aria-label="删除批注"
-                                            @click="emit('deleteAnnotation', ann.id)"
-                                        >
-                                            <Trash2Icon class="size-3" />
-                                        </button>
-                                    </div>
-                                    <div class="mt-0.5 text-muted-foreground leading-relaxed whitespace-pre-wrap break-words">{{ ann.content }}</div>
-                                </div>
-                            </div>
+                            <AnnotationBubble
+                                v-for="ann in annotationsForRisk(r.id)"
+                                :key="ann.id"
+                                :annotation="ann"
+                                :can-delete="!readOnly && ann.authorType === 'lawyer' && ann.authorUserId === currentUserId"
+                                @delete="emit('deleteAnnotation', $event)"
+                            />
 
                             <div v-if="!readOnly && isCompleted" class="flex gap-2 mt-2">
                                 <Textarea
@@ -748,22 +714,11 @@ function handleArchive(riskStringId: string, status: RiskArchivedStatus | null) 
                                     <MessageCircleIcon class="size-3" />
                                     历史讨论（{{ annotationsForRisk(r.id).length }}）
                                 </div>
-                                <div v-for="ann in annotationsForRisk(r.id)" :key="ann.id" class="flex gap-2 text-xs">
-                                    <div
-                                        class="size-5 rounded-full flex items-center justify-center shrink-0 mt-0.5"
-                                        :class="ann.authorType === 'ai' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'"
-                                    >
-                                        <BotIcon v-if="ann.authorType === 'ai'" class="size-3" />
-                                        <UserIcon v-else class="size-3" />
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <div class="flex items-center gap-1">
-                                            <span class="font-medium">{{ ann.authorType === 'ai' ? 'AI' : ann.authorName }}</span>
-                                            <span class="text-muted-foreground text-[10px]">{{ new Date(ann.createdAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) }}</span>
-                                        </div>
-                                        <div class="mt-0.5 text-muted-foreground leading-relaxed whitespace-pre-wrap break-words">{{ ann.content }}</div>
-                                    </div>
-                                </div>
+                                <AnnotationBubble
+                                    v-for="ann in annotationsForRisk(r.id)"
+                                    :key="ann.id"
+                                    :annotation="ann"
+                                />
                             </div>
 
                             <!-- 查看原始语境按钮 -->
