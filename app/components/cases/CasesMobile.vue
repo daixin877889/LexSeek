@@ -50,7 +50,7 @@
                 <div class="flex items-center gap-1">
                     <Button v-if="!isCaseReadOnly(item.status)" variant="ghost" size="icon"
                         class="h-9 w-9 rounded-full text-muted-foreground active:bg-muted transition-all"
-                        @click="handleArchive(item)" title="归档案件">
+                        @click="openArchive(item)" title="归档案件">
                         <Archive class="h-4 w-4" />
                     </Button>
                     <Button variant="ghost" size="icon"
@@ -70,107 +70,30 @@
             </div>
         </div>
 
-        <!-- 归档确认弹框 -->
-        <Dialog v-model:open="showArchiveDialog">
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>确认归档</DialogTitle>
-                    <DialogDescription>归档后案件将变为只读，无法编辑、分析或写入记忆。此操作不可恢复。</DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                    <Button variant="outline" @click="showArchiveDialog = false">取消</Button>
-                    <Button variant="destructive" :disabled="archiving" @click="confirmArchive">确认归档</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+        <CasesArchiveDialog v-model:open="dialogOpen" :loading="archiving" @confirm="confirmArchive" />
     </div>
 </template>
 
 <script lang="ts" setup>
-import { Trash2, ArrowRight, Archive } from "lucide-vue-next";
-import { toast } from "vue-sonner";
-import { CaseStatus, isCaseReadOnly } from "#shared/types/case";
-
-// ==================== 类型定义 ====================
-
-interface CaseItem {
-    id: number;
-    title: string;
-    content: string | null;
-    caseTypeId: number | null;
-    status: number;
-    isDemo: boolean;
-    createdAt: string;
-    updatedAt: string;
-    caseType: {
-        id: number;
-        name: string;
-    } | null;
-    latestSession: {
-        sessionId: string;
-        status: number;
-        createdAt: string;
-    } | null;
-}
-
-interface CaseType {
-    id: number;
-    name: string;
-}
-
-// ==================== Props ====================
+import { Trash2, ArrowRight, Archive } from 'lucide-vue-next'
+import { isCaseReadOnly } from '#shared/types/case'
+import type { CaseListItem, CaseTypeOption } from '#shared/types/case'
 
 const props = defineProps<{
-    list: CaseItem[];
-    caseTypes: CaseType[];
-}>();
-
-// ==================== Emits ====================
+    list: CaseListItem[]
+    caseTypes: CaseTypeOption[]
+}>()
 
 const emit = defineEmits<{
-    delete: [id: number];
-    archived: [id: number];
-}>();
+    delete: [id: number]
+    archived: [id: number]
+}>()
 
-// ==================== Composables ====================
+const { formatDate } = useFormatters()
+const { dialogOpen, archiving, openArchive, confirmArchive } = useArchiveCase(id => emit('archived', id))
 
-const { formatDate } = useFormatters();
-
-// ==================== 方法 ====================
-
-const getCaseTypeName = (typeId: number | null): string => {
-    if (typeId === null) return "未知类型";
-    const type = props.caseTypes.find((t) => t.id === typeId);
-    return type?.name ?? "未知类型";
-};
-
-// ==================== 归档逻辑 ====================
-
-const showArchiveDialog = ref(false);
-const archiveTargetId = ref<number | null>(null);
-const archiving = ref(false);
-
-function handleArchive(item: { id: number; status: number }) {
-    archiveTargetId.value = item.id;
-    showArchiveDialog.value = true;
-}
-
-async function confirmArchive() {
-    if (!archiveTargetId.value || archiving.value) return;
-    archiving.value = true;
-    try {
-        const result = await useApiFetch(`/api/v1/case/${archiveTargetId.value}`, {
-            method: "PATCH",
-            body: { status: CaseStatus.ARCHIVED },
-        });
-        if (result !== null) {
-            toast.success("案件已归档");
-            emit("archived", archiveTargetId.value);
-            showArchiveDialog.value = false;
-            archiveTargetId.value = null;
-        }
-    } finally {
-        archiving.value = false;
-    }
+function getCaseTypeName(typeId: number | null): string {
+    if (typeId === null) return '未知类型'
+    return props.caseTypes.find(t => t.id === typeId)?.name ?? '未知类型'
 }
 </script>

@@ -43,3 +43,37 @@ export function getMaterialIconColor(type: number) {
     default: return 'text-muted-foreground'
   }
 }
+
+/** 材料综合显示状态：用于 list/grid item 上的小徽章 */
+export interface MaterialDisplayStatus {
+  text: string
+  color: string
+  spinning?: boolean
+  showRetry?: boolean
+}
+
+/**
+ * 计算材料的"识别状态徽章"显示数据。
+ * 优先取前端轮询状态（getRecognitionStatus），降级走 API 返回的 material.status。
+ *
+ * - 待识别 / 识别中 / 已识别 / 识别失败（带重试入口）
+ * - 已完成（status===3）或无前端状态时返回 null（不显示徽章）
+ *
+ * 前端 caseDetail 的 Overview / Materials / 其它任何材料卡片都共用同一份逻辑，
+ * 避免散点 if-else 分歧。
+ */
+export function getMaterialDisplayStatus(
+  material: { status: number; ossFileId?: number | null },
+  getRecognitionStatus?: (ossFileId?: number) => 'recognizing' | 'success' | 'error' | null,
+): MaterialDisplayStatus | null {
+  if (getRecognitionStatus && material.ossFileId) {
+    const r = getRecognitionStatus(material.ossFileId)
+    if (r === 'recognizing') return { text: '识别中', color: 'text-amber-500', spinning: true }
+    if (r === 'success') return { text: '已识别', color: 'text-green-500' }
+    if (r === 'error') return { text: '识别失败', color: 'text-destructive', showRetry: true }
+  }
+  if (material.status === 1) return { text: '待识别', color: 'text-muted-foreground' }
+  if (material.status === 2) return { text: '识别中', color: 'text-amber-500', spinning: true }
+  if (material.status === 4) return { text: '识别失败', color: 'text-destructive', showRetry: true }
+  return null
+}

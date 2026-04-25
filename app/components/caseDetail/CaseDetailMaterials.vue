@@ -2,15 +2,10 @@
 import type { CaseDetailMaterialItem } from '~/composables/useCaseDetail'
 import type { OssFileItem } from '~/store/file'
 import type { RecognitionStatus } from '~/composables/useFileRecognition'
-import { formatByteSize } from '#shared/utils/unitConverision'
-import { getMaterialIcon, getMaterialBgColor, getMaterialIconColor } from '~/utils/caseMaterial'
 import {
   FileTextIcon,
-  LayoutGridIcon,
-  ListIcon,
   PlusIcon,
   Loader2Icon,
-  RefreshCwIcon,
   Trash2Icon,
   CheckSquareIcon,
   XIcon,
@@ -49,18 +44,6 @@ function handleFilesSelected(files: OssFileItem[]) {
   emit('addMaterials', files)
 }
 
-function isSelected(materialId: number): boolean {
-  return props.selectedMaterialIds?.includes(materialId) ?? false
-}
-
-function handleMaterialClick(material: CaseDetailMaterialItem) {
-  if (props.isSelectMode) {
-    emit('toggleSelection', material.id)
-  } else {
-    emit('preview', material)
-  }
-}
-
 /** 单个删除：弹确认框 */
 function confirmDeleteSingle(materialId: number) {
   pendingDeleteIds.value = [materialId]
@@ -80,28 +63,6 @@ function executeDelete() {
   showDeleteConfirm.value = false
   pendingDeleteIds.value = []
 }
-
-/** 获取材料的识别状态 */
-function getMaterialRecognitionStatus(material: CaseDetailMaterialItem): RecognitionStatus | null {
-  if (!props.getRecognitionStatus || !material.ossFileId) return null
-  return props.getRecognitionStatus(material.ossFileId)
-}
-
-/** 获取材料的综合显示状态（优先前端轮询状态，其次 API 返回的 status） */
-function getMaterialDisplayStatus(material: CaseDetailMaterialItem): { text: string; color: string; spinning?: boolean; showRetry?: boolean } | null {
-  // 优先前端轮询状态
-  const recognitionStatus = getMaterialRecognitionStatus(material)
-  if (recognitionStatus === 'recognizing') return { text: '识别中', color: 'text-amber-500', spinning: true }
-  if (recognitionStatus === 'success') return { text: '已识别', color: 'text-green-500' }
-  if (recognitionStatus === 'error') return { text: '识别失败', color: 'text-destructive', showRetry: true }
-
-  // 其次 API 返回的 status（1=待处理, 2=处理中, 3=已完成, 4=失败）
-  if (material.status === 1) return { text: '待识别', color: 'text-muted-foreground' }
-  if (material.status === 2) return { text: '识别中', color: 'text-amber-500', spinning: true }
-  if (material.status === 4) return { text: '识别失败', color: 'text-destructive', showRetry: true }
-  return null
-}
-
 </script>
 
 <template>
@@ -167,141 +128,22 @@ function getMaterialDisplayStatus(material: CaseDetailMaterialItem): { text: str
 
           <div v-if="materials.length > 0" class="w-px h-3 bg-border"></div>
 
-          <!-- 视图切换 -->
-          <div class="flex items-center bg-muted/50 rounded-lg p-0.5">
-            <button
-              class="size-7 flex items-center justify-center rounded-md transition-all"
-              :class="viewMode === 'grid' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'"
-              @click="viewMode = 'grid'"
-            >
-              <LayoutGridIcon class="size-3.5" />
-            </button>
-            <button
-              class="size-7 flex items-center justify-center rounded-md transition-all"
-              :class="viewMode === 'list' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'"
-              @click="viewMode = 'list'"
-            >
-              <ListIcon class="size-3.5" />
-            </button>
-          </div>
+          <ViewModeToggle v-model="viewMode" />
         </template>
       </div>
     </div>
 
-    <!-- 视图切换区域 -->
-    <Transition name="view-fade" mode="out-in">
-      <!-- 网格视图 -->
-      <div v-if="viewMode === 'grid'" key="grid" class="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
-        <div
-          v-for="material in materials"
-          :key="material.id"
-          class="group relative flex flex-col items-center p-2.5 rounded-xl bg-muted/40 hover:bg-muted/60 transition-all border text-center cursor-pointer"
-          :class="[
-            isSelectMode && isSelected(material.id) ? 'border-primary bg-primary/5' : 'border-transparent hover:border-primary/10',
-          ]"
-          @click="handleMaterialClick(material)"
-        >
-          <!-- 多选 checkbox -->
-          <div v-if="isSelectMode" class="absolute top-1.5 left-1.5">
-            <Checkbox :model-value="isSelected(material.id)" class="size-4" />
-          </div>
-
-          <!-- 单个删除按钮（非多选模式下 hover 显示） -->
-          <button
-            v-if="!isSelectMode"
-            class="absolute top-1 right-1 size-6 flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-            title="删除"
-            @click.stop="confirmDeleteSingle(material.id)"
-          >
-            <Trash2Icon class="size-3" />
-          </button>
-
-          <div :class="['flex items-center justify-center size-11 rounded-xl shrink-0 transition-transform group-hover:scale-105 mb-1.5', getMaterialBgColor(material.type)]">
-            <component :is="getMaterialIcon(material.type)" :class="['size-6', getMaterialIconColor(material.type)]" />
-          </div>
-          <div class="flex-1 min-w-0 w-full">
-            <div class="text-[12px] font-medium line-clamp-1 leading-tight mb-1 group-hover:text-primary transition-colors px-1">
-              {{ material.name }}
-            </div>
-            <div class="text-[10px] text-muted-foreground/60 flex items-center justify-center gap-1">
-              <span v-if="material.fileSize" class="shrink-0">{{ formatByteSize(material.fileSize, 0) }}</span>
-              <!-- 识别状态徽章 -->
-              <template v-if="getMaterialDisplayStatus(material)">
-                <span class="size-0.5 rounded-full bg-muted-foreground/30"></span>
-                <span v-if="!getMaterialDisplayStatus(material)!.showRetry" :class="getMaterialDisplayStatus(material)!.color" class="flex items-center gap-0.5">
-                  <Loader2Icon v-if="getMaterialDisplayStatus(material)!.spinning" class="size-2.5 animate-spin" />
-                  {{ getMaterialDisplayStatus(material)!.text }}
-                </span>
-                <button
-                  v-else
-                  class="text-destructive hover:text-primary transition-colors flex items-center gap-0.5"
-                  @click.stop="material.ossFileId && emit('retryMaterial', material.id, material.ossFileId!)"
-                >
-                  {{ getMaterialDisplayStatus(material)!.text }}
-                  <RefreshCwIcon class="size-2.5" />
-                </button>
-              </template>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 列表视图 -->
-      <div v-else key="list" class="space-y-1">
-        <div
-          v-for="material in materials"
-          :key="material.id"
-          class="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors group border cursor-pointer"
-          :class="[
-            isSelectMode && isSelected(material.id) ? 'border-primary bg-primary/5' : 'border-transparent hover:border-border/50',
-          ]"
-          @click="handleMaterialClick(material)"
-        >
-          <!-- 多选 checkbox -->
-          <Checkbox v-if="isSelectMode" :model-value="isSelected(material.id)" class="size-4 shrink-0" />
-
-          <div :class="['flex items-center justify-center size-9 rounded-lg shrink-0', getMaterialBgColor(material.type)]">
-            <component :is="getMaterialIcon(material.type)" :class="['size-5', getMaterialIconColor(material.type)]" />
-          </div>
-          <div class="flex-1 min-w-0 text-left">
-            <div class="text-sm font-medium truncate group-hover:text-primary transition-colors">
-              {{ material.name }}
-            </div>
-            <div class="text-[11px] text-muted-foreground/60 flex items-center gap-2">
-              <span>{{ material.typeText }}</span>
-              <span v-if="material.fileSize" class="size-0.5 rounded-full bg-muted-foreground/30"></span>
-              <span v-if="material.fileSize">{{ formatByteSize(material.fileSize, 0) }}</span>
-              <!-- 识别状态徽章 -->
-              <template v-if="getMaterialDisplayStatus(material)">
-                <span class="size-0.5 rounded-full bg-muted-foreground/30"></span>
-                <span v-if="!getMaterialDisplayStatus(material)!.showRetry" :class="getMaterialDisplayStatus(material)!.color" class="flex items-center gap-0.5">
-                  <Loader2Icon v-if="getMaterialDisplayStatus(material)!.spinning" class="size-2.5 animate-spin" />
-                  {{ getMaterialDisplayStatus(material)!.text }}
-                </span>
-                <button
-                  v-else
-                  class="text-destructive hover:text-primary transition-colors flex items-center gap-0.5"
-                  @click.stop="material.ossFileId && emit('retryMaterial', material.id, material.ossFileId!)"
-                >
-                  {{ getMaterialDisplayStatus(material)!.text }}
-                  <RefreshCwIcon class="size-2.5" />
-                </button>
-              </template>
-            </div>
-          </div>
-
-          <!-- 单个删除按钮（非多选模式） -->
-          <button
-            v-if="!isSelectMode"
-            class="size-8 flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
-            title="删除"
-            @click.stop="confirmDeleteSingle(material.id)"
-          >
-            <Trash2Icon class="size-3.5" />
-          </button>
-        </div>
-      </div>
-    </Transition>
+    <CaseMaterialList
+      :materials="materials"
+      :view-mode="viewMode"
+      :is-select-mode="isSelectMode"
+      :selected-ids="selectedMaterialIds"
+      :get-recognition-status="getRecognitionStatus"
+      @preview-material="(m) => emit('preview', m)"
+      @toggle-select="(id) => emit('toggleSelection', id)"
+      @delete-material="confirmDeleteSingle"
+      @retry-material="(id, ossId) => emit('retryMaterial', id, ossId)"
+    />
 
     <!-- 材料选择器弹窗 -->
     <CaseAnalysisMaterialSelector
@@ -329,20 +171,3 @@ function getMaterialDisplayStatus(material: CaseDetailMaterialItem): { text: str
     </AlertDialog>
   </div>
 </template>
-
-<style scoped>
-.view-fade-enter-active,
-.view-fade-leave-active {
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.view-fade-enter-from {
-  opacity: 0;
-  transform: translateY(8px) scale(0.99);
-}
-
-.view-fade-leave-to {
-  opacity: 0;
-  transform: translateY(-8px) scale(0.99);
-}
-</style>

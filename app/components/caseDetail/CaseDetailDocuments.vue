@@ -6,7 +6,7 @@
  * - 顶部栏：标题 + 数量 Badge + 「+ 新建文书」+ grid/list 视图切换
  * - 下方：AssistantDocumentDraftCardList（与 overview 板块共用，删除逻辑内置）
  */
-import { FileEditIcon, LayoutGridIcon, ListIcon, Loader2Icon, PlusIcon } from 'lucide-vue-next'
+import { FileEditIcon, Loader2Icon, PlusIcon } from 'lucide-vue-next'
 import type { DraftRow } from '#shared/types/document'
 
 const props = defineProps<{
@@ -44,19 +44,7 @@ const hasDrafts = computed(() => props.drafts.length > 0)
                     <span class="hidden lg:inline">新建文书</span>
                 </button>
                 <div v-if="hasDrafts" class="w-px h-3 bg-border" />
-                <!-- 视图切换 -->
-                <div v-if="hasDrafts" class="flex items-center bg-muted/50 rounded-lg p-0.5">
-                    <button class="size-7 flex items-center justify-center rounded-md transition-all"
-                        :class="viewMode === 'grid' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'"
-                        @click="viewMode = 'grid'">
-                        <LayoutGridIcon class="size-3.5" />
-                    </button>
-                    <button class="size-7 flex items-center justify-center rounded-md transition-all"
-                        :class="viewMode === 'list' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'"
-                        @click="viewMode = 'list'">
-                        <ListIcon class="size-3.5" />
-                    </button>
-                </div>
+                <ViewModeToggle v-if="hasDrafts" v-model="viewMode" />
             </div>
         </header>
 

@@ -143,6 +143,7 @@
  */
 import { Plus, Loader2, Briefcase, Clock, CheckCircle, List, LayoutGrid } from "lucide-vue-next";
 import { toast } from "vue-sonner";
+import type { CaseListItem, CaseTypeOption } from "#shared/types/case";
 
 // 页面元信息
 definePageMeta({
@@ -172,33 +173,6 @@ const syncPageToUrl = (page: number) => {
 
 // ==================== 类型定义 ====================
 
-/** 案件项 */
-interface CaseItem {
-  id: number
-  title: string
-  content: string | null
-  caseTypeId: number | null
-  status: number
-  isDemo: boolean
-  createdAt: string
-  updatedAt: string
-  caseType: {
-    id: number
-    name: string
-  } | null
-  latestSession: {
-    sessionId: string
-    status: number
-    createdAt: string
-  } | null
-}
-
-/** 案件类型 */
-interface CaseType {
-  id: number
-  name: string
-}
-
 /** 分页信息 */
 interface PaginationInfo {
   page: number
@@ -216,10 +190,10 @@ const viewMode = ref<"list" | "grid">("list");
 const loading = ref(true);
 
 // 案件列表
-const cases = ref<CaseItem[]>([]);
+const cases = ref<CaseListItem[]>([]);
 
 // 案件类型列表
-const caseTypes = ref<CaseType[]>([]);
+const caseTypes = ref<CaseTypeOption[]>([]);
 
 // 分页信息
 const pagination = reactive<PaginationInfo>({
@@ -282,7 +256,7 @@ const fetchCases = async () => {
 
     // 调用 API
     const result = await useApiFetch<{
-      items: CaseItem[];
+      items: CaseListItem[];
       total: number;
       page: number;
       pageSize: number;
@@ -311,7 +285,7 @@ const fetchCases = async () => {
  */
 const fetchCaseTypes = async () => {
   try {
-    const result = await useApiFetch<{ items: CaseType[] }>("/api/v1/case-types");
+    const result = await useApiFetch<{ items: CaseTypeOption[] }>("/api/v1/case-types");
     if (result?.items) {
       caseTypes.value = result.items;
     }

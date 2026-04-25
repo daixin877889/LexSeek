@@ -15,6 +15,29 @@ export interface CaseTypeOption {
   name: string
 }
 
+/**
+ * 案件列表项（用户端 /api/v1/case 列表返回的单条结构）。
+ *
+ * cases 列表页 + 三种视图（grid/table/mobile）共用此类型，避免每个 view
+ * 各自定义同构 interface 引发漂移。
+ */
+export interface CaseListItem {
+  id: number
+  title: string
+  content: string | null
+  caseTypeId: number | null
+  status: number
+  isDemo: boolean
+  createdAt: string
+  updatedAt: string
+  caseType: CaseTypeOption | null
+  latestSession: {
+    sessionId: string
+    status: number
+    createdAt: string
+  } | null
+}
+
 // ==================== 案件状态枚举 ====================
 
 /** 案件状态枚举 */
