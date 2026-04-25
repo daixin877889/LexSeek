@@ -443,7 +443,7 @@ function handleArchive(riskStringId: string, status: RiskArchivedStatus | null) 
                                     <MessageCircleIcon class="size-3" />
                                     批注（{{ annotationsForRisk(r.id).length }}）
                                 </div>
-                                <AnnotationBubble
+                                <AssistantContractAnnotationBubble
                                     v-for="ann in annotationsForRisk(r.id)"
                                     :key="ann.id"
                                     :annotation="ann"

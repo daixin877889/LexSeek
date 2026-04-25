@@ -140,7 +140,7 @@ function handleArchive(status: RiskArchivedStatus | null) {
                     <MessageCircleIcon class="size-3" />
                     历史讨论（{{ annotations.length }}）
                 </div>
-                <AnnotationBubble
+                <AssistantContractAnnotationBubble
                     v-for="ann in annotations"
                     :key="ann.id"
                     :annotation="ann"
@@ -290,7 +290,7 @@ function handleArchive(status: RiskArchivedStatus | null) {
                     批注（{{ annotations.length }}）
                 </div>
 
-                <AnnotationBubble
+                <AssistantContractAnnotationBubble
                     v-for="ann in annotations"
                     :key="ann.id"
                     :annotation="ann"
