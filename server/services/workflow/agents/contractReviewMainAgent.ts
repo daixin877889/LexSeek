@@ -75,6 +75,7 @@ import {
 import { createContractRiskDAO } from '../../assistant/contract/contractRisk.dao'
 import { createContractAnnotationDAO } from '../../assistant/contract/contractAnnotation.dao'
 import { saveContractReviewVersionService } from '../../assistant/contract/contractReviewVersion.service'
+import { buildClauseToParagraphMap } from '../../assistant/contract/utils/clauseToParagraph'
 import type { Prisma } from '~~/generated/prisma/client'
 import type { Risk, Stance, ClauseSegment, ClauseSnapshotItem, PlaybookSnapshot, StancePreference, RiskLevel } from '#shared/types/contract'
 import { resolveContextWindow } from '../context/messageCompressor'
@@ -150,52 +151,8 @@ async function persistRisksAndCreateV1Snapshot(
     logger.info('persistRisksAndCreateV1Snapshot: v1 快照已创建', { reviewId, risksCount: risks.length })
 }
 
-/**
- * 构造 "条款序号 → 非空段落序号" 映射。
- *
- * 规则：`fullText = paragraphs.join('\n')`；每段落 i 在 fullText 里的起始偏移
- * = Σ(paragraphs[0..i-1].length) + i（i 个 '\n' 分隔符）。
- * segment.offsetStart 落在 [start_i, end_i] 内 → 条款归属第 i 段。
- *
- * offset 越界（>= 全文长度，即超出最后一段 end）兜底到 `paragraphs.length-1`，
- * 避免后续 anchorParagraphIndex 为 null 让批注丢失。
- */
-function buildClauseToParagraphMap(
-    segments: ClauseSegment[],
-    paragraphs: string[],
-): Map<number, number> {
-    const map = new Map<number, number>()
-    if (segments.length === 0 || paragraphs.length === 0) return map
-
-    // 预计算每段起始偏移；同时记录全文 cursor（最后一段 end 之外即越界）
-    const paragraphStarts: number[] = []
-    let cursor = 0
-    for (const p of paragraphs) {
-        paragraphStarts.push(cursor)
-        cursor += p.length + 1 // +1 for '\n'
-    }
-    const fullTextLen = cursor
-
-    const lastIndex = paragraphs.length - 1
-    for (const seg of segments) {
-        const offset = seg.offsetStart
-        // 越界检测：offset 超过最后一段 end → 兜底到最后段
-        if (offset >= fullTextLen) {
-            map.set(seg.index, lastIndex)
-            continue
-        }
-        // 二分找最大的 paragraphStarts[i] <= offset
-        let lo = 0
-        let hi = paragraphStarts.length - 1
-        while (lo < hi) {
-            const mid = Math.floor((lo + hi + 1) / 2)
-            if (paragraphStarts[mid]! <= offset) lo = mid
-            else hi = mid - 1
-        }
-        map.set(seg.index, lo)
-    }
-    return map
-}
+// buildClauseToParagraphMap 已抽到 utils/clauseToParagraph.ts，
+// uploadClientVersion Step 4 也复用同一份映射逻辑（DOCX-C1/C2 修复）。
 
 /** 合同审查主代理节点名称 */
 const CONTRACT_MAIN_NODE_NAME = 'contractReviewMain'

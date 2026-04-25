@@ -28,6 +28,7 @@ import { diffClauses } from './utils/clauseDiff'
 import { migrateAnchor } from './utils/anchorMigrate'
 import { parseWordComments, type ParsedWordComment, type AnnotationRefEntry } from './docx/wordCommentParser'
 import { parseCommentRef, generateWordCommentRef, stripAuthorRef } from './utils/wordCommentRef'
+import { buildClauseToParagraphMap } from './utils/clauseToParagraph'
 
 /** 外部批注作者名落库默认值（stripAuthorRef 后仍为空时兜底）和长度上限。 */
 const DEFAULT_EXTERNAL_AUTHOR = '客户'
@@ -440,6 +441,18 @@ export async function* uploadClientVersionService(params: {
     const step4CreatedRiskIds: number[] = []
     const step4CreatedAnnIds: number[] = []
 
+    // DOCX-C1/C2：anchorParagraphIndex 必须用"非空段落序号"（commentInjector 期望的空间），
+    // 不能用 newClauses 数组下标（条款序号空间）。这里建 newClauses → newParagraphs 映射，
+    // 写入新 risk 时把 newClauses[m.newIndex].index 转换成非空段落序号。
+    const newClauseIdxToParaIdx = buildClauseToParagraphMap(newClauses, newParagraphs)
+    /** 把 newClauses 数组下标安全映射到非空段落序号；找不到时回落到 0（首段，避免 null 让批注挂不到） */
+    function newClauseArrayIdxToParaIdx(newArrayIdx: number): number {
+        const seg = newClauses[newArrayIdx]
+        if (!seg) return 0
+        const para = newClauseIdxToParaIdx.get(seg.index)
+        return para ?? 0
+    }
+
     // 4a. 对 diff.modified 的每个条款跑增量 AI 审查
     for (const [i, m] of clauseDiffResult.modified.entries()) {
         const item = newClauses[m.newIndex]!
@@ -460,13 +473,22 @@ export async function* uploadClientVersionService(params: {
                 playbookSnapshot: review.playbookSnapshot as PlaybookSnapshot | null,
             })
             if (risk) {
-                // DOCX-H2：同条款可能有多条未处置 AI 风险（"违约金过高"+"管辖条款不利"
-                // 是常见组合）。原 .find 只覆盖第一条导致其余过时文本滞留；现用 filter 全量
-                // 更新 level/problem/analysis/legalBasis/suggestion/anchorQuote/anchorParagraphIndex，
-                // 保留 archivedStatus（律师已处置的标记不覆盖）。
-                const existingRisks = dbRisks.filter(
-                    (r) => r.source === 'ai' && r.anchorParagraphIndex === m.oldIndex && r.archivedStatus === null,
-                )
+                // DOCX-H2 + C2：同条款可能有多条未处置 AI 风险。
+                // 原比较 `r.anchorParagraphIndex === m.oldIndex` 把 DB 里"段落序号空间"
+                // 的 anchorParagraphIndex 与 oldClauses 数组下标错配，永不命中；改用
+                // anchorQuote 文本 prefix 匹配 oldClauses[m.oldIndex].text 来识别"老条款下的旧 risk"，
+                // 跨"历史 clauseIndex / 现段落 paragraphIndex"两种空间都能识别。
+                const oldClauseHead = (oldClauses[m.oldIndex]?.text ?? '').slice(0, 40)
+                const existingRisks = oldClauseHead.length >= 4
+                    ? dbRisks.filter(
+                        (r) =>
+                            r.source === 'ai'
+                            && r.archivedStatus === null
+                            && (r.anchorQuote ?? '').includes(oldClauseHead),
+                    )
+                    : []
+                // DOCX-C1：写入端 anchorParagraphIndex 用非空段落序号（commentInjector 期望空间）
+                const newParaIdx = newClauseArrayIdxToParaIdx(m.newIndex)
                 if (existingRisks.length > 0) {
                     for (const existing of existingRisks) {
                         await prisma.contractRisks.update({
@@ -479,8 +501,8 @@ export async function* uploadClientVersionService(params: {
                                 analysis: risk.analysis ?? null,
                                 suggestion: risk.suggestion ?? null,
                                 anchorQuote: clause.text,
-                                // 把锚点迁移到新条款序号，避免 Step 5 的 diff.modified 逻辑再扫一次
-                                anchorParagraphIndex: m.newIndex,
+                                // 锚点迁移到新条款对应的段落序号，避免 Step 5 再扫一次
+                                anchorParagraphIndex: newParaIdx,
                                 ...(existing.originalAnchorQuote ? {} : { originalAnchorQuote: existing.anchorQuote }),
                             },
                         })
@@ -501,7 +523,7 @@ export async function* uploadClientVersionService(params: {
                             // 与 Phase A 原始 AI risk 保持一致：存条款全文，
                             // 不再截断（bug #11）。截断会导致后续 diff/锚点匹配失真。
                             anchorQuote: clause.text,
-                            anchorParagraphIndex: m.newIndex,
+                            anchorParagraphIndex: newParaIdx,
                         },
                     })
                     step4CreatedRiskIds.push(newRisk.id)
@@ -705,23 +727,55 @@ export async function* uploadClientVersionService(params: {
                 })
             }
 
-            // 锚点迁移：modified / removed / unchanged 三种情况
+            // DOCX-C3：锚点迁移路径里 r.anchorParagraphIndex 是"非空段落序号"空间，
+            // clauseDiffResult.modified/removed/unchanged 里的 oldIndex/newIndex 是
+            // oldClauses/newClauses 的"数组下标"空间——两个空间不能直接 ===。
+            // 改成基于 anchorQuote 推断"老条款数组下标"：拿 r.anchorQuote 的 head
+            // 在 oldClauses 里 find 第一个 startsWith / includes 命中的条款下标。
+            // - 找到 → 用 modified/removed/unchanged 决定路径
+            // - 找不到（anchorQuote 与 oldClauses 都对不上）→ migrate 走全局漂移搜索
+            const oldHeadToArrayIdx = new Map<string, number>()
+            for (let oi = 0; oi < oldClauses.length; oi++) {
+                const head = (oldClauses[oi]?.text ?? '').slice(0, 40)
+                if (head.length >= 4 && !oldHeadToArrayIdx.has(head)) {
+                    oldHeadToArrayIdx.set(head, oi)
+                }
+            }
+            function findOldClauseArrayIdxByAnchor(anchor: string): number | null {
+                if (!anchor) return null
+                for (const [head, oi] of oldHeadToArrayIdx) {
+                    if (anchor.includes(head)) return oi
+                }
+                return null
+            }
+
             for (const r of dbRisks) {
                 if (r.anchorParagraphIndex == null) continue
-                const isModified = clauseDiffResult.modified.some((m) => m.oldIndex === r.anchorParagraphIndex)
-                const isRemoved = clauseDiffResult.removed.includes(r.anchorParagraphIndex)
+                const oldArrayIdx = findOldClauseArrayIdxByAnchor(r.anchorQuote ?? '')
+                const isModified = oldArrayIdx !== null
+                    && clauseDiffResult.modified.some((m) => m.oldIndex === oldArrayIdx)
+                const isRemoved = oldArrayIdx !== null && clauseDiffResult.removed.includes(oldArrayIdx)
+                const unchangedMapping = oldArrayIdx !== null
+                    ? clauseDiffResult.unchanged.find((u) => u.oldIndex === oldArrayIdx)
+                    : null
 
-                if (isModified || isRemoved) {
+                if (isModified || isRemoved || oldArrayIdx === null) {
+                    // modified / removed / 完全找不到对应旧条款 → 都走全局漂移迁移
+                    const preferredNew = isModified
+                        ? (clauseDiffResult.modified.find((m) => m.oldIndex === oldArrayIdx)?.newIndex ?? null)
+                        : null
                     const result = migrateAnchor({
                         oldAnchorQuote: r.anchorQuote ?? '',
-                        oldParagraphIndex: r.anchorParagraphIndex,
+                        preferredNewClauseArrayIdx: preferredNew,
                         newClauses,
                     })
                     if (result) {
+                        // newClauses[result.newClauseIndex] 是数组下标 → 转段落序号
+                        const newParaIdx = newClauseArrayIdxToParaIdx(result.newClauseIndex)
                         await tx.contractRisks.update({
                             where: { id: r.id },
                             data: {
-                                anchorParagraphIndex: result.newClauseIndex,
+                                anchorParagraphIndex: newParaIdx,
                                 anchorCharStart: result.newCharStart,
                                 anchorCharEnd: result.newCharEnd,
                                 anchorQuote: newClauses[result.newClauseIndex]!.text.slice(
@@ -740,15 +794,13 @@ export async function* uploadClientVersionService(params: {
                             },
                         })
                     }
-                } else {
-                    // unchanged clause：位置可能变化，更新 anchorParagraphIndex
-                    const mapping = clauseDiffResult.unchanged.find(
-                        (u) => u.oldIndex === r.anchorParagraphIndex,
-                    )
-                    if (mapping && mapping.newIndex !== r.anchorParagraphIndex) {
+                } else if (unchangedMapping) {
+                    // unchanged clause：位置可能变化，更新 anchorParagraphIndex 到新段落序号
+                    const newParaIdx = newClauseArrayIdxToParaIdx(unchangedMapping.newIndex)
+                    if (newParaIdx !== r.anchorParagraphIndex) {
                         await tx.contractRisks.update({
                             where: { id: r.id },
-                            data: { anchorParagraphIndex: mapping.newIndex },
+                            data: { anchorParagraphIndex: newParaIdx },
                         })
                     }
                 }

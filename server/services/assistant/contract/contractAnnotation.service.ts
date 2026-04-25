@@ -33,6 +33,16 @@ export async function createLawyerAnnotationService(params: {
         return { error: 'risk_not_found' as const }
     }
 
+    // ANN-H1：parentAnnotationId 必须属于同一 review，否则攻击者可构造跨 review
+    // 回复链探测他人 annotation id / 串扰对话气泡。FK onDelete: SetNull 不限同源，
+    // 必须在 service 层强制。
+    if (params.parentAnnotationId != null) {
+        const parent = await getContractAnnotationByIdDAO(params.parentAnnotationId)
+        if (!parent || parent.deletedAt || parent.reviewId !== params.reviewId) {
+            return { error: 'parent_invalid' as const }
+        }
+    }
+
     const ann = await createContractAnnotationDAO({
         reviewId: params.reviewId,
         riskId: params.riskId,

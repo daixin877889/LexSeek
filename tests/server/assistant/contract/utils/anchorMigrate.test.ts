@@ -17,7 +17,7 @@ describe('migrateAnchor', () => {
         const anchor = '甲方应按时付款'
         const result = migrateAnchor({
             oldAnchorQuote: anchor,
-            oldParagraphIndex: 0,
+            preferredNewClauseArrayIdx: 0,
             newClauses,
         })
         expect(result).not.toBeNull()
@@ -32,7 +32,7 @@ describe('migrateAnchor', () => {
         const newClauses = makeClauses(['第一条 甲方应当按时付款，不得拖延。', '第二条 乙方交货。'])
         const result = migrateAnchor({
             oldAnchorQuote: '甲方应按时付款',
-            oldParagraphIndex: 0,
+            preferredNewClauseArrayIdx: 0,
             newClauses,
         })
         expect(result).not.toBeNull()
@@ -45,7 +45,7 @@ describe('migrateAnchor', () => {
         const newClauses = makeClauses(['XYZXYZXYZ ABCABC DEF GHIJKL MNOPQRSTUVWXYZ啊啊啊啊啊啊啊啊啊啊啊啊啊'])
         const result = migrateAnchor({
             oldAnchorQuote: '甲方应按时付款，不得拖延',
-            oldParagraphIndex: 0,
+            preferredNewClauseArrayIdx: 0,
             newClauses,
         })
         expect(result).toBeNull()
@@ -59,7 +59,7 @@ describe('migrateAnchor', () => {
         ])
         const result = migrateAnchor({
             oldAnchorQuote: '甲方应按时付款',
-            oldParagraphIndex: 0,
+            preferredNewClauseArrayIdx: 0,
             newClauses,
         })
         expect(result).not.toBeNull()
@@ -70,7 +70,7 @@ describe('migrateAnchor', () => {
     it('空输入（newClauses 为空）：返回 null', () => {
         const result = migrateAnchor({
             oldAnchorQuote: '甲方应按时付款',
-            oldParagraphIndex: 0,
+            preferredNewClauseArrayIdx: 0,
             newClauses: [],
         })
         expect(result).toBeNull()
@@ -80,7 +80,7 @@ describe('migrateAnchor', () => {
         const newClauses = makeClauses(['第一条 甲方应按时付款。'])
         const result = migrateAnchor({
             oldAnchorQuote: '',
-            oldParagraphIndex: 0,
+            preferredNewClauseArrayIdx: 0,
             newClauses,
         })
         expect(result).toBeNull()
@@ -90,7 +90,7 @@ describe('migrateAnchor', () => {
         const newClauses = makeClauses(['第一条 甲方应当按时付款，不得拖延。'])
         const result = migrateAnchor({
             oldAnchorQuote: '甲方应按时付款',
-            oldParagraphIndex: 0,
+            preferredNewClauseArrayIdx: 0,
             newClauses,
             similarityThreshold: 0.999,
         })

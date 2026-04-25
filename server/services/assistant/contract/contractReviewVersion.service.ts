@@ -263,6 +263,9 @@ export async function downloadContractReviewVersionService(
         if (!risk) continue
         if (risk.orphaned) continue
         if (risk.anchorParagraphIndex === null || risk.anchorParagraphIndex === undefined) continue
+        // VER-H1：spec §12.6 — 客户在 Word 里删掉的批注（suppressInExport=true）
+        // 不写入下次导出 docx；恢复推送时后端会把 suppressInExport 置 false。
+        if (a.suppressInExport) continue
         exportable.push({
             id: a.id,
             riskId: a.riskId,

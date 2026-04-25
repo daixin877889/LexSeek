@@ -43,7 +43,12 @@ export default defineEventHandler(async (event) => {
         user: { id: user.id, name: (user as { name?: string }).name ?? '律师' },
     })
 
-    if ('error' in result) return resError(event, 404, '风险不存在或不属于该审查')
+    if ('error' in result) {
+        if (result.error === 'parent_invalid') {
+            return resError(event, 400, '父批注不存在或不属于该审查')
+        }
+        return resError(event, 404, '风险不存在或不属于该审查')
+    }
 
     const { annotation } = result
     return resSuccess(event, '已发送', {
