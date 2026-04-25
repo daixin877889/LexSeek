@@ -28,6 +28,17 @@ export default defineEventHandler(async (event) => {
 
     try {
         await softDeleteContractReviewDAO(review.id)
+        // CORE-H5：级联取消 sessionId 关联的活跃 agentRuns（pending/running/interrupted），
+        // 否则被软删的 review 还会在 partial unique index (sessionId, status) 里占位，
+        // 后续重新创建同 sessionId（罕见但 admin 排错 / 测试场景会撞）会撞 P2002。
+        // 不删 agentRuns 行（保留审计），仅把状态切到 cancelled 释放 unique 占位。
+        await prisma.agentRuns.updateMany({
+            where: {
+                sessionId: review.sessionId,
+                status: { in: ['pending', 'running', 'interrupted'] },
+            },
+            data: { status: 'cancelled' },
+        })
         return resSuccess(event, '已删除', { id: review.id })
     } catch (err: any) {
         logger.error('[contract] 删除审查失败', { userId: user.id, reviewId: review.id, err: err?.message })

@@ -452,7 +452,27 @@ export async function runContractReviewChat(
                         status: 'reviewing',
                     })
 
-                    // 发 stance:done（parseAndAskStance 工具在 resume 路径不执行，由此代劳）
+                    // CORE-H4：用户在 stance interrupt 后刷新页面，agent.stream 不会重跑，
+                    // 前端 SSE 状态机的 detect / stance 阶段如果首轮已发完（已落库），刷新后
+                    // 走 mountReview 回填没问题；但首轮 SSE 中途断流的极端场景下，detect
+                    // running/done 与 stance running 都会丢。这里在 resume 入口补发一次
+                    // detect:running + detect:done（partyA/B/contractType 已在 DB） + stance:running，
+                    // 让前端 5 段进度条都能拿到完整事件序列。emitter 自身幂等（前端按 stageStatus
+                    // 覆盖最新 done 即可）。
+                    await emitContractReviewEvent(emitterCtx, {
+                        type: 'stage', stage: 'detect', status: 'running',
+                    })
+                    await emitContractReviewEvent(emitterCtx, {
+                        type: 'stage', stage: 'detect', status: 'done',
+                        ...(finalPartyA ? { partyA: finalPartyA } : {}),
+                        ...(finalPartyB ? { partyB: finalPartyB } : {}),
+                        ...(review.contractType ? { contractType: review.contractType } : {}),
+                    })
+                    await emitContractReviewEvent(emitterCtx, {
+                        type: 'stage', stage: 'stance', status: 'running',
+                    })
+
+                    // 发 stance:done（parseAndAskStance 工具在 resume 路径不执行，由此处代劳）
                     await emitContractReviewEvent(emitterCtx, {
                         type: 'stage', stage: 'stance', status: 'done',
                     })
