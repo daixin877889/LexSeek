@@ -1,3 +1,4 @@
+import type Redis from 'ioredis'
 import { z } from 'zod'
 import { getRedisClient } from '~~/server/lib/redis'
 import { createChatModel } from '../node/chatModelFactory'
@@ -187,4 +188,38 @@ function buildExtractPrompt(messages: Array<{ role: string; content: string }>):
 ${joined}
 
 仅输出符合 schema 的 JSON；不要编造；confidence 低于 0.6 的不要输出。`
+}
+
+/**
+ * 立即处理指定 caseId 的对话抽取，跳过 debounce 窗口。
+ *
+ * 用途：
+ * - eval 跑 extraction dataset 时同步等待结果（绕过 30s debounce）
+ * - 管理后台未来的"立刻整理记忆"按钮
+ *
+ * 实现：
+ *   1. 找出该 caseId 名下所有 case_sessions
+ *   2. 从 ZSET 中移除（drain）
+ *   3. 同步 await consolidateSession 跑完
+ *
+ * @param opts.redis 可选注入的独立 redis client（eval 用 db=15 隔离时传入）
+ */
+export async function processNowService(
+  caseId: number,
+  opts?: { redis?: Redis },
+): Promise<void> {
+  const sessions = await prisma.caseSessions.findMany({
+    where: { caseId },
+    select: { sessionId: true },
+  })
+  if (sessions.length === 0) return
+
+  const redis = opts?.redis ?? getRedisClient()
+  const sessionIds = sessions.map(s => s.sessionId)
+  if (sessionIds.length > 0) {
+    await redis.zrem(QUEUE_KEY, ...sessionIds)
+  }
+  for (const sid of sessionIds) {
+    await consolidateSession(sid)
+  }
 }
