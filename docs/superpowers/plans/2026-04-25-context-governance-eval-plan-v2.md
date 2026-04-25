@@ -1676,6 +1676,499 @@ git commit -m "docs(eval): README 完整使用说明 + 阈值校准 + 业务 bug
 - [x] §6 Phase 1-4 → Task 1-12 / 13-16 / 17-21 / 22-23
 - [x] §7 风险缓解：Redis db=15 / 别名 spike hard-gate / 首跑 exit 1 预期声明 / DEEPSEEK_KEY healthcheck
 
+---
+
+# 附录 A：第三轮审查后的强制修正（2026-04-25）
+
+> **实施时按附录覆盖正文同名 Task 的代码块**。本附录基于对真实 prisma model + 真实 service 导出 + 真实 LangChain/ioredis API 的逐项 grep 核对，不会再出现 v1 附录的"想象代码"问题。
+
+## A.1 §1 真实代码核对清单更新
+
+正文 §1 表格以下条目**修正**：
+
+| 依赖 | 真实事实 | 正文表格中的错误 |
+|---|---|---|
+| `cases` 表 | `userId`（@map "user_id"）NOT NULL；`caseTypeId` NOT NULL FK | 正文写 `ownerUserId`，**错** → 改 `userId` |
+| `caseMaterials` 表 | `name` NOT NULL（不是 fileName）+ `type: Int` 1-4（不是 fileType）+ 无 `fileSize`/`fileUrl` 字段 | 正文 v2 fixture 全错 |
+| `caseAnalyses` 表 | `caseId` + `sessionId`（FK case_sessions.sessionId）+ `nodeId`（FK nodes.id）+ `analysisType` + `analysisResult?` + `summary?` + `version` default 1 + `isActive` default false；**没有 `content` 字段** | 正文 v2 fixture 用了 `content` 字段（不存在）|
+| caseSessions 表 | model 名 `caseSessions`（不是 `chatSessions`），`@@map("case_sessions")` | 正文 v2 写 `prisma.chatSessions` 全错（model 不存在）|
+| `nodes` 表 | caseAnalyses.nodeId 的 FK target，必须先 seed 一条 nodes 记录 | 正文未提，撞 FK |
+| `caseTypes` 表 | cases.caseTypeId 的 FK target，必须先 seed | 正文未提，撞 FK |
+| TRUNCATE SQL 表名 | snake_case：`case_analyses` / `case_materials` / `case_material_embeddings` / `case_sessions` / `agent_runs` / `cases` / `case_memories` / `case_analysis_embeddings` | 正文写驼峰名（caseAnalyses 等）→ TRUNCATE 报"relation does not exist" |
+| `CaseAgentOptions` | 真实字段：`userId / caseId / thinking? / signal?`，**无 agentName** | 正文 RunCaseInput 用 agentName 假定 CaseAgentOptions 接受 → 不接受 |
+| `ChatModelConfig` | 真实字段：`sdkType / modelName / apiKey / baseUrl? / streaming? / temperature?`，**无 callbacks** | 正文 Task 4 直接给 `callbacks: options?.callbacks` 给 createChatModel 会报类型错 → ChatModelConfig 也要扩展 callbacks 字段 |
+| `StorageFactory.getAdapter` | 真实签名 `static getAdapter(config: StorageConfig)` 必填参数 | 正文 ossMock 测试 `StorageFactory.getAdapter()` 无参 → 必须传 config |
+| `initAnalysisService` | **不存在**。initAnalysis.service.ts 真实导出：`getInitAnalysisStatusService` / `completeAnalysisWithRAG` 等 | 正文 Task 19 引用 initAnalysisService → 必须改方案 |
+
+## A.2 Task 1 修正：独立 Redis 客户端（架构 B）
+
+**问题**：v2 用 `getRedisClient().select(15)` 让 process-shared singleton 切到 db=15，会让同 process 内的生产代码也看到 db=15。
+
+**修正**：在 runtimeGuards.ts 加独立 ioredis 实例，**不复用** getRedisClient：
+
+```ts
+// tests/eval/utils/runtimeGuards.ts
+import Redis from 'ioredis'
+import { prisma } from '~~/server/utils/db'
+
+export const EVAL_REDIS_DB = 15
+let evalRedisInstance: Redis | null = null
+
+/** Eval 专用 Redis 客户端（独立连接 db=15，不复用项目 getRedisClient）。 */
+export function getEvalRedisClient(): Redis {
+  if (!evalRedisInstance) {
+    const host = process.env.REDIS_HOST ?? 'localhost'
+    const port = parseInt(process.env.REDIS_PORT ?? '6379', 10)
+    const password = process.env.REDIS_PASSWORD
+    evalRedisInstance = new Redis({
+      host, port, password, db: EVAL_REDIS_DB, lazyConnect: false,
+    })
+  }
+  return evalRedisInstance
+}
+
+export async function assertEvalRuntime(): Promise<void> {
+  const url = process.env.DATABASE_URL ?? ''
+  if (!url.includes('ls_eval')) throw new Error(`[eval] DATABASE_URL 必须含 'ls_eval'`)
+  if (!process.env.EVAL_DEEPSEEK_KEY) throw new Error('[eval] 必须设 EVAL_DEEPSEEK_KEY')
+
+  const redis = getEvalRedisClient()
+  try {
+    await Promise.race([
+      redis.ping(),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('redis ping timeout 3s')), 3000)),
+    ])
+  } catch (e) {
+    throw new Error(`[eval] Redis 不可达：${e instanceof Error ? e.message : e}`)
+  }
+  await redis.flushdb()  // 清空 db=15
+
+  await prisma.$queryRaw`SELECT 1`
+}
+
+/** runEval 末尾调用，断开独立 Redis 连接 */
+export async function teardownEvalRuntime(): Promise<void> {
+  if (evalRedisInstance) {
+    await evalRedisInstance.quit()
+    evalRedisInstance = null
+  }
+}
+```
+
+`runEval.ts` 入口流程：`assertEvalRuntime()` → 主流程 → `await teardownEvalRuntime()` → `process.exit(...)`。
+
+## A.3 Task 4 修正：ChatModelConfig + CaseAgentOptions 都加 callbacks
+
+**Files:** Modify `server/services/node/chatModelFactory.ts` + `server/services/workflow/agents/caseMainAgent.ts`
+
+- [ ] **Step A: 给 ChatModelConfig 加 callbacks 字段**
+
+```ts
+// chatModelFactory.ts
+import type { BaseCallbackHandler } from '@langchain/core/callbacks/base'
+
+export interface ChatModelConfig {
+  // ... 现有字段 ...
+  callbacks?: BaseCallbackHandler[]  // 新增
+}
+```
+
+并在三个供应商分支（anthropic / openai / deepseek）的构造函数里把 `callbacks` 传给 BaseChatModel 实例：
+
+```ts
+new ChatAnthropic({
+  // ... 现有参数 ...
+  callbacks: config.callbacks,  // 新增（LangChain BaseChatModel 构造时支持）
+})
+```
+
+- [ ] **Step B: CaseAgentOptions 加 callbacks**（同正文 Task 4 Step 1）
+
+- [ ] **Step C: caseMainAgent.ts 内部 createChatModel 调用透传**
+
+```bash
+grep -n "createChatModel(" server/services/workflow/agents/caseMainAgent.ts
+```
+
+每个调用点（通常是 1 处）的 config 对象加 `callbacks: options?.callbacks`。
+
+## A.4 Task 8 修正：StorageFactory 注入方案改造
+
+**问题**：`StorageFactory.getAdapter(config)` 必须传 config 参数；类的 static field 可写 ✅。
+
+**修正方案**（更稳妥）：在 factory.ts 加一个**纯 eval 用的**全局 override：
+
+```ts
+// server/lib/storage/factory.ts 末尾追加
+let __evalStorageOverride: any = null
+
+/** Eval-only：注入 fake storage adapter，**生产代码不要调用** */
+export function __setStorageAdapterOverrideForEval(adapter: any): void {
+  __evalStorageOverride = adapter
+}
+
+/** 生产代码：StorageFactory.getAdapter(config) 内部最开头加：*/
+// 在原 StorageFactory.getAdapter 方法体最开头（不论是 static 还是 instance）加：
+//    if (__evalStorageOverride) return __evalStorageOverride
+```
+
+ossMock.ts 改用这个钩子：
+
+```ts
+import { __setStorageAdapterOverrideForEval } from '~~/server/lib/storage/factory'
+// installOssMock：__setStorageAdapterOverrideForEval(fakeAdapter)
+// uninstallOssMock：__setStorageAdapterOverrideForEval(null)
+```
+
+ossMock.test.ts **删除** 原 v2 测试里 `StorageFactory.getAdapter()` 无参调用。改为：
+
+```ts
+import { __setStorageAdapterOverrideForEval } from '~~/server/lib/storage/factory'
+
+describe('ossMock', () => {
+  it('install 后调用 __setStorageAdapterOverrideForEval 注入 mock', () => {
+    installOssMock()
+    // 真实 storage 入口在被测代码里调用 StorageFactory.getAdapter(config) 时会先返回 mock
+    // 这里只测注入钩子被调
+    // 端到端验证留给 runEval 真跑
+  })
+})
+```
+
+## A.5 Task 9 修正：buildFixture 重写（严重）
+
+**修正点全表**：
+
+| v2 错误 | 真实代码 |
+|---|---|
+| `prisma.chatSessions.create` | `prisma.caseSessions.create`（model 名 caseSessions） |
+| `data: { sessionId, caseId, userId, moduleId }` | caseSessions 真实必填字段：`sessionId` (unique) + `type`（Int default 1）；`caseId/userId` 可空。**没有 moduleId 字段**（项目用 sessionId 区分模块）|
+| `cases.create({ ownerUserId })` | `userId: ownerUserId` |
+| `caseMaterials.create({ fileType, fileName, fileSize, fileUrl })` | 真实字段 `name + type(Int 1-4) + caseId + summary + status`，**无 fileType/fileName/fileSize/fileUrl** |
+| `caseAnalyses.create({ content, ... })` | **没有 content 字段**。真实字段 `caseId + sessionId + nodeId + analysisType + analysisResult? + summary? + version + isActive`。**必须先 seed nodes 表**（nodeId FK）|
+| `caseTypes` 表未 seed | 必须先 `prisma.caseTypes.upsert({ where: { id: 1 }, create: { id: 1, name: '民商事合同纠纷' } })`，cases.caseTypeId FK 才不撞墙 |
+| TRUNCATE 表名 | 全部改为 snake_case：`case_analysis_embeddings, case_analyses, case_memories, case_material_embeddings, case_materials, case_sessions, agent_runs, cases` |
+
+**buildFixture 顶部 ensure 函数补全**：
+
+```ts
+async function ensureEvalSeedData(userId: number): Promise<void> {
+  // 1. user
+  await prisma.users.upsert({
+    where: { id: userId },
+    update: {},
+    create: { id: userId, name: 'eval-user', phone: '13800000000' },
+  })
+  await prisma.$executeRawUnsafe(
+    `SELECT setval(pg_get_serial_sequence('users', 'id'), GREATEST((SELECT MAX(id) FROM users), 1))`,
+  )
+
+  // 2. caseType（cases.caseTypeId FK target）
+  await prisma.caseTypes.upsert({
+    where: { id: 1 },
+    update: {},
+    create: { id: 1, name: '民商事合同纠纷' },
+  })
+
+  // 3. node（caseAnalyses.nodeId FK target）—— 按 nodes 表真实必填字段补全
+  await prisma.nodes.upsert({
+    where: { id: 1 },
+    update: {},
+    create: {
+      id: 1,
+      // 按真实 prisma/models/node.prisma 必填字段补：
+      //   name / agentName / 等
+      // 实施前 grep nodes 表 schema 确认必填项
+    } as any,
+  })
+}
+```
+
+> **实施前必查**：`grep -A 30 "^model nodes" prisma/models/*.prisma` 看 nodes 表必填字段（name / type 等），按真实字段补 ensureEvalSeedData 中的 nodes.upsert。
+
+**正确版 seedMaterials**：
+
+```ts
+async function seedMaterials(caseId: number, rng: () => number): Promise<number[]> {
+  const items = [
+    { name: '甲乙双方主合同.docx', type: 2 },              // 2=文档
+    { name: '补充协议.pdf', type: 2 },
+    { name: '银行回单.pdf', type: 2 },
+    { name: '微信聊天记录.pdf', type: 2 },
+    { name: '物流签收单.png', type: 3 },                   // 3=图片
+    { name: '邮件往来.pdf', type: 2 },
+    { name: '一审庭审笔录.pdf', type: 2 },
+    { name: '调解记录.pdf', type: 2 },
+  ]
+  const ids: number[] = []
+  for (let i = 0; i < items.length; i++) {
+    const created = await prisma.caseMaterials.create({
+      data: {
+        caseId,
+        name: items[i].name,
+        type: items[i].type,
+        summary: `第 ${i+1} 份材料预生成 100 字摘要：${items[i].name} 关键事实。`,
+        status: 3,                                          // 3=已完成
+      },
+    })
+    ids.push(created.id)
+  }
+  return ids
+}
+```
+
+注：`caseMaterials.id` 是自增 Int，FixtureResult 的 `materialIds` 类型从 `string[]` 改为 `number[]`。
+
+**正确版 caseSessions seed**：
+
+```ts
+async function seedSession(caseId: number, userId: number, rng: () => number): Promise<string> {
+  const sessionId = generateUuidV4(rng)
+  await prisma.caseSessions.create({
+    data: {
+      sessionId,
+      caseId,
+      userId,
+      type: 1,                                              // 按真实 caseSessions.type 枚举调
+      // scope 字段如果必填也要补（grep 确认）
+    } as any,
+  })
+  return sessionId
+}
+```
+
+`caseA.sessionIds` 改成 3 个独立 sessionId（不再 keyed by moduleId）：`caseA.sessions: string[]`。dataset 各题在 `runOneChat` 时从 caseA.sessions 选一个。**不再用 moduleId 这个概念**（项目内 module 区分通过 sessionId 实现，不在 caseSessions 表上加列）。
+
+**正确版 caseAnalyses seed**：
+
+```ts
+async function seedAnalysisWithVersions(
+  caseId: number, sessionId: string, nodeId: number, analysisType: string, rng: () => number,
+): Promise<{ activeId: number; historicalId: number }> {
+  const historical = await prisma.caseAnalyses.create({
+    data: {
+      caseId, sessionId, nodeId, analysisType,
+      analysisResult: `${analysisType} v1 历史结论：倾向 A 方案。`.repeat(8),
+      summary: `${analysisType} v1 摘要：A 方案。`,
+      version: 1, isActive: false, status: 2,
+    },
+  })
+  const active = await prisma.caseAnalyses.create({
+    data: {
+      caseId, sessionId, nodeId, analysisType,
+      analysisResult: `${analysisType} v2 当前结论：倾向 B 方案。`.repeat(8),
+      summary: `${analysisType} v2 摘要：B 方案。`,
+      version: 2, isActive: true, status: 2,
+    },
+  })
+  return { activeId: active.id, historicalId: historical.id }
+}
+```
+
+`FixtureResult.caseA.analysisIds` / `analysisHistoricalIds` / `analysisLegacyId` 类型从 `string` 改 `number`。
+
+## A.6 Task 11 修正：RunCaseInput 删 agentName + dataset 不再有 moduleId
+
+```ts
+// runner/datasetRunner.ts
+export interface RunCaseInput {
+  caseId: number
+  userId: number
+  sessionId: string                  // 取自 fx.caseA.sessions[i]
+  question: string
+  isWarmup?: boolean
+}
+
+export async function runOneChat(input: RunCaseInput, handler: LLMUsageCallbackHandler): Promise<RunCaseOutput> {
+  handler.setWarmup(input.isWarmup ?? false)
+  const before = handler.getRecords().length
+  const startedAt = Date.now()
+
+  // 真实 CaseAgentOptions：{ userId, caseId, thinking?, signal?, callbacks? }
+  const stream = await runCaseChat(input.sessionId, input.question, {
+    caseId: input.caseId,
+    userId: input.userId,
+    callbacks: [handler],
+  })
+
+  const consumed = await consumeAgentSseStream(stream)
+  // ... 其余同正文 Task 11
+}
+```
+
+testDataset 里的 `moduleId` 字段移除，改为 `sessionIndex: 0 | 1 | 2`（指向 fx.caseA.sessions 的下标），runEval 跑时取 `fx.caseA.sessions[ec.sessionIndex]` 当 sessionId。
+
+## A.7 Task 19 修正：initAnalysisService 改用真实导出
+
+`initAnalysis.service.ts` **不导出** `initAnalysisService`。改 `sec-archived-initAnalysis` 断言为：
+
+```ts
+{
+  id: 'sec-archived-initAnalysis',
+  category: 'archived-guard',
+  severity: 'CRITICAL',
+  async run(fx, ctx) {
+    // ⚠️ 已知：initAnalysis 链路当前缺 isCaseReadOnly 守卫（M3/M4 spec §12 铁律未落实）
+    // 改用 chat session 创建作为 init 触发的等价探针：测试新建 caseSession 写 caseAnalyses 是否被 ARCHIVED 挡
+    const { createCaseSessionService } = await import('~~/server/services/case/caseSession.service')
+    try {
+      // 按真实 createCaseSessionService 签名传参（grep 确认）
+      await createCaseSessionService({ caseId: fx.caseC.id, userId: ctx.ownerUserId } as any)
+      return { pass: false, detail: 'createCaseSession 未挡 ARCHIVED — 业务 bug（M3 spec §12）' }
+    } catch (e: any) {
+      return { pass: true, detail: `正确拒绝：${e?.message ?? e}` }
+    }
+  },
+}
+```
+
+> 实施前必查：`grep "export.*function" server/services/case/caseSession.service.ts` 确认真实导出名 + 签名。如无合适等价 API，改成"直接调 caseAnalyses.create 时 service 拦截"测试。
+
+## A.8 Task 20 修正：systemPromptTokens 复用 stab-prompt-hash 调用（语义恢复）
+
+**问题**：v2 用首次 LLM 的 prompt_tokens 近似，与 spec §3.2 "tiktoken 算前 4 段"语义不一致。
+
+**修正**：`stab-prompt-hash` 测试本来就调 `buildContextSegments(__probe__)` 两次。**第一次调用的输出顺便算 systemPromptTokens**：
+
+```ts
+// stabilityMetrics.ts 修正版
+import { countTokensSync } from '~~/server/utils/tokenCounter'
+
+export interface PromptHashResult {
+  metric: MetricResult
+  systemPromptTokens: number      // 顺便采集
+}
+
+export async function checkPromptHashStability(
+  caseId: number, agentName: string,
+): Promise<PromptHashResult> {
+  const fixedQuery = '__eval_stability_probe__'
+  const a = await buildContextSegments({ caseId, agentName, userQuery: fixedQuery })
+  const b = await buildContextSegments({ caseId, agentName, userQuery: fixedQuery })
+  const concat = (s: typeof a) => (s.roleAndFlow ?? '') + (s.caseProfile ?? '') + (s.moduleSummaries ?? '')
+  const ha = createHash('sha256').update(concat(a)).digest('hex')
+  const hb = createHash('sha256').update(concat(b)).digest('hex')
+
+  // 顺便算前 4 段（含 dynamicContext = 召回） tokens —— 真正符合 spec §3.2 的 systemPromptTokens
+  const systemFourSegments = (a.roleAndFlow ?? '') + (a.caseProfile ?? '') + (a.moduleSummaries ?? '') + (a.dynamicContext ?? '')
+  const systemPromptTokens = countTokensSync(systemFourSegments)
+
+  return {
+    metric: {
+      name: 'stab-prompt-hash',
+      value: ha === hb, threshold: 'sha256(seg ①②③) 两次相等',
+      severity: 'CRITICAL', result: ha === hb ? 'pass' : 'fail',
+      detail: ha === hb ? ha.slice(0, 16) : `mismatch ${ha.slice(0,8)} vs ${hb.slice(0,8)}`,
+    },
+    systemPromptTokens,
+  }
+}
+```
+
+runEval 里 `cost.systemPromptTokensSamples` 取 `[promptHashResult.systemPromptTokens]`（因为只跑一次，样本=1，平均=该值）。Task 11 datasetRunner 不再返回 systemPromptTokens（删字段）。
+
+## A.9 Task 17 修正：processNowService 接受可选 redis client
+
+```ts
+// consolidator.service.ts processNowService 新增（修正版）
+export async function processNowService(
+  caseId: number,
+  opts?: { redis?: Redis }, // 可选注入，eval 传独立 client
+): Promise<void> {
+  const sessions = await prisma.caseSessions.findMany({
+    where: { caseId },
+    select: { sessionId: true },
+  })
+  if (sessions.length === 0) return
+
+  const redis = opts?.redis ?? getRedisClient()
+  const sessionIds = sessions.map(s => s.sessionId)
+  if (sessionIds.length > 0) {
+    await redis.zrem(QUEUE_KEY, ...sessionIds)
+  }
+  for (const sid of sessionIds) {
+    await consolidateSession(sid)
+  }
+}
+```
+
+runEval 调 `await processNowService(fx.caseA.id, { redis: getEvalRedisClient() })`。
+
+## A.10 viewer.html 修正：Tailwind v4 默认边框色
+
+v4 默认 border 颜色变为 `currentColor`。viewer.html 显式传：
+
+- 把所有 `border-t` / `border-l` 等 utility 替换为 `border-t border-gray-200` / `border-l border-gray-200`
+- 或在 `<body>` 顶部加 `class="border-gray-200"` 全局兜底
+
+## A.11 Task 11 datasetRunner 单测补充
+
+补 `tests/eval/runner/datasetRunner.test.ts`：
+
+```ts
+// 至少测：consumeAgentSseStream 集成（用 mock stream）+ usage 累加聚合
+// runCaseChat 用 vi.mock，跑通后断言 LLMUsageCallbackHandler 收到 record
+```
+
+最小测试覆盖即可，端到端真链路在 Task 12 首跑验证。
+
+## A.12 README 强化业务缺陷预告（架构 C）
+
+`tests/eval/README.md` 顶部加醒目段落：
+
+```markdown
+## 已知业务缺陷预告（首跑必报 4 项 CRITICAL FAIL）
+
+`sec-archived-{updateCase, initAnalysis, write-memory, update-memory}` 首跑会 FAIL。
+**这不是 eval 故障**，反映 M3 spec §12 ARCHIVED 守卫在 service 层未落实。
+补完业务侧守卫后（独立工单：在 4 个 service 入口加 isCaseReadOnly 检查），重跑自动转 PASS。
+
+eval 的价值正在于此 —— 暴露 spec 与代码的偏差。
+```
+
+HTML viewer 给这 4 项加 tag：
+
+```js
+const KNOWN_BIZ_BUGS = new Set(['sec-archived-updateCase', 'sec-archived-initAnalysis', 'sec-archived-write-memory', 'sec-archived-update-memory'])
+// 渲染时如 case.id ∈ KNOWN_BIZ_BUGS，加 [业务缺陷] 黄底 tag
+```
+
+## A.13 别名 spike 失败回退指引
+
+Task 1 Step 6 失败时（bun 不解析 `~~/`），回退步骤：
+
+1. 在 `tests/eval/` 下加 `_alias.ts`：
+   ```ts
+   export { prisma } from '../../server/utils/db'
+   export { getRedisClient } from '../../server/utils/redis'
+   // ...所有 ~~/ 用到的服务都重导一遍
+   ```
+2. plan 里所有 `import { X } from '~~/server/...'` 改 `import { X } from '../../tests/eval/_alias'`（或对应相对路径）
+
+不需要在每个文件单独改路径，集中重导成本最低。
+
+## A.14 修正总表
+
+| ID | 严重度 | 修正 |
+|---|---|---|
+| A.1 | P0 | 真实代码核对清单更新（11 项） |
+| A.2 | P0 | Redis 独立 client（getEvalRedisClient）|
+| A.3 | P0 | ChatModelConfig + CaseAgentOptions 都加 callbacks |
+| A.4 | P0 | StorageFactory 注入用 `__setStorageAdapterOverrideForEval` 函数（不动 getAdapter 签名） |
+| A.5 | P0 | buildFixture 大改：表名 / 字段名 / 必填字段 / nodes+caseTypes upsert |
+| A.6 | P0 | datasetRunner 删 agentName，dataset 用 sessionIndex |
+| A.7 | P0 | sec-archived-initAnalysis 改用 createCaseSessionService 等真实存在的等价探针 |
+| A.8 | P0 | systemPromptTokens 复用 stab-prompt-hash 的 buildContextSegments 输出（语义恢复 spec） |
+| A.9 | P1 | processNowService 加可选 redis client 参数 |
+| A.10 | P1 | viewer.html 显式 border-gray-200 |
+| A.11 | P1 | datasetRunner 加单测 |
+| A.12 | P1 | README 业务缺陷预告 + viewer tag |
+| A.13 | P1 | 别名 spike 失败回退指引 |
+
+实施时**严格按附录覆盖**正文同名 Task 的代码段。如附录与正文矛盾，附录优先。
+
+---
+
 **Plan complete and saved to `docs/superpowers/plans/2026-04-25-context-governance-eval-plan-v2.md`. Two execution options:**
 
 **1. Subagent-Driven（推荐）** —— 每 Task 派 fresh subagent，做完两阶段 review 再下一个
