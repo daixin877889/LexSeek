@@ -115,6 +115,47 @@ async function ensureEvalUser(userId: number): Promise<void> {
   await prisma.$executeRawUnsafe(
     `SELECT setval(pg_get_serial_sequence('users', 'id'), GREATEST((SELECT MAX(id) FROM users), 1))`,
   )
+
+  // 给测试用户开会员（pointConsumptionMiddleware 会拦截非会员的 LLM 调用 → __interrupt__ insufficient_points）
+  // 复用 seedData 已有的 membershipLevels id=1（基础版）/ 2（专业版）/ 3（旗舰版），用旗舰版避免任何额度限制
+  const FLAGSHIP_LEVEL_ID = 3
+  const existing = await prisma.userMemberships.findFirst({
+    where: { userId, status: 1 },
+  })
+  if (!existing) {
+    const now = new Date()
+    const farFuture = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000) // 1 年后到期
+    await prisma.userMemberships.create({
+      data: {
+        userId,
+        levelId: FLAGSHIP_LEVEL_ID,
+        startDate: now,
+        endDate: farFuture,
+        autoRenew: false,
+        status: 1,
+        sourceType: 5, // 5=试用
+      },
+    })
+  }
+
+  // 加 1M 积分（pointConsumptionMiddleware 检查 remaining > 0 才放行）
+  // pointRecords 真实字段：userId / pointAmount / used / remaining / sourceType / effectiveAt / expiredAt
+  const existingPoint = await prisma.pointRecords.findFirst({ where: { userId } })
+  if (!existingPoint) {
+    const now = new Date()
+    const farFuture = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000)
+    await prisma.pointRecords.create({
+      data: {
+        userId,
+        pointAmount: 1_000_000,
+        used: 0,
+        remaining: 1_000_000,
+        sourceType: 5, // 5=试用赠送
+        effectiveAt: now,
+        expiredAt: farFuture,
+      },
+    })
+  }
 }
 
 // ============== caseA ==============

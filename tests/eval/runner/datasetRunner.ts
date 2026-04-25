@@ -52,6 +52,21 @@ export async function runOneChat(
   const consumed = await consumeAgentSseStream(stream)
   const latencyMs = Date.now() - startedAt
 
+  // DEBUG: 临时打印第一条事件以诊断空 stream 问题
+  if (process.env.EVAL_DEBUG && consumed.rawEvents.length > 0) {
+    // eslint-disable-next-line no-console
+    console.log(`[eval-debug] q="${input.question.slice(0, 20)}" events=${consumed.rawEvents.length}, names=${[...new Set(consumed.rawEvents.map(e => e.event))].join(',')}, finalLen=${consumed.finalAnswer.length}`)
+    if (consumed.finalAnswer === '' && consumed.rawEvents.length > 0) {
+      // eslint-disable-next-line no-console
+      console.log(`[eval-debug] first event:`, JSON.stringify(consumed.rawEvents[0]).slice(0, 300))
+      // eslint-disable-next-line no-console
+      console.log(`[eval-debug] last event:`, JSON.stringify(consumed.rawEvents[consumed.rawEvents.length - 1]).slice(0, 300))
+    }
+  } else if (process.env.EVAL_DEBUG) {
+    // eslint-disable-next-line no-console
+    console.log(`[eval-debug] q="${input.question.slice(0, 20)}" stream returned 0 events, latency=${latencyMs}ms`)
+  }
+
   const newRecords = handler.getRecords().slice(before)
   const promptTokens = newRecords.reduce(
     (s, r) => s + (r.usage.prompt_tokens ?? r.usage.input_tokens ?? 0),
