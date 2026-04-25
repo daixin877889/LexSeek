@@ -114,7 +114,13 @@ export async function runCaseChat(
         + '  ① 先用 `search_case_memory` 查到目标记忆 id\n'
         + '  ② **必须紧接着**调用 `update_case_memory(id=该id, invalidate=true)`，禁止仅口头回应"已失效"而不调工具\n'
         + '  ③ 工具调用成功后再回复用户"已失效"——不调工具就回复属于撒谎\n'
-        + '- `read_skill_file` / `write_skill_file` / `run_skill_script` / `run_skill_command` 仅用于 Skills 中间件管理 agent 自学习脚本，与案件记忆无关'
+        + '- `read_skill_file` / `write_skill_file` / `run_skill_script` / `run_skill_command` 仅用于 Skills 中间件管理 agent 自学习脚本，与案件记忆无关\n'
+        + '\n## 综合题应对（铁律）\n'
+        + '- 当用户提问含"综合/全景/总体/下一步/影响"等综合性词汇时，**必须**在答案中明确引用三层信息源：\n'
+        + '  ① 案件档案（法官姓名/案号/当事人/争议金额等关键事实）\n'
+        + '  ② 已完成分析模块的结论（如"风险分析 v2 结论 B 方案"）\n'
+        + '  ③ 案件记忆（当事人偏好/讨论笔记/已抽取的事实）\n'
+        + '- 综合题不能只答其中一层，要让用户看到"基本信息 + 证据/分析 + 偏好"三者交叉的全景'
     const { systemMessage, plainText: systemPromptPlainText } = await buildSystemPromptForAgent(
         mainConfig.modelSdkType,
         { caseId, agentName: CASE_MAIN_NODE_NAME, userQuery: message ?? '', roleAndFlowTemplate },

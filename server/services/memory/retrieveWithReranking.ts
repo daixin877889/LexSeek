@@ -36,13 +36,15 @@ export async function retrieveWithReranking(input: RetrieveInput): Promise<Memor
     minScore = 0,
   } = input
 
-  // ①② Hybrid Recall —— 把整个 query 作为单 keyword 兜底，否则
-  // fullTextSearch 看到 keywords=[] 会直接返回 []（BM25 全废），
-  // 加上 fixture/历史数据没回填 embedding 时 vector 也返回 0 → recall 永远空
+  // ①② Hybrid Recall —— 把 query 切空格成多 token 兜底（每个 token 仍走 zhparser
+  // 中文分词；token 间在 fullTextSearch 走 OR 拼接），否则：
+  //  - keywords=[] 会让 fullTextSearch 直接返回 []，BM25 全废
+  //  - 单元素 [query] 会被 plainto_tsquery 当 AND 查询，对中文多关键词 query
+  //    （如"沟通方式 偏好"）过严，缺任意一个就不命中
   const intent: IntentClassification = {
     intent: 'hybrid',
     rewrittenQuery: query,
-    keywords: query ? [query] : [],
+    keywords: query ? query.split(/\s+/).filter(t => t.length > 0) : [],
   }
   const request: RetrievalRequest = {
     type: TABLE_TYPE_MAP[tableName] ?? 'case_material',
