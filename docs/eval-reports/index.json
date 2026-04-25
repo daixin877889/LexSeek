@@ -41,6 +41,79 @@
         "sec-archived-write-memory",
         "sec-archived-update-memory"
       ]
+    },
+    {
+      "filename": "2026-04-25-1519-context-governance.json",
+      "runAt": "2026-04-25T15:19:40+08:00",
+      "commit": "227975aa",
+      "overallPass": false,
+      "criticalFailures": [
+        "cacheHitRate",
+        "toolCallAccuracy",
+        "scenarioPassRate",
+        "versionChainCorrect",
+        "sec-archived-write-memory",
+        "sec-archived-update-memory"
+      ]
+    },
+    {
+      "filename": "2026-04-25-1535-context-governance.json",
+      "runAt": "2026-04-25T15:35:52+08:00",
+      "commit": "194ba02c",
+      "overallPass": false,
+      "criticalFailures": [
+        "cacheHitRate",
+        "toolCallAccuracy",
+        "scenarioPassRate",
+        "versionChainCorrect",
+        "sec-archived-write-memory",
+        "sec-archived-update-memory"
+      ]
+    },
+    {
+      "filename": "2026-04-25-1550-context-governance.json",
+      "runAt": "2026-04-25T15:50:36+08:00",
+      "commit": "15b2c139",
+      "overallPass": false,
+      "criticalFailures": [
+        "cacheHitRate",
+        "hallucinationRate",
+        "toolCallAccuracy",
+        "scenarioPassRate",
+        "versionChainCorrect",
+        "sec-cross-case-leak",
+        "sec-archived-write-memory",
+        "sec-archived-update-memory",
+        "stab-switch-active-atomic"
+      ]
+    },
+    {
+      "filename": "2026-04-25-1557-context-governance.json",
+      "runAt": "2026-04-25T15:57:35+08:00",
+      "commit": "4b7159ba",
+      "overallPass": false,
+      "criticalFailures": [
+        "hallucinationRate",
+        "toolCallAccuracy",
+        "scenarioPassRate",
+        "versionChainCorrect",
+        "sec-cross-case-leak",
+        "sec-archived-write-memory",
+        "sec-archived-update-memory"
+      ]
+    },
+    {
+      "filename": "2026-04-25-1606-context-governance.json",
+      "runAt": "2026-04-25T16:06:34+08:00",
+      "commit": "f5c20bba",
+      "overallPass": false,
+      "criticalFailures": [
+        "hallucinationRate",
+        "toolCallAccuracy",
+        "scenarioPassRate",
+        "versionChainCorrect",
+        "sec-cross-case-leak"
+      ]
     }
   ]
 }

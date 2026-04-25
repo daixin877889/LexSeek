@@ -80,12 +80,6 @@ vi.mock('../../../../server/services/workflow/middleware/safetyTrim.middleware',
     safetyTrimMiddleware: vi.fn(() => ({ __mock: 'safetyTrim' })),
 }))
 
-// mock moduleContext.middleware（用于断言不被 import / 使用）
-const mockModuleContextMiddleware = vi.fn(() => ({ __mock: 'moduleContext' }))
-vi.mock('../../../../server/services/workflow/middleware/moduleContext.middleware', () => ({
-    moduleContextMiddleware: mockModuleContextMiddleware,
-}))
-
 // mock saveAnalysisResult tool
 vi.mock('../../../../server/services/workflow/tools/saveAnalysisResult.tool', () => ({
     createTool: vi.fn(() => ({ name: 'save_analysis_result', invoke: vi.fn() })),
@@ -293,10 +287,7 @@ describe('runModuleChat 模块对话 Agent', () => {
             nodeId: 1,
         })
 
-        // 直接断言 moduleContextMiddleware 工厂未被调用
-        expect(mockModuleContextMiddleware).not.toHaveBeenCalled()
-
-        // 兜底断言：middleware 列表中无名为 moduleContext 的 mock 标签
+        // moduleContext.middleware 文件已被 Phase 6 删除；断言 middleware 列表中无名为 moduleContext 的 mock 标签
         const call = vi.mocked(createAgent).mock.calls.at(-1)![0] as any
         const labels = (call.middleware as Array<{ __mock?: string }>).map(m => m.__mock)
         expect(labels).not.toContain('moduleContext')
