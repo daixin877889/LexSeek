@@ -29,7 +29,7 @@
     "prebuild:test": "vitest run tests/server --reporter=verbose",
     "coverage": "npx vitest run --coverage 2>&1 | tail -100",
     "kanban": "npx vibe-kanban",
-    "eval:context": "DATABASE_URL='postgresql://daixin:daixin88@localhost:5432/ls_eval?schema=public&TimeZone=UTC' bun run tests/eval/runEval.ts"
+    "eval:context": "DATABASE_URL='postgresql://daixin:daixin88@localhost:5432/ls_eval?schema=public&TimeZone=UTC' npx vitest run tests/eval/runEval.test.ts --reporter=verbose"
   },
   "dependencies": {
     "@ai-sdk/langchain": "^2.0.122",

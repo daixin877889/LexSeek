@@ -61,8 +61,8 @@ export class LLMUsageCallbackHandler extends BaseCallbackHandler {
     const latencyMs = Date.now() - startedAt
     this.startTimes.delete(runId)
 
-    const message = output?.generations?.[0]?.[0]?.message as { response_metadata?: { usage?: RawLLMUsage } } | undefined
-    const usage: RawLLMUsage = message?.response_metadata?.usage ?? {}
+    const gen = output?.generations?.[0]?.[0] as { message?: { response_metadata?: { usage?: RawLLMUsage } } } | undefined
+    const usage: RawLLMUsage = gen?.message?.response_metadata?.usage ?? {}
 
     this.records.push({
       tag: this.opts.tag,

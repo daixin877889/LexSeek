@@ -1,0 +1,961 @@
+{
+  "version": "1.0",
+  "runAt": "2026-04-25T15:10:03+08:00",
+  "commit": "42c3ca0a",
+  "durationMs": 107337,
+  "summary": {
+    "totalCritical": 14,
+    "passedCritical": 8,
+    "totalWarn": 10,
+    "passedWarn": 5,
+    "criticalFailures": [
+      "cacheHitRate",
+      "toolCallAccuracy",
+      "scenarioPassRate",
+      "versionChainCorrect",
+      "sec-archived-write-memory",
+      "sec-archived-update-memory"
+    ],
+    "overallPass": false
+  },
+  "metrics": {
+    "cost": [
+      {
+        "name": "systemPromptTokensAvg",
+        "value": 909,
+        "threshold": "< 4000",
+        "severity": "WARN",
+        "result": "pass"
+      },
+      {
+        "name": "totalPromptTokensAvg",
+        "value": 0,
+        "threshold": "< 6000",
+        "severity": "WARN",
+        "result": "pass"
+      },
+      {
+        "name": "cacheHitRate",
+        "value": 0,
+        "threshold": ">= 0.6",
+        "severity": "CRITICAL",
+        "result": "fail",
+        "detail": "hit=0, total=0"
+      },
+      {
+        "name": "anthropicCacheStructureOk",
+        "value": false,
+        "threshold": "> 0",
+        "severity": "WARN",
+        "result": "fail"
+      },
+      {
+        "name": "openaiCacheStructureOk",
+        "value": false,
+        "threshold": "> 0",
+        "severity": "WARN",
+        "result": "fail"
+      },
+      {
+        "name": "memoryRecallLatencyP95",
+        "value": 0,
+        "threshold": "< 500ms",
+        "severity": "WARN",
+        "result": "pass"
+      },
+      {
+        "name": "analysisSummaryLatencyP95",
+        "value": 0,
+        "threshold": "< 3000ms",
+        "severity": "WARN",
+        "result": "pass"
+      }
+    ],
+    "quality": [
+      {
+        "name": "qualityScore",
+        "value": 0.52,
+        "threshold": ">= 4.0",
+        "severity": "WARN",
+        "result": "fail"
+      },
+      {
+        "name": "factsHitRate",
+        "value": 0,
+        "threshold": ">= 0.8",
+        "severity": "WARN",
+        "result": "fail"
+      },
+      {
+        "name": "hallucinationRate",
+        "value": 0,
+        "threshold": "<= 0.05",
+        "severity": "CRITICAL",
+        "result": "pass"
+      }
+    ],
+    "task": [
+      {
+        "name": "toolCallAccuracy",
+        "value": 0,
+        "threshold": ">= 0.8",
+        "severity": "CRITICAL",
+        "result": "fail",
+        "detail": "0/16"
+      },
+      {
+        "name": "scenarioPassRate",
+        "value": 0.069,
+        "threshold": ">= 0.9",
+        "severity": "CRITICAL",
+        "result": "fail",
+        "detail": "2/29"
+      }
+    ],
+    "extraction": [
+      {
+        "name": "extractionRecall",
+        "value": 0.2,
+        "threshold": ">= 0.7",
+        "severity": "WARN",
+        "result": "fail"
+      },
+      {
+        "name": "extractionPrecision",
+        "value": 1,
+        "threshold": ">= 0.95",
+        "severity": "CRITICAL",
+        "result": "pass"
+      },
+      {
+        "name": "versionChainCorrect",
+        "value": false,
+        "threshold": "true",
+        "severity": "CRITICAL",
+        "result": "fail"
+      },
+      {
+        "name": "confidenceFilterCorrect",
+        "value": true,
+        "threshold": "true",
+        "severity": "WARN",
+        "result": "pass",
+        "detail": "由 evaluateExtraction 内的 confidence 阈值保证"
+      }
+    ],
+    "security": [
+      {
+        "name": "sec-cross-case-leak",
+        "value": true,
+        "threshold": "pass",
+        "severity": "CRITICAL",
+        "result": "pass",
+        "detail": "no leak detected (decoy caseId=2)"
+      },
+      {
+        "name": "sec-archived-updateCase",
+        "value": true,
+        "threshold": "pass",
+        "severity": "CRITICAL",
+        "result": "pass",
+        "detail": "service 正确拒绝：案件已归档，不可编辑"
+      },
+      {
+        "name": "sec-archived-write-memory",
+        "value": false,
+        "threshold": "pass",
+        "severity": "CRITICAL",
+        "result": "fail",
+        "detail": "writeMemory 未挡 ARCHIVED — 真实业务 bug（M3 spec §12）"
+      },
+      {
+        "name": "sec-archived-update-memory",
+        "value": false,
+        "threshold": "pass",
+        "severity": "CRITICAL",
+        "result": "fail",
+        "detail": "updateMemory 未挡 ARCHIVED — 真实业务 bug（M3 spec §12）"
+      },
+      {
+        "name": "sec-ai-autofill-preserve",
+        "value": true,
+        "threshold": "pass",
+        "severity": "CRITICAL",
+        "result": "pass",
+        "detail": "用户字段保留：{\"firstInstanceJudge\":\"张三\",\"firstInstanceCaseNo\":\"已填\"}"
+      }
+    ],
+    "stability": [
+      {
+        "name": "stab-prompt-hash",
+        "value": true,
+        "threshold": "sha256(seg ①②③) 两次相等",
+        "severity": "CRITICAL",
+        "result": "pass",
+        "detail": "9ebb5579405da3ec"
+      },
+      {
+        "name": "stab-switch-active-atomic",
+        "value": true,
+        "threshold": "同 type isActive=1 + embeddings metadata 同步",
+        "severity": "CRITICAL",
+        "result": "pass",
+        "detail": "ok"
+      },
+      {
+        "name": "stab-old-data-graceful",
+        "value": true,
+        "threshold": "工具不抛异常 + 段不含 null/undefined",
+        "severity": "CRITICAL",
+        "result": "pass",
+        "detail": "ok"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "q-profile-01",
+      "group": "profile",
+      "question": "本案的一审法官是谁？",
+      "answer": "",
+      "factsHitRate": 0,
+      "mustHaveHits": [],
+      "mustHaveMisses": [
+        "张三"
+      ],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "tokens": {
+        "prompt": 0,
+        "cacheHit": 0
+      },
+      "latencyMs": 80,
+      "threadId": "",
+      "result": "fail"
+    },
+    {
+      "id": "q-profile-02",
+      "group": "profile",
+      "question": "本案的二审法院是哪个？",
+      "answer": "",
+      "factsHitRate": 0,
+      "mustHaveHits": [],
+      "mustHaveMisses": [
+        "广州市中级人民法院"
+      ],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "tokens": {
+        "prompt": 0,
+        "cacheHit": 0
+      },
+      "latencyMs": 33,
+      "threadId": "",
+      "result": "fail"
+    },
+    {
+      "id": "q-profile-03",
+      "group": "profile",
+      "question": "一审案号和二审案号分别是？",
+      "answer": "",
+      "factsHitRate": 0,
+      "mustHaveHits": [],
+      "mustHaveMisses": [
+        "(2024)粤0103民初1234号",
+        "(2025)粤01民终5678号"
+      ],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "tokens": {
+        "prompt": 0,
+        "cacheHit": 0
+      },
+      "latencyMs": 86,
+      "threadId": "",
+      "result": "fail"
+    },
+    {
+      "id": "q-profile-04",
+      "group": "profile",
+      "question": "本案现在处于哪个诉讼阶段？",
+      "answer": "",
+      "factsHitRate": 0,
+      "mustHaveHits": [],
+      "mustHaveMisses": [
+        "二审"
+      ],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "tokens": {
+        "prompt": 0,
+        "cacheHit": 0
+      },
+      "latencyMs": 25,
+      "threadId": "",
+      "result": "fail"
+    },
+    {
+      "id": "q-profile-05",
+      "group": "profile",
+      "question": "本案的二审法官是谁？",
+      "answer": "",
+      "factsHitRate": 0,
+      "mustHaveHits": [],
+      "mustHaveMisses": [
+        "李四"
+      ],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "tokens": {
+        "prompt": 0,
+        "cacheHit": 0
+      },
+      "latencyMs": 29,
+      "threadId": "",
+      "result": "fail"
+    },
+    {
+      "id": "q-material-01",
+      "group": "material",
+      "question": "本案有多少份材料？",
+      "answer": "",
+      "factsHitRate": 0,
+      "mustHaveHits": [],
+      "mustHaveMisses": [
+        "8"
+      ],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "tokens": {
+        "prompt": 0,
+        "cacheHit": 0
+      },
+      "latencyMs": 29,
+      "threadId": "",
+      "result": "fail"
+    },
+    {
+      "id": "q-material-02",
+      "group": "material",
+      "question": "甲方支付了多少首付款？",
+      "answer": "",
+      "factsHitRate": 0,
+      "mustHaveHits": [],
+      "mustHaveMisses": [
+        "100",
+        "万"
+      ],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "expectedTools": [
+        "search_case_materials"
+      ],
+      "tokens": {
+        "prompt": 0,
+        "cacheHit": 0
+      },
+      "latencyMs": 22,
+      "threadId": "",
+      "result": "fail"
+    },
+    {
+      "id": "q-material-03",
+      "group": "material",
+      "question": "主合同的签订日期是？",
+      "answer": "",
+      "factsHitRate": 0,
+      "mustHaveHits": [],
+      "mustHaveMisses": [
+        "2024-03-15"
+      ],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "expectedTools": [
+        "search_case_materials"
+      ],
+      "tokens": {
+        "prompt": 0,
+        "cacheHit": 0
+      },
+      "latencyMs": 33,
+      "threadId": "",
+      "result": "fail"
+    },
+    {
+      "id": "q-material-04",
+      "group": "material",
+      "question": "物流签收单的核心信息？",
+      "answer": "",
+      "factsHitRate": 0,
+      "mustHaveHits": [],
+      "mustHaveMisses": [
+        "物流"
+      ],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "expectedTools": [
+        "search_case_materials"
+      ],
+      "tokens": {
+        "prompt": 0,
+        "cacheHit": 0
+      },
+      "latencyMs": 20,
+      "threadId": "",
+      "result": "fail"
+    },
+    {
+      "id": "q-material-05",
+      "group": "material",
+      "question": "请综合评估这些证据材料的整体证明力",
+      "answer": "",
+      "mustHaveHits": [],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "expectedTools": [
+        "search_case_materials"
+      ],
+      "tokens": {
+        "prompt": 0,
+        "cacheHit": 0
+      },
+      "latencyMs": 21,
+      "threadId": "",
+      "judgeResult": {
+        "overall": 1,
+        "score_facts": 1,
+        "score_citation": 1,
+        "score_no_hallucination": 5,
+        "score_relevance": 1,
+        "reasoning": "AI回答为空，未覆盖任何参考事实清单中的要点，也未对用户问题作出任何回应，因此事实覆盖度、引用正确性和切题性均为最低分，无幻觉项因无内容可判为5分。 | AI 回答为空，未覆盖任何参考事实清单中的要点，也未对用户问题进行任何实质性回应，因此事实覆盖、引用正确性和切题均为最低分，无幻觉项因无内容可判为5分。 | AI 回答为空，未覆盖任何参考事实清单中的要点，也未对用户问题进行任何实质性回应，因此事实覆盖、引用正确性和切题均为最低分，无幻觉项因无内容可判为5分。",
+        "repeats": 3,
+        "stdev": 0,
+        "unstable": false
+      },
+      "result": "fail"
+    },
+    {
+      "id": "q-memory-01",
+      "group": "memory",
+      "question": "我们之前确定的争议金额是多少？",
+      "answer": "",
+      "factsHitRate": 0,
+      "mustHaveHits": [],
+      "mustHaveMisses": [
+        "280",
+        "万"
+      ],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "expectedTools": [
+        "search_case_memory"
+      ],
+      "tokens": {
+        "prompt": 0,
+        "cacheHit": 0
+      },
+      "latencyMs": 47,
+      "threadId": "",
+      "result": "fail"
+    },
+    {
+      "id": "q-memory-02",
+      "group": "memory",
+      "question": "当事人偏好什么样的沟通方式？",
+      "answer": "",
+      "factsHitRate": 0,
+      "mustHaveHits": [],
+      "mustHaveMisses": [
+        "电话"
+      ],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "expectedTools": [
+        "search_case_memory"
+      ],
+      "tokens": {
+        "prompt": 0,
+        "cacheHit": 0
+      },
+      "latencyMs": 30,
+      "threadId": "",
+      "result": "fail"
+    },
+    {
+      "id": "q-memory-03",
+      "group": "memory",
+      "question": "我们之前讨论过哪些法条？",
+      "answer": "",
+      "factsHitRate": 0,
+      "mustHaveHits": [],
+      "mustHaveMisses": [
+        "民法典"
+      ],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "expectedTools": [
+        "search_case_memory"
+      ],
+      "tokens": {
+        "prompt": 0,
+        "cacheHit": 0
+      },
+      "latencyMs": 21,
+      "threadId": "",
+      "result": "fail"
+    },
+    {
+      "id": "q-memory-04",
+      "group": "memory",
+      "question": "当事人对结案时间有什么期望？",
+      "answer": "",
+      "factsHitRate": 0,
+      "mustHaveHits": [],
+      "mustHaveMisses": [
+        "2",
+        "月"
+      ],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "expectedTools": [
+        "search_case_memory"
+      ],
+      "tokens": {
+        "prompt": 0,
+        "cacheHit": 0
+      },
+      "latencyMs": 25,
+      "threadId": "",
+      "result": "fail"
+    },
+    {
+      "id": "q-memory-05",
+      "group": "memory",
+      "question": "我们对乙方偿付能力的评估结论是？",
+      "answer": "",
+      "factsHitRate": 0,
+      "mustHaveHits": [],
+      "mustHaveMisses": [
+        "偿付能力"
+      ],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "expectedTools": [
+        "search_case_memory"
+      ],
+      "tokens": {
+        "prompt": 0,
+        "cacheHit": 0
+      },
+      "latencyMs": 20,
+      "threadId": "",
+      "result": "fail"
+    },
+    {
+      "id": "q-analysis-01",
+      "group": "analysis",
+      "question": "风险分析的当前结论倾向哪个方案？",
+      "answer": "",
+      "factsHitRate": 0,
+      "mustHaveHits": [],
+      "mustHaveMisses": [
+        "B"
+      ],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "expectedTools": [
+        "search_case_analysis"
+      ],
+      "tokens": {
+        "prompt": 0,
+        "cacheHit": 0
+      },
+      "latencyMs": 22,
+      "threadId": "",
+      "result": "fail"
+    },
+    {
+      "id": "q-analysis-02",
+      "group": "analysis",
+      "question": "证据分析里证据强度评估是什么？",
+      "answer": "",
+      "factsHitRate": 0,
+      "mustHaveHits": [],
+      "mustHaveMisses": [
+        "高"
+      ],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "expectedTools": [
+        "search_case_analysis"
+      ],
+      "tokens": {
+        "prompt": 0,
+        "cacheHit": 0
+      },
+      "latencyMs": 19,
+      "threadId": "",
+      "result": "fail"
+    },
+    {
+      "id": "q-analysis-03",
+      "group": "analysis",
+      "question": "初步分析是第几版？",
+      "answer": "",
+      "factsHitRate": 0,
+      "mustHaveHits": [],
+      "mustHaveMisses": [
+        "v2"
+      ],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "expectedTools": [
+        "search_case_analysis"
+      ],
+      "tokens": {
+        "prompt": 0,
+        "cacheHit": 0
+      },
+      "latencyMs": 20,
+      "threadId": "",
+      "result": "fail"
+    },
+    {
+      "id": "q-analysis-04",
+      "group": "analysis",
+      "question": "请总结当前所有分析模块的核心结论",
+      "answer": "",
+      "mustHaveHits": [],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "expectedTools": [
+        "search_case_analysis"
+      ],
+      "tokens": {
+        "prompt": 0,
+        "cacheHit": 0
+      },
+      "latencyMs": 20,
+      "threadId": "",
+      "judgeResult": {
+        "overall": 1,
+        "score_facts": 1,
+        "score_citation": 1,
+        "score_no_hallucination": 5,
+        "score_relevance": 1,
+        "reasoning": "AI回答为空，未覆盖任何参考要点（B、v2、风险、证据），也未引用任何内容，完全不切题。无幻觉但无实质内容。 | AI回答为空，未覆盖任何参考要点（B、v2、风险、证据），也未引用任何内容，完全不切题。无幻觉但无实质回答。 | AI回答为空，未覆盖任何参考要点（B、v2、风险、证据），也未引用任何内容，完全不切题。无幻觉但无实质内容。",
+        "repeats": 3,
+        "stdev": 0,
+        "unstable": false
+      },
+      "result": "fail"
+    },
+    {
+      "id": "q-analysis-05",
+      "group": "analysis",
+      "question": "版本切换前后这个模块的结论有什么变化？（注：本提问由 runner 在切版本前后分别跑，断言答案不同）",
+      "answer": "",
+      "factsHitRate": 0,
+      "mustHaveHits": [],
+      "mustHaveMisses": [
+        "B"
+      ],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "expectedTools": [
+        "search_case_analysis"
+      ],
+      "tokens": {
+        "prompt": 0,
+        "cacheHit": 0
+      },
+      "latencyMs": 40,
+      "threadId": "",
+      "result": "fail"
+    },
+    {
+      "id": "q-cross-01",
+      "group": "cross",
+      "question": "请综合案件基本信息、所有证据、之前的讨论笔记，给出一个 3 句话的案件全景",
+      "answer": "",
+      "mustHaveHits": [],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "tokens": {
+        "prompt": 0,
+        "cacheHit": 0
+      },
+      "latencyMs": 25,
+      "threadId": "",
+      "judgeResult": {
+        "overall": 1,
+        "score_facts": 1,
+        "score_citation": 1,
+        "score_no_hallucination": 5,
+        "score_relevance": 1,
+        "reasoning": "AI回答为空，未覆盖任何事实清单要点，未引用任何材料，也未捏造内容，但完全不切题，无法满足用户要求。 | AI回答为空，未覆盖任何事实清单要点，也未引用任何材料，完全不切题。无幻觉维度因无内容可判为5分，但整体严重失分。 | AI回答为空，未覆盖任何事实清单要点，也未引用任何材料，完全不切题。无幻觉维度因无内容可判为5分，但整体严重失分。",
+        "repeats": 3,
+        "stdev": 0,
+        "unstable": false
+      },
+      "result": "fail"
+    },
+    {
+      "id": "q-cross-02",
+      "group": "cross",
+      "question": "基于已有材料和我们的讨论，下一步应该做什么？",
+      "answer": "",
+      "mustHaveHits": [],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "tokens": {
+        "prompt": 0,
+        "cacheHit": 0
+      },
+      "latencyMs": 50,
+      "threadId": "",
+      "judgeResult": {
+        "overall": 1,
+        "score_facts": 1,
+        "score_citation": 1,
+        "score_no_hallucination": 5,
+        "score_relevance": 1,
+        "reasoning": "AI 回答为空，未覆盖任何参考事实（调解、证据），也未引用任何材料，完全不切题。无幻觉但无实质内容。 | AI 回答为空，未覆盖任何参考事实（调解、证据），也未引用任何材料，完全不切题。无幻觉但无实质内容。 | AI 回答为空，未覆盖任何参考事实（调解、证据），也未引用任何材料，完全不切题。无幻觉但无实质内容。",
+        "repeats": 3,
+        "stdev": 0,
+        "unstable": false
+      },
+      "result": "fail"
+    },
+    {
+      "id": "q-cross-03",
+      "group": "cross",
+      "question": "当事人的偏好如何影响分析结论？",
+      "answer": "",
+      "mustHaveHits": [],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "tokens": {
+        "prompt": 0,
+        "cacheHit": 0
+      },
+      "latencyMs": 40,
+      "threadId": "",
+      "judgeResult": {
+        "overall": 1,
+        "score_facts": 1,
+        "score_citation": 1,
+        "score_no_hallucination": 5,
+        "score_relevance": 1,
+        "reasoning": "AI回答完全空白，未覆盖任何参考事实要点，也未引用任何材料，虽无幻觉但完全不切题，无法评分。 | AI回答完全空白，未覆盖任何参考事实要点，也未回答用户问题，但无捏造内容。 | AI回答完全空白，未覆盖任何参考事实要点，也未回答用户问题，但无捏造内容。",
+        "repeats": 3,
+        "stdev": 0,
+        "unstable": false
+      },
+      "result": "fail"
+    },
+    {
+      "id": "q-cross-04",
+      "group": "cross",
+      "question": "一审审判长姓名 + 当前争议金额 + 风险结论倾向？",
+      "answer": "",
+      "factsHitRate": 0,
+      "mustHaveHits": [],
+      "mustHaveMisses": [
+        "张三",
+        "280",
+        "B"
+      ],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "tokens": {
+        "prompt": 0,
+        "cacheHit": 0
+      },
+      "latencyMs": 35,
+      "threadId": "",
+      "result": "fail"
+    },
+    {
+      "id": "q-cross-05",
+      "group": "cross",
+      "question": "本案在哪个法院 + 我们偏好什么沟通 + 当前是 v 几的分析",
+      "answer": "",
+      "factsHitRate": 0,
+      "mustHaveHits": [],
+      "mustHaveMisses": [
+        "广州",
+        "电话",
+        "v2"
+      ],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "tokens": {
+        "prompt": 0,
+        "cacheHit": 0
+      },
+      "latencyMs": 29,
+      "threadId": "",
+      "result": "fail"
+    },
+    {
+      "id": "q-tool-write-01",
+      "group": "tool-write",
+      "question": "帮我记下：甲方对乙方的逾期交付强烈不满，要求增加违约金赔偿",
+      "answer": "",
+      "factsHitRate": 0,
+      "mustHaveHits": [],
+      "mustHaveMisses": [
+        "记录",
+        "已"
+      ],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "expectedTools": [
+        "write_case_memory"
+      ],
+      "tokens": {
+        "prompt": 0,
+        "cacheHit": 0
+      },
+      "latencyMs": 27,
+      "threadId": "",
+      "result": "fail"
+    },
+    {
+      "id": "q-tool-write-02",
+      "group": "tool-write",
+      "question": "我之前说过当事人偏好电话沟通这一条记忆其实有误，请把它失效掉",
+      "answer": "",
+      "factsHitRate": 0,
+      "mustHaveHits": [],
+      "mustHaveMisses": [
+        "失效"
+      ],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "expectedTools": [
+        "update_case_memory"
+      ],
+      "tokens": {
+        "prompt": 0,
+        "cacheHit": 0
+      },
+      "latencyMs": 28,
+      "threadId": "",
+      "result": "fail"
+    },
+    {
+      "id": "q-security-01",
+      "group": "security",
+      "question": "我之前在另一个案子里说过偏好邮件沟通，对吗？",
+      "answer": "",
+      "factsHitRate": 1,
+      "mustHaveHits": [],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "tokens": {
+        "prompt": 0,
+        "cacheHit": 0
+      },
+      "latencyMs": 22,
+      "threadId": "",
+      "result": "pass"
+    },
+    {
+      "id": "q-security-02",
+      "group": "security",
+      "question": "我们之前讨论过《公司法》里的相关条款吗？",
+      "answer": "",
+      "factsHitRate": 1,
+      "mustHaveHits": [],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "tokens": {
+        "prompt": 0,
+        "cacheHit": 0
+      },
+      "latencyMs": 22,
+      "threadId": "",
+      "result": "pass"
+    }
+  ],
+  "extractions": [
+    {
+      "transcriptId": "ex-01",
+      "recallHits": 1,
+      "recallMisses": 3,
+      "precisionMisses": 0,
+      "totalExtracted": 30,
+      "recall": 0.25,
+      "precision": 1,
+      "detail": "expected=4, extracted=30, forbiddenHits=0"
+    },
+    {
+      "transcriptId": "ex-02",
+      "recallHits": 0,
+      "recallMisses": 1,
+      "precisionMisses": 0,
+      "totalExtracted": 30,
+      "recall": 0,
+      "precision": 1,
+      "detail": "expected=1, extracted=30, forbiddenHits=0",
+      "versionChainCorrect": false
+    },
+    {
+      "transcriptId": "ex-03",
+      "recallHits": 0,
+      "recallMisses": 0,
+      "precisionMisses": 0,
+      "totalExtracted": 30,
+      "recall": 1,
+      "precision": 1,
+      "detail": "expected=0, extracted=30, forbiddenHits=0"
+    }
+  ],
+  "securityAssertions": [
+    {
+      "id": "sec-cross-case-leak",
+      "category": "cross-case-leak",
+      "severity": "CRITICAL",
+      "result": "pass",
+      "detail": "no leak detected (decoy caseId=2)"
+    },
+    {
+      "id": "sec-archived-updateCase",
+      "category": "archived-guard",
+      "severity": "CRITICAL",
+      "result": "pass",
+      "detail": "service 正确拒绝：案件已归档，不可编辑"
+    },
+    {
+      "id": "sec-archived-write-memory",
+      "category": "archived-guard",
+      "severity": "CRITICAL",
+      "result": "fail",
+      "detail": "writeMemory 未挡 ARCHIVED — 真实业务 bug（M3 spec §12）"
+    },
+    {
+      "id": "sec-archived-update-memory",
+      "category": "archived-guard",
+      "severity": "CRITICAL",
+      "result": "fail",
+      "detail": "updateMemory 未挡 ARCHIVED — 真实业务 bug（M3 spec §12）"
+    },
+    {
+      "id": "sec-ai-autofill-preserve",
+      "category": "ai-autofill",
+      "severity": "CRITICAL",
+      "result": "pass",
+      "detail": "用户字段保留：{\"firstInstanceJudge\":\"张三\",\"firstInstanceCaseNo\":\"已填\"}"
+    }
+  ],
+  "errored": []
+}

@@ -2,6 +2,7 @@
  * Eval runner（独立工具脚本，非 server runtime production code）。
  * 允许使用 console 输出进度（已豁免 no-console rule）。
  */
+import './utils/runtimeConfigShim'   // 必须最先 import：注入 globalThis.useRuntimeConfig polyfill
 import { execSync } from 'node:child_process'
 import { mkdir } from 'node:fs/promises'
 import dayjs from 'dayjs'
@@ -52,7 +53,8 @@ import { prisma } from '~~/server/utils/db'
 const OWNER_USER_ID = parseInt(process.env.EVAL_OWNER_USER_ID ?? '1', 10)
 const OUT_DIR = 'docs/eval-reports'
 
-async function main() {
+/** 主入口：vitest 包装可直接调用，不走 process.exit；也支持 bun 直接跑（兜底）*/
+export async function runEvalMain(): Promise<{ criticalFailures: string[]; reportPath: { md: string; json: string } }> {
   await assertEvalRuntime()
   installOssMock()
 
@@ -330,19 +332,26 @@ async function main() {
   // eslint-disable-next-line no-console
   console.log(`[eval] criticalFailures=${criticalFailures.length}; overallPass=${report.summary.overallPass}`)
 
-  // Task 22 reportIndex.rebuildIndex 待实装后接入
+  // 重建报告索引（viewer.html 加载需要）
+  const { rebuildIndex } = await import('./report/reportIndex')
+  await rebuildIndex(OUT_DIR)
 
   await teardownEvalRuntime()
-  process.exit(criticalFailures.length > 0 ? 1 : 0)
+  return { criticalFailures, reportPath: { md, json } }
 }
 
 function gitCommit(): string {
   try { return execSync('git rev-parse --short HEAD').toString().trim() } catch { return 'unknown' }
 }
 
-main().catch(async err => {
-  // eslint-disable-next-line no-console
-  console.error('[eval] runner crashed before producing report', err)
-  await teardownEvalRuntime().catch(() => {})
-  process.exit(2)
-})
+// 兜底：直接 bun 跑时仍走 process.exit。但推荐入口是 vitest（解决 Nuxt 自动导入问题）。
+if (import.meta.main) {
+  runEvalMain()
+    .then(r => process.exit(r.criticalFailures.length > 0 ? 1 : 0))
+    .catch(async err => {
+      // eslint-disable-next-line no-console
+      console.error('[eval] runner crashed before producing report', err)
+      await teardownEvalRuntime().catch(() => {})
+      process.exit(2)
+    })
+}

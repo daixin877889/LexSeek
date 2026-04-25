@@ -1,0 +1,46 @@
+{
+  "reports": [
+    {
+      "filename": "2026-04-25-1421-context-governance.json",
+      "runAt": "2026-04-25T14:21:19+08:00",
+      "commit": "c5bf3685",
+      "overallPass": false,
+      "criticalFailures": [
+        "cacheHitRate",
+        "toolCallAccuracy",
+        "scenarioPassRate",
+        "versionChainCorrect",
+        "sec-archived-update-memory",
+        "stab-old-data-graceful"
+      ]
+    },
+    {
+      "filename": "2026-04-25-1423-context-governance.json",
+      "runAt": "2026-04-25T14:23:10+08:00",
+      "commit": "c5bf3685",
+      "overallPass": false,
+      "criticalFailures": [
+        "cacheHitRate",
+        "toolCallAccuracy",
+        "scenarioPassRate",
+        "versionChainCorrect",
+        "sec-archived-write-memory",
+        "sec-archived-update-memory"
+      ]
+    },
+    {
+      "filename": "2026-04-25-1510-context-governance.json",
+      "runAt": "2026-04-25T15:10:03+08:00",
+      "commit": "42c3ca0a",
+      "overallPass": false,
+      "criticalFailures": [
+        "cacheHitRate",
+        "toolCallAccuracy",
+        "scenarioPassRate",
+        "versionChainCorrect",
+        "sec-archived-write-memory",
+        "sec-archived-update-memory"
+      ]
+    }
+  ]
+}
