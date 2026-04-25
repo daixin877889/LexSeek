@@ -1,0 +1,90 @@
+import { BaseCallbackHandler } from '@langchain/core/callbacks/base'
+import type { Serialized } from '@langchain/core/load/serializable'
+import type { LLMResult } from '@langchain/core/outputs'
+
+export interface RawLLMUsage {
+  prompt_tokens?: number
+  completion_tokens?: number
+  total_tokens?: number
+  // DeepSeek 原生
+  prompt_cache_hit_tokens?: number
+  prompt_cache_miss_tokens?: number
+  // Anthropic 协议
+  input_tokens?: number
+  output_tokens?: number
+  cache_read_input_tokens?: number
+  cache_creation_input_tokens?: number
+  // OpenAI 协议
+  prompt_tokens_details?: {
+    cached_tokens?: number
+  }
+}
+
+export interface LLMUsageRecord {
+  tag: string
+  runId: string
+  usage: RawLLMUsage
+  latencyMs: number
+  isWarmup: boolean
+  ts: number
+}
+
+interface HandlerOptions {
+  tag: string
+  isWarmup: boolean
+}
+
+/**
+ * 从 LangChain LLM callback 抓取**供应商原始 usage**（不走标准化的 usage_metadata）。
+ *
+ * 使用方式：在 eval runner 里实例化一次，注册到 chat model 的 callbacks 数组，
+ * 跑完后 `getRecords()` 拿全部记录用于 aggregator。
+ *
+ * 为什么不用 LangChain 标准化的 usage_metadata：DeepSeek 的 `prompt_cache_hit_tokens`
+ * 不在标准字段里，只在 `response_metadata.usage` 中。
+ */
+export class LLMUsageCallbackHandler extends BaseCallbackHandler {
+  name = 'LLMUsageCallbackHandler'
+  private records: LLMUsageRecord[] = []
+  private startTimes = new Map<string, number>()
+
+  constructor(private opts: HandlerOptions) {
+    super()
+  }
+
+  async handleLLMStart(_llm: Serialized, _prompts: string[], runId: string): Promise<void> {
+    this.startTimes.set(runId, Date.now())
+  }
+
+  async handleLLMEnd(output: LLMResult, runId: string): Promise<void> {
+    const startedAt = this.startTimes.get(runId) ?? Date.now()
+    const latencyMs = Date.now() - startedAt
+    this.startTimes.delete(runId)
+
+    const message = output?.generations?.[0]?.[0]?.message as { response_metadata?: { usage?: RawLLMUsage } } | undefined
+    const usage: RawLLMUsage = message?.response_metadata?.usage ?? {}
+
+    this.records.push({
+      tag: this.opts.tag,
+      runId,
+      usage,
+      latencyMs,
+      isWarmup: this.opts.isWarmup,
+      ts: Date.now(),
+    })
+  }
+
+  getRecords(): readonly LLMUsageRecord[] {
+    return this.records
+  }
+
+  reset(): void {
+    this.records = []
+    this.startTimes.clear()
+  }
+
+  /** 切换 warmup flag（warmup 阶段结束后调用） */
+  setWarmup(isWarmup: boolean): void {
+    this.opts.isWarmup = isWarmup
+  }
+}
