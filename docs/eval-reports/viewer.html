@@ -3,44 +3,144 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>上下文机制评测报告 Viewer</title>
+  <title>上下文机制评测报告</title>
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <style type="text/tailwindcss">
+    @custom-variant dark (&:where(.dark, .dark *));
+  </style>
+  <style>
+    :root { color-scheme: light; }
+    html.dark { color-scheme: dark; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif; }
+    details > summary { list-style: none; }
+    details > summary::-webkit-details-marker { display: none; }
+    details > summary .chev { transition: transform .15s ease; }
+    details[open] > summary .chev { transform: rotate(90deg); }
+  </style>
 </head>
-<body class="bg-slate-50 text-slate-900">
-  <div class="max-w-7xl mx-auto p-6">
-    <h1 class="text-2xl font-bold mb-4">上下文机制评测报告</h1>
-
-    <div class="mb-4 flex items-center gap-3">
-      <label class="text-sm">报告：</label>
-      <select id="report-select" class="border border-gray-200 rounded px-2 py-1 bg-white"></select>
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 transition-colors">
+  <header class="sticky top-0 z-20 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm">
+    <div class="max-w-7xl mx-auto px-6 py-3 flex items-center gap-4">
+      <div class="flex items-center gap-2">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-indigo-600 dark:text-indigo-400"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 6-10"/></svg>
+        <h1 class="text-base font-semibold">上下文机制评测报告</h1>
+      </div>
+      <div class="flex-1"></div>
+      <div class="flex items-center gap-3">
+        <label class="text-xs text-slate-500 dark:text-slate-400">报告版本</label>
+        <select id="report-select" class="text-sm border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1 bg-white dark:bg-slate-800 max-w-md truncate"></select>
+        <button id="theme-toggle" type="button" aria-label="切换主题" class="p-1.5 rounded-md border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800">
+          <svg id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 hidden dark:block"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+          <svg id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 block dark:hidden"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+      </div>
     </div>
+  </header>
 
-    <div id="overview" class="mb-6"></div>
-    <div id="metrics" class="mb-6"></div>
-    <div id="cases"></div>
-  </div>
+  <main class="max-w-7xl mx-auto px-6 py-6 space-y-6">
+    <section id="overview"></section>
+    <section id="metrics" class="space-y-4"></section>
+    <section id="cases"></section>
+  </main>
 
   <script>
-    /**
-     * 已知业务缺陷清单（首跑预期 FAIL，但属于独立工单 — 区分回归 vs 已知 bug）
-     * 见 plan §A2.6 Task 19 + Task 23 README "已知业务 bug" 段落。
-     */
-    const KNOWN_BIZ_BUGS = new Set([
-      'sec-archived-write-memory',
-      'sec-archived-update-memory',
-      'sec-archived-initAnalysis',
-    ])
+    // ============== 中文翻译字典 ==============
+    const CATEGORY_CN = {
+      cost: '成本',
+      quality: '答案质量',
+      task: '任务成功',
+      extraction: '抽取质量',
+      security: '安全/隔离',
+      stability: '稳定性',
+    }
 
+    const METRIC_CN = {
+      // Cost
+      systemPromptTokensAvg: '系统提示词 token 均值',
+      totalPromptTokensAvg: '总提示词 token 均值',
+      cacheHitRate: '缓存命中率',
+      anthropicCacheStructureOk: 'Anthropic 缓存结构正确',
+      openaiCacheStructureOk: 'OpenAI 缓存结构正确',
+      memoryRecallLatencyP95: '记忆召回 P95 延迟',
+      analysisSummaryLatencyP95: '分析摘要 P95 延迟',
+      // Quality
+      qualityScore: '答案质量分',
+      factsHitRate: '事实命中率',
+      hallucinationRate: '幻觉率',
+      // Task
+      toolCallAccuracy: '工具调用准确率',
+      scenarioPassRate: '场景通过率',
+      // Extraction
+      extractionRecall: '抽取召回率',
+      extractionPrecision: '抽取精确率',
+      confidenceFilterCorrect: '置信度过滤正确率',
+      // Security
+      'sec-cross-case-leak': '跨案件数据隔离',
+      'sec-archived-updateCase': '归档案件不可编辑',
+      'sec-archived-write-memory': '归档案件不可写记忆',
+      'sec-archived-update-memory': '归档案件不可改记忆',
+      'sec-archived-initAnalysis': '归档案件不可发起分析',
+      'sec-ai-autofill-preserve': 'AI 自动填充不覆盖用户输入',
+      // Stability
+      'stab-prompt-hash': '提示词哈希稳定',
+      'stab-switch-active-atomic': '版本切换原子性',
+      'stab-old-data-graceful': '旧数据兼容',
+      'stab-version-chain': '记忆版本链一致',
+      'stab-profile-key-order': '档案键顺序稳定',
+    }
+
+    const GROUP_CN = {
+      profile: '案件档案',
+      material: '材料检索',
+      memory: '记忆检索',
+      analysis: '分析模块',
+      cross: '综合题',
+      security: '安全隔离',
+      'tool-write': '工具写入',
+    }
+
+    const SEVERITY_CN = { CRITICAL: '严重', WARN: '警告' }
+    const RESULT_CN = { pass: '通过', fail: '未通过', errored: '出错' }
+
+    function metricCn(name) { return METRIC_CN[name] || '' }
+    function categoryCn(cat) { return CATEGORY_CN[cat] || cat }
+    function groupCn(g) { return GROUP_CN[g] || g }
+
+    // ============== 通用工具 ==============
     function escapeHtml(s) {
       return String(s ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))
     }
 
-    function bizBugTag(name) {
-      return KNOWN_BIZ_BUGS.has(name)
-        ? '<span class="ml-2 px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-xs">[业务缺陷]</span>'
-        : ''
+    function formatRunAt(s) {
+      // 输入示例：2026-04-25T22:30:15+08:00
+      try {
+        const d = new Date(s)
+        if (isNaN(d.getTime())) return s
+        const pad = n => String(n).padStart(2, '0')
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+      } catch { return s }
     }
 
+    // ============== 主题切换 ==============
+    function applyTheme(t) {
+      const html = document.documentElement
+      if (t === 'dark') html.classList.add('dark')
+      else html.classList.remove('dark')
+    }
+    function initTheme() {
+      const saved = localStorage.getItem('eval-viewer-theme')
+      const sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+      applyTheme(saved || (sysDark ? 'dark' : 'light'))
+    }
+    document.getElementById('theme-toggle').addEventListener('click', () => {
+      const isDark = document.documentElement.classList.contains('dark')
+      const next = isDark ? 'light' : 'dark'
+      localStorage.setItem('eval-viewer-theme', next)
+      applyTheme(next)
+    })
+    initTheme()
+
+    // ============== 数据加载 ==============
     async function loadIndex() {
       try {
         const res = await fetch('./index.json', { cache: 'no-store' })
@@ -50,20 +150,19 @@
         sel.innerHTML = ''
         const list = (idx.reports || []).slice().reverse()
         if (list.length === 0) {
-          document.getElementById('overview').innerHTML =
-            '<div class="bg-white p-4 rounded shadow border border-gray-200 text-slate-600">index.json 为空，先跑 <code>bun run tests/eval/runEval.ts</code> 生成报告。</div>'
+          document.getElementById('overview').innerHTML = emptyState()
           return
         }
         list.forEach(r => {
           const o = document.createElement('option')
           o.value = r.filename
-          o.textContent = `${r.runAt}  ${r.overallPass ? '[PASS]' : '[FAIL]'}  ${r.filename}`
+          const status = r.overallPass ? '通过' : '未通过'
+          o.textContent = `${formatRunAt(r.runAt)} · ${status} · ${r.filename}`
           sel.appendChild(o)
         })
         await loadReport(sel.value)
       } catch (e) {
-        document.getElementById('overview').innerHTML =
-          `<div class="bg-white p-4 rounded shadow border border-gray-200 text-red-600">加载 index.json 失败：${escapeHtml(e.message || e)}<br><span class="text-xs text-slate-500">提示：viewer 必须通过 HTTP 打开（如 <code>python3 -m http.server</code>），不能直接 file:// 双击。</span></div>`
+        document.getElementById('overview').innerHTML = errorCard(`加载报告索引失败：${escapeHtml(e.message || e)}<br><span class="text-xs text-slate-500 dark:text-slate-400 mt-1 block">提示：viewer 必须通过 HTTP 打开（如 <code class="text-xs">python3 -m http.server</code>），不能直接 file:// 双击。</span>`)
       }
     }
 
@@ -76,130 +175,304 @@
         renderMetrics(r)
         renderCases(r)
       } catch (e) {
-        document.getElementById('overview').innerHTML =
-          `<div class="bg-white p-4 rounded shadow border border-gray-200 text-red-600">加载 ${escapeHtml(filename)} 失败：${escapeHtml(e.message || e)}</div>`
+        document.getElementById('overview').innerHTML = errorCard(`加载 ${escapeHtml(filename)} 失败：${escapeHtml(e.message || e)}`)
+        document.getElementById('metrics').innerHTML = ''
+        document.getElementById('cases').innerHTML = ''
       }
     }
 
+    function emptyState() {
+      return `<div class="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-8 text-center text-slate-600 dark:text-slate-400">
+        index.json 为空，先跑 <code class="text-xs px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800">bun run tests/eval/runEval.ts</code> 生成报告。
+      </div>`
+    }
+
+    function errorCard(html) {
+      return `<div class="rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/40 p-4 text-rose-700 dark:text-rose-300">${html}</div>`
+    }
+
+    // ============== 渲染：总览 ==============
     function renderOverview(r) {
       const el = document.getElementById('overview')
-      const badge = r.summary.overallPass
-        ? '<span class="px-3 py-1 bg-green-100 text-green-800 rounded font-bold">[PASS]</span>'
-        : '<span class="px-3 py-1 bg-red-100 text-red-800 rounded font-bold">[FAIL]</span>'
+      const overall = r.summary.overallPass
+      const ratioCrit = r.summary.totalCritical > 0 ? r.summary.passedCritical / r.summary.totalCritical : 1
+      const ratioWarn = r.summary.totalWarn > 0 ? r.summary.passedWarn / r.summary.totalWarn : 1
+
       const failuresHtml = r.summary.criticalFailures.length > 0
-        ? `<div class="mt-3"><strong>CRITICAL 未通过：</strong><ul class="list-disc ml-6 mt-1">${
-            r.summary.criticalFailures.map(name =>
-              `<li>${escapeHtml(name)}${bizBugTag(name)}</li>`
-            ).join('')
-          }</ul></div>`
+        ? `<div class="mt-4 rounded-lg border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/30 p-3">
+            <div class="flex items-center gap-2 text-sm font-medium text-rose-700 dark:text-rose-300">
+              ${iconAlert()} 严重指标未通过（${r.summary.criticalFailures.length}）
+            </div>
+            <ul class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-sm text-rose-700 dark:text-rose-300">
+              ${r.summary.criticalFailures.map(name => `
+                <li class="flex items-baseline gap-2">
+                  <span class="font-mono text-xs">${escapeHtml(name)}</span>
+                  ${metricCn(name) ? `<span class="text-slate-500 dark:text-slate-400 text-xs">${escapeHtml(metricCn(name))}</span>` : ''}
+                </li>`).join('')}
+            </ul>
+          </div>`
         : ''
+
       const erroredHtml = (r.errored && r.errored.length > 0)
-        ? `<div class="mt-3"><strong class="text-amber-700">运行错误（${r.errored.length}）：</strong><ul class="list-disc ml-6 mt-1 text-sm">${
-            r.errored.map(e => `<li>${escapeHtml(e.id)} — ${escapeHtml(e.reason)}</li>`).join('')
-          }</ul></div>`
+        ? `<div class="mt-3 rounded-lg border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-800 dark:text-amber-300">
+            <div class="flex items-center gap-2 font-medium">${iconAlert()} 运行错误（${r.errored.length}）</div>
+            <ul class="mt-2 list-disc ml-5 space-y-0.5 text-xs">
+              ${r.errored.map(e => `<li><span class="font-mono">${escapeHtml(e.id)}</span> — ${escapeHtml(e.reason)}</li>`).join('')}
+            </ul>
+          </div>`
         : ''
+
       el.innerHTML = `
-        <div class="bg-white p-4 rounded shadow border border-gray-200">
-          <div class="flex items-center gap-3 flex-wrap">
-            ${badge}
-            <span class="text-sm text-slate-600">${escapeHtml(r.runAt)} · commit ${escapeHtml(r.commit)} · ${(r.durationMs/1000).toFixed(1)}s</span>
+        <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
+          <div class="px-5 py-4 flex items-start gap-4 flex-wrap ${overall ? 'bg-emerald-50/50 dark:bg-emerald-950/20' : 'bg-rose-50/50 dark:bg-rose-950/20'}">
+            ${statusBadgeLarge(overall)}
+            <div class="flex-1 min-w-0">
+              <div class="text-xs text-slate-500 dark:text-slate-400">运行时间</div>
+              <div class="text-sm text-slate-700 dark:text-slate-200 font-medium">${escapeHtml(formatRunAt(r.runAt))}</div>
+            </div>
+            <div>
+              <div class="text-xs text-slate-500 dark:text-slate-400">commit</div>
+              <div class="text-sm font-mono text-slate-700 dark:text-slate-200">${escapeHtml(r.commit)}</div>
+            </div>
+            <div>
+              <div class="text-xs text-slate-500 dark:text-slate-400">耗时</div>
+              <div class="text-sm font-medium text-slate-700 dark:text-slate-200">${(r.durationMs/1000).toFixed(1)}s</div>
+            </div>
           </div>
-          <div class="mt-3 grid grid-cols-2 gap-2 text-sm">
-            <div>CRITICAL：${r.summary.passedCritical}/${r.summary.totalCritical} 通过</div>
-            <div>WARN：${r.summary.passedWarn}/${r.summary.totalWarn} 通过</div>
+          <div class="px-5 py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            ${progressCard('严重（CRITICAL）', r.summary.passedCritical, r.summary.totalCritical, ratioCrit, 'rose')}
+            ${progressCard('警告（WARN）', r.summary.passedWarn, r.summary.totalWarn, ratioWarn, 'amber')}
           </div>
-          ${failuresHtml}
-          ${erroredHtml}
+          ${failuresHtml || erroredHtml ? `<div class="px-5 pb-4">${failuresHtml}${erroredHtml}</div>` : ''}
         </div>
       `
     }
 
+    function statusBadgeLarge(pass) {
+      return pass
+        ? `<div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500 text-white text-sm font-semibold shadow-sm">${iconCheck()} 整体通过</div>`
+        : `<div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-rose-500 text-white text-sm font-semibold shadow-sm">${iconX()} 存在严重未通过</div>`
+    }
+
+    function progressCard(label, passed, total, ratio, tone) {
+      const allPass = passed === total && total > 0
+      const barColor = allPass ? 'bg-emerald-500' : (tone === 'rose' ? 'bg-rose-500' : 'bg-amber-500')
+      const trackColor = 'bg-slate-100 dark:bg-slate-800'
+      const pct = (ratio * 100).toFixed(0)
+      return `
+        <div class="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
+          <div class="flex items-center justify-between text-sm">
+            <span class="text-slate-700 dark:text-slate-200 font-medium">${label}</span>
+            <span class="font-mono text-xs ${allPass ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}">
+              ${passed} / ${total}（${pct}%）
+            </span>
+          </div>
+          <div class="mt-2 h-2 rounded-full ${trackColor} overflow-hidden">
+            <div class="h-full ${barColor} transition-all" style="width: ${pct}%"></div>
+          </div>
+        </div>
+      `
+    }
+
+    // ============== 渲染：指标 ==============
     function renderMetrics(r) {
       const el = document.getElementById('metrics')
       const cats = Object.entries(r.metrics)
       el.innerHTML = cats.map(([cat, ms]) => {
         const failed = ms.filter(m => m.result !== 'pass').length
-        const summaryColor = failed > 0 ? 'text-red-700' : 'text-slate-700'
+        const allPass = failed === 0
+        const headerColor = allPass
+          ? 'text-emerald-600 dark:text-emerald-400'
+          : 'text-rose-600 dark:text-rose-400'
         return `
-          <details class="bg-white p-4 rounded shadow border border-gray-200 mb-2" open>
-            <summary class="font-bold cursor-pointer ${summaryColor}">${escapeHtml(cat)}（${ms.length}${failed > 0 ? `，${failed} 项未通过` : ''}）</summary>
-            <table class="w-full mt-2 text-sm">
-              <thead>
-                <tr class="text-left text-slate-500 border-b border-gray-200">
-                  <th class="py-1">指标</th>
-                  <th>值</th>
-                  <th>阈值</th>
-                  <th>级别</th>
-                  <th>状态</th>
-                  <th>详情</th>
-                </tr>
-              </thead>
-              <tbody>${ms.map(m => `
-                <tr class="border-t border-gray-200">
-                  <td class="py-1">${escapeHtml(m.name)}${bizBugTag(m.name)}</td>
-                  <td>${escapeHtml(m.value)}</td>
-                  <td>${escapeHtml(m.threshold || '-')}</td>
-                  <td>${escapeHtml(m.severity)}</td>
-                  <td class="${m.result === 'pass' ? 'text-green-700' : m.result === 'fail' ? 'text-red-700' : 'text-amber-700'}">${escapeHtml(m.result)}</td>
-                  <td class="text-xs text-slate-500">${escapeHtml(m.detail || '')}</td>
-                </tr>`).join('')}</tbody>
-            </table>
+          <details class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden" open>
+            <summary class="px-5 py-3 cursor-pointer flex items-center gap-3 select-none hover:bg-slate-50 dark:hover:bg-slate-800/50">
+              <svg class="chev w-3.5 h-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              <span class="font-semibold text-base">${escapeHtml(categoryCn(cat))}</span>
+              <span class="text-xs text-slate-400 font-mono">${escapeHtml(cat)}</span>
+              <span class="ml-auto text-xs ${headerColor}">${allPass ? `全部通过（${ms.length}）` : `${failed} / ${ms.length} 未通过`}</span>
+            </summary>
+            <div class="border-t border-slate-200 dark:border-slate-800 overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-slate-50 dark:bg-slate-800/50">
+                  <tr class="text-left text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                    <th class="px-5 py-2 font-medium">指标</th>
+                    <th class="px-3 py-2 font-medium">值</th>
+                    <th class="px-3 py-2 font-medium">阈值</th>
+                    <th class="px-3 py-2 font-medium">级别</th>
+                    <th class="px-3 py-2 font-medium">状态</th>
+                    <th class="px-3 py-2 font-medium">详情</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${ms.map(m => metricRow(m)).join('')}
+                </tbody>
+              </table>
+            </div>
           </details>
         `
       }).join('')
     }
 
+    function metricRow(m) {
+      const cn = metricCn(m.name)
+      const rowCls = m.result === 'fail'
+        ? 'bg-rose-50/50 dark:bg-rose-950/20 hover:bg-rose-50 dark:hover:bg-rose-950/30'
+        : m.result === 'errored'
+          ? 'bg-amber-50/50 dark:bg-amber-950/20 hover:bg-amber-50 dark:hover:bg-amber-950/30'
+          : 'hover:bg-slate-50 dark:hover:bg-slate-800/30'
+      return `
+        <tr class="border-t border-slate-100 dark:border-slate-800 ${rowCls}">
+          <td class="px-5 py-2.5">
+            <div class="font-mono text-xs text-slate-700 dark:text-slate-200">${escapeHtml(m.name)}</div>
+            ${cn ? `<div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">${escapeHtml(cn)}</div>` : ''}
+          </td>
+          <td class="px-3 py-2.5 font-mono text-xs">${escapeHtml(m.value)}</td>
+          <td class="px-3 py-2.5 text-xs text-slate-500 dark:text-slate-400">${escapeHtml(m.threshold || '-')}</td>
+          <td class="px-3 py-2.5">${severityDot(m.severity)}</td>
+          <td class="px-3 py-2.5">${resultBadge(m.result)}</td>
+          <td class="px-3 py-2.5 text-xs text-slate-500 dark:text-slate-400 max-w-md">${escapeHtml(m.detail || '')}</td>
+        </tr>
+      `
+    }
+
+    function severityDot(sev) {
+      const cn = SEVERITY_CN[sev] || sev
+      const dotCls = sev === 'CRITICAL' ? 'bg-rose-500' : 'bg-amber-500'
+      return `<span class="inline-flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">
+        <span class="w-1.5 h-1.5 rounded-full ${dotCls}"></span>${escapeHtml(cn)}
+      </span>`
+    }
+
+    function resultBadge(res) {
+      const cn = RESULT_CN[res] || res
+      let cls = 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+      if (res === 'pass') cls = 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
+      else if (res === 'fail') cls = 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300'
+      else if (res === 'errored') cls = 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'
+      return `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${cls}">${escapeHtml(cn)}</span>`
+    }
+
+    // ============== 渲染：case 列表 ==============
     function renderCases(r) {
       const el = document.getElementById('cases')
+      const groups = {}
+      for (const c of r.cases) {
+        const g = c.group || 'other'
+        if (!groups[g]) groups[g] = []
+        groups[g].push(c)
+      }
+      const groupList = Object.entries(groups)
+
       el.innerHTML = `
-        <details class="bg-white p-4 rounded shadow border border-gray-200">
-          <summary class="font-bold cursor-pointer">逐 case 明细（${r.cases.length}）</summary>
-          ${r.cases.map(c => {
-            const resultColor = c.result === 'pass' ? 'text-green-700' : c.result === 'fail' ? 'text-red-700' : 'text-amber-700'
-            return `
-              <details class="border-t border-gray-200 pt-2 mt-2">
-                <summary class="cursor-pointer text-sm">
-                  <span class="${resultColor} font-mono">[${escapeHtml(c.result)}]</span>
-                  <span class="ml-1 font-mono text-xs text-slate-500">${escapeHtml(c.id)}</span>
-                  <span class="ml-2 text-xs text-slate-500">(${escapeHtml(c.group || '-')})</span>
-                  — ${escapeHtml(c.question)}
-                </summary>
-                <div class="mt-2 text-sm space-y-2">
-                  <div>
-                    <strong>回答：</strong>
-                    <pre class="whitespace-pre-wrap bg-slate-50 p-2 rounded text-xs border border-gray-200">${escapeHtml(c.answer)}</pre>
-                  </div>
-                  <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                    <div><strong>必含命中：</strong>${(c.mustHaveHits || []).map(escapeHtml).join(', ') || '-'}</div>
-                    <div><strong>必含未命中：</strong>${(c.mustHaveMisses || []).map(escapeHtml).join(', ') || '-'}</div>
-                    <div><strong>幻觉命中：</strong>${(c.hallucinationHits || []).map(escapeHtml).join(', ') || '-'}</div>
-                    <div><strong>事实命中率：</strong>${c.factsHitRate != null ? c.factsHitRate.toFixed(2) : '-'}</div>
-                  </div>
-                  <div class="text-xs">
-                    <strong>工具调用：</strong>${(c.toolCalls || []).length > 0 ? `<code class="bg-slate-100 px-1 rounded">${(c.toolCalls).map(escapeHtml).join(' → ')}</code>` : '-'}
-                    ${c.expectedTools ? `<br><strong>期望工具：</strong><code class="bg-slate-100 px-1 rounded">${c.expectedTools.map(escapeHtml).join(' → ')}</code>` : ''}
-                  </div>
-                  ${c.judgeResult ? `
-                    <div class="bg-slate-50 p-2 rounded border border-gray-200">
-                      <div class="text-xs">
-                        <strong>Judge：</strong>${c.judgeResult.overall}/5
-                        <span class="text-slate-500">（facts ${c.judgeResult.score_facts} · citation ${c.judgeResult.score_citation} · no_hallucination ${c.judgeResult.score_no_hallucination} · relevance ${c.judgeResult.score_relevance}）</span>
-                        <span class="ml-2">repeats=${c.judgeResult.repeats} stdev=${c.judgeResult.stdev.toFixed(2)}${c.judgeResult.unstable ? ' <span class="text-amber-700">unstable</span>' : ''}</span>
-                      </div>
-                      <div class="mt-1 text-xs text-slate-700"><em>${escapeHtml(c.judgeResult.reasoning)}</em></div>
-                    </div>
-                  ` : ''}
-                  <div class="text-xs text-slate-500">
-                    thread=<code>${escapeHtml(c.threadId || '-')}</code> ·
-                    latency ${c.latencyMs}ms ·
-                    tokens p=${c.tokens?.prompt ?? '-'} c=${c.tokens?.completion ?? '-'} cache=${c.tokens?.cacheHit ?? '-'}
-                  </div>
-                </div>
-              </details>
-            `
-          }).join('')}
+        <details class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden" open>
+          <summary class="px-5 py-3 cursor-pointer flex items-center gap-3 select-none hover:bg-slate-50 dark:hover:bg-slate-800/50">
+            <svg class="chev w-3.5 h-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            <span class="font-semibold text-base">逐 case 明细</span>
+            <span class="ml-auto text-xs text-slate-500 dark:text-slate-400">共 ${r.cases.length} 条</span>
+          </summary>
+          <div class="border-t border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800">
+            ${groupList.map(([g, cs]) => groupBlock(g, cs)).join('')}
+          </div>
         </details>
       `
+    }
+
+    function groupBlock(g, cs) {
+      const failed = cs.filter(c => c.result !== 'pass').length
+      const tone = failed === 0
+        ? 'text-emerald-600 dark:text-emerald-400'
+        : 'text-rose-600 dark:text-rose-400'
+      return `
+        <details class="bg-slate-50/50 dark:bg-slate-900/50">
+          <summary class="px-5 py-2.5 cursor-pointer flex items-center gap-3 select-none hover:bg-slate-100/70 dark:hover:bg-slate-800/40">
+            <svg class="chev w-3.5 h-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            <span class="font-medium text-sm">${escapeHtml(groupCn(g))}</span>
+            <span class="text-xs text-slate-400 font-mono">${escapeHtml(g)}</span>
+            <span class="ml-auto text-xs ${tone}">${failed === 0 ? `全部通过（${cs.length}）` : `${failed} / ${cs.length} 未通过`}</span>
+          </summary>
+          <div class="bg-white dark:bg-slate-900 divide-y divide-slate-100 dark:divide-slate-800">
+            ${cs.map(caseBlock).join('')}
+          </div>
+        </details>
+      `
+    }
+
+    function caseBlock(c) {
+      return `
+        <details class="bg-white dark:bg-slate-900">
+          <summary class="px-5 py-2.5 cursor-pointer flex items-start gap-3 select-none hover:bg-slate-50 dark:hover:bg-slate-800/40">
+            <svg class="chev w-3.5 h-3.5 text-slate-400 mt-1 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            ${resultBadge(c.result)}
+            <span class="font-mono text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex-shrink-0">${escapeHtml(c.id)}</span>
+            <span class="text-sm flex-1">${escapeHtml(c.question)}</span>
+          </summary>
+          <div class="px-5 py-3 bg-slate-50/70 dark:bg-slate-950/50 space-y-3">
+            <div>
+              <div class="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">回答</div>
+              <pre class="whitespace-pre-wrap text-xs leading-relaxed bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md p-3 overflow-x-auto">${escapeHtml(c.answer)}</pre>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+              <div><span class="text-slate-500 dark:text-slate-400">必含命中：</span>${kvList(c.mustHaveHits, 'emerald')}</div>
+              <div><span class="text-slate-500 dark:text-slate-400">必含未命中：</span>${kvList(c.mustHaveMisses, 'rose')}</div>
+              <div><span class="text-slate-500 dark:text-slate-400">幻觉命中：</span>${kvList(c.hallucinationHits, 'rose')}</div>
+              <div><span class="text-slate-500 dark:text-slate-400">事实命中率：</span><span class="font-mono">${c.factsHitRate != null ? c.factsHitRate.toFixed(2) : '-'}</span></div>
+            </div>
+            <div class="text-xs space-y-1">
+              <div><span class="text-slate-500 dark:text-slate-400">实际工具调用：</span>${toolChain(c.toolCalls)}</div>
+              ${c.expectedTools ? `<div><span class="text-slate-500 dark:text-slate-400">期望工具：</span>${toolChain(c.expectedTools)}</div>` : ''}
+            </div>
+            ${judgeBlock(c.judgeResult)}
+            <div class="text-xs text-slate-500 dark:text-slate-400 font-mono pt-1 border-t border-slate-200 dark:border-slate-800">
+              thread=<span>${escapeHtml(c.threadId || '-')}</span>
+              · 耗时 ${c.latencyMs}ms
+              · prompt=${c.tokens?.prompt ?? '-'}
+              · completion=${c.tokens?.completion ?? '-'}
+              · cache=${c.tokens?.cacheHit ?? '-'}
+            </div>
+          </div>
+        </details>
+      `
+    }
+
+    function kvList(arr, tone) {
+      if (!arr || arr.length === 0) return '<span class="text-slate-400">-</span>'
+      const cls = tone === 'emerald'
+        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+        : 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300'
+      return arr.map(x => `<span class="inline-block px-1.5 py-0.5 rounded ${cls} text-xs font-mono mr-1 mb-0.5">${escapeHtml(x)}</span>`).join('')
+    }
+
+    function toolChain(tools) {
+      if (!tools || tools.length === 0) return '<span class="text-slate-400">-</span>'
+      return tools.map(t => `<code class="text-xs px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 mr-1">${escapeHtml(t)}</code>`).join('<span class="text-slate-400 mx-0.5">→</span>')
+    }
+
+    function judgeBlock(j) {
+      if (!j) return ''
+      const overallCls = j.overall >= 4 ? 'text-emerald-600 dark:text-emerald-400' : (j.overall >= 3.5 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400')
+      return `
+        <div class="rounded-md border border-indigo-200 dark:border-indigo-900/40 bg-indigo-50/50 dark:bg-indigo-950/20 p-3 text-xs">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-medium text-indigo-700 dark:text-indigo-300">LLM Judge 评分</span>
+            <span class="${overallCls} font-mono font-bold">${j.overall}/5</span>
+            <span class="text-slate-500 dark:text-slate-400">事实 ${j.score_facts} · 引用 ${j.score_citation} · 无幻觉 ${j.score_no_hallucination} · 切题 ${j.score_relevance}</span>
+            <span class="ml-auto text-slate-500 dark:text-slate-400 font-mono">repeats=${j.repeats} stdev=${j.stdev.toFixed(2)}${j.unstable ? ' <span class="text-amber-600 dark:text-amber-400">(不稳定)</span>' : ''}</span>
+          </div>
+          <div class="mt-1.5 text-slate-700 dark:text-slate-300"><em>${escapeHtml(j.reasoning)}</em></div>
+        </div>
+      `
+    }
+
+    // ============== 图标 ==============
+    function iconCheck() {
+      return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><polyline points="20 6 9 17 4 12"/></svg>`
+    }
+    function iconX() {
+      return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`
+    }
+    function iconAlert() {
+      return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`
     }
 
     document.getElementById('report-select').addEventListener('change', e => loadReport(e.target.value))
