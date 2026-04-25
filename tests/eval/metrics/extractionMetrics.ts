@@ -63,7 +63,13 @@ function matchExpected(
   return extracted.find(
     e =>
       e.subjectKey === expected.subjectKey &&
-      expected.valueKeywords.every(kw => e.text.includes(kw)) &&
+      // valueKeywords 元素支持 string | string[]，string[] 表示 OR（任一命中）
+      // 例如 [['三个月','3']] 允许"三个月内"或"3 个月内"任一表达
+      expected.valueKeywords.every(kw =>
+        Array.isArray(kw)
+          ? kw.some(k => e.text.includes(k))
+          : e.text.includes(kw),
+      ) &&
       e.confidence >= expected.minConfidence,
   )
 }

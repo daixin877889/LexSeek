@@ -1,15 +1,21 @@
 import type Redis from 'ioredis'
+import pLimit from 'p-limit'
 import { z } from 'zod'
 import { getRedisClient } from '~~/server/lib/redis'
 import { createChatModel } from '../node/chatModelFactory'
 import { getValidNodeConfig } from '../node/node.service'
-import { writeMemoryService } from './memory.service'
+import { writeMemoryService, type MemoryWriteInput } from './memory.service'
 import { getCheckpointer } from '~~/server/services/workflow/checkpointer'
 
 const EXTRACT_NODE = 'search_intent_router'
 
 const DEBOUNCE_MS = 30 * 1000
 const QUEUE_KEY = 'consolidator:due'
+
+/** writeMemoryService 内含 embedding API 调用，并发须保守避免 rate-limit */
+const PERSIST_CONCURRENCY = 4
+/** consolidateSession 内含一次 LLM 抽取 + 多次 writeMemoryService，更保守 */
+const SESSION_CONCURRENCY = 3
 
 /** LangChain 序列化格式（checkpoint 存储） */
 interface SerializedLCMessage {
@@ -62,6 +68,7 @@ const extractionSchema = z.object({
     confidence: z.number().min(0).max(1),
   })),
   preferences: z.array(z.object({
+    subjectKey: z.string(),
     text: z.string(),
     confidence: z.number().min(0).max(1),
   })),
@@ -124,9 +131,10 @@ async function extractMemoriesFromMessages(
 }
 
 async function persistExtracted(caseId: number, extracted: Extracted): Promise<void> {
+  const items: MemoryWriteInput[] = []
   for (const f of extracted.facts) {
     if (f.confidence < 0.6) continue
-    await writeMemoryService({
+    items.push({
       caseId,
       kind: 'fact',
       text: f.text,
@@ -137,22 +145,27 @@ async function persistExtracted(caseId: number, extracted: Extracted): Promise<v
   }
   for (const p of extracted.preferences) {
     if (p.confidence < 0.6) continue
-    await writeMemoryService({
+    items.push({
       caseId,
       kind: 'preference',
       text: p.text,
+      subjectKey: p.subjectKey,
       confidence: p.confidence,
       source: 'consolidator',
     })
   }
   for (const n of extracted.dialogueNotes) {
-    await writeMemoryService({
+    items.push({
       caseId,
       kind: 'dialogue_note',
       text: n.text,
       source: 'consolidator',
     })
   }
+  if (items.length === 0) return
+  // 三段无依赖：拍平后 pLimit 并发，省去 18 次串行 embedding+pgvector 写
+  const limit = pLimit(PERSIST_CONCURRENCY)
+  await Promise.all(items.map(item => limit(() => writeMemoryService(item))))
 }
 
 async function loadRecentAgentMessages(
@@ -180,14 +193,40 @@ async function loadRecentAgentMessages(
 function buildExtractPrompt(messages: Array<{ role: string; content: string }>): string {
   const joined = messages.map((m) => `[${m.role}] ${m.content}`).join('\n')
   return `从下面律师与 AI 助手的对话中抽取用户侧的：
-1. 事实（facts）：客观信息，每条配 subjectKey（主题指纹，如 "plaintiff.address"）+ confidence 0-1
-2. 偏好（preferences）：用户对输出/流程的偏好
+1. 事实（facts）：客观信息，每条配 subjectKey + confidence 0-1
+2. 偏好（preferences）：用户对输出/流程的偏好，每条配 subjectKey + confidence 0-1（subjectKey 必须用下方"preferences 的 subjectKey 命名空间"列出的固定值）
 3. 对话要点（dialogueNotes）：其它值得记住的上下文
+
+## subjectKey 命名规范（铁律）
+
+facts 的 subjectKey 必须严格使用以下 \`fact.<域>.<具体>\` 命名空间，**禁止自创**（如 "plaintiff.name"、"contract.totalAmount" 等不符合规范的命名一律禁止）：
+
+- \`fact.party.plaintiff_name\` — 原告/甲方公司全称
+- \`fact.party.defendant_name\` — 被告/乙方公司全称
+- \`fact.contract.signed_at\` — 主合同签订日期
+- \`fact.contract.total_amount\` — 主合同总金额
+- \`fact.contract.supplement\` — 补充协议关键事实
+- \`fact.payment.first\` — 首付款金额/凭证
+- \`fact.delivery.overdue\` — 逾期交付天数/事实
+- \`fact.delivery.acknowledgement\` — 对方对逾期/事实的承认
+- \`fact.dispute.amount\` — 争议金额
+- \`fact.evidence.<类型>\` — 证据材料（如 fact.evidence.wechat / fact.evidence.bank_receipt）
+- \`fact.case.<域>\` — 案件级元数据（fact.case.court / fact.case.stage / fact.case.case_no_first / fact.case.case_no_second / fact.case.judge_first / fact.case.judge_second 等）
+- \`fact.<其他>.<具体>\` — 上述未覆盖的事实
+
+preferences 的 subjectKey 命名空间：
+
+- \`preference.contact.method\` — 沟通方式偏好（电话/邮件/微信等）
+- \`preference.timeline.target\` — 结案时间期望
+- \`preference.strategy.attitude\` — 诉讼/和解倾向
+- \`preference.disclosure.<域>\` — 信息披露偏好
+- \`preference.report.format\` — 报告输出格式偏好
+- \`preference.<其他>.<具体>\` — 其他偏好
 
 对话内容：
 ${joined}
 
-仅输出符合 schema 的 JSON；不要编造；confidence 低于 0.6 的不要输出。`
+仅输出符合 schema 的 JSON；不要编造；confidence 低于 0.6 的不要输出；subjectKey 必须严格遵守上述命名规范。`
 }
 
 /**
@@ -219,7 +258,8 @@ export async function processNowService(
   if (sessionIds.length > 0) {
     await redis.zrem(QUEUE_KEY, ...sessionIds)
   }
-  for (const sid of sessionIds) {
-    await consolidateSession(sid)
-  }
+  // 多 session 并发抽取；consolidateSession 内部 try/catch 已吞错（best-effort），
+  // 单个失败不影响其它。SESSION_CONCURRENCY 保守，避免压垮 LLM provider rate-limit。
+  const limit = pLimit(SESSION_CONCURRENCY)
+  await Promise.all(sessionIds.map(sid => limit(() => consolidateSession(sid))))
 }

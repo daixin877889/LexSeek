@@ -233,14 +233,15 @@ export async function runEvalMain(): Promise<{ criticalFailures: string[]; repor
     }
 
     // caseMemories 表 schema 是 LangChain 同构 5 列（id/text/metadata/embedding/tsv），
-    // 没有 createdAt 列；createdAt 只在 metadata JSON 里。这里按 metadata->createdAt 倒序
-    // 取最近 30 条作为该 transcript 的抽取候选集。
+    // 没有 createdAt 列；createdAt 只在 metadata JSON 里。取最近 200 条作为候选集
+    // —— consolidator 每次抽取写入 ~30-50 条，多 transcript 跑后旧期望的记忆会被新数据
+    // 挤出 LIMIT；提到 200 让评估命中范围覆盖整个跑批历史。
     const recent = await prisma.$queryRawUnsafe<{ id: string; text: string | null; metadata: any }[]>(
       `SELECT id, text, metadata
          FROM case_memories
         WHERE (metadata->>'caseId')::int = $1
         ORDER BY (metadata->>'createdAt') DESC NULLS LAST
-        LIMIT 30`,
+        LIMIT 200`,
       fx.caseA.id,
     )
 
@@ -297,6 +298,20 @@ export async function runEvalMain(): Promise<{ criticalFailures: string[]; repor
   // systemPromptTokens 由 stab-prompt-hash 顺便采（A2.8 修订）
   const sysTokens = [promptHashResult.systemPromptTokens]
 
+  // 协议结构验证：从累计 LLM usage records 找任意一次回传相应 cache 字段
+  // - Anthropic 协议字段：cache_read_input_tokens
+  // - OpenAI 协议字段：prompt_tokens_details.cached_tokens
+  // DeepSeek 原生 prompt_cache_hit_tokens 不算这两条（cacheHitRate 已覆盖）
+  const allUsages = handler.getRecords().map(r => r.usage)
+  const anthropicProtocolMaxCacheRead = Math.max(
+    0,
+    ...allUsages.map(u => u.cache_read_input_tokens ?? 0),
+  )
+  const openaiProtocolMaxCachedTokens = Math.max(
+    0,
+    ...allUsages.map(u => u.prompt_tokens_details?.cached_tokens ?? 0),
+  )
+
   // ============== Aggregate ==============
   const cost = aggregateCostMetrics({
     usageRecords: handler.getRecords(),
@@ -304,8 +319,8 @@ export async function runEvalMain(): Promise<{ criticalFailures: string[]; repor
     totalPromptTokensSamples: promptTokensSamples,
     memoryRecallLatencies: [],
     analysisSummaryLatencies: [],
-    anthropicProtocolSecondCacheRead: 0,
-    openaiProtocolSecondCachedTokens: 0,
+    anthropicProtocolSecondCacheRead: anthropicProtocolMaxCacheRead,
+    openaiProtocolSecondCachedTokens: openaiProtocolMaxCachedTokens,
   })
   const quality = aggregateQualityMetrics(allCaseResults)
   const task = aggregateTaskMetrics(allCaseResults)

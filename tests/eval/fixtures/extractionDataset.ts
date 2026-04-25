@@ -11,8 +11,12 @@
 export interface ExpectedExtraction {
   /** memory subjectKey（fact.* / preference.*） */
   subjectKey: string
-  /** value 文本里必须包含的全部关键词 */
-  valueKeywords: string[]
+  /**
+   * value 文本里必须包含的关键词（按 AND 全部命中）。
+   * 元素为 string[] 时表示该位置 OR（任一命中即可），用于多种合法表达：
+   * 例如 [['三个月', '3']] 允许"三个月内"或"3 个月内"任一表达。
+   */
+  valueKeywords: Array<string | string[]>
   /** 抽取置信度下限，低于此值不算命中 */
   minConfidence: number
   /** 选填项 — 缺失不计入 recall 分母 */
@@ -48,10 +52,10 @@ export const EXTRACTION_DATASET: ExtractionTranscript[] = [
       { role: 'assistant', content: '这是重要事实，已记录。' },
     ],
     expectedExtractions: [
-      { subjectKey: 'fact.party.plaintiff_name', valueKeywords: ['天利', '科技'], minConfidence: 0.7 },
-      { subjectKey: 'preference.timeline.target', valueKeywords: ['三个月', '3'], minConfidence: 0.6 },
+      { subjectKey: 'fact.party.plaintiff_name', valueKeywords: [['天利达', '天利'], ['科技', '集团']], minConfidence: 0.7 },
+      { subjectKey: 'preference.timeline.target', valueKeywords: [['三个月', '3 个月', '3个月']], minConfidence: 0.6 },
       { subjectKey: 'preference.contact.method', valueKeywords: ['电话'], minConfidence: 0.7 },
-      { subjectKey: 'fact.delivery.acknowledgement', valueKeywords: ['逾期', '承认'], minConfidence: 0.7 },
+      { subjectKey: 'fact.delivery.acknowledgement', valueKeywords: ['逾期', ['承认', '口头承认']], minConfidence: 0.7 },
     ],
     forbiddenExtractions: ['fact.contract.amount', 'fact.dispute.location'],
   },
@@ -64,7 +68,7 @@ export const EXTRACTION_DATASET: ExtractionTranscript[] = [
       { role: 'assistant', content: '已更正。' },
     ],
     expectedExtractions: [
-      { subjectKey: 'fact.party.plaintiff_name', valueKeywords: ['天利达', '集团'], minConfidence: 0.7 },
+      { subjectKey: 'fact.party.plaintiff_name', valueKeywords: ['天利达', ['集团', '科技集团']], minConfidence: 0.7 },
     ],
     forbiddenExtractions: [],
   },
