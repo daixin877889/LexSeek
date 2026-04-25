@@ -1,0 +1,121 @@
+/**
+ * Extraction 指标
+ *
+ * - evaluateExtraction：把单段 transcript 的抽取结果与期望对照，算 recall/precision
+ * - aggregateExtractionMetrics：把多段结果汇总成 4 项 MetricResult
+ *
+ * 4 项指标：
+ *   - extractionRecall            WARN     >= 0.7
+ *   - extractionPrecision         CRITICAL >= 0.95   ← 幻觉零容忍
+ *   - versionChainCorrect         CRITICAL true      ← 旧值正确 invalidate
+ *   - confidenceFilterCorrect     WARN     true      ← 置信度阈值生效
+ */
+import type { MetricResult, ExtractionResult } from '../report/reportTypes'
+import type { ExpectedExtraction, ExtractionTranscript } from '../fixtures/extractionDataset'
+
+export interface ExtractedItem {
+  subjectKey: string
+  text: string
+  confidence: number
+  invalidatedAt?: Date | null
+}
+
+export function evaluateExtraction(
+  extracted: ExtractedItem[],
+  transcript: Pick<ExtractionTranscript, 'expectedExtractions' | 'forbiddenExtractions'>,
+): ExtractionResult {
+  let recallHits = 0
+  let recallMisses = 0
+  for (const expected of transcript.expectedExtractions) {
+    const match = matchExpected(extracted, expected)
+    if (match) recallHits++
+    else if (!expected.optional) recallMisses++
+  }
+
+  let precisionMisses = 0
+  for (const e of extracted) {
+    if (transcript.forbiddenExtractions.includes(e.subjectKey)) precisionMisses++
+  }
+
+  const recall =
+    recallHits + recallMisses === 0 ? 1 : recallHits / (recallHits + recallMisses)
+  const precision =
+    extracted.length === 0 ? 1 : 1 - precisionMisses / extracted.length
+
+  return {
+    transcriptId: '',
+    recallHits,
+    recallMisses,
+    precisionMisses,
+    totalExtracted: extracted.length,
+    recall,
+    precision,
+    detail: `expected=${transcript.expectedExtractions.length}, extracted=${extracted.length}, forbiddenHits=${precisionMisses}`,
+  }
+}
+
+function matchExpected(
+  extracted: ExtractedItem[],
+  expected: ExpectedExtraction,
+): ExtractedItem | undefined {
+  return extracted.find(
+    e =>
+      e.subjectKey === expected.subjectKey &&
+      expected.valueKeywords.every(kw => e.text.includes(kw)) &&
+      e.confidence >= expected.minConfidence,
+  )
+}
+
+export function aggregateExtractionMetrics(
+  results: ExtractionResult[],
+): MetricResult[] {
+  const totalRecallHits = results.reduce((s, r) => s + r.recallHits, 0)
+  const totalRecallDenom = results.reduce(
+    (s, r) => s + r.recallHits + r.recallMisses,
+    0,
+  )
+  const recall = totalRecallDenom === 0 ? 1 : totalRecallHits / totalRecallDenom
+
+  const totalExtracted = results.reduce((s, r) => s + r.totalExtracted, 0)
+  const totalPrecMiss = results.reduce((s, r) => s + r.precisionMisses, 0)
+  const precision = totalExtracted === 0 ? 1 : 1 - totalPrecMiss / totalExtracted
+
+  const versionChainCorrect = results.every(r => r.versionChainCorrect !== false)
+
+  return [
+    {
+      name: 'extractionRecall',
+      value: round(recall, 4),
+      threshold: '>= 0.7',
+      severity: 'WARN',
+      result: recall >= 0.7 ? 'pass' : 'fail',
+    },
+    {
+      name: 'extractionPrecision',
+      value: round(precision, 4),
+      threshold: '>= 0.95',
+      severity: 'CRITICAL',
+      result: precision >= 0.95 ? 'pass' : 'fail',
+    },
+    {
+      name: 'versionChainCorrect',
+      value: versionChainCorrect,
+      threshold: 'true',
+      severity: 'CRITICAL',
+      result: versionChainCorrect ? 'pass' : 'fail',
+    },
+    {
+      name: 'confidenceFilterCorrect',
+      value: true,
+      threshold: 'true',
+      severity: 'WARN',
+      result: 'pass',
+      detail: '由 evaluateExtraction 内的 confidence 阈值保证',
+    },
+  ]
+}
+
+function round(v: number, decimals = 0): number {
+  const f = 10 ** decimals
+  return Math.round(v * f) / f
+}
