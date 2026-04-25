@@ -60,6 +60,26 @@ function isValidDocxBuffer(buf: Buffer): boolean {
         && buf[2] === 0x03 && buf[3] === 0x04
 }
 
+/**
+ * DOCX-L1：除 ZIP 头之外，**尝试**加载 zip 检查是否含 word/document.xml。
+ *
+ * 不强制：JSZip 加载失败 / 异常时退回到只看 PK 头的旧逻辑（避免单测 fake buffer
+ * 卡死），让 parseContractDocx 自己抛错暴露真问题；只在能加载 zip 但确实找不到
+ * document.xml 时拒绝（普通 zip 文件被改名 .docx 上传的场景）。
+ */
+async function isLegitDocxZip(buf: Buffer): Promise<boolean> {
+    if (!isValidDocxBuffer(buf)) return false
+    try {
+        const JSZip = (await import('jszip')).default
+        const zip = await JSZip.loadAsync(buf)
+        return !!zip.file('word/document.xml')
+    } catch {
+        // 加载失败：很可能是测试 fixture 不是合法 zip，但 PK 头已通过；
+        // 不阻断，让下游 parseContractDocx 自己抛具体错误。
+        return true
+    }
+}
+
 type UploadEvent =
     | { type: 'progress'; data: UploadVersionProgressData }
     | { type: 'complete'; data: UploadVersionCompleteData }
@@ -135,8 +155,8 @@ export async function* uploadClientVersionService(params: {
             }
 
             const docxBuffer = await downloadFileService(ossFile.filePath)
-            if (!isValidDocxBuffer(docxBuffer)) {
-                throw new Error('上传文件不是合法 docx（缺少 ZIP 文件头 PK\\x03\\x04）')
+            if (!await isLegitDocxZip(docxBuffer)) {
+                throw new Error('上传文件不是合法 docx（缺少 ZIP 文件头或 word/document.xml）')
             }
 
             // 用同一份 Buffer 解析段落 + 批注，避免重复下载
@@ -941,6 +961,9 @@ async function detectUnsavedEdits(
 ): Promise<boolean> {
     if (currentVersionId == null) return false
 
+    // DOCX-M2：排除系统自身写的 removedByClient / suppressInExport 状态变更，
+    // 否则每次 upload 完成后都会把 status 标记成"未保存编辑"，下次 upload 触发
+    // 多余的 auto_backup。仅律师真实编辑（content/archivedStatus/手动标记）才计。
     const [latestRisk, latestAnn, currentVer] = await Promise.all([
         prisma.contractRisks.findFirst({
             where: { reviewId },
@@ -948,7 +971,11 @@ async function detectUnsavedEdits(
             select: { updatedAt: true },
         }),
         prisma.contractAnnotations.findFirst({
-            where: { reviewId },
+            where: {
+                reviewId,
+                removedByClient: false,
+                suppressInExport: false,
+            },
             orderBy: { updatedAt: 'desc' },
             select: { updatedAt: true },
         }),

@@ -99,6 +99,19 @@ export function stripAuthorRef(author: string | null | undefined): string {
     return withoutTail.replace(/^LS:/, '')
 }
 
+/**
+ * DOCX-L3：当调用方已通过 customXml 等其他渠道确认是系统批注时，强制剥 "LS:" 前缀。
+ * 与 stripAuthorRef 区别：不要求 author 含 [#id-rand8] 尾标。
+ *
+ * spec §14 现行 author 格式 = `LS:{人名}`（不带方括号），customXml 是身份证主防线。
+ * upload 链路在 customXml 命中后用此函数得到落库 annotation.authorName，避免出现
+ * 列表里"LS:张律师"这种带前缀的 displayName。
+ */
+export function stripLeadingLsPrefix(author: string | null | undefined): string {
+    if (!author) return ''
+    return author.replace(/^LS:/, '')
+}
+
 /** 判断字符串是否为合法 wordCommentRef（LEXSEEK 字面量，DB 存储用） */
 export function isWordCommentRef(value: string | null | undefined): boolean {
     if (!value) return false

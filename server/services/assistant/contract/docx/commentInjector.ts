@@ -531,6 +531,21 @@ function buildAnnotationRefsXml(
     wordIds: Map<number, number>,
     reviewId: number,
 ): string {
+    // DOCX-M5：wId 唯一性自检——重复会让 readCustomXmlRefs 静默丢条
+    // （第一防线失效）。生产理论不可达（wordIdByAnnotationId 用 Map 保证），
+    // 这里 throw 让 bug 早暴露。
+    const seenWIds = new Set<number>()
+    for (const a of annotations) {
+        const wId = wordIds.get(a.id)
+        if (wId === undefined) continue
+        if (seenWIds.has(wId)) {
+            throw new Error(
+                `[commentInjector] customXml 构造时检测到重复 wId=${wId}（annotationId=${a.id}）。`
+                + ' 上游 wordIds Map 应保证唯一，请检查调用方是否覆盖了同一 wId。',
+            )
+        }
+        seenWIds.add(wId)
+    }
     const children = annotations.map(a => {
         const wId = wordIds.get(a.id)!
         const ref = refs.get(a.id)!

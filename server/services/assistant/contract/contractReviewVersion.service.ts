@@ -231,8 +231,9 @@ export async function downloadContractReviewVersionService(
         review.originalFileId !== baseFileId ? findOssFileByIdDao(review.originalFileId) : null,
     ])
     if (!baseOssFile?.filePath) return { error: 'origin_file_missing' as const }
-    // 文件名始终取自原始合同，而非基底文件（客户回传件可能是 UUID 名）
-    const contractFileName = (originalOssFile ?? baseOssFile)?.fileName
+    // VER-M2：文件名始终取自原始合同；fallback 显式兜底空串，让 buildContractReviewFilename
+    // 不依赖 undefined（filename 生成逻辑可独立测试）
+    const contractFileName = (originalOssFile ?? baseOssFile)?.fileName ?? ''
 
     const baseBuffer = await downloadFileService(baseOssFile.filePath)
 

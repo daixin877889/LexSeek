@@ -13,7 +13,7 @@ import { randomUUID } from 'node:crypto'
 import { prisma } from '~~/server/utils/db'
 import { FileSource, OssFileStatus } from '#shared/types/file'
 import { StorageProviderType } from '~~/server/lib/storage/types'
-import { uploadFileService } from '~~/server/services/storage/storage.service'
+import { uploadFileService, deleteFileService } from '~~/server/services/storage/storage.service'
 import { getDefaultStorageConfigDao } from '~~/server/services/storage/storageConfig.dao'
 import { createOssFileDao, findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
 import { enqueueRunService } from '~~/server/services/agent/agentRun.service'
@@ -23,6 +23,22 @@ import { DOCX_MIME } from '#shared/utils/mime'
 import type { CreateReviewRequest, CreateReviewResponse } from '#shared/types/contract'
 
 const MAX_PASTE_LENGTH = 50000
+
+/**
+ * CORE-M2：从粘贴文本头部抽 ≤20 字 + 当前日期生成 OSS fileName，避免重名。
+ * 字段长度服从 ossFiles.file_name 兼容（非 OSS path），仅 UI 列表展示用。
+ */
+function buildPastedFileName(text: string): string {
+    const head = text
+        .replace(/[\s\r\n\t]+/g, '')
+        // OS 文件名禁字符 + 反引号 + 引号一并清掉
+        .replace(/[\\/:*?"<>|`'()\[\]{}]/g, '')
+        .slice(0, 20)
+        .trim()
+    const dateStr = new Date().toISOString().slice(0, 10)
+    const safeHead = head.length > 0 ? head : '粘贴'
+    return `${safeHead}_${dateStr}.docx`
+}
 
 export interface CreateAndStartOptions extends CreateReviewRequest {
     userId: number
@@ -90,18 +106,33 @@ export async function createAndStartContractReviewService(
         ])
         const bucketName = storageConfig?.bucket ?? ''
 
-        const ossFileRow = await createOssFileDao({
-            userId,
-            bucketName,
-            fileName: 'pasted-contract.docx',
-            filePath: uploadResult.name,
-            fileSize: docxBuffer.length,
-            fileType: DOCX_MIME,
-            source: FileSource.CASE_ANALYSIS,
-            status: OssFileStatus.UPLOADED,
-            encrypted: false,
-        })
-        originalFileId = ossFileRow.id
+        // CORE-M3：上传成功后 createOssFile 失败需清理 OSS，避免孤儿文件
+        try {
+            const ossFileRow = await createOssFileDao({
+                userId,
+                bucketName,
+                // CORE-M2：用粘贴文本头几字 + 时间戳生成区分度更高的文件名，
+                // 避免列表里多条粘贴 review 全部叫 pasted-contract.docx 难识别。
+                fileName: buildPastedFileName(text),
+                filePath: uploadResult.name,
+                fileSize: docxBuffer.length,
+                fileType: DOCX_MIME,
+                source: FileSource.CASE_ANALYSIS,
+                status: OssFileStatus.UPLOADED,
+                encrypted: false,
+            })
+            originalFileId = ossFileRow.id
+        } catch (err) {
+            await Promise.resolve(deleteFileService(uploadResult.name, { userId }))
+                .catch((cleanupErr) => {
+                    logger.warn('contractReview.create paste: OSS 孤儿清理失败', {
+                        userId,
+                        ossPath: uploadResult.name,
+                        cleanupErr: cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr),
+                    })
+                })
+            throw err
+        }
     }
     else {
         return { error: '不支持的 sourceType', code: 400 }

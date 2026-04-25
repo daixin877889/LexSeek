@@ -215,13 +215,16 @@ export const reviewResultPersistenceMiddleware = (
                 return
             }
 
-            // Phase B：兜底路径检查 review.risks（旧字段）是否有值来判断是否出错。
-            // risks=[] 说明 agent.stream 走完但未触发 parseAndAskStance interrupt（异常流程），
-            // 置 failed 比调用 runAnnotateAndUpload 更安全。
-            const risks = Array.isArray(review.risks) ? review.risks : []
-            if (risks.length === 0) {
+            // CORE-M5：Phase B 之后 contractRisks 表是权威来源；review.risks JSONB 只是
+            // 老消费方兼容快照。判断异常流程必须看新表 count，否则只要 syncReviewRisksJsonb
+            // 还没跑完就被强行置 failed，把可能完整的 risks 数据当成空。
+            const newTableCount = await prisma.contractRisks.count({
+                where: { reviewId: options.reviewId },
+            })
+            const legacyRisks = Array.isArray(review.risks) ? review.risks : []
+            if (newTableCount === 0 && legacyRisks.length === 0) {
                 await updateContractReviewDAO(options.reviewId, { status: 'failed' })
-                logger.warn('reviewResultPersistence afterAgent: DB risks 为空（异常流程），置 failed', {
+                logger.warn('reviewResultPersistence afterAgent: 新表 + 老 JSONB 都空（异常流程），置 failed', {
                     reviewId: options.reviewId,
                 })
                 return

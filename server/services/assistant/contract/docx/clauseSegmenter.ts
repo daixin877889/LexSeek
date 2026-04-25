@@ -32,14 +32,64 @@ const CN_DIGIT: Record<string, number> = {
 }
 
 /**
- * 将中文数字解析为阿拉伯数字，支持到九十九。
+ * 将中文数字解析为阿拉伯数字（DOCX-M1：扩展到「九千九百九十九」）。
+ *
  * 规则：
  *  - 单字：「一」~「九」→ 1~9，「零」→ 0
  *  - 「十」→ 10，「十X」→ 10+X，「X十」→ X*10，「X十Y」→ X*10+Y
+ *  - 「X百」 / 「X百Y」 / 「X百Y十Z」/ 「X百零Y」（"零"占位） / 「百」=100
+ *  - 「X千」 / 「X千Y百…」/ 「X千零Y」/ 「千」=1000
  *  - 无法解析返回 null
+ *
+ * 商事合同长合同条款数过百很常见（"第一百零五条"）。
  */
 function cnNumToInt(cn: string): number | null {
     if (!cn) return null
+    return parseCnUnder10000(cn)
+}
+
+function parseCnUnder10000(cn: string): number | null {
+    if (cn === '零') return 0
+    // 千位
+    const qianIdx = cn.indexOf('千')
+    if (qianIdx >= 0) {
+        const head = cn.slice(0, qianIdx)
+        const tail = cn.slice(qianIdx + 1)
+        const thousands = head === '' ? 1 : (CN_DIGIT[head] ?? null)
+        if (thousands === null) return null
+        if (tail === '') return thousands * 1000
+        // tail 可能以"零"开头表示百位为零（如 "一千零五"）
+        const tailVal = tail.startsWith('零')
+            ? parseCnUnder100(tail.slice(1))
+            : parseCnUnder1000(tail)
+        if (tailVal === null) return null
+        return thousands * 1000 + tailVal
+    }
+    return parseCnUnder1000(cn)
+}
+
+function parseCnUnder1000(cn: string): number | null {
+    if (cn === '') return 0
+    if (cn === '零') return 0
+    // 百位
+    const baiIdx = cn.indexOf('百')
+    if (baiIdx >= 0) {
+        const head = cn.slice(0, baiIdx)
+        const tail = cn.slice(baiIdx + 1)
+        const hundreds = head === '' ? 1 : (CN_DIGIT[head] ?? null)
+        if (hundreds === null) return null
+        if (tail === '') return hundreds * 100
+        const tailVal = tail.startsWith('零')
+            ? parseCnUnder10(tail.slice(1))
+            : parseCnUnder100(tail)
+        if (tailVal === null) return null
+        return hundreds * 100 + tailVal
+    }
+    return parseCnUnder100(cn)
+}
+
+function parseCnUnder100(cn: string): number | null {
+    if (cn === '') return 0
     if (cn === '十') return 10
     const tenIdx = cn.indexOf('十')
     if (tenIdx >= 0) {
@@ -51,6 +101,11 @@ function cnNumToInt(cn: string): number | null {
         if (units === null) return null
         return tens * 10 + units
     }
+    return CN_DIGIT[cn] ?? null
+}
+
+function parseCnUnder10(cn: string): number | null {
+    if (cn === '') return 0
     return CN_DIGIT[cn] ?? null
 }
 
