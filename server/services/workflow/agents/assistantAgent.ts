@@ -11,13 +11,18 @@
  */
 
 import { createAgent, summarizationMiddleware, type ReactAgent } from 'langchain'
-import { HumanMessage } from '@langchain/core/messages'
+import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { Command } from '@langchain/langgraph'
 import { getCheckpointer, getStore } from '../checkpointer'
 import { getValidNodeConfig } from '../../node/node.service'
-import { createChatModel } from '../../node/chatModelFactory'
+import {
+    createChatModel,
+    cachedPromptToAnthropicContent,
+    cachedPromptToPlainText,
+} from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
 import { renderSystemPrompt } from '../utils/promptRenderer'
+import { buildContextSegments, toCachedPrompt } from '../context/moduleContextBuilder'
 import {
     createAuditMiddleware,
     createMessageIntegrityMiddleware,
@@ -85,7 +90,22 @@ export async function runAssistantChat(
     })
 
     // 4. 渲染系统提示词：assistantMain 的 v1 提示词无模板变量
-    const systemPrompt = renderSystemPrompt(mainConfig, {})
+    const roleAndFlow = renderSystemPrompt(mainConfig, {})
+
+    // 4b. 构建上下文段（caseId=null：buildContextSegments 短路返回单段 roleAndFlow）
+    //     仍走 cache 架构以与其他 agent 保持一致；assistant 场景下 SystemMessage
+    //     退化为 roleAndFlow 单段（caseProfile / moduleSummaries / dynamicContext 为空）
+    const segs = await buildContextSegments({
+        caseId: null,
+        agentName: ASSISTANT_MAIN_NODE_NAME,
+        userQuery: message ?? '',
+        roleAndFlowTemplate: roleAndFlow,
+    })
+    const cachedSegments = toCachedPrompt(segs)
+    const systemPromptText = cachedPromptToPlainText(cachedSegments)
+    const systemPrompt: SystemMessage | string = mainConfig.modelSdkType === 'anthropic'
+        ? new SystemMessage({ content: cachedPromptToAnthropicContent(cachedSegments) as any })
+        : systemPromptText
 
     // 5. 加载 assistant 域工具（无 caseId）
     const toolContext = { userId, sessionId }
@@ -125,7 +145,7 @@ export async function runAssistantChat(
             safetyTrimMiddleware({
                 model,
                 maxTokens,
-                systemPrompt,
+                systemPrompt: systemPromptText,
                 maxOutputTokens,
             }),
             // audit 放最后：能同时捕获 scopeGuard 拒绝 / toolCallLimit 熔断 / 正常执行 / 异常四种情况
