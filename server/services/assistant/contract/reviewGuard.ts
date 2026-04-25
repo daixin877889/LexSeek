@@ -18,7 +18,7 @@ interface AuthUser {
 }
 
 export type ReviewGuardResult =
-    | { ok: true; user: AuthUser; review: contractReviews }
+    | { ok: true; user: AuthUser; review: contractReviews; subId?: number }
     | { ok: false; status: number; message: string }
 
 interface LoadOptions {
@@ -93,7 +93,8 @@ async function loadOwnedReviewFromSubResource(
         return { ok: false, status: 403, message: `无权${options.actionLabel ?? '访问该合同审查'}` }
     }
 
-    return { ok: true, user, review }
+    // VER-R1：把已解析的 subId 顺便回传给 handler，避免后者再 Number(getRouterParam(...)) 一次
+    return { ok: true, user, review, subId }
 }
 
 /**

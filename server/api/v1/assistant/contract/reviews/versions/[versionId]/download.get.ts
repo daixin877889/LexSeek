@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
     if (!guard.ok) return resError(event, guard.status, guard.message)
     const { review } = guard
 
-    const versionId = Number(getRouterParam(event, 'versionId'))
+    const versionId = guard.subId!
 
     const result = await downloadContractReviewVersionService(review, versionId)
     if ('error' in result) {

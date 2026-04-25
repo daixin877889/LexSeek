@@ -31,7 +31,7 @@ export default defineEventHandler(async (event) => {
     const parsed = bodySchema.safeParse(raw)
     if (!parsed.success) return resError(event, 400, parsed.error.issues[0]?.message ?? '参数错误')
 
-    const annotationId = Number(getRouterParam(event, 'annotationId'))
+    const annotationId = guard.subId!
     const result = await updateAnnotationContentService({
         annotationId,
         ownerUserId: user.id,

@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
     const parsed = bodySchema.safeParse(raw)
     if (!parsed.success) return resError(event, 400, parsed.error.issues[0]?.message ?? '参数错误')
 
-    const riskId = Number(getRouterParam(event, 'riskId'))
+    const riskId = guard.subId!
     const updated = await archiveContractRiskService({
         riskId,
         archivedStatus: parsed.data.archivedStatus,

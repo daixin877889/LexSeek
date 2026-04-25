@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
     const guard = await loadOwnedReviewByVersionId(event, { actionLabel: '查看版本快照' })
     if (!guard.ok) return resError(event, guard.status, guard.message)
 
-    const versionId = Number(getRouterParam(event, 'versionId'))
+    const versionId = guard.subId!
     const result = await loadContractReviewVersionSnapshotService(versionId)
 
     if ('error' in result) return resError(event, 404, '版本不存在')

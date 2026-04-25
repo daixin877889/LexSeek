@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
     const parsed = bodySchema.safeParse(raw)
     if (!parsed.success) return resError(event, 400, parsed.error.issues[0]?.message ?? '参数错误')
 
-    const versionId = Number(getRouterParam(event, 'versionId'))
+    const versionId = guard.subId!
     const updated = await updateContractReviewVersionNoteDAO(versionId, parsed.data.lawyerNote)
 
     return resSuccess(event, '已更新备注', {

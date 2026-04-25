@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
 
     const { user } = guard
 
-    const annotationId = Number(getRouterParam(event, 'annotationId'))
+    const annotationId = guard.subId!
     const result = await softDeleteAnnotationService({
         annotationId,
         ownerUserId: user.id,

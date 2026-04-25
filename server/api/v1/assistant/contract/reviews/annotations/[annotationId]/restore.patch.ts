@@ -20,7 +20,8 @@ export default defineEventHandler(async (event) => {
     const guard = await loadOwnedReviewByAnnotationId(event, { actionLabel: '恢复推送' })
     if (!guard.ok) return resError(event, guard.status, guard.message)
 
-    const annotationId = Number(getRouterParam(event, 'annotationId'))
+    // VER-R1：guard 已校验并解析 subId，复用避免二次 Number(getRouterParam)
+    const annotationId = guard.subId!
     const result = await restoreAnnotationPushService({ annotationId })
 
     if ('error' in result) {
