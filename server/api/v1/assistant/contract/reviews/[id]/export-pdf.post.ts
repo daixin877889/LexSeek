@@ -16,7 +16,11 @@
  * **Feature: contract-review-m6.2**
  */
 import { z } from 'zod'
-import { exportReviewPdfService } from '~~/server/services/assistant/contract/contractReviewPdf.service'
+import {
+    exportReviewPdfService,
+    ContractReviewNotFoundError,
+    ContractReviewForbiddenError,
+} from '~~/server/services/assistant/contract/contractReviewPdf.service'
 import { loadOwnedReview } from '~~/server/services/assistant/contract/reviewGuard'
 
 const BodySchema = z
@@ -52,12 +56,14 @@ export default defineEventHandler(async (event) => {
         return buf
     }
     catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e)
-        // service 层"review not found"是业务明确定义的 404 映射；其他异常一律归口 500，
-        // 不向前端透出内部实现细节（路径、堆栈、SDK 错误信息等）
-        if (msg === 'review not found') {
+        // CORE-L1：区分 404 vs 403 vs 500，避免越权访问遮蔽成 404 让日志告警丢
+        if (e instanceof ContractReviewNotFoundError) {
             return resError(event, 404, '合同审查不存在')
         }
+        if (e instanceof ContractReviewForbiddenError) {
+            return resError(event, 403, '无权导出该合同审查')
+        }
+        const msg = e instanceof Error ? e.message : String(e)
         logger.error('export-pdf failed', {
             reviewId: review.id,
             userId: user.id,

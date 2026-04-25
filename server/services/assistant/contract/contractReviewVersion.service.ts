@@ -168,12 +168,9 @@ export async function loadContractReviewVersionSnapshotService(versionId: number
         select: { name: true },
     })
 
-    const snapshot = version.snapshotData as unknown as {
-        risks: ContractRiskEntity[]
-        annotations: ContractAnnotationEntity[]
-        docxText: string
-        clauses: ClauseSnapshotItem[]
-    }
+    // VER-M3：snapshotData 是 jsonb，as unknown as 直接解析在 DB 数据脏化时会让前端
+    // map 处崩溃。用容错策略读取——缺字段补默认值，非数组类型降级为空数组。
+    const snapshot = parseSnapshotSafe(version.snapshotData)
 
     return {
         data: {
@@ -189,6 +186,24 @@ export async function loadContractReviewVersionSnapshotService(versionId: number
             snapshot,
         },
     }
+}
+
+/**
+ * VER-M3：snapshot 容错解析。risks / annotations / clauses 必须是数组，
+ * docxText 必须是字符串，否则降级为空。脏数据不至于让前端崩溃。
+ */
+function parseSnapshotSafe(raw: unknown): {
+    risks: ContractRiskEntity[]
+    annotations: ContractAnnotationEntity[]
+    docxText: string
+    clauses: ClauseSnapshotItem[]
+} {
+    const obj = (raw && typeof raw === 'object') ? raw as Record<string, unknown> : {}
+    const risks = Array.isArray(obj.risks) ? (obj.risks as ContractRiskEntity[]) : []
+    const annotations = Array.isArray(obj.annotations) ? (obj.annotations as ContractAnnotationEntity[]) : []
+    const docxText = typeof obj.docxText === 'string' ? obj.docxText : ''
+    const clauses = Array.isArray(obj.clauses) ? (obj.clauses as ClauseSnapshotItem[]) : []
+    return { risks, annotations, docxText, clauses }
 }
 
 // ============================================================

@@ -14,6 +14,7 @@ import { z } from 'zod'
 import type { ToolContext, ToolDefinition } from './types'
 import { InterruptType } from '#shared/types/case'
 import type { Stance } from '#shared/types/contract'
+import { STANCE_LABEL } from '#shared/types/contract'
 import { emitContractReviewEvent } from '../nodes/contractReviewStageEmitter'
 import {
     getContractReviewDAO,
@@ -30,11 +31,7 @@ function isValidStance(value: unknown): value is Stance {
     return typeof value === 'string' && (VALID_STANCES as readonly string[]).includes(value)
 }
 
-const STANCE_LABELS: Record<Stance, string> = {
-    partyA: '甲方',
-    partyB: '乙方',
-    neutral: '中立',
-}
+// CORE-R6：复用 shared/types/contract.ts 的 STANCE_LABEL，避免双份定义
 
 const STANCE_FOCUS_TABLE: Record<Stance, string> = {
     partyA: '延长付款期限、缩短交付、减少己方违约责任、增加对方违约成本、选择己方管辖地',
@@ -125,7 +122,7 @@ export const createTool = (context: ToolContext) => tool(
 
         return {
             stance,
-            stanceLabel: STANCE_LABELS[stance],
+            stanceLabel: STANCE_LABEL[stance],
             stanceFocus: STANCE_FOCUS_TABLE[stance],
             partyA: finalPartyA,
             partyB: finalPartyB,

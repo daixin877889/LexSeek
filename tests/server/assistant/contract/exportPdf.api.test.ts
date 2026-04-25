@@ -37,9 +37,27 @@ const resError = (_event: any, code: number, message: string) => ({
 
 // ==================== Mock service ====================
 
-vi.mock('~~/server/services/assistant/contract/contractReviewPdf.service', () => ({
-    exportReviewPdfService: vi.fn(),
-}))
+// CORE-L1：handler 用 instanceof 检测 404/403/500，mock 必须把真实 Error 类
+// 一并 export。vi.mock 工厂被 hoist 到顶部，类必须**在工厂内**定义。
+vi.mock('~~/server/services/assistant/contract/contractReviewPdf.service', () => {
+    class ContractReviewNotFoundError extends Error {
+        constructor(public readonly reviewId: number) {
+            super(`合同审查不存在：${reviewId}`)
+            this.name = 'ContractReviewNotFoundError'
+        }
+    }
+    class ContractReviewForbiddenError extends Error {
+        constructor(public readonly reviewId: number, public readonly attemptedUserId: number) {
+            super(`无权访问合同审查 ${reviewId}（user ${attemptedUserId}）`)
+            this.name = 'ContractReviewForbiddenError'
+        }
+    }
+    return {
+        exportReviewPdfService: vi.fn(),
+        ContractReviewNotFoundError,
+        ContractReviewForbiddenError,
+    }
+})
 
 // loadOwnedReview 内部依赖 contractReview.dao.getContractReviewDAO；
 // 默认返回与 makeEvent 默认 userId 匹配的 owned review，让 guard 通过；
@@ -48,7 +66,11 @@ vi.mock('~~/server/services/assistant/contract/contractReview.dao', () => ({
     getContractReviewDAO: vi.fn(),
 }))
 
-import { exportReviewPdfService } from '~~/server/services/assistant/contract/contractReviewPdf.service'
+import {
+    exportReviewPdfService,
+    ContractReviewNotFoundError,
+    ContractReviewForbiddenError,
+} from '~~/server/services/assistant/contract/contractReviewPdf.service'
 import { getContractReviewDAO } from '~~/server/services/assistant/contract/contractReview.dao'
 
 const mockExport = exportReviewPdfService as unknown as ReturnType<typeof vi.fn>
@@ -122,12 +144,21 @@ describe('POST /api/v1/assistant/contract/reviews/:id/export-pdf handler', () =>
         expect(mockExport).not.toHaveBeenCalled()
     })
 
-    it('service 抛 review not found 返回 404', async () => {
-        mockExport.mockRejectedValueOnce(new Error('review not found'))
+    it('service 抛 ContractReviewNotFoundError 返回 404（CORE-L1）', async () => {
+        mockExport.mockRejectedValueOnce(new ContractReviewNotFoundError(1))
         const res: any = await handler(
             makeEvent({ userId: 10, id: '1', body: { includeRisks: false } }) as any,
         )
         expect(res.code).toBe(404)
+    })
+
+    it('service 抛 ContractReviewForbiddenError 返回 403（CORE-L1）', async () => {
+        // forbidden 不会到 service（guard 已 403），这里测 service 内部抛同类错的 fallback 路径
+        mockExport.mockRejectedValueOnce(new ContractReviewForbiddenError(1, 10))
+        const res: any = await handler(
+            makeEvent({ userId: 10, id: '1', body: { includeRisks: false } }) as any,
+        )
+        expect(res.code).toBe(403)
     })
 
     it('service 抛其他异常返回 500', async () => {

@@ -88,9 +88,29 @@ function formatDateTime(d: Date | null | undefined): string {
 }
 
 /**
+ * CORE-L1：分别区分"记录不存在"和"非 owner"两种 404/403 语义，
+ * handler 据此返回正确的 HTTP 状态码（403 越权 vs 404 不存在），
+ * 避免把越权访问统一标 404 遮蔽日志告警。
+ */
+export class ContractReviewNotFoundError extends Error {
+    constructor(public readonly reviewId: number) {
+        super(`合同审查不存在：${reviewId}`)
+        this.name = 'ContractReviewNotFoundError'
+    }
+}
+
+export class ContractReviewForbiddenError extends Error {
+    constructor(public readonly reviewId: number, public readonly attemptedUserId: number) {
+        super(`无权访问合同审查 ${reviewId}（user ${attemptedUserId}）`)
+        this.name = 'ContractReviewForbiddenError'
+    }
+}
+
+/**
  * 根据 reviewId 生成 PDF Buffer。
  * 失败路径：
- *  - 记录不存在 / owner 不匹配：抛 Error('review not found')
+ *  - 记录不存在：抛 ContractReviewNotFoundError（handler 转 404）
+ *  - 非 owner：抛 ContractReviewForbiddenError（handler 转 403）
  *
  * owner 校验放在 service 层，handler 只做透传与鉴权。
  */
@@ -100,9 +120,8 @@ export async function exportReviewPdfService(
     options: ExportPdfOptions,
 ): Promise<Buffer> {
     const review = await getContractReviewDAO(reviewId)
-    if (!review || review.userId !== userId) {
-        throw new Error('review not found')
-    }
+    if (!review) throw new ContractReviewNotFoundError(reviewId)
+    if (review.userId !== userId) throw new ContractReviewForbiddenError(reviewId, userId)
 
     const originalFile = review.originalFileId
         ? await findOssFileByIdDao(review.originalFileId)

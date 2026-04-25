@@ -277,6 +277,12 @@ export const STANCE_PREFERENCE_LABEL: Record<StancePreference, string> = {
 }
 
 /**
+ * CORE-R7：AI 风险写入时的默认 StancePreference。多处 service 之前用
+ * `'balanced' as StancePreference` 字面量裸值，统一收口到这个常量。
+ */
+export const DEFAULT_AI_RISK_STANCE: StancePreference = 'balanced'
+
+/**
  * 写入 contractReviews.playbookSnapshot 的单条快照结构。
  * 字段对齐 contractPlaybooks，仅取快照写入所需字段。
  */

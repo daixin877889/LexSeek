@@ -10,7 +10,8 @@
  *
  * **Feature: contract-review-versioning-phase-a**
  */
-import type { RiskLevel, StancePreference, Risk } from '#shared/types/contract'
+import type { RiskLevel, Risk } from '#shared/types/contract'
+import { DEFAULT_AI_RISK_STANCE } from '#shared/types/contract'
 import { createContractRiskDAO } from './contractRisk.dao'
 import { createContractAnnotationDAO } from './contractAnnotation.dao'
 import { saveContractReviewVersionService } from './contractReviewVersion.service'
@@ -50,7 +51,7 @@ export async function migrateLegacyRisksService(
             code: (lr.matchedPointCode as string | undefined) ?? null,
             category: (lr.category as string | undefined) ?? '未分类',
             level: ((lr.level as string | undefined) ?? 'medium') as RiskLevel,
-            stance: 'balanced' as StancePreference,
+            stance: DEFAULT_AI_RISK_STANCE,
             problem: (lr.problem as string | undefined) ?? '',
             legalBasis: (lr.legalBasis as string | undefined) ?? null,
             analysis: ((lr.analysis ?? lr.risk) as string | undefined) ?? null,

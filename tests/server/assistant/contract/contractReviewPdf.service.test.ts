@@ -162,17 +162,17 @@ describe('exportReviewPdfService', () => {
         expect(buf.subarray(0, 4).toString()).toBe('%PDF')
     })
 
-    it('reviewId 不存在应抛 review not found', async () => {
+    it('reviewId 不存在抛 ContractReviewNotFoundError（CORE-L1：404 与 403 分流）', async () => {
         await expect(
             exportReviewPdfService(999999999, ownerUserId, { includeRisks: false }),
-        ).rejects.toThrow('review not found')
+        ).rejects.toThrow(/不存在/)
     })
 
-    it('非 owner 请求应抛 review not found（owner 校验）', async () => {
+    it('非 owner 请求抛 ContractReviewForbiddenError（CORE-L1：handler 转 403 而非 404）', async () => {
         const review = await createReview({ userId: ownerUserId })
         await expect(
             exportReviewPdfService(review.id, otherUserId, { includeRisks: false }),
-        ).rejects.toThrow('review not found')
+        ).rejects.toThrow(/无权访问/)
     })
 
     it('新结构 summary（有 highlights）正常渲染，PDF 为合法文件', async () => {

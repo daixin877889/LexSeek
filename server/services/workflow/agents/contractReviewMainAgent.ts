@@ -77,7 +77,8 @@ import { createContractAnnotationDAO } from '../../assistant/contract/contractAn
 import { saveContractReviewVersionService } from '../../assistant/contract/contractReviewVersion.service'
 import { buildClauseToParagraphMap } from '../../assistant/contract/utils/clauseToParagraph'
 import type { Prisma } from '~~/generated/prisma/client'
-import type { Risk, Stance, ClauseSegment, ClauseSnapshotItem, PlaybookSnapshot, StancePreference, RiskLevel } from '#shared/types/contract'
+import type { Risk, Stance, ClauseSegment, ClauseSnapshotItem, PlaybookSnapshot, RiskLevel } from '#shared/types/contract'
+import { DEFAULT_AI_RISK_STANCE } from '#shared/types/contract'
 import { resolveContextWindow } from '../context/messageCompressor'
 
 import { renderRiskAsAnnotationText } from '~~/server/services/assistant/contract/contractRiskRender'
@@ -123,7 +124,7 @@ async function persistRisksAndCreateV1Snapshot(
             code: aiRisk.matchedPointCode ?? null,
             category: aiRisk.category,
             level: aiRisk.level as RiskLevel,
-            stance: 'balanced' as StancePreference,
+            stance: DEFAULT_AI_RISK_STANCE,
             problem: aiRisk.problem,
             legalBasis: aiRisk.legalBasis ?? null,
             analysis: aiRisk.analysis,
