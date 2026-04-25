@@ -40,12 +40,17 @@ import {
     summarizationMiddleware,
     type ReactAgent,
 } from 'langchain'
-import { HumanMessage } from '@langchain/core/messages'
+import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { getCheckpointer, getStore } from '../checkpointer'
 import { getValidNodeConfig } from '../../node/node.service'
-import { createChatModel } from '../../node/chatModelFactory'
+import {
+    createChatModel,
+    cachedPromptToAnthropicContent,
+    cachedPromptToPlainText,
+} from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
 import { renderSystemPrompt } from '../utils/promptRenderer'
+import { buildContextSegments, toCachedPrompt } from '../context/moduleContextBuilder'
 import {
     pointConsumptionMiddleware,
     safetyTrimMiddleware,
@@ -330,10 +335,25 @@ export async function runContractReviewChat(
     })
 
     // 4. 渲染系统提示词（注入 reviewId + contractType）
-    const systemPrompt = renderSystemPrompt(nodeConfig, {
+    const roleAndFlowTemplate = renderSystemPrompt(nodeConfig, {
         reviewId: review.id,
         contractType: review.contractType ?? undefined,
     })
+
+    // 4.1 构建 5 段式上下文：合同审查可空 caseId（独立审查时为 null）
+    const segs = await buildContextSegments({
+        caseId: review.caseId ?? null,
+        agentName: CONTRACT_MAIN_NODE_NAME,
+        userQuery: buildInitialPrompt(review.id),
+        roleAndFlowTemplate,
+    })
+    const cached = toCachedPrompt(segs)
+    const sysContent: string | Array<Record<string, unknown>> =
+        nodeConfig.modelSdkType === 'anthropic'
+            ? cachedPromptToAnthropicContent(cached)
+            : cachedPromptToPlainText(cached)
+    const systemMessage = new SystemMessage({ content: sysContent as any })
+    const systemPromptPlainText = cachedPromptToPlainText(cached)
 
     // 5. 加载工具（传入 reviewId 关键上下文，parseAndAskStance 工具依赖）
     const toolContext = {
@@ -389,7 +409,7 @@ export async function runContractReviewChat(
             middleware: safetyTrimMiddleware({
                 model,
                 maxTokens,
-                systemPrompt,
+                systemPrompt: systemPromptPlainText,
                 maxOutputTokens,
             }),
             priority: MIDDLEWARE_PRIORITY.SAFETY_TRIM,
@@ -414,7 +434,7 @@ export async function runContractReviewChat(
     // 8. 组装 Agent（首轮使用，resume 分支绕过此 agent）
     const agent: ReactAgent = createAgent({
         model,
-        systemPrompt,
+        systemPrompt: systemMessage,
         checkpointer,
         store,
         tools,

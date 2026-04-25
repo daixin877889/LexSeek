@@ -10,13 +10,18 @@
  */
 
 import { createAgent, summarizationMiddleware, toolStrategy, type ReactAgent } from 'langchain'
-import { HumanMessage } from '@langchain/core/messages'
+import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { Command } from '@langchain/langgraph'
 import { getCheckpointer, getStore } from '../checkpointer'
 import { getValidNodeConfig } from '../../node/node.service'
-import { createChatModel } from '../../node/chatModelFactory'
+import {
+    createChatModel,
+    cachedPromptToAnthropicContent,
+    cachedPromptToPlainText,
+} from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
 import { renderSystemPrompt } from '../utils/promptRenderer'
+import { buildContextSegments, toCachedPrompt } from '../context/moduleContextBuilder'
 import {
     createAuditMiddleware,
     createMessageIntegrityMiddleware,
@@ -140,11 +145,26 @@ export async function runDocumentChat(
 
     // 5. 渲染系统提示词（注入模板名称和类别）
     const resolvedCaseId = draft.caseId ?? caseId
-    const systemPrompt = renderSystemPrompt(nodeConfig, {
+    const roleAndFlowTemplate = renderSystemPrompt(nodeConfig, {
         caseId: resolvedCaseId,
         templateName: template.name,
         templateCategory: template.category,
     })
+
+    // 5.1 构建 5 段式上下文（caseId 可空：独立文书草稿场景传 null）
+    const segs = await buildContextSegments({
+        caseId: resolvedCaseId ?? null,
+        agentName: DOCUMENT_MAIN_NODE_NAME,
+        userQuery: message ?? '',
+        roleAndFlowTemplate,
+    })
+    const cached = toCachedPrompt(segs)
+    const sysContent: string | Array<Record<string, unknown>> =
+        nodeConfig.modelSdkType === 'anthropic'
+            ? cachedPromptToAnthropicContent(cached)
+            : cachedPromptToPlainText(cached)
+    const systemMessage = new SystemMessage({ content: sysContent as any })
+    const systemPromptPlainText = cachedPromptToPlainText(cached)
 
     // 6. 加载工具（传入 draftId 关键上下文）
     const toolContext = {
@@ -175,7 +195,7 @@ export async function runDocumentChat(
     // draftResultPersistenceMiddleware 必须最后，确保拿到最终 structuredResponse
     const agent: ReactAgent = createAgent({
         model,
-        systemPrompt,
+        systemPrompt: systemMessage,
         checkpointer,
         store,
         tools,
@@ -192,7 +212,7 @@ export async function runDocumentChat(
             safetyTrimMiddleware({
                 model,
                 maxTokens,
-                systemPrompt,
+                systemPrompt: systemPromptPlainText,
                 maxOutputTokens,
             }),
             draftResultPersistenceMiddleware({ draftId: draft.id, sessionId }),
