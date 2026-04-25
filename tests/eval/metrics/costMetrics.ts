@@ -35,9 +35,23 @@ export function aggregateCostMetrics(input: CostInput): MetricResult[] {
     result: totAvg < 6000 ? 'pass' : 'fail',
   })
 
-  // cacheHitRate (DeepSeek prompt_cache_hit_tokens / prompt_tokens)
-  const sumPromptTokens = nonWarmup.reduce((s, r) => s + (r.usage.prompt_tokens ?? 0), 0)
-  const sumCacheHit = nonWarmup.reduce((s, r) => s + (r.usage.prompt_cache_hit_tokens ?? 0), 0)
+  // cacheHitRate：多协议兜底取
+  //  - DeepSeek 原生：prompt_cache_hit_tokens / prompt_tokens
+  //  - Anthropic 协议（DeepSeek 经 Anthropic 端点）：cache_read_input_tokens / input_tokens
+  //  - OpenAI 协议：prompt_tokens_details.cached_tokens / prompt_tokens
+  const sumPromptTokens = nonWarmup.reduce(
+    (s, r) => s + (r.usage.prompt_tokens ?? r.usage.input_tokens ?? 0),
+    0,
+  )
+  const sumCacheHit = nonWarmup.reduce(
+    (s, r) => s + (
+      r.usage.prompt_cache_hit_tokens
+      ?? r.usage.cache_read_input_tokens
+      ?? r.usage.prompt_tokens_details?.cached_tokens
+      ?? 0
+    ),
+    0,
+  )
   const cacheHitRate = sumPromptTokens > 0 ? sumCacheHit / sumPromptTokens : 0
   results.push({
     name: 'cacheHitRate',
