@@ -159,7 +159,7 @@ export const reviewResultPersistenceMiddleware = (
                 await updateContractReviewDAO(options.reviewId, { status: 'reviewing' })
                 // M6.1：agent 启动即视为 detect 阶段 running
                 if (options.runId) {
-                    const { emitContractReviewEvent } = await import('../nodes/contractReviewStageEmitter')
+                    const { emitContractReviewEvent } = await import('~~/server/services/workflow/nodes/contractReviewStageEmitter')
                     await emitContractReviewEvent(
                         { runId: options.runId, sessionId: options.sessionId },
                         { type: 'stage', stage: 'detect', status: 'running' },
