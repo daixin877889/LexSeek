@@ -415,9 +415,10 @@ describe('案件服务层单元测试', () => {
             const { completeCaseAnalysisService } = await import('~~/server/services/case/case.service')
             await completeCaseAnalysisService(1, 's1')
 
+            // 业务侧改为把案件标记为 CLOSED（COMPLETED 已被 ARCHIVED/CLOSED 双状态拆分覆盖）
             expect(mockUpdateCaseDao).toHaveBeenCalledWith(
                 1,
-                { status: CaseStatus.COMPLETED },
+                { status: CaseStatus.CLOSED },
                 expect.anything(),
             )
             expect(mockUpdateSessionStatusDao).toHaveBeenCalledWith(

@@ -176,12 +176,18 @@ describe('案件分析服务层 - 扩展覆盖率', () => {
                 .mockResolvedValueOnce(existing) // 第一次查找
                 .mockResolvedValueOnce({ ...existing, isActive: true }) // 激活后再次查找
             mockActivateVersionDao.mockResolvedValue(undefined)
+            // 业务在 $transaction 内同时改 caseAnalyses 与同步 case_analysis_embeddings，
+            // 默认 vi.fn() 不会执行 callback；需要显式实现透传 tx
+            const fakeTx = {
+                $executeRawUnsafe: vi.fn().mockResolvedValue(undefined),
+            }
+            ;(prisma.$transaction as any).mockImplementation(async (fn: Function) => fn(fakeTx))
 
             const { switchActiveVersionService } = await import('~~/server/services/case/analysis.service')
             const result = await switchActiveVersionService(1)
 
             expect(result.isActive).toBe(true)
-            expect(mockActivateVersionDao).toHaveBeenCalledWith(1, 1, 10)
+            expect(mockActivateVersionDao).toHaveBeenCalledWith(1, 1, 10, expect.anything())
         })
     })
 
