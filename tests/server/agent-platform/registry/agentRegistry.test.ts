@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { AgentRegistry } from '~~/server/services/agent-platform/registry/agentRegistry'
+import { AgentRegistry, agentRegistry } from '~~/server/services/agent-platform/registry/agentRegistry'
 import type { AgentRunnerContext } from '~~/server/services/agent-platform/registry/types'
 import { SessionScope, SessionType } from '#shared/types/agentEvent'
+import { registerLegacyRunners } from '~~/server/services/agent-platform/registry/registerLegacyRunners'
 
 function makeStream(): ReadableStream {
     return new ReadableStream({
@@ -88,5 +89,20 @@ describe('AgentRegistry', () => {
         registry.register({ scope: SessionScope.CONTRACT, runner: async () => makeStream() })
         expect(registry.has({ scope: SessionScope.CONTRACT })).toBe(true)
         expect(registry.has({ scope: SessionScope.DOCUMENT })).toBe(false)
+    })
+})
+
+describe('registerLegacyRunners 幂等性', () => {
+    it('多次调用只注册一次（避免重复注册抛错）', () => {
+        // 注：本测试用的是全局 agentRegistry。为避免污染其他测试，
+        // 仅用幂等行为验证。
+        const beforeSize = agentRegistry.list().length
+        registerLegacyRunners()
+        const afterFirst = agentRegistry.list().length
+        registerLegacyRunners()
+        const afterSecond = agentRegistry.list().length
+
+        expect(afterFirst - beforeSize).toBeGreaterThanOrEqual(0)
+        expect(afterSecond).toBe(afterFirst)   // 第二次调用未增加
     })
 })
