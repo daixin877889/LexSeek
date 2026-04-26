@@ -34,6 +34,15 @@ vi.mock('~~/server/services/assistant/document/templateScanner', () => ({
     scanPlaceholders: vi.fn(),
 }))
 
+// docxtemplater 预编译校验只能在真实 docx 上跑通；测试用 fake buffer，
+// 直接 mock 掉底层 PizZip + Docxtemplater 让 tryCompileTemplate 内 try 块不抛错。
+vi.mock('pizzip', () => ({
+    default: vi.fn().mockImplementation(() => ({})),
+}))
+vi.mock('docxtemplater', () => ({
+    default: vi.fn().mockImplementation(() => ({})),
+}))
+
 // ==================== 导入被测模块（在 mock 之后）====================
 
 import { createDocumentTemplateService, MAX_PRIVATE_TEMPLATES } from '~~/server/services/assistant/document/documentTemplate.service'

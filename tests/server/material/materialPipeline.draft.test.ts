@@ -25,12 +25,12 @@ const prismaMock = vi.hoisted(() => ({
     },
 }))
 
-vi.mock('~~/server/utils/prisma', () => ({
+vi.mock('~~/server/utils/db', () => ({
     default: prismaMock,
     prisma: prismaMock,
 }))
 
-vi.mock('~/server/utils/prisma', () => ({
+vi.mock('~/server/utils/db', () => ({
     default: prismaMock,
     prisma: prismaMock,
 }))
@@ -72,6 +72,7 @@ const mocksMaterialService = vi.hoisted(() => ({
     getMaterialsByCaseIdService: vi.fn(),
     getMaterialByIdService: vi.fn(),
     updateMaterialStatusService: vi.fn(),
+    generateMaterialSummaryService: vi.fn().mockResolvedValue(undefined),
 }))
 
 // 注意：materialPipeline.service 内部 import 了 getMaterialsByDraftIdService。
@@ -82,12 +83,14 @@ vi.mock('../../../server/services/material/material.service', () => ({
     getMaterialsByDraftIdService: mocksMaterialService.getMaterialsByDraftIdService,
     getMaterialByIdService: mocksMaterialService.getMaterialByIdService,
     updateMaterialStatusService: mocksMaterialService.updateMaterialStatusService,
+    generateMaterialSummaryService: mocksMaterialService.generateMaterialSummaryService,
 }))
 vi.mock('~~/server/services/material/material.service', () => ({
     getMaterialsByCaseIdService: mocksMaterialService.getMaterialsByCaseIdService,
     getMaterialsByDraftIdService: mocksMaterialService.getMaterialsByDraftIdService,
     getMaterialByIdService: mocksMaterialService.getMaterialByIdService,
     updateMaterialStatusService: mocksMaterialService.updateMaterialStatusService,
+    generateMaterialSummaryService: mocksMaterialService.generateMaterialSummaryService,
 }))
 
 // ===========================================================
@@ -229,6 +232,8 @@ describe('ensureMaterialsReadyForDraftService', () => {
 
     beforeEach(() => {
         vi.clearAllMocks()
+        // prisma 在 nitro 中通过 server/utils/db 自动注入为全局，测试需 stubGlobal
+        vi.stubGlobal('prisma', prismaMock)
     })
 
     it('已有 draftId + ossFileId 记录且已处理完成时直接返回', async () => {
@@ -248,8 +253,8 @@ describe('ensureMaterialsReadyForDraftService', () => {
     it('不存在记录时应创建新材料（caseId=null, draftId=X）', async () => {
         // 精确查找返回 null（无记录）
         mocksMaterialDao.findActiveMaterialByOssFileIdDao.mockResolvedValue(null)
-        // prisma.ossFiles.findFirst 返回 null（fallback 文件名）
-        prismaMock.ossFiles.findFirst.mockResolvedValue(null)
+        // 业务方加了"前置 ossFile 校验"：找不到时抛"OSS 文件不存在"，所以这里返回有效对象
+        prismaMock.ossFiles.findFirst.mockResolvedValue({ fileName: `材料_${ossFileId}`, fileType: 'application/pdf' })
         // 创建后返回新材料
         const newMaterial = { id: 200, draftId, ossFileId, status: 1, name: `材料_${ossFileId}`, type: 2, caseId: null, isEncrypted: false, createdAt: new Date(), updatedAt: new Date(), deletedAt: null, summary: null }
         mocksMaterialDao.createMaterialDao.mockResolvedValue(newMaterial)
@@ -270,7 +275,7 @@ describe('ensureMaterialsReadyForDraftService', () => {
 
     it('材料处理失败时应抛出错误', async () => {
         mocksMaterialDao.findActiveMaterialByOssFileIdDao.mockResolvedValue(null)
-        prismaMock.ossFiles.findFirst.mockResolvedValue(null)
+        prismaMock.ossFiles.findFirst.mockResolvedValue({ fileName: `材料_${ossFileId}`, fileType: 'application/pdf' })
         const newMaterial = { id: 201, draftId, ossFileId, status: 1, name: `材料_${ossFileId}`, type: 2, caseId: null, isEncrypted: false, createdAt: new Date(), updatedAt: new Date(), deletedAt: null, summary: null }
         mocksMaterialDao.createMaterialDao.mockResolvedValue(newMaterial)
         mocksEmbedding.embedMaterialUnifiedService.mockResolvedValue({ success: true })
