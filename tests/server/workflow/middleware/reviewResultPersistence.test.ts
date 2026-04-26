@@ -9,12 +9,35 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('~~/server/agents/contract/contractReview.dao', () => ({
+vi.mock('~~/server/services/assistant/contract/contractReview.dao', () => ({
     getContractReviewDAO: vi.fn(),
     updateContractReviewDAO: vi.fn(),
 }))
-vi.mock('~~/server/agents/contract/docx', () => ({
-    injectComments: vi.fn(),
+vi.mock('~~/server/services/assistant/contract/contractAnnotation.dao', () => ({
+    listAnnotationsForExportDAO: vi.fn().mockResolvedValue([{
+        id: 'a1',
+        riskId: '00000000-0000-4000-8000-000000000001',
+        authorType: 'system',
+        authorName: 'system',
+        content: 'mock annotation',
+        parentAnnotationId: null,
+        wordCommentRef: 1,
+        createdAt: new Date(),
+        risk: {
+            anchorQuote: 'q',
+            anchorParagraphIndex: 0,
+            orphaned: false,
+        },
+    }]),
+}))
+vi.mock('~~/server/services/assistant/contract/contractAnnotation.service', () => ({
+    isAnnotationExportable: vi.fn().mockReturnValue(true),
+}))
+vi.mock('~~/server/services/assistant/contract/utils/uploadAndRegisterOssFile', () => ({
+    uploadAndRegisterOssFile: vi.fn().mockResolvedValue({ ossFileId: 200, name: 'reviewed.docx' }),
+}))
+vi.mock('~~/server/services/assistant/contract/docx', () => ({
+    injectAnnotations: vi.fn(),
 }))
 vi.mock('~~/server/services/storage/storage.service', () => ({
     downloadFileService: vi.fn(),
@@ -32,16 +55,13 @@ import { reviewResultPersistenceMiddleware } from '~~/server/services/workflow/m
 import {
     getContractReviewDAO,
     updateContractReviewDAO,
-} from '~~/server/agents/contract/contractReview.dao'
-import { injectComments } from '~~/server/agents/contract/docx'
+} from '~~/server/services/assistant/contract/contractReview.dao'
+import { injectAnnotations } from '~~/server/services/assistant/contract/docx'
 import {
     downloadFileService,
-    uploadFileService,
 } from '~~/server/services/storage/storage.service'
-import { getDefaultStorageConfigDao } from '~~/server/services/storage/storageConfig.dao'
 import {
     findOssFileByIdDao,
-    createOssFileDao,
 } from '~~/server/services/files/ossFiles.dao'
 
 function getHooks(mw: any) {
@@ -95,14 +115,12 @@ describe('reviewResultPersistenceMiddleware (M6.1 子期 2 改造后)', () => {
             })
         ;(findOssFileByIdDao as any).mockResolvedValueOnce({ id: 99, filePath: 'orig.docx' })
         ;(downloadFileService as any).mockResolvedValueOnce(Buffer.from('orig'))
-        ;(injectComments as any).mockResolvedValueOnce({
+        ;(injectAnnotations as any).mockResolvedValueOnce({
             buffer: Buffer.from('reviewed'),
-            validRisks: [risk],
+            validAnnotations: [{ id: 'a1' }],
             skippedIndices: [],
+            refsByAnnotationId: new Map([['a1', 1]]),
         })
-        ;(uploadFileService as any).mockResolvedValueOnce({ name: 'contract-review/7/reviewed-xyz.docx' })
-        ;(getDefaultStorageConfigDao as any).mockResolvedValueOnce({ bucket: 'test-bucket' })
-        ;(createOssFileDao as any).mockResolvedValueOnce({ id: 200 })
         ;(updateContractReviewDAO as any).mockResolvedValue({})
 
         const mw = reviewResultPersistenceMiddleware(opts)
@@ -110,9 +128,7 @@ describe('reviewResultPersistenceMiddleware (M6.1 子期 2 改造后)', () => {
         await after({})
 
         // 注入链路被触发
-        expect(injectComments).toHaveBeenCalled()
-        expect(uploadFileService).toHaveBeenCalled()
-        expect(createOssFileDao).toHaveBeenCalled()
+        expect(injectAnnotations).toHaveBeenCalled()
         // 终局 update：status=completed + reviewedFileId
         expect(updateContractReviewDAO).toHaveBeenLastCalledWith(42, {
             reviewedFileId: 200, status: 'completed',
@@ -130,7 +146,7 @@ describe('reviewResultPersistenceMiddleware (M6.1 子期 2 改造后)', () => {
         await after({})
 
         expect(updateContractReviewDAO).toHaveBeenCalledWith(42, { status: 'failed' })
-        expect(injectComments).not.toHaveBeenCalled()
+        expect(injectAnnotations).not.toHaveBeenCalled()
     })
 
     it('afterAgent：review.status=completed → 跳过（幂等，主流程已处理）', async () => {
@@ -144,6 +160,6 @@ describe('reviewResultPersistenceMiddleware (M6.1 子期 2 改造后)', () => {
 
         // 已 completed：不应再次触发 updateContractReviewDAO，也不应触发注入链路
         expect(updateContractReviewDAO).not.toHaveBeenCalled()
-        expect(injectComments).not.toHaveBeenCalled()
+        expect(injectAnnotations).not.toHaveBeenCalled()
     })
 })

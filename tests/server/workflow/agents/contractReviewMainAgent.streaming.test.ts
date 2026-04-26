@@ -272,7 +272,7 @@ describe('runContractReviewChat resume 分支 - segments fail-fast', () => {
             status: 'awaiting_stance',
         })
         // 切分返回空数组（模拟切分失败的降级场景）
-        ;(segmentClauses as any).mockResolvedValueOnce([])
+        ;(segmentClauses as any).mockResolvedValueOnce({ segments: [], normalizedText: '' })
 
         const stream = await runContractReviewChat('sess-empty', {
             userId: 7,
