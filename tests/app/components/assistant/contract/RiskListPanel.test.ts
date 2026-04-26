@@ -538,37 +538,8 @@ function mountPanelWithPin(props: Partial<{
     })
 }
 
-describe('RiskListPanel · M6.1 Task 4.6.1 未定位标签', () => {
-    it('未定位 risk 的卡片渲染 TriangleAlert 图标 + "未定位"文字', () => {
-        const w = mountPanelWithPin({
-            risks: [makeRisk({ id: 'r1' })],
-            notLocatedIds: new Set(['r1']),
-        })
-        const card = w.find('[data-risk-id="r1"]')
-        expect(card.text()).toContain('未定位')
-        // lucide TriangleAlert 会渲染出包含 lucide-triangle-alert 类的 svg
-        expect(card.find('.lucide-triangle-alert').exists()).toBe(true)
-    })
-
-    it('不在 notLocatedIds 中的卡片不渲染"未定位"标签', () => {
-        const w = mountPanelWithPin({
-            risks: [makeRisk({ id: 'r1' }), makeRisk({ id: 'r2', clauseIndex: 1 })],
-            notLocatedIds: new Set(['r1']),
-        })
-        // r1 有未定位标签
-        expect(w.find('[data-risk-id="r1"]').text()).toContain('未定位')
-        // r2 没有
-        expect(w.find('[data-risk-id="r2"]').text()).not.toContain('未定位')
-    })
-
-    it('notLocatedIds 为空时所有卡片均不渲染未定位标签', () => {
-        const w = mountPanelWithPin({
-            risks: [makeRisk({ id: 'r1' })],
-            notLocatedIds: new Set<string>(),
-        })
-        expect(w.find('[data-risk-id="r1"]').text()).not.toContain('未定位')
-    })
-})
+// 注：M6.1 Task 4.6.1 "未定位"标签的渲染逻辑已搬到 RiskCard 子组件，
+// 对应单元测试见 tests/app/components/assistant/contract/RiskCard.test.ts。
 
 describe('RiskListPanel · M6.1 Task 4.4 钉住 + 聚焦态', () => {
     it('卡片右上渲染未钉状态的 Pin 图标按钮', () => {
@@ -831,10 +802,10 @@ describe('RiskListPanel · Phase B 外部新增分组', () => {
         expect(w.text()).toContain('外部新增')
     })
 
-    it('外部新增分组卡片带 border-warning 竖条样式', () => {
+    it('外部新增分组卡片带 border-orange-500 竖条样式', () => {
         const extRisk: RiskDisplayPhaseB = { ...makeRisk({ id: 'ext-1' }), source: 'external_new' }
         const w = mountPanelPhaseB({ risks: [extRisk] })
-        expect(w.html()).toContain('border-warning')
+        expect(w.html()).toContain('border-orange-500')
     })
 
     it('外部新增分组显示外部批注 authorName + "外部批注"标签', () => {
