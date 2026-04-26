@@ -5,9 +5,12 @@
  */
 import { describe, it, expect, vi } from 'vitest'
 
-// Mock materialPipeline 的 estimateTokens
-vi.mock('~~/server/services/material/materialPipeline.service', () => ({
-    estimateTokens: (text: string) => Math.ceil(text.length / 3),
+// 业务侧 messageCompressor 已改用 countTokensSync from ~~/server/utils/tokenCounter
+//（不再用 materialPipeline.estimateTokens）。原 mock 路径过时让测试卡在真实
+// tiktoken 初始化死锁，改 mock 真实路径。
+vi.mock('~~/server/utils/tokenCounter', () => ({
+    countTokensSync: (text: string) => Math.ceil(text.length / 3),
+    countTokens: async (text: string) => Math.ceil(text.length / 3),
 }))
 
 // Mock logger
