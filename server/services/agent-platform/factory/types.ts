@@ -10,7 +10,7 @@
 import type { SessionScope, SessionType } from '#shared/types/agentEvent'
 import type { MiddlewareWithPriority } from '~~/server/services/agent-platform/middleware/types'
 import type { AgentRunner, AgentRunnerContext } from '~~/server/services/agent-platform/registry/types'
-import type { Tool } from '@langchain/core/tools'
+import type { StructuredToolInterface } from '@langchain/core/tools'
 
 /** Agent 类型：createAgent（ReAct 循环）或 stateGraph（自定义图） */
 export type DomainAgentType = 'createAgent' | 'stateGraph'
@@ -28,7 +28,7 @@ export interface DomainAgentDefinition {
     /** 业务私有中间件（与平台通用中间件按 priority 合并） */
     customMiddlewares?: (ctx: AgentRunnerContext) => Promise<MiddlewareWithPriority[]>
     /** 业务私有工具（与节点 tools + skill 工具合并；同名以业务工具胜出） */
-    customTools?: (ctx: AgentRunnerContext) => Promise<Tool[]>
+    customTools?: (ctx: AgentRunnerContext) => Promise<StructuredToolInterface[]>
     /** 生命周期钩子 */
     hooks?: {
         /** 运行前钩子，可用于上下文预热、参数校验等 */
