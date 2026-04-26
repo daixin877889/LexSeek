@@ -1,14 +1,14 @@
-export * from './types'
+/**
+ * workflow/middleware 统一入口
+ *
+ * 通用中间件已迁到 agent-platform/middleware/，此处 re-export 保持兼容。
+ * 业务私有中间件（caseProcessMaterial / caseMaterialContext 等）仍在本目录。
+ */
+// 通用中间件（主体在 agent-platform，此处 re-export）
+export * from '~~/server/services/agent-platform/middleware'
+// 业务私有中间件（留在 workflow/middleware，待后续 vertical 阶段迁移）
 export * from './caseProcessMaterial.middleware'
 export * from './caseMaterialContext.middleware'
-export * from './pointConsumption.middleware'
 export * from './analysisResultPersistence.middleware'
-export * from './safetyTrim.middleware'
 export { draftResultPersistenceMiddleware } from './draftResultPersistence.middleware'
 export { reviewResultPersistenceMiddleware } from './reviewResultPersistence.middleware'
-// Agent 安全防护三大中间件（详见 docs/superpowers/specs/2026-04-21-agent-security-guardrails-design.md）
-export { createScopeGuardMiddleware } from './scopeGuard.middleware'
-export { createAuditMiddleware } from './audit.middleware'
-export { createToolCallLimitMiddlewares } from './toolCallLimit.middleware'
-// 消息完整性兜底：beforeModel 补齐 orphan tool_use，防 Provider 400
-export { createMessageIntegrityMiddleware } from './messageIntegrity.middleware'
