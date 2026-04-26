@@ -1,5 +1,5 @@
 ---
-name: criminal-evidence-review
+name: evidence-defense
 description: |
   审查刑事证据的合法性、真实性、关联性时使用。
   典型触发: "这份证据有问题吗"、"怎么质证"、"证据能用吗"、"程序合法吗"。
