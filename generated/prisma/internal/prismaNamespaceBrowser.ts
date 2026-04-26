@@ -114,6 +114,8 @@ export const ModelName = {
   redemptionRecords: 'redemptionRecords',
   routers: 'routers',
   routerGroups: 'routerGroups',
+  skills: 'skills',
+  node_skills: 'node_skills',
   smsRecords: 'smsRecords',
   storageConfigs: 'storageConfigs',
   systemConfigs: 'systemConfigs',
@@ -840,6 +842,7 @@ export const NodesScalarFieldEnum = {
   outputSchema: 'outputSchema',
   groupId: 'groupId',
   status: 'status',
+  useSkillsAsLogic: 'useSkillsAsLogic',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'
@@ -1245,6 +1248,32 @@ export const RouterGroupsScalarFieldEnum = {
 } as const
 
 export type RouterGroupsScalarFieldEnum = (typeof RouterGroupsScalarFieldEnum)[keyof typeof RouterGroupsScalarFieldEnum]
+
+
+export const SkillsScalarFieldEnum = {
+  name: 'name',
+  path: 'path',
+  source: 'source',
+  title: 'title',
+  description: 'description',
+  version: 'version',
+  status: 'status',
+  syncedAt: 'syncedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type SkillsScalarFieldEnum = (typeof SkillsScalarFieldEnum)[keyof typeof SkillsScalarFieldEnum]
+
+
+export const Node_skillsScalarFieldEnum = {
+  nodeId: 'nodeId',
+  skillName: 'skillName',
+  priority: 'priority',
+  createdAt: 'createdAt'
+} as const
+
+export type Node_skillsScalarFieldEnum = (typeof Node_skillsScalarFieldEnum)[keyof typeof Node_skillsScalarFieldEnum]
 
 
 export const SmsRecordsScalarFieldEnum = {

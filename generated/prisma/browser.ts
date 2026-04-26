@@ -346,6 +346,16 @@ export type routers = Prisma.routersModel
  */
 export type routerGroups = Prisma.routerGroupsModel
 /**
+ * Model skills
+ * Skill 注册表 - 文件系统 .deepagents/skills/* 的元数据缓存
+ */
+export type skills = Prisma.skillsModel
+/**
+ * Model node_skills
+ * 节点 ↔ Skill 关联表（多对多）
+ */
+export type node_skills = Prisma.node_skillsModel
+/**
  * Model smsRecords
  * 短信验证码表
  */

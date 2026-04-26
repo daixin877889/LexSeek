@@ -52,6 +52,7 @@ export type NodesMinAggregateOutputType = {
   modelId: number | null
   groupId: number | null
   status: number | null
+  useSkillsAsLogic: boolean | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -67,6 +68,7 @@ export type NodesMaxAggregateOutputType = {
   modelId: number | null
   groupId: number | null
   status: number | null
+  useSkillsAsLogic: boolean | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -84,6 +86,7 @@ export type NodesCountAggregateOutputType = {
   outputSchema: number
   groupId: number
   status: number
+  useSkillsAsLogic: number
   createdAt: number
   updatedAt: number
   deletedAt: number
@@ -117,6 +120,7 @@ export type NodesMinAggregateInputType = {
   modelId?: true
   groupId?: true
   status?: true
+  useSkillsAsLogic?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -132,6 +136,7 @@ export type NodesMaxAggregateInputType = {
   modelId?: true
   groupId?: true
   status?: true
+  useSkillsAsLogic?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -149,6 +154,7 @@ export type NodesCountAggregateInputType = {
   outputSchema?: true
   groupId?: true
   status?: true
+  useSkillsAsLogic?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -253,6 +259,7 @@ export type NodesGroupByOutputType = {
   outputSchema: runtime.JsonValue | null
   groupId: number | null
   status: number
+  useSkillsAsLogic: boolean
   createdAt: Date
   updatedAt: Date
   deletedAt: Date | null
@@ -293,6 +300,7 @@ export type nodesWhereInput = {
   outputSchema?: Prisma.JsonNullableFilter<"nodes">
   groupId?: Prisma.IntNullableFilter<"nodes"> | number | null
   status?: Prisma.IntFilter<"nodes"> | number
+  useSkillsAsLogic?: Prisma.BoolFilter<"nodes"> | boolean
   createdAt?: Prisma.DateTimeFilter<"nodes"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"nodes"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"nodes"> | Date | string | null
@@ -301,6 +309,7 @@ export type nodesWhereInput = {
   prompts?: Prisma.PromptsListRelationFilter
   levelNodeAccess?: Prisma.LevelNodeAccessListRelationFilter
   caseAnalyses?: Prisma.CaseAnalysesListRelationFilter
+  nodeSkills?: Prisma.Node_skillsListRelationFilter
 }
 
 export type nodesOrderByWithRelationInput = {
@@ -315,6 +324,7 @@ export type nodesOrderByWithRelationInput = {
   outputSchema?: Prisma.SortOrderInput | Prisma.SortOrder
   groupId?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
+  useSkillsAsLogic?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -323,6 +333,7 @@ export type nodesOrderByWithRelationInput = {
   prompts?: Prisma.promptsOrderByRelationAggregateInput
   levelNodeAccess?: Prisma.levelNodeAccessOrderByRelationAggregateInput
   caseAnalyses?: Prisma.caseAnalysesOrderByRelationAggregateInput
+  nodeSkills?: Prisma.node_skillsOrderByRelationAggregateInput
 }
 
 export type nodesWhereUniqueInput = Prisma.AtLeast<{
@@ -340,6 +351,7 @@ export type nodesWhereUniqueInput = Prisma.AtLeast<{
   outputSchema?: Prisma.JsonNullableFilter<"nodes">
   groupId?: Prisma.IntNullableFilter<"nodes"> | number | null
   status?: Prisma.IntFilter<"nodes"> | number
+  useSkillsAsLogic?: Prisma.BoolFilter<"nodes"> | boolean
   createdAt?: Prisma.DateTimeFilter<"nodes"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"nodes"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"nodes"> | Date | string | null
@@ -348,6 +360,7 @@ export type nodesWhereUniqueInput = Prisma.AtLeast<{
   prompts?: Prisma.PromptsListRelationFilter
   levelNodeAccess?: Prisma.LevelNodeAccessListRelationFilter
   caseAnalyses?: Prisma.CaseAnalysesListRelationFilter
+  nodeSkills?: Prisma.Node_skillsListRelationFilter
 }, "id" | "name">
 
 export type nodesOrderByWithAggregationInput = {
@@ -362,6 +375,7 @@ export type nodesOrderByWithAggregationInput = {
   outputSchema?: Prisma.SortOrderInput | Prisma.SortOrder
   groupId?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
+  useSkillsAsLogic?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -387,6 +401,7 @@ export type nodesScalarWhereWithAggregatesInput = {
   outputSchema?: Prisma.JsonNullableWithAggregatesFilter<"nodes">
   groupId?: Prisma.IntNullableWithAggregatesFilter<"nodes"> | number | null
   status?: Prisma.IntWithAggregatesFilter<"nodes"> | number
+  useSkillsAsLogic?: Prisma.BoolWithAggregatesFilter<"nodes"> | boolean
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"nodes"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"nodes"> | Date | string
   deletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"nodes"> | Date | string | null
@@ -401,6 +416,7 @@ export type nodesCreateInput = {
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
+  useSkillsAsLogic?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -409,6 +425,7 @@ export type nodesCreateInput = {
   prompts?: Prisma.promptsCreateNestedManyWithoutNodeInput
   levelNodeAccess?: Prisma.levelNodeAccessCreateNestedManyWithoutNodeInput
   caseAnalyses?: Prisma.caseAnalysesCreateNestedManyWithoutNodeInput
+  nodeSkills?: Prisma.node_skillsCreateNestedManyWithoutNodeInput
 }
 
 export type nodesUncheckedCreateInput = {
@@ -423,12 +440,14 @@ export type nodesUncheckedCreateInput = {
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   groupId?: number | null
   status?: number
+  useSkillsAsLogic?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
   prompts?: Prisma.promptsUncheckedCreateNestedManyWithoutNodeInput
   levelNodeAccess?: Prisma.levelNodeAccessUncheckedCreateNestedManyWithoutNodeInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedCreateNestedManyWithoutNodeInput
+  nodeSkills?: Prisma.node_skillsUncheckedCreateNestedManyWithoutNodeInput
 }
 
 export type nodesUpdateInput = {
@@ -440,6 +459,7 @@ export type nodesUpdateInput = {
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  useSkillsAsLogic?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -448,6 +468,7 @@ export type nodesUpdateInput = {
   prompts?: Prisma.promptsUpdateManyWithoutNodeNestedInput
   levelNodeAccess?: Prisma.levelNodeAccessUpdateManyWithoutNodeNestedInput
   caseAnalyses?: Prisma.caseAnalysesUpdateManyWithoutNodeNestedInput
+  nodeSkills?: Prisma.node_skillsUpdateManyWithoutNodeNestedInput
 }
 
 export type nodesUncheckedUpdateInput = {
@@ -462,12 +483,14 @@ export type nodesUncheckedUpdateInput = {
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   groupId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  useSkillsAsLogic?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   prompts?: Prisma.promptsUncheckedUpdateManyWithoutNodeNestedInput
   levelNodeAccess?: Prisma.levelNodeAccessUncheckedUpdateManyWithoutNodeNestedInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedUpdateManyWithoutNodeNestedInput
+  nodeSkills?: Prisma.node_skillsUncheckedUpdateManyWithoutNodeNestedInput
 }
 
 export type nodesCreateManyInput = {
@@ -482,6 +505,7 @@ export type nodesCreateManyInput = {
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   groupId?: number | null
   status?: number
+  useSkillsAsLogic?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -496,6 +520,7 @@ export type nodesUpdateManyMutationInput = {
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  useSkillsAsLogic?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -513,6 +538,7 @@ export type nodesUncheckedUpdateManyInput = {
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   groupId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  useSkillsAsLogic?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -545,6 +571,7 @@ export type nodesCountOrderByAggregateInput = {
   outputSchema?: Prisma.SortOrder
   groupId?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  useSkillsAsLogic?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -568,6 +595,7 @@ export type nodesMaxOrderByAggregateInput = {
   modelId?: Prisma.SortOrder
   groupId?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  useSkillsAsLogic?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -583,6 +611,7 @@ export type nodesMinOrderByAggregateInput = {
   modelId?: Prisma.SortOrder
   groupId?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  useSkillsAsLogic?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -722,6 +751,20 @@ export type nodesUpdateOneRequiredWithoutLevelNodeAccessNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.nodesUpdateToOneWithWhereWithoutLevelNodeAccessInput, Prisma.nodesUpdateWithoutLevelNodeAccessInput>, Prisma.nodesUncheckedUpdateWithoutLevelNodeAccessInput>
 }
 
+export type nodesCreateNestedOneWithoutNodeSkillsInput = {
+  create?: Prisma.XOR<Prisma.nodesCreateWithoutNodeSkillsInput, Prisma.nodesUncheckedCreateWithoutNodeSkillsInput>
+  connectOrCreate?: Prisma.nodesCreateOrConnectWithoutNodeSkillsInput
+  connect?: Prisma.nodesWhereUniqueInput
+}
+
+export type nodesUpdateOneRequiredWithoutNodeSkillsNestedInput = {
+  create?: Prisma.XOR<Prisma.nodesCreateWithoutNodeSkillsInput, Prisma.nodesUncheckedCreateWithoutNodeSkillsInput>
+  connectOrCreate?: Prisma.nodesCreateOrConnectWithoutNodeSkillsInput
+  upsert?: Prisma.nodesUpsertWithoutNodeSkillsInput
+  connect?: Prisma.nodesWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.nodesUpdateToOneWithWhereWithoutNodeSkillsInput, Prisma.nodesUpdateWithoutNodeSkillsInput>, Prisma.nodesUncheckedUpdateWithoutNodeSkillsInput>
+}
+
 export type nodesCreateWithoutCaseAnalysesInput = {
   name: string
   title?: string | null
@@ -731,6 +774,7 @@ export type nodesCreateWithoutCaseAnalysesInput = {
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
+  useSkillsAsLogic?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -738,6 +782,7 @@ export type nodesCreateWithoutCaseAnalysesInput = {
   model: Prisma.modelsCreateNestedOneWithoutNodesInput
   prompts?: Prisma.promptsCreateNestedManyWithoutNodeInput
   levelNodeAccess?: Prisma.levelNodeAccessCreateNestedManyWithoutNodeInput
+  nodeSkills?: Prisma.node_skillsCreateNestedManyWithoutNodeInput
 }
 
 export type nodesUncheckedCreateWithoutCaseAnalysesInput = {
@@ -752,11 +797,13 @@ export type nodesUncheckedCreateWithoutCaseAnalysesInput = {
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   groupId?: number | null
   status?: number
+  useSkillsAsLogic?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
   prompts?: Prisma.promptsUncheckedCreateNestedManyWithoutNodeInput
   levelNodeAccess?: Prisma.levelNodeAccessUncheckedCreateNestedManyWithoutNodeInput
+  nodeSkills?: Prisma.node_skillsUncheckedCreateNestedManyWithoutNodeInput
 }
 
 export type nodesCreateOrConnectWithoutCaseAnalysesInput = {
@@ -784,6 +831,7 @@ export type nodesUpdateWithoutCaseAnalysesInput = {
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  useSkillsAsLogic?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -791,6 +839,7 @@ export type nodesUpdateWithoutCaseAnalysesInput = {
   model?: Prisma.modelsUpdateOneRequiredWithoutNodesNestedInput
   prompts?: Prisma.promptsUpdateManyWithoutNodeNestedInput
   levelNodeAccess?: Prisma.levelNodeAccessUpdateManyWithoutNodeNestedInput
+  nodeSkills?: Prisma.node_skillsUpdateManyWithoutNodeNestedInput
 }
 
 export type nodesUncheckedUpdateWithoutCaseAnalysesInput = {
@@ -805,11 +854,13 @@ export type nodesUncheckedUpdateWithoutCaseAnalysesInput = {
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   groupId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  useSkillsAsLogic?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   prompts?: Prisma.promptsUncheckedUpdateManyWithoutNodeNestedInput
   levelNodeAccess?: Prisma.levelNodeAccessUncheckedUpdateManyWithoutNodeNestedInput
+  nodeSkills?: Prisma.node_skillsUncheckedUpdateManyWithoutNodeNestedInput
 }
 
 export type nodesCreateWithoutModelInput = {
@@ -821,6 +872,7 @@ export type nodesCreateWithoutModelInput = {
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
+  useSkillsAsLogic?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -828,6 +880,7 @@ export type nodesCreateWithoutModelInput = {
   prompts?: Prisma.promptsCreateNestedManyWithoutNodeInput
   levelNodeAccess?: Prisma.levelNodeAccessCreateNestedManyWithoutNodeInput
   caseAnalyses?: Prisma.caseAnalysesCreateNestedManyWithoutNodeInput
+  nodeSkills?: Prisma.node_skillsCreateNestedManyWithoutNodeInput
 }
 
 export type nodesUncheckedCreateWithoutModelInput = {
@@ -841,12 +894,14 @@ export type nodesUncheckedCreateWithoutModelInput = {
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   groupId?: number | null
   status?: number
+  useSkillsAsLogic?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
   prompts?: Prisma.promptsUncheckedCreateNestedManyWithoutNodeInput
   levelNodeAccess?: Prisma.levelNodeAccessUncheckedCreateNestedManyWithoutNodeInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedCreateNestedManyWithoutNodeInput
+  nodeSkills?: Prisma.node_skillsUncheckedCreateNestedManyWithoutNodeInput
 }
 
 export type nodesCreateOrConnectWithoutModelInput = {
@@ -890,6 +945,7 @@ export type nodesScalarWhereInput = {
   outputSchema?: Prisma.JsonNullableFilter<"nodes">
   groupId?: Prisma.IntNullableFilter<"nodes"> | number | null
   status?: Prisma.IntFilter<"nodes"> | number
+  useSkillsAsLogic?: Prisma.BoolFilter<"nodes"> | boolean
   createdAt?: Prisma.DateTimeFilter<"nodes"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"nodes"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"nodes"> | Date | string | null
@@ -904,6 +960,7 @@ export type nodesCreateWithoutGroupInput = {
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
+  useSkillsAsLogic?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -911,6 +968,7 @@ export type nodesCreateWithoutGroupInput = {
   prompts?: Prisma.promptsCreateNestedManyWithoutNodeInput
   levelNodeAccess?: Prisma.levelNodeAccessCreateNestedManyWithoutNodeInput
   caseAnalyses?: Prisma.caseAnalysesCreateNestedManyWithoutNodeInput
+  nodeSkills?: Prisma.node_skillsCreateNestedManyWithoutNodeInput
 }
 
 export type nodesUncheckedCreateWithoutGroupInput = {
@@ -924,12 +982,14 @@ export type nodesUncheckedCreateWithoutGroupInput = {
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
+  useSkillsAsLogic?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
   prompts?: Prisma.promptsUncheckedCreateNestedManyWithoutNodeInput
   levelNodeAccess?: Prisma.levelNodeAccessUncheckedCreateNestedManyWithoutNodeInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedCreateNestedManyWithoutNodeInput
+  nodeSkills?: Prisma.node_skillsUncheckedCreateNestedManyWithoutNodeInput
 }
 
 export type nodesCreateOrConnectWithoutGroupInput = {
@@ -967,6 +1027,7 @@ export type nodesCreateWithoutPromptsInput = {
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
+  useSkillsAsLogic?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -974,6 +1035,7 @@ export type nodesCreateWithoutPromptsInput = {
   model: Prisma.modelsCreateNestedOneWithoutNodesInput
   levelNodeAccess?: Prisma.levelNodeAccessCreateNestedManyWithoutNodeInput
   caseAnalyses?: Prisma.caseAnalysesCreateNestedManyWithoutNodeInput
+  nodeSkills?: Prisma.node_skillsCreateNestedManyWithoutNodeInput
 }
 
 export type nodesUncheckedCreateWithoutPromptsInput = {
@@ -988,11 +1050,13 @@ export type nodesUncheckedCreateWithoutPromptsInput = {
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   groupId?: number | null
   status?: number
+  useSkillsAsLogic?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
   levelNodeAccess?: Prisma.levelNodeAccessUncheckedCreateNestedManyWithoutNodeInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedCreateNestedManyWithoutNodeInput
+  nodeSkills?: Prisma.node_skillsUncheckedCreateNestedManyWithoutNodeInput
 }
 
 export type nodesCreateOrConnectWithoutPromptsInput = {
@@ -1020,6 +1084,7 @@ export type nodesUpdateWithoutPromptsInput = {
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  useSkillsAsLogic?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1027,6 +1092,7 @@ export type nodesUpdateWithoutPromptsInput = {
   model?: Prisma.modelsUpdateOneRequiredWithoutNodesNestedInput
   levelNodeAccess?: Prisma.levelNodeAccessUpdateManyWithoutNodeNestedInput
   caseAnalyses?: Prisma.caseAnalysesUpdateManyWithoutNodeNestedInput
+  nodeSkills?: Prisma.node_skillsUpdateManyWithoutNodeNestedInput
 }
 
 export type nodesUncheckedUpdateWithoutPromptsInput = {
@@ -1041,11 +1107,13 @@ export type nodesUncheckedUpdateWithoutPromptsInput = {
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   groupId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  useSkillsAsLogic?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   levelNodeAccess?: Prisma.levelNodeAccessUncheckedUpdateManyWithoutNodeNestedInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedUpdateManyWithoutNodeNestedInput
+  nodeSkills?: Prisma.node_skillsUncheckedUpdateManyWithoutNodeNestedInput
 }
 
 export type nodesCreateWithoutLevelNodeAccessInput = {
@@ -1057,6 +1125,7 @@ export type nodesCreateWithoutLevelNodeAccessInput = {
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
+  useSkillsAsLogic?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1064,6 +1133,7 @@ export type nodesCreateWithoutLevelNodeAccessInput = {
   model: Prisma.modelsCreateNestedOneWithoutNodesInput
   prompts?: Prisma.promptsCreateNestedManyWithoutNodeInput
   caseAnalyses?: Prisma.caseAnalysesCreateNestedManyWithoutNodeInput
+  nodeSkills?: Prisma.node_skillsCreateNestedManyWithoutNodeInput
 }
 
 export type nodesUncheckedCreateWithoutLevelNodeAccessInput = {
@@ -1078,11 +1148,13 @@ export type nodesUncheckedCreateWithoutLevelNodeAccessInput = {
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   groupId?: number | null
   status?: number
+  useSkillsAsLogic?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
   prompts?: Prisma.promptsUncheckedCreateNestedManyWithoutNodeInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedCreateNestedManyWithoutNodeInput
+  nodeSkills?: Prisma.node_skillsUncheckedCreateNestedManyWithoutNodeInput
 }
 
 export type nodesCreateOrConnectWithoutLevelNodeAccessInput = {
@@ -1110,6 +1182,7 @@ export type nodesUpdateWithoutLevelNodeAccessInput = {
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  useSkillsAsLogic?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1117,6 +1190,7 @@ export type nodesUpdateWithoutLevelNodeAccessInput = {
   model?: Prisma.modelsUpdateOneRequiredWithoutNodesNestedInput
   prompts?: Prisma.promptsUpdateManyWithoutNodeNestedInput
   caseAnalyses?: Prisma.caseAnalysesUpdateManyWithoutNodeNestedInput
+  nodeSkills?: Prisma.node_skillsUpdateManyWithoutNodeNestedInput
 }
 
 export type nodesUncheckedUpdateWithoutLevelNodeAccessInput = {
@@ -1131,10 +1205,110 @@ export type nodesUncheckedUpdateWithoutLevelNodeAccessInput = {
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   groupId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  useSkillsAsLogic?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   prompts?: Prisma.promptsUncheckedUpdateManyWithoutNodeNestedInput
+  caseAnalyses?: Prisma.caseAnalysesUncheckedUpdateManyWithoutNodeNestedInput
+  nodeSkills?: Prisma.node_skillsUncheckedUpdateManyWithoutNodeNestedInput
+}
+
+export type nodesCreateWithoutNodeSkillsInput = {
+  name: string
+  title?: string | null
+  description?: string | null
+  type: string
+  priority?: number
+  tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  status?: number
+  useSkillsAsLogic?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+  group?: Prisma.nodeGroupsCreateNestedOneWithoutNodesInput
+  model: Prisma.modelsCreateNestedOneWithoutNodesInput
+  prompts?: Prisma.promptsCreateNestedManyWithoutNodeInput
+  levelNodeAccess?: Prisma.levelNodeAccessCreateNestedManyWithoutNodeInput
+  caseAnalyses?: Prisma.caseAnalysesCreateNestedManyWithoutNodeInput
+}
+
+export type nodesUncheckedCreateWithoutNodeSkillsInput = {
+  id?: number
+  name: string
+  title?: string | null
+  description?: string | null
+  type: string
+  priority?: number
+  modelId: number
+  tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  groupId?: number | null
+  status?: number
+  useSkillsAsLogic?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+  prompts?: Prisma.promptsUncheckedCreateNestedManyWithoutNodeInput
+  levelNodeAccess?: Prisma.levelNodeAccessUncheckedCreateNestedManyWithoutNodeInput
+  caseAnalyses?: Prisma.caseAnalysesUncheckedCreateNestedManyWithoutNodeInput
+}
+
+export type nodesCreateOrConnectWithoutNodeSkillsInput = {
+  where: Prisma.nodesWhereUniqueInput
+  create: Prisma.XOR<Prisma.nodesCreateWithoutNodeSkillsInput, Prisma.nodesUncheckedCreateWithoutNodeSkillsInput>
+}
+
+export type nodesUpsertWithoutNodeSkillsInput = {
+  update: Prisma.XOR<Prisma.nodesUpdateWithoutNodeSkillsInput, Prisma.nodesUncheckedUpdateWithoutNodeSkillsInput>
+  create: Prisma.XOR<Prisma.nodesCreateWithoutNodeSkillsInput, Prisma.nodesUncheckedCreateWithoutNodeSkillsInput>
+  where?: Prisma.nodesWhereInput
+}
+
+export type nodesUpdateToOneWithWhereWithoutNodeSkillsInput = {
+  where?: Prisma.nodesWhereInput
+  data: Prisma.XOR<Prisma.nodesUpdateWithoutNodeSkillsInput, Prisma.nodesUncheckedUpdateWithoutNodeSkillsInput>
+}
+
+export type nodesUpdateWithoutNodeSkillsInput = {
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  type?: Prisma.StringFieldUpdateOperationsInput | string
+  priority?: Prisma.IntFieldUpdateOperationsInput | number
+  tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  useSkillsAsLogic?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  group?: Prisma.nodeGroupsUpdateOneWithoutNodesNestedInput
+  model?: Prisma.modelsUpdateOneRequiredWithoutNodesNestedInput
+  prompts?: Prisma.promptsUpdateManyWithoutNodeNestedInput
+  levelNodeAccess?: Prisma.levelNodeAccessUpdateManyWithoutNodeNestedInput
+  caseAnalyses?: Prisma.caseAnalysesUpdateManyWithoutNodeNestedInput
+}
+
+export type nodesUncheckedUpdateWithoutNodeSkillsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  type?: Prisma.StringFieldUpdateOperationsInput | string
+  priority?: Prisma.IntFieldUpdateOperationsInput | number
+  modelId?: Prisma.IntFieldUpdateOperationsInput | number
+  tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  groupId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  useSkillsAsLogic?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  prompts?: Prisma.promptsUncheckedUpdateManyWithoutNodeNestedInput
+  levelNodeAccess?: Prisma.levelNodeAccessUncheckedUpdateManyWithoutNodeNestedInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedUpdateManyWithoutNodeNestedInput
 }
 
@@ -1149,6 +1323,7 @@ export type nodesCreateManyModelInput = {
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   groupId?: number | null
   status?: number
+  useSkillsAsLogic?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1163,6 +1338,7 @@ export type nodesUpdateWithoutModelInput = {
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  useSkillsAsLogic?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1170,6 +1346,7 @@ export type nodesUpdateWithoutModelInput = {
   prompts?: Prisma.promptsUpdateManyWithoutNodeNestedInput
   levelNodeAccess?: Prisma.levelNodeAccessUpdateManyWithoutNodeNestedInput
   caseAnalyses?: Prisma.caseAnalysesUpdateManyWithoutNodeNestedInput
+  nodeSkills?: Prisma.node_skillsUpdateManyWithoutNodeNestedInput
 }
 
 export type nodesUncheckedUpdateWithoutModelInput = {
@@ -1183,12 +1360,14 @@ export type nodesUncheckedUpdateWithoutModelInput = {
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   groupId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  useSkillsAsLogic?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   prompts?: Prisma.promptsUncheckedUpdateManyWithoutNodeNestedInput
   levelNodeAccess?: Prisma.levelNodeAccessUncheckedUpdateManyWithoutNodeNestedInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedUpdateManyWithoutNodeNestedInput
+  nodeSkills?: Prisma.node_skillsUncheckedUpdateManyWithoutNodeNestedInput
 }
 
 export type nodesUncheckedUpdateManyWithoutModelInput = {
@@ -1202,6 +1381,7 @@ export type nodesUncheckedUpdateManyWithoutModelInput = {
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   groupId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  useSkillsAsLogic?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1218,6 +1398,7 @@ export type nodesCreateManyGroupInput = {
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
+  useSkillsAsLogic?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1232,6 +1413,7 @@ export type nodesUpdateWithoutGroupInput = {
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  useSkillsAsLogic?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1239,6 +1421,7 @@ export type nodesUpdateWithoutGroupInput = {
   prompts?: Prisma.promptsUpdateManyWithoutNodeNestedInput
   levelNodeAccess?: Prisma.levelNodeAccessUpdateManyWithoutNodeNestedInput
   caseAnalyses?: Prisma.caseAnalysesUpdateManyWithoutNodeNestedInput
+  nodeSkills?: Prisma.node_skillsUpdateManyWithoutNodeNestedInput
 }
 
 export type nodesUncheckedUpdateWithoutGroupInput = {
@@ -1252,12 +1435,14 @@ export type nodesUncheckedUpdateWithoutGroupInput = {
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  useSkillsAsLogic?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   prompts?: Prisma.promptsUncheckedUpdateManyWithoutNodeNestedInput
   levelNodeAccess?: Prisma.levelNodeAccessUncheckedUpdateManyWithoutNodeNestedInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedUpdateManyWithoutNodeNestedInput
+  nodeSkills?: Prisma.node_skillsUncheckedUpdateManyWithoutNodeNestedInput
 }
 
 export type nodesUncheckedUpdateManyWithoutGroupInput = {
@@ -1271,6 +1456,7 @@ export type nodesUncheckedUpdateManyWithoutGroupInput = {
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  useSkillsAsLogic?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1285,12 +1471,14 @@ export type NodesCountOutputType = {
   prompts: number
   levelNodeAccess: number
   caseAnalyses: number
+  nodeSkills: number
 }
 
 export type NodesCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   prompts?: boolean | NodesCountOutputTypeCountPromptsArgs
   levelNodeAccess?: boolean | NodesCountOutputTypeCountLevelNodeAccessArgs
   caseAnalyses?: boolean | NodesCountOutputTypeCountCaseAnalysesArgs
+  nodeSkills?: boolean | NodesCountOutputTypeCountNodeSkillsArgs
 }
 
 /**
@@ -1324,6 +1512,13 @@ export type NodesCountOutputTypeCountCaseAnalysesArgs<ExtArgs extends runtime.Ty
   where?: Prisma.caseAnalysesWhereInput
 }
 
+/**
+ * NodesCountOutputType without action
+ */
+export type NodesCountOutputTypeCountNodeSkillsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.node_skillsWhereInput
+}
+
 
 export type nodesSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1337,6 +1532,7 @@ export type nodesSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   outputSchema?: boolean
   groupId?: boolean
   status?: boolean
+  useSkillsAsLogic?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -1345,6 +1541,7 @@ export type nodesSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   prompts?: boolean | Prisma.nodes$promptsArgs<ExtArgs>
   levelNodeAccess?: boolean | Prisma.nodes$levelNodeAccessArgs<ExtArgs>
   caseAnalyses?: boolean | Prisma.nodes$caseAnalysesArgs<ExtArgs>
+  nodeSkills?: boolean | Prisma.nodes$nodeSkillsArgs<ExtArgs>
   _count?: boolean | Prisma.NodesCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["nodes"]>
 
@@ -1360,6 +1557,7 @@ export type nodesSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   outputSchema?: boolean
   groupId?: boolean
   status?: boolean
+  useSkillsAsLogic?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -1379,6 +1577,7 @@ export type nodesSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   outputSchema?: boolean
   groupId?: boolean
   status?: boolean
+  useSkillsAsLogic?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -1398,18 +1597,20 @@ export type nodesSelectScalar = {
   outputSchema?: boolean
   groupId?: boolean
   status?: boolean
+  useSkillsAsLogic?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
 }
 
-export type nodesOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "title" | "description" | "type" | "priority" | "modelId" | "tools" | "outputSchema" | "groupId" | "status" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["nodes"]>
+export type nodesOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "title" | "description" | "type" | "priority" | "modelId" | "tools" | "outputSchema" | "groupId" | "status" | "useSkillsAsLogic" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["nodes"]>
 export type nodesInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   group?: boolean | Prisma.nodes$groupArgs<ExtArgs>
   model?: boolean | Prisma.modelsDefaultArgs<ExtArgs>
   prompts?: boolean | Prisma.nodes$promptsArgs<ExtArgs>
   levelNodeAccess?: boolean | Prisma.nodes$levelNodeAccessArgs<ExtArgs>
   caseAnalyses?: boolean | Prisma.nodes$caseAnalysesArgs<ExtArgs>
+  nodeSkills?: boolean | Prisma.nodes$nodeSkillsArgs<ExtArgs>
   _count?: boolean | Prisma.NodesCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type nodesIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1444,6 +1645,10 @@ export type $nodesPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
      * 关联的案件分析结果
      */
     caseAnalyses: Prisma.$caseAnalysesPayload<ExtArgs>[]
+    /**
+     * 关联的 skills（多对多）
+     */
+    nodeSkills: Prisma.$node_skillsPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     /**
@@ -1490,6 +1695,13 @@ export type $nodesPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
      * 状态：1-启用，0-禁用
      */
     status: number
+    /**
+     * 案件初分阶段 8 改造开关：是否使用 "skills-as-logic" 提示词风格
+     * 启用后：system prompt 仅写规范，分析逻辑由关联的 skills 提供
+     * 关闭时：system prompt 含完整方法论（旧式嵌入式 prompt）
+     * 节点级独立配置（非全局灰度开关）
+     */
+    useSkillsAsLogic: boolean
     /**
      * 创建时间
      */
@@ -1901,6 +2113,7 @@ export interface Prisma__nodesClient<T, Null = never, ExtArgs extends runtime.Ty
   prompts<T extends Prisma.nodes$promptsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.nodes$promptsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$promptsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   levelNodeAccess<T extends Prisma.nodes$levelNodeAccessArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.nodes$levelNodeAccessArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$levelNodeAccessPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   caseAnalyses<T extends Prisma.nodes$caseAnalysesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.nodes$caseAnalysesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$caseAnalysesPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  nodeSkills<T extends Prisma.nodes$nodeSkillsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.nodes$nodeSkillsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$node_skillsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1941,6 +2154,7 @@ export interface nodesFieldRefs {
   readonly outputSchema: Prisma.FieldRef<"nodes", 'Json'>
   readonly groupId: Prisma.FieldRef<"nodes", 'Int'>
   readonly status: Prisma.FieldRef<"nodes", 'Int'>
+  readonly useSkillsAsLogic: Prisma.FieldRef<"nodes", 'Boolean'>
   readonly createdAt: Prisma.FieldRef<"nodes", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"nodes", 'DateTime'>
   readonly deletedAt: Prisma.FieldRef<"nodes", 'DateTime'>
@@ -2433,6 +2647,30 @@ export type nodes$caseAnalysesArgs<ExtArgs extends runtime.Types.Extensions.Inte
   take?: number
   skip?: number
   distinct?: Prisma.CaseAnalysesScalarFieldEnum | Prisma.CaseAnalysesScalarFieldEnum[]
+}
+
+/**
+ * nodes.nodeSkills
+ */
+export type nodes$nodeSkillsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the node_skills
+   */
+  select?: Prisma.node_skillsSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the node_skills
+   */
+  omit?: Prisma.node_skillsOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.node_skillsInclude<ExtArgs> | null
+  where?: Prisma.node_skillsWhereInput
+  orderBy?: Prisma.node_skillsOrderByWithRelationInput | Prisma.node_skillsOrderByWithRelationInput[]
+  cursor?: Prisma.node_skillsWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.Node_skillsScalarFieldEnum | Prisma.Node_skillsScalarFieldEnum[]
 }
 
 /**

@@ -447,6 +447,8 @@ export const ModelName = {
   redemptionRecords: 'redemptionRecords',
   routers: 'routers',
   routerGroups: 'routerGroups',
+  skills: 'skills',
+  node_skills: 'node_skills',
   smsRecords: 'smsRecords',
   storageConfigs: 'storageConfigs',
   systemConfigs: 'systemConfigs',
@@ -467,7 +469,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "agentRuns" | "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "agentToolAuditLogs" | "campaigns" | "caseTypes" | "cases" | "caseSessions" | "caseMaterials" | "caseAnalyses" | "demoCases" | "caseMaterialEmbeddings" | "caseMemories" | "caseAnalysisEmbeddings" | "contractPlaybooks" | "contractReviews" | "contractReviewLegacyRisksBackup" | "contractReviewVersions" | "contractRisks" | "contractAnnotations" | "documentTemplates" | "documentDrafts" | "documentDraftSnapshots" | "documentDraftVersions" | "ossFiles" | "legalMain" | "legalArticles" | "lawEmbeddings" | "textContentRecords" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "modelProviders" | "modelApiKeys" | "models" | "nodeGroups" | "nodes" | "prompts" | "levelNodeAccess" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "roles" | "roleRouters" | "userRoles" | "docRecognitionRecords" | "imageRecognitionRecords" | "asrTasks" | "asrRecords" | "mineruTokens" | "mineruTasks" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
+    modelProps: "agentRuns" | "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "agentToolAuditLogs" | "campaigns" | "caseTypes" | "cases" | "caseSessions" | "caseMaterials" | "caseAnalyses" | "demoCases" | "caseMaterialEmbeddings" | "caseMemories" | "caseAnalysisEmbeddings" | "contractPlaybooks" | "contractReviews" | "contractReviewLegacyRisksBackup" | "contractReviewVersions" | "contractRisks" | "contractAnnotations" | "documentTemplates" | "documentDrafts" | "documentDraftSnapshots" | "documentDraftVersions" | "ossFiles" | "legalMain" | "legalArticles" | "lawEmbeddings" | "textContentRecords" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "modelProviders" | "modelApiKeys" | "models" | "nodeGroups" | "nodes" | "prompts" | "levelNodeAccess" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "roles" | "roleRouters" | "userRoles" | "docRecognitionRecords" | "imageRecognitionRecords" | "asrTasks" | "asrRecords" | "mineruTokens" | "mineruTasks" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "skills" | "node_skills" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -5133,6 +5135,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    skills: {
+      payload: Prisma.$skillsPayload<ExtArgs>
+      fields: Prisma.skillsFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.skillsFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$skillsPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.skillsFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$skillsPayload>
+        }
+        findFirst: {
+          args: Prisma.skillsFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$skillsPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.skillsFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$skillsPayload>
+        }
+        findMany: {
+          args: Prisma.skillsFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$skillsPayload>[]
+        }
+        create: {
+          args: Prisma.skillsCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$skillsPayload>
+        }
+        createMany: {
+          args: Prisma.skillsCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.skillsCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$skillsPayload>[]
+        }
+        delete: {
+          args: Prisma.skillsDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$skillsPayload>
+        }
+        update: {
+          args: Prisma.skillsUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$skillsPayload>
+        }
+        deleteMany: {
+          args: Prisma.skillsDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.skillsUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.skillsUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$skillsPayload>[]
+        }
+        upsert: {
+          args: Prisma.skillsUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$skillsPayload>
+        }
+        aggregate: {
+          args: Prisma.SkillsAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateSkills>
+        }
+        groupBy: {
+          args: Prisma.skillsGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.SkillsGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.skillsCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.SkillsCountAggregateOutputType> | number
+        }
+      }
+    }
+    node_skills: {
+      payload: Prisma.$node_skillsPayload<ExtArgs>
+      fields: Prisma.node_skillsFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.node_skillsFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$node_skillsPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.node_skillsFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$node_skillsPayload>
+        }
+        findFirst: {
+          args: Prisma.node_skillsFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$node_skillsPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.node_skillsFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$node_skillsPayload>
+        }
+        findMany: {
+          args: Prisma.node_skillsFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$node_skillsPayload>[]
+        }
+        create: {
+          args: Prisma.node_skillsCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$node_skillsPayload>
+        }
+        createMany: {
+          args: Prisma.node_skillsCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.node_skillsCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$node_skillsPayload>[]
+        }
+        delete: {
+          args: Prisma.node_skillsDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$node_skillsPayload>
+        }
+        update: {
+          args: Prisma.node_skillsUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$node_skillsPayload>
+        }
+        deleteMany: {
+          args: Prisma.node_skillsDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.node_skillsUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.node_skillsUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$node_skillsPayload>[]
+        }
+        upsert: {
+          args: Prisma.node_skillsUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$node_skillsPayload>
+        }
+        aggregate: {
+          args: Prisma.Node_skillsAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateNode_skills>
+        }
+        groupBy: {
+          args: Prisma.node_skillsGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.Node_skillsGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.node_skillsCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.Node_skillsCountAggregateOutputType> | number
+        }
+      }
+    }
     smsRecords: {
       payload: Prisma.$smsRecordsPayload<ExtArgs>
       fields: Prisma.smsRecordsFieldRefs
@@ -6245,6 +6395,7 @@ export const NodesScalarFieldEnum = {
   outputSchema: 'outputSchema',
   groupId: 'groupId',
   status: 'status',
+  useSkillsAsLogic: 'useSkillsAsLogic',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'
@@ -6652,6 +6803,32 @@ export const RouterGroupsScalarFieldEnum = {
 export type RouterGroupsScalarFieldEnum = (typeof RouterGroupsScalarFieldEnum)[keyof typeof RouterGroupsScalarFieldEnum]
 
 
+export const SkillsScalarFieldEnum = {
+  name: 'name',
+  path: 'path',
+  source: 'source',
+  title: 'title',
+  description: 'description',
+  version: 'version',
+  status: 'status',
+  syncedAt: 'syncedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type SkillsScalarFieldEnum = (typeof SkillsScalarFieldEnum)[keyof typeof SkillsScalarFieldEnum]
+
+
+export const Node_skillsScalarFieldEnum = {
+  nodeId: 'nodeId',
+  skillName: 'skillName',
+  priority: 'priority',
+  createdAt: 'createdAt'
+} as const
+
+export type Node_skillsScalarFieldEnum = (typeof Node_skillsScalarFieldEnum)[keyof typeof Node_skillsScalarFieldEnum]
+
+
 export const SmsRecordsScalarFieldEnum = {
   id: 'id',
   phone: 'phone',
@@ -7049,6 +7226,8 @@ export type GlobalOmitConfig = {
   redemptionRecords?: Prisma.redemptionRecordsOmit
   routers?: Prisma.routersOmit
   routerGroups?: Prisma.routerGroupsOmit
+  skills?: Prisma.skillsOmit
+  node_skills?: Prisma.node_skillsOmit
   smsRecords?: Prisma.smsRecordsOmit
   storageConfigs?: Prisma.storageConfigsOmit
   systemConfigs?: Prisma.systemConfigsOmit

@@ -87,6 +87,7 @@
     "fast-xml-parser": "^5.7.1",
     "file-saver": "^2.0.5",
     "github-markdown-css": "^5.8.1",
+    "gray-matter": "^4.0.3",
     "heic2any": "^0.0.4",
     "html-docx-js-typescript": "^0.1.5",
     "ioredis": "^5.10.1",
