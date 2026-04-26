@@ -4,7 +4,7 @@
  * **Feature: xiaosuo-session**
  * **Validates: Session CRUD, 权限校验, 软删除**
  */
-import { describe, it, expect, beforeAll, afterEach } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '../../generated/prisma/client'
 import { v4 as uuidv4 } from 'uuid'
@@ -32,15 +32,28 @@ const getTestPrisma = () => {
 
 describe('小索 Session API', () => {
   let dbAvailable = false
+  let testCaseTypeId = 0
   const createdSessionIds: string[] = []
   const createdCaseIds: number[] = []
   const createdUserIds: number[] = []
+  const createdCaseTypeIds: number[] = []
   const prisma = getTestPrisma()
 
   beforeAll(async () => {
     try {
       await prisma.$queryRaw`SELECT 1`
       dbAvailable = true
+      // 测试库未必有 caseTypeId=1 的 seed，临时建一条共所有 case 复用
+      const t = await prisma.caseTypes.create({
+        data: {
+          name: `xiaosuo_test_${Date.now()}`,
+          description: '小索测试案件类型',
+          status: 1,
+          priority: 1,
+        },
+      })
+      testCaseTypeId = t.id
+      createdCaseTypeIds.push(t.id)
     } catch {
       dbAvailable = false
     }
@@ -68,6 +81,15 @@ describe('小索 Session API', () => {
     }
   })
 
+  afterAll(async () => {
+    if (!dbAvailable) return
+    if (createdCaseTypeIds.length > 0) {
+      await prisma.caseTypes.deleteMany({
+        where: { id: { in: createdCaseTypeIds } },
+      })
+    }
+  })
+
   // 辅助函数
   async function createTestUser() {
     const user = await prisma.users.create({
@@ -86,7 +108,7 @@ describe('小索 Session API', () => {
       data: {
         title: '小索测试案件',
         userId,
-        caseTypeId: 1,
+        caseTypeId: testCaseTypeId,
         status: 1,
       },
     })

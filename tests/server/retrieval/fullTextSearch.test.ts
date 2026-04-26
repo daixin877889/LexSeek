@@ -138,9 +138,11 @@ describe('fullTextSearchService', () => {
             metadata: { legal_id: '2' },
         })
 
-        // 验证 SQL 第一个参数为 keywords.join(' ')
+        // 验证：业务方已改为每个 token 一个独立占位符（多 token 间 || OR），
+        // 不再走 keywords.join(' ') 单参模式
         const [sql, params] = mockQuery.mock.calls[0]
-        expect(params[0]).toBe('合同 违约')
+        expect(params[0]).toBe('合同')
+        expect(params[1]).toBe('违约')
         // LIMIT 参数在末尾
         expect(params[params.length - 1]).toBe(5)
         expect(sql).toContain('plainto_tsquery')

@@ -64,14 +64,20 @@ describe('estimateTokens', () => {
         expect(estimateTokens('')).toBe(0)
     })
 
-    it('中文约 2 字符/token', () => {
-        const text = '你好世界' // 4 个中文字符 → 约 2 tokens
-        expect(estimateTokens(text)).toBe(2)
+    it('中文返回正整数 token 估算', () => {
+        // 业务方已切换到 tiktoken (cl100k_base)，不再走字符估算
+        // 这里只校验返回正整数，避免随 tiktoken 词表升级反复对账
+        const text = '你好世界'
+        const tokens = estimateTokens(text)
+        expect(Number.isInteger(tokens)).toBe(true)
+        expect(tokens).toBeGreaterThan(0)
     })
 
-    it('英文约 4 字符/token', () => {
-        const text = 'hello world' // 11 个字符 → 约 2.75 → ceil → 3 tokens
-        expect(estimateTokens(text)).toBe(3)
+    it('英文返回正整数 token 估算', () => {
+        const text = 'hello world'
+        const tokens = estimateTokens(text)
+        expect(Number.isInteger(tokens)).toBe(true)
+        expect(tokens).toBeGreaterThan(0)
     })
 })
 
