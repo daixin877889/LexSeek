@@ -15,7 +15,6 @@ vi.mock('~~/server/services/case/analysis.dao', () => ({
     createAnalysisDao: vi.fn(),
     updateAnalysisDao: vi.fn(),
     getNextVersionDao: vi.fn(),
-    deactivateVersionsDao: vi.fn(),
     findAnalysisBySessionAndNodeDao: vi.fn(),
     AnalysisStatus: {
         IN_PROGRESS: 1,
@@ -32,6 +31,12 @@ vi.mock('~~/server/services/node/node.service', () => ({
     getNodeByNameService: vi.fn(),
 }))
 
+// 业务侧 afterAgent 走 completeAnalysisWithRAG（单点落库 + summary + RAG 切块）
+// 取代旧的 deactivateVersionsDao + updateAnalysisDao 双步骤
+vi.mock('~~/server/services/case/initAnalysis.service', () => ({
+    completeAnalysisWithRAG: vi.fn(),
+}))
+
 // Mock langchain
 vi.mock('langchain', () => ({
     createMiddleware: vi.fn((config) => config),
@@ -42,9 +47,10 @@ import {
     extractLastAIMessageContent,
     markAnalysisFailedById,
 } from '~~/server/services/workflow/middleware/analysisResultPersistence.middleware'
-import { createAnalysisDao, updateAnalysisDao, getNextVersionDao, deactivateVersionsDao, findAnalysisBySessionAndNodeDao, AnalysisStatus } from '~~/server/services/case/analysis.dao'
+import { createAnalysisDao, updateAnalysisDao, getNextVersionDao, findAnalysisBySessionAndNodeDao, AnalysisStatus } from '~~/server/services/case/analysis.dao'
 import { failAnalysisService } from '~~/server/services/case/analysis.service'
 import { getNodeByNameService } from '~~/server/services/node/node.service'
+import { completeAnalysisWithRAG } from '~~/server/services/case/initAnalysis.service'
 
 describe('extractLastAIMessageContent', () => {
     it('应该提取 string 格式的 AIMessage 内容', () => {
@@ -193,7 +199,8 @@ describe('analysisResultPersistenceMiddleware beforeAgent', () => {
 })
 
 describe('analysisResultPersistenceMiddleware afterAgent', () => {
-    const options = { agentName: 'case_analyzer', caseId: 1, sessionId: 'session-123' }
+    // 业务方在 options 中改加了 model（用于 completeAnalysisWithRAG 内部 generateSummary）
+    const options = { agentName: 'case_analyzer', caseId: 1, sessionId: 'session-123', model: {} as any }
 
     beforeEach(() => {
         vi.clearAllMocks()
@@ -205,10 +212,8 @@ describe('analysisResultPersistenceMiddleware afterAgent', () => {
         return config.afterAgent.hook
     }
 
-    it('应该提取 AIMessage 内容并完成分析记录（string 格式）', async () => {
-        vi.mocked(getNodeByNameService).mockResolvedValue({ id: 10, name: 'case_analyzer' } as any)
-        vi.mocked(deactivateVersionsDao).mockResolvedValue(undefined)
-        vi.mocked(updateAnalysisDao).mockResolvedValue({} as any)
+    it('应该提取 AIMessage 内容并通过 completeAnalysisWithRAG 落库（string 格式）', async () => {
+        vi.mocked(completeAnalysisWithRAG).mockResolvedValue(undefined)
 
         const hook = getAfterAgentHook()
         const state = {
@@ -221,18 +226,15 @@ describe('analysisResultPersistenceMiddleware afterAgent', () => {
 
         await hook(state)
 
-        expect(deactivateVersionsDao).toHaveBeenCalledWith(1, 10, {})
-        expect(updateAnalysisDao).toHaveBeenCalledWith(42, {
+        expect(completeAnalysisWithRAG).toHaveBeenCalledWith({
+            analysisId: 42,
             analysisResult: '法律分析结果文本',
-            status: AnalysisStatus.COMPLETED,
-            isActive: true,
-        }, {})
+            model: options.model,
+        })
     })
 
     it('应该处理 ContentPart[] 格式的消息内容', async () => {
-        vi.mocked(getNodeByNameService).mockResolvedValue({ id: 10, name: 'case_analyzer' } as any)
-        vi.mocked(deactivateVersionsDao).mockResolvedValue(undefined)
-        vi.mocked(updateAnalysisDao).mockResolvedValue({} as any)
+        vi.mocked(completeAnalysisWithRAG).mockResolvedValue(undefined)
 
         const hook = getAfterAgentHook()
         const state = {
@@ -250,26 +252,23 @@ describe('analysisResultPersistenceMiddleware afterAgent', () => {
 
         await hook(state)
 
-        expect(updateAnalysisDao).toHaveBeenCalledWith(42, {
+        expect(completeAnalysisWithRAG).toHaveBeenCalledWith({
+            analysisId: 42,
             analysisResult: '结论一结论二',
-            status: AnalysisStatus.COMPLETED,
-            isActive: true,
-        }, {})
+            model: options.model,
+        })
     })
 
     it('_analysisRecordId 不存在时应跳过', async () => {
         const hook = getAfterAgentHook()
         await hook({ _analysisRecordId: undefined, messages: [] })
 
-        expect(getNodeByNameService).not.toHaveBeenCalled()
-        expect(updateAnalysisDao).not.toHaveBeenCalled()
+        expect(completeAnalysisWithRAG).not.toHaveBeenCalled()
     })
 
-    it('未找到 AIMessage 时应该使用空字符串保存', async () => {
-        vi.mocked(getNodeByNameService).mockResolvedValue({ id: 10, name: 'case_analyzer' } as any)
-        vi.mocked(deactivateVersionsDao).mockResolvedValue(undefined)
-        vi.mocked(updateAnalysisDao).mockResolvedValue({} as any)
-
+    it('未找到 AIMessage 时应跳过落库（避免覆盖空内容）', async () => {
+        // 业务方现在的策略：没有 AI 内容则跳过 completeAnalysisWithRAG，
+        // 让 IN_PROGRESS 记录保留，由上层超时/取消逻辑负责清理。
         const hook = getAfterAgentHook()
         const state = {
             _analysisRecordId: 42,
@@ -280,20 +279,18 @@ describe('analysisResultPersistenceMiddleware afterAgent', () => {
 
         await hook(state)
 
-        expect(updateAnalysisDao).toHaveBeenCalledWith(42, {
-            analysisResult: '',
-            status: AnalysisStatus.COMPLETED,
-            isActive: true,
-        }, {})
+        expect(completeAnalysisWithRAG).not.toHaveBeenCalled()
     })
 
     it('异常时应该不抛出', async () => {
-        vi.mocked(getNodeByNameService).mockRejectedValue(new Error('DB 异常'))
+        vi.mocked(completeAnalysisWithRAG).mockRejectedValue(new Error('DB 异常'))
 
         const hook = getAfterAgentHook()
         // 不应抛出异常
-        await expect(hook({ _analysisRecordId: 42, messages: [] })).resolves.toBeUndefined()
-        expect(updateAnalysisDao).not.toHaveBeenCalled()
+        await expect(hook({
+            _analysisRecordId: 42,
+            messages: [{ _getType: () => 'ai', content: '内容' }],
+        })).resolves.toBeUndefined()
     })
 })
 

@@ -262,7 +262,11 @@ describe('runCaseChat 接入 buildContextSegments', () => {
         expect(args.caseId).toBe(700)
         expect(args.agentName).toBe('caseMain')
         expect(args.userQuery).toBe('请分析这个案件')
-        expect(args.roleAndFlowTemplate).toBe('你是案件主代理，roleAndFlow 模板渲染结果')
+        // 业务侧在 renderSystemPrompt 之后追加了"工具选择规则（铁律）"和"综合题应对（铁律）"两段
+        // 测试只断言 roleAndFlowTemplate 包含 mock 的渲染结果与两段铁律标题，不再做完全相等比较
+        expect(args.roleAndFlowTemplate).toContain('你是案件主代理，roleAndFlow 模板渲染结果')
+        expect(args.roleAndFlowTemplate).toContain('## 工具选择规则（铁律）')
+        expect(args.roleAndFlowTemplate).toContain('## 综合题应对（铁律）')
     })
 
     it('中断恢复路径（command 存在 / message=undefined）userQuery 用空字符串', async () => {

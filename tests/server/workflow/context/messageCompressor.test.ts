@@ -92,9 +92,9 @@ describe('estimateMessagesTokens', () => {
 })
 
 describe('getContextBudget', () => {
-    it('不传入 contextWindow 时应使用默认 100K', () => {
+    it('不传入 contextWindow 时应使用默认 128K（与主流模型对齐）', () => {
         const { budget, compressThreshold } = getContextBudget()
-        expect(budget).toBe(Math.floor(100000 * 0.8))
+        expect(budget).toBe(Math.floor(128000 * 0.8))
         expect(compressThreshold).toBe(Math.floor(budget * 0.6))
     })
 
