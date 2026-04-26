@@ -955,30 +955,32 @@ export const resetDatabaseSequences = async (): Promise<void> => {
         const prisma = getTestPrisma()
         // 先清理所有测试数据，避免残留数据导致唯一约束冲突
         await cleanupAllTestData()
-        // 重置 products 表的序列，从 1000 开始避免与种子数据冲突
-        await prisma.$executeRaw`SELECT setval('products_id_seq', GREATEST((SELECT MAX(id) FROM products), 1000))`
-        // 重置 orders 表的序列
-        await prisma.$executeRaw`SELECT setval('orders_id_seq', GREATEST((SELECT MAX(id) FROM orders), 1000))`
-        // 重置 membership_levels 表的序列
-        await prisma.$executeRaw`SELECT setval('membership_levels_id_seq', GREATEST((SELECT MAX(id) FROM membership_levels), 1000))`
-        // 重置 users 表的序列
-        await prisma.$executeRaw`SELECT setval('users_id_seq', GREATEST((SELECT MAX(id) FROM users), 1000))`
-        // 重置 user_memberships 表的序列
-        await prisma.$executeRaw`SELECT setval('user_memberships_id_seq', GREATEST((SELECT MAX(id) FROM user_memberships), 1000))`
-        // 重置 point_records 表的序列
-        await prisma.$executeRaw`SELECT setval('point_records_id_seq', GREATEST((SELECT MAX(id) FROM point_records), 1000))`
-        // 重置 membership_upgrade_records 表的序列
-        await prisma.$executeRaw`SELECT setval('membership_upgrade_records_id_seq', GREATEST((SELECT MAX(id) FROM membership_upgrade_records), 1000))`
-        // 重置 roles 表的序列
-        await prisma.$executeRaw`SELECT setval('roles_id_seq', GREATEST((SELECT MAX(id) FROM roles), 1000))`
-        // 重置 user_roles 表的序列
-        await prisma.$executeRaw`SELECT setval('user_roles_id_seq', GREATEST((SELECT MAX(id) FROM user_roles), 1000))`
-        // 重置 campaigns 表的序列
-        await prisma.$executeRaw`SELECT setval('campaigns_id_seq', GREATEST((SELECT MAX(id) FROM campaigns), 1000))`
-        // 重置 redemption_codes 表的序列
-        await prisma.$executeRaw`SELECT setval('redemption_codes_id_seq', GREATEST((SELECT MAX(id) FROM redemption_codes), 1000))`
-        // 重置 redemption_records 表的序列
-        await prisma.$executeRaw`SELECT setval('redemption_records_id_seq', GREATEST((SELECT MAX(id) FROM redemption_records), 1000))`
+        // 全表 sequence 重置：避免任何 (id) 冲突
+        // 用 SELECT setval(name, MAX+1, false) 让下次 nextval 返回 MAX+1（绝不冲突）
+        await prisma.$executeRawUnsafe(`
+            DO $$
+            DECLARE
+                seq_record RECORD;
+                table_name TEXT;
+                max_id BIGINT;
+            BEGIN
+                FOR seq_record IN
+                    SELECT
+                        s.relname AS sequence_name,
+                        d.adrelid::regclass::text AS table_name
+                    FROM pg_class s
+                    JOIN pg_attrdef d ON pg_get_expr(d.adbin, d.adrelid) LIKE 'nextval%' || s.relname || '%'
+                    WHERE s.relkind = 'S'
+                      AND s.relnamespace = 'public'::regnamespace
+                LOOP
+                    EXECUTE format(
+                        'SELECT setval(%L, GREATEST(COALESCE((SELECT MAX(id) FROM %I), 0), 1000) + 1, false)',
+                        seq_record.sequence_name,
+                        seq_record.table_name
+                    );
+                END LOOP;
+            END $$;
+        `)
     } catch (error) {
         console.warn('重置数据库序列时出错：', error)
     }

@@ -54,6 +54,13 @@ afterEach(() => {
 })
 
 describe('mineru.dao - 真实数据库', () => {
+    beforeAll(async () => {
+        // 全量套件中前序测试可能已消耗 sequence，本套件 beforeAll 局部重置
+        await db.$executeRawUnsafe(`SELECT setval(pg_get_serial_sequence('users', 'id'), GREATEST(COALESCE((SELECT MAX(id) FROM users), 0), 1000) + 1, false)`)
+        await db.$executeRawUnsafe(`SELECT setval(pg_get_serial_sequence('oss_files', 'id'), GREATEST(COALESCE((SELECT MAX(id) FROM oss_files), 0), 1000) + 1, false)`)
+        await db.$executeRawUnsafe(`SELECT setval(pg_get_serial_sequence('doc_recognition_records', 'id'), GREATEST(COALESCE((SELECT MAX(id) FROM doc_recognition_records), 0), 1000) + 1, false)`)
+    })
+
     describe('createDocRecognitionRecordDao', () => {
         it('应使用默认 PENDING 状态创建记录', async () => {
             const { userId, ossFileId } = await createOssFileFixture()
