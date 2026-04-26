@@ -153,6 +153,10 @@ describe('跨标签队列同步', () => {
     await initAt(b.manager)
     await flushPromises()
 
+    // 真实业务下 enqueue 时 AI 通常仍在响应（isLoading=true），enqueueMessage 内的
+    // nextTick(maybeDispatch) 会被守卫 3 阻挡，避免立即出队。
+    chatA.isLoading.value = true
+    chatA.runStatus.value = 'running'
     const ok = a.manager.enqueueMessage('from A')
     expect(ok).toBe(true)
     expect(a.manager.currentQueue.value).toHaveLength(1)
@@ -175,6 +179,8 @@ describe('跨标签队列同步', () => {
     await initAt(b.manager)
     await flushPromises()
 
+    chatA.isLoading.value = true
+    chatA.runStatus.value = 'running'
     a.manager.enqueueMessage('to remove')
     await advanceClock()  // 保证 version 单调递增
     a.manager.enqueueMessage('to keep')
@@ -202,11 +208,13 @@ describe('跨标签队列同步', () => {
     await flushPromises()
 
     a.manager.sendMessage('第一条')
-    a.manager.enqueueMessage('queued')
-    await advanceClock()
+    chatA.isLoading.value = true
     chatA.runStatus.value = 'running'
     await nextTick()
+    a.manager.enqueueMessage('queued')
+    await advanceClock()
     chatA.runStatus.value = 'failed'
+    chatA.isLoading.value = false
     await nextTick()
     await advanceClock()
 
@@ -224,7 +232,9 @@ describe('跨标签队列同步', () => {
     await initAt(a.manager)
     await flushPromises()
 
-    // Tab A 先入队
+    // Tab A 先入队（AI busy 防止 enqueue 触发立即派发）
+    chatA.isLoading.value = true
+    chatA.runStatus.value = 'running'
     a.manager.enqueueMessage('from A')
     await flushPromises()
     expect(a.manager.currentQueue.value).toHaveLength(1)
@@ -255,16 +265,19 @@ describe('跨标签队列同步', () => {
     await flushPromises()
 
     a.manager.sendMessage('第一条')
+    chatA.isLoading.value = true
+    chatA.runStatus.value = 'running'
+    await nextTick()
     a.manager.enqueueMessage('will dispatch')
     await flushPromises()
     // 双方都应看到队列 1 条
     expect(b.manager.currentQueue.value).toHaveLength(1)
 
     // 两 tab 同时 completed（触发各自的 dispatcher）
-    chatA.runStatus.value = 'running'
     chatB.runStatus.value = 'running'
     await nextTick()
     chatA.runStatus.value = 'completed'
+    chatA.isLoading.value = false
     chatB.runStatus.value = 'completed'
     await nextTick()
     await flushPromises()
@@ -293,6 +306,9 @@ describe('跨标签队列同步', () => {
     await flushPromises()
 
     a.manager.sendMessage('第一条')
+    chatA.isLoading.value = true
+    chatA.runStatus.value = 'running'
+    await nextTick()
     a.manager.enqueueMessage('will fail')
     await advanceClock()
     // 此时 sendMessage 已被调用 1 次，下一次调用（即 dispatcher 的派发）需抛错
@@ -300,9 +316,8 @@ describe('跨标签队列同步', () => {
       throw new Error('dispatch fail')
     })
 
-    chatA.runStatus.value = 'running'
-    await nextTick()
     chatA.runStatus.value = 'completed'
+    chatA.isLoading.value = false
     await nextTick()
     await advanceClock()
     await nextTick()
@@ -329,6 +344,8 @@ describe('跨标签队列同步', () => {
 
     // Tab A enqueue 会自己广播 sync，但自己的 listener 应识别 tabId 相同并跳过
     // 可观察状态：currentQueue 保持一致，没有因自回触发二次 .set
+    chatA.isLoading.value = true
+    chatA.runStatus.value = 'running'
     a.manager.enqueueMessage('solo')
     await flushPromises()
 
@@ -352,7 +369,9 @@ describe('跨标签队列同步', () => {
     await initAt(b.manager)
     await flushPromises()
 
-    // A 先广播一个 version 较大的状态
+    // A 先广播一个 version 较大的状态（AI busy 防止 enqueue 触发立即派发）
+    chatA.isLoading.value = true
+    chatA.runStatus.value = 'running'
     a.manager.enqueueMessage('v-new')
     await flushPromises()
     expect(b.manager.currentQueue.value).toHaveLength(1)
@@ -415,6 +434,9 @@ describe('跨标签队列同步', () => {
 
     // A 入队 + sendMessage 积累 seq；B 不调用 sendMessage（模拟 A 主动方、B 被动方）
     a.manager.sendMessage('第一条')
+    chatA.isLoading.value = true
+    chatA.runStatus.value = 'running'
+    await nextTick()
     a.manager.enqueueMessage('item-1')
     await advanceClock()
     a.manager.enqueueMessage('item-2')
@@ -422,9 +444,8 @@ describe('跨标签队列同步', () => {
 
     // A 触发 completed → A 持锁派发
     // 在 A 派发到一半时，模拟 A 自己调 clearQueue（实际业务中这可能是用户在另一 tab 清空）
-    chatA.runStatus.value = 'running'
-    await nextTick()
     chatA.runStatus.value = 'completed'
+    chatA.isLoading.value = false
     await nextTick()
     await advanceClock()
     await nextTick()
