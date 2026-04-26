@@ -6,6 +6,8 @@
 
 import type { agentRuns } from '~~/generated/prisma/client'
 import { AGENT_RUN_STATUS } from '#shared/types/agentRun'
+import { agentRegistry } from '~~/server/services/agent-platform/registry/agentRegistry'
+import { SessionScope } from '#shared/types/agentEvent'
 import {
   claimPendingRunDAO,
   updateRunStatusDAO,
@@ -171,96 +173,55 @@ export class AgentWorker {
         logger.error(`[Lazy repair] 整体失败 (run=${run.id}):`, e)
       }
 
-      // === scope 分流（spec §5.2） ===
-      if (session.scope === 'document') {
-        if (session.userId == null) {
-          throw new Error(
-            `document session ${run.sessionId} 缺失 userId（数据损坏）`,
-          )
-        }
-        const { runDocumentChat } = await import('../workflow/agents/documentMainAgent')
-        stream = await runDocumentChat(run.sessionId, input.message, {
-          userId: session.userId,
-          caseId: session.caseId ?? undefined,
-          command: input.command,
-          signal: abortController.signal,
-        })
+      // === 路由分流：通过 AgentRegistry 分发到注册的 runner ===
+      // 阶段 1：注册的是 6 个 legacy runner（runDocumentChat / runAssistantChat /
+      //         runContractReviewChat / startCaseAnalysisV2 / runModuleChat / runCaseChat）。
+      // 阶段 2：defineDomainAgent 工厂会替换 legacy 注册。
+      //
+      // scope/type 校验依然需要：runner 内部会做最终校验，但此处提前抛错
+      // 可以让错误信息更精准（带上 sessionId），保留旧行为。
+      if (
+        (session.scope === 'document' || session.scope === 'assistant' || session.scope === 'contract')
+        && session.userId == null
+      ) {
+        throw new Error(
+          `${session.scope} session ${run.sessionId} 缺失 userId（数据损坏）`,
+        )
       }
-      else if (session.scope === 'assistant') {
-        if (session.userId == null) {
-          throw new Error(
-            `assistant session ${run.sessionId} 缺失 userId（数据损坏）`,
-          )
-        }
-        const { runAssistantChat } = await import('../workflow/agents')
-        stream = await runAssistantChat(run.sessionId, input.message, {
-          userId: session.userId,
-          command: input.command,
-          thinking: input.thinking,
-          signal: abortController.signal,
-        })
+      if (
+        (session.scope == null || session.scope === 'case')
+        && session.caseId == null
+      ) {
+        throw new Error(
+          `case session ${run.sessionId} 缺失 caseId（scope 与 caseId 不一致，数据损坏）`,
+        )
       }
-      else if (session.scope === 'contract') {
-        if (session.userId == null) {
-          throw new Error(
-            `contract session ${run.sessionId} 缺失 userId（数据损坏）`,
-          )
-        }
-        const { runContractReviewChat } = await import('../workflow/agents/contractReviewMainAgent')
-        stream = await runContractReviewChat(run.sessionId, {
-          userId: session.userId,
-          runId: run.id,
-          command: input.command,
-          signal: abortController.signal,
-        })
-      }
-      else {
-        // === case 域分支：caseId 必须存在 ===
-        if (session.caseId == null) {
-          throw new Error(
-            `case session ${run.sessionId} 缺失 caseId（scope 与 caseId 不一致，数据损坏）`,
-          )
-        }
-        const caseId = session.caseId
 
-        if (session.type === 2) {
-          // 初始化分析：caseAnalysisV2 工作流
-          const { startCaseAnalysisV2 } = await import('../workflow/caseAnalysisV2.executor')
-          stream = await startCaseAnalysisV2({
-            sessionId: run.sessionId,
-            userId: run.userId,
-            caseId,
-            selectedModules: input.selectedModules ?? [],
-            command: input.command,
-            signal: abortController.signal,
-          })
-        } else if (session.type === 3) {
-          // 模块对话
-          const { runModuleChat } = await import('../workflow/agents/moduleAgent')
-          const metadata = session.metadata as { moduleName: string; nodeId: number }
-          stream = await runModuleChat(run.sessionId, input.message, {
-            userId: run.userId,
-            caseId,
-            moduleName: metadata.moduleName,
-            nodeId: metadata.nodeId,
-            command: input.command,
-            runId: run.id,
-            thinking: input.thinking,
-            signal: abortController.signal,
-          })
-        } else {
-          // 普通案件对话
-          const { runCaseChat } = await import('../workflow/agents')
-          stream = await runCaseChat(run.sessionId, input.message, {
-            userId: run.userId,
-            caseId,
-            runId: run.id,
-            command: input.command,
-            thinking: input.thinking,
-            signal: abortController.signal,
-          })
-        }
-      }
+      // 注：session.scope 在 caseSessions 表中可能为 null（早期数据），按 case 域处理
+      const scope = (session.scope ?? 'case') as SessionScope
+      const type = session.type ?? null
+      const meta = session.metadata as Record<string, unknown> | null
+
+      stream = await agentRegistry.dispatch(
+        {
+          scope,
+          type,
+          caseId: session.caseId ?? null,
+          userId: session.userId ?? run.userId,
+        },
+        {
+          runId: run.id,
+          sessionId: run.sessionId,
+          userId: session.userId ?? run.userId,
+          caseId: session.caseId ?? null,
+          message: input.message,
+          command: input.command as import('@langchain/langgraph').Command | undefined,
+          thinking: input.thinking,
+          selectedModules: input.selectedModules ?? [],
+          signal: abortController.signal,
+          metadata: meta ?? undefined,
+        },
+      )
 
       // 遍历 SSE stream 并发布事件到 Redis
       const reader = stream.getReader()

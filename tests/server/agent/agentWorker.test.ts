@@ -52,7 +52,7 @@ vi.mock('../../../server/services/agent/agentEventBridge', () => ({
   startReconnectFlush: vi.fn(),
 }))
 
-// Mock caseAgent (runCaseChat)
+// Mock agentRegistry.dispatch：让 case scope 的任务返回 mock stream
 const mockStream = {
   getReader: () => ({
     read: vi.fn()
@@ -64,8 +64,10 @@ const mockStream = {
     releaseLock: vi.fn(),
   }),
 }
-vi.mock('../../../server/services/agent/caseAgent', () => ({
-  runCaseChat: vi.fn().mockResolvedValue(mockStream),
+vi.mock('~~/server/services/agent-platform/registry/agentRegistry', () => ({
+  agentRegistry: {
+    dispatch: vi.fn().mockResolvedValue(mockStream),
+  },
 }))
 
 // 动态导入（在 mock 之后）
