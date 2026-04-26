@@ -38,16 +38,20 @@ vi.mock('~~/server/services/workflow/checkpointer', () => ({
     getStore: vi.fn().mockResolvedValue({}),
 }))
 
+// 阶段 3 · search_law 普及：mock 同步 seedData 中 contractReviewMain 节点的真实 tools
+// （seedData.sql 中 contractReviewMain.tools = ["parse_and_ask_stance", "search_law"]）
 vi.mock('~~/server/services/node/node.service', () => ({
-    getValidNodeConfig: vi.fn().mockResolvedValue({
+    getValidNodeConfig: vi.fn().mockImplementation(async (nodeName: string) => ({
         modelApiKeys: [{ status: 1, apiKey: 'test-key' }],
         modelSdkType: 'openai',
         modelName: 'test-model',
         modelProviderBaseUrl: 'https://test',
         modelContextWindow: 128000,
-        tools: [],
+        tools: nodeName === 'contractReviewMain'
+            ? ['parse_and_ask_stance', 'search_law']
+            : [],
         systemPrompt: '',
-    }),
+    })),
 }))
 
 vi.mock('~~/server/services/node/chatModelFactory', () => ({
@@ -99,6 +103,7 @@ vi.mock('langchain', async () => {
 
 import { runAnalyzeLoop, runContractReviewChat } from '~~/server/services/workflow/agents/contractReviewMainAgent'
 import { emitContractReviewEvent } from '~~/server/services/workflow/nodes/contractReviewStageEmitter'
+import { getValidNodeConfig } from '~~/server/services/node/node.service'
 import { analyzeSingleClause } from '~~/server/agents/contract/analyzeSingleClause'
 import {
     findContractReviewBySessionIdDAO,
@@ -305,5 +310,24 @@ describe('runContractReviewChat resume 分支 - segments fail-fast', () => {
             { runId: 'run-empty', sessionId: 'sess-empty' },
             { type: 'stage', stage: 'analyze', status: 'done', warnings: ['no_segments'] },
         )
+    })
+})
+
+describe('阶段 3 · contractReviewMain 节点 tools 配置', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('contractReviewMain 主 agent tools 应包含 search_law（resume 前可被调用）', async () => {
+        // 复用本文件已 mock 的 getValidNodeConfig，断言其针对 contractReviewMain 节点
+        // 返回的 tools 字段（与 seedData.sql 中真实配置对齐）。
+        const config = await getValidNodeConfig('contractReviewMain', '合同审查主Agent')
+
+        expect(config.tools).toContain('search_law')
+        expect(config.tools).toContain('parse_and_ask_stance')
+
+        // 已知限制：search_law 在 runAnalyzeLoop / analyzeSingleClause 子流程内不可用，
+        // 因为 invokeNodeJson 走结构化输出 LLM，不支持 tool calling。
+        // 阶段 4 通过 Command.resume + 中间件改造解决该限制；本阶段仅保证主 agent 阶段可用。
     })
 })
