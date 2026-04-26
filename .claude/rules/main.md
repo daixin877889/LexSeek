@@ -31,23 +31,47 @@ paths:
 
 ## 自动导入
 
-### 服务端（无需 import）
-- `prisma` - Prisma 客户端
-- `logger` - 日志工具
-- `resSuccess` / `resError` - 响应函数
-- H3 函数：`defineEventHandler`, `getQuery`, `readBody`, `getRouterParam`
-- 服务层：`auth`, `campaign`, `encryption`, `files`, `membership`, `payment`, `point`, `product`, `rbac`, `sms`, `storage`, `users`
+> 项目已大幅收窄自动导入范围，**绝大多数代码需要显式 import**。
 
-### 前端（无需 import）
-- Vue 响应式 API：`ref`, `reactive`, `computed`, `watch`
-- Nuxt composables：`useFetch`, `useState`, `useRuntimeConfig`
+### 仍然自动导入（无需 import）
+
+**服务端**
+- H3 函数：`defineEventHandler`, `getQuery`, `readBody`, `getRouterParam`, `getHeader`, `getCookie` 等
+- Nitro 内置：`useRuntimeConfig`, `useStorage`
+- 白名单工具：`logger`, `resSuccess`, `resError`
+
+**前端**
+- Vue 响应式 API：`ref`, `reactive`, `computed`, `watch`, `watchEffect`, `onMounted`, `nextTick` 等
+- Nuxt composables：`useFetch`, `useState`, `useRuntimeConfig`, `useCookie`, `useHead`
 - 路由函数：`navigateTo`, `useRoute`, `useRouter`
-- Pinia stores：`store/` 目录下所有 store
-- Composables：`useApi`, `useApiFetch`, `useAuth`, `useTheme`
+- Pinia：`defineStore`, `storeToRefs`
+- 白名单工具：`logger`, `resSuccess`, `resError`
 
-### 类型（需手动导入）
+**组件**
+- `app/components/ui/` — 由 shadcn-nuxt 模块自动注册
+- `app/components/ai-elements/` — 由 Nuxt dirs 配置自动注册
+
+### 必须显式 import
+
+**服务端**
+```typescript
+import { prisma } from '#shared/utils/prisma'                    // Prisma 客户端
+import { someService } from '~/server/services/xxx/xxx.service'  // 服务层
+import { someDao } from '~/server/services/xxx/xxx.dao'          // DAO 层
+import dayjs from 'dayjs'                                         // 第三方库
+```
+
+**前端**
+```typescript
+import { useApiFetch } from '~/composables/useApiFetch'  // composables
+import { useAuthStore } from '~/store/auth'               // Pinia stores
+import SomeComp from '~/components/xxx/SomeComp.vue'      // 业务组件（非 ui/ 和 ai-elements/）
+```
+
+**类型（始终需要手动导入）**
 ```typescript
 import type { UserInfo } from '#shared/types/user'
+import type { cases } from '~~/generated/prisma/client'
 ```
 
 ## 用户认证

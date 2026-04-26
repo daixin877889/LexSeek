@@ -20,6 +20,7 @@ import {
     MembershipStatus,
     type TestIds,
 } from './membership/test-db-helper'
+import { createTestCaseType, createTestNode, createTestModel, createTestModelProvider } from './case/test-db-helper'
 import {
     getDashboardStatistics,
     getDashboardMembership,
@@ -35,6 +36,9 @@ describe('Dashboard 服务层测试', () => {
 
     // 用于追踪 dashboard 测试中创建的案件 ID
     const dashboardCaseIds: number[] = []
+    // 用于所有测试共享的 case_type / node（避免硬编码 id: 1，FK 约束失败）
+    let testCaseTypeId = 0
+    let testNodeId = 0
 
     beforeAll(async () => {
         dbAvailable = await isTestDbAvailable()
@@ -43,6 +47,12 @@ describe('Dashboard 服务层测试', () => {
         } else {
             // 重置数据库序列，避免与种子数据冲突
             await resetDatabaseSequences()
+            const caseType = await createTestCaseType()
+            testCaseTypeId = caseType.id
+            const provider = await createTestModelProvider()
+            const model = await createTestModel({ providerId: provider.id })
+            const node = await createTestNode({ modelId: model.id })
+            testNodeId = node.id
         }
     })
 
@@ -54,6 +64,10 @@ describe('Dashboard 服务层测试', () => {
                     where: { caseId: { in: dashboardCaseIds } },
                 })
                 await prisma.caseSessions.deleteMany({
+                    where: { caseId: { in: dashboardCaseIds } },
+                })
+                // document_drafts 也外键引用 cases，必须先于 cases 删
+                await prisma.documentDrafts.deleteMany({
                     where: { caseId: { in: dashboardCaseIds } },
                 })
                 await prisma.cases.deleteMany({
@@ -101,7 +115,7 @@ describe('Dashboard 服务层测试', () => {
                 data: {
                     title: '本月测试案件',
                     userId: user.id,
-                    caseTypeId: 1,
+                    caseTypeId: testCaseTypeId,
                     status: 1,
                     createdAt: new Date(),
                     updatedAt: new Date(),
@@ -115,7 +129,7 @@ describe('Dashboard 服务层测试', () => {
                 data: {
                     title: '上月测试案件',
                     userId: user.id,
-                    caseTypeId: 1,
+                    caseTypeId: testCaseTypeId,
                     status: 1,
                     createdAt: lastMonth,
                     updatedAt: lastMonth,
@@ -140,7 +154,7 @@ describe('Dashboard 服务层测试', () => {
                 data: {
                     title: '分析测试案件',
                     userId: user.id,
-                    caseTypeId: 1,
+                    caseTypeId: testCaseTypeId,
                     status: 1,
                     createdAt: new Date(),
                     updatedAt: new Date(),
@@ -164,7 +178,7 @@ describe('Dashboard 服务层测试', () => {
                 data: {
                     caseId: testCase.id,
                     sessionId: session.sessionId,
-                    nodeId: 1,
+                    nodeId: testNodeId,
                     analysisType: 'test',
                     status: 2,
                     createdAt: new Date(),
@@ -178,7 +192,7 @@ describe('Dashboard 服务层测试', () => {
                 data: {
                     caseId: testCase.id,
                     sessionId: session.sessionId,
-                    nodeId: 1,
+                    nodeId: testNodeId,
                     analysisType: 'test',
                     status: 2,
                     createdAt: lastMonth,
@@ -203,7 +217,7 @@ describe('Dashboard 服务层测试', () => {
                 data: {
                     title: '已删除案件',
                     userId: user.id,
-                    caseTypeId: 1,
+                    caseTypeId: testCaseTypeId,
                     status: 1,
                     createdAt: new Date(),
                     updatedAt: new Date(),
@@ -220,7 +234,7 @@ describe('Dashboard 服务层测试', () => {
                 data: {
                     title: '正常案件',
                     userId: user.id,
-                    caseTypeId: 1,
+                    caseTypeId: testCaseTypeId,
                     status: 1,
                     createdAt: new Date(),
                     updatedAt: new Date(),
@@ -244,7 +258,7 @@ describe('Dashboard 服务层测试', () => {
                 data: {
                     caseId: activeCase.id,
                     sessionId: session.sessionId,
-                    nodeId: 1,
+                    nodeId: testNodeId,
                     analysisType: 'test',
                     status: 2,
                     createdAt: new Date(),
@@ -261,7 +275,7 @@ describe('Dashboard 服务层测试', () => {
                 data: {
                     caseId: activeCase.id,
                     sessionId: session.sessionId,
-                    nodeId: 1,
+                    nodeId: testNodeId,
                     analysisType: 'test',
                     status: 2,
                     createdAt: new Date(),
@@ -435,7 +449,7 @@ describe('Dashboard 服务层测试', () => {
                 data: {
                     title: 'Dashboard 完整测试案件',
                     userId: user.id,
-                    caseTypeId: 1,
+                    caseTypeId: testCaseTypeId,
                     status: 1,
                     createdAt: now,
                     updatedAt: now,
@@ -459,7 +473,7 @@ describe('Dashboard 服务层测试', () => {
                 data: {
                     caseId: caseData.id,
                     sessionId: session.sessionId,
-                    nodeId: 1,
+                    nodeId: testNodeId,
                     analysisType: 'test',
                     status: 2,
                     createdAt: now,
@@ -520,7 +534,7 @@ describe('Dashboard 服务层测试', () => {
                 data: {
                     title: '用户1的案件',
                     userId: user1.id,
-                    caseTypeId: 1,
+                    caseTypeId: testCaseTypeId,
                     status: 1,
                     createdAt: new Date(),
                     updatedAt: new Date(),

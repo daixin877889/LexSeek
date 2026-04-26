@@ -548,6 +548,25 @@ describe('getUserStorageQuotaService 测试', () => {
 
     beforeAll(async () => {
         dbAvailable = await isTestDbAvailable()
+        if (dbAvailable) {
+            // 业务在 getUserStorageQuotaService 中硬性要求 storage_space benefit 已注册，
+            // 测试库可能没有这条 seed 数据，用 upsert 兜底（同 code 已存在则 no-op）
+            await prisma.benefits.upsert({
+                where: { code: 'storage_space' },
+                update: {},
+                create: {
+                    code: 'storage_space',
+                    name: '云盘空间',
+                    description: '云盘存储空间',
+                    unitType: 'bytes',
+                    consumptionMode: 'sum',
+                    defaultValue: BigInt(1024 * 1024 * 100),
+                    status: 1,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                },
+            })
+        }
     })
 
     afterEach(async () => {
@@ -623,6 +642,23 @@ describe('checkStorageQuotaService 测试', () => {
 
     beforeAll(async () => {
         dbAvailable = await isTestDbAvailable()
+        if (dbAvailable) {
+            await prisma.benefits.upsert({
+                where: { code: 'storage_space' },
+                update: {},
+                create: {
+                    code: 'storage_space',
+                    name: '云盘空间',
+                    description: '云盘存储空间',
+                    unitType: 'bytes',
+                    consumptionMode: 'sum',
+                    defaultValue: BigInt(1024 * 1024 * 100),
+                    status: 1,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                },
+            })
+        }
     })
 
     afterEach(async () => {
