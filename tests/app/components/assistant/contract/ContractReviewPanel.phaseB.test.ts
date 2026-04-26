@@ -261,7 +261,10 @@ describe('ContractReviewPanel Task 3.3.1：本轮变化横幅', () => {
         expect(mockDismissUploadBanner).toHaveBeenCalledTimes(1)
     })
 
-    it('上传完成回调设置 lastUploadResult 并弹 toast', async () => {
+    it('上传完成回调设置 lastUploadResult（toast 由 Dialog 内部 watcher 负责）', async () => {
+        // 业务调整 (bug #16)：上传完成的 toast 提示由 UploadNewVersionDialog 内部
+        // uploadResult watcher 触发，避免对话框提前关闭丢失提示。父组件 handleUploadComplete
+        // 仅负责关闭 dialog + 写入 lastUploadResult + 刷新工作区。
         reviewRef.value = makeReview({ status: 'completed' })
         runStatusRef.value = 'completed'
         versionsRef.value = [{ id: 1 }]
@@ -272,7 +275,6 @@ describe('ContractReviewPanel Task 3.3.1：本轮变化横幅', () => {
         await uploadDialogBtn.trigger('click')
         await flushPromises()
 
-        expect(mockToastSuccess).toHaveBeenCalledWith('本轮新增 2 条外部变更')
         expect(lastUploadResultRef.value).not.toBeNull()
         expect(lastUploadResultRef.value?.newVersionId).toBe(99)
         expect(lastUploadResultRef.value?.summary).toBe('本轮新增 2 条外部变更')

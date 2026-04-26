@@ -152,6 +152,33 @@ vi.mock('~/composables/useContractRiskHighlight', () => ({
     }),
 }))
 
+// 避免组件 mount 时调用真实 useApiFetch 触发 404 unhandled rejection
+vi.mock('~/composables/useContractReviewVersion', () => ({
+    useContractReviewVersion: () => ({
+        workspace: ref({ risks: [], annotations: [], currentVersionId: null, maxVersionNo: 0 }),
+        versions: ref([]),
+        previewVersionId: ref(null),
+        previewSnapshot: ref(null),
+        isReadOnly: computed(() => false),
+        currentView: computed(() => ({ risks: [], annotations: [], docxText: '' })),
+        hasUnsavedEdits: computed(() => false),
+        lastUploadResult: ref(null),
+        dismissUploadBanner: vi.fn(),
+        refreshWorkspace: vi.fn().mockResolvedValue(undefined),
+        refreshVersions: vi.fn().mockResolvedValue(undefined),
+        enterPreview: vi.fn(),
+        exitPreview: vi.fn(),
+        saveNewVersion: vi.fn().mockResolvedValue(true),
+        updateRiskArchivedStatus: vi.fn(),
+        addLawyerAnnotation: vi.fn(),
+        updateAnnotation: vi.fn(),
+        deleteAnnotation: vi.fn(),
+        restoreAnnotationPush: vi.fn(),
+        updateVersionNote: vi.fn(),
+        uploadNewVersion: vi.fn(),
+    }),
+}))
+
 // ── 子组件 stubs：记录 props 便于断言 ───────────────────────────────────────
 
 const StanceDialogStub = defineComponent({
@@ -563,30 +590,9 @@ describe('ContractReviewPanel', () => {
 })
 
 describe('ContractReviewPanel M5 接线', () => {
-    it('review.status=rebuilding → 传给 RiskListPanel 的 :isRebuilding=true', async () => {
-        reviewRef.value = makeReview({ status: 'rebuilding', reviewedFileId: 1 } as unknown as Partial<contractReviews>)
-        const w = mountPanel()
-        await nextTick()
-        const risk = w.find('[data-stub="RiskListPanel"]')
-        expect(risk.attributes('data-is-rebuilding')).toBe('true')
-    })
-
-    it('hasUnsavedDocxChanges=true 时透传给 RiskListPanel', async () => {
-        reviewRef.value = makeReview({ status: 'completed', reviewedFileId: 1 })
-        hasUnsavedDocxChangesRef.value = true
-        const w = mountPanel()
-        await nextTick()
-        const risk = w.find('[data-stub="RiskListPanel"]')
-        expect(risk.attributes('data-has-unsaved')).toBe('true')
-    })
-
-    it('RiskListPanel emit rebuild → 调 onRebuildDocx', async () => {
-        reviewRef.value = makeReview({ status: 'completed', reviewedFileId: 1 })
-        const w = mountPanel()
-        await nextTick()
-        await w.find('[data-stub-btn="rebuild"]').trigger('click')
-        expect(mockOnRebuildDocx).toHaveBeenCalledTimes(1)
-    })
+    // 注：旧的 isRebuilding/hasUnsavedDocxChanges/rebuild 透传 + toast.info 提示场景，
+    // 业务侧已下线（onRebuildDocx 入口移除，下载链路内部触发 rebuild），相关 it 移除。
+    // 仅保留与现有业务一致的 edit-risks 透传断言。
 
     it('RiskListPanel emit edit-risks → 调 onEditRisks with 新 risks 数组', async () => {
         reviewRef.value = makeReview({ status: 'completed', reviewedFileId: 1 })
@@ -595,31 +601,6 @@ describe('ContractReviewPanel M5 接线', () => {
         await w.find('[data-stub-btn="edit-risks"]').trigger('click')
         expect(mockOnEditRisks).toHaveBeenCalledTimes(1)
         expect(mockOnEditRisks).toHaveBeenCalledWith([{ id: 'nr', clauseIndex: 0 }])
-    })
-
-    it('isRebuilding 从 false 变 true → 弹 toast.info 一次', async () => {
-        reviewRef.value = makeReview({ status: 'completed', reviewedFileId: 1 })
-        mountPanel()
-        await nextTick()
-        expect(mockToastInfo).not.toHaveBeenCalled()
-
-        reviewRef.value = makeReview({ status: 'rebuilding', reviewedFileId: 1 } as unknown as Partial<contractReviews>)
-        await nextTick()
-        expect(mockToastInfo).toHaveBeenCalledTimes(1)
-        expect(mockToastInfo).toHaveBeenCalledWith('批注正在重新生成，请稍候...')
-    })
-
-    it('isRebuilding 保持 true → 不重复弹 toast.info', async () => {
-        reviewRef.value = makeReview({ status: 'rebuilding', reviewedFileId: 1 } as unknown as Partial<contractReviews>)
-        mountPanel()
-        await nextTick()
-        // mount 时 isRebuilding 已为 true（非 false→true 转变），watch 不 immediate，不应触发
-        expect(mockToastInfo).not.toHaveBeenCalled()
-
-        // 保持 true 下改 reviewedFileId（触发 review 重设但 isRebuilding 未变）
-        reviewRef.value = makeReview({ status: 'rebuilding', reviewedFileId: 2 } as unknown as Partial<contractReviews>)
-        await nextTick()
-        expect(mockToastInfo).not.toHaveBeenCalled()
     })
 })
 
