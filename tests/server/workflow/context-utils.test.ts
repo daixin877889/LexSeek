@@ -60,10 +60,11 @@ function findOrphanToolMessages(messages: BaseMessage[]): string[] {
 // ==================== messageCompressor ====================
 
 describe('getContextBudget', () => {
-    it('默认上下文预算为 100K tokens', () => {
+    it('默认上下文预算为 128K tokens', () => {
         const { budget, compressThreshold } = getContextBudget()
-        expect(budget).toBe(80000) // 100K * 0.8
-        expect(compressThreshold).toBe(48000) // 80K * 0.6
+        // 业务方 DEFAULT_CONTEXT_WINDOW 改为 128000（与主流模型上下文对齐）
+        expect(budget).toBe(102400) // 128K * 0.8
+        expect(compressThreshold).toBe(61440) // 102400 * 0.6
     })
 
     it('自定义上下文窗口', () => {
@@ -74,7 +75,7 @@ describe('getContextBudget', () => {
 
     it('undefined 上下文使用默认值', () => {
         const { budget } = getContextBudget(undefined)
-        expect(budget).toBe(80000)
+        expect(budget).toBe(102400)
     })
 })
 
