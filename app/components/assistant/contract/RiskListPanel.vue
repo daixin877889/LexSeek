@@ -24,6 +24,12 @@ import type { ContractOverview, Risk, RiskDisplayPhaseB, ContractReviewStatus, P
 import { RISK_LEVEL_LABEL } from '#shared/types/contract'
 // UI-L1：徽章配色集中到 app/utils/contractRiskLevelStyle，与 ContractDocxPreview 共享
 import { RISK_LEVEL_BADGE_CLASS as LEVEL_CLASS } from '~/utils/contractRiskLevelStyle'
+import AssistantContractAnnotationBubble from '~/components/assistant/contract/AnnotationBubble.vue'
+import AssistantContractExportPdfDialog from '~/components/assistant/contract/ExportPdfDialog.vue'
+import AssistantContractOverviewPanel from '~/components/assistant/contract/OverviewPanel.vue'
+import AssistantContractRiskCard from '~/components/assistant/contract/RiskCard.vue'
+import AssistantContractRiskClauseDiff from '~/components/assistant/contract/RiskClauseDiff.vue'
+import AssistantContractRiskEditDialog from '~/components/assistant/contract/RiskEditDialog.vue'
 
 const props = defineProps<{
     risks: RiskDisplayPhaseB[]

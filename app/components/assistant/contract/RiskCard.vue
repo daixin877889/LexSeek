@@ -20,6 +20,8 @@ import type {
 } from '#shared/types/contract'
 import { RISK_LEVEL_LABEL } from '#shared/types/contract'
 import { RISK_LEVEL_BADGE_CLASS as LEVEL_CLASS } from '~/utils/contractRiskLevelStyle'
+import AssistantContractAnnotationBubble from '~/components/assistant/contract/AnnotationBubble.vue'
+import AssistantContractRiskClauseDiff from '~/components/assistant/contract/RiskClauseDiff.vue'
 
 const props = defineProps<{
     risk: RiskDisplayPhaseB
