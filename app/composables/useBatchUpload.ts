@@ -2,6 +2,8 @@ import mime from "mime";
 import { formatByteSize } from "#shared/utils/unitConverision";
 import type { FileSourceAccept } from "#shared/types/file";
 import type { PostSignatureResult } from "~~/shared/types/oss";
+import { useFileUploadWorker } from '~/composables/useFileUploadWorker'
+import { useFileStore } from '~/store/file'
 
 export interface AcceptItem {
   name: string;

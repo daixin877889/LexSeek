@@ -4,6 +4,7 @@
  */
 import dayjs from 'dayjs'
 import type { Ref } from 'vue'
+import type { membershipLevels } from '~~/generated/prisma/client'
 
 /** 会员级别接口 */
 export interface MembershipLevel {

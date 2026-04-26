@@ -686,13 +686,13 @@ async function handleStop() {
 
 | 组件 | 用途 |
 |-----|------|
-| `<AiElementsQueue>` | 外壳容器：rounded border + bg-background + shadow-xs（已封装样式） |
-| `<AiElementsQueueItem>` | 单项 `<li>`：group hover + px-3 py-1 + text-sm + hover:bg-muted（默认 `flex-col`，本次通过 `!flex-row` class 覆盖为横向排列） |
-| `<AiElementsQueueItemContent>` | 文本 slot：`line-clamp-1 + grow + break-words`（接受 `completed` prop，启用时灰色删除线）。**注意**：本组件未做 reka-ui 的 DOM ref 转发，不能直接作为 `TooltipTrigger as-child` 的子组件，§7.3 选择放弃复用、直接用原生 span + 复制 line-clamp 等样式 class |
-| `<AiElementsQueueItemActions>` | 操作按钮组：`flex gap-1` 容器 |
-| `<AiElementsQueueItemAction>` | 单个操作按钮：ghost Button，`group-hover:opacity-100`（hover 才显示） |
+| `<Queue>` | 外壳容器：rounded border + bg-background + shadow-xs（已封装样式） |
+| `<QueueItem>` | 单项 `<li>`：group hover + px-3 py-1 + text-sm + hover:bg-muted（默认 `flex-col`，本次通过 `!flex-row` class 覆盖为横向排列） |
+| `<QueueItemContent>` | 文本 slot：`line-clamp-1 + grow + break-words`（接受 `completed` prop，启用时灰色删除线）。**注意**：本组件未做 reka-ui 的 DOM ref 转发，不能直接作为 `TooltipTrigger as-child` 的子组件，§7.3 选择放弃复用、直接用原生 span + 复制 line-clamp 等样式 class |
+| `<QueueItemActions>` | 操作按钮组：`flex gap-1` 容器 |
+| `<QueueItemAction>` | 单个操作按钮：ghost Button，`group-hover:opacity-100`（hover 才显示） |
 
-> `AiElementsQueueItemIndicator`（圆点指示器）也在该目录下，但本次队列 chip 设计未用到——队列序号已通过 `<Badge>#N` 表达，无需额外指示器。
+> `QueueItemIndicator`（圆点指示器）也在该目录下，但本次队列 chip 设计未用到——队列序号已通过 `<Badge>#N` 表达，无需额外指示器。
 
 ### 7.2 挂载位置
 
@@ -723,7 +723,7 @@ async function handleStop() {
 
 ### 7.3 `AiChatQueueChips.vue` 组件结构
 
-组件整体分两层：**状态横幅**（运行中 / 暂停态）+ **基于 `AiElementsQueue` 的 chip 列表**。
+组件整体分两层：**状态横幅**（运行中 / 暂停态）+ **基于 `Queue` 的 chip 列表**。
 
 ```vue
 <script setup lang="ts">
@@ -785,9 +785,9 @@ function truncate(text: string, max = 24) {
 
     <!-- 基于 ai-elements/queue 的列表 -->
     <div class="p-2 max-h-[180px] overflow-y-auto">
-      <AiElementsQueue>
+      <Queue>
         <!-- 通过 class 覆盖 QueueItem 默认的 flex-col 为 flex-row，避免外套一层 div 破坏基元语义 -->
-        <AiElementsQueueItem
+        <QueueItem
           v-for="(item, index) in queue"
           :key="item.id"
           class="!flex-row items-center gap-2"
@@ -795,7 +795,7 @@ function truncate(text: string, max = 24) {
           <!-- 序号 badge -->
           <Badge variant="secondary" class="shrink-0 text-[10px] h-5 px-1.5">#{{ index + 1 }}</Badge>
 
-          <!-- 文本内容：原计划复用 AiElementsQueueItemContent 的 line-clamp 样式，
+          <!-- 文本内容：原计划复用 QueueItemContent 的 line-clamp 样式，
                但 reka-ui 的 <TooltipTrigger as-child> 通过 <Slot> primitive 把事件 + DOM ref
                注入子元素，要求子元素能 **forward DOM ref**——Vue 3 自定义组件的 `ref` 默认
                指向组件实例（非 DOM 节点），需要 defineExpose({ $el }) 或基于 reka-ui 的
@@ -829,13 +829,13 @@ function truncate(text: string, max = 24) {
           <BrainIcon v-if="item.thinking" class="size-3.5 text-primary shrink-0" />
 
           <!-- 删除按钮（hover 才显示） -->
-          <AiElementsQueueItemActions class="shrink-0">
-            <AiElementsQueueItemAction @click="emit('remove', item.id)">
+          <QueueItemActions class="shrink-0">
+            <QueueItemAction @click="emit('remove', item.id)">
               <XIcon class="size-3" />
-            </AiElementsQueueItemAction>
-          </AiElementsQueueItemActions>
-        </AiElementsQueueItem>
-      </AiElementsQueue>
+            </QueueItemAction>
+          </QueueItemActions>
+        </QueueItem>
+      </Queue>
     </div>
   </div>
 </template>
@@ -850,7 +850,7 @@ function truncate(text: string, max = 24) {
 ───────────── 运行中，2 条队列 ─────────────
 ┌────────────────────────────────────────────┐
 │ ⏳ 排队中 (2/5)                            │
-│ [AiElementsQueue]                          │
+│ [Queue]                          │
 │   #1  帮我分析证据...            [📎2][🧠]│
 │   #2  继续上面的话...                      │
 └────────────────────────────────────────────┘
@@ -859,7 +859,7 @@ function truncate(text: string, max = 24) {
 ┌────────────────────────────────────────────┐
 │ ⏸ 队列已暂停（上一条执行失败）             │
 │                       [▶ 恢复] [🗑 清空]   │
-│ [AiElementsQueue]                          │
+│ [Queue]                          │
 │   #1  帮我分析证据...                      │
 │   #2  继续上面的话...                      │
 └────────────────────────────────────────────┘
@@ -867,8 +867,8 @@ function truncate(text: string, max = 24) {
 
 ### 7.5 交互细节
 
-- 整 chip hover 显示 Tooltip，内容为完整文本 + 附件文件名列表（已内置 `<Tooltip>` 包裹 `AiElementsQueueItemContent`）
-- `×` 按钮通过 `AiElementsQueueItemAction` 的 `group-hover:opacity-100` 自动 hover 才显示
+- 整 chip hover 显示 Tooltip，内容为完整文本 + 附件文件名列表（已内置 `<Tooltip>` 包裹 `QueueItemContent`）
+- `×` 按钮通过 `QueueItemAction` 的 `group-hover:opacity-100` 自动 hover 才显示
 - 点击 `×` → emit `remove(itemId)` → manager `removeQueueItem(itemId)` → 广播跨标签事件
 - **不支持**拖拽重排序、编辑（YAGNI）
 - 暂停态的横幅使用 `bg-amber-50 dark:bg-amber-500/10` 醒目色
@@ -1048,7 +1048,7 @@ vi.mock('~/composables/useCaseChat', () => ({ useCaseChat: () => mockChat }))
 | 用例 | 断言 |
 |-----|------|
 | 空队列不渲染 | 容器不存在 |
-| 2 条运行中 | 顶部 "排队中 (2/5)"，2 个 `AiElementsQueueItem` 实例 |
+| 2 条运行中 | 顶部 "排队中 (2/5)"，2 个 `QueueItem` 实例 |
 | 1 条暂停 stopped | "队列已暂停（已手动停止）" + 恢复 + 清空 按钮 |
 | 1 条暂停 failed | "队列已暂停（上一条执行失败）" |
 | 点 × 删除 chip | emit `remove` 携带正确 itemId |

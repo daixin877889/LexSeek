@@ -155,6 +155,10 @@
 <script setup lang="ts">
 import { Plus, Loader2, FileText, Search, MoreHorizontal, Pencil, Trash2, Power } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import AdminDemoCasesFormDialog from '~/components/admin/demo-cases/FormDialog.vue'
+import GeneralPagination from '~/components/general/pagination.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
+import type { caseTypes } from '~~/generated/prisma/client'
 
 /** 示范案例类型 */
 interface DemoCase {

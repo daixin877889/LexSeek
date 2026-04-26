@@ -20,9 +20,9 @@ const balance = computed(() => parsedOutput.value?.balance ?? null)
 </script>
 
 <template>
-    <AiElementsTool>
-        <AiElementsToolHeader title="积分预扣" type="tool-reserve_points" :state="state" />
-        <AiElementsToolContent v-if="output != null">
+    <Tool>
+        <ToolHeader title="积分预扣" type="tool-reserve_points" :state="state" />
+        <ToolContent v-if="output != null">
             <div class="p-4 space-y-2">
                 <div v-for="r in reservations" :key="r.batchId" class="flex items-center justify-between text-sm">
                     <span>{{ r.itemName || r.module }}</span>
@@ -38,6 +38,6 @@ const balance = computed(() => parsedOutput.value?.balance ?? null)
                     <span>{{ balance }} 积分</span>
                 </div>
             </div>
-        </AiElementsToolContent>
-    </AiElementsTool>
+        </ToolContent>
+    </Tool>
 </template>

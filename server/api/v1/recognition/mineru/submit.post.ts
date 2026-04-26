@@ -19,6 +19,7 @@ import {
     getActiveTokenValueService,
     hasActiveTokenService,
 } from '~~/server/services/material/mineruToken.service'
+import { MineruTaskStatus } from '#shared/types/recognition'
 
 /** 请求体验证 Schema */
 const bodySchema = z.object({

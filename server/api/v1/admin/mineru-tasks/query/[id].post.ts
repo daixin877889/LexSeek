@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod'
+import { queryMineruTaskStatusService } from '~~/server/services/material/mineruTask.service'
 
 /** 路由参数验证 */
 const paramsSchema = z.object({

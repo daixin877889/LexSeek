@@ -21,9 +21,9 @@ const isError = computed(() => parsedOutput.value != null && !isSuccess.value)
 </script>
 
 <template>
-    <AiElementsTool>
-        <AiElementsToolHeader title="积分确认" type="tool-confirm_points" :state="state" />
-        <AiElementsToolContent v-if="parsedOutput">
+    <Tool>
+        <ToolHeader title="积分确认" type="tool-confirm_points" :state="state" />
+        <ToolContent v-if="parsedOutput">
             <div class="p-4">
                 <div v-if="isSuccess" class="flex items-center gap-2 text-sm">
                     <CheckCircleIcon class="size-4 text-green-600 shrink-0" />
@@ -35,6 +35,6 @@ const isError = computed(() => parsedOutput.value != null && !isSuccess.value)
                     <span>{{ parsedOutput.error || parsedOutput.message || '积分确认失败' }}</span>
                 </div>
             </div>
-        </AiElementsToolContent>
-    </AiElementsTool>
+        </ToolContent>
+    </Tool>
 </template>

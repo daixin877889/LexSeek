@@ -1,3 +1,5 @@
+import type { apiPermissions, roleRouters } from '~~/generated/prisma/client'
+import { findRoleApiPermissionsDao } from '~~/server/services/rbac/roleApiPermission.dao'
 /**
  * 获取角色权限
  * GET /api/v1/admin/roles/:id/permissions

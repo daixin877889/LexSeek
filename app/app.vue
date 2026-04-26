@@ -12,6 +12,15 @@
 
 <script setup lang="ts">
 import "vue-sonner/style.css";
+import type { ApiBaseResponse } from '#shared/utils/apiResponse'
+import GeneralAlertDialog from '~/components/general/AlertDialog.vue'
+import GeneralWxSupport from '~/components/general/WxSupport.vue'
+import { useTheme } from '~/composables/useTheme'
+import { useAuthStore } from '~/store/auth'
+import { useRoleStore } from '~/store/role'
+import { useUserStore } from '~/store/user'
+import type { roles } from '~~/generated/prisma/client'
+import type { SafeUserInfo } from '~~/server/services/users/userResponse.service'
 
 const authStore = useAuthStore();
 const userStore = useUserStore();

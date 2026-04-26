@@ -174,6 +174,11 @@ import { Plus, Loader2, FileText, Search, MoreHorizontal, Eye, Trash2, History, 
 import { toast } from 'vue-sonner'
 import dayjs from 'dayjs'
 import type { PromptWithRelations, Node } from '#shared/types/node'
+import AdminPromptsPromptFormDialog from '~/components/admin/prompts/PromptFormDialog.vue'
+import AdminPromptsVersionHistoryDialog from '~/components/admin/prompts/VersionHistoryDialog.vue'
+import GeneralPagination from '~/components/general/pagination.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
+import type { nodes, prompts } from '~~/generated/prisma/client'
 
 definePageMeta({ layout: 'admin-layout', title: '提示词管理' })
 

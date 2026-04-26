@@ -9,6 +9,7 @@
 
 import { z } from 'zod'
 import type { PreviewPromptInput } from '#shared/types/node'
+import { previewPromptService } from '~~/server/services/node/prompt.service'
 
 /** 请求体验证 */
 const bodySchema = z.object({

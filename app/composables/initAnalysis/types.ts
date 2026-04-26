@@ -1,4 +1,6 @@
 import type { ModuleRunState, InitAnalysisStatusResponse } from '#shared/types/initAnalysis'
+import type { AgentRunStatus } from '#shared/types/agentRun'
+import type { InitAnalysisModule } from '#shared/types/initAnalysis'
 
 export interface InitAnalysisState extends Record<string, unknown> {
   lastExecutedModule?: string

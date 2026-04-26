@@ -1,3 +1,4 @@
+import { findAllApiPermissionGroupsDao } from '~~/server/services/rbac/apiPermission.dao'
 /**
  * 获取 API 权限分组列表
  * GET /api/v1/admin/api-permissions/groups

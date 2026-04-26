@@ -18,6 +18,7 @@ import {
     updateDemoCaseDao,
     softDeleteDemoCaseDao,
 } from './demoCase.dao'
+import type { CreateDemoCaseInput, DemoCaseListParams, DemoCaseMaterial, UpdateDemoCaseInput } from '~~/server/services/case/demoCase.dao'
 
 // 类型从 DAO 导入使用，不再 re-export 以避免 Nuxt 自动导入冲突
 // 外部使用时请直接从 demoCase.dao 导入类型

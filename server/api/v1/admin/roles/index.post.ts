@@ -3,6 +3,7 @@
  * POST /api/v1/admin/roles
  */
 import { z } from 'zod'
+import { logRoleCreate } from '~~/server/services/rbac/auditLog.service'
 
 const bodySchema = z.object({
     name: z.string({ message: '角色名称不能为空' }).min(1, '角色名称不能为空').max(50, '角色名称不能超过50个字符'),

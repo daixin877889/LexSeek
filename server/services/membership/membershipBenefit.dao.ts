@@ -1,3 +1,4 @@
+import type { benefits, membershipBenefits } from '~~/generated/prisma/client'
 /**
  * 会员权益关联数据访问层
  *

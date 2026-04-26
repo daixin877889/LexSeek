@@ -5,6 +5,8 @@ import { getToolInstancesService } from '../tools'
 import { caseMaterialContextMiddleware, caseProcessMaterialMiddleware, createMessageIntegrityMiddleware, pointConsumptionMiddleware, analysisResultPersistenceMiddleware, safetyTrimMiddleware } from '../middleware'
 import { renderSystemPrompt } from '../utils/promptRenderer'
 import { resolveContextWindow } from '../context/messageCompressor'
+import { getValidNodeConfig } from '~~/server/services/node/node.service'
+import { getCheckpointer, getStore } from '~~/server/services/workflow/checkpointer'
 
 
 export interface AnalysisAgentOptions {

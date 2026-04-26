@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod'
+import { createPointConsumptionItemService } from '~~/server/services/point/pointConsumptionItems.service'
 
 /** 请求体验证 */
 const bodySchema = z.object({

@@ -47,11 +47,11 @@ const displayName = computed(() => {
 </script>
 
 <template>
-  <AiElementsTool>
-    <AiElementsToolHeader :title="displayName" :type="`tool-${props.toolName}`" :state="props.state as any" />
-    <AiElementsToolContent>
-      <AiElementsToolInput v-if="props.input" :input="props.input" />
-      <AiElementsToolOutput v-if="props.output != null" :output="props.output" :error-text="props.errorText" />
-    </AiElementsToolContent>
-  </AiElementsTool>
+  <Tool>
+    <ToolHeader :title="displayName" :type="`tool-${props.toolName}`" :state="props.state as any" />
+    <ToolContent>
+      <ToolInput v-if="props.input" :input="props.input" />
+      <ToolOutput v-if="props.output != null" :output="props.output" :error-text="props.errorText" />
+    </ToolContent>
+  </Tool>
 </template>

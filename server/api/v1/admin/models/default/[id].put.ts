@@ -5,6 +5,7 @@
  */
 
 import { z } from 'zod'
+import { setDefaultModelService } from '~~/server/services/model/models.service'
 
 /** 路由参数验证 */
 const paramsSchema = z.object({

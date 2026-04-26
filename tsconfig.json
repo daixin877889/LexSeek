@@ -1,11 +1,21 @@
 {
   // https://nuxt.com/docs/guide/concepts/typescript
   "compilerOptions": {
+    "incremental": true,
+    "tsBuildInfoFile": ".nuxt/.tsbuildinfo",
     "paths": {
-      "#shared": ["./shared"],
-      "#shared/*": ["./shared/*"],
-      "~~/*": ["./*"],
-      "@@/*": ["./*"]
+      "#shared": [
+        "./shared"
+      ],
+      "#shared/*": [
+        "./shared/*"
+      ],
+      "~~/*": [
+        "./*"
+      ],
+      "@@/*": [
+        "./*"
+      ]
     }
   },
   "files": [],

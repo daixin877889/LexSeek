@@ -5,6 +5,7 @@
  */
 
 import type { Prisma, pointConsumptionItems, pointConsumptionRecords, pointRecords } from '~~/generated/prisma/client'
+import { PointConsumptionItemStatus, PointRecordStatus } from '#shared/types/point.types'
 
 // 事务客户端类型（兼容扩展后的 prisma 客户端）
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

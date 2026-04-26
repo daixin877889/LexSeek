@@ -10,6 +10,10 @@
  */
 
 import { PaymentChannel, PaymentMethod, DurationUnit } from "#shared/types/payment";
+import toast from '#shared/utils/toast'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useAuthStore } from '~/store/auth'
+import { isWeChatBrowser } from '~/utils/wechat'
 
 /** 购买流程配置选项 */
 export interface UsePurchaseFlowOptions {

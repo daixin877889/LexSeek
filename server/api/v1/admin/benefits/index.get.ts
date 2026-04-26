@@ -13,6 +13,7 @@ import {
     type BenefitAdminInfo,
 } from '#shared/types/benefit'
 import { formatByteSize } from '#shared/utils/unitConverision'
+import type { benefits } from '~~/generated/prisma/client'
 
 /** 查询参数验证 */
 const querySchema = z.object({

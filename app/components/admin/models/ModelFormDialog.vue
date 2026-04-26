@@ -146,6 +146,7 @@ import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { ModelProvider, Model, SdkType } from '#shared/types/model'
 import { SDK_TYPES, SdkTypeLabels, ModelTypeLabels, DEFAULT_SDK_TYPE } from '#shared/types/model'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 // SDK 类型选项列表
 const sdkTypeOptions = SDK_TYPES.map(type => ({

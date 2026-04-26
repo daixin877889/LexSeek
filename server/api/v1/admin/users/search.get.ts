@@ -6,6 +6,7 @@
 
 import { z } from 'zod'
 import type { Prisma } from '~~/generated/prisma/client'
+import type { users } from '~~/generated/prisma/client'
 
 /** 查询参数验证 */
 const querySchema = z.object({

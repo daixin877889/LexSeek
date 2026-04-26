@@ -19,6 +19,7 @@
 </template>
 
 <script setup lang="ts">
+import { useWxSupportStore } from '~/store/wxSupport'
 /**
  * 微信客服二维码组件
  * 显示微信客服二维码的对话框组件，通过 Pinia store 控制显示/隐藏

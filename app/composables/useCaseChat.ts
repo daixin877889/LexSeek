@@ -1,3 +1,4 @@
+import { useStreamChat } from '~/composables/useStreamChat'
 /**
  * 案件分析对话 composable
  * 基于 useStreamChat 的特化。

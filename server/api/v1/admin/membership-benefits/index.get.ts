@@ -6,6 +6,7 @@
 
 import { formatByteSize } from '#shared/utils/unitConverision'
 import type { MembershipBenefitConfig, AvailableBenefit } from '#shared/types/benefit'
+import type { benefits, membershipBenefits } from '~~/generated/prisma/client'
 
 export default defineEventHandler(async (event) => {
     try {

@@ -16,6 +16,11 @@ import {
   PlusIcon,
   CheckSquareIcon,
 } from 'lucide-vue-next'
+import ViewModeToggle from '~/components/ViewModeToggle.vue'
+import AssistantDocumentDraftCardList from '~/components/assistant/document/DraftCardList.vue'
+import CaseAnalysisResults from '~/components/case/AnalysisResults.vue'
+import CaseAnalysisMaterialSelector from '~/components/caseAnalysis/materialSelector.vue'
+import InitAnalysisCaseInfoCard from '~/components/initAnalysis/CaseInfoCard.vue'
 
 const props = defineProps<{
   caseId: number
@@ -198,9 +203,9 @@ function executeDelete() {
         :view-mode="materialViewMode"
         :readonly="readonly"
         :get-recognition-status="getRecognitionStatus"
-        @preview-material="(m) => emit('previewMaterial', m)"
+        @preview-material="(m: CaseDetailMaterialItem) => emit('previewMaterial', m)"
         @delete-material="confirmDelete"
-        @retry-material="(id, ossId) => emit('retryMaterial', id, ossId)" />
+        @retry-material="(id: number, ossId: number) => emit('retryMaterial', id, ossId)" />
     </div>
 
     <template v-if="!readonly">

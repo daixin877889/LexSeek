@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod'
+import { queryAsrTaskStatusBatchService } from '~~/server/services/material/asrTask.service'
 
 /** 请求体验证 */
 const bodySchema = z.object({

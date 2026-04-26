@@ -1,3 +1,12 @@
+import { SmsType } from '#shared/types/sms'
+import { UserStatus } from '#shared/types/user'
+import { parseErrorMessage } from '#shared/utils/apiResponse'
+import { createLogger } from '#shared/utils/logger'
+import { z } from '#shared/utils/zod'
+import { clearAuthCookiesService } from '~~/server/services/auth/authToken.service'
+import { verifySmsCodeService } from '~~/server/services/sms/smsVerification.service'
+import { addTokenBlacklistDao } from '~~/server/services/users/tokenBlacklist.dao'
+import { findUserByPhoneDao, updateUserPasswordDao } from '~~/server/services/users/users.dao'
 /**
  * 重置密码
  *

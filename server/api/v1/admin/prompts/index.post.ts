@@ -7,6 +7,7 @@
 
 import { z } from 'zod'
 import { PROMPT_TYPES } from '#shared/types/node'
+import { createPromptService } from '~~/server/services/node/prompt.service'
 
 /** 请求体验证 */
 const bodySchema = z.object({

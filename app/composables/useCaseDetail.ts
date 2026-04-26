@@ -5,6 +5,10 @@ import type { OssFileItem } from '~/store/file'
 import { INIT_ANALYSIS_MODULES } from '#shared/types/initAnalysis'
 import { getMaterialType } from '~/utils/caseMaterial'
 import { toast } from 'vue-sonner'
+import { useApi } from '~/composables/useApi'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useCrossTabListener } from '~/composables/useCrossTabEvents'
+import { useFileRecognition } from '~/composables/useFileRecognition'
 
 /** 模块状态元素类型（从 InitAnalysisStatusResponse.modules 提取） */
 type ModuleStatusItem = InitAnalysisStatusResponse['modules'][number]

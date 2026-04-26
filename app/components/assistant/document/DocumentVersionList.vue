@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { EyeIcon, RotateCcwIcon, DownloadIcon, Trash2Icon, PencilIcon } from 'lucide-vue-next'
 import type { DocumentDraftVersion } from '#shared/types/document'
+import { formatDate } from '~/utils/formatDate'
 
 const props = defineProps<{
     versions: DocumentDraftVersion[]

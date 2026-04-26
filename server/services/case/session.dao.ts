@@ -6,6 +6,7 @@
 
 import { getRedisClient } from '~~/server/lib/redis'
 import { v4 as uuidv4 } from 'uuid'
+import { cancelRunService, getActiveRunService } from '~~/server/services/agent/agentRun.service'
 
 export interface SessionListItem {
     sessionId: string

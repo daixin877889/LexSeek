@@ -10,6 +10,7 @@ import { z } from 'zod'
 import { getMaterialsByCaseIdWithStatusService } from '~~/server/services/material/material.service'
 import { validateCaseAccessService } from '~~/server/services/case/case.service'
 import { CaseMaterialType, CaseMaterialTypeText } from '#shared/types/case'
+import { parseErrorMessage } from '#shared/utils/apiResponse'
 
 const paramsSchema = z.object({
     caseId: z.coerce.number().int().positive(),

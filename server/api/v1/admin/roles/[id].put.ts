@@ -3,6 +3,8 @@
  * PUT /api/v1/admin/roles/:id
  */
 import { z } from 'zod'
+import { logRoleUpdate } from '~~/server/services/rbac/auditLog.service'
+import { refreshRoleUsersPermissions } from '~~/server/services/rbac/permission.service'
 
 const bodySchema = z.object({
     name: z.string().min(1, '角色名称不能为空').max(50, '角色名称不能超过50个字符').optional(),

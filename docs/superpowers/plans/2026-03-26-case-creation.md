@@ -1096,7 +1096,7 @@ export function useCaseCreation() {
 `app/components/caseCreation/AiChat.vue`：
 
 复用 ai-elements-vue 对话组件：
-- `AiElementsConversation` + `AiElementsConversationContent`
+- `Conversation` + `ConversationContent`
 - 消息列表渲染（HumanMessage / AIMessage）
 - `CaseAnalysisPromptInput` 输入框
 - 使用 `useStream` 连接 `POST /api/v1/case/extract`
@@ -1254,7 +1254,7 @@ interface Props {
 - 头部：模块图标 + 名称 + 状态 badge
 - 内容区：
   - idle: 灰色占位
-  - streaming: `AiElementsMessageResponse` 实时渲染 Markdown
+  - streaming: `MessageResponse` 实时渲染 Markdown
   - complete: 完整 Markdown 结果
   - failed: 错误信息 + 重试按钮
 

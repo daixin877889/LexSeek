@@ -7,6 +7,8 @@
  */
 import dayjs from 'dayjs'
 import { RedemptionCodeType, type RedemptionRecordInfo } from '#shared/types/redemption'
+import { z } from '#shared/utils/zod'
+import { findRedemptionRecordsByUserIdDao } from '~~/server/services/redemption/redemptionRecord.dao'
 
 // 查询参数验证 schema
 const querySchema = z.object({

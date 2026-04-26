@@ -5,6 +5,8 @@
  */
 import type { Prisma } from "#shared/types/prisma"
 import type { H3Event } from "h3"
+import { AuditLogAction } from '#shared/types/rbac'
+import { createAuditLogDao } from '~~/server/services/rbac/auditLog.dao'
 
 // ==================== 辅助函数 ====================
 

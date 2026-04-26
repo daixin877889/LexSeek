@@ -3,6 +3,7 @@
  * token 黑名单
  */
 import type { Prisma } from '#shared/types/prisma'
+import type { tokenBlacklist } from '~~/generated/prisma/client'
 
 /**
  * 添加 token 黑名单

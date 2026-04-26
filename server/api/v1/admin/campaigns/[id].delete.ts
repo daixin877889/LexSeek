@@ -1,3 +1,4 @@
+import { deleteCampaignService } from '~~/server/services/campaign/campaign.service'
 /**
  * 删除营销活动（软删除）
  *

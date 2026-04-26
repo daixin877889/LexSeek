@@ -42,6 +42,9 @@ import { Plus, X, FileIcon, Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { FileSource } from '#shared/types/file'
 import type { DemoCaseFileMaterial } from '#shared/types/case'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useBatchUpload } from '~/composables/useBatchUpload'
+import { useFileStore } from '~/store/file'
 
 const modelValue = defineModel<DemoCaseFileMaterial[]>({ required: true })
 

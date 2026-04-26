@@ -2,6 +2,8 @@
  * 短信验证码数据访问层
  */
 import type { Prisma } from "#shared/types/prisma";
+import { SmsType } from '#shared/types/sms'
+import type { smsRecords } from '~~/generated/prisma/client'
 
 /**
  * 创建短信验证码

@@ -15,6 +15,7 @@ import {
     processMaterialService,
     MaterialProcessError,
 } from '~~/server/services/material/materialProcess.service'
+import { parseErrorMessage } from '#shared/utils/apiResponse'
 
 // 路径参数验证
 const paramsSchema = z.object({

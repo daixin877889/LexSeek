@@ -199,6 +199,13 @@
 
 <script setup>
 import { ScaleIcon, MenuIcon, XIcon, UserIcon } from "lucide-vue-next";
+import { maskTel } from '#shared/utils/phone'
+import toast from '#shared/utils/toast'
+import GeneralThemeToggle from '~/components/general/ThemeToggle.vue'
+import { useColorMode } from '~/composables/useColorMode'
+import { useAuthStore } from '~/store/auth'
+import { useUserStore } from '~/store/user'
+import { resetAllStore } from '~/utils/resetStore'
 
 // 颜色模式
 const { resolvedMode } = useColorMode();

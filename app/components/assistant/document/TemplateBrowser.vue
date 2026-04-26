@@ -12,6 +12,8 @@ import {
     DOCUMENT_CATEGORIES,
     type TemplateScopeFilter,
 } from '#shared/types/document'
+import AssistantDocumentTemplateCard from '~/components/assistant/document/TemplateCard.vue'
+import { useApi } from '~/composables/useApi'
 
 interface TemplateItem {
     id: number

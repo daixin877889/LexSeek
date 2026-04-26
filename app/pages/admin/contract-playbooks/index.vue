@@ -12,6 +12,7 @@
 import { CONTRACT_TYPE_OPTIONS, STANCE_PREFERENCE_LABEL, RISK_LEVEL_LABEL } from '#shared/types/contract'
 import type { StancePreference, RiskLevel } from '#shared/types/contract'
 import { toast } from 'vue-sonner'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 definePageMeta({
     layout: 'admin-layout',

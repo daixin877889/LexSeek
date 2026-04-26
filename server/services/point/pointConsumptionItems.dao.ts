@@ -1,3 +1,5 @@
+import { PointConsumptionItemStatus } from '#shared/types/point.types'
+import type { pointConsumptionItems } from '~~/generated/prisma/client'
 /**
  * 积分消耗项目数据访问层
  * 

@@ -5,6 +5,8 @@
  */
 
 import { z } from 'zod'
+import { parseErrorMessage } from '#shared/utils/apiResponse'
+import { deleteFileDao, findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
 
 export default defineEventHandler(async (event) => {
   try {

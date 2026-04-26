@@ -6,6 +6,7 @@
 
 import { z } from 'zod'
 import { MODEL_TYPES, SDK_TYPES } from '#shared/types/model'
+import { updateModelService } from '~~/server/services/model/models.service'
 
 /** 路由参数验证 */
 const paramsSchema = z.object({

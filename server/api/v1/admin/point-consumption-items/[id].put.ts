@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod'
+import { updatePointConsumptionItemService } from '~~/server/services/point/pointConsumptionItems.service'
 
 /** 路由参数验证 */
 const paramsSchema = z.object({

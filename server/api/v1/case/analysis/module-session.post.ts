@@ -12,6 +12,7 @@
 import { z } from 'zod'
 import dayjs from 'dayjs'
 import { createSessionDAO } from '~~/server/services/case/session.dao'
+import { getNodeByNameService } from '~~/server/services/node/node.service'
 
 const bodySchema = z.object({
     caseId: z.number().int().positive(),

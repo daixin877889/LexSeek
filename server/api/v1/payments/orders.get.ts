@@ -6,6 +6,8 @@
  * 获取当前用户的订单列表
  */
 import { decimalToNumberUtils } from '#shared/utils/decimalToNumber'
+import { z } from '#shared/utils/zod'
+import { getUserOrdersService } from '~~/server/services/payment/order.service'
 
 /** 请求参数验证 */
 const queryOrdersSchema = z.object({

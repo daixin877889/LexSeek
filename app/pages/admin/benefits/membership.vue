@@ -101,6 +101,8 @@ import { Loader2, Crown, Settings } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { MembershipBenefitConfig, AvailableBenefit } from '#shared/types/benefit'
 import { formatByteSize } from '#shared/utils/unitConverision'
+import { useApiFetch } from '~/composables/useApiFetch'
+import type { benefits } from '~~/generated/prisma/client'
 
 definePageMeta({ layout: 'admin-layout', title: '会员级别权益配置' })
 

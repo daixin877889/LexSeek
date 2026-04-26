@@ -243,6 +243,9 @@ import { Badge } from '~/components/ui/badge'
 import type { LegalDetailResponse } from '#shared/types/legal-search'
 import type { LegalArticleInfo } from '#shared/types/legal'
 import { ArticleType, ArticleTypeLabels } from '#shared/types/legal'
+import LegalSearchLegalPreviewDocument from '~/components/legal-search/LegalPreviewDocument.vue'
+import LegalSearchLegalPreviewList from '~/components/legal-search/LegalPreviewList.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 // ==================== 页面元数据 ====================
 

@@ -5,6 +5,7 @@
  */
 import { Prisma } from '#shared/types/prisma'
 import { PaymentTransactionStatus } from '#shared/types/payment'
+import type { orders, paymentTransactions, products } from '~~/generated/prisma/client'
 
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma

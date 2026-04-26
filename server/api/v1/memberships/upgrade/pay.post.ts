@@ -7,6 +7,9 @@
  */
 import { z } from 'zod'
 import { PaymentChannel, PaymentMethod, DurationUnit, OrderType } from '#shared/types/payment'
+import { calculateUpgradePriceService } from '~~/server/services/membership/membershipUpgrade.service'
+import { createOrderService } from '~~/server/services/payment/order.service'
+import { createPaymentService } from '~~/server/services/payment/payment.service'
 
 /** 请求参数验证 */
 const upgradePaySchema = z.object({

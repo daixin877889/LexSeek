@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { getRequestIP, type H3Event } from 'h3'
 import { getRedisClient } from '~~/server/lib/redis'
 import { canUseAliyunCaptchaSceneService, getAliyunCaptchaRuntimeConfigService } from '~~/server/services/security/aliyunCaptcha.service'
+import { createLogger } from '#shared/utils/logger'
 
 const PASSWORD_LOGIN_RISK_KEY_PREFIX = 'auth:pwd-login:fail'
 

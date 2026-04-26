@@ -589,7 +589,7 @@ const fileSizeText = computed(() => {
       <!-- 文档 -->
       <template v-else-if="material.type === CaseMaterialType.DOCUMENT">
         <div v-if="material.summary" class="prose prose-sm dark:prose-invert max-w-none">
-          <AiElementsMessageResponse :content="material.summary" />
+          <MessageResponse :content="material.summary" />
         </div>
         <div v-else class="text-center py-8">
           <FileTextIcon class="size-10 mx-auto mb-3 text-muted-foreground/40" />

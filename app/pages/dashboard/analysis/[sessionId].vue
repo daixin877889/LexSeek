@@ -22,6 +22,12 @@ import type { AnalysisResult } from "#shared/types/case";
 import type { AiPromptSubmitData } from "~/components/ai/AiPromptInput.vue";
 import { AIMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
 import { useTaskQueueParser } from "~/components/ai/composables/useTaskQueueParser";
+import AiChat from '~/components/ai/AiChat.vue'
+import CaseAnalysisResults from '~/components/case/AnalysisResults.vue'
+import CaseInterruptHandler from '~/components/case/interrupt/InterruptHandler.vue'
+import CaseAnalysisWelcome from '~/components/caseAnalysis/welcome.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useStreamChat } from '~/composables/useStreamChat'
 
 definePageMeta({
   title: "案件分析",

@@ -5,6 +5,8 @@
  */
 
 import type { Prisma } from '#shared/types/prisma'
+import { RedemptionCodeStatus, RedemptionCodeType } from '#shared/types/redemption'
+import type { membershipLevels, redemptionCodes } from '~~/generated/prisma/client'
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma
 

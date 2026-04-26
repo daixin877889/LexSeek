@@ -8,6 +8,8 @@
  */
 
 import { isWeChatBrowser, getWechatAuthUrlWithCallback } from '~/utils/wechat'
+import toast from '#shared/utils/toast'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 /** JSAPI 支付参数 */
 export interface WechatPaymentParams {

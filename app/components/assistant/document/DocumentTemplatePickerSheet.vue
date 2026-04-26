@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AssistantDocumentTemplateBrowser from '~/components/assistant/document/TemplateBrowser.vue'
 /**
  * 文书模板选择 Sheet
  *

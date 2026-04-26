@@ -148,6 +148,9 @@
 
 <script setup lang="ts">
 import { Search, RotateCcw, Eye, Loader2, FileText } from 'lucide-vue-next'
+import GeneralPagination from '~/components/general/pagination.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useFormatters } from '~/composables/useFormatters'
 
 interface AuditLog {
   id: number

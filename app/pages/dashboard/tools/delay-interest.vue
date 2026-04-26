@@ -293,6 +293,7 @@
 </template>
 
 <script setup>
+import toast from '#shared/utils/toast'
 definePageMeta({
   title: "延迟履行利息",
   layout: "dashboard-layout",

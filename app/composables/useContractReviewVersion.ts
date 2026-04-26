@@ -26,6 +26,7 @@ import type {
     UploadVersionErrorData,
 } from '#shared/types/contract'
 import { CONTRACT_UPLOAD_VERSION_SSE_EVENT } from '#shared/types/contract'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 // ===== 上传新版本：步骤状态类型 =====
 

@@ -4,6 +4,7 @@
  * 提供会员升级记录的 CRUD操作
  */
 import type { Prisma } from '#shared/types/prisma'
+import type { membershipLevels, membershipUpgradeRecords, orders, userMemberships } from '~~/generated/prisma/client'
 
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma

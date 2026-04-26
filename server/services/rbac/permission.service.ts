@@ -24,6 +24,7 @@ import { findPublicApiPermissionsDao } from './apiPermission.dao'
 
 // 导入路径匹配函数（用于测试环境兼容）
 import { matchPath, findMatchingPermission } from './pathMatcher'
+import type { apiPermissions, userRoles } from '~~/generated/prisma/client'
 
 // ==================== 常量定义 ====================
 

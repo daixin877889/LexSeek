@@ -1,3 +1,4 @@
+import { maskPhone } from '#shared/utils/phone'
 /**
  * 获取用户邀请记录 API
  * GET /api/v1/users/invitees

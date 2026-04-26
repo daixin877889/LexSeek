@@ -631,39 +631,50 @@ export async function* uploadClientVersionService(params: {
                         analysis?: string
                         suggestion?: string
                     }>
-                    for (const r of rawRisks) {
-                        const validLevel =
-                            r.level === 'high' || r.level === 'medium' || r.level === 'low' ? r.level : 'medium'
-                        // DOCX-C3：global_review 是整篇合同的"条款平衡性/连锁风险"
-                        // （spec §9.2），不对应任何具体段落。原实现硬写
-                        // anchorParagraphIndex=0 会让所有 global_review 风险都挤到合同
-                        // 首段并在导出时注入成 Word 批注；改为 null 后：
-                        //   - rebuildDocxService 会过滤（锚点为 null → 跳过注入）
-                        //   - 风险卡片仍在 RiskListPanel 展示（用户可点编辑/归档）
-                        //   - anchorQuote 改存完整 problem，便于前端展示
-                        const newRisk = await prisma.contractRisks.create({
-                            data: {
-                                reviewId: review.id,
-                                source: 'global_review',
+                    // DOCX-C3：global_review 是整篇合同的"条款平衡性/连锁风险"（spec §9.2），
+                    // 不对应任何具体段落。anchorParagraphIndex=null 后 rebuildDocxService 会
+                    // 过滤、不导出 Word 批注；anchorQuote 存完整 problem 便于前端展示。
+                    // CORE-R2：与 Phase A/B 主路径共用 persistAiRisksAsContractRows，
+                    // global_review 在 Risk 类型上无 id/clauseIndex/clauseText/risk 概念，
+                    // service 也不会写入这些字段，仅做类型占位。
+                    const stance = ((review.stance ?? DEFAULT_AI_RISK_STANCE) as unknown) as StancePreference
+                    const createdRisks = await persistAiRisksAsContractRows({
+                        reviewId: review.id,
+                        stance,
+                        rows: rawRisks.map((r) => {
+                            const level: RiskLevel =
+                                r.level === 'high' || r.level === 'medium' || r.level === 'low' ? r.level : 'medium'
+                            const placeholder: Risk = {
+                                id: '',
+                                clauseIndex: -1,
+                                clauseText: '',
+                                level,
                                 category: r.category ?? '全局复核',
-                                level: validLevel,
-                                stance: review.stance ?? 'balanced',
                                 problem: r.problem ?? '',
-                                legalBasis: r.legalBasis ?? null,
-                                analysis: r.analysis ?? null,
-                                suggestion: r.suggestion ?? null,
+                                legalBasis: r.legalBasis,
+                                analysis: r.analysis ?? '',
+                                risk: r.problem ?? '',
+                                suggestion: r.suggestion ?? '',
+                            }
+                            return {
+                                risk: placeholder,
+                                source: 'global_review',
                                 anchorQuote: r.problem ?? '（全局复核）',
                                 anchorParagraphIndex: null,
-                            },
-                        })
-                        step4CreatedRiskIds.push(newRisk.id)
+                            }
+                        }),
+                    })
+                    for (let i = 0; i < createdRisks.length; i++) {
+                        const created = createdRisks[i]!
+                        const raw = rawRisks[i]!
+                        step4CreatedRiskIds.push(created.id)
                         const newAnn = await prisma.contractAnnotations.create({
                             data: {
                                 reviewId: review.id,
-                                riskId: newRisk.id,
+                                riskId: created.id,
                                 authorType: 'ai',
                                 authorName: 'AI',
-                                content: r.problem ?? '',
+                                content: raw.problem ?? '',
                             },
                         })
                         step4CreatedAnnIds.push(newAnn.id)

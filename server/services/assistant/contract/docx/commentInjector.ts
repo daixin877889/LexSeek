@@ -22,6 +22,7 @@ import {
     zipToBuffer,
 } from './zipRewriter'
 import { generateWordCommentRef, buildAuthorField } from '../utils/wordCommentRef'
+import { normalizeForMatch } from '../utils/textSimilarity'
 import {
     parseOoxml,
     stringifyOoxml,
@@ -84,44 +85,6 @@ function buildCommentParagraphs(text: string): NodeArray {
             ]),
         ]),
     )
-}
-
-/**
- * 中英文标点 / 全角半角归一映射表。
- * 用于锚点匹配时规避"客户端是中文标点、docx 里是英文标点"等等价差异。
- */
-const PUNCT_NORMALIZE_MAP: Record<string, string> = {
-    '“': '"', '”': '"', '„': '"', '‟': '"',
-    '‘': "'", '’': "'", '‚': "'", '‛': "'",
-    '，': ',', '。': '.', '；': ';', '：': ':',
-    '（': '(', '）': ')', '【': '[', '】': ']',
-    '《': '<', '》': '>',
-    '？': '?', '！': '!',
-    '、': ',',
-    '—': '-', '–': '-', '－': '-', '─': '-',
-    '…': '...',
-    '\u3000': ' ', // 全角空格
-    '\u00A0': ' ', // 非断行空格
-}
-
-/**
- * 锚点匹配文本规范化：
- * 1. NFKC Unicode 标准化（半角化字母数字、合成字符拆解）
- * 2. 中英文标点统一为英文标点
- * 3. 多个空白压缩成单个空格
- * 4. trim 首尾空白
- *
- * 注意：仅在锚点匹配时使用；写回 docx / DB 的原文必须用规范化前的字符串，
- * 避免破坏客户原稿的标点风格。
- */
-function normalizeForMatch(text: string): string {
-    if (!text) return ''
-    const nfkc = text.normalize('NFKC')
-    let out = ''
-    for (const ch of nfkc) {
-        out += PUNCT_NORMALIZE_MAP[ch] ?? ch
-    }
-    return out.replace(/\s+/g, ' ').trim()
 }
 
 /**

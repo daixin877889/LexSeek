@@ -3,6 +3,9 @@
  * POST /api/v1/admin/api-permissions
  */
 import { z } from 'zod'
+import { checkApiPermissionExistsDao, createApiPermissionDao } from '~~/server/services/rbac/apiPermission.dao'
+import { logApiPermissionCreate } from '~~/server/services/rbac/auditLog.service'
+import { refreshPublicApiPermissions } from '~~/server/services/rbac/permission.service'
 
 const bodySchema = z.object({
     path: z.string({ message: '路径不能为空' }).min(1, '路径不能为空').max(200, '路径不能超过200个字符'),

@@ -1,3 +1,4 @@
+import { triggerArticleEmbeddingService } from '~~/server/services/legal/legalArticles.service'
 /**
  * 手动触发条文向量化
  * POST /api/v1/admin/legal-articles/:id/embed

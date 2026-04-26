@@ -5,6 +5,8 @@
  */
 
 import { z } from 'zod'
+import { createModelApiKeyDao } from '~~/server/services/model/modelApiKeys.dao'
+import { findModelProviderByIdDao } from '~~/server/services/model/modelProviders.dao'
 
 /** 请求体验证 */
 const bodySchema = z.object({

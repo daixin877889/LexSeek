@@ -176,6 +176,13 @@ import { getMaterialType } from "~/utils/caseMaterial";
 import { isImageFile, isAudioFile, isRecognizableDocFile } from "~~/shared/utils/fileType";
 import { FileSource } from "#shared/types/file";
 import { useBatchUpload, type FileUploadState } from '~/composables/useBatchUpload';
+import CaseAnalysisAudioPreviewDialog from '~/components/caseAnalysis/AudioPreviewDialog.vue'
+import CaseAnalysisDocPreviewDialog from '~/components/caseAnalysis/DocPreviewDialog.vue'
+import CaseAnalysisMaterialSelector from '~/components/caseAnalysis/materialSelector.vue'
+import CaseAnalysisPromptInputWatcher from '~/components/caseAnalysis/promptInputWatcher.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useCaseAnalysisStore } from '~/store/caseAnalysis'
+import { useFileStore } from '~/store/file'
 
 const props = withDefaults(defineProps<{
   placeholder?: string

@@ -5,6 +5,7 @@
  */
 
 import { z } from 'zod'
+import { createModelProviderDao, findModelProviderByNameDao } from '~~/server/services/model/modelProviders.dao'
 
 /** 请求体验证 */
 const bodySchema = z.object({

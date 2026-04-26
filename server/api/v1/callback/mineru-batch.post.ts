@@ -12,6 +12,8 @@
 import { z } from 'zod'
 import crypto from 'crypto'
 import { processMineruResultService } from '~~/server/services/material/mineruResult.service'
+import { DocRecognitionStatus, MineruTaskStatus } from '#shared/types/recognition'
+import { findDocRecognitionByOssFileIdDao, updateDocRecognitionRecordDao } from '~~/server/services/material/mineru.dao'
 
 /** MinerU 批量回调请求体验证 Schema */
 const callbackBodySchema = z.object({

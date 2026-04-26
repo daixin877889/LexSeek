@@ -163,6 +163,17 @@ import { CaseMaterialType } from '#shared/types/case'
 import { INIT_ANALYSIS_MODULES } from '#shared/types/initAnalysis'
 import { FileTextIcon, Loader2Icon, AlertTriangle as AlertTriangleIcon } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import AiChat from '~/components/ai/AiChat.vue'
+import AiMessageList from '~/components/ai/AiMessageList.vue'
+import CaseAnalysisResults from '~/components/case/AnalysisResults.vue'
+import CaseInterruptHandler from '~/components/case/interrupt/InterruptHandler.vue'
+import CaseAnalysisAudioPreviewDialog from '~/components/caseAnalysis/AudioPreviewDialog.vue'
+import CaseAnalysisDocPreviewDialog from '~/components/caseAnalysis/DocPreviewDialog.vue'
+import CaseDetailOverview from '~/components/caseDetail/CaseDetailOverview.vue'
+import InitAnalysisModuleSelector from '~/components/initAnalysis/ModuleSelector.vue'
+import InitAnalysisPipelineProgress from '~/components/initAnalysis/PipelineProgress.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useInitAnalysis } from '~/composables/useInitAnalysis'
 
 definePageMeta({
   title: "初始化分析",

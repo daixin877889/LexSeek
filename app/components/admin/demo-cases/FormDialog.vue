@@ -74,6 +74,9 @@
 import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { DemoCaseFileMaterial } from '#shared/types/case'
+import AdminDemoCasesMaterialUploader from '~/components/admin/demo-cases/MaterialUploader.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
+import type { caseTypes } from '~~/generated/prisma/client'
 
 /** 示范案例类型 */
 interface DemoCase {

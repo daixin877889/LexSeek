@@ -75,6 +75,7 @@
 import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { ModelProvider, ModelApiKey } from '#shared/types/model'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 // 定义 props
 const props = defineProps<{

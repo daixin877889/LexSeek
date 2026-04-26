@@ -7,6 +7,7 @@
 
 import type { imageRecognitionRecords, Prisma } from '~~/generated/prisma/client'
 import type { ImageRecognitionStatus as ImageRecognitionStatusType, ImageType as ImageTypeType } from '#shared/types/recognition'
+import { ImageRecognitionStatus, ImageType } from '#shared/types/recognition'
 
 /**
  * 创建图片识别记录

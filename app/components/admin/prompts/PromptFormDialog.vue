@@ -124,6 +124,9 @@
 import { Loader2, Plus } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { Node, PromptWithRelations } from '#shared/types/node'
+import GeneralRichTextEditor from '~/components/general/RichTextEditor.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
+import type { nodes } from '~~/generated/prisma/client'
 
 // 定义 props
 const props = defineProps<{

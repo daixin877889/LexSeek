@@ -7,6 +7,7 @@
 
 import { z } from 'zod'
 import { NODE_TYPES } from '#shared/types/node'
+import { updateNodeService } from '~~/server/services/node/node.service'
 
 /** 路由参数验证 */
 const paramsSchema = z.object({

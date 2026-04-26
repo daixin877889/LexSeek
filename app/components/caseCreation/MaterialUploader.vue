@@ -116,6 +116,10 @@ import { useBatchUpload, type FileUploadState } from '~/composables/useBatchUplo
 import { formatByteSize } from '#shared/utils/unitConverision'
 import { useFileRecognition } from '~/composables/useFileRecognition'
 import { isRecognizableDocFile, isImageFile, isAudioFile } from '~~/shared/utils/fileType'
+import CaseAnalysisAudioPreviewDialog from '~/components/caseAnalysis/AudioPreviewDialog.vue'
+import CaseAnalysisDocPreviewDialog from '~/components/caseAnalysis/DocPreviewDialog.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useFileStore } from '~/store/file'
 
 interface Props {
   modelValue: OssFileItem[]

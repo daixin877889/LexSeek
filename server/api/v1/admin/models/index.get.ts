@@ -7,6 +7,7 @@
 import { z } from 'zod'
 import { MODEL_TYPES } from '#shared/types/model'
 import type { ModelType } from '#shared/types/model'
+import { getModelsService } from '~~/server/services/model/models.service'
 
 /** 查询参数验证 */
 const querySchema = z.object({

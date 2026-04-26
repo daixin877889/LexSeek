@@ -4,6 +4,8 @@
  */
 
 import type { Component } from 'vue'
+import { useAdminMenuStore } from '~/store/adminMenu'
+import lucideIcons from '~/utils/lucideIcons'
 
 /** 菜单项 */
 export interface AdminMenuItem {

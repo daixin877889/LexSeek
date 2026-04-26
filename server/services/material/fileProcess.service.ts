@@ -10,6 +10,7 @@ import { extractTextFromAsrResult } from './materialPipeline.service'
 import { createImageConversionService } from './ocr.service'
 import { convertPdfService, getDocRecognitionByOssFileIdService } from './mineru.service'
 import { transcribeAudioService } from './asr.service'
+import type { asrRecords, ossFiles } from '~~/generated/prisma/client'
 
 /** 识别完成状态码（对应 DB 中 status=2） */
 const RECOGNITION_STATUS_COMPLETED = 2

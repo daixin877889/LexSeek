@@ -3,6 +3,9 @@
  * PUT /api/v1/admin/roles/:id/route-permissions
  */
 import { z } from 'zod'
+import type { routers } from '~~/generated/prisma/client'
+import { logRoleAssignRoutePermission } from '~~/server/services/rbac/auditLog.service'
+import { refreshRoleUsersPermissions } from '~~/server/services/rbac/permission.service'
 
 const bodySchema = z.object({
     routerIds: z.array(

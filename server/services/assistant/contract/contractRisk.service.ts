@@ -68,8 +68,8 @@ export interface PersistAiRiskRow {
  *
  * 说明：
  * - risk.id 是前端字符串 UUID，contractRisks.id 是 DB 自增主键，两者不互写
- * - 顺序 create（与原 inline 实现一致），返回数组顺序与 rows 顺序一致，
- *   便于调用方按 index 配对生成 contractAnnotations
+ * - 用 createManyAndReturn 一次批插（Prisma 7+ 在 PostgreSQL 上保证返回行顺序与
+ *   data 数组顺序一致），调用方仍可按 index 配对生成 contractAnnotations
  *
  * @param input.tx 可选事务句柄（uploadClientVersion 走 prisma.$transaction 时复用）
  */
@@ -81,13 +81,13 @@ export async function persistAiRisksAsContractRows(input: {
     tx?: Prisma.TransactionClient
 }): Promise<contractRisks[]> {
     const { reviewId, rows, tx } = input
+    if (rows.length === 0) return []
     const stance = input.stance ?? DEFAULT_AI_RISK_STANCE
     const client: Prisma.TransactionClient | typeof prisma = tx ?? prisma
 
-    const results: contractRisks[] = []
-    for (const row of rows) {
+    const data: Prisma.contractRisksUncheckedCreateInput[] = rows.map((row) => {
         const r = row.risk
-        const data: Prisma.contractRisksUncheckedCreateInput = {
+        const item: Prisma.contractRisksUncheckedCreateInput = {
             reviewId,
             source: row.source ?? 'ai',
             code: r.matchedPointCode ?? null,
@@ -101,14 +101,10 @@ export async function persistAiRisksAsContractRows(input: {
             anchorQuote: row.anchorQuote ?? r.clauseText,
             anchorParagraphIndex: row.anchorParagraphIndex ?? null,
         }
-        if (row.originalAnchorQuote !== undefined) {
-            data.originalAnchorQuote = row.originalAnchorQuote
-        }
-        if (row.orphaned !== undefined) {
-            data.orphaned = row.orphaned
-        }
-        const created = await client.contractRisks.create({ data })
-        results.push(created)
-    }
-    return results
+        if (row.originalAnchorQuote !== undefined) item.originalAnchorQuote = row.originalAnchorQuote
+        if (row.orphaned !== undefined) item.orphaned = row.orphaned
+        return item
+    })
+
+    return client.contractRisks.createManyAndReturn({ data })
 }

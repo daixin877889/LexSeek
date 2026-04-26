@@ -5,6 +5,7 @@
  */
 
 import { z } from 'zod'
+import type { benefits } from '~~/generated/prisma/client'
 
 /** 请求体验证 */
 const bodySchema = z.object({

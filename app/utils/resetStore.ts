@@ -1,3 +1,6 @@
+import { useAuthStore } from '~/store/auth'
+import { useRoleStore } from '~/store/role'
+import { useUserStore } from '~/store/user'
 /**
  * 重置所有 store 的状态
  * @param pinia 可选的 Pinia 实例，用于非 setup 上下文

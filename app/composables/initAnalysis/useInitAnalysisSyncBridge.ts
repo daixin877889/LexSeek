@@ -1,5 +1,7 @@
 import type { InitAnalysisStatusResponse } from '#shared/types/initAnalysis'
 import type { SyncSummary } from './types'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { postCrossTabEvent, useCrossTabListener } from '~/composables/useCrossTabEvents'
 
 export interface SyncBridgeDeps {
   caseId: Ref<number>

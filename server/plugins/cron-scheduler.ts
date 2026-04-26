@@ -10,6 +10,11 @@ import { cleanExpiredWorkspacesService } from '~~/server/services/workflow/tools
 import { cleanupStaleContractReviewsService } from '~~/server/services/assistant/contract/contractReviewCleanup.service'
 import { gcOrphanOssFilesService } from '~~/server/services/files/ossFilesGc.service'
 import { drainDueSessions, consolidateSession } from '~~/server/services/memory/consolidator.service'
+import { deleteOldRunsDAO } from '~~/server/services/agent/agentRun.dao'
+import { cleanupStaleAnalysesService } from '~~/server/services/case/analysis.service'
+import { pollPendingAsrTasksService } from '~~/server/services/material/asr.service'
+import { pollPendingTasksService } from '~~/server/services/material/mineru.service'
+import { handleExpiredPaymentTransactionsService } from '~~/server/services/payment/payment.service'
 
 export default defineNitroPlugin((nitroApp) => {
   const { redis: redisConfig } = useRuntimeConfig()

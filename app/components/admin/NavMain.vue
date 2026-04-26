@@ -31,5 +31,6 @@
 </template>
 
 <script setup lang="ts">
+import { useAdminMenu } from '~/composables/useAdminMenu'
 const { menuGroups, isLoading, isActive } = useAdminMenu()
 </script>

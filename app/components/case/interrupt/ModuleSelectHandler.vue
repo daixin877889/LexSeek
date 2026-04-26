@@ -1,14 +1,14 @@
 <template>
-    <AiElementsConfirmationConfirmation :approval="approval" :state="confirmationState" class="w-full">
+    <Confirmation :approval="approval" :state="confirmationState" class="w-full">
         <!-- 请求状态：等待用户选择 -->
-        <AiElementsConfirmationConfirmationRequest>
+        <ConfirmationRequest>
             <div class="space-y-4">
                 <!-- 标题和说明 -->
                 <div class="space-y-2">
-                    <AiElementsConfirmationConfirmationTitle class="flex items-center gap-2 text-base font-medium">
+                    <ConfirmationTitle class="flex items-center gap-2 text-base font-medium">
                         <LayoutGridIcon class="h-5 w-5 text-primary" />
                         {{ interrupt.message || '请选择分析模块' }}
-                    </AiElementsConfirmationConfirmationTitle>
+                    </ConfirmationTitle>
                     <p class="text-sm text-muted-foreground">
                         选择您需要执行的分析模块，系统将按顺序进行分析
                     </p>
@@ -110,36 +110,36 @@
                 </div>
 
                 <!-- 操作按钮 -->
-                <AiElementsConfirmationConfirmationActions class="pt-2">
-                    <AiElementsConfirmationConfirmationAction variant="outline" @click="handleCancel"
+                <ConfirmationActions class="pt-2">
+                    <ConfirmationAction variant="outline" @click="handleCancel"
                         :disabled="isSubmitting">
                         取消
-                    </AiElementsConfirmationConfirmationAction>
-                    <AiElementsConfirmationConfirmationAction @click="handleSubmit"
+                    </ConfirmationAction>
+                    <ConfirmationAction @click="handleSubmit"
                         :disabled="!canSubmit || isSubmitting">
                         <LoaderIcon v-if="isSubmitting" class="h-4 w-4 mr-2 animate-spin" />
                         {{ isSubmitting ? '提交中...' : `开始分析 (${totalPointCost} 积分)` }}
-                    </AiElementsConfirmationConfirmationAction>
-                </AiElementsConfirmationConfirmationActions>
+                    </ConfirmationAction>
+                </ConfirmationActions>
             </div>
-        </AiElementsConfirmationConfirmationRequest>
+        </ConfirmationRequest>
 
         <!-- 已接受状态 -->
-        <AiElementsConfirmationConfirmationAccepted>
+        <ConfirmationAccepted>
             <div class="flex items-center gap-2 text-green-600">
                 <CheckCircleIcon class="h-5 w-5" />
                 <span>已选择 {{ selectedModules.length }} 个分析模块</span>
             </div>
-        </AiElementsConfirmationConfirmationAccepted>
+        </ConfirmationAccepted>
 
         <!-- 已拒绝状态 -->
-        <AiElementsConfirmationConfirmationRejected>
+        <ConfirmationRejected>
             <div class="flex items-center gap-2 text-muted-foreground">
                 <XCircleIcon class="h-5 w-5" />
                 <span>已取消选择</span>
             </div>
-        </AiElementsConfirmationConfirmationRejected>
-    </AiElementsConfirmationConfirmation>
+        </ConfirmationRejected>
+    </Confirmation>
 </template>
 
 <script setup lang="ts">

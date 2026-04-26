@@ -141,6 +141,7 @@ import {
 } from 'lucide-vue-next'
 import { refDebounced } from '@vueuse/core'
 import { DOCUMENT_CATEGORIES, type DocumentCategoryKey } from '#shared/types/document'
+import { useApi } from '~/composables/useApi'
 
 interface TemplateItem {
   id: number

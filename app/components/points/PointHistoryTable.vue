@@ -110,6 +110,8 @@
 <script lang="ts" setup>
 import { ChevronRightIcon, ChevronDownIcon } from "lucide-vue-next";
 import type { PointHistoryRecord } from "#shared/types/point.types";
+import { useFormatters } from '~/composables/useFormatters'
+import { usePointStatus } from '~/composables/usePointStatus'
 
 // ==================== Props ====================
 

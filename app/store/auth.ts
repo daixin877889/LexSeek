@@ -1,3 +1,8 @@
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useBusinessErrorCapture } from '~/composables/useBusinessErrorCapture'
+import { useLegalEditorCache } from '~/composables/useLegalEditorCache'
+import { useUserStore } from '~/store/user'
+import type { SafeUserInfo } from '~~/server/services/users/userResponse.service'
 /**
  * 认证状态
  */

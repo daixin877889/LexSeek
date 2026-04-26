@@ -277,7 +277,7 @@ interface Emits {
 - 新消息到达时自动滚动到底部
 - 用户手动向上滚动超过 100px 后暂停自动滚动
 - 用户滚回底部区域（距底部 < 100px）时恢复自动滚动
-- 复用现有 `AiElementsConversationScrollButton` 组件提供"回到底部"按钮
+- 复用现有 `ConversationScrollButton` 组件提供"回到底部"按钮
 
 ### AiMessageItem.vue
 

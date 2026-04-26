@@ -3,6 +3,8 @@
  * DELETE /api/v1/admin/api-permissions/batch-delete
  */
 import { z } from 'zod'
+import { logApiPermissionBatchDelete } from '~~/server/services/rbac/auditLog.service'
+import { refreshPublicApiPermissions } from '~~/server/services/rbac/permission.service'
 
 const bodySchema = z.object({
     ids: z.array(

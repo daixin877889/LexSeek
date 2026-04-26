@@ -15,6 +15,7 @@ import type { Risk, RiskLevel } from '#shared/types/contract'
 // UI-L1：从 app/utils/contractRiskLevelStyle.ts 单一数据源 import，
 // 与 RiskListPanel 的徽章配色统一维护。
 import { RISK_LEVEL_DOCX_BG_CLASS as LEVEL_BG } from '~/utils/contractRiskLevelStyle'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 const props = withDefaults(defineProps<{
     reviewedFileId: number | null

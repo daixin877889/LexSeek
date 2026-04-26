@@ -1,3 +1,6 @@
+import { deleteApiPermissionDao, findApiPermissionByIdDao } from '~~/server/services/rbac/apiPermission.dao'
+import { logApiPermissionDelete } from '~~/server/services/rbac/auditLog.service'
+import { refreshPublicApiPermissions } from '~~/server/services/rbac/permission.service'
 /**
  * 删除 API 权限
  * DELETE /api/v1/admin/api-permissions/:id

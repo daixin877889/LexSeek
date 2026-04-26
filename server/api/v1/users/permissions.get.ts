@@ -1,3 +1,4 @@
+import { getUserPermissions } from '~~/server/services/rbac/permission.service'
 /**
  * 获取当前用户权限
  * GET /api/v1/users/permissions

@@ -122,6 +122,11 @@ import {
 } from '~~/shared/types/material'
 import { isImageFile, isAudioFile, isRecognizableDocFile } from '~~/shared/utils/fileType'
 import { getExtensionFromFileName } from '~~/shared/utils/file'
+import { mime } from '#shared/utils/mime'
+import { formatByteSize } from '#shared/utils/unitConverision'
+import { useFileReader } from '~/composables/useFileReader'
+import { useFileUploadWorker } from '~/composables/useFileUploadWorker'
+import { useFileStore } from '~/store/file'
 
 /**
  * 组件 Props

@@ -1,3 +1,4 @@
+import { useApiFetch } from '~/composables/useApiFetch'
 /**
  * 双重取消公共函数：SSE stop + 查询 runId + 调用 cancel API。
  *

@@ -5,6 +5,7 @@
  */
 
 import { z } from 'zod'
+import { findManyModelProvidersDao } from '~~/server/services/model/modelProviders.dao'
 
 /** 查询参数验证 */
 const querySchema = z.object({

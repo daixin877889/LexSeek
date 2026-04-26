@@ -3,6 +3,9 @@
  * PUT /api/v1/admin/api-permissions/:id
  */
 import { z } from 'zod'
+import { checkApiPermissionExistsDao, findApiPermissionByIdDao, updateApiPermissionDao } from '~~/server/services/rbac/apiPermission.dao'
+import { logApiPermissionUpdate } from '~~/server/services/rbac/auditLog.service'
+import { refreshPublicApiPermissions } from '~~/server/services/rbac/permission.service'
 
 const bodySchema = z.object({
     path: z.string().min(1, '路径不能为空').max(200, '路径不能超过200个字符').optional(),

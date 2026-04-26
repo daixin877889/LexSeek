@@ -32,6 +32,7 @@ import {
 // 导入案件服务
 import { getCaseByIdService, getSessionByIdService } from './case.service'
 import { isCaseReadOnly } from '#shared/types/case'
+import type { AnalysisListParams, AnalysisWithRelations } from '~~/server/services/case/analysis.dao'
 
 // 注意：类型和枚举请直接从 './analysis.dao' 导入
 // 避免 Nuxt 自动导入时产生重复警告

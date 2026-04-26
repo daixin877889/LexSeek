@@ -11,6 +11,7 @@ import {
   FileAudioIcon,
 } from 'lucide-vue-next'
 import { CaseMaterialType } from '#shared/types/case'
+import { getMaterialTypeFromMime } from '#shared/types/case'
 
 export { getMaterialTypeFromMime as getMaterialType } from '#shared/types/case'
 
@@ -64,7 +65,8 @@ export interface MaterialDisplayStatus {
  */
 export function getMaterialDisplayStatus(
   material: { status: number; ossFileId?: number | null },
-  getRecognitionStatus?: (ossFileId?: number) => 'recognizing' | 'success' | 'error' | null,
+  // 容忍 'idle'（轮询尚未开始）—— 上游 RecognitionStatus = 'idle' | 'recognizing' | 'success' | 'error'
+  getRecognitionStatus?: (ossFileId?: number) => 'recognizing' | 'success' | 'error' | 'idle' | null,
 ): MaterialDisplayStatus | null {
   if (getRecognitionStatus && material.ossFileId) {
     const r = getRecognitionStatus(material.ossFileId)

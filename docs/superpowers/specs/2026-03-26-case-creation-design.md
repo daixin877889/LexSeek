@@ -63,7 +63,7 @@
 对话界面，复用 ai-elements-vue 组件：
 
 **界面元素**
-- `AiElementsConversation` 消息流区域
+- `Conversation` 消息流区域
 - 初始 AI 欢迎消息：「请描述您的案件情况，或直接上传案件材料，我来帮您提取关键信息」
 - 底部 `CaseAnalysisPromptInput`（文本 + 附件上传）
 
@@ -117,7 +117,7 @@
 **模块结果区域**
 - 垂直排列，不折叠，模块间明显分隔
 - 等待中：模块名 + 灰色等待态
-- 执行中：模块名 + 蓝色运行态 + 实时流式 Markdown 渲染（`AiElementsMessageResponse`）
+- 执行中：模块名 + 蓝色运行态 + 实时流式 Markdown 渲染（`MessageResponse`）
 - 已完成：模块名 + 绿色完成态 + 完整结果
 - 失败：模块名 + 红色失败态 + 错误信息 + 重试按钮
 - 全部完成后底部显示「进入案件详情」按钮

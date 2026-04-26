@@ -1,3 +1,9 @@
+import { parseErrorMessage } from '#shared/utils/apiResponse'
+import { createLogger } from '#shared/utils/logger'
+import { z } from '#shared/utils/zod'
+import { clearAuthCookiesService } from '~~/server/services/auth/authToken.service'
+import { addTokenBlacklistDao } from '~~/server/services/users/tokenBlacklist.dao'
+import { findUserByIdDao, updateUserPasswordDao } from '~~/server/services/users/users.dao'
 /**
  * 修改用户密码
  *

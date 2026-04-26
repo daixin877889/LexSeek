@@ -96,6 +96,12 @@
 import { Search, Plus, Loader2, Package } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { ProductInfo } from '#shared/types/product'
+import AdminProductsProductFormDialog from '~/components/admin/products/ProductFormDialog.vue'
+import AdminProductsProductMobile from '~/components/admin/products/ProductMobile.vue'
+import AdminProductsProductTable from '~/components/admin/products/ProductTable.vue'
+import GeneralPagination from '~/components/general/pagination.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
+import type { membershipLevels, products } from '~~/generated/prisma/client'
 
 definePageMeta({ layout: 'admin-layout', title: '产品管理' })
 

@@ -4,6 +4,7 @@
  * 管理用户的 API 权限和路由权限
  */
 import { defineStore } from 'pinia'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 /** API 权限项 */
 interface ApiPermission {

@@ -11,6 +11,9 @@ import { z } from 'zod'
 import type { DemoCaseMaterial } from '~~/server/services/case/demoCase.dao'
 import { CaseMaterialType } from '#shared/types/case'
 import { MaterialStatus } from '#shared/types/material'
+import { createCaseService } from '~~/server/services/case/case.service'
+import { getDemoCaseByIdService } from '~~/server/services/case/demoCase.service'
+import { createMaterialService } from '~~/server/services/material/material.service'
 
 /** 路径参数验证 */
 const paramsSchema = z.object({

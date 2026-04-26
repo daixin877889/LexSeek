@@ -94,6 +94,8 @@
 
 <script lang="ts" setup>
 import { InfoIcon, PencilIcon, XIcon, PlusIcon, Loader2Icon } from 'lucide-vue-next'
+import toast from '#shared/utils/toast'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 export interface ExtraField {
   name: string

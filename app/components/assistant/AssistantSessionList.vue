@@ -23,6 +23,8 @@ import type {
     AssistantSessionListResponse,
     CreateAssistantSessionResponse,
 } from '#shared/types/assistant'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useAlertDialogStore } from '~/store/alertDialog'
 
 const selectedId = defineModel<string | null>('selectedId')
 

@@ -1,3 +1,4 @@
+import { getAccessMatrixService } from '~~/server/services/node/access.service'
 /**
  * 获取权限矩阵
  *

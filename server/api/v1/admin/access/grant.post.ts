@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod'
+import { grantAccessService } from '~~/server/services/node/access.service'
 
 /** 请求体验证 */
 const bodySchema = z.object({

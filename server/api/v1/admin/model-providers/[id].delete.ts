@@ -5,6 +5,7 @@
  */
 
 import { z } from 'zod'
+import { findModelProviderByIdDao, softDeleteModelProviderDao } from '~~/server/services/model/modelProviders.dao'
 
 /** 路由参数验证 */
 const paramsSchema = z.object({

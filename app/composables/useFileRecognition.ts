@@ -2,6 +2,7 @@ import { useDocumentVisibility } from '@vueuse/core'
 import { toast } from 'vue-sonner'
 import type { OssFileItem } from '~/store/file'
 import { isRecognizableDocFile, isImageFile, isAudioFile } from '~~/shared/utils/fileType'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 export type RecognitionStatus = 'idle' | 'recognizing' | 'success' | 'error'
 

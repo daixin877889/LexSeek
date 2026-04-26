@@ -321,13 +321,13 @@ const props = defineProps<Props>()
 </script>
 
 <template>
-  <AiElementsTool>
-    <AiElementsToolHeader :title="props.toolName" :type="`tool-${props.toolName}`" :state="props.state" />
-    <AiElementsToolContent>
-      <AiElementsToolInput v-if="props.input" :input="props.input" />
-      <AiElementsToolOutput v-if="props.output != null" :output="props.output" />
-    </AiElementsToolContent>
-  </AiElementsTool>
+  <Tool>
+    <ToolHeader :title="props.toolName" :type="`tool-${props.toolName}`" :state="props.state" />
+    <ToolContent>
+      <ToolInput v-if="props.input" :input="props.input" />
+      <ToolOutput v-if="props.output != null" :output="props.output" />
+    </ToolContent>
+  </Tool>
 </template>
 ```
 

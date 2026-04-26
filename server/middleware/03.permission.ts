@@ -1,3 +1,4 @@
+import { validateUserApiPermission } from '~~/server/services/rbac/permission.service'
 /**
  * API 权限验证中间件
  * 

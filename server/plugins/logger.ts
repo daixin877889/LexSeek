@@ -5,6 +5,7 @@
  */
 
 import { LogLevel } from "~~/shared/utils/logger/index"
+import { LOG_LEVELS } from '#shared/utils/logger'
 
 export default defineNitroPlugin(() => {
     const config = useRuntimeConfig()

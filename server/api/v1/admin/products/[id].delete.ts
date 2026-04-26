@@ -1,3 +1,4 @@
+import { deleteProductService } from '~~/server/services/product/product.service'
 /**
  * 删除产品（软删除）
  *

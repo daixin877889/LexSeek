@@ -8,6 +8,7 @@ import { ProductType, ProductStatus } from '#shared/types/product'
 import { decimalToNumberUtils } from '#shared/utils/decimalToNumber'
 import { findProductByIdDao, findAllActiveProductsDao, findAllProductsDao, createProductDao, updateProductDao, deleteProductDao } from './product.dao'
 import { countUserProductOrdersDao, countUserProductsOrdersDao } from '../payment/order.dao'
+import type { products } from '~~/generated/prisma/client'
 
 /**
  * 将 Prisma Decimal 转换为数字（可为 null）

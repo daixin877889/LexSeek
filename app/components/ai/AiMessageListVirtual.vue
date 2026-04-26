@@ -2,7 +2,7 @@
 /**
  * 虚拟滚动消息列表（内部组件）
  *
- * 必须放在 AiElementsConversation（StickToBottom）内部，
+ * 必须放在 Conversation（StickToBottom）内部，
  * 通过 useStickToBottomContext 获取滚动容器 ref 传给 useVirtualizer。
  *
  * StickToBottom 通过 ResizeObserver 监听 contentElement 高度变化自动滚底，
@@ -12,6 +12,7 @@ import type { Component } from 'vue'
 import type { ParsedMessage } from './composables/useMessageParser'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useStickToBottomContext } from 'vue-stick-to-bottom'
+import AiMessageListVirtualItem from '~/components/ai/AiMessageListVirtualItem.vue'
 
 interface Props {
   messages: ParsedMessage[]

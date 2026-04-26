@@ -88,6 +88,7 @@
 import QRCodeVue from "qrcode.vue";
 import { Check, Loader2, Smartphone } from "lucide-vue-next";
 import type { WechatPaymentParams, WechatPaymentResult } from "~/composables/useWechatPayment";
+import { useWechatPayment } from '~/composables/useWechatPayment'
 
 // 定义 props
 const props = withDefaults(defineProps<{

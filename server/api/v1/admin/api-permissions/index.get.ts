@@ -3,6 +3,7 @@
  * GET /api/v1/admin/api-permissions
  */
 import { z } from 'zod'
+import { findApiPermissionsDao } from '~~/server/services/rbac/apiPermission.dao'
 
 const querySchema = z.object({
     page: z.coerce.number().int().min(1).default(1),

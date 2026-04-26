@@ -7,6 +7,7 @@
 
 import { z } from 'zod'
 import { NODE_TYPES } from '#shared/types/node'
+import { createNodeService } from '~~/server/services/node/node.service'
 
 /** 请求体验证 */
 const bodySchema = z.object({

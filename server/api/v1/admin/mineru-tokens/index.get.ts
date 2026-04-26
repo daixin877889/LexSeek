@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod'
+import { getMineruTokensService } from '~~/server/services/material/mineruToken.service'
 
 /** 查询参数验证 */
 const querySchema = z.object({

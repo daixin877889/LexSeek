@@ -52,6 +52,8 @@
 import { Loader2Icon, AlertCircleIcon, FileAudioIcon } from 'lucide-vue-next'
 import AudioVisualization from '~/components/general/audio/AudioVisualization.vue'
 import { getExtensionFromFileName } from '~~/shared/utils/file'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useLocalFileCache } from '~/composables/useLocalFileCache'
 
 // Props
 const props = defineProps<{

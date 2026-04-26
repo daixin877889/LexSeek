@@ -297,6 +297,8 @@ import type {
     AvailableBenefit,
 } from '#shared/types/benefit'
 import { formatByteSize } from '#shared/utils/unitConverision'
+import { useApiFetch } from '~/composables/useApiFetch'
+import type { userBenefits } from '~~/generated/prisma/client'
 
 definePageMeta({ layout: 'admin-layout', title: '用户权益发放' })
 

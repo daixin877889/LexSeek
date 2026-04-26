@@ -369,6 +369,9 @@ import { useMediaQuery, refDebounced } from '@vueuse/core'
 import { DOCUMENT_CATEGORIES } from '#shared/types/document'
 import type { DocumentCategoryKey } from '#shared/types/document'
 import type { documentTemplates } from '#shared/types/prisma'
+import GeneralPagination from '~/components/general/pagination.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useFormatters } from '~/composables/useFormatters'
 
 definePageMeta({
     layout: 'dashboard-layout',

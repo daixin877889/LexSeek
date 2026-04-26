@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import InitAnalysisInsufficientPointsCard from '~/components/initAnalysis/InsufficientPointsCard.vue'
 /**
  * 统一中断处理调度器
  *

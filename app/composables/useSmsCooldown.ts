@@ -1,3 +1,4 @@
+import { createLogger } from '#shared/utils/logger'
 const SMS_COOLDOWN_STORAGE_KEY = 'lexseek-sms-cooldowns'
 const logger = createLogger('SmsCooldown')
 

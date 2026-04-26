@@ -1,3 +1,5 @@
+import { parseErrorMessage } from '#shared/utils/apiResponse'
+import { getUserBenefitDetailService } from '~~/server/services/membership/userBenefit.service'
 /**
  * 获取当前用户指定权益的详细信息
  *

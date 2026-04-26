@@ -14,6 +14,19 @@ import { Loader2Icon, SaveIcon, HistoryIcon, UploadIcon, TrendingUpIcon, XIcon }
 import { toast } from 'vue-sonner'
 import { useMediaQuery, useLocalStorage } from '@vueuse/core'
 import type { Risk, RiskDisplay, ContractReviewStatus, StanceRequest, PlaybookSnapshot, RiskArchivedStatus } from '#shared/types/contract'
+import AssistantContractDocxPreview from '~/components/assistant/contract/ContractDocxPreview.vue'
+import AssistantContractSaveVersionDialog from '~/components/assistant/contract/ContractSaveVersionDialog.vue'
+import AssistantContractUploadNewVersionDialog from '~/components/assistant/contract/ContractUploadNewVersionDialog.vue'
+import AssistantContractVersionTimeline from '~/components/assistant/contract/ContractVersionTimeline.vue'
+import AssistantContractReviewProgress from '~/components/assistant/contract/ReviewProgress.vue'
+import AssistantContractRiskListPanel from '~/components/assistant/contract/RiskListPanel.vue'
+import AssistantContractStanceSelectionDialog from '~/components/assistant/contract/StanceSelectionDialog.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useContractReview } from '~/composables/useContractReview'
+import { useContractReviewVersion } from '~/composables/useContractReviewVersion'
+import { useContractRiskHighlight } from '~/composables/useContractRiskHighlight'
+import { useUserStore } from '~/store/user'
+import { triggerBrowserDownloadBlob, triggerBrowserDownloadUrl } from '~/utils/browserDownload'
 
 // 当前登录用户 id，用于 RiskListPanel 判断"自己创建的批注"（允许删除/修改）
 const userStore = useUserStore()

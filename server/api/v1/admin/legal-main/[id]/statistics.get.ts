@@ -1,3 +1,4 @@
+import { getLegalStatisticsService } from '~~/server/services/legal/legalMain.service'
 /**
  * 获取法律法规统计信息
  * GET /api/v1/admin/legal-main/:id/statistics

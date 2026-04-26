@@ -182,7 +182,7 @@ declare global {
 `,
       componentsDts: `
 export const GeneralAlertDialog: typeof import("../app/components/general/AlertDialog.vue").default
-export const AiElementsPromptInput: typeof import("../app/components/ai-elements/prompt-input/PromptInput.vue").default
+export const PromptInput: typeof import("../app/components/ai-elements/prompt-input/PromptInput.vue").default
 `,
     })
 
@@ -191,7 +191,7 @@ export const AiElementsPromptInput: typeof import("../app/components/ai-elements
     expect(manifest.server.logger).toBe('#shared/utils/logger')
     expect(manifest.server.createAssistantSessionService).toBe('~~/server/services/assistant/assistantSession.service')
     expect(manifest.components.GeneralAlertDialog).toBe('~/components/general/AlertDialog.vue')
-    expect(manifest.components.AiElementsPromptInput).toBe('~/components/ai-elements/prompt-input/PromptInput.vue')
+    expect(manifest.components.PromptInput).toBe('~/components/ai-elements/prompt-input/PromptInput.vue')
   })
 })
 ```
@@ -1126,14 +1126,14 @@ const aiElements: AiElementsExportManifest = {
 }
 
 describe('resolveComponentImport', () => {
-  it('resolves AiElementsConfirmationConfirmation from the real component file basename', () => {
-    expect(resolveComponentImport('AiElementsConfirmationConfirmation', {
-      AiElementsConfirmationConfirmation: '~/components/ai-elements/confirmation/Confirmation.vue',
+  it('resolves Confirmation from the real component file basename', () => {
+    expect(resolveComponentImport('Confirmation', {
+      Confirmation: '~/components/ai-elements/confirmation/Confirmation.vue',
     }, aiElements)).toEqual({
       from: '~/components/ai-elements/confirmation',
       kind: 'named',
       importedName: 'Confirmation',
-      localName: 'AiElementsConfirmationConfirmation',
+      localName: 'Confirmation',
     })
   })
 
@@ -1156,20 +1156,20 @@ describe('transformVueComponentImports', () => {
 <template>
   <NuxtLayout>
     <GeneralAlertDialog />
-    <AiElementsConfirmationConfirmation />
+    <Confirmation />
   </NuxtLayout>
 </template>
 `,
       manifest: {
         GeneralAlertDialog: '~/components/general/AlertDialog.vue',
-        AiElementsConfirmationConfirmation: '~/components/ai-elements/confirmation/Confirmation.vue',
+        Confirmation: '~/components/ai-elements/confirmation/Confirmation.vue',
       },
       aiElements,
     })
 
     expect(output.code).toContain('<script setup lang="ts">')
     expect(output.code).toContain("import GeneralAlertDialog from '~/components/general/AlertDialog.vue'")
-    expect(output.code).toContain("import { Confirmation as AiElementsConfirmationConfirmation } from '~/components/ai-elements/confirmation'")
+    expect(output.code).toContain("import { Confirmation as Confirmation } from '~/components/ai-elements/confirmation'")
     expect(output.code).not.toContain("import NuxtLayout")
     expect(output.unresolved).toEqual([])
   })

@@ -8,6 +8,7 @@
  */
 import { z } from 'zod'
 import { createSessionDAO } from '~~/server/services/case/session.dao'
+import { validateCaseAccessService } from '~~/server/services/case/case.service'
 
 const bodySchema = z.object({
     caseId: z.number().int().positive(),

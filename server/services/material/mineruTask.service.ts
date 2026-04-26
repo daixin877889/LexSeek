@@ -20,6 +20,8 @@ import {
     updateMineruTaskByTaskIdDao,
     findPendingMineruTasksDao,
 } from './mineruTask.dao'
+import { MineruTaskStatus } from '#shared/types/recognition'
+import type { ossFiles } from '~~/generated/prisma/client'
 
 /** MinerU API 任务状态响应 */
 interface MineruTaskStatusResponse {

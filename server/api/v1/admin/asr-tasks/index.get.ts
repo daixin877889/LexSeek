@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod'
+import { getAsrTasksService } from '~~/server/services/material/asrTask.service'
 
 /** 查询参数验证 */
 const querySchema = z.object({

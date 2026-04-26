@@ -65,6 +65,7 @@
 <script setup lang="ts">
 import { Loader2, Eye, EyeOff } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 // MinerU Token 接口（脱敏版本）
 interface MineruTokenMasked {

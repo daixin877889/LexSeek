@@ -15,6 +15,12 @@ import type { BaseMessage } from '@langchain/core/messages'
 import { toast } from 'vue-sonner'
 import { RefreshCw as RefreshCwIcon } from 'lucide-vue-next'
 import { QUEUE_MAX_SIZE } from '~/composables/chatQueueActions'
+import AiChat from '~/components/ai/AiChat.vue'
+import AiChatQueueChips from '~/components/ai/AiChatQueueChips.vue'
+import CaseChatWindowShell from '~/components/case/ChatWindowShell.vue'
+import CaseInterruptConfirmation from '~/components/case/InterruptConfirmation.vue'
+import CaseSessionListPopover from '~/components/case/SessionListPopover.vue'
+import { useInterruptToast } from '~/composables/useInterruptToast'
 
 const props = defineProps<{
     caseId: number

@@ -4,6 +4,9 @@ import { ArrowLeftIcon, PanelLeftIcon, PanelRightIcon, LoaderIcon } from 'lucide
 import type { TodoItem } from './composables/useTaskQueueParser'
 import type { AiPromptSubmitData } from './AiPromptInput.vue'
 import { useMessageParser } from './composables/useMessageParser'
+import AiMessageList from '~/components/ai/AiMessageList.vue'
+import AiPromptInput from '~/components/ai/AiPromptInput.vue'
+import AiTaskQueue from '~/components/ai/AiTaskQueue.vue'
 
 type PanelMode = 'left' | 'right' | 'both'
 

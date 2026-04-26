@@ -3,6 +3,7 @@ import type { Editor } from '@tiptap/vue-3'
 import type { Node as ProsemirrorNode, ResolvedPos } from '@tiptap/pm/model'
 import { computed, onMounted, ref, watch } from 'vue'
 import { provideTiptapContext } from '.'
+import type { nodes } from '~~/generated/prisma/client'
 
 /**
  * 编辑器节点信息接口

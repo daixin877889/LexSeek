@@ -61,6 +61,7 @@
 <script setup lang="ts">
 import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 // 案件类型接口
 interface CaseType {

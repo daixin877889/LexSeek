@@ -5,6 +5,7 @@
  */
 
 import { z } from 'zod'
+import { getMpOpenidService } from '~~/server/services/wechat/wechat.service'
 
 // 请求参数验证
 const requestSchema = z.object({

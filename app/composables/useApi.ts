@@ -1,3 +1,6 @@
+import type { ApiBaseResponse } from '#shared/utils/apiResponse'
+import toast from '#shared/utils/toast'
+import { useAuthStore } from '~/store/auth'
 /**
  * 封装 useFetch 的 composable
  * 通过拦截器统一处理错误，使用方式与原生 useFetch 一致

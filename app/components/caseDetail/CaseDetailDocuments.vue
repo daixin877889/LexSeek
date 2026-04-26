@@ -8,6 +8,8 @@
  */
 import { FileEditIcon, Loader2Icon, PlusIcon } from 'lucide-vue-next'
 import type { DraftRow } from '#shared/types/document'
+import ViewModeToggle from '~/components/ViewModeToggle.vue'
+import AssistantDocumentDraftCardList from '~/components/assistant/document/DraftCardList.vue'
 
 const props = defineProps<{
     caseId: number

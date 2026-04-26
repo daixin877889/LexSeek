@@ -105,6 +105,8 @@
 import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { LegalArticleListItem, CreateLegalArticleRequest, UpdateLegalArticleRequest, ArticleType } from '#shared/types/legal'
+import GeneralDatePicker from '~/components/general/DatePicker.vue'
+import GeneralRichTextEditor from '~/components/general/RichTextEditor.vue'
 
 /** Props */
 const props = defineProps<{

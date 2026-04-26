@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AssistantContractReviewPanel from '~/components/assistant/contract/ContractReviewPanel.vue'
 /**
  * 合同审查详情（/dashboard/contract/:id）
  *

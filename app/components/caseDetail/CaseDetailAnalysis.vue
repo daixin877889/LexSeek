@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import type { AnalysisResult } from '#shared/types/case'
 import type { AnalysisModuleCard } from '#shared/types/case'
+import CaseAnalysisResults from '~/components/case/AnalysisResults.vue'
 
 const props = defineProps<{
   caseId: number

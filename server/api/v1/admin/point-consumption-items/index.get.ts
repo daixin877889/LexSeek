@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod'
+import { getPointConsumptionItemsService } from '~~/server/services/point/pointConsumptionItems.service'
 
 /** 查询参数验证 */
 const querySchema = z.object({

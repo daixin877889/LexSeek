@@ -12,6 +12,8 @@
 import type { Ref } from 'vue'
 import type { AiPromptSubmitData } from '~/components/ai/AiPromptInput.vue'
 import type { AssistantSession } from '#shared/types/assistant'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useStreamChat } from '~/composables/useStreamChat'
 
 interface AssistantSessionDetail extends AssistantSession {
     status?: string

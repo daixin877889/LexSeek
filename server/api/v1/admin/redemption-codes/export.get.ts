@@ -6,6 +6,7 @@
  */
 import { z } from 'zod'
 import { RedemptionCodeStatus, RedemptionCodeType } from '#shared/types/redemption'
+import { exportRedemptionCodesService } from '~~/server/services/redemption/redemptionCode.admin.service'
 
 // 查询参数验证
 const querySchema = z.object({

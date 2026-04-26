@@ -5,6 +5,13 @@
  */
 import { clearPasswordLoginFailureService, recordPasswordLoginFailureService, shouldRequirePasswordLoginCaptchaService } from '~~/server/services/security/loginRisk.service'
 import { verifyAliyunCaptchaService } from '~~/server/services/security/aliyunCaptcha.service'
+import { UserStatus } from '#shared/types/user'
+import { parseErrorMessage } from '#shared/utils/apiResponse'
+import { createLogger } from '#shared/utils/logger'
+import { z } from '#shared/utils/zod'
+import { generateAuthTokenService } from '~~/server/services/auth/authToken.service'
+import { formatUserResponseService } from '~~/server/services/users/userResponse.service'
+import { findUserByPhoneDao } from '~~/server/services/users/users.dao'
 
 export default defineEventHandler(async (event) => {
     const logger = createLogger('Auth')

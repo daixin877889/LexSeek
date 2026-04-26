@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Component } from 'vue'
 import type { ParsedMessage } from './composables/useMessageParser'
+import AiToolRenderer from '~/components/ai/AiToolRenderer.vue'
 
 interface Props {
   msg: ParsedMessage
@@ -19,20 +20,20 @@ const emit = defineEmits<{
 
 <template>
   <!-- 用户消息 -->
-  <AiElementsMessage v-if="msg.type === 'human'" from="user" class="max-w-full">
-    <AiElementsMessageContent>{{ msg.content }}</AiElementsMessageContent>
-  </AiElementsMessage>
+  <Message v-if="msg.type === 'human'" from="user" class="max-w-full">
+    <MessageContent>{{ msg.content }}</MessageContent>
+  </Message>
 
   <!-- AI 消息 -->
   <!-- MessageContent 默认 w-fit 会让工具卡片按内容宽度自适应，导致同一工具在不同消息里宽度不一。
        这里覆盖为 w-full，让所有工具调用与消息容器同宽（max-w-[80%]） -->
-  <AiElementsMessage v-else-if="msg.type === 'ai'" from="assistant" class="max-w-full">
-    <AiElementsMessageContent class="w-full">
+  <Message v-else-if="msg.type === 'ai'" from="assistant" class="max-w-full">
+    <MessageContent class="w-full">
       <!-- 思考过程 -->
-      <AiElementsReasoning v-if="msg.thinking" :is-streaming="loading && isLast">
-        <AiElementsReasoningTrigger />
-        <AiElementsReasoningContent :content="msg.thinking" />
-      </AiElementsReasoning>
+      <Reasoning v-if="msg.thinking" :is-streaming="loading && isLast">
+        <ReasoningTrigger />
+        <ReasoningContent :content="msg.thinking" />
+      </Reasoning>
 
       <!-- 工具调用 -->
       <AiToolRenderer
@@ -45,12 +46,12 @@ const emit = defineEmits<{
       />
 
       <!-- AI 响应内容 -->
-      <AiElementsMessageResponse v-if="msg.content" :content="msg.content" mode="static" />
-    </AiElementsMessageContent>
-  </AiElementsMessage>
+      <MessageResponse v-if="msg.content" :content="msg.content" mode="static" />
+    </MessageContent>
+  </Message>
 
   <!-- 系统消息 -->
-  <AiElementsMessage v-else-if="msg.type === 'system'" from="system" class="max-w-full">
-    <AiElementsMessageContent>{{ msg.content }}</AiElementsMessageContent>
-  </AiElementsMessage>
+  <Message v-else-if="msg.type === 'system'" from="system" class="max-w-full">
+    <MessageContent>{{ msg.content }}</MessageContent>
+  </Message>
 </template>

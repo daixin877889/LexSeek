@@ -26,6 +26,7 @@
 import type { CodeNodeRendererProps, Control, ControlTransformer, SelectOption } from 'vue-stream-markdown'
 import mermaid from 'mermaid'
 import { toast } from 'vue-sonner'
+import { useColorMode } from '~/composables/useColorMode'
 
 /** 默认栅格倍率（相对 viewBox 尺寸），实际像素还会再乘 devicePixelRatio。 */
 export const DEFAULT_PNG_SCALE = 5

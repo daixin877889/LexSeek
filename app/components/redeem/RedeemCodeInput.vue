@@ -21,6 +21,7 @@
 
 <script lang="ts" setup>
 import { Loader2 } from "lucide-vue-next";
+import toast from '#shared/utils/toast'
 
 // 定义 props
 const props = defineProps<{

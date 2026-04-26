@@ -7,6 +7,9 @@
 import { effectScope } from 'vue'
 import type { EffectScope, Ref } from 'vue'
 import { INIT_ANALYSIS_MODULES } from '#shared/types/initAnalysis'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useChatSessionManager } from '~/composables/useChatSessionManager'
+import { postCrossTabEvent } from '~/composables/useCrossTabEvents'
 
 type SessionManager = ReturnType<typeof useChatSessionManager>
 

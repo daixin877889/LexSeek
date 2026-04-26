@@ -10,6 +10,8 @@ import type { HTMLAttributes } from 'vue'
 import { cn } from '@repo/shadcn-vue/lib/utils'
 import { Markdown } from 'vue-stream-markdown'
 import 'vue-stream-markdown/index.css'
+import { useMermaidHdPng } from '~/composables/useMermaidHdPng'
+import type { nodes } from '~~/generated/prisma/client'
 
 interface Props {
   content?: string

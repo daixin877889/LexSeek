@@ -4,6 +4,7 @@
  * 管理角色与 API 权限的多对多关联关系
  */
 import type { Prisma } from "#shared/types/prisma"
+import type { userRoles } from '~~/generated/prisma/client'
 
 // ==================== 角色 API 权限关联 DAO ====================
 

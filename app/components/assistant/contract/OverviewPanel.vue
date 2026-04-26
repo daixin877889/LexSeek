@@ -18,6 +18,7 @@ import { TriangleAlert, Info, ClipboardList, ChevronDown } from 'lucide-vue-next
 import { toRef } from 'vue'
 import type { Risk, ContractOverview, PlaybookSnapshot } from '#shared/types/contract'
 import { useContractPlaybookMatch } from '~/composables/useContractPlaybookMatch'
+import { useContractOverview } from '~/composables/useContractOverview'
 
 const props = defineProps<{
     risks: Risk[]

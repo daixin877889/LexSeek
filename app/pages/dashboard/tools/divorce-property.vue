@@ -374,6 +374,7 @@
 </template>
 
 <script setup>
+import toast from '#shared/utils/toast'
 definePageMeta({
   title: "离婚财产分割计算器",
   layout: "dashboard-layout",

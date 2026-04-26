@@ -198,6 +198,19 @@
 </template>
 
 <script lang="ts" setup>
+import { FileSourceName, FileTypeName } from '#shared/types/file'
+import toast from '#shared/utils/toast'
+import DiskSpaceBatchToolbar from '~/components/diskSpace/BatchToolbar.vue'
+import DiskSpaceFileListMobile from '~/components/diskSpace/FileListMobile.vue'
+import DiskSpaceFileDetailDialog from '~/components/diskSpace/fileDetailDialog.vue'
+import DiskSpaceFileListGrid from '~/components/diskSpace/fileListGrid.vue'
+import DiskSpaceFileListTable from '~/components/diskSpace/fileListTable.vue'
+import DiskSpaceUploadDialog from '~/components/diskSpace/uploadDialog.vue'
+import GeneralPagination from '~/components/general/pagination.vue'
+import { useApi } from '~/composables/useApi'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { FILE_LIST_API, useFileStore } from '~/store/file'
+import type { FileListResponse, OssFileItem } from '~/store/file'
 definePageMeta({
   title: "云盘空间",
   layout: "dashboard-layout",

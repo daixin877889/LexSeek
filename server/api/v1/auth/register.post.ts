@@ -1,3 +1,14 @@
+import { SmsType } from '#shared/types/sms'
+import { UserRegisterChannel, UserStatus } from '#shared/types/user'
+import { parseErrorMessage } from '#shared/utils/apiResponse'
+import { createLogger } from '#shared/utils/logger'
+import { z } from '#shared/utils/zod'
+import { generateAuthTokenService } from '~~/server/services/auth/authToken.service'
+import { executeInvitationRewardService, executeRegisterGiftService } from '~~/server/services/campaign/campaign.service'
+import { verifySmsCodeService } from '~~/server/services/sms/smsVerification.service'
+import { formatUserResponseService } from '~~/server/services/users/userResponse.service'
+import { findUserByIdDao, findUserByInviteCodeDao, findUserByPhoneDao, findUserByUsernameDao } from '~~/server/services/users/users.dao'
+import { createUserService } from '~~/server/services/users/users.service'
 /**
  * 手机验证码注册
  *

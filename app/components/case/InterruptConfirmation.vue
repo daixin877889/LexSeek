@@ -49,6 +49,7 @@ import type {
     InsufficientPointsInterruptData,
 } from '#shared/types/case'
 import { InterruptType } from '#shared/types/case'
+import InitAnalysisInsufficientPointsCard from '~/components/initAnalysis/InsufficientPointsCard.vue'
 
 // 中断类型守卫
 const isCaseInfoCheckInterrupt = (d: InterruptData | null) => d?.type === InterruptType.CASE_INFO_CHECK

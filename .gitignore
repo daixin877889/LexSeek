@@ -46,3 +46,5 @@ app/coverage
 coverage
 
 tests/e2e/screenshots/
+
+.tsbuildinfo

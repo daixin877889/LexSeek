@@ -20,9 +20,9 @@ const materials = computed<Array<{ id: number, name: string, embedded: boolean }
 </script>
 
 <template>
-    <AiElementsTool>
-        <AiElementsToolHeader title="材料处理" type="tool-process_materials" :state="state" />
-        <AiElementsToolContent v-if="output != null">
+    <Tool>
+        <ToolHeader title="材料处理" type="tool-process_materials" :state="state" />
+        <ToolContent v-if="output != null">
             <div class="p-4">
                 <ul class="space-y-1.5">
                     <li
@@ -41,6 +41,6 @@ const materials = computed<Array<{ id: number, name: string, embedded: boolean }
                     </li>
                 </ul>
             </div>
-        </AiElementsToolContent>
-    </AiElementsTool>
+        </ToolContent>
+    </Tool>
 </template>

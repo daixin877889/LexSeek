@@ -4,6 +4,13 @@
  * @returns
  */
 import { canUseAliyunCaptchaSceneService, verifyAliyunCaptchaService } from '~~/server/services/security/aliyunCaptcha.service'
+import { SmsType } from '#shared/types/sms'
+import { UserStatus } from '#shared/types/user'
+import { parseErrorMessage } from '#shared/utils/apiResponse'
+import { createLogger } from '#shared/utils/logger'
+import { z } from '#shared/utils/zod'
+import { createSmsRecordDao, deleteSmsRecordByIdDao, findSmsRecordByPhoneAndTypeDao } from '~~/server/services/sms/smsRecord.dao'
+import { findUserByPhoneDao } from '~~/server/services/users/users.dao'
 
 export default defineEventHandler(async (event) => {
     const logger = createLogger('SMS')

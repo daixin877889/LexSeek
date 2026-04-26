@@ -196,7 +196,7 @@ const stepColorClass: Record<StepKind, string> = {
       <ChainOfThoughtContent
         v-else-if="step.hasMore && (step.kind === 'conclusion' || step.kind === 'thinking' || step.kind === 'analysis')"
       >
-        <AiElementsMessageResponse :content="step.fullContent" mode="static" />
+        <MessageResponse :content="step.fullContent" mode="static" />
       </ChainOfThoughtContent>
     </ChainOfThoughtStep>
   </ChainOfThought>

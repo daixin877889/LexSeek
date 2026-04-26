@@ -61,6 +61,7 @@
 <script lang="ts" setup>
 import { Search, Filter, RotateCcw } from "lucide-vue-next";
 import { CaseStatus, CaseStatusText } from "#shared/types/case";
+import type { caseTypes } from '~~/generated/prisma/client'
 
 // ==================== 类型定义 ====================
 

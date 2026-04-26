@@ -7,6 +7,7 @@
  */
 import { z } from 'zod'
 import { RedemptionCodeType } from '#shared/types/redemption'
+import { generateRedemptionCodesService } from '~~/server/services/redemption/redemptionCode.admin.service'
 
 // 请求体验证
 const bodySchema = z.object({

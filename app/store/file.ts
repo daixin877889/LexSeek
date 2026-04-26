@@ -6,6 +6,7 @@
 
 import type { FileSource, FileSourceAccept } from '~~/shared/types/file'
 import type { PostSignatureResult } from '~~/shared/types/oss'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 /**
  * 预签名 URL 请求参数（单文件）

@@ -109,6 +109,8 @@
 <script setup lang="ts">
 import { Search, Loader2, FileText, User } from 'lucide-vue-next'
 import type { RedemptionRecordAdminInfo } from '#shared/types/redemption'
+import GeneralPagination from '~/components/general/pagination.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 definePageMeta({ layout: 'admin-layout', title: '兑换记录' })
 

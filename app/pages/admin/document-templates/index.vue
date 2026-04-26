@@ -342,6 +342,9 @@ import { toast } from 'vue-sonner'
 import { DOCUMENT_CATEGORIES } from '#shared/types/document'
 import type { DocumentCategoryKey } from '#shared/types/document'
 import type { documentTemplates } from '#shared/types/prisma'
+import GeneralPagination from '~/components/general/pagination.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useFormatters } from '~/composables/useFormatters'
 
 definePageMeta({ layout: 'admin-layout', title: '文书模板管理' })
 

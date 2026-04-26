@@ -62,6 +62,19 @@
 import { PaymentChannel, PaymentMethod, DurationUnit } from "#shared/types/payment";
 import type { ProductInfo } from "#shared/types/product";
 import type { WechatPaymentParams, WechatPaymentResult } from "~/composables/useWechatPayment";
+import toast from '#shared/utils/toast'
+import MembershipCurrentInfo from '~/components/membership/MembershipCurrentInfo.vue'
+import MembershipPackageList from '~/components/membership/MembershipPackageList.vue'
+import MembershipQRCodeDialog from '~/components/membership/MembershipQRCodeDialog.vue'
+import MembershipRecordMobile from '~/components/membership/MembershipRecordMobile.vue'
+import MembershipRecordTable from '~/components/membership/MembershipRecordTable.vue'
+import MembershipRenewalDialog from '~/components/membership/MembershipRenewalDialog.vue'
+import MembershipUpgradeDialog from '~/components/membership/MembershipUpgradeDialog.vue'
+import MembershipBenefits from '~/components/membership/benefits.vue'
+import { useApi } from '~/composables/useApi'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useWechatPayment } from '~/composables/useWechatPayment'
+import type { membershipLevels } from '~~/generated/prisma/client'
 
 // 页面元信息
 definePageMeta({

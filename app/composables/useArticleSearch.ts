@@ -6,6 +6,7 @@
 
 import type { ArticleSearchFilters, ArticleSearchResponse } from '#shared/types/legal-search'
 import type { LawSearchResultItem } from '#shared/types/legal'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 export interface UseArticleSearchReturn {
     // 状态

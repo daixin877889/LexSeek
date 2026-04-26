@@ -12,6 +12,8 @@ import { DOCX_MIME } from '#shared/utils/mime'
 import { useBatchUpload } from '~/composables/useBatchUpload'
 import type { StepState, StepStatus } from '~/composables/useContractReviewVersion'
 import type { Ref } from 'vue'
+import { useAlertDialogStore } from '~/store/alertDialog'
+import { useFileStore } from '~/store/file'
 
 /**
  * UI-C1：通过 props 接收 uploadNewVersion，避免在 Dialog 内重复

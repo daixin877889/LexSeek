@@ -1,3 +1,4 @@
+import { logRoleDelete } from '~~/server/services/rbac/auditLog.service'
 /**
  * 删除角色
  * DELETE /api/v1/admin/roles/:id

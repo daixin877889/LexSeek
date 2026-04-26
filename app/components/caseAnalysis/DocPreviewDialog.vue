@@ -95,6 +95,9 @@ import MarkstreamVue, { enableMermaid, setDefaultI18nMap } from 'markstream-vue'
 import 'markstream-vue/index.css'
 import { getFileIcon, getFileIconColor } from '~/utils/file'
 import { getExtensionFromFileName, IMAGE_EXTENSIONS } from '~~/shared/utils/file'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useColorMode } from '~/composables/useColorMode'
+import { useLocalFileCache } from '~/composables/useLocalFileCache'
 
 // 启用 Mermaid 渲染（传入 mermaid 模块的动态导入函数）
 enableMermaid(() => import('mermaid'))

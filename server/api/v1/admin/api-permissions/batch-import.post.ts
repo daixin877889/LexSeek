@@ -5,6 +5,8 @@
  * 将扫描发现的新 API 批量导入到数据库
  */
 import { z } from 'zod'
+import { createApiPermissionDao, findApiPermissionsDao } from '~~/server/services/rbac/apiPermission.dao'
+import { createAuditLogDao } from '~~/server/services/rbac/auditLog.dao'
 
 const itemSchema = z.object({
     path: z.string({ message: '路径不能为空' }).min(1, '路径不能为空'),

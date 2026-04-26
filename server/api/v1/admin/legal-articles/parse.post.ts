@@ -7,6 +7,7 @@
  */
 
 import { z } from 'zod'
+import { parseContent } from '~~/server/services/legal/parser.service'
 
 /**
  * 请求参数验证 Schema

@@ -62,13 +62,13 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <AiElementsTool>
-        <AiElementsToolHeader title="法律检索" type="tool-search_law" :state="state">
+    <Tool>
+        <ToolHeader title="法律检索" type="tool-search_law" :state="state">
             <template v-if="state === 'output-available' && results.length" #extra>
                 <span class="text-xs text-muted-foreground">找到 {{ results.length }} 条结果</span>
             </template>
-        </AiElementsToolHeader>
-        <AiElementsToolContent v-if="input || output != null">
+        </ToolHeader>
+        <ToolContent v-if="input || output != null">
             <!-- 接续外层 header border 视觉 -->
             <div class="border-t border-border">
                 <!-- 检索条件区（与材料检索同款） -->
@@ -136,6 +136,6 @@ onBeforeUnmount(() => {
                     未检索到结果
                 </div>
             </div>
-        </AiElementsToolContent>
-    </AiElementsTool>
+        </ToolContent>
+    </Tool>
 </template>

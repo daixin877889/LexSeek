@@ -7,6 +7,7 @@
 
 import { z } from 'zod'
 import { NODE_TYPES } from '#shared/types/node'
+import { getNodesService } from '~~/server/services/node/node.service'
 
 /** 查询参数验证 */
 const querySchema = z.object({

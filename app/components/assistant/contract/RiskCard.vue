@@ -13,20 +13,13 @@ import {
 } from 'lucide-vue-next'
 import type {
     Risk,
-    RiskDisplay,
-    RiskSource,
+    RiskDisplayPhaseB,
     RiskArchivedStatus,
     PlaybookSnapshot,
     ContractAnnotationEntity,
 } from '#shared/types/contract'
 import { RISK_LEVEL_LABEL } from '#shared/types/contract'
 import { RISK_LEVEL_BADGE_CLASS as LEVEL_CLASS } from '~/utils/contractRiskLevelStyle'
-
-type RiskDisplayPhaseB = RiskDisplay & {
-    source?: RiskSource
-    orphaned?: boolean
-    originalAnchorQuote?: string | null
-}
 
 const props = defineProps<{
     risk: RiskDisplayPhaseB

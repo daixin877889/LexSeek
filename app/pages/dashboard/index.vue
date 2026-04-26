@@ -200,6 +200,9 @@ import {
   TrendingUp,
   ExternalLink
 } from "lucide-vue-next";
+import { useApi } from '~/composables/useApi'
+import { useUserStore } from '~/store/user'
+import { useWxSupportStore } from '~/store/wxSupport'
 
 definePageMeta({
   title: "工作台",

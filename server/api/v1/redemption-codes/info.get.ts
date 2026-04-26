@@ -1,3 +1,5 @@
+import { z } from '#shared/utils/zod'
+import { getRedemptionCodeInfoService } from '~~/server/services/redemption/redemption.service'
 /**
  * 查询兑换码信息
  *

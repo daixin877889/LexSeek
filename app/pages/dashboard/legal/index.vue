@@ -141,6 +141,12 @@ import { Loader2, FileText, AlertCircle, RefreshCw, FileSearch } from 'lucide-vu
 import type { ValidityStatusFilter, ArticleSearchFilters } from '#shared/types/legal-search'
 import { VALIDITY_STATUS_FILTERS } from '#shared/types/legal-search'
 import type { LawSearchResultItem, LegalType } from '#shared/types/legal'
+import LegalSearchArticleDetailDialog from '~/components/legal-search/ArticleDetailDialog.vue'
+import LegalSearchLegalList from '~/components/legal-search/LegalList.vue'
+import LegalSearchLegalListMobile from '~/components/legal-search/LegalListMobile.vue'
+import LegalSearchUnifiedSearchPanel from '~/components/legal-search/UnifiedSearchPanel.vue'
+import { useArticleSearch } from '~/composables/useArticleSearch'
+import { useLegalSearch } from '~/composables/useLegalSearch'
 
 // ==================== 页面元数据 ====================
 

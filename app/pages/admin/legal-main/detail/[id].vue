@@ -192,6 +192,10 @@ import {
 import { toast } from 'vue-sonner'
 import dayjs from 'dayjs'
 import type { LegalMainInfo, LegalStatistics } from '#shared/types/legal'
+import GeneralLegalStatisticsCard from '~/components/general/legal/LegalStatisticsCard.vue'
+import GeneralLegalStatusBadge from '~/components/general/legal/LegalStatusBadge.vue'
+import GeneralLegalTypeBadge from '~/components/general/legal/LegalTypeBadge.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 definePageMeta({
     layout: 'admin-layout',

@@ -34,6 +34,7 @@ import { FileSource, OssFileStatus } from '#shared/types/file'
 import { getExtensionFromFileName } from '~~/shared/utils/file'
 import { calculateBackoffDelay, DEFAULT_POLLING_CONFIG } from './materialConstants'
 import type { PollingConfig } from './materialConstants'
+import { DocRecognitionStatus, MineruTaskStatus } from '#shared/types/recognition'
 
 /**
  * MinerU PDF 转换专用轮询配置

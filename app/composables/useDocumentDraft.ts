@@ -22,6 +22,9 @@ import type {
     DocumentDraftSnapshot,
 } from '#shared/types/document'
 import { QUEUE_MAX_SIZE, type QueueItem, type QueuePauseReason } from './chatQueueActions'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useStreamChat } from '~/composables/useStreamChat'
+import { triggerBrowserDownloadUrl } from '~/utils/browserDownload'
 
 type DocumentRunStatus = 'idle' | 'filling' | 'ready' | 'exported' | 'failed'
 

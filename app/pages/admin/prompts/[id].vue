@@ -189,6 +189,9 @@ import { ArrowLeft, Loader2, AlertCircle, Pencil, Trash2, History, CheckCircle, 
 import { toast } from 'vue-sonner'
 import dayjs from 'dayjs'
 import type { PromptWithRelations } from '#shared/types/node'
+import AdminPromptsPromptFormDialog from '~/components/admin/prompts/PromptFormDialog.vue'
+import AdminPromptsVersionHistoryDialog from '~/components/admin/prompts/VersionHistoryDialog.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 definePageMeta({ layout: 'admin-layout', title: '提示词详情' })
 

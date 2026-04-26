@@ -14,6 +14,7 @@
 import { z } from 'zod'
 import { getMineruTaskByTaskIdService, getMineruTaskByIdService } from '~~/server/services/material/mineruTask.service'
 import { findDocRecognitionByOssFileIdDao } from '~~/server/services/material/mineru.dao'
+import { MineruTaskStatus } from '#shared/types/recognition'
 
 // 路由参数验证
 const paramsSchema = z.object({

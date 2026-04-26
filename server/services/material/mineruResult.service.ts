@@ -15,6 +15,8 @@ import { FileSource, OssFileStatus } from '#shared/types/file'
 import { StorageProviderType, type AliyunPostSignatureResult } from '~~/server/lib/storage/types'
 import { embedDocumentService } from '~~/server/services/material/materialEmbedding.service'
 import { getExtensionFromFileName } from '~~/shared/utils/file'
+import { findDocRecognitionByOssFileIdDao, updateDocRecognitionRecordDao } from '~~/server/services/material/mineru.dao'
+import { generatePostSignatureService } from '~~/server/services/storage/storage.service'
 
 /** ZIP 中提取的图片信息 */
 interface ExtractedImage {

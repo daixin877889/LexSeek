@@ -87,6 +87,8 @@
 import { RefreshCwIcon } from "lucide-vue-next";
 import { useIntersectionObserver } from "@vueuse/core";
 import type { PointHistoryRecord } from "#shared/types/point.types";
+import { useFormatters } from '~/composables/useFormatters'
+import { usePointStatus } from '~/composables/usePointStatus'
 
 // ==================== Props ====================
 

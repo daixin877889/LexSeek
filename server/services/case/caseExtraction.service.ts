@@ -6,6 +6,7 @@
 
 import { z } from 'zod'
 import type { ExtractedCaseInfo } from '#shared/types/case'
+import type { caseTypes } from '~~/generated/prisma/client'
 
 /**
  * AI 案件信息抽取结果的 Zod schema

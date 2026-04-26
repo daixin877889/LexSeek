@@ -95,6 +95,7 @@
 import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { PointConsumptionItem } from '#shared/types/point.types'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 // 定义 props
 const props = defineProps<{

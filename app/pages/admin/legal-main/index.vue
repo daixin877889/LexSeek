@@ -114,6 +114,11 @@ import { Plus, Search, Loader2, Scale, RotateCcw } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { LegalMainListItem, PaginatedResponse } from '#shared/types/legal'
 import { VALIDITY_STATUS_FILTERS } from '#shared/types/legal-search'
+import AdminLegalMainMobile from '~/components/admin/legal-main/LegalMainMobile.vue'
+import AdminLegalMainTable from '~/components/admin/legal-main/LegalMainTable.vue'
+import GeneralPagination from '~/components/general/pagination.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useUrlState } from '~/composables/useUrlState'
 
 definePageMeta({
     layout: 'admin-layout',

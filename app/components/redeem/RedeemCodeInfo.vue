@@ -92,6 +92,7 @@
 <script lang="ts" setup>
 import { Loader2 } from "lucide-vue-next";
 import { RedemptionCodeType, RedemptionCodeStatus, type RedemptionCodeInfo } from "#shared/types/redemption";
+import IconsIconAlert from '~/components/icons/IconAlert.vue'
 
 // 定义 props
 defineProps<{

@@ -196,6 +196,10 @@ import { ArrowLeft, FileX, Loader2, Trash2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { AdminReviewDetail, Risk } from '#shared/types/contract'
 import { REVIEW_STATUS_LABEL, RISK_LEVEL_LABEL } from '#shared/types/contract'
+import { useApi } from '~/composables/useApi'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useFormatters } from '~/composables/useFormatters'
+import { getReviewStatusBadgeVariant, getRiskLevelBadgeVariant } from '~/utils/contractReviewBadge'
 
 definePageMeta({ layout: 'admin-layout', title: '合同审查详情' })
 

@@ -7,6 +7,7 @@
 
 import type { asrRecords, Prisma } from '~~/generated/prisma/client'
 import type { AsrRecordStatus as AsrRecordStatusType } from '#shared/types/recognition'
+import { AsrRecordStatus } from '#shared/types/recognition'
 
 /** 创建 ASR 识别记录输入 */
 export interface CreateAsrRecordInput {

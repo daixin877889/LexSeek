@@ -16,6 +16,7 @@
 
 <script lang="ts" setup>
 import { Loader2Icon, AlertCircleIcon } from 'lucide-vue-next'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 definePageMeta({
   title: '初始化分析',

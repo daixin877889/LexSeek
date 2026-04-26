@@ -4,6 +4,7 @@
  */
 import { z } from 'zod'
 import { ArticleType, type UpdateLegalArticleRequest } from '#shared/types/legal'
+import { updateLegalArticleService } from '~~/server/services/legal/legalArticles.service'
 
 // 请求体验证
 const bodySchema = z.object({

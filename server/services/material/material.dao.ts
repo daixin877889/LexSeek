@@ -8,6 +8,7 @@
 import type { caseMaterials, Prisma } from '~~/generated/prisma/client'
 import type { CreateMaterialInput, UpdateMaterialInput, MaterialQueryOptions } from '#shared/types/material'
 import { MaterialStatus } from '#shared/types/material'
+import type { asrRecords } from '~~/generated/prisma/client'
 
 /**
  * 创建材料

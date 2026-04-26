@@ -144,6 +144,10 @@
 import { Plus, Loader2, FolderKanban, Search, MoreHorizontal, Pencil, Trash2, Power } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import dayjs from 'dayjs'
+import AdminCaseTypesFormDialog from '~/components/admin/case-types/FormDialog.vue'
+import GeneralPagination from '~/components/general/pagination.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useFormatters } from '~/composables/useFormatters'
 
 // 案件类型接口
 interface CaseType {

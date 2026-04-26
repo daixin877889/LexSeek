@@ -97,6 +97,12 @@
 import { Search, Plus, Loader2, Megaphone } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { CampaignInfo } from '#shared/types/campaign'
+import AdminCampaignsCampaignFormDialog from '~/components/admin/campaigns/CampaignFormDialog.vue'
+import AdminCampaignsCampaignMobile from '~/components/admin/campaigns/CampaignMobile.vue'
+import AdminCampaignsCampaignTable from '~/components/admin/campaigns/CampaignTable.vue'
+import GeneralPagination from '~/components/general/pagination.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
+import type { campaigns, membershipLevels } from '~~/generated/prisma/client'
 
 definePageMeta({ layout: 'admin-layout', title: '营销活动管理' })
 

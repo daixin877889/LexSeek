@@ -11,6 +11,7 @@
  */
 import { Minimize2, Maximize2, X } from 'lucide-vue-next'
 import { useMediaQuery } from '@vueuse/core'
+import { useDraggableResize } from '~/composables/useDraggableResize'
 
 const props = withDefaults(defineProps<{
   /** 窗口标题 */

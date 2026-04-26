@@ -7,6 +7,7 @@
 
 import type { asrTasks, Prisma } from '~~/generated/prisma/client'
 import type { AsrTaskQueryOptions, CreateAsrTaskInput, UpdateAsrTaskInput } from './asrTask.service'
+import { AsrTaskStatus } from '#shared/types/recognition'
 
 /**
  * 创建 ASR 任务

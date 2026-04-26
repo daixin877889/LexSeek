@@ -10,6 +10,8 @@ import {
   CheckSquareIcon,
   XIcon,
 } from 'lucide-vue-next'
+import ViewModeToggle from '~/components/ViewModeToggle.vue'
+import CaseAnalysisMaterialSelector from '~/components/caseAnalysis/materialSelector.vue'
 
 const props = defineProps<{
   materials: CaseDetailMaterialItem[]
@@ -139,10 +141,10 @@ function executeDelete() {
       :is-select-mode="isSelectMode"
       :selected-ids="selectedMaterialIds"
       :get-recognition-status="getRecognitionStatus"
-      @preview-material="(m) => emit('preview', m)"
-      @toggle-select="(id) => emit('toggleSelection', id)"
+      @preview-material="(m: CaseDetailMaterialItem) => emit('preview', m)"
+      @toggle-select="(id: number) => emit('toggleSelection', id)"
       @delete-material="confirmDeleteSingle"
-      @retry-material="(id, ossId) => emit('retryMaterial', id, ossId)"
+      @retry-material="(id: number, ossId: number) => emit('retryMaterial', id, ossId)"
     />
 
     <!-- 材料选择器弹窗 -->

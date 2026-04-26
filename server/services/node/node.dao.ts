@@ -13,6 +13,7 @@ import type {
     NodeGroupListParams,
 } from '#shared/types/node'
 import { Prisma } from '~~/generated/prisma/client'
+import type { nodes } from '~~/generated/prisma/client'
 
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma

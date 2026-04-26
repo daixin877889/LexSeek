@@ -4,6 +4,7 @@
  */
 import { z } from 'zod'
 import { ArticleType } from '#shared/types/legal'
+import { createLegalArticleService } from '~~/server/services/legal/legalArticles.service'
 
 // 请求体验证
 const bodySchema = z.object({

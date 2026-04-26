@@ -1,3 +1,4 @@
+import { deleteLegalArticleService } from '~~/server/services/legal/legalArticles.service'
 /**
  * 删除法律条文（软删除）
  * DELETE /api/v1/admin/legal-articles/:id

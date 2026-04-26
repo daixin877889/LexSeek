@@ -15,6 +15,7 @@ import type {
     IssuingAuthoritiesResponse,
 } from '#shared/types/legal-search'
 import type { LegalMainListItem } from '#shared/types/legal'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 /** 带有效性计算的法律列表项 */
 export interface LegalListItemWithValidity extends LegalMainListItem {

@@ -8,6 +8,7 @@
 
 import { readdirSync, statSync } from 'fs'
 import { join } from 'path'
+import { findApiPermissionsDao } from '~~/server/services/rbac/apiPermission.dao'
 
 /** 扫描结果项 */
 interface ScannedApiItem {

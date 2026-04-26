@@ -18,6 +18,7 @@ import { PointRecordSourceType, PointRecordStatus } from '#shared/types/point.ty
 import type { pointRecords } from '../../../generated/prisma/client'
 import { prisma } from '../../utils/db'
 import { logger } from '../../../shared/utils/logger'
+import { findPointRecordsBySourceTypesDao, sumPointsByMembershipIdDao, transferPointRecordsDao } from '~~/server/services/point/pointRecords.dao'
 
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma

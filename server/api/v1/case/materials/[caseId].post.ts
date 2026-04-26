@@ -14,6 +14,8 @@ import { validateCaseAccessService } from '~~/server/services/case/case.service'
 import { batchAddCaseMaterialsService } from '~~/server/services/case/caseMaterial.service'
 import { getMaterialsByCaseIdWithStatusService } from '~~/server/services/material/material.service'
 import { CaseMaterialTypeText } from '#shared/types/case'
+import { parseErrorMessage } from '#shared/utils/apiResponse'
+import { processMaterialService } from '~~/server/services/material/materialProcess.service'
 
 const paramsSchema = z.object({
     caseId: z.coerce.number().int().positive(),

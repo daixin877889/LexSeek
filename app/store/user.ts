@@ -1,3 +1,6 @@
+import { useApi } from '~/composables/useApi'
+import { useApiFetch } from '~/composables/useApiFetch'
+import type { SafeUserInfo } from '~~/server/services/users/userResponse.service'
 /**
  * 用户状态
  */

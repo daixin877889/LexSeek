@@ -5,6 +5,8 @@ import { cn } from '@repo/shadcn-vue/lib/utils'
 import { computed, useSlots } from 'vue'
 import { Markdown } from 'vue-stream-markdown'
 import 'vue-stream-markdown/index.css'
+import { useMermaidHdPng } from '~/composables/useMermaidHdPng'
+import type { nodes } from '~~/generated/prisma/client'
 
 interface Props {
   class?: HTMLAttributes['class']

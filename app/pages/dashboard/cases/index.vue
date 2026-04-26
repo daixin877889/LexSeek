@@ -144,6 +144,15 @@
 import { Plus, Loader2, Briefcase, Clock, CheckCircle, List, LayoutGrid } from "lucide-vue-next";
 import { toast } from "vue-sonner";
 import type { CaseListItem, CaseTypeOption } from "#shared/types/case";
+import CasesDeleteDialog from '~/components/cases/CasesDeleteDialog.vue'
+import CasesEmpty from '~/components/cases/CasesEmpty.vue'
+import CasesFilter from '~/components/cases/CasesFilter.vue'
+import CasesGrid from '~/components/cases/CasesGrid.vue'
+import CasesMobile from '~/components/cases/CasesMobile.vue'
+import CasesTable from '~/components/cases/CasesTable.vue'
+import GeneralPagination from '~/components/general/pagination.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
+import type { caseTypes, cases } from '~~/generated/prisma/client'
 
 // 页面元信息
 definePageMeta({

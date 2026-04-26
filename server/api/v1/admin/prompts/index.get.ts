@@ -8,6 +8,7 @@
 import { z } from 'zod'
 import { PROMPT_TYPES } from '#shared/types/node'
 import type { PromptType } from '#shared/types/node'
+import { getPromptsService } from '~~/server/services/node/prompt.service'
 
 /** 查询参数验证 */
 const querySchema = z.object({

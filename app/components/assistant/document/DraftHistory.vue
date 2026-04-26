@@ -12,6 +12,10 @@ import { EyeIcon, FileTextIcon, Loader2Icon, Trash2Icon } from 'lucide-vue-next'
 import { useMediaQuery } from '@vueuse/core'
 import { toast } from 'vue-sonner'
 import type { DraftRow } from '#shared/types/document'
+import GeneralPagination from '~/components/general/pagination.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useFormatters } from '~/composables/useFormatters'
+import { useAlertDialogStore } from '~/store/alertDialog'
 
 const props = defineProps<{
     /** 外部传入列表数据；未传则组件内部自拉 */

@@ -71,6 +71,11 @@
 </template>
 
 <script setup>
+import toast from '#shared/utils/toast'
+import { useAuthStore } from '~/store/auth'
+import { useRoleStore } from '~/store/role'
+import { useUserStore } from '~/store/user'
+import { resetAllStore } from '~/utils/resetStore'
 definePageMeta({
   title: "安全设置",
   layout: "dashboard-layout",

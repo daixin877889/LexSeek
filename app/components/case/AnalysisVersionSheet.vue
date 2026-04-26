@@ -2,6 +2,8 @@
 import { CheckCircleIcon, Loader2Icon, HistoryIcon, ArrowLeftIcon } from 'lucide-vue-next'
 import { useMediaQuery } from '@vueuse/core'
 import { VisuallyHidden } from 'reka-ui'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useFormatters } from '~/composables/useFormatters'
 
 const props = defineProps<{
   caseId: number
@@ -144,7 +146,7 @@ function formatDate(dateStr: string): string {
             </div>
           </div>
           <div class="flex-1 overflow-y-auto p-4">
-            <AiElementsMessageResponse
+            <MessageResponse
               v-if="selectedVersion.analysisResult"
               :content="selectedVersion.analysisResult"
               mode="static"
@@ -221,7 +223,7 @@ function formatDate(dateStr: string): string {
 
             <!-- 预览内容 -->
             <div class="flex-1 overflow-y-auto p-4">
-              <AiElementsMessageResponse
+              <MessageResponse
                 v-if="selectedVersion.analysisResult"
                 :content="selectedVersion.analysisResult"
                 class="prose prose-sm dark:prose-invert max-w-none"

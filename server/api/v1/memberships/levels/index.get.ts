@@ -7,6 +7,7 @@
  */
 import type { MembershipLevelInfo } from '#shared/types/membership'
 import { MembershipLevelStatus } from '#shared/types/membership'
+import { findAllActiveMembershipLevelsDao } from '~~/server/services/membership/membershipLevel.dao'
 
 export default defineEventHandler(async (event) => {
     try {

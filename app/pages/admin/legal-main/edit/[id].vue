@@ -36,6 +36,8 @@
 import { ArrowLeft, Loader2, AlertCircle } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { LegalMainInfo, UpdateLegalMainRequest } from '#shared/types/legal'
+import LegalMainForm from '~/components/legal/LegalMainForm.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 definePageMeta({
     layout: 'admin-layout',

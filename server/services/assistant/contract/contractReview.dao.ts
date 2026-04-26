@@ -300,10 +300,82 @@ async function loadFileNameMap(
     return map
 }
 
+interface RiskCounts {
+    high: number
+    medium: number
+    total: number
+}
+
 /**
- * 用户列表与管理列表共有的 ListItem 字段构造（17 字段）。
+ * 已迁移 review 的活跃风险计数：从 contract_risks 表 groupBy 一次性聚合，
+ * 不再为列表行拉整段 risks JSONB。`archivedStatus IS NULL` 仅数活跃风险。
+ */
+async function loadRiskCountsMap(
+    migratedReviewIds: number[],
+): Promise<Map<number, RiskCounts>> {
+    const map = new Map<number, RiskCounts>()
+    if (migratedReviewIds.length === 0) return map
+    const groups = await prisma.contractRisks.groupBy({
+        by: ['reviewId', 'level'],
+        where: { reviewId: { in: migratedReviewIds }, archivedStatus: null },
+        _count: { _all: true },
+    })
+    for (const g of groups) {
+        const cur = map.get(g.reviewId) ?? { high: 0, medium: 0, total: 0 }
+        const cnt = g._count._all
+        if (g.level === 'high') cur.high += cnt
+        else if (g.level === 'medium') cur.medium += cnt
+        cur.total += cnt
+        map.set(g.reviewId, cur)
+    }
+    return map
+}
+
+/**
+ * 未迁移 review (`currentVersionId IS NULL`) 的兜底：仍走 risks JSONB 计数。
+ * 这部分行数应在迁移完成后归零。
+ */
+async function loadLegacyRiskCountsMap(
+    unmigratedReviewIds: number[],
+): Promise<Map<number, RiskCounts>> {
+    const map = new Map<number, RiskCounts>()
+    if (unmigratedReviewIds.length === 0) return map
+    const rows = await prisma.contractReviews.findMany({
+        where: { id: { in: unmigratedReviewIds } },
+        select: { id: true, risks: true },
+    })
+    for (const r of rows) {
+        const arr = Array.isArray(r.risks) ? (r.risks as unknown as Risk[]) : []
+        const counts = computeCounts(arr)
+        map.set(r.id, { high: counts.high, medium: counts.medium, total: arr.length })
+    }
+    return map
+}
+
+/**
+ * 把 rows 按 currentVersionId 分两组、并发查 counts，再 merge 到单个 Map。
+ * listUserReviewsDAO / listAdminReviewsDAO 共享。
+ */
+async function loadCountsForRows(
+    rows: ReadonlyArray<{ id: number; currentVersionId: number | null }>,
+): Promise<Map<number, RiskCounts>> {
+    const migratedIds = rows.filter(r => r.currentVersionId != null).map(r => r.id)
+    const unmigratedIds = rows.filter(r => r.currentVersionId == null).map(r => r.id)
+    const [migrated, legacy] = await Promise.all([
+        loadRiskCountsMap(migratedIds),
+        loadLegacyRiskCountsMap(unmigratedIds),
+    ])
+    const merged = new Map<number, RiskCounts>()
+    for (const [k, v] of migrated) merged.set(k, v)
+    for (const [k, v] of legacy) merged.set(k, v)
+    return merged
+}
+
+/**
+ * 用户列表与管理列表共有的 ListItem 字段构造。
  *
  * 管理列表在此基础上叠加 userId / userPhone / userNickname / deletedAt，由调用方 spread。
+ * counts 由调用方预先一次性 groupBy/legacy 聚合后注入，避免按行拉 risks JSONB。
  */
 interface BaseReviewRow {
     id: number
@@ -312,19 +384,20 @@ interface BaseReviewRow {
     contractType: string | null
     partyA: string | null
     partyB: string | null
-    stance: string
+    stance: string | null
     status: string
     summary: unknown
-    risks: unknown
     originalFileId: number
     hasUnsavedDocxChanges: boolean
     createdAt: Date
     updatedAt: Date
 }
 
-function buildBaseReviewListItem(row: BaseReviewRow, fileName: string | null) {
-    const risksArr = Array.isArray(row.risks) ? row.risks as Risk[] : []
-    const counts = computeCounts(risksArr)
+function buildBaseReviewListItem(
+    row: BaseReviewRow,
+    fileName: string | null,
+    counts: RiskCounts,
+) {
     return {
         id: row.id,
         sessionId: row.sessionId,
@@ -339,7 +412,7 @@ function buildBaseReviewListItem(row: BaseReviewRow, fileName: string | null) {
         hasUnsavedDocxChanges: row.hasUnsavedDocxChanges,
         highRiskCount: counts.high,
         mediumRiskCount: counts.medium,
-        totalRiskCount: risksArr.length,
+        totalRiskCount: counts.total,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     }
@@ -403,21 +476,28 @@ export async function listUserReviewsDAO(
                 stance: true,
                 status: true,
                 summary: true,
-                // risks 只用于派生 highRiskCount / mediumRiskCount / totalRiskCount，不向前端回传
-                risks: true,
                 originalFileId: true,
                 hasUnsavedDocxChanges: true,
                 createdAt: true,
                 updatedAt: true,
+                // 用于区分已迁移 / 未迁移 review，决定计数走 contract_risks 表还是 legacy JSON
+                currentVersionId: true,
             },
         }),
         prisma.contractReviews.count({ where }),
     ])
 
-    const fileNameMap = await loadFileNameMap(rows.map(r => r.originalFileId))
+    const [fileNameMap, countsMap] = await Promise.all([
+        loadFileNameMap(rows.map(r => r.originalFileId)),
+        loadCountsForRows(rows),
+    ])
 
     const items: ReviewListItem[] = rows.map(r =>
-        buildBaseReviewListItem(r, fileNameMap.get(r.originalFileId) ?? null),
+        buildBaseReviewListItem(
+            r,
+            fileNameMap.get(r.originalFileId) ?? null,
+            countsMap.get(r.id) ?? { high: 0, medium: 0, total: 0 },
+        ),
     )
 
     return { items, total }
@@ -488,22 +568,29 @@ export async function listAdminReviewsDAO(
                 stance: true,
                 status: true,
                 summary: true,
-                risks: true,
                 originalFileId: true,
                 hasUnsavedDocxChanges: true,
                 createdAt: true,
                 updatedAt: true,
                 deletedAt: true,
+                currentVersionId: true,
                 user: { select: { phone: true, name: true } },
             },
         }),
         prisma.contractReviews.count({ where }),
     ])
 
-    const fileNameMap = await loadFileNameMap(rows.map(r => r.originalFileId))
+    const [fileNameMap, countsMap] = await Promise.all([
+        loadFileNameMap(rows.map(r => r.originalFileId)),
+        loadCountsForRows(rows),
+    ])
 
     const items: AdminReviewListItem[] = rows.map(r => ({
-        ...buildBaseReviewListItem(r, fileNameMap.get(r.originalFileId) ?? null),
+        ...buildBaseReviewListItem(
+            r,
+            fileNameMap.get(r.originalFileId) ?? null,
+            countsMap.get(r.id) ?? { high: 0, medium: 0, total: 0 },
+        ),
         userId: r.userId,
         userPhone: r.user?.phone ?? null,
         userNickname: r.user?.name ?? null,

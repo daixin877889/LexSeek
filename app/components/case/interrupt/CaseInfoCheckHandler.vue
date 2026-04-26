@@ -1,14 +1,14 @@
 <template>
-    <AiElementsConfirmationConfirmation :approval="approval" :state="confirmationState" class="w-full">
+    <Confirmation :approval="approval" :state="confirmationState" class="w-full">
         <!-- 请求状态：等待用户输入 -->
-        <AiElementsConfirmationConfirmationRequest>
+        <ConfirmationRequest>
             <div class="space-y-4">
                 <!-- 标题和说明 -->
                 <div class="space-y-2">
-                    <AiElementsConfirmationConfirmationTitle class="flex items-center gap-2 text-base font-medium">
+                    <ConfirmationTitle class="flex items-center gap-2 text-base font-medium">
                         <AlertCircleIcon class="h-5 w-5 text-amber-500" />
                         {{ interrupt.message || '请补充案情信息' }}
-                    </AiElementsConfirmationConfirmationTitle>
+                    </ConfirmationTitle>
 
                     <!-- 检查结果说明 -->
                     <p v-if="checkResult?.message" class="text-sm text-muted-foreground">
@@ -118,36 +118,36 @@
                 </div>
 
                 <!-- 操作按钮 -->
-                <AiElementsConfirmationConfirmationActions class="pt-2">
-                    <AiElementsConfirmationConfirmationAction variant="outline" @click="handleCancel"
+                <ConfirmationActions class="pt-2">
+                    <ConfirmationAction variant="outline" @click="handleCancel"
                         :disabled="isSubmitting">
                         取消
-                    </AiElementsConfirmationConfirmationAction>
-                    <AiElementsConfirmationConfirmationAction @click="handleSubmit"
+                    </ConfirmationAction>
+                    <ConfirmationAction @click="handleSubmit"
                         :disabled="!canSubmit || isSubmitting">
                         <LoaderIcon v-if="isSubmitting" class="h-4 w-4 mr-2 animate-spin" />
                         {{ isSubmitting ? '提交中...' : '提交补充信息' }}
-                    </AiElementsConfirmationConfirmationAction>
-                </AiElementsConfirmationConfirmationActions>
+                    </ConfirmationAction>
+                </ConfirmationActions>
             </div>
-        </AiElementsConfirmationConfirmationRequest>
+        </ConfirmationRequest>
 
         <!-- 已接受状态 -->
-        <AiElementsConfirmationConfirmationAccepted>
+        <ConfirmationAccepted>
             <div class="flex items-center gap-2 text-green-600">
                 <CheckCircleIcon class="h-5 w-5" />
                 <span>案情信息已补充</span>
             </div>
-        </AiElementsConfirmationConfirmationAccepted>
+        </ConfirmationAccepted>
 
         <!-- 已拒绝状态 -->
-        <AiElementsConfirmationConfirmationRejected>
+        <ConfirmationRejected>
             <div class="flex items-center gap-2 text-muted-foreground">
                 <XCircleIcon class="h-5 w-5" />
                 <span>已取消补充</span>
             </div>
-        </AiElementsConfirmationConfirmationRejected>
-    </AiElementsConfirmationConfirmation>
+        </ConfirmationRejected>
+    </Confirmation>
 </template>
 
 <script setup lang="ts">
@@ -173,6 +173,9 @@ import {
     CheckCircleIcon,
     XCircleIcon,
 } from 'lucide-vue-next'
+import { info } from '#shared/utils/logger'
+import { formatByteSize } from '#shared/utils/unitConverision'
+import { useFileReader } from '~/composables/useFileReader'
 
 /**
  * 组件 Props

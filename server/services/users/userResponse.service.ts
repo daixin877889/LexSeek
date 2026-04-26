@@ -1,3 +1,4 @@
+import type { roles, userRoles, users } from '~~/generated/prisma/client'
 /**
  * 用户响应格式化服务
  *

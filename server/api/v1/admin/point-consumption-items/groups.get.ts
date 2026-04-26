@@ -1,3 +1,4 @@
+import { getAllGroupsService } from '~~/server/services/point/pointConsumptionItems.service'
 /**
  * 获取积分消耗项目分组列表
  *

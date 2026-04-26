@@ -33,6 +33,7 @@ import {
     deleteEmbeddingsByArticleId,
     buildHierarchyPath,
 } from './lawEmbedding.service'
+import type { nodes } from '~~/generated/prisma/client'
 
 /**
  * 格式化日期为字符串

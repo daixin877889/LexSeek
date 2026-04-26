@@ -8,6 +8,7 @@ import {
 } from 'lucide-vue-next'
 import { Markdown } from 'vue-stream-markdown'
 import 'vue-stream-markdown/index.css'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 // 列表预览摘录用：去掉常见 markdown 标记，避免 # / ** / 列表符号污染纯文本预览
 function stripMarkdown(input: string): string {
@@ -164,7 +165,7 @@ const resultSummary = computed(() => {
             <div class="flex min-w-0 items-center gap-2">
                 <Wrench class="size-4 shrink-0 text-muted-foreground" />
                 <span class="shrink-0 text-sm font-medium">材料检索</span>
-                <AiElementsToolStatusBadge :state="state" />
+                <ToolStatusBadge :state="state" />
             </div>
             <div class="flex items-center gap-2">
                 <span v-if="resultSummary" class="text-xs text-muted-foreground">

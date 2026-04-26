@@ -1,3 +1,4 @@
+import { getCurrentMembershipService } from '~~/server/services/membership/userMembership.service'
 /**
  * 获取当前用户会员信息
  *

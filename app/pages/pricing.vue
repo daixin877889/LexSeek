@@ -773,6 +773,9 @@
 </template>
 
 <script setup>
+import PurchaseFlow from '~/components/purchase/PurchaseFlow.vue'
+import { usePurchaseFlow } from '~/composables/usePurchaseFlow'
+import { useWxSupportStore } from '~/store/wxSupport'
 definePageMeta({
   layout: "base-layout",
   title: "价格方案",

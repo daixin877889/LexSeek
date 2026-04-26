@@ -7,6 +7,9 @@
 
 import { defineStore } from 'pinia'
 import type { AdminMenuItem, AdminMenuGroup } from '~/composables/useAdminMenu'
+import { usePermissionStore } from '~/store/permission'
+import lucideIcons from '~/utils/lucideIcons'
+import type { routers } from '~~/generated/prisma/client'
 
 /** adminMenuStore 返回类型 */
 export interface AdminMenuStoreReturn {

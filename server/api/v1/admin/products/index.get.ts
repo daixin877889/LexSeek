@@ -6,6 +6,7 @@
 
 import { z } from 'zod'
 import { ProductType, ProductStatus } from '#shared/types/product'
+import { getProductsForAdminService } from '~~/server/services/product/product.service'
 
 /** 查询参数验证 */
 const querySchema = z.object({

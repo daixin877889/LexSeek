@@ -17,6 +17,7 @@ import {
     findValidPointRecordsForConsumeDao,
 } from './pointConsumption.dao'
 import { decimalToNumberUtils } from '#shared/utils/decimalToNumber'
+import { PointConsumptionItemStatus, PointConsumptionRecordStatus } from '#shared/types/point.types'
 
 // 事务客户端类型（兼容扩展后的 prisma 客户端）
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

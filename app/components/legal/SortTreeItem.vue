@@ -54,6 +54,7 @@
 import { GripVertical, ChevronRight, ChevronDown, Loader2 } from 'lucide-vue-next'
 import { VueDraggable } from 'vue-draggable-plus'
 import type { SortTreeNode, ArticleType } from '#shared/types/legal'
+import LegalSortTreeItem from '~/components/legal/SortTreeItem.vue'
 
 /** Props */
 const props = defineProps<{

@@ -511,6 +511,7 @@
 </template>
 
 <script setup>
+import toast from '#shared/utils/toast'
 definePageMeta({
   title: "利息计算",
   layout: "dashboard-layout",

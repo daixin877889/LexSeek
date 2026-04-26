@@ -99,6 +99,10 @@
 import { AlertTriangleIcon, Loader2Icon } from 'lucide-vue-next'
 import { PaymentChannel, PaymentMethod, DurationUnit } from '#shared/types/payment'
 import type { WechatPaymentParams, WechatPaymentResult } from '~/composables/useWechatPayment'
+import toast from '#shared/utils/toast'
+import PaymentQRCodeDialog from '~/components/payment/PaymentQRCodeDialog.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useWechatPayment } from '~/composables/useWechatPayment'
 
 interface Props {
   isMember: boolean

@@ -41,6 +41,7 @@
 
 <script setup lang="ts">
 import { User, HomeIcon, LogOut } from "lucide-vue-next";
+import { useUserNavigation } from '~/composables/useUserNavigation'
 
 // 使用共享的用户导航逻辑
 const { displayName, maskedPhone, handleLogout } = useUserNavigation();

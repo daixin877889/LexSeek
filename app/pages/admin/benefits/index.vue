@@ -207,6 +207,9 @@ import { Search, Plus, Loader2, Gift, Pencil, Power, Trash2 } from 'lucide-vue-n
 import { toast } from 'vue-sonner'
 import type { BenefitAdminInfo } from '#shared/types/benefit'
 import { formatByteSize } from '#shared/utils/unitConverision'
+import GeneralPagination from '~/components/general/pagination.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
+import type { benefits } from '~~/generated/prisma/client'
 
 definePageMeta({ layout: 'admin-layout', title: '权益类型管理' })
 

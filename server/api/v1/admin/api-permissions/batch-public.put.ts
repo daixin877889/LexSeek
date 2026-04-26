@@ -3,6 +3,9 @@
  * PUT /api/v1/admin/api-permissions/batch-public
  */
 import { z } from 'zod'
+import { updateApiPermissionsPublicStatusDao } from '~~/server/services/rbac/apiPermission.dao'
+import { logApiPermissionBatchPublic } from '~~/server/services/rbac/auditLog.service'
+import { refreshPublicApiPermissions } from '~~/server/services/rbac/permission.service'
 
 const bodySchema = z.object({
     ids: z.array(

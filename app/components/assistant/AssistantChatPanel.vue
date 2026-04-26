@@ -15,6 +15,9 @@
 import { RefreshCw as RefreshCwIcon } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { AiPromptSubmitData } from '~/components/ai/AiPromptInput.vue'
+import AiChat from '~/components/ai/AiChat.vue'
+import CaseInterruptConfirmation from '~/components/case/InterruptConfirmation.vue'
+import { useAssistantChat } from '~/composables/useAssistantChat'
 
 const props = defineProps<{
   sessionId: string

@@ -2,6 +2,10 @@
  * 用户服务层
  */
 import type { Prisma } from '#shared/types/prisma'
+import type { users } from '~~/generated/prisma/client'
+import { findRoleByIdsDao } from '~~/server/services/rbac/roles.dao'
+import { createUserRoleDao } from '~~/server/services/rbac/userRoles.dao'
+import { createUserDao } from '~~/server/services/users/users.dao'
 
 /**
  * 创建用户（带角色分配）

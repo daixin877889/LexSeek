@@ -3,6 +3,9 @@
  * PUT /api/v1/admin/roles/:id/api-permissions
  */
 import { z } from 'zod'
+import { logRoleAssignApiPermission } from '~~/server/services/rbac/auditLog.service'
+import { refreshRoleUsersPermissions } from '~~/server/services/rbac/permission.service'
+import { setRoleApiPermissionsDao } from '~~/server/services/rbac/roleApiPermission.dao'
 
 const bodySchema = z.object({
     permissionIds: z.array(

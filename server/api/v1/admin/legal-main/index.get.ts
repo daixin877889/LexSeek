@@ -5,6 +5,7 @@
 import { z } from 'zod'
 import { LegalType } from '#shared/types/legal'
 import { VALIDITY_STATUSES } from '#shared/types/legal-search'
+import { getLegalMainListService } from '~~/server/services/legal/legalMain.service'
 
 // 查询参数验证
 const querySchema = z.object({

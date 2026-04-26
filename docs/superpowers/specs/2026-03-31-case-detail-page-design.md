@@ -364,7 +364,7 @@ app/composables/useCaseDetail.ts            # 页面数据 composable
 | `CaseDetailBottomTabs` | 移动端底部 Tab 栏，emit 选中项变化 | — |
 | `CaseDetailOverview` | 概览三区块，接收数据 props | `CaseInfoCard`, `MaterialList`, `AnalysisResults` |
 | `CaseDetailMaterials` | 桌面端分栏 / 移动端列表+全屏预览 | `ResizablePanelGroup`（桌面端） |
-| `CaseDetailMaterialPreview` | 根据材料类型渲染预览 | `AiElementsMessageResponse`（Markdown 渲染） |
+| `CaseDetailMaterialPreview` | 根据材料类型渲染预览 | `MessageResponse`（Markdown 渲染） |
 | `CaseDetailAnalysis` | 包装 AnalysisResults，传递 props | `AnalysisResults` |
 | `CaseDetailXiaosuo` | 桌面端悬浮弹窗 / 移动端底部 Drawer | shadcn `Drawer`（移动端） |
 | `useCaseDetail` | 数据获取和状态管理 | `useApiFetch` |

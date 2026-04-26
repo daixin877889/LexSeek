@@ -795,12 +795,12 @@ function handleConfirm() {
 }
 ```
 
-- [ ] **Step 6: 更新 AiElementsConfirmationAccepted 已确认展示**
+- [ ] **Step 6: 更新 ConfirmationAccepted 已确认展示**
 
 替换已确认区域，增加 extraFields 展示：
 
 ```vue
-<AiElementsConfirmationAccepted>
+<ConfirmationAccepted>
     <div class="space-y-3">
         <div class="flex items-center gap-2 text-green-600">
             <CheckCircleIcon class="h-5 w-5" />
@@ -835,7 +835,7 @@ function handleConfirm() {
             </template>
         </div>
     </div>
-</AiElementsConfirmationAccepted>
+</ConfirmationAccepted>
 ```
 
 - [ ] **Step 7: 移除 Collapsible 相关导入（如不再使用）**

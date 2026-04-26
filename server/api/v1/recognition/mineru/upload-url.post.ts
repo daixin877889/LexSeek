@@ -19,6 +19,9 @@ import {
     getActiveTokenValueService,
     hasActiveTokenService,
 } from '~~/server/services/material/mineruToken.service'
+import { DocRecognitionStatus, MineruTaskStatus } from '#shared/types/recognition'
+import type { ossFiles } from '~~/generated/prisma/client'
+import { createDocRecognitionRecordDao, findDocRecognitionByOssFileIdDao, updateDocRecognitionRecordDao } from '~~/server/services/material/mineru.dao'
 
 /** 文件信息验证 Schema */
 const fileInfoSchema = z.object({

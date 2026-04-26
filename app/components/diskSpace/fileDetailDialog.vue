@@ -120,6 +120,13 @@
 <script lang="ts" setup>
 import { LockIcon, UnlockIcon, MusicIcon, AlertCircleIcon, DownloadIcon, Trash2Icon } from "lucide-vue-next";
 import dayjs from "dayjs";
+import toast from '#shared/utils/toast'
+import { formatByteSize } from '#shared/utils/unitConverision'
+import GeneralAudioPlayer from '~/components/general/audio/AudioPlayer.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useAlertDialogStore } from '~/store/alertDialog'
+import type { OssFileItem } from '~/store/file'
+import { canPreviewFile, getFileIcon, getFileIconBg, getFileIconColor, isAudioType, isImageType } from '~/utils/file'
 
 // ==================== Props ====================
 

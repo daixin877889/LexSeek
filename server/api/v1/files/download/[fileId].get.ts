@@ -1,3 +1,4 @@
+import { generateOssDownloadSignaturesService } from '~~/server/services/files/files.service'
 /**
  * 生成单个文件的下载预签名 URL
  *

@@ -5,6 +5,7 @@
  * _Requirements: 3.1-3.4_
  */
 import { z } from 'zod'
+import { invalidateRedemptionCodeService } from '~~/server/services/redemption/redemptionCode.admin.service'
 
 // 路由参数验证
 const paramsSchema = z.object({

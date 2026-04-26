@@ -219,6 +219,10 @@ import { getFileIcon, getFileIconColor } from "~/utils/file";
 import { isImageFile, isAudioFile, isRecognizableDocFile } from "~~/shared/utils/fileType";
 import { FileSource } from "#shared/types/file";
 import { useBatchUpload, type FileUploadState } from '~/composables/useBatchUpload';
+import CaseAnalysisAudioPreviewDialog from '~/components/caseAnalysis/AudioPreviewDialog.vue'
+import CaseAnalysisDocPreviewDialog from '~/components/caseAnalysis/DocPreviewDialog.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useFileStore } from '~/store/file'
 
 /**
  * 通用 AI 输入框提交数据

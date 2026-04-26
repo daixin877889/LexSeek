@@ -82,6 +82,7 @@
 <script setup lang="ts">
 import { Plus, X } from 'lucide-vue-next'
 import type { AcceptableValue } from 'reka-ui'
+import AdminNodesSchemaFieldList from '~/components/admin/nodes/SchemaFieldList.vue'
 
 interface SchemaField {
     name: string

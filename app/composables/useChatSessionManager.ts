@@ -28,6 +28,9 @@ import {
 } from './chatQueueActions'
 import { postCrossTabEvent, useCrossTabListener } from './useCrossTabEvents'
 import { useQueueDispatcher } from './useQueueDispatcher'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useCaseChat } from '~/composables/useCaseChat'
+import { stopActiveRun } from '~/composables/useStopActiveRun'
 
 export interface SessionItem {
     sessionId: string

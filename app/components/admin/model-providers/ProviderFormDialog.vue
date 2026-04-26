@@ -35,6 +35,7 @@
 import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { ModelProvider } from '#shared/types/model'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 // 定义事件
 const emit = defineEmits<{

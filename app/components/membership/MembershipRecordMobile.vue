@@ -43,6 +43,8 @@
 
 <script lang="ts" setup>
 import type { MembershipRecord, MembershipLevelDisplay } from "#shared/types/membership";
+import { useFormatters } from '~/composables/useFormatters'
+import { useMembershipStatus } from '~/composables/useMembershipStatus'
 
 // ==================== Props ====================
 

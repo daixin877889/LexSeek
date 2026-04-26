@@ -11,6 +11,8 @@ import { z } from 'zod'
 import { createCaseService } from '~~/server/services/case/case.service'
 import type { PartyInfo, CaseMaterialParam } from '#shared/types/case'
 import { CaseMaterialType } from '#shared/types/case'
+import { parseErrorMessage } from '#shared/utils/apiResponse'
+import { getFirstEnabledCaseTypeService } from '~~/server/services/case/caseType.service'
 
 // 当事人信息验证
 const partyInfoSchema = z.object({

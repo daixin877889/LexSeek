@@ -36,6 +36,7 @@
 
 <script setup lang="ts">
 import { AgentAuditVerdictText, type AgentAuditRecord } from '#shared/types/agentAudit'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 const isOpen = defineModel<boolean>('open', { default: false })
 const props = defineProps<{ recordId: string }>()

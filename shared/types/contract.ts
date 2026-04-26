@@ -61,6 +61,17 @@ export type RiskDisplay = Risk & {
     entityId?: number
 }
 
+/**
+ * Phase B：RiskListPanel / RiskCard 共享的扩展显示类型。
+ * source/orphaned/originalAnchorQuote 字段从 contractRisks 表透传（首次审查后由后端补齐），
+ * 前端依据这些字段做"外部新增分组""孤立批注区"等分组渲染。
+ */
+export type RiskDisplayPhaseB = RiskDisplay & {
+    source?: RiskSource
+    orphaned?: boolean
+    originalAnchorQuote?: string | null
+}
+
 export interface CreateReviewRequest {
     sourceType: 'upload' | 'paste'
     ossFileId?: number

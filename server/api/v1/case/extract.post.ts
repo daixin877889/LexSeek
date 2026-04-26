@@ -22,6 +22,7 @@ import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { processFileMaterials } from '~~/server/services/material/fileProcess.service'
 import type { FileProcessContext } from '~~/server/services/material/fileProcess.service'
 import { countTokens } from '~~/server/utils/tokenCounter'
+import { getEnabledCaseTypesService } from '~~/server/services/case/caseType.service'
 
 const EXTRACT_NODE_NAME = 'extractInfo'
 

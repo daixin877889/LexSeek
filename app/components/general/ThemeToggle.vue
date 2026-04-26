@@ -50,6 +50,8 @@
 
 <script lang="ts" setup>
 import { Sun, Moon, Monitor, Check } from "lucide-vue-next";
+import { useColorMode } from '~/composables/useColorMode'
+import { useTheme } from '~/composables/useTheme'
 
 // 颜色模式
 const { colorMode, resolvedMode, setColorMode } = useColorMode();

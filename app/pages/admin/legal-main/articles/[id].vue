@@ -143,6 +143,13 @@
 import { ArrowLeft, Plus, Loader2, FileText, ArrowUpDown, Save, Database, Zap, RotateCcw } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { LegalArticleListItem, CreateLegalArticleRequest, UpdateLegalArticleRequest } from '#shared/types/legal'
+import AdminLegalArticlesArticleFilters from '~/components/admin/legal-articles/ArticleFilters.vue'
+import AdminLegalArticlesArticleMobile from '~/components/admin/legal-articles/ArticleMobile.vue'
+import AdminLegalArticlesArticleTable from '~/components/admin/legal-articles/ArticleTable.vue'
+import GeneralPagination from '~/components/general/pagination.vue'
+import LegalArticleSortTree from '~/components/legal/ArticleSortTree.vue'
+import LegalArticleForm from '~/components/legal/LegalArticleForm.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 definePageMeta({
     layout: 'admin-layout',

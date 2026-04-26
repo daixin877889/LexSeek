@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod'
+import { updateDemoCaseStatusService } from '~~/server/services/case/demoCase.service'
 
 /** 路由参数验证 */
 const paramsSchema = z.object({

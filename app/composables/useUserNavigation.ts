@@ -1,3 +1,7 @@
+import { maskTel } from '#shared/utils/phone'
+import { useAuthStore } from '~/store/auth'
+import { useUserStore } from '~/store/user'
+import { resetAllStore } from '~/utils/resetStore'
 /**
  * 用户导航相关的共享逻辑
  * 

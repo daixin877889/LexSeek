@@ -38,6 +38,7 @@ import {
     getNodeConfigByIdDao,
 } from './node.dao'
 import { findModelByIdDao } from '../model/models.dao'
+import type { nodes } from '~~/generated/prisma/client'
 
 // ==================== 节点配置类型定义 ====================
 

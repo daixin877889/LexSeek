@@ -4,6 +4,7 @@
 
 <script lang="ts" setup>
 import { usePromptInput } from "@/components/ai-elements/prompt-input";
+import { useCaseAnalysisStore } from '~/store/caseAnalysis'
 
 const props = defineProps<{
   filesCount?: number

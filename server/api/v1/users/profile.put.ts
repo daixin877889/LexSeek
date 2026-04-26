@@ -1,3 +1,8 @@
+import { parseErrorMessage } from '#shared/utils/apiResponse'
+import { createLogger } from '#shared/utils/logger'
+import { z } from '#shared/utils/zod'
+import { formatUserResponseService } from '~~/server/services/users/userResponse.service'
+import { findUserByIdDao, updateUserProfileDao } from '~~/server/services/users/users.dao'
 /**
  * 更新当前登录用户的资料
  */

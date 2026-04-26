@@ -2,6 +2,7 @@
  * 用户数据访问层
  */
 import type { Prisma } from '#shared/types/prisma'
+import type { roles, userRoles, users } from '~~/generated/prisma/client'
 
 /**
  * 创建用户

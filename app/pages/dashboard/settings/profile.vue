@@ -43,6 +43,8 @@
 
 <script setup>
 import { Loader2Icon, SaveIcon } from "lucide-vue-next";
+import toast from '#shared/utils/toast'
+import { useUserStore } from '~/store/user'
 
 definePageMeta({
   layout: "dashboard-layout",

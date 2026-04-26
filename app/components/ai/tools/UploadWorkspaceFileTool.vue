@@ -3,7 +3,7 @@
  * upload_workspace_file 工具调用渲染器
  *
  * 直接把工具调用渲染为"文件卡片 / 错误条 / 上传中条"三种形态之一，
- * 不再套用通用的工具折叠面板（`AiElementsTool`），避免交付物被折叠
+ * 不再套用通用的工具折叠面板（`Tool`），避免交付物被折叠
  * 层级淹没导致用户忽略。
  *
  * 工具输出保持 `[file-card]\nkey: value\n[/file-card]` 文本格式（与
@@ -12,6 +12,7 @@
  */
 import { AlertCircleIcon, Loader2Icon } from 'lucide-vue-next'
 import type { ExtendedToolState } from '@/components/ai-elements/types'
+import AiFileCard from '~/components/ai/FileCard.vue'
 
 const props = defineProps<{
   toolName: string

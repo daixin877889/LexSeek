@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { SparklesIcon, HistoryIcon, InfoIcon } from 'lucide-vue-next'
 import type { DocumentDraftSnapshot } from '#shared/types/document'
+import { formatDate } from '~/utils/formatDate'
 
 defineProps<{
     snapshots: DocumentDraftSnapshot[]

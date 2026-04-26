@@ -213,6 +213,8 @@
 <script setup lang="ts">
 import { Search, RefreshCw, Trash2, Loader2, Key, Download, CheckCircle } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import GeneralPagination from '~/components/general/pagination.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 definePageMeta({ layout: 'admin-layout', title: "API 权限管理" })
 

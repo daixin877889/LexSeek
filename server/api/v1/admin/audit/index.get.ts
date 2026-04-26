@@ -3,6 +3,7 @@
  * GET /api/v1/admin/audit
  */
 import { z } from 'zod'
+import { findAuditLogsDao } from '~~/server/services/rbac/auditLog.dao'
 
 const querySchema = z.object({
     page: z.coerce.number().int().min(1).default(1),

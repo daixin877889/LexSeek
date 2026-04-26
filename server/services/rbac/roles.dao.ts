@@ -2,6 +2,7 @@
  * 角色数据访问层
  */
 import type { Prisma } from "#shared/types/prisma";
+import type { roles } from '~~/generated/prisma/client'
 /**
  * 查询角色列表
  */

@@ -191,6 +191,8 @@ import { toast } from 'vue-sonner'
 import dayjs from 'dayjs'
 import { NodeTypeLabels, NodeTypeVariants } from '#shared/types/node'
 import type { NodeWithRelations } from '#shared/types/node'
+import AdminNodesNodeFormDialog from '~/components/admin/nodes/NodeFormDialog.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 definePageMeta({ layout: 'admin-layout', title: '节点详情' })
 

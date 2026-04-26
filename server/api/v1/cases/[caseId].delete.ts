@@ -5,6 +5,7 @@
  */
 
 import { z } from 'zod'
+import { deleteCaseService, validateCaseAccessService } from '~~/server/services/case/case.service'
 
 /** 路由参数验证 */
 const paramsSchema = z.object({

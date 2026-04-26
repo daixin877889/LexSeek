@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod'
+import { getAllNodeGroupsService, getNodeGroupsService } from '~~/server/services/node/node.service'
 
 /** 查询参数验证 */
 const querySchema = z.object({

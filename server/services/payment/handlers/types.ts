@@ -1,3 +1,4 @@
+import type { orders, products } from '~~/generated/prisma/client'
 /**
  * 支付成功处理器类型定义
  */

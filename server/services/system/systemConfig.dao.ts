@@ -1,3 +1,5 @@
+import { SystemConfigStatus } from '#shared/types/system'
+import type { systemConfigs } from '~~/generated/prisma/client'
 
 /**
  * 系统配置存储库

@@ -27,6 +27,11 @@ import {
 } from 'lucide-vue-next'
 import type { ReviewListItem } from '#shared/types/contract'
 import { REVIEW_STATUS_LABEL } from '#shared/types/contract'
+import AssistantContractNewReviewDialog from '~/components/assistant/contract/NewReviewDialog.vue'
+import GeneralPagination from '~/components/general/pagination.vue'
+import { useApi } from '~/composables/useApi'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useAlertDialogStore } from '~/store/alertDialog'
 
 definePageMeta({
     layout: 'dashboard-layout',

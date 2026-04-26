@@ -41,6 +41,7 @@
 import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { NodeGroup } from '#shared/types/node'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 // 定义事件
 const emit = defineEmits<{

@@ -16,6 +16,7 @@ import {
 } from './order.dao'
 import { findProductByIdDao } from '../product/product.dao'
 import { decimalToNumberUtils } from '#shared/utils/decimalToNumber'
+import type { orders, products } from '~~/generated/prisma/client'
 
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma

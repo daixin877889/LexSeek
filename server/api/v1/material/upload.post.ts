@@ -12,6 +12,7 @@ import { z } from 'zod'
 import { createMaterialService } from '~~/server/services/material/material.service'
 import { CaseMaterialType } from '#shared/types/case'
 import { MaterialStatus } from '#shared/types/material'
+import { parseErrorMessage } from '#shared/utils/apiResponse'
 
 // 请求体验证
 const uploadMaterialSchema = z.object({

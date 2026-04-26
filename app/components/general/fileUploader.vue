@@ -177,6 +177,14 @@
 <script setup lang="ts">
 import { UploadIcon, XIcon } from "lucide-vue-next";
 import { useBatchUpload } from "~/composables/useBatchUpload";
+import { FileSource } from '#shared/types/file'
+import type { FileSourceAccept } from '#shared/types/file'
+import type { PostSignatureResult } from '#shared/types/oss'
+import { mime } from '#shared/utils/mime'
+import toast from '#shared/utils/toast'
+import { formatByteSize } from '#shared/utils/unitConverision'
+import type { AcceptItem } from '~/composables/useBatchUpload'
+import { useFileStore } from '~/store/file'
 
 /**
  * 文件上传组件 Props

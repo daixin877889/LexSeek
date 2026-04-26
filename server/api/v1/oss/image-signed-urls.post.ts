@@ -11,6 +11,7 @@
 
 import { z } from 'zod'
 import { generateOssDownloadSignaturesService } from '~~/server/services/files/files.service'
+import type { ossFiles } from '~~/generated/prisma/client'
 
 // 请求体验证
 const bodySchema = z.object({

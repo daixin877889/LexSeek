@@ -5,6 +5,7 @@
  */
 
 import { z } from 'zod'
+import { findModelApiKeyByIdDao, updateModelApiKeyDao } from '~~/server/services/model/modelApiKeys.dao'
 
 /** 路由参数验证 */
 const paramsSchema = z.object({

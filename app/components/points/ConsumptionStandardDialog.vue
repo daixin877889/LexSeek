@@ -16,6 +16,7 @@
 </template>
 
 <script lang="ts" setup>
+import PointsConsumptionStandard from '~/components/points/consumptionStandard.vue'
 // ==================== Props ====================
 
 interface Props {

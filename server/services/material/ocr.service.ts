@@ -24,6 +24,7 @@ import { generateSignedUrlService } from '../storage/storage.service'
 import { getValidNodeConfig, getNodeConfigService, type NodeConfig } from '../node/node.service'
 import { embedImageService } from './materialEmbedding.service'
 import { markdownToHtmlService } from './mineruResult.service'
+import { ImageType } from '#shared/types/recognition'
 
 /** OCR 节点名称 */
 const OCR_NODE_NAME = 'extractImageInfo'

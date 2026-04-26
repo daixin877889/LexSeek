@@ -6,6 +6,7 @@
 
 import type { CreateModelInput, UpdateModelInput, ModelType } from '#shared/types/model'
 import type { Prisma } from '~~/generated/prisma/client'
+import type { models } from '~~/generated/prisma/client'
 
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma

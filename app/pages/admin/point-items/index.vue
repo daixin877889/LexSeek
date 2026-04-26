@@ -155,6 +155,9 @@
 import { Plus, Loader2, Coins, Search, MoreHorizontal, Pencil, Trash2, Power } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { PointConsumptionItem } from '#shared/types/point.types'
+import AdminPointItemsFormDialog from '~/components/admin/point-items/FormDialog.vue'
+import GeneralPagination from '~/components/general/pagination.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 definePageMeta({ layout: 'admin-layout', title: '积分消耗项目' })
 

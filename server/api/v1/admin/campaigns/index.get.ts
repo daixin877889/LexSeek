@@ -6,6 +6,7 @@
 
 import { z } from 'zod'
 import { CampaignType, CampaignStatus } from '#shared/types/campaign'
+import { getCampaignsForAdminService } from '~~/server/services/campaign/campaign.service'
 
 /** 查询参数验证 */
 const querySchema = z.object({

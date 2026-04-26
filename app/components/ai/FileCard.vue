@@ -20,6 +20,7 @@ import {
   BanIcon,
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 interface Props {
   /** 文件 ID（OSS 数据库 ID，临时文件为 temp_xxx 字符串） */

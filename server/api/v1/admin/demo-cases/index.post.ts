@@ -8,6 +8,7 @@
 import { z } from 'zod'
 import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
 import { ensureSourceFileRecognitionService } from '~~/server/services/case/demoCase.service'
+import { createDemoCaseService } from '~~/server/services/case/demoCase.service'
 
 /** 材料项验证 */
 const materialSchema = z.object({

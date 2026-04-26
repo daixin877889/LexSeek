@@ -3,6 +3,7 @@
  * GET /api/v1/admin/legal-articles
  */
 import { z } from 'zod'
+import { getLegalArticlesListService } from '~~/server/services/legal/legalArticles.service'
 
 // 查询参数验证
 const querySchema = z.object({

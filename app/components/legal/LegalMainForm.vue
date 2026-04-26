@@ -140,6 +140,9 @@ import { toast } from 'vue-sonner'
 import MarkstreamVue, { enableMermaid, setDefaultI18nMap } from 'markstream-vue'
 import 'markstream-vue/index.css'
 import type { LegalMainInfo, CreateLegalMainRequest, UpdateLegalMainRequest, LegalType } from '#shared/types/legal'
+import GeneralDatePicker from '~/components/general/DatePicker.vue'
+import GeneralRichTextEditor from '~/components/general/RichTextEditor.vue'
+import { useColorMode } from '~/composables/useColorMode'
 
 // 启用 Mermaid 渲染（传入 mermaid 模块的动态导入函数）
 enableMermaid(() => import('mermaid'))

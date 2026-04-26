@@ -67,6 +67,7 @@
 <script setup lang="ts">
 import { Pencil, Trash2, Play, Pause } from 'lucide-vue-next'
 import type { CampaignInfo } from '#shared/types/campaign'
+import type { campaigns } from '~~/generated/prisma/client'
 
 // 定义 props
 defineProps<{

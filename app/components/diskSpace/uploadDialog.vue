@@ -14,6 +14,8 @@
 </template>
 
 <script lang="ts" setup>
+import { FileSource } from '#shared/types/file'
+import GeneralFileUploader from '~/components/general/fileUploader.vue'
 // ==================== Props ====================
 
 interface Props {

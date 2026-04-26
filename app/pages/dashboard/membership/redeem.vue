@@ -32,6 +32,14 @@
 
 <script lang="ts" setup>
 import { type RedemptionCodeInfo, type RedemptionRecordInfo } from "#shared/types/redemption";
+import toast from '#shared/utils/toast'
+import GeneralPagination from '~/components/general/pagination.vue'
+import RedeemCodeInfo from '~/components/redeem/RedeemCodeInfo.vue'
+import RedeemCodeInput from '~/components/redeem/RedeemCodeInput.vue'
+import RedeemHistoryMobile from '~/components/redeem/RedeemHistoryMobile.vue'
+import RedeemHistoryTable from '~/components/redeem/RedeemHistoryTable.vue'
+import { useApi } from '~/composables/useApi'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 // 页面元信息
 definePageMeta({

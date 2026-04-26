@@ -11,6 +11,7 @@ import { z } from 'zod'
 import { getDocumentDraftDAO } from '~~/server/services/assistant/document/documentDraft.dao'
 import { deleteMaterialService } from '~~/server/services/material/material.service'
 import { deleteMaterialEmbeddings } from '~~/server/services/material/materialEmbedding.service'
+import { parseErrorMessage } from '#shared/utils/apiResponse'
 
 const paramsSchema = z.object({
     id: z.coerce.number().int().positive(),

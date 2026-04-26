@@ -3,6 +3,7 @@ import type { HTMLAttributes } from 'vue'
 import { cn } from '@repo/shadcn-vue/lib/utils'
 import { computed, Fragment, isVNode, onMounted, useSlots, watch } from 'vue'
 import { useMessageBranchContext } from './context'
+import type { nodes } from '~~/generated/prisma/client'
 
 interface Props {
   class?: HTMLAttributes['class']

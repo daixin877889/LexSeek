@@ -506,19 +506,19 @@ if (run && TERMINAL_STATUSES.includes(run.status)) {
 
 ### 影响范围
 
-所有使用 `<AiElementsMessageResponse>` 展示**已完成内容**且内容中包含表格的场景。
+所有使用 `<MessageResponse>` 展示**已完成内容**且内容中包含表格的场景。
 
 ### 正确做法
 
 ```vue
 <!-- ❌ 错误：默认 mode="streaming"，已完成内容的表格会一直显示 loading -->
-<AiElementsMessageResponse :content="content" />
+<MessageResponse :content="content" />
 
 <!-- ✅ 正确：已完成内容使用 static 模式 -->
-<AiElementsMessageResponse :content="content" mode="static" />
+<MessageResponse :content="content" mode="static" />
 
 <!-- ✅ 正确：流式传输中的内容使用默认的 streaming 模式 -->
-<AiElementsMessageResponse :content="streamingContent" />
+<MessageResponse :content="streamingContent" />
 ```
 
 ### 相关文件

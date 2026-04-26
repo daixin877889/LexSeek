@@ -9,6 +9,7 @@
  */
 
 import { z } from 'zod'
+import { batchSortArticlesService } from '~~/server/services/legal/legalArticles.service'
 
 // 请求体验证
 const bodySchema = z.object({

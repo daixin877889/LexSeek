@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod'
+import { deleteMineruTokenService } from '~~/server/services/material/mineruToken.service'
 
 /** 路由参数验证 */
 const paramsSchema = z.object({

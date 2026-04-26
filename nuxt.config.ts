@@ -20,13 +20,13 @@ export default defineNuxtConfig({
       ],
     },
   },
-  // 组件配置：排除 index.ts 文件避免与 .vue 组件名称冲突
+  // 组件配置：仅自动注册 ai-elements/，业务组件全部显式 import
+  // shadcn-nuxt 模块独立通过 addComponent API 注册 ui/，不受 components.dirs 影响
   components: {
     dirs: [
       {
-        path: '~/components',
-        // 排除 index.ts 文件，避免与同名 .vue 组件冲突
-        // 例如：artifact/index.ts 和 artifact/Artifact.vue 都会被解析为 AiElementsArtifact
+        path: '~/components/ai-elements',
+        pathPrefix: false,
         ignore: ['**/index.ts', '**/context.ts'],
       },
     ],
@@ -106,13 +106,15 @@ export default defineNuxtConfig({
     '@pinia/nuxt',
   ],
   imports: {
-    // 自动导入 store 目录下的所有 store
-    dirs: ['store'],
+    // 关闭自定义代码扫描（composables / utils / store / shared/utils / shared/types）
+    // Vue / Nuxt 内置 magic（ref / computed / useRoute / useFetch / defineEventHandler 等）仍保留
+    scan: false,
+    dirs: [],
     imports: [
-      // 导入 logger 便捷函数和默认实例
-      // 使用 #shared 别名指向项目根目录的 shared 文件夹
-      // { name: 'logger', from: '#shared/utils/logger' },
-
+      // 高频共享工具白名单，保留自动导入避免 import 冗余
+      { name: 'logger', from: '#shared/utils/logger' },
+      { name: 'resSuccess', from: '#shared/utils/apiResponse' },
+      { name: 'resError', from: '#shared/utils/apiResponse' },
     ]
   },
   future: {
@@ -122,14 +124,14 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   nitro: {
     imports: {
-      dirs: [
-        // './server/lib/*',
-        './server/services/*/*',
-      ],
+      // 保留 nitro 默认 magic：H3 函数 / server/utils/* / nitropack 内部
+      // 只关闭 server/services/*/* 自动扫描（项目自定义业务代码必须显式 import）
+      dirs: [],
       imports: [
-        // 服务端 logger 自动导入
-        // { name: 'logger', from: '#shared/utils/logger' },
-
+        // 白名单：高频共享工具保留自动可用
+        { name: 'logger', from: '#shared/utils/logger' },
+        { name: 'resSuccess', from: '#shared/utils/apiResponse' },
+        { name: 'resError', from: '#shared/utils/apiResponse' },
       ]
     },
     // 解决 dayjs/zod ESM 模块解析问题，确保打包进 .output

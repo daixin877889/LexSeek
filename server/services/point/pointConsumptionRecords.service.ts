@@ -4,6 +4,7 @@
  * 提供积分消耗记录的业务逻辑处理
  */
 import { findPointConsumptionRecordsByUserIdDao } from './pointConsumptionRecords.dao'
+import type { pointConsumptionItems, pointConsumptionRecords } from '~~/generated/prisma/client'
 
 /**
  * 获取用户积分消耗记录列表（分页）

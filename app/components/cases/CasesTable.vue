@@ -104,6 +104,10 @@
 import { Eye, Trash2, Archive } from 'lucide-vue-next'
 import { isCaseReadOnly } from '#shared/types/case'
 import type { CaseListItem, CaseTypeOption } from '#shared/types/case'
+import CasesCaseStatusBadge from '~/components/cases/CaseStatusBadge.vue'
+import CasesArchiveDialog from '~/components/cases/CasesArchiveDialog.vue'
+import { useArchiveCase } from '~/composables/useArchiveCase'
+import { useFormatters } from '~/composables/useFormatters'
 
 const props = defineProps<{
     list: CaseListItem[]

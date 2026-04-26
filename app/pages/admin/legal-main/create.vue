@@ -20,6 +20,8 @@
 import { ArrowLeft } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { CreateLegalMainRequest, UpdateLegalMainRequest } from '#shared/types/legal'
+import LegalMainForm from '~/components/legal/LegalMainForm.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 definePageMeta({
     layout: 'admin-layout',

@@ -286,6 +286,8 @@ import { Input } from "@/components/ui/input";
 import { PlayIcon, PauseIcon, Volume2Icon, MicIcon, MaximizeIcon, MinimizeIcon, XIcon, InfoIcon, EditIcon, DownloadIcon, Loader2Icon } from "lucide-vue-next";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import AudioPlayer from "./AudioPlayer.vue";
+import toast from '#shared/utils/toast'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 /**
  * Props定义

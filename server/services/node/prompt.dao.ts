@@ -12,6 +12,7 @@ import type {
     PromptType,
 } from '#shared/types/node'
 import type { Prisma } from '~~/generated/prisma/client'
+import type { prompts } from '~~/generated/prisma/client'
 
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma

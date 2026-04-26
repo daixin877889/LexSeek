@@ -258,7 +258,7 @@ LexSeek 当前同时依赖多层自动导入：
 
 - `AiPromptInput` / `caseAnalysis/promptInput`
 - `AiMessageList` / `AiMessageListVirtualItem`
-- `case` 与 `caseAnalysis` 下使用 `AiElementsConfirmation*` 的中断组件
+- `case` 与 `caseAnalysis` 下使用 `Confirmation*` 的中断组件
 - 任何使用 `PromptInput`、`Confirmation`、`Queue`、`Tool` 等高频家族的页面或组件
 
 ---

@@ -8,6 +8,7 @@
 import dayjs from 'dayjs'
 import { z } from 'zod'
 import { CampaignType, CampaignStatus, type CampaignInfo } from '#shared/types/campaign'
+import { findAllCampaignsDao } from '~~/server/services/campaign/campaign.dao'
 
 // 查询参数验证 schema
 const querySchema = z.object({

@@ -1,3 +1,4 @@
+import { deleteLegalMainService } from '~~/server/services/legal/legalMain.service'
 /**
  * 删除法律法规（软删除）
  * DELETE /api/v1/admin/legal-main/:id

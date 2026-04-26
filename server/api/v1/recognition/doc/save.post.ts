@@ -11,6 +11,8 @@
 
 import { z } from 'zod'
 import { embedDocumentService } from '~~/server/services/material/materialEmbedding.service'
+import { DocRecognitionStatus } from '#shared/types/recognition'
+import { createDocRecognitionRecordDao, findDocRecognitionByOssFileIdDao, updateDocRecognitionRecordDao } from '~~/server/services/material/mineru.dao'
 
 // 请求体验证
 const bodySchema = z.object({

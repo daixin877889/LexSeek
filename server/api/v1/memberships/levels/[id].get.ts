@@ -8,6 +8,7 @@
 import { z } from 'zod'
 import type { MembershipLevelInfo } from '#shared/types/membership'
 import { MembershipLevelStatus } from '#shared/types/membership'
+import { findMembershipLevelByIdDao } from '~~/server/services/membership/membershipLevel.dao'
 
 // 参数验证 schema
 const paramsSchema = z.object({

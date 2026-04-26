@@ -1,3 +1,4 @@
+import { getLegalArticleDetailService } from '~~/server/services/legal/legalArticles.service'
 /**
  * 获取法律条文详情
  * GET /api/v1/admin/legal-articles/:id

@@ -1,3 +1,5 @@
+import { z } from '#shared/utils/zod'
+import { redeemCodeService } from '~~/server/services/redemption/redemption.service'
 /**
  * 兑换码兑换
  *

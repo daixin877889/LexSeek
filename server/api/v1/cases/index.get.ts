@@ -9,6 +9,7 @@
 
 import { z } from 'zod'
 import { getUserCasesService } from '~~/server/services/case/case.service'
+import { parseErrorMessage } from '#shared/utils/apiResponse'
 
 // 查询参数验证
 const querySchema = z.object({

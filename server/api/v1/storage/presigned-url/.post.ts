@@ -6,6 +6,19 @@
 
 import { StorageProviderType } from '~~/server/lib/storage/types'
 import type { Prisma } from '#shared/types/prisma'
+import { FileSource, OssFileStatus } from '#shared/types/file'
+import type { FileSourceAccept } from '#shared/types/file'
+import type { PostSignatureResult } from '#shared/types/oss'
+import { parseErrorMessage } from '#shared/utils/apiResponse'
+import { getExtensionFromFileName, getFileSourceAccept } from '#shared/utils/file'
+import { createLogger } from '#shared/utils/logger'
+import { mime } from '#shared/utils/mime'
+import { formatByteSize } from '#shared/utils/unitConverision'
+import { uuidv7 } from '#shared/utils/uuid'
+import { z } from '#shared/utils/zod'
+import { createOssFilesDao } from '~~/server/services/files/ossFiles.dao'
+import { checkStorageQuotaService } from '~~/server/services/membership/userBenefit.service'
+import { generatePostSignatureService } from '~~/server/services/storage/storage.service'
 
 /** 单个文件信息 */
 interface FileInfo {

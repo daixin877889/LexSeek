@@ -48,6 +48,7 @@
 <script setup lang="ts">
 import { Pencil, Trash2, Eye, EyeOff } from 'lucide-vue-next'
 import type { ProductInfo } from '#shared/types/product'
+import type { products } from '~~/generated/prisma/client'
 
 // 定义 props
 defineProps<{

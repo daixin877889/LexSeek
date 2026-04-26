@@ -39,6 +39,9 @@ import {
     ClockIcon,
 } from 'lucide-vue-next'
 import { useMediaQuery } from '@vueuse/core'
+import CaseAnalysisVersionSheet from '~/components/case/AnalysisVersionSheet.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useFormatters } from '~/composables/useFormatters'
 
 /**
  * 组件属性接口
@@ -586,18 +589,18 @@ function formatAnalyzedAt(dateStr: string): string {
 
                 <!-- 详情视图 -->
                 <div v-else key="detail" class="flex-1 overflow-hidden">
-                    <AiElementsArtifact v-if="currentResult" class="h-full border-0 rounded-none shadow-none">
+                    <Artifact v-if="currentResult" class="h-full border-0 rounded-none shadow-none">
                         <!-- 头部：标题和操作按钮 -->
-                        <AiElementsArtifactHeader>
+                        <ArtifactHeader>
                             <div class="flex items-center gap-3">
                                 <Button variant="ghost" size="icon" class="size-8 -ml-2 shrink-0" @click="goBack">
                                     <ArrowLeftIcon class="size-4" />
                                 </Button>
                                 <div class="flex flex-col gap-0.5 min-w-0">
                                     <div class="flex items-center gap-2">
-                                        <AiElementsArtifactTitle class="truncate">
+                                        <ArtifactTitle class="truncate">
                                             {{ currentResult.moduleTitle || currentResult.moduleName }}
-                                        </AiElementsArtifactTitle>
+                                        </ArtifactTitle>
                                         <Badge variant="secondary"
                                             class="px-1 py-0 h-4 text-[10px] font-normal shrink-0">
                                             第 {{ currentResult.version ?? 1 }} 版
@@ -610,53 +613,53 @@ function formatAnalyzedAt(dateStr: string): string {
                                 </div>
                             </div>
 
-                            <AiElementsArtifactActions>
+                            <ArtifactActions>
                                 <!-- 版本按钮 -->
-                                <AiElementsArtifactAction v-if="showVersions && caseId" tooltip="历史版本"
+                                <ArtifactAction v-if="showVersions && caseId" tooltip="历史版本"
                                     @click="versionSheetOpen = true">
                                     <HistoryIcon class="size-4" />
-                                </AiElementsArtifactAction>
+                                </ArtifactAction>
 
                                 <!-- 复制按钮 -->
-                                <AiElementsArtifactAction v-if="showCopy" tooltip="复制内容" @click="handleCopy">
+                                <ArtifactAction v-if="showCopy" tooltip="复制内容" @click="handleCopy">
                                     <CheckIcon v-if="isCurrentCopied" class="size-4 text-green-500" />
                                     <CopyIcon v-else class="size-4" />
-                                </AiElementsArtifactAction>
+                                </ArtifactAction>
 
                                 <!-- 翻页按钮 -->
                                 <div class="flex items-center bg-muted/50 rounded-lg p-0.5 ml-1">
-                                    <AiElementsArtifactAction tooltip="上一个模块" :disabled="currentCompleteIndex <= 0"
+                                    <ArtifactAction tooltip="上一个模块" :disabled="currentCompleteIndex <= 0"
                                         @click="goToPrev">
                                         <ChevronLeftIcon class="size-4" />
-                                    </AiElementsArtifactAction>
+                                    </ArtifactAction>
                                     <div class="w-px h-3 bg-border mx-0.5"></div>
-                                    <AiElementsArtifactAction tooltip="下一个模块"
+                                    <ArtifactAction tooltip="下一个模块"
                                         :disabled="currentCompleteIndex >= completeCards.length - 1" @click="goToNext">
                                         <ChevronRightIcon class="size-4" />
-                                    </AiElementsArtifactAction>
+                                    </ArtifactAction>
                                 </div>
-                            </AiElementsArtifactActions>
-                        </AiElementsArtifactHeader>
+                            </ArtifactActions>
+                        </ArtifactHeader>
 
                         <!-- 内容区域 -->
-                        <AiElementsArtifactContent class="overflow-y-auto">
+                        <ArtifactContent class="overflow-y-auto">
                             <div class="relative px-8 pt-8 pb-12">
 
                                 <!-- 重新生成中的加载状态 -->
                                 <div v-if="isCurrentRegenerating" class="flex items-center justify-center py-12">
                                     <div class="flex flex-col items-center gap-3">
-                                        <AiElementsLoader :size="24" />
+                                        <Loader :size="24" />
                                         <span class="text-sm text-muted-foreground">正在重新生成...</span>
                                     </div>
                                 </div>
 
                                 <!-- Markdown 内容渲染 -->
-                                <AiElementsMessageResponse v-else :content="currentResult.content ?? ''"
+                                <MessageResponse v-else :content="currentResult.content ?? ''"
                                     mode="static"
                                     class="prose prose-sm dark:prose-invert max-w-none" />
                             </div>
-                        </AiElementsArtifactContent>
-                    </AiElementsArtifact>
+                        </ArtifactContent>
+                    </Artifact>
                 </div>
             </Transition>
         </template>

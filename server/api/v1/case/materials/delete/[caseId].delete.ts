@@ -10,6 +10,8 @@ import { z } from 'zod'
 import { validateCaseAccessService } from '~~/server/services/case/case.service'
 import { deleteMaterialService } from '~~/server/services/material/material.service'
 import { deleteMaterialEmbeddings } from '~~/server/services/material/materialEmbedding.service'
+import { parseErrorMessage } from '#shared/utils/apiResponse'
+import type { caseMaterials } from '~~/generated/prisma/client'
 
 const paramsSchema = z.object({
     caseId: z.coerce.number().int().positive(),

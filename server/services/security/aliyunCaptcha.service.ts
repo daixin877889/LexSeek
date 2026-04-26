@@ -1,6 +1,7 @@
 import * as CaptchaModule from '@alicloud/captcha20230305'
 import { $OpenApiUtil } from '@alicloud/openapi-core'
 import type { AliyunCaptchaClientConfig, AliyunCaptchaRegion, AliyunCaptchaSceneIds, AliyunCaptchaSceneKey } from '#shared/types/captcha'
+import { createLogger } from '#shared/utils/logger'
 
 const CAPTCHA_SCRIPT_SRC = 'https://o.alicdn.com/captcha-frontend/aliyunCaptcha/AliyunCaptcha.js'
 const CAPTCHA_SUCCESS_CODES = new Set(['T001', 'T005'])

@@ -55,6 +55,11 @@
 
 <script setup lang="ts">
 import { ArrowLeft } from 'lucide-vue-next'
+import AdminBreadcrumb from '~/components/admin/Breadcrumb.vue'
+import AdminNavMain from '~/components/admin/NavMain.vue'
+import GeneralThemeToggle from '~/components/general/ThemeToggle.vue'
+import { useAdminMenuStore } from '~/store/adminMenu'
+import { usePermissionStore } from '~/store/permission'
 
 const store = useAdminMenuStore()
 const permissionStore = usePermissionStore()

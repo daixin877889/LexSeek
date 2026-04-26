@@ -57,6 +57,7 @@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
 import { ChevronsUpDown, LogOut, HomeIcon } from "lucide-vue-next";
+import { useUserNavigation } from '~/composables/useUserNavigation'
 
 // 使用共享的用户导航逻辑
 const { displayName, maskedPhone, handleLogout } = useUserNavigation();

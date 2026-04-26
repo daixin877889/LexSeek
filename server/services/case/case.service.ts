@@ -29,6 +29,9 @@ import { getCaseTypeByIdService } from './caseType.service'
 
 // 导入案件材料服务
 import { batchAddCaseMaterialsService } from './caseMaterial.service'
+import type { CaseListParams, CreateCaseInput, ExtractedCaseInfo, UpdateCaseInput } from '#shared/types/case'
+import type { CaseWithRelations } from '~~/server/services/case/case.dao'
+import { getEnabledCaseTypesService } from '~~/server/services/case/caseType.service'
 
 // 注意：类型和枚举请直接从 './case.dao' 导入
 // 避免 Nuxt 自动导入时产生重复警告

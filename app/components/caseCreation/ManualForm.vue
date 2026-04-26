@@ -119,6 +119,9 @@ import type { CaseTypeOption, ExtraField } from '#shared/types/case'
 import type { ExtractedFormData, CreateCaseParams } from '~/composables/useCaseCreation'
 import { mergeAutofillPreservingUserInput } from '~/composables/useCaseCreation'
 import { getMaterialType } from '~/utils/caseMaterial'
+import CaseCreationMaterialUploader from '~/components/caseCreation/MaterialUploader.vue'
+import CaseCreationPartyInput from '~/components/caseCreation/PartyInput.vue'
+import type { caseTypes } from '~~/generated/prisma/client'
 
 type InitialData = ExtractedFormData & {
   initialFiles?: OssFileItem[]

@@ -2,6 +2,8 @@ import type { CaseMaterialParam, CaseTypeOption, ExtractedCaseInfo, ExtraField, 
 import type { OssFileDto } from '#shared/types/file'
 import type { OssFileItem } from '~/store/file'
 import { toast } from 'vue-sonner'
+import { useApiFetch } from '~/composables/useApiFetch'
+import type { caseTypes, demoCases } from '~~/generated/prisma/client'
 
 export interface CreateCaseParams {
   caseTypeId: number

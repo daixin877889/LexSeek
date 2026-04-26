@@ -1,3 +1,6 @@
+import { parseErrorMessage } from '#shared/utils/apiResponse'
+import type { benefits } from '~~/generated/prisma/client'
+import { getUserBenefitSummaryService } from '~~/server/services/membership/userBenefit.service'
 /**
  * 获取当前用户的所有权益汇总
  *

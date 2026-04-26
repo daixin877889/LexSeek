@@ -1,3 +1,4 @@
+import { getLegalMainDetailService } from '~~/server/services/legal/legalMain.service'
 /**
  * 获取法律法规详情
  * GET /api/v1/admin/legal-main/:id

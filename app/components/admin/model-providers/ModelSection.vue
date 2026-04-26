@@ -129,6 +129,9 @@ import { Plus, Loader2, Bot, MoreHorizontal, Pencil, Star, Trash2 } from 'lucide
 import { toast } from 'vue-sonner'
 import type { Model } from '#shared/types/model'
 import { ModelTypeLabels } from '#shared/types/model'
+import GeneralPagination from '~/components/general/pagination.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
+import type { models } from '~~/generated/prisma/client'
 
 interface Props {
     providerId: number

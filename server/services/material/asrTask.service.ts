@@ -19,6 +19,8 @@ import {
 } from './asrTask.dao'
 import { getValidNodeConfig, getNodeConfigService, type NodeConfig } from '../node/node.service'
 import type { AsrTaskStatus as AsrTaskStatusType } from '#shared/types/recognition'
+import { AsrTaskStatus } from '#shared/types/recognition'
+import type { ossFiles } from '~~/generated/prisma/client'
 
 /** 音频识别节点名称 */
 const ASR_NODE_NAME = 'audioRecognition'

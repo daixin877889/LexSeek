@@ -1,3 +1,6 @@
+import { SmsType } from '#shared/types/sms'
+import type { smsRecords } from '~~/generated/prisma/client'
+import { deleteSmsRecordByIdDao, findSmsRecordByPhoneAndTypeDao } from '~~/server/services/sms/smsRecord.dao'
 /**
  * 短信验证码验证服务
  *

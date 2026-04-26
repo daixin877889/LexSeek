@@ -14,6 +14,9 @@
 import { z } from 'zod'
 import { generateOssDownloadSignaturesService } from '~~/server/services/files/files.service'
 import { findImageRecognitionByOssFileIdDao } from '~~/server/services/material/ocr.dao'
+import { DocRecognitionStatus } from '#shared/types/recognition'
+import type { ossFiles } from '~~/generated/prisma/client'
+import { findDocRecognitionByOssFileIdDao } from '~~/server/services/material/mineru.dao'
 
 /** 图片占位符正则表达式 */
 const IMAGE_PLACEHOLDER_REGEX = /\{\{OSS_IMAGE:([^:}]+):(\d+)\}\}/g

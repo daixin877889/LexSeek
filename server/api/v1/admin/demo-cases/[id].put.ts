@@ -8,6 +8,7 @@
 import { z } from 'zod'
 import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
 import { ensureSourceFileRecognitionService } from '~~/server/services/case/demoCase.service'
+import { updateDemoCaseService } from '~~/server/services/case/demoCase.service'
 
 /** 路由参数验证 */
 const paramsSchema = z.object({

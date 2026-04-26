@@ -26,8 +26,8 @@ function handleConfirm() {
 </script>
 
 <template>
-    <AiElementsConfirmation :state="'approval-requested'" :approval="{ id: 'case-info' }">
-        <AiElementsConfirmationRequest>
+    <Confirmation :state="'approval-requested'" :approval="{ id: 'case-info' }">
+        <ConfirmationRequest>
             <div class="space-y-3">
                 <h3 class="font-medium">案件基础信息确认</h3>
                 <div class="grid grid-cols-2 gap-3 text-sm">
@@ -53,10 +53,10 @@ function handleConfirm() {
                     </div>
                 </div>
             </div>
-        </AiElementsConfirmationRequest>
-        <AiElementsConfirmationActions>
+        </ConfirmationRequest>
+        <ConfirmationActions>
             <Button variant="outline" @click="emit('reject')">取消</Button>
             <Button @click="handleConfirm">确认信息</Button>
-        </AiElementsConfirmationActions>
-    </AiElementsConfirmation>
+        </ConfirmationActions>
+    </Confirmation>
 </template>

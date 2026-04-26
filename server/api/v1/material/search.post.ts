@@ -9,6 +9,7 @@
 
 import { z } from 'zod'
 import { searchCaseMaterialsService } from '~~/server/services/material/materialEmbedding.service'
+import { parseErrorMessage } from '#shared/utils/apiResponse'
 
 // 请求体验证
 const searchMaterialSchema = z.object({

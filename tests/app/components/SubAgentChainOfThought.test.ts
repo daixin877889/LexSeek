@@ -29,7 +29,7 @@ const globalStubs = {
         template: '<div data-stub="cot-search-result"><slot /></div>',
       },
       AiToolRenderer: true,
-      AiElementsMessageResponse: true,
+      MessageResponse: true,
       Loader2: true,
       Brain: true,
       FileText: true,

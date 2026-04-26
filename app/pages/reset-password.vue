@@ -116,6 +116,15 @@ title: "重置密码",
 
 <script setup>
 import { ScaleIcon, EyeIcon, EyeOffIcon, Loader2 } from "lucide-vue-next";
+import { SmsType } from '#shared/types/sms'
+import { validatePhone } from '#shared/utils/phone'
+import toast from '#shared/utils/toast'
+import AuthAliyunCaptchaHost from '~/components/auth/AliyunCaptchaHost.vue'
+import GeneralThemeToggle from '~/components/general/ThemeToggle.vue'
+import GeneralAuthSidebar from '~/components/general/authSidebar.vue'
+import { useAliyunCaptcha } from '~/composables/useAliyunCaptcha'
+import { useSmsCooldown } from '~/composables/useSmsCooldown'
+import { useAuthStore } from '~/store/auth'
 
 const router = useRouter();
 const authStore = useAuthStore();

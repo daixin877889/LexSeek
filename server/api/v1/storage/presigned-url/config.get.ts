@@ -1,3 +1,6 @@
+import { FileSource } from '#shared/types/file'
+import { getFileSourceAccept } from '#shared/utils/file'
+import { z } from '#shared/utils/zod'
 /**
  * 获取预签名场景及配置
  * 

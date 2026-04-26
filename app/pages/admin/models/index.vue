@@ -168,6 +168,10 @@ import { Plus, Loader2, Bot, Search, MoreHorizontal, Pencil, Trash2, Star } from
 import { toast } from 'vue-sonner'
 import type { ModelProvider, Model, SdkType, ModelType } from '#shared/types/model'
 import { SdkTypeLabels, ModelTypeLabels } from '#shared/types/model'
+import AdminModelsModelFormDialog from '~/components/admin/models/ModelFormDialog.vue'
+import GeneralPagination from '~/components/general/pagination.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
+import type { models } from '~~/generated/prisma/client'
 
 definePageMeta({ layout: 'admin-layout', title: '模型管理' })
 

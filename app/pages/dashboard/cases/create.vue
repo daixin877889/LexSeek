@@ -91,6 +91,12 @@ import { ArrowRightIcon, ArrowLeftIcon, Loader2Icon } from 'lucide-vue-next'
 import type { AiPromptSubmitData } from '~/components/ai/AiPromptInput.vue'
 import type { OssFileItem } from '~/store/file'
 import type { CreateCaseParams } from '~/composables/useCaseCreation'
+import AiPromptInput from '~/components/ai/AiPromptInput.vue'
+import CaseAnalysisExample from '~/components/caseAnalysis/example.vue'
+import CaseAnalysisMaterialSelector from '~/components/caseAnalysis/materialSelector.vue'
+import CaseAnalysisWelcome from '~/components/caseAnalysis/welcome.vue'
+import CaseCreationManualForm from '~/components/caseCreation/ManualForm.vue'
+import { useCaseCreation } from '~/composables/useCaseCreation'
 
 definePageMeta({
   title: '创建案件',

@@ -24,6 +24,8 @@ import { logger } from '../../../shared/utils/logger'
 
 // 导入 Decimal 转换工具
 import { decimalToNumberUtils } from '../../../shared/utils/decimalToNumber'
+import type { UpgradePriceResult } from '#shared/types/membership'
+import type { membershipLevels, products, userMemberships } from '~~/generated/prisma/client'
 
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma

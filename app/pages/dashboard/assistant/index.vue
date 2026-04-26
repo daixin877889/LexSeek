@@ -14,6 +14,8 @@
  */
 import { MessageSquareIcon, SparklesIcon } from 'lucide-vue-next'
 import type { LocationQueryRaw } from 'vue-router'
+import AssistantChatPanel from '~/components/assistant/AssistantChatPanel.vue'
+import AssistantSessionList from '~/components/assistant/AssistantSessionList.vue'
 
 definePageMeta({
     layout: 'dashboard-layout',

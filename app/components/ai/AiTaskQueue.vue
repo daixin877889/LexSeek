@@ -44,14 +44,14 @@ function toggleExpand() {
 
     <!-- 任务列表 -->
     <div v-show="isExpanded || !collapsible" class="max-h-[120px] overflow-y-auto px-4 pb-3">
-      <AiElementsQueue>
-        <AiElementsQueueItem v-for="todo in sortedTodos" :key="todo.id">
-          <AiElementsQueueItemContent :completed="todo.status === 'completed'">
-            <AiElementsQueueItemIndicator :status="todo.status" />
+      <Queue>
+        <QueueItem v-for="todo in sortedTodos" :key="todo.id">
+          <QueueItemContent :completed="todo.status === 'completed'">
+            <QueueItemIndicator :status="todo.status" />
             {{ todo.text }}
-          </AiElementsQueueItemContent>
-        </AiElementsQueueItem>
-      </AiElementsQueue>
+          </QueueItemContent>
+        </QueueItem>
+      </Queue>
     </div>
   </div>
 </template>

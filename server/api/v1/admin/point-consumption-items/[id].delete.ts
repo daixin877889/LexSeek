@@ -5,6 +5,7 @@
  */
 
 import { z } from 'zod'
+import { deletePointConsumptionItemService } from '~~/server/services/point/pointConsumptionItems.service'
 
 /** 路由参数验证 */
 const paramsSchema = z.object({

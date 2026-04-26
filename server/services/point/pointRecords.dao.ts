@@ -5,6 +5,8 @@
  */
 
 import { Prisma } from "~~/generated/prisma/client"
+import { PointRecordSourceType, PointRecordStatus } from '#shared/types/point.types'
+import type { pointRecords } from '~~/generated/prisma/client'
 
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma

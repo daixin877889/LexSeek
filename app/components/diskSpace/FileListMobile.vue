@@ -89,6 +89,9 @@
 <script lang="ts" setup>
 import { LockIcon, ChevronRightIcon, ImageIcon } from "lucide-vue-next";
 import { useIntersectionObserver } from "@vueuse/core";
+import { formatByteSize } from '#shared/utils/unitConverision'
+import type { OssFileItem } from '~/store/file'
+import { getFileIcon, getFileIconBg, getFileIconColor, isImageType } from '~/utils/file'
 
 // ==================== Props ====================
 

@@ -25,21 +25,21 @@ function isLastMessage(msg: ParsedMessage): boolean {
 </script>
 
 <template>
-  <AiElementsConversation class="h-full pt-4">
+  <Conversation class="h-full pt-4">
     <!-- 空状态 -->
-    <AiElementsConversationEmptyState v-if="messages.length === 0 && !loading" title="开始对话"
+    <ConversationEmptyState v-if="messages.length === 0 && !loading" title="开始对话"
       description="输入消息开始 AI 对话" />
 
     <!-- 虚拟滚动消息列表 -->
     <AiMessageListVirtual v-else :messages="messages" :loading="loading" :tool-map="toolMap"
       @tool-confirm="(d) => emit('tool-confirm', d)" @tool-reject="(d) => emit('tool-reject', d)" />
 
-    <AiElementsConversationScrollButton />
+    <ConversationScrollButton />
 
     <template #fallback>
       <div class="flex size-full items-center justify-center">
         <LoaderIcon class="size-6 animate-spin text-muted-foreground" />
       </div>
     </template>
-  </AiElementsConversation>
+  </Conversation>
 </template>

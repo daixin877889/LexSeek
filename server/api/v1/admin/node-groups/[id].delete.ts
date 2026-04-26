@@ -1,3 +1,4 @@
+import { deleteNodeGroupService } from '~~/server/services/node/node.service'
 /**
  * 删除节点分组
  *

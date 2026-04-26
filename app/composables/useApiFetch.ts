@@ -10,6 +10,9 @@
  */
 
 import type { FetchOptions } from 'ofetch'
+import type { ApiBaseResponse } from '#shared/utils/apiResponse'
+import toast from '#shared/utils/toast'
+import { useAuthStore } from '~/store/auth'
 
 interface UseApiFetchOptions<T> extends Omit<FetchOptions, 'onResponse' | 'onResponseError'> {
     /** 是否显示错误提示（默认 true） */

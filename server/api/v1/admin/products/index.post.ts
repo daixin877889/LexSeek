@@ -6,6 +6,7 @@
 
 import { z } from 'zod'
 import { ProductType, ProductStatus } from '#shared/types/product'
+import { createProductService } from '~~/server/services/product/product.service'
 
 /** 请求体验证 */
 const bodySchema = z.object({

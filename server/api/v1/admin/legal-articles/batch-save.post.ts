@@ -15,6 +15,8 @@ import { z } from 'zod'
 import { deleteEmbeddingsByMetadata } from '~~/server/services/legal/vectorStore.service'
 import { updateLegalEmbeddings } from '~~/server/services/legal/lawEmbedding.service'
 import { batchSaveArticlesService } from '~~/server/services/legal/article.service'
+import type { legalMain } from '~~/generated/prisma/client'
+import { parseContent } from '~~/server/services/legal/parser.service'
 
 /**
  * 请求参数验证 Schema

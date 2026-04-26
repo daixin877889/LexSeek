@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod'
+import { createCaseTypeService } from '~~/server/services/case/caseType.service'
 
 /** 请求体验证 */
 const bodySchema = z.object({

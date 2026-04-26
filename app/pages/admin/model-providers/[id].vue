@@ -89,6 +89,7 @@ import dayjs from 'dayjs'
 import ApiKeySection from '~/components/admin/model-providers/ApiKeySection.vue'
 import AdminModelProvidersModelSection from '~/components/admin/model-providers/ModelSection.vue'
 import ProviderFormDialog from '~/components/admin/model-providers/ProviderFormDialog.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 definePageMeta({ layout: 'admin-layout', title: '提供商详情' })
 

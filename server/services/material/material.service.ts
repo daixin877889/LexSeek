@@ -27,6 +27,7 @@ import { CaseMaterialType } from '#shared/types/case'
 import { createChatModel } from '../node/chatModelFactory'
 import { generateSummaryService } from '../ai/summaryService'
 import { findDocRecognitionByOssFileIdDao } from './mineru.dao'
+import type { asrRecords, ossFiles } from '~~/generated/prisma/client'
 
 /** 材料（包含文件信息） */
 export interface MaterialWithFile extends caseMaterials {

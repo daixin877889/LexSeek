@@ -1,13 +1,13 @@
 <template>
-    <AiElementsConfirmation :approval="approval" :state="confirmationState" class="w-full min-w-0">
+    <Confirmation :approval="approval" :state="confirmationState" class="w-full min-w-0">
         <!-- 请求状态：可编辑表单 -->
-        <AiElementsConfirmationRequest>
+        <ConfirmationRequest>
             <div class="w-full space-y-4">
                 <div class="space-y-1">
-                    <AiElementsConfirmationTitle class="flex items-center gap-2 text-base font-medium">
+                    <ConfirmationTitle class="flex items-center gap-2 text-base font-medium">
                         <ClipboardCheckIcon class="h-5 w-5 text-primary" />
                         案件信息确认
-                    </AiElementsConfirmationTitle>
+                    </ConfirmationTitle>
                     <p class="text-sm text-muted-foreground">
                         以下信息从材料中自动提取，请核对并修改
                     </p>
@@ -95,19 +95,19 @@
                 </div>
 
                 <!-- 操作按钮 -->
-                <AiElementsConfirmationActions class="pt-2">
-                    <AiElementsConfirmationAction variant="outline" @click="handleReject">
+                <ConfirmationActions class="pt-2">
+                    <ConfirmationAction variant="outline" @click="handleReject">
                         取消
-                    </AiElementsConfirmationAction>
-                    <AiElementsConfirmationAction @click="handleConfirm" :disabled="!canSubmit">
+                    </ConfirmationAction>
+                    <ConfirmationAction @click="handleConfirm" :disabled="!canSubmit">
                         确认信息
-                    </AiElementsConfirmationAction>
-                </AiElementsConfirmationActions>
+                    </ConfirmationAction>
+                </ConfirmationActions>
             </div>
-        </AiElementsConfirmationRequest>
+        </ConfirmationRequest>
 
         <!-- 已确认：只读信息展示 -->
-        <AiElementsConfirmationAccepted>
+        <ConfirmationAccepted>
             <div class="space-y-3">
                 <div class="flex items-center gap-2 text-green-600">
                     <CheckCircleIcon class="h-5 w-5" />
@@ -142,16 +142,16 @@
                     </template>
                 </div>
             </div>
-        </AiElementsConfirmationAccepted>
+        </ConfirmationAccepted>
 
         <!-- 已拒绝 -->
-        <AiElementsConfirmationRejected>
+        <ConfirmationRejected>
             <div class="flex items-center gap-2 text-muted-foreground">
                 <XCircleIcon class="h-5 w-5" />
                 <span>已取消信息确认</span>
             </div>
-        </AiElementsConfirmationRejected>
-    </AiElementsConfirmation>
+        </ConfirmationRejected>
+    </Confirmation>
 </template>
 
 <script setup lang="ts">

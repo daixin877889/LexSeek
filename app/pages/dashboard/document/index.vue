@@ -13,6 +13,9 @@ import {
     TEMPLATE_SCOPE_OPTIONS,
     type TemplateScopeFilter,
 } from '#shared/types/document'
+import AssistantDocumentDraftHistory from '~/components/assistant/document/DraftHistory.vue'
+import AssistantDocumentTemplateBrowser from '~/components/assistant/document/TemplateBrowser.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 definePageMeta({
     layout: 'dashboard-layout',

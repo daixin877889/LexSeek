@@ -8,6 +8,8 @@
  */
 
 import { z } from 'zod'
+import type { caseTypes, demoCases } from '~~/generated/prisma/client'
+import { getEnabledDemoCasesService } from '~~/server/services/case/demoCase.service'
 
 /** 查询参数验证 */
 const querySchema = z.object({

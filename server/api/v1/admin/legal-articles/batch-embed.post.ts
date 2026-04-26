@@ -8,6 +8,7 @@
  */
 import { z } from 'zod'
 import { getPool } from '~~/server/services/legal/vectorStore.service'
+import { triggerArticleEmbeddingService } from '~~/server/services/legal/legalArticles.service'
 
 // 请求体验证
 const bodySchema = z.object({

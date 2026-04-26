@@ -67,6 +67,20 @@
 <script lang="ts" setup>
 import { PaymentChannel, PaymentMethod, DurationUnit } from "#shared/types/payment";
 import type { WechatPaymentParams, WechatPaymentResult } from "~/composables/useWechatPayment";
+import { PointRecordSourceTypeName } from '#shared/types/point.types'
+import toast from '#shared/utils/toast'
+import GeneralPagination from '~/components/general/pagination.vue'
+import PointsConsumptionStandardDialog from '~/components/points/ConsumptionStandardDialog.vue'
+import PointsPointHistoryMobile from '~/components/points/PointHistoryMobile.vue'
+import PointsPointHistoryTable from '~/components/points/PointHistoryTable.vue'
+import PointsPointPurchaseDialog from '~/components/points/PointPurchaseDialog.vue'
+import PointsPointQRCodeDialog from '~/components/points/PointQRCodeDialog.vue'
+import PointsPointSummary from '~/components/points/PointSummary.vue'
+import PointsPointUsageMobile from '~/components/points/PointUsageMobile.vue'
+import PointsPointUsageTable from '~/components/points/PointUsageTable.vue'
+import { useApi } from '~/composables/useApi'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useWechatPayment } from '~/composables/useWechatPayment'
 
 // 页面元信息
 definePageMeta({

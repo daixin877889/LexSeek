@@ -5,6 +5,8 @@
  */
 
 import type { Prisma } from '#shared/types/prisma'
+import { MembershipLevelStatus } from '#shared/types/membership'
+import type { membershipLevels } from '~~/generated/prisma/client'
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma
 

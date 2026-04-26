@@ -6,6 +6,8 @@
 
 import type { CreateModelInput, UpdateModelInput, ModelType, SdkType } from '#shared/types/model'
 import { SDK_TYPES } from '#shared/types/model'
+import { findModelProviderByIdDao } from '~~/server/services/model/modelProviders.dao'
+import { createModelDao, findDefaultModelByTypeDao, findManyModelsDao, findModelByIdDao, findModelsByProviderIdDao, findModelsByTypeDao, setDefaultModelDao, softDeleteModelDao, updateModelDao } from '~~/server/services/model/models.dao'
 
 /**
  * 验证 SDK 类型是否有效

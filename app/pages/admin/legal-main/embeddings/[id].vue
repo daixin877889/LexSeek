@@ -233,6 +233,9 @@ import { toast } from 'vue-sonner'
 import dayjs from 'dayjs'
 import type { LawEmbeddingInfo, ArticleType, PaginatedResponse } from '#shared/types/legal'
 import { ArticleTypeLabels } from '#shared/types/legal'
+import GeneralDatePicker from '~/components/general/DatePicker.vue'
+import GeneralPagination from '~/components/general/pagination.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 definePageMeta({
     layout: 'admin-layout',

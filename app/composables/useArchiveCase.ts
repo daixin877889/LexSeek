@@ -1,5 +1,6 @@
 import { toast } from 'vue-sonner'
 import { CaseStatus } from '#shared/types/case'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 /**
  * 案件归档复用：cases 列表三种视图（grid/table/mobile）共用同一段

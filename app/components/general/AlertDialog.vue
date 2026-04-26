@@ -30,6 +30,7 @@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { CheckCircleIcon, AlertCircleIcon } from "lucide-vue-next";
+import { useAlertDialogStore } from '~/store/alertDialog'
 
 /**
  * 全局确认对话框组件

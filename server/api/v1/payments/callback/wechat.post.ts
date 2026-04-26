@@ -1,3 +1,5 @@
+import { PaymentChannel } from '#shared/types/payment'
+import { handlePaymentCallbackService } from '~~/server/services/payment/payment.service'
 /**
  * 微信支付回调接口
  *

@@ -1,4 +1,5 @@
 import type { Instruction } from '@atlaskit/pragmatic-drag-and-drop-hitbox/tree-item'
+import type { nodes } from '~~/generated/prisma/client'
 
 export interface TiptapTreeItem {
   title: string

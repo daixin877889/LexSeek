@@ -92,6 +92,13 @@ title: "登录",
 
 <script setup>
 import { ScaleIcon, EyeIcon, EyeOffIcon, Loader2 } from "lucide-vue-next";
+import toast from '#shared/utils/toast'
+import AuthAliyunCaptchaHost from '~/components/auth/AliyunCaptchaHost.vue'
+import GeneralThemeToggle from '~/components/general/ThemeToggle.vue'
+import GeneralAuthSidebar from '~/components/general/authSidebar.vue'
+import { useAliyunCaptcha } from '~/composables/useAliyunCaptcha'
+import { useAuthStore } from '~/store/auth'
+import { getRememberedAccount, rememberMeHandler } from '~/utils/auth'
 
 const route = useRoute();
 const router = useRouter();

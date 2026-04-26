@@ -9,6 +9,7 @@
  */
 
 import { z } from 'zod'
+import { activatePromptService } from '~~/server/services/node/prompt.service'
 
 /** 路由参数验证 */
 const paramsSchema = z.object({

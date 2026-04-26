@@ -47,6 +47,16 @@
 <script lang="ts" setup>
 import { OrderStatus, DurationUnit, PaymentChannel, PaymentMethod } from "#shared/types/payment";
 import type { WechatPaymentParams, WechatPaymentResult } from "~/composables/useWechatPayment";
+import toast from '#shared/utils/toast'
+import GeneralPagination from '~/components/general/pagination.vue'
+import OrderCancelDialog from '~/components/order/OrderCancelDialog.vue'
+import OrderDetailDialog from '~/components/order/OrderDetailDialog.vue'
+import OrderMobile from '~/components/order/OrderMobile.vue'
+import OrderTable from '~/components/order/OrderTable.vue'
+import PaymentQRCodeDialog from '~/components/payment/PaymentQRCodeDialog.vue'
+import { useApi } from '~/composables/useApi'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useWechatPayment } from '~/composables/useWechatPayment'
 
 // 页面元信息
 definePageMeta({

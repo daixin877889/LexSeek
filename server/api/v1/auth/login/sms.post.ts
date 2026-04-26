@@ -1,3 +1,12 @@
+import { SmsType } from '#shared/types/sms'
+import { UserStatus } from '#shared/types/user'
+import { parseErrorMessage } from '#shared/utils/apiResponse'
+import { createLogger } from '#shared/utils/logger'
+import { z } from '#shared/utils/zod'
+import { generateAuthTokenService } from '~~/server/services/auth/authToken.service'
+import { verifySmsCodeService } from '~~/server/services/sms/smsVerification.service'
+import { formatUserResponseService } from '~~/server/services/users/userResponse.service'
+import { findUserByPhoneDao } from '~~/server/services/users/users.dao'
 /**
  * 手机号和验证码登录
  *

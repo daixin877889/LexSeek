@@ -4,6 +4,10 @@
  * 封装所有与 OSS 文件表相关的数据库操作
  */
 import type { Prisma } from '#shared/types/prisma'
+import { FileSortField, FileSource, FileType, OssFileStatus, SortOrder } from '#shared/types/file'
+import { FileSizeUnit } from '#shared/types/unitConverision'
+import { decimalToNumberUtils } from '#shared/utils/decimalToNumber'
+import type { ossFiles } from '~~/generated/prisma/client'
 
 /**
  * 创建 OSS 文件记录

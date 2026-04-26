@@ -121,6 +121,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { getLocalTimeZone, parseDate, type DateValue } from '@internationalized/date'
 import dayjs from 'dayjs'
 import type { CampaignInfo } from '#shared/types/campaign'
+import { useApiFetch } from '~/composables/useApiFetch'
+import type { membershipLevels } from '~~/generated/prisma/client'
 
 // 定义 props
 const props = defineProps<{

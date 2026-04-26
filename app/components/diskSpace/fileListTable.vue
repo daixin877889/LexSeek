@@ -84,6 +84,8 @@ import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import "dayjs/locale/zh-cn";
 import { formatByteSize } from "#shared/utils/unitConverision";
+import type { OssFileItem } from '~/store/file'
+import { getFileIcon, getFileIconBg, getFileIconColor } from '~/utils/file'
 
 // 配置 dayjs
 dayjs.extend(relativeTime);

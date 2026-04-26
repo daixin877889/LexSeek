@@ -1,3 +1,5 @@
+import { z } from '#shared/utils/zod'
+import { getProductByIdService } from '~~/server/services/product/product.service'
 /**
  * 获取商品详情
  *

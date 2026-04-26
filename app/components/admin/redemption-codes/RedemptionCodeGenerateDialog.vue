@@ -85,6 +85,8 @@ import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { getLocalTimeZone, today, type DateValue } from '@internationalized/date'
 import dayjs from 'dayjs'
+import { useApiFetch } from '~/composables/useApiFetch'
+import type { membershipLevels } from '~~/generated/prisma/client'
 
 // 定义 props
 const props = defineProps<{

@@ -3,6 +3,9 @@
  * PUT /api/v1/admin/users/:id/roles
  */
 import { z } from 'zod'
+import type { roles } from '~~/generated/prisma/client'
+import { logUserAssignRole } from '~~/server/services/rbac/auditLog.service'
+import { clearUserPermissionCache } from '~~/server/services/rbac/cache.service'
 
 const bodySchema = z.object({
     roleIds: z.array(

@@ -86,6 +86,8 @@
 import { ChevronRight, ChevronDown, Check, Sparkles, Pencil, Trash2, Loader2 } from 'lucide-vue-next'
 import dayjs from 'dayjs'
 import type { LegalArticleListItem, ArticleType } from '#shared/types/legal'
+import GeneralLegalArticleTypeBadge from '~/components/general/legal/ArticleTypeBadge.vue'
+import GeneralLegalStatusBadge from '~/components/general/legal/LegalStatusBadge.vue'
 
 // 定义 props
 defineProps<{

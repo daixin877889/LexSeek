@@ -4,6 +4,7 @@
  * 执行会员升级操作，需要先完成支付
  */
 import { z } from 'zod'
+import { executeMembershipUpgradeService } from '~~/server/services/membership/membershipUpgrade.service'
 
 // 请求参数验证
 const bodySchema = z.object({

@@ -1,3 +1,6 @@
+import type { roles } from '~~/generated/prisma/client'
+import { findApiPermissionByIdDao } from '~~/server/services/rbac/apiPermission.dao'
+import { findRolesByApiPermissionDao } from '~~/server/services/rbac/roleApiPermission.dao'
 /**
  * 获取 API 权限详情
  * GET /api/v1/admin/api-permissions/:id

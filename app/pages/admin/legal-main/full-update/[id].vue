@@ -133,6 +133,9 @@ import LegalArticlePreview from '~/components/legal/LegalArticlePreview.vue'
 import type { ParsedArticle } from '#shared/types/legal-parser'
 import { useDebounceFn } from '@vueuse/core'
 import { toast } from 'vue-sonner'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useLegalEditorCache } from '~/composables/useLegalEditorCache'
+import { useLegalParser } from '~/composables/useLegalParser'
 
 /**
  * 页面元数据

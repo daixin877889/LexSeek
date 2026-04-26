@@ -1,3 +1,4 @@
+import { getProductByIdService } from '~~/server/services/product/product.service'
 /**
  * 获取产品详情
  *

@@ -13,6 +13,7 @@
  *   401 / 400(id) / 400(body) / 400(Zod) / 404 / 403 / 409 / 200
  */
 import { z } from 'zod'
+import { randomUUID } from 'node:crypto'
 import {
     patchReviewRisksDAO,
     PatchReviewRisksUnknownIdsError,
@@ -20,7 +21,7 @@ import {
 import { RISK_SHAPE } from '~~/server/services/assistant/contract/riskSchema.builder'
 import { loadOwnedReview } from '~~/server/services/assistant/contract/reviewGuard'
 import { REVIEW_EDITABLE_STATUSES } from '#shared/types/contract'
-import type { ContractReviewStatus } from '#shared/types/contract'
+import type { ContractReviewStatus, Risk } from '#shared/types/contract'
 
 const BodySchema = z.object({
     risks: z.array(RISK_SHAPE).max(200),
@@ -49,7 +50,9 @@ export default defineEventHandler(async (event) => {
     try {
         // patchReviewRisksDAO 在单语句 UPDATE 内同时置 hasUnsavedDocxChanges=true，
         // 并对已迁移 review 做 keep/new/removed 三向 diff（CORE-H1）
-        await patchReviewRisksDAO(review.id, parsed.data.risks)
+        // RISK_SHAPE.id 为 optional（兼容 AI 路径），PATCH 路径补 UUID 让 Risk.id 必填
+        const risksWithId: Risk[] = parsed.data.risks.map(r => ({ ...r, id: r.id ?? randomUUID() }))
+        await patchReviewRisksDAO(review.id, risksWithId)
         return resSuccess(event, '保存成功', { reviewId: review.id })
     } catch (err) {
         if (err instanceof PatchReviewRisksUnknownIdsError) {

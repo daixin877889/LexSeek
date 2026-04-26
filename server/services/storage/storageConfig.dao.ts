@@ -8,6 +8,7 @@ import type { Prisma } from '#shared/types/prisma'
 import { StorageProviderType, type StorageConfig } from '~~/server/lib/storage/types'
 import { StorageConfigError } from '~~/server/lib/storage/errors'
 import crypto from 'crypto'
+import type { storageConfigs } from '~~/generated/prisma/client'
 
 /** 加密算法 */
 const ALGORITHM = 'aes-256-gcm'

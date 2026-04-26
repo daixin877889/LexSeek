@@ -116,6 +116,8 @@
 import { Loader2, Shield, CheckSquare, Square, Search, Users } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { NodeTypeLabels, NodeTypeVariants } from '#shared/types/node'
+import { useApiFetch } from '~/composables/useApiFetch'
+import type { nodes } from '~~/generated/prisma/client'
 
 definePageMeta({ layout: 'admin-layout', title: '节点权限配置' })
 

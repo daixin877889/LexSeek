@@ -1,3 +1,6 @@
+import { parseErrorMessage } from '#shared/utils/apiResponse'
+import { z } from '#shared/utils/zod'
+import { deleteFileDao, findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
 /**
  * 删除 OSS 文件
  * 

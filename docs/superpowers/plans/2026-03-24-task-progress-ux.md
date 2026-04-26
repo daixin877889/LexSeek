@@ -114,12 +114,12 @@ watch(allTodos, () => {
 将 `QueueItemIndicator` 和 `QueueItemContent` 的 prop 更新：
 
 ```vue
-<AiElementsQueueItem v-for="todo in sortedTodos" :key="todo.id">
-  <AiElementsQueueItemContent :completed="todo.status === 'completed'">
-    <AiElementsQueueItemIndicator :status="todo.status" />
+<QueueItem v-for="todo in sortedTodos" :key="todo.id">
+  <QueueItemContent :completed="todo.status === 'completed'">
+    <QueueItemIndicator :status="todo.status" />
     {{ todo.title }}
-  </AiElementsQueueItemContent>
-</AiElementsQueueItem>
+  </QueueItemContent>
+</QueueItem>
 ```
 
 - [ ] **Step 4: 提交**

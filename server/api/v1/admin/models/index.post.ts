@@ -6,6 +6,7 @@
 
 import { z } from 'zod'
 import { MODEL_TYPES, SDK_TYPES } from '#shared/types/model'
+import { createModelService } from '~~/server/services/model/models.service'
 
 /**
  * 请求体验证

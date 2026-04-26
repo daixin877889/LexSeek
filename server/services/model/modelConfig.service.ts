@@ -13,6 +13,7 @@ import {
 } from './models.dao'
 import { findModelProviderByIdDao } from './modelProviders.dao'
 import { findDefaultModelApiKeyByProviderIdDao } from './modelApiKeys.dao'
+import type { models } from '~~/generated/prisma/client'
 
 /**
  * 通过 ID 获取完整模型配置

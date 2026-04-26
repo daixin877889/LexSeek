@@ -2,7 +2,7 @@
 import type { MediaControlBar } from 'media-chrome'
 import { ButtonGroup } from '@repo/shadcn-vue/components/ui/button-group'
 
-interface Props extends /* @vue-ignore */ Partial<MediaControlBar> {
+interface Props extends /* @vue-ignore */ Partial<InstanceType<typeof MediaControlBar>> {
   // Add any media-chrome control bar props if needed
 }
 

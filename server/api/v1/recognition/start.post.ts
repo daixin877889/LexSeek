@@ -18,6 +18,7 @@ import { readTextFileService } from '~~/server/services/material/textReader.serv
 import { recognizeDocxService } from '~~/server/services/material/docxRecognition.service'
 import { CaseMaterialType } from '#shared/types/case'
 import { getExtensionFromFileName } from '~~/shared/utils/file'
+import type { ossFiles } from '~~/generated/prisma/client'
 
 /** 请求参数校验 */
 const schema = z.object({

@@ -186,6 +186,11 @@ import { FileSource } from "#shared/types/file";
 import type { OssFileItem, FileListParams } from "~/store/file";
 import { formatByteSize } from "#shared/utils/unitConverision";
 import { getFileIcon, getFileIconColor } from "~/utils/file";
+import toast from '#shared/utils/toast'
+import GeneralFileUploader from '~/components/general/fileUploader.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useFormatters } from '~/composables/useFormatters'
+import { useFileStore } from '~/store/file'
 
 // 组件 Props
 const props = defineProps<{

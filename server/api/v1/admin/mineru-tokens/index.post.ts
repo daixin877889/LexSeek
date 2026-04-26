@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod'
+import { createMineruTokenService } from '~~/server/services/material/mineruToken.service'
 
 /** 请求体验证 */
 const bodySchema = z.object({

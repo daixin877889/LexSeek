@@ -155,6 +155,9 @@ import { toast } from 'vue-sonner'
 import { NodeTypeLabels } from '#shared/types/node'
 import type { NodeGroup, NodeWithRelations } from '#shared/types/node'
 import type { Model } from '#shared/types/model'
+import AdminNodesOutputSchemaEditor from '~/components/admin/nodes/OutputSchemaEditor.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
+import type { models } from '~~/generated/prisma/client'
 
 /** 工具元信息类型 */
 interface ToolMeta {

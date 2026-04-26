@@ -1,3 +1,5 @@
+import type { benefits } from '~~/generated/prisma/client'
+import { getUserBenefitsService } from '~~/server/services/membership/benefit.service'
 /**
  * 获取用户权益信息
  *

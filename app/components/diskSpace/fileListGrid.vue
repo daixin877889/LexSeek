@@ -68,6 +68,9 @@
 
 <script lang="ts" setup>
 import { LockIcon, ImageIcon } from "lucide-vue-next";
+import { formatByteSize } from '#shared/utils/unitConverision'
+import type { OssFileItem } from '~/store/file'
+import { getFileIcon, getFileIconBg, getFileIconColor, isImageType } from '~/utils/file'
 
 // ==================== Props ====================
 

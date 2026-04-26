@@ -20,6 +20,8 @@
   </SidebarGroup>
 </template>
 <script setup lang="ts">
+import { useRoleStore } from '~/store/role'
+import lucideIcons from '~/utils/lucideIcons'
 const roleStore = useRoleStore();
 const route = useRoute();
 

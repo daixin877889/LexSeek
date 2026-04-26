@@ -929,7 +929,7 @@ describe('AiChatQueueChips', () => {
 
 完整代码以 spec §7.3 为准。**关键修订**（v5）：
 
-- 文本 + Tooltip 部分**放弃**复用 `AiElementsQueueItemContent`，直接用原生 `<span class="line-clamp-1 grow break-words text-muted-foreground min-w-0">`，理由见 spec §7.3 注释（reka-ui as-child 需 forward DOM ref，自定义组件默认 ref 指向实例）
+- 文本 + Tooltip 部分**放弃**复用 `QueueItemContent`，直接用原生 `<span class="line-clamp-1 grow break-words text-muted-foreground min-w-0">`，理由见 spec §7.3 注释（reka-ui as-child 需 forward DOM ref，自定义组件默认 ref 指向实例）
 - 序号 badge / 附件 badge / BrainIcon / × 删除按钮 4 项保留
 - 列表项加 `data-testid="queue-remove"` / `data-testid="queue-brain-icon"` 等便于测试和 E2E 选择
 - 横幅按钮加 `data-testid="queue-resume"` / `data-testid="queue-clear"`

@@ -17,6 +17,7 @@ import {
     MaterialStatusText,
 } from '#shared/types/material'
 import { CaseMaterialType, CaseMaterialTypeText } from '#shared/types/case'
+import { parseErrorMessage } from '#shared/utils/apiResponse'
 
 // 路径参数验证
 const paramsSchema = z.object({

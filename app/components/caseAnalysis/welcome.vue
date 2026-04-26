@@ -14,6 +14,7 @@
 </template>
 
 <script lang="ts" setup>
+import IconXiaosuoIcon from '~/components/icon/XiaosuoIcon.vue'
 withDefaults(defineProps<{
   title?: string
   subtitle?: string

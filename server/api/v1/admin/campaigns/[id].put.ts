@@ -7,6 +7,7 @@
 import { z } from 'zod'
 import dayjs from 'dayjs'
 import { CampaignType, CampaignStatus } from '#shared/types/campaign'
+import { updateCampaignService } from '~~/server/services/campaign/campaign.service'
 
 /** 请求体验证 */
 const bodySchema = z.object({

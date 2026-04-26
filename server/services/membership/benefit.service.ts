@@ -8,6 +8,7 @@ import type { UserBenefitInfo } from '#shared/types/membership'
 // 显式导入 DAO 函数（测试环境需要）
 import { findCurrentUserMembershipDao } from './userMembership.dao'
 import { findBenefitsByLevelIdDao } from './membershipBenefit.dao'
+import type { membershipBenefits } from '~~/generated/prisma/client'
 
 /**
  * 获取用户当前会员的权益列表

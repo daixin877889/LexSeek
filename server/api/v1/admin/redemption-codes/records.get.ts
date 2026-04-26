@@ -6,6 +6,7 @@
  * _Requirements: 4.1-4.4_
  */
 import { z } from 'zod'
+import { getRedemptionRecordsAdminService } from '~~/server/services/redemption/redemptionCode.admin.service'
 
 // 查询参数验证
 const querySchema = z.object({

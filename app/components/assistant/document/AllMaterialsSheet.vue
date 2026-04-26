@@ -11,6 +11,8 @@
 
 import { FolderIcon, Trash2Icon } from 'lucide-vue-next'
 import type { CaseDetailMaterialItem } from '~/composables/useCaseDetail'
+import { formatByteSize } from '#shared/utils/unitConverision'
+import { getMaterialIcon } from '~/utils/caseMaterial'
 
 defineProps<{
     open: boolean

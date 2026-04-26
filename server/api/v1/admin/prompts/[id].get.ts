@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod'
+import { getPromptByIdService } from '~~/server/services/node/prompt.service'
 
 /** 路由参数验证 */
 const paramsSchema = z.object({

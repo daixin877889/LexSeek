@@ -1,3 +1,6 @@
+import { createLogger } from '#shared/utils/logger'
+import { z } from '#shared/utils/zod'
+import { getUserConsumptionRecords } from '~~/server/services/point/pointConsumptionRecords.service'
 /**
  * 获取用户积分消耗记录列表
  * GET /api/v1/points/usage

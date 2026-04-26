@@ -13,22 +13,22 @@
       <!-- 有消息列表时：完整渲染推理 + 工具调用 + 文本 -->
       <template v-if="messages.length > 0">
         <template v-for="(message, msgIndex) in messages" :key="msgIndex">
-          <AiElementsMessage
+          <Message
             v-if="isAIMessage(message)"
             from="assistant"
             class="max-w-full"
           >
-            <AiElementsMessageContent>
+            <MessageContent>
               <!-- 推理内容 -->
-              <AiElementsReasoning
+              <Reasoning
                 v-if="getReasoningText(message)"
                 :is-streaming="state.status === 'streaming' && msgIndex === messages.length - 1"
               >
-                <AiElementsReasoningTrigger />
-                <AiElementsReasoningContent
+                <ReasoningTrigger />
+                <ReasoningContent
                   :content="getReasoningText(message)"
                 />
-              </AiElementsReasoning>
+              </Reasoning>
 
               <!-- 工具调用 -->
               <AiToolRenderer
@@ -44,12 +44,12 @@
               />
 
               <!-- 文本内容 -->
-              <AiElementsMessageResponse
+              <MessageResponse
                 v-if="getMessageText(message)"
                 :content="getMessageText(message)"
               />
-            </AiElementsMessageContent>
-          </AiElementsMessage>
+            </MessageContent>
+          </Message>
         </template>
 
         <!-- 流式脉动指示器 -->
@@ -61,7 +61,7 @@
 
       <!-- 没有消息时的 fallback：使用 content 字段渲染（页面刷新恢复场景） -->
       <div v-else-if="state.content" class="prose prose-sm max-w-none dark:prose-invert">
-        <AiElementsMessageResponse :content="state.content" mode="static" />
+        <MessageResponse :content="state.content" mode="static" />
       </div>
 
       <!-- 失败 -->
@@ -88,6 +88,7 @@ import type { AIMessage as AIMessageType } from '@langchain/core/messages'
 import { getModuleIcon } from '~/utils/moduleIcons'
 import { extractThinking } from '~/components/ai/composables/useMessageParser'
 import type { InitAnalysisModule, ModuleRunState } from '#shared/types/initAnalysis'
+import AiToolRenderer from '~/components/ai/AiToolRenderer.vue'
 
 const props = defineProps<{
   module: InitAnalysisModule

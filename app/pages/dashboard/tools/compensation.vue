@@ -280,6 +280,8 @@
 </template>
 
 <script setup>
+import toast from '#shared/utils/toast'
+import { useAlertDialogStore } from '~/store/alertDialog'
 definePageMeta({
   title: "赔偿计算器",
   layout: "dashboard-layout",

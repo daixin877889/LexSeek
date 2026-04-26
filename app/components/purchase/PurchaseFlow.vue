@@ -12,6 +12,8 @@
 
 <script lang="ts" setup>
 import { PaymentChannel, PaymentMethod, DurationUnit } from "#shared/types/payment";
+import AuthModal from '~/components/auth/AuthModal.vue'
+import MembershipQRCodeDialog from '~/components/membership/MembershipQRCodeDialog.vue'
 
 // Props
 const props = defineProps<{

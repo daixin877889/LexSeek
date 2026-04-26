@@ -138,6 +138,13 @@
 
 <script lang="ts" setup>
 import { EyeIcon, EyeOffIcon, Loader2 } from 'lucide-vue-next';
+import { SmsType } from '#shared/types/sms'
+import { validatePhone } from '#shared/utils/phone'
+import toast from '#shared/utils/toast'
+import AuthAliyunCaptchaHost from '~/components/auth/AliyunCaptchaHost.vue'
+import { useAliyunCaptcha } from '~/composables/useAliyunCaptcha'
+import { useSmsCooldown } from '~/composables/useSmsCooldown'
+import { useAuthStore } from '~/store/auth'
 
 // Props
 const props = withDefaults(defineProps<{

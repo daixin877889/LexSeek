@@ -104,6 +104,7 @@
 import { Loader2, History, Eye, CheckCircle } from 'lucide-vue-next'
 import dayjs from 'dayjs'
 import type { Prompt } from '#shared/types/node'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 // 定义事件
 const emit = defineEmits<{

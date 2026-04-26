@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod'
+import { queryMineruTaskStatusBatchService } from '~~/server/services/material/mineruTask.service'
 
 /** 请求体验证 */
 const bodySchema = z.object({

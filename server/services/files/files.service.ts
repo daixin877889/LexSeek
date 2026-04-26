@@ -8,6 +8,8 @@ import { StorageProviderType } from '~~/server/lib/storage/types'
 import type { ossFiles } from '#shared/types/prisma'
 import type { OssConfig } from '~~/shared/types/oss'
 import type { OSSConfig } from '~~/shared/types/system'
+import type { PostSignatureResult } from '#shared/types/oss'
+import { getConfigsByGroupAndKeyDao } from '~~/server/services/system/systemConfig.dao'
 
 /**
  * 生成 OSS 上传预签名

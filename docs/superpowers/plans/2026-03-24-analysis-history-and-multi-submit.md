@@ -276,11 +276,11 @@ const displayMessages = computed(() =>
 
 1. 空状态条件（约第 23 行）：
 ```html
-<AiElementsConversationEmptyState v-if="stream.messages.length === 0 && !stream.isLoading"
+<ConversationEmptyState v-if="stream.messages.length === 0 && !stream.isLoading"
 ```
 →
 ```html
-<AiElementsConversationEmptyState v-if="displayMessages.length === 0 && !stream.isLoading"
+<ConversationEmptyState v-if="displayMessages.length === 0 && !stream.isLoading"
 ```
 
 2. 消息列表循环（约第 26 行）：

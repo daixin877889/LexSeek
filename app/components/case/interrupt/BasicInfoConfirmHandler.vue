@@ -1,14 +1,14 @@
 <template>
-    <AiElementsConfirmationConfirmation :approval="approval" :state="confirmationState" class="w-full">
+    <Confirmation :approval="approval" :state="confirmationState" class="w-full">
         <!-- 请求状态：等待用户确认 -->
-        <AiElementsConfirmationConfirmationRequest>
+        <ConfirmationRequest>
             <div class="space-y-4">
                 <!-- 标题和说明 -->
                 <div class="space-y-2">
-                    <AiElementsConfirmationConfirmationTitle class="flex items-center gap-2 text-base font-medium">
+                    <ConfirmationTitle class="flex items-center gap-2 text-base font-medium">
                         <ClipboardCheckIcon class="h-5 w-5 text-primary" />
                         {{ interrupt.message || '请确认案件基本信息' }}
-                    </AiElementsConfirmationConfirmationTitle>
+                    </ConfirmationTitle>
                     <p class="text-sm text-muted-foreground">
                         系统已从材料中提取以下信息，请核对并修改（如有需要）
                     </p>
@@ -119,37 +119,37 @@
                 </div>
 
                 <!-- 操作按钮 -->
-                <AiElementsConfirmationConfirmationActions class="pt-2">
-                    <AiElementsConfirmationConfirmationAction variant="outline" @click="handleReset"
+                <ConfirmationActions class="pt-2">
+                    <ConfirmationAction variant="outline" @click="handleReset"
                         :disabled="isSubmitting">
                         <RotateCcwIcon class="h-4 w-4 mr-1" />
                         重置
-                    </AiElementsConfirmationConfirmationAction>
-                    <AiElementsConfirmationConfirmationAction @click="handleSubmit"
+                    </ConfirmationAction>
+                    <ConfirmationAction @click="handleSubmit"
                         :disabled="!canSubmit || isSubmitting">
                         <LoaderIcon v-if="isSubmitting" class="h-4 w-4 mr-2 animate-spin" />
                         {{ isSubmitting ? '提交中...' : '确认信息' }}
-                    </AiElementsConfirmationConfirmationAction>
-                </AiElementsConfirmationConfirmationActions>
+                    </ConfirmationAction>
+                </ConfirmationActions>
             </div>
-        </AiElementsConfirmationConfirmationRequest>
+        </ConfirmationRequest>
 
         <!-- 已接受状态 -->
-        <AiElementsConfirmationConfirmationAccepted>
+        <ConfirmationAccepted>
             <div class="flex items-center gap-2 text-green-600">
                 <CheckCircleIcon class="h-5 w-5" />
                 <span>基本信息已确认</span>
             </div>
-        </AiElementsConfirmationConfirmationAccepted>
+        </ConfirmationAccepted>
 
         <!-- 已拒绝状态 -->
-        <AiElementsConfirmationConfirmationRejected>
+        <ConfirmationRejected>
             <div class="flex items-center gap-2 text-muted-foreground">
                 <XCircleIcon class="h-5 w-5" />
                 <span>已取消确认</span>
             </div>
-        </AiElementsConfirmationConfirmationRejected>
-    </AiElementsConfirmationConfirmation>
+        </ConfirmationRejected>
+    </Confirmation>
 </template>
 
 <script setup lang="ts">

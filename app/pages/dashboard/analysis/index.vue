@@ -11,6 +11,12 @@
 <script lang="ts" setup>
 import type { PromptSubmitData } from '#shared/types/case'
 import { toast } from 'vue-sonner'
+import CaseAnalysisExample from '~/components/caseAnalysis/example.vue'
+import CaseAnalysisModuleSelector from '~/components/caseAnalysis/moduleSelector.vue'
+import CaseAnalysisPromptInput from '~/components/caseAnalysis/promptInput.vue'
+import CaseAnalysisWelcome from '~/components/caseAnalysis/welcome.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useCaseAnalysisStore } from '~/store/caseAnalysis'
 
 definePageMeta({
   title: "案件分析",

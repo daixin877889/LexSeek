@@ -81,6 +81,8 @@
 
 <script setup lang="ts">
 import { Plus, WrapText, Trash2 } from 'lucide-vue-next'
+import AdminNodesSchemaFieldList from '~/components/admin/nodes/SchemaFieldList.vue'
+import { useColorMode } from '~/composables/useColorMode'
 
 // 延迟导入避免 SSR 问题
 const JsonEditorVue = defineAsyncComponent(() =>

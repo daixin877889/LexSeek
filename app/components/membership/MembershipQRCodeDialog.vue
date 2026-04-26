@@ -8,6 +8,7 @@
 
 <script lang="ts" setup>
 import type { WechatPaymentParams, WechatPaymentResult } from "~/composables/useWechatPayment";
+import PaymentQRCodeDialog from '~/components/payment/PaymentQRCodeDialog.vue'
 
 // 定义 props
 defineProps<{

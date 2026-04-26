@@ -14,6 +14,7 @@ import {
 } from '#shared/types/benefit'
 import { formatByteSize } from '#shared/utils/unitConverision'
 import { decimalToNumberUtils } from '#shared/utils/decimalToNumber'
+import type { benefits, userBenefits } from '~~/generated/prisma/client'
 
 /** 查询参数验证 */
 const querySchema = z.object({

@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod'
+import { getNodeByIdService } from '~~/server/services/node/node.service'
 
 /** 路由参数验证 */
 const paramsSchema = z.object({

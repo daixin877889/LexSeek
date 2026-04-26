@@ -99,6 +99,12 @@ import { MenuIcon, User, Sun } from "lucide-vue-next";
 import { useMediaQuery } from "@vueuse/core";
 import SettingsLayout from "./settingsLayout.vue";
 import MembershipLayout from "./membershipLayout.vue";
+import DashboardBreadcrumbNav from '~/components/dashboard/BreadcrumbNav.vue'
+import DashboardLogoBox from '~/components/dashboard/logoBox.vue'
+import DashboardNavMain from '~/components/dashboard/navMain.vue'
+import DashboardNavUser from '~/components/dashboard/navUser.vue'
+import DashboardNavUserRight from '~/components/dashboard/navUserRight.vue'
+import GeneralThemeToggle from '~/components/general/ThemeToggle.vue'
 
 const sidebarTriggerRef = ref<InstanceType<typeof import("@/components/ui/sidebar").SidebarTrigger> | null>(null);
 

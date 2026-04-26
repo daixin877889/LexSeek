@@ -16,6 +16,9 @@ import type { OssFileItem } from '~/store/file'
 import { DOCX_MIME } from '#shared/utils/mime'
 import { FileSource } from '#shared/types/file'
 import { useBatchUpload } from '~/composables/useBatchUpload'
+import CaseAnalysisMaterialSelector from '~/components/caseAnalysis/materialSelector.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useFileStore } from '~/store/file'
 
 const props = defineProps<{
     open: boolean

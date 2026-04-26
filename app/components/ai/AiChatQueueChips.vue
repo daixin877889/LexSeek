@@ -72,14 +72,14 @@ function truncate(text: string, max = 24): string {
 
     <!-- 队列条目列表（方案 A 紧凑化：p-2→p-1, max-h-[120px]→max-h-[88px] 约容纳 3 条紧凑 chip） -->
     <div class="p-1 max-h-[88px] overflow-y-auto">
-      <!-- AiElementsQueue 默认 p-2 gap-2 多占 24px，此处用 !p-0 !gap-0 覆盖 -->
-      <AiElementsQueue class="!p-0 !gap-0">
+      <!-- Queue 默认 p-2 gap-2 多占 24px，此处用 !p-0 !gap-0 覆盖 -->
+      <Queue class="!p-0 !gap-0">
         <!--
           方案 A 紧凑化：!flex-row 覆盖 flex-col + !px-2 !py-0.5 !text-xs 减小每条 chip 高度
           + !rounded-none 去圆角避免"卡片感"，只保留 hover:bg-muted 的背景反馈（默认行为）
           原：px-3 py-1 text-sm (~32px) → 现：扁平无圆角 (~24px)
         -->
-        <AiElementsQueueItem
+        <QueueItem
           v-for="(item, index) in queue"
           :key="item.id"
           class="!flex-row items-center gap-1.5 !px-2 !py-0.5 !text-xs !rounded-none"
@@ -106,7 +106,7 @@ function truncate(text: string, max = 24): string {
 
           <!--
             文本内容与 Tooltip：
-            原计划复用 AiElementsQueueItemContent，但 reka-ui 的 TooltipTrigger as-child
+            原计划复用 QueueItemContent，但 reka-ui 的 TooltipTrigger as-child
             通过 <Slot> primitive 把事件 + DOM ref 注入子元素，要求子元素能 forward DOM ref。
             Vue 3 自定义组件默认 ref 指向组件实例（非 DOM 节点），QueueItemContent 未做 ref 转发，
             作为 as-child 子元素时 Tooltip 定位失败。
@@ -139,18 +139,18 @@ function truncate(text: string, max = 24): string {
             <BrainIcon class="size-3 text-primary" />
           </span>
 
-          <!-- 删除按钮：包在 QueueItemActions 里，hover 才显示（AiElementsQueueItemAction 自带行为） -->
-          <AiElementsQueueItemActions class="shrink-0">
-            <AiElementsQueueItemAction
+          <!-- 删除按钮：包在 QueueItemActions 里，hover 才显示（QueueItemAction 自带行为） -->
+          <QueueItemActions class="shrink-0">
+            <QueueItemAction
               class="!size-5"
               data-testid="queue-remove"
               @click="emit('remove', item.id)"
             >
               <XIcon class="size-2.5" />
-            </AiElementsQueueItemAction>
-          </AiElementsQueueItemActions>
-        </AiElementsQueueItem>
-      </AiElementsQueue>
+            </QueueItemAction>
+          </QueueItemActions>
+        </QueueItem>
+      </Queue>
     </div>
   </div>
 </template>

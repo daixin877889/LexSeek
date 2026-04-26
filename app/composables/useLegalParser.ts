@@ -5,6 +5,7 @@
  */
 
 import type { ParsedArticle } from '#shared/types/legal-parser'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 /**
  * 解析状态

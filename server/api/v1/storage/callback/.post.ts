@@ -1,3 +1,6 @@
+import { OssFileStatus } from '#shared/types/file'
+import { createLogger } from '#shared/utils/logger'
+import { updateOssFileDao } from '~~/server/services/files/ossFiles.dao'
 /**
  * 通用存储回调处理 API
  *

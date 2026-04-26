@@ -4,6 +4,7 @@ import { useInitAnalysisRuntime } from './initAnalysis/useInitAnalysisRuntime'
 import { useInitAnalysisProjection } from './initAnalysis/useInitAnalysisProjection'
 import { useInitAnalysisSyncBridge } from './initAnalysis/useInitAnalysisSyncBridge'
 import type { InitAnalysisState } from './initAnalysis/types'
+import type { InitAnalysisStatusResponse } from '#shared/types/initAnalysis'
 
 export type { InitAnalysisState }
 

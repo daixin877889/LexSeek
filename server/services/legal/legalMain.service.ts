@@ -34,6 +34,7 @@ import {
     deleteLegalArticlesByLegalIdDao,
 } from './legalArticles.dao'
 import { updateEmbeddingsValidStatus } from './lawEmbedding.service'
+import type { LegalStatistics } from '#shared/types/legal'
 
 /**
  * 格式化日期为字符串

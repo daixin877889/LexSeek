@@ -1,6 +1,8 @@
 import { toast } from 'vue-sonner'
 import type { Ref } from 'vue'
 import type { DownloadResponse } from '#shared/types/contract'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { triggerBrowserDownloadBlob, triggerBrowserDownloadUrl } from '~/utils/browserDownload'
 
 /**
  * 合同审查的文件导出动作（PDF 导出 + 批注版 docx 下载）。

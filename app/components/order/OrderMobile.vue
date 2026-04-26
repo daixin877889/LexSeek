@@ -51,6 +51,8 @@
 
 <script lang="ts" setup>
 import { OrderStatus, type OrderItem } from "#shared/types/payment";
+import { useFormatters } from '~/composables/useFormatters'
+import { useOrderStatus } from '~/composables/useOrderStatus'
 
 // ==================== Props ====================
 

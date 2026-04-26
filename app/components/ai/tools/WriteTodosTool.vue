@@ -28,24 +28,24 @@ const completedCount = computed(() =>
 </script>
 
 <template>
-    <AiElementsTool>
-        <AiElementsToolHeader title="任务规划" type="tool-write_todos" :state="state" />
-        <AiElementsToolContent v-if="todos.length">
+    <Tool>
+        <ToolHeader title="任务规划" type="tool-write_todos" :state="state" />
+        <ToolContent v-if="todos.length">
             <div class="p-4 space-y-2">
-                <AiElementsQueue>
-                    <AiElementsQueueItem v-for="(todo, idx) in todos" :key="idx">
-                        <AiElementsQueueItemContent :completed="todo.status === 'completed'">
-                            <AiElementsQueueItemIndicator :status="todo.status || 'pending'" />
+                <Queue>
+                    <QueueItem v-for="(todo, idx) in todos" :key="idx">
+                        <QueueItemContent :completed="todo.status === 'completed'">
+                            <QueueItemIndicator :status="todo.status || 'pending'" />
                             {{ todo.content || todo.title }}
-                        </AiElementsQueueItemContent>
-                    </AiElementsQueueItem>
-                </AiElementsQueue>
+                        </QueueItemContent>
+                    </QueueItem>
+                </Queue>
                 <div class="flex justify-end">
                     <Badge variant="outline" class="text-xs">
                         {{ completedCount }}/{{ todos.length }}
                     </Badge>
                 </div>
             </div>
-        </AiElementsToolContent>
-    </AiElementsTool>
+        </ToolContent>
+    </Tool>
 </template>

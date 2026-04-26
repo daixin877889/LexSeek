@@ -32,6 +32,7 @@ import { getValidNodeConfig, getNodeConfigService, type NodeConfig } from '../no
 import { embedAudioService as embedAudioToVectorStore, formatAsrResultForEmbedding } from './materialEmbedding.service'
 import { DEFAULT_POLLING_CONFIG, calculateBackoffDelay } from './materialConstants'
 import type { PollingConfig } from './materialConstants'
+import { AsrRecordStatus, AsrTaskStatus } from '#shared/types/recognition'
 
 /** 音频识别节点名称 */
 const ASR_NODE_NAME = 'audioRecognition'

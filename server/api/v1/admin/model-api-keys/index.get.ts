@@ -5,6 +5,7 @@
  */
 
 import { z } from 'zod'
+import { findManyModelApiKeysDao } from '~~/server/services/model/modelApiKeys.dao'
 
 /** 查询参数验证 */
 const querySchema = z.object({

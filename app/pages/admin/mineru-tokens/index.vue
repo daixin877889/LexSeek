@@ -143,6 +143,9 @@
 import { Plus, Loader2, Key, Search, MoreHorizontal, Pencil, Trash2, Power } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import dayjs from 'dayjs'
+import AdminMineruTokensFormDialog from '~/components/admin/mineru-tokens/FormDialog.vue'
+import GeneralPagination from '~/components/general/pagination.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 // MinerU Token 接口（脱敏版本）
 interface MineruTokenMasked {

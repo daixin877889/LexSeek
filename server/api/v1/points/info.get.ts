@@ -1,3 +1,5 @@
+import { createLogger } from '#shared/utils/logger'
+import { getUserPointSummary } from '~~/server/services/point/pointRecords.service'
 /**
  * 获取用户积分汇总信息
  * GET /api/v1/points/info

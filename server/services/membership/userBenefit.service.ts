@@ -20,6 +20,10 @@ import { formatByteSize } from '#shared/utils/unitConverision'
 import { findBenefitsByLevelIdDao } from './membershipBenefit.dao'
 import { expireUserBenefitsBySourceDao, createUserBenefitsDao } from './userBenefit.dao'
 import { prisma } from '../../utils/db'
+import type { membershipBenefits, userBenefits } from '~~/generated/prisma/client'
+import { ossUsageDao } from '~~/server/services/files/ossFiles.dao'
+import { findAllActiveBenefitsDao, findBenefitByCodeDao } from '~~/server/services/membership/benefit.dao'
+import { findUserBenefitsByCodeDao, sumUserBenefitValueDao } from '~~/server/services/membership/userBenefit.dao'
 
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma

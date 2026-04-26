@@ -80,6 +80,12 @@ import { Loader2 } from "lucide-vue-next";
 import { PaymentChannel, PaymentMethod, DurationUnit } from "#shared/types/payment";
 import type { ProductInfo } from "#shared/types/product";
 import type { WechatPaymentParams, WechatPaymentResult } from "~/composables/useWechatPayment";
+import toast from '#shared/utils/toast'
+import AuthModal from '~/components/auth/AuthModal.vue'
+import PaymentQRCodeDialog from '~/components/payment/PaymentQRCodeDialog.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useWechatPayment } from '~/composables/useWechatPayment'
+import { useAuthStore } from '~/store/auth'
 
 // 页面元信息
 definePageMeta({

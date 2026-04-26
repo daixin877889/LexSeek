@@ -20,17 +20,10 @@ import {
     SparklesIcon,
 } from 'lucide-vue-next'
 import { useLocalStorage } from '@vueuse/core'
-import type { ContractOverview, Risk, RiskDisplay, ContractReviewStatus, PlaybookSnapshot, ContractAnnotationEntity, RiskArchivedStatus, RiskSource } from '#shared/types/contract'
+import type { ContractOverview, Risk, RiskDisplayPhaseB, ContractReviewStatus, PlaybookSnapshot, ContractAnnotationEntity, RiskArchivedStatus } from '#shared/types/contract'
 import { RISK_LEVEL_LABEL } from '#shared/types/contract'
 // UI-L1：徽章配色集中到 app/utils/contractRiskLevelStyle，与 ContractDocxPreview 共享
 import { RISK_LEVEL_BADGE_CLASS as LEVEL_CLASS } from '~/utils/contractRiskLevelStyle'
-
-// Phase B 本地类型扩展（不修改 shared/types/contract.ts）
-type RiskDisplayPhaseB = RiskDisplay & {
-    source?: RiskSource
-    orphaned?: boolean
-    originalAnchorQuote?: string | null
-}
 
 const props = defineProps<{
     risks: RiskDisplayPhaseB[]
@@ -487,12 +480,12 @@ function handleArchive(riskStringId: string, status: RiskArchivedStatus | null) 
                     :playbook-snapshot="playbookSnapshot ?? null"
                     @toggle="toggle"
                     @focus="(id: string) => emit('focusRisk', id)"
-                    @archive="(id: string, status) => emit('archive', id, status)"
+                    @archive="(id: string, status: RiskArchivedStatus | null) => emit('archive', id, status)"
                     @add-annotation="(id: string, content: string, parentId?: number) => emit('addAnnotation', id, content, parentId)"
                     @delete-annotation="(annId: number) => emit('deleteAnnotation', annId)"
                     @toggle-pin="(id: string) => emit('togglePin', id)"
                     @edit-risk="openEdit"
-                    @delete-risk="(risk) => openDelete(risk.id)"
+                    @delete-risk="(risk: Risk) => openDelete(risk.id)"
                 />
 
                 <!-- 已处置折叠区（仅 hideArchived=true 且确有已处置时显示）-->

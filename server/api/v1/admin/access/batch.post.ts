@@ -8,6 +8,7 @@
  */
 
 import { z } from 'zod'
+import { batchUpdateAccessService } from '~~/server/services/node/access.service'
 
 /** 请求体验证 */
 const bodySchema = z.object({

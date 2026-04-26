@@ -4,6 +4,7 @@ import { coerceRawMessages } from '~/components/ai/composables/useMessageParser'
 import { useStreamChat } from '../useStreamChat'
 import { pickFirstSelectedModule, computeModuleStatesFromSnapshot } from '../useInitAnalysis'
 import type { InitAnalysisState, AnalysisPhase, SyncCursor, SyncSummary, RuntimeExposed } from './types'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 export function useInitAnalysisRuntime(sessionId: Ref<string>) {
   const phase = ref<AnalysisPhase>('select')

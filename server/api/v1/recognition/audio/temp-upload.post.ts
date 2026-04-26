@@ -14,6 +14,9 @@ import { v7 as uuidv7 } from 'uuid'
 import dayjs from 'dayjs'
 import { StorageProviderType } from '~~/server/lib/storage/types'
 import { SUPPORTED_AUDIO_TYPES } from '~~/server/services/material/asr.service'
+import { getExtensionFromFileName } from '#shared/utils/file'
+import { mime } from '#shared/utils/mime'
+import { generatePostSignatureService } from '~~/server/services/storage/storage.service'
 
 // 请求体验证 Schema
 const bodySchema = z.object({

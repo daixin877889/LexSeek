@@ -2,6 +2,7 @@
  * 用户角色数据访问层
  */
 import type { Prisma } from "#shared/types/prisma";
+import type { roleRouters, roles, routers, userRoles } from '~~/generated/prisma/client'
 
 /**
  * 创建用户角色关联

@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import type { DocumentDraftVersion, DocumentDraftSnapshot } from '#shared/types/document'
+import AssistantDocumentSnapshotDetail from '~/components/assistant/document/DocumentSnapshotDetail.vue'
+import AssistantDocumentSnapshotList from '~/components/assistant/document/DocumentSnapshotList.vue'
+import AssistantDocumentVersionList from '~/components/assistant/document/DocumentVersionList.vue'
 
 defineProps<{
     open: boolean

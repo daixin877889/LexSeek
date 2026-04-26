@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { FileEditIcon, Trash2Icon } from 'lucide-vue-next'
 import type { DraftRow } from '#shared/types/document'
+import toast from '#shared/utils/toast'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useAlertDialogStore } from '~/store/alertDialog'
 
 defineProps<{
     items: DraftRow[]

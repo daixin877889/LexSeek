@@ -1,3 +1,5 @@
+import { useAuthStore } from '~/store/auth'
+import { usePermissionStore } from '~/store/permission'
 /**
  * 统一服务端和客户端的鉴权逻辑
  * 1. 服务端：通过 cookie 判断认证状态
