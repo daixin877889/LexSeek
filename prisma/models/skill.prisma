@@ -1,0 +1,52 @@
+/// Skill 注册表 - 文件系统 .deepagents/skills/* 的元数据缓存
+model skills {
+  /// Skill 名称（如 'docx' / 'evidence-defense'），主键
+  name        String       @id @db.VarChar(100)
+  /// 文件系统路径（项目根的相对路径，如 .deepagents/skills/docx）
+  path        String       @db.VarChar(500)
+  /// 来源：filesystem 由扫描入库，uploaded 预留给后台上传（本期不实现）
+  source      String       @default("filesystem") @db.VarChar(20)
+  /// 中文展示名
+  title       String?      @db.VarChar(200)
+  /// SKILL.md frontmatter description（触发场景 / 完整说明）
+  description String?      @db.Text
+  /// 版本号（SKILL.md frontmatter version；缺失时为 NULL）
+  version     String?      @db.VarChar(50)
+  /// 状态：1 启用 / 0 停用
+  status      Int          @default(1)
+  /// 上次从文件系统同步时间
+  syncedAt    DateTime?    @map("synced_at") @db.Timestamptz(6)
+  /// 创建时间
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt   DateTime     @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  /// 关联节点列表
+  nodeSkills  node_skills[]
+
+  @@index([status], map: "idx_skills_status")
+  @@index([source], map: "idx_skills_source")
+  @@map("skills")
+}
+
+/// 节点 ↔ Skill 关联表（多对多）
+model node_skills {
+  /// 节点 ID
+  nodeId    Int      @map("node_id")
+  /// Skill 名称
+  skillName String   @map("skill_name") @db.VarChar(100)
+  /// 排序优先级（决定 system prompt 中 skill 出现顺序，数字越小越靠前）
+  priority  Int      @default(100)
+  /// 创建时间
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  /// 关联节点
+  node      nodes    @relation(fields: [nodeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  /// 关联 skill
+  skill     skills   @relation(fields: [skillName], references: [name], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([nodeId, skillName])
+  @@index([nodeId], map: "idx_node_skills_node_id")
+  @@index([skillName], map: "idx_node_skills_skill_name")
+  @@map("node_skills")
+}

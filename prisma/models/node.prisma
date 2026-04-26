@@ -47,6 +47,11 @@ model nodes {
   groupId      Int?      @map("group_id")
   /// 状态：1-启用，0-禁用
   status       Int       @default(1)
+  /// 案件初分阶段 8 改造开关：是否使用 "skills-as-logic" 提示词风格
+  /// 启用后：system prompt 仅写规范，分析逻辑由关联的 skills 提供
+  /// 关闭时：system prompt 含完整方法论（旧式嵌入式 prompt）
+  /// 节点级独立配置（非全局灰度开关）
+  useSkillsAsLogic Boolean @default(false) @map("use_skills_as_logic")
   /// 创建时间
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   /// 最后更新时间
@@ -68,6 +73,9 @@ model nodes {
 
   /// 关联的案件分析结果
   caseAnalyses caseAnalyses[]
+
+  /// 关联的 skills（多对多）
+  nodeSkills node_skills[]
 
   @@index([name], map: "idx_nodes_name")
   @@index([type], map: "idx_nodes_type")
