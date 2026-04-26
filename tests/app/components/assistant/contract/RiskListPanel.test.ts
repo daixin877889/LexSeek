@@ -15,11 +15,10 @@ import type { ContractOverview, Risk, ContractReviewStatus, PlaybookSnapshot, Co
  * - 点击 Card 展开 / 收起 / 切换 / 展开内容正确
  * - summary 空/非空 / 下载按钮三态
  *
- * M5 CRUD 扩展（11 用例）：
+ * M5 CRUD 扩展（8 用例）：
  * - 顶部「新增风险」按钮 + 每条风险的「编辑 / 删除」按钮
- * - editable 由 status + isRebuilding 推导
+ * - editable 由 status 推导
  * - RiskEditDialog / AlertDialog 交互触发 editRisks
- * - 「重新生成批注 Word」按钮 & rebuilding 态全局禁用
  */
 
 // 透明 stub：保持 slot 渲染
@@ -182,8 +181,6 @@ function mountPanel(props: Partial<{
     status: ContractReviewStatus
     reviewedFileId: number | null
     summary: ContractOverview | null
-    isRebuilding: boolean
-    hasUnsavedDocxChanges: boolean
     focusedRiskId: string | null
     hoveredRiskId: string | null
     pinnedRiskIds: Set<string>
@@ -195,8 +192,6 @@ function mountPanel(props: Partial<{
             status: 'pending' as ContractReviewStatus,
             reviewedFileId: null,
             summary: null,
-            isRebuilding: false,
-            hasUnsavedDocxChanges: false,
             focusedRiskId: null,
             hoveredRiskId: null,
             pinnedRiskIds: new Set<string>(),
@@ -223,10 +218,6 @@ function findDownloadButton(w: Wrapper) {
 
 function findCreateButton(w: Wrapper) {
     return findButtonByText(w, '新增风险')!
-}
-
-function findRebuildButton(w: Wrapper) {
-    return w.findAll('button').find(b => /重新生成批注 Word|批注生成中/.test(b.text()))
 }
 
 describe('RiskListPanel', () => {
@@ -488,49 +479,6 @@ describe('RiskListPanel M5 扩展', () => {
         await w.find('[data-stub="AlertDialogCancel"]').trigger('click')
         expect(w.emitted('editRisks')).toBeUndefined()
     })
-
-    it('hasUnsavedDocxChanges && !isRebuilding && completed → "重新生成批注 Word"按钮 enable + 点击 emit rebuild', async () => {
-        const w = mountPanel(completedProps({ risks: [makeRisk()], hasUnsavedDocxChanges: true }))
-        const btn = findRebuildButton(w)!
-        expect(btn).toBeTruthy()
-        expect(btn.text()).toContain('重新生成批注 Word')
-        expect((btn.element as HTMLButtonElement).disabled).toBe(false)
-
-        await btn.trigger('click')
-        expect(w.emitted('rebuild')).toBeTruthy()
-        expect(w.emitted('rebuild')!.length).toBe(1)
-    })
-
-    it('hasUnsavedDocxChanges=false → 重生按钮不渲染', () => {
-        const w = mountPanel(completedProps({ risks: [makeRisk()], hasUnsavedDocxChanges: false }))
-        // 按 v-if 条件，未变更时不渲染重生按钮
-        expect(findRebuildButton(w)).toBeUndefined()
-    })
-
-    it('isRebuilding=true → 重生按钮 disabled + 显示"批注生成中..." + 顶部 rebuilding 提示栏 + 所有编辑按钮 disabled', async () => {
-        const w = mountPanel(completedProps({
-            risks: [makeRisk()],
-            hasUnsavedDocxChanges: true,
-            isRebuilding: true,
-        }))
-
-        // 顶部提示栏
-        expect(w.text()).toContain('批注正在重新生成...')
-
-        // 重生按钮 disabled 且显示"批注生成中..."
-        const rebuildBtn = findRebuildButton(w)!
-        expect(rebuildBtn).toBeTruthy()
-        expect((rebuildBtn.element as HTMLButtonElement).disabled).toBe(true)
-        expect(rebuildBtn.text()).toContain('批注生成中...')
-
-        // 新增按钮 disabled
-        expect((findCreateButton(w).element as HTMLButtonElement).disabled).toBe(true)
-
-        // 展开 Card 后，编辑/删除按钮 disabled
-        await findCards(w)[0]!.trigger('click')
-        expect((findButtonByText(w, '编辑')!.element as HTMLButtonElement).disabled).toBe(true)
-        expect((findButtonByText(w, '删除')!.element as HTMLButtonElement).disabled).toBe(true)
-    })
 })
 
 describe('RiskListPanel · M6.1 流式冒出', () => {
@@ -541,8 +489,6 @@ describe('RiskListPanel · M6.1 流式冒出', () => {
             status: 'reviewing' as ContractReviewStatus,
             reviewedFileId: null,
             summary: null,
-            isRebuilding: false,
-            hasUnsavedDocxChanges: false,
         })
         await w.setProps({
             risks: [makeRisk({
@@ -571,8 +517,6 @@ function mountPanelWithPin(props: Partial<{
     status: ContractReviewStatus
     reviewedFileId: number | null
     summary: ContractOverview | null
-    isRebuilding: boolean
-    hasUnsavedDocxChanges: boolean
     focusedRiskId: string | null
     hoveredRiskId: string | null
     pinnedRiskIds: Set<string>
@@ -584,8 +528,6 @@ function mountPanelWithPin(props: Partial<{
             status: 'pending' as ContractReviewStatus,
             reviewedFileId: null,
             summary: null,
-            isRebuilding: false,
-            hasUnsavedDocxChanges: false,
             focusedRiskId: null,
             hoveredRiskId: null,
             pinnedRiskIds: new Set<string>(),
@@ -753,8 +695,6 @@ describe('RiskListPanel · Task 2.6 清单要点徽章', () => {
                 status: 'completed' as ContractReviewStatus,
                 reviewedFileId: 123,
                 summary: null,
-                isRebuilding: false,
-                hasUnsavedDocxChanges: false,
                 focusedRiskId: null,
                 hoveredRiskId: null,
                 pinnedRiskIds: new Set<string>(),
@@ -775,8 +715,6 @@ describe('RiskListPanel · Task 2.6 清单要点徽章', () => {
                 status: 'completed' as ContractReviewStatus,
                 reviewedFileId: 123,
                 summary: null,
-                isRebuilding: false,
-                hasUnsavedDocxChanges: false,
                 focusedRiskId: null,
                 hoveredRiskId: null,
                 pinnedRiskIds: new Set<string>(),
@@ -798,8 +736,6 @@ describe('RiskListPanel · Task 2.6 清单要点徽章', () => {
                 status: 'completed' as ContractReviewStatus,
                 reviewedFileId: 123,
                 summary: null,
-                isRebuilding: false,
-                hasUnsavedDocxChanges: false,
                 focusedRiskId: null,
                 hoveredRiskId: null,
                 pinnedRiskIds: new Set<string>(),
@@ -820,8 +756,6 @@ describe('RiskListPanel · Task 2.6 清单要点徽章', () => {
                 status: 'completed' as ContractReviewStatus,
                 reviewedFileId: 123,
                 summary: null,
-                isRebuilding: false,
-                hasUnsavedDocxChanges: false,
                 focusedRiskId: null,
                 hoveredRiskId: null,
                 pinnedRiskIds: new Set<string>(),
@@ -869,8 +803,6 @@ function mountPanelPhaseB(props: Partial<{
     status: ContractReviewStatus
     reviewedFileId: number | null
     summary: ContractOverview | null
-    isRebuilding: boolean
-    hasUnsavedDocxChanges: boolean
     focusedRiskId: string | null
     hoveredRiskId: string | null
     pinnedRiskIds: Set<string>
@@ -882,8 +814,6 @@ function mountPanelPhaseB(props: Partial<{
             status: 'completed' as ContractReviewStatus,
             reviewedFileId: 123,
             summary: null,
-            isRebuilding: false,
-            hasUnsavedDocxChanges: false,
             focusedRiskId: null,
             hoveredRiskId: null,
             pinnedRiskIds: new Set<string>(),
