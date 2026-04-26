@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import mammoth from 'mammoth'
-import { textToDocxService } from '~~/server/services/assistant/contract/textToDocx.service'
+import { textToDocxService } from '~~/server/agents/contract/textToDocx.service'
 
 describe('textToDocxService', () => {
     it('纯中文文本 → .docx → mammoth 重读内容一致', async () => {

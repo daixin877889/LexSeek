@@ -42,13 +42,13 @@ const resSuccess = (_event: any, message: string, data: any) => ({
 
 // ==================== Mock DAO / Service 层 ====================
 
-vi.mock('~~/server/services/assistant/contract/contractReview.dao', () => ({
+vi.mock('~~/server/agents/contract/contractReview.dao', () => ({
     getContractReviewDAO: vi.fn(),
     atomicSetRebuildingDAO: vi.fn(),
     rollbackRebuildDAO: vi.fn(),
 }))
 
-vi.mock('~~/server/services/assistant/contract/contractReviewRebuild.service', () => ({
+vi.mock('~~/server/agents/contract/contractReviewRebuild.service', () => ({
     rebuildDocxService: vi.fn(),
 }))
 
@@ -56,8 +56,8 @@ import {
     getContractReviewDAO,
     atomicSetRebuildingDAO,
     rollbackRebuildDAO,
-} from '~~/server/services/assistant/contract/contractReview.dao'
-import { rebuildDocxService } from '~~/server/services/assistant/contract/contractReviewRebuild.service'
+} from '~~/server/agents/contract/contractReview.dao'
+import { rebuildDocxService } from '~~/server/agents/contract/contractReviewRebuild.service'
 
 const mockGetReview = getContractReviewDAO as ReturnType<typeof vi.fn>
 const mockAtomicClaim = atomicSetRebuildingDAO as ReturnType<typeof vi.fn>

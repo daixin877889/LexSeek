@@ -36,7 +36,7 @@ const resSuccess = (_event: any, message: string, data: any) => ({
 
 // ==================== Mock service 层 ====================
 
-vi.mock('~~/server/services/assistant/document/documentDraftVersion.service', () => ({
+vi.mock('~~/server/agents/document/documentDraftVersion.service', () => ({
     listVersionsForUserService: vi.fn(),
     createVersionService: vi.fn(),
     renameVersionService: vi.fn(),
@@ -44,11 +44,11 @@ vi.mock('~~/server/services/assistant/document/documentDraftVersion.service', ()
     restoreVersionService: vi.fn(),
 }))
 
-vi.mock('~~/server/services/assistant/document/documentDraftVersion.dao', () => ({
+vi.mock('~~/server/agents/document/documentDraftVersion.dao', () => ({
     getVersionByIdDAO: vi.fn(),
 }))
 
-vi.mock('~~/server/services/assistant/document/documentExport.service', () => ({
+vi.mock('~~/server/agents/document/documentExport.service', () => ({
     exportVersionByIdService: vi.fn(),
 }))
 
@@ -58,11 +58,11 @@ import {
     renameVersionService,
     deleteVersionService,
     restoreVersionService,
-} from '~~/server/services/assistant/document/documentDraftVersion.service'
+} from '~~/server/agents/document/documentDraftVersion.service'
 
-import { getVersionByIdDAO } from '~~/server/services/assistant/document/documentDraftVersion.dao'
+import { getVersionByIdDAO } from '~~/server/agents/document/documentDraftVersion.dao'
 
-import { exportVersionByIdService } from '~~/server/services/assistant/document/documentExport.service'
+import { exportVersionByIdService } from '~~/server/agents/document/documentExport.service'
 
 const mockListService = listVersionsForUserService as ReturnType<typeof vi.fn>
 const mockCreateService = createVersionService as ReturnType<typeof vi.fn>

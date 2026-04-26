@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { readFile } from 'node:fs/promises'
-import { scanPlaceholders } from '~~/server/services/assistant/document/templateScanner'
+import { scanPlaceholders } from '~~/server/agents/document/templateScanner'
 
 describe('scanPlaceholders', () => {
     it('提取纯英文占位符', async () => {

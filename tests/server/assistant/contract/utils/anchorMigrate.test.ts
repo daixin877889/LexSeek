@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { ClauseSnapshotItem } from '#shared/types/contract'
-import { migrateAnchor } from '~~/server/services/assistant/contract/utils/anchorMigrate'
+import { migrateAnchor } from '~~/server/agents/contract/utils/anchorMigrate'
 
 function makeClauses(texts: string[]): ClauseSnapshotItem[] {
     let offset = 0

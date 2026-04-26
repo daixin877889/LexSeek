@@ -3,8 +3,8 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { createChatModel } from '~~/server/services/node/chatModelFactory'
 import { getValidNodeConfig } from '~~/server/services/node/node.service'
-import { detectParties } from '~~/server/services/assistant/contract/docx/partyDetector'
-import { parseContractDocx } from '~~/server/services/assistant/contract/docx/parser'
+import { detectParties } from '~~/server/agents/contract/docx/partyDetector'
+import { parseContractDocx } from '~~/server/agents/contract/docx/parser'
 
 const SAMPLES = ['labor', 'lease', 'sale', 'service', 'loan'] as const
 const SAMPLE_DIR = join(__dirname, '../../../../../prisma/seeds/contract-samples')

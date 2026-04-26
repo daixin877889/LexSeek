@@ -39,7 +39,7 @@ const resError = (_event: any, code: number, message: string) => ({
 
 // CORE-L1：handler 用 instanceof 检测 404/403/500，mock 必须把真实 Error 类
 // 一并 export。vi.mock 工厂被 hoist 到顶部，类必须**在工厂内**定义。
-vi.mock('~~/server/services/assistant/contract/contractReviewPdf.service', () => {
+vi.mock('~~/server/agents/contract/contractReviewPdf.service', () => {
     class ContractReviewNotFoundError extends Error {
         constructor(public readonly reviewId: number) {
             super(`合同审查不存在：${reviewId}`)
@@ -62,7 +62,7 @@ vi.mock('~~/server/services/assistant/contract/contractReviewPdf.service', () =>
 // loadOwnedReview 内部依赖 contractReview.dao.getContractReviewDAO；
 // 默认返回与 makeEvent 默认 userId 匹配的 owned review，让 guard 通过；
 // 个别需要 404/403 的测试可在用例内 override mock 返回值。
-vi.mock('~~/server/services/assistant/contract/contractReview.dao', () => ({
+vi.mock('~~/server/agents/contract/contractReview.dao', () => ({
     getContractReviewDAO: vi.fn(),
 }))
 
@@ -70,8 +70,8 @@ import {
     exportReviewPdfService,
     ContractReviewNotFoundError,
     ContractReviewForbiddenError,
-} from '~~/server/services/assistant/contract/contractReviewPdf.service'
-import { getContractReviewDAO } from '~~/server/services/assistant/contract/contractReview.dao'
+} from '~~/server/agents/contract/contractReviewPdf.service'
+import { getContractReviewDAO } from '~~/server/agents/contract/contractReview.dao'
 
 const mockExport = exportReviewPdfService as unknown as ReturnType<typeof vi.fn>
 const mockGetReview = getContractReviewDAO as unknown as ReturnType<typeof vi.fn>

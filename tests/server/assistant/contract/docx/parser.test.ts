@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { parseContractDocx } from '~~/server/services/assistant/contract/docx/parser'
+import { parseContractDocx } from '~~/server/agents/contract/docx/parser'
 
 const SAMPLES = ['labor', 'lease', 'sale', 'service', 'loan'] as const
 const SAMPLE_DIR = join(__dirname, '../../../../../prisma/seeds/contract-samples')

@@ -55,11 +55,11 @@ vi.mock('~~/server/services/node/node.service', () => ({
 }))
 
 const mockFindDraft = vi.fn()
-vi.mock('~~/server/services/assistant/document/documentDraft.dao', () => ({
+vi.mock('~~/server/agents/document/documentDraft.dao', () => ({
     findDraftBySessionIdDAO: (...args: unknown[]) => mockFindDraft(...args),
 }))
 
-vi.mock('~~/server/services/assistant/document/documentTemplate.dao', () => ({
+vi.mock('~~/server/agents/document/documentTemplate.dao', () => ({
     getDocumentTemplateDAO: vi.fn(async () => ({
         id: 9,
         name: '起诉状',
@@ -68,7 +68,7 @@ vi.mock('~~/server/services/assistant/document/documentTemplate.dao', () => ({
     })),
 }))
 
-vi.mock('~~/server/services/assistant/document/draftSchema.builder', () => ({
+vi.mock('~~/server/agents/document/draftSchema.builder', () => ({
     buildDraftSchema: vi.fn(() => ({ __mock: 'schema' })),
 }))
 

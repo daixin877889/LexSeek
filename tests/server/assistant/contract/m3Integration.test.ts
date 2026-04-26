@@ -13,7 +13,7 @@ import { reviewResultPersistenceMiddleware } from '~~/server/services/workflow/m
 import {
     createContractReviewDAO,
     getContractReviewDAO,
-} from '~~/server/services/assistant/contract/contractReview.dao'
+} from '~~/server/agents/contract/contractReview.dao'
 import { prisma } from '~~/server/utils/db'
 import { ensureTestUser, cleanupTestData } from '../test-db-helper'
 
@@ -48,7 +48,7 @@ describe('M3 集成：结果持久化语义', () => {
     // 测试场景：review DB 里已有 risks（由 runAnalyzeLoop 写入），但 originalFileId=0 让
     // findOssFileByIdDao 返回 null → 注入前准备阶段抛错 → status=failed，risks 保留在 DB 里。
     it('批注注入准备阶段失败（originalFile 不存在）→ risks 已落库 + status=failed（M5 rebuild-docx 可恢复）', async () => {
-        const { updateContractReviewDAO } = await import('~~/server/services/assistant/contract/contractReview.dao')
+        const { updateContractReviewDAO } = await import('~~/server/agents/contract/contractReview.dao')
 
         // 用 originalFileId=0 让 findOssFileByIdDao 返回 null → 注入前准备阶段抛错
         const review = await createContractReviewDAO({

@@ -6,7 +6,7 @@ import {
     listPlaybooksDAO,
     listEnabledPlaybookPointsDAO,
     updatePlaybookDAO,
-} from '~~/server/services/assistant/contract/contractPlaybook.dao'
+} from '~~/server/agents/contract/contractPlaybook.dao'
 
 describe('contractPlaybook.dao', () => {
     beforeEach(async () => {

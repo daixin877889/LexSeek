@@ -30,7 +30,7 @@ vi.mock('~~/server/services/storage/storage.service', () => ({
 // download 新语义（2026-04-24）：每次下载都触发 rebuildDocxService 生成最新产物。
 // rebuild 内部要真下原件 / 注入 / 上传 OSS，本 integration 不涵盖；只 mock 它的
 // 外层返回，保证 download 端点能继续测 atomic claim + 产物 URL 透传的链路完整性。
-vi.mock('~~/server/services/assistant/contract/contractReviewRebuild.service', () => ({
+vi.mock('~~/server/agents/contract/contractReviewRebuild.service', () => ({
     rebuildDocxService: vi.fn(async (review: any) => ({
         reviewedFileId: review.reviewedFileId,
         downloadUrl: `https://oss.example.com/rebuild-${review.id}.docx?sig=fake&expires=3600`,
@@ -44,7 +44,7 @@ const { default: downloadHandler } = await import(
 import {
     createContractReviewDAO,
     updateContractReviewDAO,
-} from '~~/server/services/assistant/contract/contractReview.dao'
+} from '~~/server/agents/contract/contractReview.dao'
 import { createOssFileDao } from '~~/server/services/files/ossFiles.dao'
 import { prisma } from '~~/server/utils/db'
 import { ensureTestUser, cleanupTestData } from '../test-db-helper'

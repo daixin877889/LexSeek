@@ -31,11 +31,11 @@ const resSuccess = (_event: any, message: string, data: any) => ({
 
 // ==================== Mock service 层 ====================
 
-vi.mock('~~/server/services/assistant/document/documentDraft.service', () => ({
+vi.mock('~~/server/agents/document/documentDraft.service', () => ({
     updateDraftTitleService: vi.fn(),
 }))
 
-import { updateDraftTitleService } from '~~/server/services/assistant/document/documentDraft.service'
+import { updateDraftTitleService } from '~~/server/agents/document/documentDraft.service'
 const mockUpdateTitleService = updateDraftTitleService as ReturnType<typeof vi.fn>
 
 // ==================== 动态 import handler ====================

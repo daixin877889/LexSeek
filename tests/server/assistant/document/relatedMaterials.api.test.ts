@@ -33,7 +33,7 @@ const resSuccess = (_event: any, message: string, data: any) => ({
 
 // ==================== Mock service/DAO 层 ====================
 
-vi.mock('~~/server/services/assistant/document/documentDraft.dao', () => ({
+vi.mock('~~/server/agents/document/documentDraft.dao', () => ({
     getDocumentDraftDAO: vi.fn(),
 }))
 
@@ -41,7 +41,7 @@ vi.mock('~~/server/services/material/material.service', () => ({
     getMaterialsByCaseOrDraftIdWithStatusService: vi.fn(),
 }))
 
-import { getDocumentDraftDAO } from '~~/server/services/assistant/document/documentDraft.dao'
+import { getDocumentDraftDAO } from '~~/server/agents/document/documentDraft.dao'
 import { getMaterialsByCaseOrDraftIdWithStatusService } from '~~/server/services/material/material.service'
 
 const mockGetDraft = getDocumentDraftDAO as ReturnType<typeof vi.fn>

@@ -45,15 +45,15 @@ const resSuccess = (_event: unknown, message: string, data: unknown) => ({
 
 // ==================== Mock DAO/Service 层 ====================
 
-vi.mock('~~/server/services/assistant/contract/contractReview.dao', () => ({
+vi.mock('~~/server/agents/contract/contractReview.dao', () => ({
     getContractReviewDAO: vi.fn(),
 }))
-vi.mock('~~/server/services/assistant/contract/contractReviewVersion.dao', () => ({
+vi.mock('~~/server/agents/contract/contractReviewVersion.dao', () => ({
     listContractReviewVersionsDAO: vi.fn(),
     updateContractReviewVersionNoteDAO: vi.fn(),
     getContractReviewVersionByIdDAO: vi.fn(),
 }))
-vi.mock('~~/server/services/assistant/contract/contractReviewVersion.service', () => ({
+vi.mock('~~/server/agents/contract/contractReviewVersion.service', () => ({
     saveContractReviewVersionService: vi.fn(),
     loadContractReviewVersionSnapshotService: vi.fn(),
     // ReviewNotFoundError 被 versions.post handler 用 instanceof 检测；mock 时必须导出真类
@@ -66,41 +66,41 @@ vi.mock('~~/server/services/assistant/contract/contractReviewVersion.service', (
         }
     },
 }))
-vi.mock('~~/server/services/assistant/contract/contractRisk.service', () => ({
+vi.mock('~~/server/agents/contract/contractRisk.service', () => ({
     archiveContractRiskService: vi.fn(),
 }))
-vi.mock('~~/server/services/assistant/contract/contractRisk.dao', () => ({
+vi.mock('~~/server/agents/contract/contractRisk.dao', () => ({
     listContractRisksDAO: vi.fn(),
     getContractRiskByIdDAO: vi.fn(),
 }))
-vi.mock('~~/server/services/assistant/contract/contractAnnotation.service', () => ({
+vi.mock('~~/server/agents/contract/contractAnnotation.service', () => ({
     createLawyerAnnotationService: vi.fn(),
     updateAnnotationContentService: vi.fn(),
     softDeleteAnnotationService: vi.fn(),
 }))
-vi.mock('~~/server/services/assistant/contract/contractAnnotation.dao', () => ({
+vi.mock('~~/server/agents/contract/contractAnnotation.dao', () => ({
     listContractAnnotationsByReviewDAO: vi.fn(),
     getContractAnnotationByIdDAO: vi.fn(),
 }))
 
-import { getContractReviewDAO } from '~~/server/services/assistant/contract/contractReview.dao'
+import { getContractReviewDAO } from '~~/server/agents/contract/contractReview.dao'
 import {
     listContractReviewVersionsDAO,
     updateContractReviewVersionNoteDAO,
     getContractReviewVersionByIdDAO,
-} from '~~/server/services/assistant/contract/contractReviewVersion.dao'
+} from '~~/server/agents/contract/contractReviewVersion.dao'
 import {
     saveContractReviewVersionService,
     loadContractReviewVersionSnapshotService,
-} from '~~/server/services/assistant/contract/contractReviewVersion.service'
-import { archiveContractRiskService } from '~~/server/services/assistant/contract/contractRisk.service'
-import { listContractRisksDAO } from '~~/server/services/assistant/contract/contractRisk.dao'
+} from '~~/server/agents/contract/contractReviewVersion.service'
+import { archiveContractRiskService } from '~~/server/agents/contract/contractRisk.service'
+import { listContractRisksDAO } from '~~/server/agents/contract/contractRisk.dao'
 import {
     createLawyerAnnotationService,
     updateAnnotationContentService,
     softDeleteAnnotationService,
-} from '~~/server/services/assistant/contract/contractAnnotation.service'
-import { listContractAnnotationsByReviewDAO } from '~~/server/services/assistant/contract/contractAnnotation.dao'
+} from '~~/server/agents/contract/contractAnnotation.service'
+import { listContractAnnotationsByReviewDAO } from '~~/server/agents/contract/contractAnnotation.dao'
 
 // ==================== 动态 import handlers ====================
 
@@ -419,7 +419,7 @@ describe('版本/风险/批注 API handler（Task 3.1-3.9）', () => {
 
         it('参数缺失 archivedStatus 返回 400', async () => {
             // mock getContractRiskByIdDAO for guard
-            const mockGetRiskById = (await import('~~/server/services/assistant/contract/contractRisk.dao')).getContractRiskByIdDAO as ReturnType<typeof vi.fn>
+            const mockGetRiskById = (await import('~~/server/agents/contract/contractRisk.dao')).getContractRiskByIdDAO as ReturnType<typeof vi.fn>
             mockGetRiskById.mockResolvedValue({ id: 5, reviewId: 1 })
 
             const res: any = await riskIdPatchHandler(
@@ -433,7 +433,7 @@ describe('版本/风险/批注 API handler（Task 3.1-3.9）', () => {
         })
 
         it('happy path 处置风险为 handled', async () => {
-            const mockGetRiskById = (await import('~~/server/services/assistant/contract/contractRisk.dao')).getContractRiskByIdDAO as ReturnType<typeof vi.fn>
+            const mockGetRiskById = (await import('~~/server/agents/contract/contractRisk.dao')).getContractRiskByIdDAO as ReturnType<typeof vi.fn>
             mockGetRiskById.mockResolvedValue({ id: 5, reviewId: 1 })
             mockArchiveRiskSvc.mockResolvedValue({
                 id: 5,
@@ -454,7 +454,7 @@ describe('版本/风险/批注 API handler（Task 3.1-3.9）', () => {
         })
 
         it('archivedStatus 置 null 时取消处置', async () => {
-            const mockGetRiskById = (await import('~~/server/services/assistant/contract/contractRisk.dao')).getContractRiskByIdDAO as ReturnType<typeof vi.fn>
+            const mockGetRiskById = (await import('~~/server/agents/contract/contractRisk.dao')).getContractRiskByIdDAO as ReturnType<typeof vi.fn>
             mockGetRiskById.mockResolvedValue({ id: 5, reviewId: 1 })
             mockArchiveRiskSvc.mockResolvedValue({
                 id: 5,
@@ -562,7 +562,7 @@ describe('版本/风险/批注 API handler（Task 3.1-3.9）', () => {
         })
 
         it('content 为空返回 400', async () => {
-            const mockGetAnnotById = (await import('~~/server/services/assistant/contract/contractAnnotation.dao')).getContractAnnotationByIdDAO as ReturnType<typeof vi.fn>
+            const mockGetAnnotById = (await import('~~/server/agents/contract/contractAnnotation.dao')).getContractAnnotationByIdDAO as ReturnType<typeof vi.fn>
             mockGetAnnotById.mockResolvedValue({ id: 100, reviewId: 1 })
 
             const res: any = await annotationIdPatchHandler(
@@ -576,7 +576,7 @@ describe('版本/风险/批注 API handler（Task 3.1-3.9）', () => {
         })
 
         it('修改他人批注返回 403', async () => {
-            const mockGetAnnotById = (await import('~~/server/services/assistant/contract/contractAnnotation.dao')).getContractAnnotationByIdDAO as ReturnType<typeof vi.fn>
+            const mockGetAnnotById = (await import('~~/server/agents/contract/contractAnnotation.dao')).getContractAnnotationByIdDAO as ReturnType<typeof vi.fn>
             mockGetAnnotById.mockResolvedValue({ id: 100, reviewId: 1 })
             mockUpdateAnnotationSvc.mockResolvedValue({ error: 'not_own' })
 
@@ -591,7 +591,7 @@ describe('版本/风险/批注 API handler（Task 3.1-3.9）', () => {
         })
 
         it('happy path 成功修改批注', async () => {
-            const mockGetAnnotById = (await import('~~/server/services/assistant/contract/contractAnnotation.dao')).getContractAnnotationByIdDAO as ReturnType<typeof vi.fn>
+            const mockGetAnnotById = (await import('~~/server/agents/contract/contractAnnotation.dao')).getContractAnnotationByIdDAO as ReturnType<typeof vi.fn>
             mockGetAnnotById.mockResolvedValue({ id: 100, reviewId: 1 })
             mockUpdateAnnotationSvc.mockResolvedValue({
                 annotation: { id: 100, content: '已修改内容' },
@@ -620,7 +620,7 @@ describe('版本/风险/批注 API handler（Task 3.1-3.9）', () => {
         })
 
         it('删除他人批注返回 403', async () => {
-            const mockGetAnnotById = (await import('~~/server/services/assistant/contract/contractAnnotation.dao')).getContractAnnotationByIdDAO as ReturnType<typeof vi.fn>
+            const mockGetAnnotById = (await import('~~/server/agents/contract/contractAnnotation.dao')).getContractAnnotationByIdDAO as ReturnType<typeof vi.fn>
             mockGetAnnotById.mockResolvedValue({ id: 100, reviewId: 1 })
             mockSoftDeleteAnnotationSvc.mockResolvedValue({ error: 'not_own' })
 
@@ -631,7 +631,7 @@ describe('版本/风险/批注 API handler（Task 3.1-3.9）', () => {
         })
 
         it('批注不存在返回 404', async () => {
-            const mockGetAnnotById = (await import('~~/server/services/assistant/contract/contractAnnotation.dao')).getContractAnnotationByIdDAO as ReturnType<typeof vi.fn>
+            const mockGetAnnotById = (await import('~~/server/agents/contract/contractAnnotation.dao')).getContractAnnotationByIdDAO as ReturnType<typeof vi.fn>
             mockGetAnnotById.mockResolvedValue({ id: 100, reviewId: 1 })
             mockSoftDeleteAnnotationSvc.mockResolvedValue({ error: 'not_found' })
 
@@ -642,7 +642,7 @@ describe('版本/风险/批注 API handler（Task 3.1-3.9）', () => {
         })
 
         it('happy path 软删成功', async () => {
-            const mockGetAnnotById = (await import('~~/server/services/assistant/contract/contractAnnotation.dao')).getContractAnnotationByIdDAO as ReturnType<typeof vi.fn>
+            const mockGetAnnotById = (await import('~~/server/agents/contract/contractAnnotation.dao')).getContractAnnotationByIdDAO as ReturnType<typeof vi.fn>
             mockGetAnnotById.mockResolvedValue({ id: 100, reviewId: 1 })
             mockSoftDeleteAnnotationSvc.mockResolvedValue({ ok: true })
 

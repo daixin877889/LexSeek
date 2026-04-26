@@ -9,11 +9,11 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('~~/server/services/assistant/contract/contractReview.dao', () => ({
+vi.mock('~~/server/agents/contract/contractReview.dao', () => ({
     getContractReviewDAO: vi.fn(),
     updateContractReviewDAO: vi.fn(),
 }))
-vi.mock('~~/server/services/assistant/contract/docx', () => ({
+vi.mock('~~/server/agents/contract/docx', () => ({
     injectComments: vi.fn(),
 }))
 vi.mock('~~/server/services/storage/storage.service', () => ({
@@ -32,8 +32,8 @@ import { reviewResultPersistenceMiddleware } from '~~/server/services/workflow/m
 import {
     getContractReviewDAO,
     updateContractReviewDAO,
-} from '~~/server/services/assistant/contract/contractReview.dao'
-import { injectComments } from '~~/server/services/assistant/contract/docx'
+} from '~~/server/agents/contract/contractReview.dao'
+import { injectComments } from '~~/server/agents/contract/docx'
 import {
     downloadFileService,
     uploadFileService,

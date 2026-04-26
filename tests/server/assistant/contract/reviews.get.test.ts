@@ -40,11 +40,11 @@ const resSuccess = (_event: any, message: string, data: any) => ({
 
 // ==================== Mock DAO 层 ====================
 
-vi.mock('~~/server/services/assistant/contract/contractReview.dao', () => ({
+vi.mock('~~/server/agents/contract/contractReview.dao', () => ({
     getContractReviewDAO: vi.fn(),
 }))
 
-import { getContractReviewDAO } from '~~/server/services/assistant/contract/contractReview.dao'
+import { getContractReviewDAO } from '~~/server/agents/contract/contractReview.dao'
 
 const mockGetContractReviewDAO = getContractReviewDAO as ReturnType<typeof vi.fn>
 

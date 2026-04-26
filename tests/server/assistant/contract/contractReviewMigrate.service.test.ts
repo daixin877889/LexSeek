@@ -9,7 +9,7 @@ import { prisma } from '~~/server/utils/db'
 import {
     migrateLegacyRisksService,
     migrateAllLegacyRisksService,
-} from '~~/server/services/assistant/contract/contractReviewMigrate.service'
+} from '~~/server/agents/contract/contractReviewMigrate.service'
 import { ensureTestUser } from '../test-db-helper'
 
 describe('contractReviewMigrate.service', () => {

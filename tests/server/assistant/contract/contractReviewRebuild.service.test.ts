@@ -31,15 +31,15 @@ vi.mock('~~/server/services/files/ossFiles.dao', () => ({
     createOssFileDao: vi.fn(),
 }))
 
-vi.mock('~~/server/services/assistant/contract/contractReview.dao', () => ({
+vi.mock('~~/server/agents/contract/contractReview.dao', () => ({
     setCompletedAfterRebuildDAO: vi.fn(),
 }))
 
-vi.mock('~~/server/services/assistant/contract/docx', () => ({
+vi.mock('~~/server/agents/contract/docx', () => ({
     injectAnnotations: vi.fn(),
 }))
 
-vi.mock('~~/server/services/assistant/contract/contractAnnotation.dao', () => ({
+vi.mock('~~/server/agents/contract/contractAnnotation.dao', () => ({
     listAnnotationsForExportDAO: vi.fn(),
 }))
 
@@ -58,9 +58,9 @@ import {
     findOssFileByIdDao,
     createOssFileDao,
 } from '~~/server/services/files/ossFiles.dao'
-import { setCompletedAfterRebuildDAO } from '~~/server/services/assistant/contract/contractReview.dao'
-import { injectAnnotations } from '~~/server/services/assistant/contract/docx'
-import { listAnnotationsForExportDAO } from '~~/server/services/assistant/contract/contractAnnotation.dao'
+import { setCompletedAfterRebuildDAO } from '~~/server/agents/contract/contractReview.dao'
+import { injectAnnotations } from '~~/server/agents/contract/docx'
+import { listAnnotationsForExportDAO } from '~~/server/agents/contract/contractAnnotation.dao'
 import {
     downloadFileService,
     uploadFileService,

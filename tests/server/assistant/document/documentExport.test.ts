@@ -13,16 +13,16 @@ import '../../case/test-setup'
 
 // ==================== Mock 外部依赖（必须在 import 被测模块之前） ====================
 
-vi.mock('~~/server/services/assistant/document/documentDraft.dao', () => ({
+vi.mock('~~/server/agents/document/documentDraft.dao', () => ({
     getDocumentDraftDAO: vi.fn(),
     updateDocumentDraftDAO: vi.fn(),
 }))
 
-vi.mock('~~/server/services/assistant/document/documentTemplate.dao', () => ({
+vi.mock('~~/server/agents/document/documentTemplate.dao', () => ({
     getDocumentTemplateDAO: vi.fn(),
 }))
 
-vi.mock('~~/server/services/assistant/document/documentDraftVersion.dao', () => ({
+vi.mock('~~/server/agents/document/documentDraftVersion.dao', () => ({
     getVersionByIdDAO: vi.fn(),
 }))
 
@@ -43,10 +43,10 @@ vi.mock('~~/server/services/storage/storageConfig.dao', () => ({
 
 // ==================== 导入被测模块（在 mock 之后） ====================
 
-import { exportDraftService, exportVersionByIdService } from '~~/server/services/assistant/document/documentExport.service'
-import { getDocumentDraftDAO, updateDocumentDraftDAO } from '~~/server/services/assistant/document/documentDraft.dao'
-import { getDocumentTemplateDAO } from '~~/server/services/assistant/document/documentTemplate.dao'
-import { getVersionByIdDAO } from '~~/server/services/assistant/document/documentDraftVersion.dao'
+import { exportDraftService, exportVersionByIdService } from '~~/server/agents/document/documentExport.service'
+import { getDocumentDraftDAO, updateDocumentDraftDAO } from '~~/server/agents/document/documentDraft.dao'
+import { getDocumentTemplateDAO } from '~~/server/agents/document/documentTemplate.dao'
+import { getVersionByIdDAO } from '~~/server/agents/document/documentDraftVersion.dao'
 import { findOssFileByIdDao, createOssFileDao } from '~~/server/services/files/ossFiles.dao'
 import {
     downloadFileService,

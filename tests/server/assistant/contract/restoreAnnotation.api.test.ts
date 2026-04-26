@@ -40,17 +40,17 @@ const resSuccess = (_event: any, message: string, data: any) => ({
 
 // ==================== Mock DAO 层 ====================
 
-vi.mock('~~/server/services/assistant/contract/contractAnnotation.dao', () => ({
+vi.mock('~~/server/agents/contract/contractAnnotation.dao', () => ({
     getContractAnnotationByIdDAO: vi.fn(),
     restoreAnnotationPushDAO: vi.fn(),
 }))
 
-vi.mock('~~/server/services/assistant/contract/contractReview.dao', () => ({
+vi.mock('~~/server/agents/contract/contractReview.dao', () => ({
     getContractReviewDAO: vi.fn(),
 }))
 
-import { getContractAnnotationByIdDAO, restoreAnnotationPushDAO } from '~~/server/services/assistant/contract/contractAnnotation.dao'
-import { getContractReviewDAO } from '~~/server/services/assistant/contract/contractReview.dao'
+import { getContractAnnotationByIdDAO, restoreAnnotationPushDAO } from '~~/server/agents/contract/contractAnnotation.dao'
+import { getContractReviewDAO } from '~~/server/agents/contract/contractReview.dao'
 
 const mockGetAnnotation = getContractAnnotationByIdDAO as ReturnType<typeof vi.fn>
 const mockRestoreAnnotation = restoreAnnotationPushDAO as ReturnType<typeof vi.fn>

@@ -11,7 +11,7 @@ import {
     updateContractRiskDAO,
     listContractRisksDAO,
     getContractRiskByIdDAO,
-} from '~~/server/services/assistant/contract/contractRisk.dao'
+} from '~~/server/agents/contract/contractRisk.dao'
 import { ensureTestUser } from '../test-db-helper'
 
 describe('contractRisk.dao', () => {

@@ -15,12 +15,12 @@ vi.mock('~~/server/services/workflow/nodes/contractReviewStageEmitter', () => ({
 }))
 
 // Mock analyzeSingleClause
-vi.mock('~~/server/services/assistant/contract/analyzeSingleClause', () => ({
+vi.mock('~~/server/agents/contract/analyzeSingleClause', () => ({
     analyzeSingleClause: vi.fn(),
 }))
 
 // Mock summarizeOverview（Task 3.1 新增：resume 路径会调用）
-vi.mock('~~/server/services/assistant/contract/summarizeOverview', () => ({
+vi.mock('~~/server/agents/contract/summarizeOverview', () => ({
     summarizeOverview: vi.fn().mockResolvedValue({
         highlights: { high: [], medium: [], low: [] },
         overall: '测试总评',
@@ -28,7 +28,7 @@ vi.mock('~~/server/services/assistant/contract/summarizeOverview', () => ({
 }))
 
 // 以下 mock 仅 resume 分支测试需要（runAnalyzeLoop 纯函数测试不依赖）
-vi.mock('~~/server/services/assistant/contract/contractReview.dao', () => ({
+vi.mock('~~/server/agents/contract/contractReview.dao', () => ({
     findContractReviewBySessionIdDAO: vi.fn(),
     updateContractReviewDAO: vi.fn().mockResolvedValue({}),
 }))
@@ -52,6 +52,8 @@ vi.mock('~~/server/services/node/node.service', () => ({
 
 vi.mock('~~/server/services/node/chatModelFactory', () => ({
     createChatModel: vi.fn().mockReturnValue({ invoke: vi.fn() }),
+    cachedPromptToAnthropicContent: vi.fn().mockReturnValue([]),
+    cachedPromptToPlainText: vi.fn().mockReturnValue(''),
 }))
 
 vi.mock('~~/server/services/workflow/tools', () => ({
@@ -62,26 +64,24 @@ vi.mock('~~/server/services/workflow/utils/promptRenderer', () => ({
     renderSystemPrompt: vi.fn().mockReturnValue(''),
 }))
 
-vi.mock('~~/server/services/assistant/contract/docx/loadContractFullText', () => ({
+vi.mock('~~/server/agents/contract/docx/loadContractFullText', () => ({
     loadContractFullText: vi.fn().mockResolvedValue({ fullText: '', paragraphs: [] }),
 }))
 
-vi.mock('~~/server/services/assistant/contract/docx/clauseSegmenter', () => ({
+vi.mock('~~/server/agents/contract/docx/clauseSegmenter', () => ({
     segmentClauses: vi.fn(),
 }))
 
-vi.mock('~~/server/services/workflow/middleware', () => ({
-    pointConsumptionMiddleware: vi.fn(),
-    safetyTrimMiddleware: vi.fn(),
-    reviewResultPersistenceMiddleware: vi.fn(),
-    buildMiddlewareStack: vi.fn().mockReturnValue([]),
-    MIDDLEWARE_PRIORITY: {
-        POINT_CONSUMPTION: 1, SUMMARIZATION: 2, SAFETY_TRIM: 3, RESULT_PERSISTENCE: 4,
-    },
-    MIDDLEWARE_NAMES: {
-        POINT_CONSUMPTION: 'p', SUMMARIZATION: 's', SAFETY_TRIM: 'st', REVIEW_RESULT_PERSISTENCE: 'r',
-    },
-}))
+vi.mock('~~/server/services/workflow/middleware', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('~~/server/services/workflow/middleware')>()
+    return {
+        ...actual,
+        pointConsumptionMiddleware: vi.fn(),
+        safetyTrimMiddleware: vi.fn(),
+        reviewResultPersistenceMiddleware: vi.fn(),
+        buildMiddlewareStack: vi.fn().mockReturnValue([]),
+    }
+})
 
 vi.mock('~~/server/services/workflow/middleware/reviewResultPersistence.middleware', () => ({
     reviewResultPersistenceMiddleware: vi.fn(),
@@ -99,12 +99,12 @@ vi.mock('langchain', async () => {
 
 import { runAnalyzeLoop, runContractReviewChat } from '~~/server/services/workflow/agents/contractReviewMainAgent'
 import { emitContractReviewEvent } from '~~/server/services/workflow/nodes/contractReviewStageEmitter'
-import { analyzeSingleClause } from '~~/server/services/assistant/contract/analyzeSingleClause'
+import { analyzeSingleClause } from '~~/server/agents/contract/analyzeSingleClause'
 import {
     findContractReviewBySessionIdDAO,
     updateContractReviewDAO,
-} from '~~/server/services/assistant/contract/contractReview.dao'
-import { segmentClauses } from '~~/server/services/assistant/contract/docx/clauseSegmenter'
+} from '~~/server/agents/contract/contractReview.dao'
+import { segmentClauses } from '~~/server/agents/contract/docx/clauseSegmenter'
 import { runAnnotateAndUpload } from '~~/server/services/workflow/middleware/reviewResultPersistence.middleware'
 import type { ClauseSegment, Risk } from '#shared/types/contract'
 

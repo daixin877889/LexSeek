@@ -31,7 +31,7 @@ const resSuccess = (_event: any, message: string, data: any) => ({
 
 // ==================== Mock 依赖 ====================
 
-vi.mock('~~/server/services/assistant/document/documentDraft.dao', () => ({
+vi.mock('~~/server/agents/document/documentDraft.dao', () => ({
     getDocumentDraftDAO: vi.fn(),
 }))
 
@@ -39,7 +39,7 @@ vi.mock('~~/server/services/material/materialPipeline.service', () => ({
     ensureMaterialsReadyForDraftService: vi.fn(async () => ({ id: 1, status: 3 })),
 }))
 
-import { getDocumentDraftDAO } from '~~/server/services/assistant/document/documentDraft.dao'
+import { getDocumentDraftDAO } from '~~/server/agents/document/documentDraft.dao'
 import { ensureMaterialsReadyForDraftService } from '~~/server/services/material/materialPipeline.service'
 
 const mockGetDraft = getDocumentDraftDAO as ReturnType<typeof vi.fn>

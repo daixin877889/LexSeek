@@ -36,14 +36,14 @@ const resSuccess = (_event: any, message: string, data: any) => ({
 
 // ==================== Mock service/DAO 层 ====================
 
-vi.mock('~~/server/services/assistant/document/documentDraft.service', () => ({
+vi.mock('~~/server/agents/document/documentDraft.service', () => ({
     createDraftService: vi.fn(),
     getDraftService: vi.fn(),
     patchDraftService: vi.fn(),
     deleteDraftService: vi.fn(),
 }))
 
-vi.mock('~~/server/services/assistant/document/documentDraft.dao', () => ({
+vi.mock('~~/server/agents/document/documentDraft.dao', () => ({
     listDocumentDraftsDAO: vi.fn(),
 }))
 
@@ -52,8 +52,8 @@ import {
     getDraftService,
     patchDraftService,
     deleteDraftService,
-} from '~~/server/services/assistant/document/documentDraft.service'
-import { listDocumentDraftsDAO } from '~~/server/services/assistant/document/documentDraft.dao'
+} from '~~/server/agents/document/documentDraft.service'
+import { listDocumentDraftsDAO } from '~~/server/agents/document/documentDraft.dao'
 
 const mockCreateDraftService = createDraftService as ReturnType<typeof vi.fn>
 const mockGetDraftService = getDraftService as ReturnType<typeof vi.fn>

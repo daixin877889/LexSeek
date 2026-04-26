@@ -27,14 +27,14 @@ vi.mock('~~/server/services/storage/storage.service', () => ({
     uploadFileService: vi.fn(async (path: string) => ({ name: path, url: `https://oss.example.com/${path}` })),
     generateSignedUrlService: vi.fn(async (path: string) => `https://oss.example.com/${path}?sig=fake&expires=3600`),
 }))
-vi.mock('~~/server/services/assistant/contract/docx', () => ({
+vi.mock('~~/server/agents/contract/docx', () => ({
     // Phase B：injectAnnotations 替代 injectComments 作为 rebuildDocxService 的入口
     injectAnnotations: vi.fn(async () => ({
         buffer: Buffer.from('FAKE-REVIEWED-DOCX'),
         refsByAnnotationId: new Map(),
     })),
 }))
-vi.mock('~~/server/services/assistant/contract/contractAnnotation.dao', () => ({
+vi.mock('~~/server/agents/contract/contractAnnotation.dao', () => ({
     listAnnotationsForExportDAO: vi.fn(async () => []),
 }))
 vi.mock('~~/server/services/storage/storageConfig.dao', () => ({
@@ -47,13 +47,13 @@ const { default: patchHandler } = await import(
 const { default: rebuildHandler } = await import(
     '../../../../server/api/v1/assistant/contract/reviews/[id]/rebuild-docx.post'
 )
-import { injectAnnotations } from '~~/server/services/assistant/contract/docx'
-import { listAnnotationsForExportDAO } from '~~/server/services/assistant/contract/contractAnnotation.dao'
+import { injectAnnotations } from '~~/server/agents/contract/docx'
+import { listAnnotationsForExportDAO } from '~~/server/agents/contract/contractAnnotation.dao'
 import {
     createContractReviewDAO,
     getContractReviewDAO,
     updateContractReviewDAO,
-} from '~~/server/services/assistant/contract/contractReview.dao'
+} from '~~/server/agents/contract/contractReview.dao'
 import { createOssFileDao } from '~~/server/services/files/ossFiles.dao'
 import { prisma } from '~~/server/utils/db'
 import { ensureTestUser, cleanupTestData } from '../test-db-helper'

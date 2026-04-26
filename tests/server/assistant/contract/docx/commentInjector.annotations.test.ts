@@ -2,11 +2,11 @@ import { describe, it, expect } from 'vitest'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import JSZip from 'jszip'
-import { injectAnnotations } from '~~/server/services/assistant/contract/docx/commentInjector'
-import type { ContractAnnotationForExport } from '~~/server/services/assistant/contract/docx/commentInjector'
-import { loadDocxZip, readTextFromZip } from '~~/server/services/assistant/contract/docx/zipRewriter'
-import { parseWordCommentRef } from '~~/server/services/assistant/contract/utils/wordCommentRef'
-import { parseContractDocx } from '~~/server/services/assistant/contract/docx/parser'
+import { injectAnnotations } from '~~/server/agents/contract/docx/commentInjector'
+import type { ContractAnnotationForExport } from '~~/server/agents/contract/docx/commentInjector'
+import { loadDocxZip, readTextFromZip } from '~~/server/agents/contract/docx/zipRewriter'
+import { parseWordCommentRef } from '~~/server/agents/contract/utils/wordCommentRef'
+import { parseContractDocx } from '~~/server/agents/contract/docx/parser'
 
 const SAMPLE = join(__dirname, '../../../../../prisma/seeds/contract-samples/labor.docx')
 

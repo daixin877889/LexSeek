@@ -11,11 +11,11 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { prisma } from '~~/server/utils/db'
-import { uploadClientVersionService } from '~~/server/services/assistant/contract/uploadClientVersion.service'
+import { uploadClientVersionService } from '~~/server/agents/contract/uploadClientVersion.service'
 import { createOssFileDao } from '~~/server/services/files/ossFiles.dao'
-import { saveContractReviewVersionService } from '~~/server/services/assistant/contract/contractReviewVersion.service'
+import { saveContractReviewVersionService } from '~~/server/agents/contract/contractReviewVersion.service'
 import { ensureTestUser } from '../test-db-helper'
-import type { ParsedDocxComments } from '~~/server/services/assistant/contract/docx/wordCommentParser'
+import type { ParsedDocxComments } from '~~/server/agents/contract/docx/wordCommentParser'
 
 // ============ mock storage.service：避免真实 OSS 下载 ============
 // parseContractDocx 会被间接调用，给它一份有效的 docx buffer 代替。
@@ -31,7 +31,7 @@ vi.mock('~~/server/services/storage/storage.service', () => ({
 }))
 
 // mock parseContractDocx，避免依赖真实 docx 解析库对假 buffer 的处理
-vi.mock('~~/server/services/assistant/contract/docx/parser', () => ({
+vi.mock('~~/server/agents/contract/docx/parser', () => ({
     parseContractDocx: vi.fn(async () => ({
         paragraphs: ['第一条 甲方应在合同签署后 30 日内支付首付款。', '第二条 乙方应提供相应服务。'],
         rawXml: '<root/>',
@@ -245,7 +245,7 @@ describe('uploadClientVersionService（B1 骨架）', () => {
 // ============================================================
 
 // mock wordCommentParser，精确控制 annotationRefsByWId
-vi.mock('~~/server/services/assistant/contract/docx/wordCommentParser', () => ({
+vi.mock('~~/server/agents/contract/docx/wordCommentParser', () => ({
     parseWordComments: vi.fn(async (): Promise<ParsedDocxComments> => ({
         comments: [],
         annotationRefsByWId: new Map(),
@@ -322,7 +322,7 @@ describe('uploadClientVersionService（customXml 映射识别）', () => {
         })
 
         // mock parseWordComments 返回：系统批注通过 customXml 映射到 ann.id
-        const { parseWordComments } = await import('~~/server/services/assistant/contract/docx/wordCommentParser')
+        const { parseWordComments } = await import('~~/server/agents/contract/docx/wordCommentParser')
         const mockFn = parseWordComments as ReturnType<typeof vi.fn>
         mockFn.mockResolvedValueOnce({
             comments: [

@@ -6,13 +6,13 @@ const mocks = vi.hoisted(() => ({
     applyAITitleIfAllowedService: vi.fn(),
 }))
 
-vi.mock('~~/server/services/assistant/document/documentDraft.dao', () => ({
+vi.mock('~~/server/agents/document/documentDraft.dao', () => ({
     updateDocumentDraftDAO: mocks.updateDocumentDraftDAO,
 }))
-vi.mock('~~/server/services/assistant/document/documentDraftSnapshot.service', () => ({
+vi.mock('~~/server/agents/document/documentDraftSnapshot.service', () => ({
     createSnapshotService: mocks.createSnapshotService,
 }))
-vi.mock('~~/server/services/assistant/document/documentDraft.service', () => ({
+vi.mock('~~/server/agents/document/documentDraft.service', () => ({
     applyAITitleIfAllowedService: mocks.applyAITitleIfAllowedService,
 }))
 

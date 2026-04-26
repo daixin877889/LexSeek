@@ -14,11 +14,11 @@ import '../../case/test-setup'
 
 // ==================== Mock 外部依赖（必须在 import 被测模块之前） ====================
 
-vi.mock('~~/server/services/assistant/document/documentTemplate.dao', () => ({
+vi.mock('~~/server/agents/document/documentTemplate.dao', () => ({
     getDocumentTemplateDAO: vi.fn(),
 }))
 
-vi.mock('~~/server/services/assistant/document/documentDraft.dao', () => ({
+vi.mock('~~/server/agents/document/documentDraft.dao', () => ({
     createDocumentDraftDAO: vi.fn(),
     getDocumentDraftDAO: vi.fn(),
     updateDocumentDraftDAO: vi.fn(),
@@ -39,7 +39,7 @@ vi.mock('~~/server/services/material/materialPipeline.service', () => ({
     ensureMaterialsReadyForDraftService: vi.fn(),
 }))
 
-vi.mock('~~/server/services/assistant/document/draftSchema.builder', () => ({
+vi.mock('~~/server/agents/document/draftSchema.builder', () => ({
     buildDraftSchema: vi.fn(),
 }))
 
@@ -50,18 +50,18 @@ import {
     getDraftService,
     patchDraftService,
     deleteDraftService,
-} from '~~/server/services/assistant/document/documentDraft.service'
-import { getDocumentTemplateDAO } from '~~/server/services/assistant/document/documentTemplate.dao'
+} from '~~/server/agents/document/documentDraft.service'
+import { getDocumentTemplateDAO } from '~~/server/agents/document/documentTemplate.dao'
 import {
     createDocumentDraftDAO,
     getDocumentDraftDAO,
     updateDocumentDraftDAO,
     softDeleteDocumentDraftDAO,
-} from '~~/server/services/assistant/document/documentDraft.dao'
+} from '~~/server/agents/document/documentDraft.dao'
 import { createAssistantSessionDAO } from '~~/server/services/assistant/assistantSession.dao'
 import { enqueueRunService } from '~~/server/services/agent/agentRun.service'
 import { ensureMaterialsReadyForDraftService } from '~~/server/services/material/materialPipeline.service'
-import { buildDraftSchema } from '~~/server/services/assistant/document/draftSchema.builder'
+import { buildDraftSchema } from '~~/server/agents/document/draftSchema.builder'
 import { z } from 'zod'
 
 // ==================== 类型转换（方便使用 mockResolvedValue） ====================

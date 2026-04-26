@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // mock 外部依赖：DAO / OSS / parser / partyDetector / interrupt
-vi.mock('~~/server/services/assistant/contract/contractReview.dao', () => ({
+vi.mock('~~/server/agents/contract/contractReview.dao', () => ({
     getContractReviewDAO: vi.fn(),
     updateContractReviewDAO: vi.fn(),
 }))
@@ -12,7 +12,7 @@ vi.mock('~~/server/services/files/ossFiles.dao', () => ({
 vi.mock('~~/server/services/storage/storage.service', () => ({
     downloadFileService: vi.fn(),
 }))
-vi.mock('~~/server/services/assistant/contract/docx', () => ({
+vi.mock('~~/server/agents/contract/docx', () => ({
     parseContractDocx: vi.fn(),
     detectParties: vi.fn(),
 }))
@@ -28,10 +28,10 @@ import { createTool as parseAndAskStanceCreateTool } from '~~/server/services/wo
 import {
     getContractReviewDAO,
     updateContractReviewDAO,
-} from '~~/server/services/assistant/contract/contractReview.dao'
+} from '~~/server/agents/contract/contractReview.dao'
 import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
 import { downloadFileService } from '~~/server/services/storage/storage.service'
-import { parseContractDocx, detectParties } from '~~/server/services/assistant/contract/docx'
+import { parseContractDocx, detectParties } from '~~/server/agents/contract/docx'
 import { interrupt } from '@langchain/langgraph'
 
 describe('parseAndAskStance createTool', () => {

@@ -42,7 +42,7 @@ const resSuccess = (_event: any, message: string, data: any) => ({
 
 // ==================== Mock DAO / Service 层 ====================
 
-vi.mock('~~/server/services/assistant/contract/contractReview.dao', () => ({
+vi.mock('~~/server/agents/contract/contractReview.dao', () => ({
     findContractReviewBySessionIdDAO: vi.fn(),
 }))
 
@@ -60,7 +60,7 @@ vi.mock('~~/server/services/sse/agentSseStream', () => ({
     createAgentSseStream: vi.fn(() => new ReadableStream()),
 }))
 
-import { findContractReviewBySessionIdDAO } from '~~/server/services/assistant/contract/contractReview.dao'
+import { findContractReviewBySessionIdDAO } from '~~/server/agents/contract/contractReview.dao'
 import {
     findActiveRunBySessionIdDAO,
     findLatestRunBySessionIdDAO,

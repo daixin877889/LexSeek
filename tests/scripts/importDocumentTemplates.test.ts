@@ -37,7 +37,7 @@ vi.mock('~~/server/services/storage/storageConfig.dao', () => ({
     getDefaultStorageConfigDao: vi.fn(),
 }))
 
-vi.mock('~~/server/services/assistant/document/documentTemplate.dao', () => ({
+vi.mock('~~/server/agents/document/documentTemplate.dao', () => ({
     createDocumentTemplateDAO: vi.fn(),
 }))
 
@@ -52,7 +52,7 @@ import {
 } from '~~/scripts/importDocumentTemplates'
 import { uploadFileService } from '~~/server/services/storage/storage.service'
 import { createOssFileDao } from '~~/server/services/files/ossFiles.dao'
-import { createDocumentTemplateDAO } from '~~/server/services/assistant/document/documentTemplate.dao'
+import { createDocumentTemplateDAO } from '~~/server/agents/document/documentTemplate.dao'
 
 // ==================== 类型转换 ====================
 

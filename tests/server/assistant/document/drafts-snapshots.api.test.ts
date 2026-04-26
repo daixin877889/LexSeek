@@ -32,19 +32,19 @@ const resSuccess = (_event: any, message: string, data: any) => ({
 
 // ==================== Mock service & dao 层 ====================
 
-vi.mock('~~/server/services/assistant/document/documentDraftSnapshot.service', () => ({
+vi.mock('~~/server/agents/document/documentDraftSnapshot.service', () => ({
     listSnapshotsForUserService: vi.fn(),
     applySnapshotFieldsService: vi.fn(),
 }))
-vi.mock('~~/server/services/assistant/document/documentDraftSnapshot.dao', () => ({
+vi.mock('~~/server/agents/document/documentDraftSnapshot.dao', () => ({
     getSnapshotByIdDAO: vi.fn(),
 }))
 
 import {
     listSnapshotsForUserService,
     applySnapshotFieldsService,
-} from '~~/server/services/assistant/document/documentDraftSnapshot.service'
-import { getSnapshotByIdDAO } from '~~/server/services/assistant/document/documentDraftSnapshot.dao'
+} from '~~/server/agents/document/documentDraftSnapshot.service'
+import { getSnapshotByIdDAO } from '~~/server/agents/document/documentDraftSnapshot.dao'
 
 const mockListService = listSnapshotsForUserService as ReturnType<typeof vi.fn>
 const mockApplyService = applySnapshotFieldsService as ReturnType<typeof vi.fn>

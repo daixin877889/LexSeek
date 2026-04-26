@@ -14,7 +14,7 @@
 import { describe, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { prisma } from '~~/server/utils/db'
 import { ensureTestUser, cleanupTestData } from '../test-db-helper'
-import { exportReviewPdfService } from '~~/server/services/assistant/contract/contractReviewPdf.service'
+import { exportReviewPdfService } from '~~/server/agents/contract/contractReviewPdf.service'
 import type { Risk, ContractOverview, PlaybookSnapshot } from '#shared/types/contract'
 
 describe('exportReviewPdfService', () => {

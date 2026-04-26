@@ -43,7 +43,7 @@ const resSuccess = (_event: any, message: string, data: any) => ({
 
 // ==================== Mock DAO（仅 listUserReviewsDAO，保留其他真实方法）====================
 
-vi.mock('~~/server/services/assistant/contract/contractReview.dao', async (orig) => {
+vi.mock('~~/server/agents/contract/contractReview.dao', async (orig) => {
     const actual = await (orig as any)()
     return {
         ...actual,
@@ -51,7 +51,7 @@ vi.mock('~~/server/services/assistant/contract/contractReview.dao', async (orig)
     }
 })
 
-import * as daoModule from '~~/server/services/assistant/contract/contractReview.dao'
+import * as daoModule from '~~/server/agents/contract/contractReview.dao'
 import { prisma } from '~~/server/utils/db'
 import { ensureTestUser, cleanupTestData } from '../test-db-helper'
 
@@ -65,8 +65,8 @@ const { default: listHandler } = await import(
 
 // 通过 importActual 拿到真实 DAO（绕开 mock），用于 DAO 真实 DB 测试
 const actualDao = await vi.importActual<
-    typeof import('~~/server/services/assistant/contract/contractReview.dao')
->('~~/server/services/assistant/contract/contractReview.dao')
+    typeof import('~~/server/agents/contract/contractReview.dao')
+>('~~/server/agents/contract/contractReview.dao')
 const listUserReviewsDAOReal = actualDao.listUserReviewsDAO
 
 function makeEvent(opts: { userId?: number; query?: Record<string, any> }) {

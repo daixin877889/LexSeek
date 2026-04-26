@@ -25,11 +25,11 @@ vi.mock('~~/server/services/storage/storageConfig.dao', () => ({
     getDefaultStorageConfigDao: vi.fn(),
 }))
 
-vi.mock('~~/server/services/assistant/contract/textToDocx.service', () => ({
+vi.mock('~~/server/agents/contract/textToDocx.service', () => ({
     textToDocxService: vi.fn(),
 }))
 
-vi.mock('~~/server/services/assistant/contract/contractReview.dao', () => ({
+vi.mock('~~/server/agents/contract/contractReview.dao', () => ({
     createContractReviewDAO: vi.fn(),
 }))
 
@@ -46,12 +46,12 @@ vi.mock('~~/server/utils/db', () => ({
 
 // ==================== 导入被测模块（在 mock 之后） ====================
 
-import { createAndStartContractReviewService } from '~~/server/services/assistant/contract/contractReview.service'
+import { createAndStartContractReviewService } from '~~/server/agents/contract/contractReview.service'
 import { findOssFileByIdDao, createOssFileDao } from '~~/server/services/files/ossFiles.dao'
 import { uploadFileService } from '~~/server/services/storage/storage.service'
 import { getDefaultStorageConfigDao } from '~~/server/services/storage/storageConfig.dao'
-import { textToDocxService } from '~~/server/services/assistant/contract/textToDocx.service'
-import { createContractReviewDAO } from '~~/server/services/assistant/contract/contractReview.dao'
+import { textToDocxService } from '~~/server/agents/contract/textToDocx.service'
+import { createContractReviewDAO } from '~~/server/agents/contract/contractReview.dao'
 import { enqueueRunService } from '~~/server/services/agent/agentRun.service'
 import { prisma } from '~~/server/utils/db'
 

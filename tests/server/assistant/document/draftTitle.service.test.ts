@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // ==================== Mock 外部依赖（必须在 import 被测模块之前） ====================
 
-vi.mock('~~/server/services/assistant/document/documentDraft.dao', () => ({
+vi.mock('~~/server/agents/document/documentDraft.dao', () => ({
   getDocumentDraftDAO: vi.fn(),
   updateDraftTitleDAO: vi.fn(),
   updateDraftTitleIfNotOverriddenDAO: vi.fn(),
@@ -13,12 +13,12 @@ vi.mock('~~/server/services/assistant/document/documentDraft.dao', () => ({
 import {
   updateDraftTitleService,
   applyAITitleIfAllowedService,
-} from '~~/server/services/assistant/document/documentDraft.service'
+} from '~~/server/agents/document/documentDraft.service'
 import {
   getDocumentDraftDAO,
   updateDraftTitleDAO,
   updateDraftTitleIfNotOverriddenDAO,
-} from '~~/server/services/assistant/document/documentDraft.dao'
+} from '~~/server/agents/document/documentDraft.dao'
 
 // ==================== 类型转换（方便使用 mockResolvedValue） ====================
 

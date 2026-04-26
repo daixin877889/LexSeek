@@ -6,7 +6,7 @@ import {
     readTextFromZip,
     writeTextToZip,
     zipToBuffer,
-} from '~~/server/services/assistant/contract/docx/zipRewriter'
+} from '~~/server/agents/contract/docx/zipRewriter'
 
 const SAMPLE = join(__dirname, '../../../../../prisma/seeds/contract-samples/labor.docx')
 

@@ -19,13 +19,13 @@ import {
     type CaseTestIds,
     createEmptyTestIds,
 } from '../../../server/case/test-db-helper'
-import { createDocumentDraftDAO } from '~~/server/services/assistant/document/documentDraft.dao'
+import { createDocumentDraftDAO } from '~~/server/agents/document/documentDraft.dao'
 import {
     createSnapshotService,
     applySnapshotFieldsService,
     listSnapshotsForUserService,
-} from '~~/server/services/assistant/document/documentDraftSnapshot.service'
-import { listSnapshotsDAO } from '~~/server/services/assistant/document/documentDraftSnapshot.dao'
+} from '~~/server/agents/document/documentDraftSnapshot.service'
+import { listSnapshotsDAO } from '~~/server/agents/document/documentDraftSnapshot.dao'
 
 // ==================== 本地测试数据追踪 ====================
 

@@ -20,7 +20,7 @@ import {
     findAll,
     appendChildToFirst,
     textOf,
-} from '~~/server/services/assistant/contract/docx/xmlAst'
+} from '~~/server/agents/contract/docx/xmlAst'
 
 describe('xmlAst', () => {
     const sampleDoc = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Hello</w:t></w:r></w:p><w:p><w:r><w:t>World</w:t></w:r></w:p></w:body></w:document>`

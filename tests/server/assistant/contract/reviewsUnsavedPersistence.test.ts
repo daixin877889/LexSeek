@@ -13,7 +13,7 @@ import {
     createContractReviewDAO,
     patchReviewRisksDAO,
     setCompletedAfterRebuildDAO,
-} from '~~/server/services/assistant/contract/contractReview.dao'
+} from '~~/server/agents/contract/contractReview.dao'
 import { prisma } from '~~/server/utils/db'
 import { ensureTestUser, cleanupTestData } from '../test-db-helper'
 

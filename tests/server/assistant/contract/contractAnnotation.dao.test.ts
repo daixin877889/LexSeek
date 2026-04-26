@@ -14,8 +14,8 @@ import {
     softDeleteContractAnnotationDAO,
     getContractAnnotationByIdDAO,
     restoreAnnotationPushDAO,
-} from '~~/server/services/assistant/contract/contractAnnotation.dao'
-import { createContractRiskDAO } from '~~/server/services/assistant/contract/contractRisk.dao'
+} from '~~/server/agents/contract/contractAnnotation.dao'
+import { createContractRiskDAO } from '~~/server/agents/contract/contractRisk.dao'
 import { ensureTestUser } from '../test-db-helper'
 
 describe('contractAnnotation.dao', () => {

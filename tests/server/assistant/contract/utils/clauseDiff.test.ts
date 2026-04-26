@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { ClauseSnapshotItem } from '#shared/types/contract'
-import { diffClauses } from '~~/server/services/assistant/contract/utils/clauseDiff'
+import { diffClauses } from '~~/server/agents/contract/utils/clauseDiff'
 
 // 构造辅助：快速生成 ClauseSnapshotItem 数组
 function makeClauses(texts: string[]): ClauseSnapshotItem[] {

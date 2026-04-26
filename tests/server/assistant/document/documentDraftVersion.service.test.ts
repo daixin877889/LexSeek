@@ -20,15 +20,15 @@ import {
     type CaseTestIds,
     createEmptyTestIds,
 } from '../../../server/case/test-db-helper'
-import { createDocumentDraftDAO, updateDocumentDraftDAO } from '~~/server/services/assistant/document/documentDraft.dao'
+import { createDocumentDraftDAO, updateDocumentDraftDAO } from '~~/server/agents/document/documentDraft.dao'
 import {
     createVersionService,
     listVersionsForUserService,
     restoreVersionService,
     renameVersionService,
     deleteVersionService,
-} from '~~/server/services/assistant/document/documentDraftVersion.service'
-import { listSnapshotsDAO } from '~~/server/services/assistant/document/documentDraftSnapshot.dao'
+} from '~~/server/agents/document/documentDraftVersion.service'
+import { listSnapshotsDAO } from '~~/server/agents/document/documentDraftSnapshot.dao'
 
 // ==================== 测试 ID 追踪 ====================
 

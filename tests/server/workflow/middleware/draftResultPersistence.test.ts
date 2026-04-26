@@ -9,7 +9,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.stubGlobal('logger', { info: vi.fn(), error: vi.fn(), warn: vi.fn() })
 
 // Mock DAO
-vi.mock('~~/server/services/assistant/document/documentDraft.dao', () => ({
+vi.mock('~~/server/agents/document/documentDraft.dao', () => ({
     updateDocumentDraftDAO: vi.fn().mockResolvedValue({}),
 }))
 
@@ -19,7 +19,7 @@ vi.mock('langchain', () => ({
 }))
 
 import { draftResultPersistenceMiddleware } from '~~/server/services/workflow/middleware/draftResultPersistence.middleware'
-import { updateDocumentDraftDAO } from '~~/server/services/assistant/document/documentDraft.dao'
+import { updateDocumentDraftDAO } from '~~/server/agents/document/documentDraft.dao'
 
 describe('draftResultPersistenceMiddleware beforeAgent', () => {
     const options = { draftId: 10, sessionId: 'session-abc' }

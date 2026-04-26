@@ -44,12 +44,12 @@ const resSuccess = (_event: any, message: string, data: any) => ({
 
 // ==================== Mock service 层（避免真实 OSS 调用）====================
 
-vi.mock('~~/server/services/assistant/document/documentTemplate.service', () => ({
+vi.mock('~~/server/agents/document/documentTemplate.service', () => ({
     createDocumentTemplateService: vi.fn(),
     MAX_PRIVATE_TEMPLATES: 20,
 }))
 
-vi.mock('~~/server/services/assistant/document/documentTemplate.dao', () => ({
+vi.mock('~~/server/agents/document/documentTemplate.dao', () => ({
     listDocumentTemplatesDAO: vi.fn(),
     getDocumentTemplateDAO: vi.fn(),
     updateDocumentTemplateDAO: vi.fn(),
@@ -72,13 +72,13 @@ vi.mock('~~/server/services/storage/storage.service', () => ({
 
 import {
     createDocumentTemplateService,
-} from '~~/server/services/assistant/document/documentTemplate.service'
+} from '~~/server/agents/document/documentTemplate.service'
 import {
     listDocumentTemplatesDAO,
     getDocumentTemplateDAO,
     updateDocumentTemplateDAO,
     softDeleteDocumentTemplateDAO,
-} from '~~/server/services/assistant/document/documentTemplate.dao'
+} from '~~/server/agents/document/documentTemplate.dao'
 import { checkIsSuperAdmin } from '~~/server/services/rbac/permission.service'
 import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
 import { generateSignedUrlService } from '~~/server/services/storage/storage.service'

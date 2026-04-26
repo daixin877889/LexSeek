@@ -49,7 +49,7 @@ vi.mock('~~/server/services/node/node.service', () => ({
 
 describe('analyzeSingleClause', () => {
     it('命中风险时返回 Risk', async () => {
-        const { analyzeSingleClause } = await import('~~/server/services/assistant/contract/analyzeSingleClause')
+        const { analyzeSingleClause } = await import('~~/server/agents/contract/analyzeSingleClause')
         const result = await analyzeSingleClause({
             clause: { index: 1, number: '3.2', text: '3.2 首付 40%，尾款 60%' },
             stance: 'partyB', partyA: 'A', partyB: 'B', contractType: '技术服务',
@@ -62,7 +62,7 @@ describe('analyzeSingleClause', () => {
     })
 
     it('两次连续调用：LLM 返回相同 id 时服务端覆盖为不同 UUID', async () => {
-        const { analyzeSingleClause } = await import('~~/server/services/assistant/contract/analyzeSingleClause')
+        const { analyzeSingleClause } = await import('~~/server/agents/contract/analyzeSingleClause')
         const ctx = {
             clause: { index: 1, number: '3.2', text: '3.2 首付 40%，尾款 60%' },
             stance: 'partyB' as const, partyA: 'A', partyB: 'B', contractType: '技术服务',
@@ -81,7 +81,7 @@ describe('analyzeSingleClause', () => {
                 content: JSON.stringify({ risk: null, skip: true }),
             }),
         })
-        const { analyzeSingleClause } = await import('~~/server/services/assistant/contract/analyzeSingleClause')
+        const { analyzeSingleClause } = await import('~~/server/agents/contract/analyzeSingleClause')
         const result = await analyzeSingleClause({
             clause: { index: 2, number: '3.3', text: '3.3 常规付款条款' },
             stance: 'neutral', partyA: 'A', partyB: 'B', contractType: '技术服务',
@@ -94,7 +94,7 @@ describe('analyzeSingleClause', () => {
         ;(createChatModel as any).mockReturnValueOnce({
             invoke: vi.fn().mockResolvedValue({ content: 'no json here' }),
         })
-        const { analyzeSingleClause } = await import('~~/server/services/assistant/contract/analyzeSingleClause')
+        const { analyzeSingleClause } = await import('~~/server/agents/contract/analyzeSingleClause')
         await expect(analyzeSingleClause({
             clause: { index: 5, number: '5.1', text: 'xxx' },
             stance: 'partyA', partyA: 'A', partyB: 'B', contractType: '技服',
@@ -106,7 +106,7 @@ describe('analyzeSingleClause', () => {
         ;(createChatModel as any).mockReturnValueOnce({
             invoke: vi.fn().mockResolvedValue({ content: '{"skip": true}' }),
         })
-        const { analyzeSingleClause } = await import('~~/server/services/assistant/contract/analyzeSingleClause')
+        const { analyzeSingleClause } = await import('~~/server/agents/contract/analyzeSingleClause')
         const result = await analyzeSingleClause({
             clause: { index: 6, number: '6.1', text: 'xxx' },
             stance: 'partyA', partyA: 'A', partyB: 'B', contractType: '技服',
@@ -121,7 +121,7 @@ describe('analyzeSingleClause', () => {
                 content: `我思考了一下{括号内是解释}，给出结论：{"skip": true}\n再补充说明{这个也不是JSON}`,
             }),
         })
-        const { analyzeSingleClause } = await import('~~/server/services/assistant/contract/analyzeSingleClause')
+        const { analyzeSingleClause } = await import('~~/server/agents/contract/analyzeSingleClause')
         // greedy 匹配会抓到 "{括号内是解释}，给出结论：{\"skip\": true}\n再补充说明{这个也不是JSON}"，JSON.parse 挂
         // 平衡括号扫描应该抓到第一个 "{括号内是解释}"，JSON.parse 会挂（缺键值对），
         // 但抛错时报 JSON 解析失败而不是 schema 错，更准确
@@ -149,7 +149,7 @@ describe('analyzeSingleClause', () => {
                 }),
             }),
         })
-        const { analyzeSingleClause } = await import('~~/server/services/assistant/contract/analyzeSingleClause')
+        const { analyzeSingleClause } = await import('~~/server/agents/contract/analyzeSingleClause')
         await expect(analyzeSingleClause({
             clause: { index: 8, number: '8.1', text: 'xxx' },
             stance: 'partyA', partyA: 'A', partyB: 'B', contractType: '技服',
@@ -176,7 +176,7 @@ describe('analyzeSingleClause · playbook', () => {
                 return { content: JSON.stringify({ risk: null, skip: true }) }
             }),
         })
-        const { analyzeSingleClause } = await import('~~/server/services/assistant/contract/analyzeSingleClause')
+        const { analyzeSingleClause } = await import('~~/server/agents/contract/analyzeSingleClause')
         await analyzeSingleClause({
             clause: { index: 1, number: '1', text: 'clause text' },
             stance: 'partyB', partyA: 'A', partyB: 'B', contractType: '劳动合同',
@@ -204,7 +204,7 @@ describe('analyzeSingleClause · playbook', () => {
                 }),
             }),
         })
-        const { analyzeSingleClause } = await import('~~/server/services/assistant/contract/analyzeSingleClause')
+        const { analyzeSingleClause } = await import('~~/server/agents/contract/analyzeSingleClause')
         const result = await analyzeSingleClause({
             clause: { index: 1, number: '1', text: 'x' },
             stance: 'partyB', partyA: 'A', partyB: 'B', contractType: '劳动合同',
@@ -231,7 +231,7 @@ describe('analyzeSingleClause · playbook', () => {
             }),
         })
         mockLogger.warn.mockClear()
-        const { analyzeSingleClause } = await import('~~/server/services/assistant/contract/analyzeSingleClause')
+        const { analyzeSingleClause } = await import('~~/server/agents/contract/analyzeSingleClause')
         const result = await analyzeSingleClause({
             clause: { index: 1, number: '1', text: 'x' },
             stance: 'partyB', partyA: 'A', partyB: 'B', contractType: '劳动合同',
@@ -261,7 +261,7 @@ describe('analyzeSingleClause · playbook', () => {
             }),
         })
         mockLogger.warn.mockClear()
-        const { analyzeSingleClause } = await import('~~/server/services/assistant/contract/analyzeSingleClause')
+        const { analyzeSingleClause } = await import('~~/server/agents/contract/analyzeSingleClause')
         const result = await analyzeSingleClause({
             clause: { index: 1, number: '1', text: 'x' },
             stance: 'partyB', partyA: 'A', partyB: 'B', contractType: '劳动合同',
@@ -283,7 +283,7 @@ describe('analyzeSingleClause · playbook', () => {
                 return { content: JSON.stringify({ risk: null, skip: true }) }
             }),
         })
-        const { analyzeSingleClause } = await import('~~/server/services/assistant/contract/analyzeSingleClause')
+        const { analyzeSingleClause } = await import('~~/server/agents/contract/analyzeSingleClause')
         await analyzeSingleClause({
             clause: { index: 1, number: '1', text: 'x' },
             stance: 'partyB', partyA: 'A', partyB: 'B', contractType: '劳动合同',

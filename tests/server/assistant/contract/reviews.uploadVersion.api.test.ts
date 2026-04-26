@@ -51,18 +51,18 @@ vi.mock('h3', async (importActual) => {
 
 // ==================== Mock guard + service ====================
 
-vi.mock('~~/server/services/assistant/contract/reviewGuard', () => ({
+vi.mock('~~/server/agents/contract/reviewGuard', () => ({
     loadOwnedReview: vi.fn(),
 }))
 
-vi.mock('~~/server/services/assistant/contract/uploadClientVersion.service', () => ({
+vi.mock('~~/server/agents/contract/uploadClientVersion.service', () => ({
     uploadClientVersionService: vi.fn(),
 }))
 
 // loadOwnedReview 内部依赖 contractReview.dao；
 // 因为 reviewGuard 整体被 mock，这里不需要单独 mock DAO。
-import { loadOwnedReview } from '~~/server/services/assistant/contract/reviewGuard'
-import { uploadClientVersionService } from '~~/server/services/assistant/contract/uploadClientVersion.service'
+import { loadOwnedReview } from '~~/server/agents/contract/reviewGuard'
+import { uploadClientVersionService } from '~~/server/agents/contract/uploadClientVersion.service'
 import { createEventStream } from 'h3'
 
 const mockLoadOwnedReview = loadOwnedReview as ReturnType<typeof vi.fn>

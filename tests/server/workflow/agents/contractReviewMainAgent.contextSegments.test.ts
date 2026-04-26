@@ -52,15 +52,15 @@ vi.mock('~~/server/services/node/node.service', () => ({
 }))
 
 const mockFindReview = vi.fn()
-vi.mock('~~/server/services/assistant/contract/contractReview.dao', () => ({
+vi.mock('~~/server/agents/contract/contractReview.dao', () => ({
     findContractReviewBySessionIdDAO: (...args: unknown[]) => mockFindReview(...args),
     updateContractReviewDAO: vi.fn(),
 }))
 
-vi.mock('~~/server/services/assistant/contract/docx/loadContractFullText', () => ({
+vi.mock('~~/server/agents/contract/docx/loadContractFullText', () => ({
     loadContractFullText: vi.fn(async () => ({ fullText: '', paragraphs: [] })),
 }))
-vi.mock('~~/server/services/assistant/contract/docx/clauseSegmenter', () => ({
+vi.mock('~~/server/agents/contract/docx/clauseSegmenter', () => ({
     segmentClauses: vi.fn(async () => ({ segments: [], normalizedText: '' })),
 }))
 vi.mock('~~/server/services/workflow/nodes/contractReviewStageEmitter', () => ({

@@ -9,7 +9,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { z } from 'zod'
-import { buildDraftSchema } from '~~/server/services/assistant/document/draftSchema.builder'
+import { buildDraftSchema } from '~~/server/agents/document/draftSchema.builder'
 import type { Placeholder } from '#shared/types/document'
 
 describe('buildDraftSchema', () => {

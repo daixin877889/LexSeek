@@ -3,7 +3,7 @@ import {
   generateWordCommentRef,
   parseWordCommentRef,
   isWordCommentRef,
-} from '~~/server/services/assistant/contract/utils/wordCommentRef'
+} from '~~/server/agents/contract/utils/wordCommentRef'
 
 describe('wordCommentRef utils', () => {
   it('generateWordCommentRef 返回 LEXSEEK-{id}-{random8} 格式', () => {

@@ -25,12 +25,12 @@ vi.mock('~~/server/services/storage/storageConfig.dao', () => ({
     getDefaultStorageConfigDao: vi.fn(),
 }))
 
-vi.mock('~~/server/services/assistant/document/documentTemplate.dao', () => ({
+vi.mock('~~/server/agents/document/documentTemplate.dao', () => ({
     countUserTemplatesDAO: vi.fn(),
     createDocumentTemplateDAO: vi.fn(),
 }))
 
-vi.mock('~~/server/services/assistant/document/templateScanner', () => ({
+vi.mock('~~/server/agents/document/templateScanner', () => ({
     scanPlaceholders: vi.fn(),
 }))
 
@@ -45,12 +45,12 @@ vi.mock('docxtemplater', () => ({
 
 // ==================== 导入被测模块（在 mock 之后）====================
 
-import { createDocumentTemplateService, MAX_PRIVATE_TEMPLATES } from '~~/server/services/assistant/document/documentTemplate.service'
+import { createDocumentTemplateService, MAX_PRIVATE_TEMPLATES } from '~~/server/agents/document/documentTemplate.service'
 import { uploadFileService } from '~~/server/services/storage/storage.service'
 import { createOssFileDao } from '~~/server/services/files/ossFiles.dao'
 import { getDefaultStorageConfigDao } from '~~/server/services/storage/storageConfig.dao'
-import { countUserTemplatesDAO, createDocumentTemplateDAO } from '~~/server/services/assistant/document/documentTemplate.dao'
-import { scanPlaceholders } from '~~/server/services/assistant/document/templateScanner'
+import { countUserTemplatesDAO, createDocumentTemplateDAO } from '~~/server/agents/document/documentTemplate.dao'
+import { scanPlaceholders } from '~~/server/agents/document/templateScanner'
 
 // ==================== 类型转换 ====================
 

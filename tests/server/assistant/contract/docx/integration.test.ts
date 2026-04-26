@@ -7,8 +7,8 @@ import {
     parseContractDocx,
     detectParties,
     injectComments,
-} from '~~/server/services/assistant/contract/docx'
-import { textToDocxService } from '~~/server/services/assistant/contract/textToDocx.service'
+} from '~~/server/agents/contract/docx'
+import { textToDocxService } from '~~/server/agents/contract/textToDocx.service'
 
 const SAMPLES = ['labor', 'lease', 'sale', 'service', 'loan'] as const
 const SAMPLE_DIR = join(__dirname, '../../../../../prisma/seeds/contract-samples')

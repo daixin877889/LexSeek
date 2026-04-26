@@ -50,7 +50,7 @@ describe('summarizeOverview', () => {
 
     it('0 条风险时直接返回默认 overview，不调 LLM', async () => {
         const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
-        const { summarizeOverview } = await import('~~/server/services/assistant/contract/summarizeOverview')
+        const { summarizeOverview } = await import('~~/server/agents/contract/summarizeOverview')
 
         const result = await summarizeOverview([], 'neutral', null)
 
@@ -76,7 +76,7 @@ describe('summarizeOverview', () => {
         })
         ;(createChatModel as any).mockReturnValueOnce({ invoke: mockInvoke })
 
-        const { summarizeOverview } = await import('~~/server/services/assistant/contract/summarizeOverview')
+        const { summarizeOverview } = await import('~~/server/agents/contract/summarizeOverview')
 
         const risks: Risk[] = [makeRisk('r1', 'high'), makeRisk('r2', 'medium')]
         const result = await summarizeOverview(risks, 'partyA', '服务合同')
@@ -99,7 +99,7 @@ describe('summarizeOverview', () => {
             }),
         })
 
-        const { summarizeOverview } = await import('~~/server/services/assistant/contract/summarizeOverview')
+        const { summarizeOverview } = await import('~~/server/agents/contract/summarizeOverview')
 
         await expect(
             summarizeOverview([makeRisk('r1', 'high')], 'partyB', '劳动合同'),

@@ -5,7 +5,7 @@
  * **Validates: Plan Task 2.1**
  */
 import { describe, it, expect } from 'vitest'
-import { buildRiskSchema, RISK_SHAPE } from '~~/server/services/assistant/contract/riskSchema.builder'
+import { buildRiskSchema, RISK_SHAPE } from '~~/server/agents/contract/riskSchema.builder'
 
 describe('buildRiskSchema', () => {
     it('返回 z.object，含 risks 数组 + summary 字符串', () => {

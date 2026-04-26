@@ -11,7 +11,7 @@ const { analyzeSingleClauseMock } = vi.hoisted(() => ({
     analyzeSingleClauseMock: vi.fn(),
 }))
 
-vi.mock('~~/server/services/assistant/contract/analyzeSingleClause', () => ({
+vi.mock('~~/server/agents/contract/analyzeSingleClause', () => ({
     analyzeSingleClause: analyzeSingleClauseMock,
 }))
 

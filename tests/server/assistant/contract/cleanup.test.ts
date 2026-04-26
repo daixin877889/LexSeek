@@ -8,8 +8,8 @@
  */
 import { describe, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { prisma } from '~~/server/utils/db'
-import { findReviewingTimeoutDAO } from '~~/server/services/assistant/contract/contractReview.dao'
-import { cleanupStaleContractReviewsService } from '~~/server/services/assistant/contract/contractReviewCleanup.service'
+import { findReviewingTimeoutDAO } from '~~/server/agents/contract/contractReview.dao'
+import { cleanupStaleContractReviewsService } from '~~/server/agents/contract/contractReviewCleanup.service'
 import { ensureTestUser, cleanupTestData } from '../test-db-helper'
 
 describe('合同审查僵死清理（bug #14）', () => {

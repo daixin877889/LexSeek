@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { segmentClausesByRegex } from '~~/server/services/assistant/contract/docx/clauseSegmenter'
+import { segmentClausesByRegex } from '~~/server/agents/contract/docx/clauseSegmenter'
 
 describe('clauseSegmenter · 正则切分', () => {
     it('按 "第X条" 切分', () => {

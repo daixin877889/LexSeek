@@ -8,7 +8,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { prisma } from '~~/server/utils/db'
-import { persistAiRisksAsContractRows } from '~~/server/services/assistant/contract/contractRisk.service'
+import { persistAiRisksAsContractRows } from '~~/server/agents/contract/contractRisk.service'
 import type { Risk } from '#shared/types/contract'
 import { ensureTestUser } from '../test-db-helper'
 

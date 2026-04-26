@@ -9,9 +9,9 @@ import { prisma } from '~~/server/utils/db'
 import {
     saveContractReviewVersionService,
     loadContractReviewVersionSnapshotService,
-} from '~~/server/services/assistant/contract/contractReviewVersion.service'
-import { createContractRiskDAO } from '~~/server/services/assistant/contract/contractRisk.dao'
-import { createContractAnnotationDAO } from '~~/server/services/assistant/contract/contractAnnotation.dao'
+} from '~~/server/agents/contract/contractReviewVersion.service'
+import { createContractRiskDAO } from '~~/server/agents/contract/contractRisk.dao'
+import { createContractAnnotationDAO } from '~~/server/agents/contract/contractAnnotation.dao'
 import { ensureTestUser } from '../test-db-helper'
 
 describe('contractReviewVersion.service', () => {
