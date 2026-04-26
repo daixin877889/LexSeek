@@ -124,6 +124,12 @@
                     <AdminNodesOutputSchemaEditor v-model="form.outputSchema" />
                 </div>
 
+                <!-- Skills 多选（仅编辑时显示，创建时 nodeId 未知） -->
+                <div v-if="isEdit" class="space-y-2">
+                    <Label>关联 Skills</Label>
+                    <AdminNodesNodeSkillSelector v-model="form.skills" />
+                </div>
+
                 <!-- 状态 -->
                 <div class="space-y-2">
                     <Label>状态</Label>
@@ -224,6 +230,7 @@ function getDefaultForm() {
         tools: [] as string[],
         status: '1',
         outputSchema: null as Record<string, unknown> | null,
+        skills: [] as string[],
     }
 }
 
@@ -310,11 +317,23 @@ const openEdit = (node: NodeWithRelations) => {
         tools: toolsArray,
         status: String(node.status),
         outputSchema: (node.outputSchema as Record<string, unknown>) ?? null,
+        skills: [],
     }
     loadGroups()
     loadModels()
     loadTools()
+    loadNodeSkills(node.id)
     open.value = true
+}
+
+/** 加载节点当前关联的 skill 名称列表（编辑回显） */
+const loadNodeSkills = async (nodeId: number) => {
+    const data = await useApiFetch<{ nodeId: number; skills: Array<{ skillName: string }> }>(
+        `/api/v1/admin/nodes/${nodeId}/skills`
+    )
+    if (data) {
+        form.value.skills = data.skills.map((s) => s.skillName)
+    }
 }
 
 // 提交表单
@@ -362,6 +381,13 @@ const handleSubmit = async () => {
         }
 
         if (result) {
+            // 编辑时同步更新节点关联的 skills
+            if (isEdit.value && selectedNode.value) {
+                await useApiFetch(`/api/v1/admin/nodes/${selectedNode.value.id}/skills`, {
+                    method: 'PATCH',
+                    body: { skills: form.value.skills.map(name => ({ skillName: name })) },
+                })
+            }
             toast.success(isEdit.value ? '保存成功' : '创建成功')
             open.value = false
             emit('success')
