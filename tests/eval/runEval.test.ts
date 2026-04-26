@@ -17,8 +17,11 @@ dotenvConfig({ path: resolve(process.cwd(), '.env.testing') })
 import { describe, it, expect, vi } from 'vitest'
 import { runEvalMain } from './runEval'
 
+// 仅在 DATABASE_URL 指向 ls_eval 库时跑（避免在 ls_new_testing 全量套件里被卷入）
+const isEvalDb = (process.env.DATABASE_URL ?? '').includes('ls_eval')
+
 // Vitest 4：在 describe 内 setConfig（it 不再接受第 3 参数 options，describe 第 3 参数也不再接受）
-describe('Context Governance Eval（端到端）', () => {
+describe.skipIf(!isEvalDb)('Context Governance Eval（端到端）', () => {
   vi.setConfig({ testTimeout: 25 * 60 * 1000 })  // 25 分钟（真 LLM 调用预算）
 
   it('runEvalMain 完整跑批（fixture seed + 29 提问 + 3 段抽取 + 6 安全 + 4 稳定）', async () => {
