@@ -6,17 +6,17 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { sanitizeName, createSubAgentTools } from '../../../../server/services/workflow/agents/subAgentToolFactory'
-import type { NodeConfig } from '../../../../server/services/node/node.service'
+import { sanitizeName, createSubAgentTools } from '~~/server/services/agent-platform/subAgent/subAgentToolFactory'
+import type { NodeConfig } from '~~/server/services/node/node.service'
 
 // mock 依赖模块
-vi.mock('../../../../server/services/node/chatModelFactory', () => ({
+vi.mock('~~/server/services/node/chatModelFactory', () => ({
     createChatModel: vi.fn(() => ({ /* mock model */ })),
     cachedPromptToAnthropicContent: vi.fn((segs: any[]) => segs.map(s => s.text).join('\n')),
     cachedPromptToPlainText: vi.fn((segs: any[]) => segs.map(s => s.text).join('\n')),
 }))
 
-vi.mock('../../../../server/services/workflow/tools', () => ({
+vi.mock('~~/server/services/agent-platform/tools', () => ({
     getToolInstancesService: vi.fn(() => []),
 }))
 
@@ -33,23 +33,29 @@ vi.mock('langchain', () => ({
     summarizationMiddleware: vi.fn(() => ({})),
 }))
 
-vi.mock('../../../../server/services/workflow/middleware', () => ({
+vi.mock('~~/server/services/agent-platform/middleware', () => ({
     createAuditMiddleware: vi.fn(() => ({})),
     createMessageIntegrityMiddleware: vi.fn(() => ({})),
     createScopeGuardMiddleware: vi.fn(() => ({})),
     pointConsumptionMiddleware: vi.fn(() => ({})),
-    analysisResultPersistenceMiddleware: vi.fn(() => ({})),
+}))
+
+vi.mock('~~/server/services/agent-platform/middleware/safetyTrim.middleware', () => ({
     safetyTrimMiddleware: vi.fn(() => ({})),
 }))
 
-vi.mock('../../../../server/services/workflow/checkpointer', () => ({
+vi.mock('~~/server/services/workflow/middleware/analysisResultPersistence.middleware', () => ({
+    analysisResultPersistenceMiddleware: vi.fn(() => ({})),
+}))
+
+vi.mock('~~/server/services/agent-platform/checkpointer', () => ({
     getCheckpointer: vi.fn(async () => ({
         getTuple: vi.fn().mockResolvedValue(null),
     })),
     getStore: vi.fn(async () => ({})),
 }))
 
-vi.mock('../../../../server/services/workflow/context/messageCompressor', () => ({
+vi.mock('~~/server/services/agent-platform/context/messageCompressor', () => ({
     resolveContextWindow: vi.fn(() => ({
         triggerTokens: 100000,
         maxTokens: 200000,
@@ -77,7 +83,7 @@ const buildSystemPromptForAgentMock = vi.fn(async (sdkType: string, params: any)
         plainText,
     }
 })
-vi.mock('../../../../server/services/workflow/context/moduleContextBuilder', () => ({
+vi.mock('~~/server/services/agent-platform/context/moduleContextBuilder', () => ({
     buildContextSegments: (params: any) => buildContextSegmentsMock(params),
     toCachedPrompt: vi.fn((segs: any) => [
         segs.roleAndFlow && { text: segs.roleAndFlow, cache: { ttl: '1h' } },
@@ -97,7 +103,7 @@ vi.stubGlobal('logger', {
 })
 
 // mock promptRenderer
-vi.mock('../../../../server/services/workflow/utils/promptRenderer', () => ({
+vi.mock('~~/server/services/workflow/utils/promptRenderer', () => ({
     renderSystemPrompt: vi.fn(() => '你是分析助手'),
 }))
 
@@ -273,7 +279,7 @@ describe('createSubAgentTools 子代理工具创建', () => {
 
         it('analysisResultPersistenceMiddleware 应使用子代理 NodeConfig.name 作为 agentName', async () => {
             const { analysisResultPersistenceMiddleware } = await import(
-                '../../../../server/services/workflow/middleware'
+                '~~/server/services/workflow/middleware/analysisResultPersistence.middleware'
             )
 
             const configs = [
