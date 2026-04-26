@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { SessionScope, SessionType } from '#shared/types/agentEvent'
+import { SessionScope, SessionType, SSECustomEventType } from '#shared/types/agentEvent'
+import type { SSECustomEventMap } from '#shared/types/agentEvent'
 
 describe('SessionScope', () => {
     it('包含 4 个 scope 值，对应 caseSessions.scope 列', () => {
@@ -21,5 +22,34 @@ describe('SessionType', () => {
         expect(SessionType.CHAT).toBe(1)
         expect(SessionType.ANALYSIS).toBe(2)
         expect(SessionType.MODULE).toBe(3)
+    })
+})
+
+describe('SSECustomEventType', () => {
+    it('覆盖现有所有自定义事件类型', () => {
+        // 现有发布点：subAgentToolFactory / contractReviewStageEmitter / saveAnalysisResult.tool
+        expect(SSECustomEventType.SUB_AGENT_TOKEN).toBe('sub_agent_token')
+        expect(SSECustomEventType.SUB_AGENT_TOOL_START).toBe('sub_agent_tool_start')
+        expect(SSECustomEventType.SUB_AGENT_TOOL_END).toBe('sub_agent_tool_end')
+        expect(SSECustomEventType.SUB_AGENT_STATUS).toBe('sub_agent_status')
+        expect(SSECustomEventType.ANALYSIS_RESULT_SAVED).toBe('analysis_result_saved')
+        expect(SSECustomEventType.CONTRACT_STAGE).toBe('contract_stage')
+        expect(SSECustomEventType.CONTRACT_RISK).toBe('contract_risk')
+        expect(SSECustomEventType.CONTRACT_PROGRESS).toBe('contract_progress')
+    })
+
+    it('包含阶段 5/6 新增事件类型', () => {
+        expect(SSECustomEventType.DRAFT_SAVED).toBe('draft_saved')
+        expect(SSECustomEventType.CONTRACT_REVIEW_SAVED).toBe('contract_review_saved')
+        expect(SSECustomEventType.CHILD_AGENT_INVOKED).toBe('child_agent_invoked')
+    })
+})
+
+describe('SSECustomEventMap 类型契约', () => {
+    it('类型仅在编译期校验，运行时仅做最小存在性校验', () => {
+        // 编译期：SSECustomEventMap[type] 给出 payload 类型
+        // 运行时：能够正常 import 即可
+        const probe: keyof SSECustomEventMap = SSECustomEventType.DRAFT_SAVED
+        expect(probe).toBe('draft_saved')
     })
 })
