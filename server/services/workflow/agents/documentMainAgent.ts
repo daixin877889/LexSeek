@@ -25,6 +25,9 @@ import {
     pointConsumptionMiddleware,
     safetyTrimMiddleware,
     draftResultPersistenceMiddleware,
+    buildMiddlewareStack,
+    MIDDLEWARE_PRIORITY,
+    MIDDLEWARE_NAMES,
 } from '../middleware'
 import { findDraftBySessionIdDAO } from '../../assistant/document/documentDraft.dao'
 import { getDocumentTemplateDAO } from '../../assistant/document/documentTemplate.dao'
@@ -181,8 +184,53 @@ export async function runDocumentChat(
         nodeConfig.modelMaxOutputTokens,
     )
 
-    // 8. 组装 Agent（中间件顺序：计费 → 摘要 → 安全裁剪 → 持久化）
+    // 8. 组装 Agent（通过 buildMiddlewareStack 按 priority 排序，保证顺序不依赖手动排列）
     // draftResultPersistenceMiddleware 必须最后，确保拿到最终 structuredResponse
+    const middleware = buildMiddlewareStack([
+        {
+            middleware: createMessageIntegrityMiddleware(),
+            priority: MIDDLEWARE_PRIORITY.MESSAGE_INTEGRITY,
+            name: MIDDLEWARE_NAMES.MESSAGE_INTEGRITY,
+        },
+        {
+            middleware: createScopeGuardMiddleware(),
+            priority: MIDDLEWARE_PRIORITY.SCOPE_GUARD,
+            name: MIDDLEWARE_NAMES.SCOPE_GUARD,
+        },
+        {
+            middleware: pointConsumptionMiddleware(userId, 'document_draft_token', sessionId),
+            priority: MIDDLEWARE_PRIORITY.POINT_CONSUMPTION,
+            name: MIDDLEWARE_NAMES.POINT_CONSUMPTION,
+        },
+        {
+            middleware: summarizationMiddleware({
+                model,
+                trigger: [{ tokens: triggerTokens }],
+            }),
+            priority: MIDDLEWARE_PRIORITY.SUMMARIZATION,
+            name: MIDDLEWARE_NAMES.SUMMARIZATION,
+        },
+        {
+            middleware: safetyTrimMiddleware({
+                model,
+                maxTokens,
+                systemPrompt: systemPromptPlainText,
+                maxOutputTokens,
+            }),
+            priority: MIDDLEWARE_PRIORITY.SAFETY_TRIM,
+            name: MIDDLEWARE_NAMES.SAFETY_TRIM,
+        },
+        {
+            middleware: draftResultPersistenceMiddleware({ draftId: draft.id, sessionId }),
+            priority: MIDDLEWARE_PRIORITY.RESULT_PERSISTENCE,
+            name: 'draftResultPersistence',
+        },
+        {
+            middleware: createAuditMiddleware(),
+            priority: MIDDLEWARE_PRIORITY.AUDIT,
+            name: MIDDLEWARE_NAMES.AUDIT,
+        },
+    ])
     const agent: ReactAgent = createAgent({
         model,
         systemPrompt: systemMessage,
@@ -190,24 +238,7 @@ export async function runDocumentChat(
         store,
         tools,
         responseFormat,
-        middleware: [
-            // 消息完整性放在最前：所有后续 middleware 和模型调用拿到的 state.messages 都是完整的
-            createMessageIntegrityMiddleware(),
-            createScopeGuardMiddleware(),
-            pointConsumptionMiddleware(userId, 'document_draft_token', sessionId),
-            summarizationMiddleware({
-                model,
-                trigger: [{ tokens: triggerTokens }],
-            }),
-            safetyTrimMiddleware({
-                model,
-                maxTokens,
-                systemPrompt: systemPromptPlainText,
-                maxOutputTokens,
-            }),
-            draftResultPersistenceMiddleware({ draftId: draft.id, sessionId }),
-            createAuditMiddleware(),
-        ],
+        middleware,
     })
 
     // 9. 构造输入：中断恢复时使用 Command；否则用用户消息或从 draft.sourceRef 自动组装启动指令
