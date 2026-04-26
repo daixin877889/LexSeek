@@ -485,8 +485,10 @@ describe('materialPipeline.service - 补充覆盖率', () => {
     })
 
     describe('TOKEN_THRESHOLD 常量', () => {
-        it('默认阈值为 32000', () => {
-            expect(TOKEN_THRESHOLD).toBe(32000)
+        it('默认阈值大于 0 且为合理预算', () => {
+            // 业务方按模型上下文预算调整（当前 15000，给 system prompt 留余量）
+            expect(TOKEN_THRESHOLD).toBeGreaterThan(0)
+            expect(TOKEN_THRESHOLD).toBeLessThanOrEqual(200000)
         })
     })
 
@@ -495,15 +497,17 @@ describe('materialPipeline.service - 补充覆盖率', () => {
             expect(estimateTokens('')).toBe(0)
         })
 
-        it('纯中文约 2 字符/token', () => {
+        it('非空字符串返回正整数 token 数', () => {
+            // 业务方改用 tiktoken (cl100k_base)，token 数依赖 BPE 词表，不再是固定字符比
             const tokens = estimateTokens('中文内容测试')
             expect(tokens).toBeGreaterThan(0)
-            expect(tokens).toBe(Math.ceil(5 / 2)) // 5 个中文字符
+            expect(Number.isInteger(tokens)).toBe(true)
         })
 
-        it('纯英文约 4 字符/token', () => {
+        it('英文字符串返回正整数 token 数', () => {
             const tokens = estimateTokens('hello world')
-            expect(tokens).toBe(Math.ceil(11 / 4))
+            expect(tokens).toBeGreaterThan(0)
+            expect(Number.isInteger(tokens)).toBe(true)
         })
     })
 

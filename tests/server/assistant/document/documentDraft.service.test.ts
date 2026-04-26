@@ -231,35 +231,40 @@ describe('createDraftService', () => {
             expect(result).toHaveProperty('sessionId', MOCK_SESSION.sessionId)
         })
 
-        it('调用 createAssistantSessionDAO 创建 document scope 会话', async () => {
-            await createDraftService({ userId: 100, templateId: 1 })
+        // 注：业务方已改用 prisma.caseSessions.create 直接创建 scope='document' 的会话，
+        //   不再调用 createAssistantSessionDAO（避免硬编码 scope='assistant' 让 agentWorker 错误路由）。
+        //   该路径由 testPrisma.caseSessions.create 的 mock 覆盖（见 beforeEach 第 135 行）。
 
-            expect(mockCreateAssistantSessionDAO).toHaveBeenCalledWith(
-                expect.objectContaining({ userId: 100 }),
-            )
-        })
-
-        it('调用 createDocumentDraftDAO 创建草稿', async () => {
+        it('调用 createDocumentDraftDAO 创建草稿（无 source 时 status=ready）', async () => {
             await createDraftService({ userId: 100, templateId: 1 })
 
             expect(mockCreateDocumentDraftDAO).toHaveBeenCalledWith(
                 expect.objectContaining({
                     userId: 100,
                     templateId: 1,
-                    status: 'drafting',
+                    status: 'ready',
                 }),
             )
         })
 
-        it('调用 enqueueRunService 入队 Worker', async () => {
-            await createDraftService({ userId: 100, templateId: 1 })
+        it('传入 sourceText 时 status=drafting 并调用 enqueueRunService 入队 Worker', async () => {
+            await createDraftService({ userId: 100, templateId: 1, sourceText: '原告是张三' })
 
+            expect(mockCreateDocumentDraftDAO).toHaveBeenCalledWith(
+                expect.objectContaining({ status: 'drafting' }),
+            )
             expect(mockEnqueueRunService).toHaveBeenCalledWith(
                 expect.objectContaining({
                     sessionId: MOCK_SESSION.sessionId,
                     userId: 100,
                 }),
             )
+        })
+
+        it('未传 source 时不调用 enqueueRunService（避免 Agent 空跑）', async () => {
+            await createDraftService({ userId: 100, templateId: 1 })
+
+            expect(mockEnqueueRunService).not.toHaveBeenCalled()
         })
 
         it('传入 sourceFileIds 时循环调用 ensureMaterialsReadyForDraftService（无 caseId 透传 null）', async () => {
