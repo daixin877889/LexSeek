@@ -91,19 +91,22 @@ export async function runDomainAgent(
     def: DomainAgentDefinition,
     ctx: AgentRunnerContext,
 ): Promise<ReadableStream> {
-    // 1. 加载节点配置（内存缓存）
-    const nodeConfig = await getNodeConfigCached(def.nodeName)
+    // 1. 解析节点名称（支持动态函数形式）
+    const resolvedNodeName = typeof def.nodeName === 'function' ? def.nodeName(ctx) : def.nodeName
+
+    // 2. 加载节点配置（内存缓存）
+    const nodeConfig = await getNodeConfigCached(resolvedNodeName)
     if (!nodeConfig) {
-        throw new Error(`节点 "${def.nodeName}" 未找到，请检查节点名称或在管理后台创建该节点`)
+        throw new Error(`节点 "${resolvedNodeName}" 未找到，请检查节点名称或在管理后台创建该节点`)
     }
 
-    // 2. 获取可用 API Key
+    // 3. 获取可用 API Key
     const activeApiKey = nodeConfig.modelApiKeys.find(k => k.status === 1)
     if (!activeApiKey) {
-        throw new Error(`节点 "${def.nodeName}" 没有可用的 API 密钥，请在管理后台配置`)
+        throw new Error(`节点 "${resolvedNodeName}" 没有可用的 API 密钥，请在管理后台配置`)
     }
 
-    // 3. 创建 chatModel
+    // 4. 创建 chatModel
     const model = createChatModel({
         sdkType: nodeConfig.modelSdkType,
         modelName: nodeConfig.modelName,
@@ -136,7 +139,7 @@ export async function runDomainAgent(
     const skillsMw = await buildSkillsMiddlewareForNode(nodeConfig.id)
 
     // 8. 组装中间件栈
-    const itemKey = toPointItemKey(def.scope, def.nodeName)
+    const itemKey = toPointItemKey(def.scope, resolvedNodeName)
 
     const middlewareItems = [
         {
@@ -230,7 +233,7 @@ export async function runDomainAgent(
 
     logger.info('[defineDomainAgent] 创建 agent', {
         scope: def.scope,
-        nodeName: def.nodeName,
+        nodeName: resolvedNodeName,
         model: nodeConfig.modelName,
         nodeToolsCount: nodeTools.length,
         customToolsCount: customTools.length,

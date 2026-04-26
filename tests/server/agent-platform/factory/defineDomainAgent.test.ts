@@ -266,6 +266,26 @@ describe('defineDomainAgent 工厂', () => {
         expect(stream).toBeInstanceOf(ReadableStream)
     })
 
+    it('nodeName 为函数时动态解析节点名', async () => {
+        getNodeConfigCachedMock.mockResolvedValue(makeMockNodeConfig())
+        createAgentMock.mockReturnValue({ stream: vi.fn().mockResolvedValue(makeStream()) })
+
+        const dynamicNodeName = vi.fn().mockReturnValue('resolvedNode')
+        const agent = defineDomainAgent({
+            scope: SessionScope.DOCUMENT,
+            agentType: 'createAgent',
+            nodeName: dynamicNodeName,
+        })
+
+        const ctx = makeMockCtx()
+        await agent.runner(ctx)
+
+        // 函数被以 ctx 为参数调用
+        expect(dynamicNodeName).toHaveBeenCalledWith(ctx)
+        // loader 收到解析后的字符串
+        expect(getNodeConfigCachedMock).toHaveBeenCalledWith('resolvedNode')
+    })
+
     it('stateGraph 路径：调用 runStateGraph 而非 createAgent', async () => {
         const mockRunStateGraph = vi.fn().mockResolvedValue(makeStream())
 

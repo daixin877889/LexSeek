@@ -23,8 +23,11 @@ export interface DomainAgentDefinition {
     type?: SessionType | null
     /** Agent 类型 */
     agentType: DomainAgentType
-    /** 关联节点 nodes.name；提示词/模型/工具/skills 都从此节点读取 */
-    nodeName: string
+    /**
+     * 关联节点 nodes.name；提示词/模型/工具/skills 都从此节点读取。
+     * 支持动态函数：需要根据 ctx（如 caseId）映射不同节点时使用函数形式。
+     */
+    nodeName: string | ((ctx: AgentRunnerContext) => string)
     /** 业务私有中间件（与平台通用中间件按 priority 合并） */
     customMiddlewares?: (ctx: AgentRunnerContext) => Promise<MiddlewareWithPriority[]>
     /** 业务私有工具（与节点 tools + skill 工具合并；同名以业务工具胜出） */

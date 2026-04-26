@@ -54,17 +54,18 @@ export function defineDomainAgent(def: DomainAgentDefinition): DomainAgent {
     }
 
     // 自动注册到 AgentRegistry（scope + type 二级路由）
+    const nodeNameLabel = typeof def.nodeName === 'function' ? 'dynamic' : def.nodeName
     agentRegistry.register({
         scope: def.scope,
         type: def.type ?? null,
         runner,
-        description: def.description ?? `${def.scope}/${def.nodeName}`,
+        description: def.description ?? `${def.scope}/${nodeNameLabel}`,
     })
 
     logger.info('[defineDomainAgent] 注册成功', {
         scope: def.scope,
         type: def.type ?? null,
-        nodeName: def.nodeName,
+        nodeName: nodeNameLabel,
         agentType: def.agentType,
     })
 
