@@ -120,6 +120,11 @@ export default defineNuxtConfig({
   future: {
     compatibilityVersion: 4, // 确保开启 Nuxt 4 模式
   },
+  // 关闭客户端 source map（生产环境无需调试信息）
+  sourcemap: {
+    server: false,
+    client: false,
+  },
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
   nitro: {
@@ -134,6 +139,8 @@ export default defineNuxtConfig({
         { name: 'resError', from: '#shared/utils/apiResponse' },
       ]
     },
+    // 关闭服务端 source map（生产环境无需调试信息，省 ~7MB）
+    sourceMap: false,
     // 解决 dayjs/zod ESM 模块解析问题，确保打包进 .output
     externals: {
       inline: ['dayjs', 'zod']
