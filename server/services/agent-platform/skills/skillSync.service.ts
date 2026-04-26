@@ -17,6 +17,7 @@ import {
     markSkillsDisabledByNamesDAO,
 } from './skillSync.dao'
 import { SkillSource, SKILLS_FS_ROOT, type SkillFrontmatter } from '#shared/types/skill'
+import { invalidateNodeConfigCache } from '~~/server/services/agent-platform/nodeConfig/loader'
 
 /** 扫描结果 */
 export interface ScanResult {
@@ -153,6 +154,9 @@ export async function scanAndSyncSkillsService(skillsRoot?: string): Promise<Sca
         await markSkillsDisabledByNamesDAO(toDisable)
         result.disabled.push(...toDisable)
     }
+
+    // 6. skills 变化可能影响节点关联，全量清 NodeConfig 缓存
+    invalidateNodeConfigCache()
 
     return result
 }
