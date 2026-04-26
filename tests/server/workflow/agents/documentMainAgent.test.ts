@@ -80,14 +80,18 @@ vi.mock('~~/server/services/workflow/tools', () => ({
     getToolInstancesService: vi.fn(() => []),
 }))
 
-vi.mock('~~/server/services/workflow/middleware', () => ({
-    createAuditMiddleware: vi.fn(() => ({})),
-    createMessageIntegrityMiddleware: vi.fn(() => ({})),
-    createScopeGuardMiddleware: vi.fn(() => ({})),
-    pointConsumptionMiddleware: vi.fn(() => ({})),
-    safetyTrimMiddleware: vi.fn(() => ({})),
-    draftResultPersistenceMiddleware: vi.fn(() => ({})),
-}))
+vi.mock('~~/server/services/workflow/middleware', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('~~/server/services/workflow/middleware')>()
+    return {
+        ...actual,
+        createAuditMiddleware: vi.fn(() => ({})),
+        createMessageIntegrityMiddleware: vi.fn(() => ({})),
+        createScopeGuardMiddleware: vi.fn(() => ({})),
+        pointConsumptionMiddleware: vi.fn(() => ({})),
+        safetyTrimMiddleware: vi.fn(() => ({})),
+        draftResultPersistenceMiddleware: vi.fn(() => ({})),
+    }
+})
 
 vi.mock('~~/server/services/workflow/context/messageCompressor', () => ({
     resolveContextWindow: vi.fn(() => ({
