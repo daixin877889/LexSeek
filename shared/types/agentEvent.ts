@@ -154,3 +154,30 @@ export interface SSECustomEventMap {
     [SSECustomEventType.CONTRACT_PROGRESS]: ContractProgressPayload
     [SSECustomEventType.CHILD_AGENT_INVOKED]: ChildAgentInvokedPayload
 }
+
+/**
+ * Interrupt 类型。
+ *
+ * 用于 LangGraph workflow / Agent 中断恢复机制：
+ * - 后端：interrupt({ type: InterruptType.X, ... }) 抛出 GraphInterrupt
+ * - 前端：根据 interrupt.type 查 InterruptRegistry 渲染对应 handler 组件（阶段 7 完成）
+ *
+ * 阶段 1 仅引入枚举，**不**强制替换现有字符串字面量。后续阶段在搬迁业务 vertical 时
+ * 顺便完成替换。
+ */
+export enum InterruptType {
+    /** 积分不足，需充值 */
+    INSUFFICIENT_POINTS = 'insufficient_points',
+    /** 非会员，需开通会员 */
+    NEED_MEMBERSHIP = 'need_membership',
+    /** 案件基本信息确认（initAnalysis）*/
+    BASIC_INFO_CONFIRM = 'basic_info_confirm',
+    /** 案件信息复核（小索 / 模块对话）*/
+    CASE_INFO_CHECK = 'case_info_check',
+    /** 选择分析模块（initAnalysis）*/
+    MODULE_SELECT = 'module_select',
+    /** 合同审查立场选择 */
+    CONTRACT_STANCE = 'contract_stance',
+    /** 案件信息提取确认 */
+    EXTRACT_CASE_INFO = 'extract_case_info',
+}

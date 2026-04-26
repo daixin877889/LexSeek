@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { SessionScope, SessionType, SSECustomEventType } from '#shared/types/agentEvent'
+import { SessionScope, SessionType, SSECustomEventType, InterruptType } from '#shared/types/agentEvent'
 import type { SSECustomEventMap } from '#shared/types/agentEvent'
 
 describe('SessionScope', () => {
@@ -51,5 +51,18 @@ describe('SSECustomEventMap 类型契约', () => {
         // 运行时：能够正常 import 即可
         const probe: keyof SSECustomEventMap = SSECustomEventType.DRAFT_SAVED
         expect(probe).toBe('draft_saved')
+    })
+})
+
+describe('InterruptType', () => {
+    it('覆盖所有现有 interrupt 类型', () => {
+        // 沿用现有 server/services/workflow / 前端 interrupt handler 中的类型
+        expect(InterruptType.INSUFFICIENT_POINTS).toBe('insufficient_points')
+        expect(InterruptType.NEED_MEMBERSHIP).toBe('need_membership')
+        expect(InterruptType.BASIC_INFO_CONFIRM).toBe('basic_info_confirm')
+        expect(InterruptType.CASE_INFO_CHECK).toBe('case_info_check')
+        expect(InterruptType.MODULE_SELECT).toBe('module_select')
+        expect(InterruptType.CONTRACT_STANCE).toBe('contract_stance')
+        expect(InterruptType.EXTRACT_CASE_INFO).toBe('extract_case_info')
     })
 })
