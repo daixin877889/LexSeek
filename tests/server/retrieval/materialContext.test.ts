@@ -130,10 +130,11 @@ describe('getMaterialContextService — 分级注入逻辑', () => {
 
     it('部分材料超出预算 → 高优先级全文，低优先级摘要，整体 mode=graded', async () => {
         // type=1(CASE_CONTENT) 优先级 10，type=2(DOCUMENT) 优先级 8
-        // 案情材料约 100 token，文档材料约 150 token
-        // 预算 200：案情材料(100)能放入，文档材料(150)超出剩余 100
-        const contentCase = '甲'.repeat(200)    // ~100 tokens
-        const contentDoc = '乙'.repeat(300)     // ~150 tokens
+        // tiktoken cl100k_base 下中文字符大约 1 字 ≈ 2 token：
+        //   '甲'*200 ≈ 400 tokens（短文档），'乙'*400 ≈ 800 tokens（长文档）
+        // 预算 600：案情材料(400)能放入，文档材料(800)超出剩余 200，降级为摘要
+        const contentCase = '甲'.repeat(200)
+        const contentDoc = '乙'.repeat(400)
         const docMat = makeMaterial({ id: 200, type: 2, name: '文档材料', ossFileId: 200 })
         const caseMat = makeMaterial({ id: 100, type: 1, name: '案情内容' })
 
@@ -148,7 +149,7 @@ describe('getMaterialContextService — 分级注入逻辑', () => {
         prismaMocks.asrRecords.findMany.mockResolvedValue([])
 
         const materials = [docMat, caseMat] // 故意乱序，确认优先级排序生效
-        const result = await getMaterialContextService(materials, 200)
+        const result = await getMaterialContextService(materials, 600)
 
         expect(result.mode).toBe('graded')
 
@@ -179,8 +180,9 @@ describe('getMaterialContextService — 分级注入逻辑', () => {
     })
 
     it('优先级排序：CASE_CONTENT(10) > DOCUMENT(8) > IMAGE(5) > AUDIO(3)', async () => {
-        // 预算仅能容纳 1 份材料（~100 token），验证优先级最高的先拿到全文
-        const content = '戊'.repeat(200) // ~100 tokens
+        // tiktoken cl100k_base 下 '戊'*200 ≈ 400 tokens
+        // 预算仅 410（仅能容纳 1 份材料），验证优先级最高的先拿到全文
+        const content = '戊'.repeat(200)
 
         const audioMat = makeMaterial({ id: 1, type: 4, name: '音频', ossFileId: 1001 })
         const imgMat = makeMaterial({ id: 2, type: 3, name: '图片', ossFileId: 1002 })
@@ -201,9 +203,9 @@ describe('getMaterialContextService — 分级注入逻辑', () => {
             { ossFileId: 1001, summary: content, result: null },
         ])
 
-        // 预算仅能容纳 1 份（110 token）
+        // 预算 410：仅能放下 1 份全文（400 tokens）+ 留一点余量给摘要
         const materials = [audioMat, imgMat, docMat, caseMat] // 故意乱序
-        const result = await getMaterialContextService(materials, 110)
+        const result = await getMaterialContextService(materials, 410)
 
         const fullItems = result.materialList.filter(i => i.mode === 'full')
         const summaryItems = result.materialList.filter(i => i.mode === 'summary')

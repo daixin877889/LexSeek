@@ -41,6 +41,7 @@ vi.stubGlobal('resError', vi.fn((event: any, code: number, message: string) => (
 // 动态引入 handler（必须在 mock 后执行）
 // ============================================================
 import { listSessionsWithActiveRunDAO, createSessionDAO, softDeleteSessionDAO, renameSessionDAO } from '../../../server/services/case/session.dao'
+import { getNodeByNameService } from '../../../server/services/node/node.service'
 
 // 帮助类型
 type MockFn = ReturnType<typeof vi.fn>
@@ -408,7 +409,7 @@ describe('POST /api/v1/case/analysis/module-session', () => {
     it('创建成功应返回 sessionId + isNew，type=3', async () => {
         const event = makeEvent({ user: { id: 1 } })
         ;(global.readBody as MockFn).mockResolvedValue({ caseId: 100, moduleName: 'summary' })
-        ;(global as any).getNodeByNameService.mockResolvedValue({ id: 'node-abc' })
+        ;(getNodeByNameService as MockFn).mockResolvedValue({ id: 'node-abc' })
         ;(createSessionDAO as MockFn).mockResolvedValue({ sessionId: 'mod-sid-001', isNew: true })
 
         const result = await handler(event)
@@ -428,7 +429,7 @@ describe('POST /api/v1/case/analysis/module-session', () => {
     it('未传 title 时应自动生成纯时间戳标题（前缀由 UI 负责）', async () => {
         const event = makeEvent({ user: { id: 1 } })
         ;(global.readBody as MockFn).mockResolvedValue({ caseId: 100, moduleName: 'summary' })
-        ;(global as any).getNodeByNameService.mockResolvedValue({ id: 'node-abc' })
+        ;(getNodeByNameService as MockFn).mockResolvedValue({ id: 'node-abc' })
 
         let capturedMetadata: any = null
         ;(createSessionDAO as MockFn).mockImplementation(async (params) => {

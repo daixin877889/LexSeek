@@ -82,7 +82,10 @@ describe('AgentRun DAO 层', () => {
       expect(run.workerId).toBeNull()
     })
 
-    it('同 session 已有活跃 run 时抛出唯一约束错误', async () => {
+    it('同 session 允许并存多条 run（partial unique 约束已移除）', async () => {
+      // 业务侧已经移除 agent_runs_session_active_uq partial unique index
+      // 历史回放/重启等场景需要同 session 多 run 共存，幂等由上层的
+      // findActiveRunBySessionIdDAO + 分布式锁保证。
       const run1 = await createAgentRunDAO({
         sessionId: testSession.sessionId,
         threadId: testSession.sessionId,
@@ -92,13 +95,17 @@ describe('AgentRun DAO 层', () => {
       })
       testIds.agentRunIds.push(run1.id)
 
-      await expect(createAgentRunDAO({
+      const run2 = await createAgentRunDAO({
         sessionId: testSession.sessionId,
         threadId: testSession.sessionId,
         userId: testUser.id,
         caseId: testCase.id,
         input: { message: '第二次' },
-      })).rejects.toThrow()
+      })
+      testIds.agentRunIds.push(run2.id)
+
+      expect(run2.id).not.toBe(run1.id)
+      expect(run2.sessionId).toBe(run1.sessionId)
     })
 
     it('caseId=null 时应正常写入（assistant 域场景）', async () => {

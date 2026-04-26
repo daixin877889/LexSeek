@@ -40,6 +40,12 @@ vi.mock('uuid', () => ({
     v4: () => 'mock-uuid-1234',
 }))
 
+// agentRun.service mock —— session.dao 通过 ES import 调用 getActiveRunService / cancelRunService
+vi.mock('~~/server/services/agent/agentRun.service', () => ({
+    getActiveRunService: (...args: any[]) => mockGetActiveRunService(...args),
+    cancelRunService: (...args: any[]) => mockCancelRunService(...args),
+}))
+
 // 注入 Nuxt 自动导入的全局变量 mock
 ;(globalThis as any).prisma = {
     cases: {
