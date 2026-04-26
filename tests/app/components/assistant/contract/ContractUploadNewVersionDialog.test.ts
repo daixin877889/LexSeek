@@ -95,6 +95,7 @@ const stubs = {
     DialogContent: passthrough('DialogContent'),
     DialogHeader: passthrough('DialogHeader'),
     DialogTitle: passthrough('DialogTitle'),
+    DialogDescription: passthrough('DialogDescription'),
     DialogFooter: passthrough('DialogFooter'),
     Button: ButtonStub,
 }
