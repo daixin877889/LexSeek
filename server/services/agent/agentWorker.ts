@@ -181,7 +181,9 @@ export class AgentWorker {
       // scope/type 校验依然需要：runner 内部会做最终校验，但此处提前抛错
       // 可以让错误信息更精准（带上 sessionId），保留旧行为。
       if (
-        (session.scope === 'document' || session.scope === 'assistant' || session.scope === 'contract')
+        (session.scope === SessionScope.DOCUMENT
+          || session.scope === SessionScope.ASSISTANT
+          || session.scope === SessionScope.CONTRACT)
         && session.userId == null
       ) {
         throw new Error(
@@ -189,7 +191,7 @@ export class AgentWorker {
         )
       }
       if (
-        (session.scope == null || session.scope === 'case')
+        (session.scope == null || session.scope === SessionScope.CASE)
         && session.caseId == null
       ) {
         throw new Error(
@@ -198,7 +200,7 @@ export class AgentWorker {
       }
 
       // 注：session.scope 在 caseSessions 表中可能为 null（早期数据），按 case 域处理
-      const scope = (session.scope ?? 'case') as SessionScope
+      const scope = (session.scope ?? SessionScope.CASE) as SessionScope
       const type = session.type ?? null
       const meta = session.metadata as Record<string, unknown> | null
 
@@ -347,7 +349,7 @@ export class AgentWorker {
       // spec §5.6.1：首条对话完成后根据首轮消息自动生成 ≤20 字标题
       // 使用 lastValuesData 缓冲避免重新调 checkpointer，规避 commit 与 completedAt 时序竞态
       if (
-        session.scope === 'assistant'
+        session.scope === SessionScope.ASSISTANT
         && !session.title
         && session.userId != null
         && lastValuesData
