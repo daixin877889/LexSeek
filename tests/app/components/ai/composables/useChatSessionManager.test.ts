@@ -183,13 +183,21 @@ describe('useChatSessionManager / 队列派发集成测试', () => {
       await flushPromises()
 
       manager.sendMessage('第一条')
-      manager.enqueueMessage('第二条')
-      manager.enqueueMessage('第三条')
-      expect(manager.currentQueue.value).toHaveLength(2)
-
+      // 真实业务中 sendMessage 立刻进入 running + isLoading=true，
+      // 此后 enqueue 因 maybeDispatch 守卫 3（isLoading）不会立即派发。
+      _isLoading.value = true
       _runStatus.value = 'running'
       await nextTick()
+      manager.enqueueMessage('第二条')
+      // await flushPromises 消化 enqueue 内的 nextTick(maybeDispatch)，
+      // 此时 isLoading=true，maybeDispatch 因守卫 3 跳过
+      await flushPromises()
+      manager.enqueueMessage('第三条')
+      await flushPromises()
+      expect(manager.currentQueue.value).toHaveLength(2)
+
       _runStatus.value = 'completed'
+      _isLoading.value = false
       await nextTick()
       await flushPromises()
       await nextTick()
@@ -199,9 +207,11 @@ describe('useChatSessionManager / 队列派发集成测试', () => {
       expect(manager.currentQueue.value).toHaveLength(1)
 
       // 再触发一次 completed 循环：running → completed
+      _isLoading.value = true
       _runStatus.value = 'running'
       await nextTick()
       _runStatus.value = 'completed'
+      _isLoading.value = false
       await nextTick()
       await flushPromises()
       await nextTick()
@@ -224,11 +234,14 @@ describe('useChatSessionManager / 队列派发集成测试', () => {
       await flushPromises()
 
       manager.sendMessage('第一条')
-      manager.enqueueMessage('第二条')
-
+      _isLoading.value = true
       _runStatus.value = 'running'
       await nextTick()
+      manager.enqueueMessage('第二条')
+      await flushPromises()
+
       _runStatus.value = 'cancelled'
+      _isLoading.value = false
       await nextTick()
       await flushPromises()
 
@@ -250,11 +263,14 @@ describe('useChatSessionManager / 队列派发集成测试', () => {
       await flushPromises()
 
       manager.sendMessage('第一条')
-      manager.enqueueMessage('第二条')
-
+      _isLoading.value = true
       _runStatus.value = 'running'
       await nextTick()
+      manager.enqueueMessage('第二条')
+      await flushPromises()
+
       _runStatus.value = 'failed'
+      _isLoading.value = false
       await nextTick()
       await flushPromises()
 
@@ -276,8 +292,17 @@ describe('useChatSessionManager / 队列派发集成测试', () => {
       await manager.init()
       await flushPromises()
 
-      // 入队但不调用 sendMessage（模拟 tab 继承场景 / 刚 mount 未发过）
-      manager.enqueueMessage('queued')
+      // 真实 reconnect 场景：队列由其他 tab 同步过来（cross-tab sync），
+      // 而非本 tab 调用 enqueueMessage（后者属于"用户在本 tab 显式入队"，按设计应立即派发）
+      const { postCrossTabEvent } = await import('~/composables/useCrossTabEvents')
+      postCrossTabEvent('chat-queue:sync', {
+        sessionId: session.sessionId,
+        tabId: 'remote-tab',
+        queue: [{ id: 'i1', text: 'queued', files: undefined, thinking: false, enqueuedAt: Date.now() }],
+        pauseReason: null,
+        version: performance.now() + Math.random(),
+      })
+      await flushPromises()
       expect(manager.currentQueue.value).toHaveLength(1)
 
       // 模拟 reconnect 补发 status_change: idle → running → completed
@@ -375,10 +400,13 @@ describe('useChatSessionManager / 队列派发集成测试', () => {
 
       // 模拟已暂停态：先入队 + 触发 failed
       manager.sendMessage('旧的')
-      manager.enqueueMessage('暂停期间入队的')
+      _isLoading.value = true
       _runStatus.value = 'running'
       await nextTick()
+      manager.enqueueMessage('暂停期间入队的')
+      await flushPromises()
       _runStatus.value = 'failed'
+      _isLoading.value = false
       await nextTick()
       await flushPromises()
 
@@ -406,10 +434,13 @@ describe('useChatSessionManager / 队列派发集成测试', () => {
       await flushPromises()
 
       manager.sendMessage('第一条')
-      manager.enqueueMessage('唯一一条')
+      _isLoading.value = true
       _runStatus.value = 'running'
       await nextTick()
+      manager.enqueueMessage('唯一一条')
+      await flushPromises()
       _runStatus.value = 'failed'
+      _isLoading.value = false
       await nextTick()
       await flushPromises()
 
@@ -437,11 +468,14 @@ describe('useChatSessionManager / 队列派发集成测试', () => {
       await flushPromises()
 
       manager.sendMessage('第一条')
-      manager.enqueueMessage('第二条')
-      manager.enqueueMessage('第三条')
+      _isLoading.value = true
       _runStatus.value = 'running'
       await nextTick()
+      manager.enqueueMessage('第二条')
+      manager.enqueueMessage('第三条')
+      await flushPromises()
       _runStatus.value = 'cancelled'
+      _isLoading.value = false
       await nextTick()
       await flushPromises()
 
@@ -497,10 +531,13 @@ describe('useChatSessionManager / 队列派发集成测试', () => {
 
       // 在 A 上制造队列和暂停
       manager.sendMessage('第一条')
-      manager.enqueueMessage('第二条')
+      _isLoading.value = true
       _runStatus.value = 'running'
       await nextTick()
+      manager.enqueueMessage('第二条')
+      await flushPromises()
       _runStatus.value = 'failed'
+      _isLoading.value = false
       await nextTick()
       await flushPromises()
       expect(manager.isQueuePaused.value).toBe(true)
@@ -532,10 +569,13 @@ describe('useChatSessionManager / 队列派发集成测试', () => {
       await flushPromises()
 
       manager.sendMessage('第一条')
-      manager.enqueueMessage('第二条')
+      _isLoading.value = true
       _runStatus.value = 'running'
       await nextTick()
+      manager.enqueueMessage('第二条')
+      await flushPromises()
       _runStatus.value = 'cancelled'
+      _isLoading.value = false
       await nextTick()
       await flushPromises()
 
@@ -677,17 +717,20 @@ describe('useChatSessionManager / 队列派发集成测试', () => {
       await flushPromises()
 
       manager.sendMessage('第一条')
+      _isLoading.value = true
+      _runStatus.value = 'running'
+      await nextTick()
       manager.enqueueMessage('a')
       manager.enqueueMessage('b')
       manager.enqueueMessage('c')
+      await flushPromises()
 
       const oldHeadId = manager.currentQueue.value[0]!.id
       expect(manager.currentQueue.value).toHaveLength(3)
 
       // 触发派发：a 被 pop
-      _runStatus.value = 'running'
-      await nextTick()
       _runStatus.value = 'completed'
+      _isLoading.value = false
       await nextTick()
       await flushPromises()
       await nextTick()
