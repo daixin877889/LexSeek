@@ -4,6 +4,8 @@
  * 这些枚举在阶段 1 引入，作为 AI 基建统一改造的底座类型层。
  * 所有 session.scope / session.type / SSE custom event / interrupt 字面量
  * 在后续阶段会逐步替换为这里的枚举。
+ *
+ * @see docs/superpowers/specs/2026-04-26-ai-infrastructure-unification-design.md §3.4 §A.B
  */
 
 /**
