@@ -98,6 +98,17 @@ export async function listSkillsByNodeIdDAO(nodeId: number) {
     }))
 }
 
+/**
+ * 更新单条 skill 的启停状态。
+ * name 不存在时抛 Prisma P2025 错误（调用方处理 404）。
+ */
+export async function updateSkillStatusDAO(name: string, status: SkillStatus) {
+    return prisma.skills.update({
+        where: { name },
+        data: { status },
+    })
+}
+
 /** 删除单条 skill（仅测试用，业务侧无 admin 删除接口）*/
 export async function deleteSkillDAO(name: string) {
     await prisma.skills.delete({ where: { name } })
