@@ -264,11 +264,14 @@ describe('商品 DAO 测试', () => {
             const product = await createTestProduct(level.id)
             testIds.productIds.push(product.id)
 
-            const result = await findAllProductsDao({ pageSize: 100 })
+            // 测试库存量产品 200+，按 sortOrder asc 默认 pageSize 翻页找不到刚创建的；
+            // 用最大 pageSize 兜底覆盖，验证 findAllProductsDao 返回的项确实带 level 关联。
+            const result = await findAllProductsDao({ pageSize: 1000 })
             const found = result.list.find(p => p.id === product.id)
 
             expect(found).not.toBeUndefined()
             expect(found!.level).not.toBeNull()
+            expect(found!.level!.id).toBe(level.id)
         })
     })
 

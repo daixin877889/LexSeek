@@ -380,8 +380,14 @@ describe('权限验证服务属性测试', () => {
             createdUserRoleIds.push(userRole.id)
 
             // 创建两条未关联任何角色的启用路由
-            const existingGroup = await testPrisma.routerGroups.findFirst()
-            const groupId = existingGroup?.id ?? 1
+            // 测试库可能没有 router_groups 种子数据，缺失时按需创建一个测试分组（避免 groupId=1 FK 失败）
+            let existingGroup = await testPrisma.routerGroups.findFirst()
+            if (!existingGroup) {
+                existingGroup = await testPrisma.routerGroups.create({
+                    data: { name: `test_router_group_${uniqueId}` },
+                })
+            }
+            const groupId = existingGroup.id
             const router1 = await testPrisma.routers.create({
                 data: {
                     name: `super_r1_${uniqueId}`,

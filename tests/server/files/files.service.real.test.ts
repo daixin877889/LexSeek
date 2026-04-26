@@ -60,10 +60,25 @@ vi.mock('#app/nuxt', async (importOriginal) => {
 })
 
 // ---------------------------------------------------------------
-// 注入 Nuxt 自动导入的全局符号（service 运行时依赖）
-// - logger / prisma 已由 setupFiles（tests/server/membership/test-setup.ts）提供
-// - OSS、getConfigsByGroupAndKeyDao 需在这里手动注入
+// systemConfig.dao 不再走全局自动导入，service 通过 ES import 引入。
+// 用 vi.mock 把 getConfigsByGroupAndKeyDao 改写为可在用例里临时替换的 ref，
+// 这样 "顶层异常传播" 用例覆盖全局变量时才能真正影响到 service 的真实调用。
 // ---------------------------------------------------------------
+const systemConfigMocks = vi.hoisted(() => ({
+    getConfigsByGroupAndKeyDao: undefined as undefined | ((group: string, key: string) => Promise<any>),
+}))
+
+vi.mock('~~/server/services/system/systemConfig.dao', async (importOriginal) => {
+    const actual = await importOriginal<any>()
+    return {
+        ...actual,
+        getConfigsByGroupAndKeyDao: (group: string, key: string) =>
+            (systemConfigMocks.getConfigsByGroupAndKeyDao
+                ? systemConfigMocks.getConfigsByGroupAndKeyDao(group, key)
+                : actual.getConfigsByGroupAndKeyDao(group, key)),
+    }
+})
+
 import { getConfigsByGroupAndKeyDao } from '../../../server/services/system/systemConfig.dao'
 import { SystemConfigStatus } from '../../../shared/types/system'
 ;(globalThis as any).SystemConfigStatus = SystemConfigStatus
@@ -673,9 +688,8 @@ describe('文件服务真实 DB 集成测试', () => {
             const file = await createTestOssFile(user.id, { bucketName: 'any-bucket' })
             testIds.ossFileIds.push(file.id)
 
-            // 临时替换全局 dao 让其抛错
-            const original = (globalThis as any).getConfigsByGroupAndKeyDao
-            ;(globalThis as any).getConfigsByGroupAndKeyDao = async () => {
+            // 通过 vi.hoisted 暴露的 ref 临时替换 dao 实现，让 service 真正捕获到抛错
+            systemConfigMocks.getConfigsByGroupAndKeyDao = async () => {
                 throw new Error('db outage')
             }
 
@@ -684,7 +698,7 @@ describe('文件服务真实 DB 集成测试', () => {
                     generateOssDownloadSignaturesService({ ossFiles: [file as any] }),
                 ).rejects.toThrow('db outage')
             } finally {
-                ;(globalThis as any).getConfigsByGroupAndKeyDao = original
+                systemConfigMocks.getConfigsByGroupAndKeyDao = undefined
             }
         })
     })
