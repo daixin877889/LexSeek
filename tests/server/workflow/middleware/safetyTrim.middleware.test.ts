@@ -93,11 +93,17 @@ describe('buildMiddlewareStack - 中间件优先级栈', () => {
         expect(buildMiddlewareStack([])).toEqual([])
     })
 
-    it('MIDDLEWARE_PRIORITY 常量值遵守间隔 10 的约定', () => {
+    it('MIDDLEWARE_PRIORITY 常量值规约：业务级中间件 10 的倍数 + 前置兜底允许小数值占位', () => {
         const values = Object.values(MIDDLEWARE_PRIORITY) as number[]
-        // 每个值都是 10 的倍数
+        // 业务方在 PROCESS_MATERIAL(10) 之前预留了 1/5/7 三个前置位（MESSAGE_INTEGRITY、SCOPE_GUARD、TOOL_CALL_LIMIT），
+        // 它们必须比业务中间件更先执行，因此放弃"全是 10 的倍数"的旧约定，改为：
+        //   - 严格小于 10 的"前置兜底中间件"允许任意正整数占位（最多 9 个槽）
+        //   - >= 10 的业务中间件必须是 10 的倍数（保留 10 间隔的扩展空间）
         for (const v of values) {
-            expect(v % 10).toBe(0)
+            expect(v).toBeGreaterThan(0)
+            if (v >= 10) {
+                expect(v % 10).toBe(0)
+            }
         }
         // MATERIAL_CONTEXT 与 MODULE_CONTEXT 相同（互斥设计的直接后果）
         expect(MIDDLEWARE_PRIORITY.MATERIAL_CONTEXT).toBe(MIDDLEWARE_PRIORITY.MODULE_CONTEXT)
@@ -203,8 +209,11 @@ describe('safetyTrimMiddleware - 安全截断中间件', () => {
             estimateMessagesTokens: vi.fn((msgs: BaseMessage[]) => {
                 const total = msgs.reduce((acc, m) => acc + (m.content as string).length, 0)
                 // 多条时返回大值、单条摘要仍超预算、trim 后返回小值
-                if (msgs.length > 1) return 10_000
-                if (total > 100) return 5000 // 压缩后仍超预算
+                // 业务方 safetyTrim 把 maxTokens 经过 outputReserve(默认 8192) + inflation(默认 1.5) 校正后
+                // 实际 tiktokenBudget = floor(max(maxTokens - 8192 - 0, 10000) / 1.5) = 6666，
+                // "压缩后仍超预算"必须 > 6666 才能再次触发 safetyTrimMessages
+                if (msgs.length > 1) return 20_000
+                if (total > 100) return 12_000 // 压缩后仍超预算（> tiktokenBudget=6666）
                 return 200 // trim 后通过
             }),
             compressMessages: vi.fn(async () => [new HumanMessage('[still-too-long]'.repeat(20))]),
