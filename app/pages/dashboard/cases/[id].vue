@@ -258,7 +258,32 @@ async function handleTemplateSelect(templateId: number) {
 // 页面刷新后恢复活跃 session
 onMounted(() => {
   moduleChatManager.restoreActiveSessions()
+  handleXiaosuoFocusQuery()
 })
+
+// Task 18：支持 ?focus=xiaosuo&xiaosuoSessionId=xxx 自动展开浮窗 + 定位 session
+function handleXiaosuoFocusQuery() {
+  if (route.query.focus !== 'xiaosuo') return
+  xiaosuoOpen.value = true  // 触发 CaseDetailXiaosuo 内 watch(isOpen) → init()
+
+  const targetSid = typeof route.query.xiaosuoSessionId === 'string'
+    ? route.query.xiaosuoSessionId
+    : null
+  if (!targetSid) return
+
+  // sessions 初始为 []，init 完成后至少有 1 条；用此判断就绪时机
+  // 就绪后检查目标 session 是否存在，存在则切换（不存在则保持 init 选的默认 session）
+  const stopWatch = watch(
+    xiaosuoChat.sessions,
+    (sessions) => {
+      if (sessions.length === 0) return  // init 尚未完成
+      stopWatch()
+      if (sessions.some(s => s.sessionId === targetSid)) {
+        void xiaosuoChat.switchSession(targetSid)
+      }
+    },
+  )
+}
 </script>
 
 <template>

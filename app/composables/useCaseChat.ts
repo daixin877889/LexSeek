@@ -21,7 +21,7 @@ export function useCaseChat(options: CaseChatOptions) {
 
     return {
         ...stream,
-        sendMessage: async (message: string, opts?: { thinking?: boolean }) => {
+        sendMessage: async (message: string, opts?: { thinking?: boolean; additional_kwargs?: Record<string, any> }) => {
             // 重置 runStatus 到 idle：上一轮的 cancelled/failed/completed 会粘滞
             // 在 runStatus，而新一轮的 SSE status_change: running 要等几百 ms
             // 到达。期间消费方（如 handleStop 的短路判断）误把本轮当终态处理。
@@ -30,8 +30,12 @@ export function useCaseChat(options: CaseChatOptions) {
             // submit 返回 Promise，fetch 建立失败/4xx/5xx 会 reject
             // dispatcher 的 doDispatch 需要 await 这个 Promise 做错误回滚，
             // 因此 wrapper 必须显式 async 并透传 Promise
+            const msgPayload: Record<string, any> = { type: 'human', content: message }
+            if (opts?.additional_kwargs && Object.keys(opts.additional_kwargs).length > 0) {
+                msgPayload.additional_kwargs = opts.additional_kwargs
+            }
             await stream.submit({
-                messages: [{ type: 'human', content: message }],
+                messages: [msgPayload],
                 thinking: opts?.thinking,
             } as any, {
                 // SDK 在 submit 开始时会把 streamValues 重置为空的 historyValues（{}），

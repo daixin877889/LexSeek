@@ -8,6 +8,7 @@
 import type { useXiaosuoChat } from '~/composables/useXiaosuoChat'
 import type { SessionItem } from '~/components/case/SessionListPopover.vue'
 import type { BaseMessage } from '@langchain/core/messages'
+import type { OssFileItem } from '~/store/file'
 import { toast } from 'vue-sonner'
 import { RefreshCw as RefreshCwIcon } from 'lucide-vue-next'
 import { QUEUE_MAX_SIZE } from '~/composables/chatQueueActions'
@@ -16,6 +17,11 @@ import AiChatQueueChips from '~/components/ai/AiChatQueueChips.vue'
 import CaseChatWindowShell from '~/components/case/ChatWindowShell.vue'
 import CaseInterruptConfirmation from '~/components/case/InterruptConfirmation.vue'
 import CaseSessionListPopover from '~/components/case/SessionListPopover.vue'
+import CaseAnalysisMaterialSelector from '~/components/caseAnalysis/materialSelector.vue'
+import AgentsDocumentTemplateSelectCard from '~/components/agents/document/interrupts/TemplateSelectCard.vue'
+import AgentsContractStanceSelectCard from '~/components/agents/contract/interrupts/StanceSelectCard.vue'
+import AgentsDocumentDraftDocumentCard from '~/components/agents/document/tools/DraftDocumentCard.vue'
+import AgentsContractReviewContractCard from '~/components/agents/contract/tools/ReviewContractCard.vue'
 import IconXiaosuoIcon from '~/components/icon/XiaosuoIcon.vue'
 import { useInterruptToast } from '~/composables/useInterruptToast'
 
@@ -55,8 +61,51 @@ const queuePauseReason = computed(() => props.xiaosuoChat.queuePauseReason.value
 // 停止去抖：防止重复点击停止按钮发起多次 cancel 请求
 const isStopping = ref(false)
 
-// AiChat 组件 ref，用于在入队成功后 reset 输入框
-const aiChatRef = ref<{ resetPrompt: () => void } | null>(null)
+// AiChat 组件 ref，用于在入队成功后 reset 输入框 / addFiles / 获取已选文件列表
+const aiChatRef = ref<{
+  resetPrompt: () => void
+  addFiles: (files: unknown[]) => void
+  selectedFileIds: number[]
+} | null>(null)
+
+// 阶段 6：MaterialSelector 上传支持（参照 AssistantChatPanel 模式）
+const materialSelectorRef = ref<{ openDialog: () => void } | null>(null)
+const selectedFileIds = computed(() => aiChatRef.value?.selectedFileIds ?? [])
+
+function openMaterialSelector() {
+  materialSelectorRef.value?.openDialog()
+}
+
+function handleFilesFromSelector(files: OssFileItem[]) {
+  aiChatRef.value?.addFiles(files)
+}
+
+// 阶段 6：toolMap — 子代理工具结果卡片（与法律助手对齐）
+const toolMap = {
+  draft_document: AgentsDocumentDraftDocumentCard,
+  review_contract: AgentsContractReviewContractCard,
+}
+
+// 阶段 6：interrupt 分发 — template_select / stance_select 走新卡片，其他保留原 CaseInterruptConfirmation
+const interruptType = computed<string>(() => {
+  const d = interruptData.value as { type?: unknown } | null
+  return typeof d?.type === 'string' ? d.type : ''
+})
+const isTemplateSelect = computed(() => interruptType.value === 'template_select')
+const isStanceSelect = computed(() => interruptType.value === 'stance_select')
+
+// 阶段 6：resolveInterrupt 包 toolCallId 路由（参照 AssistantChatPanel 同款）
+// LangGraph createAgent 路径下，sub-agent 工具的 interrupt 必须按 toolCallId 路由，
+// 否则 interrupt() 返回 undefined，工具误以为用户取消。
+async function resolveInterrupt(value: unknown) {
+  const tcId = (interruptData.value as { toolCallId?: unknown } | null)?.toolCallId
+  if (typeof tcId === 'string' && tcId.length > 0) {
+    props.xiaosuoChat.resumeInterrupt({ [tcId]: value })
+  } else {
+    // 兼容老的非 sub-agent interrupt（直接透传）
+    props.xiaosuoChat.resumeInterrupt(value)
+  }
+}
 
 watch(runStatus, (status) => {
   if (status === 'failed') {
@@ -92,7 +141,8 @@ function handleSubmit(data: { text: string; files?: any[] }) {
       aiChatRef.value?.resetPrompt()
     }
   } else {
-    props.xiaosuoChat.sendMessage(data.text, { thinking: thinking.value })
+    // 阶段 6：透传 files，sendMessage 内部做双轨承载（sentinel + additional_kwargs）
+    props.xiaosuoChat.sendMessage(data.text, { thinking: thinking.value, files: data.files })
   }
 }
 
@@ -128,17 +178,16 @@ async function handleStop() {
   }
 }
 
-function handleResumeInterrupt(data: unknown) {
-  props.xiaosuoChat.resumeInterrupt(data)
-}
-
 // 中断出现时 toast 提示，工具卡片从"运行中"切到"已暂停"（:is-interrupted 透传）
 useInterruptToast(interruptData)
 
 // 首次打开时初始化；关闭时重置全屏
+// immediate: true 兼容 父组件 mount 时已经把 isOpen=true 的场景
+// （Task 18：?focus=xiaosuo 在 onMounted 把 xiaosuoOpen=true，子组件 setup 时 isOpen 已经是 true，
+// 普通 watch 会错过这次"变化"导致 init 不触发，sendMessage 静默失败）
 watch(isOpen, (open) => {
   if (open) props.xiaosuoChat.init()
-})
+}, { immediate: true })
 </script>
 
 <template>
@@ -176,10 +225,12 @@ watch(isOpen, (open) => {
       panel-mode="left"
       :show-header="false"
       v-model:thinking="thinking"
-      :enable-file-upload="false"
+      :enable-file-upload="true"
       :queue-length="queueLen"
       :queue-full="queueFull"
       :is-stopping="isStopping"
+      :tool-map="toolMap"
+      :on-file-button-click="openMaterialSelector"
       prompt-placeholder="问我任何关于案件的问题..."
       @submit="handleSubmit"
       @stop="handleStop"
@@ -217,22 +268,43 @@ watch(isOpen, (open) => {
   </div>
 
   <!-- 中断处理弹窗
-       content + overlay 都提到 z-[70]，完整遮住浮窗（ChatWindowShell z-[60]）：
-       - 没有 overlay-class 时 Overlay 仅 z-50，浮窗会漏在遮罩之上。 -->
+       阶段 6：z-[200] 确保完整遮盖浮窗（ChatWindowShell z-[60]），解决 z-index 已踩坑 3 次问题。
+       按 interrupt type 分发到对应卡片；未知 type 降级为 CaseInterruptConfirmation。 -->
   <Dialog :open="!!interruptData" @update:open="() => {}">
-    <DialogContent class="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0 z-[70]" overlay-class="z-[70]" :show-close-button="false"
+    <DialogContent class="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0 z-[200]" overlay-class="z-[200]" :show-close-button="false"
       @pointer-down-outside.prevent @escape-key-down.prevent @open-auto-focus.prevent>
       <DialogHeader class="sr-only">
         <DialogTitle>需要您的确认</DialogTitle>
         <DialogDescription>请查看并回应以下请求</DialogDescription>
       </DialogHeader>
       <div v-if="interruptData" class="p-6">
+        <!-- 阶段 6 新增：文书模板选择卡 -->
+        <AgentsDocumentTemplateSelectCard
+          v-if="isTemplateSelect"
+          :interrupt="interruptData as any"
+          :on-resolve="resolveInterrupt"
+        />
+        <!-- 阶段 6 新增：合同立场选择卡 -->
+        <AgentsContractStanceSelectCard
+          v-else-if="isStanceSelect"
+          :interrupt="interruptData as any"
+          :on-resolve="resolveInterrupt"
+        />
+        <!-- fallback：案件域既有 interrupt 类型（CASE_INFO_CHECK / BASIC_INFO_CONFIRM 等） -->
         <CaseInterruptConfirmation
+          v-else
           :interrupt="interruptData"
-          @submit="handleResumeInterrupt"
+          @submit="resolveInterrupt"
           @cancel="() => {}"
         />
       </div>
     </DialogContent>
   </Dialog>
+
+  <!-- 阶段 6：上传材料弹框（参照 AssistantChatPanel 复用） -->
+  <CaseAnalysisMaterialSelector
+    ref="materialSelectorRef"
+    :disabled-file-ids="selectedFileIds"
+    @files-selected="handleFilesFromSelector"
+  />
 </template>

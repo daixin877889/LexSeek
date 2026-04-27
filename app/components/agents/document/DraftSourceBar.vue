@@ -62,11 +62,11 @@ function goBackToSource() {
         return
     }
     if (props.from === 'xiaosuo') {
-        // 阶段 6 接入：小索路由协议，sessionId 字段名待定
-        const target = props.sessionId
-            ? `/dashboard/xiaosuo?sessionId=${encodeURIComponent(props.sessionId)}`
-            : '/dashboard/xiaosuo'
-        navigateTo(target)
+        // 决策 D2(A)：跳回案件详情页 + 自动展开小索浮窗 + 定位对应 session
+        const base = `/dashboard/cases/${props.caseId ?? ''}`
+        const params = new URLSearchParams({ focus: 'xiaosuo' })
+        if (props.sessionId) params.set('xiaosuoSessionId', props.sessionId)
+        navigateTo(`${base}?${params.toString()}`)
         return
     }
 }
@@ -86,22 +86,25 @@ function goBackToSource() {
             返回 {{ sourceLabel }}
         </Button>
 
-        <div v-if="caseId == null">
-            <Button variant="outline" size="sm" @click="emit('link')">
-                <LinkIcon class="size-4 mr-1" />
-                关联案件
-            </Button>
-        </div>
-        <div v-else class="flex items-center gap-2">
-            <span
-                class="inline-flex items-center gap-1 rounded-md bg-emerald-50 dark:bg-emerald-900/30 px-2 py-1 text-emerald-700 dark:text-emerald-300 text-xs"
-            >
-                <CheckCircle2Icon class="size-3.5" />
-                已关联 · {{ linkedLabel }}
-            </span>
-            <Button variant="ghost" size="sm" @click="emit('change')">
-                更换
-            </Button>
-        </div>
+        <!-- 决策 D3(C)：小索路径下完全隐藏关联状态区域 -->
+        <template v-if="from !== 'xiaosuo'">
+            <div v-if="caseId == null">
+                <Button variant="outline" size="sm" @click="emit('link')">
+                    <LinkIcon class="size-4 mr-1" />
+                    关联案件
+                </Button>
+            </div>
+            <div v-else class="flex items-center gap-2">
+                <span
+                    class="inline-flex items-center gap-1 rounded-md bg-emerald-50 dark:bg-emerald-900/30 px-2 py-1 text-emerald-700 dark:text-emerald-300 text-xs"
+                >
+                    <CheckCircle2Icon class="size-3.5" />
+                    已关联 · {{ linkedLabel }}
+                </span>
+                <Button variant="ghost" size="sm" @click="emit('change')">
+                    更换
+                </Button>
+            </div>
+        </template>
     </div>
 </template>

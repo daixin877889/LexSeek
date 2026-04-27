@@ -229,13 +229,39 @@ export function useChatSessionManager(options: ChatSessionManagerOptions) {
 
     // ── 消息操作 ──
 
-    function sendMessage(text: string, opts?: { thinking?: boolean }): Promise<void> | undefined {
+    function sendMessage(text: string, opts?: { thinking?: boolean; files?: any[] }): Promise<void> | undefined {
         // 用户直接发送路径：自增 seq，供 dispatcher 的溯源守卫识别
         // （dispatcher 的 doDispatch 内也要 ++，因其直接调 currentChat.sendMessage 绕过本 wrapper）
         lastLocalSendSeq.value++
+
+        // 附件双轨承载（与 useAssistantChat 对齐）：
+        //   1. content sentinel：让 LLM 读到 ossFileId（__ATTACHMENTS__\n[json]）
+        //   2. additional_kwargs.attachments：前端渲染附件气泡
+        let content = text.trim()
+        const additional_kwargs: Record<string, any> = {}
+        if (opts?.files && opts.files.length > 0) {
+            const payload = opts.files.map((f: any) => ({
+                id: f.id,
+                fileName: f.fileName,
+                fileType: f.fileType,
+                fileSize: f.fileSize,
+                encrypted: f.encrypted,
+            }))
+            additional_kwargs.attachments = payload
+            const sentinel = `__ATTACHMENTS__\n${JSON.stringify(payload)}`
+            content = content ? `${sentinel}\n\n${content}` : sentinel
+        }
+
+        const msgOpts: { thinking?: boolean; additional_kwargs?: Record<string, any> } = {
+            thinking: opts?.thinking,
+        }
+        if (Object.keys(additional_kwargs).length > 0) {
+            msgOpts.additional_kwargs = additional_kwargs
+        }
+
         // 透传 sendMessage 的 Promise，UI 层可按需 await（通常不需要）；
         // dispatcher 走 currentChat.sendMessage 直接拿 Promise，不经过本 wrapper
-        return currentChat.value?.sendMessage(text, opts)
+        return currentChat.value?.sendMessage(content, msgOpts)
     }
 
     // ── 队列操作 API ──
