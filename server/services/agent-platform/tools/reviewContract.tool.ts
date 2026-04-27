@@ -226,8 +226,11 @@ export function createTool(context: ToolContext) {
                 level: (r.level ?? 'low') as 'high' | 'medium' | 'low',
             }))
 
+            // from 参数：caseId 非空 = 小索路径（caseMain），caseId 为空 = 法律助手路径（assistantMain）
+            // 来源条按此分支决定返回入口与右侧关联状态显示（决策 D2/D3，参见 plan 阶段 6）
+            const fromParam = caseId ? 'xiaosuo' : 'assistant'
             const href = `/dashboard/contract/${review.id}`
-                + `?from=assistant&sessionId=${encodeURIComponent(sessionId)}`
+                + `?from=${fromParam}&sessionId=${encodeURIComponent(sessionId)}`
                 + (caseId ? `&caseId=${caseId}` : '')
 
             // 8. publishCustomEvent CONTRACT_REVIEW_SAVED
