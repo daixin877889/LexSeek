@@ -29,7 +29,7 @@ import { buildSystemPromptForAgent } from '../context/moduleContextBuilder'
 import { safetyTrimMiddleware } from '../middleware/safetyTrim.middleware'
 import { createTool as createSaveAnalysisResultTool } from '../tools/saveAnalysisResult.tool'
 import { renderSystemPrompt } from '../utils/promptRenderer'
-import { createSkillsMiddleware, FilesystemBackend } from 'deepagents'
+import { buildSkillsMiddlewareForNode } from '~~/server/services/agent-platform/middleware/skills'
 import { createTool as createReadSkillFileTool } from '../tools/readSkillFile.tool'
 import { createTool as createWriteSkillFileTool } from '../tools/writeSkillFile.tool'
 import { createTool as createRunSkillScriptTool } from '../tools/runSkillScript.tool'
@@ -38,12 +38,6 @@ import { createTool as createUploadWorkspaceFileTool } from '../tools/uploadWork
 import type { ToolContext } from '../tools/types'
 import { getSessionState } from '../state/storage'
 import { resolveContextWindow } from '../context/messageCompressor'
-
-/** Skills 中间件（模块级单例） */
-const skillsMiddleware = createSkillsMiddleware({
-    backend: new FilesystemBackend({ rootDir: process.cwd() }),
-    sources: ['.deepagents/skills/'],
-})
 
 interface ModuleAgentOptions {
     userId: number
@@ -107,6 +101,11 @@ export async function runModuleChat(
         model,
     }
 
+    // 阶段 8：skillsMw 改成按节点动态构造（删模块级单例，让"模块对话只加载对应 skill"自动生效）
+    // 节点未关联 skill 时返回 null，不挂 skillsMw 也不注入 4 个 skill 工具；
+    // createUploadWorkspaceFileTool 是 case-module 业务专属工具，始终注入。
+    const skillsMw = await buildSkillsMiddlewareForNode(nodeConfig.id)
+
     // 加载节点配置的工具（同步函数）+ save_analysis_result 工具
     // 按 name 去重：后注入的 skillTools / saveResultTool 胜出，避免 DB 中
     // nodeConfig.tools 同时登记了 skill 工具导致 LangChain AgentNode 检测到
@@ -115,13 +114,15 @@ export async function runModuleChat(
         ? getToolInstancesService(nodeConfig.tools, toolContext)
         : []
     const saveResultTool = createSaveAnalysisResultTool(toolContext)
-    const skillTools = [
-        createReadSkillFileTool(toolContext),
-        createWriteSkillFileTool(toolContext),
-        createRunSkillScriptTool(toolContext),
-        createRunSkillCommandTool(toolContext),
-        createUploadWorkspaceFileTool(toolContext),
-    ]
+    const skillTools: StructuredToolInterface[] = skillsMw
+        ? [
+            createReadSkillFileTool(toolContext),
+            createWriteSkillFileTool(toolContext),
+            createRunSkillScriptTool(toolContext),
+            createRunSkillCommandTool(toolContext),
+            createUploadWorkspaceFileTool(toolContext),
+        ]
+        : [createUploadWorkspaceFileTool(toolContext)]
     const toolsByName = new Map<string, StructuredToolInterface>()
     for (const tool of [...nodeTools, saveResultTool, ...skillTools]) {
         toolsByName.set(tool.name, tool)
@@ -168,7 +169,7 @@ export async function runModuleChat(
                 systemPrompt: plainTextPrompt,
                 maxOutputTokens,
             }),
-            skillsMiddleware,
+            ...(skillsMw ? [skillsMw] : []),
             createAuditMiddleware(),
         ],
     })
