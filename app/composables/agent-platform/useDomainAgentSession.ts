@@ -77,6 +77,21 @@ export interface DomainAgentSessionConfig {
   moduleName?: string
   /** 业务方覆盖默认推断的 API 端点 */
   apiEndpoints?: DomainAgentApiEndpoints
+  /**
+   * 业务自定义事件钩子：在 useStreamChat 的 onCustomEvent 中调用
+   *
+   * 工厂内部已经处理了 status_change（驱动 runStatus），剩余 custom_event
+   * （如 draft_ready / contract_stage / analysis_result_saved）通过此钩子透传给业务方。
+   * 入参 data 是原始 SSE custom event payload，业务方按 name 分发。
+   */
+  onCustomEvent?: (data: unknown) => void
+  /**
+   * 流末回拉钩子：runStatus 进入 'completed' / 'failed' 时调用
+   *
+   * 用于 useDocumentDraft.refetchLatestDraft / useContractReview.refreshReview 等
+   * "流完了 GET 业务实体" 的回拉场景。watch 在 setup 顶层注册，自动跟随调用方 scope 清理。
+   */
+  onStreamSettled?: (status: 'completed' | 'failed') => void | Promise<void>
 }
 
 // ── API 端点映射 ──
@@ -130,37 +145,8 @@ function getApiConfig(scope: DomainScope, sessionId: string, caseId?: number) {
   }
 }
 
-// ── 事件分发器 ──
-
-function createEventDispatcher(scope: DomainScope) {
-  return (data: unknown) => {
-    if (!data || typeof data !== 'object') return
-
-    const evt = data as Record<string, unknown>
-    const eventName = evt.name as string | undefined
-
-    // 根据 scope 路由自定义事件
-    switch (scope) {
-      case 'document':
-        if (eventName === 'draft_saved' || eventName === 'draft_ready' || eventName === 'draft_update') {
-          // 文书相关事件可在此处理
-        }
-        break
-      case 'contract':
-        if (eventName === 'contract_review_saved') {
-          // 合同审查相关事件可在此处理
-        }
-        break
-      case 'case':
-      case 'legal_assistant':
-      case 'case_analysis_init':
-        if (eventName === 'analysis_result_saved') {
-          // 案件分析相关事件可在此处理
-        }
-        break
-    }
-  }
-}
+// 事件分发器已移除：原空壳实现替换为 config.onCustomEvent + onStreamSettled 直注入
+// （任务 1.4 - 业务事件 dispatcher 钩子）
 
 // ── 主工厂函数 ──
 
@@ -320,7 +306,9 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
         apiUrl: apiConfig.chatUrl,
         threadId: sessionId,
         messagesKey: 'messages',
-        onCustomEvent: createEventDispatcher(scope),
+        // 业务自定义事件钩子直接注入：useStreamChat 已先消费 status_change，
+        // 剩余 custom_event 透传给业务方按 name 分发
+        onCustomEvent: config.onCustomEvent,
       }),
     )!
 
@@ -583,6 +571,28 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
     },
     { immediate: false },
   )
+
+  // ── 流末回拉钩子 ──
+  // runStatus 进入 completed/failed 时调用业务方注入的 onStreamSettled。
+  // watch 在 setup 顶层注册（不在 switchSession 的 inner scope），自动跟随调用方
+  // scope 清理；switchSession 切换时 currentChat 内部的流状态变化会重新触发 runStatus
+  // computed → 此 watch 自然继续生效。
+  if (config.onStreamSettled) {
+    watch(runStatus, (next) => {
+      if (next === 'completed' || next === 'failed') {
+        try {
+          const ret = config.onStreamSettled?.(next)
+          if (ret && typeof (ret as Promise<void>).catch === 'function') {
+            (ret as Promise<void>).catch((err) => {
+              console.error('[useDomainAgentSession] onStreamSettled rejected', err)
+            })
+          }
+        } catch (err) {
+          console.error('[useDomainAgentSession] onStreamSettled threw', err)
+        }
+      }
+    })
+  }
 
   onScopeDispose(() => disposeCurrentChat())
 
