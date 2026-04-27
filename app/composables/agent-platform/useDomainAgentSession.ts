@@ -96,52 +96,107 @@ export interface DomainAgentSessionConfig {
 
 // ── API 端点映射 ──
 
-function getApiConfig(scope: DomainScope, sessionId: string, caseId?: number) {
+/**
+ * 解析后的 API 端点（内部使用）
+ *
+ * 单 session scope（document / contract）默认 list/create/delete/rename 都是 null：
+ *   - 调用 fetchSessions / createSession / deleteSession / renameSession 由 isSingleSessionMode 守卫拦截
+ *   - apiEndpoints 覆盖时业务方传 null 表示禁用，传函数表示自定义
+ *
+ * case scope listUrl 是函数：模块对话需要 moduleName 拼参数；小索（无 moduleName）走 xiaosuo-sessions。
+ */
+interface ResolvedApiConfig {
+  listUrl: ((caseId?: number, moduleName?: string) => string) | null
+  chatUrl: string
+  createUrl: string | null
+  deleteUrl: ((sessionId: string) => string) | null
+  renameUrl: ((sessionId: string) => string) | null
+}
+
+/**
+ * 默认 API 端点（按 scope 推断）
+ *
+ * apiEndpoints 覆盖逻辑：业务方传入的字段 > scope 默认值。
+ * 字段值为 undefined 时取默认；为 null 时显式禁用；为函数/字符串时按值使用。
+ */
+function defaultApiEndpoints(scope: DomainScope): ResolvedApiConfig {
   switch (scope) {
     case 'case':
-      if (!caseId) throw new Error('scope=case 时 caseId 必填')
+      // listUrl 是函数：根据 moduleName 区分小索（xiaosuo-sessions）vs 模块对话（module-sessions）
       return {
-        listUrl: `/api/v1/case/analysis/xiaosuo-sessions?caseId=${caseId}`,
+        listUrl: (caseId, moduleName) => {
+          if (!caseId) throw new Error('scope=case 时 caseId 必填')
+          return moduleName
+            ? `/api/v1/case/analysis/module-sessions?caseId=${caseId}&moduleName=${moduleName}`
+            : `/api/v1/case/analysis/xiaosuo-sessions?caseId=${caseId}`
+        },
         createUrl: '/api/v1/case/analysis/xiaosuo-session',
-        deleteUrl: (sid: string) => `/api/v1/case/analysis/xiaosuo-session/${sid}`,
-        renameUrl: (sid: string) => `/api/v1/case/analysis/session/rename/${sid}`,
+        deleteUrl: (sid) => `/api/v1/case/analysis/xiaosuo-session/${sid}`,
+        renameUrl: (sid) => `/api/v1/case/analysis/session/rename/${sid}`,
         chatUrl: '/api/v1/case/analysis/chat',
       }
     case 'legal_assistant':
       return {
-        listUrl: '/api/v1/assistant/sessions',
+        listUrl: () => '/api/v1/assistant/sessions',
         createUrl: '/api/v1/assistant/sessions',
-        deleteUrl: (sid: string) => `/api/v1/assistant/sessions/${sid}`,
-        renameUrl: (sid: string) => `/api/v1/assistant/sessions/${sid}/rename`,
+        deleteUrl: (sid) => `/api/v1/assistant/sessions/${sid}`,
+        renameUrl: (sid) => `/api/v1/assistant/sessions/${sid}/rename`,
         chatUrl: '/api/v1/assistant/chat',
       }
     case 'document':
+      // 单 session 默认：list/create/delete/rename 都 null（业务方按 draftId 单 session 驱动）
       return {
-        listUrl: '/api/v1/assistant/document/sessions',
-        createUrl: '/api/v1/assistant/document/sessions',
-        deleteUrl: (sid: string) => `/api/v1/assistant/document/sessions/${sid}`,
-        renameUrl: (sid: string) => `/api/v1/assistant/document/sessions/${sid}/rename`,
+        listUrl: null,
+        createUrl: null,
+        deleteUrl: null,
+        renameUrl: null,
         chatUrl: '/api/v1/assistant/document/chat',
       }
     case 'contract':
+      // 单 session 默认：list/create/delete/rename 都 null
       return {
-        listUrl: '/api/v1/assistant/contract/sessions',
-        createUrl: '/api/v1/assistant/contract/sessions',
-        deleteUrl: (sid: string) => `/api/v1/assistant/contract/sessions/${sid}`,
-        renameUrl: (sid: string) => `/api/v1/assistant/contract/sessions/${sid}/rename`,
+        listUrl: null,
+        createUrl: null,
+        deleteUrl: null,
+        renameUrl: null,
         chatUrl: '/api/v1/assistant/contract/chat',
       }
     case 'case_analysis_init':
+      // 单 session 默认：list/create/delete/rename 都 null（路由 sessionId 驱动）
       return {
-        listUrl: '/api/v1/case/analysis/init-sessions',
-        createUrl: '/api/v1/case/analysis/init-session',
-        deleteUrl: (sid: string) => `/api/v1/case/analysis/init-session/${sid}`,
-        renameUrl: (sid: string) => `/api/v1/case/analysis/init-session/${sid}/rename`,
-        chatUrl: '/api/v1/case/analysis/init/chat',
+        listUrl: null,
+        createUrl: null,
+        deleteUrl: null,
+        renameUrl: null,
+        chatUrl: '/api/v1/case/init-analysis',
       }
-    default:
+    default: {
       const exhaustive: never = scope
       throw new Error(`未知 scope: ${exhaustive}`)
+    }
+  }
+}
+
+/**
+ * 解析最终 API 端点：scope 默认 + 业务方覆盖（apiEndpoints）
+ *
+ * 覆盖语义：apiEndpoints 字段值
+ *   - undefined：取默认
+ *   - null：显式禁用
+ *   - 字符串/函数：按业务方提供的值
+ */
+function resolveApiEndpoints(
+  scope: DomainScope,
+  override?: DomainAgentApiEndpoints,
+): ResolvedApiConfig {
+  const defaults = defaultApiEndpoints(scope)
+  if (!override) return defaults
+  return {
+    listUrl: 'listUrl' in override ? (override.listUrl ?? null) : defaults.listUrl,
+    chatUrl: override.chatUrl ?? defaults.chatUrl,
+    createUrl: 'createUrl' in override ? (override.createUrl ?? null) : defaults.createUrl,
+    deleteUrl: 'deleteUrl' in override ? (override.deleteUrl ?? null) : defaults.deleteUrl,
+    renameUrl: 'renameUrl' in override ? (override.renameUrl ?? null) : defaults.renameUrl,
   }
 }
 
@@ -177,8 +232,8 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
     )
   }
 
-  // 任务 1.6 会替换为支持 moduleName + apiEndpoints 覆盖
-  const apiConfig = getApiConfig(scope, fixedSessionIdRef?.value ?? '', caseId)
+  // 解析最终 API 端点：scope 默认 + 业务方 apiEndpoints 覆盖
+  const apiConfig = resolveApiEndpoints(scope, config.apiEndpoints)
 
   // ── 会话状态（来自 useChatSessionManager 模式） ──
   const sessions = ref<SessionItem[]>([])
@@ -248,7 +303,12 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
 
   async function fetchSessions() {
     if (isSingleSessionMode) return
-    const result = await useApiFetch<SessionItem[]>(apiConfig.listUrl)
+    if (!apiConfig.listUrl) {
+      console.warn('[useDomainAgentSession] fetchSessions 调用但 listUrl=null，已忽略')
+      return
+    }
+    const url = apiConfig.listUrl(caseId, moduleName)
+    const result = await useApiFetch<SessionItem[]>(url)
     if (result) {
       sessions.value = result
     }
@@ -258,11 +318,16 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
     if (isSingleSessionMode) {
       throw new Error('[useDomainAgentSession] 单 session 模式不支持 createSession，sessionId 由业务方提供')
     }
+    if (!apiConfig.createUrl) {
+      throw new Error('[useDomainAgentSession] createSession 调用但 createUrl=null')
+    }
 
     const body: Record<string, any> = {}
     if (scope === 'case') {
       body.caseId = caseId
       body.title = title
+      // case 模块对话需要传 moduleName 给后端
+      if (moduleName) body.moduleName = moduleName
     } else if (scope === 'legal_assistant') {
       body.title = title || '新对话'
     } else if (scope === 'document') {
@@ -354,6 +419,10 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
       console.warn('[useDomainAgentSession] deleteSession 在单 session 模式下被调用，已忽略')
       return
     }
+    if (!apiConfig.deleteUrl) {
+      console.warn('[useDomainAgentSession] deleteSession 调用但 deleteUrl=null，已忽略')
+      return
+    }
 
     await stopActiveRun(sessionId).catch(() => {})
 
@@ -378,6 +447,10 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
   async function renameSession(sessionId: string, newTitle: string) {
     if (isSingleSessionMode) {
       console.warn('[useDomainAgentSession] renameSession 在单 session 模式下被调用，已忽略')
+      return
+    }
+    if (!apiConfig.renameUrl) {
+      console.warn('[useDomainAgentSession] renameSession 调用但 renameUrl=null，已忽略')
       return
     }
     await useApiFetch(
