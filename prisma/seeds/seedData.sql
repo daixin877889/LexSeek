@@ -2385,3 +2385,9 @@ $$;
 -- SELECT setval('case_types_id_seq',(SELECT COALESCE(MAX(id), 0) FROM case_types) + 1, false);
 -- SELECT setval('mineru_tokens_id_seq',(SELECT COALESCE(MAX(id), 0) FROM mineru_tokens) + 1, false);
 
+-- 阶段 4：节点 ↔ skills 关联
+-- contractReviewMain (id=18) 关联 docx skill：合同审查涉及 docx 解析、注入批注、导出 — 是 docx skill 的核心使用场景
+INSERT INTO "public"."node_skills" ("node_id", "skill_name", "priority", "created_at")
+VALUES (18, 'docx', 100, '2026-04-27 10:00:00+08')
+ON CONFLICT ("node_id", "skill_name") DO NOTHING;
+
