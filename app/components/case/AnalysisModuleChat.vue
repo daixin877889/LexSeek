@@ -17,8 +17,8 @@ import { RefreshCw as RefreshCwIcon } from 'lucide-vue-next'
 import { QUEUE_MAX_SIZE } from '~/composables/chatQueueActions'
 import AiChat from '~/components/ai/AiChat.vue'
 import AiChatQueueChips from '~/components/ai/AiChatQueueChips.vue'
+import InterruptDispatcher from '~/components/InterruptDispatcher.vue'
 import CaseChatWindowShell from '~/components/case/ChatWindowShell.vue'
-import CaseInterruptConfirmation from '~/components/case/InterruptConfirmation.vue'
 import CaseSessionListPopover from '~/components/case/SessionListPopover.vue'
 import { useInterruptToast } from '~/composables/useInterruptToast'
 
@@ -211,8 +211,8 @@ useInterruptToast(interruptData)
   </CaseChatWindowShell>
 
   <!-- 中断处理弹窗
-       content + overlay 都提到 z-[70]，完整遮住浮窗（ChatWindowShell z-[60]）：
-       - 没有 overlay-class 时 Overlay 仅 z-50，浮窗会漏在遮罩之上。 -->
+       阶段 7：改用 InterruptDispatcher 按注册表分发；
+       content + overlay 都提到 z-[70]，完整遮住浮窗（ChatWindowShell z-[60]）。 -->
   <Dialog :open="!!interruptData" @update:open="() => {}">
     <DialogContent class="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0 z-[70]" overlay-class="z-[70]" :show-close-button="false"
       @pointer-down-outside.prevent @escape-key-down.prevent @open-auto-focus.prevent>
@@ -221,8 +221,8 @@ useInterruptToast(interruptData)
         <DialogDescription>请查看并回应以下请求</DialogDescription>
       </DialogHeader>
       <div v-if="interruptData" class="p-6">
-        <CaseInterruptConfirmation
-          :interrupt="interruptData"
+        <InterruptDispatcher
+          :interrupt="interruptData as any"
           @submit="handleResumeInterrupt"
           @cancel="() => {}"
         />

@@ -112,8 +112,30 @@
     </template>
   </AiChat>
 
-  <!-- 统一中断处理器 -->
-  <CaseInterruptHandler :interrupt-data="interruptData" @resume="resumeWorkflow" />
+  <!-- 统一中断处理器（阶段 7：改用 InterruptDispatcher）
+       z-[70] 与小索/模块对话浮窗内中断 Dialog 保持一致；外层 Dialog 控制 open 态 -->
+  <Dialog :open="!!interruptData" @update:open="() => {}">
+    <DialogContent
+      class="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0 z-[70]"
+      overlay-class="z-[70]"
+      :show-close-button="false"
+      @pointer-down-outside.prevent
+      @escape-key-down.prevent
+      @open-auto-focus.prevent
+    >
+      <DialogHeader class="sr-only">
+        <DialogTitle>操作确认</DialogTitle>
+        <DialogDescription>请处理中断请求</DialogDescription>
+      </DialogHeader>
+      <div v-if="interruptData" class="p-6">
+        <InterruptDispatcher
+          :interrupt="interruptData as any"
+          @submit="resumeWorkflow"
+          @cancel="resumeWorkflow"
+        />
+      </div>
+    </DialogContent>
+  </Dialog>
 
   <!-- 文档/图片预览 -->
   <CaseAnalysisDocPreviewDialog
@@ -166,7 +188,7 @@ import { toast } from 'vue-sonner'
 import AiChat from '~/components/ai/AiChat.vue'
 import AiMessageList from '~/components/ai/AiMessageList.vue'
 import CaseAnalysisResults from '~/components/case/AnalysisResults.vue'
-import CaseInterruptHandler from '~/components/case/interrupt/InterruptHandler.vue'
+import InterruptDispatcher from '~/components/InterruptDispatcher.vue'
 import CaseAnalysisAudioPreviewDialog from '~/components/caseAnalysis/AudioPreviewDialog.vue'
 import CaseAnalysisDocPreviewDialog from '~/components/caseAnalysis/DocPreviewDialog.vue'
 import CaseDetailOverview from '~/components/caseDetail/CaseDetailOverview.vue'

@@ -26,10 +26,8 @@ import { toast } from 'vue-sonner'
 import type { AiPromptSubmitData } from '~/components/ai/AiPromptInput.vue'
 import type { OssFileItem } from '~/store/file'
 import AiChat from '~/components/ai/AiChat.vue'
-import CaseInterruptConfirmation from '~/components/case/InterruptConfirmation.vue'
+import InterruptDispatcher from '~/components/InterruptDispatcher.vue'
 import CaseAnalysisMaterialSelector from '~/components/caseAnalysis/materialSelector.vue'
-import AgentsDocumentTemplateSelectCard from '~/components/agents/document/interrupts/TemplateSelectCard.vue'
-import AgentsContractStanceSelectCard from '~/components/agents/contract/interrupts/StanceSelectCard.vue'
 import AgentsDocumentDraftDocumentCard from '~/components/agents/document/tools/DraftDocumentCard.vue'
 import AgentsContractReviewContractCard from '~/components/agents/contract/tools/ReviewContractCard.vue'
 import { useLegalAssistantAgent } from '~/composables/agents'
@@ -147,10 +145,6 @@ async function handleStop() {
   }
 }
 
-function handleResumeInterrupt(data: unknown) {
-  resumeInterrupt(data)
-}
-
 // ========== 阶段 5 Task 13：toolMap + interrupt 分发 ==========
 // 子代理工具结果卡：法律助手 chat 中遇到这两个工具时，AiToolRenderer 用对应卡片渲染
 const toolMap = {
@@ -158,26 +152,15 @@ const toolMap = {
   review_contract: AgentsContractReviewContractCard,
 }
 
-// interrupt dialog 内按 type 分发：template_select / stance_select 走新卡片，
-// 其他（案件域已有的几个 type）继续走 CaseInterruptConfirmation
-const interruptType = computed<string>(() => {
-  const d = interruptData.value as { type?: unknown } | null
-  return typeof d?.type === 'string' ? d.type : ''
-})
-const isTemplateSelect = computed(() => interruptType.value === 'template_select')
-const isStanceSelect = computed(() => interruptType.value === 'stance_select')
-
-// 卡片的 onResolve 走 LangGraph resume：
+// 阶段 7：interrupt dialog 内统一走 InterruptDispatcher（注册表分发到对应卡片）
+// resolveInterrupt 包 toolCallId 路由：
 // LangGraph createAgent 路径下，tool 内 throw 的 interrupt 必须按 toolCallId 路由，
-// 否则 interrupt() 返回 undefined 让工具误以为用户取消。所以把用户提交的裸 value
-// 包装成 `{ [toolCallId]: value }` 再 submit 到 LangGraph command.resume。
-// 注意：value=null 同样需要按 toolCallId 路由，让工具知道"是哪一个 tool 的取消"。
+// 否则 interrupt() 返回 undefined 让工具误以为用户取消。
 async function resolveInterrupt(value: unknown) {
   const tcId = (interruptData.value as { toolCallId?: unknown } | null)?.toolCallId
   if (typeof tcId === 'string' && tcId.length > 0) {
     resumeInterrupt({ [tcId]: value })
   } else {
-    // 兼容老的非 sub-agent interrupt（如案件域的 case_info_confirm 等）：直接透传
     resumeInterrupt(value)
   }
 }
@@ -209,7 +192,7 @@ onMounted(async () => {
       </template>
     </AiChat>
 
-    <!-- 中断确认弹窗：按 type 分发到不同卡片 -->
+    <!-- 中断确认弹窗：阶段 7 改用 InterruptDispatcher，按注册表分发到对应卡片 -->
     <Dialog :open="!!interruptData" @update:open="() => { }">
       <DialogContent class="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0" :show-close-button="false"
         @pointer-down-outside.prevent @escape-key-down.prevent @open-auto-focus.prevent>
@@ -218,15 +201,11 @@ onMounted(async () => {
           <DialogDescription>请查看并回应以下请求</DialogDescription>
         </DialogHeader>
         <div v-if="interruptData" class="p-6">
-          <!-- 文书模板选择（阶段 5 新增） -->
-          <AgentsDocumentTemplateSelectCard v-if="isTemplateSelect"
-            :interrupt="interruptData as any" :on-resolve="resolveInterrupt" />
-          <!-- 合同立场选择（阶段 5 新增） -->
-          <AgentsContractStanceSelectCard v-else-if="isStanceSelect"
-            :interrupt="interruptData as any" :on-resolve="resolveInterrupt" />
-          <!-- fallback：案件域既有 interrupt 类型（CASE_INFO_CHECK / BASIC_INFO_CONFIRM 等） -->
-          <CaseInterruptConfirmation v-else :interrupt="interruptData" @submit="handleResumeInterrupt"
-            @cancel="() => { }" />
+          <InterruptDispatcher
+            :interrupt="interruptData as any"
+            @submit="resolveInterrupt"
+            @cancel="() => { }"
+          />
         </div>
       </DialogContent>
     </Dialog>

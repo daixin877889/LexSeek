@@ -14,12 +14,10 @@ import { RefreshCw as RefreshCwIcon } from 'lucide-vue-next'
 import { QUEUE_MAX_SIZE } from '~/composables/chatQueueActions'
 import AiChat from '~/components/ai/AiChat.vue'
 import AiChatQueueChips from '~/components/ai/AiChatQueueChips.vue'
+import InterruptDispatcher from '~/components/InterruptDispatcher.vue'
 import CaseChatWindowShell from '~/components/case/ChatWindowShell.vue'
-import CaseInterruptConfirmation from '~/components/case/InterruptConfirmation.vue'
 import CaseSessionListPopover from '~/components/case/SessionListPopover.vue'
 import CaseAnalysisMaterialSelector from '~/components/caseAnalysis/materialSelector.vue'
-import AgentsDocumentTemplateSelectCard from '~/components/agents/document/interrupts/TemplateSelectCard.vue'
-import AgentsContractStanceSelectCard from '~/components/agents/contract/interrupts/StanceSelectCard.vue'
 import AgentsDocumentDraftDocumentCard from '~/components/agents/document/tools/DraftDocumentCard.vue'
 import AgentsContractReviewContractCard from '~/components/agents/contract/tools/ReviewContractCard.vue'
 import IconXiaosuoIcon from '~/components/icon/XiaosuoIcon.vue'
@@ -86,15 +84,7 @@ const toolMap = {
   review_contract: AgentsContractReviewContractCard,
 }
 
-// 阶段 6：interrupt 分发 — template_select / stance_select 走新卡片，其他保留原 CaseInterruptConfirmation
-const interruptType = computed<string>(() => {
-  const d = interruptData.value as { type?: unknown } | null
-  return typeof d?.type === 'string' ? d.type : ''
-})
-const isTemplateSelect = computed(() => interruptType.value === 'template_select')
-const isStanceSelect = computed(() => interruptType.value === 'stance_select')
-
-// 阶段 6：resolveInterrupt 包 toolCallId 路由（参照 AssistantChatPanel 同款）
+// 阶段 7：resolveInterrupt 包 toolCallId 路由
 // LangGraph createAgent 路径下，sub-agent 工具的 interrupt 必须按 toolCallId 路由，
 // 否则 interrupt() 返回 undefined，工具误以为用户取消。
 async function resolveInterrupt(value: unknown) {
@@ -102,7 +92,6 @@ async function resolveInterrupt(value: unknown) {
   if (typeof tcId === 'string' && tcId.length > 0) {
     props.xiaosuoChat.resumeInterrupt({ [tcId]: value })
   } else {
-    // 兼容老的非 sub-agent interrupt（直接透传）
     props.xiaosuoChat.resumeInterrupt(value)
   }
 }
@@ -268,8 +257,8 @@ watch(isOpen, (open) => {
   </div>
 
   <!-- 中断处理弹窗
-       阶段 6：z-[200] 确保完整遮盖浮窗（ChatWindowShell z-[60]），解决 z-index 已踩坑 3 次问题。
-       按 interrupt type 分发到对应卡片；未知 type 降级为 CaseInterruptConfirmation。 -->
+       阶段 7：改用 InterruptDispatcher 按注册表分发（template_select / stance_select / case_info_check 等）
+       z-[200] 确保完整遮盖浮窗（ChatWindowShell z-[60]）。 -->
   <Dialog :open="!!interruptData" @update:open="() => {}">
     <DialogContent class="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0 z-[200]" overlay-class="z-[200]" :show-close-button="false"
       @pointer-down-outside.prevent @escape-key-down.prevent @open-auto-focus.prevent>
@@ -278,22 +267,8 @@ watch(isOpen, (open) => {
         <DialogDescription>请查看并回应以下请求</DialogDescription>
       </DialogHeader>
       <div v-if="interruptData" class="p-6">
-        <!-- 阶段 6 新增：文书模板选择卡 -->
-        <AgentsDocumentTemplateSelectCard
-          v-if="isTemplateSelect"
+        <InterruptDispatcher
           :interrupt="interruptData as any"
-          :on-resolve="resolveInterrupt"
-        />
-        <!-- 阶段 6 新增：合同立场选择卡 -->
-        <AgentsContractStanceSelectCard
-          v-else-if="isStanceSelect"
-          :interrupt="interruptData as any"
-          :on-resolve="resolveInterrupt"
-        />
-        <!-- fallback：案件域既有 interrupt 类型（CASE_INFO_CHECK / BASIC_INFO_CONFIRM 等） -->
-        <CaseInterruptConfirmation
-          v-else
-          :interrupt="interruptData"
           @submit="resolveInterrupt"
           @cancel="() => {}"
         />

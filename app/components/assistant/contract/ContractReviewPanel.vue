@@ -14,6 +14,7 @@ import { Loader2Icon, SaveIcon, HistoryIcon, UploadIcon, TrendingUpIcon, XIcon }
 import { toast } from 'vue-sonner'
 import { useMediaQuery, useLocalStorage } from '@vueuse/core'
 import type { Risk, RiskDisplay, ContractReviewStatus, StanceRequest, PlaybookSnapshot, RiskArchivedStatus, ReviewWithParsedRisks } from '#shared/types/contract'
+import InterruptDispatcher from '~/components/InterruptDispatcher.vue'
 import AssistantContractDocxPreview from '~/components/assistant/contract/ContractDocxPreview.vue'
 import AssistantContractSaveVersionDialog from '~/components/assistant/contract/ContractSaveVersionDialog.vue'
 import AssistantContractUploadNewVersionDialog from '~/components/assistant/contract/ContractUploadNewVersionDialog.vue'
@@ -517,6 +518,30 @@ function handleContainerClick(e: MouseEvent) {
             @cancel="handleStanceCancel"
             @update:open="handleDialogOpenChange"
         />
+
+        <!-- 阶段 7：其他类型 interrupt（如 insufficient_points）走 InterruptDispatcher -->
+        <Dialog v-if="interruptData && !awaitingStance" :open="true" @update:open="() => {}">
+            <DialogContent
+                class="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0 z-[70]"
+                overlay-class="z-[70]"
+                :show-close-button="false"
+                @pointer-down-outside.prevent
+                @escape-key-down.prevent
+                @open-auto-focus.prevent
+            >
+                <DialogHeader class="sr-only">
+                    <DialogTitle>需要您的确认</DialogTitle>
+                    <DialogDescription>请处理审查中断</DialogDescription>
+                </DialogHeader>
+                <div class="p-6">
+                    <InterruptDispatcher
+                        :interrupt="interruptData as any"
+                        @submit="(v) => contractAgent.resumeInterrupt(v)"
+                        @cancel="() => contractAgent.resumeInterrupt(null)"
+                    />
+                </div>
+            </DialogContent>
+        </Dialog>
 
         <!-- Step 2 结果屏 -->
         <div v-if="review" class="flex-1 min-h-0 flex flex-col">

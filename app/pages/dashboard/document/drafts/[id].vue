@@ -30,7 +30,7 @@ import AssistantDocumentPreview from '~/components/assistant/document/DocumentPr
 import AgentsDocumentDraftSourceBar from '~/components/agents/document/DraftSourceBar.vue'
 import CasesCaseLinkerDialog from '~/components/cases/CaseLinkerDialog.vue'
 import CaseChatWindowShell from '~/components/case/ChatWindowShell.vue'
-import CaseInterruptConfirmation from '~/components/case/InterruptConfirmation.vue'
+import InterruptDispatcher from '~/components/InterruptDispatcher.vue'
 import CaseAnalysisAudioPreviewDialog from '~/components/caseAnalysis/AudioPreviewDialog.vue'
 import CaseAnalysisDocPreviewDialog from '~/components/caseAnalysis/DocPreviewDialog.vue'
 import CaseAnalysisMaterialSelector from '~/components/caseAnalysis/materialSelector.vue'
@@ -816,7 +816,7 @@ function handlePanelResize(sizes: number[]) {
             </AiChat>
         </CaseChatWindowShell>
 
-        <!-- 中断确认弹窗 -->
+        <!-- 中断确认弹窗：阶段 7 改用 InterruptDispatcher -->
         <Dialog :open="!!interruptData" @update:open="() => { }">
             <DialogContent class="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0 z-70" overlay-class="z-[70]"
                 :show-close-button="false" @pointer-down-outside.prevent @escape-key-down.prevent
@@ -826,7 +826,7 @@ function handlePanelResize(sizes: number[]) {
                     <DialogDescription>请查看并回应 AI 的请求</DialogDescription>
                 </DialogHeader>
                 <div v-if="interruptData" class="p-6">
-                    <CaseInterruptConfirmation :interrupt="interruptData" @submit="handleResumeInterrupt"
+                    <InterruptDispatcher :interrupt="interruptData as any" @submit="handleResumeInterrupt"
                         @cancel="() => { }" />
                 </div>
             </DialogContent>
