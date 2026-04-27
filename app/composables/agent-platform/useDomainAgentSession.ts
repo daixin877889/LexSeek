@@ -335,13 +335,25 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
 
   // ── 消息操作 ──
 
+  /**
+   * 顶层 sendMessage：与 dispatcher 走同一条路径（wrappedChat.sendMessage）
+   *
+   * 关键设计：dispatcher 第 129 行调的是 currentChat.value.sendMessage（wrappedChat），
+   * 工厂顶层 sendMessage 也必须调 wrappedChat.sendMessage，让 wrappedChat 成为
+   * **唯一发送入口**。这样：
+   *   1. 顶层 sendMessage 经过 wrappedChat 内部的 runStatus reset / submit 守卫
+   *   2. 未来在 wrappedChat 加守卫（如重发节流）时只改一处
+   *   3. 避免出现"顶层和 dispatcher 走两条路径"的不一致 bug
+   *
+   * 附件预处理（files → attachments + sentinel）仍在此处完成：
+   *   - 拼好 content + additional_kwargs 后，传给 wrappedChat.sendMessage
+   *   - wrappedChat.sendMessage 的签名 (message: string, opts?: { thinking, additional_kwargs })
+   *     已经支持透传 additional_kwargs
+   */
   async function sendMessage(text: string, opts?: SendOpts): Promise<void> {
     if (!currentChat.value) return
 
     lastLocalSendSeq.value++
-
-    // 重置 runStatus 到 idle：避免上一轮的 cancelled/failed/completed 粘滞
-    currentChat.value.runStatus.value = 'idle'
 
     let content = text.trim()
     const additional_kwargs: Record<string, any> = {}
@@ -358,17 +370,10 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
       content = content ? `${sentinel}\n\n${content}` : sentinel
     }
 
-    const msgPayload: Record<string, any> = { type: 'human', content }
-    if (Object.keys(additional_kwargs).length > 0) {
-      msgPayload.additional_kwargs = additional_kwargs
-    }
-
-    // 使用 submit 提交消息，保留现有消息避免闪烁
-    await (currentChat.value as any).submit({
-      messages: [msgPayload],
+    // 走 wrappedChat 唯一入口（与 dispatcher 同路径）
+    await currentChat.value.sendMessage(content, {
       thinking: opts?.thinking,
-    }, {
-      optimisticValues: (currentChat.value as any).values.value,
+      additional_kwargs: Object.keys(additional_kwargs).length > 0 ? additional_kwargs : undefined,
     })
   }
 
