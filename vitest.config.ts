@@ -42,6 +42,8 @@ export default defineVitestConfig({
     root: rootDir,
     test: {
         // 全局清理：所有测试文件结束后清理残留数据
+        // 注意：这里 teardown 抛错会让 vitest 退出码非 0 + coverage 报告 finalize 被中断
+        // （teardown 已经 try/catch 但 cli-api 仍捕获到 unhandledRejection）
         globalSetup: ['./tests/global-teardown.ts'],
         // 使用 nuxt 环境
         environment: 'nuxt',
