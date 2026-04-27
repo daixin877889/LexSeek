@@ -32,7 +32,7 @@ import AgentsDocumentTemplateSelectCard from '~/components/agents/document/inter
 import AgentsContractStanceSelectCard from '~/components/agents/contract/interrupts/StanceSelectCard.vue'
 import AgentsDocumentDraftDocumentCard from '~/components/agents/document/tools/DraftDocumentCard.vue'
 import AgentsContractReviewContractCard from '~/components/agents/contract/tools/ReviewContractCard.vue'
-import { useAssistantChat } from '~/composables/useAssistantChat'
+import { useLegalAssistantAgent } from '~/composables/agents'
 
 const props = defineProps<{
   sessionId: string
@@ -52,16 +52,18 @@ const sessionIdRef = ref<string | null>(props.sessionId)
 
 const {
   messages,
-  loading,
-  isInterrupted,
+  isLoading,
   interruptData,
   runStatus,
   runError,
   sendMessage,
   resumeInterrupt,
   stopGeneration,
-  reconnect,
-} = useAssistantChat(sessionIdRef)
+  init,
+} = useLegalAssistantAgent(sessionIdRef)
+
+// 旧版 useAssistantChat 提供的 isInterrupted 在工厂下需调用方自建
+const isInterrupted = computed(() => interruptData.value != null)
 
 const thinking = ref(true)
 
@@ -121,7 +123,7 @@ function handleFilesFromSelector(files: OssFileItem[]) {
 
 async function handleStop() {
   if (isStopping.value) return
-  if (!loading.value) return
+  if (!isLoading.value) return
 
   isStopping.value = true
   let unwatch: (() => void) | undefined
@@ -133,8 +135,8 @@ async function handleStop() {
     unwatch = undefined
     timer = undefined
   }
-  unwatch = watch(loading, (isLoading) => {
-    if (!isLoading) cleanup()
+  unwatch = watch(isLoading, (loading) => {
+    if (!loading) cleanup()
   })
   timer = setTimeout(cleanup, 3000)
   try {
@@ -180,19 +182,20 @@ async function resolveInterrupt(value: unknown) {
   }
 }
 
-// 初次挂载后拉取历史（通过 submit(undefined) 触发 SSE checkpointer 回放）
+// 初次挂载后调用工厂 init()：单 session 模式下会 switchSession 到固定 id，
+// 内部自动调 reconnect()/loadHistory() 触发 SSE checkpointer 回放
 onMounted(async () => {
   try {
-    await reconnect()
+    await init()
   } catch (err) {
-    console.error('[assistant-chat] reconnect failed', err)
+    console.error('[assistant-chat] init failed', err)
   }
 })
 </script>
 
 <template>
   <div class="flex flex-col h-full min-h-0">
-    <AiChat ref="aiChatRef" :messages="messages" :loading="loading" :is-interrupted="isInterrupted"
+    <AiChat ref="aiChatRef" :messages="messages" :loading="isLoading" :is-interrupted="isInterrupted"
       v-model:thinking="thinking" panel-mode="left" :show-header="false" :enable-file-upload="true"
       :is-stopping="isStopping" prompt-placeholder="输入你的法律问题..." class="flex-1 min-h-0" :tool-map="toolMap"
       :on-file-button-click="openMaterialSelector" @submit="handleSubmit" @stop="handleStop">
