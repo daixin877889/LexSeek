@@ -66,10 +66,10 @@ watch([activeView, analysisModule, analysisMode], ([view, am, mode]) => {
 // --- 模块对话管理（必须在 useCaseDetail 之前，因为 generatingModules 是依赖） ---
 // 使用 let 变量打破 refreshAnalysis 与 moduleChatManager 的循环依赖
 let _refreshAnalysis: (() => Promise<void>) | undefined
-const moduleChatManager = useModuleChatManager(caseId, {
+const moduleChatManager = useCaseModuleAgent(caseId, {
   onAnalysisSaved: () => {
     _refreshAnalysis?.()
-    // 广播给其他标签���（init-analysis 页面 / 另一个案件详情 tab）
+    // 广播给其他标签页（init-analysis 页面 / 另一个案件详情 tab）
     postCrossTabEvent('analysis:updated', { caseId: caseId.value })
   },
 })
@@ -161,7 +161,9 @@ function navigateToAnalysis(moduleName: string) {
 const xiaosuoChat = useCaseMainAgent(caseId)
 
 async function handleModuleRegenerate(result: AnalysisResult) {
-  await moduleChatManager.getOrCreateInstance(result.moduleName, result.moduleTitle)
+  const instance = moduleChatManager.getOrCreateInstance(result.moduleName, result.moduleTitle)
+  // 工厂池化模式：getOrCreateInstance 同步返回 factory，需手动 init() 拉取 sessions
+  await instance.init()
   moduleChatManager.expandModule(result.moduleName)
 }
 
@@ -178,15 +180,17 @@ async function handleGenerateModule(moduleName: string, moduleTitle: string) {
 
     if (card.status === 'in_progress') {
       // 模块对话正在生成 → 仅重新展开窗口
-      const instance = moduleChatManager.instances[moduleName]
-      if (instance) moduleChatManager.expandModule(moduleName)
+      const existing = moduleChatManager.instances[moduleName]
+      if (existing) moduleChatManager.expandModule(moduleName)
       return
     }
 
     // idle 或 failed → 创建 instance、立即展开窗口、后台触发自动消息
     // 注意：不能 await sendMessage —— 它要等到整轮 SSE 流结束才 resolve，
     // 期间 expandedModule 仍为 null，对话框不渲染（仅显示右下角状态条）。
-    const instance = await moduleChatManager.getOrCreateInstance(moduleName, moduleTitle)
+    const instance = moduleChatManager.getOrCreateInstance(moduleName, moduleTitle)
+    // 工厂池化模式：getOrCreateInstance 同步返回 factory，需手动 init() 后再发消息
+    await instance.init()
     moduleChatManager.expandModule(moduleName)
     void instance.sendMessage(`请为本案件生成${moduleTitle}分析报告`)
       ?.catch(err => console.error('[handleGenerateModule] autoMessage failed', err))
@@ -254,9 +258,10 @@ async function handleTemplateSelect(templateId: number) {
   documentSheetOpen.value = false
 }
 
-// 页面刷新后恢复活跃 session
+// 页面挂载：处理 xiaosuo focus query
+// 注意：restoreActiveSessions 在阶段 7 已移除（工厂池化模式下，模块对话实例
+// 由用户操作（点击"重试/重新生成"等）按需创建；切回页面时不再扫描后端 sessions 主动 instantiate）
 onMounted(() => {
-  moduleChatManager.restoreActiveSessions()
   handleXiaosuoFocusQuery()
 })
 

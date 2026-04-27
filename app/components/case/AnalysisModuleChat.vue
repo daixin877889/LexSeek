@@ -9,7 +9,7 @@
  * 用户可以在同一模块下创建、切换、删除、重命名多个独立对话，
  * 避免老对话的上下文污染（与小索一致的多 session 模型）。
  */
-import type { ModuleChatInstance } from '~/composables/useModuleChatManager'
+import type { ModuleAgentInstance } from '~/composables/agents'
 import type { SessionItem } from '~/components/case/SessionListPopover.vue'
 import type { BaseMessage } from '@langchain/core/messages'
 import { toast } from 'vue-sonner'
@@ -24,7 +24,7 @@ import { useInterruptToast } from '~/composables/useInterruptToast'
 
 const props = defineProps<{
     caseId: number
-    chatInstance: ModuleChatInstance
+    chatInstance: ModuleAgentInstance
 }>()
 
 const isOpen = defineModel<boolean>({ default: false })

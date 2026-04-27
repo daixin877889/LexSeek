@@ -7,14 +7,18 @@
  * 用法：
  *   const manager = useCaseModuleAgent(caseIdRef, { onAnalysisSaved })
  *   const moduleChat = manager.getOrCreateInstance(moduleName, moduleTitle)
+ *
+ * 对外接口（与旧 useModuleChatManager 对齐）：
+ *   - instances: Record<string, ModuleAgentInstance>  augmented factory 字典
+ *   - activeModules: ComputedRef<ModuleAgentInstance[]>
+ *   - expandedModule / generatingModules / getOrCreateInstance / expandModule / hideModule / collapseAll
  */
 
-import { ref, computed, type Ref } from 'vue'
+import { ref, computed, shallowReactive, type Ref } from 'vue'
 import { useUserStore } from '~/store/user'
-import { useDomainAgentSessionPool } from '../agent-platform/useDomainAgentSession'
-import type { SessionFactory } from '../agent-platform/useDomainAgentSession'
+import { useDomainAgentSessionPool, type SessionFactory } from '../agent-platform/useDomainAgentSession'
 
-export interface ModuleAgentInstance extends SessionFactory {
+export type ModuleAgentInstance = SessionFactory & {
     moduleName: string
     moduleTitle: string
     isExpanded: Ref<boolean>
@@ -36,7 +40,6 @@ export function useCaseModuleAgent(
         scope: 'case',
         userId,
         caseId: caseId.value,
-        // case 模块对话走专用 API 端点（apiEndpoints 由工厂按 scope 推断时已支持 moduleName 参数）
         onCustomEvent: (data) => {
             if (data && typeof data === 'object' && 'name' in data && (data as any).name === 'analysis_result_saved') {
                 options.onAnalysisSaved?.()
@@ -44,60 +47,73 @@ export function useCaseModuleAgent(
         },
     })
 
-    // 业务元数据存储（每 moduleName 一份 isExpanded / isHidden / moduleTitle）
-    const metadata = ref<Record<string, { moduleTitle: string; isExpanded: Ref<boolean>; isHidden: Ref<boolean> }>>({})
+    // augmented factory 字典：每模块一份（与旧 useModuleChatManager.instances 接口对齐）
+    const instances = shallowReactive<Record<string, ModuleAgentInstance>>({})
     const expandedModule = ref<string | null>(null)
+    // 正在通过模块对话生成中的模块名列表
     const generatingModules = ref<string[]>([])
 
+    function recomputeGenerating() {
+        generatingModules.value = Object.keys(instances)
+            .filter(name => instances[name]?.isLoading?.value)
+    }
+
     function getOrCreateInstance(moduleName: string, moduleTitle: string): ModuleAgentInstance {
+        if (instances[moduleName]) return instances[moduleName]
+
         const factory = pool.getOrCreate(moduleName, {
-            // 每个模块的 session 通过 moduleName 隔离（apiEndpoints 内已支持）
             sessionId: 'auto',
+            moduleName,  // 决定 listUrl 走 module-sessions 端点
         })
-        if (!metadata.value[moduleName]) {
-            metadata.value[moduleName] = {
-                moduleTitle,
-                isExpanded: ref(false),
-                isHidden: ref(false),
-            }
-        }
-        const meta = metadata.value[moduleName]!
-        return Object.assign(factory, {
+
+        const augmented: ModuleAgentInstance = Object.assign(factory, {
             moduleName,
-            moduleTitle: meta.moduleTitle,
-            isExpanded: meta.isExpanded,
-            isHidden: meta.isHidden,
+            moduleTitle,
+            isExpanded: ref(false),
+            isHidden: ref(false),
         })
+
+        instances[moduleName] = augmented
+
+        // 跟踪 isLoading 变化以更新 generatingModules
+        watch(() => factory.isLoading.value, recomputeGenerating, { immediate: true })
+
+        return augmented
     }
 
     function expandModule(moduleName: string) {
-        Object.keys(metadata.value).forEach((k) => {
-            metadata.value[k]!.isExpanded.value = (k === moduleName)
-        })
+        for (const key of Object.keys(instances)) {
+            if (instances[key]) instances[key]!.isExpanded.value = key === moduleName
+        }
+        // expand 时重置 isHidden（与旧行为对齐：从状态条关闭后再次打开能正常显示）
+        const target = instances[moduleName]
+        if (target) target.isHidden.value = false
         expandedModule.value = moduleName
     }
 
     function hideModule(moduleName: string) {
-        const meta = metadata.value[moduleName]
-        if (meta) {
-            meta.isHidden.value = true
-            meta.isExpanded.value = false
-        }
-        if (expandedModule.value === moduleName) expandedModule.value = null
+        const target = instances[moduleName]
+        if (target) target.isHidden.value = true
     }
 
     function collapseAll() {
-        Object.values(metadata.value).forEach(m => { m.isExpanded.value = false })
+        for (const key of Object.keys(instances)) {
+            if (instances[key]) instances[key]!.isExpanded.value = false
+        }
         expandedModule.value = null
     }
 
-    const activeModules = computed(() => {
-        return Object.entries(metadata.value)
-            .filter(([_, meta]) => !meta.isHidden.value)
-            .map(([name]) => name)
-    })
+    // 与旧 useModuleChatManager.activeModules 一致：返回 ModuleAgentInstance[]
+    // 过滤条件：未隐藏 + 正在 loading 或已有 session
+    const activeModules = computed<ModuleAgentInstance[]>(() =>
+        Object.values(instances).filter(i =>
+            !i.isHidden.value
+            && (i.isLoading.value || (i.sessions.value.length > 0 && i.currentSessionId.value)),
+        ),
+    )
 
     return {
+        instances,
         getOrCreateInstance,
         getOrCreateModuleManager: getOrCreateInstance,  // 兼容旧名
         expandModule,
@@ -106,6 +122,5 @@ export function useCaseModuleAgent(
         expandedModule,
         activeModules,
         generatingModules,
-        instances: metadata,  // 兼容旧名
     }
 }

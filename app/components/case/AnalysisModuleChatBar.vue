@@ -6,10 +6,10 @@
  * 点击标签展开对应模块的对话窗口，点击关闭按钮隐藏标签（不中断底层 chat）
  */
 import { Loader2Icon, CheckCircleIcon, XIcon } from 'lucide-vue-next'
-import type { ModuleChatInstance } from '~/composables/useModuleChatManager'
+import type { ModuleAgentInstance } from '~/composables/agents'
 
 defineProps<{
-    modules: ModuleChatInstance[]
+    modules: ModuleAgentInstance[]
 }>()
 
 const emit = defineEmits<{
