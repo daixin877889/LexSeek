@@ -25,6 +25,8 @@ import * as searchCaseMemoryTool from './search_case_memory.tool'
 import * as writeCaseMemoryTool from './write_case_memory.tool'
 import * as updateCaseMemoryTool from './update_case_memory.tool'
 import * as searchCaseAnalysisTool from './search_case_analysis.tool'
+import * as draftDocumentTool from './draftDocument.tool'
+import * as reviewContractTool from './reviewContract.tool'
 
 /** 通用工具模块映射 */
 const toolModules: Record<string, ToolModule> = {
@@ -43,6 +45,9 @@ const toolModules: Record<string, ToolModule> = {
     write_case_memory: writeCaseMemoryTool,
     update_case_memory: updateCaseMemoryTool,
     search_case_analysis: searchCaseAnalysisTool,
+    // 阶段 5：法律助手 → 文书 / 合同 子代理工具
+    draft_document: draftDocumentTool,
+    review_contract: reviewContractTool,
 }
 
 /**
