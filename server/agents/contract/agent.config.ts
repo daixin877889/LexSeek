@@ -19,6 +19,7 @@ export const contractAgent = defineDomainAgent({
     nodeName: 'contractReviewMain',
     description: '合同审查主 Agent（首轮 parseAndAskStance interrupt + resume 执行 runAnalyzeLoop）',
     runStateGraph: async (ctx) => {
+        // ctx 是 StateGraphAgentContext（阶段 4 升级），含平台注入的 nodeConfig + emitCustomEvent
         const { runContractReviewChat } = await import(
             '~~/server/services/workflow/agents/contractReviewMainAgent'
         )
@@ -29,6 +30,9 @@ export const contractAgent = defineDomainAgent({
             // 格式为 { stance, partyA?, partyB? }（阶段 4 统一迁移为 LangGraph Command）
             command: ctx.command as unknown,
             signal: ctx.signal,
+            // 阶段 4 新增：透传平台注入的能力，业务侧不再自己加载 nodeConfig / 造 emitter
+            platformNodeConfig: ctx.nodeConfig,
+            platformEmitCustomEvent: ctx.emitCustomEvent,
         })
     },
 })
