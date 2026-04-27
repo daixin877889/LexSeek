@@ -46,11 +46,37 @@ export interface SendOpts {
   files?: any[]
 }
 
+/**
+ * sessionId 三种取值：
+ * - 'auto'：多 session 模式，从后端列表选首个；空则自动创建
+ * - string / Ref<string>：单 session 模式，sessionId 由调用方固定提供
+ *   (document/contract/legal_assistant/case_analysis_init 默认走这一路)
+ *   单 session 模式下：
+ *     - init() 不调 fetchSessions / createSession，直接 switchSession 到提供的 id
+ *     - sessions list 始终为空（UI 隐藏 sessions 列表）
+ *     - deleteSession 后不会自动 createSession 或回切
+ */
+export type SessionIdConfig = 'auto' | string | MaybeRef<string>
+
+export interface DomainAgentApiEndpoints {
+  /** case scope 模块对话需要 moduleName 参数，故签名同时支持 caseId/moduleName */
+  listUrl?: ((caseId?: number, moduleName?: string) => string) | null
+  chatUrl?: string
+  createUrl?: string | null
+  deleteUrl?: ((sessionId: string) => string) | null
+  renameUrl?: ((sessionId: string) => string) | null
+}
+
 export interface DomainAgentSessionConfig {
   scope: DomainScope
-  sessionId: string
+  /** 默认 'auto'。单 session 业务（document/contract/...）传字符串或 Ref<string> */
+  sessionId?: SessionIdConfig
   userId: string
   caseId?: number  // scope='case' 时必填
+  /** case scope 模块对话用，决定 listUrl 拼接 */
+  moduleName?: string
+  /** 业务方覆盖默认推断的 API 端点 */
+  apiEndpoints?: DomainAgentApiEndpoints
 }
 
 // ── API 端点映射 ──
@@ -139,12 +165,38 @@ function createEventDispatcher(scope: DomainScope) {
 // ── 主工厂函数 ──
 
 export function useDomainAgentSession(config: DomainAgentSessionConfig) {
-  const { scope, sessionId: initialSessionId, userId, caseId } = config
-  const apiConfig = getApiConfig(scope, initialSessionId, caseId)
+  const { scope, sessionId: sessionIdConfig = 'auto', userId, caseId, moduleName } = config
+
+  // ── 解析 sessionId 配置 ──
+  // 'auto' → 多 session 模式（fetchSessions + 选首个 / createSession）
+  // 字符串 / Ref<string> → 单 session 模式（不 fetch / 不 create，直接绑定到该 id）
+  const isSingleSessionMode = sessionIdConfig !== 'auto'
+  const fixedSessionIdRef = isSingleSessionMode
+    ? (typeof sessionIdConfig === 'string' ? ref(sessionIdConfig) : ref(unref(sessionIdConfig)))
+    : null
+
+  // 单 session 模式下：sessionIdConfig 是 Ref<string> 时随之更新 fixedSessionIdRef
+  if (isSingleSessionMode && typeof sessionIdConfig !== 'string') {
+    watch(
+      () => unref(sessionIdConfig),
+      (next) => {
+        if (next && fixedSessionIdRef && fixedSessionIdRef.value !== next) {
+          fixedSessionIdRef.value = next
+          // sessionId 变更时切换底层 chat
+          switchSession(next).catch((err) => {
+            console.error('[useDomainAgentSession] switchSession failed', err)
+          })
+        }
+      },
+    )
+  }
+
+  // 任务 1.6 会替换为支持 moduleName + apiEndpoints 覆盖
+  const apiConfig = getApiConfig(scope, fixedSessionIdRef?.value ?? '', caseId)
 
   // ── 会话状态（来自 useChatSessionManager 模式） ──
   const sessions = ref<SessionItem[]>([])
-  const currentSessionId = ref<string>(initialSessionId)
+  const currentSessionId = ref<string>(fixedSessionIdRef?.value ?? '')
   const isSessionLoading = ref(false)
   const initialized = ref(false)
 
@@ -206,8 +258,10 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
   })
 
   // ── Session CRUD ──
+  // 注：单 session 模式下，所有 CRUD API 都会 no-op + warn（业务方自行管理 sessionId 生命周期）
 
   async function fetchSessions() {
+    if (isSingleSessionMode) return
     const result = await useApiFetch<SessionItem[]>(apiConfig.listUrl)
     if (result) {
       sessions.value = result
@@ -215,6 +269,10 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
   }
 
   async function createSession(title?: string): Promise<string> {
+    if (isSingleSessionMode) {
+      throw new Error('[useDomainAgentSession] 单 session 模式不支持 createSession，sessionId 由业务方提供')
+    }
+
     const body: Record<string, any> = {}
     if (scope === 'case') {
       body.caseId = caseId
@@ -303,6 +361,12 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
   }
 
   async function deleteSession(sessionId: string) {
+    if (isSingleSessionMode) {
+      // 单 session 模式：业务方自行管理 sessionId 生命周期，工厂不做 CRUD
+      console.warn('[useDomainAgentSession] deleteSession 在单 session 模式下被调用，已忽略')
+      return
+    }
+
     await stopActiveRun(sessionId).catch(() => {})
 
     await useApiFetch(apiConfig.deleteUrl(sessionId), { method: 'DELETE' })
@@ -324,6 +388,10 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
   }
 
   async function renameSession(sessionId: string, newTitle: string) {
+    if (isSingleSessionMode) {
+      console.warn('[useDomainAgentSession] renameSession 在单 session 模式下被调用，已忽略')
+      return
+    }
     await useApiFetch(
       apiConfig.renameUrl(sessionId),
       { method: 'PATCH', body: { title: newTitle } },
@@ -442,11 +510,21 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
     isSessionLoading.value = true
 
     try {
-      await fetchSessions()
-      if (sessions.value.length === 0) {
-        await createSession()
+      if (isSingleSessionMode) {
+        // 单 session 模式：直接 switchSession 到固定 id，不 fetch / 不 create
+        // sessions list 保持空（UI 隐藏 sessions 列表）
+        const sid = fixedSessionIdRef?.value
+        if (sid) {
+          await switchSession(sid)
+        }
       } else {
-        await switchSession(sessions.value[0]!.sessionId)
+        // 多 session 模式：fetchSessions 后选首个，空则 createSession
+        await fetchSessions()
+        if (sessions.value.length === 0) {
+          await createSession()
+        } else {
+          await switchSession(sessions.value[0]!.sessionId)
+        }
       }
       initialized.value = true
     } finally {
