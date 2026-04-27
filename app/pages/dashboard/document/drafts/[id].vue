@@ -34,11 +34,18 @@ import CaseInterruptConfirmation from '~/components/case/InterruptConfirmation.v
 import CaseAnalysisAudioPreviewDialog from '~/components/caseAnalysis/AudioPreviewDialog.vue'
 import CaseAnalysisDocPreviewDialog from '~/components/caseAnalysis/DocPreviewDialog.vue'
 import CaseAnalysisMaterialSelector from '~/components/caseAnalysis/materialSelector.vue'
+import type { documentDrafts as DocumentDraftRow } from '~~/generated/prisma/client'
+import type { ExportDraftResponse } from '#shared/types/document'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useCaseLinker } from '~/composables/useCaseLinker'
-import { useDocumentDraft } from '~/composables/useDocumentDraft'
+import { useDocumentAgent } from '~/composables/agents'
+import { useDocumentDraftFields } from '~/composables/document/useDocumentDraftFields'
+import { useDocumentDraftVersions } from '~/composables/document/useDocumentDraftVersions'
+import { useDocumentDraftSnapshots } from '~/composables/document/useDocumentDraftSnapshots'
+import { useDocumentDraftPreview } from '~/composables/document/useDocumentDraftPreview'
 import { useInterruptToast } from '~/composables/useInterruptToast'
 import { useAlertDialogStore } from '~/store/alertDialog'
+import { triggerBrowserDownloadUrl } from '~/utils/browserDownload'
 
 definePageMeta({
     layout: 'dashboard-layout',
@@ -48,22 +55,84 @@ definePageMeta({
 const route = useRoute()
 const draftId = computed(() => Number(route.params.id))
 
+// 草稿 ID Ref（mountDraft 之后写入；sub-composable 内部 read）
+const draftIdRef = ref<number | null>(null)
+// stream session ID（mountDraft 拿到后写入；驱动 useDocumentAgent 单 session 模式）
+const sessionIdRef = ref<string | null>(null)
+
+// === 业务态 sub-composable ===
+const fields = useDocumentDraftFields({ draftId: draftIdRef })
+const versionsApi = useDocumentDraftVersions({ draftId: draftIdRef })
+const snapshotsApi = useDocumentDraftSnapshots({ draftId: draftIdRef })
+const preview = useDocumentDraftPreview({ versions: versionsApi.versions })
+
+const draft = fields.draft
+const template = fields.template
+const onFieldChange = fields.onFieldChange
+
+const { versions, nextVersionNo, loadVersions, saveVersion, renameVersion, deleteVersion, exportVersion } = versionsApi
+const { snapshots, loadSnapshots } = snapshotsApi
+const { previewVersionId, previewValues, enterPreview, exitPreview } = preview
+
+// === 业务 runStatus（旧 useDocumentDraft 的特有状态机）===
+// 旧值域：'idle' | 'filling' | 'ready' | 'exported' | 'failed'
+// 由 draft.status 推导 + custom event 修正
+type DocumentRunStatus = 'idle' | 'filling' | 'ready' | 'exported' | 'failed'
+const runStatus = ref<DocumentRunStatus>('idle')
+
+function deriveRunStatusFromDraft(d: DocumentDraftRow | null): DocumentRunStatus {
+    if (!d) return 'idle'
+    if (d.status === 'failed') return 'failed'
+    if (d.status === 'exported') return 'exported'
+    if (d.status === 'drafting' || d.status === 'filling') return 'filling'
+    return 'ready'
+}
+
+// === 工厂：单 session（sessionId 来自 mountDraft）===
+// custom event 钩子：维护 runStatus / draft 与后端业务事件同步
+function handleCustomEvent(data: unknown) {
+    if (!data || typeof data !== 'object') return
+    const evt = data as Record<string, unknown>
+    if (evt.type === 'draft_ready') {
+        runStatus.value = 'ready'
+        if (evt.draft) {
+            draft.value = evt.draft as DocumentDraftRow
+        }
+    } else if (evt.type === 'draft_update') {
+        if (evt.draft) draft.value = evt.draft as DocumentDraftRow
+    } else if (evt.type === 'draft_failed') {
+        runStatus.value = 'failed'
+    }
+}
+
+// 流末回拉：后端 draftResultPersistenceMiddleware 仅写库不推 SSE，
+// 流完成后主动 GET draft 同步 values/status
+async function refetchLatestDraft() {
+    if (!draftIdRef.value) return
+    const latest = await useApiFetch<{ draft: DocumentDraftRow }>(
+        `/api/v1/assistant/document/drafts/${draftIdRef.value}`,
+        { showError: false } as any,
+    )
+    if (!latest?.draft) return
+    draft.value = latest.draft
+    if (latest.draft.status !== 'drafting' && latest.draft.status !== 'filling') {
+        runStatus.value = deriveRunStatusFromDraft(latest.draft)
+    }
+}
+
+const documentAgent = useDocumentAgent(sessionIdRef, {
+    onCustomEvent: handleCustomEvent,
+    onStreamSettled: refetchLatestDraft,
+})
+
 const {
-    draft,
-    template,
-    runStatus,
-    isLoading,
-    error,
-    onFieldChange,
-    onExport,
-    mountDraft,
-    // Task 10 新增：Agent 交互与队列
     messages,
+    isLoading,
+    interruptData,
+    runError,
     sendMessage,
     stopGeneration,
     resumeInterrupt,
-    interruptData,
-    isInterrupted,
     currentQueue,
     isQueuePaused,
     queuePauseReason,
@@ -71,16 +140,88 @@ const {
     removeQueueItem,
     clearQueue,
     resumeQueue,
-    // 标题
-    title, updateTitle,
-    // 版本
-    versions, nextVersionNo, loadVersions, saveVersion,
-    renameVersion, deleteVersion, restoreVersion, exportVersion,
-    // 快照
-    snapshots, loadSnapshots, applySnapshot,
-    // 预览
-    previewVersionId, previewValues, enterPreview, exitPreview,
-} = useDocumentDraft()
+} = documentAgent
+
+const isInterrupted = computed(() => interruptData.value != null)
+// 旧的 error 是 stream.error（Error | null），新的 runError 是 string；
+// UI 只读取 .message，按 string 包成 { message } 兼容
+const error = computed(() => (runError.value ? { message: runError.value } : null))
+
+// === 标题（业务字段，inline 实现）===
+const title = computed(() => draft.value?.title ?? '')
+
+async function updateTitle(newTitle: string) {
+    if (!draftIdRef.value) return
+    const clean = newTitle.trim()
+    if (!clean) return
+    const prev = draft.value
+    if (prev) {
+        draft.value = { ...prev, title: clean, titleOverridden: true } as DocumentDraftRow
+    }
+    const result = await useApiFetch<{ draft: DocumentDraftRow }>(
+        `/api/v1/assistant/document/drafts/${draftIdRef.value}/title`,
+        { method: 'PATCH', body: { title: clean }, showError: true } as any,
+    )
+    if (!result?.draft) {
+        if (prev) draft.value = prev // 回滚
+        return
+    }
+    draft.value = result.draft
+}
+
+// === 导出（inline 实现）===
+async function onExport() {
+    if (!draftIdRef.value) return
+    if (runStatus.value !== 'ready' && runStatus.value !== 'exported') return
+
+    const result = await useApiFetch<ExportDraftResponse>(
+        `/api/v1/assistant/document/drafts/${draftIdRef.value}/export`,
+        { method: 'POST' } as any,
+    )
+    if (!result?.downloadUrl) return
+
+    triggerBrowserDownloadUrl(result.downloadUrl)
+
+    runStatus.value = 'exported'
+}
+
+// === mountDraft 包装：调 sub-composable.mountDraft + 设置 sessionId 触发工厂 init ===
+async function mountDraft(id: number) {
+    draftIdRef.value = id
+    const r = await fields.mountDraft(id)
+    if (!r.draft) {
+        runStatus.value = 'idle'
+        return
+    }
+    runStatus.value = deriveRunStatusFromDraft(r.draft)
+    if (r.sessionId) {
+        // 直接 switchSession 避免 watch 时序坑（先 set ref 再 init 时 watch 还没触发）
+        sessionIdRef.value = r.sessionId
+        await documentAgent.switchSession(r.sessionId)
+        // 工厂内 switchSession 已根据 hasActiveRun 自动调 reconnect/loadHistory（submit undefined 触发回放），
+        // 但 sessions 列表为空（单 session 模式不 fetchSessions），hasActiveRun 始终 false → 走 loadHistory。
+        // 这与旧 useDocumentDraft 的 hasEverRun 判断不同：旧版仅在 hasEverRun 为 true 时才 submit(undefined)，
+        // 全新无材料草稿不空跑。新工厂下需要薄包装层兜底（暂保留行为差异，loadHistory submit(undefined)
+        // 在新草稿场景下也是合法的，stream 后端会返回空消息列表，不触发 Agent 跑动）。
+    }
+}
+
+// === 还原版本 / 应用快照：写回 draft 后再 loadSnapshots（避免 versions/snapshots 双向耦合）===
+async function restoreVersion(versionId: number) {
+    const r = await versionsApi.restoreVersion(versionId)
+    if (r.draft) {
+        draft.value = r.draft
+        await loadSnapshots()
+    }
+}
+
+async function applySnapshot(snapshotId: number, fieldNames?: string[]) {
+    const r = await snapshotsApi.applySnapshot(snapshotId, fieldNames)
+    if (r.draft) {
+        draft.value = r.draft
+        await loadSnapshots()
+    }
+}
 
 const loading = ref(true)
 const loadError = ref<string | null>(null)

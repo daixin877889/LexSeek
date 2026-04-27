@@ -5,7 +5,7 @@
  * 业务方法（stages / risks-editing / lifecycle）由调用方页面直接 import 3 个 sub-composable 自己组装。
  *
  * 用法：
- *   const sessionId = ref<string | null>(null)
+ *   const sessionId = ref<string | null>(null)  // mountReview 后写入
  *   const agent = useContractAgent(sessionId, {
  *     onCustomEvent: lifecycle.applyCustomEvent,
  *     onStreamSettled: lifecycle.refreshReview,
@@ -29,9 +29,12 @@ export interface UseContractAgentOptions {
 export function useContractAgent(sessionId: Ref<string | null>, options: UseContractAgentOptions = {}) {
     const userStore = useUserStore()
 
+    // 单 session 模式：与 useDocumentAgent 同款（Ref<string|null> → Ref<string>，空占位）
+    const sessionIdRef = computed(() => sessionId.value ?? '')
+
     return useDomainAgentSession({
         scope: 'contract',
-        sessionId: sessionId.value ?? 'auto',
+        sessionId: sessionIdRef,  // Ref<string>，单 session 模式
         userId: String(userStore.userInfo.id ?? ''),
         onCustomEvent: options.onCustomEvent,
         onStreamSettled: options.onStreamSettled,
