@@ -401,20 +401,32 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
    *   2. 未来在 wrappedChat 加守卫（如重发节流）时只改一处
    *   3. 避免出现"顶层和 dispatcher 走两条路径"的不一致 bug
    *
-   * 附件预处理（files → attachments + sentinel）仍在此处完成：
-   *   - 拼好 content + additional_kwargs 后，传给 wrappedChat.sendMessage
-   *   - wrappedChat.sendMessage 的签名 (message: string, opts?: { thinking, additional_kwargs })
-   *     已经支持透传 additional_kwargs
+   * 多签名兼容（任务 1.5）：
+   *   sendMessage(text: string, opts?: SendOpts)
+   *   sendMessage(input: { text, files }, opts?: { thinking })
+   * 第二种是 useAssistantChat 的 AiPromptSubmitData 形态。运行时按 typeof 分发。
+   *
+   * 附件预处理（files → attachments + sentinel）在此处完成，统一调 wrappedChat.sendMessage。
    */
-  async function sendMessage(text: string, opts?: SendOpts): Promise<void> {
+  async function sendMessage(
+    textOrInput: string | { text: string; files?: any[] },
+    opts?: SendOpts | { thinking?: boolean },
+  ): Promise<void> {
     if (!currentChat.value) return
+
+    // 归一化：支持两种调用形态
+    const text = typeof textOrInput === 'string' ? textOrInput : textOrInput.text
+    const files = typeof textOrInput === 'string'
+      ? (opts as SendOpts | undefined)?.files
+      : textOrInput.files
+    const thinking = opts?.thinking
 
     lastLocalSendSeq.value++
 
-    let content = text.trim()
+    let content = (text ?? '').trim()
     const additional_kwargs: Record<string, any> = {}
-    if (opts?.files && opts.files.length > 0) {
-      const payload = opts.files.map((f: any) => ({
+    if (files && files.length > 0) {
+      const payload = files.map((f: any) => ({
         id: f.id,
         fileName: f.fileName,
         fileType: f.fileType,
@@ -426,9 +438,11 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
       content = content ? `${sentinel}\n\n${content}` : sentinel
     }
 
+    if (!content) return
+
     // 走 wrappedChat 唯一入口（与 dispatcher 同路径）
     await currentChat.value.sendMessage(content, {
-      thinking: opts?.thinking,
+      thinking,
       additional_kwargs: Object.keys(additional_kwargs).length > 0 ? additional_kwargs : undefined,
     })
   }
