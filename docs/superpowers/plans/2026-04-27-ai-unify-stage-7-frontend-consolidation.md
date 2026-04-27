@@ -1,352 +1,258 @@
-# 阶段 7 · 前端复用收敛（工厂化 + Interrupt 注册表）
+# 阶段 7 · 前端基建统一（工厂补能 + 业务拆分 + 调用方迁移）
 
-**规划时间**：2026-04-27  
-**执行时间**：~3-4 天（3-5 个工作日）  
-**工程量**：1 × sonnet 4.6（平台层）+ 1 × sonnet 4.6（调用方迁移）+ lead 监控收尾
-
----
-
-## 一、背景与目标
-
-**现状**：8 个业务 composable（共 1918 行），分散在 `app/composables/` 各自实现流管理、中断处理、消息队列、多会话管理。
-- `useStreamChat`（261 行）— 泛型流管理内核（保留）
-- `useChatSessionManager`（462 行）— 会话、竞态、跨标签同步（重复、待内化）
-- `useCaseChat`（54 行）— 案件分析特化（重复、待内化）
-- `useAssistantChat`、`useXiaosuoChat`、`useModuleChatManager`、`useDocumentDraft`、`useContractReview`、`useInitAnalysis` — 业务特化层（6 个，待薄包装）
-
-**目标**：收敛为 **单工厂** + **6 个薄包装**（30-50 行 × 6）+ **interrupt 注册表**
-- 删除 8 个旧 composable、两个 interrupt 目录、1 个无用组件
-- 消费者无感知切换（内部重构）
-- `ai-elements/model-selector/` 保留（用户 D1=B 决定）
-
-**用户感知**：无（纯技术债清理）
+**规划时间**：2026-04-27（v2，二轮论证后修订）
+**执行工期**：1.5 天（按本项目历史节奏，阶段 2 基建大改 45 commit 实际仅 3 小时 47 分钟）
+**Lead**：Opus 4.7
+**Teammate**：1 × sonnet 4.6（工厂大改 + 业务拆 + 调用方迁移 串行）
 
 ---
 
-## 二、决策记录（用户拍板 2026-04-27）
+## v2 与 v1 的差异（必读）
 
-| 决策 | 项目 | 选项 | 拍板 |
-|------|------|------|------|
-| **D1** | `ai-elements/model-selector/` 处置 | A: 删除 / B: 保留 | **B**（保留以待后续功能） |
-| **D2** | teammate 组织 | A: 1× opus / B: 2× sonnet（推荐） / C: 3× haiku | **B**（平台层+调用方迁移并行） |
-| **D3** | 改造方式 | A: 一次全切（推荐） / B: 分批 | **A**（一次性同步全部调用方） |
-
----
-
-## 三、现状盘点（grep 真实代码）
-
-### 3.1 待删 composable 及其调用方
-
-| Composable | 行数 | 调用方数 | 说明 |
-|---|---|---|---|
-| `useCaseChat` | 54 | 0（仅内部依赖） | 内核，工厂内化 |
-| `useChatSessionManager` | 462 | 3 个 composable | 内核，工厂内化 |
-| `useAssistantChat` | 118 | 1 页面 | 业务，→ `useLegalAssistantAgent` |
-| `useXiaosuoChat` | 15 | 2 页面 | 业务，→ `useCaseMainAgent` |
-| `useModuleChatManager` | 169 | 3 页面 | 业务，→ `useCaseModuleAgent` |
-| `useDocumentDraft` | 499 | 1 页面 | 业务，→ `useDocumentAgent` |
-| `useContractReview` | 479 | 2 页面 | 业务，→ `useContractAgent` |
-| `useInitAnalysis` | 122 | 1 页面 | 业务，→ `useCaseAnalysisInitAgent` |
-| **总计** | **1918** | **8-9 个页面/组件** | |
-
-### 3.2 调用方页面清单
-
-8-9 个实际调用位置（某些文件有多个 composable 使用）：
-1. `app/components/assistant/AssistantChatPanel.vue` — useAssistantChat
-2. `app/pages/dashboard/cases/[id].vue` — useXiaosuoChat、useModuleChatManager
-3. `app/components/caseDetail/CaseDetailXiaosuo.vue` — useXiaosuoChat
-4. `app/components/case/AnalysisModuleChat.vue` — useModuleChatManager
-5. `app/components/case/AnalysisModuleChatBar.vue` — useModuleChatManager
-6. `app/pages/dashboard/document/drafts/[id].vue` — useDocumentDraft
-7. `app/components/assistant/contract/ContractReviewPanel.vue` — useContractReview
-8. `app/components/assistant/contract/ContractUploadNewVersionDialog.vue` — useContractReview
-9. `app/pages/dashboard/cases/init-analysis/[sessionId].vue` — useInitAnalysis
-
-### 3.3 待删目录和文件
-
-| 位置 | 内容 | 说明 |
-|---|---|---|
-| `app/components/caseAnalysis/interrupts/` | CaseInfoConfirm.vue（2 个简单 handler） | 简化版，功能复制到 `case/interrupt/` |
-| `app/components/caseAnalysis/promptInput.vue` | 1 个组件 | 功能由 `ai/AiPromptInput.vue` 覆盖 |
-| `app/components/ai-elements/model-selector/` | 15 个文件 | **保留**（D1=B，未来可用） |
-
-### 3.4 Interrupt 类型现状
-
-已有枚举（`shared/types/case.ts`）：
-```typescript
-export enum InterruptType {
-  CASE_INFO_CHECK = 'case_info_check',
-  BASIC_INFO_CONFIRM = 'basic_info_confirm',
-  MODULE_SELECT = 'module_select',
-  INSUFFICIENT_POINTS = 'insufficient_points',
-  TEMPLATE_SELECT = 'template_select',  // ← 阶段 5/6 新增
-  STANCE_SELECT = 'stance_select',       // ← 阶段 5/6 新增
-}
-```
-
-当前 handler 分布：
-- `app/components/case/interrupt/index.ts` — export 3 个 handler（CaseInfoCheckHandler / BasicInfoConfirmHandler / ModuleSelectHandler）
-- `app/components/agents/document/interrupts/` — TemplateSelectCard
-- `app/components/agents/contract/interrupts/` — StanceSelectCard
-- 无集中注册表（各页面手工 v-if/v-else-if 分发）
+| 维度 | v1（已废弃） | v2 真相 |
+|------|------|------|
+| 业务 composable 命运 | "薄包装 30-50 行替代" | **业务字段拆 sub-composable，对话基建抽到工厂** |
+| 工期 | 3-4 天 | **1.5 天**（按本项目历史节奏） |
+| 工厂 521 行评价 | "已完成" | **6 项关键能力缺失**，需大改 |
+| 测试处理 | 漏了 | **新增 13 个 .test.ts 改写任务** |
+| 调用方数 | 9-10 | 真实 9 个（注释假阳性） |
 
 ---
 
-## 四、改造架构
+## 一、二轮论证事实基础
 
-### 4.1 新的组合物结构
+### 1.1 spec 原文（已直接核对 line 891-902 + line 627-633）
 
-```
-app/composables/
-├── useStreamChat.ts                        （保留，内核）
-├── useApi.ts / useApiFetch.ts              （保留）
-├── agent-platform/                         🆕 （新目录，平台层工厂）
-│   ├── useDomainAgentSession.ts            （工厂，~400-500 行）
-│   ├── interruptRegistry.ts                （中断注册表，~50 行）
-│   └── index.ts
-├── agents/                                 🆕 （新目录，6 个业务薄包装）
-│   ├── useCaseMainAgent.ts                 （← useXiaosuoChat，~40 行）
-│   ├── useCaseModuleAgent.ts               （← useModuleChatManager，~40 行）
-│   ├── useLegalAssistantAgent.ts           （← useAssistantChat，~40 行）
-│   ├── useDocumentAgent.ts                 （← useDocumentDraft，~40 行）
-│   ├── useContractAgent.ts                 （← useContractReview，~40 行）
-│   ├── useCaseAnalysisInitAgent.ts         （← useInitAnalysis，~40 行）
-│   └── index.ts
-└── [旧 8 个 composable 删除] 🗑️
-```
+> - `useDomainAgentSession` 工厂实现完整
+> - 6 个业务 composable 收敛为薄包装（30-50 行）
+> - 删除：`useCaseChat.ts` / `useAssistantChat.ts` / `useXiaosuoChat.ts` / `useChatSessionManager.ts` / `useModuleChatManager.ts` / `useDocumentDraft.ts` / `useContractReview.ts` / `useInitAnalysis.ts`（破坏性更新允许）
+> - Interrupt 注册表实现 + `case/interrupt/` 各 handler 注册
+> - 删除 `app/components/caseAnalysis/interrupts/` 目录（功能并入 `case/interrupt/`）
+> - 删除 `app/components/caseAnalysis/promptInput.vue`（功能由 `ai/AiPromptInput.vue` 提供）
+> - SSE custom event 类型化分发器在工厂内置
 
-### 4.2 工厂签名（核心契约）
+破坏性更新由 spec §1 D18 决策授权。
 
-```typescript
-export function useDomainAgentSession(config: {
-  scope: 'case' | 'legal_assistant' | 'document' | 'contract' | 'case_analysis_init'
-  sessionId: string
-  userId: string
-  caseId?: number                          // scope='case' 时必填
-}): {
-  messages: Ref<BaseMessage[]>
-  isLoading: Ref<boolean>
-  interruptData: Ref<InterruptPayload | null>
-  runStatus: Ref<AgentRunStatus>
-  runError: Ref<string | null>
-  sessions: Ref<SessionItem[]>
-  currentSessionId: Ref<string>
-  
-  // 核心操作
-  sendMessage: (text: string, opts?: SendOpts) => Promise<void>
-  resumeInterrupt: (value: any) => void
-  init: () => Promise<void>
-  switchSession: (sessionId: string) => Promise<void>
-  createSession: () => Promise<void>
-  deleteSession: (sessionId: string) => Promise<void>
-  renameSession: (sessionId: string, title: string) => Promise<void>
-  stopGeneration: () => Promise<void>
-  
-  // 队列（case/legal_assistant/document/contract 需要）
-  currentQueue: Ref<QueueItem[]>
-  currentQueueLen: Ref<number>
-  isQueuePaused: Ref<boolean>
-  queuePauseReason: Ref<string | null>
-  enqueueMessage: (text: string, files?: any[], thinking?: boolean) => boolean
-  removeQueueItem: (id: string) => void
-  resumeQueue: () => void
-  clearQueue: () => void
-}
-```
+### 1.2 当前工厂 6 项缺失能力（4 份 agent 报告交叉验证）
 
-### 4.3 Interrupt 注册表设计
-
-```typescript
-// composables/agent-platform/interruptRegistry.ts
-export class InterruptRegistry {
-  private handlers = new Map<string, {
-    component: Component
-    isToolCard?: boolean  // 区分 TemplateSelectCard/StanceSelectCard（工具卡） vs 中断卡
-  }>()
-
-  register(type: string, handler: InterruptHandler): void
-  getComponent(type: string): Component | undefined
-  isToolCard(type: string): boolean
-  getAllTypes(): string[]
-}
-
-export const globalInterruptRegistry = new InterruptRegistry()
-
-// case/interrupt/index.ts
-globalInterruptRegistry.register('case_info_check', CaseInfoCheckHandler)
-globalInterruptRegistry.register('basic_info_confirm', BasicInfoConfirmHandler)
-globalInterruptRegistry.register('module_select', ModuleSelectHandler)
-globalInterruptRegistry.register('insufficient_points', InsufficientPointsCard)
-globalInterruptRegistry.register('template_select', TemplateSelectCard, { isToolCard: true })
-globalInterruptRegistry.register('stance_select', StanceSelectCard, { isToolCard: true })
-```
-
-### 4.4 SSE Custom Event 类型化分发器
-
-工厂内置 `createEventDispatcher(scope)` 工具函数，根据 scope 返回对应的消息处理器，处理 DRAFT_SAVED / CONTRACT_REVIEW_SAVED / ANALYSIS_RESULT_SAVED 等自定义事件流。
-
----
-
-## 五、关键改造列表
-
-### 5.1 Platform 层（teammate-1，~2-3 天）
-
-| Task | 说明 | 交付物 |
-|---|---|---|
-| **A1** | 创建 `composables/agent-platform/useDomainAgentSession.ts` 工厂 | 工厂主体（~450 行）+ 契约签名 |
-| **A2** | 创建 `composables/agent-platform/interruptRegistry.ts` 注册表 | InterruptRegistry class + 全局单例 |
-| **A3** | 工厂内置 SSE custom event 类型化分发器 | 事件分发器逻辑 + 类型映射 |
-| **A4** | 6 个薄包装 composable（`composables/agents/*.ts`） | useCaseMainAgent / useCaseModuleAgent / useLegalAssistantAgent / useDocumentAgent / useContractAgent / useCaseAnalysisInitAgent |
-
-**技术要点**：
-- A1 继承 useChatSessionManager 的所有逻辑（effectScope、竞态防护、消息队列、跨标签同步、stopGeneration 取消）
-- A1 整合 useStreamChat 的流处理
-- A4 中每个薄包装是工厂的 call wrapper，负责 config 组装 → 调 useDomainAgentSession（scope+sessionId+userId+caseId）→ 返回
-
-### 5.2 Interrupt 注册注册表接入（teammate-1，A4 完成后）
-
-| Task | 说明 |
+| 缺失能力 | 影响范围 |
 |---|---|
-| **A5** | `app/components/case/interrupt/index.ts` 改造：自动 register 3 个 handler + TemplateSelectCard / StanceSelectCard |
+| **单 session 模式** | document / contract / legal_assistant / case_analysis_init 是单 session（draftId/reviewId/sessionId-from-route 驱动），工厂当前强假设多 session |
+| **多 key 池化** | useModuleChatManager 每个 moduleName 独立 sessionManager 实例，工厂当前是单实例多 session |
+| **业务事件 dispatcher 钩子** | createEventDispatcher 是空壳。draft_ready / contract_stage / analysis_result_saved 等业务事件不分发 |
+| **流末回拉 hook** | useDocumentDraft.refetchLatestDraft / useContractReview.refreshReview 都需要"流完了 GET 业务实体"，工厂没钩子 |
+| **sendMessage 多签名兼容** | useAssistantChat 接 `AiPromptSubmitData`、useDocumentDraft 接 `string`、useContractReview 没有 sendMessage（用 stance/submit）。dispatcher 与工厂顶层 sendMessage 是两条平行路径（已知 bug）|
+| **业务专属 API 端点** | 工厂 case scope 走 xiaosuo-sessions，模块对话需要 module-sessions?moduleName=xxx；document/contract 是单 session 由 draftId/reviewId 驱动无 sessions list |
 
-### 5.3 调用方迁移（teammate-2，等 A4 完成后启动，~2 天）
+### 1.3 业务 composable 真实可收编量（agent 3 report）
 
-| Task | 调用方页面 | 迁移方向 | 说明 |
+| Composable | 总行数 | 对话基建（抽工厂） | 业务专属（拆 sub-composable 或下沉） |
 |---|---|---|---|
-| **B1** | AssistantChatPanel.vue | useAssistantChat → useLegalAssistantAgent | 1 个 hook → 工厂 call |
-| **B2** | CaseDetailXiaosuo.vue | useXiaosuoChat → useCaseMainAgent | 同上 |
-| **B2.1** | cases/[id].vue（xiaosuo 部分） | useXiaosuoChat → useCaseMainAgent | 同上 |
-| **B3** | AnalysisModuleChat.vue | useModuleChatManager → useCaseModuleAgent | 同上 |
-| **B3.1** | AnalysisModuleChatBar.vue | useModuleChatManager → useCaseModuleAgent | 同上 |
-| **B3.2** | cases/[id].vue（模块对话部分） | useModuleChatManager → useCaseModuleAgent | 同上 |
-| **B4** | document/drafts/[id].vue | useDocumentDraft → useDocumentAgent | 同上 |
-| **B5** | ContractReviewPanel.vue | useContractReview → useContractAgent | 同上 |
-| **B5.1** | ContractUploadNewVersionDialog.vue | useContractReview → useContractAgent | 同上 |
-| **B6** | cases/init-analysis/[sessionId].vue | useInitAnalysis → useCaseAnalysisInitAgent | 同上 |
+| useDocumentDraft | 499 | 130 行（26%） | 369 行（拆 versions/snapshots/preview） |
+| useContractReview | 479 | 90 行（19%） | 389 行（拆 stages/risks-editing/lifecycle） |
+| useInitAnalysis | 122 | ~5 行（4%） | 117 行；实际基建在 useInitAnalysisRuntime 281 行需调研 |
+| useModuleChatManager | 169 | 130 行（77%） | 39 行（拆 useChatInstancePool 基建 + 业务元数据） |
+| useAssistantChat | 118 | 几乎全部对话 | 5-10 行业务（sessionId remount 模式） |
+| useXiaosuoChat | 15 | 已是薄包装 | 0 |
+| useCaseChat | 54 | 全部对话基建 | 0 |
+| useChatSessionManager | 462 | 全部对话基建 | 0 |
+| **合计** | **1918** | **~990 行进工厂** | **~920 行拆 sub-composable** |
 
-### 5.4 清理删除（teammate-2，B1-B6 完成后）
+### 1.4 真实调用方（注释引用已剔除）
 
-| Task | 删除项 | 说明 |
+| # | 调用方 | 旧依赖 | 迁向 |
+|---|---|---|---|
+| 1 | AssistantChatPanel.vue | useAssistantChat | useLegalAssistantAgent |
+| 2 | CaseDetailXiaosuo.vue | useXiaosuoChat (props) | useCaseMainAgent (props) |
+| 3 | cases/[id].vue（小索部分） | useXiaosuoChat | useCaseMainAgent |
+| 4 | cases/[id].vue（模块对话部分） | useModuleChatManager | useCaseModuleAgent |
+| 5 | AnalysisModuleChat.vue | ModuleChatInstance (props) | ModuleAgentInstance (props) |
+| 6 | AnalysisModuleChatBar.vue | ModuleChatInstance (props) | ModuleAgentInstance (props) |
+| 7 | document/drafts/[id].vue | useDocumentDraft | useDocumentAgent + sub-composables |
+| 8 | ContractReviewPanel.vue | useContractReview | useContractAgent + sub-composables |
+| 9 | cases/init-analysis/[sessionId].vue | useInitAnalysis | useCaseAnalysisInitAgent |
+
+### 1.5 测试文件清单（13 个 .test.ts 需改写）
+
+```
+tests/app/components/ai/composables/crossTabQueue.test.ts
+tests/app/components/ai/composables/useChatSessionManager.test.ts
+tests/client/composables/useChatSessionManager.test.ts
+tests/client/composables/useDocumentDraft.extensions.test.ts
+tests/app/composables/useContractReview.test.ts
+tests/app/composables/useContractReview.debounce.test.ts
+tests/app/composables/useBusinessErrorCapture.test.ts（注释提及，需核实）
+tests/app/composables/useContractRiskHighlight.test.ts（注释提及，需核实）
+tests/app/components/assistant/contract/ContractReviewPanel.test.ts
+tests/app/components/assistant/contract/ContractReviewPanel.phaseB.test.ts
+tests/client/composables/useInitAnalysis.comparison.test.ts
+tests/client/composables/useInitAnalysis.modulesCompute.test.ts
+（剩余 1 个待 grep 确认）
+```
+
+### 1.6 阶段 8 不依赖阶段 7
+
+阶段 8（案件初分接 Skills + 提示词改造）是后端 StateGraph 改造，与前端工厂无关。阶段 7 失败不卡阶段 8。
+
+---
+
+## 二、修订后的 7 步执行顺序
+
+### Step 1 · 工厂补能（~0.3 天）
+
+补全 §1.2 列出的 6 项缺失能力 + 修 dispatcher 平行路径 bug。
+
+**文件**：`app/composables/agent-platform/useDomainAgentSession.ts`
+
+**新增工厂签名**：
+
+```typescript
+useDomainAgentSession(config: {
+  scope: DomainScope
+  // 单 session：sessionId 由参数提供且不变；多 session：sessionId='auto' 从后端列表选首个
+  sessionId: Ref<string> | string | 'auto'
+  userId: string
+  caseId?: number
+  moduleName?: string  // case scope，模块对话用，决定 API 端点
+  // 业务方注入
+  onCustomEvent?: (event: AgentCustomEvent) => void
+  onStreamSettled?: () => void | Promise<void>  // 流末回拉 hook
+  apiEndpoints?: {
+    listUrl?: (caseId?: number, moduleName?: string) => string
+    chatUrl?: string
+    createUrl?: string
+    deleteUrl?: (sessionId: string) => string
+    renameUrl?: (sessionId: string) => string
+  }  // 默认按 scope 推断，业务方可覆盖
+}): {
+  // ... 与原 22 个 API 一致
+}
+```
+
+**多 key 池化新增 API**（用于 useModuleChatManager 替代）：
+
+```typescript
+useDomainAgentSessionPool(config): {
+  getOrCreate(key: string, extraConfig?): SessionFactory
+  remove(key: string): void
+  keys(): string[]
+}
+```
+
+### Step 2 · 业务字段拆 sub-composable（~0.4 天）
+
+| sub-composable | 提取自 | 行数估计 |
 |---|---|---|
-| **B7.1** | 8 个旧 composable | useCaseChat.ts / useChatSessionManager.ts / useAssistantChat.ts / useXiaosuoChat.ts / useModuleChatManager.ts / useDocumentDraft.ts / useContractReview.ts / useInitAnalysis.ts |
-| **B7.2** | caseAnalysis 目录 | `app/components/caseAnalysis/interrupts/` (2 文件) + `app/components/caseAnalysis/promptInput.vue` |
-| **B7.3** | 孤儿导入清理 | 各文件中对上述 composable/组件的导入行 |
+| useDocumentDraftVersions | useDocumentDraft 行 366-424 | ~60 |
+| useDocumentDraftSnapshots | useDocumentDraft 行 427-446 | ~20 |
+| useDocumentDraftPreview | useDocumentDraft 行 449-457 | ~10 |
+| useDocumentDraftFields | useDocumentDraft 行 165-248（mountDraft + onFieldChange） | ~80 |
+| useContractReviewStages | useContractReview 行 57-154（stage/clause 状态） | ~80 |
+| useContractReviewRisksEditing | useContractReview 行 381-412（patchRisks 乐观更新） | ~30 |
+| useContractReviewLifecycle | useContractReview 行 249-371（onStart/mountReview/onStance/cancelReview） | ~120 |
+| useInitAnalysisModules | useInitAnalysis 行 19-77（computeModuleStates + projection 接线） | ~60 |
+
+### Step 3 · 6 个薄包装重写（~0.1 天）
+
+每个 30-50 行：
+- useCaseMainAgent（小索）
+- useCaseModuleAgent（模块对话，用 useDomainAgentSessionPool）
+- useLegalAssistantAgent
+- useDocumentAgent
+- useContractAgent
+- useCaseAnalysisInitAgent
+
+### Step 4 · 9 个调用方迁移（~0.3 天）
+
+按依赖顺序（薄 → 重）：
+1. AssistantChatPanel.vue
+2. CaseDetailXiaosuo.vue + cases/[id].vue（小索部分）
+3. cases/[id].vue（模块对话）+ AnalysisModuleChat + AnalysisModuleChatBar
+4. document/drafts/[id].vue
+5. ContractReviewPanel.vue
+6. cases/init-analysis/[sessionId].vue
+
+### Step 5 · InterruptRegistry 真接入（~0.1 天）
+
+1. 写 `app/components/InterruptDispatcher.vue`：根据 `interrupt.type` 查 registry 并渲染对应组件
+2. 在 `app/plugins/initInterruptRegistry.ts` 中 `import '~/components/case/interrupt'` 触发副作用
+3. 6 个调用方页面/组件用 `<InterruptDispatcher>` 替换 `<CaseInterruptConfirmation>` + `<InterruptHandler>`
+4. 6 个 handler props 协议统一（约定 `:interrupt :on-resolve` 单一接口）
+5. 删 `app/components/case/InterruptConfirmation.vue`（被 Dispatcher 替代）
+
+### Step 6 · 删除清理（~0.1 天）
+
+按依赖反向顺序删：
+1. 8 个旧 composable
+2. `app/components/caseAnalysis/interrupts/`（0 引用孤儿）
+3. `app/components/caseAnalysis/promptInput.vue` + 适配 `analysis/index.vue`（迁到 AiPromptInput）
+4. 检查 `model-selector/` 决策（D1=B 保留，不动）
+
+### Step 7 · 测试改写（~0.2 天，与 Step 6 并行）
+
+13 个 .test.ts 全部改到针对新工厂 / 新 sub-composable / 新薄包装。**不删测试**，保留回归保护。
+
+### Step 8 · Lead 收尾（~0.1 天）
+
+1. `npx nuxi typecheck` exit 0
+2. `npx vitest run` 全绿
+3. 6 业务页面 smoke E2E（init-analysis / cases / xiaosuo / assistant / document / contract）
+4. commit + tag `ai-unify-stage-7-done`
+5. 写 stage 7 → stage 8 handoff 文档
+6. **kill -9 dev server**（feedback memory 铁律）
 
 ---
 
-## 六、任务依赖与时间线
+## 三、风险与缓解
 
-```
-Day 1 (teammate-1):  A1 工厂 → A2 注册表 → A3 分发器
-Day 2 (teammate-1):  A4 薄包装 × 6
-       (teammate-2): 准备期——read 8 个调用方现状 + 写迁移记录 + 待命 A4 完成
-
-Day 3 (teammate-1):  A5 interrupt 注册
-       (teammate-2):  B1-B6 调用方同步迁移（可并行改多个页面）
-
-Day 4 (teammate-2):  B7 删除清理
-
-Lead : L1 plan/dispatch (Day 1) → L2-L3 监控 (Day 1-4) → L4 smoke (Day 4) → L5 typecheck + vitest (Day 4) → L6 commit+tag+handoff+kill dev (Day 4)
-```
+| 风险 | 级别 | 缓解 |
+|---|---|---|
+| 工厂改造期间业务跑不动 | 中 | 先补工厂能力（Step 1），不动旧 composable；新工厂能力就绪才迁调用方（Step 4）。每补一个能力立即 commit，可独立回退 |
+| 13 测试改写丢失回归保护 | 中 | 改写顺序：先把测试切到新工厂跑通，再删旧 composable。**不删测试**，只改测试 import |
+| useInitAnalysisRuntime 281 行未拆 | 低 | Step 1 前快速调研 281 行的对话/业务比例，按需调整 Step 2 工期 |
+| useContractReview 乐观更新+回滚机制搬迁破坏行为 | 中 | sub-composable 写完后立即跑 `useContractReview.test.ts`，验证 onEditRisks debounce 500ms 行为不变 |
+| useModuleChatManager 多实例池语义复杂 | 中 | useDomainAgentSessionPool 实现后先跑 cross-tab queue 测试 + 多模块同时打开场景 |
+| 9 个调用方有签名差异 | 低 | 工厂 sendMessage 多签名兼容；薄包装 props 严格按旧 composable 签名做适配层 |
+| 工厂 dispatcher 平行路径 bug | 低 | Step 1 第一件事就是修这个：dispatcher 内 currentChat.sendMessage 改为调工厂的 sendMessage |
 
 ---
 
-## 七、DoD（完成定义）
+## 四、决策记录
 
-### 7.1 Teammate-1 验收标准
+| 决策 | 拍板 | 时间 |
+|------|------|------|
+| D1 · model-selector 处置 | B（保留） | 2026-04-27 |
+| D2 · teammate 组织 | 单 teammate 串行（v1 选 B 双 teammate，v2 改为单 teammate，因任务强依赖） | 2026-04-27 v2 |
+| D3 · 业务字段处理 | 拆 sub-composable（不删，不下沉调用方） | 2026-04-27 v2 |
+| D4 · 测试处理 | 改写不删 | 2026-04-27 v2 |
+| D5 · 阶段 8 依赖性 | 阶段 8 不依赖阶段 7，本阶段失败可降级 | 2026-04-27 v2 |
 
-- [ ] `useDomainAgentSession` 工厂实现完整（覆盖 6 个 scope、5 个业务 composable 的全部调用方式）
-- [ ] `interruptRegistry` 能正确注册 7 个 interrupt 类型（case_info_check 等）
-- [ ] 6 个薄包装 composable 能替代旧 composable（签名兼容或文档说明差异）
-- [ ] 文件结构符合规范：`composables/agent-platform/`、`composables/agents/` 两个新目录
-- [ ] **不能**跑全量 typecheck / vitest（teammate 权限限制），仅检查相关文件编译
+---
 
-### 7.2 Teammate-2 验收标准
+## 五、DoD（完成定义，与 spec §6 阶段 7 对齐）
 
-- [ ] 8-9 个调用方页面都已从旧 composable 迁移到新 agent 工厂
-- [ ] 旧 8 个 composable、caseAnalysis 两个路径已删除
-- [ ] 孤儿导入已清理
-- [ ] **不能**跑全量 typecheck / vitest
-
-### 7.3 Lead 验收标准
-
+- [ ] `useDomainAgentSession` 工厂含 §1.2 全部 6 项能力
+- [ ] 8 个旧 composable 全部删除
+- [ ] 6 个业务薄包装在 30-50 行
+- [ ] 业务 sub-composable 全部就绪（Step 2 列出的 8 个）
+- [ ] InterruptRegistry 副作用触发 + 6 调用方接入 InterruptDispatcher
+- [ ] `caseAnalysis/interrupts/` 删除
+- [ ] `caseAnalysis/promptInput.vue` 删除（analysis/index.vue 已切到 AiPromptInput）
+- [ ] 13 测试改写到新结构 + 全绿
 - [ ] `npx nuxi typecheck` exit 0
-- [ ] `npx vitest run` 全绿（或已标跳跃）
-- [ ] **6 个业务页面 smoke 全绿**：
-  - `init-analysis/1` — 初分流程启动
-  - `cases/1` 案件详情 — 模块对话 + 小索浮窗
-  - `assistant` 页面 — 法律助手对话
-  - `document/drafts/1` — 文书编辑页
-  - `dashboard/contract/1` — 合同审查页
-  - 其他 1 个补充（如 cases/1?focus=xiaosuo 小索 E2E）
-- [ ] commit + tag `ai-unify-stage-7-done`
-- [ ] handoff 文档至 stage 8
+- [ ] 6 业务页面 smoke E2E 全绿
+- [ ] tag `ai-unify-stage-7-done` + handoff 文档
+- [ ] dev server killed
 
 ---
 
-## 八、风险与缓解
+## 六、附录：4 份调研报告引用
 
-| 风险 | 级别 | 描述 | 缓解 |
-|---|---|---|---|
-| 工厂签名变更导致调用方大批改写失败 | 高 | A4 中途如果调整薄包装的参数列表，teammate-2 的迁移工作要重做 | A1-A4 完成后冻结签名，teammate-2 开始前 lead 核对一遍 |
-| 中断注册表初始化时机问题 | 中 | register() 在页面加载前必须完成，否则 interrupt 无法分发 | 在 app.vue 全局 setup 中调用 case/interrupt/index.ts（触发 register） |
-| cases/[id].vue 同时使用 xiaosuo + moduleChatManager | 中 | 同一页面两个 agent scope 可能相互干扰（effectScope 隔离） | 各 agent 独立 effectScope，测试时重点验证切换 session 场景 |
-| useStreamChat 内核依赖未迁移完整 | 中 | useStreamChat getter 特性（与 interruptComputed 的 bug 关系） | A1 必须保留对 useStreamChat 的依赖，不删除 |
-| 消息队列逻辑散落在多个 composable（useCaseChat / useChatSessionManager） | 中 | 收敛后如果遗漏某条分支，队列行为变更 | 写完 A4 后 grep 源码对标，确保 enqueueMessage / resumeQueue / clearQueue 逻辑完整转移 |
+- Agent 1（spec + 历史）：spec §6 阶段 7 全文 + 6 阶段 handoff 已读完
+- Agent 2（接口对照）：8 旧 composable + 9 调用方 + 工厂 三方对照表
+- Agent 3（业务/对话拆分）：4 个重业务 composable 行数级分类
+- Agent 4（UI 卡片现状）：中断卡 / promptInput / model-selector 盘点
 
 ---
 
-## 九、技术参考
-
-### 现有代码引用
-- **useStreamChat**：app/composables/useStreamChat.ts（保留，getter 机制）
-- **useChatSessionManager**：app/composables/useChatSessionManager.ts:232（sendMessage 双轨 additional_kwargs）
-- **InterruptType**：shared/types/case.ts:203
-- **SSECustomEventType + SSECustomEventMap**：shared/types/agentEvent.ts:43-152
-- **现有 interrupt handler**：app/components/case/interrupt/（3 个 handler）
-
-### 关键约束
-1. 所有 composable 必须手动 import（自动导入已收窄）
-2. 类型必须 import type from `#shared/types/*`
-3. 工厂内化 useChatSessionManager 的全部逻辑：effectScope / 消息队列 / 竞态防护 / 跨标签同步 / stopGeneration
-4. 不可删除 useStreamChat，只是整合进工厂
-5. 薄包装与旧 composable 的对应关系要在对照表中文档化
-
----
-
-## 十、对照表（旧 composable → 新 agent 工厂映射）
-
-| 旧 Composable | 行数 | 新 Agent | 行数 | 主要职责 | 迁移注意点 |
-|---|---|---|---|---|---|
-| useAssistantChat | 118 | useLegalAssistantAgent | ~40 | 法律助手对话入口 | scope='legal_assistant' |
-| useXiaosuoChat | 15 | useCaseMainAgent | ~40 | 小索浮窗入口 | scope='case', caseId 必填 |
-| useModuleChatManager | 169 | useCaseModuleAgent | ~40 | 案件模块对话 | scope='case', 多 session 管理 |
-| useDocumentDraft | 499 | useDocumentAgent | ~40 | 文书生成对话 | scope='document' |
-| useContractReview | 479 | useContractAgent | ~40 | 合同审查对话 | scope='contract' |
-| useInitAnalysis | 122 | useCaseAnalysisInitAgent | ~40 | 案件初分分析 | scope='case_analysis_init' |
-| useCaseChat | 54 | 内化进工厂 | - | 案件分析对话基座 | 不直接暴露 |
-| useChatSessionManager | 462 | 内化进工厂 | - | 会话管理 / 消息队列 / effectScope | 不直接暴露 |
-
----
-
-## 十一、附录：smoke E2E 检查清单
-
-```
-- [ ] `localhost:3000/dashboard/cases/init-analysis/1` — 初分流程：启动 → 各分析模块顺序执行 → 完成
-- [ ] `localhost:3000/dashboard/cases/1` — 案件详情：
-  - [ ] 小索浮窗能打开、发消息、显示工具卡
-  - [ ] 模块对话能切换、历史消息加载正常
-  - [ ] 两个会话互不影响
-- [ ] `localhost:3000/assistant` — 法律助手：
-  - [ ] 能发送消息、工具卡正常显示
-  - [ ] 多 session 切换正常
-- [ ] `localhost:3000/dashboard/document/drafts/1` — 文书编辑页：
-  - [ ] 能发消息、工具卡显示
-  - [ ] 返回链接（来源条）能跳回对应原点
-- [ ] `localhost:3000/dashboard/contract/1` — 合同审查页：同上
-- [ ] `localhost:3000/dashboard/cases/1?focus=xiaosuo&xiaosuoSessionId=xxx` — 小索 URL focus：浮窗自动展开、session 自动定位
-```
-
----
-
-**完成时间估计**：3-4 个工作日（平台层 2 天 + 调用方迁移 1-2 天 + 收尾 < 1 天）
+**v2 完成**。lead 立即按 Step 1 启动 teammate-A。
