@@ -2,11 +2,11 @@
  * 案件模块对话 - 薄包装
  *
  * 替代 useModuleChatManager：基于 useDomainAgentSession 工厂的轻薄包装
- * 为模块分析提供多 session 管理
  */
 
 import type { Ref } from 'vue'
-import { effectScope, type EffectScope } from 'vue'
+import { ref, toValue } from 'vue'
+import { useUserStore } from '~/store/user'
 import { useDomainAgentSession } from '../agent-platform/useDomainAgentSession'
 import type { DomainAgentSessionConfig } from '../agent-platform/useDomainAgentSession'
 
@@ -54,20 +54,21 @@ export function useCaseModuleAgent(
   moduleTitle: string,
   options: CaseModuleAgentOptions = {},
 ) {
-  const userId = 'current'
+  const userStore = useUserStore()
+  const caseIdValue = toValue(caseId)
 
-  // 为该模块生成唯一 sessionId
-  const sessionId = ref(`module-${moduleName}-${caseId.value}-${Date.now()}`)
+  // 为该模块生成唯一 sessionId（基于 moduleName + caseId，无时间戳以支持复用）
+  const sessionId = `module-${moduleName}-${caseIdValue}`
 
   const factory = useDomainAgentSession({
     scope: 'case',
-    sessionId: sessionId.value,
-    userId,
-    caseId: caseId.value,
+    sessionId,
+    userId: String(userStore.userInfo.id ?? ''),
+    caseId: caseIdValue,
   })
 
   const instance: ModuleAgentInstance = Object.assign(factory as any, {
-    sessionId: sessionId.value,
+    sessionId,
     moduleName,
     moduleTitle,
     isExpanded: ref(false),

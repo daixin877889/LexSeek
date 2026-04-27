@@ -26,6 +26,7 @@ import { postCrossTabEvent, useCrossTabListener } from '../useCrossTabEvents'
 import { useQueueDispatcher } from '../useQueueDispatcher'
 import { useApiFetch } from '../useApiFetch'
 import { useStreamChat } from '../useStreamChat'
+import { useCaseChat } from '../useCaseChat'
 import { stopActiveRun } from '../useStopActiveRun'
 
 // ── 类型定义 ──
@@ -148,8 +149,11 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
   const initialized = ref(false)
 
   // effectScope 管理（每 session 独立 scope）
+  // currentChat 用 useCaseChat 类型（已封装 sendMessage / resumeInterrupt / stopGeneration）
+  // 与 useQueueDispatcher.deps.currentChat 类型对齐
+  type WrappedChat = ReturnType<typeof useCaseChat>
   let currentScope: EffectScope | null = null
-  const currentChat = shallowRef<ReturnType<typeof useStreamChat> | null>(null)
+  const currentChat = shallowRef<WrappedChat | null>(null)
   let switchCounter = 0
 
   function disposeCurrentChat() {
@@ -268,22 +272,33 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
     }
 
     currentScope = newScope
-    // 包装 useStreamChat 添加缺失的方法
-    const wrappedChat = Object.assign(streamChat, {
-      sendMessage: undefined, // 将由工厂的 sendMessage 调用
+    // 在 streamChat 上叠加 sendMessage / resumeInterrupt / stopGeneration，
+    // 类型与 useCaseChat 一致（dispatcher 也按 useCaseChat 的接口消费）
+    const wrappedChat: WrappedChat = Object.assign(streamChat, {
+      sendMessage: async (message: string, opts?: { thinking?: boolean; additional_kwargs?: Record<string, any> }) => {
+        streamChat.runStatus.value = 'idle'
+        const msgPayload: Record<string, any> = { type: 'human', content: message }
+        if (opts?.additional_kwargs && Object.keys(opts.additional_kwargs).length > 0) {
+          msgPayload.additional_kwargs = opts.additional_kwargs
+        }
+        await streamChat.submit({
+          messages: [msgPayload],
+          thinking: opts?.thinking,
+        } as any, { optimisticValues: streamChat.values.value })
+      },
       resumeInterrupt: (data: any) => {
         streamChat.runStatus.value = 'idle'
         streamChat.submit(undefined, { command: { resume: data } })
       },
       stopGeneration: () => streamChat.stop(),
     })
-    currentChat.value = wrappedChat as any
+    currentChat.value = wrappedChat
 
     const session = sessions.value.find(s => s.sessionId === sessionId)
     if (session?.hasActiveRun) {
-      currentChat.value.reconnect()
+      wrappedChat.reconnect()
     } else {
-      currentChat.value.loadHistory()
+      wrappedChat.loadHistory()
     }
   }
 
