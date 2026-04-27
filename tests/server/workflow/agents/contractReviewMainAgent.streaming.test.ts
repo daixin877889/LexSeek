@@ -313,6 +313,78 @@ describe('runContractReviewChat resume 分支 - segments fail-fast', () => {
     })
 })
 
+describe('阶段 5 · skipStanceInterrupt 路径（review_contract 子代理工具）', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('skipStanceInterrupt=true && review.stance 已落库 → 跳过 createAgent，走 resume 分支', async () => {
+        // review 已含 stance（子代理工具内部已完成 stance interrupt + 落库）
+        ;(findContractReviewBySessionIdDAO as any).mockResolvedValueOnce({
+            id: 555,
+            userId: 7,
+            sessionId: 'sub-sess-555',
+            originalFileId: 99,
+            partyA: '甲方A',
+            partyB: '乙方B',
+            contractType: '采购合同',
+            stance: 'partyA',
+            status: 'reviewing',
+        })
+        // 切分返回空 → fail-fast 进 failed，无需 mock analyze loop
+        ;(segmentClauses as any).mockResolvedValueOnce({ segments: [], normalizedText: '' })
+
+        const stream = await runContractReviewChat('sub-sess-555', {
+            userId: 7,
+            runId: 'main-run',
+            skipStanceInterrupt: true,
+            // 注意：command 不传，验证仅靠 skipStanceInterrupt 也能进 resume 分支
+        })
+
+        const reader = stream.getReader()
+        while (true) {
+            const { done } = await reader.read()
+            if (done) break
+        }
+
+        // resume 分支被命中：fail-fast 写 status='failed'
+        const failedCall = (updateContractReviewDAO as any).mock.calls.find(
+            (call: any[]) => call[1]?.status === 'failed',
+        )
+        expect(failedCall).toBeDefined()
+        expect(failedCall![0]).toBe(555)
+    })
+
+    it('skipStanceInterrupt=false（默认）+ command 不存在 → 不进 resume，正常进 createAgent 路径', async () => {
+        // 默认场景：review.stance 已有但 skipStanceInterrupt 未传，command 也未传
+        // → 不应走 resume 分支（合同 vertical 自身页面首轮启动场景）
+        ;(findContractReviewBySessionIdDAO as any).mockResolvedValueOnce({
+            id: 666,
+            userId: 7,
+            sessionId: 'sess-666',
+            originalFileId: 99,
+            partyA: null,
+            partyB: null,
+            contractType: null,
+            stance: null,
+            status: 'pending',
+        })
+        ;(segmentClauses as any).mockResolvedValueOnce({ segments: mockSegments, normalizedText: 'text' })
+
+        // 不传 command 也不传 skipStanceInterrupt → 默认走 agent.stream（createAgent 路径）
+        // mock 的 agent.stream 是 vi.fn()（返回 undefined），不影响断言
+        await runContractReviewChat('sess-666', { userId: 7 })
+
+        // 关键断言：resume 分支专属的写动作未被触发（status='reviewing' 是 resume 分支
+        // 写入的；createAgent 路径下不应有这条调用）
+        const reviewingCall = (updateContractReviewDAO as any).mock.calls.find(
+            (call: any[]) => call[1]?.status === 'reviewing',
+        )
+        expect(reviewingCall).toBeUndefined()
+        expect(runAnnotateAndUpload).toHaveBeenCalledTimes(0)
+    })
+})
+
 describe('阶段 3 · contractReviewMain 节点 tools 配置', () => {
     beforeEach(() => {
         vi.clearAllMocks()

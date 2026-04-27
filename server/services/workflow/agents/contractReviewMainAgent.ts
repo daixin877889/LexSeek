@@ -175,6 +175,17 @@ export interface ContractReviewAgentOptions {
     platformNodeConfig?: NodeConfig
     /** 阶段 4 新增：平台注入的 emitter，存在时由 emitContractReviewEvent 优先使用 */
     platformEmitCustomEvent?: (event: { name: string; data: unknown }) => Promise<void>
+    /**
+     * 阶段 5 新增：跳过 stance interrupt 直接走 resume 分支。
+     *
+     * 法律助手 `review_contract` 子代理工具调用本函数前，已在工具内部完成
+     * "立场选择 interrupt + 落库 stance/partyA/partyB" 的工作；此时调用方
+     * 传 `skipStanceInterrupt: true`，本函数从 review 表读取已落库的立场，
+     * 直接走 resume 分支（不再创建 createAgent / 不再 invoke parseAndAskStance）。
+     *
+     * default false：合同 vertical 自身页面 + `/stance` 端点走原 command 路径，向后兼容。
+     */
+    skipStanceInterrupt?: boolean
 }
 
 /** analyze loop 上下文 */
@@ -267,7 +278,7 @@ export async function runContractReviewChat(
     sessionId: string,
     options: ContractReviewAgentOptions,
 ): Promise<ReadableStream<Uint8Array>> {
-    const { userId, runId = '', signal, command } = options
+    const { userId, runId = '', signal, command, skipStanceInterrupt = false } = options
 
     // 1. 并发加载基础设施 + 反查 review
     //    阶段 4：nodeConfig 优先用平台注入，未注入时向后兼容自加载
@@ -447,17 +458,28 @@ export async function runContractReviewChat(
     // 用户立场恢复后不再走 agent.stream 的 responseFormat 路径，
     // 直接从 DB 读 stance/partyA/partyB，执行 runAnalyzeLoop，
     // 然后写 DB risks + runAnnotateAndUpload。
-    if (command) {
+    //
+    // 触发条件（任一即进 resume 分支）：
+    //   A. command 存在：合同 vertical 自身的 /stance 端点 enqueue resume run（向后兼容）
+    //   B. skipStanceInterrupt && review.stance：法律助手 review_contract 子代理工具
+    //      在工具内部已完成 stance 选择 interrupt + 落库，调本函数时直接跳过 stance 流程
+    //      （DOCX-S5 子代理工具走 skipStanceInterrupt 路径）
+    const shouldRunResumeBranch = !!command || (skipStanceInterrupt && !!review.stance)
+    if (shouldRunResumeBranch) {
         return new ReadableStream<Uint8Array>({
             async start(controller) {
                 try {
-                    // resume payload 含 stance（来自用户立场选择）
-                    // partyA/B/contractType 由首轮 parseAndAskStance interrupt 前已写入 DB，
-                    // 外层 review 对象在 interrupt 后仍是最新值（interrupt 前已落库）
-                    const payload = command as { stance?: unknown; partyA?: unknown; partyB?: unknown }
-                    const stance = (payload.stance ?? 'neutral') as Stance
-                    const finalPartyA = typeof payload.partyA === 'string' ? payload.partyA : review.partyA
-                    const finalPartyB = typeof payload.partyB === 'string' ? payload.partyB : review.partyB
+                    // 来源 1（command 路径）：payload 含用户刚提交的 stance/partyA/partyB
+                    // 来源 2（skipStanceInterrupt 路径）：command 不存在，走 review 已落库字段
+                    // 两路统一：读 command 优先，缺字段时 fallback 到 review.* （DOCX-S5）
+                    const payload = (command ?? {}) as { stance?: unknown; partyA?: unknown; partyB?: unknown }
+                    const stance = (payload.stance ?? review.stance ?? 'neutral') as Stance
+                    const finalPartyA = typeof payload.partyA === 'string'
+                        ? payload.partyA
+                        : review.partyA
+                    const finalPartyB = typeof payload.partyB === 'string'
+                        ? payload.partyB
+                        : review.partyB
 
                     // 写 stance 到 DB（parseAndAskStance 工具不再执行，由此处代劳）
                     await updateContractReviewDAO(review.id, {
