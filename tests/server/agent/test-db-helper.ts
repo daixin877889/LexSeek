@@ -138,6 +138,11 @@ export async function cleanupTestData(ids: AgentTestIds) {
     await p.caseTypes.deleteMany({ where: { id: { in: ids.caseTypeIds } } })
   }
   if (ids.userIds.length > 0) {
+    // 先清理用户的 document_drafts（含 case_id=null 的 draft-only 记录）
+    await (p as any).$executeRaw`DELETE FROM case_materials WHERE draft_id IN (SELECT id FROM document_drafts WHERE user_id = ANY(${ids.userIds}::integer[]))`
+    await (p as any).$executeRaw`DELETE FROM document_draft_snapshots WHERE draft_id IN (SELECT id FROM document_drafts WHERE user_id = ANY(${ids.userIds}::integer[]))`
+    await (p as any).$executeRaw`DELETE FROM document_draft_versions WHERE draft_id IN (SELECT id FROM document_drafts WHERE user_id = ANY(${ids.userIds}::integer[]))`
+    await (p as any).$executeRaw`DELETE FROM document_drafts WHERE user_id = ANY(${ids.userIds}::integer[])`
     // 删除用户关联的 document_templates
     await (p as any).$executeRaw`DELETE FROM document_templates WHERE user_id = ANY(${ids.userIds}::integer[])`
     await p.users.deleteMany({ where: { id: { in: ids.userIds } } })

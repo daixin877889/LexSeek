@@ -5,6 +5,7 @@ import { writeMemoryService } from '~~/server/services/memory/memory.service'
 describe('writeMemoryService（集成测 · 需测试库）', () => {
   let testCaseId: number
   let testUserId: number
+  let testCaseTypeId: number
 
   beforeEach(async () => {
     // 创建临时测试用户
@@ -19,10 +20,18 @@ describe('writeMemoryService（集成测 · 需测试库）', () => {
     })
     testUserId = user.id
 
-    // caseTypeId 使用测试库中实际存在的 id
-    const caseType = await prisma.caseTypes.findFirst()
+    // 自建 caseType（不依赖 seed，避免被其他测试瞬间清掉）
+    const caseType = await prisma.caseTypes.create({
+      data: {
+        name: `测试类型_memory_${suffix}_${Math.random().toString(36).slice(2, 8)}`,
+        priority: 999,
+        status: 1,
+      },
+    })
+    testCaseTypeId = caseType.id
+
     const c = await prisma.cases.create({
-      data: { title: 'test case for memory', userId: testUserId, caseTypeId: caseType!.id },
+      data: { title: 'test case for memory', userId: testUserId, caseTypeId: caseType.id },
     })
     testCaseId = c.id
   })
@@ -33,6 +42,7 @@ describe('writeMemoryService（集成测 · 需测试库）', () => {
       testCaseId.toString(),
     )
     await prisma.cases.delete({ where: { id: testCaseId } })
+    await prisma.caseTypes.delete({ where: { id: testCaseTypeId } }).catch(() => {})
     await prisma.users.delete({ where: { id: testUserId } })
   })
 
@@ -100,6 +110,7 @@ describe('writeMemoryService（集成测 · 需测试库）', () => {
 describe('updateMemoryService', () => {
   let testCaseId: number
   let testUserId: number
+  let testCaseTypeId: number
 
   beforeEach(async () => {
     const suffix = Date.now().toString().slice(-8)
@@ -113,9 +124,17 @@ describe('updateMemoryService', () => {
     })
     testUserId = user.id
 
-    const caseType = await prisma.caseTypes.findFirst()
+    const caseType = await prisma.caseTypes.create({
+      data: {
+        name: `测试类型_memory_update_${suffix}_${Math.random().toString(36).slice(2, 8)}`,
+        priority: 999,
+        status: 1,
+      },
+    })
+    testCaseTypeId = caseType.id
+
     const c = await prisma.cases.create({
-      data: { title: 'test case for update memory', userId: testUserId, caseTypeId: caseType!.id },
+      data: { title: 'test case for update memory', userId: testUserId, caseTypeId: caseType.id },
     })
     testCaseId = c.id
   })
@@ -126,6 +145,7 @@ describe('updateMemoryService', () => {
       testCaseId.toString(),
     )
     await prisma.cases.delete({ where: { id: testCaseId } })
+    await prisma.caseTypes.delete({ where: { id: testCaseTypeId } }).catch(() => {})
     await prisma.users.delete({ where: { id: testUserId } })
   })
 

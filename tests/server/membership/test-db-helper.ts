@@ -835,6 +835,12 @@ export const cleanupAllTestData = async (): Promise<void> => {
                 })
             }
 
+            // 先清理用户的 document_drafts（含 case_id=null 的 draft-only 记录）
+            // 这些 drafts 可能引用了用户的 document_templates，必须先删 drafts 才能删 templates
+            await testPrisma.$executeRaw`DELETE FROM case_materials WHERE draft_id IN (SELECT id FROM document_drafts WHERE user_id = ANY(${userIds}::integer[]))`
+            await testPrisma.$executeRaw`DELETE FROM document_draft_snapshots WHERE draft_id IN (SELECT id FROM document_drafts WHERE user_id = ANY(${userIds}::integer[]))`
+            await testPrisma.$executeRaw`DELETE FROM document_draft_versions WHERE draft_id IN (SELECT id FROM document_drafts WHERE user_id = ANY(${userIds}::integer[]))`
+            await testPrisma.$executeRaw`DELETE FROM document_drafts WHERE user_id = ANY(${userIds}::integer[])`
             // 删除用户关联的 document_templates
             await testPrisma.$executeRaw`DELETE FROM document_templates WHERE user_id = ANY(${userIds}::integer[])`
         }

@@ -603,8 +603,15 @@ export const cleanupAllTestData = async (): Promise<void> => {
         // 删除案件类型
         await prisma.caseTypes.deleteMany({ where: { name: { startsWith: TEST_CASE_TYPE_PREFIX } } })
 
-        // 删除用户和关联的 document_templates
+        // 删除用户和关联的 document_templates / document_drafts
         if (userIds.length > 0) {
+            // 先清理用户的 document_drafts（含 case_id=null 的 draft-only 记录）
+            // 这些 drafts 可能引用了用户的 document_templates，必须先删 drafts 才能删 templates
+            await prisma.$executeRaw`DELETE FROM case_materials WHERE draft_id IN (SELECT id FROM document_drafts WHERE user_id = ANY(${userIds}::integer[]))`
+            await prisma.$executeRaw`DELETE FROM document_draft_snapshots WHERE draft_id IN (SELECT id FROM document_drafts WHERE user_id = ANY(${userIds}::integer[]))`
+            await prisma.$executeRaw`DELETE FROM document_draft_versions WHERE draft_id IN (SELECT id FROM document_drafts WHERE user_id = ANY(${userIds}::integer[]))`
+            await prisma.$executeRaw`DELETE FROM document_drafts WHERE user_id = ANY(${userIds}::integer[])`
+            // 再删 templates
             await prisma.$executeRaw`DELETE FROM document_templates WHERE user_id = ANY(${userIds}::integer[])`
         }
         await prisma.users.deleteMany({ where: { id: { in: userIds } } })

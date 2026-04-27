@@ -21,8 +21,10 @@ const createTestPrisma = () => {
 
 const testPrisma = createTestPrisma()
 const createdNodeIds: number[] = []
+const createdModelIds: number[] = []
+const createdProviderIds: number[] = []
 
-// 获取一个可用的 modelId
+// 获取一个可用的 modelId（本测试自建，不依赖 seed status=1）
 let testModelId: number
 
 afterAll(async () => {
@@ -30,14 +32,40 @@ afterAll(async () => {
     for (const id of createdNodeIds) {
         await testPrisma.nodes.delete({ where: { id } }).catch(() => {})
     }
+    for (const id of createdModelIds) {
+        await testPrisma.models.delete({ where: { id } }).catch(() => {})
+    }
+    for (const id of createdProviderIds) {
+        await testPrisma.modelProviders.delete({ where: { id } }).catch(() => {})
+    }
     await testPrisma.$disconnect()
 })
 
 describe('节点 outputSchema CRUD', () => {
     it('准备测试数据：获取可用模型ID', async () => {
-        const model = await testPrisma.models.findFirst({ where: { status: 1 } })
+        // 自建一条 status=1 的 model（不依赖 seed），保证测试隔离
+        const provider = await testPrisma.modelProviders.create({
+            data: {
+                name: `test_provider_node_output_${Date.now()}`,
+                baseUrl: 'https://api.test.com',
+                description: 'node-output-schema test provider',
+            },
+        })
+        createdProviderIds.push(provider.id)
+
+        const model = await testPrisma.models.create({
+            data: {
+                providerId: provider.id,
+                name: `test_model_node_output_${Date.now()}`,
+                displayName: '测试模型',
+                modelType: 'chat',
+                status: 1,
+            },
+        })
+        createdModelIds.push(model.id)
+
         expect(model).not.toBeNull()
-        testModelId = model!.id
+        testModelId = model.id
     })
 
     it('创建节点时应支持设置 outputSchema', async () => {

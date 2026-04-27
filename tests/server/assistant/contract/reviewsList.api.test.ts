@@ -411,10 +411,13 @@ describe('listUserReviewsDAO - 真实数据库', () => {
     })
 
     it('按 caseId 精确过滤（M6.3）', async () => {
-        // 动态拿一个已有的 caseType（seedData 已写入 "合同纠纷"、"劳动争议"），避免依赖固定 id
-        const caseType = await prisma.caseTypes.findFirst({
-            where: { deletedAt: null },
-            select: { id: true },
+        // 自建一条 caseType（不依赖 seed，避免被其他测试瞬间清掉）
+        const caseType = await prisma.caseTypes.create({
+            data: {
+                name: `测试类型_m6.3_${Date.now()}`,
+                priority: 999,
+                status: 1,
+            },
         })
         expect(caseType).not.toBeNull()
 
@@ -472,6 +475,7 @@ describe('listUserReviewsDAO - 真实数据库', () => {
             expect(all.total).toBe(3)
         } finally {
             await prisma.cases.deleteMany({ where: { id: { in: [caseA.id, caseB.id] } } })
+            await prisma.caseTypes.deleteMany({ where: { id: caseType.id } })
         }
     })
 })

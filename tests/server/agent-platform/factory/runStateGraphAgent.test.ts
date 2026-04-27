@@ -122,18 +122,34 @@ describe('runStateGraphAgent', () => {
         const beforeRun = vi.fn().mockResolvedValue(undefined)
         const afterRun = vi.fn().mockResolvedValue(undefined)
 
+        // 业务 stream 立即 close，让 wrap.start() 自然完成，afterRun 通过 finally 触发
+        const closedStream = new ReadableStream({
+            start(controller) {
+                controller.close()
+            },
+        })
+
         const stream = await runStateGraphAgent(
             {
                 scope: SessionScope.CONTRACT, agentType: 'stateGraph', nodeName: 'contractReviewMain',
-                runStateGraph: vi.fn().mockResolvedValue(new ReadableStream()),
+                runStateGraph: vi.fn().mockResolvedValue(closedStream),
                 hooks: { beforeRun, afterRun },
             },
             baseCtx,
         )
 
+        // 完整消费 wrapped stream，让其 start 协程跑完进入 finally
+        const reader = stream.getReader()
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+            const { done } = await reader.read()
+            if (done) break
+        }
+        // 给 afterRun 的 microtask 一个 tick
+        await new Promise(r => setImmediate(r))
+
         expect(beforeRun).toHaveBeenCalledTimes(1)
-        // afterRun 在 stream 关闭时触发，本测试不消费 stream，故只验证 beforeRun
-        // afterRun 由 wrapStreamWithAfterRun 包装；完整路径在端到端 smoke 验证
-        await stream.cancel()
+        expect(afterRun).toHaveBeenCalledTimes(1)
+        expect(afterRun).toHaveBeenCalledWith(expect.any(Object), true)
     })
 })
