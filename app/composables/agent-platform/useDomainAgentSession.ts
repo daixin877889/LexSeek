@@ -26,7 +26,7 @@ import { postCrossTabEvent, useCrossTabListener } from '../useCrossTabEvents'
 import { useQueueDispatcher } from '../useQueueDispatcher'
 import { useApiFetch } from '../useApiFetch'
 import { useStreamChat } from '../useStreamChat'
-import { useCaseChat } from '../useCaseChat'
+import type { WrappedChat } from './types'
 import { stopActiveRun } from '../useStopActiveRun'
 
 // ── 类型定义 ──
@@ -242,9 +242,8 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
   const initialized = ref(false)
 
   // effectScope 管理（每 session 独立 scope）
-  // currentChat 用 useCaseChat 类型（已封装 sendMessage / resumeInterrupt / stopGeneration）
-  // 与 useQueueDispatcher.deps.currentChat 类型对齐
-  type WrappedChat = ReturnType<typeof useCaseChat>
+  // currentChat 是 WrappedChat（useStreamChat 实例 + sendMessage/resumeInterrupt/stopGeneration），
+  // 与 useQueueDispatcher.deps.currentChat 类型对齐（共用 ./types.ts）
   let currentScope: EffectScope | null = null
   const currentChat = shallowRef<WrappedChat | null>(null)
   let switchCounter = 0
@@ -384,7 +383,7 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
 
     currentScope = newScope
     // 在 streamChat 上叠加 sendMessage / resumeInterrupt / stopGeneration，
-    // 类型与 useCaseChat 一致（dispatcher 也按 useCaseChat 的接口消费）
+    // 类型 WrappedChat（dispatcher 共用同一类型，定义在 ./types.ts）
     const wrappedChat: WrappedChat = Object.assign(streamChat, {
       sendMessage: async (message: string, opts?: { thinking?: boolean; additional_kwargs?: Record<string, any> }) => {
         streamChat.runStatus.value = 'idle'

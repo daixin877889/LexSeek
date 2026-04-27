@@ -16,11 +16,10 @@ import type { Ref, ShallowRef, ComputedRef } from 'vue'
 import type { AgentRunStatus } from '#shared/types/agentRun'
 import { postCrossTabEvent } from './useCrossTabEvents'
 import type { QueueItem, QueuePauseReason } from './chatQueueActions'
-import type { useCaseChat } from './useCaseChat'
+import type { WrappedChat } from './agent-platform/types'
 
-// 类型别名：currentChat.value 的类型与 useChatSessionManager 已有的 shallowRef 一致
-// 注意：TS 不支持 `typeof import('...').fn` 语法，需分两行
-type ChatInstance = ReturnType<typeof useCaseChat>
+// 类型别名：currentChat.value 与工厂内 currentChat 共用同一类型（agent-platform/types.ts）
+type ChatInstance = WrappedChat
 
 export interface QueueDispatcherDeps {
   currentSessionId: Ref<string | null>
