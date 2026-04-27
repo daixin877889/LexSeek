@@ -1,21 +1,39 @@
 /**
- * 合同审查对话 - 薄包装
+ * 合同审查 - 薄包装（阶段 7 重写）
  *
- * 替代 useContractReview：基于 useDomainAgentSession 工厂的轻薄包装
+ * 替代 useContractReview 的 stream/对话部分。reviewId 模式驱动单 session 工厂。
+ * 业务方法（stages / risks-editing / lifecycle）由调用方页面直接 import 3 个 sub-composable 自己组装。
+ *
+ * 用法：
+ *   const sessionId = ref<string | null>(null)
+ *   const agent = useContractAgent(sessionId, {
+ *     onCustomEvent: lifecycle.applyCustomEvent,
+ *     onStreamSettled: lifecycle.refreshReview,
+ *   })
+ *
+ * 业务 sub-composable（调用方按需 import）：
+ *   - useContractReviewStages
+ *   - useContractReviewRisksEditing
+ *   - useContractReviewLifecycle
  */
 
 import type { Ref } from 'vue'
-import { computed } from 'vue'
 import { useUserStore } from '~/store/user'
 import { useDomainAgentSession } from '../agent-platform/useDomainAgentSession'
 
-export function useContractAgent(sessionId: Ref<string | null>) {
-  const userStore = useUserStore()
-  const validSessionId = computed(() => sessionId.value ?? `contract-${Date.now()}`)
+export interface UseContractAgentOptions {
+    onCustomEvent?: (data: unknown) => void
+    onStreamSettled?: (status: 'completed' | 'failed') => void | Promise<void>
+}
 
-  return useDomainAgentSession({
-    scope: 'contract',
-    sessionId: validSessionId.value,
-    userId: String(userStore.userInfo.id ?? ''),
-  })
+export function useContractAgent(sessionId: Ref<string | null>, options: UseContractAgentOptions = {}) {
+    const userStore = useUserStore()
+
+    return useDomainAgentSession({
+        scope: 'contract',
+        sessionId: sessionId.value ?? 'auto',
+        userId: String(userStore.userInfo.id ?? ''),
+        onCustomEvent: options.onCustomEvent,
+        onStreamSettled: options.onStreamSettled,
+    })
 }

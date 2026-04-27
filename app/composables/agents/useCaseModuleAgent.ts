@@ -1,79 +1,111 @@
 /**
- * 案件模块对话 - 薄包装
+ * 案件模块对话 - 薄包装（阶段 7 重写）
  *
- * 替代 useModuleChatManager：基于 useDomainAgentSession 工厂的轻薄包装
+ * 替代 useModuleChatManager。每个 moduleName 独立 session pool 实例。
+ * 用 useDomainAgentSessionPool（任务 1.3）实现多 key 池化。
+ *
+ * 用法：
+ *   const manager = useCaseModuleAgent(caseIdRef, { onAnalysisSaved })
+ *   const moduleChat = manager.getOrCreateInstance(moduleName, moduleTitle)
  */
 
-import type { Ref } from 'vue'
-import { ref, toValue } from 'vue'
+import { ref, computed, type Ref } from 'vue'
 import { useUserStore } from '~/store/user'
-import { useDomainAgentSession } from '../agent-platform/useDomainAgentSession'
-import type { DomainAgentSessionConfig } from '../agent-platform/useDomainAgentSession'
+import { useDomainAgentSessionPool } from '../agent-platform/useDomainAgentSession'
+import type { SessionFactory } from '../agent-platform/useDomainAgentSession'
 
-export interface ModuleAgentInstance {
-  sessionId: string
-  moduleName: string
-  moduleTitle: string
-  isExpanded: Ref<boolean>
-  isHidden: Ref<boolean>
-  // 从工厂继承的所有能力
-  messages: any
-  isLoading: any
-  interruptData: any
-  runStatus: any
-  runError: any
-  sessions: any
-  currentSessionId: any
-  sendMessage: any
-  resumeInterrupt: any
-  switchSession: any
-  createSession: any
-  deleteSession: any
-  renameSession: any
-  stopGeneration: any
-  currentQueue: any
-  currentQueueLen: any
-  isQueuePaused: any
-  queuePauseReason: any
-  enqueueMessage: any
-  removeQueueItem: any
-  resumeQueue: any
-  clearQueue: any
+export interface ModuleAgentInstance extends SessionFactory {
+    moduleName: string
+    moduleTitle: string
+    isExpanded: Ref<boolean>
+    isHidden: Ref<boolean>
 }
 
 export interface CaseModuleAgentOptions {
-  onAnalysisSaved?: () => void
+    onAnalysisSaved?: () => void
 }
 
-/**
- * 为每个模块创建独立的工厂实例
- */
 export function useCaseModuleAgent(
-  caseId: Ref<number>,
-  moduleName: string,
-  moduleTitle: string,
-  options: CaseModuleAgentOptions = {},
+    caseId: Ref<number>,
+    options: CaseModuleAgentOptions = {},
 ) {
-  const userStore = useUserStore()
-  const caseIdValue = toValue(caseId)
+    const userStore = useUserStore()
+    const userId = String(userStore.userInfo.id ?? '')
 
-  // 为该模块生成唯一 sessionId（基于 moduleName + caseId，无时间戳以支持复用）
-  const sessionId = `module-${moduleName}-${caseIdValue}`
+    const pool = useDomainAgentSessionPool({
+        scope: 'case',
+        userId,
+        caseId: caseId.value,
+        // case 模块对话走专用 API 端点（apiEndpoints 由工厂按 scope 推断时已支持 moduleName 参数）
+        onCustomEvent: (data) => {
+            if (data && typeof data === 'object' && 'name' in data && (data as any).name === 'analysis_result_saved') {
+                options.onAnalysisSaved?.()
+            }
+        },
+    })
 
-  const factory = useDomainAgentSession({
-    scope: 'case',
-    sessionId,
-    userId: String(userStore.userInfo.id ?? ''),
-    caseId: caseIdValue,
-  })
+    // 业务元数据存储（每 moduleName 一份 isExpanded / isHidden / moduleTitle）
+    const metadata = ref<Record<string, { moduleTitle: string; isExpanded: Ref<boolean>; isHidden: Ref<boolean> }>>({})
+    const expandedModule = ref<string | null>(null)
+    const generatingModules = ref<string[]>([])
 
-  const instance: ModuleAgentInstance = Object.assign(factory as any, {
-    sessionId,
-    moduleName,
-    moduleTitle,
-    isExpanded: ref(false),
-    isHidden: ref(false),
-  })
+    function getOrCreateInstance(moduleName: string, moduleTitle: string): ModuleAgentInstance {
+        const factory = pool.getOrCreate(moduleName, {
+            // 每个模块的 session 通过 moduleName 隔离（apiEndpoints 内已支持）
+            sessionId: 'auto',
+        })
+        if (!metadata.value[moduleName]) {
+            metadata.value[moduleName] = {
+                moduleTitle,
+                isExpanded: ref(false),
+                isHidden: ref(false),
+            }
+        }
+        const meta = metadata.value[moduleName]!
+        return Object.assign(factory, {
+            moduleName,
+            moduleTitle: meta.moduleTitle,
+            isExpanded: meta.isExpanded,
+            isHidden: meta.isHidden,
+        })
+    }
 
-  return instance
+    function expandModule(moduleName: string) {
+        Object.keys(metadata.value).forEach((k) => {
+            metadata.value[k]!.isExpanded.value = (k === moduleName)
+        })
+        expandedModule.value = moduleName
+    }
+
+    function hideModule(moduleName: string) {
+        const meta = metadata.value[moduleName]
+        if (meta) {
+            meta.isHidden.value = true
+            meta.isExpanded.value = false
+        }
+        if (expandedModule.value === moduleName) expandedModule.value = null
+    }
+
+    function collapseAll() {
+        Object.values(metadata.value).forEach(m => { m.isExpanded.value = false })
+        expandedModule.value = null
+    }
+
+    const activeModules = computed(() => {
+        return Object.entries(metadata.value)
+            .filter(([_, meta]) => !meta.isHidden.value)
+            .map(([name]) => name)
+    })
+
+    return {
+        getOrCreateInstance,
+        getOrCreateModuleManager: getOrCreateInstance,  // 兼容旧名
+        expandModule,
+        hideModule,
+        collapseAll,
+        expandedModule,
+        activeModules,
+        generatingModules,
+        instances: metadata,  // 兼容旧名
+    }
 }
