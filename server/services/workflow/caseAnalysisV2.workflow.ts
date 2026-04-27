@@ -1,30 +1,34 @@
 /**
  * 案件分析工作流
  *
- * 使用 LangGraph 原生编排（StateGraph + ToolNode）替代 ReactAgent
- * 解决 ReactAgent 在 streamMode 多模式下 invoke 失败的问题
+ * 主图使用 LangGraph StateGraph 串联各分析模块（按 nodes.priority 顺序）。
+ * 每个 analysis 节点内部委托给 runAnalysisSubAgent 跑 createAgent 标准管道，
+ * 自动获得 messageIntegrity / scopeGuard / summarization / safetyTrim / audit
+ * + 节点关联 skill 时自动挂 skillsMw + 4 skill 工具（read/write/runScript/runCommand）。
  *
- * 每个分析模块内部构建独立的 ReAct 图（callModel → tools 循环）
+ * 主图职责（不下放给子 agent）：
+ *   - 步骤 1-3：会员检查 + 积分预检（while 循环 + interrupt 支持充值恢复）
+ *   - 步骤 4：创建 IN_PROGRESS 持久化记录
+ *   - 步骤 5c：token 计算
+ *   - 步骤 5d：分析结果持久化（COMPLETED + pointDeducted=false）
+ *   - 步骤 6：积分扣减（while 循环 + interrupt 支持充值恢复）
+ *
  * 支持 streamMode: ['values', 'messages', 'updates'] + subgraphs: true
  */
 
-import { StateGraph, StateSchema, Annotation, MessagesAnnotation, MessagesValue, ReducedValue, START, END, interrupt, isGraphInterrupt } from "@langchain/langgraph"
-import { ToolNode } from '@langchain/langgraph/prebuilt'
+import { StateGraph, StateSchema, MessagesValue, ReducedValue, START, END, interrupt, isGraphInterrupt } from "@langchain/langgraph"
 import type { GraphNode } from "@langchain/langgraph"
-import { HumanMessage, SystemMessage, isAIMessage } from '@langchain/core/messages'
+import { isAIMessage } from '@langchain/core/messages'
 import { getCheckpointer } from './checkpointer'
-import { buildContextSegments, toCachedPrompt } from './context/moduleContextBuilder'
-import { estimateMessagesTokens, getContextBudget, compressMessages, safetyTrimMessages, sliceForCompression, canReuseSummaryCache } from './context/messageCompressor'
 import { z } from "zod/v4"
-import { getNodeConfigsByTypes, getValidNodeConfig, getNodeByNameService } from '../node/node.service'
-import { createChatModel, cachedPromptToAnthropicContent, cachedPromptToPlainText } from '../node/chatModelFactory'
-import { getToolInstancesService } from './tools'
+import { getNodeConfigsByTypes, getNodeByNameService } from '../node/node.service'
 import { findAnalysisBySessionAndNodeDao, findLatestAnalysisBySessionAndNodeDao, AnalysisStatus } from '../case/analysis.dao'
 import { markAnalysisFailedById } from './middleware/analysisResultPersistence.middleware'
 import { deactivateVersionsDao, updateAnalysisDao, createAnalysisDao } from '../case/analysis.dao'
 import { checkPointsService, consumePointsService } from '../point/pointConsumption.service'
 import { getCurrentMembershipService } from '../membership/userMembership.service'
 import { InterruptType } from '#shared/types/case'
+import { runAnalysisSubAgent } from '~~/server/agents/case-analysis/runAnalysisSubAgent'
 
 
 /**
@@ -233,188 +237,21 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
                     }
                 }
 
-                // 步骤 5a：执行 LLM 分析
-                const nodeConfig = await getValidNodeConfig(agentName)
-                const activeApiKey = nodeConfig.modelApiKeys.find((k: any) => k.status === 1)
-                if (!activeApiKey) throw new Error(`${agentName} 节点无可用 API 密钥`)
-
-                const model = createChatModel({
-                    sdkType: nodeConfig.modelSdkType,
-                    modelName: nodeConfig.modelName,
-                    apiKey: activeApiKey.apiKey,
-                    baseUrl: nodeConfig.modelProviderBaseUrl,
-                    temperature: 0.7,
-                    streaming: true,
-                    thinking: state.thinking,
-                })
-
-                const tools = nodeConfig.tools?.length > 0
-                    ? getToolInstancesService(nodeConfig.tools, {
-                        userId: state.userId,
-                        caseId: state.caseId,
-                        sessionId: state.sessionId,
-                    })
-                    : []
-
-                const toolNode = tools.length > 0 ? new ToolNode(tools) : null
-                const modelWithTools = tools.length > 0 && model.bindTools ? model.bindTools(tools) : model
-
-                const systemPrompt = nodeConfig.prompts?.find(
-                    (p: any) => p.type === 'system' && p.status === 1,
-                )?.content ?? ''
-
-                // InnerState 扩展 _summaryCache：仅 callModel 内部使用，不影响 state.messages（律师可见的完整历史）
-                //
-                // 缓存判定策略：ReAct 每轮会新增 AI + tool_result 消息，随着消息增多，compressMessages 切出的
-                // middleMessages 会缓慢向尾部扩展（原属 recent 段的消息被"挤进" middle）。只要新 middleIds 是
-                // 旧 middleIds 的严格超集 + 新增条数不多（约一轮 ReAct 量），AI 上一轮就已经在 recent 段看过
-                // 这些新增消息、并据此产生了输出，完全可以复用上一次的摘要，不必重新调 LLM 摘要。
-                //
-                // 这解决"后期一直在循环调用压缩"的问题，同时满足 2026-03-31 案件分析上下文优化 spec 的硬性
-                // 要求：state.messages 始终保留完整原始消息。
-                const InnerState = Annotation.Root({
-                    ...MessagesAnnotation.spec,
-                    _summaryCache: Annotation<{ middleIds: string[], summaryMessage: HumanMessage } | null>({
-                        reducer: (_prev, next) => next,
-                        default: () => null,
-                    }),
-                })
-
-                const { budget: contextBudget, compressThreshold } = getContextBudget(nodeConfig.modelContextWindow)
-
-                const callModel = async (innerState: typeof InnerState.State) => {
-                    let messagesToSend = innerState.messages
-                    let nextSummaryCache = innerState._summaryCache ?? null
-
-                    // 防线2：动态摘要压缩（带缓存，避免 ReAct 循环里反复调 LLM 摘要）
-                    const roughEstimate = estimateMessagesTokens(innerState.messages)
-                    if (roughEstimate > compressThreshold) {
-                        const slice = sliceForCompression(innerState.messages)
-
-                        if (slice.middleMessages.length === 0) {
-                            // 没有可压缩段（消息太少），保持原样
-                            messagesToSend = innerState.messages
-                        } else if (
-                            innerState._summaryCache
-                            && canReuseSummaryCache(innerState._summaryCache.middleIds, slice.middleIds)
-                        ) {
-                            // ✅ 命中缓存：直接复用上次摘要，跳过 LLM 调用
-                            logger.info('摘要缓存命中，跳过 LLM 摘要', {
-                                agentName,
-                                cachedMiddleCount: innerState._summaryCache.middleIds.length,
-                                currentMiddleCount: slice.middleIds.length,
-                                delta: slice.middleIds.length - innerState._summaryCache.middleIds.length,
-                            })
-                            messagesToSend = [
-                                ...(slice.systemMessage ? [slice.systemMessage] : []),
-                                innerState._summaryCache.summaryMessage,
-                                ...slice.recentMessages,
-                            ]
-                        } else {
-                            // ❌ 未命中（首次 / 中间段变化大 / 有消息缺失 id）：真的调 LLM 摘要，更新缓存
-                            logger.info('触发消息压缩', {
-                                agentName,
-                                roughEstimate,
-                                compressThreshold,
-                                middleCount: slice.middleMessages.length,
-                                cachedMiddleCount: innerState._summaryCache?.middleIds.length ?? 0,
-                            })
-                            const compressed = await compressMessages(innerState.messages, contextBudget, model)
-                            messagesToSend = compressed
-
-                            // 摘要成功时（返回结构为 [system, summary, ...recent]），提取摘要消息写入缓存
-                            // 必须有有效的 middleIds 才能缓存（无 id 的消息集合无法做超集比对）
-                            if (
-                                compressed !== innerState.messages
-                                && compressed.length >= 2
-                                && slice.middleIds.length === slice.middleMessages.length
-                            ) {
-                                const summaryMessage = compressed[1] as HumanMessage
-                                nextSummaryCache = { middleIds: slice.middleIds, summaryMessage }
-                            }
-                        }
-                    }
-
-                    // 防线3：safetyTrimMessages 兜底（临时截断用于模型调用，不写回 state 避免 checkpoint 丢失完整历史）
-                    const beforeTrimLen = messagesToSend.length
-                    const trimEstimate = messagesToSend === innerState.messages ? roughEstimate : undefined
-                    messagesToSend = await safetyTrimMessages(messagesToSend, contextBudget, trimEstimate)
-                    if (messagesToSend.length < beforeTrimLen) {
-                        logger.warn('V2 路径消息临时截断', {
-                            agentName,
-                            estimated: trimEstimate ?? roughEstimate,
-                            budget: contextBudget,
-                            before: beforeTrimLen,
-                            after: messagesToSend.length,
-                        })
-                    }
-
-                    const response = await modelWithTools.invoke(messagesToSend)
-                    // state.messages 只 append response（保留完整原始历史）；缓存通过 _summaryCache 字段持久化
-                    return {
-                        messages: [response],
-                        ...(nextSummaryCache !== innerState._summaryCache && { _summaryCache: nextSummaryCache }),
-                    }
-                }
-
-                const shouldContinue = (innerState: typeof InnerState.State) => {
-                    const lastMsg = innerState.messages[innerState.messages.length - 1]
-                    if (lastMsg && isAIMessage(lastMsg) && lastMsg.tool_calls?.length) return 'tools'
-                    return '__end__'
-                }
-
-                const innerBuilder = new StateGraph(InnerState)
-                    .addNode('callModel', callModel)
-                    .addEdge(START, 'callModel')
-
-                if (toolNode) {
-                    innerBuilder
-                        .addNode('tools', toolNode)
-                        .addConditionalEdges('callModel', shouldContinue, { tools: 'tools', __end__: END })
-                        .addEdge('tools', 'callModel')
-                } else {
-                    innerBuilder.addEdge('callModel', END)
-                }
-
-                const innerGraph = innerBuilder.compile()
-
-                // 构建 5 段式上下文
-                const segs = await buildContextSegments({
-                    caseId: state.caseId,
+                // 步骤 5：执行 LLM 分析（复用 agent-platform 中间件管道）
+                // 子 agent 内部走标准管道：消息完整性 / scopeGuard / toolCallLimit /
+                // summarization / safetyTrim / audit + 节点关联 skill 时自动挂 skillsMw + 4 skill 工具。
+                // 故意不挂 pointConsumption / analysisResultPersistence —— 主图步骤 5d/6 自己处理。
+                const sub = await runAnalysisSubAgent({
                     agentName,
-                    userQuery: state.prompt ?? '',
-                    roleAndFlowTemplate: systemPrompt,
+                    moduleTitle,
+                    userId: state.userId,
+                    caseId: state.caseId,
+                    sessionId: state.sessionId,
+                    runId: '',  // V2 主流程未透传 runId，留空（持久化层不依赖此字段）
+                    thinking: state.thinking ?? true,
                 })
-
-                let systemContent: string | Array<Record<string, unknown>>
-                if (nodeConfig.modelSdkType === 'anthropic') {
-                    systemContent = cachedPromptToAnthropicContent(toCachedPrompt(segs))
-                } else {
-                    systemContent = cachedPromptToPlainText(toCachedPrompt(segs))
-                }
-
-                const initialMessages = [
-                    ...(systemContent ? [new SystemMessage({ content: systemContent as any })] : []),
-                    new HumanMessage(`现在请开始"${moduleTitle}"分析。`),
-                ]
-
-                const response = await innerGraph.invoke(
-                    { messages: initialMessages },
-                    { recursionLimit: 1000 },
-                )
-
-                responseMessages = response.messages ?? []
-
-                // 步骤 5b：提取结果
-                const lastMsg = responseMessages[responseMessages.length - 1]
-                if (lastMsg && typeof lastMsg.content === 'string') {
-                    resultText = lastMsg.content
-                } else if (lastMsg && Array.isArray(lastMsg.content)) {
-                    resultText = lastMsg.content
-                        .filter((c: any) => c.type === 'text')
-                        .map((c: any) => c.text)
-                        .join('\n')
-                }
+                responseMessages = sub.messages
+                resultText = sub.resultText
 
                 // 步骤 5c：计算 token
                 totalTokens = calculateTotalTokens(responseMessages)
