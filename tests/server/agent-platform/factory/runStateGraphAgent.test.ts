@@ -93,24 +93,26 @@ describe('runStateGraphAgent', () => {
         )).rejects.toThrow(/missing.*vertical=contract/)
     })
 
-    it('runStateGraph throw 时平台 publish failed 事件并 rethrow', async () => {
+    it('runStateGraph throw 时平台不发 SSE（让 agentWorker 顶层 publishStatusChange 统一发），rethrow + afterRun(false)', async () => {
         const { getNodeConfigCached } = await import('~~/server/services/agent-platform/nodeConfig/loader')
         const { publishCustomEvent } = await import('~~/server/services/agent/agentEventBridge')
         ;(getNodeConfigCached as any).mockResolvedValue(mockNodeConfig)
 
         const err = new Error('business boom')
+        const afterRun = vi.fn().mockResolvedValue(undefined)
         const def: DomainAgentDefinition = {
             scope: SessionScope.CONTRACT,
             agentType: 'stateGraph',
             nodeName: 'contractReviewMain',
             runStateGraph: vi.fn().mockRejectedValue(err),
+            hooks: { afterRun },
         }
 
         await expect(runStateGraphAgent(def, baseCtx)).rejects.toThrow('business boom')
-        expect(publishCustomEvent).toHaveBeenCalledWith(expect.objectContaining({
-            name: 'status_change',
-            data: expect.objectContaining({ status: 'failed', error: 'business boom' }),
-        }))
+        // 平台不重复发 status_change（避免与 agentWorker.executeRun 顶层 publishStatusChange 重复）
+        expect(publishCustomEvent).not.toHaveBeenCalled()
+        // afterRun 被以 success=false 调用
+        expect(afterRun).toHaveBeenCalledWith(expect.any(Object), false)
     })
 
     it('beforeRun / afterRun 钩子被调用', async () => {

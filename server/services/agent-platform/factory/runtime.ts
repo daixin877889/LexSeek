@@ -378,21 +378,20 @@ export async function runStateGraphAgent(
     await def.hooks?.beforeRun?.(enhancedCtx)
 
     // 6. 执行业务 stateGraph，错误兜底
+    //    注意：status_change=failed 事件由上层 agentWorker.executeRun 的 catch 通过
+    //    publishStatusChange 统一发出（见 server/services/agent/agentWorker.ts:341），
+    //    这里只 logger.error + afterRun(false) + rethrow，避免重复发事件。
     let stream: ReadableStream
     try {
         stream = await def.runStateGraph(enhancedCtx)
     } catch (err) {
-        // 平台兜底：业务 throw 转为 SSE failed event
-        await emitCustomEvent({
-            name: 'status_change',
-            data: {
-                type: 'status_change',
-                runId: ctx.runId,
-                sessionId: ctx.sessionId,
-                status: 'failed',
-                error: err instanceof Error ? err.message : String(err),
-            },
-        }).catch(() => {/* fire-and-forget */})
+        logger.error('[runStateGraphAgent] business throw', {
+            scope: def.scope,
+            nodeName: resolvedNodeName,
+            runId: ctx.runId,
+            sessionId: ctx.sessionId,
+            error: err instanceof Error ? err.message : String(err),
+        })
         await def.hooks?.afterRun?.(enhancedCtx, false)
         throw err
     }
