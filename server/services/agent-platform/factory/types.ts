@@ -10,10 +10,25 @@
 import type { SessionScope, SessionType } from '#shared/types/agentEvent'
 import type { MiddlewareWithPriority } from '~~/server/services/agent-platform/middleware/types'
 import type { AgentRunner, AgentRunnerContext } from '~~/server/services/agent-platform/registry/types'
+import type { NodeConfig } from '~~/server/services/node/node.service'
 import type { StructuredToolInterface } from '@langchain/core/tools'
 
 /** Agent 类型：createAgent（ReAct 循环）或 stateGraph（自定义图） */
 export type DomainAgentType = 'createAgent' | 'stateGraph'
+
+/**
+ * 增强版 stateGraph 运行 ctx：在 AgentRunnerContext 之上注入平台已加载的能力。
+ * 业务 vertical 的 runStateGraph 接收此类型，无需自己加载 nodeConfig / 造 emitter。
+ */
+export interface StateGraphAgentContext extends AgentRunnerContext {
+    /** 平台已加载的节点配置（缓存） */
+    nodeConfig: NodeConfig
+    /**
+     * 类型化 customEvent emitter（runId/sessionId 已绑定）。
+     * 业务调 emit({ name, data }) 即可，平台底层调 publishCustomEvent。
+     */
+    emitCustomEvent: (event: { name: string; data: unknown }) => Promise<void>
+}
 
 /** 业务 vertical 的 Agent 声明 */
 export interface DomainAgentDefinition {
@@ -40,7 +55,7 @@ export interface DomainAgentDefinition {
         afterRun?: (ctx: AgentRunnerContext, success: boolean) => Promise<void>
     }
     /** 仅 stateGraph 类型使用：自定义图运行入口，返回 SSE ReadableStream */
-    runStateGraph?: (ctx: AgentRunnerContext) => Promise<ReadableStream>
+    runStateGraph?: (ctx: StateGraphAgentContext) => Promise<ReadableStream>
     /** 描述信息（admin 面板 / introspection 用途） */
     description?: string
 }
