@@ -43,6 +43,14 @@ vi.mock('~~/server/agents/contract/contractAnnotation.dao', () => ({
     listAnnotationsForExportDAO: vi.fn(),
 }))
 
+// stage 8 coverage 模式下显式 mock contractAnnotation.service，
+// 避免 istanbul instrumentation 改变模块加载次序导致 filterExportableDbAnnotations 未定义。
+// vitest run（无 coverage）能通过是因为模块缓存命中——这是 mock 配置不完整的隐性 bug。
+vi.mock('~~/server/agents/contract/contractAnnotation.service', () => ({
+    filterExportableDbAnnotations: vi.fn((annotations: any[]) => annotations),
+    isAnnotationExportable: vi.fn(() => true),
+}))
+
 vi.mock('~~/server/services/storage/storage.service', () => ({
     downloadFileService: vi.fn(),
     uploadFileService: vi.fn(),

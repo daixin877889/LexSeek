@@ -1,8 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { AgentRegistry, agentRegistry } from '~~/server/services/agent-platform/registry/agentRegistry'
+import { AgentRegistry } from '~~/server/services/agent-platform/registry/agentRegistry'
 import type { AgentRunnerContext } from '~~/server/services/agent-platform/registry/types'
 import { SessionScope, SessionType } from '#shared/types/agentEvent'
-import { registerLegacyRunners } from '~~/server/services/agent-platform/registry/registerLegacyRunners'
 
 function makeStream(): ReadableStream {
     return new ReadableStream({
@@ -92,17 +91,7 @@ describe('AgentRegistry', () => {
     })
 })
 
-describe('registerLegacyRunners 幂等性', () => {
-    it('多次调用只注册一次（避免重复注册抛错）', () => {
-        // 注：本测试用的是全局 agentRegistry。为避免污染其他测试，
-        // 仅用幂等行为验证。
-        const beforeSize = agentRegistry.list().length
-        registerLegacyRunners()
-        const afterFirst = agentRegistry.list().length
-        registerLegacyRunners()
-        const afterSecond = agentRegistry.list().length
-
-        expect(afterFirst - beforeSize).toBeGreaterThanOrEqual(0)
-        expect(afterSecond).toBe(afterFirst)   // 第二次调用未增加
-    })
-})
+// TODO(stage8): registerLegacyRunners 已删除（caseAnalysisAgent vertical 替代）。
+// 原"幂等性测试"已无意义（函数和文件都已物理删除），整段移除。
+// vertical 注册的幂等性由 defineDomainAgent 内部的 agentRegistry.register
+// 在重复注册时抛错（"已注册"）保证——见上面 "重复注册同 (scope, type) 抛错" 用例。

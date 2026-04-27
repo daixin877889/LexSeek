@@ -34,6 +34,13 @@ vi.mock('~~/server/agents/contract/docx', () => ({
         refsByAnnotationId: new Map(),
     })),
 }))
+// stage 8 coverage 模式下显式 mock contractAnnotation.service，
+// 避免 istanbul instrumentation 改变模块加载次序导致 filterExportableDbAnnotations 未定义。
+vi.mock('~~/server/agents/contract/contractAnnotation.service', () => ({
+    filterExportableDbAnnotations: vi.fn((annotations: any[]) => annotations),
+    isAnnotationExportable: vi.fn(() => true),
+}))
+
 vi.mock('~~/server/agents/contract/contractAnnotation.dao', () => ({
     listAnnotationsForExportDAO: vi.fn(async () => []),
 }))
