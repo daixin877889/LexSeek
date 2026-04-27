@@ -208,8 +208,9 @@ describe('OSS 文件数据访问层测试', () => {
             files.forEach(f => testIds.ossFileIds.push(f.id))
 
             const prisma = getTestPrisma()
+            // 严格按本测试创建的 fileIds 聚合，避免上一轮残留 oss_files 干扰
             const result = await prisma.ossFiles.aggregate({
-                where: { userId: user.id, deletedAt: null },
+                where: { id: { in: files.map(f => f.id) }, deletedAt: null },
                 _sum: { fileSize: true },
                 _count: { id: true },
             })

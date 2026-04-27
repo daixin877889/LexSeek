@@ -60,6 +60,8 @@ export default defineVitestConfig({
             // 排除所有 git worktree 目录下的测试（避免并发 worktree 的旧代码串进主测试结果）
             '**/.worktrees/**',
             '**/tests/server/api/**',
+            // 评估库专用（要求 DATABASE_URL 指向 ls_eval），主测试库 ls_new_testing 跑不了
+            '**/tests/eval/fixtures/buildFixture.test.ts',
             // 排除需要 Nuxt 自动导入完整支持的测试
             '**/tests/server/case/case.service.test.ts',
             '**/tests/server/case/case.dao.test.ts',
@@ -88,13 +90,13 @@ export default defineVitestConfig({
         },
         // Vitest 4 要求 coverage 位于 test.coverage 下（旧的顶层写法在 defineVitestConfig 下部分情况会失效）
         coverage: {
-            provider: 'v8',
+            // 用 istanbul 替代 v8：v8 provider 在 Nuxt 测试 env 下 worker 退出时不触发
+            // finalize，导致 reportsDirectory 始终为空（无 index.html / coverage-summary.json）
+            provider: 'istanbul',
             reporter: ['text', 'json', 'json-summary', 'html'],
             // Nuxt 测试环境会把 worker 工作目录切到 app/，导致相对路径 reportsDirectory
             // 落到 app/coverage。这里强制用绝对路径 + 项目根目录的 coverage/ 输出
             reportsDirectory: resolve(rootDir, 'coverage'),
-            // v8 provider 在 Nuxt env 下 root 被改到 app/，使 include 的相对 glob 失效
-            // 只能匹配到 app/ 内文件。使用绝对路径 + 关闭 v8 的 root-relative 处理：
             allowExternal: true,
             // 排除不需要的文件
             exclude: [

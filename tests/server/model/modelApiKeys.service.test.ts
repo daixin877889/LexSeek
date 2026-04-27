@@ -229,7 +229,11 @@ describe('模型 API 密钥服务层集成测试', () => {
             const disabledKey = await createTestModelApiKey(provider.id, { status: ModelStatus.DISABLED })
             testIds.apiKeyIds.push(enabledKey.id, disabledKey.id)
 
-            const result = await getModelApiKeysService({ status: ModelStatus.ENABLED })
+            // 加 providerId 限定，避免分页 pageSize=10 把当前测试创建的 key 挤出列表
+            const result = await getModelApiKeysService({
+                status: ModelStatus.ENABLED,
+                providerId: provider.id,
+            })
 
             expect(result.list.some(k => k.id === enabledKey.id)).toBe(true)
             expect(result.list.some(k => k.id === disabledKey.id)).toBe(false)

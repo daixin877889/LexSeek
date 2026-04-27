@@ -485,8 +485,13 @@ export const cleanupTestData = async (testIds: CaseTestIds): Promise<void> => {
             })
         }
 
-        // 5. 删除 OSS 文件
+        // 5. 删除 OSS 文件（先清掉引用这些 ossFileIds 的 case_materials，
+        //    包括 caseId/draftId 都为 null 的"游离"测试材料，否则下次 findMaterialsByOssFileIdDAO
+        //    会查到上一轮残留）
         if (testIds.ossFileIds.length > 0) {
+            await getTestPrisma().caseMaterials.deleteMany({
+                where: { ossFileId: { in: testIds.ossFileIds } },
+            })
             await getTestPrisma().ossFiles.deleteMany({
                 where: { id: { in: testIds.ossFileIds } },
             })
@@ -656,18 +661,24 @@ export const isTestDbAvailable = async (): Promise<boolean> => {
 }
 
 /**
- * 重置数据库序列
+ * 重置数据库序列。
+ *
+ * 把序列推到 max(id) 之后再加一个安全偏移，避免：
+ *  1. 某些 client 还持有旧 nextval cache 时插入与 MAX(id)+1 冲突；
+ *  2. 多次 setval 之间存在并发插入时仍能保证生成的 id 严格大于已有数据。
  */
 export const resetDatabaseSequences = async (): Promise<void> => {
     try {
         const prisma = getTestPrisma()
-        await prisma.$executeRaw`SELECT setval('cases_id_seq', GREATEST((SELECT MAX(id) FROM cases), 1000))`
-        await prisma.$executeRaw`SELECT setval('case_types_id_seq', GREATEST((SELECT MAX(id) FROM case_types), 1000))`
-        await prisma.$executeRaw`SELECT setval('case_materials_id_seq', GREATEST((SELECT MAX(id) FROM case_materials), 1000))`
-        await prisma.$executeRaw`SELECT setval('case_analyses_id_seq', GREATEST((SELECT MAX(id) FROM case_analyses), 1000))`
-        await prisma.$executeRaw`SELECT setval('oss_files_id_seq', GREATEST((SELECT MAX(id) FROM oss_files), 1000))`
-        await prisma.$executeRaw`SELECT setval('nodes_id_seq', GREATEST((SELECT MAX(id) FROM nodes), 1000))`
-        await prisma.$executeRaw`SELECT setval('users_id_seq', GREATEST((SELECT MAX(id) FROM users), 1000))`
+        // 偏移 +1000 进一步避免序列与残留行碰撞
+        await prisma.$executeRaw`SELECT setval('cases_id_seq', GREATEST((SELECT COALESCE(MAX(id), 0) FROM cases), 1000) + 1000)`
+        await prisma.$executeRaw`SELECT setval('case_types_id_seq', GREATEST((SELECT COALESCE(MAX(id), 0) FROM case_types), 1000) + 1000)`
+        await prisma.$executeRaw`SELECT setval('case_materials_id_seq', GREATEST((SELECT COALESCE(MAX(id), 0) FROM case_materials), 1000) + 1000)`
+        await prisma.$executeRaw`SELECT setval('case_analyses_id_seq', GREATEST((SELECT COALESCE(MAX(id), 0) FROM case_analyses), 1000) + 1000)`
+        await prisma.$executeRaw`SELECT setval('oss_files_id_seq', GREATEST((SELECT COALESCE(MAX(id), 0) FROM oss_files), 1000) + 1000)`
+        await prisma.$executeRaw`SELECT setval('nodes_id_seq', GREATEST((SELECT COALESCE(MAX(id), 0) FROM nodes), 1000) + 1000)`
+        await prisma.$executeRaw`SELECT setval('users_id_seq', GREATEST((SELECT COALESCE(MAX(id), 0) FROM users), 1000) + 1000)`
+        await prisma.$executeRaw`SELECT setval('point_records_id_seq', GREATEST((SELECT COALESCE(MAX(id), 0) FROM point_records), 1000) + 1000)`
     } catch (error) {
         console.warn('重置数据库序列时出错：', error)
     }

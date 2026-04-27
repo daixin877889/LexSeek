@@ -179,25 +179,24 @@ describe('案件类型服务层', () => {
 
     describe('getFirstEnabledCaseTypeService - 获取第一条启用的案件类型', () => {
         it('应返回按 priority 排序的第一条启用记录', async () => {
-            // 自给自足：本测试创建一条 priority 极小的启用记录，断言它被返回
-            // （不依赖 seed，避免与其他文件并行/串行时被脏 status 影响）
+            // 用一个全局都可能取得的最小 priority（0），让本测试创建的记录稳定排第一
+            // 同时不强求"返回的是本条"，因为相同 priority 时 PG 返回顺序不确定，
+            // 只断言返回的 priority 等于全表最小值（业务语义：取 priority 最小的启用记录）
             const ourCaseType = await createCaseTypeService({
                 name: `测试类型_first_enabled_${Date.now()}`,
                 status: 1,
-                priority: 1,
+                priority: 0,
             })
             testIds.caseTypeIds.push(ourCaseType.id)
 
             const first = await getFirstEnabledCaseTypeService()
             expect(first).not.toBeNull()
 
-            // 验证返回的是 priority 最小的
-            const all = await prisma.caseTypes.findMany({
+            const minPriority = await prisma.caseTypes.aggregate({
                 where: { status: 1, deletedAt: null },
-                orderBy: { priority: 'asc' },
-                take: 1,
+                _min: { priority: true },
             })
-            expect(first!.id).toBe(all[0]!.id)
+            expect(first!.priority).toBe(minPriority._min.priority)
         })
 
         it('无启用记录时应返回 null', async () => {

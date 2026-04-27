@@ -149,6 +149,7 @@
     "@types/lodash-es": "^4.17.12",
     "@types/pg": "^8.16.0",
     "@types/qrcode": "^1.5.6",
+    "@vitest/coverage-istanbul": "4.0.16",
     "@vitest/coverage-v8": "^4.0.16",
     "@vue/test-utils": "^2.4.6",
     "dotenv": "^17.2.3",

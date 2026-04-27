@@ -97,6 +97,14 @@ describe('路由权限 API 测试', () => {
     beforeAll(async () => {
         await connectTestDb()
         await resetDatabaseSequences()
+        // 防御：在 fast-check 大量并发 INSERT 前，再单独把 routers / router_groups
+        // 的序列推到一个绝对安全的远端，避免任何 (id) 主键冲突。
+        await testPrisma.$executeRawUnsafe(
+            `SELECT setval('routers_id_seq', GREATEST((SELECT COALESCE(MAX(id), 0) FROM routers), 100000) + 10000)`
+        )
+        await testPrisma.$executeRawUnsafe(
+            `SELECT setval('router_groups_id_seq', GREATEST((SELECT COALESCE(MAX(id), 0) FROM router_groups), 100000) + 10000)`
+        )
     })
 
     afterAll(async () => {

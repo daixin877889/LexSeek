@@ -1,16 +1,33 @@
 /**
- * 合同条款在 DOM 中的定位三级兜底
+ * 合同条款在 DOM 中的定位四级兜底
  *
  * clauseText 实际存储的是条款完整内容（常含 \n 分隔的多段落），
  * 但 docx-preview 的段落 DOM 每段独立，一次 `includes(fullClauseText)` 永远不中。
  * 因此按 \n 拆行、取前 3 行非空，任一命中即视为定位成功。
  *
+ * 0. paragraphIndex 直定位（"非空段落序号"空间，与后端
+ *    server/agents/contract/utils/clauseToParagraph.ts 同口径）
+ *    —— 解决 reviewed docx 注入批注后段落 textContent 与原 anchor_quote 因
+ *    全角/半角/特殊空格等微差异致文本匹配失败的问题
  * 1. 精确子串匹配（按块级元素，归一化空白；逐行尝试前 3 行）
  * 2. 模糊匹配：取首行前 20 字 + 去标点空白，作子串/前缀匹配
  * 3. 返回 null，由调用方显示"未定位"
  */
-export function locateClauseElement(container: Element | null, clauseText: string): Element | null {
-    if (!container || !clauseText) return null
+export function locateClauseElement(
+    container: Element | null,
+    clauseText: string,
+    paragraphIndex?: number | null,
+): Element | null {
+    if (!container) return null
+
+    // 优先级 0：按"非空段落序号"直接定位
+    if (typeof paragraphIndex === 'number' && paragraphIndex >= 0) {
+        const el = findByParagraphIndex(container, paragraphIndex)
+        if (el) return el
+        // 越界 → 落入文本匹配兜底
+    }
+
+    if (!clauseText) return null
 
     const lines = splitClauseLines(clauseText)
     if (lines.length === 0) return null
@@ -36,8 +53,31 @@ function splitClauseLines(clauseText: string): string[] {
         .slice(0, 3)
 }
 
-/** docx-preview 渲染后的常见块级元素（段落、列表项、标题、表格单元格） */
+/**
+ * docx-preview 渲染后的常见块级元素（段落、列表项、标题、表格单元格）。
+ *
+ * 注意：findByParagraphIndex 不使用 td，因为 td 内通常已含 p（会与后端
+ * "非空段落序号"空间双重计数），用 PARA_BLOCK_SELECTOR 与 docx 原生 w:p 对齐。
+ */
 const BLOCK_SELECTOR = 'p, li, h1, h2, h3, h4, h5, h6, td'
+const PARA_BLOCK_SELECTOR = 'p, li, h1, h2, h3, h4, h5, h6'
+
+/**
+ * 取容器内第 N 个非空块级元素，对齐后端"非空段落序号"空间
+ * （server/agents/contract/docx/parser.ts 的 paragraphs[] 与
+ *  utils/clauseToParagraph.ts 的 buildClauseToParagraphMap 输出）。
+ */
+function findByParagraphIndex(container: Element, paragraphIndex: number): Element | null {
+    const blocks = container.querySelectorAll(PARA_BLOCK_SELECTOR)
+    let count = 0
+    for (const el of blocks) {
+        const text = (el.textContent ?? '').trim()
+        if (text.length === 0) continue
+        if (count === paragraphIndex) return el
+        count++
+    }
+    return null
+}
 
 function findParagraphByText(container: Element, text: string): Element | null {
     const blocks = container.querySelectorAll(BLOCK_SELECTOR)

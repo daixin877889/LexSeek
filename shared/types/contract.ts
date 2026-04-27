@@ -49,6 +49,12 @@ export interface Risk {
     suggestedClauseText?: string
     /** 命中的要点 code；清单外风险留空（M7 Playbook） */
     matchedPointCode?: string
+    /**
+     * "非空段落序号"（与后端 server/agents/contract/utils/clauseToParagraph.ts
+     * 的 buildClauseToParagraphMap 输出同口径），仅在前端渲染时由 RiskDisplay
+     * 透传，用于 clauseLocator 的优先级 0 直定位。后端落库不读不写此字段。
+     */
+    anchorParagraphIndex?: number | null
 }
 
 /**

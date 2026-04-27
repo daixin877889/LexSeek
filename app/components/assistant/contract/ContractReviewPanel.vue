@@ -174,6 +174,9 @@ const effectiveRisks = computed<RiskDisplay[]>(() => {
             entityId: e.id,
             clauseIndex: e.anchorParagraphIndex ?? 0,
             clauseText: e.anchorQuote,
+            // 独立透传 anchorParagraphIndex：clauseIndex 在 entity 缺失时回落 0，
+            // 而 clauseLocator 优先级 0 必须能区分"未知"与"第 0 段"
+            anchorParagraphIndex: e.anchorParagraphIndex,
             level: e.level,
             category: e.category,
             problem: e.problem,

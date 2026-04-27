@@ -65,6 +65,13 @@ describe('审计日志属性测试', () => {
     beforeAll(async () => {
         await connectTestDb()
         await resetDatabaseSequences()
+        // 防御：把 users / permission_audit_logs 序列推远，避开任何残留 id
+        await testPrisma.$executeRawUnsafe(
+            `SELECT setval('users_id_seq', GREATEST((SELECT COALESCE(MAX(id), 0) FROM users), 100000) + 10000)`
+        )
+        await testPrisma.$executeRawUnsafe(
+            `SELECT setval('permission_audit_logs_id_seq', GREATEST((SELECT COALESCE(MAX(id), 0) FROM permission_audit_logs), 100000) + 10000)`
+        )
     })
 
     afterAll(async () => {
