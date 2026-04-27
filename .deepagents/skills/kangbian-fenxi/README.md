@@ -1,0 +1,106 @@
+# 抗辩策略分析方法论
+
+## 简介
+
+本skill提供诉讼抗辩策略的系统分析方法论，用于：
+
+- 针对已确认的请求权基础进行抗辩分析
+- 挖掘案件事实层面的潜在风险点
+- 系统检视合同效力（成立→有效→生效）
+- 精细化分析附条件合同的义务关系
+- 推演被告抗辩策略与原告反制预判
+- 验证抗辩策略的普适性
+
+## 核心方法
+
+| 方法 | 用途 | 文档 |
+|------|------|------|
+| 合同效力体系检视 | 三阶段递进检视合同效力（成立→有效→生效） | [references/hetong-xiaoli-jianshi.md](./references/hetong-xiaoli-jianshi.md) |
+| 附条件合同分析 | 精细化分析条件与义务关系 | [references/futiaojian-fenxi.md](./references/futiaojian-fenxi.md) |
+| 条件不成就→解除条件成就 | 157条vs566条选择（高级技巧） | [references/tiaojian-buchengji-jiechu.md](./references/tiaojian-buchengji-jiechu.md) |
+| 批准生效合同分析 | 部分条款独立生效判断 | [references/pizhun-shengheng-hetong.md](./references/pizhun-shengheng-hetong.md) |
+| 规范目的导向解释 | 管制最小范围原则 | [references/guifan-mudi-jieshi.md](./references/guifan-mudi-jieshi.md) |
+| 反射式迭代检索 | 三周期递进式法律检索 | [references/fanshe-jiansuo.md](./references/fanshe-jiansuo.md) |
+| 攻防策略推演 | 构建抗辩与反制策略 | [references/gongfang-celue.md](./references/gongfang-celue.md) |
+| 合同解释优先 | 意思表示探究方法 | [references/hetong-jieshi.md](./references/hetong-jieshi.md) |
+| 普遍性验证 | 策略普适性检验与论证策略 | [references/pubian-yanzheng.md](./references/pubian-yanzheng.md) |
+| 自定位流程 | 单独调用时的请求权快速定位 | [references/zidingwei-liucheng.md](./references/zidingwei-liucheng.md) |
+| 输出格式规范 | 抗辩报告的标准结构 | [references/baogao-shuchu-geshi.md](./references/baogao-shuchu-geshi.md) |
+
+## 使用场景
+
+**适用场景**：
+- 律师制定诉讼抗辩方案
+- 法官预判案件攻防焦点
+- 法律工作者撰写抗辩意见书
+- 案件风险评估与策略论证
+
+**不适用场景**：
+- 尚未确定请求权基础的案件（应先运行请求权基础分析）
+- 纯程序法问题（管辖、时效等程序规则）
+- 纯事实调查（无法律评价需求时）
+
+## 前置依赖
+
+本skill需在请求权基础分析之后使用，要求：
+
+- 已确认适用的请求权基础
+- 已排除不可主张的请求权基础及理由
+- 已确定案件时间锚点（用于时效性审查）
+
+## 方法依赖关系
+
+```
+hetong-jieshi (合同解释优先)
+    │
+    ├──→ hetong-xiaoli-jianshi (合同效力体系检视)
+    │       │
+    │       ├──→ futiaojian-fenxi (附条件合同分析)
+    │       │       │
+    │       │       └──→ tiaojian-buchengji-jiechu (条件不成就→解除条件成就)
+    │       │
+    │       └──→ pizhun-shengheng-hetong (批准生效合同分析)
+    │               │
+    │               └──→ guifan-mudi-jieshi (规范目的导向解释)
+    │
+    └──→ fanshe-jiansuo (反射式迭代检索)
+            │
+            └──→ gongfang-celue (攻防策略推演)
+                    │
+                    └──→ pubian-yanzheng (普遍性验证)
+```
+
+## 快速使用指南
+
+### 最简流程（合同案件）
+
+1. 解释合同条款，探究当事人意思表示
+2. 检视合同效力：成立→有效→生效
+3. 如附条件，分析条件影响的义务范围
+4. 构建抗辩策略并验证普适性
+
+### 完整流程（复杂案件）
+
+1. 校验输入：确认已传递请求权基础分析结果
+2. 事实风险挖掘：全面审查案件材料
+3. 合同效力检视：成立→有效→生效三阶段系统检视
+4. 附条件分析：义务与条件的精细化匹配
+5. 条件不成就处理：判断是否可解释为解除条件成就（157条vs566条）
+6. 批准生效分析：如涉及批准合同，判断部分条款是否独立生效
+7. 法律检索：三周期迭代检索支撑规范
+8. 攻防推演：被告抗辩+原告反制
+9. 普遍性验证：提出普遍性问题，检验策略一致性
+10. 输出报告：按规范格式输出
+
+## 与其他工具配合
+
+本skill为方法论框架，实际分析时应配合：
+
+- **请求权基础分析skill**：前置模块，确定请求权基础
+- **法条检索工具**：检索具体规范条文
+- **案例检索工具**：检索类案裁判观点
+
+使用流程：
+1. 先使用请求权基础分析skill确认请求权
+2. 使用本skill进行抗辩策略分析
+3. 配合法条/案例检索工具支撑论证
