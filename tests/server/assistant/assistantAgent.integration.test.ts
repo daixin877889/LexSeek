@@ -25,8 +25,9 @@ describe('runAssistantChat - 集成', () => {
     beforeAll(async () => {
         testIds = createEmptyTestIds()
 
-        // 测试库无 seedData.sql 注入，需手动创建 assistantMain 节点链路
-        // （主库 seedData.sql 已 seed id=15, 但测试库仍是空表）
+        // 注意：测试库已通过 seedData.sql 注入了 id=15 的 assistantMain 节点。
+        // 这里复用 seed 的 assistantMain，只补充测试专用的 model+provider+apiKey 链路并把
+        // 它指向 assistantMain；测试结束 afterAll 仅清自己创建的资源，不动 seed。
         const prisma = getTestPrisma()
         const provider = await prisma.modelProviders.create({
             data: {
@@ -61,8 +62,12 @@ describe('runAssistantChat - 集成', () => {
         })
         testIds.modelIds.push(model.id)
 
-        const node = await prisma.nodes.create({
-            data: {
+        // upsert：seed 中如已有 assistantMain（生产 seedData 一致），把 modelId 切到测试 model；
+        // 没有则按测试值创建。afterAll 里只删自己创建的（testIds.nodeIds），不动 seed 节点。
+        const node = await prisma.nodes.upsert({
+            where: { name: 'assistantMain' },
+            update: { modelId: model.id, status: 1 },
+            create: {
                 name: 'assistantMain',
                 title: '通用法律助手主Agent',
                 description: '无案件上下文的法律问答与工具调用',
@@ -72,19 +77,31 @@ describe('runAssistantChat - 集成', () => {
                 status: 1,
             },
         })
-        testIds.nodeIds.push(node.id)
-
-        await prisma.prompts.create({
-            data: {
-                name: 'assistantMain_system',
-                title: '通用法律助手系统提示词 v1',
-                content: '你是 LexSeek 的通用法律助手。',
-                version: '1.0',
-                type: 'system',
-                status: 1,
-                nodeId: node.id,
-            },
+        // 仅追踪本测试创建的节点；如命中已有 seed 节点则不删，避免污染其他测试
+        const wasSeedNode = await prisma.nodes.count({
+            where: { id: node.id, createdAt: { lt: new Date(Date.now() - 60_000) } },
         })
+        if (wasSeedNode === 0) {
+            testIds.nodeIds.push(node.id)
+        }
+
+        // 系统 prompt 没有 name 唯一约束，先查后建避免重复
+        const existingPrompt = await prisma.prompts.findFirst({
+            where: { name: 'assistantMain_system', nodeId: node.id, status: 1 },
+        })
+        if (!existingPrompt) {
+            await prisma.prompts.create({
+                data: {
+                    name: 'assistantMain_system',
+                    title: '通用法律助手系统提示词 v1',
+                    content: '你是 LexSeek 的通用法律助手。',
+                    version: '1.0',
+                    type: 'system',
+                    status: 1,
+                    nodeId: node.id,
+                },
+            })
+        }
     })
 
     afterEach(async () => {

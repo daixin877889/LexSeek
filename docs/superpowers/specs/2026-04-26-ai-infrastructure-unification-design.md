@@ -819,21 +819,30 @@ async function openCaseLinker() {
 
 ### 阶段 4 · 合同审查接入底座
 
-**工程量**：1-2 周（无用户感知，但有较高 resume 行为风险）
+**工程量**：5-7 天（无用户感知，中等风险）
+
+> **2026-04-27 spec 修订（C+ 方案）**：
+> 原"完成定义"要求"重写 resume 路径用 LangGraph `Command.resume` + 中间件 + 工具，不再绕过 agent.stream"。该要求与 §0 总览图"案件初分保留 StateGraph 形态（流程固定可控）"自相矛盾——合同审查跟案件初分一样属于"流程固定型"业务（解析→立场→逐条款分析→总结→生成 docx），不适合 createAgent 工具循环路径。强行用 `Command.resume` 会引入二次启动开销、playbook 校验/UUID 去重/错误降级等程序化逻辑被迫塞进工具实现、逐条款 LLM 调用让 LLM 主导失去并发控制。
+>
+> 修订为：**保留 stateGraph 哲学，把通用职责（SSE 桥/错误处理/nodeConfig 加载）下沉到平台 stateGraph 路径**。这与"基建统一"本心一致——平台需要同时支持"工具循环"（createAgent）和"流程固定"（stateGraph）两种形态，不是把所有业务塞进 createAgent。
 
 **完成定义**：
 
-- `server/agents/contract/agent.config.ts` 改用 `defineDomainAgent`
-- 重写 resume 路径：用 LangGraph `Command.resume` + 中间件 + 工具完成多阶段流程，**不再绕过 `agent.stream`**
-- `parseAndAskStance` 工具保留（合同私有）
-- `runAnalyzeLoop` / `summarizeOverview` 改造为标准 tool 或 middleware（具体在 plan 阶段决定）
-- 合同审查接入 docx skill（添加 node_skills 关联）
+- 平台 `runStateGraphAgent`（factory/runtime.ts）实现：为 `agentType: 'stateGraph'` 业务提供统一职责（SSE 事件桥注入、nodeConfig 加载缓存、错误兜底上报、签名 ctx）
+- `defineDomainAgent` 工厂的 `stateGraph` 路径改为调用 `runStateGraphAgent(def, ctx)`，不再裸调 `def.runStateGraph(ctx)`
+- `server/agents/contract/agent.config.ts` 接收平台注入的 ctx（`emitContractReviewEvent` 不再自己造，用工厂的 customEventEmitter）
+- `server/services/workflow/agents/contractReviewMainAgent.ts` 中重复的 nodeConfig/chatModel/checkpointer 加载下沉到平台
+- 合同审查接入 docx skill（添加 node_skills 关联）— 仅主节点 `contractReviewMain`（id=18），子节点 invokeNodeJson 不挂 skill
 - 合同审查独立工作台 UI 完全不变
+- **不重写** resume 分支的核心流程（runAnalyzeLoop / summarizeOverview / persistRisksAndCreateV1Snapshot / runAnnotateAndUpload 保留现有实现）
+- **不引入** Command.resume（前端 stream.reset()+submit() + 后端独立 enqueue 模式保留）
 
 **验证**：
 - 全功能 E2E：上传合同 → 解析 → 立场选择 interrupt → resume → 风险列表 → 编辑 → 导出 docx
-- 对比改造前后 SSE 事件序列，用户感知一致
-- `useContractReview` composable 改用 `useDomainAgentSession` 后行为不退化
+- 改造前后 SSE 事件序列**100% 一致**（前端契约）
+- `useContractReview` composable 不动（C+ 方案不强求前端工厂收敛，留给阶段 7）
+- 合同审查 4 个测试文件（streaming/contextSegments/playbook/stage）回归全 PASS
+- 新增平台 stateGraph 路径单测（runStateGraphAgent ctx 注入正确性）
 
 ### 阶段 5 · 法律助手 → 文书 / 合同（无 caseId）
 

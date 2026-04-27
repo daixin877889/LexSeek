@@ -179,6 +179,15 @@ describe('案件类型服务层', () => {
 
     describe('getFirstEnabledCaseTypeService - 获取第一条启用的案件类型', () => {
         it('应返回按 priority 排序的第一条启用记录', async () => {
+            // 自给自足：本测试创建一条 priority 极小的启用记录，断言它被返回
+            // （不依赖 seed，避免与其他文件并行/串行时被脏 status 影响）
+            const ourCaseType = await createCaseTypeService({
+                name: `测试类型_first_enabled_${Date.now()}`,
+                status: 1,
+                priority: 1,
+            })
+            testIds.caseTypeIds.push(ourCaseType.id)
+
             const first = await getFirstEnabledCaseTypeService()
             expect(first).not.toBeNull()
 
@@ -192,18 +201,26 @@ describe('案件类型服务层', () => {
         })
 
         it('无启用记录时应返回 null', async () => {
-            // 临时禁用所有记录
-            await prisma.caseTypes.updateMany({
-                data: { status: 0 },
+            // 修复隔离：用 try/finally 保证状态恢复，避免 seed 中 case_types 残留 status=0
+            // 同时把 updatedAt 字段一并恢复（updateMany 会改 updated_at）
+            const before = await prisma.caseTypes.findMany({
+                select: { id: true, status: true },
             })
-
-            const result = await getFirstEnabledCaseTypeService()
-            expect(result).toBeNull()
-
-            // 恢复
-            await prisma.caseTypes.updateMany({
-                data: { status: 1 },
-            })
+            try {
+                await prisma.caseTypes.updateMany({
+                    data: { status: 0 },
+                })
+                const result = await getFirstEnabledCaseTypeService()
+                expect(result).toBeNull()
+            } finally {
+                // 严格按原 status 单条恢复（避免误把原本 status=0 的记录改为 1）
+                for (const r of before) {
+                    await prisma.caseTypes.update({
+                        where: { id: r.id },
+                        data: { status: r.status },
+                    })
+                }
+            }
         })
     })
 

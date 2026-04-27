@@ -62,12 +62,53 @@ export async function ensureTestUser(): Promise<number> {
 
 /**
  * 清理本 helper 创建过的测试用户。
- * 同时清理这些用户名下的 contractReviews（防软删残留影响下一跑）。
+ * 同时清理这些用户名下的 contractReviews / cases / document_drafts / document_templates
+ * （防软删残留 + FK 阻塞影响下一跑）。
  */
 export async function cleanupTestData(): Promise<void> {
     if (createdUserIds.length === 0) return
     const p = getPrisma()
+
+    // contract 相关
+    const reviews = await p.contractReviews.findMany({
+        where: { userId: { in: createdUserIds } },
+        select: { id: true },
+    })
+    if (reviews.length > 0) {
+        const reviewIds = reviews.map(r => r.id)
+        await p.contractRisks.deleteMany({ where: { reviewId: { in: reviewIds } } })
+        await p.contractAnnotations.deleteMany({ where: { reviewId: { in: reviewIds } } })
+        await p.contractReviewVersions.deleteMany({ where: { reviewId: { in: reviewIds } } })
+    }
+    await p.contractAnnotations.deleteMany({ where: { authorUserId: { in: createdUserIds } } })
+    await p.contractReviewVersions.deleteMany({ where: { createdById: { in: createdUserIds } } })
     await p.contractReviews.deleteMany({ where: { userId: { in: createdUserIds } } })
+
+    // 案件 + 关联
+    const cases = await p.cases.findMany({
+        where: { userId: { in: createdUserIds } },
+        select: { id: true },
+    })
+    const caseIds = cases.map(c => c.id)
+    if (caseIds.length > 0) {
+        await p.caseAnalyses.deleteMany({ where: { caseId: { in: caseIds } } })
+        await p.caseMaterials.deleteMany({ where: { caseId: { in: caseIds } } })
+        // 双绑 / draft-only 也需要清
+        await (p as any).$executeRaw`DELETE FROM case_materials WHERE draft_id IN (SELECT id FROM document_drafts WHERE user_id = ANY(${createdUserIds}::integer[]))`
+        await p.caseSessions.deleteMany({ where: { caseId: { in: caseIds } } })
+    }
+
+    // document_* 链（snapshots/versions → drafts → templates）
+    await (p as any).$executeRaw`DELETE FROM document_draft_snapshots WHERE draft_id IN (SELECT id FROM document_drafts WHERE user_id = ANY(${createdUserIds}::integer[]))`
+    await (p as any).$executeRaw`DELETE FROM document_draft_versions WHERE draft_id IN (SELECT id FROM document_drafts WHERE user_id = ANY(${createdUserIds}::integer[]))`
+    await (p as any).$executeRaw`DELETE FROM case_materials WHERE draft_id IN (SELECT id FROM document_drafts WHERE user_id = ANY(${createdUserIds}::integer[]))`
+    await (p as any).$executeRaw`DELETE FROM document_drafts WHERE user_id = ANY(${createdUserIds}::integer[])`
+    await (p as any).$executeRaw`DELETE FROM document_templates WHERE user_id = ANY(${createdUserIds}::integer[])`
+
+    if (caseIds.length > 0) {
+        await p.cases.deleteMany({ where: { id: { in: caseIds } } })
+    }
+
     await p.users.deleteMany({ where: { id: { in: createdUserIds } } })
     createdUserIds.length = 0
 }

@@ -287,6 +287,8 @@ describe('defineDomainAgent 工厂', () => {
     })
 
     it('stateGraph 路径：调用 runStateGraph 而非 createAgent', async () => {
+        // stateGraph 路径会先加载 nodeConfig 然后注入到 enhanced ctx
+        getNodeConfigCachedMock.mockResolvedValue(makeMockNodeConfig())
         const mockRunStateGraph = vi.fn().mockResolvedValue(makeStream())
 
         const agent = defineDomainAgent({
@@ -299,7 +301,13 @@ describe('defineDomainAgent 工厂', () => {
         const ctx = makeMockCtx()
         await agent.runner(ctx)
 
-        expect(mockRunStateGraph).toHaveBeenCalledWith(ctx)
+        // runStateGraph 收到的是 enhanced ctx：含原 ctx + nodeConfig + emitCustomEvent
+        expect(mockRunStateGraph).toHaveBeenCalledOnce()
+        const enhancedCtx = mockRunStateGraph.mock.calls[0][0]
+        expect(enhancedCtx).toMatchObject(ctx)
+        expect(enhancedCtx.nodeConfig).toBeDefined()
+        expect(enhancedCtx.nodeConfig.name).toBe('testNode')
+        expect(typeof enhancedCtx.emitCustomEvent).toBe('function')
         expect(createAgentMock).not.toHaveBeenCalled()
     })
 

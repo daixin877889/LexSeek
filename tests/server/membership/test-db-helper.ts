@@ -732,10 +732,6 @@ export const cleanupAllTestData = async (): Promise<void> => {
                 await testPrisma.caseAnalyses.deleteMany({
                     where: { caseId: { in: caseIds } },
                 })
-                // caseMaterials → cases
-                await testPrisma.caseMaterials.deleteMany({
-                    where: { caseId: { in: caseIds } },
-                })
                 // caseSessions → cases
                 await testPrisma.caseSessions.deleteMany({
                     where: { caseId: { in: caseIds } },
@@ -824,10 +820,29 @@ export const cleanupAllTestData = async (): Promise<void> => {
 
             // 案件（被 caseSessions, caseMaterials, caseAnalyses 引用，已清理）
             if (caseIds.length > 0) {
+                // 删除所有 case_materials（无论是通过 case_id 还是 draft_id 引用的）
+                await testPrisma.caseMaterials.deleteMany({
+                    where: { caseId: { in: caseIds } },
+                })
+                // 删除所有引用这些 document_drafts 的 case_materials（以防有其他方式的引用）
+                await testPrisma.$executeRaw`DELETE FROM case_materials WHERE draft_id IN (SELECT id FROM document_drafts WHERE case_id = ANY(${caseIds}::integer[]))`
+                // 删除与案件关联的 document_drafts（需要按外键顺序删除）
+                await testPrisma.$executeRaw`DELETE FROM document_draft_snapshots WHERE draft_id IN (SELECT id FROM document_drafts WHERE case_id = ANY(${caseIds}::integer[]))`
+                await testPrisma.$executeRaw`DELETE FROM document_draft_versions WHERE draft_id IN (SELECT id FROM document_drafts WHERE case_id = ANY(${caseIds}::integer[]))`
+                await testPrisma.$executeRaw`DELETE FROM document_drafts WHERE case_id = ANY(${caseIds}::integer[])`
                 await testPrisma.cases.deleteMany({
                     where: { id: { in: caseIds } },
                 })
             }
+
+            // 先清理用户的 document_drafts（含 case_id=null 的 draft-only 记录）
+            // 这些 drafts 可能引用了用户的 document_templates，必须先删 drafts 才能删 templates
+            await testPrisma.$executeRaw`DELETE FROM case_materials WHERE draft_id IN (SELECT id FROM document_drafts WHERE user_id = ANY(${userIds}::integer[]))`
+            await testPrisma.$executeRaw`DELETE FROM document_draft_snapshots WHERE draft_id IN (SELECT id FROM document_drafts WHERE user_id = ANY(${userIds}::integer[]))`
+            await testPrisma.$executeRaw`DELETE FROM document_draft_versions WHERE draft_id IN (SELECT id FROM document_drafts WHERE user_id = ANY(${userIds}::integer[]))`
+            await testPrisma.$executeRaw`DELETE FROM document_drafts WHERE user_id = ANY(${userIds}::integer[])`
+            // 删除用户关联的 document_templates
+            await testPrisma.$executeRaw`DELETE FROM document_templates WHERE user_id = ANY(${userIds}::integer[])`
         }
 
         // ===== 第四步：删除兑换码关联数据 =====

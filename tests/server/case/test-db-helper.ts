@@ -536,56 +536,85 @@ export const cleanupTestData = async (testIds: CaseTestIds): Promise<void> => {
 
 /**
  * 清理所有测试数据（使用测试标记前缀）
+ * 通过原始 SQL 一次性删除所有依赖关系，避免外键约束问题
  */
 export const cleanupAllTestData = async (): Promise<void> => {
+    const prisma = getTestPrisma() as any
     try {
-        // 1. 删除测试案件相关的分析结果
-        const testCases = await getTestPrisma().cases.findMany({
+        // 1. 先找出所有需要删除的测试数据 ID
+        const testCases = await prisma.cases.findMany({
             where: { title: { startsWith: TEST_CASE_TITLE_PREFIX } },
             select: { id: true },
         })
-        if (testCases.length > 0) {
-            const caseIds = testCases.map(c => c.id)
-            await getTestPrisma().caseAnalyses.deleteMany({
-                where: { caseId: { in: caseIds } },
-            })
-            await getTestPrisma().caseMaterials.deleteMany({
-                where: { caseId: { in: caseIds } },
-            })
-            await getTestPrisma().caseSessions.deleteMany({
-                where: { caseId: { in: caseIds } },
-            })
-        }
+        const caseIds = testCases.map(c => c.id)
 
-        // 2. 删除测试案件
-        await getTestPrisma().cases.deleteMany({
-            where: { title: { startsWith: TEST_CASE_TITLE_PREFIX } },
+        const testNodes = await prisma.nodes.findMany({
+            where: { name: { startsWith: 'test_node_' } },
+            select: { id: true },
         })
+        const nodeIds = testNodes.map(n => n.id)
 
-        // 3. 删除测试案件类型
-        await getTestPrisma().caseTypes.deleteMany({
-            where: { name: { startsWith: TEST_CASE_TYPE_PREFIX } },
+        const testProviders = await prisma.modelProviders.findMany({
+            where: { name: { startsWith: 'test_provider_' } },
+            select: { id: true },
         })
+        const providerIds = testProviders.map(p => p.id)
 
-        // 4. 删除测试模型和提供商
-        const testNodeIds = (await getTestPrisma().nodes.findMany({ where: { name: { startsWith: 'test_node_' } }, select: { id: true } })).map(n => n.id)
-        if (testNodeIds.length > 0) {
-            await getTestPrisma().prompts.deleteMany({ where: { nodeId: { in: testNodeIds } } })
-            await getTestPrisma().levelNodeAccess.deleteMany({ where: { nodeId: { in: testNodeIds } } })
-            await getTestPrisma().caseAnalyses.deleteMany({ where: { nodeId: { in: testNodeIds } } })
-        }
-        await getTestPrisma().nodes.deleteMany({ where: { name: { startsWith: 'test_node_' } } })
-        await getTestPrisma().models.deleteMany({ where: { name: { startsWith: 'test_model_' } } })
-        const testProviderIds = (await getTestPrisma().modelProviders.findMany({ where: { name: { startsWith: 'test_provider_' } }, select: { id: true } })).map(p => p.id)
-        if (testProviderIds.length > 0) {
-            await getTestPrisma().modelApiKeys.deleteMany({ where: { providerId: { in: testProviderIds } } })
-        }
-        await getTestPrisma().modelProviders.deleteMany({ where: { name: { startsWith: 'test_provider_' } } })
-
-        // 5. 删除测试用户
-        await getTestPrisma().users.deleteMany({
+        const testUsers = await prisma.users.findMany({
             where: { phone: { startsWith: TEST_USER_PHONE_PREFIX } },
+            select: { id: true },
         })
+        const userIds = testUsers.map(u => u.id)
+
+        // 2. 按外键依赖逆序删除（被引用者最后删）
+        // 删除与测试数据相关的所有依赖
+        if (caseIds.length > 0) {
+            // 删除所有 case_materials（无论是通过 case_id 还是 draft_id 引用的）
+            await prisma.caseMaterials.deleteMany({ where: { caseId: { in: caseIds } } })
+            // 删除所有引用这些 document_drafts 的 case_materials（以防有其他方式的引用）
+            await prisma.$executeRaw`DELETE FROM case_materials WHERE draft_id IN (SELECT id FROM document_drafts WHERE case_id = ANY(${caseIds}::integer[]))`
+            // 删除嵌套的 document_draft_*
+            await prisma.$executeRaw`DELETE FROM document_draft_snapshots WHERE draft_id IN (SELECT id FROM document_drafts WHERE case_id = ANY(${caseIds}::integer[]))`
+            await prisma.$executeRaw`DELETE FROM document_draft_versions WHERE draft_id IN (SELECT id FROM document_drafts WHERE case_id = ANY(${caseIds}::integer[]))`
+            // 删除 document_drafts
+            await prisma.$executeRaw`DELETE FROM document_drafts WHERE case_id = ANY(${caseIds}::integer[])`
+            // 删除其他与案件相关的数据
+            await prisma.caseAnalyses.deleteMany({ where: { caseId: { in: caseIds } } })
+            await prisma.caseSessions.deleteMany({ where: { caseId: { in: caseIds } } })
+            // 最后删除 cases
+            await prisma.cases.deleteMany({ where: { id: { in: caseIds } } })
+        }
+
+        if (nodeIds.length > 0) {
+            await prisma.prompts.deleteMany({ where: { nodeId: { in: nodeIds } } })
+            await prisma.levelNodeAccess.deleteMany({ where: { nodeId: { in: nodeIds } } })
+            await prisma.caseAnalyses.deleteMany({ where: { nodeId: { in: nodeIds } } })
+            await prisma.nodes.deleteMany({ where: { id: { in: nodeIds } } })
+        }
+
+        // 删除模型和提供商
+        await prisma.models.deleteMany({ where: { name: { startsWith: 'test_model_' } } })
+
+        if (providerIds.length > 0) {
+            await prisma.modelApiKeys.deleteMany({ where: { providerId: { in: providerIds } } })
+            await prisma.modelProviders.deleteMany({ where: { id: { in: providerIds } } })
+        }
+
+        // 删除案件类型
+        await prisma.caseTypes.deleteMany({ where: { name: { startsWith: TEST_CASE_TYPE_PREFIX } } })
+
+        // 删除用户和关联的 document_templates / document_drafts
+        if (userIds.length > 0) {
+            // 先清理用户的 document_drafts（含 case_id=null 的 draft-only 记录）
+            // 这些 drafts 可能引用了用户的 document_templates，必须先删 drafts 才能删 templates
+            await prisma.$executeRaw`DELETE FROM case_materials WHERE draft_id IN (SELECT id FROM document_drafts WHERE user_id = ANY(${userIds}::integer[]))`
+            await prisma.$executeRaw`DELETE FROM document_draft_snapshots WHERE draft_id IN (SELECT id FROM document_drafts WHERE user_id = ANY(${userIds}::integer[]))`
+            await prisma.$executeRaw`DELETE FROM document_draft_versions WHERE draft_id IN (SELECT id FROM document_drafts WHERE user_id = ANY(${userIds}::integer[]))`
+            await prisma.$executeRaw`DELETE FROM document_drafts WHERE user_id = ANY(${userIds}::integer[])`
+            // 再删 templates
+            await prisma.$executeRaw`DELETE FROM document_templates WHERE user_id = ANY(${userIds}::integer[])`
+        }
+        await prisma.users.deleteMany({ where: { id: { in: userIds } } })
 
         console.log('已清理所有案件模块测试数据')
     } catch (error) {

@@ -43,7 +43,7 @@ import {
 import { HumanMessage } from '@langchain/core/messages'
 import pLimit from 'p-limit'
 import { getCheckpointer, getStore } from '../checkpointer'
-import { getValidNodeConfig } from '../../node/node.service'
+import { getValidNodeConfig, type NodeConfig } from '../../node/node.service'
 import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
 import { renderSystemPrompt } from '../utils/promptRenderer'
@@ -171,6 +171,10 @@ export interface ContractReviewAgentOptions {
     signal?: AbortSignal
     /** 中断恢复命令（若存在则走 resume 分支） */
     command?: unknown
+    /** 阶段 4 新增：平台注入的节点配置，存在时跳过自加载 */
+    platformNodeConfig?: NodeConfig
+    /** 阶段 4 新增：平台注入的 emitter，存在时由 emitContractReviewEvent 优先使用 */
+    platformEmitCustomEvent?: (event: { name: string; data: unknown }) => Promise<void>
 }
 
 /** analyze loop 上下文 */
@@ -266,10 +270,13 @@ export async function runContractReviewChat(
     const { userId, runId = '', signal, command } = options
 
     // 1. 并发加载基础设施 + 反查 review
+    //    阶段 4：nodeConfig 优先用平台注入，未注入时向后兼容自加载
     const [checkpointer, store, nodeConfig, review] = await Promise.all([
         getCheckpointer(),
         getStore(),
-        getValidNodeConfig(CONTRACT_MAIN_NODE_NAME, '合同审查主Agent'),
+        options.platformNodeConfig
+            ? Promise.resolve(options.platformNodeConfig)
+            : getValidNodeConfig(CONTRACT_MAIN_NODE_NAME, '合同审查主Agent'),
         findContractReviewBySessionIdDAO(sessionId),
     ])
 
@@ -278,7 +285,12 @@ export async function runContractReviewChat(
     }
 
     // M6.1：构造 emitter 上下文，供后续所有 SSE 事件调用复用
-    const emitterCtx: ContractReviewEmitterCtx = { runId, sessionId }
+    // 阶段 4：透传平台 emitter；emitContractReviewEvent 内部优先用 platformEmit
+    const emitterCtx: ContractReviewEmitterCtx = {
+        runId,
+        sessionId,
+        platformEmit: options.platformEmitCustomEvent,
+    }
 
     // 2. 获取可用 API Key
     const activeApiKey = nodeConfig.modelApiKeys.find(k => k.status === 1)
