@@ -1074,7 +1074,7 @@ INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "pri
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (12, 'evidence', '证据清单预梳理', '证据清单预梳理', 'analysis', 800, 2, '["search_case_materials", "search_law", "process_materials"]', NULL, NULL, 1, '2026-03-23 11:25:27.771+08', '2026-03-23 11:25:27.771+08', NULL);
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (13, 'material_summarizer', '案件材料摘要', '对案件材料做 300-500 字左右的摘要', 'extraction', 100, 1, '[]', NULL, NULL, 1, '2026-03-31 18:07:53.881+08', '2026-03-31 18:07:53.881+08', NULL);
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (14, 'search_intent_router', '检索意图路由器', '根据查询内容分类检索意图（精确/混合/语义），用于统一检索路由器的意图分发', 'extraction', 100, 1, '[]', '{"type": "object", "required": ["intent"], "properties": {"intent": {"enum": ["exact", "hybrid", "semantic"], "description": "检索意图类型"}, "keywords": {"type": "array", "items": {"type": "string"}, "description": "提取的法律术语关键词"}, "legalName": {"type": "string", "description": "识别到的法律名称"}, "articleRef": {"type": "string", "description": "条文编号，如 第一千条"}, "rewrittenQuery": {"type": "string", "description": "改写后的语义查询"}}}', NULL, 1, '2026-04-09 10:00:00+08', '2026-04-10 00:05:33.799+08', NULL);
-INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (15, 'assistantMain', '通用法律助手主Agent', '无案件上下文的法律问答与工具调用', 'agent', 10, 2, '["search_law"]', NULL, NULL, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL);
+INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (15, 'assistantMain', '通用法律助手主Agent', '无案件上下文的法律问答与工具调用', 'agent', 10, 2, '["search_law", "draft_document", "review_contract"]', NULL, NULL, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL);
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (16, 'assistantTitleGen', '会话标题生成', '根据首轮对话生成 ≤20 字会话标题，供侧栏列表展示', 'extraction', 20, 2, '[]', NULL, NULL, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL);
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (17, 'documentMain', '文书生成主Agent', '按模板占位符填充生成文书', 'agent', 30, 1, '["process_materials", "search_case_materials", "search_law"]', NULL, NULL, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (18, 'contractReviewMain', '合同审查主Agent', '按 responseFormat 输出结构化风险清单，并通过 parse_and_ask_stance 工具中断请求用户立场', 'agent', 40, 1, '["parse_and_ask_stance", "search_law"]', NULL, NULL, 1, '2026-04-18 10:00:00+08', '2026-04-18 10:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
@@ -2085,14 +2085,22 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
    即使提到了"继承"、"犯罪"、"股东"等日常化的法律概念词，只要整体是口语化表达就属于 semantic
    示例："员工被公司无故辞退后能获得什么赔偿"、"租的房子到期房东不退押金怎么办"、"网上买的东西质量有问题可以退货吗"、"未成年人犯罪会被判刑吗"、"遗产继承的顺序是什么"、"公司股东之间发生矛盾怎么解决"
    → 提取 keywords + rewrittenQuery', '[]', 'v1', 'system', 1, 14, '2026-04-09 10:00:00+08', '2026-04-10 08:20:19.562383+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (18, 'assistantMain_system', '通用法律助手系统提示词 v1', '你是 LexSeek 的通用法律助手，服务于中国大陆法律场景下的律师、法务与普通用户。
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (18, 'assistantMain_system', '通用法律助手系统提示词 v4', '你是 LexSeek 的通用法律助手，服务于中国大陆法律场景下的律师、法务与普通用户。
 
 # 能力边界
 - 你可以回答法律知识问题、提供文书起草思路、做合同基础分析。
-- 你可以调用 searchLaw 工具检索最新法条。
+- 你可以调用以下工具：
+  - search_law：检索最新法条
+  - draft_document：起草法律文书（会自动弹出"模板选择卡片"让用户选模板）
+  - review_contract：审查合同（必须先有用户已上传的 docx 文件 ossFileId；会自动弹出"立场选择卡片"让用户选甲/乙/中立）
 - 你【不】拥有任何案件上下文；如果用户提到"我的案件"但没有贴出详情，主动请用户提供关键信息。
-- 对于需要严谨尽职调查的任务（完整合同审查、正式文书生成），提示用户切换到
-  「合同审查」「文书生成」专用入口，那里有专用工具与流程。
+
+# 工具调用规则（**铁律**）
+- **review_contract 必须从对话上下文里取 ossFileId**（用户上传文件后会以独立的 human message 形式发送，content 以 `__ATTACHMENTS__` 开头紧跟一个 JSON 数组（含 id/fileName/fileType/fileSize），其中 id 即 ossFileId。**禁止复述 `__ATTACHMENTS__` 这个 sentinel 或它后面的 JSON 给用户，前端会把这条消息渲染成附件卡片**）。**禁止编造 ossFileId**。
+- 工具调用前后无需在文字中预告"我将调用 xxx 工具"——直接调即可。
+- **工具调用结果（draftId / reviewId / href / topRisks 等结构化字段）已通过 UI 卡片向用户展示，你的自然语言回复严禁重复输出这些字段、链接、Markdown 链接、emoji 装饰**。
+- 工具完成后只需用一两句自然语言简述"已为您完成 xxx，可在右侧卡片查看详情/打开工作台继续操作"，引导用户下一步即可。
+- 工具失败（cancelled=true 或 success=false）时简洁说明原因，问用户是否重试。
 
 # 输出要求
 - 准确、中立、使用法律术语，避免情绪化用语与感叹号。
@@ -2104,7 +2112,8 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 # 不做的事
 - 不替用户做最终法律决定，只提供分析与建议。
 - 不编造案例编号、当事人姓名、未经检索的法条内容。
-- 不讨论与法律无关的话题（礼貌拒绝并引导回法律咨询）。', '[]', 'v1', 'system', 1, 15, '2026-04-17 13:36:07.856+08', '2026-04-17 13:36:07.856+08', NULL);
+- 不讨论与法律无关的话题（礼貌拒绝并引导回法律咨询）。
+- **不在自然语言里输出 emoji 表情**（UI 系统层禁止 emoji，你的文字也应保持纯文字）。', '[]', 'v4', 'system', 1, 15, '2026-04-17 13:36:07.856+08', '2026-04-27 16:00:00+08', NULL);
 INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (19, 'assistantTitleGen_system', '会话标题生成系统提示词 v1', '你是一个会话标题生成助手。请根据下面的首轮对话，生成一个简洁的会话标题。
 
 要求：
@@ -2389,5 +2398,17 @@ $$;
 -- contractReviewMain (id=18) 关联 docx skill：合同审查涉及 docx 解析、注入批注、导出 — 是 docx skill 的核心使用场景
 INSERT INTO "public"."node_skills" ("node_id", "skill_name", "priority", "created_at")
 VALUES (18, 'docx', 100, '2026-04-27 10:00:00+08')
+ON CONFLICT ("node_id", "skill_name") DO NOTHING;
+
+-- 阶段 5：法律助手节点（assistantMain id=15）一次性接通 6 个 skill
+-- 业务诉求：用户在助手对话里可一句话起草文书 / 审合同 / 处理 PDF/Excel/PPT / 出证据策略 / 画诉讼流程
+-- priority 100 默认；后续如需精细调度可 admin 后台单独编辑
+INSERT INTO "public"."node_skills" ("node_id", "skill_name", "priority", "created_at") VALUES
+    (15, 'docx',                     100, '2026-04-27 10:00:00+08'),
+    (15, 'pptx',                     100, '2026-04-27 10:00:00+08'),
+    (15, 'evidence-defense',         100, '2026-04-27 10:00:00+08'),
+    (15, 'litigation-visualization', 100, '2026-04-27 10:00:00+08'),
+    (15, 'minimax-pdf',              100, '2026-04-27 10:00:00+08'),
+    (15, 'minimax-xlsx',             100, '2026-04-27 10:00:00+08')
 ON CONFLICT ("node_id", "skill_name") DO NOTHING;
 
