@@ -1,234 +1,27 @@
 /**
- * 案件主代理（LangGraph 原生版本）
+ * 案件主代理（小索）
  *
- * 使用 createAgent 创建统一的对话式案件主代理
- * 支持多轮对话、子代理工具委派、中断恢复
+ * 阶段 8 改造后：runCaseChat 整段 + 模块级 skillsMiddleware 单例已删除。
+ * 小索通过 server/agents/case-main/agent.config.ts vertical 走 runtime.ts 标准管道，
+ * skillsMw 改由 buildSkillsMiddlewareForNode(nodeConfig.id) 按节点动态构造。
+ *
+ * 本文件仅保留 getChatThreadState：agentWorker.ts 在 interrupt 检测路径调用，
+ * 用最小化 dummy agent 读取 LangGraph thread state。
  */
 
-import { createAgent, summarizationMiddleware, type ReactAgent } from 'langchain'
-import { HumanMessage } from '@langchain/core/messages'
-import type { StructuredToolInterface } from '@langchain/core/tools'
-import type { BaseCallbackHandler } from '@langchain/core/callbacks/base'
-import { Command } from '@langchain/langgraph'
-import { getCheckpointer, getStore } from '../checkpointer'
-import { getValidNodeConfig, getNodeConfigsByTypes } from '../../node/node.service'
+import { createAgent } from 'langchain'
+import { getCheckpointer } from '../checkpointer'
 import { createChatModel } from '../../node/chatModelFactory'
-import { getToolInstancesService } from '../tools'
-import { createSubAgentTools } from './subAgentToolFactory'
-import { renderSystemPrompt } from '../utils/promptRenderer'
-import { buildSystemPromptForAgent } from '../context/moduleContextBuilder'
-import {
-    createAuditMiddleware,
-    createMessageIntegrityMiddleware,
-    createScopeGuardMiddleware,
-    pointConsumptionMiddleware,
-    caseProcessMaterialMiddleware,
-    safetyTrimMiddleware,
-} from '../middleware'
-import { createSkillsMiddleware, FilesystemBackend } from 'deepagents'
-import { createTool as createReadSkillFileTool } from '../tools/readSkillFile.tool'
-import { createTool as createWriteSkillFileTool } from '../tools/writeSkillFile.tool'
-import { createTool as createRunSkillScriptTool } from '../tools/runSkillScript.tool'
-import { createTool as createRunSkillCommandTool } from '../tools/runSkillCommand.tool'
-import { createTool as createUploadWorkspaceFileTool } from '../tools/uploadWorkspaceFile.tool'
-import { resolveContextWindow } from '../context/messageCompressor'
-
-/** 主代理节点名称 */
-const CASE_MAIN_NODE_NAME = 'caseMain'
-
-/** 子代理节点类型 */
-const SUB_AGENT_NODE_TYPES = ['analysis', 'document']
-
-/** Skills 中间件（模块级单例） */
-const skillsMiddleware = createSkillsMiddleware({
-    backend: new FilesystemBackend({ rootDir: process.cwd() }),
-    sources: ['.deepagents/skills/'],
-})
-
-export interface CaseAgentOptions {
-    /** 用户 ID */
-    userId: number
-    /** 案件 ID */
-    caseId: number
-    /** 主 Agent run id（agentRuns.id），供子代理 callbacks 转发事件到同一 SSE 流 */
-    runId: string
-    /** 是否启用 extended thinking */
-    thinking?: boolean
-    /** 来自 agentWorker.executeRun 的 AbortController，用户取消/超时时传入 */
-    signal?: AbortSignal
-    /** Eval / 监控用：透传给底层 LLM 的 LangChain callbacks */
-    callbacks?: BaseCallbackHandler[]
-}
-
-/**
- * 执行案件分析对话
- *
- * 使用 createAgent + middleware 创建主代理，
- * 子代理通过 createSubAgentTools 生成工具注入主代理，
- * 返回 SSE 格式的 ReadableStream。
- *
- * @param sessionId 会话 ID（作为 thread_id）
- * @param message 用户消息（中断恢复时为 undefined）
- * @param options Agent 选项
- * @returns ReadableStream（SSE 格式）
- */
-export async function runCaseChat(
-    sessionId: string,
-    message: string | undefined,
-    options: CaseAgentOptions & { command?: unknown },
-): Promise<ReadableStream<Uint8Array>> {
-    const { command, userId, caseId, runId, thinking = true, signal } = options
-
-    // 1. 并发加载基础设施和配置
-    const [checkpointer, store, mainConfig, subAgentConfigs] = await Promise.all([
-        getCheckpointer(),
-        getStore(),
-        getValidNodeConfig(CASE_MAIN_NODE_NAME, '案件主Agent'),
-        getNodeConfigsByTypes(SUB_AGENT_NODE_TYPES),
-    ])
-
-    // 2. 获取可用 API Key
-    const activeApiKey = mainConfig.modelApiKeys.find(k => k.status === 1)
-    if (!activeApiKey) {
-        throw new Error(`${CASE_MAIN_NODE_NAME} 节点没有可用的 API 密钥`)
-    }
-
-    // 3. 创建模型实例
-    const model = createChatModel({
-        sdkType: mainConfig.modelSdkType,
-        modelName: mainConfig.modelName,
-        apiKey: activeApiKey.apiKey,
-        baseUrl: mainConfig.modelProviderBaseUrl,
-        temperature: 0.7,
-        streaming: true,
-        thinking,
-        maxTokens: mainConfig.modelMaxOutputTokens,
-    })
-
-    // 4. 构建 5 段式系统提示词（含 prompt cache 控制；空 query 自动短路 recall）
-    //    末尾追加工具选择规则 —— write_skill_file / read_skill_file 仅供 Skills
-    //    中间件管理 agent 自学习脚本，禁止用于记忆操作；用户请求记忆/失效时 LLM
-    //    必须调对应的 case_memory 工具，不可用 skill_file 系列偷懒。
-    const roleAndFlowTemplate = renderSystemPrompt(mainConfig, { caseId })
-        + '\n\n## 工具选择规则（铁律）\n'
-        + '- 用户请求"记下/记录/帮我记住/把这点记录下来" → 必须调用 `write_case_memory`，禁止用 `write_skill_file` 替代\n'
-        + '- 用户请求"失效/取消/撤回/作废某条记忆" → 必须调用 `update_case_memory(id, invalidate=true)`：\n'
-        + '  ① 先用 `search_case_memory` 查到目标记忆 id\n'
-        + '  ② **必须紧接着**调用 `update_case_memory(id=该id, invalidate=true)`，禁止仅口头回应"已失效"而不调工具\n'
-        + '  ③ 工具调用成功后再回复用户"已失效"——不调工具就回复属于撒谎\n'
-        + '- `read_skill_file` / `write_skill_file` / `run_skill_script` / `run_skill_command` 仅用于 Skills 中间件管理 agent 自学习脚本，与案件记忆无关\n'
-        + '\n## 综合题应对（铁律）\n'
-        + '- 当用户提问含"综合/全景/总体/下一步/影响"等综合性词汇时，**必须**在答案中明确引用三层信息源：\n'
-        + '  ① 案件档案（法官姓名/案号/当事人/争议金额等关键事实）\n'
-        + '  ② 已完成分析模块的结论（如"风险分析 v2 结论 B 方案"）\n'
-        + '  ③ 案件记忆（当事人偏好/讨论笔记/已抽取的事实）\n'
-        + '- 综合题不能只答其中一层，要让用户看到"基本信息 + 证据/分析 + 偏好"三者交叉的全景'
-    const { systemMessage, plainText: systemPromptPlainText } = await buildSystemPromptForAgent(
-        mainConfig.modelSdkType,
-        { caseId, agentName: CASE_MAIN_NODE_NAME, userQuery: message ?? '', roleAndFlowTemplate },
-    )
-
-    // 5. 加载主代理通用工具
-    const toolContext = { userId, caseId, sessionId, runId }
-    const mainTools = mainConfig.tools.length > 0
-        ? getToolInstancesService(mainConfig.tools, toolContext)
-        : []
-
-    // 6. 生成子代理工具
-    const subAgentToolList = await createSubAgentTools(subAgentConfigs, toolContext)
-
-    // 7. 合并工具列表（含 Skills 工具）
-    // 按 name 去重：后注入的 skillTools 胜出，避免 DB 中 mainConfig.tools 同时
-    // 登记了 skill 工具导致 LangChain AgentNode 检测到"同名不同实例"而抛错
-    // （"You have modified a tool in wrapModelCall hook of middleware SkillsMiddleware"）
-    const skillTools = [
-        createReadSkillFileTool(toolContext),
-        createWriteSkillFileTool(toolContext),
-        createRunSkillScriptTool(toolContext),
-        createRunSkillCommandTool(toolContext),
-        createUploadWorkspaceFileTool(toolContext),
-    ]
-    const toolsByName = new Map<string, StructuredToolInterface>()
-    for (const tool of [...mainTools, ...subAgentToolList, ...skillTools]) {
-        toolsByName.set(tool.name, tool)
-    }
-    const allTools = Array.from(toolsByName.values())
-
-    logger.info('案件主 Agent 创建', {
-        sessionId,
-        model: mainConfig.modelName,
-        mainToolsCount: mainTools.length,
-        subAgentToolsCount: subAgentToolList.length,
-        totalToolsCount: allTools.length,
-    })
-
-    // 8. 创建主代理
-    const { triggerTokens, maxTokens, maxOutputTokens } = resolveContextWindow(
-        mainConfig.modelContextWindow,
-        mainConfig.modelMaxOutputTokens,
-    )
-
-    const agent: ReactAgent = createAgent({
-        model,
-        systemPrompt: systemMessage,
-        checkpointer,
-        store,
-        tools: allTools,
-        middleware: [
-            // 消息完整性兜底必须最先：防止 orphan tool_use 流入其他 middleware 或模型
-            createMessageIntegrityMiddleware(),
-            createScopeGuardMiddleware(),
-            pointConsumptionMiddleware(userId, 'case_analysis_token', sessionId),
-            caseProcessMaterialMiddleware(userId, caseId),
-            summarizationMiddleware({
-                model,
-                trigger: [{ tokens: triggerTokens }],
-            }),
-            safetyTrimMiddleware({
-                model,
-                maxTokens,
-                systemPrompt: systemPromptPlainText,
-                maxOutputTokens,
-            }),
-            skillsMiddleware,
-            createAuditMiddleware(),
-        ],
-    })
-
-    // 9. 构造输入：中断恢复时使用 Command，正常对话使用 HumanMessage
-    const input = command
-        ? new Command({ resume: command })
-        : { messages: [new HumanMessage(message!)] }
-
-    // 10. 流式执行，返回 SSE 格式的 ReadableStream
-    return agent.stream(
-        input,
-        {
-            configurable: {
-                thread_id: sessionId,
-            },
-            streamMode: ['values', 'messages', 'updates'],
-            subgraphs: true,
-            encoding: 'text/event-stream',
-            recursionLimit: 1000,
-            signal,
-            callbacks: options.callbacks,
-        },
-    )
-}
 
 /**
  * 获取对话式 agent 的 thread state（用于 interrupt 检测）
  *
- * 与 caseAnalysisV2 的 getWorkflowThreadState 功能一致，
- * 创建一个最小化 agent 实例仅用于读取 checkpointer 中的 state。
- *
- * @param sessionId 会话 ID
+ * 复用 LangGraph checkpointer，无需真实模型和工具——dummy model 仅用于
+ * 满足 createAgent 类型签名，stateReader.getState 不会调用模型。
  */
 export async function getChatThreadState(sessionId: string) {
     const checkpointer = await getCheckpointer()
 
-    // 创建最小化 agent 用于读取 state（不需要真实模型和工具）
     const dummyModel = createChatModel({
         sdkType: 'openai',
         modelName: 'gpt-4',

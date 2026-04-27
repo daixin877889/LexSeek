@@ -1,4 +1,4 @@
-export { runCaseChat, getChatThreadState } from './caseMainAgent'
+export { getChatThreadState } from './caseMainAgent'
 export { createSubAgentTools, sanitizeName } from './subAgentToolFactory'
 export { getThreadValuesService, messageToFlatDict, loadSubAgentThreads } from './threadState'
 export type { SubAgentThread } from './threadState'

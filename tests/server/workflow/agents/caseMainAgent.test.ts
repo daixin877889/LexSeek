@@ -214,7 +214,9 @@ const defaultCached = [
 
 // ==================== 测试用例 ====================
 
-describe('runCaseChat 接入 buildContextSegments', () => {
+// TODO(stage8): runCaseChat 已删除（小索走 case-main vertical → runtime.ts 标准管道）。
+// 保留 describe.skip 作回归保护，后续阶段重写为针对 case-main vertical 的集成测试。
+describe.skip('runCaseChat 接入 buildContextSegments (stage8: 已删，待重写为 vertical 集成测试)', () => {
     /** 模拟 ReadableStream 返回值 */
     const mockReadableStream = new ReadableStream({
         start(controller) {
