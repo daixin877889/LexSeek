@@ -110,10 +110,13 @@ handoff 阶段 5 → 阶段 6 中记录的 7 个 issue（interrupt 卡 Dialog vs
 - `scripts/stage6-apply-casemain-config.ts`：caseMain tools + documentMain docx skill + caseMain prompt v4 一次性同步脚本（幂等）
 - 注：本期没有新增"全量回归脚本"——直接用 `stage5-regression.sh` 即可，本期改动范围（caseMain prompt + 小索浮窗注入 + SourceBar 分支）不影响 stage 5 测试覆盖
 
-## 关键 commit 速览（阶段 6 范围）
+## 关键 commit 速览（阶段 6 范围，按时间倒序）
 
 ```
-（待 lead 完成 commit 后填充）
+9d7178e5 docs(stage6): plan + 阶段 6 → 阶段 7 交接说明
+5e0147f8 chore(stage6): caseMain 配置同步脚本（幂等）
+1b047a89 feat(stage6-frontend): 小索浮窗注入工具卡 + 中断卡 + 上传支持，来源条 xiaosuo 分支
+3098d275 feat(stage6-backend): caseMain 工具升级 + documentMain docx skill + tool from 修复
 ```
 
 ---
