@@ -23,7 +23,7 @@
  */
 
 import { agentRegistry } from '~~/server/services/agent-platform/registry/agentRegistry'
-import { runDomainAgent } from './runtime'
+import { runDomainAgent, runStateGraphAgent } from './runtime'
 import type { DomainAgentDefinition, DomainAgent } from './types'
 
 /**
@@ -46,10 +46,10 @@ export function defineDomainAgent(def: DomainAgentDefinition): DomainAgent {
     // 构建 runner
     const runner = async (ctx: Parameters<typeof runDomainAgent>[1]) => {
         if (def.agentType === 'stateGraph') {
-            // stateGraph 路径：完全由业务实现，工厂不干预中间件/工具
-            return def.runStateGraph!(ctx)
+            // stateGraph 路径：平台承接 nodeConfig 加载 + emitter 注入 + 错误兜底
+            return runStateGraphAgent(def, ctx)
         }
-        // createAgent 路径：由 runtime 统一处理
+        // createAgent 路径：由 runtime 统一处理（中间件 + 工具 + agent.stream）
         return runDomainAgent(def, ctx)
     }
 

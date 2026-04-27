@@ -44,8 +44,10 @@ import { createTool as createWriteSkillFileTool } from '~~/server/services/agent
 import { createTool as createRunSkillScriptTool } from '~~/server/services/agent-platform/tools/runSkillScript.tool'
 import { createTool as createRunSkillCommandTool } from '~~/server/services/agent-platform/tools/runSkillCommand.tool'
 
+import { createCustomEventEmitter } from '~~/server/services/agent-platform/sse/customEventEmitter'
+
 import { SessionScope } from '#shared/types/agentEvent'
-import type { DomainAgentDefinition } from './types'
+import type { DomainAgentDefinition, StateGraphAgentContext } from './types'
 import type { AgentRunnerContext } from '~~/server/services/agent-platform/registry/types'
 import type { ToolContext } from '~~/server/services/agent-platform/tools/types'
 
@@ -321,4 +323,84 @@ function wrapStreamWithAfterRun(
             })
         },
     })
+}
+
+/**
+ * 执行 DomainAgent 主流程（stateGraph 路径）。
+ *
+ * 与 createAgent 路径不同：不组装中间件栈、不创建 LangChain agent、
+ * 不强制走 agent.stream。业务 vertical 的 runStateGraph 自行决定流程，
+ * 平台仅承接通用职责：
+ *   1. 节点配置加载（缓存）
+ *   2. 注入类型化 customEvent emitter（绑定 runId/sessionId）
+ *   3. 错误兜底（业务 throw → 平台 publish status_change failed → 返回失败 stream）
+ *   4. afterRun 钩子（无论 success/failure 都触发）
+ *
+ * 适用场景：流程固定型业务（合同审查、案件初分），不适合 createAgent 工具循环。
+ *
+ * @see docs/superpowers/plans/2026-04-27-ai-unify-stage-4-contract-platform.md Task 4
+ */
+export async function runStateGraphAgent(
+    def: DomainAgentDefinition,
+    ctx: AgentRunnerContext,
+): Promise<ReadableStream> {
+    if (!def.runStateGraph) {
+        throw new Error(
+            `[runStateGraphAgent] vertical "${def.scope}" 的 agentType=stateGraph 但未提供 runStateGraph 函数`,
+        )
+    }
+
+    // 1. 解析节点名称（支持动态函数形式）
+    const resolvedNodeName = typeof def.nodeName === 'function' ? def.nodeName(ctx) : def.nodeName
+
+    // 2. 加载节点配置（内存缓存）
+    const nodeConfig = await getNodeConfigCached(resolvedNodeName)
+    if (!nodeConfig) {
+        throw new Error(
+            `节点 "${resolvedNodeName}" 未找到（vertical=${def.scope}），请检查节点名称或在管理后台创建该节点`,
+        )
+    }
+
+    // 3. 注入类型化 customEvent emitter
+    const emitCustomEvent = createCustomEventEmitter({
+        runId: ctx.runId,
+        sessionId: ctx.sessionId,
+    })
+
+    // 4. 构造增强版 ctx
+    const enhancedCtx: StateGraphAgentContext = {
+        ...ctx,
+        nodeConfig,
+        emitCustomEvent,
+    }
+
+    // 5. beforeRun 钩子
+    await def.hooks?.beforeRun?.(enhancedCtx)
+
+    // 6. 执行业务 stateGraph，错误兜底
+    let stream: ReadableStream
+    try {
+        stream = await def.runStateGraph(enhancedCtx)
+    } catch (err) {
+        // 平台兜底：业务 throw 转为 SSE failed event
+        await emitCustomEvent({
+            name: 'status_change',
+            data: {
+                type: 'status_change',
+                runId: ctx.runId,
+                sessionId: ctx.sessionId,
+                status: 'failed',
+                error: err instanceof Error ? err.message : String(err),
+            },
+        }).catch(() => {/* fire-and-forget */})
+        await def.hooks?.afterRun?.(enhancedCtx, false)
+        throw err
+    }
+
+    // 7. afterRun 钩子（流关闭/取消时触发）
+    if (def.hooks?.afterRun) {
+        return wrapStreamWithAfterRun(stream, enhancedCtx, def.hooks.afterRun)
+    }
+
+    return stream
 }
