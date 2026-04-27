@@ -12,10 +12,10 @@
 
 <script setup lang="ts">
 import "vue-sonner/style.css";
-import type { ApiBaseResponse } from '#shared/utils/apiResponse'
 import GeneralAlertDialog from '~/components/general/AlertDialog.vue'
 import GeneralWxSupport from '~/components/general/WxSupport.vue'
 import { useTheme } from '~/composables/useTheme'
+import { useApiFetch } from '~/composables/useApiFetch'
 import { useAuthStore } from '~/store/auth'
 import { useRoleStore } from '~/store/role'
 import { useUserStore } from '~/store/user'
@@ -58,24 +58,24 @@ watch(
 
     // 状态从 false 变为 true（登录成功）
     if (isAuth && !oldIsAuth) {
-      // 登录成功后，使用 $fetch 直接获取用户数据（避免 useFetch 在组件挂载后调用的警告）
+      // 登录成功后，使用 useApiFetch 直接获取用户数据
       try {
         // 并行获取用户信息和角色列表
-        const [userResponse, rolesResponse] = await Promise.all([
-          $fetch<ApiBaseResponse<SafeUserInfo>>("/api/v1/users/me"),
-          $fetch<ApiBaseResponse<roles[]>>("/api/v1/users/roles"),
+        const [userInfo, roles_] = await Promise.all([
+          useApiFetch<SafeUserInfo>("/api/v1/users/me"),
+          useApiFetch<roles[]>("/api/v1/users/roles"),
         ]);
 
         // 更新用户信息
-        if (userResponse.success && userResponse.data) {
-          userStore.setUserInfo(userResponse.data);
+        if (userInfo) {
+          userStore.setUserInfo(userInfo);
         }
 
         // 更新角色列表并获取当前角色的路由
-        if (rolesResponse.success && rolesResponse.data && rolesResponse.data.length > 0) {
+        if (roles_ && roles_.length > 0) {
           // 使用 setUserRoles 方法设置角色数据
-          roleStore.setUserRoles(rolesResponse.data);
-          const firstRoleId = rolesResponse.data[0]?.id;
+          roleStore.setUserRoles(roles_);
+          const firstRoleId = roles_[0]?.id;
           if (firstRoleId) {
             await roleStore.fetchUserRouters(firstRoleId);
           }
