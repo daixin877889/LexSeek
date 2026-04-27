@@ -17,12 +17,32 @@ export interface ToolCallWithResult {
   state: ExtendedToolState
 }
 
+/**
+ * 用户上传附件元数据（与 AttachmentMessageBubble.AttachmentLite 同口径）
+ *
+ * 通过 LangChain BaseMessage.additional_kwargs.attachments 携带，
+ * 前端解析时升级到 ParsedMessage.attachments 一等公民字段，
+ * AiMessageListVirtualItem 据此走附件气泡渲染分支。
+ *
+ * 设计动因（方案 C 混合）：metadata 决定渲染形式，content 仍保留可读文本
+ * 让 LLM 直接拿 ossFileId 调工具，不需要后端中间件注入。
+ */
+export interface ParsedAttachment {
+  id: number
+  fileName: string
+  fileType?: string
+  fileSize?: number
+  encrypted?: boolean
+}
+
 export interface ParsedMessage {
   id: string
   type: 'human' | 'ai' | 'tool' | 'system'
   content: string
   thinking?: string
   toolCalls?: ToolCallWithResult[]
+  /** 附件元数据；non-empty 时 AiMessageListVirtualItem 走附件气泡渲染 */
+  attachments?: ParsedAttachment[]
   raw: any
 }
 
@@ -182,16 +202,82 @@ export function useMessageParser(
 
         return true
       })
-      .map((m, idx) => {
+      .flatMap((m, idx): ParsedMessage[] | ParsedMessage | null => {
         const msgType = (m as any)._getType?.() ?? (m as any).type
 
         if (msgType === 'human') {
-          return {
-            id: m.id ?? `human-${idx}`,
-            type: 'human' as const,
-            content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
-            raw: m,
+          // 阶段 5 方案 C：附件元数据来源两条路径
+          //   1. 优先：LangChain 标准 additional_kwargs.attachments（理想路径）
+          //   2. fallback：content sentinel `__ATTACHMENTS__\n[json]` 解析
+          //      （LangGraph SDK 在 stream.submit 序列化普通 plain object 的
+          //       messages 时**会丢弃 additional_kwargs 字段**，因此 content
+          //       sentinel 是当前 transport 实际可靠的承载方式）
+          let attachments: ParsedAttachment[] | undefined
+          const attMeta = (m as any).additional_kwargs?.attachments
+          if (Array.isArray(attMeta) && attMeta.length > 0) {
+            attachments = attMeta
+              .filter(
+                (a): a is ParsedAttachment =>
+                  a && typeof a === 'object' && typeof a.id === 'number' && typeof a.fileName === 'string',
+              )
+            if (!attachments.length) attachments = undefined
           }
+
+          // content 中剥离 sentinel 段（让用户文字气泡只显示原话）；
+          // 同时若 metadata 没拿到 attachments，从这里 parse JSON 兜底
+          const ATTACH_SENTINEL = '__ATTACHMENTS__\n'
+          let rawContent = typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
+          if (rawContent.startsWith(ATTACH_SENTINEL)) {
+            const newlineIdx = rawContent.indexOf('\n', ATTACH_SENTINEL.length)
+            const sentinelJson = newlineIdx === -1
+              ? rawContent.slice(ATTACH_SENTINEL.length)
+              : rawContent.slice(ATTACH_SENTINEL.length, newlineIdx)
+            // 兜底：metadata 没拿到时从 sentinel JSON 解析
+            if (!attachments) {
+              try {
+                const arr = JSON.parse(sentinelJson)
+                if (Array.isArray(arr) && arr.length > 0) {
+                  const filtered = arr.filter(
+                    (a): a is ParsedAttachment =>
+                      a && typeof a === 'object' && typeof a.id === 'number' && typeof a.fileName === 'string',
+                  )
+                  if (filtered.length) attachments = filtered
+                }
+              } catch {
+                // sentinel JSON parse 失败，忽略
+              }
+            }
+            // 剥离 sentinel 段，rawContent 仅保留用户原话
+            if (newlineIdx === -1) {
+              rawContent = ''
+            } else {
+              rawContent = rawContent.slice(newlineIdx + 1).replace(/^\n+/, '')
+            }
+          }
+
+          // 单条 LangChain message → 展开为两条 ParsedMessage：
+          //   ① 附件气泡（仅当 attachments 非空）
+          //   ② 用户文字（仅当 rawContent 非空）
+          // 顺序对齐 mockup D1：附件先于文字（视觉上"先看到上传了什么，再看到留言"）
+          const parts: ParsedMessage[] = []
+          if (attachments) {
+            parts.push({
+              id: `${m.id ?? `human-${idx}`}-attachments`,
+              type: 'human' as const,
+              content: '',
+              attachments,
+              raw: m,
+            })
+          }
+          if (rawContent) {
+            parts.push({
+              id: m.id ?? `human-${idx}`,
+              type: 'human' as const,
+              content: rawContent,
+              raw: m,
+            })
+          }
+          return parts
         }
         if (msgType === 'ai') {
           const content = Array.isArray(m.content)

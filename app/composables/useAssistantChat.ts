@@ -38,8 +38,39 @@ export function useAssistantChat(sessionId: Ref<string | null>) {
         if (!sessionId.value) return
         // 重置 runStatus 到 idle，避免上一轮终态粘滞（参见 useCaseChat 注释）。
         stream.runStatus.value = 'idle'
+
+        // 阶段 5（方案 C 混合）：附件信息以**单条** human message 同时承载两份信息：
+        //   1. content：sentinel + JSON + 用户原话（让 LLM 看到 ossFileId + 用户问题）
+        //   2. additional_kwargs.attachments：LangChain 标准 metadata（前端渲染独立气泡）
+        // 前端 useMessageParser 遇到带 attachments 的 human message → 展开为两条
+        // ParsedMessage（先气泡卡片，再用户文字），content 里的 sentinel 段会被剥离不渲染。
+        //
+        // ⚠️ 之前尝试过 messages 数组发两条独立 human message，但 LangGraph SDK
+        // 把两条同时推送的 human messages 合并/丢弃，后端只收到最后一条 → 改回单条。
+        // 阶段 7 计划：清空 content sentinel + 后端中间件读 metadata 注入 system context。
+        let content = input.text.trim()
+        const additional_kwargs: Record<string, any> = {}
+        if (input.files && input.files.length > 0) {
+            const payload = input.files.map(f => ({
+                id: f.id,
+                fileName: f.fileName,
+                fileType: f.fileType,
+                fileSize: f.fileSize,
+                encrypted: f.encrypted,
+            }))
+            additional_kwargs.attachments = payload
+            // sentinel 放在 content 顶部，LLM 能读 ossFileId；前端解析时剥离这一段
+            const sentinel = `__ATTACHMENTS__\n${JSON.stringify(payload)}`
+            content = content ? `${sentinel}\n\n${content}` : sentinel
+        }
+        if (!content) return
+
         await stream.submit({
-            messages: [{ type: 'human', content: input.text }],
+            messages: [{
+                type: 'human',
+                content,
+                ...(Object.keys(additional_kwargs).length > 0 ? { additional_kwargs } : {}),
+            }],
             thinking: opts?.thinking,
         } as any)
     }

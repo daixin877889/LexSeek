@@ -27,12 +27,15 @@ import AssistantDocumentDraftTitleInput from '~/components/assistant/document/Do
 import AssistantDocumentFieldForm from '~/components/assistant/document/DocumentFieldForm.vue'
 import AssistantDocumentHistorySheet from '~/components/assistant/document/DocumentHistorySheet.vue'
 import AssistantDocumentPreview from '~/components/assistant/document/DocumentPreview.vue'
+import AgentsDocumentDraftSourceBar from '~/components/agents/document/DraftSourceBar.vue'
+import CasesCaseLinkerDialog from '~/components/cases/CaseLinkerDialog.vue'
 import CaseChatWindowShell from '~/components/case/ChatWindowShell.vue'
 import CaseInterruptConfirmation from '~/components/case/InterruptConfirmation.vue'
 import CaseAnalysisAudioPreviewDialog from '~/components/caseAnalysis/AudioPreviewDialog.vue'
 import CaseAnalysisDocPreviewDialog from '~/components/caseAnalysis/DocPreviewDialog.vue'
 import CaseAnalysisMaterialSelector from '~/components/caseAnalysis/materialSelector.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { useCaseLinker } from '~/composables/useCaseLinker'
 import { useDocumentDraft } from '~/composables/useDocumentDraft'
 import { useInterruptToast } from '~/composables/useInterruptToast'
 import { useAlertDialogStore } from '~/store/alertDialog'
@@ -94,6 +97,7 @@ onMounted(async () => {
             loadError.value = '草稿不存在或已被删除'
         } else {
             await loadRelatedMaterials()
+            await refreshCaseTitle()
         }
     } catch (e) {
         loadError.value = e instanceof Error ? e.message : '加载草稿失败'
@@ -119,6 +123,52 @@ const exportDisabled = computed(
 )
 
 const caseId = computed(() => (draft.value as documentDrafts | null)?.caseId ?? null)
+
+// ========== 阶段 5 Task 12：顶部「来源条」 ==========
+// 入口协议：?from=assistant&sessionId=xxx 由法律助手跳进来
+// 仅当 from='assistant' / 'xiaosuo'（阶段 6 接入）时显示来源条；
+// 同时在原工具栏隐藏"返回"按钮（避免双返回按钮歧义，按 team-lead §6 决策）。
+const fromSource = computed(() => {
+    const f = route.query.from
+    if (typeof f !== 'string') return ''
+    if (f === 'assistant' || f === 'xiaosuo') return f
+    return ''
+})
+const sourceSessionId = computed(() => {
+    const sid = route.query.sessionId
+    return typeof sid === 'string' ? sid : null
+})
+const showSourceBar = computed(() => fromSource.value !== '')
+
+// 已关联案件标题：用 active cases 列表查找；找不到时 SourceBar 内部 fallback 到"案件 #id"
+const caseTitle = ref<string | null>(null)
+async function refreshCaseTitle() {
+    if (caseId.value == null) {
+        caseTitle.value = null
+        return
+    }
+    const data = await useApiFetch<{ items: Array<{ id: number; title: string }> }>(
+        '/api/v1/cases/active',
+        { query: { limit: 200 }, showError: false } as any,
+    )
+    caseTitle.value = data?.items?.find(c => c.id === caseId.value)?.title ?? null
+}
+watch(caseId, () => { void refreshCaseTitle() }, { immediate: false })
+
+// 关联案件：useCaseLinker 封装了 PATCH + toast；onLinked 回调里重新 mountDraft 拿最新 caseId
+const {
+    dialogOpen: caseLinkerOpen,
+    openLinker: openCaseLinker,
+    linkCase: confirmLinkCase,
+} = useCaseLinker({
+    variant: 'document',
+    entityId: draftId,
+    onLinked: async () => {
+        if (!Number.isFinite(draftId.value) || draftId.value <= 0) return
+        await mountDraft(draftId.value)
+        await refreshCaseTitle()
+    },
+})
 
 const effectiveValues = computed<Record<string, string | null>>(() =>
     (previewValues.value ?? currentValues.value) as Record<string, string | null>,
@@ -486,10 +536,22 @@ function handlePanelResize(sizes: number[]) {
 
 <template>
     <div class="p-4 md:p-6 flex flex-col gap-4" style="height: calc(100vh - 48px)">
+        <!-- 阶段 5 Task 12：顶部来源条（仅当从法律助手 / 小索 跳入时显示） -->
+        <AgentsDocumentDraftSourceBar
+            v-if="showSourceBar"
+            :from="fromSource"
+            :session-id="sourceSessionId"
+            :case-id="caseId"
+            :case-title="caseTitle"
+            @link="openCaseLinker"
+            @change="openCaseLinker"
+        />
+
         <!-- 顶部工具栏 -->
         <header class="flex items-center justify-between gap-4 flex-wrap">
             <div class="flex items-center gap-2 min-w-0 flex-1">
-                <Button variant="ghost" size="sm" @click="goBack">
+                <!-- showSourceBar 时由来源条接管返回按钮，避免双返回按钮歧义 -->
+                <Button v-if="!showSourceBar" variant="ghost" size="sm" @click="goBack">
                     <ArrowLeftIcon class="size-4 mr-1" />
                     {{ backLabel }}
                 </Button>
@@ -628,6 +690,13 @@ function handlePanelResize(sizes: number[]) {
                 </div>
             </DialogContent>
         </Dialog>
+
+        <!-- 阶段 5 Task 12：关联案件 Dialog（来源条触发） -->
+        <CasesCaseLinkerDialog
+            v-model:open="caseLinkerOpen"
+            :current-case-id="caseId"
+            :on-confirm="confirmLinkCase"
+        />
 
         <!-- 材料选择弹框（点击 AiChat 文件按钮触发） -->
         <CaseAnalysisMaterialSelector ref="materialSelectorRef"

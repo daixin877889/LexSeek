@@ -10,13 +10,28 @@
  *   避免跨会话的消息串流污染。
  * - 本组件只关心"当前 session 下的一次完整生命周期"，sessionId 一旦传入就固定。
  *
- * 参见 spec §8.1 / §8.2。
+ * 阶段 5 Task 13 增量：
+ * - 通过 toolMap 注入 2 张工具结果卡（DraftDocumentCard / ReviewContractCard）
+ * - interrupt dialog 内按 interruptData.type 分发到对应交互卡：
+ *   template_select → TemplateSelectCard
+ *   stance_select   → StanceSelectCard
+ *   其他            → CaseInterruptConfirmation（既有 fallback，覆盖案件域几个 type）
+ * - resume value 走 LangGraph 标准的 stream.submit({ command: { resume: value } })，
+ *   即既有的 resumeInterrupt(value)。
+ *
+ * 参见 spec §8.1 / §8.2、阶段 5 plan §五子组4 Task 13。
  */
 import { RefreshCw as RefreshCwIcon } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { AiPromptSubmitData } from '~/components/ai/AiPromptInput.vue'
+import type { OssFileItem } from '~/store/file'
 import AiChat from '~/components/ai/AiChat.vue'
 import CaseInterruptConfirmation from '~/components/case/InterruptConfirmation.vue'
+import CaseAnalysisMaterialSelector from '~/components/caseAnalysis/materialSelector.vue'
+import AgentsDocumentTemplateSelectCard from '~/components/agents/document/interrupts/TemplateSelectCard.vue'
+import AgentsContractStanceSelectCard from '~/components/agents/contract/interrupts/StanceSelectCard.vue'
+import AgentsDocumentDraftDocumentCard from '~/components/agents/document/tools/DraftDocumentCard.vue'
+import AgentsContractReviewContractCard from '~/components/agents/contract/tools/ReviewContractCard.vue'
 import { useAssistantChat } from '~/composables/useAssistantChat'
 
 const props = defineProps<{
@@ -84,6 +99,26 @@ function handleSubmit(data: AiPromptSubmitData) {
   sendMessage(data, { thinking: thinking.value })
 }
 
+// 阶段 5：上传材料按钮接 MaterialSelector（参照 dashboard/cases/create.vue 既有模式）
+// 不走 AiPromptInput 默认的 hidden file input click（display:none 触发不稳），
+// 而是打开材料选择器：用户从云盘已识别文件里选 → addFiles 灌进 prompt → 直接拿到 ossFileId。
+const aiChatRef = ref<{
+  resetPrompt: () => void
+  addFiles: (files: unknown[]) => void
+  selectedFileIds: number[]
+} | null>(null)
+const materialSelectorRef = ref<{ openDialog: () => void } | null>(null)
+
+const selectedFileIds = computed(() => aiChatRef.value?.selectedFileIds ?? [])
+
+function openMaterialSelector() {
+  materialSelectorRef.value?.openDialog()
+}
+
+function handleFilesFromSelector(files: OssFileItem[]) {
+  aiChatRef.value?.addFiles(files)
+}
+
 async function handleStop() {
   if (isStopping.value) return
   if (!loading.value) return
@@ -114,6 +149,37 @@ function handleResumeInterrupt(data: unknown) {
   resumeInterrupt(data)
 }
 
+// ========== 阶段 5 Task 13：toolMap + interrupt 分发 ==========
+// 子代理工具结果卡：法律助手 chat 中遇到这两个工具时，AiToolRenderer 用对应卡片渲染
+const toolMap = {
+  draft_document: AgentsDocumentDraftDocumentCard,
+  review_contract: AgentsContractReviewContractCard,
+}
+
+// interrupt dialog 内按 type 分发：template_select / stance_select 走新卡片，
+// 其他（案件域已有的几个 type）继续走 CaseInterruptConfirmation
+const interruptType = computed<string>(() => {
+  const d = interruptData.value as { type?: unknown } | null
+  return typeof d?.type === 'string' ? d.type : ''
+})
+const isTemplateSelect = computed(() => interruptType.value === 'template_select')
+const isStanceSelect = computed(() => interruptType.value === 'stance_select')
+
+// 卡片的 onResolve 走 LangGraph resume：
+// LangGraph createAgent 路径下，tool 内 throw 的 interrupt 必须按 toolCallId 路由，
+// 否则 interrupt() 返回 undefined 让工具误以为用户取消。所以把用户提交的裸 value
+// 包装成 `{ [toolCallId]: value }` 再 submit 到 LangGraph command.resume。
+// 注意：value=null 同样需要按 toolCallId 路由，让工具知道"是哪一个 tool 的取消"。
+async function resolveInterrupt(value: unknown) {
+  const tcId = (interruptData.value as { toolCallId?: unknown } | null)?.toolCallId
+  if (typeof tcId === 'string' && tcId.length > 0) {
+    resumeInterrupt({ [tcId]: value })
+  } else {
+    // 兼容老的非 sub-agent interrupt（如案件域的 case_info_confirm 等）：直接透传
+    resumeInterrupt(value)
+  }
+}
+
 // 初次挂载后拉取历史（通过 submit(undefined) 触发 SSE checkpointer 回放）
 onMounted(async () => {
   try {
@@ -126,9 +192,10 @@ onMounted(async () => {
 
 <template>
   <div class="flex flex-col h-full min-h-0">
-    <AiChat :messages="messages" :loading="loading" :is-interrupted="isInterrupted" v-model:thinking="thinking"
-      panel-mode="left" :show-header="false" :enable-file-upload="false" :is-stopping="isStopping"
-      prompt-placeholder="输入你的法律问题..." class="flex-1 min-h-0" @submit="handleSubmit" @stop="handleStop">
+    <AiChat ref="aiChatRef" :messages="messages" :loading="loading" :is-interrupted="isInterrupted"
+      v-model:thinking="thinking" panel-mode="left" :show-header="false" :enable-file-upload="true"
+      :is-stopping="isStopping" prompt-placeholder="输入你的法律问题..." class="flex-1 min-h-0" :tool-map="toolMap"
+      :on-file-button-click="openMaterialSelector" @submit="handleSubmit" @stop="handleStop">
       <template #prompt-actions>
         <div v-if="showRetryButton" class="flex items-center gap-2 px-4 py-2">
           <Button size="sm" variant="outline" @click="onRetry">
@@ -139,7 +206,7 @@ onMounted(async () => {
       </template>
     </AiChat>
 
-    <!-- 中断确认弹窗 -->
+    <!-- 中断确认弹窗：按 type 分发到不同卡片 -->
     <Dialog :open="!!interruptData" @update:open="() => { }">
       <DialogContent class="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0" :show-close-button="false"
         @pointer-down-outside.prevent @escape-key-down.prevent @open-auto-focus.prevent>
@@ -148,9 +215,21 @@ onMounted(async () => {
           <DialogDescription>请查看并回应以下请求</DialogDescription>
         </DialogHeader>
         <div v-if="interruptData" class="p-6">
-          <CaseInterruptConfirmation :interrupt="interruptData" @submit="handleResumeInterrupt" @cancel="() => { }" />
+          <!-- 文书模板选择（阶段 5 新增） -->
+          <AgentsDocumentTemplateSelectCard v-if="isTemplateSelect"
+            :interrupt="interruptData as any" :on-resolve="resolveInterrupt" />
+          <!-- 合同立场选择（阶段 5 新增） -->
+          <AgentsContractStanceSelectCard v-else-if="isStanceSelect"
+            :interrupt="interruptData as any" :on-resolve="resolveInterrupt" />
+          <!-- fallback：案件域既有 interrupt 类型（CASE_INFO_CHECK / BASIC_INFO_CONFIRM 等） -->
+          <CaseInterruptConfirmation v-else :interrupt="interruptData" @submit="handleResumeInterrupt"
+            @cancel="() => { }" />
         </div>
       </DialogContent>
     </Dialog>
+
+    <!-- 阶段 5：上传材料弹框（参照 dashboard/cases/create.vue 复用） -->
+    <CaseAnalysisMaterialSelector ref="materialSelectorRef" :disabled-file-ids="selectedFileIds"
+      @files-selected="handleFilesFromSelector" />
   </div>
 </template>
