@@ -121,14 +121,25 @@ export async function cleanupTestData(ids: AgentTestIds) {
   }
   if (ids.caseIds.length > 0) {
     await p.caseAnalyses.deleteMany({ where: { caseId: { in: ids.caseIds } } })
+    // 删除所有 case_materials（无论是通过 case_id 还是 draft_id 引用的）
     await p.caseMaterials.deleteMany({ where: { caseId: { in: ids.caseIds } } })
+    // 删除所有引用这些 document_drafts 的 case_materials（以防有其他方式的引用）
+    await (p as any).$executeRaw`DELETE FROM case_materials WHERE draft_id IN (SELECT id FROM document_drafts WHERE case_id = ANY(${ids.caseIds}::integer[]))`
     await p.caseSessions.deleteMany({ where: { caseId: { in: ids.caseIds } } })
+
+    // 删除与案件关联的 document_drafts
+    await (p as any).$executeRaw`DELETE FROM document_draft_snapshots WHERE draft_id IN (SELECT id FROM document_drafts WHERE case_id = ANY(${ids.caseIds}::integer[]))`
+    await (p as any).$executeRaw`DELETE FROM document_draft_versions WHERE draft_id IN (SELECT id FROM document_drafts WHERE case_id = ANY(${ids.caseIds}::integer[]))`
+    await (p as any).$executeRaw`DELETE FROM document_drafts WHERE case_id = ANY(${ids.caseIds}::integer[])`
+
     await p.cases.deleteMany({ where: { id: { in: ids.caseIds } } })
   }
   if (ids.caseTypeIds.length > 0) {
     await p.caseTypes.deleteMany({ where: { id: { in: ids.caseTypeIds } } })
   }
   if (ids.userIds.length > 0) {
+    // 删除用户关联的 document_templates
+    await (p as any).$executeRaw`DELETE FROM document_templates WHERE user_id = ANY(${ids.userIds}::integer[])`
     await p.users.deleteMany({ where: { id: { in: ids.userIds } } })
   }
 }
