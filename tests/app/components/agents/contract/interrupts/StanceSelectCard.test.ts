@@ -44,7 +44,7 @@ describe('StanceSelectCard', () => {
       props: {
         interrupt: {
           type: 'stance_select',
-          payload: { partyAHint: '阿里云', partyBHint: '我方', fileName: 'c.docx' },
+          partyAHint: '阿里云', partyBHint: '我方', fileName: 'c.docx',
         },
         onResolve,
       },
@@ -61,7 +61,7 @@ describe('StanceSelectCard', () => {
       props: {
         interrupt: {
           type: 'stance_select',
-          payload: { partyAHint: 'A方', partyBHint: 'B方', fileName: 'x.docx' },
+          partyAHint: 'A方', partyBHint: 'B方', fileName: 'x.docx',
         },
         onResolve,
       },
@@ -83,7 +83,7 @@ describe('StanceSelectCard', () => {
       props: {
         interrupt: {
           type: 'stance_select',
-          payload: { fileName: 'x.docx' },
+          fileName: 'x.docx',
         },
         onResolve,
       },
@@ -99,7 +99,7 @@ describe('StanceSelectCard', () => {
     const onResolve = vi.fn().mockResolvedValue(undefined)
     const w = mount(StanceSelectCard, {
       props: {
-        interrupt: { type: 'stance_select', payload: { fileName: 'x.docx' } },
+        interrupt: { type: 'stance_select', fileName: 'x.docx' },
         onResolve,
       },
       ...stubs,

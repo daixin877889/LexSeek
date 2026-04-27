@@ -26,29 +26,41 @@ const NODES_REQUIRING_SEARCH_LAW = [
     'evidence',
 ] as const
 
+/**
+ * 阶段 8 改造后的"提示词需含 search_law 引用"白名单：
+ * - summary / claim / trend / cause / defense：方法手册版提示词明确指示调用 search_law
+ * - chronicle（大事记）/ evidence（证据策略）：按产品设计不需要查法条，从断言列表移除
+ *   （nodes 表 tools 仍配 search_law 作为兜底能力，但 prompt 不强制引导）
+ * - contractReviewMain：合同审查未改造，仍用旧版 marker
+ */
 const NODES_REQUIRING_PROMPT_INSTRUCTION = [
     'summary',
-    'chronicle',
     'claim',
     'trend',
     'cause',
     'defense',
-    'evidence',
     'contractReviewMain',
 ] as const
 
 const PROMPT_NAME_MAP: Record<typeof NODES_REQUIRING_PROMPT_INSTRUCTION[number], string> = {
     summary: 'summary_system',
-    chronicle: 'chronicle_system',
     claim: 'claim_system',
     trend: 'trend_system',
     cause: 'cause_system',
     defense: 'defense_system',
-    evidence: 'evidence_system',
     contractReviewMain: 'contractReview_system',
 }
 
-const INSTRUCTION_MARKER = '本节点已挂载 `search_law` 工具'
+/**
+ * 阶段 8 改造后：7 个分析模块的 prompt 整段替换为方法手册版（提示词.md），
+ * 不再含旧版 "本节点已挂载 `search_law` 工具" marker，但都明确指示调用
+ * `search_law` 工具（如"法律时效检索 → 调用 search_law"、"法条引用强制通过工具"）。
+ *
+ * - 旧 marker 仍用于：contractReviewMain（合同审查未改造）
+ * - 新指令验证：7 个分析模块 prompt 含 `search_law` 工具引用即可
+ */
+const LEGACY_INSTRUCTION_MARKER = '本节点已挂载 `search_law` 工具'
+const SEARCH_LAW_TOOL_REF = 'search_law'
 
 let seedSql: string
 let seedLines: string[]
@@ -108,20 +120,27 @@ describe('阶段 3 · search_law 节点配置覆盖（seedData.sql 锁定）', (
         }
     })
 
-    it('8 个节点的 system prompt 都含 search_law 指令 marker', () => {
-        // 全文 marker 应恰好出现 8 次
-        const markerCount = (seedSql.match(/本节点已挂载 `search_law` 工具/g) || []).length
-        expect(markerCount, `seedData.sql 中 marker 应恰好出现 8 次（实际 ${markerCount}）`).toBe(8)
-
-        // 每个目标 prompt 的 INSERT block 都应含 marker
+    it('6 个核心节点的 system prompt 都明确指示调用 search_law 工具', () => {
+        // 7 个分析模块（stage 8 已切到方法手册版提示词，含 `search_law` 工具引用）
+        // + 1 个 contractReviewMain（仍用旧 marker）
         for (const nodeName of NODES_REQUIRING_PROMPT_INSTRUCTION) {
             const promptName = PROMPT_NAME_MAP[nodeName]
             const block = extractPromptInsertBlock(promptName)
             expect(block, `seedData.sql 应含 prompt ${promptName} 的 INSERT`).not.toBeNull()
-            expect(
-                block!,
-                `prompt ${promptName}（节点 ${nodeName}）的 content 应含 marker "${INSTRUCTION_MARKER}"`,
-            ).toContain(INSTRUCTION_MARKER)
+
+            if (nodeName === 'contractReviewMain') {
+                // 合同审查仍用旧版 marker
+                expect(
+                    block!,
+                    `prompt ${promptName}（节点 ${nodeName}）的 content 应含旧版 marker "${LEGACY_INSTRUCTION_MARKER}"`,
+                ).toContain(LEGACY_INSTRUCTION_MARKER)
+            } else {
+                // 7 个分析模块：stage 8 切到方法手册版提示词，验证含 search_law 工具引用即可
+                expect(
+                    block!,
+                    `prompt ${promptName}（节点 ${nodeName}）的 content 应含 search_law 工具引用`,
+                ).toContain(SEARCH_LAW_TOOL_REF)
+            }
         }
     })
 })

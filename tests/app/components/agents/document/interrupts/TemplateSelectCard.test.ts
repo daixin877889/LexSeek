@@ -58,7 +58,7 @@ describe('TemplateSelectCard', () => {
       props: {
         interrupt: {
           type: 'template_select',
-          payload: { recommendations: RECS, total: 247, intent: '解除劳动合同通知' },
+          recommendations: RECS, total: 247, intent: '解除劳动合同通知',
         },
         onResolve: vi.fn(),
       },
@@ -76,7 +76,7 @@ describe('TemplateSelectCard', () => {
     const onResolve = vi.fn().mockResolvedValue(undefined)
     const w = mount(TemplateSelectCard, {
       props: {
-        interrupt: { type: 'template_select', payload: { recommendations: RECS, total: 100 } },
+        interrupt: { type: 'template_select', recommendations: RECS, total: 100 },
         onResolve,
       },
       ...stubs,
@@ -90,7 +90,7 @@ describe('TemplateSelectCard', () => {
   it('切换选中：点击第二个推荐项', async () => {
     const w = mount(TemplateSelectCard, {
       props: {
-        interrupt: { type: 'template_select', payload: { recommendations: RECS, total: 100 } },
+        interrupt: { type: 'template_select', recommendations: RECS, total: 100 },
         onResolve: vi.fn(),
       },
       ...stubs,
@@ -105,7 +105,7 @@ describe('TemplateSelectCard', () => {
     const onResolve = vi.fn().mockResolvedValue(undefined)
     const w = mount(TemplateSelectCard, {
       props: {
-        interrupt: { type: 'template_select', payload: { recommendations: RECS, total: 100 } },
+        interrupt: { type: 'template_select', recommendations: RECS, total: 100 },
         onResolve,
       },
       ...stubs,
@@ -127,7 +127,7 @@ describe('TemplateSelectCard', () => {
     })
     const w = mount(TemplateSelectCard, {
       props: {
-        interrupt: { type: 'template_select', payload: { recommendations: [], total: 200 } },
+        interrupt: { type: 'template_select', recommendations: [], total: 200 },
         onResolve: vi.fn(),
       },
       ...stubs,
@@ -144,7 +144,7 @@ describe('TemplateSelectCard', () => {
     useApiFetchMock.mockResolvedValue({ list: [], total: 0, skip: 0, take: 20 })
     const w = mount(TemplateSelectCard, {
       props: {
-        interrupt: { type: 'template_select', payload: { recommendations: RECS, total: 247 } },
+        interrupt: { type: 'template_select', recommendations: RECS, total: 247 },
         onResolve: vi.fn(),
       },
       ...stubs,
