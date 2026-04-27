@@ -2,7 +2,7 @@ import { INIT_ANALYSIS_MODULES, DEFAULT_SELECTED_MODULES } from '#shared/types/i
 import type { ModuleRunState, InitAnalysisStatusResponse, ModuleStatus } from '#shared/types/initAnalysis'
 import { coerceRawMessages } from '~/components/ai/composables/useMessageParser'
 import { useStreamChat } from '../useStreamChat'
-import { pickFirstSelectedModule, computeModuleStatesFromSnapshot } from '../useInitAnalysis'
+import { pickFirstSelectedModule, computeModuleStatesFromSnapshot } from './useInitAnalysisModules'
 import type { InitAnalysisState, AnalysisPhase, SyncCursor, SyncSummary, RuntimeExposed } from './types'
 import { useApiFetch } from '~/composables/useApiFetch'
 
