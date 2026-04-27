@@ -23,8 +23,7 @@ import IconXiaosuoIcon from '~/components/icon/XiaosuoIcon.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useCaseDetail } from '~/composables/useCaseDetail'
 import { postCrossTabEvent } from '~/composables/useCrossTabEvents'
-import { useModuleChatManager } from '~/composables/useModuleChatManager'
-import { useXiaosuoChat } from '~/composables/useXiaosuoChat'
+import { useCaseMainAgent, useCaseModuleAgent } from '~/composables/agents'
 
 definePageMeta({
   title: '案件详情',
@@ -159,7 +158,7 @@ function navigateToAnalysis(moduleName: string) {
 }
 
 // --- 小索对话管理 ---
-const xiaosuoChat = useXiaosuoChat(caseId)
+const xiaosuoChat = useCaseMainAgent(caseId)
 
 async function handleModuleRegenerate(result: AnalysisResult) {
   await moduleChatManager.getOrCreateInstance(result.moduleName, result.moduleTitle)

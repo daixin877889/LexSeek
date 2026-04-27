@@ -5,7 +5,7 @@
  * 使用 ChatWindowShell（三种窗口形态）+ SessionListPopover + InterruptConfirmation
  * 从 288 行精简到 ~100 行
  */
-import type { useXiaosuoChat } from '~/composables/useXiaosuoChat'
+import type { useCaseMainAgent } from '~/composables/agents'
 import type { SessionItem } from '~/components/case/SessionListPopover.vue'
 import type { BaseMessage } from '@langchain/core/messages'
 import type { OssFileItem } from '~/store/file'
@@ -26,7 +26,7 @@ import IconXiaosuoIcon from '~/components/icon/XiaosuoIcon.vue'
 import { useInterruptToast } from '~/composables/useInterruptToast'
 
 const props = defineProps<{
-  xiaosuoChat: ReturnType<typeof useXiaosuoChat>
+  xiaosuoChat: ReturnType<typeof useCaseMainAgent>
 }>()
 
 const isOpen = defineModel<boolean>({ default: false })
