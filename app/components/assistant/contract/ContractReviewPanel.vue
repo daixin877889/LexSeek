@@ -13,7 +13,7 @@
 import { Loader2Icon, SaveIcon, HistoryIcon, UploadIcon, TrendingUpIcon, XIcon } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useMediaQuery, useLocalStorage } from '@vueuse/core'
-import type { Risk, RiskDisplay, ContractReviewStatus, StanceRequest, PlaybookSnapshot, RiskArchivedStatus } from '#shared/types/contract'
+import type { Risk, RiskDisplay, ContractReviewStatus, StanceRequest, PlaybookSnapshot, RiskArchivedStatus, ReviewWithParsedRisks } from '#shared/types/contract'
 import AssistantContractDocxPreview from '~/components/assistant/contract/ContractDocxPreview.vue'
 import AssistantContractSaveVersionDialog from '~/components/assistant/contract/ContractSaveVersionDialog.vue'
 import AssistantContractUploadNewVersionDialog from '~/components/assistant/contract/ContractUploadNewVersionDialog.vue'
@@ -22,7 +22,11 @@ import AssistantContractReviewProgress from '~/components/assistant/contract/Rev
 import AssistantContractRiskListPanel from '~/components/assistant/contract/RiskListPanel.vue'
 import AssistantContractStanceSelectionDialog from '~/components/assistant/contract/StanceSelectionDialog.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
-import { useContractReview } from '~/composables/useContractReview'
+import { useContractAgent } from '~/composables/agents'
+import { useContractReviewStages } from '~/composables/contract/useContractReviewStages'
+import { useContractReviewRisksEditing } from '~/composables/contract/useContractReviewRisksEditing'
+import { useContractReviewLifecycle } from '~/composables/contract/useContractReviewLifecycle'
+import { useContractReviewExport } from '~/composables/useContractReviewExport'
 import { useContractReviewVersion } from '~/composables/useContractReviewVersion'
 import { useContractRiskHighlight } from '~/composables/useContractRiskHighlight'
 import { useUserStore } from '~/store/user'
@@ -42,23 +46,101 @@ const props = defineProps<{
     caseId?: number | null
 }>()
 
-const {
+// === 顶层共享 ref（sub-composable 之间共用）===
+const reviewId = ref<number | null>(null)
+const review = ref<ReviewWithParsedRisks | null>(null)
+const hasUnsavedDocxChanges = ref(false)
+const sessionIdRef = ref<string | null>(null)
+
+// === 业务态 sub-composable ===
+const stages = useContractReviewStages()
+const risksEditing = useContractReviewRisksEditing({ reviewId, review, hasUnsavedDocxChanges })
+const lifecycle = useContractReviewLifecycle({
+    reviewId,
     review,
-    isLoading,
-    awaitingStance,
-    runStatus,
-    onStart,
-    mountReview,
-    onStance,
-    onDownload,
-    onExportPdf,
-    isExportingPdf,
-    onEditRisks,
-    cancelReview,
-    stageStatus,
-    totalClauses,
-    analyzingClauseIndex,
-} = useContractReview()
+    hasUnsavedDocxChanges,
+    stages,
+    risksEditing,
+})
+
+const stageStatus = stages.stageStatus
+const totalClauses = stages.totalClauses
+const analyzingClauseIndex = stages.analyzingClauseIndex
+const onEditRisks = risksEditing.onEditRisks
+
+// PDF 导出 + 批注版 docx 下载（独立 composable，未拆）
+const { isExportingPdf, onExportPdf, onDownload } = useContractReviewExport(reviewId)
+
+// === 工厂：单 session（sessionId 来自 mountReview / onStart）===
+const contractAgent = useContractAgent(sessionIdRef, {
+    onCustomEvent: lifecycle.applyCustomEvent,
+    onStreamSettled: async (status) => {
+        // 流末回拉，对齐旧 useContractReview 的 status === completed/failed 行为
+        if (status === 'failed') {
+            toast.error('审查未能完成，请刷新页面或稍后重试')
+        }
+        await lifecycle.refreshReview()
+    },
+})
+
+const isLoading = contractAgent.isLoading
+const interruptData = contractAgent.interruptData
+
+// === awaitingStance / runStatus 派生（旧 useContractReview 行为）===
+type AwaitingStancePayload = { partyA?: string; partyB?: string; contractType?: string }
+const awaitingStance = computed<AwaitingStancePayload | null>(() => {
+    const d = interruptData.value as Record<string, unknown> | null
+    if (!d || d.type !== 'awaiting_stance') return null
+    return {
+        partyA: typeof d.partyA === 'string' ? d.partyA : undefined,
+        partyB: typeof d.partyB === 'string' ? d.partyB : undefined,
+        contractType: typeof d.contractType === 'string' ? d.contractType : undefined,
+    }
+})
+
+type ContractRunStatus = 'idle' | 'reviewing' | 'awaiting_stance' | 'completed' | 'failed'
+const runStatus = computed<ContractRunStatus>(() => {
+    if (awaitingStance.value) return 'awaiting_stance'
+    const s = contractAgent.runStatus.value
+    if (s === 'completed') return 'completed'
+    if (s === 'failed') return 'failed'
+    if (s === 'pending' || s === 'running' || s === 'interrupted') return 'reviewing'
+    return 'idle'
+})
+
+// === mountReview / onStance / cancelReview 包装 ===
+async function mountReview(id: number) {
+    const r = await lifecycle.loadReview(id)
+    if (!r) return
+    sessionIdRef.value = r.sessionId
+    await contractAgent.switchSession(r.sessionId)
+    // 续订 stream 历史（switchSession 已自动调 reconnect/loadHistory）
+}
+
+async function onStance(payload: StanceRequest): Promise<boolean> {
+    if (!reviewId.value) return false
+    const ok = await lifecycle.submitStance(payload)
+    if (!ok) return false
+    // 服务端已处理 INTERRUPTED → COMPLETED 释放 + enqueue 新 run；
+    // 前端只需重订阅 SSE：直接重新 switchSession 到当前 sessionId
+    if (sessionIdRef.value) {
+        try {
+            await contractAgent.switchSession(sessionIdRef.value)
+            return true
+        } catch (err) {
+            console.warn('立场提交后续订失败', err)
+            toast.error('连接中断，请重试')
+            return false
+        }
+    }
+    return true
+}
+
+async function cancelReview() {
+    await contractAgent.stopGeneration()
+    lifecycle.cancelReview()
+    sessionIdRef.value = null
+}
 
 // 风险高亮三态 + 定位状态集中到 useContractRiskHighlight
 // （原本 focusedRiskId / hoveredRiskId / pinnedRiskIds / notLocatedIds / hasLocated
