@@ -88,11 +88,13 @@ export default defineVitestConfig({
         coverage: {
             provider: 'v8',
             reporter: ['text', 'json', 'json-summary', 'html'],
-            // 使用绝对路径，因为 vitest 在 Nuxt 环境下以 app/ 为 root，相对路径会找不到 server/ 和 shared/
+            // Nuxt 测试环境会把 worker 工作目录切到 app/，导致相对路径 reportsDirectory
+            // 落到 app/coverage。这里强制用绝对路径 + 项目根目录的 coverage/ 输出
             reportsDirectory: resolve(rootDir, 'coverage'),
-            // 使用函数过滤排除不需要的文件（处理绝对路径）
-            // v8 provider 的 exclude 使用 glob 模式，但 vitest 的 root 已改为项目根目录
-            // 排除静态页面、图标组件、静态资源和服务器目录
+            // v8 provider 在 Nuxt env 下 root 被改到 app/，使 include 的相对 glob 失效
+            // 只能匹配到 app/ 内文件。使用绝对路径 + 关闭 v8 的 root-relative 处理：
+            allowExternal: true,
+            // 排除不需要的文件
             exclude: [
                 // 基础排除
                 '**/node_modules/**',
@@ -139,12 +141,21 @@ export default defineVitestConfig({
                 // workflow/state/storage.ts：checkpointer 的轻量 Storage 适配，
                 // 依赖 LangGraph checkpoint 运行态，不在单测范围
                 '**/server/services/workflow/state/storage.ts',
+                // 业务方迁移后旧位置仅是 re-export shim（一行 export *），无统计意义
+                '**/server/services/assistant/document/**',
+                '**/server/services/assistant/contract/**',
+                '**/server/services/workflow/agents/case*MainAgent.ts',
+                '**/server/services/workflow/agents/contractReviewMainAgent.ts',
+                '**/server/services/workflow/agents/documentMainAgent.ts',
+                '**/server/services/workflow/agents/legalAssistantAgent.ts',
             ],
-            // 只包含 app / shared / server 目录
+            // 只包含 app / shared / server 目录（绝对路径以兼容 Nuxt env 下 root 切换）
             include: [
-                resolve(rootDir, 'app/**/*.{ts,vue}'),
-                resolve(rootDir, 'shared/**/*.{ts,js}'),
-                resolve(rootDir, 'server/**/*.{ts,js}'),
+                resolve(rootDir, 'app') + '/**/*.{ts,vue}',
+                resolve(rootDir, 'shared') + '/**/*.{ts,js}',
+                resolve(rootDir, 'server') + '/**/*.{ts,js}',
+                // 业务方近期把 vertical 迁到 server/agents/，需要单独包含
+                resolve(rootDir, 'server/agents') + '/**/*.{ts,js}',
             ],
             thresholds: {
                 // 适度调低阈值，聚焦可测试代码的覆盖

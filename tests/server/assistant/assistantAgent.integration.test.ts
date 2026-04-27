@@ -22,8 +22,69 @@ import {
 describe('runAssistantChat - 集成', () => {
     let testIds: CaseTestIds
 
-    beforeAll(() => {
+    beforeAll(async () => {
         testIds = createEmptyTestIds()
+
+        // 测试库无 seedData.sql 注入，需手动创建 assistantMain 节点链路
+        // （主库 seedData.sql 已 seed id=15, 但测试库仍是空表）
+        const prisma = getTestPrisma()
+        const provider = await prisma.modelProviders.create({
+            data: {
+                name: `测试提供商_assistant_${Date.now()}`,
+                baseUrl: 'https://api.test.com',
+                description: 'integration test provider',
+            },
+        })
+        testIds.modelProviderIds.push(provider.id)
+
+        await prisma.modelApiKeys.create({
+            data: {
+                providerId: provider.id,
+                name: `测试密钥_assistant_${Date.now()}`,
+                apiKey: `sk-test-assistant-${Date.now()}`,
+                isDefault: true, // node DAO 仅查 isDefault=true 的 key
+                status: 1,
+            },
+        })
+
+        const model = await prisma.models.create({
+            data: {
+                providerId: provider.id,
+                name: `test-model-assistant-${Date.now()}`,
+                displayName: '测试模型',
+                modelType: 'chat',
+                sdkType: 'openai',
+                contextWindow: 128_000,
+                maxOutputTokens: 8192,
+                status: 1,
+            },
+        })
+        testIds.modelIds.push(model.id)
+
+        const node = await prisma.nodes.create({
+            data: {
+                name: 'assistantMain',
+                title: '通用法律助手主Agent',
+                description: '无案件上下文的法律问答与工具调用',
+                type: 'agent',
+                modelId: model.id,
+                tools: [],
+                status: 1,
+            },
+        })
+        testIds.nodeIds.push(node.id)
+
+        await prisma.prompts.create({
+            data: {
+                name: 'assistantMain_system',
+                title: '通用法律助手系统提示词 v1',
+                content: '你是 LexSeek 的通用法律助手。',
+                version: '1.0',
+                type: 'system',
+                status: 1,
+                nodeId: node.id,
+            },
+        })
     })
 
     afterEach(async () => {
@@ -38,6 +99,13 @@ describe('runAssistantChat - 集成', () => {
     })
 
     afterAll(async () => {
+        const prisma = getTestPrisma()
+        // prompts 引用 nodes，必须先清理 prompts 才能让 cleanupTestData 删 nodes
+        if (testIds.nodeIds.length > 0) {
+            await prisma.prompts.deleteMany({
+                where: { nodeId: { in: testIds.nodeIds } },
+            })
+        }
         await cleanupTestData(testIds)
         await disconnectTestDb()
     })

@@ -16,7 +16,7 @@ const globalStubs = {
         template: '<div data-stub="cot-header"><slot /></div>',
       },
       ChainOfThoughtStep: {
-        template: '<div data-stub="cot-step"><slot name="icon" /><slot /></div>',
+        template: '<div data-stub="cot-step"><slot name="icon" /><span data-stub="cot-step-label">{{ label }}</span><span data-stub="cot-step-description">{{ description }}</span><slot /></div>',
         props: ['label', 'description', 'status', 'class'],
       },
       ChainOfThoughtContent: {

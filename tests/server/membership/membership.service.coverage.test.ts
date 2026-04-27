@@ -42,6 +42,12 @@ describe('用户会员服务 - 覆盖率补充', () => {
 
     beforeAll(async () => {
         dbAvailable = await isTestDbAvailable()
+        if (dbAvailable) {
+            // 全量套件中前序测试可能已消耗 sequence，本套件 beforeAll 局部重置
+            await prisma.$executeRawUnsafe(`SELECT setval(pg_get_serial_sequence('users', 'id'), GREATEST(COALESCE((SELECT MAX(id) FROM users), 0), 1000) + 1, false)`)
+            await prisma.$executeRawUnsafe(`SELECT setval(pg_get_serial_sequence('user_memberships', 'id'), GREATEST(COALESCE((SELECT MAX(id) FROM user_memberships), 0), 1000) + 1, false)`)
+            await prisma.$executeRawUnsafe(`SELECT setval(pg_get_serial_sequence('membership_levels', 'id'), GREATEST(COALESCE((SELECT MAX(id) FROM membership_levels), 0), 1000) + 1, false)`)
+        }
     })
 
     afterEach(async () => {

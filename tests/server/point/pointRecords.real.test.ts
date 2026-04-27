@@ -159,6 +159,10 @@ describe('积分记录 - 真实数据库集成', () => {
         try {
             await prisma.$connect()
             dbAvailable = true
+            // 避免 sequence 漂移（测试库已有数据后，sequence 给的下个值已被占用 →
+            // Unique constraint failed on (id)）
+            await prisma.$executeRawUnsafe(`SELECT setval(pg_get_serial_sequence('users', 'id'), COALESCE((SELECT MAX(id) FROM users), 0) + 1, false)`)
+            await prisma.$executeRawUnsafe(`SELECT setval(pg_get_serial_sequence('point_records', 'id'), COALESCE((SELECT MAX(id) FROM point_records), 0) + 1, false)`)
         } catch (error) {
             console.warn('数据库连接失败，跳过测试：', error)
             dbAvailable = false

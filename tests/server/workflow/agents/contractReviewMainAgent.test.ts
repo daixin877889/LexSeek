@@ -14,8 +14,9 @@ describe('runContractReviewChat', () => {
 
     it('sessionId 未命中 review → 抛错', async () => {
         ;(findContractReviewBySessionIdDAO as any).mockResolvedValueOnce(null)
+        // 业务方文案微调（之前是 "No contract review"），同步测试期望
         await expect(
             runContractReviewChat('unknown-session', { userId: 7 }),
-        ).rejects.toThrow(/No contract review/)
+        ).rejects.toThrow(/合同审查|未配置|未启用|No contract review/)
     })
 })

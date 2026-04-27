@@ -32,6 +32,8 @@ const createdOrderIds: number[] = []
 
 describe('订单服务测试', () => {
     beforeAll(async () => {
+        // 全量套件中前序测试可能已消耗 sequence，本套件 beforeAll 局部重置
+        await prisma.$executeRawUnsafe(`SELECT setval(pg_get_serial_sequence('orders', 'id'), GREATEST(COALESCE((SELECT MAX(id) FROM orders), 0), 1000) + 1, false)`)
         // 查找测试用户
         testUser = await prisma.users.findFirst({
             where: { deletedAt: null },

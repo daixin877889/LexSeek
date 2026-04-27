@@ -111,6 +111,10 @@ const withFaultInjection = async (
 describe('积分消耗记录 DAO - 真实数据库集成', () => {
     beforeAll(async () => {
         await prisma.$connect()
+        // 全量套件中前序测试可能已消耗 sequence，本套件 beforeAll 局部重置
+        await prisma.$executeRawUnsafe(`SELECT setval(pg_get_serial_sequence('users', 'id'), GREATEST(COALESCE((SELECT MAX(id) FROM users), 0), 1000) + 1, false)`)
+        await prisma.$executeRawUnsafe(`SELECT setval(pg_get_serial_sequence('point_records', 'id'), GREATEST(COALESCE((SELECT MAX(id) FROM point_records), 0), 1000) + 1, false)`)
+        await prisma.$executeRawUnsafe(`SELECT setval(pg_get_serial_sequence('point_consumption_records', 'id'), GREATEST(COALESCE((SELECT MAX(id) FROM point_consumption_records), 0), 1000) + 1, false)`)
     })
 
     afterAll(async () => {

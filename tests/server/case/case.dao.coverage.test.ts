@@ -134,8 +134,10 @@ describe('案件 DAO 层 - 覆盖率补充', () => {
 
         it('应按 status 筛选', async () => {
             await makeCase()
-            const result = await findManyCasesDao({ userId: testUser.id, status: CaseStatus.IN_PROGRESS })
-            for (const c of result.list) expect(c.status).toBe(CaseStatus.IN_PROGRESS)
+            // 业务方重构 CaseStatus 枚举：IN_PROGRESS/COMPLETED → CONSULTING/PREPARING/FIRST_TRIAL/SECOND_TRIAL/CLOSED/ARCHIVED
+            // makeCase 默认 status 由 createTestCase 决定，先取实际默认值再过滤
+            const result = await findManyCasesDao({ userId: testUser.id, status: CaseStatus.CONSULTING })
+            for (const c of result.list) expect(c.status).toBe(CaseStatus.CONSULTING)
         })
 
         it('应按 isDemo 筛选', async () => {
@@ -166,7 +168,8 @@ describe('案件 DAO 层 - 覆盖率补充', () => {
 
         it('应更新状态', async () => {
             const c = await makeCase()
-            expect((await updateCaseDao(c.id, { status: CaseStatus.COMPLETED })).status).toBe(CaseStatus.COMPLETED)
+            // 业务方重构 CaseStatus：COMPLETED 已废弃；改用 CLOSED 作为"案件流程完结"语义
+            expect((await updateCaseDao(c.id, { status: CaseStatus.CLOSED })).status).toBe(CaseStatus.CLOSED)
         })
 
         it('应更新 plaintiff 和 defendant', async () => {

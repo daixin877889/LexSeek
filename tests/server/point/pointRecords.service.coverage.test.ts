@@ -29,6 +29,9 @@ let testUserId: number | null = null
 
 describe('积分记录服务 - 覆盖率补充', () => {
     beforeAll(async () => {
+        // 避免 sequence 漂移（测试库已有数据后，sequence 给的下个值已被占用 →
+        // Unique constraint failed on (id)）
+        await prisma.$executeRawUnsafe(`SELECT setval(pg_get_serial_sequence('point_records', 'id'), COALESCE((SELECT MAX(id) FROM point_records), 0) + 1, false)`)
         const user = await prisma.users.findFirst({
             where: { deletedAt: null },
             select: { id: true },
