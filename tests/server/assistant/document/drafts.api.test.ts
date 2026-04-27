@@ -41,6 +41,7 @@ vi.mock('~~/server/agents/document/documentDraft.service', () => ({
     getDraftService: vi.fn(),
     patchDraftService: vi.fn(),
     deleteDraftService: vi.fn(),
+    linkDraftToCaseService: vi.fn(),
 }))
 
 vi.mock('~~/server/agents/document/documentDraft.dao', () => ({
@@ -52,6 +53,7 @@ import {
     getDraftService,
     patchDraftService,
     deleteDraftService,
+    linkDraftToCaseService,
 } from '~~/server/agents/document/documentDraft.service'
 import { listDocumentDraftsDAO } from '~~/server/agents/document/documentDraft.dao'
 
@@ -59,6 +61,7 @@ const mockCreateDraftService = createDraftService as ReturnType<typeof vi.fn>
 const mockGetDraftService = getDraftService as ReturnType<typeof vi.fn>
 const mockPatchDraftService = patchDraftService as ReturnType<typeof vi.fn>
 const mockDeleteDraftService = deleteDraftService as ReturnType<typeof vi.fn>
+const mockLinkDraftToCaseService = linkDraftToCaseService as ReturnType<typeof vi.fn>
 const mockListDraftsDAO = listDocumentDraftsDAO as ReturnType<typeof vi.fn>
 
 // ==================== 动态 import handlers（必须在 mock 之后）====================
@@ -321,7 +324,7 @@ describe('PATCH /api/v1/assistant/document/drafts/:id', () => {
         expect(res.code).toBe(400)
     })
 
-    it('缺少 values 字段返回 400', async () => {
+    it('values 和 caseId 都缺失返回 400', async () => {
         const res: any = await patchHandler(
             makeEvent({ userId: USER_A, params: { id: '1' }, body: {} }) as any,
         )
@@ -331,6 +334,72 @@ describe('PATCH /api/v1/assistant/document/drafts/:id', () => {
     it('values 非对象返回 400', async () => {
         const res: any = await patchHandler(
             makeEvent({ userId: USER_A, params: { id: '1' }, body: { values: 'invalid' } }) as any,
+        )
+        expect(res.code).toBe(400)
+    })
+
+    // ==================== 阶段 5：caseId 关联分支 ====================
+
+    it('关联案件成功（仅传 caseId）', async () => {
+        mockLinkDraftToCaseService.mockResolvedValue({ draft: { id: 1, caseId: 7 } })
+        const res: any = await patchHandler(
+            makeEvent({
+                userId: USER_A,
+                params: { id: '1' },
+                body: { caseId: 7 },
+            }) as any,
+        )
+        expect(res.success).toBe(true)
+        expect(res.message).toBe('关联成功')
+        expect(res.data.draft).toMatchObject({ id: 1, caseId: 7 })
+        expect(mockLinkDraftToCaseService).toHaveBeenCalledWith(USER_A, 1, 7)
+        expect(mockPatchDraftService).not.toHaveBeenCalled()
+    })
+
+    it('解绑案件（caseId=null）成功', async () => {
+        mockLinkDraftToCaseService.mockResolvedValue({ draft: { id: 1, caseId: null } })
+        const res: any = await patchHandler(
+            makeEvent({
+                userId: USER_A,
+                params: { id: '1' },
+                body: { caseId: null },
+            }) as any,
+        )
+        expect(res.success).toBe(true)
+        expect(mockLinkDraftToCaseService).toHaveBeenCalledWith(USER_A, 1, null)
+    })
+
+    it('关联到他人案件返回 403', async () => {
+        mockLinkDraftToCaseService.mockResolvedValue({ error: '案件不存在或无权访问', code: 403 })
+        const res: any = await patchHandler(
+            makeEvent({
+                userId: USER_A,
+                params: { id: '1' },
+                body: { caseId: 999 },
+            }) as any,
+        )
+        expect(res.code).toBe(403)
+    })
+
+    it('关联到已归档案件返回 409', async () => {
+        mockLinkDraftToCaseService.mockResolvedValue({ error: '案件已归档，不可关联', code: 409 })
+        const res: any = await patchHandler(
+            makeEvent({
+                userId: USER_A,
+                params: { id: '1' },
+                body: { caseId: 5 },
+            }) as any,
+        )
+        expect(res.code).toBe(409)
+    })
+
+    it('caseId 非正整数返回 400', async () => {
+        const res: any = await patchHandler(
+            makeEvent({
+                userId: USER_A,
+                params: { id: '1' },
+                body: { caseId: -1 },
+            }) as any,
         )
         expect(res.code).toBe(400)
     })

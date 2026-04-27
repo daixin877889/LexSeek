@@ -22,6 +22,7 @@ import dayjs from 'dayjs'
 import { enqueueRunService } from '~~/server/services/agent/agentRun.service'
 import { ensureMaterialsReadyForDraftService } from '~~/server/services/material/materialPipeline.service'
 import type { DocumentDraftStatus } from '#shared/types/document'
+import { CaseStatus } from '#shared/types/case'
 
 // ==================== 类型定义 ====================
 
@@ -185,6 +186,45 @@ export async function patchDraftService(
         values: mergedValues as any,
     })
 
+    return { draft: updated }
+}
+
+// ==================== linkDraftToCaseService ====================
+
+/**
+ * 关联 / 解绑文书草稿到案件。
+ *
+ * 阶段 5 · 法律助手「+ 关联案件」入口：用户在文书页顶部"来源条"点关联，
+ * 选定案件后调用此接口写入 draft.caseId；caseId=null 表示解绑。
+ *
+ * 校验：
+ * - 草稿必须归属当前用户（owner-only）
+ * - caseId 非 null 时：案件必须归属当前用户 + 未软删 + 非已归档
+ *
+ * 注意：drafting/filling 状态不阻塞关联（用户在 Agent 跑的同时也可能想绑案件），
+ * 仅 patchDraftService 写入 values 时才校验运行态。
+ */
+export async function linkDraftToCaseService(
+    userId: number,
+    draftId: number,
+    caseId: number | null,
+): Promise<{ draft: any } | ServiceError> {
+    const draft = await getDocumentDraftDAO(draftId)
+    if (!draft) return { error: '草稿不存在', code: 404 }
+    if (draft.userId !== userId) return { error: '无权修改此草稿', code: 403 }
+
+    if (caseId !== null) {
+        const caseRow = await prisma.cases.findFirst({
+            where: { id: caseId, userId, deletedAt: null },
+            select: { id: true, status: true },
+        })
+        if (!caseRow) return { error: '案件不存在或无权访问', code: 403 }
+        if (caseRow.status === CaseStatus.ARCHIVED) {
+            return { error: '案件已归档，不可关联', code: 409 }
+        }
+    }
+
+    const updated = await updateDocumentDraftDAO(draftId, { caseId } as any)
     return { draft: updated }
 }
 

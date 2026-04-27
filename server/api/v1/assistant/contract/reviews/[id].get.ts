@@ -4,9 +4,11 @@
  * 获取合同审查详情。
  *
  * 返回字段白名单（不含 userId / deletedAt）：
- * - id, sessionId, status, contractType, partyA, partyB, stance
+ * - id, sessionId, status, contractType, partyA, partyB, stance, caseId
  * - risks, summary, originalFileId, reviewedFileId, createdAt, updatedAt
  * - currentVersionId, maxVersionNo（多版本协作新增）
+ *
+ * caseId：阶段 5 新增，前端来源条用来判断是否已关联到案件（null = 独立审查）
  *
  * risks 字段兼容逻辑：
  * - currentVersionId === null：存量未迁移数据，直接读 review.risks JSON（legacy）
@@ -65,6 +67,7 @@ export default defineEventHandler(async (event) => {
             partyA: review.partyA,
             partyB: review.partyB,
             stance: review.stance,
+            caseId: review.caseId,
             risks: risksWithAnnotations,
             summary: review.summary,
             playbookSnapshot: review.playbookSnapshot,

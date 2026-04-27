@@ -258,6 +258,50 @@ export const getCasesService = async (
     return await findManyCasesDao(options)
 }
 
+/** 进行中案件列表项（用于关联案件 Dialog） */
+export interface ActiveCaseItem {
+    id: number
+    title: string
+}
+
+/**
+ * 获取当前用户「进行中」案件列表。
+ *
+ * 用于法律助手关联案件 Dialog（CaseLinkerDialog）：
+ * - owner-only：仅返回当前用户名下的案件
+ * - 排除已软删（deletedAt IS NULL）
+ * - 排除已归档案件（status != ARCHIVED）
+ * - 可选 q 关键词模糊匹配 title
+ * - 按 updatedAt desc 排序，限制返回 100 条
+ *
+ * 阶段 5：CaseLinkerDialog 调用
+ */
+export const getActiveCasesService = async (
+    userId: number,
+    options: { q?: string; limit?: number } = {}
+): Promise<ActiveCaseItem[]> => {
+    const limit = Math.min(Math.max(options.limit ?? 100, 1), 200)
+    const q = options.q?.trim()
+
+    const where: any = {
+        userId,
+        deletedAt: null,
+        status: { not: CaseStatus.ARCHIVED },
+    }
+    if (q) {
+        where.title = { contains: q, mode: 'insensitive' }
+    }
+
+    const rows = await prisma.cases.findMany({
+        where,
+        select: { id: true, title: true },
+        orderBy: { updatedAt: 'desc' },
+        take: limit,
+    })
+
+    return rows.map(r => ({ id: r.id, title: r.title }))
+}
+
 /**
  * 更新案件基本信息
  * Requirements: 5.6, 5.7

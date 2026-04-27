@@ -15,10 +15,22 @@ import { FileSource } from '#shared/types/file'
 import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
 import { enqueueRunService } from '~~/server/services/agent/agentRun.service'
 import { textToDocxService } from './textToDocx.service'
-import { createContractReviewDAO } from './contractReview.dao'
+import {
+    createContractReviewDAO,
+    getContractReviewDAO,
+    updateContractReviewDAO,
+} from './contractReview.dao'
 import { uploadAndRegisterOssFile } from './utils/uploadAndRegisterOssFile'
 import { DOCX_MIME } from '#shared/utils/mime'
 import type { CreateReviewRequest, CreateReviewResponse } from '#shared/types/contract'
+import { CaseStatus } from '#shared/types/case'
+import type { contractReviews } from '~~/generated/prisma/client'
+
+/** Service 层统一错误返回 */
+export interface ContractReviewServiceError {
+    error: string
+    code: number
+}
 
 const MAX_PASTE_LENGTH = 50000
 
@@ -144,4 +156,42 @@ export async function createAndStartContractReviewService(
     })
 
     return { reviewId: review.id, sessionId }
+}
+
+// ==================== linkReviewToCaseService ====================
+
+/**
+ * 关联 / 解绑合同审查到案件。
+ *
+ * 阶段 5 · 法律助手「+ 关联案件」入口：用户在合同审查工作台顶部"来源条"
+ * 点关联，选定案件后调用此接口写入 review.caseId；caseId=null 表示解绑。
+ *
+ * 校验：
+ * - 审查记录必须归属当前用户（owner-only）
+ * - caseId 非 null 时：案件必须归属当前用户 + 未软删 + 非已归档
+ *
+ * 阶段 5 plan Task 7
+ */
+export async function linkReviewToCaseService(
+    userId: number,
+    reviewId: number,
+    caseId: number | null,
+): Promise<{ review: contractReviews } | ContractReviewServiceError> {
+    const review = await getContractReviewDAO(reviewId)
+    if (!review) return { error: '合同审查不存在', code: 404 }
+    if (review.userId !== userId) return { error: '无权修改该合同审查', code: 403 }
+
+    if (caseId !== null) {
+        const caseRow = await prisma.cases.findFirst({
+            where: { id: caseId, userId, deletedAt: null },
+            select: { id: true, status: true },
+        })
+        if (!caseRow) return { error: '案件不存在或无权访问', code: 403 }
+        if (caseRow.status === CaseStatus.ARCHIVED) {
+            return { error: '案件已归档，不可关联', code: 409 }
+        }
+    }
+
+    const updated = await updateContractReviewDAO(reviewId, { caseId })
+    return { review: updated }
 }
