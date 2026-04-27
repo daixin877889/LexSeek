@@ -16,10 +16,11 @@
 import { describe, it, expect } from 'vitest'
 import type { ModuleRunState } from '#shared/types/initAnalysis'
 import { VALID_MODULE_NAMES } from '#shared/types/initAnalysis'
+// 阶段 7 迁移：useInitAnalysis 已删除，纯工具函数搬到 useInitAnalysisModules
 import {
     computeModuleStatesFromSnapshot,
     pickFirstSelectedModule,
-} from '~/composables/useInitAnalysis'
+} from '~/composables/initAnalysis/useInitAnalysisModules'
 
 /** initAnalysis.service.ts:14-27 的 validateAndSortModules 排序部分（本地副本） */
 function sortByValidOrder(modules: string[]): string[] {
