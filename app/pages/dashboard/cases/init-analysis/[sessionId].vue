@@ -172,8 +172,11 @@ import CaseAnalysisDocPreviewDialog from '~/components/caseAnalysis/DocPreviewDi
 import CaseDetailOverview from '~/components/caseDetail/CaseDetailOverview.vue'
 import InitAnalysisModuleSelector from '~/components/initAnalysis/ModuleSelector.vue'
 import InitAnalysisPipelineProgress from '~/components/initAnalysis/PipelineProgress.vue'
+import type { InitAnalysisStatusResponse } from '#shared/types/initAnalysis'
 import { useApiFetch } from '~/composables/useApiFetch'
-import { useInitAnalysis } from '~/composables/useInitAnalysis'
+import { useInitAnalysisRuntime } from '~/composables/initAnalysis/useInitAnalysisRuntime'
+import { useInitAnalysisProjection } from '~/composables/initAnalysis/useInitAnalysisProjection'
+import { useInitAnalysisSyncBridge } from '~/composables/initAnalysis/useInitAnalysisSyncBridge'
 
 definePageMeta({
   title: "初始化分析",
@@ -236,27 +239,75 @@ async function openMaterialPreview(material: CaseDetailMaterialItem) {
 // 面板布局模式：选择阶段只显示左侧
 const panelMode = ref<'left' | 'right' | 'both'>('left')
 
-const {
-  phase,
-  caseId,
-  selectedModules,
-  completedModules,
-  isInitialized,
-  moduleStates,
-  activeModules,
-  allModuleCards,
-  isLoading,
-  runStatus,
-  runError,
-  interruptData,
-  mergedResult,
-  streamMessages,
-  loadStatus,
-  startAnalysis,
-  resumeWorkflow,
-  retryModule,
-  activeIndex,
-} = useInitAnalysis(sessionId)
+// === 阶段 7：直接在页面组装 runtime + projection + bridge（旧 useInitAnalysis 已删）===
+const runtime = useInitAnalysisRuntime(sessionId)
+
+// projection 依赖：DB 结果 / status modules / 跨标签生成中模块
+const resultFromDB = ref<Record<string, string>>({})
+const statusModules = ref<InitAnalysisStatusResponse['modules']>([])
+const externalGenerating = ref<string[]>([])
+
+const projection = useInitAnalysisProjection({
+  moduleStates: runtime.moduleStates,
+  values: runtime.values,
+  streamMessages: runtime.stream.messages,
+  statusModules,
+  resultFromDB,
+  externalGenerating,
+})
+
+const syncBridge = useInitAnalysisSyncBridge({
+  caseId: runtime.caseId,
+  sessionId,
+  syncSummary: runtime.syncSummary,
+  isLoading: runtime.isLoading,
+  refreshGlobalStatus(status) {
+    runtime.refreshGlobalStatus(status)
+    statusModules.value = status.modules ?? []
+  },
+  refreshGlobalResult(result) {
+    resultFromDB.value = result
+  },
+  onExternalGenerating(modules) {
+    externalGenerating.value = modules
+  },
+})
+
+// 把 runtime.startAnalysis / retryModule / resumeWorkflow 包一层 syncBridge.resetSignature
+// （与旧 useInitAnalysis 行为对齐）
+function startAnalysis() {
+  syncBridge.resetSignature()
+  runtime.startAnalysis()
+}
+function retryModule(moduleName: string) {
+  syncBridge.resetSignature()
+  runtime.retryModule(moduleName)
+}
+function resumeWorkflow() {
+  syncBridge.resetSignature()
+  runtime.resumeWorkflow()
+}
+
+// 在模板中要用的字段透传
+const phase = runtime.phase
+const caseId = runtime.caseId
+const selectedModules = runtime.selectedModules
+const completedModules = runtime.completedModules
+const isInitialized = runtime.isInitialized
+const moduleStates = runtime.moduleStates
+const activeModules = runtime.activeModules
+const allModuleCards = projection.allModuleCards
+const isLoading = runtime.isLoading
+const runStatus = runtime.runStatus
+const runError = runtime.runError
+const interruptData = runtime.interruptData
+const mergedResult = projection.mergedResult
+const streamMessages = projection.streamMessages
+const loadStatus = runtime.loadStatus
+const activeIndex = runtime.activeIndex
+
+// retryModule 当前模板中没用到（页面只用 startAnalysis / resumeWorkflow），但保留导出便于后续扩展
+void retryModule
 
 // Agent 运行失败反馈
 const showGlobalRetry = ref(false)
