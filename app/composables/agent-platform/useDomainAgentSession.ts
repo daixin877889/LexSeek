@@ -617,3 +617,91 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
     clearQueue,
   }
 }
+
+// ── 多 key 池化（用于模块对话等场景，每个 key 一个独立 session 实例）──
+
+/**
+ * SessionFactory：池化时每个 key 对应的工厂实例
+ * 类型 = useDomainAgentSession 的返回值
+ */
+export type SessionFactory = ReturnType<typeof useDomainAgentSession>
+
+interface PoolEntry {
+  scope: EffectScope
+  factory: SessionFactory
+}
+
+/**
+ * useDomainAgentSessionPool —— 多 key 池化
+ *
+ * 用于 case 模块对话（每模块一个独立的 useDomainAgentSession）：
+ * - 每个 key 独立 effectScope + 独立 useDomainAgentSession 实例
+ * - getOrCreate(key) 幂等返回该 key 的 factory，第二次调用直接复用已有实例
+ * - remove(key) dispose 该 key 的 scope + 清理 entry
+ * - 父 scope dispose 时（onScopeDispose）自动 dispose 所有 entries
+ *
+ * baseConfig：所有 key 共享的配置（scope/userId/caseId/apiEndpoints/钩子等）
+ * extraConfig：每 key 调用时叠加的差异（典型：moduleName / sessionId）
+ *
+ * 参考实现：useModuleChatManager.ts:52-96 的 getOrCreateModuleManager
+ */
+export interface DomainAgentSessionPoolApi {
+  getOrCreate: (key: string, extraConfig?: Partial<DomainAgentSessionConfig>) => SessionFactory
+  remove: (key: string) => void
+  keys: () => string[]
+  /** 池中所有 factory 的快照（只读，按 key 顺序）*/
+  list: () => Array<{ key: string; factory: SessionFactory }>
+}
+
+export function useDomainAgentSessionPool(
+  baseConfig: Omit<DomainAgentSessionConfig, 'sessionId'> & { sessionId?: SessionIdConfig },
+): DomainAgentSessionPoolApi {
+  const entries = new Map<string, PoolEntry>()
+
+  function getOrCreate(
+    key: string,
+    extraConfig?: Partial<DomainAgentSessionConfig>,
+  ): SessionFactory {
+    const existing = entries.get(key)
+    if (existing) return existing.factory
+
+    // 每个 key 独立 effectScope，确保 useDomainAgentSession 内的 ref/computed/watch
+    // 在调用 remove(key) 时被一并清理（异步事件回调中无 component context）
+    const scope = effectScope(true)
+    const factory = scope.run(() =>
+      useDomainAgentSession({ ...baseConfig, ...extraConfig } as DomainAgentSessionConfig),
+    )
+    if (!factory) {
+      scope.stop()
+      throw new Error(`[useDomainAgentSessionPool] factory 创建失败 key=${key}`)
+    }
+
+    entries.set(key, { scope, factory })
+    return factory
+  }
+
+  function remove(key: string) {
+    const entry = entries.get(key)
+    if (!entry) return
+    entry.scope.stop()
+    entries.delete(key)
+  }
+
+  function keys(): string[] {
+    return Array.from(entries.keys())
+  }
+
+  function list(): Array<{ key: string; factory: SessionFactory }> {
+    return Array.from(entries.entries()).map(([key, entry]) => ({ key, factory: entry.factory }))
+  }
+
+  // 父 scope dispose 时一次性清理所有 entries
+  onScopeDispose(() => {
+    for (const entry of entries.values()) {
+      entry.scope.stop()
+    }
+    entries.clear()
+  })
+
+  return { getOrCreate, remove, keys, list }
+}
