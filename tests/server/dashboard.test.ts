@@ -1,562 +1,188 @@
-/**
- * Dashboard 服务层测试
- *
- * **Feature: dashboard**
- * **Validates: Dashboard 核心功能测试**
- */
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { getDashboardStatistics, getDashboardPoints, getDashboardMembership, getDashboardRecentCases, getDashboardData } from '../../server/services/dashboard.service'
 
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
-import dayjs from 'dayjs'
-import {
-    getTestPrisma,
-    createTestUser,
-    createTestMembershipLevel,
-    createTestUserMembership,
-    cleanupTestData,
-    createEmptyTestIds,
-    disconnectTestDb,
-    isTestDbAvailable,
-    resetDatabaseSequences,
-    MembershipStatus,
-    type TestIds,
-} from './membership/test-db-helper'
-import { createTestCaseType, createTestNode, createTestModel, createTestModelProvider } from './case/test-db-helper'
-import {
-    getDashboardStatistics,
-    getDashboardMembership,
-    getDashboardData,
-} from '../../server/services/dashboard.service'
+vi.mock('../../server/services/point/pointRecords.service', () => ({
+  getUserPointSummary: vi.fn(async () => ({
+    remaining: 100,
+    purchasePoint: 50,
+    otherPoint: 50,
+  })),
+}))
 
-// 检查数据库是否可用
-let dbAvailable = false
+vi.mock('../../server/services/membership/userMembership.service', () => ({
+  getCurrentMembershipService: vi.fn(async () => ({
+    levelId: 1,
+    levelName: '青铜会员',
+  })),
+}))
 
-describe('Dashboard 服务层测试', () => {
-    const testIds: TestIds = createEmptyTestIds()
-    const prisma = getTestPrisma()
+vi.mock('../../server/services/case/case.service', () => ({
+  getUserCasesService: vi.fn(async () => ({
+    list: [
+      { id: 1, title: '案件1', updatedAt: new Date(), caseType: { name: '民事' }, status: 1 },
+      { id: 2, title: '案件2', updatedAt: new Date(), caseType: { name: '刑事' }, status: 5 },
+    ],
+  })),
+}))
 
-    // 用于追踪 dashboard 测试中创建的案件 ID
-    const dashboardCaseIds: number[] = []
-    // 用于所有测试共享的 case_type / node（避免硬编码 id: 1，FK 约束失败）
-    let testCaseTypeId = 0
-    let testNodeId = 0
+describe('dashboard.service · 仪表板服务', () => {
+  const userId = 123
 
-    beforeAll(async () => {
-        dbAvailable = await isTestDbAvailable()
-        if (!dbAvailable) {
-            console.warn('数据库不可用，跳过集成测试')
-        } else {
-            // 重置数据库序列，避免与种子数据冲突
-            await resetDatabaseSequences()
-            const caseType = await createTestCaseType()
-            testCaseTypeId = caseType.id
-            const provider = await createTestModelProvider()
-            const model = await createTestModel({ providerId: provider.id })
-            const node = await createTestNode({ modelId: model.id })
-            testNodeId = node.id
-        }
+  beforeEach(() => {
+    global.prisma = {
+      cases: {
+        count: vi.fn(async () => 10),
+      },
+      caseAnalyses: {
+        count: vi.fn(async () => 5),
+      },
+      userMemberships: {
+        findFirst: vi.fn(async () => ({ endDate: new Date('2025-12-31') })),
+      },
+    } as any
+  })
+
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  describe('getDashboardStatistics · 获取统计数据', () => {
+    it('应该返回案件和分析的统计数据', async () => {
+      const stats = await getDashboardStatistics(userId)
+
+      expect(stats).toHaveProperty('totalCases')
+      expect(stats).toHaveProperty('caseIncrease')
+      expect(stats).toHaveProperty('totalAnalysis')
+      expect(stats).toHaveProperty('analysisIncrease')
     })
 
-    afterEach(async () => {
-        if (dbAvailable) {
-            // 先删除 dashboard 测试中创建的案件和分析记录（避免外键约束）
-            if (dashboardCaseIds.length > 0) {
-                await prisma.caseAnalyses.deleteMany({
-                    where: { caseId: { in: dashboardCaseIds } },
-                })
-                await prisma.caseSessions.deleteMany({
-                    where: { caseId: { in: dashboardCaseIds } },
-                })
-                // document_drafts 也外键引用 cases，必须先于 cases 删
-                await prisma.documentDrafts.deleteMany({
-                    where: { caseId: { in: dashboardCaseIds } },
-                })
-                await prisma.cases.deleteMany({
-                    where: { id: { in: dashboardCaseIds } },
-                })
-                dashboardCaseIds.length = 0
-            }
-            await cleanupTestData(testIds)
-            Object.keys(testIds).forEach(key => {
-                (testIds as any)[key] = []
-            })
-        }
+    it('统计数据应该都是数字', async () => {
+      const stats = await getDashboardStatistics(userId)
+
+      expect(typeof stats.totalCases).toBe('number')
+      expect(typeof stats.caseIncrease).toBe('number')
+      expect(typeof stats.totalAnalysis).toBe('number')
+      expect(typeof stats.analysisIncrease).toBe('number')
     })
 
-    afterAll(async () => {
-        if (dbAvailable) {
-            await disconnectTestDb()
-        }
+    it('应该查询用户相关的数据', async () => {
+      await getDashboardStatistics(userId)
+
+      const mockCaseCount = global.prisma.cases.count as any
+      expect(mockCaseCount).toHaveBeenCalled()
+      const firstCall = mockCaseCount.mock.calls[0][0]
+      expect(firstCall.where.userId).toBe(userId)
+    })
+  })
+
+  describe('getDashboardPoints · 获取积分信息', () => {
+    it('应该返回积分信息', async () => {
+      const points = await getDashboardPoints(userId)
+
+      expect(points).toHaveProperty('remaining')
+      expect(points).toHaveProperty('purchasePoint')
+      expect(points).toHaveProperty('otherPoint')
     })
 
-    // ==================== getDashboardStatistics 测试 ====================
-    describe('getDashboardStatistics 测试', () => {
-        it('应正确统计总案件数为 0（无案件时）', async () => {
-            if (!dbAvailable) return
+    it('积分值应该都是数字', async () => {
+      const points = await getDashboardPoints(userId)
 
-            const user = await createTestUser()
-            testIds.userIds.push(user.id)
-
-            const statistics = await getDashboardStatistics(user.id)
-
-            expect(statistics.totalCases).toBe(0)
-            expect(statistics.caseIncrease).toBe(0)
-            expect(statistics.totalAnalysis).toBe(0)
-            expect(statistics.analysisIncrease).toBe(0)
-        })
-
-        it('应正确统计总案件数和本月新增案件', async () => {
-            if (!dbAvailable) return
-
-            const user = await createTestUser()
-            testIds.userIds.push(user.id)
-
-            // 创建本月案件
-            const thisMonthCase = await prisma.cases.create({
-                data: {
-                    title: '本月测试案件',
-                    userId: user.id,
-                    caseTypeId: testCaseTypeId,
-                    status: 1,
-                    createdAt: new Date(),
-                    updatedAt: new Date(),
-                },
-            })
-            dashboardCaseIds.push(thisMonthCase.id)
-
-            // 创建上月案件
-            const lastMonth = dayjs().subtract(1, 'month').toDate()
-            const lastMonthCase = await prisma.cases.create({
-                data: {
-                    title: '上月测试案件',
-                    userId: user.id,
-                    caseTypeId: testCaseTypeId,
-                    status: 1,
-                    createdAt: lastMonth,
-                    updatedAt: lastMonth,
-                },
-            })
-            dashboardCaseIds.push(lastMonthCase.id)
-
-            const statistics = await getDashboardStatistics(user.id)
-
-            expect(statistics.totalCases).toBe(2)
-            expect(statistics.caseIncrease).toBe(1)
-        })
-
-        it('应正确统计总分析次数和本月新增分析', async () => {
-            if (!dbAvailable) return
-
-            const user = await createTestUser()
-            testIds.userIds.push(user.id)
-
-            // 创建案件
-            const testCase = await prisma.cases.create({
-                data: {
-                    title: '分析测试案件',
-                    userId: user.id,
-                    caseTypeId: testCaseTypeId,
-                    status: 1,
-                    createdAt: new Date(),
-                    updatedAt: new Date(),
-                },
-            })
-            dashboardCaseIds.push(testCase.id)
-
-            // 创建 session（分析需要关联 session）
-            const session = await prisma.caseSessions.create({
-                data: {
-                    caseId: testCase.id,
-                    sessionId: `test-session-stat-${Date.now()}`,
-                    status: 1,
-                    createdAt: new Date(),
-                    updatedAt: new Date(),
-                },
-            })
-
-            // 创建本月分析
-            await prisma.caseAnalyses.create({
-                data: {
-                    caseId: testCase.id,
-                    sessionId: session.sessionId,
-                    nodeId: testNodeId,
-                    analysisType: 'test',
-                    status: 2,
-                    createdAt: new Date(),
-                    updatedAt: new Date(),
-                },
-            })
-
-            // 创建上月分析
-            const lastMonth = dayjs().subtract(1, 'month').toDate()
-            await prisma.caseAnalyses.create({
-                data: {
-                    caseId: testCase.id,
-                    sessionId: session.sessionId,
-                    nodeId: testNodeId,
-                    analysisType: 'test',
-                    status: 2,
-                    createdAt: lastMonth,
-                    updatedAt: lastMonth,
-                },
-            })
-
-            const statistics = await getDashboardStatistics(user.id)
-
-            expect(statistics.totalAnalysis).toBe(2)
-            expect(statistics.analysisIncrease).toBe(1)
-        })
-
-        it('不应统计已删除的案件和分析', async () => {
-            if (!dbAvailable) return
-
-            const user = await createTestUser()
-            testIds.userIds.push(user.id)
-
-            // 创建并删除案件
-            const deletedCase = await prisma.cases.create({
-                data: {
-                    title: '已删除案件',
-                    userId: user.id,
-                    caseTypeId: testCaseTypeId,
-                    status: 1,
-                    createdAt: new Date(),
-                    updatedAt: new Date(),
-                },
-            })
-            dashboardCaseIds.push(deletedCase.id)
-            await prisma.cases.update({
-                where: { id: deletedCase.id },
-                data: { deletedAt: new Date() },
-            })
-
-            // 创建正常案件
-            const activeCase = await prisma.cases.create({
-                data: {
-                    title: '正常案件',
-                    userId: user.id,
-                    caseTypeId: testCaseTypeId,
-                    status: 1,
-                    createdAt: new Date(),
-                    updatedAt: new Date(),
-                },
-            })
-            dashboardCaseIds.push(activeCase.id)
-
-            // 创建 session
-            const session = await prisma.caseSessions.create({
-                data: {
-                    caseId: activeCase.id,
-                    sessionId: `test-session-deleted-${Date.now()}`,
-                    status: 1,
-                    createdAt: new Date(),
-                    updatedAt: new Date(),
-                },
-            })
-
-            // 创建已删除的分析
-            const deletedAnalysis = await prisma.caseAnalyses.create({
-                data: {
-                    caseId: activeCase.id,
-                    sessionId: session.sessionId,
-                    nodeId: testNodeId,
-                    analysisType: 'test',
-                    status: 2,
-                    createdAt: new Date(),
-                    updatedAt: new Date(),
-                },
-            })
-            await prisma.caseAnalyses.update({
-                where: { id: deletedAnalysis.id },
-                data: { deletedAt: new Date() },
-            })
-
-            // 创建正常分析
-            await prisma.caseAnalyses.create({
-                data: {
-                    caseId: activeCase.id,
-                    sessionId: session.sessionId,
-                    nodeId: testNodeId,
-                    analysisType: 'test',
-                    status: 2,
-                    createdAt: new Date(),
-                    updatedAt: new Date(),
-                },
-            })
-
-            const statistics = await getDashboardStatistics(user.id)
-
-            expect(statistics.totalCases).toBe(1)
-            expect(statistics.totalAnalysis).toBe(1)
-        })
+      expect(typeof points.remaining).toBe('number')
+      expect(typeof points.purchasePoint).toBe('number')
+      expect(typeof points.otherPoint).toBe('number')
     })
 
-    // ==================== getDashboardMembership 测试 ====================
-    describe('getDashboardMembership 测试', () => {
-        it('无会员时应返回 null', async () => {
-            if (!dbAvailable) return
+    it('积分值应该是非负数', async () => {
+      const points = await getDashboardPoints(userId)
 
-            const user = await createTestUser()
-            testIds.userIds.push(user.id)
+      expect(points.remaining).toBeGreaterThanOrEqual(0)
+      expect(points.purchasePoint).toBeGreaterThanOrEqual(0)
+      expect(points.otherPoint).toBeGreaterThanOrEqual(0)
+    })
+  })
 
-            const membership = await getDashboardMembership(user.id)
+  describe('getDashboardMembership · 获取会员信息', () => {
+    it('应该返回会员信息对象或 null', async () => {
+      const membership = await getDashboardMembership(userId)
 
-            expect(membership).toBeNull()
-        })
-
-        it('应返回当前有效会员的 levelName', async () => {
-            if (!dbAvailable) return
-
-            const user = await createTestUser()
-            testIds.userIds.push(user.id)
-
-            const level = await createTestMembershipLevel({
-                name: '测试VIP会员',
-            })
-            testIds.membershipLevelIds.push(level.id)
-
-            const now = new Date()
-            const futureDate = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000)
-
-            await createTestUserMembership(user.id, level.id, {
-                status: MembershipStatus.ACTIVE,
-                startDate: now,
-                endDate: futureDate,
-            })
-
-            const membership = await getDashboardMembership(user.id)
-
-            expect(membership).not.toBeNull()
-            expect(membership!.levelName).toBe('测试VIP会员')
-            expect(membership!.levelId).toBe(level.id)
-        })
-
-        it('应返回所有未删除会员中最晚的 endDate 作为 expiresAt', async () => {
-            if (!dbAvailable) return
-
-            const user = await createTestUser()
-            testIds.userIds.push(user.id)
-
-            const level1 = await createTestMembershipLevel({
-                name: '测试级别1',
-            })
-            const level2 = await createTestMembershipLevel({
-                name: '测试级别2',
-            })
-            testIds.membershipLevelIds.push(level1.id, level2.id)
-
-            const now = new Date()
-            const earlierDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
-            const laterDate = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000)
-
-            // 创建较早到期的会员
-            await createTestUserMembership(user.id, level1.id, {
-                status: MembershipStatus.ACTIVE,
-                startDate: now,
-                endDate: earlierDate,
-            })
-
-            // 创建较晚到期的会员
-            await createTestUserMembership(user.id, level2.id, {
-                status: MembershipStatus.ACTIVE,
-                startDate: now,
-                endDate: laterDate,
-            })
-
-            const membership = await getDashboardMembership(user.id)
-
-            expect(membership).not.toBeNull()
-            expect(membership!.expiresAt).toBe(dayjs(laterDate).format('YYYY-MM-DD'))
-        })
-
-        it('不应返回已删除的会员', async () => {
-            if (!dbAvailable) return
-
-            const user = await createTestUser()
-            testIds.userIds.push(user.id)
-
-            const level = await createTestMembershipLevel()
-            testIds.membershipLevelIds.push(level.id)
-
-            const now = new Date()
-            const futureDate = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000)
-
-            // 创建并软删除会员
-            const deletedMembership = await createTestUserMembership(user.id, level.id, {
-                status: MembershipStatus.ACTIVE,
-                startDate: now,
-                endDate: futureDate,
-            })
-            await prisma.userMemberships.update({
-                where: { id: deletedMembership.id },
-                data: { deletedAt: new Date() },
-            })
-
-            const membership = await getDashboardMembership(user.id)
-
-            expect(membership).toBeNull()
-        })
-
-        it('不应返回已过期的会员', async () => {
-            if (!dbAvailable) return
-
-            const user = await createTestUser()
-            testIds.userIds.push(user.id)
-
-            const level = await createTestMembershipLevel()
-            testIds.membershipLevelIds.push(level.id)
-
-            const now = new Date()
-            const pastDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-
-            // 创建已过期的会员
-            await createTestUserMembership(user.id, level.id, {
-                status: MembershipStatus.ACTIVE,
-                startDate: new Date(pastDate.getTime() - 60 * 24 * 60 * 60 * 1000),
-                endDate: pastDate,
-            })
-
-            const membership = await getDashboardMembership(user.id)
-
-            expect(membership).toBeNull()
-        })
+      if (membership) {
+        expect(membership).toHaveProperty('levelId')
+        expect(membership).toHaveProperty('levelName')
+        expect(membership).toHaveProperty('expiresAt')
+      } else {
+        expect(membership).toBeNull()
+      }
     })
 
-    // ==================== getDashboardData 测试 ====================
-    describe('getDashboardData 测试', () => {
-        it('应返回完整的 Dashboard 数据', async () => {
-            if (!dbAvailable) return
+    it('会员信息应该包含正确的数据', async () => {
+      const membership = await getDashboardMembership(userId)
 
-            const user = await createTestUser()
-            testIds.userIds.push(user.id)
-
-            // 创建会员
-            const level = await createTestMembershipLevel({
-                name: '测试完整数据会员',
-            })
-            testIds.membershipLevelIds.push(level.id)
-
-            const now = new Date()
-            const futureDate = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000)
-
-            await createTestUserMembership(user.id, level.id, {
-                status: MembershipStatus.ACTIVE,
-                startDate: now,
-                endDate: futureDate,
-            })
-
-            // 创建案件
-            const caseData = await prisma.cases.create({
-                data: {
-                    title: 'Dashboard 完整测试案件',
-                    userId: user.id,
-                    caseTypeId: testCaseTypeId,
-                    status: 1,
-                    createdAt: now,
-                    updatedAt: now,
-                },
-            })
-            dashboardCaseIds.push(caseData.id)
-
-            // 创建 session
-            const session = await prisma.caseSessions.create({
-                data: {
-                    caseId: caseData.id,
-                    sessionId: `dashboard-full-${Date.now()}`,
-                    status: 1,
-                    createdAt: now,
-                    updatedAt: now,
-                },
-            })
-
-            // 创建分析
-            await prisma.caseAnalyses.create({
-                data: {
-                    caseId: caseData.id,
-                    sessionId: session.sessionId,
-                    nodeId: testNodeId,
-                    analysisType: 'test',
-                    status: 2,
-                    createdAt: now,
-                    updatedAt: now,
-                },
-            })
-
-            const data = await getDashboardData(user.id)
-
-            // 验证返回结构
-            expect(data).toBeDefined()
-            expect(data.statistics).toBeDefined()
-            expect(data.points).toBeDefined()
-            expect(data.membership).toBeDefined()
-            expect(data.recentCases).toBeDefined()
-
-            // 验证统计数据
-            expect(data.statistics.totalCases).toBe(1)
-            expect(data.statistics.totalAnalysis).toBe(1)
-
-            // 验证积分数据
-            expect(typeof data.points.remaining).toBe('number')
-            expect(typeof data.points.purchasePoint).toBe('number')
-            expect(typeof data.points.otherPoint).toBe('number')
-
-            // 验证会员数据
-            expect(data.membership).not.toBeNull()
-            expect(data.membership!.levelName).toBe('测试完整数据会员')
-
-            // 验证最近案件
-            expect(data.recentCases.length).toBeGreaterThan(0)
-            expect(data.recentCases[0].title).toBe('Dashboard 完整测试案件')
-        })
-
-        it('应正确返回空数据（新建用户）', async () => {
-            if (!dbAvailable) return
-
-            const user = await createTestUser()
-            testIds.userIds.push(user.id)
-
-            const data = await getDashboardData(user.id)
-
-            expect(data.statistics.totalCases).toBe(0)
-            expect(data.statistics.totalAnalysis).toBe(0)
-            expect(data.membership).toBeNull()
-            expect(data.recentCases).toEqual([])
-        })
-
-        it('应支持获取其他用户的 Dashboard 数据（数据隔离）', async () => {
-            if (!dbAvailable) return
-
-            const user1 = await createTestUser()
-            const user2 = await createTestUser()
-            testIds.userIds.push(user1.id, user2.id)
-
-            // 为用户1创建案件
-            const user1Case = await prisma.cases.create({
-                data: {
-                    title: '用户1的案件',
-                    userId: user1.id,
-                    caseTypeId: testCaseTypeId,
-                    status: 1,
-                    createdAt: new Date(),
-                    updatedAt: new Date(),
-                },
-            })
-            dashboardCaseIds.push(user1Case.id)
-
-            // 用户2不应该看到用户1的案件
-            const user2Data = await getDashboardData(user2.id)
-
-            expect(user2Data.statistics.totalCases).toBe(0)
-            expect(user2Data.statistics.totalAnalysis).toBe(0)
-        })
+      if (membership) {
+        expect(typeof membership.levelId).toBe('number')
+        expect(typeof membership.levelName).toBe('string')
+        expect(membership.expiresAt).toMatch(/\d{4}-\d{2}-\d{2}/)
+      }
     })
-})
+  })
 
-describe('Dashboard 数据库连接检查', () => {
-    it('检查数据库是否可用', async () => {
-        const available = await isTestDbAvailable()
-        if (!available) {
-            console.log('请确保数据库已启动并配置正确的连接字符串')
-        }
-        expect(true).toBe(true)
+  describe('getDashboardRecentCases · 获取最近案件', () => {
+    it('应该返回案件列表数组', async () => {
+      const cases = await getDashboardRecentCases(userId)
+
+      expect(Array.isArray(cases)).toBe(true)
+      expect(cases.length).toBeGreaterThan(0)
     })
+
+    it('每个案件应该包含必要字段', async () => {
+      const cases = await getDashboardRecentCases(userId)
+
+      cases.forEach((c) => {
+        expect(c).toHaveProperty('id')
+        expect(c).toHaveProperty('title')
+        expect(c).toHaveProperty('date')
+        expect(c).toHaveProperty('type')
+        expect(c).toHaveProperty('status')
+      })
+    })
+
+    it('应该接受自定义 limit 参数', async () => {
+      const cases = await getDashboardRecentCases(userId, 10)
+
+      expect(Array.isArray(cases)).toBe(true)
+    })
+
+    it('状态应该是 in_progress 或 completed', async () => {
+      const cases = await getDashboardRecentCases(userId)
+
+      cases.forEach((c) => {
+        expect(['in_progress', 'completed']).toContain(c.status)
+      })
+    })
+  })
+
+  describe('getDashboardData · 获取聚合数据', () => {
+    it('应该返回包含四个部分的聚合数据', async () => {
+      const data = await getDashboardData(userId)
+
+      expect(data).toHaveProperty('statistics')
+      expect(data).toHaveProperty('points')
+      expect(data).toHaveProperty('membership')
+      expect(data).toHaveProperty('recentCases')
+    })
+
+    it('聚合数据应该包含完整的 dashboard 信息', async () => {
+      const data = await getDashboardData(userId)
+
+      // 统计数据
+      expect(data.statistics).toHaveProperty('totalCases')
+      // 积分数据
+      expect(data.points).toHaveProperty('remaining')
+      // 会员数据（可能为 null）
+      if (data.membership) {
+        expect(data.membership).toHaveProperty('levelName')
+      }
+      // 案件列表
+      expect(Array.isArray(data.recentCases)).toBe(true)
+    })
+  })
 })

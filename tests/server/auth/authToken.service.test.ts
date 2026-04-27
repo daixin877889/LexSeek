@@ -1,221 +1,243 @@
-/**
- * 认证 Token 服务层测试
- *
- * **Feature: auth-service**
- * **Validates: authToken.service.ts 核心函数**
- */
-
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-
-// Mock authToken.service 模块（关键：Nitro auto-exports 它）
-// 注意：vi.mock 是被提升的，所有工厂内部使用的变量必须内联定义
-vi.mock('/Users/daixin/work/dev/LexSeek/LexSeek/server/services/auth/authToken.service', () => {
-    // 追踪 setCookie 和 deleteCookie 调用
-    const mockSetCookie = vi.fn()
-    const mockDeleteCookie = vi.fn()
-    const mockGetCookieConfig = vi.fn(() => ({
-        httpOnly: true,
-        secure: false,
-        sameSite: 'lax' as const,
-        maxAge: 2592000,
-    }))
-
-    return {
-        getCookieConfigService: mockGetCookieConfig,
-        generateAuthTokenService: vi.fn((event: any, user: any) => {
-            // 模拟真实的 generateAuthTokenService 行为
-            mockSetCookie(event, 'auth_token', 'mock_token', { httpOnly: true, secure: false, sameSite: 'lax', maxAge: 2592000 })
-            mockSetCookie(event, 'auth_status', '1', { httpOnly: false, secure: false, sameSite: 'lax', maxAge: 2592000 })
-            return 'mock_jwt_token_12345'
-        }),
-        clearAuthCookiesService: vi.fn((event: any) => {
-            mockDeleteCookie(event, 'auth_token')
-            mockDeleteCookie(event, 'auth_status')
-        }),
-        AUTH_STATUS_COOKIE: 'auth_status',
-        // 导出 mock 函数供测试访问
-        __mockSetCookie: mockSetCookie,
-        __mockDeleteCookie: mockDeleteCookie,
-        __mockGetCookieConfig: mockGetCookieConfig,
-    }
-})
-
-// 导入 mock 版本的函数
-import {
-    getCookieConfigService,
-    generateAuthTokenService,
-    clearAuthCookiesService,
-    AUTH_STATUS_COOKIE,
-    __mockSetCookie,
-    __mockDeleteCookie,
-    __mockGetCookieConfig,
-} from '/Users/daixin/work/dev/LexSeek/LexSeek/server/services/auth/authToken.service'
-
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import type { H3Event } from 'h3'
+import { getCookieConfigService, generateAuthTokenService, clearAuthCookiesService, AUTH_STATUS_COOKIE } from '../../../server/services/auth/authToken.service'
+import type { TokenUserInfo } from '../../../server/services/auth/authToken.service'
 
-// 模拟 H3 event 对象
-const createMockEvent = (): H3Event => {
-    return {
-        context: {},
-        node: {
-            req: {} as any,
-            res: {} as any,
-        },
+describe('authToken.service · 认证令牌服务', () => {
+  let mockEvent: H3Event
+
+  beforeEach(() => {
+    mockEvent = {
+      req: { headers: {} },
+      res: {},
+      context: {},
     } as unknown as H3Event
-}
 
-describe('认证 Token 服务层', () => {
-    beforeEach(() => {
-        __mockSetCookie.mockClear()
-        __mockDeleteCookie.mockClear()
-        __mockGetCookieConfig.mockClear()
+    global.setCookie = vi.fn()
+    global.deleteCookie = vi.fn()
+    
+    // Mock JwtUtil
+    global.JwtUtil = {
+      generateToken: vi.fn((data: any) => {
+        // 生成模拟的 JWT token（格式：header.payload.signature）
+        return `${Buffer.from(JSON.stringify({alg: 'HS256'})).toString('base64')}.${Buffer.from(JSON.stringify(data)).toString('base64')}.signature`
+      }),
+    } as any
+  })
+
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  describe('getCookieConfigService · 获取 Cookie 配置', () => {
+    it('应该返回正确的 Cookie 配置对象', () => {
+      const config = getCookieConfigService()
+
+      expect(config).toHaveProperty('httpOnly')
+      expect(config).toHaveProperty('secure')
+      expect(config).toHaveProperty('sameSite')
+      expect(config).toHaveProperty('maxAge')
     })
 
-    // ==================== AUTH_STATUS_COOKIE 常量 ====================
-
-    describe('AUTH_STATUS_COOKIE 常量', () => {
-        it('应定义为 auth_status', () => {
-            expect(AUTH_STATUS_COOKIE).toBe('auth_status')
-        })
+    it('httpOnly 应该始终为 true（防止 XSS）', () => {
+      const config = getCookieConfigService()
+      expect(config.httpOnly).toBe(true)
     })
 
-    // ==================== getCookieConfigService ====================
-
-    describe('getCookieConfigService - 获取 Cookie 配置', () => {
-        it('应返回正确的 Cookie 配置结构', () => {
-            const config = getCookieConfigService()
-
-            expect(config).toHaveProperty('httpOnly')
-            expect(config).toHaveProperty('secure')
-            expect(config).toHaveProperty('sameSite')
-            expect(config).toHaveProperty('maxAge')
-        })
-
-        it('httpOnly 应始终为 true', () => {
-            const config = getCookieConfigService()
-            expect(config.httpOnly).toBe(true)
-        })
-
-        it('sameSite 应为 lax', () => {
-            const config = getCookieConfigService()
-            expect(config.sameSite).toBe('lax')
-        })
-
-        it('maxAge 应从配置读取', () => {
-            const config = getCookieConfigService()
-            expect(config.maxAge).toBe(2592000)
-        })
-
-        it('secure 在非生产环境应为 false', () => {
-            const config = getCookieConfigService()
-            expect(config.secure).toBe(false)
-        })
+    it('sameSite 应该为 lax', () => {
+      const config = getCookieConfigService()
+      expect(config.sameSite).toBe('lax')
     })
 
-    // ==================== generateAuthTokenService ====================
-
-    describe('generateAuthTokenService - 生成认证 Token', () => {
-        it('应调用 setCookie 两次（token 和状态）', () => {
-            const event = createMockEvent()
-            const user = {
-                id: 1,
-                phone: '13000000001',
-                roles: [1] as number[],
-                status: 1,
-            }
-
-            generateAuthTokenService(event, user)
-
-            expect(__mockSetCookie).toHaveBeenCalledTimes(2)
-        })
-
-        it('应设置 auth token Cookie（HttpOnly）', () => {
-            const event = createMockEvent()
-            const user = {
-                id: 1,
-                phone: '13000000001',
-                roles: [1] as number[],
-                status: 1,
-            }
-
-            generateAuthTokenService(event, user)
-
-            expect(__mockSetCookie).toHaveBeenNthCalledWith(
-                1,
-                event,
-                'auth_token',
-                expect.any(String),
-                expect.objectContaining({
-                    httpOnly: true,
-                    sameSite: 'lax',
-                })
-            )
-        })
-
-        it('应设置 auth_status Cookie（非 HttpOnly）', () => {
-            const event = createMockEvent()
-            const user = {
-                id: 1,
-                phone: '13000000001',
-                roles: [1] as number[],
-                status: 1,
-            }
-
-            generateAuthTokenService(event, user)
-
-            expect(__mockSetCookie).toHaveBeenNthCalledWith(
-                2,
-                event,
-                AUTH_STATUS_COOKIE,
-                '1',
-                expect.objectContaining({
-                    httpOnly: false,
-                    sameSite: 'lax',
-                })
-            )
-        })
-
-        it('应返回 JWT token 字符串', () => {
-            const event = createMockEvent()
-            const user = {
-                id: 1,
-                phone: '13000000001',
-                roles: [1] as number[],
-                status: 1,
-            }
-
-            const token = generateAuthTokenService(event, user)
-
-            expect(typeof token).toBe('string')
-            expect(token).toBe('mock_jwt_token_12345')
-        })
+    it('maxAge 应该是正数', () => {
+      const config = getCookieConfigService()
+      expect(config.maxAge).toBeGreaterThan(0)
     })
 
-    // ==================== clearAuthCookiesService ====================
-
-    describe('clearAuthCookiesService - 清除认证 Cookie', () => {
-        it('应调用 deleteCookie 两次', () => {
-            const event = createMockEvent()
-
-            clearAuthCookiesService(event)
-
-            expect(__mockDeleteCookie).toHaveBeenCalledTimes(2)
-        })
-
-        it('应清除 auth_token Cookie', () => {
-            const event = createMockEvent()
-
-            clearAuthCookiesService(event)
-
-            expect(__mockDeleteCookie).toHaveBeenNthCalledWith(1, event, 'auth_token')
-        })
-
-        it('应清除 auth_status Cookie', () => {
-            const event = createMockEvent()
-
-            clearAuthCookiesService(event)
-
-            expect(__mockDeleteCookie).toHaveBeenNthCalledWith(2, event, AUTH_STATUS_COOKIE)
-        })
+    it('开发环境下 secure 应该为 false', () => {
+      process.env.NODE_ENV = 'development'
+      const config = getCookieConfigService()
+      expect(config.secure).toBe(false)
     })
+
+    it('生产环境下 secure 应该为 true', () => {
+      process.env.NODE_ENV = 'production'
+      const config = getCookieConfigService()
+      expect(config.secure).toBe(true)
+    })
+  })
+
+  describe('generateAuthTokenService · 生成认证令牌', () => {
+    it('应该返回一个非空的 token 字符串', () => {
+      const user: TokenUserInfo = {
+        id: 1,
+        phone: '13800138000',
+        roles: [1, 2],
+        status: 1,
+      }
+
+      const token = generateAuthTokenService(mockEvent, user)
+
+      expect(typeof token).toBe('string')
+      expect(token.length).toBeGreaterThan(0)
+    })
+
+    it('应该为不同的用户生成不同的 token', () => {
+      const user1: TokenUserInfo = {
+        id: 1,
+        phone: '13800138000',
+        roles: [1],
+        status: 1,
+      }
+
+      const user2: TokenUserInfo = {
+        id: 2,
+        phone: '13800138001',
+        roles: [1],
+        status: 1,
+      }
+
+      const token1 = generateAuthTokenService(mockEvent, user1)
+      const token2 = generateAuthTokenService(mockEvent, user2)
+
+      expect(token1).not.toBe(token2)
+    })
+
+    it('应该设置 HttpOnly Cookie', () => {
+      const user: TokenUserInfo = {
+        id: 1,
+        phone: '13800138000',
+        roles: [1],
+        status: 1,
+      }
+
+      generateAuthTokenService(mockEvent, user)
+
+      expect(global.setCookie).toHaveBeenCalled()
+    })
+
+    it('应该设置状态 Cookie（非 httpOnly）', () => {
+      const user: TokenUserInfo = {
+        id: 1,
+        phone: '13800138000',
+        roles: [1],
+        status: 1,
+      }
+
+      generateAuthTokenService(mockEvent, user)
+
+      const setCookieCalls = (global.setCookie as any).mock.calls
+      const statusCookieCall = setCookieCalls.find(
+        (call: any) => call[1] === AUTH_STATUS_COOKIE
+      )
+
+      expect(statusCookieCall).toBeDefined()
+      expect(statusCookieCall[3].httpOnly).toBe(false)
+    })
+
+    it('token 应该是 JWT 格式', () => {
+      const user: TokenUserInfo = {
+        id: 123,
+        phone: '13800138000',
+        roles: [1, 2, 3],
+        status: 1,
+      }
+
+      const token = generateAuthTokenService(mockEvent, user)
+
+      expect(token.split('.').length).toBe(3)
+    })
+
+    it('应该处理不同数量的 roles', () => {
+      const user1: TokenUserInfo = {
+        id: 1,
+        phone: '13800138000',
+        roles: [],
+        status: 1,
+      }
+
+      const user2: TokenUserInfo = {
+        id: 1,
+        phone: '13800138000',
+        roles: [1, 2, 3, 4, 5],
+        status: 1,
+      }
+
+      const token1 = generateAuthTokenService(mockEvent, user1)
+      const token2 = generateAuthTokenService(mockEvent, user2)
+
+      expect(token1).toBeDefined()
+      expect(token2).toBeDefined()
+      expect(token1).not.toBe(token2)
+    })
+
+    it('应该调用 JwtUtil.generateToken', () => {
+      const user: TokenUserInfo = {
+        id: 1,
+        phone: '13800138000',
+        roles: [1],
+        status: 1,
+      }
+
+      generateAuthTokenService(mockEvent, user)
+
+      expect(global.JwtUtil.generateToken).toHaveBeenCalledWith({
+        id: user.id,
+        phone: user.phone,
+        roles: user.roles,
+        status: user.status,
+      })
+    })
+  })
+
+  describe('clearAuthCookiesService · 清除认证 Cookie', () => {
+    it('应该调用 deleteCookie', () => {
+      clearAuthCookiesService(mockEvent)
+
+      expect(global.deleteCookie).toHaveBeenCalled()
+    })
+
+    it('应该清除至少两个 Cookie', () => {
+      clearAuthCookiesService(mockEvent)
+
+      const deleteCookieCalls = (global.deleteCookie as any).mock.calls
+      expect(deleteCookieCalls.length).toBeGreaterThanOrEqual(2)
+    })
+
+    it('应该清除状态 Cookie', () => {
+      clearAuthCookiesService(mockEvent)
+
+      const deleteCookieCalls = (global.deleteCookie as any).mock.calls
+      const statusCookieCall = deleteCookieCalls.find(
+        (call: any) => call[1] === AUTH_STATUS_COOKIE
+      )
+
+      expect(statusCookieCall).toBeDefined()
+    })
+
+    it('应该能多次清除而不报错', () => {
+      expect(() => {
+        clearAuthCookiesService(mockEvent)
+        clearAuthCookiesService(mockEvent)
+        clearAuthCookiesService(mockEvent)
+      }).not.toThrow()
+    })
+  })
+
+  describe('整体工作流', () => {
+    it('应该能完整执行：生成 token → 清除 cookie', () => {
+      const user: TokenUserInfo = {
+        id: 1,
+        phone: '13800138000',
+        roles: [1],
+        status: 1,
+      }
+
+      const token = generateAuthTokenService(mockEvent, user)
+      expect(token).toBeDefined()
+
+      clearAuthCookiesService(mockEvent)
+      expect(global.deleteCookie).toHaveBeenCalled()
+    })
+  })
 })
