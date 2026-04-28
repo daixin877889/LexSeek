@@ -72,6 +72,7 @@ import { Boxes, Loader2, RefreshCw } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useApiFetch } from '~/composables/useApiFetch'
 import dayjs from 'dayjs'
+import AdminSkillsSkillEnableSwitch from '~/components/admin/skills/SkillEnableSwitch.vue'
 
 interface Skill {
     name: string

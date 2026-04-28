@@ -58,29 +58,30 @@ import { ArrowLeft } from 'lucide-vue-next'
 import AdminBreadcrumb from '~/components/admin/Breadcrumb.vue'
 import AdminNavMain from '~/components/admin/NavMain.vue'
 import GeneralThemeToggle from '~/components/general/ThemeToggle.vue'
+import { useApi } from '~/composables/useApi'
 import { useAdminMenuStore } from '~/store/adminMenu'
 import { usePermissionStore } from '~/store/permission'
 
 const store = useAdminMenuStore()
 const permissionStore = usePermissionStore()
 
-// SSR: 并行获取菜单数据和权限数据（useFetch 自动转发 cookie）
+// SSR: 并行获取菜单数据和权限数据
 if (store.rawRouters.length === 0 || !permissionStore.initialized) {
   const [menuResult, permResult] = await Promise.all([
     store.rawRouters.length === 0
-      ? useFetch<any>('/api/v1/admin/menu-routers', { key: 'admin-menu-routers' })
-      : Promise.resolve(null),
+      ? useApi('/api/v1/admin/menu-routers', { key: 'admin-menu-routers' })
+      : null,
     !permissionStore.initialized
-      ? useFetch<any>('/api/v1/users/permissions', { key: 'admin-user-permissions' })
-      : Promise.resolve(null),
+      ? useApi('/api/v1/users/permissions', { key: 'admin-user-permissions' })
+      : null,
   ])
 
-  if (menuResult?.data?.value?.success && menuResult.data.value.data) {
-    store.setRawRouters(menuResult.data.value.data)
+  if (menuResult?.data?.value) {
+    store.setRawRouters(menuResult.data.value)
   }
 
-  if (permResult?.data?.value?.success && permResult.data.value.data) {
-    const permData = permResult.data.value.data
+  if (permResult?.data?.value) {
+    const permData = permResult.data.value
     permissionStore.apiPermissions = permData.apiPermissions
     permissionStore.routePermissions = permData.routePermissions
     permissionStore.isSuperAdmin = permData.isSuperAdmin

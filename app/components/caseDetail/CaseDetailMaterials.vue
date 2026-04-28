@@ -12,6 +12,7 @@ import {
 } from 'lucide-vue-next'
 import ViewModeToggle from '~/components/ViewModeToggle.vue'
 import CaseAnalysisMaterialSelector from '~/components/caseAnalysis/materialSelector.vue'
+import CaseMaterialList from '~/components/caseDetail/CaseMaterialList.vue'
 
 const props = defineProps<{
   materials: CaseDetailMaterialItem[]

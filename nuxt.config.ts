@@ -20,14 +20,15 @@ export default defineNuxtConfig({
       ],
     },
   },
-  // 组件配置：仅自动注册 ai-elements/，业务组件全部显式 import
+  // 组件配置：仅自动注册 ai-elements/ 下的 .vue 组件，业务组件全部显式 import
   // shadcn-nuxt 模块独立通过 addComponent API 注册 ui/，不受 components.dirs 影响
+  // extensions 限定为 vue 后，目录内的 index.ts/context.ts/utils.ts/types.ts 等辅助文件不会被当作组件扫描
   components: {
     dirs: [
       {
         path: '~/components/ai-elements',
         pathPrefix: false,
-        ignore: ['**/index.ts', '**/context.ts'],
+        extensions: ['vue'],
       },
     ],
   },

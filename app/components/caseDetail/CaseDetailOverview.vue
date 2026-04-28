@@ -20,6 +20,7 @@ import ViewModeToggle from '~/components/ViewModeToggle.vue'
 import AssistantDocumentDraftCardList from '~/components/assistant/document/DraftCardList.vue'
 import CaseAnalysisResults from '~/components/case/AnalysisResults.vue'
 import CaseAnalysisMaterialSelector from '~/components/caseAnalysis/materialSelector.vue'
+import CaseMaterialList from '~/components/caseDetail/CaseMaterialList.vue'
 import InitAnalysisCaseInfoCard from '~/components/initAnalysis/CaseInfoCard.vue'
 
 const props = defineProps<{

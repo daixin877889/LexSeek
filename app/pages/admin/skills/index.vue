@@ -14,6 +14,8 @@
 </template>
 
 <script setup lang="ts">
+import AdminSkillsSkillList from '~/components/admin/skills/SkillList.vue'
+
 definePageMeta({
     layout: 'admin-layout',
     title: 'Skills 管理',
