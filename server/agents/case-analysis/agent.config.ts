@@ -15,8 +15,17 @@ export const caseAnalysisAgent = defineDomainAgent({
     scope: SessionScope.CASE,
     type: SessionType.ANALYSIS,
     agentType: 'stateGraph',
-    // priority=10 入口节点，仅供平台预加载 nodeConfig 用；
+    // ⚠️ 占位 nodeName：仅给平台 runStateGraphAgent 预加载一次 nodeConfig 用，
+    // runStateGraph 内部完全不读 ctx.nodeConfig（直接委托 startCaseAnalysisV2），
     // 主图 createAnalysisNode 内部按 agentName 各自加载 7 个分析节点配置。
+    //
+    // 选 'caseInfoCheck' 因为：
+    //   - 它是 priority=10 的真实 analysis 节点（前置数据校验，独立路径）
+    //   - 不在主图 selectedModules 默认列表里（不参与 ReAct 循环）
+    //   - 不会引发 nodeConfig 缓存错位 / 工具加载副作用
+    //
+    // 风险：如未来有别处代码按 nodeName='caseInfoCheck' 调 createAgent 路径会拿到
+    // 一个不该用于聊天的节点配置。caseInfoCheck 节点 description 已加占位说明做防御。
     nodeName: 'caseInfoCheck',
     description: '案件初分（StateGraph + 7 个 analysis 子模块顺序执行）',
     runStateGraph: async (ctx) => {
