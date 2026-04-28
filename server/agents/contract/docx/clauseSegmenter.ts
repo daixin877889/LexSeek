@@ -111,8 +111,10 @@ function parseCnUnder10(cn: string): number | null {
 
 /** 从「第X条」标号中提取序号（阿拉伯数字）；提取失败返回 null */
 function extractDiTiaoIndex(number: string): number | null {
-    // 匹配「第一条」「第二条」等中文序数
-    const cnMatch = number.match(/^第([一二三四五六七八九十零]+)条$/)
+    // 匹配「第一条」「第二条」「第一百零五条」「第一千零一条」等中文序数
+    // 字符类必须含「百千」，否则商事长合同（>=100 条）的标号会被识别为标号但无法提取序号——
+    // line 78-87 / 109-110 的百/千分支会变成死代码（与文件顶部注释 "（"第一百零五条"）" 设计意图冲突）
+    const cnMatch = number.match(/^第([一二三四五六七八九十零百千]+)条$/)
     if (cnMatch?.[1]) {
         const v = cnNumToInt(cnMatch[1])
         if (v !== null) return v
