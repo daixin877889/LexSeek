@@ -109,3 +109,19 @@ export async function listMemoriesDAO(
 
     return { memories, nextCursor }
 }
+
+/**
+ * 软删指定记忆条（设 metadata.invalidatedAt）
+ *
+ * 与 LangChain 同构表对齐——不用 prisma deletedAt（表无该列）。
+ * 召回链路（recallMemoryService 默认 filterInvalidated=true）自动过滤。
+ */
+export async function softDeleteMemoryDAO(memoryId: string): Promise<void> {
+    await prisma.$executeRawUnsafe(
+        `UPDATE case_memories
+         SET metadata = jsonb_set(metadata, '{invalidatedAt}', to_jsonb($2::text))
+         WHERE id = $1::uuid`,
+        memoryId,
+        new Date().toISOString(),
+    )
+}

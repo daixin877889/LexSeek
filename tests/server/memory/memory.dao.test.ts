@@ -6,7 +6,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { prisma } from '~~/server/utils/db'
-import { findActiveMemoryBySubjectDAO, listMemoriesDAO } from '~~/server/services/memory/memory.dao'
+import { findActiveMemoryBySubjectDAO, listMemoriesDAO, softDeleteMemoryDAO } from '~~/server/services/memory/memory.dao'
 import { writeMemoryService } from '~~/server/services/memory/memory.service'
 import { ensureTestUser, ensureTestCase, cleanupTestData } from '../assistant/test-db-helper'
 
@@ -160,5 +160,62 @@ describe('listMemoriesDAO', () => {
     const page2 = await listMemoriesDAO(caseId, { limit: 3, cursor: page1.nextCursor })
     expect(page2.memories.map(m => m.text)).toEqual(['事实1', '事实0'])
     expect(page2.nextCursor).toBeUndefined() // 最后一页无 nextCursor
+  })
+})
+
+describe('softDeleteMemoryDAO', () => {
+  let userId: number
+  let caseId: number
+
+  beforeEach(async () => {
+    userId = await ensureTestUser()
+    caseId = await ensureTestCase(userId)
+  })
+
+  afterEach(async () => {
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM case_memories WHERE metadata->>'caseId' = $1`,
+      String(caseId),
+    )
+    await cleanupTestData()
+  })
+
+  it('软删后 metadata.invalidatedAt 被设；id 仍存在', async () => {
+    const { id } = await writeMemoryService({
+      caseId,
+      kind: 'fact',
+      text: '待删除',
+      subjectKey: 'kk',
+      source: 'manual_user',
+    })
+
+    await softDeleteMemoryDAO(id)
+
+    const rows = await prisma.$queryRawUnsafe<Array<{ metadata: any }>>(
+      `SELECT metadata FROM case_memories WHERE id = $1::uuid`,
+      id,
+    )
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.metadata.invalidatedAt).toBeTruthy()
+  })
+
+  it('软删后召回链路自动过滤（listMemoriesDAO 默认不返回）', async () => {
+    const { id } = await writeMemoryService({
+      caseId,
+      kind: 'fact',
+      text: '待删条目',
+      subjectKey: 'soft.delete.recall',
+      source: 'manual_user',
+    })
+
+    await softDeleteMemoryDAO(id)
+
+    // listMemoriesDAO 默认 includeInvalidated=false，应过滤掉
+    const r1 = await listMemoriesDAO(caseId, {})
+    expect(r1.memories.find(m => m.id === id)).toBeUndefined()
+
+    // includeInvalidated=true 时仍可见
+    const r2 = await listMemoriesDAO(caseId, { includeInvalidated: true })
+    expect(r2.memories.find(m => m.id === id)).toBeDefined()
   })
 })
