@@ -95,15 +95,17 @@ export function safetyTrimMiddleware(options: SafetyTrimMiddlewareOptions) {
                     logger.warn('compressMessages 抛异常（意外路径），降级到 safetyTrim', { error })
                 }
 
-                if (estimateMessagesTokens(replacement) > tiktokenBudget) {
+                let afterTokens = estimateMessagesTokens(replacement)
+                if (afterTokens > tiktokenBudget) {
                     replacement = await safetyTrimMessages(replacement, tiktokenBudget)
+                    afterTokens = estimateMessagesTokens(replacement)
                 }
 
                 state.messages.splice(0, state.messages.length, ...replacement)
 
                 logger.info('safetyTrimMiddleware 触发截断', {
                     before: estimated,
-                    after: estimateMessagesTokens(replacement),
+                    after: afterTokens,
                     maxTokens: options.maxTokens,
                     outputReserve,
                     systemTokens,

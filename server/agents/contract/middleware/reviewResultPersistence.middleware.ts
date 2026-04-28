@@ -21,7 +21,7 @@ import {
 } from '~~/server/services/assistant/contract/contractReview.dao'
 import { injectAnnotations } from '~~/server/services/assistant/contract/docx'
 import { listAnnotationsForExportDAO } from '~~/server/services/assistant/contract/contractAnnotation.dao'
-import { isAnnotationExportable } from '~~/server/services/assistant/contract/contractAnnotation.service'
+import { filterExportableDbAnnotations } from '~~/server/services/assistant/contract/contractAnnotation.service'
 import {
     downloadFileService,
     deleteFileService,
@@ -77,18 +77,8 @@ export async function runAnnotateAndUpload(reviewId: number): Promise<void> {
         throw new Error(`runAnnotateAndUpload: review ${reviewId} 有 ${risks.length} 条风险但未找到批注记录，流程异常`)
     }
 
-    // VER-R3：用共享 isAnnotationExportable 替代本地三段过滤；行为一致。
-    const exportable = dbAnnotations.filter(a => {
-        const ok = isAnnotationExportable(a, a.risk)
-        if (!ok) {
-            logger.warn('[contract export] 跳过不可导出的批注（孤立 / suppressed / 软删）', {
-                reviewId, annotationId: a.id, riskId: a.riskId,
-                anchorParagraphIndex: a.risk.anchorParagraphIndex,
-                orphaned: a.risk.orphaned,
-            })
-        }
-        return ok
-    })
+    // VER-R3：共享 filter+warn 谓词（与 contractReviewRebuild.service 同口径）。
+    const exportable = filterExportableDbAnnotations(dbAnnotations, reviewId)
 
     const annotations: ContractAnnotationForExport[] = exportable.map(a => ({
         id: a.id,

@@ -29,6 +29,7 @@ import {
     publishCustomEvent,
     publishStatusChange,
 } from '~~/server/services/agent/agentEventBridge'
+import { SSECustomEventType } from '#shared/types/agentEvent'
 
 /** 子代理工具上下文 */
 export interface SubAgentToolContext {
@@ -197,7 +198,7 @@ export async function createSubAgentTools(
                                         type: 'custom_event',
                                         runId: mainRunId,
                                         sessionId: context.sessionId,
-                                        name: 'sub_agent_token',
+                                        name: SSECustomEventType.SUB_AGENT_TOKEN,
                                         data: undefined,
                                         metadata: {
                                             agentName: nodeConfig.name,
@@ -219,7 +220,7 @@ export async function createSubAgentTools(
                                         type: 'custom_event',
                                         runId: mainRunId,
                                         sessionId: context.sessionId,
-                                        name: 'sub_agent_tool_start',
+                                        name: SSECustomEventType.SUB_AGENT_TOOL_START,
                                         data: { innerToolCallId, input, cbRunId },
                                         metadata: {
                                             agentName: nodeConfig.name,
@@ -235,7 +236,7 @@ export async function createSubAgentTools(
                                         type: 'custom_event',
                                         runId: mainRunId,
                                         sessionId: context.sessionId,
-                                        name: 'sub_agent_tool_end',
+                                        name: SSECustomEventType.SUB_AGENT_TOOL_END,
                                         data: { cbRunId, output },
                                         metadata: {
                                             agentName: nodeConfig.name,

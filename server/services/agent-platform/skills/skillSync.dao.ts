@@ -20,10 +20,10 @@ export interface UpsertSkillInput {
 }
 
 /**
- * upsert 单条 skill 记录。
- * 同名记录已存在则更新元数据 + 把 status 置为 ENABLED + 更新 syncedAt。
+ * 构造 upsert skill 的未执行 PrismaPromise，供调用方塞进 prisma.$transaction([...])。
+ * 启动期 scanAndSyncSkillsService 用此把 N 条 upsert 合并为 1 次事务批量提交。
  */
-export async function upsertSkillDAO(input: UpsertSkillInput) {
+export function buildUpsertSkillOp(input: UpsertSkillInput) {
     const now = new Date()
     return prisma.skills.upsert({
         where: { name: input.name },
@@ -47,6 +47,14 @@ export async function upsertSkillDAO(input: UpsertSkillInput) {
             syncedAt: now,
         },
     })
+}
+
+/**
+ * upsert 单条 skill 记录（即时执行版本）。
+ * 同名记录已存在则更新元数据 + 把 status 置为 ENABLED + 更新 syncedAt。
+ */
+export async function upsertSkillDAO(input: UpsertSkillInput) {
+    return buildUpsertSkillOp(input)
 }
 
 /**

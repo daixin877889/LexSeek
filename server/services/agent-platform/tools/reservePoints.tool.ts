@@ -4,13 +4,12 @@
  * 为选定的分析模块批量预扣积分
  */
 
-import { tool } from '@langchain/core/tools'
 import { z } from 'zod'
-import type { ToolDefinition, ToolContext } from './types'
 import {
     preDeductPointsService,
     checkPointsService,
 } from '~~/server/services/point/pointConsumption.service'
+import { createSimpleTool, type ToolDefinition } from './types'
 
 const schema = z.object({
     modules: z.array(z.string()).describe(
@@ -25,67 +24,50 @@ export const toolDefinition: ToolDefinition<typeof schema> = {
     schema,
 }
 
-export function createTool(context: ToolContext) {
-    const { userId } = context
+export const createTool = createSimpleTool(
+    toolDefinition,
+    async ({ modules, sourceId }, ctx) => {
+        const { userId } = ctx
+        logger.info('执行积分预扣', { userId, modules })
 
-    return tool(
-        async (input) => {
-            const { modules, sourceId } = input
+        const results: Array<{ module: string; batchId: string; amount: number; itemName: string }> = []
+        const errors: Array<{ module: string; error: string }> = []
 
-            logger.info('执行积分预扣', { userId, modules })
-
+        // 内层 try/catch 保留：每个模块独立隔离，单条失败不影响其他模块
+        for (const moduleKey of modules) {
             try {
-                const results = []
-                const errors = []
-
-                for (const moduleKey of modules) {
-                    try {
-                        const check = await checkPointsService(userId, moduleKey)
-                        if (!check.sufficient) {
-                            errors.push({
-                                module: moduleKey,
-                                error: `积分不足，需要 ${check.required}，可用 ${check.available}`,
-                            })
-                            continue
-                        }
-
-                        const result = await preDeductPointsService(
-                            userId, moduleKey, 1, { sourceId }
-                        )
-                        results.push({
-                            module: moduleKey,
-                            batchId: result.batchId,
-                            amount: result.preDeductAmount,
-                            itemName: check.itemName,
-                        })
-                    } catch (error) {
-                        errors.push({
-                            module: moduleKey,
-                            error: error instanceof Error ? error.message : '预扣失败',
-                        })
-                    }
+                const check = await checkPointsService(userId, moduleKey)
+                if (!check.sufficient) {
+                    errors.push({
+                        module: moduleKey,
+                        error: `积分不足，需要 ${check.required}，可用 ${check.available}`,
+                    })
+                    continue
                 }
 
-                const totalAmount = results.reduce((sum, r) => sum + r.amount, 0)
-
-                return JSON.stringify({
-                    success: errors.length === 0,
-                    totalAmount,
-                    reservations: results,
-                    errors: errors.length > 0 ? errors : undefined,
+                const result = await preDeductPointsService(userId, moduleKey, 1, { sourceId })
+                results.push({
+                    module: moduleKey,
+                    batchId: result.batchId,
+                    amount: result.preDeductAmount,
+                    itemName: check.itemName,
                 })
             } catch (error) {
-                logger.error('积分预扣失败:', error)
-                return JSON.stringify({
-                    error: '积分预扣失败',
-                    message: error instanceof Error ? error.message : '未知错误',
+                errors.push({
+                    module: moduleKey,
+                    error: error instanceof Error ? error.message : '预扣失败',
                 })
             }
-        },
-        {
-            name: toolDefinition.name,
-            description: toolDefinition.description,
-            schema: toolDefinition.schema,
         }
-    )
-}
+
+        const totalAmount = results.reduce((sum, r) => sum + r.amount, 0)
+
+        return {
+            success: errors.length === 0,
+            totalAmount,
+            reservations: results,
+            errors: errors.length > 0 ? errors : undefined,
+        }
+    },
+    { errorLabel: '积分预扣' },
+)

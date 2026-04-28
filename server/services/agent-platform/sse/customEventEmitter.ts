@@ -9,10 +9,16 @@
  */
 
 import { publishCustomEvent } from '~~/server/services/agent/agentEventBridge'
+import type { SSECustomEventMap, SSECustomEventType } from '#shared/types/agentEvent'
 
-export interface CustomEventEmitter {
-    (event: { name: string; data: unknown }): Promise<void>
-}
+/**
+ * 类型化 customEvent 发射函数：name 必须是 SSECustomEventType 枚举值，
+ * data 自动按 SSECustomEventMap 推导成对应 payload 类型。
+ */
+export type CustomEventEmitter = <K extends SSECustomEventType>(event: {
+    name: K
+    data: SSECustomEventMap[K]
+}) => Promise<void>
 
 export interface EmitterFactoryOptions {
     runId: string | undefined

@@ -1,7 +1,6 @@
-import { tool } from '@langchain/core/tools'
 import { z } from 'zod'
 import { retrieveWithReranking } from '~~/server/services/memory/retrieveWithReranking'
-import type { ToolDefinition, ToolContext } from './types'
+import { createSimpleTool, type ToolDefinition } from './types'
 
 const schema = z.object({
     query: z.string().describe('检索关键词或问题'),
@@ -17,51 +16,34 @@ export const toolDefinition: ToolDefinition<typeof schema> = {
     schema,
 }
 
-export function createTool(context: ToolContext) {
-    return tool(
-        async ({ query, analysis_type, include_all_versions, top_k }) => {
-            if (!context.caseId) {
-                return JSON.stringify({ error: '未绑定案件，无法检索分析产物' })
-            }
+export const createTool = createSimpleTool(
+    toolDefinition,
+    async ({ query, analysis_type, include_all_versions, top_k }, ctx) => {
+        if (!ctx.caseId) return { error: '未绑定案件，无法检索分析产物' }
 
-            const metadataFilter: Record<string, string | number | boolean> = {
-                caseId: context.caseId,
-            }
-            if (analysis_type) metadataFilter.analysisType = analysis_type
-            if (!include_all_versions) metadataFilter.isActive = true
+        const metadataFilter: Record<string, string | number | boolean> = { caseId: ctx.caseId }
+        if (analysis_type) metadataFilter.analysisType = analysis_type
+        if (!include_all_versions) metadataFilter.isActive = true
 
-            try {
-                const hits = await retrieveWithReranking({
-                    tableName: 'case_analysis_embeddings',
-                    query,
-                    topK: top_k,
-                    metadataFilter,
-                    filterInvalidated: false,
-                    enableVersionScoring: false,
-                })
+        const hits = await retrieveWithReranking({
+            tableName: 'case_analysis_embeddings',
+            query,
+            topK: top_k,
+            metadataFilter,
+            filterInvalidated: false,
+            enableVersionScoring: false,
+        })
 
-                return JSON.stringify(hits.map((h) => {
-                    const meta = h.metadata as unknown as Record<string, unknown>
-                    return {
-                        id: h.id,
-                        text: h.text,
-                        score: Math.round(h.score * 1000) / 1000,
-                        analysisType: meta.analysisType,
-                        version: meta.version,
-                    }
-                }))
-            } catch (error) {
-                logger.error('分析产物检索失败:', error)
-                return JSON.stringify({
-                    error: '分析产物检索失败',
-                    message: error instanceof Error ? error.message : '未知错误',
-                })
+        return hits.map((h) => {
+            const meta = h.metadata as unknown as Record<string, unknown>
+            return {
+                id: h.id,
+                text: h.text,
+                score: Math.round(h.score * 1000) / 1000,
+                analysisType: meta.analysisType,
+                version: meta.version,
             }
-        },
-        {
-            name: toolDefinition.name,
-            description: toolDefinition.description,
-            schema: toolDefinition.schema,
-        }
-    )
-}
+        })
+    },
+    { errorLabel: '分析产物检索' },
+)

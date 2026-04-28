@@ -6,11 +6,10 @@
  * Requirements: 12.2.1-12.2.4
  */
 
-import { tool } from '@langchain/core/tools'
 import { z } from 'zod'
 import { searchMaterialsByCaseOrDraftService } from '~~/server/services/material/materialPipeline.service'
-import type { ToolDefinition, ToolContext } from './types'
 import { truncateToolResults } from '~~/server/services/workflow/context/toolResultTruncator'
+import { createSimpleTool, type ToolDefinition } from './types'
 
 /** k 参数上限，超过一律 clamp 到该值，避免模型因超限报错 */
 const MAX_K = 10
@@ -30,60 +29,35 @@ export const toolDefinition: ToolDefinition<typeof schema> = {
     schema,
 }
 
-/**
- * 创建案件材料检索工具
- *
- * @param context 工具上下文（包含 userId、caseId、draftId、sessionId）
- * @returns LangGraph 工具实例
- */
-export function createTool(context: ToolContext) {
-    const { userId, caseId, draftId: ctxDraftId } = context
+export const createTool = createSimpleTool(
+    toolDefinition,
+    async (input, ctx) => {
+        const { userId, caseId, draftId: ctxDraftId } = ctx
+        const { query, sourceId, draftId: inputDraftId, k = 5 } = input
 
-    return tool(
-        async (input) => {
-            const { query, sourceId, draftId: inputDraftId, k = 5 } = input
+        // input 中的 draftId 覆盖 context 中的 draftId
+        const effectiveDraftId = inputDraftId ?? ctxDraftId
 
-            // input 中的 draftId 覆盖 context 中的 draftId
-            const effectiveDraftId = inputDraftId ?? ctxDraftId
+        // 模型传入的 k 值 clamp 到 [1, MAX_K]，避免因超限报错
+        const safeK = Math.min(Math.max(1, Math.floor(k)), MAX_K)
 
-            // 模型传入的 k 值 clamp 到 [1, MAX_K]，避免因超限报错（用户要求"超过 MAX_K 统一按 MAX_K 返回"）
-            const safeK = Math.min(Math.max(1, Math.floor(k)), MAX_K)
+        logger.info('执行材料检索工作流工具', { userId, caseId, draftId: effectiveDraftId, query, sourceId, k: safeK })
 
-            logger.info('执行材料检索工作流工具', { userId, caseId, draftId: effectiveDraftId, query, sourceId, k: safeK })
-
-            try {
-                // 两者都无时显式抛错（不允许静默 fallback 为空）
-                if (caseId == null && !effectiveDraftId) {
-                    throw new Error('search_case_materials 需要 caseId 或 draftId')
-                }
-
-                // 合并检索：同时传 caseId/draftId 由服务层 OR 查询 + 天然去重
-                const results = await searchMaterialsByCaseOrDraftService(
-                    userId,
-                    { caseId: caseId ?? null, draftId: effectiveDraftId ?? null },
-                    { query, sourceId, k: safeK },
-                )
-
-                if (results.length === 0) {
-                    return JSON.stringify({ error: '未找到指定材料' })
-                }
-
-                logger.info('材料检索完成', { caseId, draftId: effectiveDraftId, resultCount: results.length })
-
-                const truncated = truncateToolResults(results)
-                return JSON.stringify(truncated)
-            } catch (error) {
-                logger.error('材料检索失败:', error)
-                return JSON.stringify({
-                    error: '材料检索失败',
-                    message: error instanceof Error ? error.message : '未知错误',
-                })
-            }
-        },
-        {
-            name: toolDefinition.name,
-            description: toolDefinition.description,
-            schema: toolDefinition.schema,
+        if (caseId == null && !effectiveDraftId) {
+            throw new Error('search_case_materials 需要 caseId 或 draftId')
         }
-    )
-}
+
+        // 合并检索：同时传 caseId/draftId 由服务层 OR 查询 + 天然去重
+        const results = await searchMaterialsByCaseOrDraftService(
+            userId,
+            { caseId: caseId ?? null, draftId: effectiveDraftId ?? null },
+            { query, sourceId, k: safeK },
+        )
+
+        if (results.length === 0) return { error: '未找到指定材料' }
+
+        logger.info('材料检索完成', { caseId, draftId: effectiveDraftId, resultCount: results.length })
+        return truncateToolResults(results)
+    },
+    { errorLabel: '材料检索' },
+)

@@ -11,16 +11,18 @@
  * 否则回退到自调 publishCustomEvent（向后兼容现有测试 mock 与未接入平台的调用方）。
  */
 import { publishCustomEvent } from '~~/server/services/agent/agentEventBridge'
+import { SSECustomEventType } from '#shared/types/agentEvent'
 import type { ContractReviewEvent } from '#shared/types/contract'
+import type { CustomEventEmitter } from '~~/server/services/agent-platform/sse/customEventEmitter'
 
-const EVENT_NAME = 'contract_review'
+const EVENT_NAME = SSECustomEventType.CONTRACT_REVIEW
 
 /** emitter 上下文：包含 runId + sessionId，由调用方构造一次后传递 */
 export interface ContractReviewEmitterCtx {
     runId: string
     sessionId: string
     /** 阶段 4：平台注入的 emitter，存在时优先调用；不存在时 fallback 自调 publishCustomEvent */
-    platformEmit?: (event: { name: string; data: unknown }) => Promise<void>
+    platformEmit?: CustomEventEmitter
 }
 
 /**

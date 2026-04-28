@@ -1,7 +1,6 @@
-import { tool } from '@langchain/core/tools'
 import { z } from 'zod'
 import { recallMemoryService } from '~~/server/services/memory/memory.service'
-import type { ToolDefinition, ToolContext } from './types'
+import { createSimpleTool, type ToolDefinition } from './types'
 
 const schema = z.object({
     query: z.string().describe('检索关键词或问题'),
@@ -17,39 +16,26 @@ export const toolDefinition: ToolDefinition<typeof schema> = {
     schema,
 }
 
-export function createTool(context: ToolContext) {
-    return tool(
-        async ({ query, kind, top_k, include_history }) => {
-            if (!context.caseId) return JSON.stringify({ error: '未绑定案件，无法检索记忆' })
+export const createTool = createSimpleTool(
+    toolDefinition,
+    async ({ query, kind, top_k, include_history }, ctx) => {
+        if (!ctx.caseId) return { error: '未绑定案件，无法检索记忆' }
 
-            try {
-                // 注：search 是只读操作，ARCHIVED 案件允许召回历史记忆作为参考（spec §0.5）
-                const hits = await recallMemoryService({
-                    caseId: context.caseId,
-                    query,
-                    kind,
-                    topK: top_k,
-                    includeInvalidated: include_history,
-                })
-                return JSON.stringify(hits.map((h) => ({
-                    id: h.id,
-                    text: h.text,
-                    score: h.score.toFixed(3),
-                    kind: h.metadata.kind,
-                    createdAt: h.metadata.createdAt,
-                })))
-            } catch (error) {
-                logger.error('记忆检索失败:', error)
-                return JSON.stringify({
-                    error: '记忆检索失败',
-                    message: error instanceof Error ? error.message : '未知错误',
-                })
-            }
-        },
-        {
-            name: toolDefinition.name,
-            description: toolDefinition.description,
-            schema: toolDefinition.schema,
-        }
-    )
-}
+        // 注：search 是只读操作，ARCHIVED 案件允许召回历史记忆作为参考（spec §0.5）
+        const hits = await recallMemoryService({
+            caseId: ctx.caseId,
+            query,
+            kind,
+            topK: top_k,
+            includeInvalidated: include_history,
+        })
+        return hits.map((h) => ({
+            id: h.id,
+            text: h.text,
+            score: h.score.toFixed(3),
+            kind: h.metadata.kind,
+            createdAt: h.metadata.createdAt,
+        }))
+    },
+    { errorLabel: '记忆检索' },
+)

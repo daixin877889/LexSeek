@@ -5,8 +5,8 @@
  * Requirements: 12.1.1, 12.1.2
  */
 
-import type { StructuredTool } from '@langchain/core/tools'
-import type { ZodObject, ZodType } from 'zod'
+import { tool, type StructuredTool } from '@langchain/core/tools'
+import type { ZodObject, ZodType, z } from 'zod'
 
 /** 工具参数定义（用于 API 返回） */
 export interface ToolParameter {
@@ -153,4 +153,42 @@ export function getToolMetaFromDefinition(definition: ToolDefinition<ZodObject<R
         description: definition.description,
         parameters: extractParametersFromSchema(definition.schema),
     }
+}
+
+/**
+ * 通用工具样板封装，消除每个 *.tool.ts 重复的 try/catch + tool({...}) 模板。
+ *
+ * - 自动注入 toolDefinition 的 name/description/schema
+ * - handler 抛出异常时统一 logger.error + 返回 JSON 错误响应
+ * - handler 返回 string 直接透传，返回对象自动 JSON.stringify
+ *
+ * @param definition 工具定义（含 name/description/schema）
+ * @param handler 业务逻辑：(input, context) => Promise<string | object>
+ * @param options.errorLabel 错误日志/响应中显示的中文标签，缺省用 toolDefinition.name
+ */
+export function createSimpleTool<S extends ZodObject<Record<string, ZodType>>>(
+    definition: ToolDefinition<S>,
+    handler: (input: z.infer<S>, context: ToolContext) => Promise<unknown>,
+    options?: { errorLabel?: string },
+): (context: ToolContext) => StructuredTool {
+    const errorLabel = options?.errorLabel ?? definition.name
+    return (context: ToolContext) => tool(
+        async (input: z.infer<S>) => {
+            try {
+                const result = await handler(input, context)
+                return typeof result === 'string' ? result : JSON.stringify(result)
+            } catch (error) {
+                logger.error(`${errorLabel}失败:`, error)
+                return JSON.stringify({
+                    error: `${errorLabel}失败`,
+                    message: error instanceof Error ? error.message : '未知错误',
+                })
+            }
+        },
+        {
+            name: definition.name,
+            description: definition.description,
+            schema: definition.schema,
+        },
+    ) as StructuredTool
 }

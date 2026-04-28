@@ -15,6 +15,7 @@ import type { ToolContext, ToolDefinition } from './types'
 import { saveAndActivateAnalysisService } from '~~/server/services/case/analysis.service'
 import { completeAnalysisWithRAG } from '~~/server/services/case/initAnalysis.service'
 import { publishCustomEvent } from '~~/server/services/agent/agentEventBridge'
+import { SSECustomEventType } from '#shared/types/agentEvent'
 import { getTokenCount } from '~~/server/services/agent-platform/middleware/pointConsumption.middleware'
 
 /** 参数 schema */
@@ -113,7 +114,7 @@ export function createTool(context: ModuleToolContext) {
                     type: 'custom_event',
                     runId: context.runId,
                     sessionId: context.sessionId,
-                    name: 'analysis_result_saved',
+                    name: SSECustomEventType.ANALYSIS_RESULT_SAVED,
                     data: {
                         version: analysis.version,
                         moduleName: context.moduleName,

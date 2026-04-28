@@ -32,6 +32,7 @@ vi.mock('~~/server/services/assistant/contract/contractAnnotation.dao', () => ({
 }))
 vi.mock('~~/server/services/assistant/contract/contractAnnotation.service', () => ({
     isAnnotationExportable: vi.fn().mockReturnValue(true),
+    filterExportableDbAnnotations: vi.fn().mockImplementation((arr: unknown[]) => arr),
 }))
 vi.mock('~~/server/services/assistant/contract/utils/uploadAndRegisterOssFile', () => ({
     uploadAndRegisterOssFile: vi.fn().mockResolvedValue({ ossFileId: 200, name: 'reviewed.docx' }),

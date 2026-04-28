@@ -60,6 +60,7 @@ import {
     MIDDLEWARE_NAMES,
 } from '../middleware'
 import { runAnnotateAndUpload } from '../middleware/reviewResultPersistence.middleware'
+import type { CustomEventEmitter } from '~~/server/services/agent-platform/sse/customEventEmitter'
 import {
     findContractReviewBySessionIdDAO,
     updateContractReviewDAO,
@@ -174,7 +175,7 @@ export interface ContractReviewAgentOptions {
     /** 阶段 4 新增：平台注入的节点配置，存在时跳过自加载 */
     platformNodeConfig?: NodeConfig
     /** 阶段 4 新增：平台注入的 emitter，存在时由 emitContractReviewEvent 优先使用 */
-    platformEmitCustomEvent?: (event: { name: string; data: unknown }) => Promise<void>
+    platformEmitCustomEvent?: CustomEventEmitter
     /**
      * 阶段 5 新增：跳过 stance interrupt 直接走 resume 分支。
      *

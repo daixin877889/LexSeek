@@ -19,7 +19,7 @@ import { findOssFileByIdDao, createOssFileDao } from '~~/server/services/files/o
 import { setCompletedAfterRebuildDAO } from './contractReview.dao'
 import { injectAnnotations } from './docx'
 import { listAnnotationsForExportDAO } from './contractAnnotation.dao'
-import { isAnnotationExportable } from './contractAnnotation.service'
+import { filterExportableDbAnnotations } from './contractAnnotation.service'
 import {
     downloadFileService,
     uploadFileService,
@@ -52,18 +52,8 @@ export async function rebuildDocxService(review: contractReviews): Promise<Rebui
     // Phase B：从 contractAnnotations 表读取批注，而非 review.risks JSON 字段
     const dbAnnotations = await listAnnotationsForExportDAO(review.id)
 
-    // VER-R3：用共享 isAnnotationExportable 替代本地三段过滤；行为一致。
-    const exportable = dbAnnotations.filter(a => {
-        const ok = isAnnotationExportable(a, a.risk)
-        if (!ok) {
-            logger.warn('[contract export] 跳过不可导出的批注（孤立 / suppressed / 软删）', {
-                reviewId: review.id, annotationId: a.id, riskId: a.riskId,
-                anchorParagraphIndex: a.risk.anchorParagraphIndex,
-                orphaned: a.risk.orphaned,
-            })
-        }
-        return ok
-    })
+    // VER-R3：共享 filter+warn 谓词（与 reviewResultPersistence middleware 同口径）。
+    const exportable = filterExportableDbAnnotations(dbAnnotations, review.id)
 
     const annotations: ContractAnnotationForExport[] = exportable.map(a => ({
         id: a.id,

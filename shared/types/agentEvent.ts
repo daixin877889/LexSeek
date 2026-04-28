@@ -8,6 +8,8 @@
  * @see docs/superpowers/specs/2026-04-26-ai-infrastructure-unification-design.md §3.4 §A.B
  */
 
+import type { ContractReviewEvent } from './contract'
+
 /**
  * 会话域：caseSessions.scope 的取值。
  * 用于 agentWorker 路由分流，决定调度到哪个 Agent。
@@ -55,6 +57,12 @@ export enum SSECustomEventType {
     CONTRACT_REVIEW_SAVED = 'contract_review_saved',
 
     // ── 合同审查阶段事件（contractReviewStageEmitter 发布）──
+    /**
+     * 合同审查阶段总线事件 — 实际运行时使用，name='contract_review'，
+     * data 是 ContractReviewEvent 判别联合（含 stage/risk/progress 三种 type 的子事件）。
+     */
+    CONTRACT_REVIEW = 'contract_review',
+    /** 子事件枚举值（保留供未来拆分使用，当前未直接发布）*/
     CONTRACT_STAGE = 'contract_stage',
     CONTRACT_RISK = 'contract_risk',
     CONTRACT_PROGRESS = 'contract_progress',
@@ -149,6 +157,7 @@ export interface SSECustomEventMap {
     [SSECustomEventType.ANALYSIS_RESULT_SAVED]: AnalysisResultSavedPayload
     [SSECustomEventType.DRAFT_SAVED]: DraftSavedPayload
     [SSECustomEventType.CONTRACT_REVIEW_SAVED]: ContractReviewSavedPayload
+    [SSECustomEventType.CONTRACT_REVIEW]: ContractReviewEvent
     [SSECustomEventType.CONTRACT_STAGE]: ContractStagePayload
     [SSECustomEventType.CONTRACT_RISK]: ContractRiskPayload
     [SSECustomEventType.CONTRACT_PROGRESS]: ContractProgressPayload
@@ -176,8 +185,12 @@ export enum InterruptType {
     CASE_INFO_CHECK = 'case_info_check',
     /** 选择分析模块（initAnalysis）*/
     MODULE_SELECT = 'module_select',
-    /** 合同审查立场选择 */
+    /** 合同审查立场选择（旧值；运行时未使用，保留以兼容已记录的 spec / 测试断言） */
     CONTRACT_STANCE = 'contract_stance',
+    /** 合同审查立场选择 — 实际运行时值（reviewContract.tool 透传给前端 StanceSelectCard） */
+    STANCE_SELECT = 'stance_select',
+    /** 文书模板选择 — 实际运行时值（draftDocument.tool 透传给前端 TemplateSelectCard） */
+    TEMPLATE_SELECT = 'template_select',
     /** 案件信息提取确认 */
     EXTRACT_CASE_INFO = 'extract_case_info',
 }

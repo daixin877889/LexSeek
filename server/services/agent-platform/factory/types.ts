@@ -12,6 +12,7 @@ import type { MiddlewareWithPriority } from '~~/server/services/agent-platform/m
 import type { AgentRunner, AgentRunnerContext } from '~~/server/services/agent-platform/registry/types'
 import type { NodeConfig } from '~~/server/services/node/node.service'
 import type { StructuredToolInterface } from '@langchain/core/tools'
+import type { CustomEventEmitter } from '~~/server/services/agent-platform/sse/customEventEmitter'
 
 /** Agent 类型：createAgent（ReAct 循环）或 stateGraph（自定义图） */
 export type DomainAgentType = 'createAgent' | 'stateGraph'
@@ -25,9 +26,9 @@ export interface StateGraphAgentContext extends AgentRunnerContext {
     nodeConfig: NodeConfig
     /**
      * 类型化 customEvent emitter（runId/sessionId 已绑定）。
-     * 业务调 emit({ name, data }) 即可，平台底层调 publishCustomEvent。
+     * name 必须是 SSECustomEventType 枚举值，data 按 SSECustomEventMap 推导。
      */
-    emitCustomEvent: (event: { name: string; data: unknown }) => Promise<void>
+    emitCustomEvent: CustomEventEmitter
 }
 
 /** 业务 vertical 的 Agent 声明 */

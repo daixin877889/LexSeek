@@ -12,10 +12,12 @@ import { resolve } from 'node:path'
 import matter from 'gray-matter'
 
 import {
-    upsertSkillDAO,
+    buildUpsertSkillOp,
     listAllSkillsDAO,
     markSkillsDisabledByNamesDAO,
+    type UpsertSkillInput,
 } from './skillSync.dao'
+import { prisma } from '~~/server/utils/db'
 import { SkillSource, SKILLS_FS_ROOT, type SkillFrontmatter } from '#shared/types/skill'
 import { invalidateNodeConfigCache } from '~~/server/services/agent-platform/nodeConfig/loader'
 import { invalidateBackendCache } from '~~/server/services/agent-platform/skills/filesystemBackendCache'
@@ -83,14 +85,15 @@ export async function scanAndSyncSkillsService(skillsRoot?: string): Promise<Sca
     }
 
     // 2. 数据库现有 filesystem 来源的 skill 名集合（用于稍后清理）
-    const existingFilesystemSkills = (await listAllSkillsDAO())
-        .filter(s => s.source === SkillSource.FILESYSTEM)
-        .map(s => s.name)
-    const stillSeen = new Set<string>()
+    const existingFilesystemSkills = new Set(
+        (await listAllSkillsDAO())
+            .filter(s => s.source === SkillSource.FILESYSTEM)
+            .map(s => s.name),
+    )
 
-    // 3. 遍历每个子目录
+    // 3. 第一遍：遍历每个子目录、读 SKILL.md、解析 frontmatter，收集合法 upsert 输入
+    const validated: Array<{ input: UpsertSkillInput; isNew: boolean }> = []
     for (const entry of entries) {
-        // 跳过隐藏文件 / 文件
         if (entry.startsWith('.')) continue
         const subDir = resolve(root, entry)
         try {
@@ -124,33 +127,40 @@ export async function scanAndSyncSkillsService(skillsRoot?: string): Promise<Sca
             continue
         }
 
-        // 4. upsert
-        const relPath = `${SKILLS_FS_ROOT}/${entry}`
-        const isNew = !existingFilesystemSkills.includes(fm.name)
-
-        try {
-            await upsertSkillDAO({
+        validated.push({
+            input: {
                 name: fm.name,
-                path: relPath,
+                path: `${SKILLS_FS_ROOT}/${entry}`,
                 source: SkillSource.FILESYSTEM,
-                title: fm.name,                          // 默认用 name 作展示名
+                title: fm.name,
                 description: fm.description ?? null,
                 version: fm.version ?? null,
-            })
-            result.scanned.push(fm.name)
-            stillSeen.add(fm.name)
-            if (isNew) result.added.push(fm.name)
-            else result.updated.push(fm.name)
+            },
+            isNew: !existingFilesystemSkills.has(fm.name),
+        })
+    }
+
+    // 4. 第二遍：所有合法条目走单次 $transaction 批量 upsert（避免启动期 N+1）
+    if (validated.length > 0) {
+        try {
+            await prisma.$transaction(validated.map(v => buildUpsertSkillOp(v.input)))
+            for (const v of validated) {
+                result.scanned.push(v.input.name)
+                if (v.isNew) result.added.push(v.input.name)
+                else result.updated.push(v.input.name)
+            }
         } catch (err) {
-            result.errors.push({
-                name: fm.name,
-                reason: `upsert 失败: ${(err as Error).message}`,
-            })
+            // 整批事务失败属基础设施异常（DB 中断 / 约束冲突）；将所有候选条目标错以便诊断
+            const reason = `bulk upsert tx 失败: ${(err as Error).message}`
+            for (const v of validated) {
+                result.errors.push({ name: v.input.name, reason })
+            }
         }
     }
 
     // 5. 清理文件系统已删除但数据库还在的（限 source=filesystem）
-    const toDisable = existingFilesystemSkills.filter(n => !stillSeen.has(n))
+    const stillSeen = new Set(result.scanned)
+    const toDisable = Array.from(existingFilesystemSkills).filter(n => !stillSeen.has(n))
     if (toDisable.length > 0) {
         await markSkillsDisabledByNamesDAO(toDisable)
         result.disabled.push(...toDisable)

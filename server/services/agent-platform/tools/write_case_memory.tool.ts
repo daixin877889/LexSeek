@@ -1,8 +1,7 @@
-import { tool } from '@langchain/core/tools'
 import { z } from 'zod'
 import { writeMemoryService } from '~~/server/services/memory/memory.service'
 import { CaseStatus } from '#shared/types/case'
-import type { ToolDefinition, ToolContext } from './types'
+import { createSimpleTool, type ToolDefinition } from './types'
 
 const schema = z.object({
     text: z.string().describe('记忆正文'),
@@ -16,40 +15,27 @@ export const toolDefinition: ToolDefinition<typeof schema> = {
     schema,
 }
 
-export function createTool(context: ToolContext) {
-    return tool(
-        async ({ text, kind, subject_key }) => {
-            if (!context.caseId) return JSON.stringify({ error: '未绑定案件，无法写入记忆' })
+export const createTool = createSimpleTool(
+    toolDefinition,
+    async ({ text, kind, subject_key }, ctx) => {
+        if (!ctx.caseId) return { error: '未绑定案件，无法写入记忆' }
 
-            try {
-                const caseRecord = await prisma.cases.findUnique({
-                    where: { id: context.caseId },
-                    select: { status: true },
-                })
-                if (caseRecord?.status === CaseStatus.ARCHIVED) {
-                    return JSON.stringify({ error: '案件已归档，不可写入新记忆' })
-                }
-
-                const { id } = await writeMemoryService({
-                    caseId: context.caseId,
-                    kind,
-                    text,
-                    subjectKey: subject_key,
-                    source: 'manual',
-                })
-                return JSON.stringify({ id, ok: true })
-            } catch (error) {
-                logger.error('记忆写入失败:', error)
-                return JSON.stringify({
-                    error: '记忆写入失败',
-                    message: error instanceof Error ? error.message : '未知错误',
-                })
-            }
-        },
-        {
-            name: toolDefinition.name,
-            description: toolDefinition.description,
-            schema: toolDefinition.schema,
+        const caseRecord = await prisma.cases.findUnique({
+            where: { id: ctx.caseId },
+            select: { status: true },
+        })
+        if (caseRecord?.status === CaseStatus.ARCHIVED) {
+            return { error: '案件已归档，不可写入新记忆' }
         }
-    )
-}
+
+        const { id } = await writeMemoryService({
+            caseId: ctx.caseId,
+            kind,
+            text,
+            subjectKey: subject_key,
+            source: 'manual',
+        })
+        return { id, ok: true }
+    },
+    { errorLabel: '记忆写入' },
+)
