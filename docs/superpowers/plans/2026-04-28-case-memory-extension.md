@@ -4,7 +4,7 @@
 
 **Goal:** 把案件记忆三件套铺开到 9 个案件相关 agent + 加 afterAgent 异步兜底提取 + 案件详情页新增"案件记忆" Tab + 三个工具调用专属卡片。
 
-**Architecture:** 现有 `case_memories` 表是 LangChain PGVectorStore 同构表（业务字段在 metadata JSON）；新增 2 个 LLM 节点（`caseMemoryExtract` / `caseMemorySubjectInfer`）走 nodes+prompts 标准管理；afterAgent 用 LangChain v1.3 原生 `createMiddleware({ afterAgent: { handler } })` 实现（参考 `analysisResultPersistence.middleware.ts:137`）；前端时间线 Tab 沿用 CaseDetailDocuments 同款布局；移动端 ⋯ 菜单用 shadcn Drawer。
+**Architecture:** 现有 `case_memories` 表是 LangChain PGVectorStore 同构表（业务字段在 metadata JSON）；新增 2 个 LLM 节点（`caseMemoryExtract` / `caseMemorySubjectInfer`）走 nodes+prompts 标准管理；afterAgent 用 LangChain v1.3 原生 `createMiddleware({ afterAgent: { hook } })` 实现（参考 `analysisResultPersistence.middleware.ts:73`）；前端时间线 Tab 沿用 CaseDetailDocuments 同款布局；移动端 ⋯ 菜单用 shadcn Drawer。
 
 **Tech Stack:** Nuxt 4 + Vue 3 + TypeScript + Tailwind CSS v4 + shadcn-vue + Prisma + LangChain v1.3 + dayjs + lucide-vue-next + Vitest
 
@@ -169,7 +169,64 @@ git commit -m "feat(memory): MemorySource 类型扩展 auto_extract / manual_use
 **Files:**
 - Create: `server/services/memory/memory.dao.ts`
 - Modify: `server/services/memory/memory.service.ts`（writeMemoryService 复用 DAO）
+- Modify: `tests/server/assistant/test-db-helper.ts`（**前置：加 ensureTestCase 包装函数**）
 - Test: `tests/server/memory/memory.dao.test.ts`
+
+- [ ] **Step 0（前置：补 test-db-helper）**
+
+`tests/server/assistant/test-db-helper.ts` 当前只有 `ensureTestUser` / `cleanupTestData`，**没有** `ensureTestCase`（实证：`grep "ensureTestCase" tests/server/assistant/test-db-helper.ts` 无结果）。
+
+后续 Task 2-10 的所有测试都需要"创建测试案件"，所以在文件末尾追加：
+
+```ts
+/**
+ * 创建测试案件（含 caseTypes 父记录）
+ *
+ * 案件记忆扩展（2026-04-28）测试用：返回 caseId 数字，
+ * 内部维护 createdCaseIds / createdCaseTypeIds 让 cleanupTestData 一并清理。
+ */
+const createdCaseIds: number[] = []
+const createdCaseTypeIds: number[] = []
+
+export async function ensureTestCase(userId: number): Promise<number> {
+    const p = getPrisma()
+    const caseType = await p.caseTypes.create({
+        data: { name: `测试案件类型_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, status: 1 },
+    })
+    createdCaseTypeIds.push(caseType.id)
+    const caseRecord = await p.cases.create({
+        data: {
+            userId,
+            caseTypeId: caseType.id,
+            title: `测试案件_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            content: '案件记忆测试用例',
+            status: 1,
+        },
+    })
+    createdCaseIds.push(caseRecord.id)
+    return caseRecord.id
+}
+```
+
+同时**改写** `cleanupTestData` 末尾追加：
+
+```ts
+// case_memories cascade 软删（按 caseId 维度）
+if (createdCaseIds.length > 0) {
+    await p.$executeRawUnsafe(
+        `DELETE FROM case_memories WHERE (metadata->>'caseId')::int = ANY($1::int[])`,
+        createdCaseIds,
+    )
+    await p.cases.deleteMany({ where: { id: { in: createdCaseIds } } })
+    createdCaseIds.length = 0
+}
+if (createdCaseTypeIds.length > 0) {
+    await p.caseTypes.deleteMany({ where: { id: { in: createdCaseTypeIds } } })
+    createdCaseTypeIds.length = 0
+}
+```
+
+验证：`grep -A2 "export async function ensureTestCase" tests/server/assistant/test-db-helper.ts` 看到新函数。
 
 - [ ] **Step 1: 写失败测试**
 

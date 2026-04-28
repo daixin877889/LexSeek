@@ -146,19 +146,19 @@ import { createMiddleware } from 'langchain'
 export const afterAgentMemoryMiddleware = (ctx: MiddlewareCtx) => createMiddleware({
   name: 'afterAgentMemory',
   afterAgent: {
-    handler: async (state, runtime) => {
+    hook: async (state, runtime) => {
       const writeCount = countToolCalls(state.messages,
         ['write_case_memory', 'update_case_memory'])
       if (writeCount >= 3) return  // ✅ LLM 已主动记 3+ 条，跳过
 
       // 异步 fire-and-forget，不阻塞响应（参考 analysisResultPersistence 模式）
-      void runMemoryExtractionTask({ caseId: ctx.caseId, sessionId: ctx.sessionId, messages: state.messages })
+      void runMemoryExtractionService({ caseId: ctx.caseId, sessionId: ctx.sessionId, messages: state.messages })
         .catch(e => logger.warn('memoryExtraction failed', { e }))
     },
   },
 })
 
-async function runMemoryExtractionTask({ caseId, sessionId, messages }) {
+async function runMemoryExtractionService({ caseId, sessionId, messages }) {
   try {
     const extractSchema = z.object({
       memories: z.array(z.object({
