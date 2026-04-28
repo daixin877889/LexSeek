@@ -15,6 +15,7 @@ import CaseDetailBottomTabs from '~/components/caseDetail/CaseDetailBottomTabs.v
 import CaseDetailContracts from '~/components/caseDetail/CaseDetailContracts.vue'
 import CaseDetailDocuments from '~/components/caseDetail/CaseDetailDocuments.vue'
 import CaseDetailMaterials from '~/components/caseDetail/CaseDetailMaterials.vue'
+import CaseDetailMemory from '~/components/caseDetail/CaseDetailMemory.vue'
 import CaseDetailOverview from '~/components/caseDetail/CaseDetailOverview.vue'
 import CaseDetailSidebar from '~/components/caseDetail/CaseDetailSidebar.vue'
 import CaseDetailXiaosuo from '~/components/caseDetail/CaseDetailXiaosuo.vue'
@@ -35,7 +36,7 @@ const router = useRouter()
 const caseId = computed(() => Number(route.params.id))
 
 // --- 路由 query 持久化状态 ---
-const validViews: ActiveView[] = ['overview', 'materials', 'analysis', 'todos', 'documents', 'contracts']
+const validViews: ActiveView[] = ['overview', 'materials', 'analysis', 'todos', 'documents', 'contracts', 'memory']
 const initialView = validViews.includes(route.query.tab as ActiveView)
   ? (route.query.tab as ActiveView)
   : 'overview'
@@ -113,6 +114,7 @@ const viewLabelMap: Record<ActiveView, string> = {
   todos: '待办事项',
   documents: '案件文书',
   contracts: '合同审查',
+  memory: '案件记忆',
 }
 
 // --- 材料预览弹窗状态（复用 init-analysis 的模式） ---
@@ -384,6 +386,7 @@ function handleXiaosuoFocusQuery() {
             @refresh="refreshDrafts"
           />
           <CaseDetailContracts v-else-if="activeView === 'contracts'" :key="'contracts'" :case-id="caseId" />
+          <CaseDetailMemory v-else-if="activeView === 'memory'" :key="'memory'" :case-id="caseId" />
           <!-- 其他视图占位 -->
           <div v-else :key="'placeholder'" class="flex items-center justify-center h-full text-muted-foreground">
             当前视图：{{ activeView }}
