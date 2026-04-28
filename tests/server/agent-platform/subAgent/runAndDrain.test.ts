@@ -165,4 +165,51 @@ describe('runAndDrainStream', () => {
         expect(result.finalState).toBeNull()
         expect(result.interrupt).toBeUndefined()
     })
+
+    it('SSE data 非合法 JSON 时回退到原始字符串（不抛错）', async () => {
+        const stream = makeStreamFromChunks([
+            'event: values\ndata: 这不是合法JSON{{{\n\n',
+        ])
+        const result = await runAndDrainStream(stream)
+        // values 事件 data 非 object 时 finalState 不被设置
+        expect(result.success).toBe(true)
+        expect(result.finalState).toBeNull()
+    })
+
+    it('reader 抛错且已 aborted 时返回取消信号触发', async () => {
+        const controller = new AbortController()
+        // 让 reader.read 抛错的同时 abort
+        const stream = new ReadableStream<Uint8Array>({
+            async pull(c) {
+                controller.abort()
+                // 微任务排队后再抛
+                await new Promise(r => setTimeout(r, 10))
+                c.error(new Error('intentional'))
+            },
+        })
+        const result = await runAndDrainStream(stream, { signal: controller.signal })
+        expect(result.success).toBe(false)
+        // 优先报"取消信号触发"
+        expect(result.error).toContain('取消')
+    })
+
+    it('流自然结束：残余 buffer 不以 \\n\\n 结尾时也尝试解析最后事件', async () => {
+        // 末尾事件没有 \n\n，模拟上游忘记 flush。runAndDrainStream 会自动补 \n\n 再解析一次
+        const stream = makeStreamFromChunks([
+            'event: values\ndata: {"messages":[{"role":"ai","content":"hi"}]}',
+        ])
+        const result = await runAndDrainStream(stream)
+        expect(result.success).toBe(true)
+        // 兜底解析也能拿到 finalState
+        expect((result.finalState as any)?.messages?.[0]?.content).toBe('hi')
+    })
+
+    it('流自然结束 + 末尾残余事件中含 interrupt → 命中', async () => {
+        const stream = makeStreamFromChunks([
+            'event: values\ndata: {"__interrupt__":[{"value":{"type":"x"}}],"messages":[]}',
+        ])
+        const result = await runAndDrainStream(stream)
+        expect(result.success).toBe(true)
+        expect(result.interrupt?.type).toBe('x')
+    })
 })
