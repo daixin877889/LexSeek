@@ -1,5 +1,5 @@
 /** 记忆类型 */
-export type MemoryKind = 'fact' | 'preference' | 'dialogue_note'
+export type MemoryKind = 'fact' | 'preference' | 'dialogue_note' | 'event' | 'decision' | 'note'
 
 /** 记忆来源 */
 export type MemorySource = 'manual' | 'consolidator' | 'auto_extract' | 'manual_user'
