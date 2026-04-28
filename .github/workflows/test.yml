@@ -103,15 +103,25 @@ jobs:
           RERANKER_URL=http://localhost:9999
           EOF
 
-      # 8. 创建源测试数据库 + 跑 prisma push + 初始化检索基建
-      #    prisma.config.ts 默认 dotenv 加载 .env（不读 .env.testing），
-      #    必须显式给这步注入 DATABASE_URL；setupRetrievalInfra.ts 也直接读 process.env.DATABASE_URL
+      # 8. 创建源测试数据库 + 建表 + 灌 seed + 回填 tsv
+      #    注意：db:setup 不跑 seedData.sql，但 setupRetrievalInfra.ts 用了 to_tsvector('chinese',...)
+      #    依赖 seed 里建的 zhparser 中文搜索配置，所以 CI 必须显式跑一次 seed
       - name: Set up test database (ls_new_testing)
         env:
           DATABASE_URL: postgresql://daixin:daixin88@localhost:5432/ls_new_testing?schema=public&TimeZone=UTC
         run: |
+          # 8.1 建空库
           docker exec pg psql -U daixin -d postgres -c "CREATE DATABASE ls_new_testing"
-          bun run db:setup
+
+          # 8.2 prisma 建表（schema 同步）
+          bun run prisma:push
+
+          # 8.3 灌 seed：含 'chinese' 文本搜索配置（zhparser）+ 系统用户/角色/权限等基础数据
+          docker cp prisma/seeds/seedData.sql pg:/tmp/seedData.sql
+          docker exec pg psql -U daixin -d ls_new_testing -v ON_ERROR_STOP=1 -f /tmp/seedData.sql
+
+          # 8.4 回填 tsv 数据（依赖 chinese 配置已存在）
+          bun run server/scripts/setupRetrievalInfra.ts
 
       # 9. 跑全量测试
       #    CI runner 是 2 vCPU + 7GB RAM，开 4 worker 比较稳（本地默认 8 是为了 12 核机器）
