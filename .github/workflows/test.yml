@@ -104,7 +104,11 @@ jobs:
           EOF
 
       # 8. 创建源测试数据库 + 跑 prisma push + 初始化检索基建
+      #    prisma.config.ts 默认 dotenv 加载 .env（不读 .env.testing），
+      #    必须显式给这步注入 DATABASE_URL；setupRetrievalInfra.ts 也直接读 process.env.DATABASE_URL
       - name: Set up test database (ls_new_testing)
+        env:
+          DATABASE_URL: postgresql://daixin:daixin88@localhost:5432/ls_new_testing?schema=public&TimeZone=UTC
         run: |
           docker exec pg psql -U daixin -d postgres -c "CREATE DATABASE ls_new_testing"
           bun run db:setup
