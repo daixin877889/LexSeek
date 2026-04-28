@@ -8,7 +8,7 @@
  * 紧凑卡片：✓ + 类型徽章 + 文本一行 + subject_key 灰小标。
  */
 import { computed } from 'vue'
-import { CheckIcon, BookMarkedIcon } from 'lucide-vue-next'
+import { CheckIcon, LightbulbIcon } from 'lucide-vue-next'
 import type { ExtendedToolState } from '@/components/ai-elements/types'
 
 const props = defineProps<{
@@ -44,13 +44,13 @@ const KIND_LABELS: Record<string, string> = {
     <div class="rounded-md border bg-card text-xs my-2 px-3 py-2">
         <!-- 进行中 -->
         <div v-if="!isDone && !isError" class="flex items-center gap-2 text-muted-foreground">
-            <BookMarkedIcon class="size-3.5 animate-pulse" />
+            <LightbulbIcon class="size-3.5 animate-pulse" />
             <span>正在记入案件记忆...</span>
         </div>
 
         <!-- 失败 -->
         <div v-else-if="isError" class="flex items-center gap-2 text-destructive">
-            <BookMarkedIcon class="size-3.5" />
+            <LightbulbIcon class="size-3.5" />
             <span>写入记忆失败</span>
         </div>
 

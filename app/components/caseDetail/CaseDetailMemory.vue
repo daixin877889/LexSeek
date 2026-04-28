@@ -9,7 +9,7 @@
  * - 底部："显示已失效的历史版本"折叠
  */
 import { computed, onMounted, ref, watch } from 'vue'
-import { ChevronDownIcon, ChevronUpIcon, Loader2Icon, BookMarkedIcon, PlusIcon } from 'lucide-vue-next'
+import { ChevronDownIcon, ChevronUpIcon, Loader2Icon, LightbulbIcon, PlusIcon } from 'lucide-vue-next'
 import { useCaseMemory, type MemoryFilter } from '~/composables/useCaseMemory'
 import { useAlertDialogStore } from '~/store/alertDialog'
 import toast from '#shared/utils/toast'
@@ -83,7 +83,7 @@ function handleDelete(memoryId: string) {
         <!-- 顶部栏 -->
         <header class="flex items-center justify-between gap-2">
             <h2 class="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider flex items-center gap-2">
-                <BookMarkedIcon class="size-4" />
+                <LightbulbIcon class="size-4" />
                 案件记忆
                 <Badge v-if="validCount" variant="secondary" class="font-normal px-1.5 py-0 h-4 text-[10px]">
                     {{ validCount }}
@@ -117,7 +117,7 @@ function handleDelete(memoryId: string) {
         <!-- 空态 -->
         <div v-else-if="validCount === 0 && !memory.showInvalidated.value"
             class="flex flex-col items-center justify-center py-14 text-muted-foreground">
-            <BookMarkedIcon class="size-10 mb-2 opacity-40" />
+            <LightbulbIcon class="size-10 mb-2 opacity-40" />
             <p class="text-sm mb-4">{{ emptyText }}</p>
             <Button v-if="canAddInEmpty" size="sm" class="gap-1" @click="showAddDialog = true">
                 <PlusIcon class="size-4" />
