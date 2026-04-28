@@ -38,6 +38,16 @@ export default defineEventHandler(async (event) => {
         return resError(event, 400, parsed.error.issues[0]!.message)
     }
 
-    const result = await listMemoriesDAO(caseId, parsed.data)
-    return resSuccess(event, '查询成功', result)
+    const { memories, nextCursor } = await listMemoriesDAO(caseId, parsed.data)
+    // 扁平化 metadata 字段供前端时间线直接消费（前端不需关心 LangChain 同构表结构）
+    const flatMemories = memories.map(m => ({
+        id: m.id,
+        text: m.text,
+        kind: m.metadata.kind,
+        subjectKey: m.metadata.subjectKey ?? null,
+        source: m.metadata.source ?? 'manual',
+        createdAt: m.metadata.createdAt,
+        invalidatedAt: m.metadata.invalidatedAt ?? null,
+    }))
+    return resSuccess(event, '查询成功', { memories: flatMemories, nextCursor })
 })

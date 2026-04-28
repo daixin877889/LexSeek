@@ -26,10 +26,10 @@ const emit = defineEmits<{
 }>()
 
 const KIND_COLORS: Record<string, string> = {
-    fact: 'bg-blue-100 text-blue-700',
-    event: 'bg-emerald-100 text-emerald-700',
-    decision: 'bg-amber-100 text-amber-700',
-    note: 'bg-gray-100 text-gray-700',
+    fact: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300',
+    event: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
+    decision: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',
+    note: 'bg-gray-100 text-gray-700 dark:bg-gray-500/20 dark:text-gray-300',
 }
 
 const KIND_LABELS: Record<string, string> = {
@@ -40,10 +40,10 @@ const KIND_LABELS: Record<string, string> = {
 }
 
 const SOURCE_COLORS: Record<string, string> = {
-    manual: 'bg-blue-100 text-blue-700',
-    consolidator: 'bg-purple-100 text-purple-700',
-    auto_extract: 'bg-emerald-100 text-emerald-700',
-    manual_user: 'bg-orange-100 text-orange-700',
+    manual: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300',
+    consolidator: 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300',
+    auto_extract: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
+    manual_user: 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300',
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -131,19 +131,19 @@ function formatTime(iso: string): string {
                         :class="item.invalidatedAt ? 'opacity-60 bg-muted' : ''">
                         <div class="flex items-start justify-between gap-2">
                             <div class="flex flex-wrap items-center gap-1.5">
-                                <span class="text-[10px] text-muted-foreground/60 font-mono">
+                                <span class="text-[11px] text-muted-foreground/70 font-mono">
                                     {{ formatTime(item.createdAt) }}
                                 </span>
-                                <Badge variant="secondary" class="font-normal px-1.5 py-0 h-4 text-[10px]"
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] leading-none font-medium"
                                     :class="KIND_COLORS[item.kind]">
                                     {{ KIND_LABELS[item.kind] ?? item.kind }}
-                                </Badge>
-                                <Badge variant="secondary" class="font-normal px-1.5 py-0 h-4 text-[10px]"
+                                </span>
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] leading-none font-medium"
                                     :class="SOURCE_COLORS[item.source]">
                                     {{ SOURCE_LABELS[item.source] ?? item.source }}
-                                </Badge>
+                                </span>
                                 <span v-if="item.invalidatedAt"
-                                    class="text-[10px] px-1.5 py-0 rounded bg-muted-foreground/10 text-muted-foreground">
+                                    class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] leading-none bg-muted-foreground/15 text-muted-foreground">
                                     已被覆盖
                                 </span>
                             </div>

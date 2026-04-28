@@ -57,5 +57,6 @@ export default defineEventHandler(async (event) => {
         subjectKey,
         source: 'manual_user',
         createdAt: fresh?.metadata.createdAt ?? new Date().toISOString(),
+        invalidatedAt: null,
     })
 })

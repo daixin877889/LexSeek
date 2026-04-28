@@ -5,7 +5,8 @@
  * 表单：
  * - 内容（textarea，min 5 字）
  * - 类型（fact / event / decision / note）
- * - subject_key（可选，留空 AI 自动推断）
+ *
+ * subject_key 不暴露给用户，由后端 caseMemorySubjectInfer 节点自动推断。
  *
  * 提交调 useCaseMemory.add()，成功 toast + 关闭。
  */
@@ -15,19 +16,17 @@ import toast from '#shared/utils/toast'
 import type { AddMemoryPayload } from '~/composables/useCaseMemory'
 import type { MemoryKind } from '#shared/types/memory'
 
-const props = defineProps<{
+defineProps<{
     open: boolean
 }>()
 
 const emit = defineEmits<{
     'update:open': [value: boolean]
-    /** 提交，父组件触发 useCaseMemory.add()；返回 Promise<boolean> 决定是否关闭 */
     submit: [payload: AddMemoryPayload, done: (ok: boolean) => void]
 }>()
 
 const text = ref('')
 const kind = ref<MemoryKind>('fact')
-const subjectKey = ref('')
 const submitting = ref(false)
 
 const KIND_OPTIONS: Array<{ value: MemoryKind; label: string }> = [
@@ -42,7 +41,6 @@ const canSubmit = computed(() => text.value.trim().length >= 5 && !submitting.va
 function reset() {
     text.value = ''
     kind.value = 'fact'
-    subjectKey.value = ''
     submitting.value = false
 }
 
@@ -57,7 +55,6 @@ function handleSubmit() {
     const payload: AddMemoryPayload = {
         text: text.value.trim(),
         kind: kind.value,
-        ...(subjectKey.value.trim() ? { subjectKey: subjectKey.value.trim() } : {}),
     }
     emit('submit', payload, (ok) => {
         submitting.value = false
@@ -76,7 +73,7 @@ function handleSubmit() {
             <DialogHeader>
                 <DialogTitle>添加案件记忆</DialogTitle>
                 <DialogDescription>
-                    手动记录案件相关的关键事实。AI 后续对话时可检索引用。
+                    手动记录案件相关的关键事实。AI 会自动归类，后续对话时可检索引用。
                 </DialogDescription>
             </DialogHeader>
 
@@ -93,7 +90,7 @@ function handleSubmit() {
                 <div class="space-y-1.5">
                     <Label for="memory-kind">类型 <span class="text-destructive">*</span></Label>
                     <Select v-model="kind">
-                        <SelectTrigger id="memory-kind">
+                        <SelectTrigger id="memory-kind" class="w-full">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -102,13 +99,6 @@ function handleSubmit() {
                             </SelectItem>
                         </SelectContent>
                     </Select>
-                </div>
-
-                <div class="space-y-1.5">
-                    <Label for="memory-subject">主体.字段（可选）</Label>
-                    <Input id="memory-subject" v-model="subjectKey"
-                        placeholder="例如 plaintiff.address；留空 AI 自动推断"
-                        class="font-mono text-xs" />
                 </div>
             </div>
 
