@@ -41,7 +41,7 @@ const mockUpdateTitleService = updateDraftTitleService as ReturnType<typeof vi.f
 // ==================== 动态 import handler ====================
 
 const { default: handler } = await import(
-    '../../../../server/api/v1/assistant/document/drafts/[id]/title.patch'
+    '../../../../server/api/v1/assistant/document/drafts/title/[id].patch'
 )
 
 // ==================== 工具函数 ====================

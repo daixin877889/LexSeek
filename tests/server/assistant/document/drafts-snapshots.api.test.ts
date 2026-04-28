@@ -53,7 +53,7 @@ const mockGetSnapshot = getSnapshotByIdDAO as ReturnType<typeof vi.fn>
 // ==================== 动态 import handlers ====================
 
 const { default: listHandler } = await import(
-    '../../../../server/api/v1/assistant/document/drafts/[id]/snapshots.get'
+    '../../../../server/api/v1/assistant/document/drafts/snapshots/[id].get'
 )
 const { default: applyHandler } = await import(
     '../../../../server/api/v1/assistant/document/drafts/snapshots/apply/[snapshotId].post'

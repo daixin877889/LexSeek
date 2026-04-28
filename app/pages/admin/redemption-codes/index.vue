@@ -307,7 +307,7 @@ const confirmInvalidate = async () => {
 
     invalidating.value = true
     try {
-        const result = await useApiFetch(`/api/v1/admin/redemption-codes/${selectedCode.value.id}/invalidate`, {
+        const result = await useApiFetch(`/api/v1/admin/redemption-codes/invalidate/${selectedCode.value.id}`, {
             method: 'PUT',
         })
 

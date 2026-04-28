@@ -425,7 +425,7 @@ async function handleDownload() {
             return
         }
         const resp = await useApiFetch<{ downloadUrl: string; filename: string }>(
-            `/api/v1/assistant/contract/reviews/versions/${previewVid}/download`,
+            `/api/v1/assistant/contract/reviews/versions/download/${previewVid}`,
             { showError: false } as any,
         )
         if (!resp?.downloadUrl) {

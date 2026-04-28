@@ -72,7 +72,7 @@ const mockCreateEventStream = createEventStream as ReturnType<typeof vi.fn>
 // ==================== 动态 import handler（必须在 mock 之后）====================
 
 const { default: handler } = await import(
-    '../../../../server/api/v1/assistant/contract/reviews/[id]/upload-version.post'
+    '../../../../server/api/v1/assistant/contract/reviews/upload-version/[id].post'
 )
 
 // ==================== 工具函数 ====================

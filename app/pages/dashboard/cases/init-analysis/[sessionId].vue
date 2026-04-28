@@ -224,7 +224,7 @@ async function loadMaterials(id: number) {
   if (id <= 0) return
   materialsLoading.value = true
   try {
-    const data = await useApiFetch<CaseDetailMaterialItem[]>(`/api/v1/case/${id}/materials`)
+    const data = await useApiFetch<CaseDetailMaterialItem[]>(`/api/v1/case/materials/${id}`)
     if (data) materials.value = data
   } finally {
     materialsLoading.value = false

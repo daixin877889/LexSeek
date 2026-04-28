@@ -105,10 +105,10 @@ import { listContractAnnotationsByReviewDAO } from '~~/server/agents/contract/co
 // ==================== 动态 import handlers ====================
 
 const { default: versionsGetHandler } = await import(
-    '../../../../server/api/v1/assistant/contract/reviews/[id]/versions.get'
+    '../../../../server/api/v1/assistant/contract/reviews/version-list/[id].get'
 )
 const { default: versionsPostHandler } = await import(
-    '../../../../server/api/v1/assistant/contract/reviews/[id]/versions.post'
+    '../../../../server/api/v1/assistant/contract/reviews/version-list/[id].post'
 )
 const { default: versionIdGetHandler } = await import(
     '../../../../server/api/v1/assistant/contract/reviews/versions/[versionId].get'
@@ -120,7 +120,7 @@ const { default: riskIdPatchHandler } = await import(
     '../../../../server/api/v1/assistant/contract/reviews/risks/[riskId].patch'
 )
 const { default: annotationsPostHandler } = await import(
-    '../../../../server/api/v1/assistant/contract/reviews/[id]/annotations.post'
+    '../../../../server/api/v1/assistant/contract/reviews/add-annotation/[id].post'
 )
 const { default: annotationIdPatchHandler } = await import(
     '../../../../server/api/v1/assistant/contract/reviews/annotations/[annotationId].patch'

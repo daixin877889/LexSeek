@@ -69,7 +69,7 @@ const mockUpdateRunStatusDAO = updateRunStatusDAO as ReturnType<typeof vi.fn>
 // ==================== 动态 import handler（必须在 mock 之后）====================
 
 const { default: stanceHandler } = await import(
-    '../../../../server/api/v1/assistant/contract/reviews/[id]/stance.post'
+    '../../../../server/api/v1/assistant/contract/reviews/stance/[id].post'
 )
 
 // ==================== 工具函数 ====================

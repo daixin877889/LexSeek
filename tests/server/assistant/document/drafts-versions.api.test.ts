@@ -75,10 +75,10 @@ const mockExportVersion = exportVersionByIdService as ReturnType<typeof vi.fn>
 // ==================== 动态 import handlers ====================
 
 const { default: listHandler } = await import(
-    '../../../../server/api/v1/assistant/document/drafts/[id]/versions.get'
+    '../../../../server/api/v1/assistant/document/drafts/version-list/[id].get'
 )
 const { default: createHandler } = await import(
-    '../../../../server/api/v1/assistant/document/drafts/[id]/versions.post'
+    '../../../../server/api/v1/assistant/document/drafts/version-list/[id].post'
 )
 const { default: renameHandler } = await import(
     '../../../../server/api/v1/assistant/document/drafts/versions/[versionId].patch'

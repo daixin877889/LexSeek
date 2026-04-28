@@ -46,7 +46,7 @@ const mockGetDraft = getDocumentDraftDAO as ReturnType<typeof vi.fn>
 const mockEnsure = ensureMaterialsReadyForDraftService as ReturnType<typeof vi.fn>
 
 const { default: postHandler } = await import(
-    '../../../../server/api/v1/assistant/document/drafts/[id]/materials.post'
+    '../../../../server/api/v1/assistant/document/drafts/materials/[id].post'
 )
 
 function makeEvent(opts: { userId?: number; params?: Record<string, string>; body?: any }) {

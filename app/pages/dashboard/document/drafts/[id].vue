@@ -159,7 +159,7 @@ async function updateTitle(newTitle: string) {
         draft.value = { ...prev, title: clean, titleOverridden: true } as DocumentDraftRow
     }
     const result = await useApiFetch<{ draft: DocumentDraftRow }>(
-        `/api/v1/assistant/document/drafts/${draftIdRef.value}/title`,
+        `/api/v1/assistant/document/drafts/title/${draftIdRef.value}`,
         { method: 'PATCH', body: { title: clean }, showError: true } as any,
     )
     if (!result?.draft) {
@@ -175,7 +175,7 @@ async function onExport() {
     if (runStatus.value !== 'ready' && runStatus.value !== 'exported') return
 
     const result = await useApiFetch<ExportDraftResponse>(
-        `/api/v1/assistant/document/drafts/${draftIdRef.value}/export`,
+        `/api/v1/assistant/document/drafts/export/${draftIdRef.value}`,
         { method: 'POST' } as any,
     )
     if (!result?.downloadUrl) return
@@ -485,7 +485,7 @@ const relatedMaterials = ref<CaseDetailMaterialItem[]>([])
 async function loadRelatedMaterials() {
     if (!Number.isFinite(draftId.value) || draftId.value <= 0) return
     const res = await useApiFetch<CaseDetailMaterialItem[]>(
-        `/api/v1/assistant/document/drafts/${draftId.value}/related-materials`,
+        `/api/v1/assistant/document/drafts/related-materials/${draftId.value}`,
         { showError: false },
     )
     relatedMaterials.value = Array.isArray(res) ? res : []
@@ -510,7 +510,7 @@ function handleDeleteRelatedMaterial(material: CaseDetailMaterialItem) {
         zIndex: 9999,
         onConfirm: async () => {
             const ok = await useApiFetch(
-                `/api/v1/assistant/document/drafts/${draftId.value}/materials/${material.id}`,
+                `/api/v1/assistant/document/drafts/materials/${draftId.value}/${material.id}`,
                 { method: 'DELETE' },
             )
             if (ok !== null) {

@@ -430,19 +430,14 @@ const handleEmbed = async (article: LegalArticleListItem) => {
 
     embeddingId.value = article.id
     try {
-        const response = await $fetch<{ success: boolean; message: string }>(`/api/v1/admin/legal-articles/${article.id}/embed`, {
+        const response = await useApiFetch<{ success: boolean; message: string }>(`/api/v1/admin/legal-articles/embed/${article.id}`, {
             method: 'POST',
         })
 
-        if (response.success) {
+        if (response?.success) {
             toast.success(response.message || '向量化成功')
             loadArticles()
-        } else {
-            toast.error(response.message || '向量化失败')
         }
-    } catch (error: any) {
-        const message = error?.data?.message || error?.message || '向量化失败'
-        toast.error(message)
     } finally {
         embeddingId.value = null
     }
@@ -452,11 +447,7 @@ const handleEmbed = async (article: LegalArticleListItem) => {
 const handleBatchEmbed = async () => {
     batchEmbedding.value = true
     try {
-        const response = await $fetch<{
-            success: boolean
-            message: string
-            data: { total: number; processed: number; skipped: number; upToDate: number; failed: number }
-        }>('/api/v1/admin/legal-articles/batch-embed', {
+        const response = await useApiFetch<{ total: number; processed: number; skipped: number; upToDate: number; failed: number }>('/api/v1/admin/legal-articles/batch-embed', {
             method: 'POST',
             body: {
                 legalId,
@@ -464,22 +455,17 @@ const handleBatchEmbed = async () => {
             },
         })
 
-        if (response.success) {
-            const { processed, failed } = response.data || {}
-            if (failed > 0) {
-                toast.warning(response.message)
-            } else if (processed === 0) {
-                toast.info(response.message)
-            } else {
-                toast.success(response.message)
-            }
-            loadArticles()
+        if (!response) return
+
+        const { processed, failed } = response
+        if (failed > 0) {
+            toast.warning('部分条文向量化失败')
+        } else if (processed === 0) {
+            toast.info('条文已是最新')
         } else {
-            toast.error(response.message || '批量嵌入失败')
+            toast.success('向量化成功')
         }
-    } catch (error: any) {
-        const message = error?.data?.message || error?.message || '批量嵌入失败'
-        toast.error(message)
+        loadArticles()
     } finally {
         batchEmbedding.value = false
     }

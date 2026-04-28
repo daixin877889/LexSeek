@@ -69,7 +69,7 @@ export function useCaseDetail(
 
   // 材料列表（响应式）
   const { data: materials, refresh: refreshMaterials } = useApi<CaseDetailMaterialItem[]>(
-    () => `/api/v1/case/${id.value}/materials`,
+    () => `/api/v1/case/materials/${id.value}`,
   )
 
   // 文书草稿列表（响应式，按 caseId 过滤）

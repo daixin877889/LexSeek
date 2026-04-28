@@ -79,7 +79,7 @@ const mockGetReview = getContractReviewDAO as unknown as ReturnType<typeof vi.fn
 // ==================== 动态 import handler ====================
 
 const { default: handler } = await import(
-    '../../../../server/api/v1/assistant/contract/reviews/[id]/export-pdf.post'
+    '../../../../server/api/v1/assistant/contract/reviews/export-pdf/[id].post'
 )
 
 interface MockEvent {

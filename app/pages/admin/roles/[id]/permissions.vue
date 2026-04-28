@@ -204,7 +204,7 @@ const loadData = async () => {
   try {
     const [roleData, rolePerms, apiPerms, routes] = await Promise.all([
       useApiFetch<Role>(`/api/v1/admin/roles/${roleId.value}`),
-      useApiFetch<{ apiPermissions: ApiPermission[]; routes: RoutePermission[] }>(`/api/v1/admin/roles/${roleId.value}/permissions`),
+      useApiFetch<{ apiPermissions: ApiPermission[]; routes: RoutePermission[] }>(`/api/v1/admin/roles/permissions/${roleId.value}`),
       useApiFetch<{ items: ApiPermission[] }>('/api/v1/admin/api-permissions', { query: { all: 'true' } }),
       useApiFetch<{ items: RoutePermission[] }>('/api/v1/admin/routers', { query: { all: 'true' } }),
     ])
@@ -218,7 +218,7 @@ const loadData = async () => {
 const saveApiPermissions = async () => {
   savingApi.value = true
   try {
-    const result = await useApiFetch(`/api/v1/admin/roles/${roleId.value}/api-permissions`, { method: 'PUT', body: { permissionIds: selectedApiIds.value } })
+    const result = await useApiFetch(`/api/v1/admin/roles/api-permissions/${roleId.value}`, { method: 'PUT', body: { permissionIds: selectedApiIds.value } })
     if (result) toast.success('API 权限保存成功')
   } finally { savingApi.value = false }
 }
@@ -226,7 +226,7 @@ const saveApiPermissions = async () => {
 const saveRoutePermissions = async () => {
   savingRoute.value = true
   try {
-    const result = await useApiFetch(`/api/v1/admin/roles/${roleId.value}/route-permissions`, { method: 'PUT', body: { routerIds: selectedRouteIds.value } })
+    const result = await useApiFetch(`/api/v1/admin/roles/route-permissions/${roleId.value}`, { method: 'PUT', body: { routerIds: selectedRouteIds.value } })
     if (result) toast.success('路由权限保存成功')
   } finally { savingRoute.value = false }
 }

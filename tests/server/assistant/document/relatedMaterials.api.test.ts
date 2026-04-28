@@ -50,7 +50,7 @@ const mockGetMaterials = getMaterialsByCaseOrDraftIdWithStatusService as ReturnT
 // ==================== 动态 import handler（必须在 mock 之后）====================
 
 const { default: handler } = await import(
-    '../../../../server/api/v1/assistant/document/drafts/[id]/related-materials.get'
+    '../../../../server/api/v1/assistant/document/drafts/related-materials/[id].get'
 )
 
 // ==================== 工具函数 ====================

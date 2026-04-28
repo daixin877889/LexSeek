@@ -67,7 +67,7 @@ const mockRebuildDocx = rebuildDocxService as ReturnType<typeof vi.fn>
 // ==================== 动态 import handler（必须在 mock 之后）====================
 
 const { default: downloadHandler } = await import(
-    '../../../../server/api/v1/assistant/contract/reviews/[id]/download.get'
+    '../../../../server/api/v1/assistant/contract/reviews/download/[id].get'
 )
 
 // ==================== 工具函数 ====================

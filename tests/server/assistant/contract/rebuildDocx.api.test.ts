@@ -69,7 +69,7 @@ const mockRebuild = rebuildDocxService as ReturnType<typeof vi.fn>
 // ==================== 动态 import handler ====================
 
 const { default: rebuildHandler } = await import(
-    '../../../../server/api/v1/assistant/contract/reviews/[id]/rebuild-docx.post'
+    '../../../../server/api/v1/assistant/contract/reviews/rebuild-docx/[id].post'
 )
 
 // ==================== 工具函数 ====================

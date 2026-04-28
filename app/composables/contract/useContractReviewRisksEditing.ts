@@ -41,7 +41,7 @@ export function useContractReviewRisksEditing(deps: UseContractReviewRisksEditin
         const risksSnapshot = lastServerRisks ?? (deps.review.value?.risks ?? [])
         const unsavedSnapshot = lastServerUnsaved ?? false
         const resp = await useApiFetch<{ reviewId: number }>(
-            `/api/v1/assistant/contract/reviews/${deps.reviewId.value}`,
+            `/api/v1/assistant/contract/reviews/risk-list/${deps.reviewId.value}`,
             { method: 'PATCH', body: { risks }, showError: false },
         )
         if (!resp) {

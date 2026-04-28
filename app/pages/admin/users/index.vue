@@ -235,7 +235,7 @@ const saveUserRoles = async () => {
   if (!selectedUser.value) return
   savingRoles.value = true
   try {
-    const result = await useApiFetch(`/api/v1/admin/users/${selectedUser.value.id}/roles`, {
+    const result = await useApiFetch(`/api/v1/admin/users/roles/${selectedUser.value.id}`, {
       method: 'PUT',
       body: { roleIds: selectedRoleIds.value }
     })

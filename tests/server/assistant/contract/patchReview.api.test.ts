@@ -67,7 +67,7 @@ const mockPatchRisks = patchReviewRisksDAO as ReturnType<typeof vi.fn>
 // ==================== 动态 import handler（必须在 mock 之后）====================
 
 const { default: patchHandler } = await import(
-    '../../../../server/api/v1/assistant/contract/reviews/[id]/index.patch'
+    '../../../../server/api/v1/assistant/contract/reviews/risk-list/[id].patch'
 )
 
 // ==================== 工具函数 ====================

@@ -462,7 +462,7 @@ const loadUserBenefits = async () => {
             user: { id: number; phone: string; nickname: string | null }
             summary: UserBenefitSummary[]
             records: UserBenefitRecordAdmin[]
-        }>(`/api/v1/admin/users/${selectedUser.value.id}/benefits`)
+        }>(`/api/v1/admin/users/benefits/${selectedUser.value.id}`)
 
         if (data) {
             userBenefits.value = {
@@ -527,7 +527,7 @@ const handleGrant = async () => {
         const expiredDate = grantForm.value.expiredAt.toDate(getLocalTimeZone())
         expiredDate.setHours(23, 59, 59, 999)
 
-        const result = await useApiFetch(`/api/v1/admin/users/${selectedUser.value.id}/benefits`, {
+        const result = await useApiFetch(`/api/v1/admin/users/benefits/${selectedUser.value.id}`, {
             method: 'POST',
             body: {
                 benefitId: parseInt(grantForm.value.benefitId),
@@ -569,7 +569,7 @@ const confirmDisable = async () => {
     disabling.value = true
     try {
         const result = await useApiFetch(
-            `/api/v1/admin/users/${selectedUser.value.id}/benefits/${selectedRecord.value.id}/disable`,
+            `/api/v1/admin/users/benefits/disable/${selectedUser.value.id}/${selectedRecord.value.id}`,
             { method: 'PUT' }
         )
 

@@ -68,25 +68,25 @@ describe('PATCH /api/v1/admin/nodes/:id/skills', () => {
     })
 
     it('handler 可加载且为函数', async () => {
-        const mod = await import('~~/server/api/v1/admin/nodes/[id]/skills.patch')
+        const mod = await import('~~/server/api/v1/admin/nodes/skills/[id].patch')
         expect(typeof mod.default).toBe('function')
     })
 
     it('id 为非数字时返回 400', async () => {
-        const { default: handler } = await import('~~/server/api/v1/admin/nodes/[id]/skills.patch')
+        const { default: handler } = await import('~~/server/api/v1/admin/nodes/skills/[id].patch')
         const result = await handler(makeEvent('abc', { skills: [] }) as any)
         expect(result.code).toBe(400)
     })
 
     it('请求体缺 skills 字段时返回 400', async () => {
-        const { default: handler } = await import('~~/server/api/v1/admin/nodes/[id]/skills.patch')
+        const { default: handler } = await import('~~/server/api/v1/admin/nodes/skills/[id].patch')
         const result = await handler(makeEvent('1', { wrongField: [] }) as any)
         expect(result.code).toBe(400)
     })
 
     it('节点不存在时返回 404', async () => {
         vi.mocked(getNodeByIdService).mockResolvedValue(null)
-        const { default: handler } = await import('~~/server/api/v1/admin/nodes/[id]/skills.patch')
+        const { default: handler } = await import('~~/server/api/v1/admin/nodes/skills/[id].patch')
         const result = await handler(makeEvent('99999', { skills: [] }) as any)
         expect(result.code).toBe(404)
         expect(result.message).toContain('节点不存在')
@@ -95,7 +95,7 @@ describe('PATCH /api/v1/admin/nodes/:id/skills', () => {
     it('成功更新后失效 NodeConfig 缓存和 backend 缓存', async () => {
         vi.mocked(getNodeByIdService).mockResolvedValue({ id: 1, name: 'caseMain' } as any)
 
-        const { default: handler } = await import('~~/server/api/v1/admin/nodes/[id]/skills.patch')
+        const { default: handler } = await import('~~/server/api/v1/admin/nodes/skills/[id].patch')
         const result = await handler(makeEvent('1', {
             skills: [{ skillName: 'docx', priority: 10 }],
         }) as any)
@@ -110,7 +110,7 @@ describe('PATCH /api/v1/admin/nodes/:id/skills', () => {
     it('skills 为空数组时成功清空并失效缓存', async () => {
         vi.mocked(getNodeByIdService).mockResolvedValue({ id: 2, name: 'legalAssistant' } as any)
 
-        const { default: handler } = await import('~~/server/api/v1/admin/nodes/[id]/skills.patch')
+        const { default: handler } = await import('~~/server/api/v1/admin/nodes/skills/[id].patch')
         const result = await handler(makeEvent('2', { skills: [] }) as any)
 
         expect(result.code).toBe(0)

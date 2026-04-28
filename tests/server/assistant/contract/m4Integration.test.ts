@@ -39,7 +39,7 @@ vi.mock('~~/server/agents/contract/contractReviewRebuild.service', () => ({
 }))
 
 const { default: downloadHandler } = await import(
-    '../../../../server/api/v1/assistant/contract/reviews/[id]/download.get'
+    '../../../../server/api/v1/assistant/contract/reviews/download/[id].get'
 )
 import {
     createContractReviewDAO,

@@ -28,7 +28,7 @@ export function useContractReviewExport(reviewId: Ref<number | null>) {
             // 因此把 $fetch 窄化为纯函数签名后调用，运行时不受影响。
             type BlobFetch = (url: string, opts: Record<string, unknown>) => Promise<unknown>
             const fetcher = $fetch as unknown as BlobFetch
-            const url = `/api/v1/assistant/contract/reviews/${reviewId.value}/export-pdf`
+            const url = `/api/v1/assistant/contract/reviews/export-pdf/${reviewId.value}`
             const data = await fetcher(url, {
                 method: 'POST',
                 body: { includeRisks },
@@ -59,7 +59,7 @@ export function useContractReviewExport(reviewId: Ref<number | null>) {
         if (!reviewId.value) return
 
         const result = await useApiFetch<DownloadResponse>(
-            `/api/v1/assistant/contract/reviews/${reviewId.value}/download`,
+            `/api/v1/assistant/contract/reviews/download/${reviewId.value}`,
             { showError: false },
         )
         if (!result?.downloadUrl) {

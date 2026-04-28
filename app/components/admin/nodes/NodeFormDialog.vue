@@ -162,6 +162,7 @@ import { NodeTypeLabels } from '#shared/types/node'
 import type { NodeGroup, NodeWithRelations } from '#shared/types/node'
 import type { Model } from '#shared/types/model'
 import AdminNodesOutputSchemaEditor from '~/components/admin/nodes/OutputSchemaEditor.vue'
+import AdminNodesNodeSkillSelector from '~/components/admin/nodes/NodeSkillSelector.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
 import type { models } from '~~/generated/prisma/client'
 
@@ -329,7 +330,7 @@ const openEdit = (node: NodeWithRelations) => {
 /** 加载节点当前关联的 skill 名称列表（编辑回显） */
 const loadNodeSkills = async (nodeId: number) => {
     const data = await useApiFetch<{ nodeId: number; skills: Array<{ skillName: string }> }>(
-        `/api/v1/admin/nodes/${nodeId}/skills`
+        `/api/v1/admin/nodes/skills/${nodeId}`
     )
     if (data) {
         form.value.skills = data.skills.map((s) => s.skillName)
@@ -383,7 +384,7 @@ const handleSubmit = async () => {
         if (result) {
             // 编辑时同步更新节点关联的 skills
             if (isEdit.value && selectedNode.value) {
-                await useApiFetch(`/api/v1/admin/nodes/${selectedNode.value.id}/skills`, {
+                await useApiFetch(`/api/v1/admin/nodes/skills/${selectedNode.value.id}`, {
                     method: 'PATCH',
                     body: { skills: form.value.skills.map(name => ({ skillName: name })) },
                 })

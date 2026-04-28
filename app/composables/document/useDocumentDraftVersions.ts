@@ -37,7 +37,7 @@ export function useDocumentDraftVersions(config: DocumentDraftVersionsConfig) {
   async function loadVersions() {
     if (!draftId.value) return
     const r = await useApiFetch<{ versions: DocumentDraftVersion[] }>(
-      `/api/v1/assistant/document/drafts/${draftId.value}/versions`,
+      `/api/v1/assistant/document/drafts/version-list/${draftId.value}`,
     )
     versions.value = r?.versions ?? []
   }
@@ -45,7 +45,7 @@ export function useDocumentDraftVersions(config: DocumentDraftVersionsConfig) {
   async function saveVersion(name: string): Promise<DocumentDraftVersion | null> {
     if (!draftId.value) return null
     const r = await useApiFetch<{ version: DocumentDraftVersion }>(
-      `/api/v1/assistant/document/drafts/${draftId.value}/versions`,
+      `/api/v1/assistant/document/drafts/version-list/${draftId.value}`,
       { method: 'POST', body: { name } },
     )
     if (r?.version) versions.value = [r.version, ...versions.value]

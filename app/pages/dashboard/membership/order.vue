@@ -243,7 +243,7 @@ const handlePay = async (order: OrderItem) => {
       transactionNo: string;
       amount: number;
       paymentParams: WechatPaymentParams;
-    }>(`/api/v1/payments/orders/${order.id}/pay`, {
+    }>(`/api/v1/payments/orders/pay/${order.id}`, {
       method: "POST",
       body: {
         paymentChannel: PaymentChannel.WECHAT,
@@ -263,7 +263,7 @@ const handlePay = async (order: OrderItem) => {
     showQRCodeDialog.value = true;
   } else {
     // 非微信环境：扫码支付
-    const result = await useApiFetch<PaymentResponse>(`/api/v1/payments/orders/${order.id}/pay`, {
+    const result = await useApiFetch<PaymentResponse>(`/api/v1/payments/orders/pay/${order.id}`, {
       method: "POST",
       body: {
         paymentChannel: PaymentChannel.WECHAT,
@@ -384,7 +384,7 @@ const handleCancelOrder = async () => {
 
   cancelLoading.value = true;
   try {
-    const result = await useApiFetch(`/api/v1/payments/orders/${selectedOrder.value.id}/cancel`, {
+    const result = await useApiFetch(`/api/v1/payments/orders/cancel/${selectedOrder.value.id}`, {
       method: "POST",
       showError: true,
     });

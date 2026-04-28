@@ -134,7 +134,7 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
     /** 从服务端拉取版本列表 */
     async function refreshVersions() {
         const resp = await useApiFetch<{ versions: ContractReviewVersionEntity[] }>(
-            `/api/v1/assistant/contract/reviews/${reviewId.value}/versions`,
+            `/api/v1/assistant/contract/reviews/version-list/${reviewId.value}`,
         )
         if (!resp) return
         versions.value = resp.versions
@@ -160,7 +160,7 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
     async function saveNewVersion(lawyerNote?: string | null): Promise<boolean> {
         if (isReadOnly.value) return false
         const resp = await useApiFetch(
-            `/api/v1/assistant/contract/reviews/${reviewId.value}/versions`,
+            `/api/v1/assistant/contract/reviews/version-list/${reviewId.value}`,
             { method: 'POST', body: { lawyerNote: lawyerNote ?? null } },
         )
         if (!resp) return false
@@ -200,7 +200,7 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
     ): Promise<ContractAnnotationEntity | null> {
         if (isReadOnly.value) return null
         const resp = await useApiFetch<ContractAnnotationEntity>(
-            `/api/v1/assistant/contract/reviews/${reviewId.value}/annotations`,
+            `/api/v1/assistant/contract/reviews/add-annotation/${reviewId.value}`,
             { method: 'POST', body: { riskId, content, parentAnnotationId: parentAnnotationId ?? null }, showError: false } as any,
         )
         if (!resp) {
@@ -297,7 +297,7 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
             a.id === annotationId ? { ...a, suppressInExport: false } : a,
         )
         const resp = await useApiFetch(
-            `/api/v1/assistant/contract/reviews/annotations/${annotationId}/restore`,
+            `/api/v1/assistant/contract/reviews/annotations/restore/${annotationId}`,
             { method: 'PATCH', showError: false } as any,
         )
         if (!resp) {
@@ -333,7 +333,7 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
         void (async () => {
             try {
                 const resp = await fetch(
-                    `/api/v1/assistant/contract/reviews/${reviewId.value}/upload-version`,
+                    `/api/v1/assistant/contract/reviews/upload-version/${reviewId.value}`,
                     {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },

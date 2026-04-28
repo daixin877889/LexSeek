@@ -49,10 +49,10 @@ vi.mock('~~/server/services/storage/storageConfig.dao', () => ({
 }))
 
 const { default: patchHandler } = await import(
-    '../../../../server/api/v1/assistant/contract/reviews/[id]/index.patch'
+    '../../../../server/api/v1/assistant/contract/reviews/risk-list/[id].patch'
 )
 const { default: rebuildHandler } = await import(
-    '../../../../server/api/v1/assistant/contract/reviews/[id]/rebuild-docx.post'
+    '../../../../server/api/v1/assistant/contract/reviews/rebuild-docx/[id].post'
 )
 import { injectAnnotations } from '~~/server/agents/contract/docx'
 import { listAnnotationsForExportDAO } from '~~/server/agents/contract/contractAnnotation.dao'

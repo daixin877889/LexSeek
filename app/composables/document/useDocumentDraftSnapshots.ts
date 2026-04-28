@@ -31,7 +31,7 @@ export function useDocumentDraftSnapshots(config: DocumentDraftSnapshotsConfig) 
   async function loadSnapshots() {
     if (!draftId.value) return
     const r = await useApiFetch<{ snapshots: DocumentDraftSnapshot[] }>(
-      `/api/v1/assistant/document/drafts/${draftId.value}/snapshots`,
+      `/api/v1/assistant/document/drafts/snapshots/${draftId.value}`,
     )
     snapshots.value = r?.snapshots ?? []
   }

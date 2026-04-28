@@ -59,7 +59,7 @@ const mockGetReview = getContractReviewDAO as ReturnType<typeof vi.fn>
 // ==================== 动态 import handler（必须在 mock 之后）====================
 
 const { default: restoreHandler } = await import(
-    '../../../../server/api/v1/assistant/contract/reviews/annotations/[annotationId]/restore.patch'
+    '../../../../server/api/v1/assistant/contract/reviews/annotations/restore/[annotationId].patch'
 )
 
 // ==================== 工具函数 ====================

@@ -242,7 +242,7 @@ const loadLegalData = async () => {
 
 /** 加载统计信息 */
 const loadStatistics = async () => {
-    const data = await useApiFetch<LegalStatistics>(`/api/v1/admin/legal-main/${legalId}/statistics`)
+    const data = await useApiFetch<LegalStatistics>(`/api/v1/admin/legal-main/statistics/${legalId}`)
     if (data) {
         statistics.value = data
     }
@@ -257,11 +257,7 @@ const navigateToEdit = () => {
 const handleBatchEmbed = async () => {
     batchEmbedding.value = true
     try {
-        const response = await $fetch<{
-            success: boolean
-            message: string
-            data: { total: number; processed: number; skipped: number; upToDate: number; failed: number }
-        }>('/api/v1/admin/legal-articles/batch-embed', {
+        const response = await useApiFetch<{ total: number; processed: number; skipped: number; upToDate: number; failed: number }>('/api/v1/admin/legal-articles/batch-embed', {
             method: 'POST',
             body: {
                 legalId,
@@ -269,22 +265,17 @@ const handleBatchEmbed = async () => {
             },
         })
 
-        if (response.success) {
-            const { processed, failed } = response.data || {}
-            if (failed > 0) {
-                toast.warning(response.message)
-            } else if (processed === 0) {
-                toast.info(response.message)
-            } else {
-                toast.success(response.message)
-            }
-            loadStatistics()
+        if (!response) return
+
+        const { processed, failed } = response
+        if (failed > 0) {
+            toast.warning('部分条文向量化失败')
+        } else if (processed === 0) {
+            toast.info('条文已是最新')
         } else {
-            toast.error(response.message || '批量嵌入失败')
+            toast.success('向量化成功')
         }
-    } catch (error: any) {
-        const message = error?.data?.message || error?.message || '批量嵌入失败'
-        toast.error(message)
+        loadStatistics()
     } finally {
         batchEmbedding.value = false
     }

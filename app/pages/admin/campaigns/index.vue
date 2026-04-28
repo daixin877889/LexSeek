@@ -165,7 +165,7 @@ const changePage = (page: number) => {
 
 // 切换状态
 const handleToggleStatus = async (campaign: CampaignInfo) => {
-    const result = await useApiFetch(`/api/v1/admin/campaigns/${campaign.id}/status`, { method: 'PATCH' })
+    const result = await useApiFetch(`/api/v1/admin/campaigns/status/${campaign.id}`, { method: 'PATCH' })
     if (result) {
         toast.success('状态已更新')
         loadCampaigns()

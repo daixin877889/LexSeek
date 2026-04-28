@@ -113,7 +113,7 @@ export function useContractReviewLifecycle(deps: UseContractReviewLifecycleDeps)
     async function submitStance(payload: StanceRequest): Promise<boolean> {
         if (!deps.reviewId.value) return false
         const result = await useApiFetch<{ reviewId: number; runId: number }>(
-            `/api/v1/assistant/contract/reviews/${deps.reviewId.value}/stance`,
+            `/api/v1/assistant/contract/reviews/stance/${deps.reviewId.value}`,
             { method: 'POST', body: payload },
         )
         return !!result

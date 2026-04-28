@@ -399,7 +399,7 @@ const handleSubmit = async () => {
 // 切换状态
 const handleToggleStatus = async (benefit: BenefitAdminInfo) => {
     const newStatus = benefit.status === 1 ? 0 : 1
-    const result = await useApiFetch(`/api/v1/admin/benefits/${benefit.id}/status`, {
+    const result = await useApiFetch(`/api/v1/admin/benefits/status/${benefit.id}`, {
         method: 'PUT',
         body: { status: newStatus },
     })

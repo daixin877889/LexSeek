@@ -55,7 +55,7 @@ const STEP4A_CONCURRENCY = 8
 
 /**
  * upload-version 视为"忙任务"的状态集合。
- * 与 server/api/v1/assistant/contract/reviews/[id]/upload-version.post.ts
+ * 与 server/api/v1/assistant/contract/reviews/upload-version/[id].post.ts
  * 的 BUSY_STATUSES 保持同步，由 HTTP 层快速失败 + service 层原子锁双重保护。
  */
 const UPLOAD_BUSY_STATUSES = ['pending', 'reviewing', 'awaiting_stance', 'rebuilding'] as const
