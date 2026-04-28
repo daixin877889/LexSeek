@@ -338,8 +338,16 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
       body.title = title || '初分分析'
     }
 
+    // case scope 端点按 moduleName 分流：模块对话走 module-session（type=3），
+    // 小索走 xiaosuo-session（type=1）。defaultApiEndpoints 的 createUrl 默认是
+    // 后者，moduleName 非空时改路由到前者。
+    const createUrl = (scope === 'case' && moduleName
+        && apiConfig.createUrl === '/api/v1/case/analysis/xiaosuo-session')
+        ? '/api/v1/case/analysis/module-session'
+        : apiConfig.createUrl
+
     const result = await useApiFetch<{ sessionId: string; title: string }>(
-      apiConfig.createUrl,
+      createUrl,
       { method: 'POST', body },
     )
     if (!result?.sessionId) throw new Error('创建 session 失败')
