@@ -28,6 +28,7 @@ function handleConfirm() {
         <DialogContent class="sm:max-w-[480px]">
             <DialogHeader>
                 <DialogTitle>保存新版本</DialogTitle>
+                <DialogDescription class="sr-only">将当前合同存为新版本</DialogDescription>
             </DialogHeader>
             <div class="space-y-3 py-2">
                 <p class="text-sm text-muted-foreground">

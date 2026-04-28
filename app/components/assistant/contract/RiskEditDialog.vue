@@ -106,6 +106,7 @@ const levelOptions: Array<{ value: RiskLevel; label: string }> = (
         <DialogContent class="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
                 <DialogTitle>{{ risk ? '编辑风险' : '新增风险' }}</DialogTitle>
+                <DialogDescription class="sr-only">编辑或新增合同风险条目</DialogDescription>
             </DialogHeader>
 
             <div class="space-y-4 py-2">
