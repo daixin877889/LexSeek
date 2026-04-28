@@ -30,6 +30,9 @@ const KIND_COLORS: Record<string, string> = {
     event: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
     decision: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',
     note: 'bg-gray-100 text-gray-700 dark:bg-gray-500/20 dark:text-gray-300',
+    // 旧 chat memory kind（向后兼容，历史数据）
+    dialogue_note: 'bg-gray-100 text-gray-700 dark:bg-gray-500/20 dark:text-gray-300',
+    preference: 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300',
 }
 
 const KIND_LABELS: Record<string, string> = {
@@ -37,6 +40,8 @@ const KIND_LABELS: Record<string, string> = {
     event: '事件',
     decision: '决策',
     note: '笔记',
+    dialogue_note: '对话笔记',
+    preference: '偏好',
 }
 
 const SOURCE_COLORS: Record<string, string> = {
@@ -48,7 +53,7 @@ const SOURCE_COLORS: Record<string, string> = {
 
 const SOURCE_LABELS: Record<string, string> = {
     manual: 'AI 主动',
-    consolidator: '批量整合',
+    consolidator: 'AI 整理',
     auto_extract: 'AI 自动',
     manual_user: '用户',
 }
