@@ -24,6 +24,12 @@ model orders {
   expiredAt    DateTime  @map("expired_at") @db.Timestamptz(6)
   /// 备注
   remark       String?   @db.VarChar(255)
+  /// 管理员备注（仅后台可见，独立于业务 remark）
+  adminRemark          String?   @map("admin_remark") @db.Text
+  /// 管理员备注最后修改人 ID（不建外键，避免高频写入连带）
+  adminRemarkUpdatedBy Int?      @map("admin_remark_updated_by")
+  /// 管理员备注最后修改时间
+  adminRemarkUpdatedAt DateTime? @map("admin_remark_updated_at") @db.Timestamptz(6)
   /// 创建时间
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   /// 最后更新时间
@@ -79,6 +85,12 @@ model paymentTransactions {
   errorMessage   String?   @map("error_message") @db.VarChar(255)
   /// 备注
   remark         String?   @db.VarChar(255)
+  /// 管理员备注（仅后台可见，独立于业务 remark）
+  adminRemark          String?   @map("admin_remark") @db.Text
+  /// 管理员备注最后修改人 ID（不建外键）
+  adminRemarkUpdatedBy Int?      @map("admin_remark_updated_by")
+  /// 管理员备注最后修改时间
+  adminRemarkUpdatedAt DateTime? @map("admin_remark_updated_at") @db.Timestamptz(6)
   /// 创建时间
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   /// 最后更新时间
