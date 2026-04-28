@@ -129,10 +129,12 @@ jobs:
 
       # 9. 跑全量测试
       #    CI runner 是 2 vCPU + 7GB RAM，开 4 worker 比较稳（本地默认 8 是为了 12 核机器）
+      #    TZ=Asia/Shanghai：项目数据库时区 +8，部分测试断言依赖本地时区，CI 默认 UTC 会挂
       - name: Run vitest
         env:
           VITEST_MAX_WORKERS: 4
           NODE_OPTIONS: --max-old-space-size=6144
+          TZ: Asia/Shanghai
         run: bun run test
 
       # 10. 失败时抓 PG 日志方便排查

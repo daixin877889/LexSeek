@@ -96,6 +96,7 @@ const ButtonStub = defineComponent({
 const stubs = {
     Dialog: DialogStub, DialogContent: passthrough('DialogContent'),
     DialogHeader: passthrough('DialogHeader'), DialogTitle: passthrough('DialogTitle'),
+    DialogDescription: passthrough('DialogDescription'),
     DialogFooter: passthrough('DialogFooter'), Label: passthrough('Label'),
     Input: InputStub, Textarea: TextareaStub,
     RadioGroup: RadioGroupStub, RadioGroupItem: RadioGroupItemStub,
