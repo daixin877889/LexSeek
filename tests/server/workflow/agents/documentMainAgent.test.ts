@@ -30,6 +30,7 @@ vi.mock('langchain', () => ({
     createAgent: vi.fn(() => ({ stream: mockStream })),
     summarizationMiddleware: vi.fn(() => ({})),
     toolStrategy: vi.fn(() => ({ __mock: 'responseFormat' })),
+    createMiddleware: (cfg: any) => cfg,
 }))
 
 vi.mock('~~/server/services/workflow/checkpointer', () => ({

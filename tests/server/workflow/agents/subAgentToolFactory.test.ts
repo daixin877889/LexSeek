@@ -31,6 +31,7 @@ vi.mock('langchain', () => ({
         }),
     })),
     summarizationMiddleware: vi.fn(() => ({})),
+    createMiddleware: (cfg: any) => cfg,
 }))
 
 vi.mock('~~/server/services/agent-platform/middleware', () => ({

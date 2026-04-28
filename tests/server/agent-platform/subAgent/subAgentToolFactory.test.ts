@@ -77,6 +77,7 @@ vi.mock('~~/server/services/agent/agentEventBridge', () => ({
 vi.mock('langchain', () => ({
     createAgent: (opts: any) => createAgentMock(opts),
     summarizationMiddleware: vi.fn(() => ({ _mw: 'summary' })),
+    createMiddleware: (cfg: any) => cfg,
 }))
 
 import { createSubAgentTools, sanitizeName } from '~~/server/services/agent-platform/subAgent/subAgentToolFactory'

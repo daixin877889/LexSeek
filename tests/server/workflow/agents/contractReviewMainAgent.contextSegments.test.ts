@@ -27,6 +27,7 @@ const mockStream = vi.fn(async () => new ReadableStream<Uint8Array>({
 vi.mock('langchain', () => ({
     createAgent: vi.fn(() => ({ stream: mockStream })),
     summarizationMiddleware: vi.fn(() => ({})),
+    createMiddleware: (cfg: any) => cfg,
 }))
 
 vi.mock('~~/server/services/workflow/checkpointer', () => ({

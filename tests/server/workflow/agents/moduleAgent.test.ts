@@ -14,6 +14,7 @@ const mockStream = vi.fn()
 vi.mock('langchain', () => ({
     createAgent: vi.fn(() => ({ stream: mockStream })),
     summarizationMiddleware: vi.fn(() => ({ __mock: 'summarization' })),
+    createMiddleware: (cfg: any) => cfg,
 }))
 
 // mock checkpointer

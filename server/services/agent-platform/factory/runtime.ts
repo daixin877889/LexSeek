@@ -294,10 +294,11 @@ function wrapStreamWithAfterRun(
     afterRun: (ctx: AgentRunnerContext, success: boolean) => Promise<void>,
 ): ReadableStream {
     let success = true
+    let reader: ReadableStreamDefaultReader | null = null
 
     return new ReadableStream({
         async start(controller) {
-            const reader = source.getReader()
+            reader = source.getReader()
             try {
                 while (true) {
                     const { done, value } = await reader.read()
@@ -310,6 +311,7 @@ function wrapStreamWithAfterRun(
                 controller.error(err)
             } finally {
                 reader.releaseLock()
+                reader = null
                 afterRun(ctx, success).catch(e => {
                     logger.error('[defineDomainAgent] afterRun 钩子执行失败', e)
                 })
@@ -317,7 +319,15 @@ function wrapStreamWithAfterRun(
         },
         cancel() {
             success = false
-            source.cancel?.()
+            // source 已被 start() 内的 reader 锁住，直接 source.cancel() 会抛
+            // "Invalid state: ReadableStream is locked"。改走 reader.cancel()，
+            // 它会同时释放锁 + 取消上游。
+            // reader 可能已 null（start 正常完成），fallback 到 source.cancel?()。
+            const cancelPromise = reader
+                ? reader.cancel().catch(() => { /* 忽略 cancel 后续清理错误 */ })
+                : Promise.resolve(source.cancel?.())
+            cancelPromise.catch(() => { /* 忽略 source 端的 cancel 异常 */ })
+
             afterRun(ctx, false).catch(e => {
                 logger.error('[defineDomainAgent] afterRun 钩子执行失败（cancel）', e)
             })
