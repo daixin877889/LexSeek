@@ -488,26 +488,38 @@ import { ShoppingCart, CreditCard, Download, Ban, Pencil, History, Eye } from 'l
 
 ---
 
-## 9. RBAC 与菜单注册
+## 9. RBAC 与菜单注册（走 scan + import 机制，不改 seedData.sql）
 
-### 9.1 写入位置
+### 9.1 注册机制
 
-按项目铁律，新增的 routers 和 api_permissions 记录都写到 `prisma/seeds/seedData.sql`（不写 seed.ts 脚本）。
+项目已有完整的 **scan + import 自动注册基建**，新增 admin 模块**不需要改 `prisma/seeds/seedData.sql`**（该文件只保留最干净的基础数据快照，不用作 migrate 增量记录）：
 
-### 9.2 新增菜单分组（routers 表）
+| 接口 | 用途 |
+|------|------|
+| `POST /api/v1/admin/routers/scan` + `POST /api/v1/admin/routers/import` | 扫描磁盘 `app/pages/admin/**/index.vue` 自动入 `routers` 表 |
+| `POST /api/v1/admin/api-permissions/scan` + `POST /api/v1/admin/api-permissions/batch-import` | 扫描 `server/api/` 文件自动入 `api_permissions` 表 |
+| `GET /api/v1/admin/menu-routers`（**超管兜底**）| 即使 routers 表没记录，磁盘有 `app/pages/admin/xxx/index.vue` 也会作为临时菜单返回给超管，开发期间可直接看到菜单 |
 
-新建独立的 **"财务管理"** 菜单分组：
+### 9.2 开发期间（Task 14/15 完成后）
 
-| name | title | path | icon | group_id | menu_group | menu_group_sort |
-|------|-------|------|------|----------|------------|-----------------|
-| `admin-orders` | 订单管理 | /admin/orders | `ShoppingCartIcon` | 3 | 财务管理 | 4 |
-| `admin-payments` | 支付记录 | /admin/payments | `CreditCardIcon` | 3 | 财务管理 | 4 |
+- 超管登录：菜单兜底机制让"订单管理"和"支付记录"立即出现在左侧导航
+- API 调用：RBAC 中间件对超管直接放行
+- **本任务的开发流程不需要任何 seed 操作**，写完 API handler 和 page 文件就能跑
 
-`menu_group_sort = 4` 让"财务管理"分组排在已有的"运营管理（3）"后面、其它分组之前。
+### 9.3 上线 / 多角色场景的入库流程（一次性）
 
-### 9.3 新增 API 权限点（api_permissions 表）
+部署上线前或需要给非超管角色授权时，登录超管账号执行：
 
-订单 5 条 + 支付 4 条 = 9 条权限：
+1. 进入 `/admin/routers` 页面 → 点【扫描】→ 选中 `admin-orders` 和 `admin-payments` → 【导入】
+   - 导入后在路由编辑里把 `menu_group` 设为 "**财务管理**"、`menu_group_sort` 设为 4、`icon` 设为 `ShoppingCartIcon` / `CreditCardIcon`
+2. 进入 `/admin/api-permissions` 页面 → 点【扫描】→ 选中本次新增的 9 条权限 → 【批量导入】
+3. 进入 `/admin/roles` 页面 → 选中需要赋权的角色（如运营、客服）→ 把 9 条权限点关联给该角色
+
+> 这套流程对应项目里已有 admin 模块的标准上线步骤，不为本次任务额外发明流程。
+
+### 9.4 9 条新增 API 权限点清单（供上线时核对）
+
+订单 5 条 + 支付 4 条：
 
 ```
 GET    /api/v1/admin/orders
@@ -522,13 +534,11 @@ GET    /api/v1/admin/payments/:id
 PATCH  /api/v1/admin/payments/remark/:id
 ```
 
-> **关于路径风格**：`api_permissions` 表 path 字段用 `:id`（与表内已注册的多数 admin 接口一致，如 `/api/v1/admin/products/:id`、`/api/v1/admin/case-types/status/:id`）；Nuxt 文件路由层用 `[id].post.ts`（见 §5 路径表）。两种风格各自正确：前者是数据库字符串值的项目惯例，后者是 Nuxt 文件路由约定，**不是不一致**。
+> **关于路径风格**：`api_permissions` 表 path 字段用 `:id`（与已注册的多数 admin 接口一致，如 `/api/v1/admin/products/:id`、`/api/v1/admin/case-types/status/:id`）；Nuxt 文件路由层用 `[id].post.ts`（见 §5 路径表）。
 >
-> 但**铁律仍然适用**：`:id` / `[id]` 必须在路径末尾，不能放中间。本表中 "更新备注" 和 "取消订单" 接口已经把子操作（remark / cancel）放在 `:id` 之前。
+> **铁律仍然适用**：`:id` / `[id]` 必须在路径末尾，不能放中间。本表中 "更新备注" 和 "取消订单" 接口已经把子操作（remark / cancel）放在 `:id` 之前。
 
-命名规范沿用项目惯例（如 `GET admin / orders`、`POST admin / orders / cancel / [id]`）。
-
-### 9.4 默认角色绑定
+### 9.5 默认角色绑定
 
 - super_admin 自动放行（中间件层）
 - 其它管理类角色（如 admin、operator）默认**不**自动绑定，由超管在角色管理后台按需手动授权——避免绕开"按需授权"原则

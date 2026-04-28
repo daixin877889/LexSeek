@@ -20,7 +20,8 @@
 - `shared/types/rbac.ts` — 扩展 AuditLogAction
 - `server/services/rbac/auditLog.service.ts` — 末尾追加 3 个 log 函数
 - `server/api/v1/payments/orders.get.ts` — 加用户端隔离断言（已是显式 map，仅核对）
-- `prisma/seeds/seedData.sql` — 加 routers + api_permissions
+
+> **不改 `prisma/seeds/seedData.sql`**：菜单和 API 权限通过项目已有的 admin scan + import 机制注册（见 spec §9）。开发阶段超管菜单兜底自动可见。
 
 ### 新增（后端）
 - `server/services/payment/order.admin.dao.ts`
@@ -2563,74 +2564,55 @@ git commit -m "feat(admin): 支付记录列表页 + 订单页支持 openId query
 
 ---
 
-## Task 16: RBAC 注册（seedData.sql）
+## Task 16: RBAC 验证（不改 seedData.sql）
 
-**Files:**
-- Modify: `prisma/seeds/seedData.sql`
+**Files:** 无新增 / 修改文件
 
-- [ ] **Step 1: 查询当前最大 id**
+> **重要变更**：原 plan 计划手写 INSERT 到 `prisma/seeds/seedData.sql`。**已废止**——seedData.sql 只保留最干净的基础数据快照，不用作 migrate 增量记录。
+>
+> 项目已有 `routers/scan` + `api-permissions/scan` + 超管菜单兜底机制（见 spec §9.1）。本任务**开发阶段不需要任何 seed 操作**：
+>
+> - **超管登录**：菜单兜底机制让"订单管理"和"支付记录"自动出现在左侧导航（即使 routers 表没记录）
+> - **API 调用**：RBAC 中间件对超管自动放行
+>
+> **本 Task 只做验证**，不写代码、不改文件。
 
-```bash
-docker exec -it $(docker ps --filter ancestor=postgres --format "{{.Names}}" | head -1) \
-    psql -U postgres -d ls_dev -c "SELECT MAX(id) FROM routers;"
-docker exec -it $(docker ps --filter ancestor=postgres --format "{{.Names}}" | head -1) \
-    psql -U postgres -d ls_dev -c "SELECT MAX(id) FROM api_permissions;"
-```
-
-记下最大值，新增记录从 max+1 开始。
-
-- [ ] **Step 2: 在 `prisma/seeds/seedData.sql` 文件末尾追加**
-
-```sql
--- ============================================
--- 订单/支付管理后台模块（财务管理分组）
--- ============================================
-
--- 菜单路由（routers）
-INSERT INTO "public"."routers" ("name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES
-('admin-orders', '订单管理', NULL, '/admin/orders', 't', NULL, 'ShoppingCartIcon', 3, 1, '财务管理', 4, NOW(), NOW(), NULL),
-('admin-payments', '支付记录', NULL, '/admin/payments', 't', NULL, 'CreditCardIcon', 3, 2, '财务管理', 4, NOW(), NOW(), NULL);
-
--- API 权限点（api_permissions）
-INSERT INTO "public"."api_permissions" ("path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES
-('/api/v1/admin/orders', 'GET', 'GET admin / orders', '订单列表', 'f', NULL, 1, NOW(), NOW(), NULL),
-('/api/v1/admin/orders/export', 'GET', 'GET admin / orders / export', '订单 CSV 导出', 'f', NULL, 1, NOW(), NOW(), NULL),
-('/api/v1/admin/orders/:id', 'GET', 'GET admin / orders / :id', '订单详情', 'f', NULL, 1, NOW(), NOW(), NULL),
-('/api/v1/admin/orders/remark/:id', 'PATCH', 'PATCH admin / orders / remark / :id', '更新订单管理员备注', 'f', NULL, 1, NOW(), NOW(), NULL),
-('/api/v1/admin/orders/cancel/:id', 'POST', 'POST admin / orders / cancel / :id', '后台取消订单', 'f', NULL, 1, NOW(), NOW(), NULL),
-('/api/v1/admin/payments', 'GET', 'GET admin / payments', '支付记录列表', 'f', NULL, 1, NOW(), NOW(), NULL),
-('/api/v1/admin/payments/export', 'GET', 'GET admin / payments / export', '支付记录 CSV 导出', 'f', NULL, 1, NOW(), NOW(), NULL),
-('/api/v1/admin/payments/:id', 'GET', 'GET admin / payments / :id', '支付详情', 'f', NULL, 1, NOW(), NOW(), NULL),
-('/api/v1/admin/payments/remark/:id', 'PATCH', 'PATCH admin / payments / remark / :id', '更新支付管理员备注', 'f', NULL, 1, NOW(), NOW(), NULL);
-```
-
-> 注意：上面 INSERT 不写明 `id` 字段，让 PostgreSQL 自增。如果 seed 文件其它行都显式写 id，则需要根据 Step 1 查到的最大值依次填写。
-
-- [ ] **Step 3: 应用 seed 到本地开发库**
-
-```bash
-docker exec -i $(docker ps --filter ancestor=postgres --format "{{.Names}}" | head -1) \
-    psql -U postgres -d ls_dev < prisma/seeds/seedData.sql
-```
-
-> 如果 seedData.sql 是全量重置（含 TRUNCATE），就跑一次完整 seed 流程。否则只追加新行可能违反唯一约束，需手动单独 INSERT 新记录。
-
-- [ ] **Step 4: 验证菜单出现**
-
-启动 dev server，登录超管，访问 `/admin`，左侧菜单应能看到"财务管理"分组下的"订单管理"和"支付记录"。
+- [ ] **Step 1: 启动 dev server**
 
 ```bash
 bun dev
 ```
 
-访问 `http://localhost:3000/admin/orders`，预期：列表页正常加载。
+- [ ] **Step 2: 用超管账号登录访问 `/admin`**
 
-- [ ] **Step 5: Commit**
+预期：左侧菜单出现"订单管理"和"支付记录"两项（来自磁盘扫描兜底）。如果没出现，原因排查：
+- `app/pages/admin/orders/index.vue` 和 `app/pages/admin/payments/index.vue` 是否在 Task 14/15 创建成功
+- `menu-routers.get.ts` 的页面缓存：重启 dev server 让 `pagesCache` 重置
 
-```bash
-git add prisma/seeds/seedData.sql
-git commit -m "feat(admin): seed 加订单/支付管理菜单与 API 权限点"
+- [ ] **Step 3: 访问列表页验证 API 通**
+
 ```
+http://localhost:3000/admin/orders
+http://localhost:3000/admin/payments
+```
+
+预期：两个页面正常加载，能看到列表（即使数据为空也应返回 200 + 空 items）。
+
+- [ ] **Step 4: 上线 / 多角色入库流程（部署文档，开发阶段不执行）**
+
+把以下流程记录到部署 checklist（**本 Task 不需要执行**，只是写下来供上线时参考）：
+
+1. 部署后用超管登录
+2. 进入 `/admin/routers` → 点【扫描】→ 选中 `admin-orders` / `admin-payments` 两条 → 【导入】
+3. 在路由编辑里把 `menu_group` 设为 "财务管理"、`menu_group_sort` 设为 4、`icon` 设为 `ShoppingCartIcon` / `CreditCardIcon`
+4. 进入 `/admin/api-permissions` → 点【扫描】→ 选中本次新增的 9 条权限 → 【批量导入】
+5. 进入 `/admin/roles` → 给需要赋权的角色（如运营、客服）勾选这 9 条权限点
+
+> 9 条权限的清单见 spec §9.4。
+
+- [ ] **Step 5: 无需 commit**
+
+本 Task 无文件改动，无 commit。
 
 ---
 
@@ -2709,7 +2691,7 @@ git log --oneline main..HEAD
 
 ## 风险与注意事项
 
-1. **seedData.sql 应用方式**：项目 seedData.sql 是否含 TRUNCATE，决定追加新记录的方式。如不能直接重跑 seed，需写单独的迁移补丁。
+1. **不改 seedData.sql**：菜单 + API 权限通过 admin scan+import 入库（见 Task 16）；开发期间超管菜单兜底机制让页面立即可见。
 2. **取消订单事务**：cron-scheduler 的 `handleExpiredPaymentTransactionsService` 仍在跑，作为兜底。spec §5.4 已说明同步关闭+cron 兜底的关系。
 3. **CSV 导出大数据量**：上限 10000，单次响应约 5-10 MB，浏览器下载无压力。但导出操作建议只在实际需要时点击，避免反复触发。
 4. **z-index 冲突**：Sheet 抽屉默认 z-50。本 plan 取消订单走 OrderDetailSheet 内嵌 inline 表单，**不嵌套任何 AlertDialog/Dialog**，从根本上回避 Overlay z-index 冲突。备注编辑同样走 inline 切换（OrderAdminRemarkEditor）。
