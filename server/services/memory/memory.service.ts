@@ -4,6 +4,7 @@ import { addDocumentsToVectorStore } from '../legal/vectorStore.service'
 import { assertCaseWritableService } from '../case/case.service'
 import type { CaseMemoryMetadata, MemoryHit, MemoryKind } from '#shared/types/memory'
 import { retrieveWithReranking } from './retrieveWithReranking'
+import { findActiveMemoryBySubjectDAO } from './memory.dao'
 
 export interface MemoryWriteInput {
   caseId: number
@@ -25,21 +26,10 @@ export async function writeMemoryService(input: MemoryWriteInput): Promise<{ id:
 
   let supersedes: string | undefined
 
-  // 1. 查找同 subjectKey 的最新未失效记录
+  // 1. 查找同 subjectKey 的最新未失效记录（DAO 复用）
   if (input.subjectKey) {
-    const prevRows: Array<{ id: string }> = await prisma.$queryRawUnsafe(
-      `SELECT id FROM case_memories
-       WHERE metadata->>'caseId' = $1
-         AND metadata->>'subjectKey' = $2
-         AND (metadata->>'invalidatedAt' IS NULL)
-       ORDER BY metadata->>'createdAt' DESC
-       LIMIT 1`,
-      String(input.caseId),
-      input.subjectKey,
-    )
-    if (prevRows.length > 0) {
-      supersedes = prevRows[0]!.id
-    }
+    const prev = await findActiveMemoryBySubjectDAO(input.caseId, input.subjectKey)
+    if (prev) supersedes = prev.id
   }
 
   // 2. 走 LangChain PGVectorStore 写入（保持 schema 同构）

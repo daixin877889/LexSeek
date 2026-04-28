@@ -37,6 +37,8 @@ const getPrisma = () => {
 const TEST_PHONE_PREFIX = '197'
 
 const createdUserIds: number[] = []
+const createdCaseIds: number[] = []
+const createdCaseTypeIds: number[] = []
 
 /**
  * 确保测试用户存在，返回 userId。
@@ -58,6 +60,31 @@ export async function ensureTestUser(): Promise<number> {
     })
     createdUserIds.push(user.id)
     return user.id
+}
+
+/**
+ * 创建测试案件（含 caseTypes 父记录）
+ *
+ * 案件记忆扩展（2026-04-28）测试用：返回 caseId 数字，
+ * 内部维护 createdCaseIds / createdCaseTypeIds 让 cleanupTestData 一并清理。
+ */
+export async function ensureTestCase(userId: number): Promise<number> {
+    const p = getPrisma()
+    const caseType = await p.caseTypes.create({
+        data: { name: `测试案件类型_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, status: 1 },
+    })
+    createdCaseTypeIds.push(caseType.id)
+    const caseRecord = await p.cases.create({
+        data: {
+            userId,
+            caseTypeId: caseType.id,
+            title: `测试案件_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            content: '案件记忆测试用例',
+            status: 1,
+        },
+    })
+    createdCaseIds.push(caseRecord.id)
+    return caseRecord.id
 }
 
 /**
@@ -107,6 +134,21 @@ export async function cleanupTestData(): Promise<void> {
 
     if (caseIds.length > 0) {
         await p.cases.deleteMany({ where: { id: { in: caseIds } } })
+    }
+
+    // case_memories：LangChain 同构表，业务字段在 metadata JSONB，按 caseId 维度清
+    if (createdCaseIds.length > 0) {
+        await (p as any).$executeRawUnsafe(
+            `DELETE FROM case_memories WHERE (metadata->>'caseId')::int = ANY($1::int[])`,
+            createdCaseIds,
+        )
+        // ensureTestCase 创建的案件可能已通过 cases.deleteMany(caseIds) 删过，这里幂等清残留
+        await p.cases.deleteMany({ where: { id: { in: createdCaseIds } } })
+        createdCaseIds.length = 0
+    }
+    if (createdCaseTypeIds.length > 0) {
+        await p.caseTypes.deleteMany({ where: { id: { in: createdCaseTypeIds } } })
+        createdCaseTypeIds.length = 0
     }
 
     await p.users.deleteMany({ where: { id: { in: createdUserIds } } })
