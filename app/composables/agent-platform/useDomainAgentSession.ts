@@ -433,7 +433,16 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
 
     await stopActiveRun(sessionId).catch(() => {})
 
-    await useApiFetch(apiConfig.deleteUrl(sessionId), { method: 'DELETE' })
+    // case scope 端点按 moduleName 分流：模块对话（type=3）走 module-session
+    // 端点；小索（type=1）走 xiaosuo-session 端点。defaultApiEndpoints 默认是
+    // 后者，moduleName 非空时改路由到前者（与 createSession 同步）。
+    const baseUrl = apiConfig.deleteUrl(sessionId)
+    const deleteUrl = (scope === 'case' && moduleName
+        && baseUrl === `/api/v1/case/analysis/xiaosuo-session/${sessionId}`)
+        ? `/api/v1/case/analysis/module-session/${sessionId}`
+        : baseUrl
+
+    await useApiFetch(deleteUrl, { method: 'DELETE' })
 
     queuesBySession.delete(sessionId)
     queuePausedBy.delete(sessionId)
