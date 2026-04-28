@@ -116,11 +116,15 @@ jobs:
           # 8.2 prisma 建表（schema 同步）
           bun run prisma:push
 
-          # 8.3 灌 seed：含 'chinese' 文本搜索配置（zhparser）+ 系统用户/角色/权限等基础数据
+          # 8.3 同步 skills 表（业务靠 server/plugins/skill-sync.ts 启动钩子，CI 不起 server 必须显式跑）
+          #     seed 里的 node_skills INSERT 会引用 skills.name 作 FK，必须先填 skills
+          bun run tsx server/scripts/syncSkillsForCI.ts
+
+          # 8.4 灌 seed：含 'chinese' 文本搜索配置（zhparser）+ 系统用户/角色/权限/node_skills 关联
           docker cp prisma/seeds/seedData.sql pg:/tmp/seedData.sql
           docker exec pg psql -U daixin -d ls_new_testing -v ON_ERROR_STOP=1 -f /tmp/seedData.sql
 
-          # 8.4 回填 tsv 数据（依赖 chinese 配置已存在）
+          # 8.5 回填 tsv 数据（依赖 chinese 配置已存在）
           bun run server/scripts/setupRetrievalInfra.ts
 
       # 9. 跑全量测试
