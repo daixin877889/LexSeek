@@ -4,35 +4,16 @@
  * 提供测试数据的创建和清理功能
  */
 
-import { PrismaPg } from '@prisma/adapter-pg'
-import { PrismaClient } from '../../../generated/prisma/client'
-import { config } from 'dotenv'
-import { resolve } from 'node:path'
+// Worker 级 prisma 客户端：每个 vitest worker 连接到独立的 ls_test_w<id> 数据库
+// 真正的实例化在 tests/_infra/worker-setup.ts 启动时完成
+import { getWorkerPrisma } from '../../_infra/worker-prisma'
 
-// 加载测试环境变量（强制指向 .env.testing，避免误连生产库）
-config({ path: resolve(__dirname, '../../../.env.testing') })
+export const getTestPrisma = getWorkerPrisma
 
-const createTestPrismaClient = () => {
-  const connectionString = process.env.DATABASE_URL
-  if (!connectionString) {
-    throw new Error('DATABASE_URL 环境变量未设置')
-  }
-  const pool = new PrismaPg({ connectionString })
-  return new PrismaClient({ adapter: pool })
-}
-
-let _testPrisma: ReturnType<typeof createTestPrismaClient> | null = null
-
-export const getTestPrisma = () => {
-  if (!_testPrisma) {
-    _testPrisma = createTestPrismaClient()
-  }
-  return _testPrisma
-}
-
-export const testPrisma = new Proxy({} as ReturnType<typeof createTestPrismaClient>, {
+// 兼容性导出：保留 testPrisma Proxy 给老代码用
+export const testPrisma = new Proxy({} as any, {
   get(_, prop) {
-    return (getTestPrisma() as any)[prop]
+    return (getWorkerPrisma() as any)[prop]
   },
 })
 
@@ -150,9 +131,4 @@ export async function cleanupTestData(ids: AgentTestIds) {
 }
 
 /** 断开测试数据库连接 */
-export async function disconnectTestDb() {
-  if (_testPrisma) {
-    await _testPrisma.$disconnect()
-    _testPrisma = null
-  }
-}
+export { disconnectWorkerPrisma as disconnectTestDb } from '../../_infra/worker-prisma'

@@ -6,28 +6,10 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, afterEach, beforeEach } from 'vitest'
-import { PrismaPg } from '@prisma/adapter-pg'
-import { PrismaClient } from '../../../generated/prisma/client'
-import { config } from 'dotenv'
-import { resolve } from 'node:path'
+// Worker 级 prisma 客户端（连接到当前 worker 独立的 ls_test_w<id> 数据库）
+import { getWorkerPrisma, disconnectWorkerPrisma } from '../../_infra/worker-prisma'
 
-// 加载测试环境变量（强制指向 .env.testing，避免误连生产库）
-config({ path: resolve(__dirname, '../../../.env.testing') })
-
-// 创建独立的测试 Prisma 客户端
-let _testPrisma: InstanceType<typeof PrismaClient> | null = null
-
-const getTestPrisma = () => {
-    if (!_testPrisma) {
-        const connectionString = process.env.DATABASE_URL
-        if (!connectionString) {
-            throw new Error('DATABASE_URL 环境变量未设置')
-        }
-        const pool = new PrismaPg({ connectionString })
-        _testPrisma = new PrismaClient({ adapter: pool })
-    }
-    return _testPrisma
-}
+const getTestPrisma = getWorkerPrisma
 
 // 导入被测试的 Service 函数
 import {
@@ -89,10 +71,7 @@ describe('示范案例服务层', () => {
     })
 
     afterAll(async () => {
-        if (_testPrisma) {
-            await _testPrisma.$disconnect()
-            _testPrisma = null
-        }
+        await disconnectWorkerPrisma()
     })
 
     // ==================== 辅助函数：创建测试数据 ====================

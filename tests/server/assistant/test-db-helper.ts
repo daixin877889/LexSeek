@@ -8,31 +8,11 @@
  *
  * **Feature: contract-review-m3**
  */
-import { PrismaPg } from '@prisma/adapter-pg'
-import { PrismaClient } from '../../../generated/prisma/client'
-import { config } from 'dotenv'
-import { resolve } from 'node:path'
+// Worker 级 prisma 客户端：每个 vitest worker 连接到独立的 ls_test_w<id> 数据库
+// 真正的实例化在 tests/_infra/worker-setup.ts 启动时完成
+import { getWorkerPrisma } from '../../_infra/worker-prisma'
 
-// 加载测试环境变量（强制指向 .env.testing，避免误连生产库）
-config({ path: resolve(__dirname, '../../../.env.testing') })
-
-const createTestPrismaClient = () => {
-    const connectionString = process.env.DATABASE_URL
-    if (!connectionString) {
-        throw new Error('DATABASE_URL 环境变量未设置')
-    }
-    const pool = new PrismaPg({ connectionString })
-    return new PrismaClient({ adapter: pool })
-}
-
-let _testPrisma: ReturnType<typeof createTestPrismaClient> | null = null
-
-const getPrisma = () => {
-    if (!_testPrisma) {
-        _testPrisma = createTestPrismaClient()
-    }
-    return _testPrisma
-}
+const getPrisma = getWorkerPrisma
 
 const TEST_PHONE_PREFIX = '197'
 

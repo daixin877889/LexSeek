@@ -8,38 +8,18 @@
  * **Validates: Requirements 6.1, 6.2, 6.3**
  */
 
-import { PrismaPg } from '@prisma/adapter-pg'
-import { PrismaClient, Prisma } from '../../../generated/prisma/client'
-import { config } from 'dotenv'
-import { resolve } from 'node:path'
+import { Prisma } from '../../../generated/prisma/client'
 
-// 加载测试环境变量（强制指向 .env.testing，避免误连生产库）
-config({ path: resolve(__dirname, '../../../.env.testing') })
+// Worker 级 prisma 客户端：每个 vitest worker 连接到独立的 ls_test_w<id> 数据库
+// 真正的实例化在 tests/_infra/worker-setup.ts 启动时完成
+import { getWorkerPrisma } from '../../_infra/worker-prisma'
 
-// 创建 Prisma 客户端实例（使用 pg 适配器）
-const createTestPrismaClient = () => {
-    const connectionString = process.env.DATABASE_URL
-    if (!connectionString) {
-        throw new Error('DATABASE_URL 环境变量未设置')
-    }
-    const pool = new PrismaPg({ connectionString })
-    return new PrismaClient({ adapter: pool })
-}
+export const getTestPrisma = getWorkerPrisma
 
-// 延迟初始化，避免在导入时就创建连接
-let _testPrisma: ReturnType<typeof createTestPrismaClient> | null = null
-
-export const getTestPrisma = () => {
-    if (!_testPrisma) {
-        _testPrisma = createTestPrismaClient()
-    }
-    return _testPrisma
-}
-
-// 为了兼容性，导出 testPrisma（延迟初始化）
-export const testPrisma = new Proxy({} as ReturnType<typeof createTestPrismaClient>, {
+// 兼容性导出
+export const testPrisma = new Proxy({} as any, {
     get(_, prop) {
-        return (getTestPrisma() as any)[prop]
+        return (getWorkerPrisma() as any)[prop]
     },
 })
 
@@ -939,12 +919,7 @@ export const connectTestDb = async (): Promise<void> => {
 /**
  * 断开数据库连接
  */
-export const disconnectTestDb = async (): Promise<void> => {
-    if (_testPrisma) {
-        await _testPrisma.$disconnect()
-        _testPrisma = null
-    }
-}
+export { disconnectWorkerPrisma as disconnectTestDb } from '../../_infra/worker-prisma'
 
 /**
  * 检查数据库连接是否可用

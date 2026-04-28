@@ -41,11 +41,12 @@ export default defineVitestConfig({
     // 显式设置 root 为项目根目录，使 reportsDirectory 等相对路径正确解析
     root: rootDir,
     test: {
-        // 全局清理：所有测试文件结束后清理残留数据
-        // 注意：这里 teardown 抛错会让 vitest 退出码非 0 + coverage 报告 finalize 被中断
-        // （teardown 已经 try/catch 但 cli-api 仍捕获到 unhandledRejection）
-        globalSetup: ['./tests/global-teardown.ts'],
-        // 使用 nuxt 环境
+        // globalSetup（master 进程，整个测试套件 1 次）：
+        //   - 准备 template DB（fingerprint 缓存命中则跳过）
+        //   - 预创建 N 个 worker DB（CREATE DATABASE TEMPLATE 物理拷贝）
+        //   - teardown 阶段 DROP 所有 ls_test_w* worker DB
+        globalSetup: ['./tests/_infra/global-setup.ts'],
+        // 使用 nuxt 环境（被 projects 内的 environment 覆盖）
         environment: 'nuxt',
         environmentOptions: {
             nuxt: {
@@ -74,17 +75,24 @@ export default defineVitestConfig({
         ],
         include: ['**/*.test.ts'],
         testTimeout: 120000,
-        setupFiles: ['./tests/server/membership/test-setup.ts'],
-        fileParallelism: false,
-        // 配置依赖项处理（inline 移到 server.deps 下）
+        // worker-setup：每个 worker 进程加载一次，注入 globalThis.prisma 指向当前 worker DB
+        setupFiles: ['./tests/_infra/worker-setup.ts'],
+        // 启用文件级并行；database-per-worker 隔离已避免数据污染
+        fileParallelism: true,
+        // forks pool（默认值）：threads 模式下 PrismaPg 的连接 socket 会被多 worker 误共享
+        pool: 'forks',
+        // vitest 4：旧的 poolOptions.forks.maxForks 改为顶层 maxWorkers
+        maxWorkers: Number(process.env.VITEST_MAX_WORKERS ?? 4),
+        minWorkers: Number(process.env.VITEST_MAX_WORKERS ?? 4),
+        isolate: true,
+        // 注：原计划用 projects 把 server tests 切到 node env 加速 happy-dom 启动开销，
+        // 但 @nuxt/test-utils 的 defineVitestConfig 不支持 projects 字段，需要 defineVitestProject。
+        // 保守起见暂保留单一 nuxt env，零散优化 4a 留待后续单独处理。
+        // deps.inline 收窄：从 5 个通配收窄到只保留 #shared/**，按需追加
         server: {
             deps: {
                 inline: [
                     '#shared/**',
-                    '~~/**',
-                    '~/**',
-                    '@/**',
-                    '@@/**',
                 ],
             },
         },
