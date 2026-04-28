@@ -46,6 +46,12 @@ const chatMessages = computed(() => props.chatInstance.messages.value as any[])
 const chatLoading = computed(() => !!props.chatInstance.isLoading.value)
 const interruptData = computed(() => props.chatInstance.interruptData.value)
 
+// 子 Agent 数据访问注入：模块对话同样会触发 sub_agent_token（caseMain 调
+// ask_X_expert 时其 SSE 流可能在此 session 共消费；或后续给模块挂 task 工具）
+provide('subAgentAccess', {
+    get subThreadsMap() { return props.chatInstance.subThreadsMap },
+})
+
 // Agent 运行状态 + 失败反馈
 const runStatus = computed(() => props.chatInstance.runStatus.value)
 const runError = computed(() => props.chatInstance.runError.value)
