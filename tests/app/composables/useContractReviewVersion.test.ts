@@ -310,7 +310,7 @@ describe('useContractReviewVersion.saveNewVersion', () => {
         expect(mockFetch).toHaveBeenCalledTimes(3)
         expect(mockFetch).toHaveBeenNthCalledWith(
             1,
-            `/api/v1/assistant/contract/reviews/1/versions`,
+            `/api/v1/assistant/contract/reviews/version-list/1`,
             expect.objectContaining({ method: 'POST', body: { lawyerNote: '第二版' } }),
         )
     })
