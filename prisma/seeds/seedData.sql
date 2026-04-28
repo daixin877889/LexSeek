@@ -3417,3 +3417,75 @@ ON CONFLICT ("node_id", "skill_name") DO NOTHING;
 UPDATE "public"."nodes" SET use_skills_as_logic = true
 WHERE name IN ('summary','chronicle','claim','trend','cause','defense','evidence')
   AND deleted_at IS NULL;
+
+-- ============================================================
+-- 案件记忆扩展（2026-04-28）
+-- Task 14: 新增 caseMemoryExtract / caseMemorySubjectInfer 节点
+-- Task 15: 对应 2 条 system prompts
+-- Task 16: 10 个案件相关节点 tools 加入记忆三件套（caseMain id=5 已有，不改）
+-- Task 17: 9 个案件相关节点 prompts 末尾追加铁律段
+-- ============================================================
+
+-- caseMemoryExtract 节点（afterAgent 异步提取案件记忆用）
+INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (22, 'caseMemoryExtract', '案件记忆提取', '从一轮 agent 对话历史中识别用户提到的关键事实、事件、决策，输出可写入案件记忆的清单', 'extraction', 100, 1, '[]', '{"type": "object", "required": ["memories"], "properties": {"memories": {"type": "array", "items": {"type": "object", "required": ["text", "kind"], "properties": {"text": {"type": "string", "description": "事实文本"}, "kind": {"enum": ["fact", "event", "decision", "note"], "description": "类型"}, "subject_key": {"type": "string", "description": "主体.字段格式（可选）"}}}}}}', NULL, 1, '2026-04-28 10:00:00+08', '2026-04-28 10:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
+
+-- caseMemorySubjectInfer 节点（用户手动添加表单 subject_key 推断用）
+INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (23, 'caseMemorySubjectInfer', '案件记忆 subject_key 推断', '基于用户填写的事实文本推断「主体.字段」格式的 subjectKey', 'extraction', 100, 1, '[]', '{"type": "object", "required": ["subject_key"], "properties": {"subject_key": {"type": "string", "description": "推断的主体.字段；无法推断时返回空字符串"}}}', NULL, 1, '2026-04-28 10:00:00+08', '2026-04-28 10:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
+
+-- caseMemoryExtract system prompt
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (40, 'caseMemoryExtract_system', '案件记忆提取系统提示词', E'你是案件记忆提取助手。从下面这段 agent 对话历史中，识别用户提到的"关键事实"，输出可写入案件记忆库的条目清单。\n\n## 识别规则\n- **事实（fact）**：当事人信息、住址、电话、身份证、合同条款、关键日期、金额等可核验的客观陈述\n- **事件（event）**：发生过的事情（签合同、付款、违约、起诉等），通常带时间\n- **决策（decision）**：律师 / 用户做出的判断或下一步策略\n- **笔记（note）**：以上都不是但需要记录的零散信息\n\n## subject_key 命名规范（重要）\n用「主体.字段」点分格式。常用前缀：\n- plaintiff.* / defendant.* — 当事人信息\n- contract.* — 合同条款\n- dispute.* — 争议焦点\n- evidence.* — 证据\n- strategy.* — 诉讼策略\n- timeline.* — 关键时间节点\n\n例：plaintiff.address / contract.term / dispute.focus / strategy.claim_basis\n\n不确定时可省略（输出时不带 subject_key 字段）。\n\n## 输出要求\n- 仅输出 JSON 对象，结构：`{ "memories": [...] }`\n- 每条 memory：`{ "text": "...", "kind": "fact|event|decision|note", "subject_key": "..." (可选) }`\n- 没有可识别的事实时输出空数组：`{ "memories": [] }`\n- 单条 text 控制 50-200 字\n- 同一 subject_key 不重复输出（取最详尽的一条）\n\n## 对话历史\n{{messages}}\n\n## caseId（参考用）\n{{caseId}}', '["messages", "caseId"]', 'v1', 'system', 1, 22, '2026-04-28 10:00:00+08', '2026-04-28 10:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
+
+-- caseMemorySubjectInfer system prompt
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (41, 'caseMemorySubjectInfer_system', 'subject_key 推断系统提示词', E'你的任务是基于一段事实文本，推断它属于"哪个主体的哪个字段"，输出 subject_key（点分格式）。\n\n## 命名规范\n用「主体.字段」格式。常用前缀：\n- plaintiff.* / defendant.* — 当事人\n- contract.* — 合同\n- dispute.* — 争议焦点\n- evidence.* — 证据\n- strategy.* — 诉讼策略\n- timeline.* — 时间节点\n\n## 推断规则\n- 文本里明确提到主体（"原告"、"被告"、"协议第 X 条"）时优先用对应前缀\n- 不确定时输出空字符串 `""`，让系统 fallback 不带 subject_key\n- 字段名用英文 camelCase（address, signedAt, term, focus）\n\n## 输出\n仅 JSON：`{ "subject_key": "..." }`\n\n## 待推断文本\n{{text}}', '["text"]', 'v1', 'system', 1, 23, '2026-04-28 10:00:00+08', '2026-04-28 10:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
+
+-- Task 16: 10 个案件相关节点 tools 加记忆三件套
+-- caseInfoCheck (id=1)
+UPDATE "public"."nodes" SET tools = '["search_case_materials", "search_case_memory", "write_case_memory", "update_case_memory"]'
+WHERE id = 1 AND deleted_at IS NULL;
+
+-- extractInfo (id=2)
+UPDATE "public"."nodes" SET tools = '["search_case_materials", "search_case_memory", "write_case_memory", "update_case_memory"]'
+WHERE id = 2 AND deleted_at IS NULL;
+
+-- summary (id=6)
+UPDATE "public"."nodes" SET tools = '["search_case_materials", "search_law", "search_case_memory", "write_case_memory", "update_case_memory"]'
+WHERE id = 6 AND deleted_at IS NULL;
+
+-- chronicle / claim / trend / defense / evidence (id 7,8,9,11,12)
+UPDATE "public"."nodes" SET tools = '["search_case_materials", "search_law", "process_materials", "search_case_memory", "write_case_memory", "update_case_memory"]'
+WHERE id IN (7, 8, 9, 11, 12) AND deleted_at IS NULL;
+
+-- cause (id=10)
+UPDATE "public"."nodes" SET tools = '["search_law", "search_case_materials", "process_materials", "search_case_memory", "write_case_memory", "update_case_memory"]'
+WHERE id = 10 AND deleted_at IS NULL;
+
+-- documentMain (id=17)
+UPDATE "public"."nodes" SET tools = '["process_materials", "search_case_materials", "search_law", "search_case_memory", "write_case_memory", "update_case_memory"]'
+WHERE id = 17 AND deleted_at IS NULL;
+
+-- contractReviewMain (id=18)
+UPDATE "public"."nodes" SET tools = '["parse_and_ask_stance", "search_law", "search_case_memory", "write_case_memory", "update_case_memory"]'
+WHERE id = 18 AND deleted_at IS NULL;
+
+-- Task 17: 9 个案件相关节点 prompts 末尾追加铁律段（幂等：已含则不重复追加）
+
+-- caseMain（强版铁律：必查/必写/必更正）
+UPDATE "public"."prompts"
+SET content = content || E'\n\n# 案件记忆使用规则（铁律）\n- 每轮回答前必须先调 search_case_memory 检索相关历史（除非问的是与本案无关的公开法律知识）\n- 用户给出新事实（当事人/住址/合同条款/关键日期/争议焦点）时，必须 write_case_memory；subject_key 用「主体.字段」格式（如 plaintiff.address、contract.term、dispute.focus）\n- 用户更正之前事实时，必须 update_case_memory 标记旧记录失效并写新记录\n- 同一 subject_key 一次对话内不重复写入；先 search 再决定 write 或 update'
+WHERE name = 'caseMain_system' AND status = 1
+  AND content NOT LIKE '%案件记忆使用规则（铁律）%';
+
+-- 7 个分析模块 + caseInfoCheck + extractInfo（中等：分析中发现关键事实必写）
+UPDATE "public"."prompts"
+SET content = content || E'\n\n# 案件记忆使用规则\n- 分析过程中如发现关键事实（争议焦点、关键时间节点、当事人信息修正），必须 write_case_memory 写入；subject_key 用「主体.字段」格式\n- 引用历史结论时，先 search_case_memory 而非自行推断\n- 同一 subject_key 不重复写入；先 search 再决定 write 或 update'
+WHERE name IN (
+  'summary_system', 'chronicle_system', 'claim_system', 'trend_system', 'cause_system',
+  'defense_system', 'evidence_system', 'caseInfoCheck_system', 'extractInfo_system'
+) AND status = 1
+  AND content NOT LIKE '%案件记忆使用规则%';
+
+-- documentMain / contractReviewMain（带 caseId 条件：caseId 非空才用）
+UPDATE "public"."prompts"
+SET content = content || E'\n\n# 案件记忆使用规则\n- 仅当 caseId 非空（绑定了案件）时使用记忆工具；caseId 为空时不调用\n- 起草/审查过程中发现的关键事实（如合同条款细节、争议风险点），必须 write_case_memory；subject_key 用「主体.字段」格式\n- 引用案件历史时，先 search_case_memory'
+WHERE name IN ('documentMain_system', 'contractReviewMain_system') AND status = 1
+  AND content NOT LIKE '%案件记忆使用规则%';
