@@ -193,8 +193,8 @@ export async function createSubAgentTools(
                             recursionLimit: 1000,
                             callbacks: [{
                                 // token 流式转发
-                                handleLLMNewToken(token: string, _idx: unknown, cbRunId: string) {
-                                    publishCustomEvent({
+                                async handleLLMNewToken(token: string, _idx: unknown, cbRunId: string) {
+                                    await publishCustomEvent({
                                         type: 'custom_event',
                                         runId: mainRunId,
                                         sessionId: context.sessionId,
@@ -211,12 +211,12 @@ export async function createSubAgentTools(
                                 },
 
                                 // 子 Agent 调用工具开始
-                                handleToolStart(
+                                async handleToolStart(
                                     _tool: unknown, input: string, cbRunId: string,
                                     _parentRunId?: string, _tags?: string[], _metadata?: Record<string, unknown>,
                                     _runName?: string, innerToolCallId?: string,
                                 ) {
-                                    publishCustomEvent({
+                                    await publishCustomEvent({
                                         type: 'custom_event',
                                         runId: mainRunId,
                                         sessionId: context.sessionId,
@@ -231,8 +231,8 @@ export async function createSubAgentTools(
                                 },
 
                                 // 子 Agent 调用工具结束
-                                handleToolEnd(output: unknown, cbRunId: string) {
-                                    publishCustomEvent({
+                                async handleToolEnd(output: unknown, cbRunId: string) {
+                                    await publishCustomEvent({
                                         type: 'custom_event',
                                         runId: mainRunId,
                                         sessionId: context.sessionId,
@@ -247,9 +247,9 @@ export async function createSubAgentTools(
                                 },
 
                                 // root chain 完成时发 completed（cbParentRunId 为 undefined 即 root）
-                                handleChainEnd(_outputs: unknown, _cbRunId: string, cbParentRunId?: string) {
+                                async handleChainEnd(_outputs: unknown, _cbRunId: string, cbParentRunId?: string) {
                                     if (cbParentRunId !== undefined) return
-                                    publishStatusChange({
+                                    await publishStatusChange({
                                         type: 'status_change',
                                         runId: mainRunId,
                                         sessionId: context.sessionId,
