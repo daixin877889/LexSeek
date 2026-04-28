@@ -6,7 +6,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { prisma } from '~~/server/utils/db'
-import { findActiveMemoryBySubjectDAO } from '~~/server/services/memory/memory.dao'
+import { findActiveMemoryBySubjectDAO, listMemoriesDAO } from '~~/server/services/memory/memory.dao'
 import { writeMemoryService } from '~~/server/services/memory/memory.service'
 import { ensureTestUser, ensureTestCase, cleanupTestData } from '../assistant/test-db-helper'
 
@@ -62,5 +62,103 @@ describe('findActiveMemoryBySubjectDAO', () => {
     })
     const found = await findActiveMemoryBySubjectDAO(caseId, 'plaintiff.address')
     expect(found?.text).toBe('原告住上海')
+  })
+})
+
+describe('listMemoriesDAO', () => {
+  let userId: number
+  let caseId: number
+
+  beforeEach(async () => {
+    userId = await ensureTestUser()
+    caseId = await ensureTestCase(userId)
+  })
+
+  afterEach(async () => {
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM case_memories WHERE metadata->>'caseId' = $1`,
+      String(caseId),
+    )
+    await cleanupTestData()
+  })
+
+  it('按 createdAt DESC 返回；分页 limit 生效', async () => {
+    for (let i = 0; i < 5; i++) {
+      await writeMemoryService({
+        caseId,
+        kind: 'fact',
+        text: `事实${i}`,
+        subjectKey: `key.${i}`,
+        source: 'manual',
+      })
+      await new Promise(r => setTimeout(r, 10)) // 保证 createdAt 严格不同
+    }
+    const res = await listMemoriesDAO(caseId, { limit: 3 })
+    expect(res.memories).toHaveLength(3)
+    expect(res.memories[0]!.text).toBe('事实4') // 最新的在前
+    expect(res.nextCursor).toBeTruthy()
+  })
+
+  it('按 source 筛选', async () => {
+    await writeMemoryService({
+      caseId,
+      kind: 'fact',
+      text: 'manual A',
+      subjectKey: 'a',
+      source: 'manual',
+    })
+    await writeMemoryService({
+      caseId,
+      kind: 'fact',
+      text: 'auto B',
+      subjectKey: 'b',
+      source: 'auto_extract',
+    })
+    const res = await listMemoriesDAO(caseId, { source: 'manual' })
+    expect(res.memories).toHaveLength(1)
+    expect(res.memories[0]!.text).toBe('manual A')
+  })
+
+  it('默认不含失效记录；includeInvalidated=true 包含', async () => {
+    await writeMemoryService({
+      caseId,
+      kind: 'fact',
+      text: 'v1',
+      subjectKey: 'x',
+      source: 'manual',
+    })
+    await writeMemoryService({
+      caseId,
+      kind: 'fact',
+      text: 'v2',
+      subjectKey: 'x',
+      source: 'manual',
+    })
+
+    const r1 = await listMemoriesDAO(caseId, {})
+    expect(r1.memories.map(m => m.text)).toEqual(['v2'])
+
+    const r2 = await listMemoriesDAO(caseId, { includeInvalidated: true })
+    expect(r2.memories.map(m => m.text).sort()).toEqual(['v1', 'v2'])
+  })
+
+  it('cursor 分页：第二页接续上一页', async () => {
+    for (let i = 0; i < 5; i++) {
+      await writeMemoryService({
+        caseId,
+        kind: 'fact',
+        text: `事实${i}`,
+        subjectKey: `key.${i}`,
+        source: 'manual',
+      })
+      await new Promise(r => setTimeout(r, 10))
+    }
+    const page1 = await listMemoriesDAO(caseId, { limit: 3 })
+    expect(page1.memories.map(m => m.text)).toEqual(['事实4', '事实3', '事实2'])
+    expect(page1.nextCursor).toBeTruthy()
+
+    const page2 = await listMemoriesDAO(caseId, { limit: 3, cursor: page1.nextCursor })
+    expect(page2.memories.map(m => m.text)).toEqual(['事实1', '事实0'])
+    expect(page2.nextCursor).toBeUndefined() // 最后一页无 nextCursor
   })
 })

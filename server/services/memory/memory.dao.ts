@@ -44,3 +44,68 @@ export async function findActiveMemoryBySubjectDAO(
     if (rows.length === 0) return null
     return rows[0] as MemoryRow
 }
+
+export interface ListMemoriesOptions {
+    source?: 'manual' | 'consolidator' | 'auto_extract' | 'manual_user'
+    includeInvalidated?: boolean
+    cursor?: string  // 形如 "<createdAt>|<id>"，游标分页
+    limit?: number   // 默认 30，最大 100
+}
+
+export interface ListMemoriesResult {
+    memories: MemoryRow[]
+    nextCursor?: string
+}
+
+/**
+ * 案件记忆列表查询：时间倒序 + 游标分页
+ *
+ * 用于 GET API（前端时间线 Tab）。
+ * - 默认排除失效记录（includeInvalidated=false）
+ * - 游标格式 "<createdAt>|<id>"：同时间戳并列时 id 兜底保证稳定排序
+ */
+export async function listMemoriesDAO(
+    caseId: number,
+    options: ListMemoriesOptions = {},
+): Promise<ListMemoriesResult> {
+    const limit = Math.min(options.limit ?? 30, 100)
+
+    const conditions: string[] = [`metadata->>'caseId' = $1`]
+    const params: unknown[] = [String(caseId)]
+    let nextParamIdx = 2
+
+    if (!options.includeInvalidated) {
+        conditions.push(`(metadata->>'invalidatedAt' IS NULL)`)
+    }
+
+    if (options.source) {
+        conditions.push(`metadata->>'source' = $${nextParamIdx}`)
+        params.push(options.source)
+        nextParamIdx++
+    }
+
+    if (options.cursor) {
+        const [cursorTime, cursorId] = options.cursor.split('|')
+        if (cursorTime && cursorId) {
+            conditions.push(
+                `(metadata->>'createdAt' < $${nextParamIdx} OR (metadata->>'createdAt' = $${nextParamIdx} AND id < $${nextParamIdx + 1}::uuid))`,
+            )
+            params.push(cursorTime, cursorId)
+            nextParamIdx += 2
+        }
+    }
+
+    const sql = `SELECT id, text, metadata FROM case_memories
+                 WHERE ${conditions.join(' AND ')}
+                 ORDER BY metadata->>'createdAt' DESC, id DESC
+                 LIMIT ${limit + 1}`  // +1 用于判断 hasMore
+
+    const rows = await prisma.$queryRawUnsafe<Array<{ id: string; text: string; metadata: any }>>(sql, ...params)
+    const hasMore = rows.length > limit
+    const memories = (hasMore ? rows.slice(0, limit) : rows) as MemoryRow[]
+    const nextCursor = hasMore && memories.length > 0
+        ? `${memories[memories.length - 1]!.metadata.createdAt}|${memories[memories.length - 1]!.id}`
+        : undefined
+
+    return { memories, nextCursor }
+}
