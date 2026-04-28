@@ -32,8 +32,18 @@ export interface PublicApiPermissionCache {
 
 // ==================== 缓存配置 ====================
 
-/** 默认缓存过期时间（毫秒）- 5 分钟 */
-const DEFAULT_CACHE_TTL = 5 * 60 * 1000
+/**
+ * 默认缓存过期时间（毫秒）- 60 秒
+ *
+ * 历史值是 5 分钟，但 RBAC 是安全敏感缓存——撤权后 5 分钟仍然生效不可接受
+ * （多实例部署时叠加问题更严重，因为单实例清缓存对其他实例无效）。
+ * 缩短到 60 秒在性能与安全之间折衷：
+ * - 单用户每分钟最多查 1 次 DB，QPS 影响可接受；
+ * - 撤权 / 封禁最坏延迟从 5 分钟降到 1 分钟。
+ *
+ * 终态方案是切到 Redis + pub/sub 主动失效，留待 M1 后续迭代。
+ */
+const DEFAULT_CACHE_TTL = 60 * 1000
 
 /** 用户权限缓存 */
 const userPermissionCache = new Map<number, CacheItem<UserPermissionCache>>()

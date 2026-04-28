@@ -1,12 +1,24 @@
 /**
  * 批量导入 API 权限
  * POST /api/v1/admin/api-permissions/batch-import
- * 
- * 将扫描发现的新 API 批量导入到数据库
+ *
+ * 安全模型：
+ * 1) 仅超管可调用——批量写入直接影响系统权限边界（H6）；
+ * 2) 已存在权限查询用 all:true 一次拿全，避免 1000 条分页限制重复导入（H3）；
+ * 3) 所有 path 在 DAO 内部统一规范化校验（H5/C4）；
+ * 4) 写完后必须刷新公共权限缓存 + 全量清用户缓存（H2）。
  */
 import { z } from 'zod'
 import { createApiPermissionDao, findApiPermissionsDao } from '~~/server/services/rbac/apiPermission.dao'
 import { createAuditLogDao } from '~~/server/services/rbac/auditLog.dao'
+import { clearAllUserPermissionCache } from '~~/server/services/rbac/cache.service'
+import {
+    normalizeApiMethod,
+    normalizeApiPath,
+    requireSuperAdminGuard,
+    validateApiPathFormat,
+} from '~~/server/services/rbac/guard.service'
+import { refreshPublicApiPermissions } from '~~/server/services/rbac/permission.service'
 
 const itemSchema = z.object({
     path: z.string({ message: '路径不能为空' }).min(1, '路径不能为空'),
@@ -19,36 +31,53 @@ const bodySchema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
-    const user = event.context.auth?.user
-    if (!user) {
-        return resError(event, 401, '请先登录')
-    }
+    // 1. 仅超管
+    const guard = await requireSuperAdminGuard(event)
+    if (!guard.ok) return guard.response
+    const operatorId = guard.userId
 
-    // 解析请求体
     const body = await readBody(event)
     const result = bodySchema.safeParse(body)
     if (!result.success) {
-        return resError(event, 400, result.error.issues[0]!!?.message || '参数错误')
+        return resError(event, 400, result.error.issues[0]?.message || '参数错误')
     }
 
-    const { items } = result.data
+    // 2. 入参规范化 + 校验
+    let normalizedItems: { path: string; method: string; name: string }[]
+    try {
+        normalizedItems = result.data.items.map(item => {
+            const path = normalizeApiPath(item.path)
+            const reason = validateApiPathFormat(path)
+            if (reason) {
+                throw new Error(`${reason}（path=${item.path}）`)
+            }
+            return {
+                path,
+                method: normalizeApiMethod(item.method),
+                name: item.name,
+            }
+        })
+    } catch (error: any) {
+        return resError(event, 400, error?.message || '路径或方法格式错误')
+    }
 
-    // 查询已存在的权限，避免重复导入
-    const existingPermissions = await findApiPermissionsDao({}, { page: 1, pageSize: 1000 })
+    // 3. 一次性拿全部已存在权限（H3 修复，不再 1000 条分页）
+    const existing = await findApiPermissionsDao({}, { all: true })
     const existingSet = new Set(
-        existingPermissions.items.map(p => `${p.method}:${p.path}`)
+        existing.items.map(p => `${p.method}:${p.path}`),
     )
 
-    // 过滤出真正需要导入的新 API
-    const newItems = items.filter(item => !existingSet.has(`${item.method}:${item.path}`))
+    const newItems = normalizedItems.filter(
+        item => !existingSet.has(`${item.method}:${item.path}`),
+    )
 
     if (newItems.length === 0) {
         return resSuccess(event, '没有需要导入的新 API', { imported: 0 })
     }
 
-    // 批量创建
     let importedCount = 0
     const importedIds: number[] = []
+    const failedItems: Array<{ method: string; path: string; reason: string }> = []
 
     for (const item of newItems) {
         try {
@@ -61,28 +90,40 @@ export default defineEventHandler(async (event) => {
             })
             importedCount++
             importedIds.push(permission.id)
-        } catch (error) {
-            // 忽略单个导入失败，继续处理其他
-            console.error(`导入 API 权限失败: ${item.method} ${item.path}`, error)
+        } catch (error: any) {
+            failedItems.push({
+                method: item.method,
+                path: item.path,
+                reason: error?.message || '未知错误',
+            })
+            logger.error('[RBAC] 导入 API 权限失败', {
+                method: item.method,
+                path: item.path,
+                error: error?.message,
+            })
         }
     }
 
-    // 记录审计日志
     if (importedCount > 0) {
         await createAuditLogDao({
             action: 'api_permission_batch_import',
             targetType: 'api_permission',
             targetId: importedIds[0] || 0,
-            operatorId: user.id,
+            operatorId,
             oldValue: null,
             newValue: { count: importedCount, ids: importedIds },
             ip: getRequestIP(event, { xForwardedFor: true }) || null,
         })
+
+        // H2：批量导入后必须刷新缓存（即使 isPublic 默认 false，仍要让用户权限重计算）
+        await refreshPublicApiPermissions()
+        clearAllUserPermissionCache()
     }
 
     return resSuccess(event, `成功导入 ${importedCount} 个 API 权限`, {
         imported: importedCount,
-        total: items.length,
-        skipped: items.length - importedCount,
+        total: normalizedItems.length,
+        skipped: normalizedItems.length - importedCount - failedItems.length,
+        failed: failedItems,
     })
 })

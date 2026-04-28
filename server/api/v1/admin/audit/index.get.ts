@@ -1,9 +1,13 @@
 /**
  * 获取审计日志列表
  * GET /api/v1/admin/audit
+ *
+ * 安全模型：仅超管可调用——审计日志包含敏感操作明细（角色变更、权限分配等），
+ * 暴露给非超管会泄露内部权限结构。
  */
 import { z } from 'zod'
 import { findAuditLogsDao } from '~~/server/services/rbac/auditLog.dao'
+import { requireSuperAdminGuard } from '~~/server/services/rbac/guard.service'
 
 const querySchema = z.object({
     page: z.coerce.number().int().min(1).default(1),
@@ -16,10 +20,8 @@ const querySchema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
-    const user = event.context.auth?.user
-    if (!user) {
-        return resError(event, 401, '请先登录')
-    }
+    const guard = await requireSuperAdminGuard(event)
+    if (!guard.ok) return guard.response
 
     // 解析查询参数
     const query = getQuery(event)

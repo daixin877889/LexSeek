@@ -91,8 +91,17 @@ export const findRoleApiPermissionsDao = async (
     roleId: number,
     tx?: Prisma.TransactionClient
 ) => {
+    // 过滤掉软删的关联和已禁用 / 软删的权限，与 admin 后台「角色权限」展示语义一致：
+    // 这里返回的是「当前真正生效」的权限，不包含历史撤销的关联。
     const relations = await (tx || prisma).roleApiPermissions.findMany({
-        where: { roleId },
+        where: {
+            roleId,
+            deletedAt: null,
+            permission: {
+                status: 1,
+                deletedAt: null,
+            },
+        },
         include: {
             permission: {
                 include: { group: true },
@@ -105,13 +114,24 @@ export const findRoleApiPermissionsDao = async (
 
 /**
  * 查询多个角色的 API 权限列表
+ *
+ * 必须过滤掉：1) 软删除的关联记录；2) 被禁用 / 软删除的 API 权限本身。
+ * 否则被撤销的权限仍然算用户拥有，与 super_admin 分支
+ * （permission.service.ts 已经过滤 status:1 + deletedAt:null）行为不一致。
  */
 export const findRolesApiPermissionsDao = async (
     roleIds: number[],
     tx?: Prisma.TransactionClient
 ) => {
     const relations = await (tx || prisma).roleApiPermissions.findMany({
-        where: { roleId: { in: roleIds } },
+        where: {
+            roleId: { in: roleIds },
+            deletedAt: null,
+            permission: {
+                status: 1,
+                deletedAt: null,
+            },
+        },
         include: {
             permission: true,
         },
@@ -130,6 +150,9 @@ export const findRolesApiPermissionsDao = async (
 
 /**
  * 查询用户的 API 权限列表（通过用户角色）
+ *
+ * 必须过滤掉：1) 软删除的 user-role 关联；2) 被禁用 / 软删除的角色。
+ * 否则被注销的角色仍然给用户超额权限。
  */
 export const findUserApiPermissionsDao = async (
     userId: number,
@@ -137,7 +160,14 @@ export const findUserApiPermissionsDao = async (
 ) => {
     // 获取用户的所有角色
     const userRoles = await (tx || prisma).userRoles.findMany({
-        where: { userId },
+        where: {
+            userId,
+            deletedAt: null,
+            role: {
+                status: 1,
+                deletedAt: null,
+            },
+        },
         select: { roleId: true },
     })
 
@@ -151,6 +181,8 @@ export const findUserApiPermissionsDao = async (
 
 /**
  * 检查角色是否拥有指定 API 权限
+ *
+ * 需要排除软删关联和已禁用 / 软删的权限，否则会把"已撤销"的权限当成"角色仍然拥有"。
  */
 export const checkRoleHasApiPermissionDao = async (
     roleId: number,
@@ -161,6 +193,11 @@ export const checkRoleHasApiPermissionDao = async (
         where: {
             roleId,
             permissionId,
+            deletedAt: null,
+            permission: {
+                status: 1,
+                deletedAt: null,
+            },
         },
     })
     return count > 0
@@ -175,9 +212,16 @@ export const checkUserHasApiPermissionByPathDao = async (
     method: string,
     tx?: Prisma.TransactionClient
 ) => {
-    // 获取用户的所有角色
+    // 获取用户的所有角色，过滤掉软删的 user-role 和 已禁用 / 软删的角色
     const userRoles = await (tx || prisma).userRoles.findMany({
-        where: { userId },
+        where: {
+            userId,
+            deletedAt: null,
+            role: {
+                status: 1,
+                deletedAt: null,
+            },
+        },
         select: { roleId: true },
     })
 
@@ -187,10 +231,11 @@ export const checkUserHasApiPermissionByPathDao = async (
 
     const roleIds = userRoles.map(ur => ur.roleId)
 
-    // 查询是否有匹配的权限
+    // 查询是否有匹配的权限：再次过滤掉软删的 role-permission 关联
     const count = await (tx || prisma).roleApiPermissions.count({
         where: {
             roleId: { in: roleIds },
+            deletedAt: null,
             permission: {
                 path,
                 method: { in: [method, '*'] },
@@ -205,13 +250,23 @@ export const checkUserHasApiPermissionByPathDao = async (
 
 /**
  * 获取拥有指定 API 权限的角色列表
+ *
+ * 必须过滤掉：1) 软删的关联记录；2) 已禁用 / 软删的角色。
+ * admin 后台展示「该权限被哪些角色使用」，不应该包含已经撤销的关联或已注销的角色。
  */
 export const findRolesByApiPermissionDao = async (
     permissionId: number,
     tx?: Prisma.TransactionClient
 ) => {
     const relations = await (tx || prisma).roleApiPermissions.findMany({
-        where: { permissionId },
+        where: {
+            permissionId,
+            deletedAt: null,
+            role: {
+                status: 1,
+                deletedAt: null,
+            },
+        },
         include: {
             role: true,
         },

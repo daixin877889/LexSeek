@@ -104,19 +104,27 @@ export const usePermissionStore = defineStore('permission', {
 })
 
 /**
- * 路径匹配（支持通配符）
+ * 路径匹配（支持通配符）—— 行为必须与服务端 server/services/rbac/pathMatcher.ts 完全对齐。
+ *
+ * - `:param` 匹配单个路径段（动态参数，如 :id）
  * - `*` 匹配单个路径段
- * - `**` 匹配任意路径段
+ * - `**` 匹配任意路径段（含 /）
+ *
+ * 旧实现 `if (!pattern.includes('*')) return pattern === path` 会让所有带
+ * `:id` 的路径权限在前端永远匹配不上请求，让前端的 hasApiPermission/路由守卫失真。
  */
 function matchPath(pattern: string, path: string): boolean {
     if (pattern === path) return true
-    if (!pattern.includes('*')) return pattern === path
+    if (!pattern.includes('*') && !pattern.includes(':')) {
+        return pattern === path
+    }
 
-    // 转换为正则表达式
     let regexStr = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&')
     regexStr = regexStr.replace(/\*\*/g, '<<<DOUBLE_STAR>>>')
     regexStr = regexStr.replace(/\*/g, '[^/]+')
     regexStr = regexStr.replace(/<<<DOUBLE_STAR>>>/g, '.*')
+    // 与服务端一致：仅紧跟在 / 后或字符串开头的 :name 才视为动态参数
+    regexStr = regexStr.replace(/(^|\/):[a-zA-Z_][a-zA-Z0-9_]*/g, '$1[^/]+')
 
     const regex = new RegExp(`^${regexStr}$`)
     return regex.test(path)

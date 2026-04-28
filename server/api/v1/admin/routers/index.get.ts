@@ -10,7 +10,7 @@ const querySchema = z.object({
     all: z.enum(['true', 'false']).transform(v => v === 'true').optional(),
     keyword: z.string().optional(),
     groupId: z.coerce.number().int().optional(),
-    isMenu: z.enum(['true', 'false']).optional(),
+    isMenu: z.enum(['true', 'false']).transform(v => v === 'true').optional(),
 })
 
 export default defineEventHandler(async (event) => {
@@ -45,7 +45,7 @@ export default defineEventHandler(async (event) => {
     }
 
     if (isMenu !== undefined) {
-        where.isMenu = isMenu === 'true'
+        where.isMenu = isMenu
     }
 
     // 查询总数

@@ -25,11 +25,21 @@ export const createUserRoleDao = async (userId: number, roleId: number, tx?: Pri
  * 通过用户ID查询用户角色
  * @param userId 用户ID
  * @returns 用户角色
+ *
+ * 必须同时过滤：1) userRoles 软删；2) 关联 role 已禁用 / 软删除。
+ * 否则用户「我的角色」展示和 token 上下文里都会出现已注销的角色。
  */
 export const findUserRolesByUserIdDao = async (userId: number, tx?: Prisma.TransactionClient): Promise<(userRoles & { role: roles })[]> => {
     try {
         const userRoles = await (tx || prisma).userRoles.findMany({
-            where: { userId, deletedAt: null },
+            where: {
+                userId,
+                deletedAt: null,
+                role: {
+                    status: 1,
+                    deletedAt: null,
+                },
+            },
             include: {
                 role: true,
             },
@@ -61,9 +71,16 @@ export const findUserRolesRouterByUserIdDao = async (userId: number, options?: {
             }
         })[]> => {
     try {
+        // 必须过滤掉：1) 软删的 userRoles；2) 已禁用 / 软删的 role；
+        // 3) 软删的 roleRouters 关联；4) 软删的 router 本身。
+        // 任何一层漏过滤都会让用户菜单显示已经撤销的角色 / 路由项。
         let where: any = {
             userId,
             deletedAt: null,
+            role: {
+                status: 1,
+                deletedAt: null,
+            },
         }
         if (options?.roleId) {
             where.roleId = { in: Array.isArray(options?.roleId) ? options?.roleId : [options?.roleId] }
@@ -74,6 +91,10 @@ export const findUserRolesRouterByUserIdDao = async (userId: number, options?: {
                 role: {
                     include: {
                         roleRouters: {
+                            where: {
+                                deletedAt: null,
+                                router: { deletedAt: null },
+                            },
                             include: {
                                 router: true,
                             },

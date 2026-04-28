@@ -1,6 +1,7 @@
 import { UserStatus } from '#shared/types/user'
 import type { tokenBlacklist } from '~~/generated/prisma/client'
 import { clearAuthCookiesService } from '~~/server/services/auth/authToken.service'
+import { findMatchingPermission } from '~~/server/services/rbac/pathMatcher'
 import { getPublicApiPermissions } from '~~/server/services/rbac/permission.service'
 import { findTokenBlacklistByTokenDao } from '~~/server/services/users/tokenBlacklist.dao'
 import { findUserByIdDao } from '~~/server/services/users/users.dao'
@@ -16,31 +17,18 @@ const getPublicPaths = async (): Promise<Array<{ path: string; method: string }>
 }
 
 /**
- * 检查请求是否匹配公开 API
+ * 检查请求是否匹配公开 API。
+ *
+ * 必须复用 pathMatcher.findMatchingPermission，与 03.permission.ts 行为对齐：
+ * 同时支持 `:param` / `*` / `**` 通配符，方法大小写不敏感。否则带通配符的
+ * 公开 API（如 /api/v1/auth/login/:provider）对未登录用户会被错误拦截在 401。
  */
 const isPublicApi = (
     publicApis: Array<{ path: string; method: string }>,
     requestPath: string,
     requestMethod: string
 ): boolean => {
-    return publicApis.some(api => {
-        const normalizedPath = requestPath.replace(/\/+/g, '/')
-        const normalizedApiPath = api.path.replace(/\/+/g, '/')
-
-        // 精确匹配
-        if (normalizedPath === normalizedApiPath) {
-            const methodMatch = api.method === '*' || api.method === requestMethod
-            return methodMatch
-        }
-
-        // 前缀匹配（仅当 api.path 以 / 结尾时才进行前缀匹配）
-        if (normalizedApiPath.endsWith('/') && normalizedPath.startsWith(normalizedApiPath)) {
-            const methodMatch = api.method === '*' || api.method === requestMethod
-            return methodMatch
-        }
-
-        return false
-    })
+    return findMatchingPermission(publicApis, requestPath, requestMethod) !== null
 }
 
 export default defineEventHandler(async (event) => {

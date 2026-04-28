@@ -1,6 +1,9 @@
 /**
  * 获取角色列表
  * GET /api/v1/admin/roles
+ *
+ * 注意：_count 必须叠加 deletedAt:null，否则会把已撤销的关联也算进去，
+ * 导致后台展示"该角色还有 N 个用户绑定"为脏数据，进一步影响"删除前检查"。
  */
 import { z } from 'zod'
 
@@ -48,7 +51,11 @@ export default defineEventHandler(async (event) => {
             orderBy: { createdAt: 'desc' },
             include: {
                 _count: {
-                    select: { userRoles: true, roleApiPermissions: true },
+                    select: {
+                        // 必须过滤软删，否则计数失真
+                        userRoles: { where: { deletedAt: null } },
+                        roleApiPermissions: { where: { deletedAt: null } },
+                    },
                 },
             },
         }),

@@ -94,7 +94,7 @@ server/api/v1/case/analysis/runs/[runId]/cancel.post.ts
   - 鉴权：`event.context.auth?.user` + 业务维度归属校验（owner-only / viewerUserId 过滤等）
   - 资源可见范围：仅自己的 + 公开共享的
 - 管理端：`server/api/v1/admin/<module>/**`
-  - 鉴权：由 `server/middleware/03.permission.ts` 统一拦截（非 super_admin 访问 `/api/v1/admin/**` 直接 403）
+  - 鉴权：由 `server/middleware/03.permission.ts` 统一拦截，**根据 RBAC 权限表细粒度判定**——任意已被授予对应 API 权限的角色都能访问（super_admin、admin、editor、operator 等管理类角色按需授权即可）。**不允许**在中间件里做"非 super_admin 一律 403"这种身份硬卡，否则后续新增管理类岗位都得改代码。默认拒绝兜底由 RBAC 实现（没匹配到权限自动 403）。
   - 资源可见范围：全量，不做归属过滤
 
 ### 强制成对实现

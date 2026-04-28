@@ -26,20 +26,31 @@ export const createUserDao = async (data: Prisma.usersCreateInput, tx?: Prisma.T
 
 /**
  * 通过 ID 查询用户
- * @param id 用户 ID
- * @returns 用户
+ *
+ * 必须过滤掉：1) 软删的 user-role 关联；2) 已禁用 / 软删的 role。
+ * 否则 02.auth.ts 会把这些撤销的角色 ID 写进 JWT token，将来任何依赖
+ * `event.context.auth.user.roles` 的代码就会越权（H1）。
+ *
+ * findUnique 不支持 nested where，改用 findFirst。
  */
 export const findUserByIdDao = async (id: number, tx?: any): Promise<users & { userRoles: (userRoles & { roles: roles })[] } | null> => {
     try {
-        const user = await (tx || prisma).users.findUnique({
+        const user = await (tx || prisma).users.findFirst({
             where: { id, deletedAt: null },
             include: {
                 userRoles: {
+                    where: {
+                        deletedAt: null,
+                        role: {
+                            status: 1,
+                            deletedAt: null,
+                        },
+                    },
                     include: {
-                        role: true
-                    }
-                }
-            }
+                        role: true,
+                    },
+                },
+            },
         })
         if (!user) {
             return null
@@ -63,11 +74,15 @@ export const findUserByPhoneDao = async (phone: string, tx?: any): Promise<users
             where: { phone, deletedAt: null },
             include: {
                 userRoles: {
+                    where: {
+                        deletedAt: null,
+                        role: { status: 1, deletedAt: null },
+                    },
                     include: {
-                        role: true
-                    }
+                        role: true,
+                    },
                 },
-            }
+            },
         })
         if (!user) {
             return null
@@ -90,11 +105,15 @@ export const findUserByInviteCodeDao = async (inviteCode: string, tx?: any): Pro
             where: { inviteCode, deletedAt: null },
             include: {
                 userRoles: {
+                    where: {
+                        deletedAt: null,
+                        role: { status: 1, deletedAt: null },
+                    },
                     include: {
-                        role: true
-                    }
-                }
-            }
+                        role: true,
+                    },
+                },
+            },
         })
         if (!user) {
             return null
@@ -118,11 +137,15 @@ export const findUserByUsernameDao = async (username: string, tx?: any): Promise
             where: { username, deletedAt: null },
             include: {
                 userRoles: {
+                    where: {
+                        deletedAt: null,
+                        role: { status: 1, deletedAt: null },
+                    },
                     include: {
-                        role: true
-                    }
-                }
-            }
+                        role: true,
+                    },
+                },
+            },
         })
         if (!user) {
             return null

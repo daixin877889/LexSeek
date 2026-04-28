@@ -37,22 +37,29 @@ export const matchPath = (pattern: string, path: string): boolean => {
 
 /**
  * 将路径模式转换为正则表达式
+ *
+ * 收紧 :param 匹配（M5）：
+ * - 仅在路径段开头出现的 `:name` 才视为动态参数，避免 `/foo:bar` 这种字面冒号
+ *   被错误解析；
+ * - `:` 不是路径段起始位置时（如 `/foo:bar`）保留字面字符。
+ *
+ * 实现：lookbehind 限定 `:name` 必须紧跟在 `/` 后或字符串开头。
  */
 const patternToRegex = (pattern: string): RegExp => {
-    // 转义正则特殊字符（除了 * 和 :）
+    // 1) 转义正则特殊字符（除了 * 和 :）
     let regexStr = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&')
 
-    // 处理 ** 通配符（匹配任意路径段）
+    // 2) ** 占位（匹配任意路径段）
     regexStr = regexStr.replace(/\*\*/g, '<<<DOUBLE_STAR>>>')
 
-    // 处理 * 通配符（匹配单个路径段）
+    // 3) * 占位（匹配单个路径段）
     regexStr = regexStr.replace(/\*/g, '[^/]+')
 
-    // 还原 ** 通配符
+    // 4) 还原 **
     regexStr = regexStr.replace(/<<<DOUBLE_STAR>>>/g, '.*')
 
-    // 处理动态参数 :param（匹配单个路径段）
-    regexStr = regexStr.replace(/:([a-zA-Z_][a-zA-Z0-9_]*)/g, '[^/]+')
+    // 5) 动态参数 :param（仅紧跟在 / 后或字符串开头才匹配）
+    regexStr = regexStr.replace(/(^|\/):[a-zA-Z_][a-zA-Z0-9_]*/g, '$1[^/]+')
 
     return new RegExp(`^${regexStr}$`)
 }
