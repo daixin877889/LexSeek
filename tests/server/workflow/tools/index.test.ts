@@ -13,6 +13,7 @@ import {
     getToolMetaService,
     hasToolService,
     getAllToolNamesService,
+    getToolInstancesService,
 } from '../../../../server/services/workflow/tools/index'
 
 describe('getAllToolsService 所有工具元信息', () => {
@@ -82,5 +83,71 @@ describe('getAllToolNamesService 所有工具名称', () => {
         const names = getAllToolNamesService()
         const unique = new Set(names)
         expect(unique.size).toBe(names.length)
+    })
+
+    it('应包含业务私有工具 parse_and_ask_stance', () => {
+        expect(getAllToolNamesService()).toContain('parse_and_ask_stance')
+    })
+})
+
+describe('getToolMetaService 业务私有工具', () => {
+    it('parse_and_ask_stance 元信息可查到', () => {
+        const meta = getToolMetaService('parse_and_ask_stance')
+        expect(meta).not.toBeNull()
+        expect(meta!.name).toBe('parse_and_ask_stance')
+    })
+})
+
+describe('hasToolService 业务私有工具', () => {
+    it('parse_and_ask_stance 应存在', () => {
+        expect(hasToolService('parse_and_ask_stance')).toBe(true)
+    })
+})
+
+describe('getAllToolsService 业务私有工具', () => {
+    it('返回结果应包含 parse_and_ask_stance', () => {
+        const tools = getAllToolsService()
+        const names = tools.map(t => t.name)
+        expect(names).toContain('parse_and_ask_stance')
+    })
+})
+
+describe('getToolInstancesService 工具实例化', () => {
+    const ctx = { userId: 1, sessionId: 'sess-x', reviewId: 100 }
+
+    it('单个通用工具名应能拿到实例', () => {
+        const instances = getToolInstancesService(['search_law'], ctx)
+        expect(instances).toHaveLength(1)
+        expect(instances[0]!.name).toBe('search_law')
+    })
+
+    it('单个业务私有工具名应能拿到实例', () => {
+        const instances = getToolInstancesService(['parse_and_ask_stance'], ctx)
+        expect(instances).toHaveLength(1)
+        expect(instances[0]!.name).toBe('parse_and_ask_stance')
+    })
+
+    it('混合通用 + 业务私有工具名应同时返回', () => {
+        const instances = getToolInstancesService(
+            ['search_law', 'parse_and_ask_stance'],
+            ctx,
+        )
+        expect(instances).toHaveLength(2)
+        const names = instances.map(t => t.name)
+        expect(names).toContain('search_law')
+        expect(names).toContain('parse_and_ask_stance')
+    })
+
+    it('未知工具名应被静默跳过（不抛错）', () => {
+        const instances = getToolInstancesService(
+            ['definitely_not_a_tool', 'search_law'],
+            ctx,
+        )
+        expect(instances).toHaveLength(1)
+        expect(instances[0]!.name).toBe('search_law')
+    })
+
+    it('空数组返回空数组', () => {
+        expect(getToolInstancesService([], ctx)).toEqual([])
     })
 })
