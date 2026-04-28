@@ -20,7 +20,13 @@ import { deriveAdminUrl, getSourceDbName, assertTemplateUsable } from './templat
 const ROOT = resolve(__dirname, '../..')
 config({ path: resolve(ROOT, '.env.testing') })
 
-/** 默认 4 个 worker；可通过 VITEST_MAX_WORKERS 环境变量覆盖 */
+/**
+ * 默认 4 个 worker；可通过 VITEST_MAX_WORKERS 覆盖。
+ * 注意：必须 ≥ vitest 实际 worker 数，否则 worker N+1 会连不存在的 ls_test_wN+1 失败。
+ *
+ * - `bun run test`：package.json 已固定 VITEST_MAX_WORKERS=8 → globalSetup 建 8 个 DB
+ * - `bun run test:fast`：package.json 不传 → 默认 4 个 DB（fast 子集 ~86 文件，4w 已足够）
+ */
 function getWorkerCount(): number {
     const fromEnv = process.env.VITEST_MAX_WORKERS
     const n = fromEnv ? Number(fromEnv) : 4

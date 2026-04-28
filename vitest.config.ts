@@ -82,8 +82,9 @@ export default defineVitestConfig({
         // forks pool（默认值）：threads 模式下 PrismaPg 的连接 socket 会被多 worker 误共享
         pool: 'forks',
         // vitest 4：旧的 poolOptions.forks.maxForks 改为顶层 maxWorkers
-        maxWorkers: Number(process.env.VITEST_MAX_WORKERS ?? 4),
-        minWorkers: Number(process.env.VITEST_MAX_WORKERS ?? 4),
+        // 默认 8 worker（实测 12 核机器节省 30%，4 worker 251s → 8 worker 177s）
+        maxWorkers: Number(process.env.VITEST_MAX_WORKERS ?? 8),
+        minWorkers: Number(process.env.VITEST_MAX_WORKERS ?? 8),
         isolate: true,
         // 注：原计划用 projects 把 server tests 切到 node env 加速 happy-dom 启动开销，
         // 但 @nuxt/test-utils 的 defineVitestConfig 不支持 projects 字段，需要 defineVitestProject。
