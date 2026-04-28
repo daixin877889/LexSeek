@@ -5,6 +5,7 @@
 import { z } from 'zod'
 import { LegalType } from '#shared/types/legal'
 import { updateLegalMainService } from '~~/server/services/legal/legalMain.service'
+import { invalidateIntentCacheService } from '~~/server/services/retrieval/intentClassifier.service'
 
 // 请求体验证
 const bodySchema = z.object({
@@ -49,6 +50,7 @@ export default defineEventHandler(async (event) => {
         // 调用服务层更新
         const legal = await updateLegalMainService(id, result.data)
         logger.info(`用户 ${user.id} 更新了法律法规: ${legal.name} (${legal.id})`)
+        await invalidateIntentCacheService('law')
         return resSuccess(event, '更新成功', legal)
     } catch (error) {
         const message = error instanceof Error ? error.message : '更新失败'

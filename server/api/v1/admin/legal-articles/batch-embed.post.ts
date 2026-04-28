@@ -9,6 +9,7 @@
 import { z } from 'zod'
 import { getPool } from '~~/server/services/legal/vectorStore.service'
 import { triggerArticleEmbeddingService } from '~~/server/services/legal/legalArticles.service'
+import { invalidateIntentCacheService } from '~~/server/services/retrieval/intentClassifier.service'
 
 // 请求体验证
 const bodySchema = z.object({
@@ -172,6 +173,9 @@ export default defineEventHandler(async (event) => {
         const message = forceAll
             ? `向量化完成：成功 ${processed} 条，跳过 ${noContentCount} 条（无内容），失败 ${failed} 条`
             : `向量化完成：成功 ${processed} 条，已最新 ${alreadyUpToDate} 条，跳过 ${noContentCount} 条（无内容），失败 ${failed} 条`
+
+        // 清意图分类缓存：法条向量重建后旧分类结果可能不准
+        if (processed > 0) await invalidateIntentCacheService('law')
 
         return resSuccess(event, message, {
             total: articles.length,

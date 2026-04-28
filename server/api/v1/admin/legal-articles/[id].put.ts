@@ -5,6 +5,7 @@
 import { z } from 'zod'
 import { ArticleType, type UpdateLegalArticleRequest } from '#shared/types/legal'
 import { updateLegalArticleService } from '~~/server/services/legal/legalArticles.service'
+import { invalidateIntentCacheService } from '~~/server/services/retrieval/intentClassifier.service'
 
 // 请求体验证
 const bodySchema = z.object({
@@ -55,6 +56,7 @@ export default defineEventHandler(async (event) => {
         // 调用服务层更新（类型断言处理 null 和 undefined 的兼容性）
         const article = await updateLegalArticleService(id, result.data as UpdateLegalArticleRequest)
         logger.info(`用户 ${user.id} 更新了法律条文: ${article.id}`)
+        await invalidateIntentCacheService('law')
         return resSuccess(event, '更新成功', article)
     } catch (error) {
         const message = error instanceof Error ? error.message : '更新失败'

@@ -17,6 +17,7 @@ import { updateLegalEmbeddings } from '~~/server/services/legal/lawEmbedding.ser
 import { batchSaveArticlesService } from '~~/server/services/legal/article.service'
 import type { legalMain } from '~~/generated/prisma/client'
 import { parseContent } from '~~/server/services/legal/parser.service'
+import { invalidateIntentCacheService } from '~~/server/services/retrieval/intentClassifier.service'
 
 /**
  * 请求参数验证 Schema
@@ -111,6 +112,9 @@ export default defineEventHandler(async (event) => {
                 logger.error('向量化任务失败', { legalId, error })
             }
         })()
+
+        // 清意图分类缓存：法条变更后旧的分类结果可能不准确
+        await invalidateIntentCacheService('law')
 
         return resSuccess(event, '保存成功', {
             legalId,

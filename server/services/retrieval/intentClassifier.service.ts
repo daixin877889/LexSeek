@@ -223,3 +223,28 @@ export async function classifyIntentService(
         }
     }
 }
+
+/**
+ * 清理意图分类缓存
+ *
+ * 法条库 / 案件材料 / 案件记忆等数据源发生变更时调用，避免用户拿到陈旧的分类结果。
+ *
+ * @param type 不传则清所有类型；传则只清单一类型（如 'law' 仅清法条意图缓存）
+ * @returns 清理的 key 数量
+ */
+export async function invalidateIntentCacheService(
+    type?: 'law' | 'case_material' | 'case_memory' | 'case_analysis',
+): Promise<number> {
+    try {
+        const redis = getRedisClient()
+        const pattern = type ? `intent:${type}:*` : 'intent:*'
+        const keys = await redis.keys(pattern)
+        if (keys.length === 0) return 0
+        await redis.del(...keys)
+        logger.info('意图分类缓存已清', { pattern, cleared: keys.length })
+        return keys.length
+    } catch (e) {
+        logger.warn('意图分类缓存清理失败:', e)
+        return 0
+    }
+}

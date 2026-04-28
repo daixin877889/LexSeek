@@ -1,4 +1,5 @@
 import { deleteLegalArticleService } from '~~/server/services/legal/legalArticles.service'
+import { invalidateIntentCacheService } from '~~/server/services/retrieval/intentClassifier.service'
 /**
  * 删除法律条文（软删除）
  * DELETE /api/v1/admin/legal-articles/:id
@@ -20,6 +21,7 @@ export default defineEventHandler(async (event) => {
         // 调用服务层删除
         await deleteLegalArticleService(id)
         logger.info(`用户 ${user.id} 删除了法律条文: ${id}`)
+        await invalidateIntentCacheService('law')
         return resSuccess(event, '删除成功', null)
     } catch (error) {
         const message = error instanceof Error ? error.message : '删除失败'

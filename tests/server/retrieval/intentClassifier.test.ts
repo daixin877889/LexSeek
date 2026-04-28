@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { classifyIntentService } from '../../../server/services/retrieval/intentClassifier.service'
+import { classifyIntentService, invalidateIntentCacheService } from '../../../server/services/retrieval/intentClassifier.service'
 
 // Mock 节点配置服务
 vi.mock('../../../server/services/node/node.service', () => ({
@@ -29,6 +29,8 @@ vi.mock('../../../server/lib/redis', () => ({
     getRedisClient: vi.fn().mockReturnValue({
         get: vi.fn().mockResolvedValue(null),
         set: vi.fn().mockResolvedValue('OK'),
+        keys: vi.fn().mockResolvedValue([]),
+        del: vi.fn().mockResolvedValue(0),
     }),
 }))
 
@@ -283,5 +285,57 @@ describe('正则前置 + Redis 缓存', () => {
         const result = await classifyIntentService('合同纠纷', 'law')
         expect(result.intent).toBe('semantic')
         expect(createChatModel).toHaveBeenCalledOnce()
+    })
+})
+
+describe('invalidateIntentCacheService', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('不传 type 时清所有 intent:* 缓存', async () => {
+        const redis = getRedisClient()
+        vi.mocked(redis.keys).mockResolvedValueOnce([
+            'intent:law:abc123',
+            'intent:case_material:def456',
+            'intent:case_memory:ghi789',
+        ])
+        vi.mocked(redis.del).mockResolvedValueOnce(3)
+
+        const cleared = await invalidateIntentCacheService()
+        expect(cleared).toBe(3)
+        expect(redis.keys).toHaveBeenCalledWith('intent:*')
+        expect(redis.del).toHaveBeenCalledWith(
+            'intent:law:abc123',
+            'intent:case_material:def456',
+            'intent:case_memory:ghi789',
+        )
+    })
+
+    it('传 type 时只清匹配的子集', async () => {
+        const redis = getRedisClient()
+        vi.mocked(redis.keys).mockResolvedValueOnce(['intent:law:abc', 'intent:law:def'])
+        vi.mocked(redis.del).mockResolvedValueOnce(2)
+
+        const cleared = await invalidateIntentCacheService('law')
+        expect(cleared).toBe(2)
+        expect(redis.keys).toHaveBeenCalledWith('intent:law:*')
+    })
+
+    it('keys 返回空数组时不调 del 直接返回 0', async () => {
+        const redis = getRedisClient()
+        vi.mocked(redis.keys).mockResolvedValueOnce([])
+
+        const cleared = await invalidateIntentCacheService('case_analysis')
+        expect(cleared).toBe(0)
+        expect(redis.del).not.toHaveBeenCalled()
+    })
+
+    it('Redis 异常时返回 0 不抛错（保护管理端 API）', async () => {
+        const redis = getRedisClient()
+        vi.mocked(redis.keys).mockRejectedValueOnce(new Error('ECONNREFUSED'))
+
+        const cleared = await invalidateIntentCacheService('law')
+        expect(cleared).toBe(0)
     })
 })
