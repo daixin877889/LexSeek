@@ -115,7 +115,7 @@ export interface DraftSavedPayload {
 export interface ContractReviewSavedPayload {
     reviewId: number
     riskCount: number
-    topRisks: Array<{ source: string; level: string; quote?: string }>
+    topRisks: Array<{ title?: string; level?: 'high' | 'medium' | 'low' }>
     href: string
 }
 
