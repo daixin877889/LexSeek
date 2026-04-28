@@ -2,7 +2,7 @@ import crypto from 'node:crypto'
 import type { Document } from '@langchain/core/documents'
 import { addDocumentsToVectorStore } from '../legal/vectorStore.service'
 import { assertCaseWritableService } from '../case/case.service'
-import type { CaseMemoryMetadata, MemoryHit, MemoryKind } from '#shared/types/memory'
+import type { CaseMemoryMetadata, MemoryHit, MemoryKind, MemorySource } from '#shared/types/memory'
 import { retrieveWithReranking } from './retrieveWithReranking'
 import { findActiveMemoryBySubjectDAO } from './memory.dao'
 
@@ -12,7 +12,7 @@ export interface MemoryWriteInput {
   text: string
   subjectKey?: string
   confidence?: number
-  source?: 'manual' | 'consolidator' | 'auto_extract' | 'manual_user'
+  source?: MemorySource
 }
 
 /**

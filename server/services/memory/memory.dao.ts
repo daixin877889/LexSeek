@@ -5,19 +5,12 @@
  * 所有查询用 raw SQL（prisma JSONB 操作能力受限）。
  */
 import { prisma } from '~~/server/utils/db'
+import type { CaseMemoryMetadata, MemorySource } from '#shared/types/memory'
 
 export interface MemoryRow {
     id: string
     text: string
-    metadata: {
-        caseId: number
-        kind: string
-        subjectKey?: string
-        source?: string
-        createdAt: string
-        invalidatedAt?: string
-        supersedes?: string
-    }
+    metadata: CaseMemoryMetadata
 }
 
 /**
@@ -46,7 +39,7 @@ export async function findActiveMemoryBySubjectDAO(
 }
 
 export interface ListMemoriesOptions {
-    source?: 'manual' | 'consolidator' | 'auto_extract' | 'manual_user'
+    source?: MemorySource
     includeInvalidated?: boolean
     cursor?: string  // 形如 "<createdAt>|<id>"，游标分页
     limit?: number   // 默认 30，最大 100
