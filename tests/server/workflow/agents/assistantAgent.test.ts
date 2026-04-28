@@ -90,6 +90,15 @@ vi.mock('../../../../server/services/workflow/middleware', () => ({
     safetyTrimMiddleware: vi.fn(() => ({ __mock: 'safetyTrim' })),
 }))
 
+// mock messageCompressor（resolveContextWindow）—— 避免读真实模型注册表
+vi.mock('../../../../server/services/workflow/context/messageCompressor', () => ({
+    resolveContextWindow: vi.fn(() => ({
+        triggerTokens: 100000,
+        maxTokens: 120000,
+        maxOutputTokens: 8192,
+    })),
+}))
+
 // mock @langchain/langgraph
 vi.mock('@langchain/langgraph', () => ({
     Command: class Command {
@@ -198,6 +207,51 @@ describe('runAssistantChat — buildContextSegments 接入（Phase 4）', () => 
         expect(createAgentArg.systemPrompt.content).toBe('你是通用法律助手')
     })
 
+    it('节点没有可用 API 密钥（status !== 1）时抛错', async () => {
+        mockGetValidNodeConfig.mockResolvedValue(
+            createAssistantNodeConfig({
+                modelApiKeys: [{ id: 1, apiKey: 'sk-disabled', status: 0 }],
+            } as Partial<NodeConfig>)
+        )
+
+        const { runAssistantChat } = await import(
+            '../../../../server/services/workflow/agents/assistantAgent'
+        )
+
+        await expect(
+            runAssistantChat('session-no-key', '问题', { userId: 1 })
+        ).rejects.toThrow(/没有可用的 API 密钥/)
+    })
+
+    it('command 参数存在时走 Command resume 分支而不是 HumanMessage', async () => {
+        const { Command } = await import('@langchain/langgraph')
+        const { runAssistantChat } = await import(
+            '../../../../server/services/workflow/agents/assistantAgent'
+        )
+
+        await runAssistantChat('session-resume', undefined, {
+            userId: 1,
+            command: { answer: 'yes' },
+        })
+
+        // mockStream 接收的第一个参数应是 Command 实例
+        const streamArg = mockStream.mock.calls.at(-1)![0]
+        expect(streamArg).toBeInstanceOf(Command)
+    })
+
+    it('正常对话（无 command）时 stream 输入为 HumanMessage', async () => {
+        const { runAssistantChat } = await import(
+            '../../../../server/services/workflow/agents/assistantAgent'
+        )
+        const { HumanMessage } = await import('@langchain/core/messages')
+
+        await runAssistantChat('session-normal', '帮我看', { userId: 1 })
+
+        const streamArg = mockStream.mock.calls.at(-1)![0] as { messages: unknown[] }
+        expect(streamArg.messages).toHaveLength(1)
+        expect(streamArg.messages[0]).toBeInstanceOf(HumanMessage)
+    })
+
     it('Anthropic sdkType 时 SystemMessage 用 cache 块结构（仅 1h 角色段，无 caseProfile / 5m 段）', async () => {
         mockGetValidNodeConfig.mockResolvedValue(
             createAssistantNodeConfig({ modelSdkType: 'anthropic' })
@@ -225,5 +279,38 @@ describe('runAssistantChat — buildContextSegments 接入（Phase 4）', () => 
             text: '你是通用法律助手',
             cache_control: { type: 'ephemeral', ttl: '1h' },
         })
+    })
+})
+
+describe('getAssistantThreadState', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('调用 getCheckpointer + 创建最小 agent 后返回 getState 结果', async () => {
+        const fakeState = { values: { messages: [] }, next: [] }
+        const mockGetState = vi.fn().mockResolvedValue(fakeState)
+        const { createAgent } = await import('langchain')
+        vi.mocked(createAgent).mockReturnValue({
+            getState: mockGetState,
+        } as unknown as ReturnType<typeof createAgent>)
+
+        const { getAssistantThreadState } = await import(
+            '../../../../server/services/workflow/agents/assistantAgent'
+        )
+
+        const result = await getAssistantThreadState('session-state-1')
+
+        expect(result).toBe(fakeState)
+        expect(mockGetState).toHaveBeenCalledWith({
+            configurable: { thread_id: 'session-state-1' },
+        })
+        // 创建最小 agent 时 model 是 dummyModel，checkpointer 应被注入
+        const createAgentArg = vi.mocked(createAgent).mock.calls.at(-1)![0] as {
+            model: unknown
+            checkpointer: unknown
+        }
+        expect(createAgentArg.checkpointer).toBeDefined()
+        expect(createAgentArg.model).toBeDefined()
     })
 })
