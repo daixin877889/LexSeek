@@ -11,7 +11,7 @@ export interface MemoryWriteInput {
   text: string
   subjectKey?: string
   confidence?: number
-  source?: 'manual' | 'consolidator'
+  source?: 'manual' | 'consolidator' | 'auto_extract' | 'manual_user'
 }
 
 /**

@@ -13,8 +13,8 @@ export interface CaseMemoryMetadata {
     subjectKey?: string
     /** consolidator 抽取置信度 0-1 */
     confidence?: number
-    /** 'manual' | 'consolidator' */
-    source?: string
+    /** 'manual' | 'consolidator' | 'auto_extract' | 'manual_user' */
+    source?: 'manual' | 'consolidator' | 'auto_extract' | 'manual_user'
     /** 上一版 id */
     supersedes?: string
     /** ISO 时间串，非空即失效 */
