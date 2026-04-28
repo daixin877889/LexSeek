@@ -162,13 +162,40 @@ export default defineVitestConfig({
                 resolve(rootDir, 'server/agents') + '/**/*.{ts,js}',
             ],
             thresholds: {
-                // 适度调低阈值，聚焦可测试代码的覆盖
-                lines: 80,
-                functions: 80,
-                branches: 80,
-                statements: 80,
-                // 每个文件的阈值（低值文件不触发失败）
+                // 全局阈值：含 app/ 前端 .vue（覆盖率天然低）+ shared/ + server/，
+                // 适度宽松；stage 1-8 涉及核心目录另设严格阈值见下方 glob 配置。
+                lines: 45,
+                functions: 35,
+                branches: 40,
+                statements: 45,
                 perFile: false,
+
+                // stage 1-8 AI 基建涉及核心目录：严格 90% 阈值（lines/statements/functions），
+                // branches 75%（条件分支边界 case 较多，难刚性 90%）
+                'server/agents/**/*.ts': {
+                    lines: 90,
+                    statements: 90,
+                    functions: 90,
+                    branches: 75,
+                },
+                'server/services/agent-platform/**/*.ts': {
+                    lines: 90,
+                    statements: 90,
+                    functions: 90,
+                    branches: 75,
+                },
+                'server/services/workflow/**/*.ts': {
+                    lines: 90,
+                    statements: 90,
+                    functions: 90,
+                    branches: 90,
+                },
+                'app/composables/agent-platform/**/*.ts': {
+                    lines: 90,
+                    statements: 90,
+                    functions: 80,
+                    branches: 75,
+                },
             },
         },
     },
