@@ -580,7 +580,7 @@ LangChain 同构表无 deletedAt 列，软删走 metadata 更新。
  * **Validates: spec §3.1 afterAgent 异步任务核心逻辑**
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { runMemoryExtractionTask } from '~~/server/services/memory/memoryExtraction.service'
+import { runMemoryExtractionService } from '~~/server/services/memory/memoryExtraction.service'
 import { ensureTestUser, ensureTestCase, cleanupTestData } from '../assistant/test-db-helper'
 
 vi.mock('~~/server/services/agent-platform/tools/invokeNodeJson', () => ({
@@ -589,7 +589,7 @@ vi.mock('~~/server/services/agent-platform/tools/invokeNodeJson', () => ({
 
 import { invokeNodeJson } from '~~/server/services/agent-platform/tools/invokeNodeJson'
 
-describe('runMemoryExtractionTask', () => {
+describe('runMemoryExtractionService', () => {
     let userId: number
     let caseId: number
 
@@ -613,7 +613,7 @@ describe('runMemoryExtractionTask', () => {
             ],
         })
 
-        await runMemoryExtractionTask({ caseId, sessionId: 'sess-1', messages: [{ role: 'user', content: '我的案件...' }] as any })
+        await runMemoryExtractionService({ caseId, sessionId: 'sess-1', messages: [{ role: 'user', content: '我的案件...' }] as any })
 
         const rows = await prisma.$queryRawUnsafe<Array<{ metadata: any }>>(
             `SELECT metadata FROM case_memories WHERE metadata->>'caseId' = $1`,
@@ -636,7 +636,7 @@ describe('runMemoryExtractionTask', () => {
             memories: [{ text: '原告住北京', kind: 'fact', subject_key: 'plaintiff.address' }],
         })
 
-        await runMemoryExtractionTask({ caseId, sessionId: 'sess-1', messages: [] })
+        await runMemoryExtractionService({ caseId, sessionId: 'sess-1', messages: [] })
 
         const rows = await prisma.$queryRawUnsafe<Array<{ metadata: any }>>(
             `SELECT metadata FROM case_memories WHERE metadata->>'caseId' = $1`,
@@ -651,7 +651,7 @@ describe('runMemoryExtractionTask', () => {
 
         // 不应该抛错
         await expect(
-            runMemoryExtractionTask({ caseId, sessionId: 'sess-1', messages: [] }),
+            runMemoryExtractionService({ caseId, sessionId: 'sess-1', messages: [] }),
         ).resolves.toBeUndefined()
     })
 })
@@ -700,7 +700,7 @@ export interface MemoryExtractionParams {
 
 const SIMILARITY_THRESHOLD = 0.9
 
-export async function runMemoryExtractionTask(params: MemoryExtractionParams): Promise<void> {
+export async function runMemoryExtractionService(params: MemoryExtractionParams): Promise<void> {
     const { caseId, sessionId, messages } = params
 
     try {
@@ -1505,10 +1505,10 @@ import { AIMessage } from '@langchain/core/messages'
 import { afterAgentMemoryMiddleware } from '~~/server/services/agent-platform/middleware/afterAgentMemory.middleware'
 
 vi.mock('~~/server/services/memory/memoryExtraction.service', () => ({
-    runMemoryExtractionTask: vi.fn(),
+    runMemoryExtractionService: vi.fn(),
 }))
 
-import { runMemoryExtractionTask } from '~~/server/services/memory/memoryExtraction.service'
+import { runMemoryExtractionService } from '~~/server/services/memory/memoryExtraction.service'
 
 describe('afterAgentMemoryMiddleware', () => {
     beforeEach(() => vi.clearAllMocks())
@@ -1525,13 +1525,13 @@ describe('afterAgentMemoryMiddleware', () => {
             ],
         }
 
-        await mw.afterAgent!.handler!(state as any, {} as any)
+        await mw.afterAgent!.hook!(state as any, {} as any)
 
-        expect(runMemoryExtractionTask).not.toHaveBeenCalled()
+        expect(runMemoryExtractionService).not.toHaveBeenCalled()
     })
 
     it('write+update < 3 次：异步触发提取', async () => {
-        vi.mocked(runMemoryExtractionTask).mockResolvedValueOnce(undefined)
+        vi.mocked(runMemoryExtractionService).mockResolvedValueOnce(undefined)
         const mw = afterAgentMemoryMiddleware({ caseId: 1, sessionId: 'sess-1', userId: 1 })
         const state = {
             messages: [
@@ -1541,12 +1541,12 @@ describe('afterAgentMemoryMiddleware', () => {
             ],
         }
 
-        await mw.afterAgent!.handler!(state as any, {} as any)
+        await mw.afterAgent!.hook!(state as any, {} as any)
 
         // 异步任务通过 void 触发，等微任务队列
         await new Promise(r => setImmediate(r))
-        expect(runMemoryExtractionTask).toHaveBeenCalledTimes(1)
-        expect(runMemoryExtractionTask).toHaveBeenCalledWith({
+        expect(runMemoryExtractionService).toHaveBeenCalledTimes(1)
+        expect(runMemoryExtractionService).toHaveBeenCalledWith({
             caseId: 1,
             sessionId: 'sess-1',
             messages: state.messages,
@@ -1554,12 +1554,12 @@ describe('afterAgentMemoryMiddleware', () => {
     })
 
     it('提取任务抛错时静默吞（不抛给上层）', async () => {
-        vi.mocked(runMemoryExtractionTask).mockRejectedValueOnce(new Error('LLM down'))
+        vi.mocked(runMemoryExtractionService).mockRejectedValueOnce(new Error('LLM down'))
         const mw = afterAgentMemoryMiddleware({ caseId: 1, sessionId: 'sess-1', userId: 1 })
         const state = { messages: [] }
 
         // 不抛错
-        await expect(mw.afterAgent!.handler!(state as any, {} as any)).resolves.toBeUndefined()
+        await expect(mw.afterAgent!.hook!(state as any, {} as any)).resolves.toBeUndefined()
     })
 })
 ```
@@ -1587,7 +1587,7 @@ Expected: FAIL with "Cannot find module"
 import { createMiddleware } from 'langchain'
 import { logger } from '#shared/utils/logger'
 import { countToolCalls } from './utils/countToolCalls'
-import { runMemoryExtractionTask } from '~~/server/services/memory/memoryExtraction.service'
+import { runMemoryExtractionService } from '~~/server/services/memory/memoryExtraction.service'
 
 export interface AfterAgentMemoryCtx {
     caseId: number
@@ -1600,7 +1600,7 @@ const SKIP_THRESHOLD = 3
 export const afterAgentMemoryMiddleware = (ctx: AfterAgentMemoryCtx) => createMiddleware({
     name: 'afterAgentMemory',
     afterAgent: {
-        handler: async (state: any, _runtime: any) => {
+        hook: async (state: any, _runtime: any) => {
             try {
                 const writeCount = countToolCalls(state.messages, [
                     'write_case_memory',
@@ -1615,7 +1615,7 @@ export const afterAgentMemoryMiddleware = (ctx: AfterAgentMemoryCtx) => createMi
                 }
 
                 // fire-and-forget：不阻塞响应返回
-                void runMemoryExtractionTask({
+                void runMemoryExtractionService({
                     caseId: ctx.caseId,
                     sessionId: ctx.sessionId,
                     messages: state.messages,
@@ -1900,7 +1900,7 @@ caseMemorySubjectInfer_system 简单的 subject_key 推断 prompt
 **Files:**
 - Modify: `prisma/seeds/seedData.sql`
 
-caseMain (id=5) 已经配了 search/write/update_case_memory。本任务给其余 8 个节点加：
+caseMain (id=5) 已经配了 search/write/update_case_memory。本任务给其余 11 个节点加（共 12 个案件相关节点）：
 
 | nodeId | name | 现 tools | 目标 tools（新增 3 工具）|
 |---|---|---|---|
@@ -2516,6 +2516,15 @@ git commit -m "feat(memory): 桌面 sidebar 加'案件记忆' entry
 
 **Files:**
 - Modify: `app/components/caseDetail/CaseDetailBottomTabs.vue`
+- Create: `app/components/ui/drawer/` 目录（通过 shadcn-vue CLI 自动生成）
+
+- [ ] **Step 0: 先安装 shadcn Drawer 组件（前置条件）**
+
+Run: `npx shadcn-vue@latest add drawer`
+Expected: 创建 `app/components/ui/drawer/` 含 `Drawer.vue` / `DrawerContent.vue` / `DrawerHeader.vue` / `DrawerTitle.vue` / `DrawerTrigger.vue` 等；自动安装 `vaul-vue` 依赖
+
+验证：`ls app/components/ui/drawer`
+Expected: 看到 5+ 个 .vue 文件
 
 - [ ] **Step 1: 重写组件加 ⋯ + Drawer**
 
@@ -2620,20 +2629,15 @@ function selectMore(id: ActiveView, disabled?: boolean) {
 </template>
 ```
 
-- [ ] **Step 2: 验证 Drawer 组件可用**
-
-Run: `find app/components/ui/drawer -type f 2>&1`
-Expected: 找到 drawer/index.ts 等文件（shadcn-vue 已含此组件）
-
-- [ ] **Step 3: 跑现有测试**
+- [ ] **Step 2: 跑现有测试**
 
 Run: `npx vitest run tests/app/components/caseDetail/CaseDetailBottomTabs.test.ts 2>&1 | tail -10`
 Expected: 如已有测试则通过；无测试则跳过
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 3: Commit（同一 commit 含 shadcn Drawer 安装 + 组件重写）**
 
 ```bash
-git add app/components/caseDetail/CaseDetailBottomTabs.vue
+git add app/components/caseDetail/CaseDetailBottomTabs.vue app/components/ui/drawer/ package.json bun.lockb
 git commit -m "feat(memory): 移动端 BottomTabs 加 ⋯ Drawer 菜单
 
 5 个核心 tab 不动；最右 ⋯ 按钮弹出 Drawer 含'案件记忆 + 待办（即将推出）'。
