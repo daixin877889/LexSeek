@@ -20,6 +20,7 @@ import {
 } from '~~/server/services/agent-platform/middleware'
 import { safetyTrimMiddleware } from '~~/server/services/agent-platform/middleware/safetyTrim.middleware'
 import { analysisResultPersistenceMiddleware } from '~~/server/services/workflow/middleware/analysisResultPersistence.middleware'
+import { afterAgentMemoryMiddleware } from '~~/server/services/agent-platform/middleware/afterAgentMemory.middleware'
 import { getCheckpointer, getStore } from '~~/server/services/agent-platform/checkpointer'
 import { renderSystemPrompt } from '~~/server/services/workflow/utils/promptRenderer'
 import { resolveContextWindow } from '~~/server/services/agent-platform/context/messageCompressor'
@@ -178,6 +179,11 @@ export async function createSubAgentTools(
                                 caseId: context.caseId,
                                 sessionId: context.sessionId,
                                 model,
+                            }),
+                            afterAgentMemoryMiddleware({
+                                caseId: context.caseId,
+                                sessionId: context.sessionId,
+                                userId: context.userId,
                             }),
                             createAuditMiddleware(),
                         ],

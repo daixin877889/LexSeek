@@ -30,6 +30,7 @@ import { safetyTrimMiddleware } from '../middleware/safetyTrim.middleware'
 import { createTool as createSaveAnalysisResultTool } from '../tools/saveAnalysisResult.tool'
 import { renderSystemPrompt } from '../utils/promptRenderer'
 import { buildSkillsMiddlewareForNode } from '~~/server/services/agent-platform/middleware/skills'
+import { afterAgentMemoryMiddleware } from '~~/server/services/agent-platform/middleware/afterAgentMemory.middleware'
 import { createTool as createReadSkillFileTool } from '../tools/readSkillFile.tool'
 import { createTool as createWriteSkillFileTool } from '../tools/writeSkillFile.tool'
 import { createTool as createRunSkillScriptTool } from '../tools/runSkillScript.tool'
@@ -170,6 +171,7 @@ export async function runModuleChat(
                 maxOutputTokens,
             }),
             ...(skillsMw ? [skillsMw] : []),
+            afterAgentMemoryMiddleware({ caseId, sessionId, userId }),
             createAuditMiddleware(),
         ],
     })

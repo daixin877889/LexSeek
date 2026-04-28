@@ -24,6 +24,7 @@ import {
 } from '~~/server/services/agent-platform/middleware/types'
 import { caseMaterialContextMiddleware } from './middleware/caseMaterialContext.middleware'
 import { caseProcessMaterialMiddleware } from '~~/server/agents/_shared/case-context/caseProcessMaterial.middleware'
+import { afterAgentMemoryMiddleware } from '~~/server/services/agent-platform/middleware/afterAgentMemory.middleware'
 import { createSubAgentTools } from '~~/server/services/agent-platform/subAgent/subAgentToolFactory'
 import { getNodeConfigsByTypes } from '~~/server/services/node/node.service'
 
@@ -54,6 +55,15 @@ export const caseMainAgent = defineDomainAgent({
             middleware: caseMaterialContextMiddleware(ctx.userId, ctx.caseId!),
             priority: MIDDLEWARE_PRIORITY.MATERIAL_CONTEXT,
             name: MIDDLEWARE_NAMES.MATERIAL_CONTEXT,
+        },
+        {
+            middleware: afterAgentMemoryMiddleware({
+                caseId: ctx.caseId!,
+                sessionId: ctx.sessionId,
+                userId: ctx.userId,
+            }),
+            priority: MIDDLEWARE_PRIORITY.RESULT_PERSISTENCE,
+            name: 'afterAgentMemory',
         },
     ],
 

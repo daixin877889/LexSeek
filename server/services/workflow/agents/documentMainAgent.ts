@@ -29,6 +29,7 @@ import {
     MIDDLEWARE_PRIORITY,
     MIDDLEWARE_NAMES,
 } from '../middleware'
+import { afterAgentMemoryMiddleware } from '~~/server/services/agent-platform/middleware/afterAgentMemory.middleware'
 import { findDraftBySessionIdDAO } from '../../assistant/document/documentDraft.dao'
 import { getDocumentTemplateDAO } from '../../assistant/document/documentTemplate.dao'
 import { buildDraftSchema } from '../../assistant/document/draftSchema.builder'
@@ -225,6 +226,17 @@ export async function runDocumentChat(
             priority: MIDDLEWARE_PRIORITY.RESULT_PERSISTENCE,
             name: 'draftResultPersistence',
         },
+        ...(resolvedCaseId
+            ? [{
+                middleware: afterAgentMemoryMiddleware({
+                    caseId: resolvedCaseId,
+                    sessionId,
+                    userId,
+                }),
+                priority: MIDDLEWARE_PRIORITY.RESULT_PERSISTENCE,
+                name: 'afterAgentMemory',
+            }]
+            : []),
         {
             middleware: createAuditMiddleware(),
             priority: MIDDLEWARE_PRIORITY.AUDIT,

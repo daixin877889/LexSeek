@@ -60,6 +60,7 @@ import {
     MIDDLEWARE_NAMES,
 } from '../middleware'
 import { runAnnotateAndUpload } from '../middleware/reviewResultPersistence.middleware'
+import { afterAgentMemoryMiddleware } from '~~/server/services/agent-platform/middleware/afterAgentMemory.middleware'
 import type { CustomEventEmitter } from '~~/server/services/agent-platform/sse/customEventEmitter'
 import {
     findContractReviewBySessionIdDAO,
@@ -405,6 +406,17 @@ export async function runContractReviewChat(
             priority: MIDDLEWARE_PRIORITY.RESULT_PERSISTENCE,
             name: MIDDLEWARE_NAMES.REVIEW_RESULT_PERSISTENCE,
         },
+        ...(review.caseId
+            ? [{
+                middleware: afterAgentMemoryMiddleware({
+                    caseId: review.caseId,
+                    sessionId,
+                    userId,
+                }),
+                priority: MIDDLEWARE_PRIORITY.RESULT_PERSISTENCE,
+                name: 'afterAgentMemory',
+            }]
+            : []),
         {
             middleware: createAuditMiddleware(),
             priority: MIDDLEWARE_PRIORITY.AUDIT,
