@@ -68,10 +68,14 @@ const KIND_LABELS: Record<string, string> = {
 <template>
     <div class="rounded-md border bg-card text-xs my-2">
         <!-- 状态：进行中 -->
-        <div v-if="!isDone && !isError" class="flex items-center gap-2 px-3 py-2 text-muted-foreground">
-            <NotebookPenIcon class="size-3.5 animate-pulse" />
-            <span>正在检索案件记忆...</span>
-            <span v-if="query" class="font-mono text-[10px] text-muted-foreground/70 truncate">"{{ query }}"</span>
+        <div v-if="!isDone && !isError" class="px-3 py-2 text-muted-foreground">
+            <div class="flex items-center gap-2">
+                <NotebookPenIcon class="size-3.5 animate-pulse flex-shrink-0" />
+                <span>正在检索案件记忆...</span>
+            </div>
+            <p v-if="query" class="mt-1 ml-5 font-mono text-[10px] text-muted-foreground/70 line-clamp-1">
+                "{{ query }}"
+            </p>
         </div>
 
         <!-- 状态：失败 -->
@@ -82,15 +86,19 @@ const KIND_LABELS: Record<string, string> = {
 
         <!-- 状态：完成 -->
         <button v-else
-            class="w-full flex items-center justify-between gap-2 px-3 py-2 hover:bg-accent transition-colors"
+            class="w-full text-left px-3 py-2 hover:bg-accent transition-colors"
             @click="isOpen = !isOpen">
-            <div class="flex items-center gap-2 min-w-0">
-                <NotebookPenIcon class="size-3.5 text-muted-foreground flex-shrink-0" />
-                <span class="text-muted-foreground">找到 {{ hits.length }} 条相关记忆</span>
-                <span v-if="query" class="font-mono text-[10px] text-muted-foreground/70 truncate">"{{ query }}"</span>
+            <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2 min-w-0">
+                    <NotebookPenIcon class="size-3.5 text-muted-foreground flex-shrink-0" />
+                    <span class="text-muted-foreground">找到 {{ hits.length }} 条相关记忆</span>
+                </div>
+                <ChevronDownIcon class="size-3 text-muted-foreground transition-transform flex-shrink-0"
+                    :class="isOpen ? 'rotate-180' : ''" />
             </div>
-            <ChevronDownIcon class="size-3 text-muted-foreground transition-transform"
-                :class="isOpen ? 'rotate-180' : ''" />
+            <p v-if="query" class="mt-1 ml-5 font-mono text-[10px] text-muted-foreground/70 line-clamp-1">
+                "{{ query }}"
+            </p>
         </button>
 
         <div v-if="isDone && isOpen" class="border-t px-3 py-2 space-y-1.5">
