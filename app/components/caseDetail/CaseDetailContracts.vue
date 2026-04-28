@@ -56,22 +56,22 @@ function statusBadgeVariant(status: string): 'default' | 'secondary' | 'destruct
 
 <template>
     <div class="h-full overflow-y-auto p-4 md:p-6 space-y-4">
-        <!-- 头部：标题 + 新建按钮 -->
-        <div class="flex items-center justify-between gap-3">
-            <div>
-                <h2 class="text-lg font-semibold flex items-center gap-2">
-                    <FileSearchIcon class="size-5" />
-                    合同审查
-                </h2>
-                <p class="text-sm text-muted-foreground mt-0.5">
-                    当前案件下共 {{ total }} 份合同审查记录
-                </p>
-            </div>
-            <Button size="sm" @click="handleCreate">
-                <PlusIcon class="size-4 mr-1" />
-                新建合同审查
-            </Button>
-        </div>
+        <!-- 顶部栏 -->
+        <header class="flex items-center justify-between gap-2">
+            <h2 class="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider flex items-center gap-2">
+                <FileSearchIcon class="size-4" />
+                合同审查
+                <Badge v-if="total" variant="secondary" class="font-normal px-1.5 py-0 h-4 text-[10px]">
+                    {{ total }}
+                </Badge>
+            </h2>
+            <button class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+                title="新建合同审查"
+                @click="handleCreate">
+                <PlusIcon class="size-3" />
+                <span class="hidden lg:inline">新建合同审查</span>
+            </button>
+        </header>
 
         <!-- 加载中 -->
         <div v-if="pending" class="flex justify-center py-12">

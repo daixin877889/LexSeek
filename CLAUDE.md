@@ -3,28 +3,64 @@
 
 ## 项目
 
-LexSeek 是一个全栈法律服务AI应用，旨在通过人工智能技术赋能法律分析，为律师提供全面的案件分析工具，提升工作效率。
-这是一个 Nuxt/Vue 3 + NestJS + Prisma + PostgreSQL 项目，使用 TypeScript。数据库时区为 Asia/Shanghai。Prisma 连接使用 TimeZone=UTC 以避免双偏移 bug。
+LexSeek 是一个全栈法律服务 AI 应用，通过 AI 赋能法律分析，为律师与企业法务提供案件分析、合同审查、文档起草、法律检索、案件记忆等能力。
+项目基于 Nuxt 4（Nitro 服务端）+ Vue 3 + Prisma + PostgreSQL，全栈使用 TypeScript。数据库时区为 Asia/Shanghai；Prisma 连接强制 `TimeZone=UTC` 以避免双偏移 bug。
 
 **这是一个生产级别的项目，不是 Demo，请保证代码的质量，尤其健壮性和可维护性**
 
 ## 技术栈
 
-- **前端**: Nuxt 4 + Vue 3 + Tailwind CSS v4
-- **UI**: Shadcn-vue
-- **后端**: Nuxt Server (Nitro) + TypeScript
-- **数据库**: PostgreSQL + Prisma ORM ; 本地开发的环境的数据库运行在 Docker 中
-- **包管理**: Bun
+- **前端**: Nuxt 4 + Vue 3 + Tailwind CSS v4，UI 基于 Shadcn-vue
+- **服务端**: Nuxt Server（Nitro）+ TypeScript
+- **AI 编排**: LangChain / LangGraph + LangSmith（自研 agent-platform 适配层）
+- **数据库**: PostgreSQL（含 pgvector / pg_trgm / zhparser 扩展）+ Prisma ORM；本地开发数据库运行在 Docker
+- **包管理**: Bun（执行测试一律 `npx vitest run` / `bun run test`，禁用 `bun test`）
+- **存储**: 阿里云 OSS（适配器工厂支持 qiniu / cos 预留）
+- **支付**: 微信支付 V3
+- **测试**: Vitest（worker 级 DB 隔离）+ fast-check + chrome-devtools E2E
 
 ## 模块结构
 
 | 模块 | 路径 | 说明 |
 |------|------|------|
-| app | /app | 前端页面、组件、UI库 |
-| server | /server | API接口、服务端逻辑 |
-| shared | /shared | 共享类型和工具 |
-| prisma | /prisma | 数据库模式和迁移 |
-| tests | /tests | 测试用例 |
+| app | /app | 前端页面、组件、composables、Pinia store |
+| server | /server | API 路由、业务服务、Agent 编排、中间件 |
+| shared | /shared | 双端共用的类型与工具 |
+| prisma | /prisma | 数据库模式（按领域拆分到 models/）、迁移、seed |
+| generated | /generated/prisma | Prisma 生成的 client 与类型（用 `~~/generated/prisma/client` 引用） |
+| tests | /tests | 单元/集成/E2E 测试，含 worker 级 DB 隔离基建 `_infra/` |
+| docs/tech-docs | /docs/tech-docs | 模块级技术文档（架构、模式、踩坑） |
+| .claude/rules | /.claude/rules | AI 助手开发规范，按 paths 自动加载 |
+
+### 服务端关键子模块（/server）
+
+| 子目录 | 职责 |
+|------|------|
+| `api/v1/**` | 用户端 REST API（owner-only，严格归属过滤） |
+| `api/v1/admin/**` | 管理端 API（由 `middleware/03.permission.ts` + RBAC 权限表保护） |
+| `services/<domain>/` | 业务 Service + DAO（命名 `*.service.ts` / `*.dao.ts`） |
+| `services/agent-platform/` | 自研 LangGraph 适配层：middleware / factory / registry / skills / sse / state / subAgent / tools |
+| `services/memory/` | 案件记忆系统（自动提取 + 用户记录） |
+| `services/security/` | 风控（验证码、登录风险） |
+| `agents/<vertical>/` | 业务 vertical 的 Domain Agent 配置（通过 `defineDomainAgent` 注册到 agent-platform） |
+| `middleware/` | 请求 ID → 鉴权 → 权限 三段式中间件链 |
+| `routes/` | 非 `/api` 的少量 Nitro 路由（如 captcha 配置） |
+| `scripts/` | 维护脚本（重建嵌入、初始化检索基建等） |
+| `lib/` | 第三方/基础设施封装（payment、oss、storage、redis、aliSms） |
+| `utils/` | 服务端工具（`db.ts` 是 Prisma 单例，必须显式 import） |
+
+### 前端关键子模块（/app）
+
+| 子目录 | 职责 |
+|------|------|
+| `pages/dashboard/**` | 用户工作台（案件、合同、文档、法律检索、会员、设置等） |
+| `pages/admin/**` | 管理后台（订单、支付、审计、模型、角色、节点、提示词等 28+ 子页） |
+| `components/ui/` | shadcn-vue 组件（**禁止修改**） |
+| `components/ai-elements/` | AI 对话/流式输出组件（自动注册的目录） |
+| `components/<domain>/` | 业务组件（`case` / `caseDetail` / `caseAnalysis` / `caseCreation` / `initAnalysis` / `assistant` / `agents` / `admin` / `legal` / `legal-search` / `membership` / `payment` / `purchase` / `redeem` 等） |
+| `composables/` | 业务 composables（如 `useCaseMemory` / `useStreamChat` / `useApiFetch`） |
+| `store/` | Pinia store（`auth` / `caseAnalysis` / `alertDialog` / `adminMenu` / `file` / `permission` / `role` / `user` / `wxSupport`） |
+| `workers/` | Web Worker（文件上传、加解密） |
 
 ## 开发规范
 

@@ -8,7 +8,7 @@ import {
   ListTodoIcon,
   FileEditIcon,
   FileSearchIcon,
-  NotebookPenIcon,
+  BookMarkedIcon,
 } from 'lucide-vue-next'
 
 interface SidebarMenuItem {
@@ -27,7 +27,7 @@ const menuItems: SidebarMenuItem[] = [
   { id: 'analysis', label: '分析结果', icon: SparklesIcon },
   { id: 'documents', label: '案件文书', icon: FileEditIcon },
   { id: 'contracts', label: '合同审查', icon: FileSearchIcon },
-  { id: 'memory', label: '案件记忆', icon: NotebookPenIcon },
+  { id: 'memory', label: '案件记忆', icon: BookMarkedIcon },
 ]
 
 const futureItems: Array<{ label: string; icon: Component }> = [

@@ -31,6 +31,7 @@ export type PaymentTransactionsAvgAggregateOutputType = {
   orderId: number | null
   amount: runtime.Decimal | null
   status: number | null
+  adminRemarkUpdatedBy: number | null
 }
 
 export type PaymentTransactionsSumAggregateOutputType = {
@@ -38,6 +39,7 @@ export type PaymentTransactionsSumAggregateOutputType = {
   orderId: number | null
   amount: runtime.Decimal | null
   status: number | null
+  adminRemarkUpdatedBy: number | null
 }
 
 export type PaymentTransactionsMinAggregateOutputType = {
@@ -54,6 +56,9 @@ export type PaymentTransactionsMinAggregateOutputType = {
   expiredAt: Date | null
   errorMessage: string | null
   remark: string | null
+  adminRemark: string | null
+  adminRemarkUpdatedBy: number | null
+  adminRemarkUpdatedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -73,6 +78,9 @@ export type PaymentTransactionsMaxAggregateOutputType = {
   expiredAt: Date | null
   errorMessage: string | null
   remark: string | null
+  adminRemark: string | null
+  adminRemarkUpdatedBy: number | null
+  adminRemarkUpdatedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -93,6 +101,9 @@ export type PaymentTransactionsCountAggregateOutputType = {
   callbackData: number
   errorMessage: number
   remark: number
+  adminRemark: number
+  adminRemarkUpdatedBy: number
+  adminRemarkUpdatedAt: number
   createdAt: number
   updatedAt: number
   deletedAt: number
@@ -105,6 +116,7 @@ export type PaymentTransactionsAvgAggregateInputType = {
   orderId?: true
   amount?: true
   status?: true
+  adminRemarkUpdatedBy?: true
 }
 
 export type PaymentTransactionsSumAggregateInputType = {
@@ -112,6 +124,7 @@ export type PaymentTransactionsSumAggregateInputType = {
   orderId?: true
   amount?: true
   status?: true
+  adminRemarkUpdatedBy?: true
 }
 
 export type PaymentTransactionsMinAggregateInputType = {
@@ -128,6 +141,9 @@ export type PaymentTransactionsMinAggregateInputType = {
   expiredAt?: true
   errorMessage?: true
   remark?: true
+  adminRemark?: true
+  adminRemarkUpdatedBy?: true
+  adminRemarkUpdatedAt?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -147,6 +163,9 @@ export type PaymentTransactionsMaxAggregateInputType = {
   expiredAt?: true
   errorMessage?: true
   remark?: true
+  adminRemark?: true
+  adminRemarkUpdatedBy?: true
+  adminRemarkUpdatedAt?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -167,6 +186,9 @@ export type PaymentTransactionsCountAggregateInputType = {
   callbackData?: true
   errorMessage?: true
   remark?: true
+  adminRemark?: true
+  adminRemarkUpdatedBy?: true
+  adminRemarkUpdatedAt?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -274,6 +296,9 @@ export type PaymentTransactionsGroupByOutputType = {
   callbackData: runtime.JsonValue | null
   errorMessage: string | null
   remark: string | null
+  adminRemark: string | null
+  adminRemarkUpdatedBy: number | null
+  adminRemarkUpdatedAt: Date | null
   createdAt: Date
   updatedAt: Date
   deletedAt: Date | null
@@ -317,6 +342,9 @@ export type paymentTransactionsWhereInput = {
   callbackData?: Prisma.JsonNullableFilter<"paymentTransactions">
   errorMessage?: Prisma.StringNullableFilter<"paymentTransactions"> | string | null
   remark?: Prisma.StringNullableFilter<"paymentTransactions"> | string | null
+  adminRemark?: Prisma.StringNullableFilter<"paymentTransactions"> | string | null
+  adminRemarkUpdatedBy?: Prisma.IntNullableFilter<"paymentTransactions"> | number | null
+  adminRemarkUpdatedAt?: Prisma.DateTimeNullableFilter<"paymentTransactions"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"paymentTransactions"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"paymentTransactions"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"paymentTransactions"> | Date | string | null
@@ -338,6 +366,9 @@ export type paymentTransactionsOrderByWithRelationInput = {
   callbackData?: Prisma.SortOrderInput | Prisma.SortOrder
   errorMessage?: Prisma.SortOrderInput | Prisma.SortOrder
   remark?: Prisma.SortOrderInput | Prisma.SortOrder
+  adminRemark?: Prisma.SortOrderInput | Prisma.SortOrder
+  adminRemarkUpdatedBy?: Prisma.SortOrderInput | Prisma.SortOrder
+  adminRemarkUpdatedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -362,6 +393,9 @@ export type paymentTransactionsWhereUniqueInput = Prisma.AtLeast<{
   callbackData?: Prisma.JsonNullableFilter<"paymentTransactions">
   errorMessage?: Prisma.StringNullableFilter<"paymentTransactions"> | string | null
   remark?: Prisma.StringNullableFilter<"paymentTransactions"> | string | null
+  adminRemark?: Prisma.StringNullableFilter<"paymentTransactions"> | string | null
+  adminRemarkUpdatedBy?: Prisma.IntNullableFilter<"paymentTransactions"> | number | null
+  adminRemarkUpdatedAt?: Prisma.DateTimeNullableFilter<"paymentTransactions"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"paymentTransactions"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"paymentTransactions"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"paymentTransactions"> | Date | string | null
@@ -383,6 +417,9 @@ export type paymentTransactionsOrderByWithAggregationInput = {
   callbackData?: Prisma.SortOrderInput | Prisma.SortOrder
   errorMessage?: Prisma.SortOrderInput | Prisma.SortOrder
   remark?: Prisma.SortOrderInput | Prisma.SortOrder
+  adminRemark?: Prisma.SortOrderInput | Prisma.SortOrder
+  adminRemarkUpdatedBy?: Prisma.SortOrderInput | Prisma.SortOrder
+  adminRemarkUpdatedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -411,6 +448,9 @@ export type paymentTransactionsScalarWhereWithAggregatesInput = {
   callbackData?: Prisma.JsonNullableWithAggregatesFilter<"paymentTransactions">
   errorMessage?: Prisma.StringNullableWithAggregatesFilter<"paymentTransactions"> | string | null
   remark?: Prisma.StringNullableWithAggregatesFilter<"paymentTransactions"> | string | null
+  adminRemark?: Prisma.StringNullableWithAggregatesFilter<"paymentTransactions"> | string | null
+  adminRemarkUpdatedBy?: Prisma.IntNullableWithAggregatesFilter<"paymentTransactions"> | number | null
+  adminRemarkUpdatedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"paymentTransactions"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"paymentTransactions"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"paymentTransactions"> | Date | string
   deletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"paymentTransactions"> | Date | string | null
@@ -429,6 +469,9 @@ export type paymentTransactionsCreateInput = {
   callbackData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorMessage?: string | null
   remark?: string | null
+  adminRemark?: string | null
+  adminRemarkUpdatedBy?: number | null
+  adminRemarkUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -450,6 +493,9 @@ export type paymentTransactionsUncheckedCreateInput = {
   callbackData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorMessage?: string | null
   remark?: string | null
+  adminRemark?: string | null
+  adminRemarkUpdatedBy?: number | null
+  adminRemarkUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -468,6 +514,9 @@ export type paymentTransactionsUpdateInput = {
   callbackData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemarkUpdatedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  adminRemarkUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -489,6 +538,9 @@ export type paymentTransactionsUncheckedUpdateInput = {
   callbackData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemarkUpdatedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  adminRemarkUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -509,6 +561,9 @@ export type paymentTransactionsCreateManyInput = {
   callbackData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorMessage?: string | null
   remark?: string | null
+  adminRemark?: string | null
+  adminRemarkUpdatedBy?: number | null
+  adminRemarkUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -527,6 +582,9 @@ export type paymentTransactionsUpdateManyMutationInput = {
   callbackData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemarkUpdatedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  adminRemarkUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -547,6 +605,9 @@ export type paymentTransactionsUncheckedUpdateManyInput = {
   callbackData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemarkUpdatedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  adminRemarkUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -577,6 +638,9 @@ export type paymentTransactionsCountOrderByAggregateInput = {
   callbackData?: Prisma.SortOrder
   errorMessage?: Prisma.SortOrder
   remark?: Prisma.SortOrder
+  adminRemark?: Prisma.SortOrder
+  adminRemarkUpdatedBy?: Prisma.SortOrder
+  adminRemarkUpdatedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -587,6 +651,7 @@ export type paymentTransactionsAvgOrderByAggregateInput = {
   orderId?: Prisma.SortOrder
   amount?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  adminRemarkUpdatedBy?: Prisma.SortOrder
 }
 
 export type paymentTransactionsMaxOrderByAggregateInput = {
@@ -603,6 +668,9 @@ export type paymentTransactionsMaxOrderByAggregateInput = {
   expiredAt?: Prisma.SortOrder
   errorMessage?: Prisma.SortOrder
   remark?: Prisma.SortOrder
+  adminRemark?: Prisma.SortOrder
+  adminRemarkUpdatedBy?: Prisma.SortOrder
+  adminRemarkUpdatedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -622,6 +690,9 @@ export type paymentTransactionsMinOrderByAggregateInput = {
   expiredAt?: Prisma.SortOrder
   errorMessage?: Prisma.SortOrder
   remark?: Prisma.SortOrder
+  adminRemark?: Prisma.SortOrder
+  adminRemarkUpdatedBy?: Prisma.SortOrder
+  adminRemarkUpdatedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -632,6 +703,7 @@ export type paymentTransactionsSumOrderByAggregateInput = {
   orderId?: Prisma.SortOrder
   amount?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  adminRemarkUpdatedBy?: Prisma.SortOrder
 }
 
 export type paymentTransactionsCreateNestedManyWithoutOrderInput = {
@@ -689,6 +761,9 @@ export type paymentTransactionsCreateWithoutOrderInput = {
   callbackData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorMessage?: string | null
   remark?: string | null
+  adminRemark?: string | null
+  adminRemarkUpdatedBy?: number | null
+  adminRemarkUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -708,6 +783,9 @@ export type paymentTransactionsUncheckedCreateWithoutOrderInput = {
   callbackData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorMessage?: string | null
   remark?: string | null
+  adminRemark?: string | null
+  adminRemarkUpdatedBy?: number | null
+  adminRemarkUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -757,6 +835,9 @@ export type paymentTransactionsScalarWhereInput = {
   callbackData?: Prisma.JsonNullableFilter<"paymentTransactions">
   errorMessage?: Prisma.StringNullableFilter<"paymentTransactions"> | string | null
   remark?: Prisma.StringNullableFilter<"paymentTransactions"> | string | null
+  adminRemark?: Prisma.StringNullableFilter<"paymentTransactions"> | string | null
+  adminRemarkUpdatedBy?: Prisma.IntNullableFilter<"paymentTransactions"> | number | null
+  adminRemarkUpdatedAt?: Prisma.DateTimeNullableFilter<"paymentTransactions"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"paymentTransactions"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"paymentTransactions"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"paymentTransactions"> | Date | string | null
@@ -776,6 +857,9 @@ export type paymentTransactionsCreateManyOrderInput = {
   callbackData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorMessage?: string | null
   remark?: string | null
+  adminRemark?: string | null
+  adminRemarkUpdatedBy?: number | null
+  adminRemarkUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -794,6 +878,9 @@ export type paymentTransactionsUpdateWithoutOrderInput = {
   callbackData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemarkUpdatedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  adminRemarkUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -813,6 +900,9 @@ export type paymentTransactionsUncheckedUpdateWithoutOrderInput = {
   callbackData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemarkUpdatedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  adminRemarkUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -832,6 +922,9 @@ export type paymentTransactionsUncheckedUpdateManyWithoutOrderInput = {
   callbackData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemarkUpdatedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  adminRemarkUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -854,6 +947,9 @@ export type paymentTransactionsSelect<ExtArgs extends runtime.Types.Extensions.I
   callbackData?: boolean
   errorMessage?: boolean
   remark?: boolean
+  adminRemark?: boolean
+  adminRemarkUpdatedBy?: boolean
+  adminRemarkUpdatedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -875,6 +971,9 @@ export type paymentTransactionsSelectCreateManyAndReturn<ExtArgs extends runtime
   callbackData?: boolean
   errorMessage?: boolean
   remark?: boolean
+  adminRemark?: boolean
+  adminRemarkUpdatedBy?: boolean
+  adminRemarkUpdatedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -896,6 +995,9 @@ export type paymentTransactionsSelectUpdateManyAndReturn<ExtArgs extends runtime
   callbackData?: boolean
   errorMessage?: boolean
   remark?: boolean
+  adminRemark?: boolean
+  adminRemarkUpdatedBy?: boolean
+  adminRemarkUpdatedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -917,12 +1019,15 @@ export type paymentTransactionsSelectScalar = {
   callbackData?: boolean
   errorMessage?: boolean
   remark?: boolean
+  adminRemark?: boolean
+  adminRemarkUpdatedBy?: boolean
+  adminRemarkUpdatedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
 }
 
-export type paymentTransactionsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "transactionNo" | "orderId" | "amount" | "paymentChannel" | "paymentMethod" | "outTradeNo" | "prepayId" | "status" | "paidAt" | "expiredAt" | "callbackData" | "errorMessage" | "remark" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["paymentTransactions"]>
+export type paymentTransactionsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "transactionNo" | "orderId" | "amount" | "paymentChannel" | "paymentMethod" | "outTradeNo" | "prepayId" | "status" | "paidAt" | "expiredAt" | "callbackData" | "errorMessage" | "remark" | "adminRemark" | "adminRemarkUpdatedBy" | "adminRemarkUpdatedAt" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["paymentTransactions"]>
 export type paymentTransactionsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   order?: boolean | Prisma.ordersDefaultArgs<ExtArgs>
 }
@@ -998,6 +1103,18 @@ export type $paymentTransactionsPayload<ExtArgs extends runtime.Types.Extensions
      * 备注
      */
     remark: string | null
+    /**
+     * 管理员备注（仅后台可见，独立于业务 remark）
+     */
+    adminRemark: string | null
+    /**
+     * 管理员备注最后修改人 ID（不建外键）
+     */
+    adminRemarkUpdatedBy: number | null
+    /**
+     * 管理员备注最后修改时间
+     */
+    adminRemarkUpdatedAt: Date | null
     /**
      * 创建时间
      */
@@ -1448,6 +1565,9 @@ export interface paymentTransactionsFieldRefs {
   readonly callbackData: Prisma.FieldRef<"paymentTransactions", 'Json'>
   readonly errorMessage: Prisma.FieldRef<"paymentTransactions", 'String'>
   readonly remark: Prisma.FieldRef<"paymentTransactions", 'String'>
+  readonly adminRemark: Prisma.FieldRef<"paymentTransactions", 'String'>
+  readonly adminRemarkUpdatedBy: Prisma.FieldRef<"paymentTransactions", 'Int'>
+  readonly adminRemarkUpdatedAt: Prisma.FieldRef<"paymentTransactions", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"paymentTransactions", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"paymentTransactions", 'DateTime'>
   readonly deletedAt: Prisma.FieldRef<"paymentTransactions", 'DateTime'>

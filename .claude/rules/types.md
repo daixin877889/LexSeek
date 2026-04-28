@@ -28,15 +28,33 @@ paths:
 
 ```
 shared/types/
-├── prisma.ts           # 重新导出 Prisma 类型
-├── case.ts             # 案件相关类型
-├── payment.ts          # 支付相关类型
-├── membership.ts       # 会员相关类型
-├── file.ts             # 文件相关类型
-├── user.ts             # 用户相关类型
-├── rbac.ts             # 权限相关类型
-├── oss.ts              # OSS 相关类型
-└── tools.ts            # 工具计算相关类型
+├── prisma.ts            # 重新导出 generated/prisma/client 中的所有类型
+├── case.ts              # 案件相关类型
+├── payment.ts           # 支付相关类型
+├── membership.ts        # 会员相关类型
+├── benefit.ts           # 会员权益类型
+├── file.ts              # 文件相关类型
+├── user.ts              # 用户相关类型
+├── rbac.ts              # RBAC 角色/权限类型
+├── oss.ts               # OSS 相关类型
+├── memory.ts            # 案件记忆类型
+├── agentEvent.ts        # Agent 事件 / Session Scope/Type 等
+├── agentRun.ts          # Agent 任务运行类型
+├── agentAudit.ts        # Agent 审计日志类型
+├── assistant.ts         # 法律助手类型
+├── contract.ts          # 合同审查类型
+├── document.ts          # 文档起草类型
+├── legal.ts、legal-search.ts、legal-parser.ts  # 法律法规
+├── material.ts          # 案件素材类型
+├── model.ts、node.ts    # 模型 / 节点
+├── point.types.ts       # 积分类型
+├── product.ts、redemption.ts、campaign.ts  # 商品 / 兑换 / 营销
+├── prompt.ts            # 提示词类型
+├── recognition.ts       # OCR/ASR 识别类型
+├── skill.ts             # Agent skills 类型
+├── sms.ts、captcha.ts、aliSms.d.ts           # 短信 / 验证码
+├── system.ts、dashboard.ts、tools.ts         # 系统 / 看板 / 工具
+└── …                   # 按业务领域继续扩展
 ```
 
 ## 导入规范
@@ -46,10 +64,12 @@ shared/types/
 ```typescript
 // ✅ 正确
 import type { CaseStatus, PartyInfo } from '#shared/types/case'
-import type { cases } from '~~/generated/prisma/client'
+import type { cases, users, orders } from '~~/generated/prisma/client'
+// 通过 #shared 别名访问 prisma 类型也可以（shared/types/prisma.ts 重导出了 generated/prisma/client）
+import type { cases } from '#shared/types/prisma'
 
 // ❌ 错误
-import { CaseStatus } from '~/server/services/case/case.dao'
+import { CaseStatus } from '~~/server/services/case/case.dao'   // 业务模块不应导出共用类型
 ```
 
 ### 枚举定义

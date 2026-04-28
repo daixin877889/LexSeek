@@ -21,21 +21,34 @@ paths:
 
 ## 前端自动导入
 
-**Composables**（无需 import）：
-- `useApi` - SSR 数据请求
-- `useApiFetch` - 客户端数据请求
-- `useAgeCrypto` - Age 加密
-- `useFileEncryption` / `useFileDecryption` - 文件加解密
-- `useFileUploadWorker` - 文件上传
-- `useUserNavigation` - 用户导航
+> 项目已关闭目录扫描（`imports.scan: false`），**所有 composables、store、业务组件都需要显式 import**。
 
-**Vue/Nuxt 核心**：
-- `ref`, `reactive`, `computed`, `watch`
-- `useState`, `useFetch`, `useRuntimeConfig`
-- `navigateTo`, `useRoute`, `useRouter`
+### 仍自动导入（无需 import）
 
-**Store**：
-- 所有 `store/` 目录下的 Pinia store
+| 类别 | 内容 |
+|------|------|
+| Vue 响应式 API | `ref`、`reactive`、`computed`、`watch`、`watchEffect`、`onMounted`、`nextTick` 等 |
+| Nuxt composables | `useFetch`、`useState`、`useRuntimeConfig`、`useCookie`、`useHead`、`useNuxtApp` |
+| 路由 | `navigateTo`、`useRoute`、`useRouter`、`definePageMeta` |
+| Pinia | `defineStore`、`storeToRefs` |
+| 白名单工具 | `logger`、`resSuccess`、`resError` |
+| 自动注册组件 | `app/components/ui/`（shadcn-nuxt）、`app/components/ai-elements/`（仅 `.vue`） |
+
+### 必须显式 import
+
+```typescript
+// 业务 composables — 含 useApi / useApiFetch
+import { useApi } from '~/composables/useApi'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useCaseMemory } from '~/composables/useCaseMemory'
+
+// Pinia store
+import { useAuthStore } from '~/store/auth'
+import { useAlertDialogStore } from '~/store/alertDialog'
+
+// 业务组件（非 ui/ 与 ai-elements/）
+import CaseDetailMemory from '~/components/caseDetail/CaseDetailMemory.vue'
+```
 
 ## 类型导入
 
@@ -97,3 +110,40 @@ alertDialogStore.showErrorDialog({
 - 需要与页面内 shadcn Sheet/Drawer 共存时，传 `zIndex` 覆盖遮罩层级（Sheet 默认 z-[70]，传 `zIndex: 9999` 即可压过）
 
 当确认流程需要在组件内持有独立状态（如删除前额外输入、带表单校验），才使用本地 shadcn `AlertDialog` 组件（参考 `components/cases/CasesDeleteDialog.vue`）。
+
+## 无障碍（a11y）强制规则
+
+### `DialogContent` 必须有 `DialogDescription`
+
+shadcn / Radix 要求每个 `DialogContent` 必须包含 `<DialogDescription>` 或绑定 `aria-describedby`，否则浏览器控制台会持续打印告警：
+`Missing Description or aria-describedby for {DialogContent}`。
+
+```vue
+<!-- ❌ 错误：缺少 DialogDescription -->
+<DialogContent>
+  <DialogHeader>
+    <DialogTitle>保存版本</DialogTitle>
+  </DialogHeader>
+  ...
+</DialogContent>
+
+<!-- ✅ 正确：可见说明 -->
+<DialogContent>
+  <DialogHeader>
+    <DialogTitle>保存版本</DialogTitle>
+    <DialogDescription>为当前合同审查结果保存一个新版本。</DialogDescription>
+  </DialogHeader>
+  ...
+</DialogContent>
+
+<!-- ✅ 正确：视觉无说明，仅给屏幕阅读器 -->
+<DialogContent>
+  <DialogHeader>
+    <DialogTitle>选择模型</DialogTitle>
+    <DialogDescription class="sr-only">从已配置的模型中选择一个</DialogDescription>
+  </DialogHeader>
+  ...
+</DialogContent>
+```
+
+> 历史教训：`ContractSaveVersionDialog` / `RiskEditDialog` / `ai-elements/ModelSelectorContent` 都因漏写 Description 反复触发控制台告警；新写 Dialog 时务必至少加一行 `sr-only` Description 兜底。

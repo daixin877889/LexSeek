@@ -8,7 +8,7 @@
  * 视觉：默认折叠 "找到 N 条相关记忆"，展开显示 Top 3 一行预览。
  */
 import { computed, ref } from 'vue'
-import { ChevronDownIcon, NotebookPenIcon } from 'lucide-vue-next'
+import { ChevronDownIcon, BookMarkedIcon } from 'lucide-vue-next'
 import type { ExtendedToolState } from '@/components/ai-elements/types'
 
 interface MemorySearchHit {
@@ -69,14 +69,14 @@ const KIND_LABELS: Record<string, string> = {
     <div class="rounded-md border bg-card text-xs my-2">
         <!-- 状态：进行中 -->
         <div v-if="!isDone && !isError" class="flex items-center gap-2 px-3 py-2 text-muted-foreground">
-            <NotebookPenIcon class="size-3.5 animate-pulse" />
+            <BookMarkedIcon class="size-3.5 animate-pulse" />
             <span>正在检索案件记忆...</span>
             <span v-if="query" class="font-mono text-[10px] text-muted-foreground/70 truncate">"{{ query }}"</span>
         </div>
 
         <!-- 状态：失败 -->
         <div v-else-if="isError" class="flex items-center gap-2 px-3 py-2 text-destructive">
-            <NotebookPenIcon class="size-3.5" />
+            <BookMarkedIcon class="size-3.5" />
             <span>记忆检索失败</span>
         </div>
 
@@ -85,7 +85,7 @@ const KIND_LABELS: Record<string, string> = {
             class="w-full flex items-center justify-between gap-2 px-3 py-2 hover:bg-accent transition-colors"
             @click="isOpen = !isOpen">
             <div class="flex items-center gap-2 min-w-0">
-                <NotebookPenIcon class="size-3.5 text-muted-foreground flex-shrink-0" />
+                <BookMarkedIcon class="size-3.5 text-muted-foreground flex-shrink-0" />
                 <span class="text-muted-foreground">找到 {{ hits.length }} 条相关记忆</span>
             </div>
             <ChevronDownIcon class="size-3 text-muted-foreground transition-transform"

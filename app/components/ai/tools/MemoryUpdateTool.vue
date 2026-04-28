@@ -8,7 +8,7 @@
  * 紧凑卡片：旧值（灰删除线） → 新值（高亮）+ subject_key 灰小标。
  */
 import { computed } from 'vue'
-import { ArrowRightIcon, NotebookPenIcon } from 'lucide-vue-next'
+import { ArrowRightIcon, BookMarkedIcon } from 'lucide-vue-next'
 import type { ExtendedToolState } from '@/components/ai-elements/types'
 
 const props = defineProps<{
@@ -35,20 +35,20 @@ const newText = computed(() => props.input?.text ?? '')
     <div class="rounded-md border bg-card text-xs my-2 px-3 py-2">
         <!-- 进行中 -->
         <div v-if="!isDone && !isError" class="flex items-center gap-2 text-muted-foreground">
-            <NotebookPenIcon class="size-3.5 animate-pulse" />
+            <BookMarkedIcon class="size-3.5 animate-pulse" />
             <span>正在更新案件记忆...</span>
         </div>
 
         <!-- 失败 -->
         <div v-else-if="isError" class="flex items-center gap-2 text-destructive">
-            <NotebookPenIcon class="size-3.5" />
+            <BookMarkedIcon class="size-3.5" />
             <span>更新记忆失败</span>
         </div>
 
         <!-- 完成 -->
         <div v-else class="space-y-1">
             <div class="flex items-center gap-1.5 flex-wrap">
-                <NotebookPenIcon class="size-3.5 text-emerald-600 flex-shrink-0" />
+                <BookMarkedIcon class="size-3.5 text-emerald-600 flex-shrink-0" />
                 <span class="text-muted-foreground">已更正记忆</span>
             </div>
             <div class="flex items-center gap-2 flex-wrap">

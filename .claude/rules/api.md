@@ -38,25 +38,37 @@ if (!result.success) {
 
 ## 服务端自动导入
 
-以下无需手动 import：
+> 项目已关闭服务端目录扫描（`nitro.imports.dirs: []`），**所有 service / DAO / Prisma 客户端都必须显式 import**。
 
-**服务层函数**（`server/services/*/*`）：
-- auth、campaign、encryption、files、membership
-- payment、point、product、rbac、redemption
-- sms、storage、system、users
+### 仍自动导入（无需 import）
 
-**工具函数**（`server/utils/`）：
-- `prisma` - Prisma 客户端
-- `logger` - 日志工具
-- `resSuccess` / `resError` - 响应函数
+| 类别 | 内容 |
+|------|------|
+| H3 框架 | `defineEventHandler`、`getQuery`、`readBody`、`getRouterParam`、`getHeader`、`getCookie`、`setCookie`、`getRequestURL`、`setResponseStatus`、`createError` 等 |
+| Nitro 内置 | `useRuntimeConfig`、`useStorage` |
+| 白名单工具 | `logger`、`resSuccess`、`resError` |
 
-**H3 框架函数**：
-- `defineEventHandler` - 定义处理器
-- `getQuery` - 获取查询参数
-- `readBody` - 读取请求体
-- `getHeader` - 获取请求头
-- `setResponseStatus` - 设置状态码
-- `getRouterParam` - 获取路由参数
+### 必须显式 import
+
+```typescript
+// 服务端 Prisma 单例 — 不要从 #shared/utils/prisma 取
+import { prisma } from '~~/server/utils/db'
+
+// 业务 Service / DAO（命名规则：模块名.service.ts / 模块名.dao.ts）
+import { someService } from '~~/server/services/<domain>/xxx.service'
+import { someDao } from '~~/server/services/<domain>/xxx.dao'
+
+// 工具函数
+import { md5 } from '~~/server/utils/jwt'
+import { compress } from '~~/server/utils/imageCompression'
+
+// 类型
+import type { H3Event } from 'h3'
+import type { cases, users } from '~~/generated/prisma/client'
+import type { CaseStatus } from '#shared/types/case'
+```
+
+> Service 命名约定：方法以 `Service` 结尾、DAO 方法以 `DAO` 结尾。Service 之间可互相调用；DAO 仅被 Service 调用，不直接被 handler 调用。
 
 ## OSS 回调
 
@@ -77,6 +89,34 @@ server/api/v1/case/analysis/runs/cancel/[runId].post.ts
 server/api/v1/case/analysis/runs/[runId]/cancel.post.ts
 → 不要这样写
 ```
+
+> 历史教训：早期 scan 接口未把 `[xxx]` 转为 `:xxx`，库里曾残留 158 条带字面 `[]` 的 dead 权限规则，永远匹配不上真实请求。`api-permissions/scan.post.ts` 现已通过 `normalizeApiPath`（[xxx] → :xxx）+ `validateApiPathFormat`（拒绝任何残留 `[`/`]`）兜底；写新接口时仍优先按上面的 `参数末尾` 范式落盘。
+
+## RBAC 路径匹配协议（pathMatcher）
+
+数据库里 `api_permissions.path` 存的是 **匹配模式**，非真实请求路径。三种通配符：
+
+| 模式 | 含义 | 示例 |
+|------|------|------|
+| `:param` | 匹配单个路径段（动态参数） | `/api/v1/users/:id` 匹配 `/api/v1/users/123` |
+| `*` | 匹配单个路径段 | `/api/v1/files/*/meta` 匹配 `/api/v1/files/abc/meta` |
+| `**` | 匹配任意路径段（含 `/`） | `/api/v1/admin/**` 匹配 `/api/v1/admin/roles/1/permissions` |
+
+> ⚠️ `:param` 仅在路径段开头才会被识别为动态参数。`/foo:bar` 中的 `:` 会按字面冒号处理，不当作参数。这是 M5 的安全收紧。
+
+## 管理端 API 注册流程（不动 seedData / migration）
+
+新增 / 修改一个管理端接口（`server/api/v1/admin/**`）后，**不要**手写 SQL 到 `seedData.sql` 或迁移文件，按下面流程注册：
+
+1. 路由文件落盘后，`bun dev` 让 Nitro 扫描到新文件
+2. 进入管理后台 → 「API 权限」→ 点 **扫描** → 命中新接口（路径已自动 `[id] → :id`、method 大写）
+3. 「路由」页同样有 **扫描** 按钮，把新增页面挂到菜单
+4. 在「角色」页给目标角色（一般是新建管理类角色 admin / editor / operator）勾上权限
+5. 超级管理员开发期通过菜单兜底直接可见，无需手工 INSERT
+
+> 不要在中间件里硬卡"非 super_admin 一律 403"——管理端接口走 RBAC 权限表细粒度判定（详见 `server/middleware/03.permission.ts` + `server/services/rbac/permission.service.ts`）。任意被授权的管理类角色都能访问。
+
+> seedData 的角色：`prisma/seeds/seedData.sql` 是基础数据快照，不用作迁移增量。新业务的权限通过上面的 scan + import 流程进入数据库，**不写到 seedData.sql 里**（防止把开发期临时配置带到生产）。
 
 ## 代码架构
 

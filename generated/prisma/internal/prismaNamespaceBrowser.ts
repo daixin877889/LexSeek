@@ -894,6 +894,9 @@ export const OrdersScalarFieldEnum = {
   paidAt: 'paidAt',
   expiredAt: 'expiredAt',
   remark: 'remark',
+  adminRemark: 'adminRemark',
+  adminRemarkUpdatedBy: 'adminRemarkUpdatedBy',
+  adminRemarkUpdatedAt: 'adminRemarkUpdatedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'
@@ -917,6 +920,9 @@ export const PaymentTransactionsScalarFieldEnum = {
   callbackData: 'callbackData',
   errorMessage: 'errorMessage',
   remark: 'remark',
+  adminRemark: 'adminRemark',
+  adminRemarkUpdatedBy: 'adminRemarkUpdatedBy',
+  adminRemarkUpdatedAt: 'adminRemarkUpdatedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'

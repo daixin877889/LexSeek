@@ -1,7 +1,7 @@
 ---
 paths:
-  - "app/**/**"
-  - "app/**/useApi*.ts"
+  - "app/**/*.ts"
+  - "app/**/*.vue"
 ---
 
 # 数据请求规范

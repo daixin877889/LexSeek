@@ -9,7 +9,7 @@ import {
   FileEditIcon,
   FileSearchIcon,
   MoreHorizontalIcon,
-  NotebookPenIcon,
+  BookMarkedIcon,
 } from 'lucide-vue-next'
 
 interface TabItem {
@@ -29,7 +29,7 @@ const mainTabs: TabItem[] = [
 ]
 
 const moreTabs: TabItem[] = [
-  { id: 'memory', label: '案件记忆', icon: NotebookPenIcon },
+  { id: 'memory', label: '案件记忆', icon: BookMarkedIcon },
 ]
 
 const moreActive = computed(() => moreTabs.some(t => t.id === modelValue.value))

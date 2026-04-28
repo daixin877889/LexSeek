@@ -33,6 +33,7 @@ export type OrdersAvgAggregateOutputType = {
   amount: runtime.Decimal | null
   duration: number | null
   status: number | null
+  adminRemarkUpdatedBy: number | null
 }
 
 export type OrdersSumAggregateOutputType = {
@@ -42,6 +43,7 @@ export type OrdersSumAggregateOutputType = {
   amount: runtime.Decimal | null
   duration: number | null
   status: number | null
+  adminRemarkUpdatedBy: number | null
 }
 
 export type OrdersMinAggregateOutputType = {
@@ -57,6 +59,9 @@ export type OrdersMinAggregateOutputType = {
   paidAt: Date | null
   expiredAt: Date | null
   remark: string | null
+  adminRemark: string | null
+  adminRemarkUpdatedBy: number | null
+  adminRemarkUpdatedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -75,6 +80,9 @@ export type OrdersMaxAggregateOutputType = {
   paidAt: Date | null
   expiredAt: Date | null
   remark: string | null
+  adminRemark: string | null
+  adminRemarkUpdatedBy: number | null
+  adminRemarkUpdatedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -93,6 +101,9 @@ export type OrdersCountAggregateOutputType = {
   paidAt: number
   expiredAt: number
   remark: number
+  adminRemark: number
+  adminRemarkUpdatedBy: number
+  adminRemarkUpdatedAt: number
   createdAt: number
   updatedAt: number
   deletedAt: number
@@ -107,6 +118,7 @@ export type OrdersAvgAggregateInputType = {
   amount?: true
   duration?: true
   status?: true
+  adminRemarkUpdatedBy?: true
 }
 
 export type OrdersSumAggregateInputType = {
@@ -116,6 +128,7 @@ export type OrdersSumAggregateInputType = {
   amount?: true
   duration?: true
   status?: true
+  adminRemarkUpdatedBy?: true
 }
 
 export type OrdersMinAggregateInputType = {
@@ -131,6 +144,9 @@ export type OrdersMinAggregateInputType = {
   paidAt?: true
   expiredAt?: true
   remark?: true
+  adminRemark?: true
+  adminRemarkUpdatedBy?: true
+  adminRemarkUpdatedAt?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -149,6 +165,9 @@ export type OrdersMaxAggregateInputType = {
   paidAt?: true
   expiredAt?: true
   remark?: true
+  adminRemark?: true
+  adminRemarkUpdatedBy?: true
+  adminRemarkUpdatedAt?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -167,6 +186,9 @@ export type OrdersCountAggregateInputType = {
   paidAt?: true
   expiredAt?: true
   remark?: true
+  adminRemark?: true
+  adminRemarkUpdatedBy?: true
+  adminRemarkUpdatedAt?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -272,6 +294,9 @@ export type OrdersGroupByOutputType = {
   paidAt: Date | null
   expiredAt: Date
   remark: string | null
+  adminRemark: string | null
+  adminRemarkUpdatedBy: number | null
+  adminRemarkUpdatedAt: Date | null
   createdAt: Date
   updatedAt: Date
   deletedAt: Date | null
@@ -313,6 +338,9 @@ export type ordersWhereInput = {
   paidAt?: Prisma.DateTimeNullableFilter<"orders"> | Date | string | null
   expiredAt?: Prisma.DateTimeFilter<"orders"> | Date | string
   remark?: Prisma.StringNullableFilter<"orders"> | string | null
+  adminRemark?: Prisma.StringNullableFilter<"orders"> | string | null
+  adminRemarkUpdatedBy?: Prisma.IntNullableFilter<"orders"> | number | null
+  adminRemarkUpdatedAt?: Prisma.DateTimeNullableFilter<"orders"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"orders"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"orders"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"orders"> | Date | string | null
@@ -335,6 +363,9 @@ export type ordersOrderByWithRelationInput = {
   paidAt?: Prisma.SortOrderInput | Prisma.SortOrder
   expiredAt?: Prisma.SortOrder
   remark?: Prisma.SortOrderInput | Prisma.SortOrder
+  adminRemark?: Prisma.SortOrderInput | Prisma.SortOrder
+  adminRemarkUpdatedBy?: Prisma.SortOrderInput | Prisma.SortOrder
+  adminRemarkUpdatedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -360,6 +391,9 @@ export type ordersWhereUniqueInput = Prisma.AtLeast<{
   paidAt?: Prisma.DateTimeNullableFilter<"orders"> | Date | string | null
   expiredAt?: Prisma.DateTimeFilter<"orders"> | Date | string
   remark?: Prisma.StringNullableFilter<"orders"> | string | null
+  adminRemark?: Prisma.StringNullableFilter<"orders"> | string | null
+  adminRemarkUpdatedBy?: Prisma.IntNullableFilter<"orders"> | number | null
+  adminRemarkUpdatedAt?: Prisma.DateTimeNullableFilter<"orders"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"orders"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"orders"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"orders"> | Date | string | null
@@ -382,6 +416,9 @@ export type ordersOrderByWithAggregationInput = {
   paidAt?: Prisma.SortOrderInput | Prisma.SortOrder
   expiredAt?: Prisma.SortOrder
   remark?: Prisma.SortOrderInput | Prisma.SortOrder
+  adminRemark?: Prisma.SortOrderInput | Prisma.SortOrder
+  adminRemarkUpdatedBy?: Prisma.SortOrderInput | Prisma.SortOrder
+  adminRemarkUpdatedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -408,6 +445,9 @@ export type ordersScalarWhereWithAggregatesInput = {
   paidAt?: Prisma.DateTimeNullableWithAggregatesFilter<"orders"> | Date | string | null
   expiredAt?: Prisma.DateTimeWithAggregatesFilter<"orders"> | Date | string
   remark?: Prisma.StringNullableWithAggregatesFilter<"orders"> | string | null
+  adminRemark?: Prisma.StringNullableWithAggregatesFilter<"orders"> | string | null
+  adminRemarkUpdatedBy?: Prisma.IntNullableWithAggregatesFilter<"orders"> | number | null
+  adminRemarkUpdatedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"orders"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"orders"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"orders"> | Date | string
   deletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"orders"> | Date | string | null
@@ -423,6 +463,9 @@ export type ordersCreateInput = {
   paidAt?: Date | string | null
   expiredAt: Date | string
   remark?: string | null
+  adminRemark?: string | null
+  adminRemarkUpdatedBy?: number | null
+  adminRemarkUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -445,6 +488,9 @@ export type ordersUncheckedCreateInput = {
   paidAt?: Date | string | null
   expiredAt: Date | string
   remark?: string | null
+  adminRemark?: string | null
+  adminRemarkUpdatedBy?: number | null
+  adminRemarkUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -462,6 +508,9 @@ export type ordersUpdateInput = {
   paidAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   expiredAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemarkUpdatedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  adminRemarkUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -484,6 +533,9 @@ export type ordersUncheckedUpdateInput = {
   paidAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   expiredAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemarkUpdatedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  adminRemarkUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -504,6 +556,9 @@ export type ordersCreateManyInput = {
   paidAt?: Date | string | null
   expiredAt: Date | string
   remark?: string | null
+  adminRemark?: string | null
+  adminRemarkUpdatedBy?: number | null
+  adminRemarkUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -519,6 +574,9 @@ export type ordersUpdateManyMutationInput = {
   paidAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   expiredAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemarkUpdatedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  adminRemarkUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -537,6 +595,9 @@ export type ordersUncheckedUpdateManyInput = {
   paidAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   expiredAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemarkUpdatedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  adminRemarkUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -555,6 +616,9 @@ export type ordersCountOrderByAggregateInput = {
   paidAt?: Prisma.SortOrder
   expiredAt?: Prisma.SortOrder
   remark?: Prisma.SortOrder
+  adminRemark?: Prisma.SortOrder
+  adminRemarkUpdatedBy?: Prisma.SortOrder
+  adminRemarkUpdatedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -567,6 +631,7 @@ export type ordersAvgOrderByAggregateInput = {
   amount?: Prisma.SortOrder
   duration?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  adminRemarkUpdatedBy?: Prisma.SortOrder
 }
 
 export type ordersMaxOrderByAggregateInput = {
@@ -582,6 +647,9 @@ export type ordersMaxOrderByAggregateInput = {
   paidAt?: Prisma.SortOrder
   expiredAt?: Prisma.SortOrder
   remark?: Prisma.SortOrder
+  adminRemark?: Prisma.SortOrder
+  adminRemarkUpdatedBy?: Prisma.SortOrder
+  adminRemarkUpdatedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -600,6 +668,9 @@ export type ordersMinOrderByAggregateInput = {
   paidAt?: Prisma.SortOrder
   expiredAt?: Prisma.SortOrder
   remark?: Prisma.SortOrder
+  adminRemark?: Prisma.SortOrder
+  adminRemarkUpdatedBy?: Prisma.SortOrder
+  adminRemarkUpdatedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -612,6 +683,7 @@ export type ordersSumOrderByAggregateInput = {
   amount?: Prisma.SortOrder
   duration?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  adminRemarkUpdatedBy?: Prisma.SortOrder
 }
 
 export type OrdersScalarRelationFilter = {
@@ -751,6 +823,9 @@ export type ordersCreateWithoutPaymentTransactionsInput = {
   paidAt?: Date | string | null
   expiredAt: Date | string
   remark?: string | null
+  adminRemark?: string | null
+  adminRemarkUpdatedBy?: number | null
+  adminRemarkUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -772,6 +847,9 @@ export type ordersUncheckedCreateWithoutPaymentTransactionsInput = {
   paidAt?: Date | string | null
   expiredAt: Date | string
   remark?: string | null
+  adminRemark?: string | null
+  adminRemarkUpdatedBy?: number | null
+  adminRemarkUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -804,6 +882,9 @@ export type ordersUpdateWithoutPaymentTransactionsInput = {
   paidAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   expiredAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemarkUpdatedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  adminRemarkUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -825,6 +906,9 @@ export type ordersUncheckedUpdateWithoutPaymentTransactionsInput = {
   paidAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   expiredAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemarkUpdatedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  adminRemarkUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -841,6 +925,9 @@ export type ordersCreateWithoutMembershipUpgradeRecordsInput = {
   paidAt?: Date | string | null
   expiredAt: Date | string
   remark?: string | null
+  adminRemark?: string | null
+  adminRemarkUpdatedBy?: number | null
+  adminRemarkUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -862,6 +949,9 @@ export type ordersUncheckedCreateWithoutMembershipUpgradeRecordsInput = {
   paidAt?: Date | string | null
   expiredAt: Date | string
   remark?: string | null
+  adminRemark?: string | null
+  adminRemarkUpdatedBy?: number | null
+  adminRemarkUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -894,6 +984,9 @@ export type ordersUpdateWithoutMembershipUpgradeRecordsInput = {
   paidAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   expiredAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemarkUpdatedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  adminRemarkUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -915,6 +1008,9 @@ export type ordersUncheckedUpdateWithoutMembershipUpgradeRecordsInput = {
   paidAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   expiredAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemarkUpdatedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  adminRemarkUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -931,6 +1027,9 @@ export type ordersCreateWithoutProductInput = {
   paidAt?: Date | string | null
   expiredAt: Date | string
   remark?: string | null
+  adminRemark?: string | null
+  adminRemarkUpdatedBy?: number | null
+  adminRemarkUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -951,6 +1050,9 @@ export type ordersUncheckedCreateWithoutProductInput = {
   paidAt?: Date | string | null
   expiredAt: Date | string
   remark?: string | null
+  adminRemark?: string | null
+  adminRemarkUpdatedBy?: number | null
+  adminRemarkUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1000,6 +1102,9 @@ export type ordersScalarWhereInput = {
   paidAt?: Prisma.DateTimeNullableFilter<"orders"> | Date | string | null
   expiredAt?: Prisma.DateTimeFilter<"orders"> | Date | string
   remark?: Prisma.StringNullableFilter<"orders"> | string | null
+  adminRemark?: Prisma.StringNullableFilter<"orders"> | string | null
+  adminRemarkUpdatedBy?: Prisma.IntNullableFilter<"orders"> | number | null
+  adminRemarkUpdatedAt?: Prisma.DateTimeNullableFilter<"orders"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"orders"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"orders"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"orders"> | Date | string | null
@@ -1015,6 +1120,9 @@ export type ordersCreateWithoutUserInput = {
   paidAt?: Date | string | null
   expiredAt: Date | string
   remark?: string | null
+  adminRemark?: string | null
+  adminRemarkUpdatedBy?: number | null
+  adminRemarkUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1035,6 +1143,9 @@ export type ordersUncheckedCreateWithoutUserInput = {
   paidAt?: Date | string | null
   expiredAt: Date | string
   remark?: string | null
+  adminRemark?: string | null
+  adminRemarkUpdatedBy?: number | null
+  adminRemarkUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1080,6 +1191,9 @@ export type ordersCreateManyProductInput = {
   paidAt?: Date | string | null
   expiredAt: Date | string
   remark?: string | null
+  adminRemark?: string | null
+  adminRemarkUpdatedBy?: number | null
+  adminRemarkUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1095,6 +1209,9 @@ export type ordersUpdateWithoutProductInput = {
   paidAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   expiredAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemarkUpdatedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  adminRemarkUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1115,6 +1232,9 @@ export type ordersUncheckedUpdateWithoutProductInput = {
   paidAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   expiredAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemarkUpdatedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  adminRemarkUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1134,6 +1254,9 @@ export type ordersUncheckedUpdateManyWithoutProductInput = {
   paidAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   expiredAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemarkUpdatedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  adminRemarkUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1151,6 +1274,9 @@ export type ordersCreateManyUserInput = {
   paidAt?: Date | string | null
   expiredAt: Date | string
   remark?: string | null
+  adminRemark?: string | null
+  adminRemarkUpdatedBy?: number | null
+  adminRemarkUpdatedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1166,6 +1292,9 @@ export type ordersUpdateWithoutUserInput = {
   paidAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   expiredAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemarkUpdatedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  adminRemarkUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1186,6 +1315,9 @@ export type ordersUncheckedUpdateWithoutUserInput = {
   paidAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   expiredAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemarkUpdatedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  adminRemarkUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1205,6 +1337,9 @@ export type ordersUncheckedUpdateManyWithoutUserInput = {
   paidAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   expiredAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  adminRemarkUpdatedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  adminRemarkUpdatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1263,6 +1398,9 @@ export type ordersSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   paidAt?: boolean
   expiredAt?: boolean
   remark?: boolean
+  adminRemark?: boolean
+  adminRemarkUpdatedBy?: boolean
+  adminRemarkUpdatedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -1286,6 +1424,9 @@ export type ordersSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extens
   paidAt?: boolean
   expiredAt?: boolean
   remark?: boolean
+  adminRemark?: boolean
+  adminRemarkUpdatedBy?: boolean
+  adminRemarkUpdatedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -1306,6 +1447,9 @@ export type ordersSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extens
   paidAt?: boolean
   expiredAt?: boolean
   remark?: boolean
+  adminRemark?: boolean
+  adminRemarkUpdatedBy?: boolean
+  adminRemarkUpdatedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -1326,12 +1470,15 @@ export type ordersSelectScalar = {
   paidAt?: boolean
   expiredAt?: boolean
   remark?: boolean
+  adminRemark?: boolean
+  adminRemarkUpdatedBy?: boolean
+  adminRemarkUpdatedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
 }
 
-export type ordersOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "orderNo" | "userId" | "productId" | "amount" | "duration" | "durationUnit" | "orderType" | "status" | "paidAt" | "expiredAt" | "remark" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["orders"]>
+export type ordersOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "orderNo" | "userId" | "productId" | "amount" | "duration" | "durationUnit" | "orderType" | "status" | "paidAt" | "expiredAt" | "remark" | "adminRemark" | "adminRemarkUpdatedBy" | "adminRemarkUpdatedAt" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["orders"]>
 export type ordersInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.usersDefaultArgs<ExtArgs>
   product?: boolean | Prisma.productsDefaultArgs<ExtArgs>
@@ -1417,6 +1564,18 @@ export type $ordersPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
      * 备注
      */
     remark: string | null
+    /**
+     * 管理员备注（仅后台可见，独立于业务 remark）
+     */
+    adminRemark: string | null
+    /**
+     * 管理员备注最后修改人 ID（不建外键，避免高频写入连带）
+     */
+    adminRemarkUpdatedBy: number | null
+    /**
+     * 管理员备注最后修改时间
+     */
+    adminRemarkUpdatedAt: Date | null
     /**
      * 创建时间
      */
@@ -1868,6 +2027,9 @@ export interface ordersFieldRefs {
   readonly paidAt: Prisma.FieldRef<"orders", 'DateTime'>
   readonly expiredAt: Prisma.FieldRef<"orders", 'DateTime'>
   readonly remark: Prisma.FieldRef<"orders", 'String'>
+  readonly adminRemark: Prisma.FieldRef<"orders", 'String'>
+  readonly adminRemarkUpdatedBy: Prisma.FieldRef<"orders", 'Int'>
+  readonly adminRemarkUpdatedAt: Prisma.FieldRef<"orders", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"orders", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"orders", 'DateTime'>
   readonly deletedAt: Prisma.FieldRef<"orders", 'DateTime'>
