@@ -86,13 +86,32 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      # 7. 准备 .env.testing：基于 .env.example 模板 + 覆盖 DATABASE_URL
+      # 6.1 显式跑 prisma generate：origin 上 generated/prisma/ 偶尔跟 schema 不同步
+      #     （schema 改了但 commit 时没跑 generate），强制重新生成保证 client 与 schema 一致
+      - name: Generate Prisma client
+        run: bun run prisma:generate
+
+      # 7. 准备 .env.testing：基于 .env.example 模板 + 覆盖测试期望的关键值
       - name: Prepare .env.testing
         run: |
           cp .env.example .env.testing
-          # 用 sed 替换 DATABASE_URL 行
+          # 7.1 覆盖关键 env 让单元测试通过（业务代码读 useRuntimeConfig 拿到合法值，不会调真实外部服务）
           sed -i 's|^DATABASE_URL=.*|DATABASE_URL=postgresql://daixin:daixin88@localhost:5432/ls_new_testing?schema=public\&TimeZone=UTC|' .env.testing
-          # 补 .env.example 没有但测试需要的 key（用占位值，单元测试不会真调）
+          # AgentEventBridge 队列容量测试期望 1000（.env.example 的 500000 是生产值）
+          sed -i 's|^NUXT_AGENT_PENDING_QUEUE_MAX=.*|NUXT_AGENT_PENDING_QUEUE_MAX=1000|' .env.testing
+          # OSS adapter 必填 bucket，测试期望非空（不会真调 OSS）
+          sed -i 's|^NUXT_STORAGE_ALIYUN_OSS_BUCKET=.*|NUXT_STORAGE_ALIYUN_OSS_BUCKET=test-bucket|' .env.testing
+          sed -i 's|^NUXT_STORAGE_ALIYUN_OSS_REGION=.*|NUXT_STORAGE_ALIYUN_OSS_REGION=oss-cn-hangzhou|' .env.testing
+          sed -i 's|^NUXT_STORAGE_ALIYUN_OSS_ACCESS_KEY_ID=.*|NUXT_STORAGE_ALIYUN_OSS_ACCESS_KEY_ID=test-key-id|' .env.testing
+          sed -i 's|^NUXT_STORAGE_ALIYUN_OSS_ACCESS_KEY_SECRET=.*|NUXT_STORAGE_ALIYUN_OSS_ACCESS_KEY_SECRET=test-key-secret|' .env.testing
+          # Embedding URL 测试代码用 LangChain OpenAI client，构造时校验 URL 格式（非空也不行，要合法 URL）
+          sed -i 's|^NUXT_EMBEDDING_BASE_URL=.*|NUXT_EMBEDDING_BASE_URL=https://api.example.com/v1|' .env.testing
+          sed -i 's|^NUXT_EMBEDDING_API_KEY=.*|NUXT_EMBEDDING_API_KEY=test-embedding-key|' .env.testing
+          sed -i 's|^NUXT_EMBEDDING_MODEL=.*|NUXT_EMBEDDING_MODEL=test-embedding-model|' .env.testing
+          # JWT secret 测试用，非空即可
+          sed -i 's|^NUXT_JWT_SECRET=.*|NUXT_JWT_SECRET=ci-test-jwt-secret-do-not-use-in-prod|' .env.testing
+
+          # 7.2 补 .env.example 没有但测试需要的 key（用占位值，单元测试不会真调）
           cat >> .env.testing <<'EOF'
           NUXT_HNSW_EF_SEARCH=40
           NUXT_LAW_RERANK_THRESHOLD=0.5
