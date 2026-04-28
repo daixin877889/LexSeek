@@ -1,11 +1,10 @@
 name: Test
 
-# 触发条件：push 到 dev 分支 + 提到 dev 的 Pull Request
+# 触发条件：仅手动触发（GitHub Actions 页面按 "Run workflow" 按钮）
+# 之前自动跑（push/PR）暴露了 24 个 CI 环境特有 fail（unshare / mock 不全 / .env placeholder），
+# 24-04-28 决定先在本地跑，CI 暂停。基础设施保留：等后续修完 fail 把 trigger 改回 push:即可恢复
 on:
-  push:
-    branches: [dev]
-  pull_request:
-    branches: [dev]
+  workflow_dispatch:
 
 jobs:
   test:
