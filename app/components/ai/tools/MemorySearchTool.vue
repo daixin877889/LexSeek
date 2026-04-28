@@ -87,25 +87,34 @@ const KIND_LABELS: Record<string, string> = {
             <div class="flex items-center gap-2 min-w-0">
                 <NotebookPenIcon class="size-3.5 text-muted-foreground flex-shrink-0" />
                 <span class="text-muted-foreground">找到 {{ hits.length }} 条相关记忆</span>
-                <span v-if="query" class="font-mono text-[10px] text-muted-foreground/70 truncate">"{{ query }}"</span>
             </div>
             <ChevronDownIcon class="size-3 text-muted-foreground transition-transform"
                 :class="isOpen ? 'rotate-180' : ''" />
         </button>
 
-        <div v-if="isDone && isOpen" class="border-t px-3 py-2 space-y-1.5">
-            <div v-if="hits.length === 0" class="text-muted-foreground/70 italic">没有命中条目</div>
-            <div v-for="(hit, idx) in hits.slice(0, 3)" :key="hit.id ?? idx"
-                class="flex items-start gap-1.5">
-                <span v-if="hit.kind"
-                    class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] leading-none font-medium flex-shrink-0"
-                    :class="KIND_COLORS[hit.kind]">
-                    {{ KIND_LABELS[hit.kind] ?? hit.kind }}
+        <div v-if="isDone && isOpen" class="border-t">
+            <!-- 查询条件区（参考 MaterialSearchTool） -->
+            <div v-if="query" class="flex items-center gap-2 border-b px-3 py-2">
+                <span class="shrink-0 text-[11px] text-muted-foreground">查询</span>
+                <span class="inline-flex items-center rounded border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary line-clamp-1">
+                    {{ query }}
                 </span>
-                <span class="line-clamp-1 text-foreground">{{ hit.text }}</span>
             </div>
-            <div v-if="hits.length > 3" class="text-[10px] text-muted-foreground/60 pt-0.5">
-                还有 {{ hits.length - 3 }} 条命中（被 AI 用作回答上下文）
+            <!-- 结果列表 -->
+            <div class="px-3 py-2 space-y-1.5">
+                <div v-if="hits.length === 0" class="text-muted-foreground/70 italic">没有命中条目</div>
+                <div v-for="(hit, idx) in hits.slice(0, 3)" :key="hit.id ?? idx"
+                    class="flex items-start gap-1.5">
+                    <span v-if="hit.kind"
+                        class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] leading-none font-medium flex-shrink-0"
+                        :class="KIND_COLORS[hit.kind]">
+                        {{ KIND_LABELS[hit.kind] ?? hit.kind }}
+                    </span>
+                    <span class="line-clamp-1 text-foreground">{{ hit.text }}</span>
+                </div>
+                <div v-if="hits.length > 3" class="text-[10px] text-muted-foreground/60 pt-0.5">
+                    还有 {{ hits.length - 3 }} 条命中（被 AI 用作回答上下文）
+                </div>
             </div>
         </div>
     </div>
