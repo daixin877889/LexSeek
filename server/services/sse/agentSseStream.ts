@@ -190,8 +190,15 @@ export function createAgentSseStream(
           }
 
           // 检查是否已经结束（补发的最后一个事件可能是终结状态）
+          // 关键：仅当 parentToolCallId 为空（父 run 自己的终结）时才视为流结束。
+          // 子 Agent 的 status_change（subAgentToolFactory.handleChainEnd 发出）
+          // 也是 terminal status，但只代表"该子 Agent 完成"，父 run 还在继续。
           const lastMissed = missed.at(-1)
-          if (lastMissed?.type === 'status_change' && TERMINAL_STATUSES.includes(lastMissed.status)) {
+          if (
+            lastMissed?.type === 'status_change'
+            && TERMINAL_STATUSES.includes(lastMissed.status)
+            && !lastMissed.metadata?.parentToolCallId
+          ) {
             return
           }
         }
@@ -200,7 +207,9 @@ export function createAgentSseStream(
         for await (const evt of createEventSubscription(runId, abortController.signal)) {
           if (evt.type === 'status_change' && TERMINAL_STATUSES.includes(evt.status)) {
             controller.enqueue(encoder.encode(`event: custom\ndata: ${JSON.stringify(evt)}\n\n`))
-            break
+            // 仅父 run 自己的终结才关流（带 parentToolCallId 的是子 Agent 局部信号）
+            if (!evt.metadata?.parentToolCallId) break
+            continue
           }
           if (evt.type === 'stream_event') {
             let sseData: string
