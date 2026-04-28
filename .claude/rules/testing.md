@@ -15,22 +15,57 @@ paths:
 
 ## 环境配置
 
-测试使用独立的测试数据库，配置如下：
+测试使用独立的测试数据库 + worker 级 DB 隔离：
 
 - **环境变量文件**：`.env.testing`
-- **测试数据库**：`ls_new_testing`（`postgresql://daixin:daixin88@localhost:5432/ls_new_testing`）
-- **全局配置**：`vitest.config.ts` 中通过 `dotenv` 加载 `.env.testing`
-- **测试账号**：`13064768490`，密码：`daixin88`
+- **源测试库**：`ls_new_testing`（`postgresql://daixin:daixin88@localhost:5432/ls_new_testing`）—— 维护 schema + seed 的"模板源"，**不会被测试代码直接连**
+- **Worker 级 DB**：每个 vitest worker 启动时，`tests/_infra/global-setup.ts` 通过 `CREATE DATABASE ls_test_w<id> TEMPLATE ls_new_testing` 物理拷贝出独立 DB（PG buffer 级，~200ms/库）
+- **测试代码连接**：`tests/_infra/worker-setup.ts` 在每个 worker 进程启动时改写 `process.env.DATABASE_URL` 为 `ls_test_w<id>`，并设置 `globalThis.prisma`；业务代码 `import { prisma } from '~~/server/utils/db'` 自动拿到 worker 专属客户端
+- **测试账号**：`13064768490`，密码：`daixin88`（每个 worker DB 都有，互不冲突）
+- **配置文件**：`vitest.config.ts` 顶部通过 `dotenv` 加载，`globalSetup`/`setupFiles` 各自再加载一次
 
-新模块添加测试时，需在对应的 `test-db-helper.ts` 中加载测试环境变量：
+### Worker DB 生命周期
+
+```
+vitest 启动
+  ↓
+master 进程跑 globalSetup（tests/_infra/global-setup.ts）
+  ├─ DROP 上次残留的 ls_test_w*
+  ├─ 校验 ls_new_testing 无活跃连接
+  └─ 并行 CREATE DATABASE ls_test_w1..N TEMPLATE ls_new_testing
+  ↓
+4 个 fork worker 启动，各自加载 setupFiles（tests/_infra/worker-setup.ts）
+  ├─ 改写 process.env.DATABASE_URL 为 ls_test_w<VITEST_POOL_ID>
+  ├─ getWorkerPrisma() 创建 PrismaClient
+  └─ globalThis.prisma = workerPrisma
+  ↓
+测试文件加载、跑测试
+  ↓
+所有测试结束 → master 跑 globalSetup 返回的 teardown → DROP 所有 ls_test_w*
+```
+
+### 修改 schema 后流程
+
+业务流程不变：跑 `bun run prisma:migrate` 或 `bun run prisma:push`（更新源 `ls_new_testing`），下次跑 `bun run test` 时 globalSetup 会用最新的 schema 重新拷贝出 worker DB。
+
+### 编写带 DB 操作的测试
+
+直接 `import { prisma } from '~~/server/utils/db'` 即可，**无需关心 worker DB**：
 
 ```typescript
-import { config } from 'dotenv'
-import { resolve } from 'node:path'
+import { prisma } from '~~/server/utils/db'
 
-// 加载测试环境变量
-config({ path: resolve(__dirname, '../../../../.env.testing') })
+it('应成功创建会员级别', async () => {
+  const level = await prisma.membershipLevels.create({ data: { name: '测试_' + Date.now() } })
+  // 测试结束后，worker DB 整体被 DROP，不需要手动 cleanup
+  // 但同 worker 内多个 test 文件**串行**共享同一 DB——afterEach 仍需清理本测试文件的数据
+})
 ```
+
+### 已知限制
+
+- **同 worker 内测试串行共享 DB**：4 个 worker DB，但 vitest 把 N 个测试文件分配到 N/4 个 worker 内串行跑。如果同 worker 内 fileA 没清理干净，fileB 可能受污染。仍需在 `afterEach` / `afterAll` 清理本测试创建的数据。
+- **`bun run prisma:migrate` 必须 commit 到 prisma/migrations/**：见 `.claude/rules/database.md`，源 DB 也是这套流程同步的。
 
 ## 测试目录
 
