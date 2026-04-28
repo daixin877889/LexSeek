@@ -169,7 +169,7 @@ export const logPaymentRemarkUpdate = async (
 
 | 方法 | 路径 | 用途 | 入参 | 出参 |
 |------|------|------|------|------|
-| GET | `/api/v1/admin/orders` | 列表 + 筛选 + 分页 | `keyword` / `status[]` / `orderType` / `productId` / `startTime` / `endTime` / `page` / `pageSize` | `{ items, total, page, pageSize }` |
+| GET | `/api/v1/admin/orders` | 列表 + 筛选 + 分页 | `keyword` / `status` / `orderType` / `productId` / `startTime` / `endTime` / `page` / `pageSize` | `{ items, total, page, pageSize }` |
 | GET | `/api/v1/admin/orders/export` | CSV 导出 | 同列表（不含分页），`limit` 上限 10000 | CSV 流（带 BOM） |
 | GET | `/api/v1/admin/orders/[id]` | 详情 | `id` | 订单 + user + product + payment_transactions[] + audit_logs[] |
 | PATCH | `/api/v1/admin/orders/remark/[id]` | 更新管理员备注 | `id`, `{ remark: string \| null }` | 更新后的订单 |
@@ -181,7 +181,7 @@ export const logPaymentRemarkUpdate = async (
 
 | 方法 | 路径 | 用途 | 入参 | 出参 |
 |------|------|------|------|------|
-| GET | `/api/v1/admin/payments` | 列表 + 筛选 + 分页 | `keyword` / `status[]` / `paymentChannel` / `paymentMethod` / `startTime` / `endTime` / `page` / `pageSize` | `{ items, total, page, pageSize }` |
+| GET | `/api/v1/admin/payments` | 列表 + 筛选 + 分页 | `keyword` / `status` / `paymentChannel` / `paymentMethod` / `startTime` / `endTime` / `page` / `pageSize` | `{ items, total, page, pageSize }` |
 | GET | `/api/v1/admin/payments/export` | CSV 导出 | 同列表（不含分页），`limit` 上限 10000 | CSV 流（带 BOM） |
 | GET | `/api/v1/admin/payments/[id]` | 详情 | `id` | 支付单 + order + user + callbackData + audit_logs[] |
 | PATCH | `/api/v1/admin/payments/remark/[id]` | 更新管理员备注 | `id`, `{ remark: string \| null }` | 更新后的支付单 |
@@ -285,7 +285,7 @@ export const updateOrderForAdminCancelDao = (id: number, reason: string, operato
 │ 订单管理                                  [导出] [刷新]   │
 │ 查询和管理用户订单                                       │
 ├─────────────────────────────────────────────────────────┤
-│ [搜索框: 订单号/手机号/昵称] [状态多选] [类型] [商品]     │
+│ [搜索框: 订单号/手机号/昵称] [状态]    [类型] [商品]     │
 │ [起止日期]                          [筛选]   [重置]     │
 ├─────────────────────────────────────────────────────────┤
 │ 订单号  | 用户   | 商品   | 金额 | 类型 | 状态 | 时间   │
@@ -344,24 +344,30 @@ export const updateOrderForAdminCancelDao = (id: number, reason: string, operato
 - 取代"关联支付单"是"**关联订单**"——显示订单号 + 状态 + 金额，**点击该行即切换到订单详情抽屉**（卸载当前支付抽屉，打开订单抽屉，提供清晰的关联导航）
 - 多一块"回调原始数据"（callbackData JSON），用 HTML5 `<details>` + `<pre>` + Tailwind 折叠展示，不需独立组件
 
-### 7.2.1 取消订单的二次确认实现
+### 7.2.1 取消订单的内嵌表单实现
 
-取消订单按钮点击后，**必须**用项目铁律的 `useAlertDialogStore.showErrorDialog`（破坏性操作走红色主按钮）：
+**不弹另一个 Dialog**，避免 AlertDialog 套 Sheet 的 z-index / Overlay 冲突。改为在订单详情抽屉内的同一位置展开 inline 表单：
 
-```ts
-const alertDialogStore = useAlertDialogStore()
-alertDialogStore.showErrorDialog({
-    title: '取消订单',
-    message: '请填写取消原因（1-200 字）',
-    inputLabel: '取消原因',  // 如全局 dialog 不支持自带输入框，则用本地 AlertDialog 组件持有原因表单
-    confirmText: '确认取消',
-    cancelText: '返回',
-    zIndex: 9999,           // 必传：压过 Sheet 抽屉的 z-[70] 遮罩
-    onConfirm: async (reason) => { ... }
-})
+```
+[取消订单] 按钮（仅待支付订单可见）
+        │
+        ▼ 点击后，按钮区切换为：
+        
+┌────────────────────────────────────┐
+│ 取消订单                            │
+│ ┌────────────────────────────────┐ │
+│ │ 请填写取消原因（1-200 字）...  │ │
+│ │                                │ │
+│ └────────────────────────────────┘ │
+│ [确认取消（红）] [返回]             │
+└────────────────────────────────────┘
 ```
 
-> 若 `useAlertDialogStore` 不支持输入框，则改用本地 `AlertDialog` 组件（`OrderCancelDialog.vue`）持有 reason 表单 + 校验。**禁用** 浏览器 `confirm()` / `prompt()`。
+实现要点：
+- OrderDetailSheet 内的"取消订单"区块用一个本地 `ref<'idle' | 'editing'>('idle')` 状态切换
+- "确认取消"按钮调用 `POST /api/v1/admin/orders/cancel/:id`，成功后刷新当前抽屉详情
+- reason 走前端 zod 校验（1-200 字非空）
+- **禁用** 浏览器原生 `confirm()` / `prompt()` 和单独的 Modal/Dialog 组件
 
 ### 7.3 z-index 注意（按项目记忆）
 
@@ -373,9 +379,8 @@ Sheet 抽屉默认 `z-[70]`。如果在抽屉里弹"取消订单确认对话框"
 app/components/admin/orders/
 ├── OrderTable.vue                    # 桌面端表格
 ├── OrderMobile.vue                   # 移动端卡片列表
-├── OrderFilters.vue                  # 筛选条
-├── OrderDetailSheet.vue              # 详情抽屉（包含所有详情区块、内联渲染审计列表与 callback JSON）
-├── OrderCancelDialog.vue             # 取消订单弹窗（仅在 useAlertDialogStore 不够用时启用）
+├── OrderFilters.vue                  # 筛选条（状态单选 + 'all'）
+├── OrderDetailSheet.vue              # 详情抽屉（含所有详情区块 + 取消订单 inline 表单 + 审计列表 + callback JSON）
 └── OrderAdminRemarkEditor.vue        # 管理员备注编辑器
 
 app/components/admin/payments/
@@ -390,9 +395,10 @@ app/components/admin/shared/
 ```
 
 **精简点说明**：
-- 不再为订单/支付分别建 `*StatusBadge.vue`，统一为 `shared/StatusBadge.vue`，通过传入"状态值 → variant"的映射表渲染（订单 4 种、支付 5 种映射定义在 `shared/types/payment.ts`）
+- 不再为订单/支付分别建 `*StatusBadge.vue`，统一为 `shared/StatusBadge.vue`，通过传入"状态值 → variant + text"的映射表渲染。**所有状态映射（OrderStatusText / PaymentStatusText / OrderStatusVariant / PaymentStatusVariant）统一定义在 `shared/types/payment.ts`，组件 import 用，禁止本地重复定义**
 - 不新建 `PaymentCallbackViewer.vue` 独立组件——回调 JSON 折叠用 HTML5 `<details>` + `<pre>` + Tailwind `font-mono` 即可
 - 不新建 `AdminAuditLogTimeline.vue` 独立组件——抽屉里直接 `<ul>` + `Separator` 渲染审计列表，逻辑无复用价值不抽组件
+- 不新建 `OrderCancelDialog.vue` 独立组件——取消订单走 OrderDetailSheet 内嵌 inline 表单（见 §7.2.1）
 
 ### 7.5 状态徽章颜色（沿用 shadcn-vue 语义）
 

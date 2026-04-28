@@ -39,7 +39,7 @@
 
 ### 新增（前端）
 - `app/components/admin/shared/StatusBadge.vue`
-- `app/components/admin/orders/{OrderTable,OrderMobile,OrderFilters,OrderDetailSheet,OrderCancelDialog,OrderAdminRemarkEditor}.vue`
+- `app/components/admin/orders/{OrderTable,OrderMobile,OrderFilters,OrderDetailSheet,OrderAdminRemarkEditor}.vue`
 - `app/components/admin/payments/{PaymentTable,PaymentMobile,PaymentFilters,PaymentDetailSheet,PaymentAdminRemarkEditor}.vue`
 - `app/pages/admin/orders/index.vue`
 - `app/pages/admin/payments/index.vue`
@@ -155,7 +155,7 @@ import type { OrderStatus, PaymentStatus } from './payment'  // 自引用提示�
 /** 管理端订单列表查询参数 */
 export interface AdminOrderQuery {
     keyword?: string                  // 订单号/手机号/昵称
-    status?: OrderStatus[]            // 状态多选
+    status?: OrderStatus               // 状态单选（不传 = 全部）
     orderType?: 'purchase' | 'upgrade' | 'renew'
     productId?: number
     startTime?: Date
@@ -195,7 +195,7 @@ export interface AdminOrderDetail extends AdminOrderListItem {
 /** 管理端支付列表查询参数 */
 export interface AdminPaymentQuery {
     keyword?: string                  // 支付单号/外部交易号/订单号/手机号/昵称
-    status?: PaymentStatus[]
+    status?: PaymentStatus             // 单选（不传 = 全部）
     paymentChannel?: 'wechat' | 'alipay'
     paymentMethod?: 'mini_program' | 'scan_code' | 'wap' | 'app' | 'pc'
     startTime?: Date
@@ -258,6 +258,22 @@ export const PaymentStatusVariant: Record<PaymentStatus, 'default' | 'secondary'
     [PaymentStatus.FAILED]: 'destructive',
     [PaymentStatus.EXPIRED]: 'outline',
     [PaymentStatus.REFUNDED]: 'destructive',
+}
+
+/** 状态 → 中文文本（前端组件统一 import，禁止本地重复定义） */
+export const OrderStatusText: Record<OrderStatus, string> = {
+    [OrderStatus.PENDING]: '待支付',
+    [OrderStatus.PAID]: '已支付',
+    [OrderStatus.CANCELLED]: '已取消',
+    [OrderStatus.REFUNDED]: '已退款',
+}
+
+export const PaymentStatusText: Record<PaymentStatus, string> = {
+    [PaymentStatus.PENDING]: '待支付',
+    [PaymentStatus.SUCCESS]: '支付成功',
+    [PaymentStatus.FAILED]: '支付失败',
+    [PaymentStatus.EXPIRED]: '已过期',
+    [PaymentStatus.REFUNDED]: '已退款',
 }
 
 /** 订单类型中文映射 */
@@ -343,9 +359,9 @@ describe('order.admin.dao', () => {
             expect(result.items.some((o) => o.id === testOrderId)).toBe(true)
         })
 
-        it('按状态多选筛选', async () => {
+        it('按状态筛选只返回该状态', async () => {
             const result = await findOrdersForAdminDao(
-                { status: [OrderStatus.PENDING] },
+                { status: OrderStatus.PENDING },
                 { page: 1, pageSize: 10 },
             )
             expect(result.items.every((o) => o.status === OrderStatus.PENDING)).toBe(true)
@@ -478,7 +494,7 @@ const buildWhere = (q: AdminOrderQuery): Prisma.ordersWhereInput => {
             { user: { name: { contains: q.keyword } } },
         ]
     }
-    if (q.status?.length) where.status = { in: q.status }
+    if (q.status !== undefined) where.status = q.status
     if (q.orderType) where.orderType = q.orderType
     if (q.productId) where.productId = q.productId
     if (q.startTime || q.endTime) {
@@ -702,7 +718,7 @@ const buildWhere = (q: AdminPaymentQuery): Prisma.paymentTransactionsWhereInput 
             { order: { user: { name: { contains: q.keyword } } } },
         ]
     }
-    if (q.status?.length) where.status = { in: q.status }
+    if (q.status !== undefined) where.status = q.status
     if (q.paymentChannel) where.paymentChannel = q.paymentChannel
     if (q.paymentMethod) where.paymentMethod = q.paymentMethod
     if (q.startTime || q.endTime) {
@@ -1453,14 +1469,10 @@ git commit -m "test(admin): 用户端订单接口 admin_remark 隔离回归测�
 ```typescript
 import { z } from 'zod'
 import { findOrdersForAdminService } from '~~/server/services/payment/order.admin.service'
-import { OrderStatus } from '#shared/types/payment'
 
 const querySchema = z.object({
     keyword: z.string().optional(),
-    status: z.string().optional().transform((v) => {
-        if (!v) return undefined
-        return v.split(',').map(Number).filter((n) => !isNaN(n)) as OrderStatus[]
-    }),
+    status: z.coerce.number().int().optional(),     // 单选：0/1/2/3 或不传
     orderType: z.enum(['purchase', 'upgrade', 'renew']).optional(),
     productId: z.coerce.number().int().optional(),
     startTime: z.string().optional().transform((v) => v ? new Date(v) : undefined),
@@ -1573,14 +1585,10 @@ export default defineEventHandler(async (event) => {
 ```typescript
 import { z } from 'zod'
 import { exportOrdersService } from '~~/server/services/payment/order.admin.service'
-import { OrderStatus } from '#shared/types/payment'
 
 const querySchema = z.object({
     keyword: z.string().optional(),
-    status: z.string().optional().transform((v) => {
-        if (!v) return undefined
-        return v.split(',').map(Number).filter((n) => !isNaN(n)) as OrderStatus[]
-    }),
+    status: z.coerce.number().int().optional(),
     orderType: z.enum(['purchase', 'upgrade', 'renew']).optional(),
     productId: z.coerce.number().int().optional(),
     startTime: z.string().optional().transform((v) => v ? new Date(v) : undefined),
@@ -1655,14 +1663,10 @@ git commit -m "feat(admin): 订单管理 5 个 admin API handlers"
 ```typescript
 import { z } from 'zod'
 import { findPaymentTransactionsForAdminService } from '~~/server/services/payment/paymentTransaction.admin.service'
-import { PaymentStatus } from '#shared/types/payment'
 
 const querySchema = z.object({
     keyword: z.string().optional(),
-    status: z.string().optional().transform((v) => {
-        if (!v) return undefined
-        return v.split(',').map(Number).filter((n) => !isNaN(n)) as PaymentStatus[]
-    }),
+    status: z.coerce.number().int().optional(),     // 单选：0-4 或不传
     paymentChannel: z.enum(['wechat', 'alipay']).optional(),
     paymentMethod: z.enum(['mini_program', 'scan_code', 'wap', 'app', 'pc']).optional(),
     startTime: z.string().optional().transform((v) => v ? new Date(v) : undefined),
@@ -1743,14 +1747,10 @@ export default defineEventHandler(async (event) => {
 ```typescript
 import { z } from 'zod'
 import { exportPaymentTransactionsService } from '~~/server/services/payment/paymentTransaction.admin.service'
-import { PaymentStatus } from '#shared/types/payment'
 
 const querySchema = z.object({
     keyword: z.string().optional(),
-    status: z.string().optional().transform((v) => {
-        if (!v) return undefined
-        return v.split(',').map(Number).filter((n) => !isNaN(n)) as PaymentStatus[]
-    }),
+    status: z.coerce.number().int().optional(),
     paymentChannel: z.enum(['wechat', 'alipay']).optional(),
     paymentMethod: z.enum(['mini_program', 'scan_code', 'wap', 'app', 'pc']).optional(),
     startTime: z.string().optional().transform((v) => v ? new Date(v) : undefined),
@@ -1849,7 +1849,7 @@ git commit -m "feat(admin): 通用 StatusBadge 组件"
 ## Task 12: 订单前端组件（6 个）
 
 **Files:**
-- Create: `app/components/admin/orders/{OrderTable,OrderMobile,OrderFilters,OrderDetailSheet,OrderCancelDialog,OrderAdminRemarkEditor}.vue`
+- Create: `app/components/admin/orders/{OrderTable,OrderMobile,OrderFilters,OrderDetailSheet,OrderAdminRemarkEditor}.vue`
 
 > 由于代码量较大，本任务分 6 个子步骤，每个子步骤单独 commit。组件之间无强依赖，可单独开发联调。
 
@@ -1969,17 +1969,13 @@ function reset() {
 
 <script setup lang="ts">
 import dayjs from 'dayjs'
-import { OrderStatusVariant, OrderTypeText } from '#shared/types/payment'
-import type { AdminOrderListItem, OrderStatus } from '#shared/types/payment'
+import { OrderStatusVariant, OrderStatusText, OrderTypeText } from '#shared/types/payment'
+import type { AdminOrderListItem } from '#shared/types/payment'
 import StatusBadge from '~/components/admin/shared/StatusBadge.vue'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '~/components/ui/table'
 
 defineProps<{ orders: AdminOrderListItem[] }>()
 const emit = defineEmits<{ open: [order: AdminOrderListItem] }>()
-
-const OrderStatusText: Record<OrderStatus, string> = {
-    0: '待支付', 1: '已支付', 2: '已取消', 3: '已退款',
-} as any
 
 function orderTypeText(t: string) {
     return OrderTypeText[t] ?? t
@@ -2017,15 +2013,14 @@ function formatDate(d: Date | string) {
 
 <script setup lang="ts">
 import dayjs from 'dayjs'
-import { OrderStatusVariant } from '#shared/types/payment'
-import type { AdminOrderListItem, OrderStatus } from '#shared/types/payment'
+import { OrderStatusVariant, OrderStatusText } from '#shared/types/payment'
+import type { AdminOrderListItem } from '#shared/types/payment'
 import StatusBadge from '~/components/admin/shared/StatusBadge.vue'
 import { Card, CardContent } from '~/components/ui/card'
 
 defineProps<{ orders: AdminOrderListItem[] }>()
 const emit = defineEmits<{ open: [order: AdminOrderListItem] }>()
 
-const OrderStatusText: Record<OrderStatus, string> = { 0: '待支付', 1: '已支付', 2: '已取消', 3: '已退款' } as any
 function formatDate(d: Date | string) { return dayjs(d).format('MM-DD HH:mm') }
 </script>
 ```
@@ -2104,81 +2099,7 @@ function formatDate(d: Date | string) { return dayjs(d).format('YYYY-MM-DD HH:mm
 
 提交：`git add app/components/admin/orders/OrderAdminRemarkEditor.vue && git commit -m "feat(admin): OrderAdminRemarkEditor 备注编辑器（订单/支付通用）"`
 
-- [ ] **Step 5: OrderCancelDialog 取消订单弹窗**
-
-创建 `app/components/admin/orders/OrderCancelDialog.vue`：
-
-```vue
-<template>
-    <AlertDialog v-model:open="open">
-        <AlertDialogContent class="z-[200]">
-            <AlertDialogHeader>
-                <AlertDialogTitle>取消订单</AlertDialogTitle>
-                <AlertDialogDescription>
-                    取消后订单不可恢复，请填写取消原因（1-200 字）
-                </AlertDialogDescription>
-            </AlertDialogHeader>
-            <Textarea v-model="reason" rows="3" placeholder="例：客户误下单 / 重复支付" />
-            <AlertDialogFooter>
-                <AlertDialogCancel>返回</AlertDialogCancel>
-                <AlertDialogAction :disabled="!reason.trim() || submitting"
-                    class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    @click="submit">
-                    <Loader2 v-if="submitting" class="w-4 h-4 mr-1 animate-spin" />
-                    确认取消
-                </AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-    </AlertDialog>
-</template>
-
-<script setup lang="ts">
-import { Loader2 } from 'lucide-vue-next'
-import { toast } from 'vue-sonner'
-import { Textarea } from '~/components/ui/textarea'
-import {
-    AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-    AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '~/components/ui/alert-dialog'
-import { useApiFetch } from '~/composables/useApiFetch'
-
-const props = defineProps<{ orderId: number | null }>()
-const emit = defineEmits<{ success: []; 'update:open': [boolean] }>()
-
-const open = ref(false)
-const reason = ref('')
-const submitting = ref(false)
-
-defineExpose({ openDialog })
-
-function openDialog() {
-    reason.value = ''
-    open.value = true
-}
-
-async function submit() {
-    if (!props.orderId) return
-    submitting.value = true
-    try {
-        const result = await useApiFetch(`/api/v1/admin/orders/cancel/${props.orderId}`, {
-            method: 'POST',
-            body: { reason: reason.value.trim() },
-        })
-        if (result) {
-            toast.success('订单已取消')
-            open.value = false
-            emit('success')
-        }
-    } finally {
-        submitting.value = false
-    }
-}
-</script>
-```
-
-提交：`git add app/components/admin/orders/OrderCancelDialog.vue && git commit -m "feat(admin): OrderCancelDialog 取消订单弹窗"`
-
-- [ ] **Step 6: OrderDetailSheet 详情抽屉**
+- [ ] **Step 5: OrderDetailSheet 详情抽屉（含取消订单 inline 表单）**
 
 创建 `app/components/admin/orders/OrderDetailSheet.vue`：
 
@@ -2272,39 +2193,61 @@ async function submit() {
                     <div v-else class="text-sm text-muted-foreground">暂无操作记录</div>
                 </div>
 
-                <!-- 取消订单按钮（仅待支付） -->
+                <!-- 取消订单 inline 表单（仅待支付） -->
                 <div v-if="detail.status === 0" class="pt-4 border-t">
-                    <Button variant="destructive" @click="cancelDialogRef?.openDialog()">
-                        <Ban class="w-4 h-4 mr-1" /> 取消订单
-                    </Button>
+                    <div v-if="cancelMode === 'idle'">
+                        <Button variant="destructive" @click="enterCancelMode">
+                            <Ban class="w-4 h-4 mr-1" /> 取消订单
+                        </Button>
+                    </div>
+                    <div v-else class="space-y-2">
+                        <h3 class="text-sm font-medium">取消订单</h3>
+                        <Textarea v-model="cancelReason" rows="3" placeholder="请填写取消原因（1-200 字）" />
+                        <div class="flex gap-2">
+                            <Button variant="destructive" :disabled="!isReasonValid || cancelling" @click="submitCancel">
+                                <Loader2 v-if="cancelling" class="w-4 h-4 mr-1 animate-spin" />
+                                确认取消
+                            </Button>
+                            <Button variant="ghost" @click="cancelMode = 'idle'">返回</Button>
+                        </div>
+                        <p v-if="cancelReason && !isReasonValid" class="text-xs text-destructive">
+                            原因 1-200 字
+                        </p>
+                    </div>
                 </div>
             </div>
         </SheetContent>
     </Sheet>
-
-    <OrderCancelDialog ref="cancelDialogRef" :order-id="detail?.id ?? null" @success="onCancelled" />
 </template>
 
 <script setup lang="ts">
 import { Loader2, Ban } from 'lucide-vue-next'
 import dayjs from 'dayjs'
-import { OrderStatusVariant, PaymentStatusVariant, OrderTypeText } from '#shared/types/payment'
-import type { AdminOrderDetail, OrderStatus, PaymentStatus } from '#shared/types/payment'
+import { toast } from 'vue-sonner'
+import {
+    OrderStatusVariant, PaymentStatusVariant,
+    OrderStatusText, PaymentStatusText,
+    OrderTypeText,
+} from '#shared/types/payment'
+import type { AdminOrderDetail } from '#shared/types/payment'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '~/components/ui/sheet'
 import { Button } from '~/components/ui/button'
+import { Textarea } from '~/components/ui/textarea'
 import StatusBadge from '~/components/admin/shared/StatusBadge.vue'
 import OrderAdminRemarkEditor from '~/components/admin/orders/OrderAdminRemarkEditor.vue'
-import OrderCancelDialog from '~/components/admin/orders/OrderCancelDialog.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
 
 const open = ref(false)
 const detail = ref<AdminOrderDetail | null>(null)
-const cancelDialogRef = ref<any>(null)
 
-const OrderStatusText: Record<OrderStatus, string> = { 0: '待支付', 1: '已支付', 2: '已取消', 3: '已退款' } as any
-const PaymentStatusText: Record<PaymentStatus, string> = {
-    0: '待支付', 1: '支付成功', 2: '支付失败', 3: '已过期', 4: '已退款',
-} as any
+// 取消订单 inline 表单状态
+const cancelMode = ref<'idle' | 'editing'>('idle')
+const cancelReason = ref('')
+const cancelling = ref(false)
+const isReasonValid = computed(() => {
+    const t = cancelReason.value.trim()
+    return t.length >= 1 && t.length <= 200
+})
 
 const ACTION_TEXT: Record<string, string> = {
     order_cancel: '取消了订单',
@@ -2318,6 +2261,8 @@ defineExpose({ openOrder })
 async function openOrder(id: number) {
     open.value = true
     detail.value = null
+    cancelMode.value = 'idle'
+    cancelReason.value = ''
     await loadDetail(id)
 }
 
@@ -2328,9 +2273,28 @@ async function loadDetail(id?: number) {
     if (data) detail.value = data
 }
 
-function onCancelled() {
-    loadDetail()
-    emit('refresh')
+function enterCancelMode() {
+    cancelReason.value = ''
+    cancelMode.value = 'editing'
+}
+
+async function submitCancel() {
+    if (!detail.value || !isReasonValid.value) return
+    cancelling.value = true
+    try {
+        const result = await useApiFetch(`/api/v1/admin/orders/cancel/${detail.value.id}`, {
+            method: 'POST',
+            body: { reason: cancelReason.value.trim() },
+        })
+        if (result) {
+            toast.success('订单已取消')
+            cancelMode.value = 'idle'
+            await loadDetail()
+            emit('refresh')
+        }
+    } finally {
+        cancelling.value = false
+    }
 }
 
 function formatDate(d: Date | string | null) {
@@ -2343,11 +2307,9 @@ function actionText(action: string) {
 </script>
 ```
 
-> **注：** Section 和 KV 是简单的内联组件（标题 + slot 渲染），实际实现时可用本地 `<script>` 内 `defineComponent` 或者直接展开成模板。
+提交：`git add app/components/admin/orders/OrderDetailSheet.vue && git commit -m "feat(admin): OrderDetailSheet 订单详情抽屉（含取消订单 inline 表单）"`
 
-提交：`git add app/components/admin/orders/OrderDetailSheet.vue && git commit -m "feat(admin): OrderDetailSheet 订单详情抽屉"`
-
-- [ ] **Step 7: 类型检查**
+- [ ] **Step 6: 类型检查**
 
 ```bash
 npx nuxi typecheck
@@ -2370,7 +2332,7 @@ npx nuxi typecheck
 
 - [ ] **Step 1: PaymentFilters**
 
-参照 OrderFilters，渠道改为 wechat/alipay，方式改为 mini_program/scan_code/wap/app/pc，状态改为 5 种。代码结构 90% 复用 OrderFilters。
+参照 OrderFilters（状态单选 + 'all'）。差异：状态选项为 5 种（待支付/支付成功/支付失败/已过期/已退款），新增 paymentChannel（wechat/alipay）和 paymentMethod（mini_program/scan_code/wap/app/pc）下拉。状态文本字典从 `#shared/types/payment` 的 `PaymentStatusText` import，禁止本地重复定义。代码结构 90% 复用 OrderFilters。
 
 - [ ] **Step 2: PaymentTable / PaymentMobile**
 
@@ -2750,5 +2712,5 @@ git log --oneline main..HEAD
 1. **seedData.sql 应用方式**：项目 seedData.sql 是否含 TRUNCATE，决定追加新记录的方式。如不能直接重跑 seed，需写单独的迁移补丁。
 2. **取消订单事务**：cron-scheduler 的 `handleExpiredPaymentTransactionsService` 仍在跑，作为兜底。spec §5.4 已说明同步关闭+cron 兜底的关系。
 3. **CSV 导出大数据量**：上限 10000，单次响应约 5-10 MB，浏览器下载无压力。但导出操作建议只在实际需要时点击，避免反复触发。
-4. **z-index 冲突**：Sheet 抽屉 z-[70]，AlertDialog 必须 z-[200]+。已在 OrderCancelDialog 中显式设置。
+4. **z-index 冲突**：Sheet 抽屉默认 z-50。本 plan 取消订单走 OrderDetailSheet 内嵌 inline 表单，**不嵌套任何 AlertDialog/Dialog**，从根本上回避 Overlay z-index 冲突。备注编辑同样走 inline 切换（OrderAdminRemarkEditor）。
 5. **测试库 schema 同步**：每次 prisma schema 改动后必须跑 `prisma:push` 同步到 ls_new_testing。
