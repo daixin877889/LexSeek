@@ -9,6 +9,9 @@ import AiToolsExtractInfoTool from '~/components/ai/tools/ExtractInfoTool.vue'
 import AiToolsLawSearchTool from '~/components/ai/tools/LawSearchTool.vue'
 import AiToolsMaterialProcessTool from '~/components/ai/tools/MaterialProcessTool.vue'
 import AiToolsMaterialSearchTool from '~/components/ai/tools/MaterialSearchTool.vue'
+import AiToolsMemorySearchTool from '~/components/ai/tools/MemorySearchTool.vue'
+import AiToolsMemoryUpdateTool from '~/components/ai/tools/MemoryUpdateTool.vue'
+import AiToolsMemoryWriteTool from '~/components/ai/tools/MemoryWriteTool.vue'
 import AiToolsPointsReserveTool from '~/components/ai/tools/PointsReserveTool.vue'
 import AiToolsReadSkillFileTool from '~/components/ai/tools/ReadSkillFileTool.vue'
 import AiToolsRollbackPointsTool from '~/components/ai/tools/RollbackPointsTool.vue'
@@ -85,6 +88,9 @@ function subAgentError(toolCallId: string): string | undefined {
   <AiToolsWriteTodosTool v-else-if="toolCall.name === 'write_todos'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
   <AiToolsMaterialSearchTool v-else-if="toolCall.name === 'search_case_materials'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
   <AiToolsLawSearchTool v-else-if="toolCall.name === 'search_law'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
+  <AiToolsMemorySearchTool v-else-if="toolCall.name === 'search_case_memory'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" />
+  <AiToolsMemoryWriteTool v-else-if="toolCall.name === 'write_case_memory'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" />
+  <AiToolsMemoryUpdateTool v-else-if="toolCall.name === 'update_case_memory'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" />
   <AiToolsExtractInfoTool v-else-if="toolCall.name === 'extract_case_info'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
   <AiToolsUploadWorkspaceFileTool v-else-if="toolCall.name === 'upload_workspace_file'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
   <AiToolsReadSkillFileTool v-else-if="toolCall.name === 'read_skill_file'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
