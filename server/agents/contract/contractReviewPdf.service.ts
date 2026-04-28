@@ -42,10 +42,10 @@ export interface ExportPdfOptions {
     includeRisks: boolean
 }
 
-// 字体文件位于 server/services/assistant/contract/fonts/NotoSansSC-Regular.ttf。
+// 字体文件位于 server/agents/contract/fonts/NotoSansSC-Regular.ttf。
 // dev 时 cwd=工程根，build 后 import.meta.url 指向 .nuxt/output/server，两条候选路径二选一。
 const FONT_CANDIDATES = [
-    path.resolve(process.cwd(), 'server/services/assistant/contract/fonts/NotoSansSC-Regular.ttf'),
+    path.resolve(process.cwd(), 'server/agents/contract/fonts/NotoSansSC-Regular.ttf'),
     path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'fonts/NotoSansSC-Regular.ttf'),
 ]
 const FONT_PATH = FONT_CANDIDATES.find(p => fs.existsSync(p))

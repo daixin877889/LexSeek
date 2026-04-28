@@ -120,6 +120,32 @@ export function isAnnotationExportable(
 }
 
 /**
+ * 数据库批注列表（含 a.risk 关联）按导出谓词过滤，并对被剔除项打统一告警日志。
+ *
+ * 用于 rebuild service / reviewResultPersistence middleware 等"DB 行 + 关联 risk"形态。
+ * downloadContractReviewVersionService 用 snapshot.annotations + Map 查 risk 的形态不同，不走此 helper。
+ */
+export function filterExportableDbAnnotations<
+    T extends ExportableAnnotationLike & {
+        id: number
+        riskId: number
+        risk: ExportableRiskLike & { anchorParagraphIndex?: number | null; orphaned?: boolean | null }
+    },
+>(annotations: T[], reviewId: number): T[] {
+    return annotations.filter(a => {
+        const ok = isAnnotationExportable(a, a.risk)
+        if (!ok) {
+            logger.warn('[contract export] 跳过不可导出的批注（孤立 / suppressed / 软删）', {
+                reviewId, annotationId: a.id, riskId: a.riskId,
+                anchorParagraphIndex: a.risk.anchorParagraphIndex,
+                orphaned: a.risk.orphaned,
+            })
+        }
+        return ok
+    })
+}
+
+/**
  * 恢复推送（spec §12.6 / §4.3）
  *
  * 律师手动覆盖客户删除意图：仅清 suppressInExport，保留 removedByClient=true 作为历史证据。
