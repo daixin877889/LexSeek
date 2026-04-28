@@ -102,15 +102,17 @@ function formatTime(iso: string): string {
         暂无记忆条目
     </div>
 
-    <div v-else class="relative pl-1">
-        <!-- 主竖线（贯穿整个时间轴） -->
-        <div class="absolute left-[11px] top-2 bottom-2 w-px bg-border" />
+    <div v-else class="relative">
+        <!-- 主竖线（贯穿整个时间轴）：列宽 16px，竖线 left-2 (8px) 让中心 8.5px 与列中心对齐 -->
+        <div class="absolute left-2 top-2 bottom-2 w-px bg-border" />
 
-        <div v-for="group in groupedByDay" :key="group.date" class="space-y-3 pb-6 last:pb-0">
-            <!-- 日期标记（大圆点 + 日期 + 周几 + 数量） -->
-            <div class="relative flex items-center gap-3 mb-1 pl-8">
-                <div class="absolute left-0 top-1/2 -translate-y-1/2 size-[22px] rounded-full bg-primary/10 border-2 border-primary flex items-center justify-center">
-                    <div class="size-2 rounded-full bg-primary" />
+        <div v-for="group in groupedByDay" :key="group.date" class="pb-5 last:pb-0">
+            <!-- 日期分组头：大圆点 + 日期 + 周几 + 数量 -->
+            <div class="flex items-center gap-3">
+                <div class="w-4 flex-shrink-0 flex justify-center">
+                    <div class="relative size-[15px] rounded-full bg-primary/10 border-2 border-primary flex items-center justify-center">
+                        <div class="size-[5px] rounded-full bg-primary" />
+                    </div>
                 </div>
                 <div class="flex items-baseline gap-2">
                     <span class="text-sm font-semibold text-foreground">{{ group.label }}</span>
@@ -120,11 +122,11 @@ function formatTime(iso: string): string {
             </div>
 
             <!-- 当日记忆卡片列表 -->
-            <div class="space-y-2 pl-8">
+            <div class="mt-2 space-y-2">
                 <div v-for="item in group.items" :key="item.id"
-                    class="relative">
-                    <!-- 小圆点 marker（贴在主竖线上） -->
-                    <div class="absolute -left-[22px] top-3 flex items-center justify-center">
+                    class="flex items-start gap-3">
+                    <!-- 小圆点列：宽 16px（与主竖线列同宽），pt-3 让圆点中心对齐卡片内第一行徽章 -->
+                    <div class="w-4 flex-shrink-0 pt-3 flex justify-center">
                         <div class="size-2 rounded-full ring-2 ring-background"
                             :class="item.invalidatedAt
                                 ? 'bg-muted-foreground/40'
@@ -132,7 +134,7 @@ function formatTime(iso: string): string {
                     </div>
 
                     <!-- 卡片 -->
-                    <div class="rounded-md border bg-card p-3 hover:shadow-sm transition-shadow"
+                    <div class="flex-1 min-w-0 rounded-md border bg-card p-3 hover:shadow-sm transition-shadow"
                         :class="item.invalidatedAt ? 'opacity-60 bg-muted' : ''">
                         <div class="flex items-start justify-between gap-2">
                             <div class="flex flex-wrap items-center gap-1.5">
@@ -159,12 +161,12 @@ function formatTime(iso: string): string {
                                 <Trash2Icon class="size-3.5" />
                             </button>
                         </div>
-                        <p class="mt-1.5 text-sm leading-relaxed text-foreground"
+                        <p class="mt-1.5 text-sm leading-relaxed text-foreground break-words"
                             :class="item.invalidatedAt ? 'line-through' : ''">
                             {{ item.text }}
                         </p>
                         <p v-if="item.subjectKey"
-                            class="mt-1 text-[10px] font-mono text-muted-foreground/60">
+                            class="mt-1 text-[10px] font-mono text-muted-foreground/60 break-all">
                             {{ item.subjectKey }}
                         </p>
                     </div>

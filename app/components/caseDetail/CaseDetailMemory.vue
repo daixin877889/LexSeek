@@ -36,6 +36,23 @@ const FILTER_OPTIONS: Array<{ value: MemoryFilter; label: string }> = [
 const validCount = computed(() => memory.memories.value.filter(m => !m.invalidatedAt).length)
 const invalidatedCount = computed(() => memory.memories.value.filter(m => !!m.invalidatedAt).length)
 
+// 空态文案随筛选 pill 变化
+const emptyText = computed(() => {
+    const f = memory.filter.value
+    if (f === 'manual') return 'AI 还没主动记录的条目'
+    if (f === 'auto_extract') return 'AI 还没自动提取的条目'
+    if (f === 'manual_user') return '你还没手动添加任何条目'
+    if (f === 'consolidator') return '没有 AI 整理过的条目'
+    return '本案件还没有记忆条目'
+})
+
+// 只有 全部 / 用户 两种筛选下，空态才允许"添加第一条"
+// （manual / auto_extract 是 AI 写入的来源，用户手动加只能产生 manual_user）
+const canAddInEmpty = computed(() => {
+    const f = memory.filter.value
+    return f === 'all' || f === 'manual_user'
+})
+
 watch(() => memory.filter.value, () => memory.load(true))
 watch(() => memory.showInvalidated.value, () => memory.load(true))
 
@@ -101,8 +118,8 @@ function handleDelete(memoryId: string) {
         <div v-else-if="validCount === 0 && !memory.showInvalidated.value"
             class="flex flex-col items-center justify-center py-14 text-muted-foreground">
             <NotebookPenIcon class="size-10 mb-2 opacity-40" />
-            <p class="text-sm mb-4">本案件还没有记忆条目</p>
-            <Button size="sm" class="gap-1" @click="showAddDialog = true">
+            <p class="text-sm mb-4">{{ emptyText }}</p>
+            <Button v-if="canAddInEmpty" size="sm" class="gap-1" @click="showAddDialog = true">
                 <PlusIcon class="size-4" />
                 添加第一条
             </Button>

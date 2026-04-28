@@ -22,10 +22,12 @@ const isDone = computed(() => props.state === 'output-available')
 const isError = computed(() => props.state === 'output-error')
 
 const KIND_COLORS: Record<string, string> = {
-    fact: 'bg-blue-100 text-blue-700',
-    event: 'bg-emerald-100 text-emerald-700',
-    decision: 'bg-amber-100 text-amber-700',
-    note: 'bg-gray-100 text-gray-700',
+    fact: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300',
+    event: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
+    decision: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',
+    note: 'bg-gray-100 text-gray-700 dark:bg-gray-500/20 dark:text-gray-300',
+    dialogue_note: 'bg-gray-100 text-gray-700 dark:bg-gray-500/20 dark:text-gray-300',
+    preference: 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300',
 }
 
 const KIND_LABELS: Record<string, string> = {
@@ -33,6 +35,8 @@ const KIND_LABELS: Record<string, string> = {
     event: '事件',
     decision: '决策',
     note: '笔记',
+    dialogue_note: '对话笔记',
+    preference: '偏好',
 }
 </script>
 
@@ -56,11 +60,11 @@ const KIND_LABELS: Record<string, string> = {
             <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-1.5 flex-wrap">
                     <span class="text-muted-foreground">已记入</span>
-                    <Badge v-if="input?.kind" variant="secondary"
-                        class="font-normal px-1.5 py-0 h-4 text-[10px]"
+                    <span v-if="input?.kind"
+                        class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] leading-none font-medium"
                         :class="KIND_COLORS[input.kind]">
                         {{ KIND_LABELS[input.kind] ?? input.kind }}
-                    </Badge>
+                    </span>
                     <span v-if="input?.text" class="text-foreground line-clamp-1">{{ input.text }}</span>
                 </div>
                 <p v-if="input?.subjectKey"

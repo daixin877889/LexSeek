@@ -47,10 +47,21 @@ const isDone = computed(() => props.state === 'output-available')
 const isError = computed(() => props.state === 'output-error')
 
 const KIND_COLORS: Record<string, string> = {
-    fact: 'bg-blue-100 text-blue-700',
-    event: 'bg-emerald-100 text-emerald-700',
-    decision: 'bg-amber-100 text-amber-700',
-    note: 'bg-gray-100 text-gray-700',
+    fact: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300',
+    event: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
+    decision: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',
+    note: 'bg-gray-100 text-gray-700 dark:bg-gray-500/20 dark:text-gray-300',
+    dialogue_note: 'bg-gray-100 text-gray-700 dark:bg-gray-500/20 dark:text-gray-300',
+    preference: 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300',
+}
+
+const KIND_LABELS: Record<string, string> = {
+    fact: '事实',
+    event: '事件',
+    decision: '决策',
+    note: '笔记',
+    dialogue_note: '对话笔记',
+    preference: '偏好',
 }
 </script>
 
@@ -86,11 +97,11 @@ const KIND_COLORS: Record<string, string> = {
             <div v-if="hits.length === 0" class="text-muted-foreground/70 italic">没有命中条目</div>
             <div v-for="(hit, idx) in hits.slice(0, 3)" :key="hit.id ?? idx"
                 class="flex items-start gap-1.5">
-                <Badge v-if="hit.kind" variant="secondary"
-                    class="font-normal px-1.5 py-0 h-4 text-[10px] flex-shrink-0"
+                <span v-if="hit.kind"
+                    class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] leading-none font-medium flex-shrink-0"
                     :class="KIND_COLORS[hit.kind]">
-                    {{ hit.kind }}
-                </Badge>
+                    {{ KIND_LABELS[hit.kind] ?? hit.kind }}
+                </span>
                 <span class="line-clamp-1 text-foreground">{{ hit.text }}</span>
             </div>
             <div v-if="hits.length > 3" class="text-[10px] text-muted-foreground/60 pt-0.5">
