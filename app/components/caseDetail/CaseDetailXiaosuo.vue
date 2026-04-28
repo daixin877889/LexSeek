@@ -44,6 +44,13 @@ const chatMessages = computed(() => props.xiaosuoChat.messages.value as any[])
 const chatLoading = computed(() => !!props.xiaosuoChat.isLoading.value)
 const interruptData = computed(() => props.xiaosuoChat.interruptData.value)
 
+// 子 Agent 数据访问注入：让 AiToolRenderer 内的 SubAgentChainOfThought
+// 能消费 ask_*_expert 工具触发的 sub_agent_token 流式渲染。
+// getter 包一层让响应式贯穿（xiaosuoChat.subThreadsMap 本身是 getter）
+provide('subAgentAccess', {
+    get subThreadsMap() { return props.xiaosuoChat.subThreadsMap },
+})
+
 // Agent 运行状态 + 失败反馈
 const runStatus = computed(() => props.xiaosuoChat.runStatus.value)
 const runError = computed(() => props.xiaosuoChat.runError.value)

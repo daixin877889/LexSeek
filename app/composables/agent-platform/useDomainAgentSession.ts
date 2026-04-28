@@ -691,6 +691,9 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
     runError,
     sessions,
     currentSessionId,
+    // 子 Agent 分桶 map（getter：每次访问拿当前 chat 实例的 reactive map，
+    // 跟随 currentChat 切换；调用方应再用 getter 包一层 provide 才能响应式贯穿）
+    get subThreadsMap() { return (currentChat.value as any)?.subThreadsMap ?? {} },
 
     // 核心操作
     sendMessage,

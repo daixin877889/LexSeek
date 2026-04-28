@@ -5,13 +5,14 @@ import { createSimpleTool, type ToolDefinition } from './types'
 
 const schema = z.object({
     text: z.string().describe('记忆正文'),
-    kind: z.enum(['fact', 'preference', 'dialogue_note']),
-    subject_key: z.string().optional().describe('主题指纹，如 "plaintiff.address"；同主题新事实覆盖旧（版本链）'),
+    kind: z.enum(['fact', 'event', 'decision', 'note', 'preference', 'dialogue_note'])
+        .describe('类型：fact 客观事实 / event 事件 / decision 决策 / note 笔记 / preference 用户偏好（旧）/ dialogue_note 对话要点（旧）'),
+    subject_key: z.string().optional().describe('主题指纹，如 "plaintiff.address" / "trend.prediction"；同主题新事实覆盖旧（版本链）'),
 })
 
 export const toolDefinition: ToolDefinition<typeof schema> = {
     name: 'write_case_memory',
-    description: '把一条事实、用户偏好或对话要点写入当前案件的长期记忆。',
+    description: '把一条事实、事件、决策或笔记写入当前案件的长期记忆。',
     schema,
 }
 
