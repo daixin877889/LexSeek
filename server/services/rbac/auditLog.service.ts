@@ -301,3 +301,68 @@ export const logApiPermissionBatchDelete = async (
         ip: getClientIp(event),
     }, tx)
 }
+
+// ==================== 订单 / 支付管理审计 ====================
+
+/**
+ * 记录后台手动取消订单
+ */
+export const logOrderCancel = async (
+    event: H3Event,
+    operatorId: number,
+    orderId: number,
+    payload: { oldStatus: number; reason: string },
+    tx?: Prisma.TransactionClient,
+) => {
+    return createAuditLogDao({
+        action: AuditLogAction.ORDER_CANCEL,
+        targetType: 'order',
+        targetId: orderId,
+        operatorId,
+        oldValue: { status: payload.oldStatus } as Prisma.InputJsonValue,
+        newValue: { status: 2, reason: payload.reason } as Prisma.InputJsonValue,
+        ip: getClientIp(event),
+    }, tx)
+}
+
+/**
+ * 记录订单管理员备注变更
+ */
+export const logOrderRemarkUpdate = async (
+    event: H3Event,
+    operatorId: number,
+    orderId: number,
+    payload: { oldRemark: string | null; newRemark: string | null },
+    tx?: Prisma.TransactionClient,
+) => {
+    return createAuditLogDao({
+        action: AuditLogAction.ORDER_REMARK_UPDATE,
+        targetType: 'order',
+        targetId: orderId,
+        operatorId,
+        oldValue: { remark: payload.oldRemark } as Prisma.InputJsonValue,
+        newValue: { remark: payload.newRemark } as Prisma.InputJsonValue,
+        ip: getClientIp(event),
+    }, tx)
+}
+
+/**
+ * 记录支付单管理员备注变更
+ */
+export const logPaymentRemarkUpdate = async (
+    event: H3Event,
+    operatorId: number,
+    paymentTransactionId: number,
+    payload: { oldRemark: string | null; newRemark: string | null },
+    tx?: Prisma.TransactionClient,
+) => {
+    return createAuditLogDao({
+        action: AuditLogAction.PAYMENT_REMARK_UPDATE,
+        targetType: 'payment_transaction',
+        targetId: paymentTransactionId,
+        operatorId,
+        oldValue: { remark: payload.oldRemark } as Prisma.InputJsonValue,
+        newValue: { remark: payload.newRemark } as Prisma.InputJsonValue,
+        ip: getClientIp(event),
+    }, tx)
+}
