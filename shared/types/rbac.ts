@@ -79,4 +79,9 @@ export enum AuditLogAction {
     API_PERMISSION_DELETE = 'api_permission_delete',
     API_PERMISSION_BATCH_PUBLIC = 'api_permission_batch_public',
     API_PERMISSION_BATCH_DELETE = 'api_permission_batch_delete',
+
+    // === 订单/支付管理审计 ===
+    ORDER_CANCEL = 'order_cancel',
+    ORDER_REMARK_UPDATE = 'order_remark_update',
+    PAYMENT_REMARK_UPDATE = 'payment_remark_update',
 }
