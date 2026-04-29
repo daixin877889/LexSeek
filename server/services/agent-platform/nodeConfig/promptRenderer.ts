@@ -25,6 +25,10 @@ export interface PromptRenderContext {
     reviewId?: number
     /** 合同类型（AI 识别，可能为空） */
     contractType?: string
+    /** 文书生成 fileIds（如 [1, 2, 3] 字符串形式） */
+    fileIds?: string
+    /** 用户补充说明文本 */
+    userExtraText?: string
 }
 
 /**
@@ -66,6 +70,12 @@ export function renderSystemPrompt(
     }
     if (context.templateCategory) {
         variables.templateCategory = context.templateCategory
+    }
+    if (context.fileIds) {
+        variables.fileIds = context.fileIds
+    }
+    if (context.userExtraText) {
+        variables.userExtraText = context.userExtraText
     }
 
     const rendered = renderContent(raw, variables)
