@@ -6360,6 +6360,7 @@ export const ModelsScalarFieldEnum = {
   isDefault: 'isDefault',
   status: 'status',
   priority: 'priority',
+  supportsThinking: 'supportsThinking',
   inputCostPerMillionTokens: 'inputCostPerMillionTokens',
   outputCostPerMillionTokens: 'outputCostPerMillionTokens',
   createdAt: 'createdAt',
@@ -6396,6 +6397,7 @@ export const NodesScalarFieldEnum = {
   groupId: 'groupId',
   status: 'status',
   useSkillsAsLogic: 'useSkillsAsLogic',
+  thinkingEnabled: 'thinkingEnabled',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'

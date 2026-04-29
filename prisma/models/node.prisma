@@ -52,6 +52,8 @@ model nodes {
   /// 关闭时：system prompt 含完整方法论（旧式嵌入式 prompt）
   /// 节点级独立配置（非全局灰度开关）
   useSkillsAsLogic Boolean @default(false) @map("use_skills_as_logic")
+  /// 节点是否启用思考模式（仅当关联模型 supportsThinking=true 时生效）
+  thinkingEnabled  Boolean  @default(false) @map("thinking_enabled")
   /// 创建时间
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   /// 最后更新时间
