@@ -20,7 +20,9 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(mkdir -p ~/.claude/plugins/claude-hud)",
-      "Read(//Users/daixin/.claude/plugins/claude-hud/**)"
+      "Read(//Users/daixin/.claude/plugins/claude-hud/**)",
+      "Read(//Users/daixin/.claude/plans/**)",
+      "Bash(mkdir -p /Users/daixin/.claude/plans/)"
     ]
   },
   "enabledPlugins": {
