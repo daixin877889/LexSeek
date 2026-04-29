@@ -1,6 +1,6 @@
 # 多阶段构建 - 使用 Bun 构建 Nuxt 项目
 # 阶段 1: 构建阶段
-FROM oven/bun:1 AS builder
+FROM  --platform=linux/amd64 oven/bun:1 AS builder
 
 WORKDIR /app
 
@@ -26,7 +26,7 @@ WORKDIR /app/.output/server/node_modules/ipx
 RUN bun add ofetch defu pathe ufo
 
 # 阶段 2: 生产运行阶段
-FROM oven/bun:1-slim AS runner
+FROM  --platform=linux/amd64 oven/bun:1-slim AS runner
 
 WORKDIR /app
 
