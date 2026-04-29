@@ -38,20 +38,6 @@ export const CaseExtractionSchema = z.object({
 })
 
 /**
- * 抽取 prompt 追加段：法院 / 案号 / 法官 5 字段说明
- *
- * 供 extract API 在拼接 systemPrompt 时追加。DB 中的 prompt 模板无需改动，
- * 运行时动态追加即可保证材料中提及这些字段时 LLM 会一并输出。
- */
-export const CASE_COURT_FIELDS_PROMPT_APPENDIX = `
-## 法院 / 案号 / 法官（M1 新增 5 字段，均可选）
-- 法院名称（courtName）：如材料提及审理法院，填入
-- 一审/二审案件编号（firstInstanceCaseNo / secondInstanceCaseNo）：格式通常为"(YYYY)XXX民初/民终 XXXXX号"
-- 一审/二审法官姓名（firstInstanceJudge / secondInstanceJudge）：如材料提及审判长或承办法官，填入
-以上 5 字段均可选，材料未提及则留空（不要编造）。
-`.trim()
-
-/**
  * 写入案件基础信息：cases 表固定字段 + extractedInfo JSONB
  *
  * M2 spec §0.5 / §2.6：废弃 PostgresStore('cases', caseId, 'basic_info')
