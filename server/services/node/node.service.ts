@@ -636,3 +636,36 @@ export const getNodeConfigsByTypes = async (
             modelSupportsThinking: node.model!.supportsThinking ?? false,
         }))
 }
+
+/**
+ * 决议某次 LLM 调用最终是否启用思考模式。
+ *
+ * 优先级：
+ * 1. 模型层硬门禁：modelSupportsThinking=false → 强制 false
+ * 2. 前端用户显式：ctxThinking !== undefined → 用 ctxThinking
+ * 3. 节点配置默认：fallback nodeThinkingEnabled
+ */
+export function resolveThinking(
+    modelSupportsThinking: boolean,
+    ctxThinking: boolean | undefined,
+    nodeThinkingEnabled: boolean,
+): boolean {
+    if (!modelSupportsThinking) return false
+    if (ctxThinking !== undefined) return ctxThinking
+    return nodeThinkingEnabled
+}
+
+/**
+ * 调用方便捷封装：直接从 NodeConfig + ctx.thinking 决议，避免 7 处调用点
+ * 重复写 `resolveThinking(nodeConfig.modelSupportsThinking, ..., nodeConfig.thinkingEnabled)`。
+ */
+export function resolveThinkingFromNodeConfig(
+    nodeConfig: NodeConfig,
+    ctxThinking: boolean | undefined,
+): boolean {
+    return resolveThinking(
+        nodeConfig.modelSupportsThinking,
+        ctxThinking,
+        nodeConfig.thinkingEnabled,
+    )
+}
