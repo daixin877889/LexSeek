@@ -84,7 +84,12 @@ export default defineNuxtConfig({
     },
     server: {
       allowedHosts: true
-    }
+    },
+    build: {
+      // 关闭 chunk gzip size 计算 — 在 9968 modules 规模下是 vite 构建末尾的内存峰值，
+      // 云效流水线 16G 实例都会被 cgroup OOM Killer 杀掉（exit code 137）
+      reportCompressedSize: false,
+    },
   },
   shadcn: {
     /**
