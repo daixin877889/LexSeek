@@ -110,3 +110,54 @@ describe('StanceSelectCard', () => {
     expect(w.text()).toContain('已确认，开始审查')
   })
 })
+
+describe('StanceSelectCard - snapshot 模式', () => {
+    it('resumeValue 非 undefined 时按钮 disabled，显示已选立场', async () => {
+        const wrapper = mount(StanceSelectCard, {
+            props: {
+                interrupt: {
+                    type: 'stance_select',
+                    toolCallId: 'call_001',
+                    fileName: '合同.docx',
+                },
+                onResolve: vi.fn(),
+                resumeValue: { stance: 'partyA', partyA: '甲公司', partyB: '乙公司' },
+            },
+            ...stubs,
+        })
+        expect(wrapper.text()).toContain('甲方')
+        expect(wrapper.findAll('button').filter(b => b.text() === '使用此立场').length).toBe(0)
+    })
+
+    it('resumeValue=null 时显示已取消', async () => {
+        const wrapper = mount(StanceSelectCard, {
+            props: {
+                interrupt: {
+                    type: 'stance_select',
+                    toolCallId: 'call_002',
+                    fileName: '合同.docx',
+                },
+                onResolve: vi.fn(),
+                resumeValue: null,
+            },
+            ...stubs,
+        })
+        expect(wrapper.text()).toContain('已取消')
+    })
+
+    it('snapshot 模式下根 div 有 opacity-70 class', async () => {
+        const wrapper = mount(StanceSelectCard, {
+            props: {
+                interrupt: {
+                    type: 'stance_select',
+                    toolCallId: 'call_003',
+                    fileName: '合同.docx',
+                },
+                onResolve: vi.fn(),
+                resumeValue: { stance: 'partyB' },
+            },
+            ...stubs,
+        })
+        expect(wrapper.find('.opacity-70').exists()).toBe(true)
+    })
+})
