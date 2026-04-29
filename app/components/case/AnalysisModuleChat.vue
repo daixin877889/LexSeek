@@ -45,6 +45,8 @@ const sessions = computed<SessionItem[]>(() =>
 const chatMessages = computed(() => props.chatInstance.messages.value as any[])
 const chatLoading = computed(() => !!props.chatInstance.isLoading.value)
 const interruptData = computed(() => props.chatInstance.interruptData.value)
+// props 内部的 ComputedRef 在模板不会自动解包，setup 包一层 computed 后模板可直接绑定
+const syntheticToolCalls = computed(() => (props.chatInstance as any).syntheticToolCalls?.value ?? {})
 
 // 子 Agent 数据访问注入：模块对话同样会触发 sub_agent_token（caseMain 调
 // ask_X_expert 时其 SSE 流可能在此 session 共消费；或后续给模块挂 task 工具）
@@ -177,11 +179,14 @@ useInterruptToast(interruptData)
     </template>
 
     <!-- 对话内容 -->
+    <!-- :extra-tool-calls 把 saveAnalysisResult 工具发出的"生成结果摘要"合成卡片
+         注入到对应 AIMessage 的 toolCalls 末尾（紧跟 save_analysis_result 卡片渲染） -->
     <AiChat
       ref="aiChatRef"
       :messages="chatMessages"
       :loading="chatLoading"
       :is-interrupted="!!interruptData"
+      :extra-tool-calls="syntheticToolCalls"
       panel-mode="left"
       :show-header="false"
       v-model:thinking="thinking"

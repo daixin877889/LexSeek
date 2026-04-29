@@ -5,11 +5,15 @@
  * **Validates: 模块对话 Agent 保存分析结果的工具实现**
  *
  * 覆盖：
- * - 从 ctx.getState() 读取 _totalTokensConsumed，成功保存并发布事件
- * - 从 config.configurable.state 读取 _totalTokensConsumed（getState 回退分支）
- * - 无 getState、无 state 时（tokens 保持 null）
- * - saveAndActivateAnalysisService 抛错时走 catch 分支
- * - 工具定义字段 name/description/schema
+ * - 工具不再接收 input.analysisResult，从 runtime.state.messages 倒序提取最近一条 AI 文本
+ * - content 形态兼容：string / Array<text+thinking>
+ * - 最后一条 AI content 为空时倒序往前找
+ * - 没有 AI 消息时返回 success:false
+ * - 保存成功后同步 emit ANALYSIS_RESULT_SAVED + ANALYSIS_SUMMARY(start)
+ * - await completeAnalysisWithRAG 成功 → emit ANALYSIS_SUMMARY(end, success:true, summary)
+ * - completeAnalysisWithRAG 失败 → emit ANALYSIS_SUMMARY(end, success:false, error)，tool 仍 return success
+ * - DB 落库失败 → 不发任何 SUMMARY 事件
+ * - getState / state.runtime fallback 读取 _totalTokensConsumed
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -20,6 +24,12 @@ vi.stubGlobal('logger', {
     warn: vi.fn(),
     error: vi.fn(),
     debug: vi.fn(),
+})
+
+// Mock crypto.randomUUID 让 toolCallId 可预测
+vi.stubGlobal('crypto', {
+    ...globalThis.crypto,
+    randomUUID: () => 'summary-tool-call-id-fixed',
 })
 
 // Mock analysis.service 中的 saveAndActivateAnalysisService
@@ -46,6 +56,8 @@ import {
     createTool,
     type ModuleToolContext,
 } from '~~/server/services/workflow/tools/saveAnalysisResult.tool'
+import { AIMessage, HumanMessage } from '@langchain/core/messages'
+import type { BaseMessage } from '@langchain/core/messages'
 
 /** 构造最小 ModuleToolContext */
 const mockModel = {} as any
@@ -60,11 +72,42 @@ const createContext = (overrides: Partial<ModuleToolContext> = {}): ModuleToolCo
     ...overrides,
 })
 
+/** 构造一条带 id 的 AIMessage（让 parentMessageId 可断言） */
+function makeAi(content: any, id = 'ai-msg-1'): BaseMessage {
+    const m = new AIMessage({ content })
+    ;(m as any).id = id
+    return m
+}
+
+/** 构造一条 HumanMessage */
+function makeHuman(content: string, id = 'human-1'): BaseMessage {
+    const m = new HumanMessage({ content })
+    ;(m as any).id = id
+    return m
+}
+
+/**
+ * langchain v1 的 ToolNode 调 tool.invoke 时把 state/toolCallId 等塞进 config 第二参。
+ * 测试里直接传第二参（runtime）模拟这种行为。
+ */
+function callTool(
+    tool: any,
+    state: { messages: BaseMessage[]; _totalTokensConsumed?: number } | null,
+    extras: Record<string, any> = {},
+): Promise<string> {
+    return tool.invoke({}, {
+        toolCallId: 'save-tool-call-id',
+        state,
+        ...extras,
+    })
+}
+
 describe('save_analysis_result 工具', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        // 默认 completeAnalysisWithRAG 静默成功（fire-and-forget 不阻塞工具响应）
-        mockCompleteAnalysisWithRAG.mockResolvedValue(undefined)
+        // 默认 completeAnalysisWithRAG 返回真摘要
+        mockCompleteAnalysisWithRAG.mockResolvedValue('真实生成的 200-400 字摘要内容')
+        mockPublishCustomEvent.mockResolvedValue(undefined)
     })
 
     describe('工具定义', () => {
@@ -73,12 +116,12 @@ describe('save_analysis_result 工具', () => {
             expect(toolDefinition.description).toContain('保存')
         })
 
-        it('toolDefinition.schema 应校验 analysisResult 字段', () => {
-            const good = toolDefinition.schema.safeParse({ analysisResult: '结果内容' })
+        it('toolDefinition.schema 应是空对象（不收任何参数）', () => {
+            const good = toolDefinition.schema.safeParse({})
             expect(good.success).toBe(true)
-
-            const bad = toolDefinition.schema.safeParse({ analysisResult: 123 })
-            expect(bad.success).toBe(false)
+            // schema 是 z.object({})，多余字段 zod 默认 strip
+            const withExtra = toolDefinition.schema.safeParse({ analysisResult: 'xx' })
+            expect(withExtra.success).toBe(true)
         })
 
         it('createTool 返回的工具名称与定义一致', () => {
@@ -88,241 +131,213 @@ describe('save_analysis_result 工具', () => {
         })
     })
 
-    describe('invoke - 成功路径', () => {
-        it('从 getState() 读取 _totalTokensConsumed 并计算 tokenCount', async () => {
-            mockSaveAndActivate.mockResolvedValueOnce({
-                id: 11,
-                version: 3,
-            })
-            mockPublishCustomEvent.mockResolvedValueOnce(undefined)
+    describe('从 state.messages 提取分析报告正文', () => {
+        it('最后一条 AIMessage content 为 string 时直接使用', async () => {
+            mockSaveAndActivate.mockResolvedValueOnce({ id: 11, version: 3 })
+            const tool = createTool(createContext())
 
-            const getState = vi.fn(async () => ({ _totalTokensConsumed: 3500 }))
-            const ctx = createContext({ getState })
-            const tool = createTool(ctx)
+            const messages = [
+                makeHuman('请生成分析报告'),
+                makeAi('# 分析结论\n\n这是完整的分析报告正文。', 'ai-1'),
+            ]
+            const result = JSON.parse(await callTool(tool, { messages }))
 
-            const resultStr = (await tool.invoke({ analysisResult: '# 分析结论\n\n正文' })) as string
-            const parsed = JSON.parse(resultStr)
+            expect(result.success).toBe(true)
+            expect(result.version).toBe(3)
 
-            expect(parsed.success).toBe(true)
-            expect(parsed.version).toBe(3)
-            expect(parsed.tokens).toBe(3500)
-            // Math.ceil(3500/1000) = 4
-            expect(parsed.tokenCount).toBe(4)
-            expect(parsed.message).toContain('第3版')
-
-            // 验证 saveAndActivate 入参
-            expect(mockSaveAndActivate).toHaveBeenCalledTimes(1)
+            // saveAndActivate 收到的 analysisResult 应是 AIMessage.content
             const saveArgs = mockSaveAndActivate.mock.calls[0][0]
-            expect(saveArgs.caseId).toBe(100)
-            expect(saveArgs.sessionId).toBe('session-abc')
-            expect(saveArgs.nodeId).toBe(10)
-            expect(saveArgs.analysisType).toBe('analysis_summary')
-            expect(saveArgs.analysisResult).toBe('# 分析结论\n\n正文')
-            expect(saveArgs.tokens).toBe(3500)
-            expect(saveArgs.tokenCount).toBe(4)
-
-            // 验证事件发布
-            expect(mockPublishCustomEvent).toHaveBeenCalledTimes(1)
-            const eventArg = mockPublishCustomEvent.mock.calls[0][0]
-            expect(eventArg.type).toBe('custom_event')
-            expect(eventArg.runId).toBe('run-xyz')
-            expect(eventArg.sessionId).toBe('session-abc')
-            expect(eventArg.name).toBe('analysis_result_saved')
-            expect(eventArg.data.version).toBe(3)
-            expect(eventArg.data.moduleName).toBe('analysis_summary')
-            expect(eventArg.data.analysisId).toBe(11)
-            expect(eventArg.data.tokens).toBe(3500)
-            expect(eventArg.data.tokenCount).toBe(4)
+            expect(saveArgs.analysisResult).toBe('# 分析结论\n\n这是完整的分析报告正文。')
         })
 
-        it('保存成功后 fire-and-forget 触发 completeAnalysisWithRAG', async () => {
-            mockSaveAndActivate.mockResolvedValueOnce({ id: 99, version: 1 })
-            mockPublishCustomEvent.mockResolvedValueOnce(undefined)
+        it('content 是 Array<text+thinking>时，仅拼接 type=text 的部分', async () => {
+            mockSaveAndActivate.mockResolvedValueOnce({ id: 12, version: 1 })
+            const tool = createTool(createContext())
 
-            const ctx = createContext()
-            const tool = createTool(ctx)
-            await tool.invoke({ analysisResult: '# 结论' })
+            const messages = [
+                makeHuman('请生成分析报告'),
+                makeAi(
+                    [
+                        { type: 'thinking', thinking: '内部思考不应进入正文' },
+                        { type: 'text', text: '## 第一段' },
+                        { type: 'text', text: '\n\n## 第二段' },
+                    ],
+                    'ai-2',
+                ),
+            ]
+            await callTool(tool, { messages })
 
-            // fire-and-forget 是异步 microtask，等待它完成
-            await vi.waitFor(() => expect(mockCompleteAnalysisWithRAG).toHaveBeenCalledTimes(1))
-
-            const ragArgs = mockCompleteAnalysisWithRAG.mock.calls[0][0]
-            expect(ragArgs.analysisId).toBe(99)
-            expect(ragArgs.analysisResult).toBe('# 结论')
-            expect(ragArgs.model).toBe(mockModel)
-        })
-
-        it('getState 返回 state 但 _totalTokensConsumed 为 0 时，从 config.configurable.state 回退读取', async () => {
-            mockSaveAndActivate.mockResolvedValueOnce({ id: 22, version: 1 })
-            mockPublishCustomEvent.mockResolvedValueOnce(undefined)
-
-            // getState 返回 0，必须触发 fallback 分支
-            const getState = vi.fn(async () => ({ _totalTokensConsumed: 0 }))
-            const ctx = createContext({ getState })
-            const tool = createTool(ctx)
-
-            // 通过 invoke 的第二个参数传入 config（langchain tool 会接收 RunnableConfig）
-            const result = (await tool.invoke(
-                { analysisResult: '结果' },
-                {
-                    configurable: {
-                        state: { _totalTokensConsumed: 2001 },
-                    },
-                },
-            )) as string
-            const parsed = JSON.parse(result)
-
-            expect(parsed.success).toBe(true)
-            expect(parsed.tokens).toBe(2001)
-            // Math.ceil(2001/1000) = 3
-            expect(parsed.tokenCount).toBe(3)
-        })
-
-        it('getState 返回 null 时，fallback 到 config.configurable.state', async () => {
-            mockSaveAndActivate.mockResolvedValueOnce({ id: 33, version: 2 })
-            mockPublishCustomEvent.mockResolvedValueOnce(undefined)
-
-            const getState = vi.fn(async () => null)
-            const ctx = createContext({ getState })
-            const tool = createTool(ctx)
-
-            const result = (await tool.invoke(
-                { analysisResult: '结果' },
-                {
-                    configurable: {
-                        state: { _totalTokensConsumed: 1000 },
-                    },
-                },
-            )) as string
-            const parsed = JSON.parse(result)
-
-            expect(parsed.success).toBe(true)
-            expect(parsed.tokens).toBe(1000)
-            expect(parsed.tokenCount).toBe(1)
-        })
-
-        it('无 getState 且 config 无 state 时，tokens/tokenCount 为 null', async () => {
-            mockSaveAndActivate.mockResolvedValueOnce({ id: 44, version: 1 })
-            mockPublishCustomEvent.mockResolvedValueOnce(undefined)
-
-            const ctx = createContext() // 不提供 getState
-            const tool = createTool(ctx)
-
-            const result = (await tool.invoke({ analysisResult: '简单结果' })) as string
-            const parsed = JSON.parse(result)
-
-            expect(parsed.success).toBe(true)
-            expect(parsed.tokens).toBeNull()
-            expect(parsed.tokenCount).toBeNull()
-
-            // saveAndActivate 也应收到 null
             const saveArgs = mockSaveAndActivate.mock.calls[0][0]
-            expect(saveArgs.tokens).toBeNull()
-            expect(saveArgs.tokenCount).toBeNull()
+            expect(saveArgs.analysisResult).toBe('## 第一段\n\n## 第二段')
+            expect(saveArgs.analysisResult).not.toContain('内部思考')
         })
 
-        it('config.configurable.state 存在但 _totalTokensConsumed 为 0 时，保持 tokens 为 null', async () => {
-            mockSaveAndActivate.mockResolvedValueOnce({ id: 55, version: 1 })
-            mockPublishCustomEvent.mockResolvedValueOnce(undefined)
+        it('最后一条 AI content 空时，倒序回退到前一条带文本的 AI', async () => {
+            mockSaveAndActivate.mockResolvedValueOnce({ id: 13, version: 1 })
+            const tool = createTool(createContext())
 
-            const ctx = createContext()
-            const tool = createTool(ctx)
+            const messages = [
+                makeHuman('生成报告'),
+                makeAi('完整的报告正文', 'ai-with-text'),
+                // LLM 在第二条 AIMessage 中只调工具不输出文本（content 空）
+                makeAi('', 'ai-empty-tool-call'),
+            ]
+            await callTool(tool, { messages })
 
-            const result = (await tool.invoke(
-                { analysisResult: '结果' },
-                {
-                    configurable: {
-                        state: { _totalTokensConsumed: 0 },
-                    },
-                },
-            )) as string
-            const parsed = JSON.parse(result)
-
-            expect(parsed.success).toBe(true)
-            expect(parsed.tokens).toBeNull()
-            expect(parsed.tokenCount).toBeNull()
+            const saveArgs = mockSaveAndActivate.mock.calls[0][0]
+            expect(saveArgs.analysisResult).toBe('完整的报告正文')
         })
 
-        it('getState 返回空对象（_totalTokensConsumed 为 undefined）时走 ?? 0 分支', async () => {
-            mockSaveAndActivate.mockResolvedValueOnce({ id: 66, version: 1 })
-            mockPublishCustomEvent.mockResolvedValueOnce(undefined)
+        it('没有任何带文本的 AI 消息时返回 success:false', async () => {
+            const tool = createTool(createContext())
 
-            // 返回一个存在但字段缺失的 state，触发 `state._totalTokensConsumed ?? 0`
-            const getState = vi.fn(async () => ({} as Record<string, any>))
-            const ctx = createContext({ getState })
-            const tool = createTool(ctx)
+            const messages = [
+                makeHuman('生成报告'),
+                makeAi('', 'ai-empty'),
+            ]
+            const result = JSON.parse(await callTool(tool, { messages }))
 
-            const result = (await tool.invoke({ analysisResult: '结果' })) as string
-            const parsed = JSON.parse(result)
-
-            expect(parsed.success).toBe(true)
-            expect(parsed.tokens).toBeNull()
-            expect(parsed.tokenCount).toBeNull()
-        })
-
-        it('config.configurable.state 存在但 _totalTokensConsumed 为 undefined 时走 ?? 0 分支', async () => {
-            mockSaveAndActivate.mockResolvedValueOnce({ id: 67, version: 1 })
-            mockPublishCustomEvent.mockResolvedValueOnce(undefined)
-
-            const ctx = createContext()
-            const tool = createTool(ctx)
-
-            const result = (await tool.invoke(
-                { analysisResult: '结果' },
-                {
-                    configurable: {
-                        // state 存在但 _totalTokensConsumed 缺失
-                        state: {},
-                    },
-                },
-            )) as string
-            const parsed = JSON.parse(result)
-
-            expect(parsed.success).toBe(true)
-            expect(parsed.tokens).toBeNull()
-            expect(parsed.tokenCount).toBeNull()
-        })
-    })
-
-    describe('invoke - 错误路径', () => {
-        it('saveAndActivateAnalysisService 抛出 Error 时返回 success=false 并包含 error.message', async () => {
-            mockSaveAndActivate.mockRejectedValueOnce(new Error('数据库写入失败'))
-
-            const ctx = createContext()
-            const tool = createTool(ctx)
-            const result = (await tool.invoke({ analysisResult: '结果' })) as string
-            const parsed = JSON.parse(result)
-
-            expect(parsed.success).toBe(false)
-            expect(parsed.error).toBe('数据库写入失败')
-            // publishCustomEvent 不应被调用
+            expect(result.success).toBe(false)
+            expect(result.error).toContain('未找到带文本')
+            expect(mockSaveAndActivate).not.toHaveBeenCalled()
             expect(mockPublishCustomEvent).not.toHaveBeenCalled()
         })
 
-        it('saveAndActivate 抛出无 message 的错误时，返回默认提示', async () => {
-            // 抛出一个没有 message 的 "空对象" 异常，触发 error.message || 默认值 分支
-            mockSaveAndActivate.mockRejectedValueOnce({})
+        it('state 为 null 时返回 success:false', async () => {
+            const tool = createTool(createContext())
+            const result = JSON.parse(await callTool(tool, null))
 
-            const ctx = createContext()
-            const tool = createTool(ctx)
-            const result = (await tool.invoke({ analysisResult: '结果' })) as string
-            const parsed = JSON.parse(result)
+            expect(result.success).toBe(false)
+            expect(result.error).toContain('未找到带文本')
+            expect(mockSaveAndActivate).not.toHaveBeenCalled()
+        })
+    })
 
-            expect(parsed.success).toBe(false)
-            expect(parsed.error).toBe('保存分析结果失败')
+    describe('保存成功 + 摘要事件', () => {
+        const baseMessages = (): BaseMessage[] => [
+            makeHuman('请分析'),
+            makeAi('# 完整分析报告', 'ai-anchor-id'),
+        ]
+
+        it('落库后依次发出 RESULT_SAVED → SUMMARY(start) → SUMMARY(end success:true)', async () => {
+            mockSaveAndActivate.mockResolvedValueOnce({ id: 99, version: 1 })
+            mockCompleteAnalysisWithRAG.mockResolvedValueOnce('200-400 字真摘要')
+            const tool = createTool(createContext())
+
+            const result = JSON.parse(await callTool(tool, { messages: baseMessages() }))
+
+            expect(result.success).toBe(true)
+            expect(result.version).toBe(1)
+
+            // emit 事件顺序与 payload 校验
+            expect(mockPublishCustomEvent).toHaveBeenCalledTimes(3)
+
+            const [savedCall, startCall, endCall] = mockPublishCustomEvent.mock.calls
+            // 1. ANALYSIS_RESULT_SAVED
+            expect(savedCall[0].name).toBe('analysis_result_saved')
+            expect(savedCall[0].data.analysisId).toBe(99)
+            expect(savedCall[0].data.version).toBe(1)
+            expect(savedCall[0].data.moduleName).toBe('analysis_summary')
+
+            // 2. ANALYSIS_SUMMARY start
+            expect(startCall[0].name).toBe('analysis_summary')
+            expect(startCall[0].data.phase).toBe('start')
+            expect(startCall[0].data.toolCallId).toBe('summary-tool-call-id-fixed')
+            expect(startCall[0].data.parentMessageId).toBe('ai-anchor-id')
+            expect(startCall[0].data.analysisId).toBe(99)
+
+            // 3. ANALYSIS_SUMMARY end success:true with summary
+            expect(endCall[0].name).toBe('analysis_summary')
+            expect(endCall[0].data.phase).toBe('end')
+            expect(endCall[0].data.success).toBe(true)
+            expect(endCall[0].data.summary).toBe('200-400 字真摘要')
+            expect(endCall[0].data.toolCallId).toBe('summary-tool-call-id-fixed')
+            expect(endCall[0].data.parentMessageId).toBe('ai-anchor-id')
         })
 
-        it('publishCustomEvent 抛错时整个工具走 catch 分支', async () => {
-            mockSaveAndActivate.mockResolvedValueOnce({ id: 77, version: 1 })
-            mockPublishCustomEvent.mockRejectedValueOnce(new Error('Redis 不可用'))
+        it('completeAnalysisWithRAG 失败时仍 return success（save 已落库），end 事件 success:false', async () => {
+            mockSaveAndActivate.mockResolvedValueOnce({ id: 100, version: 2 })
+            mockCompleteAnalysisWithRAG.mockRejectedValueOnce(new Error('LLM 摘要超时'))
+            const tool = createTool(createContext())
 
-            const ctx = createContext()
-            const tool = createTool(ctx)
-            const result = (await tool.invoke({ analysisResult: '结果' })) as string
-            const parsed = JSON.parse(result)
+            const result = JSON.parse(await callTool(tool, { messages: baseMessages() }))
 
-            expect(parsed.success).toBe(false)
-            expect(parsed.error).toBe('Redis 不可用')
+            // save 已落库，工具整体仍返回 success
+            expect(result.success).toBe(true)
+            expect(result.version).toBe(2)
+
+            // 仍发了 3 条事件，但 end 是 success:false
+            expect(mockPublishCustomEvent).toHaveBeenCalledTimes(3)
+            const endCall = mockPublishCustomEvent.mock.calls[2][0]
+            expect(endCall.data.phase).toBe('end')
+            expect(endCall.data.success).toBe(false)
+            expect(endCall.data.error).toBe('LLM 摘要超时')
+        })
+
+        it('saveAndActivate 失败时不发任何 SUMMARY 事件', async () => {
+            mockSaveAndActivate.mockRejectedValueOnce(new Error('数据库写入失败'))
+            const tool = createTool(createContext())
+
+            const result = JSON.parse(await callTool(tool, { messages: baseMessages() }))
+
+            expect(result.success).toBe(false)
+            expect(result.error).toBe('数据库写入失败')
+            expect(mockPublishCustomEvent).not.toHaveBeenCalled()
+            expect(mockCompleteAnalysisWithRAG).not.toHaveBeenCalled()
+        })
+    })
+
+    describe('token 消耗读取', () => {
+        const baseMessages = (extra: Record<string, any> = {}): { messages: BaseMessage[] } & Record<string, any> => ({
+            messages: [makeHuman('q'), makeAi('# r', 'ai-1')],
+            ...extra,
+        })
+
+        it('从 getState() 读取 _totalTokensConsumed 并计算 tokenCount', async () => {
+            mockSaveAndActivate.mockResolvedValueOnce({ id: 1, version: 1 })
+            const getState = vi.fn(async () => ({ _totalTokensConsumed: 3500 }))
+            const tool = createTool(createContext({ getState }))
+
+            const result = JSON.parse(await callTool(tool, baseMessages()))
+
+            expect(result.tokens).toBe(3500)
+            expect(result.tokenCount).toBe(4)
+            const saveArgs = mockSaveAndActivate.mock.calls[0][0]
+            expect(saveArgs.tokens).toBe(3500)
+            expect(saveArgs.tokenCount).toBe(4)
+        })
+
+        it('getState 没拿到时 fallback 到 runtime.state._totalTokensConsumed', async () => {
+            mockSaveAndActivate.mockResolvedValueOnce({ id: 2, version: 1 })
+            const tool = createTool(createContext())
+
+            const state = baseMessages({ _totalTokensConsumed: 2001 })
+            const result = JSON.parse(await callTool(tool, state))
+
+            expect(result.tokens).toBe(2001)
+            expect(result.tokenCount).toBe(3)
+        })
+
+        it('两条路径都没有 token 时 tokens/tokenCount 为 null', async () => {
+            mockSaveAndActivate.mockResolvedValueOnce({ id: 3, version: 1 })
+            const tool = createTool(createContext())
+
+            const result = JSON.parse(await callTool(tool, baseMessages()))
+
+            expect(result.tokens).toBeNull()
+            expect(result.tokenCount).toBeNull()
+        })
+    })
+
+    describe('上下文异常', () => {
+        it('caseId 缺失时返回 success:false', async () => {
+            const tool = createTool(createContext({ caseId: undefined }))
+            const result = JSON.parse(
+                await callTool(tool, { messages: [makeAi('# r', 'ai-1')] }),
+            )
+            expect(result.success).toBe(false)
+            expect(result.error).toContain('caseId')
+            expect(mockSaveAndActivate).not.toHaveBeenCalled()
         })
     })
 })

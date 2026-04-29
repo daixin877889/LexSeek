@@ -221,7 +221,7 @@ describe('runModuleChat 模块对话 Agent', () => {
         mockGetValidNodeConfig.mockResolvedValue(createNodeConfig())
         mockGetToolInstances.mockReturnValue([])
         mockBuildContextSegments.mockResolvedValue({
-            roleAndFlow: '你是案件摘要专家\n\n当你生成或更新了该模块的分析结果时，必须调用 save_analysis_result 工具保存结果。',
+            roleAndFlow: '你是案件摘要专家\n\n当你完成该模块的分析后，请按以下顺序操作：1) 先以纯文本形式输出完整的分析报告（Markdown 格式）；2) 然后调用 save_analysis_result 工具（无需任何参数）。工具会自动从你刚输出的报告中读取内容保存。请勿在工具参数中重复正文。',
             caseProfile: '## 案件档案\n```json\n{}\n```',
             moduleSummaries: '## 已完成分析模块\n### chronicle\n大事记摘要',
             dynamicContext: '## 案件材料清单\n- 起诉状.pdf',
@@ -251,6 +251,9 @@ describe('runModuleChat 模块对话 Agent', () => {
         // roleAndFlowTemplate 应包含 renderSystemPrompt 渲染结果 + save_analysis_result 提醒
         expect(args.roleAndFlowTemplate).toContain('你是案件摘要专家')
         expect(args.roleAndFlowTemplate).toContain('save_analysis_result')
+        // 新提示词：禁止 LLM 在工具参数中复述正文（避免输出量翻倍）
+        expect(args.roleAndFlowTemplate).toContain('无需任何参数')
+        expect(args.roleAndFlowTemplate).toContain('请勿在工具参数中重复正文')
     })
 
     it('Anthropic 模型 SystemMessage content 为 blocks 数组', async () => {

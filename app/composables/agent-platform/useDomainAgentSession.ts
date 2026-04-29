@@ -711,6 +711,17 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
     // 子 Agent 分桶 map（getter：每次访问拿当前 chat 实例的 reactive map，
     // 跟随 currentChat 切换；调用方应再用 getter 包一层 provide 才能响应式贯穿）
     get subThreadsMap() { return (currentChat.value as any)?.subThreadsMap ?? {} },
+    /**
+     * 合成工具卡片（按 parentMessageId 索引）。
+     * 业务组件传给 AiChat 的 :extra-tool-calls。当前来源：
+     *   - 模块对话摘要进度事件（saveAnalysisResult 工具）
+     *   - 文书模板选择 interrupt（draftDocument 工具触发，前端内嵌渲染）
+     *
+     * 用 computed 而非 getter：getter 调用结果在 vue 模板的 prop 绑定中不带响应依赖，
+     * map 内部 mutation 不会触发父→子 prop 更新；必须 computed 让模板能追踪到 currentChat
+     * 与底层 reactive map 的依赖链，mutation 才能正确驱动子组件重渲染。
+     */
+    syntheticToolCalls: computed(() => (currentChat.value as any)?.syntheticToolCalls ?? {}),
 
     // 核心操作
     sendMessage,

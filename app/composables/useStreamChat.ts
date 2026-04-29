@@ -18,6 +18,9 @@ import type { UseStreamCustomOptions } from '@langchain/vue'
 import { AIMessage, ToolMessage } from '@langchain/core/messages'
 import type { BaseMessage } from '@langchain/core/messages'
 import type { AgentRunStatus, AgentEvent, AgentCustomEvent, AgentStatusEvent } from '#shared/types/agentRun'
+import type { AnalysisSummaryPayload } from '#shared/types/agentEvent'
+import { SYNTHETIC_TOOL_GENERATE_SUMMARY } from '#shared/types/agentEvent'
+import type { ToolCallWithResult } from '~/components/ai/composables/useMessageParser'
 
 export interface SubThreadState {
   agentName: string
@@ -116,6 +119,18 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
     // 子 Agent 分桶：按 parentToolCallId 归集子 Agent 事件
     const subThreadsMap = reactive<Record<string, SubThreadState>>({})
 
+    /**
+     * 合成工具卡片：按 parentMessageId（触发该卡片的 AIMessage.id）分组。
+     *
+     * 当前唯一来源：模块对话 saveAnalysisResult 工具发出的 ANALYSIS_SUMMARY 事件，
+     * 用于让 useMessageParser 把"生成结果摘要"卡片合成到 save_analysis_result 同一条 AIMessage 的 toolCalls 末尾。
+     *
+     * - phase='start'：push 一条 input-available 状态的 ToolCallWithResult
+     * - phase='end' (success=true)：原条切到 output-available，result 携带 summary 文本
+     * - phase='end' (success=false)：原条切到 output-error，result 携带 error 描述
+     */
+    const syntheticToolCalls = reactive<Record<string, ToolCallWithResult[]>>({})
+
     // 历史恢复：将 loadHistory 返回的 subAgentThreads 灌入 subThreadsMap
     if (options.initialSubThreads?.length) {
         for (const sub of options.initialSubThreads) {
@@ -165,6 +180,43 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
                 }
                 return  // status_change 不透传给外部 onCustomEvent
             }
+
+            // 摘要进度事件拦截：合成工具卡片，挂到 parentMessageId 对应的 AIMessage
+            if (
+                data
+                && typeof data === 'object'
+                && 'name' in data
+                && (data as { name: unknown }).name === 'analysis_summary'
+            ) {
+                const payload = (data as unknown as { data: AnalysisSummaryPayload }).data
+                const list = syntheticToolCalls[payload.parentMessageId] ?? []
+                if (payload.phase === 'start') {
+                    if (!list.some(t => t.id === payload.toolCallId)) {
+                        list.push({
+                            id: payload.toolCallId,
+                            name: SYNTHETIC_TOOL_GENERATE_SUMMARY,
+                            args: { analysisId: payload.analysisId },
+                            state: 'input-available',
+                        })
+                    }
+                } else {
+                    const idx = list.findIndex(t => t.id === payload.toolCallId)
+                    if (idx >= 0) {
+                        const result = payload.success
+                            ? { success: true, summary: payload.summary }
+                            : { success: false, error: payload.error }
+                        list[idx] = {
+                            ...list[idx]!,
+                            result,
+                            state: payload.success ? 'output-available' : 'output-error',
+                        }
+                    }
+                }
+                // reactive 数组的内部 mutation 不触发依赖重算，必须重新赋一个新引用
+                syntheticToolCalls[payload.parentMessageId] = [...list]
+                return  // 不透传给外部 onCustomEvent
+            }
+
             options.onCustomEvent?.(data)
         },
         initialValues: options.initialValues as T | undefined,
@@ -257,5 +309,9 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
         // 子 Agent 分桶状态
         subThreadsMap,
         handleAgentEvent,
+
+        // 合成工具卡片（按 parentMessageId 索引）
+        // 业务方传给 useMessageParser 的第三参 / AiChat 的 extraToolCalls prop
+        syntheticToolCalls,
     }
 }

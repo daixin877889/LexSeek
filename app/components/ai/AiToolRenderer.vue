@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { inject } from 'vue'
 import type { Component } from 'vue'
+import { SYNTHETIC_TOOL_GENERATE_SUMMARY } from '#shared/types/agentEvent'
 import type { ToolCallWithResult } from './composables/useMessageParser'
 import SubAgentChainOfThought from './SubAgentChainOfThought.vue'
 import AiToolsConfirmPointsTool from '~/components/ai/tools/ConfirmPointsTool.vue'
 import AiToolsDefaultTool from '~/components/ai/tools/DefaultTool.vue'
 import AiToolsExtractInfoTool from '~/components/ai/tools/ExtractInfoTool.vue'
+import AiToolsGenerateSummaryTool from '~/components/ai/tools/GenerateSummaryTool.vue'
 import AiToolsLawSearchTool from '~/components/ai/tools/LawSearchTool.vue'
 import AiToolsMaterialProcessTool from '~/components/ai/tools/MaterialProcessTool.vue'
 import AiToolsMaterialSearchTool from '~/components/ai/tools/MaterialSearchTool.vue'
@@ -97,5 +99,7 @@ function subAgentError(toolCallId: string): string | undefined {
   <AiToolsWriteSkillFileTool v-else-if="toolCall.name === 'write_skill_file'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
   <AiToolsRunSkillScriptTool v-else-if="toolCall.name === 'run_skill_script'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
   <AiToolsSaveAnalysisResultTool v-else-if="toolCall.name === 'save_analysis_result'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
+  <!-- generate_summary 是合成卡片（非真实 LLM 工具）：由 saveAnalysisResult 工具发出的 ANALYSIS_SUMMARY 事件触发，紧跟在 save_analysis_result 卡片之后 -->
+  <AiToolsGenerateSummaryTool v-else-if="toolCall.name === SYNTHETIC_TOOL_GENERATE_SUMMARY" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" />
   <AiToolsDefaultTool v-else :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
 </template>

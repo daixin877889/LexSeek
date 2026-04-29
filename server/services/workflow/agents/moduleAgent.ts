@@ -135,7 +135,7 @@ export async function runModuleChat(
     // { NOT: { analysisType: agentName } } 能正确排除当前模块自身的旧结果
     const roleAndFlowTemplate = [
         renderSystemPrompt(nodeConfig, { caseId, moduleName }),
-        '当你生成或更新了该模块的分析结果时，必须调用 save_analysis_result 工具保存结果。',
+        '当你完成该模块的分析后，请按以下顺序操作：1) 先以纯文本形式输出完整的分析报告（Markdown 格式）；2) 然后调用 save_analysis_result 工具（无需任何参数）。工具会自动从你刚输出的报告中读取内容保存。请勿在工具参数中重复正文。',
     ].filter(Boolean).join('\n\n')
 
     const { systemMessage, plainText: plainTextPrompt } = await buildSystemPromptForAgent(

@@ -313,8 +313,11 @@ export interface CompleteAnalysisWithRAGInput {
  * 事务边界：
  *   Stage 1（主分析 + summary）事务内 - 保证原子性
  *   Stage 2（embedding 切块写入）事务外 - 失败不回滚主分析，只降级 RAG 检索能力
+ *
+ * @returns 生成的摘要字符串，供调用方（如 saveAnalysisResult 工具）发出
+ *          ANALYSIS_SUMMARY end 事件携带给前端展示
  */
-export async function completeAnalysisWithRAG(input: CompleteAnalysisWithRAGInput): Promise<void> {
+export async function completeAnalysisWithRAG(input: CompleteAnalysisWithRAGInput): Promise<string> {
     const { analysisId, analysisResult, model } = input
 
     // 事务外先查 existing（只读），不占用事务连接
@@ -420,6 +423,8 @@ export async function completeAnalysisWithRAG(input: CompleteAnalysisWithRAGInpu
             { analysisId, error: e },
         )
     }
+
+    return summary
 }
 
 /** 按段落切块（\n\n 分隔，每块最多 maxChars 字符） */

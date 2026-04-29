@@ -213,7 +213,7 @@ describe('analysisResultPersistenceMiddleware afterAgent', () => {
     }
 
     it('应该提取 AIMessage 内容并通过 completeAnalysisWithRAG 落库（string 格式）', async () => {
-        vi.mocked(completeAnalysisWithRAG).mockResolvedValue(undefined)
+        vi.mocked(completeAnalysisWithRAG).mockResolvedValue('mock-summary')
 
         const hook = getAfterAgentHook()
         const state = {
@@ -234,7 +234,7 @@ describe('analysisResultPersistenceMiddleware afterAgent', () => {
     })
 
     it('应该处理 ContentPart[] 格式的消息内容', async () => {
-        vi.mocked(completeAnalysisWithRAG).mockResolvedValue(undefined)
+        vi.mocked(completeAnalysisWithRAG).mockResolvedValue('mock-summary')
 
         const hook = getAfterAgentHook()
         const state = {

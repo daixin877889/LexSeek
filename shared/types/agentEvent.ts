@@ -51,6 +51,15 @@ export enum SSECustomEventType {
 
     // ── 业务结果落库通知 ──
     ANALYSIS_RESULT_SAVED = 'analysis_result_saved',
+    /**
+     * 模块分析摘要生成进度（合成工具卡片）。
+     *
+     * 由 saveAnalysisResult 工具在 DB 落库后发出 phase:'start'，
+     * await completeAnalysisWithRAG 完成后发出 phase:'end'。
+     * 前端 useStreamChat 拦截后注入合成 toolCall 到 parentMessageId 对应的 AIMessage，
+     * 让用户看到一张"正在生成结果摘要…"工具卡片，与 save_analysis_result 卡片并列。
+     */
+    ANALYSIS_SUMMARY = 'analysis_summary',
     /** 阶段 5：文书草稿落库通知 */
     DRAFT_SAVED = 'draft_saved',
     /** 阶段 5：合同审查结果落库通知 */
@@ -105,6 +114,46 @@ export interface AnalysisResultSavedPayload {
     summary?: string
 }
 
+/**
+ * 合成工具卡片名称常量。
+ *
+ * "合成"指卡片不是 LLM 主动调起的真实工具，而是后端通过 SSE 事件让前端渲染出工具卡片样式的进度展示。
+ * 字面量被 useStreamChat（前端）和 saveAnalysisResult.tool（后端）两端共用，必须在共享类型层定义。
+ */
+export const SYNTHETIC_TOOL_GENERATE_SUMMARY = 'generate_summary' as const
+
+/**
+ * 摘要生成阶段事件 payload（合成工具卡片驱动数据）。
+ *
+ * - phase='start'：DB 落库完成，开始 await completeAnalysisWithRAG
+ * - phase='end' + success=true：摘要 + embedding 全部完成
+ * - phase='end' + success=false：摘要生成或 embedding 写入失败
+ *   （注意：save 工具仍会返回 success；摘要失败只是次要功能降级）
+ */
+export type AnalysisSummaryPayload =
+    | {
+        phase: 'start'
+        toolCallId: string
+        parentMessageId: string
+        analysisId: number
+    }
+    | {
+        phase: 'end'
+        toolCallId: string
+        parentMessageId: string
+        analysisId: number
+        success: true
+        summary: string
+    }
+    | {
+        phase: 'end'
+        toolCallId: string
+        parentMessageId: string
+        analysisId: number
+        success: false
+        error: string
+    }
+
 export interface DraftSavedPayload {
     draftId: number
     summary: string
@@ -155,6 +204,7 @@ export interface SSECustomEventMap {
     [SSECustomEventType.SUB_AGENT_TOOL_END]: SubAgentToolEndPayload
     [SSECustomEventType.SUB_AGENT_STATUS]: SubAgentStatusPayload
     [SSECustomEventType.ANALYSIS_RESULT_SAVED]: AnalysisResultSavedPayload
+    [SSECustomEventType.ANALYSIS_SUMMARY]: AnalysisSummaryPayload
     [SSECustomEventType.DRAFT_SAVED]: DraftSavedPayload
     [SSECustomEventType.CONTRACT_REVIEW_SAVED]: ContractReviewSavedPayload
     [SSECustomEventType.CONTRACT_REVIEW]: ContractReviewEvent

@@ -83,13 +83,16 @@ const parsedAttachments = computed<AttachmentLite[]>(() => {
        这里覆盖为 w-full，让所有工具调用与消息容器同宽（max-w-[80%]） -->
   <Message v-else-if="msg.type === 'ai'" from="assistant" class="max-w-full">
     <MessageContent class="w-full">
-      <!-- 思考过程 -->
+      <!-- 渲染顺序：思考 → AI 正文 → 工具调用。
+           对应 LLM 实际输出节奏（先说话、再调工具，工具卡片紧跟其后），
+           尤其是模块对话保存场景：报告正文先生成、再调 save_analysis_result 工具。 -->
       <Reasoning v-if="msg.thinking" :is-streaming="loading && isLast">
         <ReasoningTrigger />
         <ReasoningContent :content="msg.thinking" />
       </Reasoning>
 
-      <!-- 工具调用 -->
+      <MessageResponse v-if="msg.content" :content="msg.content" mode="static" />
+
       <AiToolRenderer
         v-for="tc in msg.toolCalls"
         :key="tc.id"
@@ -98,9 +101,6 @@ const parsedAttachments = computed<AttachmentLite[]>(() => {
         @confirm="(data: any) => emit('tool-confirm', { toolCallId: tc.id, data })"
         @reject="emit('tool-reject', { toolCallId: tc.id })"
       />
-
-      <!-- AI 响应内容 -->
-      <MessageResponse v-if="msg.content" :content="msg.content" mode="static" />
     </MessageContent>
   </Message>
 

@@ -164,15 +164,22 @@ function matchToolCalls(
 
 // --- Composable ---
 
+/**
+ * @param extraToolCallsByMessageId 合成工具卡片（按 parentMessageId 索引），
+ *   会被 concat 到匹配 AIMessage 的 toolCalls 末尾。
+ *   当前唯一来源：useStreamChat 拦截 ANALYSIS_SUMMARY SSE 事件后注入的"生成结果摘要"卡片。
+ */
 export function useMessageParser(
   messages: MaybeRef<any[]>,
   isInterrupted?: MaybeRef<boolean>,
+  extraToolCallsByMessageId?: MaybeRef<Record<string, ToolCallWithResult[]> | undefined>,
 ) {
   const parsedMessages = computed<ParsedMessage[]>(() => {
     const raw = toValue(messages)
     if (!raw?.length) return []
 
     const interrupted = !!toValue(isInterrupted)
+    const extras = toValue(extraToolCallsByMessageId) ?? {}
 
     const baseMessages = coerceRawMessages(raw)
 
@@ -303,15 +310,20 @@ export function useMessageParser(
           // 前端能看到的带 search_* tool_calls 的 AI 消息一律是主 Agent 的主线推理，
           // 必须原样保留 thinking 和 text。
           const thinking = extractThinking(m as any, false)
+          // 合并合成工具卡片（按 message.id 匹配）：紧跟在 LLM 真实 tool_calls 之后渲染
+          // 用途见 syntheticToolCalls 字段说明（当前唯一场景：模块对话摘要进度卡片）
+          const synthetic = extras[m.id ?? ''] ?? []
+          const allToolCalls = synthetic.length > 0 ? [...toolCalls, ...synthetic] : toolCalls
+
           // 跳过无内容、无 toolCalls、无 thinking 的 AI 消息（流式中断时保存的中间状态）
-          if (!content && !toolCalls.length && !thinking) return null
+          if (!content && !allToolCalls.length && !thinking) return null
 
           return {
             id: m.id ?? `ai-${idx}`,
             type: 'ai' as const,
             content,
             thinking,
-            toolCalls,
+            toolCalls: allToolCalls,
             raw: m,
           }
         }

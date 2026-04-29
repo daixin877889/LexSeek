@@ -3,6 +3,7 @@ import type { Component } from 'vue'
 import { ArrowLeftIcon, PanelLeftIcon, PanelRightIcon, LoaderIcon } from 'lucide-vue-next'
 import type { TodoItem } from './composables/useTaskQueueParser'
 import type { AiPromptSubmitData } from './AiPromptInput.vue'
+import type { ToolCallWithResult } from './composables/useMessageParser'
 import { useMessageParser } from './composables/useMessageParser'
 import AiMessageList from '~/components/ai/AiMessageList.vue'
 import AiPromptInput from '~/components/ai/AiPromptInput.vue'
@@ -39,6 +40,12 @@ interface Props {
   isStopping?: boolean
   // 工具
   toolMap?: Record<string, Component>
+  /**
+   * 合成工具卡片：按 parentMessageId 索引，会被 concat 到匹配 AIMessage 的 toolCalls 末尾。
+   * 业务方传 useStreamChat / useDomainAgentSession 暴露的 syntheticToolCalls。
+   * 当前唯一场景：模块对话保存分析结果时显示"生成结果摘要"进度卡片。
+   */
+  extraToolCalls?: Record<string, ToolCallWithResult[]>
   // 任务队列
   showTaskQueue?: boolean
   todos?: readonly TodoItem[]
@@ -79,9 +86,11 @@ const attrs = useAttrs()
 
 // 消息解析（用于 #message-list slot 和 AiMessageList）
 // 传 isInterrupted，parser 会把未完成工具标记为 input-paused，避免"运行中"假象
+// 第三参 extraToolCalls：合成工具卡片（如"生成结果摘要"），按 parentMessageId 注入
 const { parsedMessages } = useMessageParser(
   computed(() => props.messages),
   computed(() => props.isInterrupted),
+  computed(() => props.extraToolCalls),
 )
 
 // 面板逻辑

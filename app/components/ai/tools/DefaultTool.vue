@@ -4,6 +4,7 @@
 const TOOL_NAME_MAP: Record<string, string> = {
   upload_workspace_file: '上传工作区文件',
   save_analysis_result: '保存分析结果',
+  generate_summary: '生成结果摘要',
   write_skill_file: '写入技能文件',
   read_skill_file: '读取技能文件',
   run_skill_script: '运行技能脚本',

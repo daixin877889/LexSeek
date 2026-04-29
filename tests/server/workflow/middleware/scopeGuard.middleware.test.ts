@@ -130,8 +130,8 @@ describe('scopeGuard.middleware', () => {
     })
 
     describe('schema 无身份字段的工具', () => {
-        it('save_analysis_result 合法内容放行（仅黑名单生效）', async () => {
-            const req = makeRequest('save_analysis_result', { analysisResult: '# 分析结论\n正常 markdown' })
+        it('save_analysis_result 空参数放行（schema 已改为 z.object({})，正文从 state.messages 读）', async () => {
+            const req = makeRequest('save_analysis_result', {})
             await middleware.wrapToolCall!(req, handler as Parameters<typeof middleware.wrapToolCall!>[1])
             expect(handlerCalled).toBe(1)
         })
