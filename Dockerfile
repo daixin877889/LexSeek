@@ -2,6 +2,11 @@
 # 阶段 1: 构建阶段
 FROM --platform=linux/amd64 node:20-alpine AS builder
 
+# 安装curl和bash
+RUN apt-get update && \
+    apt-get install -y curl bash && \
+    rm -rf /var/lib/apt/lists/*
+
 # 安装 Bun
 RUN curl -fsSL https://bun.sh/install | bash
 ENV PATH="/root/.bun/bin:$PATH"
