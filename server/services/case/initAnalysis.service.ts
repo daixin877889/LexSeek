@@ -11,6 +11,8 @@ import type { InitAnalysisStatusResponse } from '#shared/types/initAnalysis'
 import { isCaseReadOnly } from '#shared/types/case'
 import { generateSummaryService } from '../ai/summaryService'
 import { addDocumentsToVectorStore } from '../legal/vectorStore.service'
+import { getValidNodeConfig } from '../node/node.service'
+import { createChatModel } from '../node/chatModelFactory'
 
 /**
  * 验证并排序选中的模块
@@ -318,7 +320,8 @@ export interface CompleteAnalysisWithRAGInput {
  *          ANALYSIS_SUMMARY end 事件携带给前端展示
  */
 export async function completeAnalysisWithRAG(input: CompleteAnalysisWithRAGInput): Promise<string> {
-    const { analysisId, analysisResult, model } = input
+    // model 入参保留以兼容现有调用方（如 saveAnalysisResult.tool），但摘要不再使用——改走 analysisSummary 节点
+    const { analysisId, analysisResult } = input
 
     // 事务外先查 existing（只读），不占用事务连接
     const existing = await prisma.caseAnalyses.findUnique({
@@ -340,10 +343,32 @@ export async function completeAnalysisWithRAG(input: CompleteAnalysisWithRAGInpu
     }
 
     // LLM 调用在事务外：网络 IO 不受事务超时约束，LLM 慢不会拖垮主分析落库
-    const summary = await generateSummaryService(model, analysisResult, {
-        maxChars: 400,
-        systemPrompt: '你是法律助手。对下方分析报告正文生成 200-400 字的中文专业摘要，保留关键事实、结论、依据，不加开场白总结语。',
-    })
+    // 摘要生成走 analysisSummary 节点（模型 + system prompt 均来自节点配置），失败不阻塞主流程
+    let summary = ''
+    try {
+        const summaryConfig = await getValidNodeConfig('analysisSummary', '案件分析结果摘要')
+        const apiKey = summaryConfig.modelApiKeys.find(k => k.status === 1)?.apiKey
+        const systemPrompt = summaryConfig.prompts.find(p => p.type === 'system' && p.status === 1)?.content
+        if (apiKey && systemPrompt) {
+            const summaryModel = createChatModel({
+                sdkType: summaryConfig.modelSdkType,
+                modelName: summaryConfig.modelName,
+                apiKey,
+                baseUrl: summaryConfig.modelProviderBaseUrl,
+                temperature: 0,
+                streaming: false,
+            })
+            // 截断 8000 字防上下文溢出
+            const truncated = analysisResult.length > 8000
+                ? analysisResult.slice(0, 8000) + '\n\n[内容过长已截断]'
+                : analysisResult
+            summary = await generateSummaryService(summaryModel, truncated, { maxChars: 400, systemPrompt })
+        } else {
+            logger.warn('analysisSummary 节点未配置完整，跳过摘要生成', { analysisId })
+        }
+    } catch (err) {
+        logger.warn('analysisSummary 调用失败（不阻塞主流程）', { analysisId, err })
+    }
 
     // Stage 1: 主分析 + summary（事务内；只做 DB 写入，无网络 IO）
     const analysis = await prisma.$transaction(async (tx) => {
