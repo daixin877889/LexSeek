@@ -18,6 +18,7 @@
 import { z } from 'zod'
 import { getValidNodeConfig } from '~~/server/services/node/node.service'
 import { createChatModel } from '~~/server/services/node/chatModelFactory'
+import { generateSummaryService } from '~~/server/services/ai/summaryService'
 import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { processFileMaterials } from '~~/server/services/material/fileProcess.service'
 import type { FileProcessContext } from '~~/server/services/material/fileProcess.service'
@@ -28,14 +29,6 @@ const EXTRACT_NODE_NAME = 'extractInfo'
 
 /** 分批摘要时单文件最大字符数（约 50000 字符 ≈ 60000 tokens） */
 const MAX_CONTENT_CHARS_FOR_SUMMARY = 50000
-
-/** 分批摘要的提示词模板 */
-const SUMMARY_PROMPT_TEMPLATE = `请仔细阅读以下材料，生成 300-500 字的摘要，保留所有关键信息：
-
-材料名称：{name}
-
-材料内容：
-{content}`
 
 const schema = z.object({
     message: z.string().min(1),
@@ -202,7 +195,7 @@ async function summarizeAndExtract(
     const summaryResults = await Promise.allSettled(
         fileContexts
             .filter(f => f.content)
-            .map(file => generateFileSummary(model, file)),
+            .map(file => generateFileSummary(file)),
     )
 
     const filesWithContent = fileContexts.filter(f => f.content)
@@ -220,19 +213,33 @@ async function summarizeAndExtract(
 }
 
 /** 生成单个文件的摘要 */
-async function generateFileSummary(model: any, file: FileProcessContext): Promise<string> {
+async function generateFileSummary(file: FileProcessContext): Promise<string> {
     const truncated = file.content!.length > MAX_CONTENT_CHARS_FOR_SUMMARY
         ? file.content!.slice(0, MAX_CONTENT_CHARS_FOR_SUMMARY) + '\n\n[内容过长已截断]'
         : file.content!
-    const result = await model.invoke([
-        new HumanMessage(
-            SUMMARY_PROMPT_TEMPLATE
-                .replace('{name}', file.name)
-                .replace('{content}', truncated),
-        ),
-    ])
-    const summary = typeof result.content === 'string'
-        ? result.content
-        : JSON.stringify(result.content)
-    return `【${file.name}摘要】\n${summary.trim()}`
+    try {
+        const config = await getValidNodeConfig('material_summarizer', '材料摘要')
+        const apiKey = config.modelApiKeys.find(k => k.status === 1)?.apiKey
+        const systemPrompt = config.prompts.find(p => p.type === 'system' && p.status === 1)?.content
+        if (!apiKey || !systemPrompt) {
+            return `[摘要生成失败：material_summarizer 节点未配置]`
+        }
+        const summaryModel = createChatModel({
+            sdkType: config.modelSdkType,
+            modelName: config.modelName,
+            apiKey,
+            baseUrl: config.modelProviderBaseUrl,
+            temperature: 0,
+            streaming: false,
+        })
+        const summary = await generateSummaryService(
+            summaryModel,
+            `材料名称：${file.name}\n\n材料内容：\n${truncated}`,
+            { maxChars: 500, systemPrompt },
+        )
+        return `【${file.name}摘要】\n${summary.trim()}`
+    } catch (err) {
+        logger.warn('材料摘要生成失败', { name: file.name, error: err })
+        return `[摘要生成失败，原文预览: ${truncated.slice(0, 200)}...]`
+    }
 }
