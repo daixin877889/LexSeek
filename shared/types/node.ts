@@ -100,6 +100,8 @@ export interface CreateNodeInput {
     groupId?: number | null
     status?: number
     outputSchema?: Record<string, unknown> | null
+    /** 是否启用思考模式 */
+    thinkingEnabled?: boolean
 }
 
 /** 更新节点输入类型 */

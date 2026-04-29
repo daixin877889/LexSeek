@@ -155,6 +155,8 @@ export interface CreateModelInput {
     priority?: number
     inputCostPerMillionTokens?: number | null
     outputCostPerMillionTokens?: number | null
+    /** 是否支持思考切换 */
+    supportsThinking?: boolean
 }
 
 /** 更新模型输入类型 */
@@ -175,6 +177,8 @@ export interface UpdateModelInput {
     priority?: number
     inputCostPerMillionTokens?: number | null
     outputCostPerMillionTokens?: number | null
+    /** 是否支持思考切换 */
+    supportsThinking?: boolean
 }
 
 /** 模型列表查询参数 */
