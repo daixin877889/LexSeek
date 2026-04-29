@@ -101,6 +101,10 @@ export interface NodeConfig {
     modelContextWindow?: number
     /** 模型单次调用最大输出 tokens（模型物理上限） */
     modelMaxOutputTokens?: number
+    /** 节点是否启用思考模式 */
+    thinkingEnabled: boolean
+    /** 关联模型是否支持思考切换 */
+    modelSupportsThinking: boolean
 }
 
 // ==================== 节点分组服务 ====================
@@ -432,6 +436,8 @@ export const getNodeConfigService = async (name: string): Promise<NodeConfig | n
             outputSchema: (nodeConfig.outputSchema as Record<string, unknown>) ?? null,
             modelContextWindow: nodeConfig.model.contextWindow ?? undefined,
             modelMaxOutputTokens: nodeConfig.model.maxOutputTokens ?? undefined,
+            thinkingEnabled: nodeConfig.thinkingEnabled ?? false,
+            modelSupportsThinking: nodeConfig.model.supportsThinking ?? false,
         }
 
         return config
@@ -532,6 +538,8 @@ export const getNodeConfigByIdService = async (id: number): Promise<NodeConfig |
             outputSchema: (nodeConfig.outputSchema as Record<string, unknown>) ?? null,
             modelContextWindow: nodeConfig.model.contextWindow ?? undefined,
             modelMaxOutputTokens: nodeConfig.model.maxOutputTokens ?? undefined,
+            thinkingEnabled: nodeConfig.thinkingEnabled ?? false,
+            modelSupportsThinking: nodeConfig.model.supportsThinking ?? false,
         }
 
         return config
@@ -624,5 +632,7 @@ export const getNodeConfigsByTypes = async (
             outputSchema: (node.outputSchema as Record<string, unknown>) ?? null,
             modelContextWindow: node.model!.contextWindow ?? undefined,
             modelMaxOutputTokens: node.model!.maxOutputTokens ?? undefined,
+            thinkingEnabled: node.thinkingEnabled ?? false,
+            modelSupportsThinking: node.model!.supportsThinking ?? false,
         }))
 }
