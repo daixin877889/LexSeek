@@ -148,6 +148,8 @@ export interface NodeWithRelations extends Node {
         id: number
         name: string
         displayName: string
+        modelType?: string
+        supportsThinking?: boolean
     }
     prompts?: Prompt[]
 }

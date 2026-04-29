@@ -385,6 +385,8 @@ export const findManyNodesDao = async (
                             id: true,
                             name: true,
                             displayName: true,
+                            modelType: true,
+                            supportsThinking: true,
                         },
                     },
                 },
