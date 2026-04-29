@@ -2,10 +2,8 @@
 # 阶段 1: 构建阶段
 FROM --platform=linux/amd64 docker.1ms.run/node:24.15.0-alpine AS builder
 
-# 安装curl和bash
-RUN apt-get update && \
-    apt-get install -y curl bash && \
-    rm -rf /var/lib/apt/lists/*
+# Alpine 使用 apk 安装 curl 和 bash
+RUN apk add --no-cache curl bash
 
 # 安装 Bun
 RUN curl -fsSL https://bun.sh/install | bash
@@ -33,11 +31,13 @@ RUN bun nuxt build
 # 阶段 2: 生产运行阶段
 FROM --platform=linux/amd64 docker.1ms.run/node:24.15.0-alpine AS runner
 
-# 安装 Bun
-RUN curl -fsSL https://bun.sh/install | bash
+# 安装 Bun（Alpine 版本）
+RUN apk add --no-cache curl && \
+    curl -fsSL https://bun.sh/install | bash && \
+    apk del curl
 ENV PATH="/root/.bun/bin:$PATH"
 
-# 安装 Python 运行时
+# 安装 Python 运行时（Alpine 使用 apk）
 RUN apk add --no-cache python3
 
 WORKDIR /app
@@ -45,7 +45,7 @@ WORKDIR /app
 # 设置生产环境
 ENV NODE_ENV=production
 ENV NUXT_HOST=0.0.0.0
-ENV NUXT_PORT=9000
+ENV NUXT_PORT=3000
 
 # 从构建阶段复制 Nuxt 构建产物
 COPY --from=builder /app/.output ./.output
@@ -54,7 +54,7 @@ COPY --from=builder /app/.output ./.output
 COPY --from=builder /app/.deepagents ./.deepagents
 
 # 暴露端口
-EXPOSE 9000
+EXPOSE 3000
 
 # 启动应用
 ENTRYPOINT []
