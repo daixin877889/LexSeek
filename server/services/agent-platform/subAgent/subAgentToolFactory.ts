@@ -11,6 +11,7 @@ import type { StructuredToolInterface } from '@langchain/core/tools'
 import { HumanMessage } from '@langchain/core/messages'
 import { createAgent, summarizationMiddleware } from 'langchain'
 import { createChatModel } from '~~/server/services/node/chatModelFactory'
+import { resolveThinkingFromNodeConfig } from '~~/server/services/node/node.service'
 import { getToolInstancesService } from '~~/server/services/agent-platform/tools'
 import {
     createAuditMiddleware,
@@ -119,6 +120,9 @@ export async function createSubAgentTools(
                         baseUrl: config.modelProviderBaseUrl,
                         temperature: 0.7,
                         streaming: true,
+                        // 子代理无 ctx.thinking（前端开关），按节点配置默认决议；
+                        // 不继承父 Agent 的 ctx.thinking，保持决议源清晰
+                        thinking: resolveThinkingFromNodeConfig(config, undefined),
                         maxTokens: config.modelMaxOutputTokens,
                     })
 

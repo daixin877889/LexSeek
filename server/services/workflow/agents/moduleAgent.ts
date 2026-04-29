@@ -16,7 +16,7 @@ import { HumanMessage } from '@langchain/core/messages'
 import type { StructuredToolInterface } from '@langchain/core/tools'
 import { Command } from '@langchain/langgraph'
 import { getCheckpointer, getStore } from '../checkpointer'
-import { getValidNodeConfig } from '../../node/node.service'
+import { getValidNodeConfig, resolveThinkingFromNodeConfig } from '../../node/node.service'
 import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
 import {
@@ -86,7 +86,7 @@ export async function runModuleChat(
         baseUrl: nodeConfig.modelProviderBaseUrl,
         temperature: 0.7,
         streaming: true,
-        thinking: options.thinking,
+        thinking: resolveThinkingFromNodeConfig(nodeConfig, options.thinking),
         maxTokens: nodeConfig.modelMaxOutputTokens,
     })
 

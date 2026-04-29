@@ -25,6 +25,7 @@ import type { StructuredToolInterface } from '@langchain/core/tools'
 import { getNodeConfigCached } from '~~/server/services/agent-platform/nodeConfig/loader'
 import { renderSystemPrompt } from '~~/server/services/agent-platform/nodeConfig/promptRenderer'
 import { createChatModel } from '~~/server/services/agent-platform/modelFactory'
+import { resolveThinkingFromNodeConfig } from '~~/server/services/node/node.service'
 import { getToolInstancesService } from '~~/server/services/agent-platform/tools/index'
 import { buildSkillsMiddlewareForNode } from '~~/server/services/agent-platform/middleware/skills'
 import { resolveContextWindow } from '~~/server/services/agent-platform/context/messageCompressor'
@@ -93,7 +94,7 @@ export async function runAnalysisSubAgent(
         baseUrl: nodeConfig.modelProviderBaseUrl,
         temperature: 0.7,
         streaming: true,
-        thinking,
+        thinking: resolveThinkingFromNodeConfig(nodeConfig, thinking),
         maxTokens: nodeConfig.modelMaxOutputTokens,
     })
 

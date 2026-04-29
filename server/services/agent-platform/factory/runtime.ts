@@ -22,6 +22,7 @@ import type { StructuredToolInterface } from '@langchain/core/tools'
 import { getNodeConfigCached } from '~~/server/services/agent-platform/nodeConfig/loader'
 import { renderSystemPrompt } from '~~/server/services/agent-platform/nodeConfig/promptRenderer'
 import { createChatModel } from '~~/server/services/agent-platform/modelFactory'
+import { resolveThinkingFromNodeConfig } from '~~/server/services/node/node.service'
 import { getCheckpointer, getStore } from '~~/server/services/agent-platform/checkpointer'
 import { getToolInstancesService } from '~~/server/services/agent-platform/tools/index'
 import { buildSkillsMiddlewareForNode } from '~~/server/services/agent-platform/middleware/skills'
@@ -116,7 +117,7 @@ export async function runDomainAgent(
         baseUrl: nodeConfig.modelProviderBaseUrl,
         temperature: 0.7,
         streaming: true,
-        thinking: ctx.thinking ?? false,
+        thinking: resolveThinkingFromNodeConfig(nodeConfig, ctx.thinking),
         maxTokens: nodeConfig.modelMaxOutputTokens,
     })
 

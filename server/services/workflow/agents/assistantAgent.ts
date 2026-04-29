@@ -14,7 +14,7 @@ import { createAgent, summarizationMiddleware, type ReactAgent } from 'langchain
 import { HumanMessage } from '@langchain/core/messages'
 import { Command } from '@langchain/langgraph'
 import { getCheckpointer, getStore } from '../checkpointer'
-import { getValidNodeConfig } from '../../node/node.service'
+import { getValidNodeConfig, resolveThinkingFromNodeConfig } from '../../node/node.service'
 import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
 import { renderSystemPrompt } from '../utils/promptRenderer'
@@ -81,7 +81,7 @@ export async function runAssistantChat(
         baseUrl: mainConfig.modelProviderBaseUrl,
         temperature: 0.7,
         streaming: true,
-        thinking,
+        thinking: resolveThinkingFromNodeConfig(mainConfig, thinking),
         maxTokens: mainConfig.modelMaxOutputTokens,
     })
 
