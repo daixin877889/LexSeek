@@ -1,13 +1,6 @@
-# 多阶段构建 - 使用 Node.js + Bun
-# 阶段 1: 构建阶段（使用 Bun 编译）
-FROM --platform=linux/amd64 docker.1ms.run/node:24.15.0-alpine AS builder
-
-# Alpine 需要安装 curl 和 bash 才能安装 Bun
-RUN apk add --no-cache curl bash
-
-# 安装 Bun
-RUN curl -fsSL https://bun.sh/install | bash
-ENV PATH="/root/.bun/bin:$PATH"
+# 多阶段构建 - 使用 Bun 构建 Nuxt 项目
+# 阶段 1: 构建阶段
+FROM  --platform=linux/amd64 oven/bun:1 AS builder
 
 WORKDIR /app
 
@@ -15,7 +8,7 @@ WORKDIR /app
 COPY package.json bun.lock ./
 COPY prisma ./prisma/
 
-# 安装依赖
+# 安装依赖（包括 devDependencies，构建需要）
 RUN bun install --frozen-lockfile
 
 # 复制源代码
@@ -24,30 +17,42 @@ COPY . .
 # 生成 Prisma Client
 RUN bun prisma:generate
 
-# 构建 Nuxt 应用（生成 Node.js 产物）
+# 构建 Nuxt 应用（跳过 prebuild 测试，增大内存限制用于服务端代码混淆）
 ENV NODE_OPTIONS=--max-old-space-size=8192
 RUN bun nuxt build
 
-# 阶段 2: 生产运行阶段（纯 Node.js 环境，不需要 Bun）
-FROM --platform=linux/amd64 docker.1ms.run/node:24.15.0-alpine AS runner
+# 在构建阶段安装 ipx 缺失的依赖到 .output/server/node_modules
+WORKDIR /app/.output/server/node_modules/ipx
+RUN bun add ofetch defu pathe ufo
 
-# 安装 Python 运行时（如需支持 Python Skills）
-RUN apk add --no-cache python3
+# 阶段 2: 生产运行阶段
+FROM  --platform=linux/amd64 oven/bun:1-slim AS runner
 
 WORKDIR /app
 
-# 设置生产环境变量
+# 安装 Python 运行时（支持 Python Skills 脚本）
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends python3 && \
+    rm -rf /var/lib/apt/lists/*
+
+# 设置生产环境
 ENV NODE_ENV=production
 ENV NUXT_HOST=0.0.0.0
-# 【关键】函数计算要求监听 9000 端口，Nuxt Nitro 会读取 PORT 环境变量
-ENV PORT=3000
+ENV NUXT_PORT=3000
 
-# 从构建阶段复制编译好的产物
+# 从构建阶段复制 Nuxt 构建产物（包含已安装的依赖）
 COPY --from=builder /app/.output ./.output
+
+# 复制 Skills 目录（含脚本和参考文档）
 COPY --from=builder /app/.deepagents ./.deepagents
 
 # 暴露端口
 EXPOSE 3000
 
-# 使用 Node.js 直接启动（不需要 Bun）
-CMD ["node", ".output/server/index.mjs"]
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD bun -e "fetch('http://localhost:3000/api/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
+
+# 启动应用（显式覆盖基础镜像的 entrypoint，兼容阿里云函数计算等 Serverless 平台）
+ENTRYPOINT []
+CMD ["bun", "run", ".output/server/index.mjs"]
