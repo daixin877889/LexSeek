@@ -253,7 +253,7 @@ export default defineNuxtConfig({
     embedding: {
       apiKey: '',           // NUXT_EMBEDDING_API_KEY
       baseUrl: '',          // NUXT_EMBEDDING_BASE_URL
-      model: 'text-embedding-v3',  // NUXT_EMBEDDING_MODEL
+      model: 'text-embedding-v4',  // NUXT_EMBEDDING_MODEL
       dimensions: 1536,     // NUXT_EMBEDDING_DIMENSIONS
       batchSize: 5,         // NUXT_EMBEDDING_BATCH_SIZE
     },
