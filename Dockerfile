@@ -1,6 +1,6 @@
 # 多阶段构建 - 使用 Node.js + Bun
 # 阶段 1: 构建阶段
-FROM --platform=linux/amd64 node:20-alpine AS builder
+FROM --platform=linux/amd64 docker.xuanyuan.run/node:24.15.0 AS builder
 
 # 安装curl和bash
 RUN apt-get update && \
@@ -31,7 +31,7 @@ ENV NODE_OPTIONS=--max-old-space-size=8192
 RUN bun nuxt build
 
 # 阶段 2: 生产运行阶段
-FROM --platform=linux/amd64 node:20-alpine AS runner
+FROM --platform=linux/amd64 docker.xuanyuan.run/node:24.15.0 AS runner
 
 # 安装 Bun
 RUN curl -fsSL https://bun.sh/install | bash
