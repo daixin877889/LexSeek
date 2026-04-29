@@ -172,7 +172,7 @@ export const findManyModelsDao = async (
         modelType?: ModelType
         providerId?: number
         status?: number
-        orderBy?: 'priority' | 'name' | 'createdAt'
+        orderBy?: 'id' | 'priority' | 'name' | 'createdAt'
         orderDir?: 'asc' | 'desc'
     } = {},
     tx?: PrismaClient
@@ -184,8 +184,8 @@ export const findManyModelsDao = async (
             modelType,
             providerId,
             status,
-            orderBy = 'priority',
-            orderDir = 'asc',
+            orderBy = 'id',
+            orderDir = 'desc',
         } = options
         const skip = (page - 1) * pageSize
 
