@@ -25,7 +25,20 @@ export async function generateSummaryService(
     { role: 'system', content: sys },
     { role: 'user', content: text },
   ])
-  const raw = typeof res.content === 'string' ? res.content : String(res.content)
+  // content 三种形态：
+  //   1. string                       （OpenAI / DeepSeek 标准）
+  //   2. Array<{type:'text',text}>    （Anthropic content blocks）
+  //   3. Array<含 thinking/reasoning> （只取 type==='text' 部分，排除思考块）
+  // 历史 bug：`String(array)` 在数组形态下会输出 `[object Object],[object Object]`，
+  // 该 summary 直接进 DB 与前端摘要卡片，必须显式提取 text 块再拼接。
+  const raw = typeof res.content === 'string'
+    ? res.content
+    : Array.isArray(res.content)
+      ? res.content
+          .filter((b: any) => b && typeof b === 'object' && b.type === 'text' && typeof b.text === 'string')
+          .map((b: any) => b.text)
+          .join('')
+      : String(res.content)
   const trimmed = raw.trim()
   return trimmed.length > maxChars ? trimmed.slice(0, maxChars) : trimmed
 }

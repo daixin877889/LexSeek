@@ -49,4 +49,32 @@ describe('generateSummaryService', () => {
       generateSummaryService(mockModel as unknown as BaseChatModel, 'text', { maxChars: 100 })
     ).rejects.toThrow('Model error: rate limited')
   })
+
+  it('content 是 Anthropic content blocks 数组时仅拼接 type=text，避免 [object Object] bug', async () => {
+    // 历史 bug：旧实现 String(array) → '[object Object],[object Object]'
+    // 修复：只拼 type==='text' 的块，排除 thinking / reasoning 等
+    const mockModel = {
+      invoke: vi.fn().mockResolvedValue({
+        content: [
+          { type: 'thinking', thinking: '内部思考不该进摘要' },
+          { type: 'text', text: '风险等级：高。' },
+          { type: 'text', text: '关键依据：合同第 5 条。' },
+        ],
+      }),
+    }
+    const res = await generateSummaryService(mockModel as unknown as BaseChatModel, '正文', { maxChars: 100 })
+    expect(res).toBe('风险等级：高。关键依据：合同第 5 条。')
+    expect(res).not.toContain('[object Object]')
+    expect(res).not.toContain('内部思考')
+  })
+
+  it('content 数组没有 type=text 块时返回空字符串而非崩溃', async () => {
+    const mockModel = {
+      invoke: vi.fn().mockResolvedValue({
+        content: [{ type: 'thinking', thinking: '只有思考' }],
+      }),
+    }
+    const res = await generateSummaryService(mockModel as unknown as BaseChatModel, '正文', { maxChars: 100 })
+    expect(res).toBe('')
+  })
 })
