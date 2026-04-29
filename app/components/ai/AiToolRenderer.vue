@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { inject } from 'vue'
+import { computed, inject } from 'vue'
 import type { Component } from 'vue'
 import { SYNTHETIC_TOOL_GENERATE_SUMMARY } from '#shared/types/agentEvent'
 import type { ToolCallWithResult } from './composables/useMessageParser'
 import SubAgentChainOfThought from './SubAgentChainOfThought.vue'
+import InterruptDispatcher from '~/components/InterruptDispatcher.vue'
+import { globalInterruptRegistry } from '~/composables/agent-platform/interruptRegistry'
 import AiToolsConfirmPointsTool from '~/components/ai/tools/ConfirmPointsTool.vue'
 import AiToolsDefaultTool from '~/components/ai/tools/DefaultTool.vue'
 import AiToolsExtractInfoTool from '~/components/ai/tools/ExtractInfoTool.vue'
@@ -48,6 +50,32 @@ interface SubAgentAccess {
 }
 const subAgentAccess = inject<SubAgentAccess | null>('subAgentAccess', null)
 
+// messageStreamContext：interrupt 内联化用，由 panel 层 provide
+interface MessageStreamContext {
+  interruptData: { value: { type?: string; toolCallId?: string;[key: string]: unknown } | null }
+  resolvedInterrupts: Record<string, {
+    interrupt: { type: string; toolCallId: string;[key: string]: unknown }
+    resumeValue: unknown
+    resolvedAt: Date
+  }>
+  resolveInterrupt: (value: unknown) => void
+}
+const messageStreamContext = inject<MessageStreamContext | null>('messageStreamContext', null)
+
+const resolvedEntry = computed(() => {
+  return messageStreamContext?.resolvedInterrupts[props.toolCall.id] ?? null
+})
+
+const isInterruptToolCardCall = computed(() => {
+  const active = messageStreamContext?.interruptData.value
+  if (active?.toolCallId === props.toolCall.id
+    && active.type
+    && globalInterruptRegistry.isToolCard(active.type)) {
+    return true
+  }
+  return !!resolvedEntry.value
+})
+
 function subAgentMessages(toolCallId: string): any[] {
   return subAgentAccess?.subThreadsMap?.[toolCallId]?.messages ?? []
 }
@@ -63,9 +91,26 @@ function subAgentError(toolCallId: string): string | undefined {
 </script>
 
 <template>
+  <!-- interrupt 工具卡（active 或 resolved）：合并为一条分支，靠 resumeValue 自动判定 -->
+  <template v-if="isInterruptToolCardCall">
+    <InterruptDispatcher
+      :interrupt="resolvedEntry?.interrupt ?? messageStreamContext?.interruptData.value ?? null"
+      :resume-value="resolvedEntry?.resumeValue"
+      @submit="(v) => messageStreamContext?.resolveInterrupt(v)"
+      @cancel="() => messageStreamContext?.resolveInterrupt(null)"
+    />
+    <component
+      v-if="resolvedEntry && toolCall.state === 'output-available' && toolMap?.[toolCall.name]"
+      :is="toolMap[toolCall.name]"
+      :tool-name="toolCall.name"
+      :input="toolCall.args"
+      :output="toolCall.result"
+      :state="toolCall.state"
+    />
+  </template>
   <!-- 用户自定义工具优先 -->
   <component
-    v-if="toolMap?.[toolCall.name]"
+    v-else-if="toolMap?.[toolCall.name]"
     :is="toolMap[toolCall.name]"
     :tool-name="toolCall.name"
     :input="toolCall.args"
