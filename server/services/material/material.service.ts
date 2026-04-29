@@ -25,6 +25,7 @@ import type { CreateMaterialInput, UpdateMaterialInput, MaterialQueryOptions } f
 import { MaterialStatus } from '#shared/types/material'
 import { CaseMaterialType } from '#shared/types/case'
 import { createChatModel } from '../node/chatModelFactory'
+import { getValidNodeConfig } from '../node/node.service'
 import { generateSummaryService } from '../ai/summaryService'
 import { findDocRecognitionByOssFileIdDao } from './mineru.dao'
 import type { asrRecords, ossFiles } from '~~/generated/prisma/client'
@@ -492,14 +493,28 @@ export async function generateMaterialSummaryService(materialId: number): Promis
         const content = await loadMaterialText(materialId, 500)
         if (!content) return
 
-        const haiku = createChatModel({
-            sdkType: 'anthropic',
-            modelName: 'claude-haiku-4-5-20251001',
-            apiKey: process.env.ANTHROPIC_API_KEY!,
-            streaming: false,
+        const config = await getValidNodeConfig('materialAutoSummary', '材料自动摘要')
+        const apiKey = config.modelApiKeys.find(k => k.status === 1)?.apiKey
+        if (!apiKey) {
+            logger.warn('materialAutoSummary 节点无可用 API Key', { materialId })
+            return
+        }
+        const systemPrompt = config.prompts.find(p => p.type === 'system' && p.status === 1)?.content
+        if (!systemPrompt) {
+            logger.warn('materialAutoSummary 节点无 system prompt', { materialId })
+            return
+        }
+
+        const model = createChatModel({
+            sdkType: config.modelSdkType,
+            modelName: config.modelName,
+            apiKey,
+            baseUrl: config.modelProviderBaseUrl,
             temperature: 0,
+            streaming: false,
         })
-        const summary = await generateSummaryService(haiku, content, { maxChars: 100 })
+        const summary = await generateSummaryService(model, content, { maxChars: 100, systemPrompt })
+
         await prisma.caseMaterials.update({
             where: { id: materialId },
             data: { summary },
