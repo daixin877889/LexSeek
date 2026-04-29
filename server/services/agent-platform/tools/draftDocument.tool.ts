@@ -156,33 +156,40 @@ export function createTool(context: ToolContext) {
             const { getDocumentTemplateDAO } = await import(
                 '~~/server/agents/document/documentTemplate.dao'
             )
-            // 计算 filledFieldCount：优先从 stream 最后一帧的 structuredResponse 拿；
-            // 否则从 DB 读 + 轮询兜底，避免 stream done 与 afterAgent hook DB write 之间
-            // race condition 导致拿到 stale empty values
-            const structuredFromStream = (drainResult.finalState as any)?.structuredResponse as
-                { values?: Record<string, string | null> } | undefined
-            const valuesFromStream = structuredFromStream?.values
-
+            // 计算 filledFieldCount 之前必须确保 afterAgent hook 已写完 DB。
+            //
+            // race condition 由来：runAndDrainStream 仅消费 SSE 流到 reader done，
+            // 但 LangGraph 在 streamMode='values' 下，emit 完终帧后底层 graph 可能
+            // 仍在异步收尾（包括 afterAgent hook 内的 await updateDocumentDraftDAO）。
+            // 经验测时 hook 完成时间最长可比 stream done 晚数秒（DB 网络抖动 / 同
+            // 进程内 Prisma 连接池竞争）。
+            //
+            // 信号选择：draft.status 是 hook 唯一的"明确写入完成"信号——
+            //   - beforeAgent 置 'filling'
+            //   - afterAgent 成功路径置 'ready'，失败路径置 'failed'
+            // 任一终态都说明 hook 已 await 完成。
+            //
+            // 轮询：最多 60 × 500ms = 30s 兜底（实际典型 < 1s）
+            const POLL_MAX_TIMES = 60
+            const POLL_INTERVAL_MS = 500
             let finalDraft = await getDocumentDraftDAO(draftId)
-            // 如果 stream 没暴露 structuredResponse 且 DB values 仍空，轮询等 afterAgent
-            // hook 写入完成（最多 5 次 ×200ms = 1s 兜底）
-            if (!valuesFromStream || Object.keys(valuesFromStream).length === 0) {
-                for (let i = 0; i < 5; i++) {
-                    const dbValues = (finalDraft?.values as Record<string, string | null> | null) ?? {}
-                    if (Object.values(dbValues).some(v => typeof v === 'string' && v.trim())) break
-                    if (finalDraft?.status === 'ready' || finalDraft?.status === 'failed') break
-                    await new Promise(r => setTimeout(r, 200))
-                    finalDraft = await getDocumentDraftDAO(draftId)
-                }
+            for (let i = 0; i < POLL_MAX_TIMES; i++) {
+                if (finalDraft?.status === 'ready' || finalDraft?.status === 'failed') break
+                await new Promise(r => setTimeout(r, POLL_INTERVAL_MS))
+                finalDraft = await getDocumentDraftDAO(draftId)
             }
             const template = await getDocumentTemplateDAO(templateId)
             if (!finalDraft) {
                 throw new Error('draft_document: 草稿落库后查不到')
             }
+            if (finalDraft.status !== 'ready' && finalDraft.status !== 'failed') {
+                logger.warn('draft_document: hook 在 30s 兜底窗口内未完成 DB 写入，filledFieldCount 可能 stale', {
+                    draftId,
+                    finalStatus: finalDraft.status,
+                })
+            }
 
-            const draftValues = (valuesFromStream && typeof valuesFromStream === 'object'
-                ? valuesFromStream
-                : (finalDraft.values as Record<string, string | null> | null) ?? {})
+            const draftValues = (finalDraft.values as Record<string, string | null> | null) ?? {}
             const filledFieldCount = Object.values(draftValues).filter(v => typeof v === 'string' && v.trim()).length
             const totalFields = Array.isArray(template?.placeholders) ? template!.placeholders.length : 0
 

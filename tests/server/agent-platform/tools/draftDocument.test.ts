@@ -81,6 +81,7 @@ describe('draft_document tool', () => {
         ;(getDocumentDraftDAO as any).mockResolvedValue({
             id: 101,
             title: '民事起诉状（劳动争议）',
+            status: 'ready', // afterAgent hook 已写入完成态，让 tool 内轮询立即 break
             values: { plaintiff: '张三', defendant: '某公司' },
         })
         ;(getDocumentTemplateDAO as any).mockResolvedValue({
