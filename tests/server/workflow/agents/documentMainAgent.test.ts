@@ -49,7 +49,27 @@ const mockNodeConfig = {
     modelContextWindow: 128000,
     modelApiKeys: [{ id: 1, apiKey: 'sk-test', status: 1 }],
     tools: [],
-    prompts: [{ name: 'system', content: 'doc role', type: 'system', status: 1 }],
+    prompts: [
+        { name: 'system', content: 'doc role', type: 'system', status: 1 },
+        {
+            name: 'documentMain_user_with_files',
+            type: 'user',
+            status: 1,
+            content: '请为《{{templateName}}》生成（fileIds={{fileIds}}）。{{userExtraText}}',
+        },
+        {
+            name: 'documentMain_user_with_case',
+            type: 'user',
+            status: 1,
+            content: '请为《{{templateName}}》生成（关联案件）。{{userExtraText}}',
+        },
+        {
+            name: 'documentMain_user_standalone',
+            type: 'user',
+            status: 1,
+            content: '请为《{{templateName}}》生成（独立草稿）。{{userExtraText}}',
+        },
+    ],
 }
 vi.mock('~~/server/services/node/node.service', () => ({
     getValidNodeConfig: vi.fn(async () => mockNodeConfig),
