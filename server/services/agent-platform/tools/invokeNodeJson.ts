@@ -54,6 +54,11 @@ export async function invokeNodeJson<T>(opts: InvokeNodeJsonOptions<T>): Promise
         apiKey: activeKey.apiKey,
         baseUrl: config.modelProviderBaseUrl,
         temperature,
+        // streaming:false 强制底层 LLM 请求走非流式协议。invokeNodeJson 内部
+        // 等待完整响应再 JSON.parse，本来就是非流式语义；显式关掉避免
+        // afterAgent fire-and-forget 调用时 LLM token chunks 通过 callback
+        // 链泄漏到主 SSE 通道（用户在小索消息流里看到孤立 JSON 代码块的根因）
+        streaming: false,
     })
 
     const prompt = buildPrompt(template)

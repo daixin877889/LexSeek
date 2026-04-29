@@ -82,6 +82,9 @@ describe('summarizeOverview', () => {
         const result = await summarizeOverview(risks, 'partyA', '服务合同')
 
         expect(createChatModel).toHaveBeenCalledTimes(1)
+        // invokeNodeJson 必须显式 streaming:false，避免后台 JSON 提取的
+        // LLM token chunks 通过 callback 链泄漏到主 SSE 通道（已知 bug）
+        expect(createChatModel).toHaveBeenCalledWith(expect.objectContaining({ streaming: false }))
         expect(result.highlights).not.toBeNull()
         expect(result.highlights!.high).toHaveLength(1)
         expect(result.highlights!.high[0]!.riskId).toBe('r1')
