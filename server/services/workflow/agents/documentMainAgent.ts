@@ -13,7 +13,8 @@ import { createAgent, summarizationMiddleware, toolStrategy, type ReactAgent } f
 import { HumanMessage } from '@langchain/core/messages'
 import { Command } from '@langchain/langgraph'
 import { getCheckpointer, getStore } from '../checkpointer'
-import { getValidNodeConfig } from '../../node/node.service'
+import { getValidNodeConfig, type NodeConfig } from '../../node/node.service'
+import { renderContent } from '../../node/prompt.service'
 import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
 import { renderSystemPrompt } from '../utils/promptRenderer'
@@ -41,44 +42,50 @@ import { resolveContextWindow } from '../context/messageCompressor'
 const DOCUMENT_MAIN_NODE_NAME = 'documentMain'
 
 /**
+ * 根据 draft 状态选择对应的 user prompt name。
+ */
+function pickInitialPromptName(draft: { sourceRef: unknown; caseId: number | null }): string {
+    const sourceRef = (draft.sourceRef as Record<string, unknown> | null) ?? {}
+    const fileIds = Array.isArray(sourceRef.fileIds)
+        ? (sourceRef.fileIds as unknown[]).map(x => Number(x)).filter(n => Number.isInteger(n) && n > 0)
+        : []
+    if (fileIds.length > 0) return 'documentMain_user_with_files'
+    if (draft.caseId != null) return 'documentMain_user_with_case'
+    return 'documentMain_user_standalone'
+}
+
+/**
  * 从 draft.sourceRef 构造 Agent 首轮启动指令。
- * 用户没额外发消息时（前端仅 submit(undefined)），用此 prompt 引导模型按 schema 填充占位符。
+ *
+ * 读 nodeConfig.prompts 中对应分支的 user prompt template，用 renderContent 注入变量。
+ * 模板内容由运营在后台节点管理维护，不在代码中硬编。
  */
 function buildInitialPromptFromDraft(
     draft: { sourceRef: unknown; caseId: number | null },
     templateName: string,
+    nodeConfig: NodeConfig,
 ): string {
     const sourceRef = (draft.sourceRef as Record<string, unknown> | null) ?? {}
-    const segments: string[] = [`请为《${templateName}》按字段 schema 生成文书内容。`]
-
     const fileIds = Array.isArray(sourceRef.fileIds)
         ? (sourceRef.fileIds as unknown[]).map(x => Number(x)).filter(n => Number.isInteger(n) && n > 0)
         : []
-    if (fileIds.length > 0) {
-        segments.push(`新增材料 fileIds: [${fileIds.join(', ')}]，请先调用 process_materials(fileIds=[${fileIds.join(', ')}]) 处理这些文件，再用 search_case_materials 检索内容回填字段。`)
-    }
-    else if (draft.caseId != null) {
-        // 从案件入口进入的草稿：优先用案件已完成分析的全文（精确字段在那里），不足时再 fallback 到原始材料
-        segments.push(
-            '本草稿关联案件已完成初分分析（system prompt 中 caseProfile + moduleSummaries 段已附 200-400 字摘要）。'
-            + '请按以下顺序填充模板字段：'
-            + '\n1) 优先调用 search_case_analysis(analysisType=...) 获取已分析模块的全文（事实/请求/案由/抗辩/证据等），用其中的精确数据填字段；'
-            + '\n2) 若已分析模块不足以覆盖某些字段，再调 search_case_materials 从原始材料补充；'
-            + '\n3) 严禁向用户重复索要案件已经记录过的信息（当事人、事实、请求等都能从已有分析或案件档案里拿到）。',
-        )
-    }
-    else {
-        // 独立文书页场景，无案件、无 fileIds：先查 draft 作用域材料；若也为空，再向用户索要
-        segments.push('请先调用 search_case_materials 查询本草稿已就绪的材料；若确无任何材料，再向用户询问需要补充的具体内容。')
+    const userExtraText = typeof sourceRef.text === 'string' && sourceRef.text.trim()
+        ? `用户补充说明：\n${sourceRef.text.trim()}`
+        : ''
+
+    const promptName = pickInitialPromptName(draft)
+    const template = nodeConfig.prompts.find(
+        p => p.name === promptName && p.type === 'user' && p.status === 1,
+    )?.content
+    if (!template) {
+        throw new Error(`documentMain 节点缺少 ${promptName} prompt 配置`)
     }
 
-    const text = typeof sourceRef.text === 'string' ? sourceRef.text.trim() : ''
-    if (text) {
-        segments.push(`用户补充说明：\n${text}`)
-    }
-
-    segments.push('收集到足够信息后，必须通过结构化输出工具返回 values + suggestions，严禁在消息正文自行写 JSON 或代码块；未知字段返回 null，不要编造。')
-    return segments.join('\n\n')
+    return renderContent(template, {
+        templateName,
+        fileIds: JSON.stringify(fileIds),
+        userExtraText,
+    })
 }
 
 export interface DocumentAgentOptions {
@@ -283,7 +290,7 @@ export async function runDocumentChat(
         input = new Command({ resume: command })
     }
     else {
-        const startMessage = message ?? buildInitialPromptFromDraft(draft, template.name)
+        const startMessage = message ?? buildInitialPromptFromDraft(draft, template.name, nodeConfig)
         input = { messages: [new HumanMessage(startMessage)] }
     }
 
