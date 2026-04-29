@@ -10,6 +10,7 @@
 import { SystemMessage, HumanMessage } from '@langchain/core/messages'
 import { createHash } from 'node:crypto'
 import { getValidNodeConfig } from '../node/node.service'
+import { renderContent } from '../node/prompt.service'
 import { createChatModel } from '../node/chatModelFactory'
 import { normalizeQuery, tryExactRegex } from './queryNormalizer'
 import { getRedisClient } from '../../lib/redis'
@@ -51,28 +52,6 @@ const DEFAULT_OUTPUT_SCHEMA = {
     },
     required: ['intent'],
 }
-
-/** 默认 system prompt */
-const DEFAULT_SYSTEM_PROMPT = `你是法律检索意图分类器。根据用户的查询，判断最佳检索策略，以 JSON 格式输出结果。
-
-## 判断优先级（按顺序判断，命中即停）
-
-1. exact（精确查找）— 查询中包含"法律名称 + 条文编号"
-   条文编号支持中文和阿拉伯数字（第264条 = 第二百六十四条）
-   示例："民法典第1000条"、"刑法第264条"、"劳动合同法第46条第2款"、"民法典第一千零七十九条"
-   → 提取 legalName + articleRef（articleRef 统一转为中文数字格式）
-
-2. hybrid（混合检索）— 以专业视角提问，包含专业法律术语或法律名称，但没有条文编号
-   不要求必须出现法律名称，只要查询整体是专业化表达即可
-   专业法律术语举例：格式条款、诉讼时效、违约金、不当得利、善意取得、行政复议、正当防卫、缓刑、数罪并罚
-   示例（含法律名称）："劳动合同法关于经济补偿的规定"、"公司法股东权益保护"、"民法典侵权责任编归责原则"
-   示例（不含法律名称，但有专业术语）："合同解除的法定条件"、"违约金调整规则"、"格式条款的效力"、"正当防卫的构成要件"、"诉讼时效中断的情形"、"行政复议申请条件"
-   → 提取 keywords + rewrittenQuery（如有法律名称也提取 legalName）
-
-3. semantic（语义检索）— 以普通人视角用口语化方式描述法律问题
-   即使提到了"继承"、"犯罪"、"股东"等日常化的法律概念词，只要整体是口语化表达就属于 semantic
-   示例："员工被公司无故辞退后能获得什么赔偿"、"租的房子到期房东不退押金怎么办"、"网上买的东西质量有问题可以退货吗"、"未成年人犯罪会被判刑吗"、"遗产继承的顺序是什么"、"公司股东之间发生矛盾怎么解决"
-   → 提取 keywords + rewrittenQuery`
 
 // ============================================================================
 // 主服务函数
@@ -154,10 +133,14 @@ export async function classifyIntentService(
             thinking: false
         })
 
-        // 获取 system prompt（从节点 prompts 中取 type='system' 的）
-        const systemPromptContent =
-            config.prompts.find((p: { type: string; content: string }) => p.type === 'system')?.content
-            ?? DEFAULT_SYSTEM_PROMPT
+        // 获取 system prompt（从节点 prompts 中取 type='system' 且 status=1 的）
+        const systemTemplate = config.prompts.find(
+            (p: { type: string; status: number; content: string }) => p.type === 'system' && p.status === 1,
+        )?.content
+        if (!systemTemplate) {
+            logger.warn('search_intent_router 节点缺少 system prompt（v2），降级为 semantic', { type })
+            return { intent: 'semantic', rewrittenQuery: query }
+        }
 
         // 使用 outputSchema
         const outputSchema = config.outputSchema ?? DEFAULT_OUTPUT_SCHEMA
@@ -167,9 +150,10 @@ export async function classifyIntentService(
         const typeHint = (type === 'case_material' || type === 'case_analysis')
             ? '\n\n注意：这是案件材料/分析检索，不存在精确通道。只能分类为 hybrid 或 semantic。'
             : ''
+        const systemPromptContent = renderContent(systemTemplate, { typeHint })
 
         const messages = [
-            new SystemMessage(systemPromptContent + typeHint),
+            new SystemMessage(systemPromptContent),
             new HumanMessage(query),
         ]
 
@@ -186,7 +170,7 @@ export async function classifyIntentService(
                 modelName: config.modelName,
                 sdkType: config.modelSdkType,
                 contextWindow: config.modelContextWindow,
-                systemPrompt: systemPromptContent + typeHint,
+                systemPrompt: systemPromptContent,
                 extra: { queryLength: query.length, type },
             })
             throw err
