@@ -5,10 +5,9 @@
  * spec §7.3：正则 → LLM 兜底 → null 三级降级
  * spec §13 R3：LLM 失败不阻塞整体流程
  */
-import { createChatModel } from '~~/server/services/node/chatModelFactory'
-import { getValidNodeConfig } from '~~/server/services/node/node.service'
+import { z } from 'zod'
 import { CONTRACT_TYPE_OPTIONS } from '#shared/types/contract'
-import { extractFirstJsonObject } from '../utils/llmJson'
+import { invokeNodeJson } from '~~/server/services/agent-platform/tools/invokeNodeJson'
 
 export interface PartyDetectionResult {
     partyA: string | null
@@ -36,19 +35,11 @@ function pickValidCandidate(fullText: string, pattern: RegExp): string | null {
     return null
 }
 
-// 合同类型枚举为工程侧自决（spec §14 O6），不受 spec 硬约束。
-// 枚举集中在 #shared/types/contract 里（DB 不做 enum 约束，prompt 只是提示 LLM）
-const LLM_PROMPT = `请从下面的合同前 1500 字中识别甲方名称、乙方名称、合同类型，以严格 JSON 输出：
-{"partyA": "...", "partyB": "...", "contractType": "..."}
-
-要求：
-- 三个字段都必须存在
-- 无法识别填 null
-- 合同类型从 [${CONTRACT_TYPE_OPTIONS.map(t => `"${t}"`).join(',')}] 中选一个
-- 只输出 JSON，不要任何解释文字
-
-合同内容：
-`
+const llmResultSchema = z.object({
+    partyA: z.string().nullable(),
+    partyB: z.string().nullable(),
+    contractType: z.string().nullable(),
+})
 
 export async function detectParties(paragraphs: string[]): Promise<PartyDetectionResult> {
     const fullText = paragraphs.join('\n')
@@ -56,37 +47,25 @@ export async function detectParties(paragraphs: string[]): Promise<PartyDetectio
     const matchA = pickValidCandidate(fullText, PARTY_A_PATTERN)
     const matchB = pickValidCandidate(fullText, PARTY_B_PATTERN)
     if (matchA && matchB) {
-        return {
-            partyA: matchA,
-            partyB: matchB,
-            contractType: null,
-            source: 'regex',
-        }
+        return { partyA: matchA, partyB: matchB, contractType: null, source: 'regex' }
     }
 
-    // LLM 失败不抛错，降级为 none（spec §13 R3）
     try {
-        const config = await getValidNodeConfig('contractReviewMain')
-        const activeKey = config.modelApiKeys.find((k) => k.status === 1)
-        if (!activeKey) throw new Error('contractReviewMain 节点无可用 API 密钥（status=1）')
-
-        const model = createChatModel({
-            sdkType: config.modelSdkType,
-            modelName: config.modelName,
-            apiKey: activeKey.apiKey,
-            baseUrl: config.modelProviderBaseUrl,
-            temperature: 0,
-        })
         const preview = fullText.slice(0, 1500)
-        const response = await model.invoke(LLM_PROMPT + preview)
-        const raw = typeof response.content === 'string' ? response.content : ''
-        const jsonText = extractFirstJsonObject(raw)
-        if (!jsonText) throw new Error('LLM 未返回 JSON')
-        const parsed = JSON.parse(jsonText)
+        const result = await invokeNodeJson({
+            nodeName: 'contractPartyDetect',
+            temperature: 0,
+            schema: llmResultSchema,
+            buildPrompt: (template) => {
+                const rendered = template.replace('{{contractTypeOptions}}', CONTRACT_TYPE_OPTIONS.map(t => `- ${t}`).join('\n'))
+                return `${rendered}\n\n合同内容：\n${preview}`
+            },
+            errorPrefix: 'contractPartyDetect',
+        })
         return {
-            partyA: parsed.partyA ?? null,
-            partyB: parsed.partyB ?? null,
-            contractType: parsed.contractType ?? null,
+            partyA: result.partyA ?? null,
+            partyB: result.partyB ?? null,
+            contractType: result.contractType ?? null,
             source: 'llm',
         }
     } catch (_err) {
