@@ -124,3 +124,33 @@ docker build --memory=8g --memory-swap=8g -t lexseek-build-test .
 3. 客户端在浏览器中正常加载至少首页 + dashboard 主页
 
 任一不达成 → 进入第 4 节升级路径。
+
+## 7. 验收结果（2026-04-29）
+
+### 7.1 P0（commit `3e8acc38`）
+
+- 客户端 vite 阶段：✅ **通过** — `computing gzip size...` 已消失，客户端构建走完
+- 服务端 nitro 阶段：❌ 死在 `[nitro] Building Nuxt Nitro server`，73.68s → 78.92s 之间内存暴增触发 SIGKILL
+- 结论：**P0 局部有效**（针对客户端 gzip 计算这一刀），但暴露了下一个内存峰值
+
+### 7.2 P0.5（commit `28a88f66`）
+
+加上两刀：`nitro.minify: false` + `rollup-plugin-obfuscator` 改条件加载。
+
+- 客户端 vite 阶段：❌ 退化 — 死在 `rendering chunks` 阶段（45s→79s 被杀），未活到 nitro
+- 服务端 nitro 阶段：⏸ **无法验证**（前置阶段失败）
+- 结论：P0.5 改动的是 nitro 块（minify + obfuscator），对客户端构建无影响。客户端这次倒在 rendering chunks 说明 9968 modules 的客户端构建在云效 16G 实例下处于**临界状态**——P0 那次活到 nitro 是侥幸命中较好的 docker cache，这次回归不利状态
+
+### 7.3 总结：P0/P0.5 不足
+
+云效 16G 实例每次跑都可能因 docker cache 命中差异 / 内存抖动决定生死。**单纯改 nuxt 配置已经无法稳定通过云效构建**。本期工作正式归档为"局部有效但不足以让流水线稳定"。
+
+P0 + P0.5 改动**保留**（无副作用、对将来任何环境的构建都有正收益）。
+
+## 8. 后续方向
+
+按第 4 节升级路径决策：**先做 P2（迁构建机）作为应急止血，P1（客户端瘦身）作为长期治本**。
+
+- P2 选择：**X2 — GitHub Actions 公共 runner 跑 docker build & push 到阿里云 ACR，云效流水线保持现状作 fallback**
+- P2 详细方案：见 `docs/superpowers/specs/2026-04-29-docker-build-x2-github-actions-design.md`
+- P1（客户端瘦身）：暂不启动，待 P2 落地恢复发版能力后另排期
