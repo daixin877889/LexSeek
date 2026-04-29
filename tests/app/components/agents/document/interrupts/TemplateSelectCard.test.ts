@@ -156,3 +156,72 @@ describe('TemplateSelectCard', () => {
     expect(useApiFetchMock).toHaveBeenCalled()
   })
 })
+
+describe('TemplateSelectCard - snapshot 模式', () => {
+    it('resumeValue 非 undefined 时进入 snapshot：所有按钮 disabled', async () => {
+        const wrapper = mount(TemplateSelectCard, {
+            props: {
+                interrupt: {
+                    type: 'template_select',
+                    toolCallId: 'call_001',
+                    recommendations: [{ id: 11, name: '起诉状' }],
+                    total: 1,
+                },
+                onResolve: vi.fn(),
+                resumeValue: { templateId: 11 },
+            },
+        })
+        expect(wrapper.text()).not.toContain('使用此模板')
+        expect(wrapper.text()).not.toContain('取消')
+        expect(wrapper.text()).toContain('已选模板')
+        expect(wrapper.text()).toContain('起诉状')
+    })
+
+    it('resumeValue=null 时显示已取消', async () => {
+        const wrapper = mount(TemplateSelectCard, {
+            props: {
+                interrupt: {
+                    type: 'template_select',
+                    toolCallId: 'call_002',
+                    recommendations: [{ id: 11, name: '起诉状' }],
+                    total: 1,
+                },
+                onResolve: vi.fn(),
+                resumeValue: null,
+            },
+        })
+        expect(wrapper.text()).toContain('已取消')
+    })
+
+    it('snapshot 模式下根 div 有 opacity-70 class', async () => {
+        const wrapper = mount(TemplateSelectCard, {
+            props: {
+                interrupt: {
+                    type: 'template_select',
+                    toolCallId: 'call_003',
+                    recommendations: [{ id: 11, name: '起诉状' }],
+                    total: 1,
+                },
+                onResolve: vi.fn(),
+                resumeValue: { templateId: 11 },
+            },
+        })
+        expect(wrapper.find('.opacity-70').exists()).toBe(true)
+    })
+
+    it('active 模式下不渲染 intent 引导文字', async () => {
+        const wrapper = mount(TemplateSelectCard, {
+            props: {
+                interrupt: {
+                    type: 'template_select',
+                    toolCallId: 'call_004',
+                    intent: '起诉某某拖欠工资',
+                    recommendations: [{ id: 11, name: '起诉状' }],
+                    total: 1,
+                },
+                onResolve: vi.fn(),
+            },
+        })
+        expect(wrapper.text()).not.toContain('为您推荐')
+    })
+})
