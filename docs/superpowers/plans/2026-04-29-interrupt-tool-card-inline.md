@@ -35,7 +35,7 @@
 - Create: `app/composables/agent-platform/useInterruptSnapshot.ts`
 - Test: `tests/app/composables/agent-platform/useInterruptSnapshot.test.ts`
 
-### Step 1: 写新建测试
+### Step 1: 写新建测试（精简到 4 条核心用例）
 
 - [ ] **新建文件 `tests/app/composables/agent-platform/useInterruptSnapshot.test.ts`：**
 
@@ -46,11 +46,10 @@
  * **Feature: interrupt-tool-card-inline / Task 1**
  */
 import { describe, it, expect } from 'vitest'
-import { nextTick } from 'vue'
 import { useInterruptSnapshot } from '~/composables/agent-platform/useInterruptSnapshot'
 
 describe('useInterruptSnapshot', () => {
-    it('record() 把 interrupt + resumeValue 写入 reactive Record', () => {
+    it('record() 正常写入：interrupt + resumeValue + resolvedAt', () => {
         const { resolvedInterrupts, record } = useInterruptSnapshot()
         const interrupt = { type: 'template_select', toolCallId: 'call_001', payload: 'foo' }
 
@@ -64,28 +63,17 @@ describe('useInterruptSnapshot', () => {
 
     it('record() 接受 null resumeValue（用户取消）', () => {
         const { resolvedInterrupts, record } = useInterruptSnapshot()
-        const interrupt = { type: 'template_select', toolCallId: 'call_002' }
-
-        record(interrupt, null)
-
+        record({ type: 'template_select', toolCallId: 'call_002' }, null)
         expect(resolvedInterrupts['call_002']!.resumeValue).toBeNull()
     })
 
-    it('record(null, ...) 跳过不写入', () => {
+    it.each([
+        ['record(null, ...)', null],
+        ['record(缺 toolCallId)', { type: 'template_select' } as any],
+        ['record(缺 type)', { toolCallId: 'call_003' } as any],
+    ])('非法输入跳过：%s', (_label, badInput) => {
         const { resolvedInterrupts, record } = useInterruptSnapshot()
-        record(null, { templateId: 1 })
-        expect(Object.keys(resolvedInterrupts)).toHaveLength(0)
-    })
-
-    it('record(interrupt 缺 toolCallId, ...) 跳过不写入', () => {
-        const { resolvedInterrupts, record } = useInterruptSnapshot()
-        record({ type: 'template_select' } as any, { templateId: 1 })
-        expect(Object.keys(resolvedInterrupts)).toHaveLength(0)
-    })
-
-    it('record(interrupt 缺 type, ...) 跳过不写入', () => {
-        const { resolvedInterrupts, record } = useInterruptSnapshot()
-        record({ toolCallId: 'call_003' } as any, { templateId: 1 })
+        record(badInput, { templateId: 1 })
         expect(Object.keys(resolvedInterrupts)).toHaveLength(0)
     })
 
@@ -94,42 +82,15 @@ describe('useInterruptSnapshot', () => {
         record({ type: 't1', toolCallId: 'a' }, 1)
         record({ type: 't2', toolCallId: 'b' }, 2)
         expect(Object.keys(resolvedInterrupts)).toHaveLength(2)
-
         clear()
-
         expect(Object.keys(resolvedInterrupts)).toHaveLength(0)
-    })
-
-    it('reactive 触发 Vue 更新', async () => {
-        const { resolvedInterrupts, record } = useInterruptSnapshot()
-        const calls: number[] = []
-
-        // 用 watch 模拟订阅
-        const { watchEffect } = await import('vue')
-        const stop = watchEffect(() => {
-            calls.push(Object.keys(resolvedInterrupts).length)
-        })
-
-        record({ type: 't', toolCallId: 'x' }, 'v')
-        await nextTick()
-
-        expect(calls).toEqual([0, 1])
-        stop()
     })
 })
 ```
 
-### Step 2: 跑测试确认 RED
+> 删除原"reactive 触发 Vue 更新"用例：测的是 Vue 框架本身，不是本 helper 行为。
 
-- [ ] **运行：**
-
-```bash
-npx vitest run tests/app/composables/agent-platform/useInterruptSnapshot.test.ts --reporter=verbose
-```
-
-预期：模块 not found（文件还未创建）。
-
-### Step 3: 实现 useInterruptSnapshot
+### Step 2: 实现 useInterruptSnapshot
 
 - [ ] **新建文件 `app/composables/agent-platform/useInterruptSnapshot.ts`：**
 
@@ -183,17 +144,17 @@ export function useInterruptSnapshot() {
 }
 ```
 
-### Step 4: 跑测试确认 GREEN
+### Step 3: 跑测试确认 GREEN
 
-- [ ] **再跑：**
+- [ ] **跑：**
 
 ```bash
 npx vitest run tests/app/composables/agent-platform/useInterruptSnapshot.test.ts --reporter=verbose
 ```
 
-预期：7/7 PASS。
+预期：4 个 it block + `it.each` 3 条参数化用例 = 6 条用例全 PASS。
 
-### Step 5: Commit
+### Step 4: Commit
 
 - [ ] **commit：**
 
@@ -469,25 +430,73 @@ if (isSnapshot.value) {
 </p>
 ```
 
-### Step 5: 跑测试确认 GREEN
+### Step 5: active 卡片首次 mount 自动滚动到视口（spec §视觉 a11y 强制）
 
-- [ ] **再跑：**
+- [ ] **在脚本末尾加 templateRef + onMounted：**
+
+把：
+
+```ts
+// snapshot 模式：mount 时即视为 confirmed（复用现有 confirmed 视觉）
+if (isSnapshot.value) {
+    confirmed.value = true
+}
+```
+
+改成：
+
+```ts
+// snapshot 模式：mount 时即视为 confirmed（复用现有 confirmed 视觉）
+if (isSnapshot.value) {
+    confirmed.value = true
+}
+
+// active 模式首次 mount 滚到视口（snapshot 不滚——用户已在历史里）
+const cardRef = ref<HTMLElement | null>(null)
+onMounted(() => {
+    if (isSnapshot.value) return
+    nextTick(() => {
+        cardRef.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+})
+```
+
+- [ ] **模板根 div 绑定 ref：**
+
+把（已经在 Step 4 改过的根 div）：
+
+```vue
+<div
+    :class="[
+        'not-prose my-2 w-full max-w-lg rounded-lg border p-4 shadow-sm',
+        ...
+    ]"
+>
+```
+
+改成：
+
+```vue
+<div
+    ref="cardRef"
+    :class="[
+        'not-prose my-2 w-full max-w-lg rounded-lg border p-4 shadow-sm',
+        ...
+    ]"
+>
+```
+
+> 用模板 ref 而非 `document.querySelector`：避免虚拟列表 unmount 后 DOM 节点不存在的 null 错。`cardRef.value?.` 可选链兜底。
+
+### Step 6: 跑测试确认 GREEN
+
+- [ ] **跑：**
 
 ```bash
 npx vitest run tests/app/components/agents/document/interrupts/TemplateSelectCard.test.ts --reporter=verbose
 ```
 
 预期：原有测试 + 4 条新增用例全 PASS。
-
-### Step 6: 类型检查
-
-- [ ] **跑：**
-
-```bash
-bun run typecheck 2>&1 | grep -i "TemplateSelectCard\|TemplateSelect" | head -10
-```
-
-预期：无错误（其他预存在错误不在本次范围）。
 
 ### Step 7: Commit
 
@@ -504,6 +513,9 @@ feat(ui): TemplateSelectCard 支持 snapshot 模式 + 移除 intent 文字
 - 根 div 加 opacity-70 + border-muted（在现有 confirmed 视觉之上）
 - 隐藏 active-only 元素：搜索 / 分类下拉 / 浏览全部 / 推荐区折叠
 - resumeValue=null 显示"已取消"
+
+active 模式首次 mount 用 templateRef + nextTick 调 scrollIntoView 兜底
+（虚拟列表 unmount 风险下 cardRef 可空时跳过）。
 
 同步移除原 modal 时代的 intent 引导段（line 252-254）：内联后用户原始
 陈述就在消息流上方可见，不重复。
@@ -621,7 +633,7 @@ const stance = ref<...>('...')
 const confirmed = ref(false)
 ```
 
-在 `confirmed = ref(false)` 之后加初始化逻辑：
+在 `confirmed = ref(false)`（line 54）之后加初始化逻辑（已 grep 确认 `stance` / `partyA` / `partyB` ref 都在 line 49-52）：
 
 ```ts
 // snapshot 模式：mount 时即视为 confirmed，立场初始化为 resumeValue
@@ -632,8 +644,6 @@ if (isSnapshot.value && props.resumeValue) {
     confirmed.value = true
 }
 ```
-
-> **注意：** 实施时 `partyA` / `partyB` 的实际变量名可能不同，先 grep `const partyA` / `const partyB` 找到真实声明再加。如果模板里没有这些 ref，跳过对应行。
 
 ### Step 5: 模板根 div 加 conditional class
 
@@ -660,9 +670,7 @@ if (isSnapshot.value && props.resumeValue) {
 
 ### Step 6: 加"已取消"显示
 
-- [ ] **找到 confirmed 状态显示区（搜索 `v-if="confirmed"` 或类似，约 line 153-160 附近）：**
-
-如果当前已有"已选立场：xxx"文本，改成支持取消态：
+- [ ] **找到 confirmed 状态显示区（约 line 153-165 的 `v-if="confirmed"` 块），把当前"已选立场：xxx"文本改成支持取消态：**
 
 ```vue
 <p v-if="confirmed" class="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
@@ -671,11 +679,29 @@ if (isSnapshot.value && props.resumeValue) {
 </p>
 ```
 
-> 实施时具体的 `stanceLabel` 变量名以代码现状为准（搜索 confirmed 段附近的现有"已选"文本）。
+> 实施前 grep `stanceLabel` 在本文件确认变量名（已在脚本里通过 `STANCE_OPTIONS.find()` 派生）。
 
-### Step 7: 跑测试确认 GREEN
+### Step 7: active 卡片首次 mount 自动滚动到视口
 
-- [ ] **再跑：**
+- [ ] **同 Task 2 Step 5：脚本加 templateRef + onMounted，模板根 div 绑 ref。**
+
+脚本末尾追加（如果与 Step 4 的 confirmed 初始化合并到同一个 setup 块）：
+
+```ts
+const cardRef = ref<HTMLElement | null>(null)
+onMounted(() => {
+    if (isSnapshot.value) return
+    nextTick(() => {
+        cardRef.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+})
+```
+
+模板根 div 加 `ref="cardRef"` 属性。
+
+### Step 8: 跑测试确认 GREEN
+
+- [ ] **跑：**
 
 ```bash
 npx vitest run tests/app/components/agents/contract/interrupts/StanceSelectCard.test.ts --reporter=verbose
@@ -683,7 +709,7 @@ npx vitest run tests/app/components/agents/contract/interrupts/StanceSelectCard.
 
 预期：原有测试 + 3 条新增用例全 PASS。
 
-### Step 8: Commit
+### Step 9: Commit
 
 - [ ] **commit：**
 
@@ -698,6 +724,8 @@ feat(ui): StanceSelectCard 支持 snapshot 模式
 - 根 div 加 opacity-70 + border-muted
 - 立场 / 甲乙方初始化为 resumeValue
 - resumeValue=null 显示"已取消"
+
+active 模式首次 mount 用 templateRef + nextTick 调 scrollIntoView。
 
 与 TemplateSelectCard 设计一致，配合 useInterruptSnapshot 在消息流
 内联展示用户的立场选择历史。
@@ -838,6 +866,13 @@ const StubResultCard = defineComponent({
 
 beforeAll(() => {
     globalInterruptRegistry.register('stub_tool_select', StubToolCard, { isToolCard: true })
+})
+
+afterAll(() => {
+    // 清理全局注册表，避免污染后续测试文件
+    // (registry 是 module 级单例，跨文件持久化)
+    const handlers = (globalInterruptRegistry as any).handlers as Map<string, unknown>
+    handlers?.delete?.('stub_tool_select')
 })
 
 function makeContext(opts: {
@@ -1189,7 +1224,7 @@ const isCurrentInterruptToolCard = computed(() => {
 
 > 注意：`globalInterruptRegistry` 可能已被本文件的另一个 import 块导入，跳过重复。
 
-- [ ] **修改 Dialog 块（line 269）：**
+- [ ] **修改 Dialog 块（line 269）：仅修改 `:open` 表达式，保留内层所有现有结构（`<DialogContent>` / `<DialogHeader class="sr-only">` / `<DialogTitle>` / `<DialogDescription>` 全部不动），避免违反 `ui.md` a11y 铁律。**
 
 把：
 
@@ -1202,6 +1237,8 @@ const isCurrentInterruptToolCard = computed(() => {
 ```vue
 <Dialog :open="!!interruptData && !isCurrentInterruptToolCard" @update:open="() => {}">
 ```
+
+> **检查清单**：改完后用 `grep -A2 "DialogHeader" app/components/caseDetail/CaseDetailXiaosuo.vue` 确认 `<DialogDescription>` 仍存在；缺失则 a11y 违规。
 
 ### Step 3: AssistantChatPanel —— 同步改造
 
@@ -1267,7 +1304,7 @@ async function resolveInterrupt(value: unknown) {
 }
 ```
 
-- [ ] **Dialog 块（line 196）：**
+- [ ] **Dialog 块（line 196）：同 Task 6 Step 2，仅改 `:open` 表达式，保留 `<DialogHeader class="sr-only">` 与 `<DialogDescription>` 不动。**
 
 把：
 
@@ -1317,7 +1354,7 @@ watch(() => props.reviewId, () => {
 
 > ContractReviewPanel 之前没有独立 `resolveInterrupt` 函数（line 539-540 直接 inline `(v) => contractAgent.resumeInterrupt(v)`）。这次新增 `resolveInterrupt` 来统一 record + resume。具体 `interruptData` 的引用来源以代码现状为准（grep `interruptData` 看是 `streamChat.interruptData` 还是别的）。
 
-- [ ] **修改 Dialog 块（line 523）+ 内部 InterruptDispatcher 调用方式（line 539-540）：**
+- [ ] **修改 Dialog 块（line 523）+ 内部 InterruptDispatcher 调用方式（line 539-540）。Dialog 改 `:open` 时保留所有内层 `<DialogContent>` / `<DialogHeader class="sr-only">` / `<DialogDescription>` 结构不动（a11y 铁律）。**
 
 原 line 537-540 类似：
 
