@@ -40,6 +40,7 @@ export const createModelDao = async (
                 priority: data.priority ?? 10,
                 inputCostPerMillionTokens: data.inputCostPerMillionTokens,
                 outputCostPerMillionTokens: data.outputCostPerMillionTokens,
+                ...(data.supportsThinking !== undefined && { supportsThinking: data.supportsThinking }),
             },
         })
         return model
@@ -250,6 +251,7 @@ export const updateModelDao = async (
                 ...(data.outputCostPerMillionTokens !== undefined && {
                     outputCostPerMillionTokens: data.outputCostPerMillionTokens,
                 }),
+                ...(data.supportsThinking !== undefined && { supportsThinking: data.supportsThinking }),
             },
         })
         return model

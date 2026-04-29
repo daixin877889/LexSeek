@@ -224,6 +224,7 @@ export const createNodeDao = async (
                 outputSchema: data.outputSchema
                     ? (data.outputSchema as Prisma.InputJsonValue)
                     : Prisma.DbNull,
+                ...(data.thinkingEnabled !== undefined && { thinkingEnabled: data.thinkingEnabled }),
             },
             include: {
                 group: true,
@@ -503,6 +504,7 @@ export const updateNodeDao = async (
                         ? Prisma.DbNull
                         : (data.outputSchema as Prisma.InputJsonValue),
                 }),
+                ...(data.thinkingEnabled !== undefined && { thinkingEnabled: data.thinkingEnabled }),
                 updatedAt: new Date(),
             },
             include: {
