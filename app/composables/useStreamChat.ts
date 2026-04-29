@@ -244,11 +244,31 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
         }
     })
 
+    // interrupt 帧 messages 保留：LangGraph SDK 在 streamMode='values' 下，
+    // interrupt 触发的某些帧只携带 __interrupt__ 而把 messages 字段覆写为 []，
+    // 导致前端消息列表瞬间清空、内联渲染的 AiToolRenderer 被卸载（TemplateSelectCard
+    // 等 interrupt 卡片随之无处挂载）。在这里 cache 上一帧非空 messages，当前帧为空
+    // 但 __interrupt__ 存在时回退使用 cache，保留消息列表完整性。
+    const lastNonEmptyMessages = shallowRef<BaseMessage[]>([])
+    watch(() => s.messages, (msgs: any) => {
+        if (Array.isArray(msgs) && msgs.length > 0) {
+            lastNonEmptyMessages.value = msgs as BaseMessage[]
+        }
+    }, { immediate: true })
+
     return {
         // 状态
         messages: computed((): BaseMessage[] => {
             void s.values // 显式触发 streamValues.value 的 track
-            return s.messages as BaseMessage[]
+            const current = s.messages as BaseMessage[]
+            if (Array.isArray(current) && current.length > 0) return current
+            // 当前帧 messages 为空：若同时 __interrupt__ 存在（典型场景）
+            // 则回退到上一帧的快照，避免 UI 突然失去整列消息
+            const v = s.values as any
+            if (v?.__interrupt__?.length && lastNonEmptyMessages.value.length > 0) {
+                return lastNonEmptyMessages.value
+            }
+            return current ?? []
         }),
         values: computed(() => s.values as T | undefined),
         isLoading: s.isLoading,   // shallowRef，直接透传
