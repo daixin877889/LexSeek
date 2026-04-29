@@ -66,14 +66,20 @@ const resolvedEntry = computed(() => {
   return messageStreamContext?.resolvedInterrupts[props.toolCall.id] ?? null
 })
 
-const isInterruptToolCardCall = computed(() => {
+/**
+ * 当前 toolCall 是否命中"活跃 interrupt"——active interrupt 必须优先于 resolved
+ * 历史显示，否则当同一 toolCallId 因外部因素被重复触发（agent 重试 / failure resume）
+ * 时，UI 会拿到 stale 的 snapshot 而非 fresh active。
+ */
+const isActiveInterruptForThisCall = computed(() => {
   const active = messageStreamContext?.interruptData.value
-  if (active?.toolCallId === props.toolCall.id
+  return !!(active?.toolCallId === props.toolCall.id
     && active.type
-    && globalInterruptRegistry.isToolCard(active.type)) {
-    return true
-  }
-  return !!resolvedEntry.value
+    && globalInterruptRegistry.isToolCard(active.type))
+})
+
+const isInterruptToolCardCall = computed(() => {
+  return isActiveInterruptForThisCall.value || !!resolvedEntry.value
 })
 
 function subAgentMessages(toolCallId: string): any[] {
@@ -91,11 +97,14 @@ function subAgentError(toolCallId: string): string | undefined {
 </script>
 
 <template>
-  <!-- interrupt 工具卡（active 或 resolved）：合并为一条分支，靠 resumeValue 自动判定 -->
+  <!-- interrupt 工具卡（active 或 resolved）：active 优先于 resolved（避免同一 toolCallId
+       重复触发时 UI 显示 stale snapshot）；resumeValue 仅在 resolved 且非 active 时传入。 -->
   <template v-if="isInterruptToolCardCall">
     <InterruptDispatcher
-      :interrupt="resolvedEntry?.interrupt ?? messageStreamContext?.interruptData.value ?? null"
-      :resume-value="resolvedEntry?.resumeValue"
+      :interrupt="isActiveInterruptForThisCall
+        ? messageStreamContext?.interruptData.value
+        : (resolvedEntry?.interrupt ?? null)"
+      :resume-value="isActiveInterruptForThisCall ? undefined : resolvedEntry?.resumeValue"
       @submit="(v) => messageStreamContext?.resolveInterrupt(v)"
       @cancel="() => messageStreamContext?.resolveInterrupt(null)"
     />
