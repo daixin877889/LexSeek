@@ -65,6 +65,17 @@
                     </Select>
                 </div>
 
+                <!-- 仅当选中的模型支持思考切换时显示 -->
+                <div v-if="selectedModelSupportsThinking" class="flex items-center space-x-2">
+                    <Checkbox id="thinkingEnabled" v-model="form.thinkingEnabled" />
+                    <Label for="thinkingEnabled" class="cursor-pointer">
+                        启用思考模式
+                        <span class="text-xs text-muted-foreground ml-2">
+                            （前端用户深度思考开关优先；前端无开关的场景将使用此默认值）
+                        </span>
+                    </Label>
+                </div>
+
                 <!-- 节点分组 -->
                 <div class="space-y-2">
                     <Label>节点分组</Label>
@@ -218,6 +229,19 @@ watch(() => form.value.type, (newType) => {
     }
 })
 
+// 当前选中的模型是否支持思考切换
+const selectedModelSupportsThinking = computed(() => {
+    const m = models.value.find(x => String(x.id) === form.value.modelId)
+    return m?.supportsThinking === true
+})
+
+// 模型切换时，若新模型不支持思考切换则强制重置为 false
+watch(() => form.value.modelId, () => {
+    if (!selectedModelSupportsThinking.value) {
+        form.value.thinkingEnabled = false
+    }
+})
+
 // 获取默认表单值
 function getDefaultForm() {
     return {
@@ -232,6 +256,7 @@ function getDefaultForm() {
         status: '1',
         outputSchema: null as Record<string, unknown> | null,
         skills: [] as string[],
+        thinkingEnabled: false,
     }
 }
 
@@ -319,6 +344,7 @@ const openEdit = (node: NodeWithRelations) => {
         status: String(node.status),
         outputSchema: (node.outputSchema as Record<string, unknown>) ?? null,
         skills: [],
+        thinkingEnabled: node.thinkingEnabled ?? false,
     }
     loadGroups()
     loadModels()
@@ -365,6 +391,7 @@ const handleSubmit = async () => {
             tools: form.value.tools,
             status: parseInt(form.value.status),
             outputSchema: showOutputSchema.value ? (form.value.outputSchema ?? null) : null,
+            thinkingEnabled: form.value.thinkingEnabled,
         }
 
         let result
