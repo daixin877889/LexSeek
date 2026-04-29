@@ -58,6 +58,16 @@
                     </Select>
                     <p class="text-xs text-muted-foreground">选择模型使用的 LangChain SDK 包</p>
                 </div>
+                <!-- 仅当模型类型为 chat 时显示思考切换 -->
+                <div v-if="form.modelType === 'chat'" class="flex items-center space-x-2">
+                    <Checkbox id="supportsThinking" v-model="form.supportsThinking" />
+                    <Label for="supportsThinking" class="cursor-pointer">
+                        支持思考切换
+                        <span class="text-xs text-muted-foreground ml-2">
+                            （勾选后，关联此模型的节点可在节点编辑页配置"启用思考模式"开关）
+                        </span>
+                    </Label>
+                </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div class="space-y-2">
                         <Label>模型版本</Label>
@@ -212,6 +222,7 @@ function getDefaultForm() {
         priority: 10,
         inputCostPerMillionTokens: undefined as number | undefined,
         outputCostPerMillionTokens: undefined as number | undefined,
+        supportsThinking: false,
     }
 }
 
@@ -249,6 +260,7 @@ const openEdit = (model: Model) => {
         priority: model.priority,
         inputCostPerMillionTokens: model.inputCostPerMillionTokens ? Number(model.inputCostPerMillionTokens) : undefined,
         outputCostPerMillionTokens: model.outputCostPerMillionTokens ? Number(model.outputCostPerMillionTokens) : undefined,
+        supportsThinking: model.supportsThinking ?? false,
     }
     loadProviders()
     open.value = true
@@ -289,6 +301,7 @@ const handleSubmit = async () => {
             priority: form.value.priority || 10,
             inputCostPerMillionTokens: form.value.inputCostPerMillionTokens || null,
             outputCostPerMillionTokens: form.value.outputCostPerMillionTokens || null,
+            supportsThinking: form.value.supportsThinking,
         }
 
         let result
@@ -315,6 +328,13 @@ const handleSubmit = async () => {
         submitting.value = false
     }
 }
+
+// modelType 切换时，非 chat 类型自动重置思考切换为 false
+watch(() => form.value.modelType, (newType) => {
+    if (newType !== 'chat') {
+        form.value.supportsThinking = false
+    }
+})
 
 // 暴露方法给父组件
 defineExpose({
