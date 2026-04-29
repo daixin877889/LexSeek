@@ -40,14 +40,14 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NUXT_HOST=0.0.0.0
 # 【关键】函数计算要求监听 9000 端口，Nuxt Nitro 会读取 PORT 环境变量
-ENV PORT=9000
+ENV PORT=3000
 
 # 从构建阶段复制编译好的产物
 COPY --from=builder /app/.output ./.output
 COPY --from=builder /app/.deepagents ./.deepagents
 
 # 暴露端口
-EXPOSE 9000
+EXPOSE 3000
 
 # 使用 Node.js 直接启动（不需要 Bun）
 CMD ["node", ".output/server/index.mjs"]
