@@ -40,7 +40,7 @@ WORKDIR /app
 # 设置生产环境
 ENV NODE_ENV=production
 ENV NUXT_HOST=0.0.0.0
-ENV NUXT_PORT=9000  # 关键：FC 要求 9000
+ENV NUXT_PORT=9000
 
 # 从构建阶段复制 Nuxt 构建产物
 COPY --from=builder /app/.output ./.output
