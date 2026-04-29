@@ -24,6 +24,8 @@ import AssistantContractRiskListPanel from '~/components/assistant/contract/Risk
 import AssistantContractStanceSelectionDialog from '~/components/assistant/contract/StanceSelectionDialog.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useContractAgent } from '~/composables/agents'
+import { useInterruptSnapshot } from '~/composables/agent-platform/useInterruptSnapshot'
+import { globalInterruptRegistry } from '~/composables/agent-platform/interruptRegistry'
 import { useContractReviewStages } from '~/composables/contract/useContractReviewStages'
 import { useContractReviewRisksEditing } from '~/composables/contract/useContractReviewRisksEditing'
 import { useContractReviewLifecycle } from '~/composables/contract/useContractReviewLifecycle'
@@ -86,6 +88,31 @@ const contractAgent = useContractAgent(sessionIdRef, {
 
 const isLoading = contractAgent.isLoading
 const interruptData = contractAgent.interruptData
+
+// interrupt 内联快照：让 AiToolRenderer 通过 inject 拿到 resolved 工具卡的 snapshot 视图
+const { resolvedInterrupts, record: recordResolved, clear: clearResolved } = useInterruptSnapshot()
+
+// 阶段 8：把 inline emit 收敛成显式函数，统一 3 个 Panel 的 record + resume 协议
+function resolveInterrupt(value: unknown) {
+    recordResolved(interruptData.value, value)
+    contractAgent.resumeInterrupt(value)
+}
+
+provide('messageStreamContext', {
+    interruptData,
+    resolvedInterrupts,
+    resolveInterrupt,
+})
+
+const isCurrentInterruptToolCard = computed(() => {
+    const t = interruptData.value?.type
+    return typeof t === 'string' && globalInterruptRegistry.isToolCard(t)
+})
+
+// reviewId 切换时清空快照（每个 reviewId 对应独立 session）
+watch(() => props.reviewId, () => {
+    clearResolved()
+})
 
 // === awaitingStance / runStatus 派生（旧 useContractReview 行为）===
 type AwaitingStancePayload = { partyA?: string; partyB?: string; contractType?: string }
@@ -519,8 +546,9 @@ function handleContainerClick(e: MouseEvent) {
             @update:open="handleDialogOpenChange"
         />
 
-        <!-- 阶段 7：其他类型 interrupt（如 insufficient_points）走 InterruptDispatcher -->
-        <Dialog v-if="interruptData && !awaitingStance" :open="true" @update:open="() => {}">
+        <!-- 阶段 7：其他类型 interrupt（如 insufficient_points）走 InterruptDispatcher
+             阶段 8：仅 isToolCard=false 的中断卡走 Dialog；isToolCard=true 的工具卡走消息流内联 -->
+        <Dialog v-if="interruptData && !awaitingStance && !isCurrentInterruptToolCard" :open="true" @update:open="() => {}">
             <DialogContent
                 class="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0 z-[70]"
                 overlay-class="z-[70]"
@@ -536,8 +564,8 @@ function handleContainerClick(e: MouseEvent) {
                 <div class="p-6">
                     <InterruptDispatcher
                         :interrupt="interruptData as any"
-                        @submit="(v) => contractAgent.resumeInterrupt(v)"
-                        @cancel="() => contractAgent.resumeInterrupt(null)"
+                        @submit="resolveInterrupt"
+                        @cancel="() => resolveInterrupt(null)"
                     />
                 </div>
             </DialogContent>

@@ -31,6 +31,8 @@ import CaseAnalysisMaterialSelector from '~/components/caseAnalysis/materialSele
 import AgentsDocumentDraftDocumentCard from '~/components/agents/document/tools/DraftDocumentCard.vue'
 import AgentsContractReviewContractCard from '~/components/agents/contract/tools/ReviewContractCard.vue'
 import { useLegalAssistantAgent } from '~/composables/agents'
+import { useInterruptSnapshot } from '~/composables/agent-platform/useInterruptSnapshot'
+import { globalInterruptRegistry } from '~/composables/agent-platform/interruptRegistry'
 
 const props = defineProps<{
   sessionId: string
@@ -152,11 +154,15 @@ const toolMap = {
   review_contract: AgentsContractReviewContractCard,
 }
 
+// interrupt 内联快照：让 AiToolRenderer 通过 inject 拿到 resolved 工具卡的 snapshot 视图
+const { resolvedInterrupts, record: recordResolved, clear: clearResolved } = useInterruptSnapshot()
+
 // 阶段 7：interrupt dialog 内统一走 InterruptDispatcher（注册表分发到对应卡片）
 // resolveInterrupt 包 toolCallId 路由：
 // LangGraph createAgent 路径下，tool 内 throw 的 interrupt 必须按 toolCallId 路由，
 // 否则 interrupt() 返回 undefined 让工具误以为用户取消。
 async function resolveInterrupt(value: unknown) {
+  recordResolved(interruptData.value, value)
   const tcId = (interruptData.value as { toolCallId?: unknown } | null)?.toolCallId
   if (typeof tcId === 'string' && tcId.length > 0) {
     resumeInterrupt({ [tcId]: value })
@@ -164,6 +170,23 @@ async function resolveInterrupt(value: unknown) {
     resumeInterrupt(value)
   }
 }
+
+provide('messageStreamContext', {
+  interruptData,
+  resolvedInterrupts,
+  resolveInterrupt,
+})
+
+const isCurrentInterruptToolCard = computed(() => {
+  const t = interruptData.value?.type
+  return typeof t === 'string' && globalInterruptRegistry.isToolCard(t)
+})
+
+// 法律助手用 props.sessionId 作为单 session 标识（父组件 chat.vue 通过 :key=sessionId 强制 remount，
+// 但当前 panel 实例切换时仍需在快照层面把上一轮残留的 resolvedInterrupts 清空）
+watch(() => props.sessionId, () => {
+  clearResolved()
+})
 
 // 初次挂载后调用工厂 init()：单 session 模式下会 switchSession 到固定 id，
 // 内部自动调 reconnect()/loadHistory() 触发 SSE checkpointer 回放
@@ -192,8 +215,9 @@ onMounted(async () => {
       </template>
     </AiChat>
 
-    <!-- 中断确认弹窗：阶段 7 改用 InterruptDispatcher，按注册表分发到对应卡片 -->
-    <Dialog :open="!!interruptData" @update:open="() => { }">
+    <!-- 中断确认弹窗：阶段 7 改用 InterruptDispatcher，按注册表分发到对应卡片
+         阶段 8：仅 isToolCard=false 的中断卡走 Dialog；isToolCard=true 的工具卡走消息流内联 -->
+    <Dialog :open="!!interruptData && !isCurrentInterruptToolCard" @update:open="() => { }">
       <DialogContent class="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0" :show-close-button="false"
         @pointer-down-outside.prevent @escape-key-down.prevent @open-auto-focus.prevent>
         <DialogHeader class="sr-only">
