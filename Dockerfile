@@ -49,7 +49,7 @@ COPY --from=builder /app/.output ./.output
 COPY --from=builder /app/.deepagents ./.deepagents
 
 # 暴露端口
-EXPOSE 3000
+EXPOSE 9000
 
 # 启动应用
 ENTRYPOINT []
