@@ -25,6 +25,7 @@ import {
     pointConsumptionMiddleware,
     safetyTrimMiddleware,
     draftResultPersistenceMiddleware,
+    caseMaterialContextMiddleware,
     buildMiddlewareStack,
     MIDDLEWARE_PRIORITY,
     MIDDLEWARE_NAMES,
@@ -57,8 +58,14 @@ function buildInitialPromptFromDraft(
         segments.push(`新增材料 fileIds: [${fileIds.join(', ')}]，请先调用 process_materials(fileIds=[${fileIds.join(', ')}]) 处理这些文件，再用 search_case_materials 检索内容回填字段。`)
     }
     else if (draft.caseId != null) {
-        // 从案件入口进入的草稿：案件已有材料，强制模型先检索，避免跳过 tool 直接问用户
-        segments.push('本草稿关联案件已有案件材料，请先调用 search_case_materials 检索相关材料内容（可分别对关键实体如当事人、事实、金额、证据清单等发起多次检索），再根据检索结果回填模板字段；无需等待用户追加材料。')
+        // 从案件入口进入的草稿：优先用案件已完成分析的全文（精确字段在那里），不足时再 fallback 到原始材料
+        segments.push(
+            '本草稿关联案件已完成初分分析（system prompt 中 caseProfile + moduleSummaries 段已附 200-400 字摘要）。'
+            + '请按以下顺序填充模板字段：'
+            + '\n1) 优先调用 search_case_analysis(analysisType=...) 获取已分析模块的全文（事实/请求/案由/抗辩/证据等），用其中的精确数据填字段；'
+            + '\n2) 若已分析模块不足以覆盖某些字段，再调 search_case_materials 从原始材料补充；'
+            + '\n3) 严禁向用户重复索要案件已经记录过的信息（当事人、事实、请求等都能从已有分析或案件档案里拿到）。',
+        )
     }
     else {
         // 独立文书页场景，无案件、无 fileIds：先查 draft 作用域材料；若也为空，再向用户索要
@@ -167,9 +174,18 @@ export async function runDocumentChat(
         sessionId,
         draftId: draft.id,
     }
-    const tools = nodeConfig.tools.length > 0
+    const baseTools = nodeConfig.tools.length > 0
         ? getToolInstancesService(nodeConfig.tools, toolContext)
         : []
+    // 文书草稿场景必须能取案件已分析模块的全文（事实/请求/案由等精确字段）
+    // 旧 nodes 表 documentMain.tools 未登记 search_case_analysis，此处兜底注入避免依赖 DB 配置
+    const requiredToolNames = ['search_case_analysis']
+    const baseNames = new Set(baseTools.map(t => t.name))
+    const missingNames = requiredToolNames.filter(n => !baseNames.has(n))
+    const supplementaryTools = missingNames.length > 0
+        ? getToolInstancesService(missingNames, toolContext)
+        : []
+    const tools = [...baseTools, ...supplementaryTools]
 
     logger.info('文书生成主 Agent 创建', {
         sessionId,
@@ -203,6 +219,13 @@ export async function runDocumentChat(
             priority: MIDDLEWARE_PRIORITY.POINT_CONSUMPTION,
             name: MIDDLEWARE_NAMES.POINT_CONSUMPTION,
         },
+        ...(resolvedCaseId
+            ? [{
+                middleware: caseMaterialContextMiddleware(userId, resolvedCaseId),
+                priority: MIDDLEWARE_PRIORITY.MATERIAL_CONTEXT,
+                name: MIDDLEWARE_NAMES.MATERIAL_CONTEXT,
+            }]
+            : []),
         {
             middleware: summarizationMiddleware({
                 model,
