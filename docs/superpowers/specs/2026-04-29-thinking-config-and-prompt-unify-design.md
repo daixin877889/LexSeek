@@ -20,7 +20,7 @@ LexSeek 已有「节点管理」（`nodes` + `prompts` 表）作为 AI 业务点
 ### 1.2 目标
 
 1. **新增 `models.supports_thinking` + `nodes.thinking_enabled` 两个字段**，把思考模式从「仅前端临时开关」升级为「模型层硬门禁 + 节点层默认值 + 前端临时开关」三方决议
-2. **chatModelFactory 实现各厂商思考协议兼容**（Anthropic / Gemini / DeepSeek SDK / OpenAI SDK 兼容端点 4 路分发）
+2. **chatModelFactory 实现思考协议兼容**：当期完整实施 Anthropic + Gemini SDK 原生路径；DeepSeek SDK / OpenAI 兼容端点（豆包/阿里/三方网关）占位等运营实际需求时按需补
 3. **新建 3 个节点替代 3 处硬编调用**（`materialAutoSummary` / `contractPartyDetect` / `analysisSummary`）
 4. **统一案件记忆抽取冷路径走 `caseMemoryExtract` 节点**，删 80 行硬编 prompt
 5. **删除法规检索意图分类的 75 行兜底 prompt**，DB 没配时通过最外层 catch 降级 semantic（已有兜底链路）
@@ -80,7 +80,7 @@ nodeConfig (DB)                          resolveThinking(...)──▶ chatModel
 
 ### 3.2 resolveThinking 实现
 
-新文件 `server/services/node/thinkingResolver.ts`：
+直接加到 `server/services/node/node.service.ts` 末尾导出（不单独建 helper 文件——只 6 行函数没必要）：
 
 ```ts
 /**
@@ -99,6 +99,21 @@ export function resolveThinking(
   if (!modelSupportsThinking) return false
   if (ctxThinking !== undefined) return ctxThinking
   return nodeThinkingEnabled
+}
+
+/**
+ * 调用方便捷封装：直接从 NodeConfig + ctx.thinking 决议，避免 7 处调用点
+ * 重复写 `resolveThinking(nodeConfig.modelSupportsThinking, ..., nodeConfig.thinkingEnabled)`。
+ */
+export function resolveThinkingFromNodeConfig(
+  nodeConfig: NodeConfig,
+  ctxThinking: boolean | undefined,
+): boolean {
+  return resolveThinking(
+    nodeConfig.modelSupportsThinking,
+    ctxThinking,
+    nodeConfig.thinkingEnabled,
+  )
 }
 ```
 
@@ -122,65 +137,59 @@ export function resolveThinking(
 
 ### 4.2 厂商协议汇总
 
-| 厂商 | SDK | 字段 | 值 | 实现路径 |
+| 厂商 | SDK | 字段 | 值 | 当期实施状态 |
 |---|---|---|---|---|
-| Anthropic | @langchain/anthropic | `thinking: ThinkingConfigParam` | `enabled` / `disabled` / `adaptive` | SDK 原生 |
-| Gemini | @langchain/google-genai | `thinkingConfig` 对象 | `thinkingBudget`/`thinkingLevel`/`includeThoughts` | SDK 原生 |
-| DeepSeek 官方 | @langchain/deepseek | `thinking: {type: 'enabled'/'disabled'}` | 嵌套对象 | modelKwargs 透传 |
-| 火山豆包 | @langchain/openai | `thinking: {type: 'enabled'/'disabled'}` | 嵌套对象 | modelKwargs 透传 |
-| 阿里通义 | @langchain/openai | `enable_thinking: true/false` | 布尔值 | modelKwargs 透传 |
-| OpenAI o-系列 | @langchain/openai | `reasoning_effort` | `'low'/'medium'/'high'` | langchain 原生（仅 isReasoningModel） |
+| Anthropic | @langchain/anthropic | `thinking: ThinkingConfigParam` | `enabled` / `disabled` / `adaptive` | ✅ 完整实施（项目 model id=1/2 走此路径） |
+| Gemini | @langchain/google-genai | `thinkingConfig` 对象 | `thinkingBudget`/`thinkingLevel`/`includeThoughts` | ✅ 完整实施（占位，未来引入 Gemini 模型时直接生效） |
+| DeepSeek SDK 路径 | @langchain/deepseek | （三方网关协议各异）| — | ⚠️ 当期不发送 thinking 参数（DeepSeek 官方靠模型名切换 reasoner/chat；siliconflow/openrouter 等三方网关协议未确认） |
+| 火山豆包 / 阿里通义 OpenAI 兼容 | @langchain/openai | `thinking:{type}` / `enable_thinking` | — | ⚠️ 当期不主动嗅探（host 列表脆弱、没有线上真实使用场景），下期按需补 |
+| OpenAI o-系列 | @langchain/openai | `reasoningEffort` | `'low'/'medium'/'high'` | ⚠️ 占位（项目当前无 o-系列模型，引入后再实测） |
 
 ### 4.3 实现伪代码
 
+`applyThinkingParams` 是 `chatModelFactory.ts` **内部 private 函数**，不对外暴露。
+
 ```ts
+import { isReasoningModel } from '@langchain/openai/utils/misc'
+
+// chatModelFactory.ts 内部 helper
 function applyThinkingParams(sdkType, modelName, baseUrl, thinking) {
   if (thinking === undefined) return {}
 
-  // 1. Anthropic SDK：原生 thinking
+  // 1. Anthropic SDK：原生 thinking 字段
+  // 注意：Anthropic API 硬约束 budget_tokens >= 1024 且 < max_tokens
+  // budget_tokens=4096，调用方需保证 maxTokens >= budget_tokens + 2000 ≈ 6500+
   if (sdkType === 'anthropic') {
     return thinking
-      ? { thinking: { type: 'enabled', budget_tokens: 10_000 } }
+      ? { thinking: { type: 'enabled', budget_tokens: 4096 } }
       : { thinking: { type: 'disabled' } }
   }
 
   // 2. Gemini SDK：原生 thinkingConfig
   if (sdkType === 'gemini') {
     return thinking
-      ? { thinkingConfig: { thinkingBudget: 10_000, includeThoughts: true } }
+      ? { thinkingConfig: { thinkingBudget: 4096, includeThoughts: true } }
       : {}
   }
 
-  // 3. DeepSeek SDK：modelKwargs 透传
+  // 3. DeepSeek SDK：当期不发送 thinking 参数
+  // 原因：DeepSeek 官方 OpenAI 端点用模型名切换思考（reasoner vs chat），不接受顶层 thinking 字段；
+  //      siliconflow / openrouter 等三方网关协议不一，盲目透传会被拒绝
+  // 后续：按 baseUrl 精确嗅探后再补
   if (sdkType === 'deepseek') {
-    return {
-      modelKwargs: {
-        thinking: { type: thinking ? 'enabled' : 'disabled' },
-      },
-    }
+    return {}
   }
 
-  // 4. OpenAI SDK：按 baseUrl host 嗅探
+  // 4. OpenAI SDK
   if (sdkType === 'openai') {
-    const url = baseUrl ?? ''
-
-    // 4a. 阿里百炼 / dashscope
-    if (url.includes('dashscope.aliyuncs.com')) {
-      return { modelKwargs: { enable_thinking: thinking } }
+    // 4a. 真 OpenAI o-系列 / gpt-5：复用 langchain isReasoningModel，避免漂移
+    if (isReasoningModel(modelName)) {
+      return thinking ? { reasoningEffort: 'medium' } : {}
     }
-    // 4b. 火山引擎方舟（豆包）
-    if (url.includes('volces.com') || url.includes('volcengine')) {
-      return { modelKwargs: { thinking: { type: thinking ? 'enabled' : 'disabled' } } }
-    }
-    // 4c. DeepSeek 官方走 OpenAI 兼容
-    if (url.includes('deepseek.com')) {
-      return { modelKwargs: { thinking: { type: thinking ? 'enabled' : 'disabled' } } }
-    }
-    // 4d. 真 OpenAI o-系列 / gpt-5
-    if (/^o\d/.test(modelName) || /^gpt-5(?!-chat)/.test(modelName)) {
-      return { reasoningEffort: thinking ? 'medium' : undefined }
-    }
-    // 4e. 其它未知端点：不处理
+    // 4b. 其他 OpenAI 兼容端点（豆包/阿里/三方网关）：当期不主动嗅探
+    // 原因：host 列表脆弱（自托管代理、企业域名都会逃出嗅探）；
+    //      项目当前所有 OpenAI 兼容模型 supports_thinking 都默认 false，无线上场景
+    // 后续：按运营实际需求补具体 baseUrl 分支
     return {}
   }
 
@@ -188,10 +197,21 @@ function applyThinkingParams(sdkType, modelName, baseUrl, thinking) {
 }
 ```
 
-### 4.4 已知边界
+### 4.4 maxTokens 与 budget_tokens 联动
 
-- **4e 分支**：自托管代理 / 企业 baseUrl 不带 vendor 关键字时，运营开了 supports_thinking 但实际请求不带 thinking 参数。这种情况留给运营在使用时自己发现并报告
-- **OpenAI o-系列**：当前项目无 o-系列模型；4d 分支保留兜底，未来引入再实测
+Anthropic API 硬约束 `budget_tokens >= 1024 且 < max_tokens`。chatModelFactory 内 anthropic 分支使用 `budget_tokens: 4096`，意味着：
+
+- 当 `thinking=true` 时，`maxTokens` 必须 ≥ 4096 + 2000 ≈ 6500（留 2000 给输出）
+- 现有 `chatModelFactory.ts:53` `DEFAULT_MAX_TOKENS = 8192` 已满足
+- 如果未来调用方传更小的 `maxTokens`（< 6500）+ thinking=true，应在工厂内做最小值兜底（`maxTokens = max(maxTokens, 6500)`），避免 API 400 报错
+
+**注意**：现有代码 `chatModelFactory.ts:130-134` 用 `budget_tokens: 10_000` 与 `DEFAULT_MAX_TOKENS=8192` 冲突，本次一并修复。
+
+### 4.5 已知边界（运营需自查）
+
+- **当期不嗅探的 OpenAI 兼容厂商**：siliconflow / openrouter / zhipu / moonshot / 火山豆包 / 阿里通义 / 自托管代理 / 企业 baseUrl 等，即使运营开了 `supports_thinking=true`，实际请求**不会带 thinking 参数**。运营在使用时自查
+- **DeepSeek 官方 OpenAI 端点**：靠模型名切换思考（`deepseek-reasoner` 启用 / `deepseek-chat` 不启用），不接受运行时切换
+- **OpenAI o-系列**：当前项目无此类模型；4a 分支已占位，未来引入实测
 
 ## 5. NodeConfig 类型扩展
 
@@ -211,28 +231,32 @@ interface NodeConfig {
 
 ### 6.1 thinking 决议改造（共 7 处）
 
+7 处统一调用 `resolveThinkingFromNodeConfig(nodeConfig, ctxThinking)`（见 §3.2 helper），减少 boilerplate。
+
 | 文件 | 当前 | 改造后 |
 |---|---|---|
-| `agent-platform/factory/runtime.ts:119` | `thinking: ctx.thinking ?? false` | `thinking: resolveThinking(nodeConfig.modelSupportsThinking, ctx.thinking, nodeConfig.thinkingEnabled)` |
+| `agent-platform/factory/runtime.ts:119` | `thinking: ctx.thinking ?? false` | `thinking: resolveThinkingFromNodeConfig(nodeConfig, ctx.thinking)` |
 | `agents/case-analysis/runAnalysisSubAgent.ts:96` | `thinking,` | 同上模式 |
 | `services/workflow/agents/moduleAgent.ts:89` | `thinking: options.thinking` | 同上 |
 | `services/workflow/agents/assistantAgent.ts:84` | `thinking,` | 同上 |
-| `services/agent-platform/subAgent/subAgentToolFactory.ts:122` | （无 thinking 字段，子代理继承父）| 接受父 ctx.thinking 走 resolveThinking |
+| `services/agent-platform/subAgent/subAgentToolFactory.ts:122` | （无 thinking 字段，子代理继承父）| 接受父 ctx.thinking 走 resolveThinkingFromNodeConfig |
 | `agents/case-module/agent.config.ts:57` | `thinking: ctx.thinking` | 同上 |
 | `services/retrieval/intentClassifier.service.ts:154` | `thinking: false`（硬关）| **保持不变**（后台分类，不需思考） |
 
 ### 6.2 硬编 prompt 删除 / 改造
 
+**统一原则**：6 处硬编改造**全部通过 `invokeNodeJson` 收口**（已实现完整闭环 nodeConfig→createChatModel→invoke→JSON 解析→schema 校验）。其中纯文本输出的场景（如 100 字摘要）也走 `invokeNodeJson` 但传入 `z.string()` schema，避免重复 80 行 boilerplate。
+
 | 文件 | 改动 |
 |---|---|
 | `services/material/material.service.ts:495-501` | 删硬编 anthropic Haiku + `process.env.ANTHROPIC_API_KEY`，改走 `materialAutoSummary` 节点 + `invokeNodeJson` |
-| `agents/contract/docx/partyDetector.ts:41-95` | 删 `LLM_PROMPT` + 节点借用，改走 `contractPartyDetect` 节点 + `invokeNodeJson` |
-| `services/case/initAnalysis.service.ts:343-346` | 删硬编 systemPrompt 直传，改走 `analysisSummary` 节点 |
-| `services/memory/consolidator.service.ts:118-131,193-230` | 删硬编 `buildExtractPrompt`，统一走 `caseMemoryExtract` 节点 + `invokeNodeJson` |
-| `services/retrieval/intentClassifier.service.ts:27-75,158-170` | 删 `DEFAULT_SYSTEM_PROMPT` 75 行兜底；`typeHint` 改占位符变量 |
-| `services/workflow/agents/documentMainAgent.ts:47-82` | 删 `buildInitialPromptFromDraft`，改读 `nodeConfig.prompts` 3 条 user prompt + 按分支挑一条 + 模板变量渲染 |
-| `api/v1/case/extract.post.ts:33,222-238` | 删 `SUMMARY_PROMPT_TEMPLATE`，`generateFileSummary` 改走 `material_summarizer` 节点 |
-| `services/case/caseExtraction.service.ts:46-52` | 删 dead code `CASE_COURT_FIELDS_PROMPT_APPENDIX`（已确认无引用） |
+| `agents/contract/docx/partyDetector.ts:41-95` | 删 `LLM_PROMPT` + 节点借用，改走 `contractPartyDetect` 节点 + `invokeNodeJson`（outputSchema 走 §7.1） |
+| `services/case/initAnalysis.service.ts:343-346` | 删硬编 systemPrompt 直传 `generateSummaryService`，改走 `analysisSummary` 节点 + `invokeNodeJson` |
+| `services/memory/consolidator.service.ts:118-131,193-230` | 删硬编 `buildExtractPrompt`，统一走 `caseMemoryExtract` 节点（已纳管）+ 复用 `runMemoryExtractionService` 现成实现 |
+| `services/retrieval/intentClassifier.service.ts:27-75,158-170` | 删 `DEFAULT_SYSTEM_PROMPT` 75 行兜底；`typeHint` 改占位符变量；保留最外层 catch 降级 semantic 兜底（已存在） |
+| `services/workflow/agents/documentMainAgent.ts:47-82` | 删 `buildInitialPromptFromDraft`，改读 `nodeConfig.prompts` 3 条 user prompt + 按分支挑一条 + 模板变量渲染（复用 `renderContent`） |
+| `api/v1/case/extract.post.ts:33,222-238` | 删 `SUMMARY_PROMPT_TEMPLATE`，`generateFileSummary` 改走 `material_summarizer` 节点（**注意**：这是现有节点 id=13，不是新建的 materialAutoSummary id=24；两者业务点不同——id=13 是 300-500 字分批摘要，id=24 是 100 字材料卡片摘要） |
+| `services/case/caseExtraction.service.ts:46-52` | 删 dead code `CASE_COURT_FIELDS_PROMPT_APPENDIX`（已确认 grep 全仓 0 引用） |
 
 ## 7. 节点最终清单（共 26 个）
 
@@ -282,6 +306,8 @@ interface NodeConfig {
 - `type='case_material'` 或 `'case_analysis'` → `"\n\n注意：这是案件材料/分析检索，不存在精确通道。只能分类为 hybrid 或 semantic。"`
 
 ### 8.3 新增 6 条
+
+> **变量渲染机制**：所有变量统一通过 `renderContent(template, vars)`（`server/services/node/prompt.service.ts` 已有）替换。`PromptRenderContext`（`agent-platform/nodeConfig/promptRenderer.ts`）需扩展两个新字段：`fileIds?: string`（如 `[1, 2, 3]` 字符串形式）、`userExtraText?: string`（用户补充说明，可空）。
 
 #### Prompt 1 — `materialAutoSummary_system`（节点 24，type=system，version=v1）
 
@@ -448,62 +474,65 @@ watch(() => form.value.modelId, () => {
 - 删除 87 个 e2e 测试遗留 `node_groups`（dev/testing/seedData 同步），保留生产 3 个：`id=1` 工作流节点、`id=2` 分析模块、`id=3` 文书模块
 - 删除 dead code `services/case/caseExtraction.service.ts:46-52` 的 `CASE_COURT_FIELDS_PROMPT_APPENDIX`
 
-## 11. 实施分 3 个 PR
+## 11. 实施分 2 个 PR
 
-### PR 1 — Schema + UI 基础（不影响业务）
-
-**改动**：
-- prisma schema 加字段（自动生成 migration.sql）
-- seedData.sql 给现有 17 个 models / 23 个 nodes 加默认值字段
-- dev/testing 库自动应用迁移（默认值生效，无需手工 UPDATE）
-- `NodeConfig` 接口扩字段 + 3 处构造逻辑
-- `chatModelFactory.ts` thinking 协议分发（4 路）
-- 新增 `thinkingResolver.ts` helper
-- 7 处调用点改造为 `resolveThinking(...)`
-- ModelFormDialog + NodeFormDialog UI 改动
-- admin models / nodes API 字段读写补全
-
-**验证**：所有现有节点 `thinking_enabled=false`、所有模型 `supports_thinking=false` → 决议结果与改造前完全一致。`bun run typecheck` + 现有单测全绿。
-
-### PR 2 — 删硬编 + 新节点（一对一替换）
+### PR 1 — Schema + UI + 新节点 + 删硬编（一次性新增功能）
 
 **改动**：
-- 新建节点 24/25/26 + 新增 6 条 prompts（dev/testing/seedData 同步）
+- prisma schema 加字段（自动生成 migration.sql 仅 ALTER TABLE）
+- `NodeConfig` 接口扩字段（`thinkingEnabled` + `modelSupportsThinking`）+ 3 处构造逻辑（`getNodeConfigService` / `getNodeConfigByIdService` / `getNodeConfigsByTypes`）
+- `node.service.ts` 末尾导出 `resolveThinking` + `resolveThinkingFromNodeConfig` 两个 helper
+- `chatModelFactory.ts` 内部 `applyThinkingParams` 函数（当期完整实施 anthropic + gemini，其余 SDK 路径占位返回 `{}`）
+- 修复现有 `chatModelFactory.ts:130-134` `budget_tokens=10000` > `DEFAULT_MAX_TOKENS=8192` 冲突（改为 `budget_tokens=4096`）
+- 7 处调用点改造为 `resolveThinkingFromNodeConfig(nodeConfig, ctx.thinking)`
+- ModelFormDialog + NodeFormDialog UI 改动（含联动逻辑）
+- admin models / nodes API 字段读写补全（zod schema + DAO 自动）
+- 新建节点 24/25/26 + 新增 6 条 prompts（dev/testing 直接 SQL 改 + seedData.sql 同步）
 - 删 4 条 status=0 旧 prompts（dev/testing/seedData 同步）
-- 清理 87 个 e2e 残留 node_groups（dev/testing/seedData 同步）
-- `material.service.ts:495` → `materialAutoSummary` 节点
-- `partyDetector.ts:41-95` → `contractPartyDetect` 节点
-- `initAnalysis.service.ts:343` → `analysisSummary` 节点
-- `consolidator.service.ts:118-131,193-230` → `caseMemoryExtract` 节点
+- 清理 87 个 e2e 残留 node_groups（保留 id=1/2/3 生产分组；dev/testing/seedData 同步）
+- 改造硬编点：
+  - `material.service.ts:495` → `materialAutoSummary` 节点 + `invokeNodeJson`
+  - `partyDetector.ts:41-95` → `contractPartyDetect` 节点 + `invokeNodeJson`
+  - `initAnalysis.service.ts:343` → `analysisSummary` 节点 + `invokeNodeJson`
+  - `consolidator.service.ts:118-131,193-230` → `caseMemoryExtract` 节点（复用主路径 `runMemoryExtractionService`）
 - 删 dead code `CASE_COURT_FIELDS_PROMPT_APPENDIX`
 
-**验证**：4 个改造点行为与改造前一致；相关单测全绿；手工冒烟 4 个场景。
+**验证**：
+- 默认状态下（supports_thinking 全 false / thinking_enabled 全 false）思考决议结果与改造前完全一致
+- `bun run typecheck` + 现有单测全绿
+- 手工冒烟 4 个场景：上传材料看摘要、上传合同看甲乙方、跑分析模块看摘要、案件对话看记忆库新增
 
-### PR 3 — 提示词重构（行为变化大）
+### PR 2 — 提示词重构（行为变化大，需充分回归）
 
 **改动**：
-- `documentMain` 节点新增 3 条 user prompt
-- `search_intent_router` system prompt v1 → v2（加 `{{typeHint}}`）
-- `documentMainAgent.ts:47-82` 删 `buildInitialPromptFromDraft`，改读 nodeConfig.prompts user 3 条
-- `intentClassifier.service.ts:27-75,158-170` 删 `DEFAULT_SYSTEM_PROMPT` + typeHint 改占位符
-- `extract.post.ts:33,222-238` 删 `SUMMARY_PROMPT_TEMPLATE`，复用 `material_summarizer`
+- `documentMain` 节点新增 3 条 user prompt（dev/testing/seedData 同步）
+- `search_intent_router` system prompt v1 → v2（加 `{{typeHint}}`；dev/testing/seedData 同步）
+- `PromptRenderContext` 扩展 `fileIds` + `userExtraText` 字段
+- `documentMainAgent.ts:47-82` 删 `buildInitialPromptFromDraft`，改读 nodeConfig.prompts user 3 条 + 按分支挑一条 + `renderContent` 渲染
+- `intentClassifier.service.ts:27-75,158-170` 删 `DEFAULT_SYSTEM_PROMPT` 75 行兜底 + typeHint 改占位符变量；保留最外层 catch 降级 semantic（已存在）
+- `extract.post.ts:33,222-238` 删 `SUMMARY_PROMPT_TEMPLATE`，复用 `material_summarizer` 节点（id=13 现有）
 
 **验证**：
 - 文书生成 3 种场景（关联案件 / 独立草稿 / 带文件上传）回归
 - 法规检索 4 种类型（law / case_material / case_memory / case_analysis）意图分类回归
+- 超长材料提取触发分批摘要并最终提取成功
 - 超长材料提取触发分批摘要并最终提取成功
 
 ## 12. 风险与边界
 
 ### 12.1 已知风险
 
-- **OpenAI SDK host 嗅探脆**：自托管代理 / 企业 baseUrl 不带 vendor 关键字时，supports_thinking 开了但实际请求不带 thinking 参数。运营使用时自查
-- **生产数据回填**：用户手工对照 seedData.sql 同步生产 DB；存在遗漏风险。建议 PR 2 / PR 3 上线前用户先在生产 DB 上做 dry-run 数据脚本
-- **PR 3 行为变化**：documentMain 启动指令、intentClassifier 失去代码兜底，影响面较大，需充分回归
+- **当期 thinking 路径仅 anthropic + gemini SDK 完整实施**：DeepSeek SDK / 阿里通义 / 火山豆包 / OpenAI o-系列等所有走 OpenAI 兼容协议的厂商**当期不主动嗅探发送 thinking 参数**。运营即使开了某模型 `supports_thinking=true`，前端用户开了思考开关，最终 chatModelFactory 也不会把思考参数发给 LLM。后续按运营实际需求按 baseUrl 精确补具体 SDK 路径
+- **不嗅探的 OpenAI 兼容厂商清单（已知）**：siliconflow / openrouter / zhipu / moonshot / 火山豆包 / 阿里通义 / 自托管代理 / 企业 baseUrl
+- **DeepSeek 官方 OpenAI 端点**：靠模型名切换思考（`deepseek-reasoner` 启用 / `deepseek-chat` 不启用），不接受运行时 thinking 切换
+- **Anthropic budget_tokens 与 maxTokens 联动**：见 §4.4，调用方需保证 `maxTokens >= budget_tokens + 2000`
+- **生产数据回填**：用户手工对照 seedData.sql 同步生产 DB；存在遗漏风险。建议 PR 1/2 上线前用户先在生产 DB 上做 dry-run 数据脚本
+- **PR 2 行为变化**：documentMain 启动指令、intentClassifier 失去代码兜底，影响面较大，需充分回归
 
 ### 12.2 不在本次范围内
 
 - 节点级 `thinking_budget` / `thinking_level` / `thinking_mode='adaptive'` 等高级配置（当前仅 boolean 开关）
+- OpenAI 兼容协议的 thinking 参数嗅探（豆包 / 阿里 / DeepSeek 官方 / siliconflow / openrouter 等）—— 当期占位，按需补
 - OpenAI o-系列模型的 `reasoning_effort` 高级粒度配置（项目当前无此模型）
 - 嵌入 / 重排模型纳入 `nodes` 表（保留在 `models` 表 + 后台模型管理足够）
 
@@ -517,4 +546,4 @@ watch(() => form.value.modelId, () => {
 - ✅ DB 中 prompts 表只保留 status=1 的最终版本（4 条 status=0 已删）
 - ✅ DB 中 node_groups 仅保留 id=1/2/3 三个生产分组
 - ✅ seedData.sql 与 dev/testing 库一致
-- ✅ `bun run typecheck` 全绿；vitest 单测全绿；3 个 PR 各自手工回归通过
+- ✅ `bun run typecheck` 全绿；vitest 单测全绿；2 个 PR 各自手工回归通过
