@@ -156,13 +156,33 @@ export function createTool(context: ToolContext) {
             const { getDocumentTemplateDAO } = await import(
                 '~~/server/agents/document/documentTemplate.dao'
             )
-            const finalDraft = await getDocumentDraftDAO(draftId)
+            // 计算 filledFieldCount：优先从 stream 最后一帧的 structuredResponse 拿；
+            // 否则从 DB 读 + 轮询兜底，避免 stream done 与 afterAgent hook DB write 之间
+            // race condition 导致拿到 stale empty values
+            const structuredFromStream = (drainResult.finalState as any)?.structuredResponse as
+                { values?: Record<string, string | null> } | undefined
+            const valuesFromStream = structuredFromStream?.values
+
+            let finalDraft = await getDocumentDraftDAO(draftId)
+            // 如果 stream 没暴露 structuredResponse 且 DB values 仍空，轮询等 afterAgent
+            // hook 写入完成（最多 5 次 ×200ms = 1s 兜底）
+            if (!valuesFromStream || Object.keys(valuesFromStream).length === 0) {
+                for (let i = 0; i < 5; i++) {
+                    const dbValues = (finalDraft?.values as Record<string, string | null> | null) ?? {}
+                    if (Object.values(dbValues).some(v => typeof v === 'string' && v.trim())) break
+                    if (finalDraft?.status === 'ready' || finalDraft?.status === 'failed') break
+                    await new Promise(r => setTimeout(r, 200))
+                    finalDraft = await getDocumentDraftDAO(draftId)
+                }
+            }
             const template = await getDocumentTemplateDAO(templateId)
             if (!finalDraft) {
                 throw new Error('draft_document: 草稿落库后查不到')
             }
 
-            const draftValues = (finalDraft.values as Record<string, string | null> | null) ?? {}
+            const draftValues = (valuesFromStream && typeof valuesFromStream === 'object'
+                ? valuesFromStream
+                : (finalDraft.values as Record<string, string | null> | null) ?? {})
             const filledFieldCount = Object.values(draftValues).filter(v => typeof v === 'string' && v.trim()).length
             const totalFields = Array.isArray(template?.placeholders) ? template!.placeholders.length : 0
 
