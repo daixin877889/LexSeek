@@ -98,7 +98,6 @@ const recommendations = computed<RecommendedTemplate[]>(
     () => props.interrupt.recommendations ?? [],
 )
 const totalAll = computed<number>(() => props.interrupt.total ?? 0)
-const intentText = computed(() => props.interrupt.intent?.trim() || '')
 
 // 默认选中：snapshot 模式回填 resumeValue.templateId，否则第一个推荐
 const selectedId = ref<number | null>(

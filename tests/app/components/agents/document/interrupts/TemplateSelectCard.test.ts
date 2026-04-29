@@ -170,6 +170,7 @@ describe('TemplateSelectCard - snapshot 模式', () => {
                 onResolve: vi.fn(),
                 resumeValue: { templateId: 11 },
             },
+            ...stubs,
         })
         expect(wrapper.text()).not.toContain('使用此模板')
         expect(wrapper.text()).not.toContain('取消')
@@ -189,6 +190,7 @@ describe('TemplateSelectCard - snapshot 模式', () => {
                 onResolve: vi.fn(),
                 resumeValue: null,
             },
+            ...stubs,
         })
         expect(wrapper.text()).toContain('已取消')
     })
@@ -205,6 +207,7 @@ describe('TemplateSelectCard - snapshot 模式', () => {
                 onResolve: vi.fn(),
                 resumeValue: { templateId: 11 },
             },
+            ...stubs,
         })
         expect(wrapper.find('.opacity-70').exists()).toBe(true)
     })
@@ -221,6 +224,7 @@ describe('TemplateSelectCard - snapshot 模式', () => {
                 },
                 onResolve: vi.fn(),
             },
+            ...stubs,
         })
         expect(wrapper.text()).not.toContain('为您推荐')
     })
