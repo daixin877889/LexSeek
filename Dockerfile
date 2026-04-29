@@ -1,6 +1,6 @@
 # 多阶段构建 - 使用 Bun 构建 Nuxt 项目
 # 阶段 1: 构建阶段
-FROM  --platform=linux/amd64 docker.1ms.run/oven/bun:1 AS builder
+FROM  --platform=linux/amd64 docker.1ms.run/oven/bun:1-slim AS builder
 
 WORKDIR /app
 
