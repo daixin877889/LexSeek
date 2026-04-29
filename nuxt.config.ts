@@ -1,8 +1,14 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import { resolve } from 'node:path'
+import { createRequire } from 'node:module'
 import tailwindcss from '@tailwindcss/vite'
-import rollupObfuscator from 'rollup-plugin-obfuscator'
 import { obfuscatorConfig } from './config/obfuscator'
+
+// 仅在启用混淆时才同步 require 此插件，避免普通构建被 javascript-obfuscator (~60MB) 静态拉进来占座
+const enableObfuscator = process.env.ENABLE_OBFUSCATOR === 'true'
+const rollupObfuscator: ((opts: unknown) => unknown) | null = enableObfuscator
+  ? createRequire(import.meta.url)('rollup-plugin-obfuscator').default
+  : null
 
 export default defineNuxtConfig({
   // 忽略 worktree 目录：避免 Nuxt 扫描/监视导致 EMFILE
@@ -147,6 +153,8 @@ export default defineNuxtConfig({
     },
     // 关闭服务端 source map（生产环境无需调试信息，省 ~7MB）
     sourceMap: false,
+    // 关闭服务端代码 minify：服务端产物不下发浏览器，terser 阶段是云效构建 OOM 主因之一
+    minify: false,
     // 解决 dayjs/zod ESM 模块解析问题，确保打包进 .output
     externals: {
       inline: ['dayjs', 'zod']
@@ -155,7 +163,7 @@ export default defineNuxtConfig({
     // 通过环境变量 ENABLE_OBFUSCATOR=true 显式开启，默认关闭
     rollupConfig: {
       plugins: [
-        ...(process.env.ENABLE_OBFUSCATOR === 'true' ? [
+        ...(enableObfuscator && rollupObfuscator ? [
           rollupObfuscator({
             global: true,
             options: {
