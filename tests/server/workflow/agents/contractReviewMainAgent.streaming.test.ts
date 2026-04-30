@@ -92,11 +92,13 @@ vi.mock('~~/server/services/workflow/middleware/reviewResultPersistence.middlewa
     runAnnotateAndUpload: vi.fn().mockResolvedValue(undefined),
 }))
 
+const mockStream = vi.hoisted(() => vi.fn(() => new ReadableStream<Uint8Array>({ start(c) { c.close() } })))
+
 vi.mock('langchain', async () => {
     const actual = await vi.importActual<any>('langchain')
     return {
         ...actual,
-        createAgent: vi.fn().mockReturnValue({ stream: vi.fn() }),
+        createAgent: vi.fn().mockReturnValue({ stream: mockStream }),
         summarizationMiddleware: vi.fn(),
     }
 })
@@ -401,5 +403,65 @@ describe('阶段 3 · contractReviewMain 节点 tools 配置', () => {
         // 已知限制：search_law 在 runAnalyzeLoop / analyzeSingleClause 子流程内不可用，
         // 因为 invokeNodeJson 走结构化输出 LLM，不支持 tool calling。
         // 阶段 4 通过 Command.resume + 中间件改造解决该限制；本阶段仅保证主 agent 阶段可用。
+    })
+})
+
+import type { CallbackHandlerMethods } from '@langchain/core/callbacks/base'
+
+describe('callbacks 选项透传', () => {
+    beforeEach(() => {
+        mockStream.mockClear()
+        // 复用 segmentClauses / loadContractFullText 等 happy 默认 mock
+        if (typeof segmentClauses !== 'undefined') {
+            (segmentClauses as any).mockResolvedValue({ segments: [], normalizedText: '' })
+        }
+        // Mock findContractReviewBySessionIdDAO for happy path (no stance - fresh review)
+        if (typeof findContractReviewBySessionIdDAO !== 'undefined') {
+            (findContractReviewBySessionIdDAO as any).mockResolvedValue({
+                id: 1, originalFileId: 9, status: 'pending',
+                stance: null, partyA: null, partyB: null, contractType: null,
+                caseId: null, sessionId: 'sess-z',
+            })
+        }
+    })
+
+    it('首轮（command=undefined + skipStanceInterrupt=false）+ 传 callbacks → agent.stream 收到', async () => {
+        const userCallback: CallbackHandlerMethods = { handleLLMNewToken: vi.fn() }
+        const { runContractReviewChat } = await import('~~/server/services/workflow/agents/contractReviewMainAgent')
+        await runContractReviewChat('sess-z', {
+            userId: 1,
+            callbacks: [userCallback],
+        })
+        const streamArgs = mockStream.mock.calls.at(-1)?.[1] as any
+        expect(streamArgs).toBeDefined()
+        expect(streamArgs.callbacks).toBeDefined()
+        expect(streamArgs.callbacks).toContain(userCallback)
+    })
+
+    it('首轮不传 callbacks → agent.stream callbacks 选项是 undefined（向后兼容）', async () => {
+        const { runContractReviewChat } = await import('~~/server/services/workflow/agents/contractReviewMainAgent')
+        await runContractReviewChat('sess-z2', { userId: 1 })
+        const streamArgs = mockStream.mock.calls.at(-1)?.[1] as any
+        expect(streamArgs.callbacks).toBeUndefined()
+    })
+
+    it('skipStanceInterrupt=true（review.stance 已落库）→ 不走 agent.stream（callbacks 不触发，设计意图）', async () => {
+        if (typeof findContractReviewBySessionIdDAO !== 'undefined') {
+            // Mock review with stance already set - triggers skip branch
+            (findContractReviewBySessionIdDAO as any).mockResolvedValue({
+                id: 1, originalFileId: 9, status: 'awaiting_stance',
+                stance: 'partyA', partyA: '甲', partyB: '乙', contractType: '采购',
+                caseId: null, sessionId: 'sess-skip',
+            })
+        }
+        const userCallback: CallbackHandlerMethods = { handleLLMNewToken: vi.fn() }
+        const { runContractReviewChat } = await import('~~/server/services/workflow/agents/contractReviewMainAgent')
+        await runContractReviewChat('sess-skip', {
+            userId: 1,
+            skipStanceInterrupt: true,
+            callbacks: [userCallback],
+        })
+        // skip 分支返回手工构造的 ReadableStream，不调用 agent.stream
+        expect(mockStream).not.toHaveBeenCalled()
     })
 })
