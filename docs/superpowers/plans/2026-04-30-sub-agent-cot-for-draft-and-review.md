@@ -24,7 +24,9 @@
 | `server/services/agent-platform/tools/reviewContract.tool.ts` | 修改 | 同 `draftDocument.tool.ts`，agentName='contractReviewMain' |
 | `server/services/workflow/agents/threadState.ts` | 修改 | `loadSubAgentThreads` 加 `draft_document` / `review_contract` 分支，从 ToolMessage JSON 顶层 `subSessionId` 字段反查子 thread；新增纯函数 `extractSubSessionIdFromToolResult` |
 | `app/components/ai/AiToolRenderer.vue` | 修改 | 新增 `SUB_AGENT_LIKE_TOOLS` 集合 + `isSubAgentTool` 扩展 + `shouldShowSubAgentCoT` 守卫；新 v-else-if 双卡共存分支（CoT 在前，结果卡在后）；保留 `ask_*_expert` legacy 分支 |
+| `app/composables/useStreamChat.ts` | 修改 | `mergeEventIntoBucket` 处理 `sub_agent_tool_start` 时把 `{id, name, args}` 推到最近 AIMessage 的 `tool_calls`，让跑中 `mapMessagesToSteps` 能渲染 tool_call step（用户决策 D3：详细显示） |
 | `tests/server/agent-platform/subAgent/buildSubAgentCallbacks.test.ts` | **新建** | helper 5 个 handler 单测（覆盖率铁律：agent-platform/** ≥90%，**保留独立测试文件**） |
+| `tests/app/composables/useStreamChat.subThreads.test.ts` | 扩展 | 验证 sub_agent_tool_start 事件把 tool_calls 注入到最近 AIMessage（跑中 tool_call step 显示） |
 | `tests/server/agent-platform/subAgent/subAgentToolFactory.test.ts` | 扩展 | 新增 1 case：mock chain 抛错 → 验证 publishStatusChange status='failed' 被调用 |
 | `tests/server/agent-platform/tools/draftDocument.test.ts` | 扩展 | 新增 case：验证 callbacks 注入正确 + 返回 JSON 含 subSessionId |
 | `tests/server/agent-platform/tools/reviewContract.test.ts` | 扩展 | 新增 case：验证 callbacks 注入正确 + 返回 JSON 含 subSessionId |
@@ -59,11 +61,11 @@
    - `isInterruptToolCardCall` 优先级最高（最新已有 `_interruptId` 区分逻辑，参见 commit `00bc17b0`）
    - SUB_AGENT_LIKE 分支必须在 interrupt 分支之后
 
-6. **跑中 CoT 显示限制（既有行为，本 plan 不修复）**
-   - `useStreamChat.handleAgentEvent` 处理 `SUB_AGENT_TOKEN` 时把 delta 累加到 AIMessage（无 tool_calls 字段）；`SUB_AGENT_TOOL_END` 单独 push ToolMessage
-   - `mapMessagesToSteps` 依赖 `AIMessage.tool_calls` 渲染 tool_call step → 跑中**不会**显示工具调用 step（仅 thinking + analysis）
-   - 跑完后历史恢复路径走 PostgresSaver 真实 messages（含 tool_calls） → 完整 step 显示
-   - 这是 `ask_*_expert` 既有行为；本 plan 沿用，不修复
+6. **跑中 tool_call step 显示**（用户决策 D3：详细显示，本 plan 包含）
+   - 协议扩展：`buildSubAgentCallbacks.handleToolStart` 的 data 加 `toolName` 字段（来自 LangChain handleToolStart 第 7 参数 `runName` 或 Serialized.id 末尾段）
+   - `useStreamChat.mergeEventIntoBucket` 处理 `sub_agent_tool_start` 时，往最近一条 AIMessage 的 `tool_calls` 数组追加 `{id: innerToolCallId, name: toolName, args: parsedInput}`
+   - `mapMessagesToSteps` 看到 AIMessage.tool_calls + ToolMessage（来自 SUB_AGENT_TOOL_END）→ 渲染完整 tool_call step（含 args / result）
+   - 这条改动同时让既有 `ask_*_expert` 跑中也显示工具调用（顺带修复，不专项做）
 
 7. **测试一律 `npx vitest run`**，禁用 `bun test`
 
@@ -156,16 +158,44 @@ describe('buildSubAgentCallbacks', () => {
         })
     })
 
-    it('handleToolStart → publishCustomEvent SUB_AGENT_TOOL_START', async () => {
+    it('handleToolStart → publishCustomEvent SUB_AGENT_TOOL_START（含 toolName）', async () => {
         const h = buildSubAgentCallbacks(opts)[0]!
         await h.handleToolStart!(
-            { name: 't' } as any, 'in-data', 'cb-2',
-            undefined, undefined, undefined, undefined, 'inner-tc-1',
+            { id: ['langchain_core', 'tools', 'search_law'], kwargs: { name: 'search_law' } } as any,
+            '{"q":"民间借贷"}', 'cb-2',
+            undefined, undefined, undefined, 'search_law',  // 第 7 参数 runName
+            'inner-tc-1',                                    // 第 8 参数 toolCallId
         )
         expect(publishCustomEventMock).toHaveBeenCalledWith(expect.objectContaining({
             name: SSECustomEventType.SUB_AGENT_TOOL_START,
-            data: { innerToolCallId: 'inner-tc-1', input: 'in-data', cbRunId: 'cb-2' },
+            data: { innerToolCallId: 'inner-tc-1', input: '{"q":"民间借贷"}', cbRunId: 'cb-2', toolName: 'search_law' },
             metadata: expectedMeta,
+        }))
+    })
+
+    it('handleToolStart toolName fallback：runName 缺失时取 Serialized.kwargs.name', async () => {
+        const h = buildSubAgentCallbacks(opts)[0]!
+        await h.handleToolStart!(
+            { id: ['x'], kwargs: { name: 'fallback_tool' } } as any,
+            'in', 'cb',
+            undefined, undefined, undefined, undefined,  // runName 不传
+            'inner-2',
+        )
+        expect(publishCustomEventMock).toHaveBeenCalledWith(expect.objectContaining({
+            data: expect.objectContaining({ toolName: 'fallback_tool' }),
+        }))
+    })
+
+    it('handleToolStart toolName fallback：runName 与 kwargs.name 都缺失时取 Serialized.id 末尾', async () => {
+        const h = buildSubAgentCallbacks(opts)[0]!
+        await h.handleToolStart!(
+            { id: ['langchain', 'tools', 'last_segment'], kwargs: {} } as any,
+            'in', 'cb',
+            undefined, undefined, undefined, undefined,
+            'inner-3',
+        )
+        expect(publishCustomEventMock).toHaveBeenCalledWith(expect.objectContaining({
+            data: expect.objectContaining({ toolName: 'last_segment' }),
         }))
     })
 
@@ -289,13 +319,22 @@ export function buildSubAgentCallbacks(opts: BuildSubAgentCallbacksOptions): Cal
                 metadata: { ...meta, messageId: cbRunId, delta: token },
             }).catch((e: unknown) => logger.warn('publishCustomEvent(SUB_AGENT_TOKEN) failed', { e }))
         },
-        async handleToolStart(_tool, input, cbRunId, _p, _t, _m, _n, innerToolCallId) {
+        async handleToolStart(_tool, input, cbRunId, _p, _t, _m, runName, innerToolCallId) {
+            // toolName 取值优先级：runName（LangChain 第 7 参数，通常就是工具名）
+            //   > Serialized.kwargs.name > Serialized.id 末尾段 > 'unknown_tool'
+            // 前端 useStreamChat.mergeEventIntoBucket 用此 toolName 把 tool_call 推到 AIMessage.tool_calls
+            const tool = _tool as { id?: unknown[]; kwargs?: { name?: unknown } } | undefined
+            const idSegments = Array.isArray(tool?.id) ? tool.id : []
+            const toolName: string = runName
+                ?? (typeof tool?.kwargs?.name === 'string' ? tool.kwargs.name : undefined)
+                ?? (typeof idSegments.at(-1) === 'string' ? String(idSegments.at(-1)) : undefined)
+                ?? 'unknown_tool'
             await publishCustomEvent({
                 type: 'custom_event',
                 runId: mainRunId,
                 sessionId,
                 name: SSECustomEventType.SUB_AGENT_TOOL_START,
-                data: { innerToolCallId, input, cbRunId },
+                data: { innerToolCallId, input, cbRunId, toolName },
                 metadata: meta,
             }).catch((e: unknown) => logger.warn('publishCustomEvent(SUB_AGENT_TOOL_START) failed', { e }))
         },
@@ -1618,7 +1657,178 @@ git commit -m "test(ui): AiToolRenderer 双卡共存 / 守卫 / interrupt 优先
 
 ---
 
-### Task 10: 整合测试 + E2E 综合链路验收
+### Task 10: 跑中 tool_call step 显示（前端协议扩展）
+
+**Files:**
+- Modify: `app/composables/useStreamChat.ts`（`mergeEventIntoBucket` 内 `sub_agent_tool_start` 分支）
+- Test: `tests/app/composables/useStreamChat.subThreads.test.ts`（扩展）
+
+**用户决策 D3**：跑中 CoT 必须详细显示 thinking + tool_call + text，不能等到历史恢复。本 Task 通过协议扩展（Task 1 helper 已带 `toolName`）+ 前端 reducer 改造实现。
+
+- [ ] **Step 1: 写测试（TDD red）**
+
+在 `tests/app/composables/useStreamChat.subThreads.test.ts` 现有 `describe` 块末尾追加：
+
+```typescript
+it('sub_agent_tool_start 把 tool_call 推到最近一条 AIMessage.tool_calls（让跑中 mapMessagesToSteps 渲染 tool_call step）', () => {
+    const b = createEmptyBucket('expert_a', 'sess_sub_a')
+    // 1) 先来几个 token，形成一条 AIMessage（id=m1）
+    mergeEventIntoBucket(b, {
+        type: 'custom_event', runId: 'r', sessionId: 's', name: 'sub_agent_token',
+        data: undefined,
+        metadata: { agentName: 'a', threadId: 't', parentToolCallId: 'p1', messageId: 'm1', delta: '我打算搜法律法规' },
+    } as any)
+    // 2) tool_start 触发：toolName='search_law'，args 是 JSON string
+    mergeEventIntoBucket(b, {
+        type: 'custom_event', runId: 'r', sessionId: 's', name: 'sub_agent_tool_start',
+        data: { innerToolCallId: 'inner-1', input: '{"q":"民间借贷"}', cbRunId: 'cb-x', toolName: 'search_law' },
+        metadata: { agentName: 'a', threadId: 't', parentToolCallId: 'p1' },
+    } as any)
+    // AIMessage.tool_calls 应被注入条目
+    const ai = b.messages.find((m: any) => m.id === 'm1') as any
+    expect(ai).toBeTruthy()
+    expect(Array.isArray(ai.tool_calls)).toBe(true)
+    expect(ai.tool_calls).toHaveLength(1)
+    expect(ai.tool_calls[0]).toEqual({
+        id: 'inner-1',
+        name: 'search_law',
+        args: { q: '民间借贷' },  // string input 被 JSON.parse 解开
+    })
+    // cbRunId 映射保留（end 事件用）
+    expect(b.runIdToInnerToolCallId.get('cb-x')).toBe('inner-1')
+})
+
+it('sub_agent_tool_start args 不是合法 JSON 时保留原 string', () => {
+    const b = createEmptyBucket('e', 't')
+    mergeEventIntoBucket(b, {
+        type: 'custom_event', runId: 'r', sessionId: 's', name: 'sub_agent_token',
+        data: undefined,
+        metadata: { agentName: 'a', threadId: 't', parentToolCallId: 'p', messageId: 'm-x', delta: 'x' },
+    } as any)
+    mergeEventIntoBucket(b, {
+        type: 'custom_event', runId: 'r', sessionId: 's', name: 'sub_agent_tool_start',
+        data: { innerToolCallId: 'inner-2', input: '不是 json', cbRunId: 'cb', toolName: 'process_materials' },
+        metadata: { agentName: 'a', threadId: 't', parentToolCallId: 'p' },
+    } as any)
+    const ai = b.messages.find((m: any) => m.id === 'm-x') as any
+    expect(ai.tool_calls[0].args).toBe('不是 json')
+})
+
+it('bucket 没有 AIMessage 时（tool_start 早于任何 token）→ 跳过 tool_calls 注入，不报错', () => {
+    const b = createEmptyBucket('e', 't')
+    mergeEventIntoBucket(b, {
+        type: 'custom_event', runId: 'r', sessionId: 's', name: 'sub_agent_tool_start',
+        data: { innerToolCallId: 'inner-3', input: 'x', cbRunId: 'cb', toolName: 'tool_x' },
+        metadata: { agentName: 'a', threadId: 't', parentToolCallId: 'p' },
+    } as any)
+    expect(b.messages.filter((m: any) => m.type === 'ai')).toHaveLength(0)
+    // 但 cbRunId 映射仍然记录（兼容 SUB_AGENT_TOOL_END 还能挂上 ToolMessage）
+    expect(b.runIdToInnerToolCallId.get('cb')).toBe('inner-3')
+})
+
+it('同 innerToolCallId 重复 tool_start（幂等）→ tool_calls 不重复 push', () => {
+    const b = createEmptyBucket('e', 't')
+    mergeEventIntoBucket(b, {
+        type: 'custom_event', runId: 'r', sessionId: 's', name: 'sub_agent_token',
+        data: undefined,
+        metadata: { agentName: 'a', threadId: 't', parentToolCallId: 'p', messageId: 'm', delta: 'x' },
+    } as any)
+    const evt = {
+        type: 'custom_event', runId: 'r', sessionId: 's', name: 'sub_agent_tool_start',
+        data: { innerToolCallId: 'inner-d', input: 'x', cbRunId: 'cb', toolName: 't' },
+        metadata: { agentName: 'a', threadId: 't', parentToolCallId: 'p' },
+    } as any
+    mergeEventIntoBucket(b, evt)
+    mergeEventIntoBucket(b, evt)
+    const ai = b.messages.find((m: any) => m.id === 'm') as any
+    expect(ai.tool_calls).toHaveLength(1)
+})
+
+it('tool_start 缺 toolName（旧版后端兼容）→ 不注入 tool_calls，仅记 cbRunId 映射', () => {
+    const b = createEmptyBucket('e', 't')
+    mergeEventIntoBucket(b, {
+        type: 'custom_event', runId: 'r', sessionId: 's', name: 'sub_agent_token',
+        data: undefined,
+        metadata: { agentName: 'a', threadId: 't', parentToolCallId: 'p', messageId: 'm', delta: 'x' },
+    } as any)
+    mergeEventIntoBucket(b, {
+        type: 'custom_event', runId: 'r', sessionId: 's', name: 'sub_agent_tool_start',
+        data: { innerToolCallId: 'inner-old', input: 'x', cbRunId: 'cb' },  // 无 toolName
+        metadata: { agentName: 'a', threadId: 't', parentToolCallId: 'p' },
+    } as any)
+    const ai = b.messages.find((m: any) => m.id === 'm') as any
+    expect(ai.tool_calls ?? []).toHaveLength(0)
+    expect(b.runIdToInnerToolCallId.get('cb')).toBe('inner-old')
+})
+```
+
+- [ ] **Step 2: 跑测试确认 fail（red）**
+
+Run: `npx vitest run tests/app/composables/useStreamChat.subThreads.test.ts --reporter=verbose`
+Expected: 5 个新 case FAIL（reducer 没注入 tool_calls）
+
+- [ ] **Step 3: 改 `useStreamChat.ts` `sub_agent_tool_start` 分支**
+
+修改 `app/composables/useStreamChat.ts:61-67`（`mergeEventIntoBucket` 内 `sub_agent_tool_start` case）：
+
+```typescript
+      case 'sub_agent_tool_start': {
+        const d = cev.data as { innerToolCallId?: string; input?: unknown; cbRunId?: string; toolName?: string }
+        if (d?.cbRunId && d?.innerToolCallId) {
+          bucket.runIdToInnerToolCallId.set(d.cbRunId, d.innerToolCallId)
+        }
+        // 新逻辑：把 tool_call 注入到最近一条 AIMessage.tool_calls，
+        // 让 mapMessagesToSteps 跑中也能渲染 tool_call step（命中用户 D3 需求：详细显示）
+        // 注意：缺 toolName 时（旧版后端 / 兼容路径）不注入，避免污染
+        if (d?.innerToolCallId && d?.toolName) {
+          for (let i = bucket.messages.length - 1; i >= 0; i--) {
+            const m: any = bucket.messages[i]
+            const isAi = m?._getType?.() === 'ai' || m?.type === 'ai'
+            if (!isAi) continue
+            const calls: any[] = Array.isArray(m.tool_calls) ? m.tool_calls : []
+            // 幂等：同 innerToolCallId 不重复 push（reducer 偶发重放兜底）
+            if (calls.some(c => c?.id === d.innerToolCallId)) break
+            // input 是 string 时尝试 JSON.parse；不合法保留原 string
+            let parsedArgs: unknown = d.input
+            if (typeof d.input === 'string') {
+              try { parsedArgs = JSON.parse(d.input) } catch { /* 保留原 string */ }
+            }
+            calls.push({ id: d.innerToolCallId, name: d.toolName, args: parsedArgs })
+            m.tool_calls = calls
+            break
+          }
+        }
+        return
+      }
+```
+
+- [ ] **Step 4: 跑测试确认 pass（green）**
+
+Run: `npx vitest run tests/app/composables/useStreamChat.subThreads.test.ts --reporter=verbose`
+Expected: PASS（含原有 5 case + 新增 5 case = 10 case）
+
+- [ ] **Step 5: 跑相关上游测试确认无回归**
+
+Run: `npx vitest run tests/app/components/ai/AiToolRenderer.test.ts tests/app/composables/ --reporter=verbose`
+Expected: 全部 PASS
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add app/composables/useStreamChat.ts \
+        tests/app/composables/useStreamChat.subThreads.test.ts
+git commit -m "feat(ui): 跑中 tool_call step 显示——sub_agent_tool_start 注入到 AIMessage.tool_calls
+
+- 协议扩展：data 加 toolName 字段（Task 1 helper 已 publish）
+- mergeEventIntoBucket 把 {id,name,args} 推到最近 AIMessage.tool_calls
+- input 是 string 时 try JSON.parse；不合法保留原文
+- 同 innerToolCallId 幂等；缺 toolName 不注入（向后兼容旧后端）
+- 顺带让 ask_*_expert 跑中也显示工具调用 step（用户决策 D3）"
+```
+
+---
+
+### Task 11: 整合测试 + E2E 综合链路验收
 
 **Files:**
 - 无新建文件
@@ -1647,11 +1857,14 @@ Expected: 编译成功，端口 3000 可访问
 
 打开浏览器至 `http://localhost:3000/dashboard/cases/<某测试案件 id>?focus=xiaosuo`，登录测试账号 `13064768490`/`daixin88`。
 
-**子任务 5.1 — 跑中实时反馈**：
+**子任务 5.1 — 跑中实时反馈（D3 详细显示）**：
 1. 在小索发"起草起诉状" → 模板候选弹出
 2. 选模板 → 点「使用此模板」
 3. **观察**：30 秒内 UI 应出现 `<SubAgentChainOfThought>`，header 显示「文书生成 思考中...」+ Loader2 转圈
-4. 步骤列表应渐进显示「思考」（thinking 内容）+「分析」（content 累积）
+4. 步骤列表应渐进显示**三类 step**：
+   - **「思考」**（thinking 内容，紫色 Brain 图标）
+   - **「调用 search_case_analysis」/「调用 search_law」/「调用 process_materials」**（橙色 Wrench 图标 — D3 关键，跑中即显示工具调用）
+   - **「分析」**（content 累积，蓝色 FileText 图标）
 5. 跑完后 1 秒，CoT 折叠成一行「思考 N s」+ 「文书生成」标题
 6. 下方 `DraftDocumentCard` 显示「已完成起草《...》X/Y 字段」+ 跳转链接
 
@@ -1711,16 +1924,19 @@ git status
 - 改造 skipStanceInterrupt 路径用 createAgent 包装 analyze loop / summarize 是较大架构改动，应单独 design + 单独 plan
 - graceful no-op 是合理降级；用户后续 review 阶段如要求覆盖法律助手场景再做后续 follow-up plan
 
-### D3：mapMessagesToSteps 跑中不显示 tool_call step（沿用既有行为）
+### D3：跑中显示 tool_call step（用户决策：详细显示，纳入本 plan）
 
-**事实**：`useStreamChat.handleAgentEvent` 处理 SUB_AGENT_TOOL_END 时只 push `ToolMessage`（无对应 AIMessage with `tool_calls`），导致 `mapMessagesToSteps` 不能识别 tool_call → 跑中 CoT 仅显示 thinking + analysis（无工具调用步骤）。
+**用户原话**：「不知道在搜什么、**调什么 tool**、是不是卡死」——明确强调跑中要看到具体调用的工具。
 
-**决策**：本 plan 不修复（沿用 ask_*_expert 既有行为）。
+**5check 维度 4 finding**：仅靠 thinking + analysis 文字反馈不充分；用户想看到「调用 search_law」「调用 process_materials」这种明确反馈。
 
-**理由**：
-- 历史恢复路径走 PostgresSaver 真实 messages（含 tool_calls），完整 step 显示
-- 跑中无 tool_call step 是 ask_*_expert 现有行为，未引发线上问题
-- 修复需要扩展 SUB_AGENT_TOOL_START 协议（加 toolName + push 到对应 AIMessage.tool_calls）+ 同步前端 useStreamChat 处理逻辑——属于跨工具改造，应独立 plan
+**plan 决策（用户拍板）**：纳入本 plan，由 Task 10 实现。
+
+**实施细节**：
+- 协议扩展：`buildSubAgentCallbacks.handleToolStart` data 加 `toolName` 字段（Task 1 已带，从 LangChain handleToolStart 第 7 参数 `runName` 取，缺失时 fallback 到 `Serialized.kwargs.name` / `Serialized.id` 末尾）
+- 前端 reducer：`useStreamChat.mergeEventIntoBucket` 处理 `sub_agent_tool_start` 时把 `{id, name, args}` 推到最近一条 AIMessage 的 `tool_calls` 数组（Task 10）
+- 兼容：input 是 string 时 try JSON.parse；同 innerToolCallId 幂等不重复 push；缺 toolName 时跳过（向后兼容旧后端）
+- 顺带效果：既有 `ask_*_expert` 跑中也获得 tool_call step 显示（同协议，零成本顺带修）
 
 ### D4：测试 D（extractSubSessionIdFromToolResult 纯函数）通过 loadSubAgentThreads 间接覆盖
 
@@ -1747,6 +1963,5 @@ git status
 ## 后续工作（不在本 plan 范围）
 
 - review_contract skipStanceInterrupt 路径 CoT 改造（D2）：用 createAgent 包装 analyze loop / summarize，让 callbacks 生效
-- 跑中 CoT 显示 tool_call step（D3）：扩展 SUB_AGENT_TOOL_START/END 协议 + useStreamChat 同步
 - 法律助手 vertical（assistantChat）走 draft_document / review_contract 时的 CoT 接入
 - 子流嵌套（documentMain 内部又调子代理工具）的多级 CoT 展示
