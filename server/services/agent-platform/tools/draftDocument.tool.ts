@@ -115,6 +115,11 @@ export function createTool(context: ToolContext) {
             const sourceText = (unpacked.sourceText ?? input.additionalContext ?? input.intent).trim()
 
             // 3. 创建草稿
+            // enqueueAgentRun: false —— 关键参数：本工具自己同步调 runDocumentChat 消费整条 SSE 流。
+            // 若让 createDraftService 内部继续把任务入队给 agentWorker，会出现「worker + tool 双实例
+            // 并发同 thread_id」：两个 LangGraph 实例共享 checkpointer 和 draft.id，afterAgent hook
+            // 各自跑一次 updateDocumentDraftDAO，谁后写谁赢；其中一方失败时会把另一方写入的
+            // values + ready 状态覆盖回 failed/{}（DraftDocumentCard 显示空白草稿的真实根因）。
             const { createDraftService } = await import(
                 '~~/server/agents/document/documentDraft.service'
             )
@@ -123,6 +128,7 @@ export function createTool(context: ToolContext) {
                 templateId,
                 sourceText,
                 caseId: caseId ?? undefined,
+                enqueueAgentRun: false,
             })
             if ('error' in created) {
                 throw new Error(`draft_document: ${created.error}`)
@@ -150,43 +156,19 @@ export function createTool(context: ToolContext) {
             }
 
             // 5. 读取已落库的 draft + template 提取 summary 信息
+            // runAndDrainStream 返回时 afterAgent hook 已 await 完成，直接读 DB 即可
             const { getDocumentDraftDAO } = await import(
                 '~~/server/agents/document/documentDraft.dao'
             )
             const { getDocumentTemplateDAO } = await import(
                 '~~/server/agents/document/documentTemplate.dao'
             )
-            // 计算 filledFieldCount 之前必须确保 afterAgent hook 已写完 DB。
-            //
-            // race condition 由来：runAndDrainStream 仅消费 SSE 流到 reader done，
-            // 但 LangGraph 在 streamMode='values' 下，emit 完终帧后底层 graph 可能
-            // 仍在异步收尾（包括 afterAgent hook 内的 await updateDocumentDraftDAO）。
-            // 经验测时 hook 完成时间最长可比 stream done 晚数秒（DB 网络抖动 / 同
-            // 进程内 Prisma 连接池竞争）。
-            //
-            // 信号选择：draft.status 是 hook 唯一的"明确写入完成"信号——
-            //   - beforeAgent 置 'filling'
-            //   - afterAgent 成功路径置 'ready'，失败路径置 'failed'
-            // 任一终态都说明 hook 已 await 完成。
-            //
-            // 轮询：最多 60 × 500ms = 30s 兜底（实际典型 < 1s）
-            const POLL_MAX_TIMES = 60
-            const POLL_INTERVAL_MS = 500
-            let finalDraft = await getDocumentDraftDAO(draftId)
-            for (let i = 0; i < POLL_MAX_TIMES; i++) {
-                if (finalDraft?.status === 'ready' || finalDraft?.status === 'failed') break
-                await new Promise(r => setTimeout(r, POLL_INTERVAL_MS))
-                finalDraft = await getDocumentDraftDAO(draftId)
-            }
-            const template = await getDocumentTemplateDAO(templateId)
+            const [finalDraft, template] = await Promise.all([
+                getDocumentDraftDAO(draftId),
+                getDocumentTemplateDAO(templateId),
+            ])
             if (!finalDraft) {
                 throw new Error('draft_document: 草稿落库后查不到')
-            }
-            if (finalDraft.status !== 'ready' && finalDraft.status !== 'failed') {
-                logger.warn('draft_document: hook 在 30s 兜底窗口内未完成 DB 写入，filledFieldCount 可能 stale', {
-                    draftId,
-                    finalStatus: finalDraft.status,
-                })
             }
 
             const draftValues = (finalDraft.values as Record<string, string | null> | null) ?? {}

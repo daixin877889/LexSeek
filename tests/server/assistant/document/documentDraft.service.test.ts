@@ -267,6 +267,33 @@ describe('createDraftService', () => {
             expect(mockEnqueueRunService).not.toHaveBeenCalled()
         })
 
+        it('enqueueAgentRun=false 时即使有 sourceText 也不入队（子代理工具同步执行路径）', async () => {
+            // tool 自己同步调 runDocumentChat，不要再让 worker 也跑一遍同 thread_id 形成 race
+            await createDraftService({
+                userId: 100,
+                templateId: 1,
+                sourceText: '欠薪 5 万',
+                enqueueAgentRun: false,
+            })
+
+            // status 仍然按 hasSource 走 drafting（Agent 仍会跑，只是由 tool 自己同步触发）
+            expect(mockCreateDocumentDraftDAO).toHaveBeenCalledWith(
+                expect.objectContaining({ status: 'drafting' }),
+            )
+            expect(mockEnqueueRunService).not.toHaveBeenCalled()
+        })
+
+        it('enqueueAgentRun=true（显式）+ sourceText 仍入队（向后兼容默认行为）', async () => {
+            await createDraftService({
+                userId: 100,
+                templateId: 1,
+                sourceText: '原告是张三',
+                enqueueAgentRun: true,
+            })
+
+            expect(mockEnqueueRunService).toHaveBeenCalledTimes(1)
+        })
+
         it('传入 sourceFileIds 时循环调用 ensureMaterialsReadyForDraftService（无 caseId 透传 null）', async () => {
             const result = await createDraftService({
                 userId: 100,

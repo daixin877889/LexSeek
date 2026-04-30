@@ -81,7 +81,9 @@ describe('draft_document tool', () => {
         ;(getDocumentDraftDAO as any).mockResolvedValue({
             id: 101,
             title: '民事起诉状（劳动争议）',
-            status: 'ready', // afterAgent hook 已写入完成态，让 tool 内轮询立即 break
+            // tool 不再轮询 status（双实例 race 已通过 enqueueAgentRun:false 修掉），
+            // runAndDrainStream 返回时 LangGraph hook 已 await 完成
+            status: 'ready',
             values: { plaintiff: '张三', defendant: '某公司' },
         })
         ;(getDocumentTemplateDAO as any).mockResolvedValue({
@@ -102,9 +104,13 @@ describe('draft_document tool', () => {
             intent: '帮我写一份起诉状',
             total: 12,
         }))
-        // createDraft 用了 resume value 的 sourceText
+        // createDraft 用了 resume value 的 sourceText；
+        // enqueueAgentRun:false 关掉 createDraftService 内部的入队，避免 worker + tool 双实例并发同 thread_id
         expect(createDraftService).toHaveBeenCalledWith(expect.objectContaining({
-            userId: 7, templateId: 11, sourceText: '欠薪 5 万',
+            userId: 7,
+            templateId: 11,
+            sourceText: '欠薪 5 万',
+            enqueueAgentRun: false,
         }))
         // 子流执行 + drain
         expect(runDocumentChat).toHaveBeenCalledWith('sub-sess-101', undefined, expect.objectContaining({ userId: 7 }))

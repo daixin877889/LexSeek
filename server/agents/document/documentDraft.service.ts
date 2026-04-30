@@ -33,6 +33,12 @@ export interface CreateDraftParams {
     sourceText?: string
     sourceFileIds?: number[]
     caseId?: number
+    /**
+     * 是否把 documentMain 入队给 agentWorker 异步执行（默认 true）。
+     * 子代理工具应传 false：tool 自己会同步调 runDocumentChat，让 worker
+     * 也跑会形成「同 thread_id 双实例并发」，afterAgent hook 互相覆写 draft.values。
+     */
+    enqueueAgentRun?: boolean
 }
 
 /** 服务层统一错误返回 */
@@ -50,7 +56,7 @@ export interface ServiceError {
 export async function createDraftService(
     params: CreateDraftParams,
 ): Promise<{ draftId: number; sessionId: string } | ServiceError> {
-    const { userId, templateId, sourceText, sourceFileIds, caseId } = params
+    const { userId, templateId, sourceText, sourceFileIds, caseId, enqueueAgentRun = true } = params
 
     const template = await getDocumentTemplateDAO(templateId)
     if (!template) {
@@ -111,7 +117,7 @@ export async function createDraftService(
         )
     }
 
-    if (hasSource) {
+    if (hasSource && enqueueAgentRun) {
         await enqueueRunService({
             sessionId,
             threadId: sessionId,
