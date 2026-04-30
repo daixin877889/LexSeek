@@ -158,10 +158,12 @@ describe('buildSubAgentCallbacks', () => {
         })
     })
 
-    it('handleToolStart → publishCustomEvent SUB_AGENT_TOOL_START（含 toolName）', async () => {
+    it('handleToolStart → publishCustomEvent SUB_AGENT_TOOL_START（含 toolName=runName）', async () => {
+        // LangChain `tools/index.cjs:206,249`: tool() 工厂会确保 config.runName 默认就是 this.name
+        // → handleToolStart 第 7 参数 runName 在生产路径下始终可靠 = 工具名
         const h = buildSubAgentCallbacks(opts)[0]!
         await h.handleToolStart!(
-            { id: ['langchain_core', 'tools', 'search_law'], kwargs: { name: 'search_law' } } as any,
+            { id: ['langchain', 'tools', 'DynamicStructuredTool'] } as any,
             '{"q":"民间借贷"}', 'cb-2',
             undefined, undefined, undefined, 'search_law',  // 第 7 参数 runName
             'inner-tc-1',                                    // 第 8 参数 toolCallId
@@ -173,29 +175,18 @@ describe('buildSubAgentCallbacks', () => {
         }))
     })
 
-    it('handleToolStart toolName fallback：runName 缺失时取 Serialized.kwargs.name', async () => {
+    it('handleToolStart runName 未传时 → toolName="unknown_tool"（兜底，理论不发生）', async () => {
+        // 防御性兜底：LangChain 上游若变更默认 runName 行为，此处保证 toolName 不为 undefined
+        // 让 reducer 的 `if (d?.toolName)` 判断仍然合理
         const h = buildSubAgentCallbacks(opts)[0]!
         await h.handleToolStart!(
-            { id: ['x'], kwargs: { name: 'fallback_tool' } } as any,
+            {} as any,
             'in', 'cb',
             undefined, undefined, undefined, undefined,  // runName 不传
             'inner-2',
         )
         expect(publishCustomEventMock).toHaveBeenCalledWith(expect.objectContaining({
-            data: expect.objectContaining({ toolName: 'fallback_tool' }),
-        }))
-    })
-
-    it('handleToolStart toolName fallback：runName 与 kwargs.name 都缺失时取 Serialized.id 末尾', async () => {
-        const h = buildSubAgentCallbacks(opts)[0]!
-        await h.handleToolStart!(
-            { id: ['langchain', 'tools', 'last_segment'], kwargs: {} } as any,
-            'in', 'cb',
-            undefined, undefined, undefined, undefined,
-            'inner-3',
-        )
-        expect(publishCustomEventMock).toHaveBeenCalledWith(expect.objectContaining({
-            data: expect.objectContaining({ toolName: 'last_segment' }),
+            data: expect.objectContaining({ toolName: 'unknown_tool' }),
         }))
     })
 
@@ -320,15 +311,12 @@ export function buildSubAgentCallbacks(opts: BuildSubAgentCallbacksOptions): Cal
             }).catch((e: unknown) => logger.warn('publishCustomEvent(SUB_AGENT_TOKEN) failed', { e }))
         },
         async handleToolStart(_tool, input, cbRunId, _p, _t, _m, runName, innerToolCallId) {
-            // toolName 取值优先级：runName（LangChain 第 7 参数，通常就是工具名）
-            //   > Serialized.kwargs.name > Serialized.id 末尾段 > 'unknown_tool'
-            // 前端 useStreamChat.mergeEventIntoBucket 用此 toolName 把 tool_call 推到 AIMessage.tool_calls
-            const tool = _tool as { id?: unknown[]; kwargs?: { name?: unknown } } | undefined
-            const idSegments = Array.isArray(tool?.id) ? tool.id : []
-            const toolName: string = runName
-                ?? (typeof tool?.kwargs?.name === 'string' ? tool.kwargs.name : undefined)
-                ?? (typeof idSegments.at(-1) === 'string' ? String(idSegments.at(-1)) : undefined)
-                ?? 'unknown_tool'
+            // LangChain `tools/index.cjs:206,249`：tool() 工厂会确保 config.runName 默认是 this.name
+            //   → handleToolStart 第 7 参数 runName 在 createAgent + tool() 上下文下始终可靠 = 工具名
+            // Serialized.id.at(-1) 实际是类名 "DynamicStructuredTool"（不可用）；
+            // Serialized.kwargs.name 受 lc_serializable 保护（默认 false → 拿不到），亦不可靠
+            // 故仅保留 runName + 'unknown_tool' 防御性兜底
+            const toolName: string = runName ?? 'unknown_tool'
             await publishCustomEvent({
                 type: 'custom_event',
                 runId: mainRunId,
@@ -1812,6 +1800,24 @@ Expected: PASS（含原有 5 case + 新增 5 case = 10 case）
 Run: `npx vitest run tests/app/components/ai/AiToolRenderer.test.ts tests/app/composables/ --reporter=verbose`
 Expected: 全部 PASS
 
+- [ ] **Step 5.5: Vue 响应式 spike（实施时一次性验证，过后删除）**
+
+Vue 3 reactive 不代理 LangChain class 实例（targetTypeMap 检测 Symbol.toStringTag → INVALID）。`m.tool_calls = calls` 是 class 属性 mutation，是否触发 `mapMessagesToSteps` 重算需要验证。
+
+参考：既有 `sub_agent_token` 累 content（`useStreamChat.ts:53` `existing.content = ...`）也是同款 mutation，生产已工作——本 Task 风险等价，但 spike 一次确认链路：
+
+```typescript
+// 临时在 SubAgentChainOfThought.vue:95 加一行 log
+const steps = computed<StepVM[]>(() => {
+    console.log('[spike] mapMessagesToSteps recompute, len=', props.subMessages.length)
+    return mapMessagesToSteps(props.subMessages, props.isRunning)
+})
+```
+
+跑一次 draft_document → 观察 console：每次 token 累积 / tool_start / tool_end 都应触发 recompute。验证完删 console.log。
+
+如果未触发：把 reducer 末尾改为 `bucket.messages = [...bucket.messages]` 强制整体替换数组（reactive 数组替换 100% 触发）。
+
 - [ ] **Step 6: Commit**
 
 ```bash
@@ -1923,6 +1929,14 @@ git status
 - spec 主目标是 draft_document（用户痛点真实场景）；review_contract 已有 ReviewContractCard stage 反馈，"30 秒黑盒"不严重
 - 改造 skipStanceInterrupt 路径用 createAgent 包装 analyze loop / summarize 是较大架构改动，应单独 design + 单独 plan
 - graceful no-op 是合理降级；用户后续 review 阶段如要求覆盖法律助手场景再做后续 follow-up plan
+
+### D5：SubAgentToolStartPayload 类型脱锚（pre-existing，本 plan 不修）
+
+**事实**：`shared/types/agentEvent.ts:90-95` 定义的 `SubAgentToolStartPayload` 字段是 `{toolCallId, agentName, toolName, args}`，但实际 publish data 形态（subAgentToolFactory v1 既已用 + 本 plan helper 沿用）是 `{innerToolCallId, input, cbRunId, toolName}`——字段名完全不同。前端 `useStreamChat.mergeEventIntoBucket` 也消费这套实际字段名。
+
+**plan 决策**：保持现状（手术性修改原则——本 plan 不顺手改既有协议字段名）。
+
+**后续工作**：单独立项「SSE 协议字段命名统一」，把 `SubAgentToolStartPayload` 改为 `{toolCallId: innerToolCallId, agentName, toolName, args: input, cbRunId}` 让 publish/consume 两端引用同一类型，编译期校验生效。
 
 ### D3：跑中显示 tool_call step（用户决策：详细显示，纳入本 plan）
 
