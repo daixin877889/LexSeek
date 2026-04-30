@@ -170,10 +170,12 @@ export interface SubAgentThread {
 }
 
 /**
- * 从主 thread 消息中提取子代理工具调用，加载对应的子代理 thread 消息
+ * 从主 thread 消息中提取子代理工具调用，加载对应的子代理 thread 消息。
  *
- * 子代理工具名格式: ask_{safeName}_expert
- * 子代理 thread_id 格式: {sessionId}_sub_{safeName}
+ * 支持的子代理工具：
+ * - `ask_*_expert`：caseAnalysis 7 个分析子代理（按命名规则反推 thread_id）
+ * - `draft_document`：documentMain（从配对 ToolMessage JSON 顶层 subSessionId 字段拿 thread_id）
+ * - `review_contract`：contractReviewMain（同上）
  *
  * @param sessionId 主会话 ID
  * @param messages 主 thread 的平坦字典消息列表
@@ -186,30 +188,49 @@ export async function loadSubAgentThreads(
     const checkpointer = await getCheckpointer()
     const subAgentThreads: SubAgentThread[] = []
 
-    // 从 AI 消息中提取子代理工具调用
+    // 预建 tool_call_id → ToolMessage 索引（draft_document / review_contract 反查 subSessionId 用）
+    const toolResultMap = new Map<string, Record<string, unknown>>()
+    for (const m of messages) {
+        if (m.type === 'tool' && typeof m.tool_call_id === 'string') {
+            toolResultMap.set(m.tool_call_id, m)
+        }
+    }
+
     for (const msg of messages) {
         if (msg.type !== 'ai' || !Array.isArray(msg.tool_calls)) continue
 
         for (const toolCall of msg.tool_calls as any[]) {
             const toolName = toolCall.name as string
-            if (!toolName?.startsWith('ask_') || !toolName?.endsWith('_expert')) continue
+            let subThreadId: string | null = null
+            let agentName: string
 
-            // 从工具名反推节点 safeName: ask_{safeName}_expert → {safeName}
-            const safeName = toolName.slice(4, -7) // 去掉 "ask_" 和 "_expert"
-            const subThreadId = `${sessionId}_sub_${safeName}`
+            if (toolName?.startsWith('ask_') && toolName?.endsWith('_expert')) {
+                // ask_*_expert：命名规则反推
+                const safeName = toolName.slice(4, -7)
+                subThreadId = `${sessionId}_sub_${safeName}`
+                agentName = safeName
+            }
+            else if (toolName === 'draft_document' || toolName === 'review_contract') {
+                // draft_document / review_contract：从 ToolMessage JSON 顶层 subSessionId 字段拿
+                const result = toolResultMap.get(toolCall.id as string)
+                subThreadId = extractSubSessionIdFromToolResult(result)
+                agentName = toolName === 'draft_document' ? 'documentMain' : 'contractReviewMain'
+                if (!subThreadId) continue  // tool 取消 / interrupt 中刷新 / 失败 → 无 subSessionId
+            }
+            else {
+                continue
+            }
 
             try {
                 const subTuple = await checkpointer.getTuple({
                     configurable: { thread_id: subThreadId },
                 })
-
                 if (!subTuple) continue
 
                 const subChannelValues = subTuple.checkpoint.channel_values as Record<string, any>
                 const subRawMessages = subChannelValues?.messages
 
                 if (Array.isArray(subRawMessages) && subRawMessages.length > 0) {
-                    // 过滤 system message 和注入的上下文消息
                     const filteredMessages = subRawMessages
                         .map(messageToFlatDict)
                         .filter(msg => {
@@ -220,7 +241,7 @@ export async function loadSubAgentThreads(
                         })
                     subAgentThreads.push({
                         toolCallId: toolCall.id as string,
-                        agentName: safeName,
+                        agentName,
                         threadId: subThreadId,
                         messages: filteredMessages,
                     })
@@ -235,4 +256,22 @@ export async function loadSubAgentThreads(
     }
 
     return subAgentThreads
+}
+
+/**
+ * 从 ToolMessage.content（JSON 字符串）顶层 subSessionId 字段读子 thread id。
+ */
+function extractSubSessionIdFromToolResult(toolMsg: Record<string, unknown> | undefined): string | null {
+    if (!toolMsg) return null
+    const content = toolMsg.content
+    if (typeof content !== 'string') return null
+    try {
+        const parsed = JSON.parse(content) as { subSessionId?: unknown }
+        return typeof parsed.subSessionId === 'string' && parsed.subSessionId.length > 0
+            ? parsed.subSessionId
+            : null
+    }
+    catch {
+        return null
+    }
 }

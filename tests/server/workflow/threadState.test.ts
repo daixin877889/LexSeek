@@ -451,4 +451,130 @@ describe('loadSubAgentThreads', () => {
         expect(result).toEqual([])
         expect(mockCheckpointer.getTuple).not.toHaveBeenCalled()
     })
+
+    describe('draft_document / review_contract 历史恢复', () => {
+        it('draft_document tool_call + 配对 ToolMessage JSON 含 subSessionId → 加载子 thread', async () => {
+            const subTuple = {
+                checkpoint: {
+                    channel_values: {
+                        messages: [
+                            { type: 'human', content: '起草起诉状', id: 'sub-h1' },
+                            { type: 'ai', content: '已起草', id: 'sub-a1', tool_calls: [] },
+                        ],
+                    },
+                },
+            }
+            const mockCheckpointer = {
+                getTuple: vi.fn().mockResolvedValue(subTuple),
+            }
+            vi.mocked(getCheckpointer).mockResolvedValue(mockCheckpointer as any)
+
+            const messages = [
+                {
+                    type: 'ai',
+                    tool_calls: [{ id: 'tc-draft-1', name: 'draft_document', args: {} }],
+                },
+                {
+                    type: 'tool',
+                    tool_call_id: 'tc-draft-1',
+                    content: JSON.stringify({
+                        success: true,
+                        draftId: 101,
+                        subSessionId: 'doc-sub-xyz',
+                        href: '/dashboard/document/drafts/101?from=xiaosuo&sessionId=case-main-1',
+                    }),
+                },
+            ]
+            const result = await loadSubAgentThreads('case-main-1', messages)
+            expect(result).toHaveLength(1)
+            expect(result[0]!.toolCallId).toBe('tc-draft-1')
+            expect(result[0]!.agentName).toBe('documentMain')
+            expect(result[0]!.threadId).toBe('doc-sub-xyz')
+            expect(mockCheckpointer.getTuple).toHaveBeenCalledWith({
+                configurable: { thread_id: 'doc-sub-xyz' },
+            })
+        })
+
+        it('review_contract tool_call → agentName=contractReviewMain', async () => {
+            const subTuple = { checkpoint: { channel_values: { messages: [{ type: 'ai', content: '审完', id: 's1' }] } } }
+            const mockCheckpointer = { getTuple: vi.fn().mockResolvedValue(subTuple) }
+            vi.mocked(getCheckpointer).mockResolvedValue(mockCheckpointer as any)
+
+            const messages = [
+                {
+                    type: 'ai',
+                    tool_calls: [{ id: 'tc-rev-1', name: 'review_contract', args: {} }],
+                },
+                {
+                    type: 'tool',
+                    tool_call_id: 'tc-rev-1',
+                    content: JSON.stringify({ success: true, reviewId: 5, subSessionId: 'rev-sub-abc' }),
+                },
+            ]
+            const result = await loadSubAgentThreads('case-main-1', messages)
+            expect(result).toHaveLength(1)
+            expect(result[0]!.agentName).toBe('contractReviewMain')
+        })
+
+        it('draft_document + ToolMessage 无 subSessionId（cancelled）→ 跳过', async () => {
+            const mockCheckpointer = { getTuple: vi.fn() }
+            vi.mocked(getCheckpointer).mockResolvedValue(mockCheckpointer as any)
+
+            const messages = [
+                { type: 'ai', tool_calls: [{ id: 'tc-cancel', name: 'draft_document', args: {} }] },
+                { type: 'tool', tool_call_id: 'tc-cancel', content: JSON.stringify({ success: false, cancelled: true }) },
+            ]
+            const result = await loadSubAgentThreads('s1', messages)
+            expect(result).toEqual([])
+            expect(mockCheckpointer.getTuple).not.toHaveBeenCalled()
+        })
+
+        it('draft_document tool_call 无配对 ToolMessage（interrupt 中）→ 跳过', async () => {
+            const mockCheckpointer = { getTuple: vi.fn() }
+            vi.mocked(getCheckpointer).mockResolvedValue(mockCheckpointer as any)
+
+            const messages = [
+                { type: 'ai', tool_calls: [{ id: 'tc-interrupt', name: 'draft_document', args: {} }] },
+            ]
+            const result = await loadSubAgentThreads('s1', messages)
+            expect(result).toEqual([])
+            expect(mockCheckpointer.getTuple).not.toHaveBeenCalled()
+        })
+
+        it('subSessionId 存在但 checkpointer.getTuple 返回 null → 不报错跳过', async () => {
+            const mockCheckpointer = { getTuple: vi.fn().mockResolvedValue(null) }
+            vi.mocked(getCheckpointer).mockResolvedValue(mockCheckpointer as any)
+
+            const messages = [
+                { type: 'ai', tool_calls: [{ id: 'tc-1', name: 'draft_document', args: {} }] },
+                { type: 'tool', tool_call_id: 'tc-1', content: JSON.stringify({ success: true, subSessionId: 'gone' }) },
+            ]
+            const result = await loadSubAgentThreads('s1', messages)
+            expect(result).toEqual([])
+        })
+
+        it('混合 ask_*_expert + draft_document → 两套规则并存', async () => {
+            const subTuple = { checkpoint: { channel_values: { messages: [{ type: 'ai', content: 'x', id: 's' }] } } }
+            const mockCheckpointer = { getTuple: vi.fn().mockResolvedValue(subTuple) }
+            vi.mocked(getCheckpointer).mockResolvedValue(mockCheckpointer as any)
+
+            const messages = [
+                {
+                    type: 'ai', tool_calls: [
+                        { id: 'tc-A', name: 'ask_evidence_expert', args: {} },
+                        { id: 'tc-B', name: 'draft_document', args: {} },
+                    ],
+                },
+                { type: 'tool', tool_call_id: 'tc-B', content: JSON.stringify({ success: true, subSessionId: 'sub-B' }) },
+            ]
+            const result = await loadSubAgentThreads('case-1', messages)
+            expect(result).toHaveLength(2)
+            const A = result.find(r => r.toolCallId === 'tc-A')!
+            const B = result.find(r => r.toolCallId === 'tc-B')!
+            expect(A.threadId).toBe('case-1_sub_evidence')
+            expect(A.agentName).toBe('evidence')
+            expect(B.threadId).toBe('sub-B')
+            expect(B.agentName).toBe('documentMain')
+        })
+    })
 })
