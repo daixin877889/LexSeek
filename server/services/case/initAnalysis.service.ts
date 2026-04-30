@@ -54,23 +54,18 @@ export const getInitAnalysisStatusService = async (
         throw new Error('案件不存在')
     }
 
-    // 获取 type=2（初始分析）和 type=3（模块对话）的会话
-    const sessions = await prisma.caseSessions.findMany({
-        where: { caseId, type: { in: [2, 3] }, deletedAt: null },
-        orderBy: { createdAt: 'desc' },
-    })
-
-    if (sessions.length === 0) {
-        return { status: 'not_started', modules: [] }
-    }
-
-    const sessionIds = sessions.map(s => s.sessionId)
-
-    // 获取所有会话的分析结果（跨 session 全局聚合）
-    const analyses = await prisma.caseAnalyses.findMany({
-        where: { sessionId: { in: sessionIds }, deletedAt: null },
-        orderBy: { createdAt: 'asc' },
-    })
+    // sessions 仅参与 status / primarySession 判断（限 type=2/3）；
+    // analyses 按 caseId 聚合，覆盖小索（type=1 sub-agent）/ init-analysis（type=2）/ 模块对话（type=3）所有渠道写入的结果
+    const [sessions, analyses] = await Promise.all([
+        prisma.caseSessions.findMany({
+            where: { caseId, type: { in: [2, 3] }, deletedAt: null },
+            orderBy: { createdAt: 'desc' },
+        }),
+        prisma.caseAnalyses.findMany({
+            where: { caseId, deletedAt: null },
+            orderBy: { createdAt: 'asc' },
+        }),
+    ])
 
     const modules = INIT_ANALYSIS_MODULES.map(m => {
         // 优先使用 isActive 版本（来自任意会话）
