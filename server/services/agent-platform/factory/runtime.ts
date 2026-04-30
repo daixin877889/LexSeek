@@ -264,7 +264,7 @@ export async function runDomainAgent(
 
     // 13. 流式执行，返回 ReadableStream
     const stream = await agent.stream(
-        input,
+        input as any,
         {
             configurable: {
                 thread_id: ctx.sessionId,

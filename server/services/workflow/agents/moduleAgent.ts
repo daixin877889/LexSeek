@@ -184,7 +184,7 @@ export async function runModuleChat(
             : { messages: [] }
 
     // 返回 SSE 流
-    return agent.stream(input, {
+    return agent.stream(input as any, {
         configurable: { thread_id: sessionId },
         streamMode: ['values', 'messages', 'updates'],
         subgraphs: true,

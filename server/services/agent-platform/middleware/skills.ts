@@ -31,5 +31,5 @@ export async function buildSkillsMiddlewareForNode(
     if (skills.length === 0) return null
     const sources = [...new Set(skills.map(s => dirname(s.path)))]
     const backend = getFilesystemBackend(sources)
-    return createSkillsMiddleware({ backend, sources })
+    return createSkillsMiddleware({ backend, sources }) as unknown as AgentMiddleware
 }
