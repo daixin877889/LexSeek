@@ -26,7 +26,6 @@ import {
     pointConsumptionMiddleware,
     safetyTrimMiddleware,
     draftResultPersistenceMiddleware,
-    caseMaterialContextMiddleware,
     buildMiddlewareStack,
     MIDDLEWARE_PRIORITY,
     MIDDLEWARE_NAMES,
@@ -259,13 +258,6 @@ export async function runDocumentChat(
             priority: MIDDLEWARE_PRIORITY.POINT_CONSUMPTION,
             name: MIDDLEWARE_NAMES.POINT_CONSUMPTION,
         },
-        ...(resolvedCaseId
-            ? [{
-                middleware: caseMaterialContextMiddleware(userId, resolvedCaseId),
-                priority: MIDDLEWARE_PRIORITY.MATERIAL_CONTEXT,
-                name: MIDDLEWARE_NAMES.MATERIAL_CONTEXT,
-            }]
-            : []),
         {
             middleware: summarizationMiddleware({
                 model,
@@ -328,8 +320,16 @@ export async function runDocumentChat(
     }
 
     // 10. 流式执行，返回 SSE 格式的 ReadableStream
+    // callbacks 挂诊断 handler：documentMain 由 draft_document 子代理工具内部调用，
+    // graph 内部抛错会被 LangGraph 序列化为 `{name, message}` 写到 SSE error 帧 →
+    // AggregateError.errors[] 数组在序列化前丢失 → runAndDrainStream 拿到的 error
+    // 字段无法定位真实 root cause。本 handler 在序列化前命中 handleChainError /
+    // handleToolError / handleLLMError，把完整原始 error 写 logger，方便排查。
+    const { createErrorTraceHandler } = await import(
+        '~~/server/services/agent-platform/diagnostics/errorTraceHandler'
+    )
     return agent.stream(
-        input,
+        input as any,
         {
             configurable: {
                 thread_id: sessionId,
