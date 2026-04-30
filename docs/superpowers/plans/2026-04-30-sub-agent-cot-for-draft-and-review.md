@@ -21,7 +21,7 @@
 | `server/services/workflow/agents/documentMainAgent.ts` | 修改 | `DocumentAgentOptions` 加 `callbacks?: CallbackHandlerMethods[]`；`agent.stream` 调用合并 `options.callbacks` 与现有 `createErrorTraceHandler` 数组 |
 | `server/services/workflow/agents/contractReviewMainAgent.ts` | 修改 | `ContractReviewAgentOptions` 加 `callbacks?`；`agent.stream` 透传（**仅首轮 stance interrupt 路径生效**——skipStanceInterrupt=true 时是 ReadableStream 自构造路径，callbacks 不会触发；plan 决策记录 explicit 说明） |
 | `server/services/agent-platform/tools/draftDocument.tool.ts` | 修改 | 调 `buildSubAgentCallbacks` 构造 callbacks 传给 `runDocumentChat`；返回 JSON 加 `subSessionId` 字段（历史恢复用） |
-| `server/services/agent-platform/tools/reviewContract.tool.ts` | 修改 | 同 `draftDocument.tool.ts`，agentName='contractReviewMain' |
+| `server/services/agent-platform/tools/reviewContract.tool.ts` | 修改 | (1) 调 `buildSubAgentCallbacks` 传给 `runContractReviewChat`（同 draftDocument，向后兼容首轮路径）；(2) 返回 JSON 加 `subSessionId`；(3) 新增 `makeStageToCoTAdapter`：构造 `platformEmitCustomEvent`，把 `ContractReviewEvent` (stage/progress/risk) 转 `SUB_AGENT_TOOL_*` / `SUB_AGENT_TOKEN`，让小索对话框 CoT 卡显示合同审查跑中进度（D2 修复） |
 | `server/services/workflow/agents/threadState.ts` | 修改 | `loadSubAgentThreads` 加 `draft_document` / `review_contract` 分支，从 ToolMessage JSON 顶层 `subSessionId` 字段反查子 thread；新增纯函数 `extractSubSessionIdFromToolResult` |
 | `app/components/ai/AiToolRenderer.vue` | 修改 | 新增 `SUB_AGENT_LIKE_TOOLS` 集合 + `isSubAgentTool` 扩展 + `shouldShowSubAgentCoT` 守卫；新 v-else-if 双卡共存分支（CoT 在前，结果卡在后）；保留 `ask_*_expert` legacy 分支 |
 | `app/composables/useStreamChat.ts` | 修改 | `mergeEventIntoBucket` 处理 `sub_agent_tool_start` 时把 `{id, name, args}` 推到最近 AIMessage 的 `tool_calls`，让跑中 `mapMessagesToSteps` 能渲染 tool_call step（用户决策 D3：详细显示） |
@@ -29,7 +29,7 @@
 | `tests/app/composables/useStreamChat.subThreads.test.ts` | 扩展 | 验证 sub_agent_tool_start 事件把 tool_calls 注入到最近 AIMessage（跑中 tool_call step 显示） |
 | `tests/server/agent-platform/subAgent/subAgentToolFactory.test.ts` | 扩展 | 新增 1 case：mock chain 抛错 → 验证 publishStatusChange status='failed' 被调用 |
 | `tests/server/agent-platform/tools/draftDocument.test.ts` | 扩展 | 新增 case：验证 callbacks 注入正确 + 返回 JSON 含 subSessionId |
-| `tests/server/agent-platform/tools/reviewContract.test.ts` | 扩展 | 新增 case：验证 callbacks 注入正确 + 返回 JSON 含 subSessionId |
+| `tests/server/agent-platform/tools/reviewContract.test.ts` | 扩展 | (1) callbacks 注入 + JSON 含 subSessionId；(2) `makeStageToCoTAdapter` 5 个 case：stage:running/done 转 SUB_AGENT_TOOL_START/END、progress/risk 转 SUB_AGENT_TOKEN、overview 不转发 |
 | `tests/server/workflow/agents/documentMainAgent.test.ts` | 扩展 | 新增 case：不传 callbacks（向后兼容）+ 传 callbacks（合并到 errorTraceHandler 数组） |
 | `tests/server/workflow/agents/contractReviewMainAgent.streaming.test.ts` | 扩展 | 同 documentMainAgent |
 | `tests/server/workflow/threadState.test.ts` | 扩展 | `loadSubAgentThreads` draft_document/review_contract 加载、跳过、混合规则；`extractSubSessionIdFromToolResult` 4 个边界 |
@@ -1834,7 +1834,300 @@ git commit -m "feat(ui): 跑中 tool_call step 显示——sub_agent_tool_start 
 
 ---
 
-### Task 11: 整合测试 + E2E 综合链路验收
+### Task 11: `reviewContract.tool` stage→CoT 适配器（D2 修复：小索对话框跑中反馈）
+
+**用户决策（5check v3 后）**：方案 A——`reviewContract.tool` 在 `skipStanceInterrupt` 路径无 `agent.stream` → callbacks 不触发 → 用户在小索对话框完整 30 秒黑盒。修复方案：构造 `platformEmitCustomEvent` 适配器，把 `contractReviewMainAgent` 已发的 `ContractReviewEvent` (stage/progress/risk) 转成 `SUB_AGENT_TOOL_*` 协议事件，让前端 `SubAgentChainOfThought` 渲染。
+
+**Files:**
+- Modify: `server/services/agent-platform/tools/reviewContract.tool.ts`（在 Task 6 改动基础上加 adapter）
+- Test: `tests/server/agent-platform/tools/reviewContract.test.ts`（扩展）
+
+> **复用基建**：`emitContractReviewEvent` 现有 `ctx.platformEmit?: CustomEventEmitter` 选项已就位（`server/services/workflow/nodes/contractReviewStageEmitter.ts:24-26`），不需改 `contractReviewMainAgent` 一行；本 Task 只在 `reviewContract.tool` 实现适配器并通过 `platformEmitCustomEvent` 注入。
+
+- [ ] **Step 1: 写适配器测试（TDD red）**
+
+在 `tests/server/agent-platform/tools/reviewContract.test.ts` 末尾追加：
+
+```typescript
+describe('makeStageToCoTAdapter（D2 修复）', () => {
+    /** 拿到 reviewContract.tool 注入到 runContractReviewChat 的 platformEmitCustomEvent */
+    async function getStageEmitter() {
+        setupHappyPath()
+        const tool = createTool({ userId: 7, sessionId: 'main-sess', runId: 'main-run' })
+        await tool.invoke({ ossFileId: 99 }, { toolCall: { id: 'main-call' } } as any)
+        const callArgs = (runContractReviewChat as any).mock.calls.at(-1)
+        const opts = callArgs[1]
+        expect(typeof opts.platformEmitCustomEvent).toBe('function')
+        return opts.platformEmitCustomEvent
+    }
+
+    it('stage:running → publishCustomEvent SUB_AGENT_TOOL_START（toolName 用中文阶段名）', async () => {
+        const emit = await getStageEmitter()
+        ;(publishCustomEvent as any).mockClear()
+        await emit({
+            name: 'contract_review',
+            data: { type: 'stage', stage: 'segment', status: 'running' },
+        })
+        expect(publishCustomEvent).toHaveBeenCalledWith(expect.objectContaining({
+            name: 'sub_agent_tool_start',
+            data: expect.objectContaining({ toolName: '切分合同条款' }),
+            metadata: expect.objectContaining({
+                agentName: 'contractReviewMain',
+                parentToolCallId: 'main-call',
+            }),
+        }))
+    })
+
+    it('stage:done → publishCustomEvent SUB_AGENT_TOOL_END（output 含 totalClauses 等）', async () => {
+        const emit = await getStageEmitter()
+        // 先 running 注册映射
+        await emit({
+            name: 'contract_review',
+            data: { type: 'stage', stage: 'segment', status: 'running' },
+        })
+        ;(publishCustomEvent as any).mockClear()
+        await emit({
+            name: 'contract_review',
+            data: { type: 'stage', stage: 'segment', status: 'done', totalClauses: 30 },
+        })
+        expect(publishCustomEvent).toHaveBeenCalledWith(expect.objectContaining({
+            name: 'sub_agent_tool_end',
+            data: expect.objectContaining({ output: expect.stringContaining('30') }),
+        }))
+    })
+
+    it('progress 事件 → publishCustomEvent SUB_AGENT_TOKEN（累 [N/M] 文字）', async () => {
+        const emit = await getStageEmitter()
+        ;(publishCustomEvent as any).mockClear()
+        await emit({
+            name: 'contract_review',
+            data: { type: 'progress', current: 5, total: 30 },
+        })
+        expect(publishCustomEvent).toHaveBeenCalledWith(expect.objectContaining({
+            name: 'sub_agent_token',
+            metadata: expect.objectContaining({
+                delta: expect.stringContaining('[5/30]'),
+                messageId: 'cr-analyze-progress',
+            }),
+        }))
+    })
+
+    it('risk 事件 → publishCustomEvent SUB_AGENT_TOKEN（含风险等级 + 描述）', async () => {
+        const emit = await getStageEmitter()
+        ;(publishCustomEvent as any).mockClear()
+        await emit({
+            name: 'contract_review',
+            data: { type: 'risk', risk: { level: 'high', problem: '违约金过高', clauseIndex: 3 } },
+        })
+        expect(publishCustomEvent).toHaveBeenCalledWith(expect.objectContaining({
+            name: 'sub_agent_token',
+            metadata: expect.objectContaining({
+                delta: expect.stringContaining('high'),
+            }),
+        }))
+    })
+
+    it('overview 事件 → 不转发（结果摘要走 ReviewContractCard 工具卡片，避免 CoT 重复）', async () => {
+        const emit = await getStageEmitter()
+        ;(publishCustomEvent as any).mockClear()
+        await emit({
+            name: 'contract_review',
+            data: { type: 'overview', overview: { highlights: { high: [], medium: [], low: [] }, overall: '完成' } },
+        })
+        expect(publishCustomEvent).not.toHaveBeenCalled()
+    })
+
+    it('非 contract_review 事件 → 不处理（透传忽略）', async () => {
+        const emit = await getStageEmitter()
+        ;(publishCustomEvent as any).mockClear()
+        await emit({ name: 'analysis_result_saved', data: {} } as any)
+        expect(publishCustomEvent).not.toHaveBeenCalled()
+    })
+})
+```
+
+- [ ] **Step 2: 跑测试确认 fail**
+
+Run: `npx vitest run tests/server/agent-platform/tools/reviewContract.test.ts --reporter=verbose`
+Expected: 6 个新 case FAIL（platformEmitCustomEvent 还没注入）
+
+- [ ] **Step 3: 在 `reviewContract.tool.ts` 实现 `makeStageToCoTAdapter` + 注入**
+
+在文件顶部 import 区加：
+
+```typescript
+import { publishCustomEvent } from '~~/server/services/agent/agentEventBridge'  // 已有，保留
+import type { CustomEventEmitter } from '~~/server/services/agent-platform/sse/customEventEmitter'
+import type { ContractReviewEvent } from '#shared/types/contract'
+```
+
+在文件顶部（createTool 函数外）加常量 + 适配器工厂：
+
+```typescript
+/** stage 名 → 用户可读的中文工具名（CoT 卡显示用） */
+const STAGE_TOOL_NAMES: Record<string, string> = {
+    segment: '切分合同条款',
+    detect: '识别甲乙方',
+    stance: '确认审查立场',
+    analyze: '逐条分析',
+    summarize: '生成审查摘要',
+}
+
+/**
+ * 构造 stage→CoT 适配器：把 contractReviewMain 发出的 ContractReviewEvent
+ * 转换为 SUB_AGENT_TOOL_* / SUB_AGENT_TOKEN 协议事件，让前端 CoT 卡显示进度。
+ *
+ * 为什么需要这个：reviewContract.tool 走 skipStanceInterrupt:true 路径，
+ * contractReviewMainAgent 进入 ReadableStream 自构造分支，**不**调 agent.stream
+ * → buildSubAgentCallbacks 注入的 LangChain callbacks 不会触发
+ * → 小索对话框看不到任何跑中反馈（30 秒黑盒）
+ *
+ * 修复：复用 contractReviewMainAgent 已发的 stage/progress/risk 事件
+ *  + 既有 SubAgentChainOfThought 协议（SUB_AGENT_TOOL_*），架构改动 0 行。
+ */
+function makeStageToCoTAdapter(opts: {
+    mainRunId: string
+    sessionId: string
+    parentToolCallId: string
+    subThreadId: string
+}): CustomEventEmitter {
+    const { mainRunId, sessionId, parentToolCallId, subThreadId } = opts
+    const meta = { agentName: 'contractReviewMain', threadId: subThreadId, parentToolCallId }
+    const stageToCallId = new Map<string, string>()
+    // analyze 中间 progress + risk 累到同一 messageId 的 AIMessage（让前端 reducer 累 token）
+    const PROGRESS_MSG_ID = 'cr-analyze-progress'
+
+    return async (envelope) => {
+        // 仅处理 contract_review 事件，其他不变
+        if (envelope.name !== SSECustomEventType.CONTRACT_REVIEW) return
+        const evt = envelope.data as ContractReviewEvent
+
+        if (evt.type === 'stage') {
+            if (evt.status === 'running') {
+                const innerToolCallId = `cr-${evt.stage}-${Date.now()}`
+                stageToCallId.set(evt.stage, innerToolCallId)
+                await publishCustomEvent({
+                    type: 'custom_event',
+                    runId: mainRunId,
+                    sessionId,
+                    name: SSECustomEventType.SUB_AGENT_TOOL_START,
+                    data: {
+                        innerToolCallId,
+                        input: '',
+                        cbRunId: innerToolCallId,
+                        toolName: STAGE_TOOL_NAMES[evt.stage] ?? evt.stage,
+                    },
+                    metadata: meta,
+                }).catch((e: unknown) => logger.warn('stage→CoT publish START failed', { e }))
+            }
+            else {
+                // status === 'done'
+                const innerToolCallId = stageToCallId.get(evt.stage)
+                if (!innerToolCallId) return
+                // 把有用字段整理为 output JSON（前端 mapMessagesToSteps 用 toolResult 渲染）
+                const output: Record<string, unknown> = {}
+                if ('totalClauses' in evt && evt.totalClauses !== undefined) output.totalClauses = evt.totalClauses
+                if ('partyA' in evt && evt.partyA !== undefined) output.partyA = evt.partyA
+                if ('partyB' in evt && evt.partyB !== undefined) output.partyB = evt.partyB
+                if ('contractType' in evt && evt.contractType !== undefined) output.contractType = evt.contractType
+                if ('warnings' in evt && evt.warnings) output.warnings = evt.warnings
+                await publishCustomEvent({
+                    type: 'custom_event',
+                    runId: mainRunId,
+                    sessionId,
+                    name: SSECustomEventType.SUB_AGENT_TOOL_END,
+                    data: {
+                        cbRunId: innerToolCallId,
+                        output: JSON.stringify(output),
+                    },
+                    metadata: meta,
+                }).catch((e: unknown) => logger.warn('stage→CoT publish END failed', { e }))
+            }
+        }
+        else if (evt.type === 'progress') {
+            const note = evt.error ? ` 失败: ${evt.error}` : ''
+            await publishCustomEvent({
+                type: 'custom_event',
+                runId: mainRunId,
+                sessionId,
+                name: SSECustomEventType.SUB_AGENT_TOKEN,
+                data: undefined,
+                metadata: { ...meta, messageId: PROGRESS_MSG_ID, delta: `[${evt.current}/${evt.total}]${note} ` },
+            }).catch((e: unknown) => logger.warn('stage→CoT publish progress failed', { e }))
+        }
+        else if (evt.type === 'risk') {
+            const r = evt.risk
+            const lvl = r.level ?? 'medium'
+            const desc = r.problem ?? r.category ?? '风险'
+            await publishCustomEvent({
+                type: 'custom_event',
+                runId: mainRunId,
+                sessionId,
+                name: SSECustomEventType.SUB_AGENT_TOKEN,
+                data: undefined,
+                metadata: { ...meta, messageId: PROGRESS_MSG_ID, delta: `\n发现 ${lvl} 风险：${desc}` },
+            }).catch((e: unknown) => logger.warn('stage→CoT publish risk failed', { e }))
+        }
+        // overview / 其他类型：不转发（结果由 ReviewContractCard 工具卡片显示）
+    }
+}
+```
+
+修改 `runContractReviewChat` 调用（在 Task 6 已改的基础上加 `platformEmitCustomEvent`）：
+
+```typescript
+            const callbacks = buildSubAgentCallbacks({
+                mainRunId: runId,
+                sessionId,
+                parentToolCallId: toolCallId,
+                agentName: 'contractReviewMain',
+                subThreadId: subSessionId,
+            })
+            // 新加：stage→CoT 适配器（D2 修复，让 skipStanceInterrupt 路径也能反馈进度）
+            const stageEmitter = makeStageToCoTAdapter({
+                mainRunId: runId,
+                sessionId,
+                parentToolCallId: toolCallId,
+                subThreadId: subSessionId,
+            })
+            const stream = await runContractReviewChat(subSessionId, {
+                userId,
+                runId,
+                skipStanceInterrupt: true,
+                callbacks,
+                platformEmitCustomEvent: stageEmitter,  // ← 新加
+            })
+```
+
+- [ ] **Step 4: 跑测试确认 pass**
+
+Run: `npx vitest run tests/server/agent-platform/tools/reviewContract.test.ts --reporter=verbose`
+Expected: PASS（含原有 + 6 个新 case）
+
+- [ ] **Step 5: 跑相关测试确认无回归**
+
+Run: `npx vitest run tests/server/agent-platform/tools/ tests/server/workflow/agents/contractReviewMainAgent.streaming.test.ts --reporter=verbose`
+Expected: 全部 PASS
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add server/services/agent-platform/tools/reviewContract.tool.ts \
+        tests/server/agent-platform/tools/reviewContract.test.ts
+git commit -m "feat(tools): reviewContract stage→CoT 适配器（D2 修复，小索跑中反馈）
+
+- 旧问题：reviewContract.tool 走 skipStanceInterrupt 路径不调 agent.stream，
+  callbacks 不触发，小索对话框完整 30 秒黑盒
+- 修复：构造 platformEmitCustomEvent 适配器，把 contractReviewMain 已发的
+  ContractReviewEvent (stage/progress/risk) 转成 SUB_AGENT_TOOL_* / TOKEN
+- 复用既有 stage 事件流 + CoT 协议，contractReviewMainAgent 0 改动
+- 5 个 step 反馈：切分合同 → 识别甲乙方 → 确认立场 → 逐条分析（含 [N/M] +
+  风险描述累积） → 生成审查摘要"
+```
+
+---
+
+### Task 12: 整合测试 + E2E 综合链路验收
 
 **Files:**
 - 无新建文件
@@ -1880,7 +2173,20 @@ Expected: 编译成功，端口 3000 可访问
 3. `DraftDocumentCard` 同时存在
 4. 主流可继续对话
 
-**子任务 5.3 — 错误反馈**（可选 / 高风险路径）：
+**子任务 5.3 — review_contract 跑中反馈（D2 修复，Task 11 验收）**：
+1. 在小索对话框上传 .docx 合同 → 让小索调起合同审查
+2. 选立场 → 确认 partyA/B
+3. **观察**：CoT 卡片 header 显示「合同审查 思考中...」，渐进展开 5 个 tool_call step：
+   - 调用 **切分合同条款**（橙色 Wrench；output 含 totalClauses）
+   - 调用 **识别甲乙方**（橙色 Wrench；output 含 partyA/B/contractType）
+   - 调用 **确认审查立场**（橙色 Wrench）
+   - 调用 **逐条分析**（橙色 Wrench；analyze 期间累 `[N/30]` 进度文字 + 风险描述「发现 high 风险：...」）
+   - 调用 **生成审查摘要**（橙色 Wrench）
+4. 跑完后 1 秒 CoT 折叠
+5. 下方 review_contract 工具卡显示 Top 风险摘要 + 跳转链接
+6. **F5 刷新**：CoT 历史恢复正常工作（subSessionId 反查 contractReviewMain 子 thread）
+
+**子任务 5.4 — 错误反馈**（可选 / 高风险路径）：
 1. 临时 mock documentMain 节点的 modelApiKey.status=0（模拟无 API key）
 2. 重新触发 draft_document → 应抛 `documentMain 节点没有可用的 API 密钥`
 3. **观察**：CoT header 红徽章「失败：documentMain 节点没有可用的 API 密钥」+ 不自动折叠
@@ -1914,21 +2220,19 @@ git status
 - 直接单测成本极低（mock publish 函数 + 调 handler 断言参数），收益高（精确覆盖每个 handler）
 - 新增 helper 偏离了 spec 减项的"可读性优于覆盖率"考量；铁律应优先
 
-### D2：review_contract skipStanceInterrupt 路径限制
+### D2：review_contract skipStanceInterrupt 路径反馈（用户决策方案 A，由 Task 11 实现）
 
-**事实**：`reviewContract.tool` 走 `skipStanceInterrupt: true` → `contractReviewMainAgent.runContractReviewChat` 进入 ReadableStream 自构造分支（line 482-655）。该分支**不**调用 `agent.stream`，因此本 plan 注入的 callbacks 在该路径**不会触发**。
+**问题**：`reviewContract.tool` 走 `skipStanceInterrupt: true` → `contractReviewMainAgent.runContractReviewChat` 进入 ReadableStream 自构造分支（line 482-655），**不**调 `agent.stream` → callbacks 不触发；同时 `app/components/ai/tools/` 没有 review_contract 工具卡组件，小索对话框跑中完整 30 秒黑盒。
 
-**实际表现**：
-- 跑中：subThreadsMap 收不到任何 SUB_AGENT_TOKEN / SUB_AGENT_TOOL_START / SUB_AGENT_TOOL_END 事件 → CoT 没消息
-- AiToolRenderer 守卫 `shouldShowSubAgentCoT` 在无消息且未 running 时**不渲染** CoT 卡 → graceful no-op
-- 现有 `ReviewContractCard` 仍正常显示 stage 进度（segment / detect / stance / analyze N/M / summarize）
+**v3 误判**（已纠正）：上版决策记录假设"靠 ReviewContractCard stage 反馈"成立——实际上 ReviewContractCard 只在合同审查独立页面（`/dashboard/contract/[id]`）订阅 stage 事件，小索对话框看不到。
 
-**决策**：本 plan **仍**注入 callbacks（向后兼容首轮 stance interrupt 路径），不改造 skipStanceInterrupt 路径。
+**用户决策（v4）**：方案 A——`reviewContract.tool` 构造 `platformEmitCustomEvent` 适配器，把 `contractReviewMain` 已发的 `ContractReviewEvent` (stage/progress/risk) 转换为 `SUB_AGENT_TOOL_*` / `SUB_AGENT_TOKEN`，让前端 `SubAgentChainOfThought` 显示进度。
 
-**理由**：
-- spec 主目标是 draft_document（用户痛点真实场景）；review_contract 已有 ReviewContractCard stage 反馈，"30 秒黑盒"不严重
-- 改造 skipStanceInterrupt 路径用 createAgent 包装 analyze loop / summarize 是较大架构改动，应单独 design + 单独 plan
-- graceful no-op 是合理降级；用户后续 review 阶段如要求覆盖法律助手场景再做后续 follow-up plan
+**实施**：Task 11 完整实现 `makeStageToCoTAdapter`，复用 `emitContractReviewEvent` 现有 `ctx.platformEmit?: CustomEventEmitter` 选项（`server/services/workflow/nodes/contractReviewStageEmitter.ts:24-26`），`contractReviewMainAgent` 0 行改动。
+
+**用户体验**：CoT 卡 5 个 step——切分合同条款 → 识别甲乙方 → 确认审查立场 → 逐条分析（含 [N/30] + risk 描述累积）→ 生成审查摘要。
+
+**保留**：`buildSubAgentCallbacks` 注入（Task 6）继续保留，向后兼容首轮 stance interrupt 路径（合同 vertical 自身页面）。
 
 ### D5：SubAgentToolStartPayload 类型脱锚（pre-existing，本 plan 不修）
 
@@ -1971,11 +2275,12 @@ git status
 | `subAgentToolFactory` DRY 后行为变化（新 handleChainError 触发）影响线上 ask_*_expert 失败路径 | 跑现有 `subAgentToolFactory.test.ts` 回归 + Task 2 Step 1 加专项 chain error case；E2E 时手测一次 ask_*_expert 失败场景 |
 | `runDocumentChat` 加 callbacks 选项后 `errorTraceHandler` 与用户 callbacks 顺序错误，导致 errorTraceHandler 之前的诊断丢失 | Task 3 测试明确断言 `callbacks[0] === errorTraceHandler && callbacks[1] === userCallback`（顺序硬编） |
 | LangGraph callbacks 在 `stream` 模式下行为可能与 `invoke` 模式不同（subAgentToolFactory 用 invoke，runDocumentChat 用 stream） | E2E 验收（Task 10 Step 5）观察 CoT 是否实际收到 token / tool 事件；如不工作回退到 spike：先在 dev server 加 console.log 确认 handleLLMNewToken 被调 |
-| review_contract callbacks no-op 让用户疑惑「为什么合同审查没 CoT」 | shouldShowSubAgentCoT 守卫保证不显示空白卡；ReviewContractCard 现有 stage 反馈仍在，体验不差。本 plan 决策记录 D2 已 explicit 文档 |
+| review_contract skipStanceInterrupt 路径无 CoT（D2）| **已修**：Task 11 stage→CoT 适配器；不依赖 LangChain agent.stream 路径，复用 stage 事件流 |
+| Task 11 适配器与 contractReviewMainAgent stage 事件协议耦合（未来 stage 字段变更需同步） | 适配器只读 stage / progress / risk 三种已稳定的事件类型；overview 不转发；新增字段不影响现有转换；测试 6 case 含字段断言可早发现问题 |
 | 历史回放 CoT 时与 interrupt 卡片恢复路径冲突 | `isInterruptToolCardCall` 优先级最高已在 v-if 链最前；Task 9 测试明确覆盖此场景 |
 
 ## 后续工作（不在本 plan 范围）
 
-- review_contract skipStanceInterrupt 路径 CoT 改造（D2）：用 createAgent 包装 analyze loop / summarize，让 callbacks 生效
+- SSE 协议字段命名统一（D5）：`SubAgentToolStartPayload` 与实际 publish 字段对齐，让编译期校验生效
 - 法律助手 vertical（assistantChat）走 draft_document / review_contract 时的 CoT 接入
 - 子流嵌套（documentMain 内部又调子代理工具）的多级 CoT 展示
