@@ -156,6 +156,9 @@ const resultSummary = computed(() => {
         ? '未找到相关材料'
         : `找到 ${results.value.length} 条结果`
 })
+
+// 有查询关键词或结果时即可展开，避免 0 结果时整个面板消失看不到查询条件
+const hasExpandableContent = computed(() => !!query.value || results.value.length > 0)
 </script>
 
 <template>
@@ -172,7 +175,7 @@ const resultSummary = computed(() => {
                     {{ resultSummary }}
                 </span>
                 <ChevronDown
-                    v-if="results.length > 0"
+                    v-if="hasExpandableContent"
                     class="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180"
                 />
             </div>
@@ -180,7 +183,7 @@ const resultSummary = computed(() => {
 
         <!-- 展开态：结果列表 -->
         <CollapsibleContent
-            v-if="results.length > 0"
+            v-if="hasExpandableContent"
             class="overflow-hidden data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2"
         >
             <!-- 展开态嵌在外层卡片 border 内，无需再嵌套 border：用 border-t 接续视觉 -->
@@ -198,7 +201,14 @@ const resultSummary = computed(() => {
                         {{ query }}
                     </span>
                 </div>
-                <div class="space-y-2 p-3">
+                <!-- 空态：完成且 0 条结果时也展开看到查询条件 -->
+                <div
+                    v-if="results.length === 0 && isDone"
+                    class="px-3 py-6 text-center text-xs text-muted-foreground"
+                >
+                    未找到相关材料
+                </div>
+                <div v-else-if="results.length > 0" class="space-y-2 p-3">
                 <template v-for="r in results" :key="r.index">
                     <!-- 桌面端：HoverCard 悬停预览 -->
                     <HoverCard v-if="canHover" :open-delay="200" :close-delay="100">

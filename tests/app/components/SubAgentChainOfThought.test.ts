@@ -1,37 +1,21 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { nextTick } from 'vue'
 import { AIMessage, ToolMessage } from '@langchain/core/messages'
 import SubAgentChainOfThought from '~/components/ai/SubAgentChainOfThought.vue'
 
 const globalStubs = {
   global: {
     stubs: {
-      // ai-elements 组件在测试环境挂 stub，避免内部依赖问题
-      ChainOfThought: {
-        template: '<div data-stub="chain-of-thought"><slot /><slot name="default" /></div>',
-        props: ['modelValue'],
-      },
-      ChainOfThoughtHeader: {
-        template: '<div data-stub="cot-header"><slot /></div>',
-      },
       ChainOfThoughtStep: {
         template: '<div data-stub="cot-step"><slot name="icon" /><span data-stub="cot-step-label">{{ label }}</span><span data-stub="cot-step-description">{{ description }}</span><slot /></div>',
         props: ['label', 'description', 'status', 'class'],
       },
-      ChainOfThoughtContent: {
-        template: '<div data-stub="cot-content"><slot /></div>',
+      MessageResponse: {
+        template: '<div data-stub="message-response">{{ content }}</div>',
+        props: ['content', 'mode'],
       },
-      ChainOfThoughtSearchResults: {
-        template: '<div data-stub="cot-search-results"><slot /></div>',
-      },
-      ChainOfThoughtSearchResult: {
-        template: '<div data-stub="cot-search-result"><slot /></div>',
-      },
-      AiToolRenderer: true,
-      MessageResponse: true,
       Loader2: true,
-      Brain: true,
+      Lightbulb: true,
       FileText: true,
       Wrench: true,
       CheckCircle2: true,
@@ -40,7 +24,7 @@ const globalStubs = {
 }
 
 describe('SubAgentChainOfThought (static render)', () => {
-  it('渲染 agentTitle 到 Header', () => {
+  it('渲染 agentTitle 到标题行', () => {
     const w = mount(SubAgentChainOfThought, {
       props: { agentTitle: '风险评估专家', subMessages: [], isRunning: false },
       ...globalStubs,
@@ -75,98 +59,59 @@ describe('SubAgentChainOfThought (static render)', () => {
       new AIMessage({ content: '最终结论' }),
     ]
     const w = mount(SubAgentChainOfThought, {
-      props: { agentTitle: 'x', subMessages: msgs, isRunning: false, open: true },
+      props: { agentTitle: 'x', subMessages: msgs, isRunning: false },
       ...globalStubs,
     })
-    // 1 个 analysis + 1 个 tool_call + 1 个 conclusion
-    expect(w.text()).toContain('调用 search_law')
+    // 工具步骤用轻量渲染：显示中文工具名和结果摘要
+    expect(w.text()).toContain('法律检索')
+    expect(w.text()).toContain('找到 1 条结果')
     expect(w.text()).toContain('得出结论')
   })
-})
 
-describe('SubAgentChainOfThought · auto-collapse', () => {
-  it('isRunning 由 false→true 时自动展开（isOpen=true）', async () => {
+  it('JSON 碎片内容不渲染为分析步骤', async () => {
+    const msgs = [
+      new AIMessage({
+        content: '{}{"k": 10}',
+        tool_calls: [{ id: 'c1', name: 'search_case_analysis', args: { k: 10 }, type: 'tool_call' }],
+      }),
+      new ToolMessage({ tool_call_id: 'c1', content: '[]' }),
+    ]
     const w = mount(SubAgentChainOfThought, {
-      props: { agentTitle: 'x', subMessages: [], isRunning: false },
+      props: { agentTitle: 'x', subMessages: msgs, isRunning: false },
       ...globalStubs,
     })
-    await w.setProps({ isRunning: true })
-    await nextTick()
-    // isOpen 由内部状态驱动，取出检查
-    expect((w.vm as any).isOpen).toBe(true)
-  })
-
-  it('isRunning 由 true→false 后 1s 自动收起', async () => {
-    vi.useFakeTimers()
-    const w = mount(SubAgentChainOfThought, {
-      props: { agentTitle: 'x', subMessages: [], isRunning: true },
-      ...globalStubs,
-    })
-    await nextTick()
-    expect((w.vm as any).isOpen).toBe(true)
-
-    await w.setProps({ isRunning: false })
-    await nextTick()
-    // 1s 前仍开
-    vi.advanceTimersByTime(500)
-    expect((w.vm as any).isOpen).toBe(true)
-    // 1s 后收起
-    vi.advanceTimersByTime(600)
-    expect((w.vm as any).isOpen).toBe(false)
-
-    vi.useRealTimers()
-  })
-
-  it('用户手动点开后 → timer 取消 + 不再 auto-close', async () => {
-    vi.useFakeTimers()
-    const w = mount(SubAgentChainOfThought, {
-      props: { agentTitle: 'x', subMessages: [], isRunning: true },
-      ...globalStubs,
-    })
-    await nextTick()
-    await w.setProps({ isRunning: false })   // 启动 1s timer
-    await nextTick()
-
-    // 用户 500ms 时手动展开（通过 update:open emit）
-    vi.advanceTimersByTime(500)
-    ;(w.vm as any).isOpen = true   // 模拟用户手动打开
-    await nextTick()
-
-    // 再推进超过 1s，不应被 auto-close
-    vi.advanceTimersByTime(1200)
-    expect((w.vm as any).isOpen).toBe(true)
-
-    vi.useRealTimers()
-  })
-
-  it('isFailed=true 时 isRunning 变 false 不触发 auto-close', async () => {
-    vi.useFakeTimers()
-    const w = mount(SubAgentChainOfThought, {
-      props: { agentTitle: 'x', subMessages: [], isRunning: true },
-      ...globalStubs,
-    })
-    await nextTick()
-    await w.setProps({ isRunning: false, isFailed: true })
-    await nextTick()
-
-    vi.advanceTimersByTime(1500)
-    expect((w.vm as any).isOpen).toBe(true)
-
-    vi.useRealTimers()
+    // 原始 JSON 碎片不应出现
+    expect(w.text()).not.toContain('{"k":')
+    expect(w.text()).not.toContain('{}')
   })
 })
 
-describe('SubAgentChainOfThought · active description throttle', () => {
-  it('active step 的 description 读 throttled 值', async () => {
-    const msg = new AIMessage({ content: 'a'.repeat(300) })
+describe('SubAgentChainOfThought · per-step expand', () => {
+  it('长文本 step 默认收起（非 active），点击后展开', async () => {
+    const longContent = 'a'.repeat(300)
+    const msg = new AIMessage({ content: longContent })
     const w = mount(SubAgentChainOfThought, {
-      props: { agentTitle: 'x', subMessages: [msg], isRunning: true, open: true },
+      props: { agentTitle: 'x', subMessages: [msg], isRunning: false },
       ...globalStubs,
     })
-    await nextTick()
-    // throttledActiveDescription 初始已在 immediate 时填入
-    const txt = w.text()
-    expect(txt).toContain('a'.repeat(80))   // 80 字截断
-    expect(txt).not.toContain('a'.repeat(200))
+    // 默认收起：摘要可见，全文不可见
+    expect(w.text()).toContain('a'.repeat(80))
+    expect(w.text()).not.toContain('a'.repeat(200))
+
+    // 点击摘要展开
+    await w.find('.cursor-pointer').trigger('click')
+    // 展开后 MessageResponse 渲染全文，摘要 div 应隐藏
+    expect(w.text()).toContain('a'.repeat(200))
+  })
+
+  it('isRunning 时 active step 默认展开', async () => {
+    const longContent = 'a'.repeat(300)
+    const msg = new AIMessage({ content: longContent })
+    const w = mount(SubAgentChainOfThought, {
+      props: { agentTitle: 'x', subMessages: [msg], isRunning: true },
+      ...globalStubs,
+    })
+    // active 状态下默认展开 → 全文渲染
+    expect(w.text()).toContain('a'.repeat(200))
   })
 })

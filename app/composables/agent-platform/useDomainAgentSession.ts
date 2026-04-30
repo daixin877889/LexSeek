@@ -250,6 +250,9 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
 
   function disposeCurrentChat() {
     if (currentScope) {
+      // 先 abort SSE 连接防止 scope 停止后还有旧 callback 写入已分离的 reactive map，
+      // 导致新 switchSession 创建的子 Agent 分桶收不到实时事件（CoT 不显示的根因之一）。
+      currentChat.value?.stop()
       currentScope.stop()
       currentScope = null
       currentChat.value = null

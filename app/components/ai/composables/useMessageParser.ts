@@ -202,7 +202,7 @@ export function useMessageParser(
         // HumanMessage 检测 metadata（注入的上下文消息）
         if (msgType === 'human') {
           const injector = (m as any).response_metadata?.injectedBy as string | undefined
-          if (injector?.startsWith('ModuleContext') || injector?.startsWith('CaseMaterial') || injector?.startsWith('SubAgentContext')) {
+          if (injector?.startsWith('ModuleContext') || injector?.startsWith('CaseMaterial') || injector?.startsWith('SubAgentContext') || injector === 'CaseContextMiddleware') {
             return false
           }
         }

@@ -1,5 +1,6 @@
 import type { BaseMessage, AIMessage, ToolMessage } from '@langchain/core/messages'
 import { extractThinking } from './useMessageParser'
+import { toolDisplayName } from '~/utils/toolDisplayName'
 
 export type StepKind = 'thinking' | 'analysis' | 'tool_call' | 'conclusion'
 export type StepStatus = 'complete' | 'active' | 'pending'
@@ -30,6 +31,19 @@ export interface StepVM {
 
 const SUMMARY_MAX = 80
 const TOOL_ARGS_MAX = 60
+
+/** 检测文本是否只包含 JSON 碎片（如 `{}{"k": 10}` 或 `{"query":"...","k":5}`） */
+function isOnlyJsonFragments(text: string): boolean {
+  const trimmed = text.trim()
+  if (!trimmed) return false
+  // 单个合法 JSON 对象
+  if (/^\{[\s\S]*\}$/.test(trimmed)) {
+    try { JSON.parse(trimmed); return true } catch { /* not valid */ }
+  }
+  // 多段 JSON 拼接（如 {}{"k":10} 或 {"q":"a"}{"q":"b"}）
+  if (/^\{[^{}]*\}(?:\s*\{[^{}]*\})*$/.test(trimmed)) return true
+  return false
+}
 
 function truncate(s: string, n: number): string {
   if (!s) return ''
@@ -120,7 +134,8 @@ export function mapMessagesToSteps(
     }
 
     // 2. content text → 「分析」(非最后 AI 或 有 tool_calls) / 「得出结论」(最后 AI 且无 tool_calls)
-    if (contentText) {
+    //    跳过纯 JSON 内容（流式场景下模型把工具参数 token 拼接到 content 的残留）
+    if (contentText && !isOnlyJsonFragments(contentText)) {
       const isConclusion = isLastAI && toolCalls.length === 0
       const kind: StepKind = isConclusion ? 'conclusion' : 'analysis'
       const label = isConclusion ? '得出结论' : '分析'
@@ -142,14 +157,17 @@ export function mapMessagesToSteps(
       const tc = toolCalls[j]
       const toolRes = toolResultMap.get(tc.id)
       const hasResult = toolRes !== undefined
-      const argsStr = truncate(JSON.stringify(tc.args ?? {}), TOOL_ARGS_MAX)
+      // 描述从 args JSON 改为简洁的结果摘要或空；详细内容在展开后由 AiToolRenderer 渲染
+      const resultHint = hasResult
+        ? truncate(JSON.stringify(parseToolResult((toolRes as any).content)), TOOL_ARGS_MAX)
+        : ''
       steps.push({
         key: `${i}-tool-${j}`,
         kind: 'tool_call',
-        label: `调用 ${tc.name}`,
-        description: argsStr,
-        fullContent: argsStr,
-        hasMore: false,
+        label: `调用 ${toolDisplayName(tc.name) || tc.name}`,
+        description: resultHint,
+        fullContent: resultHint,
+        hasMore: hasResult && resultHint.length > 0,
         status: hasResult ? 'complete' : 'active',
         isActive: !hasResult,
         isFailed: false,

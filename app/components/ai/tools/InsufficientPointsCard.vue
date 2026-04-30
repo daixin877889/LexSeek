@@ -39,6 +39,7 @@
     <template v-else>
       <div class="flex gap-4 text-sm text-muted-foreground mb-2">
         <span>当前可用积分：<strong class="text-foreground">{{ availablePoints ?? 0 }}</strong></span>
+        <!-- availablePoints 来自 props.interrupt.data.availablePoints（已 computed） -->
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         <div
@@ -103,19 +104,33 @@ import toast from '#shared/utils/toast'
 import PaymentQRCodeDialog from '~/components/payment/PaymentQRCodeDialog.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useWechatPayment } from '~/composables/useWechatPayment'
+import type { InsufficientPointsInterruptData } from '#shared/types/case'
 
+/**
+ * 通过 InterruptDispatcher 的标准契约接入：
+ *   - 入参：interrupt（完整中断对象，从 data.* 解出展示字段）
+ *   - 出参：submit/cancel（dispatcher 监听这两个事件转发给父级 resumeInterrupt）
+ *
+ * 旧版直接传 isMember/availablePoints/... 顶层 props 的写法已废弃，避免 dispatcher 路径
+ * 缺 required prop 报 Vue warn；同时旧版 emit('resume') 在 dispatcher 路径不被监听，
+ * 现在统一发 submit({action:'continue'})。
+ */
 interface Props {
-  isMember: boolean
-  availablePoints?: number
-  requiredPoints?: number
-  reason?: string
+  interrupt: InsufficientPointsInterruptData
+  isSubmitting?: boolean
 }
 
 const props = defineProps<Props>()
-const emit = defineEmits<{ resume: [] }>()
+const emit = defineEmits<{
+  submit: [value: { action: 'continue' }]
+  cancel: []
+}>()
+
+const isMember = computed(() => props.interrupt?.data?.isMember ?? false)
+const availablePoints = computed(() => props.interrupt?.data?.availablePoints)
 
 const scenarioMessage = computed(() => {
-  if (!props.isMember) {
+  if (!isMember.value) {
     return '开通会员即可获得积分，选择以下套餐立即开通：'
   }
   return '选择以下积分套餐购买后即可继续分析：'
@@ -129,7 +144,7 @@ const pointProducts = ref<any[]>([])
 const agreeToAgreement = ref(true)
 
 onMounted(async () => {
-  if (!props.isMember) {
+  if (!isMember.value) {
     const data = await useApiFetch<any[]>('/api/v1/products', {
       query: { type: 1 },
       showError: false,
@@ -167,7 +182,7 @@ const isResuming = ref(false)
 
 function handleResume() {
   isResuming.value = true
-  emit('resume')
+  emit('submit', { action: 'continue' })
   setTimeout(() => { isResuming.value = false }, 15000)
 }
 
@@ -276,7 +291,7 @@ function startPolling() {
       toast.success('支付成功！')
       setTimeout(() => {
         closePaymentDialog()
-        emit('resume')
+        emit('submit', { action: 'continue' })
       }, 2000)
     }
   }, 2000)
@@ -308,7 +323,7 @@ async function handleJsapiResult(result: WechatPaymentResult) {
       toast.success('支付成功！')
       setTimeout(() => {
         closePaymentDialog()
-        emit('resume')
+        emit('submit', { action: 'continue' })
       }, 2000)
     } else {
       paymentLoading.value = false

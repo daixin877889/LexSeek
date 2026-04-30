@@ -5,7 +5,7 @@ import {
   CollapsibleTrigger,
 } from '@repo/shadcn-vue/components/ui/collapsible'
 import { cn } from '@repo/shadcn-vue/lib/utils'
-import { BrainIcon, ChevronDownIcon } from 'lucide-vue-next'
+import { GitBranchIcon, ChevronDownIcon } from 'lucide-vue-next'
 import { useChainOfThought } from './context'
 
 const props = defineProps<{
@@ -26,7 +26,7 @@ const { isOpen, setIsOpen } = useChainOfThought()
       "
       v-bind="$attrs"
     >
-      <BrainIcon class="size-4" />
+      <GitBranchIcon class="size-4" />
       <span class="flex-1 text-left">
         <slot>Chain of Thought</slot>
       </span>
