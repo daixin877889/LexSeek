@@ -75,4 +75,73 @@ describe('draftResultPersistence afterAgent', () => {
             status: 'ready',
         }))
     })
+
+    // 真根因修复：LLM 输出含未转义内嵌引号的 broken JSON，toolStrategy 静默拒绝，
+    // structuredResponse 通道不创建。hook 必须从 tool_use.input 抢救数据（jsonrepair 容错）
+    it('Fallback A：structuredResponse 缺失 + 最后 AIMessage 含 broken JSON 的 tool_use → 用 jsonrepair 抢救', async () => {
+        // 真实 dev 复现的 broken JSON：第 758 字符 `"犯错"` 未转义双引号
+        const brokenInput = '{"values": {"原告": "张三", "事实和理由": "原告认为被告"犯错"扣款2000元违反劳动法。"}, "aiTitle": "张三诉某公司起诉状"}'
+        await invokeAfter({
+            messages: [
+                { type: 'human', content: '帮我起草起诉状' },
+                {
+                    type: 'ai',
+                    content: [
+                        { type: 'text', text: '信息已充分，现在填充字段。' },
+                        { type: 'tool_use', name: 'extract-2', id: 'call_x', input: brokenInput },
+                    ],
+                },
+            ],
+        })
+        // 应当成功修复 + 写 ready
+        expect(mocks.updateDocumentDraftDAO).toHaveBeenCalledWith(1, expect.objectContaining({
+            status: 'ready',
+            values: expect.objectContaining({
+                原告: '张三',
+                事实和理由: expect.stringContaining('犯错'),
+            }),
+        }))
+        expect(mocks.applyAITitleIfAllowedService).toHaveBeenCalledWith(1, '张三诉某公司起诉状')
+    })
+
+    it('Fallback A：tool_use.input 是合法 JSON 时也能识别（不需要 jsonrepair 时直接走 JSON.parse）', async () => {
+        const validInput = JSON.stringify({ values: { f1: 'v1', f2: 'v2' }, aiTitle: 'OK' })
+        await invokeAfter({
+            messages: [
+                {
+                    type: 'ai',
+                    content: [{ type: 'tool_use', name: 'extract-2', id: 'call_x', input: validInput }],
+                },
+            ],
+        })
+        expect(mocks.updateDocumentDraftDAO).toHaveBeenCalledWith(1, expect.objectContaining({
+            status: 'ready',
+            values: { f1: 'v1', f2: 'v2' },
+        }))
+    })
+
+    it('Fallback A：tool_use.input 是 object（已被 LangChain parse）时也能识别', async () => {
+        await invokeAfter({
+            messages: [
+                {
+                    type: 'ai',
+                    content: [{ type: 'tool_use', name: 'extract-2', id: 'call_x', input: { values: { f1: 'v1' } } }],
+                },
+            ],
+        })
+        expect(mocks.updateDocumentDraftDAO).toHaveBeenCalledWith(1, expect.objectContaining({
+            status: 'ready',
+            values: { f1: 'v1' },
+        }))
+    })
+
+    it('Fallback A：messages 不含 tool_use 时优雅降级（不抢救）', async () => {
+        await invokeAfter({
+            messages: [
+                { type: 'ai', content: '只是普通回复，没有工具调用' },
+            ],
+        })
+        // 没救到 → 应走 status=failed
+        expect(mocks.updateDocumentDraftDAO).toHaveBeenCalledWith(1, { status: 'failed' })
+    })
 })
