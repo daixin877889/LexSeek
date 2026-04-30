@@ -282,13 +282,22 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
          *
          * 不能用 stream.interrupt（依赖 interruptComputed，只追踪 isLoading）
          * 必须从 stream.values（依赖 streamValues shallowRef）的 __interrupt__ 读取
+         *
+         * 返回 unwrapped payload（含 type/toolCallId 等业务字段），同时附加
+         * `_interruptId`（来自 LangGraph 顶层 id 字段，每个 interrupt 唯一），
+         * 让 resolveInterrupt 后能区分"同一个 interrupt 的过渡态"vs"新触发的
+         * interrupt"——避免点完按钮后 stream 还没刷新时卡片状态闪回 active。
          */
         interruptData: computed(() => {
             const v = s.values as any
             if (!v?.__interrupt__?.length) return null
             const raw = v.__interrupt__
             const resolved = Array.isArray(raw) ? (raw.length === 1 ? raw[0] : raw) : raw
-            return resolved?.value ?? resolved
+            const value = resolved?.value ?? resolved
+            if (value && typeof value === 'object' && resolved?.id != null) {
+                return { ...value, _interruptId: resolved.id }
+            }
+            return value
         }),
 
         // 操作

@@ -6,6 +6,7 @@ import type { ToolCallWithResult } from './composables/useMessageParser'
 import SubAgentChainOfThought from './SubAgentChainOfThought.vue'
 import InterruptDispatcher from '~/components/InterruptDispatcher.vue'
 import { globalInterruptRegistry } from '~/composables/agent-platform/interruptRegistry'
+import AiToolsAnalysisSearchTool from '~/components/ai/tools/AnalysisSearchTool.vue'
 import AiToolsConfirmPointsTool from '~/components/ai/tools/ConfirmPointsTool.vue'
 import AiToolsDefaultTool from '~/components/ai/tools/DefaultTool.vue'
 import AiToolsExtractInfoTool from '~/components/ai/tools/ExtractInfoTool.vue'
@@ -52,7 +53,7 @@ const subAgentAccess = inject<SubAgentAccess | null>('subAgentAccess', null)
 
 // messageStreamContext：interrupt 内联化用，由 panel 层 provide
 interface MessageStreamContext {
-  interruptData: { value: { type?: string; toolCallId?: string;[key: string]: unknown } | null }
+  interruptData: { value: { type?: string; toolCallId?: string;[key: string]: unknown } | null | undefined }
   resolvedInterrupts: Record<string, {
     interrupt: { type: string; toolCallId: string;[key: string]: unknown }
     resumeValue: unknown
@@ -67,15 +68,36 @@ const resolvedEntry = computed(() => {
 })
 
 /**
- * 当前 toolCall 是否命中"活跃 interrupt"——active interrupt 必须优先于 resolved
- * 历史显示，否则当同一 toolCallId 因外部因素被重复触发（agent 重试 / failure resume）
- * 时，UI 会拿到 stale 的 snapshot 而非 fresh active。
+ * 当前 toolCall 是否命中"活跃 interrupt"——
+ *
+ * 微妙的优先级：active 通常优先于 resolved（避免 agent 重试触发同 toolCallId
+ * 的新 interrupt 时 UI 仍显示 stale 选择，例如用户要起诉状但卡片默认选中
+ * 上次失败时选过的答辩状，commit a2c70077 已修）。
+ *
+ * 但用户**刚 resume** 后存在过渡态：stream.values.__interrupt__ 还没被新
+ * SSE 帧覆盖，active 仍指向同一个 interrupt——此时切回 active 会让"使用此
+ * 模板"按钮重新可点，用户以为没生效（线上 bug：点完模板卡片状态没变）。
+ *
+ * 用 LangGraph 顶层 `_interruptId` 区分两种场景：
+ *   - active._interruptId === resolvedEntry 保存的 _interruptId → 同一个
+ *     interrupt 的过渡态 → 走 resolved 视图（卡片显示"已选 X"）
+ *   - id 不同（含任一为空）→ agent 重新触发的新 interrupt → 走 active
  */
 const isActiveInterruptForThisCall = computed(() => {
   const active = messageStreamContext?.interruptData.value
-  return !!(active?.toolCallId === props.toolCall.id
-    && active.type
-    && globalInterruptRegistry.isToolCard(active.type))
+  if (!active || active.toolCallId !== props.toolCall.id || !active.type
+    || !globalInterruptRegistry.isToolCard(active.type)) {
+    return false
+  }
+  const resolved = resolvedEntry.value
+  if (resolved) {
+    const resolvedId = (resolved.interrupt as { _interruptId?: unknown })?._interruptId
+    const activeId = (active as { _interruptId?: unknown })?._interruptId
+    if (resolvedId != null && activeId != null && resolvedId === activeId) {
+      return false  // 同一个 interrupt 的 resume 过渡态，让 resolved 接管
+    }
+  }
+  return true
 })
 
 const isInterruptToolCardCall = computed(() => {
@@ -102,7 +124,7 @@ function subAgentError(toolCallId: string): string | undefined {
   <template v-if="isInterruptToolCardCall">
     <InterruptDispatcher
       :interrupt="isActiveInterruptForThisCall
-        ? messageStreamContext?.interruptData.value
+        ? (messageStreamContext?.interruptData.value ?? null)
         : (resolvedEntry?.interrupt ?? null)"
       :resume-value="isActiveInterruptForThisCall ? undefined : resolvedEntry?.resumeValue"
       @submit="(v) => messageStreamContext?.resolveInterrupt(v)"
@@ -143,6 +165,7 @@ function subAgentError(toolCallId: string): string | undefined {
   <AiToolsRollbackPointsTool v-else-if="toolCall.name === 'rollback_points'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
   <AiToolsWriteTodosTool v-else-if="toolCall.name === 'write_todos'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
   <AiToolsMaterialSearchTool v-else-if="toolCall.name === 'search_case_materials'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
+  <AiToolsAnalysisSearchTool v-else-if="toolCall.name === 'search_case_analysis'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" />
   <AiToolsLawSearchTool v-else-if="toolCall.name === 'search_law'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
   <AiToolsMemorySearchTool v-else-if="toolCall.name === 'search_case_memory'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" />
   <AiToolsMemoryWriteTool v-else-if="toolCall.name === 'write_case_memory'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" />

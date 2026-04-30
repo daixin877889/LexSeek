@@ -131,4 +131,59 @@ describe('AiToolRenderer - interrupt 分支', () => {
         })
         expect(wrapper.find('.stub-result-card').exists()).toBe(true)
     })
+
+    // 用户报告：点"使用此模板"后卡片状态没变（仍 active 可点）
+    // 根因：resume 后 stream.values.__interrupt__ 还没被新 SSE 帧覆盖，active 仍命中
+    // 修复：用 LangGraph _interruptId 区分"过渡态"vs"重新触发"
+    it('active 与 resolved 同 _interruptId（resume 过渡态）→ 走 resolved snapshot 视图', () => {
+        const ctx = makeContext({
+            interruptData: {
+                type: 'stub_tool_select',
+                toolCallId: 'call_x',
+                _interruptId: 'intr-abc',  // 同一个 interrupt id
+            },
+            resolvedInterrupts: {
+                call_x: {
+                    interrupt: { type: 'stub_tool_select', toolCallId: 'call_x', _interruptId: 'intr-abc' },
+                    resumeValue: { picked: 1 },
+                    resolvedAt: new Date(),
+                },
+            },
+        })
+        const wrapper = mount(AiToolRenderer, {
+            props: {
+                toolCall: { id: 'call_x', name: 'stub_tool', args: {}, state: 'input-available' },
+                toolMap: { stub_tool: StubResultCard },
+            },
+            global: { provide: { messageStreamContext: ctx } },
+        })
+        // 应走 snapshot 模式（resumeValue 透传）—— 而不是 active
+        expect(wrapper.find('.stub-tool-card').attributes('data-mode')).toBe('snapshot')
+    })
+
+    it('active 与 resolved 不同 _interruptId（agent 重新触发）→ active 优先', () => {
+        const ctx = makeContext({
+            interruptData: {
+                type: 'stub_tool_select',
+                toolCallId: 'call_x',
+                _interruptId: 'intr-NEW',  // 新触发的 interrupt
+            },
+            resolvedInterrupts: {
+                call_x: {
+                    interrupt: { type: 'stub_tool_select', toolCallId: 'call_x', _interruptId: 'intr-OLD' },
+                    resumeValue: { picked: 1 },
+                    resolvedAt: new Date(),
+                },
+            },
+        })
+        const wrapper = mount(AiToolRenderer, {
+            props: {
+                toolCall: { id: 'call_x', name: 'stub_tool', args: {}, state: 'input-available' },
+                toolMap: { stub_tool: StubResultCard },
+            },
+            global: { provide: { messageStreamContext: ctx } },
+        })
+        // 不同 id → 视为新 interrupt，走 active 模式（resumeValue undefined → 默认选 backend score 最高）
+        expect(wrapper.find('.stub-tool-card').attributes('data-mode')).toBe('active')
+    })
 })
