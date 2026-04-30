@@ -59,9 +59,39 @@ export function mergeEventIntoBucket(bucket: SubThreadState, ev: AgentEvent) {
         return
       }
       case 'sub_agent_tool_start': {
-        const d = cev.data as { innerToolCallId?: string; input?: string; cbRunId?: string }
+        const d = cev.data as { innerToolCallId?: string; input?: unknown; cbRunId?: string; toolName?: string }
         if (d?.cbRunId && d?.innerToolCallId) {
           bucket.runIdToInnerToolCallId.set(d.cbRunId, d.innerToolCallId)
+        }
+        // 新逻辑：为每个 tool_call 创建独立 AIMessage，
+        // 让 mapMessagesToSteps 跑中也能渲染 tool_call step。
+        //
+        // 关键 bug 修复（5check v5）：stage 适配器场景下，stage:running 直接发
+        // SUB_AGENT_TOOL_START，没有 token 在先。旧逻辑"找不到 AI 跳过"
+        // 会让 tool_call 全部丢失，CoT 卡空白。
+        //
+        // 注意：缺 toolName 时（旧版后端 / 兼容路径）不注入，避免污染
+        if (d?.innerToolCallId && d?.toolName) {
+          // input 是 string 时尝试 JSON.parse；不合法保留原 string
+          let parsedArgs: unknown = d.input
+          if (typeof d.input === 'string') {
+            try { parsedArgs = JSON.parse(d.input) } catch { /* 保留原 string */ }
+          }
+          // 幂等：扫整个 messages 看有没有同 innerToolCallId 的 tool_call
+          const exists = bucket.messages.some((m: any) =>
+            (m._getType?.() === 'ai' || m.type === 'ai')
+              && Array.isArray(m.tool_calls)
+              && m.tool_calls.some((c: any) => c?.id === d.innerToolCallId),
+          )
+          if (!exists) {
+            // 始终为每个 tool_call 创建独立的空 AIMessage
+            const ai = new AIMessage({
+              content: '',
+              id: d.cbRunId ?? d.innerToolCallId,
+              tool_calls: [{ id: d.innerToolCallId, name: d.toolName, args: parsedArgs }],
+            })
+            bucket.messages.push(ai)
+          }
         }
         return
       }

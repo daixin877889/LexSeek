@@ -71,4 +71,113 @@ describe('useStreamChat · subThreadsMap 分桶 reducer', () => {
     expect(b.status).toBe('failed')
     expect(b.error).toBe('超时')
   })
+
+  it('sub_agent_tool_start 创建独立 AIMessage（id=cbRunId）含 tool_call，token 累积的 AIMessage 不被污染', () => {
+    const b = createEmptyBucket('expert_a', 'sess_sub_a')
+    mergeEventIntoBucket(b, {
+      type: 'custom_event', runId: 'r', sessionId: 's', name: 'sub_agent_token',
+      data: undefined,
+      metadata: { agentName: 'a', threadId: 't', parentToolCallId: 'p1', messageId: 'm1', delta: '我打算搜法律法规' },
+    } as any)
+    mergeEventIntoBucket(b, {
+      type: 'custom_event', runId: 'r', sessionId: 's', name: 'sub_agent_tool_start',
+      data: { innerToolCallId: 'inner-1', input: '{"q":"民间借贷"}', cbRunId: 'cb-x', toolName: 'search_law' },
+      metadata: { agentName: 'a', threadId: 't', parentToolCallId: 'p1' },
+    } as any)
+    const aiM1 = b.messages.find((m: any) => m.id === 'm1') as any
+    expect(aiM1.content).toBe('我打算搜法律法规')
+    expect(aiM1.tool_calls ?? []).toHaveLength(0)
+    const aiTool = b.messages.find((m: any) => m.id === 'cb-x') as any
+    expect(aiTool).toBeTruthy()
+    expect(aiTool.tool_calls).toHaveLength(1)
+    expect(aiTool.tool_calls[0]).toEqual({
+      id: 'inner-1',
+      name: 'search_law',
+      args: { q: '民间借贷' },
+    })
+    expect(b.runIdToInnerToolCallId.get('cb-x')).toBe('inner-1')
+  })
+
+  it('sub_agent_tool_start args 不是合法 JSON 时保留原 string', () => {
+    const b = createEmptyBucket('e', 't')
+    mergeEventIntoBucket(b, {
+      type: 'custom_event', runId: 'r', sessionId: 's', name: 'sub_agent_token',
+      data: undefined,
+      metadata: { agentName: 'a', threadId: 't', parentToolCallId: 'p', messageId: 'm-x', delta: 'x' },
+    } as any)
+    mergeEventIntoBucket(b, {
+      type: 'custom_event', runId: 'r', sessionId: 's', name: 'sub_agent_tool_start',
+      data: { innerToolCallId: 'inner-2', input: '不是 json', cbRunId: 'cb', toolName: 'process_materials' },
+      metadata: { agentName: 'a', threadId: 't', parentToolCallId: 'p' },
+    } as any)
+    const aiTool = b.messages.find((m: any) => m.id === 'cb') as any
+    expect(aiTool.tool_calls[0].args).toBe('不是 json')
+  })
+
+  it('同 innerToolCallId 重复 tool_start（幂等）→ tool_calls 不重复 push（不创建第二条 AIMessage）', () => {
+    const b = createEmptyBucket('e', 't')
+    mergeEventIntoBucket(b, {
+      type: 'custom_event', runId: 'r', sessionId: 's', name: 'sub_agent_token',
+      data: undefined,
+      metadata: { agentName: 'a', threadId: 't', parentToolCallId: 'p', messageId: 'm', delta: 'x' },
+    } as any)
+    const evt = {
+      type: 'custom_event', runId: 'r', sessionId: 's', name: 'sub_agent_tool_start',
+      data: { innerToolCallId: 'inner-d', input: 'x', cbRunId: 'cb', toolName: 't' },
+      metadata: { agentName: 'a', threadId: 't', parentToolCallId: 'p' },
+    } as any
+    mergeEventIntoBucket(b, evt)
+    mergeEventIntoBucket(b, evt)
+    const allCalls = b.messages.flatMap((m: any) => m.tool_calls ?? [])
+    expect(allCalls.filter((c: any) => c?.id === 'inner-d')).toHaveLength(1)
+  })
+
+  it('tool_start 缺 toolName（旧版后端兼容）→ 不注入 tool_calls，仅记 cbRunId 映射', () => {
+    const b = createEmptyBucket('e', 't')
+    mergeEventIntoBucket(b, {
+      type: 'custom_event', runId: 'r', sessionId: 's', name: 'sub_agent_token',
+      data: undefined,
+      metadata: { agentName: 'a', threadId: 't', parentToolCallId: 'p', messageId: 'm', delta: 'x' },
+    } as any)
+    mergeEventIntoBucket(b, {
+      type: 'custom_event', runId: 'r', sessionId: 's', name: 'sub_agent_tool_start',
+      data: { innerToolCallId: 'inner-old', input: 'x', cbRunId: 'cb' },  // 无 toolName
+      metadata: { agentName: 'a', threadId: 't', parentToolCallId: 'p' },
+    } as any)
+    const ai = b.messages.find((m: any) => m.id === 'm') as any
+    expect(ai.tool_calls ?? []).toHaveLength(0)
+    expect(b.runIdToInnerToolCallId.get('cb')).toBe('inner-old')
+  })
+
+  it('tool_start 时 bucket 没有 AIMessage（stage 适配器路径）→ 创建空 AIMessage 把 tool_call 推进去', () => {
+    const b = createEmptyBucket('contractReviewMain', 't')
+    mergeEventIntoBucket(b, {
+      type: 'custom_event', runId: 'r', sessionId: 's', name: 'sub_agent_tool_start',
+      data: { innerToolCallId: 'cr-segment', input: '', cbRunId: 'cr-segment', toolName: '切分合同条款' },
+      metadata: { agentName: 'contractReviewMain', threadId: 't', parentToolCallId: 'p' },
+    } as any)
+    const ais = b.messages.filter((m: any) => m._getType?.() === 'ai' || m.type === 'ai') as any[]
+    expect(ais).toHaveLength(1)
+    expect(ais[0].id).toBe('cr-segment')
+    expect(ais[0].tool_calls).toHaveLength(1)
+    expect(ais[0].tool_calls[0]).toEqual({ id: 'cr-segment', name: '切分合同条款', args: '' })
+    expect(b.runIdToInnerToolCallId.get('cr-segment')).toBe('cr-segment')
+  })
+
+  it('多个连续 tool_start（无 token 在前）→ 每个都创建独立 AIMessage', () => {
+    const b = createEmptyBucket('contractReviewMain', 't')
+    const make = (stage: string, name: string) => ({
+      type: 'custom_event', runId: 'r', sessionId: 's', name: 'sub_agent_tool_start',
+      data: { innerToolCallId: `cr-${stage}`, input: '', cbRunId: `cr-${stage}`, toolName: name },
+      metadata: { agentName: 'contractReviewMain', threadId: 't', parentToolCallId: 'p' },
+    } as any)
+    mergeEventIntoBucket(b, make('segment', '切分合同条款'))
+    mergeEventIntoBucket(b, make('detect', '识别甲乙方'))
+    mergeEventIntoBucket(b, make('stance', '确认审查立场'))
+    const ais = b.messages.filter((m: any) => m._getType?.() === 'ai' || m.type === 'ai') as any[]
+    expect(ais).toHaveLength(3)
+    expect(ais[0].tool_calls[0].name).toBe('切分合同条款')
+    expect(ais[1].tool_calls[0].name).toBe('识别甲乙方')
+    expect(ais[2].tool_calls[0].name).toBe('确认审查立场')
+  })
 })
