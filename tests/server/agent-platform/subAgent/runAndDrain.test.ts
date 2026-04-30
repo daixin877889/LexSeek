@@ -212,4 +212,31 @@ describe('runAndDrainStream', () => {
         expect(result.success).toBe(true)
         expect(result.interrupt?.type).toBe('x')
     })
+
+    // Bug B 复现 + 修复回归：LangGraph 的 toEventStream（pregel/stream.js:262-267）
+    // 在 graph 抛错时把 error 包装为 `event: error` 帧再 controller.close()。
+    // 旧版 runAndDrainStream 只看 values 事件，此 error 帧被默默忽略 → success=true
+    // → 子代理工具误以为成功 → DraftDocumentCard 显示空白草稿（线上真实复现路径）
+    it('Bug B：检测到 LangGraph error 帧 → success=false 并透传 error', async () => {
+        const errorPayload = { error: 'GraphRecursionError', message: 'recursion limit reached' }
+        const stream = makeStreamFromChunks([
+            'event: values\ndata: {"messages":[{"role":"ai","content":"partial"}]}\n\n',
+            `event: error\ndata: ${JSON.stringify(errorPayload)}\n\n`,
+        ])
+
+        const result = await runAndDrainStream(stream)
+        expect(result.success).toBe(false)
+        // error 中应包含 graph 抛错的关键信息
+        expect(result.error).toBeDefined()
+        expect(result.error).toMatch(/recursion|GraphRecursionError/)
+    })
+
+    it('Bug B：error 帧 data 非 JSON object 时也能识别失败（兜底）', async () => {
+        const stream = makeStreamFromChunks([
+            'event: error\ndata: "GraphRecursionError"\n\n',
+        ])
+        const result = await runAndDrainStream(stream)
+        expect(result.success).toBe(false)
+        expect(result.error).toBeDefined()
+    })
 })

@@ -31,7 +31,14 @@ import { runAndDrainStream } from '~~/server/services/agent-platform/subAgent/ru
 
 const schema = z.object({
     intent: z.string().min(1).describe('用户起草意图的简短自然语言描述，例如："起诉某某拖欠工资"'),
-    keywords: z.array(z.string()).optional().describe('从用户表达中抽取的关键词，用于模板召回（建议 1-5 个）'),
+    keywords: z.array(z.string()).optional().describe(
+        '从用户表达中抽取的关键词，用于模板召回（1-5 个）。'
+        + '**优先抽完整文书名**（带"状/书/函/通知/协议"等后缀）——'
+        + '用户说"起草起诉状"应给 ["起诉状"] 而非 ["起诉"]，'
+        + '"写一份答辩状"应给 ["答辩状"] 而非 ["答辩"]，'
+        + '"上诉状"给 ["上诉状"] 而非 ["上诉"]。完整文书名可避免起诉状/答辩状这类反向文书的子串歧义。'
+        + '其次可补充功能/场景词（如 ["劳动合同", "解除"]）。',
+    ),
     category: z.enum(DOCUMENT_CATEGORY_KEYS as unknown as [DocumentCategoryKey, ...DocumentCategoryKey[]])
         .optional()
         .describe('猜测的模板类别（可选）；填写后第一层在该分类内召回，召回不足会自动跨类兜底'),
@@ -169,6 +176,21 @@ export function createTool(context: ToolContext) {
             ])
             if (!finalDraft) {
                 throw new Error('draft_document: 草稿落库后查不到')
+            }
+
+            // 兜底：drainResult.success=true + interrupt=undefined 但 status 仍是
+            // 'drafting'/'filling' 时，意味着 graph 进了 beforeAgent 但 afterAgent
+            // 没把 status 推到终态——上游某条 error 路径漏过 SSE 帧识别。显式标 failed
+            // 并抛错，避免主 Agent 误以为成功而展示空白草稿（上轮 Bug B 假成功路径）。
+            if (finalDraft.status === 'drafting' || finalDraft.status === 'filling') {
+                const { updateDocumentDraftDAO } = await import(
+                    '~~/server/agents/document/documentDraft.dao'
+                )
+                await updateDocumentDraftDAO(draftId, { status: 'failed' }).catch(() => { /* 已经在错误路径，吞 */ })
+                throw new Error(
+                    `draft_document: afterAgent hook 未把草稿写到终态（当前 status=${finalDraft.status}），`
+                    + '可能是子流 graph 异常退出。请重试或联系开发查 documentMain 日志。',
+                )
             }
 
             const draftValues = (finalDraft.values as Record<string, string | null> | null) ?? {}
