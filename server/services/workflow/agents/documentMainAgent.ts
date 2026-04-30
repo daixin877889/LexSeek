@@ -37,6 +37,7 @@ import { getDocumentTemplateDAO } from '../../assistant/document/documentTemplat
 import { buildDraftSchema } from '../../assistant/document/draftSchema.builder'
 import type { Placeholder } from '#shared/types/document'
 import { resolveContextWindow } from '../context/messageCompressor'
+import type { CallbackHandlerMethods } from '@langchain/core/callbacks/base'
 
 /** 文书主代理节点名称 */
 const DOCUMENT_MAIN_NODE_NAME = 'documentMain'
@@ -88,6 +89,28 @@ function buildInitialPromptFromDraft(
     })
 }
 
+/**
+ * 创建 Agent 错误追踪 callback handler。
+ *
+ * Agent 执行过程中遇到未捕获错误时记录日志（含 sessionId / agentName / extra 上下文），
+ * 便于排查问题。非侵入式设计：不干扰正常 streaming。
+ */
+function createErrorTraceHandler(params: {
+    sessionId: string
+    agentName: string
+    extra?: Record<string, unknown>
+}): CallbackHandlerMethods {
+    return {
+        handleChainError: async (err: Error) => {
+            logger.error(`[${params.agentName}] Chain execution error`, {
+                sessionId: params.sessionId,
+                error: err.message,
+                ...(params.extra ?? {}),
+            })
+        },
+    }
+}
+
 export interface DocumentAgentOptions {
     /** 用户 ID */
     userId: number
@@ -97,6 +120,16 @@ export interface DocumentAgentOptions {
     signal?: AbortSignal
     /** 中断恢复命令（若存在则走 resume 分支） */
     command?: unknown
+    /**
+     * 子流事件转发到主流的 callbacks。
+     *
+     * 由 draftDocument.tool 调用时构造（buildSubAgentCallbacks），
+     * 让 documentMain 内部的 LLM/tool 事件旁路 publish 给前端 subThreadsMap
+     * 渲染 SubAgentChainOfThought CoT。
+     *
+     * 与 errorTraceHandler 合并：errorTraceHandler 在前（保留诊断），用户 callbacks 在后。
+     */
+    callbacks?: CallbackHandlerMethods[]
 }
 
 /**
@@ -306,6 +339,14 @@ export async function runDocumentChat(
             encoding: 'text/event-stream',
             recursionLimit: 1000,
             signal,
+            callbacks: [
+                createErrorTraceHandler({
+                    sessionId,
+                    agentName: 'documentMain',
+                    extra: { draftId: draft.id, templateId: template.id, caseId: resolvedCaseId },
+                }),
+                ...(options.callbacks ?? []),
+            ],
         },
     )
 }
