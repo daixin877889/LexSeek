@@ -9,6 +9,7 @@
 import { getCheckpointer } from '~~/server/services/workflow/checkpointer'
 import { mapStoredMessageToChatMessage } from '@langchain/core/messages'
 import { sanitizeName } from './subAgentToolFactory'
+import { getChatThreadState } from './caseMainAgent'
 import { logger } from '#shared/utils/logger'
 
 /**
@@ -55,8 +56,16 @@ export function messageToFlatDict(msg: any): Record<string, unknown> {
 /**
  * 获取线程的最新状态值（用于前端 initialValues）
  *
+ * 同时读取 LangGraph 的 pending interrupts —— 当用户在 interrupt 卡片
+ * （如 template_select / stance_select）暂停期间刷新页面时，前端依赖
+ * `values.__interrupt__` 来恢复卡片渲染（useStreamChat.interruptData
+ * 从 initialValues.__interrupt__ 读取）。
+ *
+ * 不读 interrupts 的话，刷新后用户会看到工具卡片永久 loading（因为
+ * interrupt 帧只在第一次 SSE 流时发送，刷新就丢了）。
+ *
  * @param threadId 线程 ID（即 sessionId）
- * @returns 包含 messages 数组的状态对象，或 null（线程不存在时）
+ * @returns 包含 messages 数组 + __interrupt__（如有）的状态对象，或 null（线程不存在时）
  */
 export async function getThreadValuesService(
     threadId: string
@@ -71,6 +80,10 @@ export async function getThreadValuesService(
 
     const channelValues = tuple.checkpoint.channel_values as Record<string, any>
     const rawMessages = channelValues.messages
+
+    // 读取 pending interrupts —— LangGraph 把活跃 interrupt 挂在
+    // graph.getState().tasks[*].interrupts，与 channel_values 不同存储
+    const pendingInterrupts = await loadPendingInterrupts(threadId)
 
     if (Array.isArray(rawMessages) && rawMessages.length > 0) {
         const flatMessages = rawMessages.map(messageToFlatDict)
@@ -89,10 +102,45 @@ export async function getThreadValuesService(
         return {
             ...channelValues,
             messages: filteredMessages,
+            ...(pendingInterrupts.length > 0 ? { __interrupt__: pendingInterrupts } : {}),
         }
     }
 
-    return channelValues as Record<string, unknown>
+    return {
+        ...(channelValues as Record<string, unknown>),
+        ...(pendingInterrupts.length > 0 ? { __interrupt__: pendingInterrupts } : {}),
+    }
+}
+
+/**
+ * 读取 graph.getState().tasks 中所有 pending interrupts。
+ *
+ * 形态参考 agentWorker.ts 的 interrupt 检测路径：
+ *   threadState.tasks?.at(-1)?.interrupts
+ * 但用户可能 interrupt 后又触发了别的 task，保险起见把所有 task 的 interrupts 合并。
+ *
+ * 出错或无 interrupt 时返回空数组（不阻塞页面加载）。
+ */
+async function loadPendingInterrupts(threadId: string): Promise<unknown[]> {
+    try {
+        const state = await getChatThreadState(threadId) as { tasks?: Array<{ interrupts?: unknown[] }> } | null
+        const tasks = state?.tasks
+        if (!Array.isArray(tasks) || tasks.length === 0) return []
+        const all: unknown[] = []
+        for (const t of tasks) {
+            if (Array.isArray(t?.interrupts) && t.interrupts.length > 0) {
+                all.push(...t.interrupts)
+            }
+        }
+        return all
+    }
+    catch (err) {
+        logger.warn('读取 pending interrupts 失败（不阻塞页面恢复）', {
+            threadId,
+            error: err instanceof Error ? err.message : '未知错误',
+        })
+        return []
+    }
 }
 
 /** 子代理 thread 消息记录 */
