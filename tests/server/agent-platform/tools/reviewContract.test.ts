@@ -276,6 +276,102 @@ describe('callbacks 注入 + 返回 JSON 加 subSessionId', () => {
         expect(result.subSessionId).toBe(passedSubSessionId)
     })
 
+describe('makeStageToCoTAdapter（D2 修复）', () => {
+    /** 拿到 reviewContract.tool 注入到 runContractReviewChat 的 platformEmitCustomEvent */
+    async function getStageEmitter() {
+        (findOssFileByIdDao as any).mockResolvedValue({
+            id: 99, userId: 7, fileName: '采购.docx', fileType: DOCX_MIME,
+        })
+        ;(createContractReviewDAO as any).mockResolvedValue({ id: 555, userId: 7, sessionId: 'sub' })
+        ;(loadContractFullText as any).mockResolvedValue({ paragraphs: ['p1', 'p2'] })
+        ;(detectParties as any).mockResolvedValue({ partyA: null, partyB: null, contractType: null })
+        ;(interrupt as any).mockReturnValueOnce({ stance: 'partyA' })
+        ;(updateContractReviewDAO as any).mockResolvedValue({})
+        ;(runContractReviewChat as any).mockResolvedValue(new ReadableStream())
+        ;(runAndDrainStream as any).mockResolvedValue({ success: true, finalState: {} })
+        ;(listContractRisksDAO as any).mockResolvedValue([])
+
+        const tool = createTool({ userId: 7, sessionId: 'main-sess', runId: 'main-run' })
+        await tool.invoke({ ossFileId: 99 }, { toolCall: { id: 'main-call' } } as any)
+
+        const callArgs = (runContractReviewChat as any).mock.calls.at(-1)
+        const opts = callArgs[1]
+        if (typeof opts.platformEmitCustomEvent !== 'function') {
+            throw new Error('platformEmitCustomEvent not found - adapter may not be injected')
+        }
+        return opts.platformEmitCustomEvent
+    }
+
+    it('stage:running -> publishCustomEvent SUB_AGENT_TOOL_START（toolName 用中文阶段名）', async () => {
+        const emit = await getStageEmitter()
+        ;(publishCustomEvent as any).mockClear()
+        await emit({
+            name: 'contract_review',
+            data: { type: 'stage', stage: 'segment', status: 'running' },
+        })
+        expect(publishCustomEvent).toHaveBeenCalledWith(expect.objectContaining({
+            name: 'sub_agent_tool_start',
+            data: expect.objectContaining({ toolName: expect.any(String) }),
+            metadata: expect.objectContaining({
+                agentName: 'contractReviewMain',
+                parentToolCallId: 'main-call',
+            }),
+        }))
+    })
+
+    it('stage:done -> publishCustomEvent SUB_AGENT_TOOL_END（output 含 totalClauses）', async () => {
+        const emit = await getStageEmitter()
+        ;(publishCustomEvent as any).mockClear()
+        await emit({
+            name: 'contract_review',
+            data: { type: 'stage', stage: 'segment', status: 'done', totalClauses: 30 },
+        })
+        expect(publishCustomEvent).toHaveBeenCalledWith(expect.objectContaining({
+            name: 'sub_agent_tool_end',
+        }))
+    })
+
+    it('progress 事件 -> publishCustomEvent SUB_AGENT_TOKEN（累 [N/M] 文字）', async () => {
+        const emit = await getStageEmitter()
+        ;(publishCustomEvent as any).mockClear()
+        await emit({
+            name: 'contract_review',
+            data: { type: 'progress', current: 5, total: 30 },
+        })
+        expect(publishCustomEvent).toHaveBeenCalledWith(expect.objectContaining({
+            name: 'sub_agent_token',
+            metadata: expect.objectContaining({
+                delta: expect.stringContaining('[5/30]'),
+            }),
+        }))
+    })
+
+    it('progress 事件含 error -> SUB_AGENT_TOKEN delta 含「失败:」描述', async () => {
+        const emit = await getStageEmitter()
+        ;(publishCustomEvent as any).mockClear()
+        await emit({
+            name: 'contract_review',
+            data: { type: 'progress', current: 7, total: 30, error: '模型超时' },
+        })
+        expect(publishCustomEvent).toHaveBeenCalledWith(expect.objectContaining({
+            name: 'sub_agent_token',
+            metadata: expect.objectContaining({
+                delta: expect.stringContaining('失败:'),
+            }),
+        }))
+    })
+
+    it('overview 事件 -> 不转发（结果摘要走 ReviewContractCard 工具卡片，避免 CoT 重复）', async () => {
+        const emit = await getStageEmitter()
+        ;(publishCustomEvent as any).mockClear()
+        await emit({
+            name: 'contract_review',
+            data: { type: 'overview', overview: { highlights: { high: [], medium: [], low: [] }, overall: '完成' } },
+        })
+        expect(publishCustomEvent).not.toHaveBeenCalled()
+    })
+})
+
     it('用户取消（resume=null）时不含 subSessionId（cancelled 路径）', async () => {
         ;(findOssFileByIdDao as any).mockResolvedValue({
             id: 99, userId: 7, fileName: '采购.docx', fileType: DOCX_MIME,

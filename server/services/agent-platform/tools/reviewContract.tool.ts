@@ -33,7 +33,9 @@ import { randomUUID } from 'node:crypto'
 import type { ToolContext, ToolDefinition } from './types'
 import type { Stance } from '#shared/types/contract'
 import { SSECustomEventType } from '#shared/types/agentEvent'
+import type { ContractReviewEvent } from '#shared/types/contract'
 import { publishCustomEvent } from '~~/server/services/agent/agentEventBridge'
+import type { CustomEventEmitter } from '~~/server/services/agent-platform/sse/customEventEmitter'
 import { runAndDrainStream } from '~~/server/services/agent-platform/subAgent/runAndDrain'
 import { buildSubAgentCallbacks } from '~~/server/services/agent-platform/subAgent/buildSubAgentCallbacks'
 
@@ -65,6 +67,108 @@ interface StanceSelectResumeValue {
     stance: Stance
     partyA?: string
     partyB?: string
+}
+
+/**
+ * stage 名 -> 用户可读的中文工具名（CoT 卡显示用）。
+ */
+const STAGE_TOOL_NAMES: Record<string, string> = {
+    segment: '切分合同条款',
+    detect: '识别甲乙方',
+    stance: '确认审查立场',
+    analyze: '逐条分析',
+    summarize: '生成审查摘要',
+}
+
+/**
+ * 构造 stage->CoT 适配器：把 contractReviewMain 发出的 ContractReviewEvent
+ * 转换为 SUB_AGENT_TOOL_* / SUB_AGENT_TOKEN 协议事件。
+ */
+function makeStageToCoTAdapter(opts: {
+    mainRunId: string
+    sessionId: string
+    parentToolCallId: string
+    subThreadId: string
+}): CustomEventEmitter {
+    const { mainRunId, sessionId, parentToolCallId, subThreadId } = opts
+    const meta = { agentName: 'contractReviewMain', threadId: subThreadId, parentToolCallId }
+    const PROGRESS_MSG_ID = 'cr-analyze-progress'
+    const stageId = (stage: string) => `cr-${stage}`
+
+    return async (envelope) => {
+        // 仅处理 contract_review 事件
+        if (envelope.name !== SSECustomEventType.CONTRACT_REVIEW) return
+        const evt = envelope.data as ContractReviewEvent
+
+        if (evt.type === 'stage') {
+            const innerToolCallId = stageId(evt.stage)
+            if (evt.status === 'running') {
+                await publishCustomEvent({
+                    type: 'custom_event',
+                    runId: mainRunId,
+                    sessionId,
+                    name: SSECustomEventType.SUB_AGENT_TOOL_START,
+                    data: {
+                        innerToolCallId,
+                        input: '',
+                        cbRunId: innerToolCallId,
+                        toolName: STAGE_TOOL_NAMES[evt.stage] ?? evt.stage,
+                    },
+                    metadata: meta,
+                }).catch((e: unknown) => {
+                    if (typeof logger !== 'undefined') logger.warn('stage->CoT publish START failed', { e })
+                })
+            } else {
+                // status === 'done'
+                const output: Record<string, unknown> = {}
+                if ('totalClauses' in evt && evt.totalClauses !== undefined) output.totalClauses = evt.totalClauses
+                if ('partyA' in evt && evt.partyA !== undefined) output.partyA = evt.partyA
+                if ('partyB' in evt && evt.partyB !== undefined) output.partyB = evt.partyB
+                if ('contractType' in evt && evt.contractType !== undefined) output.contractType = evt.contractType
+                if ('warnings' in evt && evt.warnings) output.warnings = evt.warnings
+                await publishCustomEvent({
+                    type: 'custom_event',
+                    runId: mainRunId,
+                    sessionId,
+                    name: SSECustomEventType.SUB_AGENT_TOOL_END,
+                    data: {
+                        cbRunId: innerToolCallId,
+                        output: JSON.stringify(output),
+                    },
+                    metadata: meta,
+                }).catch((e: unknown) => {
+                    if (typeof logger !== 'undefined') logger.warn('stage->CoT publish END failed', { e })
+                })
+            }
+        } else if (evt.type === 'progress') {
+            const note = evt.error ? ` 失败: ${evt.error}` : ''
+            await publishCustomEvent({
+                type: 'custom_event',
+                runId: mainRunId,
+                sessionId,
+                name: SSECustomEventType.SUB_AGENT_TOKEN,
+                data: undefined,
+                metadata: { ...meta, messageId: PROGRESS_MSG_ID, delta: `[${evt.current}/${evt.total}]${note} ` },
+            }).catch((e: unknown) => {
+                if (typeof logger !== 'undefined') logger.warn('stage->CoT publish progress failed', { e })
+            })
+        } else if (evt.type === 'risk') {
+            const r = evt.risk
+            const lvl = r.level ?? 'medium'
+            const desc = r.problem ?? r.category ?? '风险'
+            await publishCustomEvent({
+                type: 'custom_event',
+                runId: mainRunId,
+                sessionId,
+                name: SSECustomEventType.SUB_AGENT_TOKEN,
+                data: undefined,
+                metadata: { ...meta, messageId: PROGRESS_MSG_ID, delta: `\n发现 ${lvl} 风险：${desc}` },
+            }).catch((e: unknown) => {
+                if (typeof logger !== 'undefined') logger.warn('stage->CoT publish risk failed', { e })
+            })
+        }
+        // overview / 其他类型：不转发
+    }
 }
 
 export function createTool(context: ToolContext) {
@@ -198,11 +302,18 @@ export function createTool(context: ToolContext) {
                 agentName: 'contractReviewMain',
                 subThreadId: subSessionId,
             })
+            const stageEmitter = makeStageToCoTAdapter({
+                mainRunId: runId,
+                sessionId,
+                parentToolCallId: toolCallId,
+                subThreadId: subSessionId,
+            })
             const stream = await runContractReviewChat(subSessionId, {
                 userId,
                 runId,
                 skipStanceInterrupt: true,
                 callbacks,
+                platformEmitCustomEvent: stageEmitter,
             })
             const drainResult = await runAndDrainStream(stream)
             if (!drainResult.success) {
