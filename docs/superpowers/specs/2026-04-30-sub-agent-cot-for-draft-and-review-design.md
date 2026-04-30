@@ -2,7 +2,16 @@
 
 **日期：** 2026-04-30
 **作者：** AI 协作 + 戴鑫
-**状态：** Draft
+**状态：** Approved（5 维度审查后修订）
+
+## 修订记录
+
+- v2（5check 后）：
+  - 修硬伤：tool 返回 JSON 加 `subSessionId` 字段，extractor 从 JSON 顶层取，不再依赖 href（href 是用户跳转链接，里面的 sessionId 是主 caseMain sessionId，不是子流 sessionId）
+  - 减项：删除 `buildSubAgentCallbacks.test.ts` 独立测试文件——helper 行为通过 `subAgentToolFactory.test.ts` 现有 case + `draftDocument.test.ts` / `reviewContract.test.ts` 新加 case 间接覆盖
+  - 减项：3 项 E2E 合并为 1 项综合链路（跑中→折叠→历史恢复→错误反馈）
+  - 用户决策：保留 `handleChainError` 补漏（"一并修不留问题到后面"）
+  - 用户决策：保留 `buildSubAgentCallbacks` DRY helper
 
 ## 背景与问题
 
@@ -96,9 +105,10 @@ loadSubAgentThreads(sessionId, messages)
    ├── 旧规则：识别 ask_*_expert tool_call → ${sessionId}_sub_${safeName}
    └── 新规则：识别 draft_document / review_contract tool_call
         ├── 找配对 ToolMessage by tool_call.id
-        ├── parse content JSON：拿 .href
-        ├── 从 href query string 抠 sessionId（draftDocument.tool.ts:204 已生成此格式）
-        ├── checkpointer.getTuple({ thread_id: sessionId }) → channel_values.messages
+        ├── parse content JSON：从顶层拿 subSessionId（tool 返回时显式带）
+        │     ⚠️ 不能从 href 抠：href 里 sessionId 是主 caseMain sessionId，
+        │        给前端跳转用，跟子流 thread_id 是两回事
+        ├── checkpointer.getTuple({ thread_id: subSessionId }) → channel_values.messages
         └── 加入 subAgentThreads 数组返回
    ↓
 前端 useStreamChat 初始化时灌入 subThreadsMap
@@ -249,7 +259,7 @@ export async function runDocumentChat(...): Promise<ReadableStream<Uint8Array>> 
 
 `server/services/workflow/agents/contractReviewMainAgent.ts` 同款改造。
 
-### 4. `draftDocument.tool.ts` 构造并注入 callbacks
+### 4. `draftDocument.tool.ts` 构造并注入 callbacks + 返回 JSON 加 subSessionId
 
 ```typescript
 // 在 createDraftService 拿到 subSessionId 之后
@@ -269,9 +279,25 @@ const stream = await runDocumentChat(subSessionId, undefined, {
     signal: undefined,
     callbacks,  // ← 新加
 })
+
+// ...drain + DRAFT_SAVED publish 等已有逻辑
+
+// 返回 JSON 多加一个 subSessionId 字段（历史恢复时用）
+return JSON.stringify({
+    success: true,
+    draftId,
+    title,
+    summary,
+    href,                       // 用户跳转链接，里面 sessionId 是主流（不变）
+    subSessionId: subSessionId, // ← 新加：documentMain 子 thread_id，给 loadSubAgentThreads 用
+    templateId,
+    templateName: template?.name ?? null,
+    filledFieldCount,
+    totalFields,
+})
 ```
 
-`reviewContract.tool.ts` 同款改造，agentName='contractReviewMain'，subThreadId 来自 createReviewService。
+`reviewContract.tool.ts` 同款改造：agentName='contractReviewMain'，subThreadId 来自 createReviewService，**返回 JSON 也加 `subSessionId`**。
 
 ### 5. `loadSubAgentThreads` 扩展历史恢复
 
@@ -308,11 +334,12 @@ export async function loadSubAgentThreads(
                 agentName = safeName
             }
             else if (toolName === 'draft_document' || toolName === 'review_contract') {
-                // 新逻辑：从配对 ToolMessage.content JSON.href 抠 sessionId
+                // 新逻辑：从配对 ToolMessage.content JSON 顶层 subSessionId 字段拿
+                // （href 里的 sessionId 是主 caseMain sessionId 不能用）
                 const result = toolResultMap.get(toolCall.id as string)
-                subThreadId = extractSubSessionIdFromHref(result)
+                subThreadId = extractSubSessionIdFromToolResult(result)
                 agentName = toolName === 'draft_document' ? 'documentMain' : 'contractReviewMain'
-                if (!subThreadId) continue  // tool 取消 / 失败时无 href，跳过
+                if (!subThreadId) continue  // tool 取消 / 失败时返回 JSON 不含 subSessionId，跳过
             }
             else {
                 continue
@@ -351,16 +378,24 @@ export async function loadSubAgentThreads(
     return subAgentThreads
 }
 
-/** 从 ToolMessage.content（JSON 字符串）的 href 中抽 sessionId query 参数 */
-function extractSubSessionIdFromHref(toolMsg: Record<string, unknown> | undefined): string | null {
+/**
+ * 从 ToolMessage.content（JSON 字符串）顶层 subSessionId 字段读子 thread id。
+ *
+ * draftDocument.tool / reviewContract.tool 在返回 JSON 时显式带这个字段：
+ *   { success: true, draftId, ..., subSessionId: '<documentMain thread_id>' }
+ *
+ * 不能用 href 里的 sessionId——那是 UI 跳转链接里用户回到主对话的 sessionId（caseMain），
+ * 跟子流 thread_id 是两回事。tool 取消 / 失败时返回 JSON 不含 subSessionId，返回 null 跳过。
+ */
+function extractSubSessionIdFromToolResult(toolMsg: Record<string, unknown> | undefined): string | null {
     if (!toolMsg) return null
     const content = toolMsg.content
     if (typeof content !== 'string') return null
     try {
-        const parsed = JSON.parse(content) as { href?: string }
-        if (typeof parsed.href !== 'string') return null
-        const m = parsed.href.match(/[?&]sessionId=([^&]+)/)
-        return m ? decodeURIComponent(m[1]) : null
+        const parsed = JSON.parse(content) as { subSessionId?: unknown }
+        return typeof parsed.subSessionId === 'string' && parsed.subSessionId.length > 0
+            ? parsed.subSessionId
+            : null
     }
     catch {
         return null
@@ -469,21 +504,17 @@ documentMain graph 抛错 → handleChainError → publishStatusChange status='f
 
 ### 后端
 
-**A. `buildSubAgentCallbacks` 单测**（新文件 `tests/server/agent-platform/subAgent/buildSubAgentCallbacks.test.ts`）
+**A. `buildSubAgentCallbacks` 通过既有调用方间接覆盖**（不为 helper 单独建测试文件）
 
-- handleLLMNewToken → publishCustomEvent SUB_AGENT_TOKEN with metadata.delta
-- handleToolStart/End → 对应事件 + metadata 完整
-- handleChainEnd（root only）→ publishStatusChange completed
-- handleChainEnd（cbParentRunId 非 undefined）→ 不发事件
-- handleChainError → publishStatusChange failed + error
-- 任一 publish 抛错时不向上传播（`.catch` 兜底）
+- 既有 `tests/server/agent-platform/subAgent/subAgentToolFactory.test.ts` 跑通 = DRY 替换等价（含 handleLLMNewToken / handleToolStart/End / handleChainEnd 路径）
+- 新加调用方 `tests/server/agent-platform/tools/draftDocument.test.ts` / `reviewContract.test.ts` 加 case 验证 callbacks 注入正确 + handleChainError 路径（用 mock LangChain handler 触发 chain error → 验证 publishStatusChange status='failed'）
 
 **B. `loadSubAgentThreads` 扩展单测**（扩展 `tests/server/workflow/threadState.test.ts`）
 
-- draft_document tool_call + 配对 ToolMessage 含合法 href → 加载子 thread
-- draft_document tool_call + ToolMessage 无 href（cancelled）→ 跳过
+- draft_document tool_call + 配对 ToolMessage JSON 含 subSessionId → 加载子 thread
+- draft_document tool_call + ToolMessage JSON 无 subSessionId（cancelled）→ 跳过
 - draft_document tool_call **无**配对 ToolMessage（interrupt 状态）→ 跳过
-- href 含 sessionId 但 checkpointer.getTuple 返回 null → catch 跳过，不影响其他 toolCall
+- ToolMessage 含 subSessionId 但 checkpointer.getTuple 返回 null → catch 跳过，不影响其他 toolCall
 - 混合 ask_*_expert + draft_document → 两套规则并存，结果都返回
 
 **C. `runDocumentChat` 透传 callbacks 单测**（扩展 `tests/server/workflow/agents/documentMainAgent.test.ts`）
@@ -491,13 +522,12 @@ documentMain graph 抛错 → handleChainError → publishStatusChange status='f
 - 不传 callbacks（向后兼容）→ stream 正常
 - 传 callbacks → mock LangChain agent.stream 验证选项含 callbacks
 
-**D. `extractSubSessionIdFromHref` 纯函数单测**（含在 threadState.test.ts）
+**D. `extractSubSessionIdFromToolResult` 纯函数单测**（含在 threadState.test.ts）
 
-- 标准 href → 返回 sessionId
-- href 不含 sessionId 参数 → null
+- ToolMessage JSON 含 subSessionId（合法字符串）→ 返回该 id
+- ToolMessage JSON 无 subSessionId 字段 → null
 - ToolMessage.content 不是合法 JSON → null（catch JSON.parse）
-- ToolMessage.content 是 JSON 但无 href 字段 → null
-- href 含 URL-encoded sessionId → 正确 decode
+- ToolMessage 不存在（toolResultMap 没命中）→ null
 
 ### 前端
 
@@ -509,17 +539,18 @@ documentMain graph 抛错 → handleChainError → publishStatusChange status='f
 - toolCall.name='ask_caseInfoCheck_expert' → 走 legacy 分支（回归保护）
 - isInterruptToolCardCall 优先级最高：active 状态下不被 SUB_AGENT_LIKE 抢渲染
 
-**F. `subAgentToolFactory` DRY 后等价回归**
+**F. `subAgentToolFactory` DRY 后等价回归 + handleChainError 新增**
 
-- 现有 `tests/server/agent-platform/subAgent/subAgentToolFactory.test.ts` 跑通（不改测试，验证替换 callbacks 实现等价）
+- 现有 `subAgentToolFactory.test.ts` 跑通（不改测试，验证替换 callbacks 实现等价）
+- 加 1 case：mock 子代理 chain 抛错 → 验证 publishStatusChange status='failed' 被调用（handleChainError 旧版漏的，本次 DRY 时补上）
 
-### E2E（chrome-devtools）
+### E2E（chrome-devtools，1 项综合链路）
 
-**G. 跑中实时反馈**：在小索发"起草起诉状" → 选模板 → 跑中（30 秒内）UI 显示 SubAgentChainOfThought 含 thinking + tool calls 滚动；跑完 1 秒后 CoT 折叠，DraftDocumentCard 出现"已完成起草《...》X/Y 字段"。
-
-**H. 历史恢复**：跑完后刷新 → SubAgentChainOfThought 回放完整 messages（thinking + 工具调用历史）+ 自动折叠 + 下方 DraftDocumentCard。
-
-**I. 错误恢复**：触发子流抛错（如禁用 documentMain 的 API key）→ CoT 显示 isFailed 红徽章 + failureReason，不自动折叠；DraftDocumentCard 显示失败态。
+**G. 综合链路验收**：在小索发"起草起诉状" → 选模板 →
+1. 跑中：CoT 卡片显示 thinking + search/检索 tool 调用
+2. 跑完 1 秒：CoT 折叠成一行，下方 DraftDocumentCard 显示"已完成起草《...》X/Y 字段"
+3. **F5 刷新**：CoT 历史回放（含 thinking）+ 自动折叠 + DraftDocumentCard 同时存在
+4. 触发错误（手动 kill documentMain 的 API key 临时模拟）：CoT 红徽章 + failureReason，不折叠；上方主流不被影响（caseMain 仍能继续对话）
 
 ## 改动总览
 
