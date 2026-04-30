@@ -9,7 +9,6 @@
 import { getCheckpointer } from '~~/server/services/workflow/checkpointer'
 import { mapStoredMessageToChatMessage } from '@langchain/core/messages'
 import { sanitizeName } from './subAgentToolFactory'
-import { getChatThreadState } from './caseMainAgent'
 import { logger } from '#shared/utils/logger'
 
 /**
@@ -81,9 +80,8 @@ export async function getThreadValuesService(
     const channelValues = tuple.checkpoint.channel_values as Record<string, any>
     const rawMessages = channelValues.messages
 
-    // 读取 pending interrupts —— LangGraph 把活跃 interrupt 挂在
-    // graph.getState().tasks[*].interrupts，与 channel_values 不同存储
-    const pendingInterrupts = await loadPendingInterrupts(threadId)
+    // 从同一 tuple 的 pendingWrites 抽 __interrupt__ —— 无需二次查 DB
+    const pendingInterrupts = extractPendingInterrupts(tuple.pendingWrites)
 
     if (Array.isArray(rawMessages) && rawMessages.length > 0) {
         const flatMessages = rawMessages.map(messageToFlatDict)
@@ -113,34 +111,36 @@ export async function getThreadValuesService(
 }
 
 /**
- * 读取 graph.getState().tasks 中所有 pending interrupts。
+ * 读取当前 head checkpoint 的 pending __interrupt__ writes。
  *
- * 形态参考 agentWorker.ts 的 interrupt 检测路径：
- *   threadState.tasks?.at(-1)?.interrupts
- * 但用户可能 interrupt 后又触发了别的 task，保险起见把所有 task 的 interrupts 合并。
+ * 不依赖 graph.getState().tasks（旧实现）—— 那条路径用 dummy createAgent
+ * + getState() 还原 tasks，但 LangGraph 的 _prepareSingleTask 算法依赖 graph
+ * 的 processes/channels 拓扑来识别 task。caseMain 等 agent 带大量 middleware
+ * 和 tools，dummy createAgent 只有 model+checkpointer 拓扑完全不同，
+ * tasks.interrupts 几乎总是空——导致 worker 漏判 INTERRUPTED 把 run 错标 completed，
+ * 前端刷新永远拿不到 interrupt 数据（线上"刷新后模板卡片消失"的真根因）。
+ *
+ * 改用 PostgresSaver.getTuple() 拿 raw pending_writes：LangGraph 在 task
+ * interrupt 时会把 INTERRUPT channel 的 value 写入 checkpoint_writes 表，
+ * pendingWrites 形态 `Array<[task_id, channel, value]>` —— 直接过滤
+ * channel === '__interrupt__' 即可，与 graph schema 无关。
  *
  * 出错或无 interrupt 时返回空数组（不阻塞页面加载）。
  */
-async function loadPendingInterrupts(threadId: string): Promise<unknown[]> {
-    try {
-        const state = await getChatThreadState(threadId) as { tasks?: Array<{ interrupts?: unknown[] }> } | null
-        const tasks = state?.tasks
-        if (!Array.isArray(tasks) || tasks.length === 0) return []
-        const all: unknown[] = []
-        for (const t of tasks) {
-            if (Array.isArray(t?.interrupts) && t.interrupts.length > 0) {
-                all.push(...t.interrupts)
-            }
+function extractPendingInterrupts(pendingWrites: unknown): unknown[] {
+    if (!Array.isArray(pendingWrites) || pendingWrites.length === 0) return []
+    // pendingWrites: Array<[task_id, channel, value]>
+    // LangGraph constants.INTERRUPT === '__interrupt__'
+    const interrupts: unknown[] = []
+    for (const write of pendingWrites) {
+        if (!Array.isArray(write) || write.length < 3) continue
+        const channel = write[1]
+        const value = write[2]
+        if (channel === '__interrupt__' && value != null) {
+            interrupts.push(value)
         }
-        return all
     }
-    catch (err) {
-        logger.warn('读取 pending interrupts 失败（不阻塞页面恢复）', {
-            threadId,
-            error: err instanceof Error ? err.message : '未知错误',
-        })
-        return []
-    }
+    return interrupts
 }
 
 /** 子代理 thread 消息记录 */

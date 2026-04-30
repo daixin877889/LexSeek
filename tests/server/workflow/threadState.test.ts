@@ -20,17 +20,11 @@ vi.mock('~~/server/services/workflow/agents/subAgentToolFactory', () => ({
     sanitizeName: (name: string) => name.replace(/[^a-zA-Z0-9_]/g, '_'),
 }))
 
-// Mock getChatThreadState（用于读 pending interrupts）
-vi.mock('~~/server/services/workflow/agents/caseMainAgent', () => ({
-    getChatThreadState: vi.fn().mockResolvedValue({ tasks: [] }),
-}))
-
 vi.stubGlobal('logger', { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })
 
 import { messageToFlatDict, getThreadValuesService, loadSubAgentThreads } from '~~/server/services/workflow/agents/threadState'
 import { getCheckpointer } from '~~/server/services/workflow/checkpointer'
 import { mapStoredMessageToChatMessage } from '@langchain/core/messages'
-import { getChatThreadState } from '~~/server/services/workflow/agents/caseMainAgent'
 
 describe('messageToFlatDict', () => {
     it('BaseMessage 实例转为平坦字典', () => {
@@ -225,7 +219,17 @@ describe('getThreadValuesService', () => {
     // 真实 bug 修复：用户在 template_select interrupt 卡片暂停时刷新页面，
     // 卡片消失。前端 useStreamChat.interruptData 从 initialValues.__interrupt__
     // 读取——后端必须在恢复 thread 时附带 pending interrupts。
-    it('有 pending interrupt 时 __interrupt__ 字段会附加到返回值', async () => {
+    // 直接从 PostgresSaver.getTuple().pendingWrites 抽 __interrupt__ channel，
+    // 不依赖 dummy graph 的 getState().tasks（那条路径 schema 不一致拿不到数据）。
+    it('pendingWrites 含 __interrupt__ channel → 附加到返回值', async () => {
+        const interruptValue = {
+            id: 'f4e2538d',
+            value: {
+                type: 'template_select',
+                toolCallId: 'call_x',
+                recommendations: [{ id: 1, name: '民事起诉状' }],
+            },
+        }
         const mockCheckpointer = {
             getTuple: vi.fn().mockResolvedValue({
                 checkpoint: {
@@ -236,23 +240,14 @@ describe('getThreadValuesService', () => {
                         ],
                     },
                 },
+                // pendingWrites: Array<[task_id, channel, value]>
+                pendingWrites: [
+                    ['task-1', '__interrupt__', interruptValue],
+                    ['task-2', 'messages', { type: 'ai', content: 'something else' }],
+                ],
             }),
         }
         vi.mocked(getCheckpointer).mockResolvedValue(mockCheckpointer as any)
-        // 模拟用户卡在模板选择 interrupt
-        const interruptValue = {
-            value: {
-                type: 'template_select',
-                toolCallId: 'call_x',
-                recommendations: [{ id: 1, name: '民事起诉状' }],
-            },
-            when: 'during',
-            resumable: true,
-            ns: ['root'],
-        }
-        vi.mocked(getChatThreadState).mockResolvedValue({
-            tasks: [{ interrupts: [interruptValue] }],
-        } as any)
 
         const result = await getThreadValuesService('test-thread')
 
@@ -262,7 +257,7 @@ describe('getThreadValuesService', () => {
         expect((result as any).__interrupt__[0]).toEqual(interruptValue)
     })
 
-    it('无 pending interrupt 时不附加 __interrupt__ 字段', async () => {
+    it('pendingWrites 无 __interrupt__ channel → 不附加 __interrupt__ 字段', async () => {
         const mockCheckpointer = {
             getTuple: vi.fn().mockResolvedValue({
                 checkpoint: {
@@ -270,16 +265,18 @@ describe('getThreadValuesService', () => {
                         messages: [{ type: 'human', content: 'hi', id: '1' }],
                     },
                 },
+                pendingWrites: [
+                    ['task-1', '__resume__', { value: 'resumed' }],
+                ],
             }),
         }
         vi.mocked(getCheckpointer).mockResolvedValue(mockCheckpointer as any)
-        vi.mocked(getChatThreadState).mockResolvedValue({ tasks: [] } as any)
 
         const result = await getThreadValuesService('test-thread')
         expect(result).not.toHaveProperty('__interrupt__')
     })
 
-    it('多个 task 含 interrupt 时合并到一个 __interrupt__ 数组', async () => {
+    it('多个 task 含 __interrupt__ 时合并到 __interrupt__ 数组', async () => {
         const mockCheckpointer = {
             getTuple: vi.fn().mockResolvedValue({
                 checkpoint: {
@@ -287,22 +284,19 @@ describe('getThreadValuesService', () => {
                         messages: [{ type: 'human', content: 'q', id: '1' }],
                     },
                 },
+                pendingWrites: [
+                    ['task-a', '__interrupt__', { value: { type: 'a' } }],
+                    ['task-b', '__interrupt__', { value: { type: 'b' } }],
+                ],
             }),
         }
         vi.mocked(getCheckpointer).mockResolvedValue(mockCheckpointer as any)
-        vi.mocked(getChatThreadState).mockResolvedValue({
-            tasks: [
-                { interrupts: [{ value: { type: 'a' } }] },
-                { interrupts: [] },
-                { interrupts: [{ value: { type: 'b' } }] },
-            ],
-        } as any)
 
         const result = await getThreadValuesService('test-thread')
         expect((result as any).__interrupt__).toHaveLength(2)
     })
 
-    it('getChatThreadState 抛错时降级为无 interrupt（不阻塞页面恢复）', async () => {
+    it('pendingWrites 是空数组或非数组时不附加 __interrupt__（不影响 messages 返回）', async () => {
         const mockCheckpointer = {
             getTuple: vi.fn().mockResolvedValue({
                 checkpoint: {
@@ -310,15 +304,14 @@ describe('getThreadValuesService', () => {
                         messages: [{ type: 'human', content: 'q', id: '1' }],
                     },
                 },
+                pendingWrites: [],  // 没有 pending writes
             }),
         }
         vi.mocked(getCheckpointer).mockResolvedValue(mockCheckpointer as any)
-        vi.mocked(getChatThreadState).mockRejectedValue(new Error('thread state 读取失败'))
 
         const result = await getThreadValuesService('test-thread')
         expect(result).not.toBeNull()
         expect(result).not.toHaveProperty('__interrupt__')
-        // messages 仍然能正常返回
         expect((result as any).messages).toHaveLength(1)
     })
 })
