@@ -130,13 +130,27 @@ export async function getThreadValuesService(
 function extractPendingInterrupts(pendingWrites: unknown): unknown[] {
     if (!Array.isArray(pendingWrites) || pendingWrites.length === 0) return []
     // pendingWrites: Array<[task_id, channel, value]>
-    // LangGraph constants.INTERRUPT === '__interrupt__'
+    // LangGraph constants.INTERRUPT === '__interrupt__'，RESUME === '__resume__'
+
+    // 第一遍：收集所有已 resume 的 task_id
+    // 用户点"使用此模板"后，LangGraph 把 resume 命令以 __resume__ channel 写到
+    // 同一个 task。如果只看 __interrupt__ 不看 __resume__，会把已 resolved 的
+    // interrupt 误认为 active，导致刷新时重新渲染选择卡片（线上 bug：用户点完
+    // 模板、graph 在跑下一步时刷新，卡片状态还原成 active）。
+    const resumedTasks = new Set<string>()
+    for (const write of pendingWrites) {
+        if (!Array.isArray(write) || write.length < 3) continue
+        if (write[1] === '__resume__') resumedTasks.add(String(write[0]))
+    }
+
+    // 第二遍：只返回未被 resume 的 interrupt
     const interrupts: unknown[] = []
     for (const write of pendingWrites) {
         if (!Array.isArray(write) || write.length < 3) continue
+        const taskId = String(write[0])
         const channel = write[1]
         const value = write[2]
-        if (channel === '__interrupt__' && value != null) {
+        if (channel === '__interrupt__' && value != null && !resumedTasks.has(taskId)) {
             interrupts.push(value)
         }
     }

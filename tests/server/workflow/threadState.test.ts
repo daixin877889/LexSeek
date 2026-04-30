@@ -296,6 +296,51 @@ describe('getThreadValuesService', () => {
         expect((result as any).__interrupt__).toHaveLength(2)
     })
 
+    // Bug 修复：用户点"使用此模板"resume 后 graph 在跑下一步时刷新，head
+    // checkpoint pendingWrites 同时含 __interrupt__ 和 __resume__（同 task_id），
+    // 旧逻辑把已 resume 的 interrupt 误认 active 重渲卡片
+    it('同 task_id 同时有 __interrupt__ 和 __resume__ → 视为已 resolved 不返回', async () => {
+        const mockCheckpointer = {
+            getTuple: vi.fn().mockResolvedValue({
+                checkpoint: {
+                    channel_values: {
+                        messages: [{ type: 'human', content: 'q', id: '1' }],
+                    },
+                },
+                pendingWrites: [
+                    ['task-x', '__interrupt__', { value: { type: 'template_select' } }],
+                    ['task-x', '__resume__', { templateId: 1 }],  // 已 resume 同一个 task
+                ],
+            }),
+        }
+        vi.mocked(getCheckpointer).mockResolvedValue(mockCheckpointer as any)
+
+        const result = await getThreadValuesService('test-thread')
+        expect(result).not.toHaveProperty('__interrupt__')
+    })
+
+    it('多 task：只过滤掉已 resume 的，未 resume 的仍返回', async () => {
+        const mockCheckpointer = {
+            getTuple: vi.fn().mockResolvedValue({
+                checkpoint: {
+                    channel_values: {
+                        messages: [{ type: 'human', content: 'q', id: '1' }],
+                    },
+                },
+                pendingWrites: [
+                    ['task-old', '__interrupt__', { value: { type: 'old', resolved: true } }],
+                    ['task-old', '__resume__', { ok: true }],
+                    ['task-new', '__interrupt__', { value: { type: 'new', active: true } }],  // 未 resume
+                ],
+            }),
+        }
+        vi.mocked(getCheckpointer).mockResolvedValue(mockCheckpointer as any)
+
+        const result = await getThreadValuesService('test-thread')
+        expect((result as any).__interrupt__).toHaveLength(1)
+        expect((result as any).__interrupt__[0]).toEqual({ value: { type: 'new', active: true } })
+    })
+
     it('pendingWrites 是空数组或非数组时不附加 __interrupt__（不影响 messages 返回）', async () => {
         const mockCheckpointer = {
             getTuple: vi.fn().mockResolvedValue({
