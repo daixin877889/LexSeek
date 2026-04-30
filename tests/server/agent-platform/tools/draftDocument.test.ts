@@ -179,4 +179,28 @@ describe('draft_document tool', () => {
         // 兜底：tool 应主动把 draft 标 failed，避免 status 卡 filling
         expect(updateDocumentDraftDAO).toHaveBeenCalledWith(101, { status: 'failed' })
     })
+
+    it('drain 成功但 draft.status=failed（hook 内 catch 写 failed）→ 抛错防止假成功', async () => {
+        ;(recommendDocumentTemplatesService as any).mockResolvedValue({
+            items: [], total: 0, usedKeywords: [], fallbackToRecency: false,
+        })
+        ;(interrupt as any).mockReturnValueOnce({ templateId: 11 })
+        ;(createDraftService as any).mockResolvedValue({ draftId: 101, sessionId: 'sub' })
+        ;(runDocumentChat as any).mockResolvedValue(new ReadableStream())
+        ;(runAndDrainStream as any).mockResolvedValue({ success: true, finalState: {} })
+        // hook 已经把 status 写成 failed（structuredResponse 缺失 + 所有 fallback 都失败）
+        ;(getDocumentDraftDAO as any).mockResolvedValue({
+            id: 101,
+            title: '民事起诉状',
+            status: 'failed',
+            values: {},
+        })
+        ;(getDocumentTemplateDAO as any).mockResolvedValue({
+            id: 11, name: '起诉状', placeholders: [{ key: 'a' }],
+        })
+
+        const tool = createTool(ctx)
+        // 不应再返回"已建好空白草稿"假成功——必须显式抛错
+        await expect(tool.invoke(baseInput, cfg as any)).rejects.toThrow(/起草失败.*status=failed|toolStrategy/)
+    })
 })

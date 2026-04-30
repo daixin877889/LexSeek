@@ -184,10 +184,8 @@ export function createTool(context: ToolContext) {
                 throw new Error('draft_document: 草稿落库后查不到')
             }
 
-            // 兜底：drainResult.success=true + interrupt=undefined 但 status 仍是
-            // 'drafting'/'filling' 时，意味着 graph 进了 beforeAgent 但 afterAgent
-            // 没把 status 推到终态——上游某条 error 路径漏过 SSE 帧识别。显式标 failed
-            // 并抛错，避免主 Agent 误以为成功而展示空白草稿（上轮 Bug B 假成功路径）。
+            // 兜底 1：status 仍是 'drafting'/'filling' → graph 进了 beforeAgent 但
+            // afterAgent 没跑（上游某条 error 路径漏过 SSE 帧识别）。
             if (finalDraft.status === 'drafting' || finalDraft.status === 'filling') {
                 const { updateDocumentDraftDAO } = await import(
                     '~~/server/agents/document/documentDraft.dao'
@@ -196,6 +194,20 @@ export function createTool(context: ToolContext) {
                 throw new Error(
                     `draft_document: afterAgent hook 未把草稿写到终态（当前 status=${finalDraft.status}），`
                     + '可能是子流 graph 异常退出。请重试或联系开发查 documentMain 日志。',
+                )
+            }
+
+            // 兜底 2：status 已是 'failed' → afterAgent hook 内部走了失败分支
+            //   - try 内 `if (!structured)` 命中：LLM 没产生 structuredResponse 也无消息体可解析
+            //   - 或 catch 兜底：try 内任意步骤抛错被捕获写 failed
+            // 旧版只检查 drafting/filling 漏掉这条路径——hook catch 吞了错误，graph
+            // 自然 done，stream 没有 error 帧 → tool 误认为成功 → 主 Agent 显示
+            // "已完成起草《...》摘要：已建好空白草稿，等待用户补充信息" 假成功。
+            if (finalDraft.status === 'failed') {
+                throw new Error(
+                    'draft_document: 文书 Agent 起草失败（afterAgent hook 写了 status=failed）。'
+                    + '常见原因：LLM 未按 toolStrategy 调结构化输出工具，或返回的 JSON 不符 schema。'
+                    + '请重试，若多次失败请检查 documentMain 节点 model 是否支持 tool calling。',
                 )
             }
 
