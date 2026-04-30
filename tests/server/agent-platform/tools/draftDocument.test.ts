@@ -204,3 +204,59 @@ describe('draft_document tool', () => {
         await expect(tool.invoke(baseInput, cfg as any)).rejects.toThrow(/起草失败.*status=failed|toolStrategy/)
     })
 })
+
+describe('callbacks 注入 + 返回 JSON 含 subSessionId', () => {
+    it('runDocumentChat 接收带 buildSubAgentCallbacks 构造的 callbacks（含 5 个 handler）', async () => {
+        ;(recommendDocumentTemplatesService as any).mockResolvedValue({ items: [{ templateId: 11 }], total: 12, usedKeywords: ['起诉状'], fallbackToRecency: false })
+        ;(interrupt as any).mockReturnValueOnce({ templateId: 11 })
+        ;(createDraftService as any).mockResolvedValue({ draftId: 101, sessionId: 'sub-sess-101' })
+        ;(runDocumentChat as any).mockResolvedValue(new ReadableStream())
+        ;(runAndDrainStream as any).mockResolvedValue({ success: true, finalState: {} })
+        ;(getDocumentDraftDAO as any).mockResolvedValue({ id: 101, title: '起诉状', status: 'ready', values: {} })
+        ;(getDocumentTemplateDAO as any).mockResolvedValue({ id: 11, name: '起诉状', placeholders: [] })
+
+        const tool = createTool({ ...ctx, runId: 'main-run-1' })
+        await tool.invoke({ intent: 'x' }, { toolCall: { id: 'main-call-1' } } as any)
+
+        const callArgs = (runDocumentChat as any).mock.calls.at(-1)
+        expect(callArgs[0]).toBe('sub-sess-101')
+        expect(callArgs[1]).toBeUndefined()
+        const opts = callArgs[2]
+        expect(Array.isArray(opts.callbacks)).toBe(true)
+        expect(opts.callbacks).toHaveLength(1)
+        const h = opts.callbacks[0]
+        expect(typeof h.handleLLMNewToken).toBe('function')
+        expect(typeof h.handleToolStart).toBe('function')
+        expect(typeof h.handleToolEnd).toBe('function')
+        expect(typeof h.handleChainEnd).toBe('function')
+        expect(typeof h.handleChainError).toBe('function')
+    })
+
+    it('成功返回 JSON 含 subSessionId 字段（值 = createDraftService 的 sessionId）', async () => {
+        ;(recommendDocumentTemplatesService as any).mockResolvedValue({ items: [{ templateId: 11 }], total: 1, usedKeywords: ['起诉状'], fallbackToRecency: false })
+        ;(interrupt as any).mockReturnValueOnce({ templateId: 11 })
+        ;(createDraftService as any).mockResolvedValue({ draftId: 101, sessionId: 'doc-sub-xyz' })
+        ;(runDocumentChat as any).mockResolvedValue(new ReadableStream())
+        ;(runAndDrainStream as any).mockResolvedValue({ success: true, finalState: {} })
+        ;(getDocumentDraftDAO as any).mockResolvedValue({ id: 101, title: '起诉状', status: 'ready', values: {} })
+        ;(getDocumentTemplateDAO as any).mockResolvedValue({ id: 11, name: '起诉状', placeholders: [] })
+
+        const tool = createTool(ctx)
+        const raw: any = await tool.invoke({ intent: 'x' }, cfg as any)
+        const result = JSON.parse(typeof raw === 'string' ? raw : raw.content)
+        expect(result.success).toBe(true)
+        expect(result.subSessionId).toBe('doc-sub-xyz')
+        expect(result.draftId).toBe(101)
+    })
+
+    it('用户取消时返回 JSON 不含 subSessionId（cancelled 路径）', async () => {
+        ;(recommendDocumentTemplatesService as any).mockResolvedValue({ items: [], total: 0, usedKeywords: [], fallbackToRecency: false })
+        ;(interrupt as any).mockReturnValueOnce(null)
+        const tool = createTool(ctx)
+        const raw: any = await tool.invoke({ intent: 'x' }, cfg as any)
+        const result = JSON.parse(typeof raw === 'string' ? raw : raw.content)
+        expect(result.success).toBe(false)
+        expect(result.cancelled).toBe(true)
+        expect(result.subSessionId).toBeUndefined()
+    })
+})
