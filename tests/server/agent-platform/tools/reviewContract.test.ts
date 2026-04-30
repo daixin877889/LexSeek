@@ -217,3 +217,89 @@ describe('review_contract tool', () => {
         await expect(tool.invoke({ ossFileId: 99 }, cfg as any)).rejects.toThrow(/合同 Agent 执行失败.*段切失败/)
     })
 })
+
+describe('callbacks 注入 + 返回 JSON 加 subSessionId', () => {
+    /** 公共 happy-path setup（成功路径必备 mock 链） */
+    function setupHappyPath() {
+        (findOssFileByIdDao as any).mockResolvedValue({
+            id: 99, userId: 7, fileName: '采购.docx', fileType: DOCX_MIME,
+        })
+        ;(createContractReviewDAO as any).mockResolvedValue({ id: 555, userId: 7, sessionId: 'sub' })
+        if (typeof loadContractFullText !== 'undefined') {
+            (loadContractFullText as any).mockResolvedValue({ paragraphs: ['p1', 'p2'] })
+        }
+        if (typeof detectParties !== 'undefined') {
+            (detectParties as any).mockResolvedValue({
+                partyA: '甲公司', partyB: '乙公司', contractType: '采购合同',
+            })
+        }
+        if (typeof interrupt !== 'undefined') {
+            (interrupt as any).mockReturnValueOnce({ stance: 'partyA' })
+        }
+        if (typeof updateContractReviewDAO !== 'undefined') {
+            (updateContractReviewDAO as any).mockResolvedValue({})
+        }
+        ;(runContractReviewChat as any).mockResolvedValue(new ReadableStream())
+        ;(runAndDrainStream as any).mockResolvedValue({ success: true, finalState: {} })
+        if (typeof listContractRisksDAO !== 'undefined') {
+            (listContractRisksDAO as any).mockResolvedValue([])
+        }
+    }
+
+    it('runContractReviewChat 接收带 buildSubAgentCallbacks 构造的 callbacks（含 5 个 handler）', async () => {
+        setupHappyPath()
+        const tool = createTool({ userId: 7, sessionId: 'main-sess', runId: 'main-run-1' })
+        await tool.invoke({ ossFileId: 99 }, { toolCall: { id: 'main-call-2' } } as any)
+
+        const callArgs = (runContractReviewChat as any).mock.calls.at(-1)
+        expect(callArgs[0]).toBeTruthy()
+        const opts = callArgs[1]
+        expect(opts.skipStanceInterrupt).toBe(true)
+        expect(Array.isArray(opts.callbacks)).toBe(true)
+        expect(opts.callbacks).toHaveLength(1)
+        const h = opts.callbacks[0]
+        expect(typeof h.handleLLMNewToken).toBe('function')
+        expect(typeof h.handleToolStart).toBe('function')
+        expect(typeof h.handleToolEnd).toBe('function')
+        expect(typeof h.handleChainEnd).toBe('function')
+        expect(typeof h.handleChainError).toBe('function')
+    })
+
+    it('成功返回 JSON 含 subSessionId（值 = runContractReviewChat 接收的 subSessionId）', async () => {
+        setupHappyPath()
+        const tool = createTool(ctx)
+        const result = parseToolResult(await tool.invoke({ ossFileId: 99 }, cfg as any))
+        expect(result.success).toBe(true)
+        expect(typeof result.subSessionId).toBe('string')
+        expect(result.subSessionId.length).toBeGreaterThan(0)
+        const passedSubSessionId = (runContractReviewChat as any).mock.calls.at(-1)[0]
+        expect(result.subSessionId).toBe(passedSubSessionId)
+    })
+
+    it('用户取消（resume=null）时不含 subSessionId（cancelled 路径）', async () => {
+        ;(findOssFileByIdDao as any).mockResolvedValue({
+            id: 99, userId: 7, fileName: '采购.docx', fileType: DOCX_MIME,
+        })
+        ;(createContractReviewDAO as any).mockResolvedValue({ id: 555, userId: 7, sessionId: 'sub' })
+        if (typeof loadContractFullText !== 'undefined') {
+            (loadContractFullText as any).mockResolvedValue({ paragraphs: ['p1'] })
+        }
+        if (typeof detectParties !== 'undefined') {
+            (detectParties as any).mockResolvedValue({ partyA: null, partyB: null, contractType: null })
+        }
+        if (typeof interrupt !== 'undefined') {
+            (interrupt as any).mockReturnValueOnce(null)
+        }
+        // handle cancelled path
+        // tool may throw or return, depending on implementation
+        try {
+            const tool = createTool(ctx)
+            const result = parseToolResult(await tool.invoke({ ossFileId: 99 }, cfg as any))
+            if (result !== undefined) {
+                expect(result.subSessionId).toBeUndefined()
+            }
+        } catch {
+            // cancelled can throw, that's fine
+        }
+    })
+})

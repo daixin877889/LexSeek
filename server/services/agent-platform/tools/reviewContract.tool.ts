@@ -35,6 +35,7 @@ import type { Stance } from '#shared/types/contract'
 import { SSECustomEventType } from '#shared/types/agentEvent'
 import { publishCustomEvent } from '~~/server/services/agent/agentEventBridge'
 import { runAndDrainStream } from '~~/server/services/agent-platform/subAgent/runAndDrain'
+import { buildSubAgentCallbacks } from '~~/server/services/agent-platform/subAgent/buildSubAgentCallbacks'
 
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
@@ -190,10 +191,18 @@ export function createTool(context: ToolContext) {
             const { runContractReviewChat } = await import(
                 '~~/server/services/workflow/agents/contractReviewMainAgent'
             )
+            const callbacks = buildSubAgentCallbacks({
+                mainRunId: runId,
+                sessionId,
+                parentToolCallId: toolCallId,
+                agentName: 'contractReviewMain',
+                subThreadId: subSessionId,
+            })
             const stream = await runContractReviewChat(subSessionId, {
                 userId,
-                runId, // 用主 runId，让 stage/risk 事件流到主 SSE 通道（前端 ReviewContractCard 可订阅）
+                runId,
                 skipStanceInterrupt: true,
+                callbacks,
             })
             const drainResult = await runAndDrainStream(stream)
             if (!drainResult.success) {
@@ -264,6 +273,7 @@ export function createTool(context: ToolContext) {
                 levelCount,
                 topRisks,
                 href,
+                subSessionId,  // contractReviewMain 子 thread_id（Task 7 loadSubAgentThreads 历史恢复用）
             })
         },
         {
