@@ -29,6 +29,7 @@ vi.mock('~~/server/agents/document/documentDraft.service', () => ({
 }))
 vi.mock('~~/server/agents/document/documentDraft.dao', () => ({
     getDocumentDraftDAO: vi.fn(),
+    updateDocumentDraftDAO: vi.fn(),
 }))
 vi.mock('~~/server/agents/document/documentTemplate.dao', () => ({
     getDocumentTemplateDAO: vi.fn(),
@@ -161,7 +162,7 @@ describe('draft_document tool', () => {
         expect(createDraftService).not.toHaveBeenCalled()
     })
 
-    it('drain 失败 → 抛错（让 LLM 看到工具失败）', async () => {
+    it('drain 失败 → 抛错（让 LLM 看到工具失败）+ 把 draft.status 改成 failed', async () => {
         ;(recommendDocumentTemplatesService as any).mockResolvedValue({
             items: [], total: 0, usedKeywords: [], fallbackToRecency: false,
         })
@@ -169,8 +170,13 @@ describe('draft_document tool', () => {
         ;(createDraftService as any).mockResolvedValue({ draftId: 101, sessionId: 'sub' })
         ;(runDocumentChat as any).mockResolvedValue(new ReadableStream())
         ;(runAndDrainStream as any).mockResolvedValue({ success: false, error: 'LLM 超时' })
+        // graph 抛错时 hook 不跑，draft 还卡在 filling；tool 必须主动改 failed
+        const { updateDocumentDraftDAO } = await import('~~/server/agents/document/documentDraft.dao')
+        ;(updateDocumentDraftDAO as any).mockResolvedValue({})
 
         const tool = createTool(ctx)
         await expect(tool.invoke(baseInput, cfg as any)).rejects.toThrow(/文书 Agent 执行失败.*LLM 超时/)
+        // 兜底：tool 应主动把 draft 标 failed，避免 status 卡 filling
+        expect(updateDocumentDraftDAO).toHaveBeenCalledWith(101, { status: 'failed' })
     })
 })

@@ -153,6 +153,12 @@ export function createTool(context: ToolContext) {
             })
             const drainResult = await runAndDrainStream(stream)
             if (!drainResult.success) {
+                // graph 抛错时 afterAgent hook 也没机会跑 → draft.status 仍卡在 'filling'。
+                // 主动改成 'failed'，让前端文书页 / 列表显示失败态而非卡死的"生成中"。
+                const { updateDocumentDraftDAO } = await import(
+                    '~~/server/agents/document/documentDraft.dao'
+                )
+                await updateDocumentDraftDAO(draftId, { status: 'failed' }).catch(() => { /* 已经在错误路径，吞 */ })
                 throw new Error(`draft_document: 文书 Agent 执行失败 - ${drainResult.error ?? '未知错误'}`)
             }
             if (drainResult.interrupt) {
