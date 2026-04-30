@@ -109,7 +109,9 @@ vi.mock('~~/server/services/agent/agentEventBridge', () => ({
     publishCustomEvent: publishCustomEventMock,
     publishStatusChange: publishStatusChangeMock,
 }))
-;(globalThis as any).logger = { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() }
+vi.mock('#shared/utils/logger', () => ({
+    logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
+}))
 
 import { buildSubAgentCallbacks } from '~~/server/services/agent-platform/subAgent/buildSubAgentCallbacks'
 import { SSECustomEventType } from '#shared/types/agentEvent'
@@ -257,6 +259,7 @@ Expected: FAIL（模块不存在）
 import type { CallbackHandlerMethods } from '@langchain/core/callbacks/base'
 import { publishCustomEvent, publishStatusChange } from '~~/server/services/agent/agentEventBridge'
 import { SSECustomEventType } from '#shared/types/agentEvent'
+import { logger } from '#shared/utils/logger'
 
 export interface BuildSubAgentCallbacksOptions {
     /** 主 Agent run id（agentRuns.id） */
