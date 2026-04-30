@@ -297,8 +297,39 @@ describe('createSubAgentTools', () => {
         // microtask 让 catch 执行
         await new Promise(resolve => setTimeout(resolve, 5))
         expect(warnSpy).toHaveBeenCalledWith(
-            expect.stringContaining('publishAgentEvent(sub_agent_token) failed'),
+            expect.stringContaining('SUB_AGENT_TOKEN'),
             expect.anything(),
         )
+    })
+})
+
+describe('handleChainError 新增覆盖', () => {
+    it('子代理 chain 抛错触发 handleChainError → publishStatusChange failed', async () => {
+        let capturedCallbacks: any[] = []
+        createAgentMock.mockReturnValue({
+            invoke: vi.fn(async (_input, opts) => {
+                capturedCallbacks = opts.callbacks
+                const h = capturedCallbacks[0]
+                await h.handleChainError(new Error('chain failed'), 'cb-r', undefined)
+                throw new Error('chain failed')
+            }),
+        })
+        const tools = await createSubAgentTools(
+            [makeNodeConfig({ name: 'risk_expert' })],
+            { ...baseCtx },
+        )
+        const result = await tools[0]!.invoke({ question: 'q' }, { toolCall: { id: 'tc-X' } } as any)
+        // tool catch 块也会 publishStatusChange failed（双发，但 metadata 一致；都为 best-effort）
+        expect(publishStatusChangeMock).toHaveBeenCalledWith(expect.objectContaining({
+            status: 'failed',
+            error: 'chain failed',
+            metadata: expect.objectContaining({
+                agentName: 'risk_expert',
+                parentToolCallId: 'tc-X',
+            }),
+        }))
+        // 兼容 LangChain tool() 包装器可能将返回值序列化为对象的情况
+        const text = typeof result === 'string' ? result : (result as any)?.content
+        expect(text).toMatch(/执行失败/)
     })
 })
