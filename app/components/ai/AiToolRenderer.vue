@@ -26,6 +26,9 @@ import AiToolsUploadWorkspaceFileTool from '~/components/ai/tools/UploadWorkspac
 import AiToolsWriteSkillFileTool from '~/components/ai/tools/WriteSkillFileTool.vue'
 import AiToolsWriteTodosTool from '~/components/ai/tools/WriteTodosTool.vue'
 
+// 新加：SUB_AGENT_LIKE 工具集（用 CoT + 结果卡共存渲染）
+const SUB_AGENT_LIKE_TOOLS = new Set(['draft_document', 'review_contract'])
+
 interface Props {
   toolCall: ToolCallWithResult
   toolMap?: Record<string, Component>
@@ -38,13 +41,31 @@ const emit = defineEmits<{
   (e: 'reject'): void
 }>()
 
-function isSubAgentTool(name: string): boolean {
+function isLegacySubAgentTool(name: string): boolean {
+  // ask_*_expert（caseAnalysis 7 个分析子代理）
   return name.startsWith('ask_') && name.endsWith('_expert')
 }
 
-function subAgentTitleFromName(name: string): string {
-  return name.replace(/^ask_/, '').replace(/_expert$/, '').replace(/_/g, ' ')
+function isSubAgentTool(name: string): boolean {
+  return isLegacySubAgentTool(name) || SUB_AGENT_LIKE_TOOLS.has(name)
 }
+
+function subAgentTitleFromName(name: string): string {
+  if (isLegacySubAgentTool(name)) {
+    return name.replace(/^ask_/, '').replace(/_expert$/, '').replace(/_/g, ' ')
+  }
+  if (name === 'draft_document') return '文书生成'
+  if (name === 'review_contract') return '合同审查'
+  return name
+}
+
+// 守卫：仅在有数据 / 正在跑 / 失败时显示 CoT，避免 cancelled tool 显示空白卡
+const shouldShowSubAgentCoT = computed(() => {
+  if (!SUB_AGENT_LIKE_TOOLS.has(props.toolCall.name)) return false
+  return subAgentMessages(props.toolCall.id).length > 0
+    || subAgentIsRunning(props.toolCall.id)
+    || subAgentIsFailed(props.toolCall.id)
+})
 
 interface SubAgentAccess {
   subThreadsMap: Record<string, any>
@@ -139,7 +160,27 @@ function subAgentError(toolCallId: string): string | undefined {
       :state="toolCall.state"
     />
   </template>
-  <!-- 用户自定义工具优先 -->
+  <!-- 新加：SUB_AGENT_LIKE 工具双卡共存（CoT 在前，结果卡在后） -->
+  <template v-else-if="shouldShowSubAgentCoT">
+    <SubAgentChainOfThought
+      :agent-title="subAgentTitleFromName(toolCall.name)"
+      :sub-messages="subAgentMessages(toolCall.id)"
+      :is-running="subAgentIsRunning(toolCall.id)"
+      :is-failed="subAgentIsFailed(toolCall.id)"
+      :failure-reason="subAgentError(toolCall.id)"
+    />
+    <component
+      v-if="toolCall.state === 'output-available' && toolMap?.[toolCall.name]"
+      :is="toolMap[toolCall.name]"
+      :tool-name="toolCall.name"
+      :input="toolCall.args"
+      :output="toolCall.result"
+      :state="toolCall.state"
+      @confirm="emit('confirm', $event)"
+      @reject="emit('reject')"
+    />
+  </template>
+  <!-- 用户自定义工具优先（draft_document / review_contract 在上面已命中，不会落到这里） -->
   <component
     v-else-if="toolMap?.[toolCall.name]"
     :is="toolMap[toolCall.name]"
@@ -150,9 +191,9 @@ function subAgentError(toolCallId: string): string | undefined {
     @confirm="emit('confirm', $event)"
     @reject="emit('reject')"
   />
-  <!-- 子 Agent 工具：用 Chain of Thought 展示内部思考过程 -->
+  <!-- 子 Agent 工具（legacy ask_*_expert）：用 Chain of Thought 展示内部思考过程 -->
   <SubAgentChainOfThought
-    v-else-if="isSubAgentTool(toolCall.name)"
+    v-else-if="isLegacySubAgentTool(toolCall.name)"
     :agent-title="subAgentTitleFromName(toolCall.name)"
     :sub-messages="subAgentMessages(toolCall.id)"
     :is-running="subAgentIsRunning(toolCall.id)"

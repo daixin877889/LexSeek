@@ -258,3 +258,39 @@ describe('runDocumentChat - caseMaterialContextMiddleware 挂载（方案 A）',
         expect(stackItems.find((i: any) => i.name === 'caseMaterialContext')).toBeUndefined()
     })
 })
+
+import type { CallbackHandlerMethods } from '@langchain/core/callbacks/base'
+
+describe('callbacks 选项透传', () => {
+    beforeEach(() => {
+        mockStream.mockClear()
+        mockFindDraft.mockResolvedValue({
+            id: 99,
+            sessionId: 'sess-x',
+            templateId: 9,
+            caseId: 555,
+            sourceRef: { fileIds: [], text: '' },
+        })
+    })
+
+    it('不传 callbacks（向后兼容）→ stream 被调用，callbacks 含 errorTraceHandler', async () => {
+        const { runDocumentChat } = await import('~~/server/services/workflow/agents/documentMainAgent')
+        await runDocumentChat('sess-x', '问', { userId: 1 })
+        const streamArgs = mockStream.mock.calls[0]?.[1] as any
+        expect(streamArgs.callbacks).toBeDefined()
+        expect(Array.isArray(streamArgs.callbacks)).toBe(true)
+        expect(streamArgs.callbacks).toHaveLength(1)  // 仅 errorTraceHandler
+    })
+
+    it('传 callbacks → 与 errorTraceHandler 合并到 callbacks 数组', async () => {
+        const userCallback: CallbackHandlerMethods = { handleLLMNewToken: vi.fn() }
+        const { runDocumentChat } = await import('~~/server/services/workflow/agents/documentMainAgent')
+        await runDocumentChat('sess-y', '问', {
+            userId: 1,
+            callbacks: [userCallback],
+        })
+        const streamArgs = mockStream.mock.calls[0]?.[1] as any
+        expect(streamArgs.callbacks).toHaveLength(2)  // errorTraceHandler + userCallback
+        expect(streamArgs.callbacks[1]).toBe(userCallback)
+    })
+})

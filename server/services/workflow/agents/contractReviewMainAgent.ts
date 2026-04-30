@@ -79,6 +79,7 @@ import { persistAiRisksAsContractRows, type PersistAiRiskRow } from '../../assis
 import { createContractAnnotationDAO } from '../../assistant/contract/contractAnnotation.dao'
 import { saveContractReviewVersionService } from '../../assistant/contract/contractReviewVersion.service'
 import { buildClauseToParagraphMap } from '../../assistant/contract/utils/clauseToParagraph'
+import type { CallbackHandlerMethods } from '@langchain/core/callbacks/base'
 import type { Prisma } from '~~/generated/prisma/client'
 import type { Risk, Stance, ClauseSegment, ClauseSnapshotItem, PlaybookSnapshot } from '#shared/types/contract'
 import { resolveContextWindow } from '../context/messageCompressor'
@@ -188,6 +189,17 @@ export interface ContractReviewAgentOptions {
      * default false：合同 vertical 自身页面 + `/stance` 端点走原 command 路径，向后兼容。
      */
     skipStanceInterrupt?: boolean
+    /**
+     * 子流事件转发到主流的 callbacks（首轮 agent.stream 路径生效）。
+     *
+     * 法律助手 reviewContract.tool 调用本函数时走 skipStanceInterrupt=true 路径，
+     * 该路径不调 agent.stream → callbacks **不会触发**（设计上可接受）。
+     * 跑中反馈通过现有 stage 事件（segment / detect / stance / analyze progress / summarize）
+     * + 前端 ReviewContractCard 实现。
+     *
+     * 首轮 stance interrupt 路径（合同 vertical 自身 /stance 端点）能正确触发 callbacks。
+     */
+    callbacks?: CallbackHandlerMethods[]
 }
 
 /** analyze loop 上下文 */
@@ -667,5 +679,6 @@ export async function runContractReviewChat(
         encoding: 'text/event-stream',
         recursionLimit: 1000,
         signal,
+        callbacks: options.callbacks,
     })
 }

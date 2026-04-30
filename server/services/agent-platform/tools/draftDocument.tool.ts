@@ -28,6 +28,7 @@ import { DOCUMENT_CATEGORY_KEYS, type DocumentCategoryKey } from '#shared/types/
 import { SSECustomEventType } from '#shared/types/agentEvent'
 import { publishCustomEvent } from '~~/server/services/agent/agentEventBridge'
 import { runAndDrainStream } from '~~/server/services/agent-platform/subAgent/runAndDrain'
+import { buildSubAgentCallbacks } from '~~/server/services/agent-platform/subAgent/buildSubAgentCallbacks'
 
 const schema = z.object({
     intent: z.string().min(1).describe('用户起草意图的简短自然语言描述，例如："起诉某某拖欠工资"'),
@@ -146,10 +147,18 @@ export function createTool(context: ToolContext) {
             const { runDocumentChat } = await import(
                 '~~/server/services/workflow/agents/documentMainAgent'
             )
+            const callbacks = buildSubAgentCallbacks({
+                mainRunId: runId,
+                sessionId,
+                parentToolCallId: toolCallId,
+                agentName: 'documentMain',
+                subThreadId: subSessionId,
+            })
             const stream = await runDocumentChat(subSessionId, undefined, {
                 userId,
                 caseId: caseId ?? undefined,
                 signal: undefined,
+                callbacks,
             })
             const drainResult = await runAndDrainStream(stream)
             if (!drainResult.success) {
@@ -247,6 +256,7 @@ export function createTool(context: ToolContext) {
                 title,
                 summary,
                 href,
+                subSessionId,  // documentMain 子 thread_id（loadSubAgentThreads 历史恢复用）
                 templateId,
                 templateName: template?.name ?? null,
                 filledFieldCount,

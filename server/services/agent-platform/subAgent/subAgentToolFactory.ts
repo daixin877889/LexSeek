@@ -28,10 +28,9 @@ import { resolveContextWindow } from '~~/server/services/agent-platform/context/
 import { buildSystemPromptForAgent } from '~~/server/services/agent-platform/context/moduleContextBuilder'
 import type { NodeConfig } from '~~/server/services/node/node.service'
 import {
-    publishCustomEvent,
     publishStatusChange,
 } from '~~/server/services/agent/agentEventBridge'
-import { SSECustomEventType } from '#shared/types/agentEvent'
+import { buildSubAgentCallbacks } from './buildSubAgentCallbacks'
 
 /** 子代理工具上下文 */
 export interface SubAgentToolContext {
@@ -201,77 +200,13 @@ export async function createSubAgentTools(
                                 thread_id: subThreadId,
                             },
                             recursionLimit: 1000,
-                            callbacks: [{
-                                // token 流式转发
-                                async handleLLMNewToken(token: string, _idx: unknown, cbRunId: string) {
-                                    await publishCustomEvent({
-                                        type: 'custom_event',
-                                        runId: mainRunId,
-                                        sessionId: context.sessionId,
-                                        name: SSECustomEventType.SUB_AGENT_TOKEN,
-                                        data: undefined,
-                                        metadata: {
-                                            agentName: nodeConfig.name,
-                                            threadId: subThreadId,
-                                            parentToolCallId,
-                                            messageId: cbRunId,
-                                            delta: token,
-                                        },
-                                    }).catch((e: unknown) => logger.warn('publishAgentEvent(sub_agent_token) failed', { e }))
-                                },
-
-                                // 子 Agent 调用工具开始
-                                async handleToolStart(
-                                    _tool: unknown, input: string, cbRunId: string,
-                                    _parentRunId?: string, _tags?: string[], _metadata?: Record<string, unknown>,
-                                    _runName?: string, innerToolCallId?: string,
-                                ) {
-                                    await publishCustomEvent({
-                                        type: 'custom_event',
-                                        runId: mainRunId,
-                                        sessionId: context.sessionId,
-                                        name: SSECustomEventType.SUB_AGENT_TOOL_START,
-                                        data: { innerToolCallId, input, cbRunId },
-                                        metadata: {
-                                            agentName: nodeConfig.name,
-                                            threadId: subThreadId,
-                                            parentToolCallId,
-                                        },
-                                    }).catch((e: unknown) => logger.warn('publishAgentEvent(sub_agent_tool_start) failed', { e }))
-                                },
-
-                                // 子 Agent 调用工具结束
-                                async handleToolEnd(output: unknown, cbRunId: string) {
-                                    await publishCustomEvent({
-                                        type: 'custom_event',
-                                        runId: mainRunId,
-                                        sessionId: context.sessionId,
-                                        name: SSECustomEventType.SUB_AGENT_TOOL_END,
-                                        data: { cbRunId, output },
-                                        metadata: {
-                                            agentName: nodeConfig.name,
-                                            threadId: subThreadId,
-                                            parentToolCallId,
-                                        },
-                                    }).catch((e: unknown) => logger.warn('publishAgentEvent(sub_agent_tool_end) failed', { e }))
-                                },
-
-                                // root chain 完成时发 completed（cbParentRunId 为 undefined 即 root）
-                                async handleChainEnd(_outputs: unknown, _cbRunId: string, cbParentRunId?: string) {
-                                    if (cbParentRunId !== undefined) return
-                                    await publishStatusChange({
-                                        type: 'status_change',
-                                        runId: mainRunId,
-                                        sessionId: context.sessionId,
-                                        status: 'completed',
-                                        metadata: {
-                                            agentName: nodeConfig.name,
-                                            threadId: subThreadId,
-                                            parentToolCallId,
-                                        },
-                                    }).catch((e: unknown) => logger.warn('publishAgentEvent(sub_agent_status) failed', { e }))
-                                },
-                            }],
+                            callbacks: buildSubAgentCallbacks({
+                                mainRunId,
+                                sessionId: context.sessionId,
+                                parentToolCallId,
+                                agentName: nodeConfig.name,
+                                subThreadId,
+                            }),
                         },
                     )
 
