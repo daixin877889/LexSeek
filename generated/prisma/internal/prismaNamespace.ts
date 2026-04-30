@@ -5985,6 +5985,7 @@ export const ContractReviewsScalarFieldEnum = {
   risks: 'risks',
   summary: 'summary',
   playbookSnapshot: 'playbookSnapshot',
+  cotMessages: 'cotMessages',
   hasUnsavedDocxChanges: 'hasUnsavedDocxChanges',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',

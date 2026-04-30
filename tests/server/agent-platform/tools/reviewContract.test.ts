@@ -399,3 +399,127 @@ describe('makeStageToCoTAdapter（D2 修复）', () => {
         }
     })
 })
+
+describe('cotMessages 累积 + 写库（B 方案）', () => {
+    function setupCotMocks() {
+        (findOssFileByIdDao as any).mockResolvedValue({
+            id: 99, userId: 7, fileName: '采购.docx', fileType: DOCX_MIME,
+        })
+        ;(createContractReviewDAO as any).mockResolvedValue({ id: 555, userId: 7, sessionId: 'sub' })
+        if (typeof loadContractFullText !== 'undefined') {
+            (loadContractFullText as any).mockResolvedValue({ paragraphs: ['p1', 'p2'] })
+        }
+        if (typeof detectParties !== 'undefined') {
+            (detectParties as any).mockResolvedValue({ partyA: null, partyB: null, contractType: null })
+        }
+        if (typeof interrupt !== 'undefined') {
+            (interrupt as any).mockReturnValueOnce({ stance: 'partyA' })
+        }
+        if (typeof updateContractReviewDAO !== 'undefined') {
+            (updateContractReviewDAO as any).mockResolvedValue({})
+        }
+        if (typeof listContractRisksDAO !== 'undefined') {
+            (listContractRisksDAO as any).mockResolvedValue([])
+        }
+    }
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+        caseSessionsCreate.mockResolvedValue({})
+    })
+
+    it('stage:running + done → 写库 cotMessages 含 AIMessage + ToolMessage', async () => {
+        setupCotMocks()
+        ;(runContractReviewChat as any).mockImplementationOnce(async (_subId: string, opts: any) => {
+            const emit = opts.platformEmitCustomEvent
+            if (emit) {
+                await emit({ name: 'contract_review', data: { type: 'stage', stage: 'segment', status: 'running' } })
+                await emit({ name: 'contract_review', data: { type: 'stage', stage: 'segment', status: 'done', totalClauses: 30 } })
+            }
+            return new ReadableStream()
+        })
+        ;(runAndDrainStream as any).mockResolvedValue({ success: true, finalState: {} })
+
+        const tool = createTool(ctx)
+        await tool.invoke({ ossFileId: 99 }, cfg as any)
+
+        // 验证 updateContractReviewDAO 被调用时携带了 cotMessages
+        const updateCalls = (updateContractReviewDAO as any).mock.calls
+        const cotCall = updateCalls.find((c: any[]) => c[1]?.cotMessages !== undefined)
+        expect(cotCall).toBeDefined()
+        const cotMessages = cotCall[1].cotMessages
+        expect(Array.isArray(cotMessages)).toBe(true)
+        // AIMessage: type=ai, tool_calls, id=cr-segment
+        const aiMsg = cotMessages.find((m: any) => m.type === 'ai')
+        expect(aiMsg).toBeDefined()
+        expect(aiMsg.id).toBe('cr-segment')
+        // ToolMessage: type=tool, tool_call_id=cr-segment
+        const toolMsg = cotMessages.find((m: any) => m.type === 'tool')
+        expect(toolMsg).toBeDefined()
+        expect(toolMsg.tool_call_id).toBe('cr-segment')
+    })
+
+    it('progress + risk 事件 → 写库 cotMessages 含累积文字', async () => {
+        setupCotMocks()
+        ;(runContractReviewChat as any).mockImplementationOnce(async (_subId: string, opts: any) => {
+            const emit = opts.platformEmitCustomEvent
+            if (emit) {
+                await emit({ name: 'contract_review', data: { type: 'progress', current: 1, total: 30 } })
+                await emit({ name: 'contract_review', data: { type: 'risk', risk: { level: 'high', problem: '违约金过高' } } })
+            }
+            return new ReadableStream()
+        })
+        ;(runAndDrainStream as any).mockResolvedValue({ success: true, finalState: {} })
+
+        const tool = createTool(ctx)
+        await tool.invoke({ ossFileId: 99 }, cfg as any)
+
+        const updateCalls = (updateContractReviewDAO as any).mock.calls
+        const cotCall = updateCalls.find((c: any[]) => c[1]?.cotMessages !== undefined)
+        expect(cotCall).toBeDefined()
+        const cotMessages = cotCall[1].cotMessages
+        expect(Array.isArray(cotMessages)).toBe(true)
+        // 应有 cr-analyze-progress 的累积 AI 消息
+        const progressMsg = cotMessages.find((m: any) => m.id === 'cr-analyze-progress' && m.type === 'ai')
+        expect(progressMsg).toBeDefined()
+        expect(progressMsg.content).toContain('[1/30]')
+        expect(progressMsg.content).toContain('违约金过高')
+    })
+
+    it('drain 失败 → finally 仍写 cotMessages（用户可看失败前进度）', async () => {
+        setupCotMocks()
+        ;(runContractReviewChat as any).mockImplementationOnce(async (_subId: string, opts: any) => {
+            const emit = opts.platformEmitCustomEvent
+            if (emit) {
+                await emit({ name: 'contract_review', data: { type: 'stage', stage: 'segment', status: 'running' } })
+            }
+            return new ReadableStream()
+        })
+        ;(runAndDrainStream as any).mockResolvedValue({ success: false, error: '段落切分超时' })
+
+        const tool = createTool(ctx)
+        await expect(tool.invoke({ ossFileId: 99 }, cfg as any)).rejects.toThrow(/合同 Agent 执行失败/)
+
+        // drain 失败路径：finally 应写 cotMessages
+        const updateCalls = (updateContractReviewDAO as any).mock.calls
+        const cotCall = updateCalls.find((c: any[]) => c[1]?.cotMessages !== undefined)
+        expect(cotCall).toBeDefined()
+        const cotMessages = cotCall[1].cotMessages
+        expect(Array.isArray(cotMessages)).toBe(true)
+        expect(cotMessages.length).toBeGreaterThanOrEqual(1)
+    })
+
+    it('不 emit 任何事件 → cotMessages 为空数组（不写 DB）', async () => {
+        setupCotMocks()
+        ;(runContractReviewChat as any).mockImplementationOnce(async () => new ReadableStream())
+        ;(runAndDrainStream as any).mockResolvedValue({ success: true, finalState: {} })
+
+        const tool = createTool(ctx)
+        await tool.invoke({ ossFileId: 99 }, cfg as any)
+
+        const updateCalls = (updateContractReviewDAO as any).mock.calls
+        const cotCall = updateCalls.find((c: any[]) => c[1]?.cotMessages !== undefined)
+        // 累积器为空 → 不应调用写库
+        expect(cotCall).toBeUndefined()
+    })
+})

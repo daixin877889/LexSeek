@@ -22,9 +22,19 @@ vi.mock('~~/server/services/workflow/agents/subAgentToolFactory', () => ({
 
 vi.stubGlobal('logger', { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })
 
+// Task 12: mock prisma（DB-first fallback 用 contractReviews.findFirst）
+vi.mock('~~/server/utils/db', () => ({
+    prisma: {
+        contractReviews: {
+            findFirst: vi.fn(),
+        },
+    },
+}))
+
 import { messageToFlatDict, getThreadValuesService, loadSubAgentThreads } from '~~/server/services/workflow/agents/threadState'
 import { getCheckpointer } from '~~/server/services/workflow/checkpointer'
 import { mapStoredMessageToChatMessage } from '@langchain/core/messages'
+import { prisma } from '~~/server/utils/db'
 
 describe('messageToFlatDict', () => {
     it('BaseMessage 实例转为平坦字典', () => {
@@ -575,6 +585,138 @@ describe('loadSubAgentThreads', () => {
             expect(A.agentName).toBe('evidence')
             expect(B.threadId).toBe('sub-B')
             expect(B.agentName).toBe('documentMain')
+        })
+
+        // ========== Task 12: review_contract DB 优先 fallback ==========
+        describe('review_contract cotMessages DB 优先', () => {
+            beforeEach(() => {
+                vi.clearAllMocks()
+            })
+
+            it('cotMessages 非空 → 优先返回 DB 数据（不调 checkpointer.getTuple）', async () => {
+                const cotMessages = [
+                    { type: 'ai', id: 'cr-segment', content: '', tool_calls: [{ id: 'cr-segment', name: '切分合同条款', args: {} }] },
+                    { type: 'tool', tool_call_id: 'cr-segment', content: '{"totalClauses":30}' },
+                ]
+                // mock prisma 返回 cotMessages
+                ;(prisma.contractReviews.findFirst as any).mockResolvedValue({
+                    cotMessages,
+                })
+                // mock checkpointer（不应被调用）
+                const mockCheckpointer = { getTuple: vi.fn() }
+                vi.mocked(getCheckpointer).mockResolvedValue(mockCheckpointer as any)
+
+                const messages = [
+                    {
+                        type: 'ai',
+                        tool_calls: [{ id: 'tc-rev', name: 'review_contract', args: {} }],
+                    },
+                    {
+                        type: 'tool',
+                        tool_call_id: 'tc-rev',
+                        content: JSON.stringify({ success: true, subSessionId: 'rev-sub' }),
+                    },
+                ]
+                const result = await loadSubAgentThreads('main', messages)
+                expect(result).toHaveLength(1)
+                expect(result[0]!.threadId).toBe('rev-sub')
+                expect(result[0]!.agentName).toBe('contractReviewMain')
+                expect(result[0]!.messages).toEqual(cotMessages)
+                // checkpointer.getTuple 不应被调用
+                expect(mockCheckpointer.getTuple).not.toHaveBeenCalled()
+            })
+
+            it('cotMessages 为空 → fallback 到 checkpoint', async () => {
+                ;(prisma.contractReviews.findFirst as any).mockResolvedValue({
+                    cotMessages: [],
+                })
+                const subTuple = {
+                    checkpoint: {
+                        channel_values: {
+                            messages: [{ type: 'ai', content: 'hello from checkpoint', id: 'a1' }],
+                        },
+                    },
+                }
+                const mockCheckpointer = { getTuple: vi.fn().mockResolvedValue(subTuple) }
+                vi.mocked(getCheckpointer).mockResolvedValue(mockCheckpointer as any)
+
+                const messages = [
+                    {
+                        type: 'ai',
+                        tool_calls: [{ id: 'tc', name: 'review_contract', args: {} }],
+                    },
+                    {
+                        type: 'tool',
+                        tool_call_id: 'tc',
+                        content: JSON.stringify({ success: true, subSessionId: 's' }),
+                    },
+                ]
+                const result = await loadSubAgentThreads('main', messages)
+                expect(result).toHaveLength(1)
+                expect(result[0]!.messages).toHaveLength(1)
+                expect(result[0]!.messages[0]).toMatchObject({ content: 'hello from checkpoint', id: 'a1' })
+                // checkpointer.getTuple 应被调用
+                expect(mockCheckpointer.getTuple).toHaveBeenCalledWith({
+                    configurable: { thread_id: 's' },
+                })
+            })
+
+            it('cotMessages 读取失败 → fallback 到 checkpoint（不抛错）', async () => {
+                ;(prisma.contractReviews.findFirst as any).mockRejectedValue(new Error('DB 连接断开'))
+                const subTuple = {
+                    checkpoint: {
+                        channel_values: {
+                            messages: [{ type: 'ai', content: 'fallback', id: 'fb' }],
+                        },
+                    },
+                }
+                const mockCheckpointer = { getTuple: vi.fn().mockResolvedValue(subTuple) }
+                vi.mocked(getCheckpointer).mockResolvedValue(mockCheckpointer as any)
+
+                const messages = [
+                    {
+                        type: 'ai',
+                        tool_calls: [{ id: 'tc', name: 'review_contract', args: {} }],
+                    },
+                    {
+                        type: 'tool',
+                        tool_call_id: 'tc',
+                        content: JSON.stringify({ success: true, subSessionId: 's2' }),
+                    },
+                ]
+                const result = await loadSubAgentThreads('main', messages)
+                expect(result).toHaveLength(1)
+                expect(result[0]!.messages[0]).toMatchObject({ content: 'fallback', id: 'fb' })
+            })
+
+            it('draft_document 不走 DB 路径（只有 review_contract 走）', async () => {
+                // draft_document 不应该调用 prisma.contractReviews.findFirst
+                const subTuple = {
+                    checkpoint: {
+                        channel_values: {
+                            messages: [{ type: 'ai', content: 'draft result', id: 'd1' }],
+                        },
+                    },
+                }
+                const mockCheckpointer = { getTuple: vi.fn().mockResolvedValue(subTuple) }
+                vi.mocked(getCheckpointer).mockResolvedValue(mockCheckpointer as any)
+
+                const messages = [
+                    {
+                        type: 'ai',
+                        tool_calls: [{ id: 'tc-draft', name: 'draft_document', args: {} }],
+                    },
+                    {
+                        type: 'tool',
+                        tool_call_id: 'tc-draft',
+                        content: JSON.stringify({ success: true, subSessionId: 'draft-sub' }),
+                    },
+                ]
+                const result = await loadSubAgentThreads('main', messages)
+                expect(result).toHaveLength(1)
+                // 验证 prisma.findFirst 未被调用（draft_document 不走 DB 优先）
+                expect(prisma.contractReviews.findFirst).not.toHaveBeenCalled()
+            })
         })
     })
 })

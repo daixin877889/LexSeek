@@ -10,6 +10,7 @@ import { getCheckpointer } from '~~/server/services/workflow/checkpointer'
 import { mapStoredMessageToChatMessage } from '@langchain/core/messages'
 import { sanitizeName } from './subAgentToolFactory'
 import { logger } from '#shared/utils/logger'
+import { prisma } from '~~/server/utils/db'
 
 /**
  * 将 checkpointer 中的消息转为 useStream 期望的平坦字典格式
@@ -219,6 +220,31 @@ export async function loadSubAgentThreads(
             }
             else {
                 continue
+            }
+
+            // review_contract DB 优先 fallback：跑中 stage adapter 把 cotMessages 写到了
+            // contractReviews 行的 cotMessages JSON 字段；优先从 DB 读取。
+            if (toolName === 'review_contract') {
+                try {
+                    const review = await prisma.contractReviews.findFirst({
+                        where: { sessionId: subThreadId },
+                        select: { cotMessages: true },
+                    })
+                    const dbMessages = review?.cotMessages
+                    if (Array.isArray(dbMessages) && dbMessages.length > 0) {
+                        subAgentThreads.push({
+                            toolCallId: toolCall.id as string,
+                            agentName,
+                            threadId: subThreadId,
+                            messages: dbMessages as Record<string, unknown>[],
+                        })
+                        continue  // 跳过下面 checkpoint 路径
+                    }
+                } catch (err) {
+                    logger.warn('review_contract cotMessages 读取失败，fallback 到 checkpoint', {
+                        subThreadId, err: err instanceof Error ? err.message : '未知',
+                    })
+                }
             }
 
             try {
