@@ -609,7 +609,8 @@ function isInjectedMessage(msg: unknown): boolean {
     const injector = meta.injectedBy as string
     if (injector.startsWith('ModuleContext')
       || injector.startsWith('CaseMaterial')
-      || injector.startsWith('SubAgentContext')) return true
+      || injector.startsWith('SubAgentContext')
+      || injector === 'CaseContextMiddleware') return true
   }
   // 嵌套 { data: { response_metadata: ... } } 格式
   if (m.data && typeof m.data === 'object') {
@@ -618,7 +619,8 @@ function isInjectedMessage(msg: unknown): boolean {
       const injector = innerMeta.injectedBy as string
       if (injector.startsWith('ModuleContext')
         || injector.startsWith('CaseMaterial')
-        || injector.startsWith('SubAgentContext')) return true
+        || injector.startsWith('SubAgentContext')
+        || injector === 'CaseContextMiddleware') return true
     }
   }
   return false

@@ -37,12 +37,15 @@ export default defineEventHandler(async (event) => {
         const values = await getThreadValuesService(sessionId)
         const messages = (values?.messages ?? []) as Record<string, unknown>[]
 
-        // 过滤注入的上下文消息（system / caseMaterial / moduleContext）
+        // 过滤注入的上下文消息（system / caseMaterial / moduleContext / caseContext）
+        // 注意：ToolMessage（type='tool'）必须保留，前端 useMessageParser 需要靠它
+        // 通过 tool_call_id 匹配工具调用结果，否则历史会话所有工具卡片会卡在
+        // "运行中" 状态（与 commit 40b9c04e 修复 SSE 路径同款 bug，本处遗漏）。
         const filteredMessages = messages.filter(m => {
             const type = (m as any)._getType?.() ?? (m as any).type ?? (m as any).data?.type
-            if (type === 'system' || type === 'tool') return false
+            if (type === 'system') return false
             const injector = ((m as any).response_metadata?.injectedBy ?? (m as any).data?.response_metadata?.injectedBy) as string | undefined
-            if (injector?.startsWith('ModuleContext') || injector?.startsWith('CaseMaterial')) return false
+            if (injector?.startsWith('ModuleContext') || injector?.startsWith('CaseMaterial') || injector?.startsWith('SubAgentContext') || injector === 'CaseContextMiddleware') return false
             return true
         })
 

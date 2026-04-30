@@ -36,7 +36,7 @@ function isInternalMessage(m: any): boolean {
 
   // HumanMessage 检测 metadata（注入的上下文消息）
   const injector = (m.response_metadata?.injectedBy ?? m.data?.response_metadata?.injectedBy) as string | undefined
-  if (injector?.startsWith('ModuleContext') || injector?.startsWith('CaseMaterial')) {
+  if (injector?.startsWith('ModuleContext') || injector?.startsWith('CaseMaterial') || injector?.startsWith('SubAgentContext') || injector === 'CaseContextMiddleware') {
     return true
   }
 

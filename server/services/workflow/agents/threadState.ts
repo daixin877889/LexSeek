@@ -92,7 +92,7 @@ export async function getThreadValuesService(
             // 检查 HumanMessage 是否是注入的上下文消息
             if (msg.type === 'human') {
                 const injector = (msg as any).response_metadata?.injectedBy as string | undefined
-                if (injector?.startsWith('ModuleContext') || injector?.startsWith('CaseMaterial') || injector?.startsWith('SubAgentContext')) {
+                if (injector?.startsWith('ModuleContext') || injector?.startsWith('CaseMaterial') || injector?.startsWith('SubAgentContext') || injector === 'CaseContextMiddleware') {
                     return false
                 }
             }

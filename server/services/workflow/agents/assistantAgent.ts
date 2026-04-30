@@ -4,7 +4,7 @@
  * 对照 caseMainAgent 的 assistant 版：
  * - 系统提示词不假设 case 上下文
  * - 工具集不含 case 相关工具（由 nodes 表中 assistantMain 节点的 tools 字段控制）
- * - 中间件不注入 caseMaterialContext / caseProcessMaterial / moduleContext
+ * - 中间件不注入 caseContext / caseProcessMaterial（无案件上下文）
  * - 积分计费键为 assistant_token（与 case_analysis_token 独立）
  *
  * 参见 spec §5.3 与 plan §1279-1414。
@@ -151,7 +151,7 @@ export async function runAssistantChat(
 
     // 8. 流式执行，返回 SSE 格式的 ReadableStream
     return agent.stream(
-        input,
+        input as any,
         {
             configurable: {
                 thread_id: sessionId,
