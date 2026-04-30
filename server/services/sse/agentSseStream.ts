@@ -142,7 +142,13 @@ export function createAgentSseStream(
         }
 
         // 如果 Redis Stream 没有数据，fallback 到 PostgresSaver checkpoint
-        // 注意：不能直接 return，因为 PENDING run 还没被 Worker 处理，需要继续订阅实时事件
+        // 注意：必须根据 run.status 决定 fallback 后是否继续订阅
+        //   - PENDING/RUNNING：worker 还没跑 / 正在跑 → 继续订阅实时事件
+        //   - INTERRUPTED：worker 已经停在 interrupt 点，不会再有新事件 →
+        //     必须 emit status_change(INTERRUPTED) + return，否则前端 stream
+        //     一直挂着 loading，UI 永远收不到结束信号 + interrupt 卡片不渲染
+        //     （线上 bug：用户在 template_select interrupt 卡片暂停期间刷新页面，
+        //      Redis Stream 已过期，前端 stream 永久 loading 卡死）
         let hasFallbackData = false
         if (missed.length === 0) {
           const checkpointValues = await getThreadValuesService(sessionId)
@@ -154,10 +160,22 @@ export function createAgentSseStream(
                 `event: values\ndata: ${JSON.stringify({ ...checkpointValues, messages: filteredMessages })}\n\n`,
               ))
               hasFallbackData = true
-              // 不 return，继续订阅实时事件以接收新 run 的输出
             }
           }
-          // 如果都没有数据，说明是空的 session，直接订阅实时事件即可
+
+          // INTERRUPTED：worker 已停在 interrupt 点，不会再有新事件，必须主动收尾
+          if (currentActiveRun?.status === AGENT_RUN_STATUS.INTERRUPTED) {
+            controller.enqueue(encoder.encode(
+              `event: custom\ndata: ${JSON.stringify({
+                type: 'status_change',
+                runId,
+                sessionId,
+                status: AGENT_RUN_STATUS.INTERRUPTED,
+              })}\n\n`,
+            ))
+            return
+          }
+          // PENDING/RUNNING：不 return，继续订阅实时事件以接收 worker 后续输出
         }
 
         // Redis Stream 有数据：发送补发事件
@@ -201,6 +219,22 @@ export function createAgentSseStream(
           ) {
             return
           }
+        }
+
+        // INTERRUPTED 收尾：如果 run 已经是 INTERRUPTED 状态但 replay 数据里没拿到
+        // terminal status_change（Redis Stream 截断 / agentWorker 旧版漏发），
+        // worker 不会再有新事件——必须主动 emit 让前端 stream 结束 + UI 退出 loading。
+        // PENDING/RUNNING 仍走下面的实时订阅。
+        if (currentActiveRun?.status === AGENT_RUN_STATUS.INTERRUPTED) {
+          controller.enqueue(encoder.encode(
+            `event: custom\ndata: ${JSON.stringify({
+              type: 'status_change',
+              runId,
+              sessionId,
+              status: AGENT_RUN_STATUS.INTERRUPTED,
+            })}\n\n`,
+          ))
+          return
         }
 
         // 订阅实时事件（活跃 run 或补发后未结束的 run）
