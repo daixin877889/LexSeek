@@ -156,6 +156,9 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
 
     // 子 Agent 分桶：按 parentToolCallId 归集子 Agent 事件
     const subThreadsMap = reactive<Record<string, SubThreadState>>({})
+    // 同一 toolCallId 只 hydrate 一次：兜底 publishStatusChange 与 callback handleChainEnd
+    // 都触发 completed 时避免重复拉完整 history + 全量替换 messages 引发 CoT 重渲染
+    const hydratedSubBuckets = new Set<string>()
 
     /**
      * 合成工具卡片：按 parentMessageId（触发该卡片的 AIMessage.id）分组。
@@ -190,20 +193,26 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
         mergeEventIntoBucket(b, ev)
         // 子流跑完瞬间用 checkpoint 替换实时累积的 messages（实时累 token 流含 tool_use
         // input_json，跟刷新后从 LangGraph checkpoint 读的 content array 形态不一致；
-        // 替换后两种场景视觉对齐）。hydrate 是 best-effort，失败保留实时数据。
+        // 替换后两种场景视觉对齐）。hydrate 是 best-effort，失败保留实时数据并允许重试。
         if (
             ev.type === 'status_change'
             && (ev as AgentStatusEvent).status === 'completed'
             && options.hydrateSubBucket
         ) {
             const toolCallId = md.parentToolCallId
-            options.hydrateSubBucket(toolCallId)
-                .then((result) => {
-                    if (result?.messages?.length && subThreadsMap[toolCallId]) {
-                        subThreadsMap[toolCallId]!.messages = result.messages
-                    }
-                })
-                .catch((err: unknown) => console.warn('[useStreamChat] hydrateSubBucket 失败', err))
+            if (!hydratedSubBuckets.has(toolCallId)) {
+                hydratedSubBuckets.add(toolCallId)
+                options.hydrateSubBucket(toolCallId)
+                    .then((result) => {
+                        if (result?.messages?.length && subThreadsMap[toolCallId]) {
+                            subThreadsMap[toolCallId]!.messages = result.messages
+                        }
+                    })
+                    .catch((err: unknown) => {
+                        hydratedSubBuckets.delete(toolCallId)
+                        console.warn('[useStreamChat] hydrateSubBucket 失败', err)
+                    })
+            }
         }
     }
 
@@ -245,6 +254,7 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
             ) {
                 const payload = (data as unknown as { data: AnalysisSummaryPayload }).data
                 const list = syntheticToolCalls[payload.parentMessageId] ?? []
+                let mutated = false
                 if (payload.phase === 'start') {
                     if (!list.some(t => t.id === payload.toolCallId)) {
                         list.push({
@@ -253,6 +263,7 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
                             args: { analysisId: payload.analysisId },
                             state: 'input-available',
                         })
+                        mutated = true
                     }
                 } else {
                     const idx = list.findIndex(t => t.id === payload.toolCallId)
@@ -265,10 +276,14 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
                             result,
                             state: payload.success ? 'output-available' : 'output-error',
                         }
+                        mutated = true
                     }
                 }
-                // reactive 数组的内部 mutation 不触发依赖重算，必须重新赋一个新引用
-                syntheticToolCalls[payload.parentMessageId] = [...list]
+                // reactive 数组的内部 mutation 不触发依赖重算，需重新赋一个新引用；
+                // 但仅在确实变更时赋值，避免重复 phase=start 触发空 reactive 抖动
+                if (mutated) {
+                    syntheticToolCalls[payload.parentMessageId] = [...list]
+                }
                 return  // 不透传给外部 onCustomEvent
             }
 

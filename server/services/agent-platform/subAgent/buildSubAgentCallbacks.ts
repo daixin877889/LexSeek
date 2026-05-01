@@ -8,6 +8,7 @@
  * 子代理 chain 抛错时主流也能收到 status='failed' 让 CoT 显示红徽章。
  */
 import type { CallbackHandlerMethods } from '@langchain/core/callbacks/base'
+import { BaseMessage } from '@langchain/core/messages'
 import { publishCustomEvent, publishStatusChange } from '~~/server/services/agent/agentEventBridge'
 import { SSECustomEventType } from '#shared/types/agentEvent'
 import { logger } from '#shared/utils/logger'
@@ -56,15 +57,9 @@ export function buildSubAgentCallbacks(opts: BuildSubAgentCallbacksOptions): Cal
             }).catch((e: unknown) => logger.warn('publishCustomEvent(SUB_AGENT_TOOL_START) failed', { e }))
         },
         async handleToolEnd(output: unknown, cbRunId: string) {
-            // LangChain handleToolEnd 的 output 在 createAgent 路径下是 ToolMessage 实例
-            // （或 BaseMessage 派生类）。直接 JSON.stringify 会序列化成 lc_serializable
-            // 形态 `{"lc":1,"type":"constructor","id":[...],"kwargs":{"content":"...","tool_call_id":"..."}}`，
-            // 让前端工具卡拿不到真实结果。这里提取 .content 字段送给前端。
-            const realOutput: unknown = (output && typeof output === 'object'
-                && 'content' in (output as Record<string, unknown>)
-                && typeof (output as { _getType?: () => string })._getType === 'function')
-                ? (output as { content: unknown }).content
-                : output
+            // createAgent 路径下 output 是 ToolMessage 实例；直接 JSON.stringify 会得到
+            // lc_serializable 形态让前端拿不到真实结果。提取 .content 字段送给前端。
+            const realOutput: unknown = output instanceof BaseMessage ? output.content : output
             await publishCustomEvent({
                 type: 'custom_event',
                 runId: mainRunId,

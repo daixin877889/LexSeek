@@ -8,6 +8,14 @@ import type { agentRuns } from '~~/generated/prisma/client'
 import { AGENT_RUN_STATUS } from '#shared/types/agentRun'
 import { agentRegistry } from '~~/server/services/agent-platform/registry/agentRegistry'
 import { SessionScope } from '#shared/types/agentEvent'
+import { isInjectedContextMessage } from '~~/server/services/agent-platform/context/injectorDetection'
+
+/** scope 必须有 userId 的 session（非 case 域，全是用户级会话） */
+const USER_SCOPED_SESSIONS = new Set<SessionScope>([
+  SessionScope.DOCUMENT,
+  SessionScope.ASSISTANT,
+  SessionScope.CONTRACT,
+])
 import {
   claimPendingRunDAO,
   updateRunStatusDAO,
@@ -173,34 +181,17 @@ export class AgentWorker {
         logger.error(`[Lazy repair] 整体失败 (run=${run.id}):`, e)
       }
 
-      // === 路由分流：通过 AgentRegistry 分发到注册的 runner ===
-      // 阶段 1：注册的是 6 个 legacy runner（runDocumentChat / runAssistantChat /
-      //         runContractReviewChat / startCaseAnalysisV2 / runModuleChat / runCaseChat）。
-      // 阶段 2：defineDomainAgent 工厂会替换 legacy 注册。
-      //
-      // scope/type 校验依然需要：runner 内部会做最终校验，但此处提前抛错
-      // 可以让错误信息更精准（带上 sessionId），保留旧行为。
-      if (
-        (session.scope === SessionScope.DOCUMENT
-          || session.scope === SessionScope.ASSISTANT
-          || session.scope === SessionScope.CONTRACT)
-        && session.userId == null
-      ) {
-        throw new Error(
-          `${session.scope} session ${run.sessionId} 缺失 userId（数据损坏）`,
-        )
+      // 路由分流：经过 AgentRegistry.dispatch 派发到注册的 runner（runner 内部有最终校验，
+      // 此处提前抛错只是为了让错误带上 sessionId 更易排查）。session.scope 在 caseSessions
+      // 表里可能为 null（早期数据），按 case 域处理。
+      const scope = (session.scope ?? SessionScope.CASE) as SessionScope
+      if (USER_SCOPED_SESSIONS.has(scope) && session.userId == null) {
+        throw new Error(`${scope} session ${run.sessionId} 缺失 userId（数据损坏）`)
       }
-      if (
-        (session.scope == null || session.scope === SessionScope.CASE)
-        && session.caseId == null
-      ) {
-        throw new Error(
-          `case session ${run.sessionId} 缺失 caseId（scope 与 caseId 不一致，数据损坏）`,
-        )
+      if (scope === SessionScope.CASE && session.caseId == null) {
+        throw new Error(`case session ${run.sessionId} 缺失 caseId（scope 与 caseId 不一致，数据损坏）`)
       }
 
-      // 注：session.scope 在 caseSessions 表中可能为 null（早期数据），按 case 域处理
-      const scope = (session.scope ?? SessionScope.CASE) as SessionScope
       const type = session.type ?? null
       const meta = session.metadata as Record<string, unknown> | null
 
@@ -595,36 +586,8 @@ function isSystemMessage(msg: unknown): boolean {
   return false
 }
 
-/**
- * 判断消息是否为中间件注入的上下文消息（不应发送到前端）
- *
- * 检测 response_metadata.injectedBy 是否以 ModuleContext、CaseMaterial 或 SubAgentContext 开头
- */
-function isInjectedMessage(msg: unknown): boolean {
-  if (!msg || typeof msg !== 'object') return false
-  const m = msg as Record<string, unknown>
-  // 直接格式
-  const meta = m.response_metadata as Record<string, unknown> | undefined
-  if (meta?.injectedBy) {
-    const injector = meta.injectedBy as string
-    if (injector.startsWith('ModuleContext')
-      || injector.startsWith('CaseMaterial')
-      || injector.startsWith('SubAgentContext')
-      || injector === 'CaseContextMiddleware') return true
-  }
-  // 嵌套 { data: { response_metadata: ... } } 格式
-  if (m.data && typeof m.data === 'object') {
-    const innerMeta = (m.data as Record<string, unknown>).response_metadata as Record<string, unknown> | undefined
-    if (innerMeta?.injectedBy) {
-      const injector = innerMeta.injectedBy as string
-      if (injector.startsWith('ModuleContext')
-        || injector.startsWith('CaseMaterial')
-        || injector.startsWith('SubAgentContext')
-        || injector === 'CaseContextMiddleware') return true
-    }
-  }
-  return false
-}
+/** 判断消息是否为中间件注入的上下文消息（不应发送到前端） */
+const isInjectedMessage = isInjectedContextMessage
 
 /** 判断消息是否应被过滤（system 消息、注入的上下文消息、或内部 LLM 调用消息） */
 function isInternalMessage(msg: unknown): boolean {

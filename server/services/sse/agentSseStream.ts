@@ -18,6 +18,7 @@ import { replayEvents, createEventSubscription } from '~~/server/services/agent/
 import { getActiveRunService } from '~~/server/services/agent/agentRun.service'
 import { getThreadValuesService } from '~~/server/services/workflow/agents'
 import { AGENT_RUN_STATUS } from '#shared/types/agentRun'
+import { isInjectorFromContextMiddleware } from '~~/server/services/agent-platform/context/injectorDetection'
 
 /** 终结状态列表（包括 interrupted，重连时 replay 后需关闭流） */
 const TERMINAL_STATUSES: readonly string[] = [
@@ -34,18 +35,22 @@ function isInternalMessage(m: any): boolean {
   const type = m.type ?? m.data?.type
   if (type === 'system') return true
 
-  // HumanMessage 检测 metadata（注入的上下文消息）
   const injector = (m.response_metadata?.injectedBy ?? m.data?.response_metadata?.injectedBy) as string | undefined
-  if (injector?.startsWith('ModuleContext') || injector?.startsWith('CaseMaterial') || injector?.startsWith('SubAgentContext') || injector === 'CaseContextMiddleware') {
-    return true
-  }
-
-  return false
+  return isInjectorFromContextMiddleware(injector)
 }
 
 /** 过滤掉上下文注入消息（HumanMessage with metadata.injectedBy） */
 function filterInjectedMessages(messages: any[]): any[] {
   return messages.filter(m => !isInternalMessage(m))
+}
+
+/**
+ * status_change 是否代表父 run 自身终结（用于判断是否关流）。
+ * 子 Agent 的 handleChainEnd 也发 terminal status，但带 parentToolCallId，
+ * 仅代表"该子 Agent 完成"，父 run 还在继续。
+ */
+function isParentRunTerminal(evt: { metadata?: { parentToolCallId?: unknown } | null }): boolean {
+  return !evt.metadata?.parentToolCallId
 }
 
 /** 过滤 messages 事件中的内部消息，返回 null 表示整条事件应跳过 */
@@ -88,6 +93,17 @@ export function createAgentSseStream(
     async start(controller) {
       const encoder = new TextEncoder()
       const abortController = new AbortController()
+
+      const emitInterruptedTerminal = () => {
+        controller.enqueue(encoder.encode(
+          `event: custom\ndata: ${JSON.stringify({
+            type: 'status_change',
+            runId,
+            sessionId,
+            status: AGENT_RUN_STATUS.INTERRUPTED,
+          })}\n\n`,
+        ))
+      }
 
       // 客户端断开时 abort
       event.node.req.on('close', () => {
@@ -165,14 +181,7 @@ export function createAgentSseStream(
 
           // INTERRUPTED：worker 已停在 interrupt 点，不会再有新事件，必须主动收尾
           if (currentActiveRun?.status === AGENT_RUN_STATUS.INTERRUPTED) {
-            controller.enqueue(encoder.encode(
-              `event: custom\ndata: ${JSON.stringify({
-                type: 'status_change',
-                runId,
-                sessionId,
-                status: AGENT_RUN_STATUS.INTERRUPTED,
-              })}\n\n`,
-            ))
+            emitInterruptedTerminal()
             return
           }
           // PENDING/RUNNING：不 return，继续订阅实时事件以接收 worker 后续输出
@@ -207,33 +216,21 @@ export function createAgentSseStream(
             controller.enqueue(encoder.encode(sseData))
           }
 
-          // 检查是否已经结束（补发的最后一个事件可能是终结状态）
-          // 关键：仅当 parentToolCallId 为空（父 run 自己的终结）时才视为流结束。
-          // 子 Agent 的 status_change（subAgentToolFactory.handleChainEnd 发出）
-          // 也是 terminal status，但只代表"该子 Agent 完成"，父 run 还在继续。
+          // 补发最后一条若为父 run 终结，直接关流
           const lastMissed = missed.at(-1)
           if (
             lastMissed?.type === 'status_change'
             && TERMINAL_STATUSES.includes(lastMissed.status)
-            && !lastMissed.metadata?.parentToolCallId
+            && isParentRunTerminal(lastMissed)
           ) {
             return
           }
         }
 
-        // INTERRUPTED 收尾：如果 run 已经是 INTERRUPTED 状态但 replay 数据里没拿到
-        // terminal status_change（Redis Stream 截断 / agentWorker 旧版漏发），
-        // worker 不会再有新事件——必须主动 emit 让前端 stream 结束 + UI 退出 loading。
-        // PENDING/RUNNING 仍走下面的实时订阅。
+        // INTERRUPTED 收尾：Redis Stream 截断 / agentWorker 旧版漏发 terminal 时兜底，
+        // 否则前端 stream 永久 loading。PENDING/RUNNING 仍走下面的实时订阅。
         if (currentActiveRun?.status === AGENT_RUN_STATUS.INTERRUPTED) {
-          controller.enqueue(encoder.encode(
-            `event: custom\ndata: ${JSON.stringify({
-              type: 'status_change',
-              runId,
-              sessionId,
-              status: AGENT_RUN_STATUS.INTERRUPTED,
-            })}\n\n`,
-          ))
+          emitInterruptedTerminal()
           return
         }
 
@@ -241,8 +238,7 @@ export function createAgentSseStream(
         for await (const evt of createEventSubscription(runId, abortController.signal)) {
           if (evt.type === 'status_change' && TERMINAL_STATUSES.includes(evt.status)) {
             controller.enqueue(encoder.encode(`event: custom\ndata: ${JSON.stringify(evt)}\n\n`))
-            // 仅父 run 自己的终结才关流（带 parentToolCallId 的是子 Agent 局部信号）
-            if (!evt.metadata?.parentToolCallId) break
+            if (isParentRunTerminal(evt)) break
             continue
           }
           if (evt.type === 'stream_event') {

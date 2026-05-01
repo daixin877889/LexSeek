@@ -27,10 +27,8 @@ import { renderSystemPrompt } from '~~/server/services/workflow/utils/promptRend
 import { resolveContextWindow } from '~~/server/services/agent-platform/context/messageCompressor'
 import { buildSystemPromptForAgent } from '~~/server/services/agent-platform/context/moduleContextBuilder'
 import type { NodeConfig } from '~~/server/services/node/node.service'
-import {
-    publishStatusChange,
-} from '~~/server/services/agent/agentEventBridge'
 import { buildSubAgentCallbacks } from './buildSubAgentCallbacks'
+import { publishSubAgentStatus } from './publishSubAgentStatus'
 
 /** 子代理工具上下文 */
 export interface SubAgentToolContext {
@@ -210,21 +208,14 @@ export async function createSubAgentTools(
                         },
                     )
 
-                    // 主动 publish 子流 status_change(completed)：buildSubAgentCallbacks.handleChainEnd
-                    // 在 LangGraph invoke 内部多层 chain 包装下 cbParentRunId 不一定 undefined，导致
-                    // status_change 永不触发——前端 CoT 卡"思考中…"且不触发 hydrate。这里在工具层
-                    // 显式发一次兜底（同 draftDocument / reviewContract.tool 的处理）。
-                    await publishStatusChange({
-                        type: 'status_change',
+                    await publishSubAgentStatus({
                         runId: mainRunId,
                         sessionId: context.sessionId,
                         status: 'completed',
-                        metadata: {
-                            agentName: nodeConfig.name,
-                            threadId: subThreadId,
-                            parentToolCallId,
-                        },
-                    }).catch((err: unknown) => logger.warn('publishStatusChange(sub completed) 失败', { err }))
+                        agentName: nodeConfig.name,
+                        threadId: subThreadId,
+                        parentToolCallId,
+                    })
 
                     // 从 agent 返回的 messages 中提取最后一条 AI 回复
                     const messages = result?.messages
@@ -248,19 +239,17 @@ export async function createSubAgentTools(
                     const errorMessage = error instanceof Error ? error.message : '未知错误'
                     logger.error(`子代理 ${config.name} 执行失败`, { error: errorMessage })
 
-                    // 前端翻 isFailed=true + 显示 failureReason
-                    publishStatusChange({
-                        type: 'status_change',
+                    // 前端翻 isFailed=true + 显示 failureReason；fire-and-forget，已在
+                    // catch 路径里再失败也无法上报
+                    void publishSubAgentStatus({
                         runId: mainRunId,
                         sessionId: context.sessionId,
                         status: 'failed',
                         error: errorMessage,
-                        metadata: {
-                            agentName: nodeConfig.name,
-                            threadId: subThreadId,
-                            parentToolCallId,
-                        },
-                    }).catch(() => { /* best-effort */ })
+                        agentName: nodeConfig.name,
+                        threadId: subThreadId,
+                        parentToolCallId,
+                    })
 
                     return `子代理 ${config.title} 执行失败: ${errorMessage}`
                 }

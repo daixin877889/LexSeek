@@ -8,7 +8,7 @@
  * @see docs/superpowers/specs/2026-04-26-ai-infrastructure-unification-design.md §3.4 §A.B
  */
 
-import type { ContractReviewEvent } from './contract'
+import type { ContractReviewEvent, RiskLevel } from './contract'
 
 /**
  * 会话域：caseSessions.scope 的取值。
@@ -164,7 +164,7 @@ export interface DraftSavedPayload {
 export interface ContractReviewSavedPayload {
     reviewId: number
     riskCount: number
-    topRisks: Array<{ title?: string; level?: 'high' | 'medium' | 'low' }>
+    topRisks: Array<{ title?: string; level?: RiskLevel }>
     href: string
 }
 
@@ -177,7 +177,7 @@ export interface ContractStagePayload {
 export interface ContractRiskPayload {
     riskId: number
     code?: string
-    level: string
+    level: RiskLevel
     source: string
     anchorQuote?: string
 }
