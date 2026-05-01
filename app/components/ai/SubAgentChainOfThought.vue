@@ -4,6 +4,9 @@ import type { Component } from 'vue'
 import type { BaseMessage } from '@langchain/core/messages'
 import { useThrottleFn } from '@vueuse/core'
 import {
+  ChainOfThought,
+  ChainOfThoughtHeader,
+  ChainOfThoughtContent,
   ChainOfThoughtStep,
 } from '~/components/ai-elements/chain-of-thought'
 import { Lightbulb, FileText, Wrench, CheckCircle2, Loader2 } from 'lucide-vue-next'
@@ -29,6 +32,16 @@ const props = withDefaults(defineProps<Props>(), {
   isFailed: false,
   failureReason: '',
   durationSec: 0,
+})
+
+// 折叠状态：初值跟随 isRunning（跑中默认展开实时看进度，跑完后默认折叠节省空间）。
+// 用户后续可点击 header 自由切换。
+const isOpen = ref<boolean>(props.isRunning || props.isFailed)
+watch(() => props.isRunning, (running, prev) => {
+  // 跑完瞬间（true → false）自动折叠 — 失败保持展开让用户看到错误
+  if (prev && !running && !props.isFailed) {
+    isOpen.value = false
+  }
 })
 
 const steps = computed<StepVM[]>(() => mapMessagesToSteps(props.subMessages, props.isRunning))
@@ -86,6 +99,21 @@ function isCollapsibleTextStep(step: StepVM): boolean {
   return (step.kind === 'thinking' || step.kind === 'analysis' || step.kind === 'conclusion') && step.hasMore
 }
 
+/** tool_call step 是否可展开看 args + 完整 result（始终允许，用户点击查看详情） */
+function isExpandableToolCall(step: StepVM): boolean {
+  return step.kind === 'tool_call' && (step.toolArgs !== undefined || step.toolResult !== undefined)
+}
+
+/** JSON pretty 渲染（args / result 展开视图）；失败保留原值 */
+function prettyJson(value: unknown): string {
+  if (typeof value === 'string') return value
+  try {
+    return JSON.stringify(value, null, 2)
+  } catch {
+    return String(value)
+  }
+}
+
 /** 工具结果一行摘要：提取最有价值的信息 */
 function toolResultSummary(step: StepVM): string {
   const r = step.toolResult
@@ -113,68 +141,93 @@ function toolResultSummary(step: StepVM): string {
 </script>
 
 <template>
-  <div class="not-prose max-w-prose space-y-3 my-2">
-    <!-- 标题行（无展开/收起按钮） -->
-    <div class="flex items-center gap-2 text-sm text-muted-foreground">
+  <ChainOfThought v-model="isOpen" class="my-2">
+    <ChainOfThoughtHeader>
       <span class="font-semibold">{{ agentTitle }}</span>
-      <Loader2 v-if="isRunning" class="ml-1 size-3 animate-spin" />
+      <Loader2 v-if="isRunning" class="ml-1 size-3 animate-spin shrink-0" />
       <span v-if="isRunning" class="text-xs">思考中…</span>
       <span v-else-if="isFailed" class="text-xs text-destructive">失败{{ failureReason ? `：${failureReason}` : '' }}</span>
       <span v-else-if="durationSec" class="text-xs">思考 {{ durationSec }}s</span>
-    </div>
+      <span v-else class="text-xs">已完成</span>
+    </ChainOfThoughtHeader>
 
-    <ChainOfThoughtStep
-      v-for="step in steps"
-      :key="step.key"
-      :label="step.label"
-      :description="''"
-      :status="step.status"
-      :class="step.isFailed ? 'text-destructive' : undefined"
-    >
-      <template #icon>
-        <component
-          :is="iconFor(step.kind)"
-          class="size-3.5 rounded-full p-0.5"
-          :class="stepColorClass[step.kind]"
-        />
-      </template>
+    <ChainOfThoughtContent>
+      <ChainOfThoughtStep
+        v-for="step in steps"
+        :key="step.key"
+        :label="step.label"
+        :description="''"
+        :status="step.status"
+        :class="step.isFailed ? 'text-destructive' : undefined"
+      >
+        <template #icon>
+          <component
+            :is="iconFor(step.kind)"
+            class="size-3.5 rounded-full p-0.5"
+            :class="stepColorClass[step.kind]"
+          />
+        </template>
 
-      <!-- 工具步骤：轻量渲染，仅显示结果摘要（工具名已在 label 中） -->
-      <template v-if="step.kind === 'tool_call'">
-        <span class="text-muted-foreground text-xs">
+        <!-- 工具步骤：可展开看完整 args + result -->
+        <template v-if="step.kind === 'tool_call'">
+          <!-- 跑中：仅 spinner -->
           <template v-if="step.status === 'active'">
-            <Loader2 class="inline size-3 animate-spin" />
+            <span class="text-muted-foreground text-xs">
+              <Loader2 class="inline size-3 animate-spin" />
+            </span>
+          </template>
+          <!-- 跑完：可点击展开看详情 -->
+          <template v-else-if="isExpandableToolCall(step)">
+            <div
+              v-if="!isStepExpanded(step)"
+              class="text-muted-foreground text-xs cursor-pointer hover:text-foreground transition-colors"
+              @click="toggleStepExpand(step)"
+            >
+              {{ toolResultSummary(step) || '点击展开查看' }}
+            </div>
+            <div
+              v-else
+              class="cursor-pointer space-y-2"
+              @click="toggleStepExpand(step)"
+            >
+              <div v-if="step.toolArgs !== undefined">
+                <div class="text-[11px] font-medium text-muted-foreground mb-1">参数</div>
+                <pre class="text-[11px] bg-muted/40 rounded p-2 overflow-x-auto whitespace-pre-wrap break-words">{{ prettyJson(step.toolArgs) }}</pre>
+              </div>
+              <div v-if="step.toolResult !== undefined">
+                <div class="text-[11px] font-medium text-muted-foreground mb-1">结果</div>
+                <pre class="text-[11px] bg-muted/40 rounded p-2 overflow-x-auto whitespace-pre-wrap break-words">{{ prettyJson(step.toolResult) }}</pre>
+              </div>
+            </div>
           </template>
           <template v-else-if="toolResultSummary(step)">
-            {{ toolResultSummary(step) }}
+            <span class="text-muted-foreground text-xs">{{ toolResultSummary(step) }}</span>
           </template>
-        </span>
-      </template>
+        </template>
 
-      <!-- 思考 / 分析 / 结论：内容长时支持点击展开/收起；展开后隐藏摘要、显示全文 -->
-      <template v-else>
-        <!-- 长内容：可点击切换 -->
-        <template v-if="isCollapsibleTextStep(step)">
-          <div
-            v-if="!isStepExpanded(step)"
-            class="text-muted-foreground text-xs cursor-pointer hover:text-foreground transition-colors"
-            @click="toggleStepExpand(step)"
-          >
+        <!-- 思考 / 分析 / 结论：内容长时支持点击展开/收起 -->
+        <template v-else>
+          <template v-if="isCollapsibleTextStep(step)">
+            <div
+              v-if="!isStepExpanded(step)"
+              class="text-muted-foreground text-xs cursor-pointer hover:text-foreground transition-colors"
+              @click="toggleStepExpand(step)"
+            >
+              {{ displayDescription(step) }}
+            </div>
+            <div
+              v-else
+              class="cursor-pointer"
+              @click="toggleStepExpand(step)"
+            >
+              <MessageResponse :content="step.fullContent" mode="static" />
+            </div>
+          </template>
+          <div v-else-if="displayDescription(step)" class="text-muted-foreground text-xs">
             {{ displayDescription(step) }}
           </div>
-          <div
-            v-else
-            class="cursor-pointer"
-            @click="toggleStepExpand(step)"
-          >
-            <MessageResponse :content="step.fullContent" mode="static" />
-          </div>
         </template>
-        <!-- 短内容：无需展开，直接显示摘要 -->
-        <div v-else-if="displayDescription(step)" class="text-muted-foreground text-xs">
-          {{ displayDescription(step) }}
-        </div>
-      </template>
-    </ChainOfThoughtStep>
-  </div>
+      </ChainOfThoughtStep>
+    </ChainOfThoughtContent>
+  </ChainOfThought>
 </template>

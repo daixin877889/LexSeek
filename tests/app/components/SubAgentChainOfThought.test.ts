@@ -49,7 +49,7 @@ describe('SubAgentChainOfThought (static render)', () => {
     expect(w.text()).toContain('超时')
   })
 
-  it('根据 subMessages 渲染对应步骤数', async () => {
+  it('根据 subMessages 渲染对应步骤数（跑中态默认展开）', async () => {
     const msgs = [
       new AIMessage({
         content: '结论',
@@ -59,7 +59,7 @@ describe('SubAgentChainOfThought (static render)', () => {
       new AIMessage({ content: '最终结论' }),
     ]
     const w = mount(SubAgentChainOfThought, {
-      props: { agentTitle: 'x', subMessages: msgs, isRunning: false },
+      props: { agentTitle: 'x', subMessages: msgs, isRunning: true },
       ...globalStubs,
     })
     // 工具步骤用轻量渲染：显示中文工具名和结果摘要
@@ -77,21 +77,47 @@ describe('SubAgentChainOfThought (static render)', () => {
       new ToolMessage({ tool_call_id: 'c1', content: '[]' }),
     ]
     const w = mount(SubAgentChainOfThought, {
-      props: { agentTitle: 'x', subMessages: msgs, isRunning: false },
+      props: { agentTitle: 'x', subMessages: msgs, isRunning: true },
       ...globalStubs,
     })
     // 原始 JSON 碎片不应出现
     expect(w.text()).not.toContain('{"k":')
     expect(w.text()).not.toContain('{}')
   })
+
+  it('跑完后（isRunning=false + !isFailed）整个 CoT 默认折叠节省空间', async () => {
+    const msgs = [
+      new AIMessage({ content: '完整分析'.repeat(40) }),
+    ]
+    const w = mount(SubAgentChainOfThought, {
+      props: { agentTitle: 'x', subMessages: msgs, isRunning: false },
+      ...globalStubs,
+    })
+    // CoT 折叠态：header 标题可见，但 content 隐藏（CollapsibleContent state=closed）
+    expect(w.text()).toContain('x')
+    expect(w.text()).toContain('已完成')
+  })
+
+  it('失败时 CoT 默认展开让用户看到错误', async () => {
+    const msgs = [new AIMessage({ content: '失败前进度' })]
+    const w = mount(SubAgentChainOfThought, {
+      props: { agentTitle: 'x', subMessages: msgs, isRunning: false, isFailed: true, failureReason: '模型超时' },
+      ...globalStubs,
+    })
+    expect(w.text()).toContain('失败')
+    expect(w.text()).toContain('模型超时')
+    expect(w.text()).toContain('失败前进度')  // content 可见
+  })
 })
 
 describe('SubAgentChainOfThought · per-step expand', () => {
   it('长文本 step 默认收起（非 active），点击后展开', async () => {
+    // 用 isFailed=true 让 CoT 默认展开，同时 isRunning=false 让 step 不是 active
+    // （这样 step 默认折叠才是有效断言；跑中态最后一条 step 自动 active 即默认展开）
     const longContent = 'a'.repeat(300)
     const msg = new AIMessage({ content: longContent })
     const w = mount(SubAgentChainOfThought, {
-      props: { agentTitle: 'x', subMessages: [msg], isRunning: false },
+      props: { agentTitle: 'x', subMessages: [msg], isRunning: false, isFailed: true },
       ...globalStubs,
     })
     // 默认收起：摘要可见，全文不可见
