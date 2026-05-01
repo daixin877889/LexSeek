@@ -12,6 +12,8 @@ model skills {
   description String?      @db.Text
   /// 版本号（SKILL.md frontmatter version；缺失时为 NULL）
   version     String?      @db.VarChar(50)
+  /// 中文展示名（管理员后台自定义；为 NULL 时回退到 title 字段）
+  customTitle String?      @map("custom_title") @db.VarChar(200)
   /// 状态：1 启用 / 0 停用
   status      Int          @default(1)
   /// 上次从文件系统同步时间
