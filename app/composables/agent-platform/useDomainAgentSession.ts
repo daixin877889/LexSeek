@@ -65,6 +65,14 @@ export interface DomainAgentApiEndpoints {
   createUrl?: string | null
   deleteUrl?: ((sessionId: string) => string) | null
   renameUrl?: ((sessionId: string) => string) | null
+  /**
+   * thread 历史状态 API：返回 subAgentThreads 用于刷新页面后恢复子流 CoT。
+   *
+   * useStream 自带的 loadHistory 只恢复主流 messages（LangGraph checkpoint），
+   * 子代理 subThreadsMap 是前端 reactive，必须额外 GET 此 API 主动灌入。
+   * 不传则刷新后子流 CoT 全部丢失。
+   */
+  historyUrl?: ((sessionId: string) => string) | null
 }
 
 export interface DomainAgentSessionConfig {
@@ -111,6 +119,7 @@ interface ResolvedApiConfig {
   createUrl: string | null
   deleteUrl: ((sessionId: string) => string) | null
   renameUrl: ((sessionId: string) => string) | null
+  historyUrl: ((sessionId: string) => string) | null
 }
 
 /**
@@ -134,6 +143,8 @@ function defaultApiEndpoints(scope: DomainScope): ResolvedApiConfig {
         deleteUrl: (sid) => `/api/v1/case/analysis/xiaosuo-session/${sid}`,
         renameUrl: (sid) => `/api/v1/case/analysis/session/rename/${sid}`,
         chatUrl: '/api/v1/case/analysis/chat',
+        // case scope 复用案件分析模块的 thread 历史 endpoint：返回 subAgentThreads
+        historyUrl: (sid) => `/api/v1/case/analysis/thread/${sid}`,
       }
     case 'legal_assistant':
       return {
@@ -142,6 +153,7 @@ function defaultApiEndpoints(scope: DomainScope): ResolvedApiConfig {
         deleteUrl: (sid) => `/api/v1/assistant/sessions/${sid}`,
         renameUrl: (sid) => `/api/v1/assistant/sessions/${sid}/rename`,
         chatUrl: '/api/v1/assistant/chat',
+        historyUrl: null,  // 法律助手 vertical 暂未实现 thread 历史 endpoint
       }
     case 'document':
       // 单 session 默认：list/create/delete/rename 都 null（业务方按 draftId 单 session 驱动）
@@ -151,6 +163,7 @@ function defaultApiEndpoints(scope: DomainScope): ResolvedApiConfig {
         deleteUrl: null,
         renameUrl: null,
         chatUrl: '/api/v1/assistant/document/chat',
+        historyUrl: null,
       }
     case 'contract':
       // 单 session 默认：list/create/delete/rename 都 null
@@ -160,6 +173,7 @@ function defaultApiEndpoints(scope: DomainScope): ResolvedApiConfig {
         deleteUrl: null,
         renameUrl: null,
         chatUrl: '/api/v1/assistant/contract/chat',
+        historyUrl: null,
       }
     case 'case_analysis_init':
       // 单 session 默认：list/create/delete/rename 都 null（路由 sessionId 驱动）
@@ -169,6 +183,7 @@ function defaultApiEndpoints(scope: DomainScope): ResolvedApiConfig {
         deleteUrl: null,
         renameUrl: null,
         chatUrl: '/api/v1/case/init-analysis',
+        historyUrl: null,
       }
     default: {
       const exhaustive: never = scope
@@ -197,6 +212,7 @@ function resolveApiEndpoints(
     createUrl: 'createUrl' in override ? (override.createUrl ?? null) : defaults.createUrl,
     deleteUrl: 'deleteUrl' in override ? (override.deleteUrl ?? null) : defaults.deleteUrl,
     renameUrl: 'renameUrl' in override ? (override.renameUrl ?? null) : defaults.renameUrl,
+    historyUrl: 'historyUrl' in override ? (override.historyUrl ?? null) : defaults.historyUrl,
   }
 }
 
@@ -375,6 +391,32 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
     disposeCurrentChat()
     currentSessionId.value = sessionId
 
+    // 先拉 thread 历史 endpoint 拿子代理 threads（刷新页面后恢复 CoT 用）。
+    // useStream 自带的 loadHistory 只恢复主流 messages，子流 reactive map 必须显式灌入。
+    let initialSubThreads: Array<{
+      toolCallId: string
+      agentName: string
+      threadId: string
+      messages: Record<string, unknown>[]
+    }> | undefined
+    if (apiConfig.historyUrl) {
+      try {
+        const history = await useApiFetch<{
+          subAgentThreads?: Array<{
+            toolCallId: string
+            agentName: string
+            threadId: string
+            messages: Record<string, unknown>[]
+          }>
+        }>(apiConfig.historyUrl(sessionId), { showError: false })
+        initialSubThreads = history?.subAgentThreads
+      } catch (err) {
+        console.warn('[useDomainAgentSession] 拉 thread 历史失败，跳过子流恢复', err)
+      }
+      // 期间用户切换 session 则丢弃本次结果
+      if (currentSwitch !== switchCounter) return
+    }
+
     const newScope = effectScope()
     const streamChat = newScope.run(() =>
       useStreamChat({
@@ -384,6 +426,7 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
         // 业务自定义事件钩子直接注入：useStreamChat 已先消费 status_change，
         // 剩余 custom_event 透传给业务方按 name 分发
         onCustomEvent: config.onCustomEvent,
+        initialSubThreads,
       }),
     )!
 
