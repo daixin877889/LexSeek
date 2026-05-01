@@ -140,6 +140,18 @@ function subAgentError(toolCallId: string): string | undefined {
 </script>
 
 <template>
+  <!-- 子流 CoT：SUB_AGENT_LIKE 工具（draft_document / review_contract）独立前置渲染。
+       不参与下方互斥 v-if 链，确保跟 interrupt 卡（active / resolved snapshot）+ 结果卡共存。
+       守卫 shouldShowSubAgentCoT 保证只在有数据 / 跑中 / 失败时显示，cancelled 不渲染空卡。 -->
+  <SubAgentChainOfThought
+    v-if="shouldShowSubAgentCoT"
+    :agent-title="subAgentTitleFromName(toolCall.name)"
+    :sub-messages="subAgentMessages(toolCall.id)"
+    :is-running="subAgentIsRunning(toolCall.id)"
+    :is-failed="subAgentIsFailed(toolCall.id)"
+    :failure-reason="subAgentError(toolCall.id)"
+  />
+
   <!-- interrupt 工具卡（active 或 resolved）：active 优先于 resolved（避免同一 toolCallId
        重复触发时 UI 显示 stale snapshot）；resumeValue 仅在 resolved 且非 active 时传入。 -->
   <template v-if="isInterruptToolCardCall">
@@ -160,29 +172,21 @@ function subAgentError(toolCallId: string): string | undefined {
       :state="toolCall.state"
     />
   </template>
-  <!-- 新加：SUB_AGENT_LIKE 工具双卡共存（CoT 在前，结果卡在后） -->
-  <template v-else-if="shouldShowSubAgentCoT">
-    <SubAgentChainOfThought
-      :agent-title="subAgentTitleFromName(toolCall.name)"
-      :sub-messages="subAgentMessages(toolCall.id)"
-      :is-running="subAgentIsRunning(toolCall.id)"
-      :is-failed="subAgentIsFailed(toolCall.id)"
-      :failure-reason="subAgentError(toolCall.id)"
-    />
-    <component
-      v-if="toolCall.state === 'output-available' && toolMap?.[toolCall.name]"
-      :is="toolMap[toolCall.name]"
-      :tool-name="toolCall.name"
-      :input="toolCall.args"
-      :output="toolCall.result"
-      :state="toolCall.state"
-      @confirm="emit('confirm', $event)"
-      @reject="emit('reject')"
-    />
-  </template>
-  <!-- 用户自定义工具优先（draft_document / review_contract 在上面已命中，不会落到这里） -->
+  <!-- SUB_AGENT_LIKE 工具结果卡（draft_document / review_contract）：仅在跑完时渲染。
+       跑中阶段只显示顶部 CoT，避免空白结果卡污染界面。 -->
   <component
-    v-else-if="toolMap?.[toolCall.name]"
+    v-else-if="SUB_AGENT_LIKE_TOOLS.has(toolCall.name) && toolCall.state === 'output-available' && toolMap?.[toolCall.name]"
+    :is="toolMap[toolCall.name]"
+    :tool-name="toolCall.name"
+    :input="toolCall.args"
+    :output="toolCall.result"
+    :state="toolCall.state"
+    @confirm="emit('confirm', $event)"
+    @reject="emit('reject')"
+  />
+  <!-- 普通用户自定义工具（非 SUB_AGENT_LIKE）：走原 toolMap 路由，不限 state -->
+  <component
+    v-else-if="!SUB_AGENT_LIKE_TOOLS.has(toolCall.name) && toolMap?.[toolCall.name]"
     :is="toolMap[toolCall.name]"
     :tool-name="toolCall.name"
     :input="toolCall.args"

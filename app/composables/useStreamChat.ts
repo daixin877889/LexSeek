@@ -322,7 +322,9 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
             const v = s.values as any
             if (!v?.__interrupt__?.length) return null
             const raw = v.__interrupt__
-            const resolved = Array.isArray(raw) ? (raw.length === 1 ? raw[0] : raw) : raw
+            // 始终取最后一个：LangGraph state 中 __interrupt__ 可能累计多个 pending
+            // 中断（前一个未 resume 又触发新的）。当前活跃的总是数组最后一项。
+            const resolved = Array.isArray(raw) ? raw[raw.length - 1] : raw
             const value = resolved?.value ?? resolved
             if (value && typeof value === 'object' && resolved?.id != null) {
                 return { ...value, _interruptId: resolved.id }

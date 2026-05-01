@@ -316,7 +316,10 @@ describe('AiToolRenderer - SUB_AGENT_LIKE 双卡分支（draft_document / review
         expect(wrapper.findComponent({ name: 'SubAgentChainOfThought' }).exists()).toBe(true)
     })
 
-    it('interrupt 优先级 > SUB_AGENT_LIKE：active interrupt 时 CoT 不抢渲染', () => {
+    it('active interrupt + SUB_AGENT_LIKE：CoT 与 interrupt 卡共存（user-reported bug 修复）', () => {
+        // 旧设计：active interrupt 时 v-if 优先吃掉 CoT 分支 → 用户跑中只看到 interrupt 卡，
+        //   完全看不到子流。
+        // 修复：CoT 拎到 v-if 链外作为独立顶部渲染，跟 interrupt 卡 / 结果卡共存。
         const subAccess = makeSubAccess('call-int', { status: 'running' })
         const ctx = makeContext({
             interruptData: { type: 'stub_tool_select', toolCallId: 'call-int' },
@@ -328,6 +331,10 @@ describe('AiToolRenderer - SUB_AGENT_LIKE 双卡分支（draft_document / review
             },
             global: { provide: { subAgentAccess: subAccess, messageStreamContext: ctx } },
         })
-        expect(wrapper.findComponent({ name: 'SubAgentChainOfThought' }).exists()).toBe(false)
+        expect(wrapper.findComponent({ name: 'SubAgentChainOfThought' }).exists()).toBe(true)
+        // interrupt 卡仍然渲染（active 模式）
+        expect(wrapper.find('.stub-tool-card').exists()).toBe(true)
+        // 跑中阶段不显示空白结果卡
+        expect(wrapper.find('.stub-result-card').exists()).toBe(false)
     })
 })
