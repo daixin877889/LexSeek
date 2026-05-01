@@ -71,8 +71,10 @@
 import { Boxes, Loader2, RefreshCw } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useApiFetch } from '~/composables/useApiFetch'
-import dayjs from 'dayjs'
+import { useFormatters } from '~/composables/useFormatters'
 import AdminSkillsSkillEnableSwitch from '~/components/admin/skills/SkillEnableSwitch.vue'
+
+const { formatDate: formatDateRaw } = useFormatters()
 
 interface Skill {
     name: string
@@ -92,7 +94,7 @@ const loading = ref(false)
 const resyncing = ref(false)
 
 function formatDate(date: string) {
-    return dayjs(date).format('MM-DD HH:mm')
+    return formatDateRaw(date, 'MM-DD HH:mm')
 }
 
 async function loadSkills() {
