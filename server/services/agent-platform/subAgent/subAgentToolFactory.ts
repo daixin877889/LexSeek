@@ -210,6 +210,22 @@ export async function createSubAgentTools(
                         },
                     )
 
+                    // 主动 publish 子流 status_change(completed)：buildSubAgentCallbacks.handleChainEnd
+                    // 在 LangGraph invoke 内部多层 chain 包装下 cbParentRunId 不一定 undefined，导致
+                    // status_change 永不触发——前端 CoT 卡"思考中…"且不触发 hydrate。这里在工具层
+                    // 显式发一次兜底（同 draftDocument / reviewContract.tool 的处理）。
+                    await publishStatusChange({
+                        type: 'status_change',
+                        runId: mainRunId,
+                        sessionId: context.sessionId,
+                        status: 'completed',
+                        metadata: {
+                            agentName: nodeConfig.name,
+                            threadId: subThreadId,
+                            parentToolCallId,
+                        },
+                    }).catch((err: unknown) => logger.warn('publishStatusChange(sub completed) 失败', { err }))
+
                     // 从 agent 返回的 messages 中提取最后一条 AI 回复
                     const messages = result?.messages
                     if (Array.isArray(messages) && messages.length > 0) {
