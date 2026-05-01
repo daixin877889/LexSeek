@@ -1,5 +1,5 @@
 ---
-name: evidence-defense
+name: criminal-evidence-review
 description: |
   审查刑事证据的合法性、真实性、关联性时使用。
   典型触发: "这份证据有问题吗"、"怎么质证"、"证据能用吗"、"程序合法吗"。
@@ -157,9 +157,17 @@ tags: [evidence, criminal, review, defense, procedure]
 
 ## 相关资源
 
+**质证模板**：
+- `PROMPT.md` - 质证提示词模板，包含完整的质证执行步骤和输出格式，可直接用于质证工作
+
+**详细说明**：
 - `references/基础审查框架.md` - 三性审查、鉴真、鉴定、证人、勘验详细方法
 - `references/程序审查专项.md` - 辨认、录音录像、非法证据排除详细方法
 - `references/证明责任与标准.md` - 举证责任、证明标准、孤证、存疑详细规则
 - `references/证据定案规则.md` - 间接证据、印证、一对一详细规则
 - `references/排除规则.md` - 各类强制性排除情形详细说明
 - `references/证据权重与优先.md` - 证据矛盾取舍详细规则
+
+**索引文件**：
+- `INDEX.md` - 技能关系图与学习路径
+- `README.md` - 使用说明概述

@@ -22,7 +22,7 @@ description: |
 ## 关键要点
 
 ### 一、案由检索
-详见 [references/anyou-jiansuo.md](./references/anyou-jiansuo.md)
+详见 [references/案由检索.md](./references/案由检索.md)
 
 检索关键词构造规则：
 - 固定前缀：`民事案件案由规定`
@@ -34,14 +34,14 @@ description: |
 - 第三轮：检索通用案由
 
 ### 二、版本校验
-详见 [references/banben-yanzheng.md](./references/banben-yanzheng.md)
+详见 [references/版本校验.md](./references/版本校验.md)
 
 生效日期判定：
 - ≥2026-01-01：最新版案由，可直接采用
 - <2026-01-01：旧版案由，需确认是否已被替代
 
 ### 三、优先级规则
-详见 [references/youxianji-guize.md](./references/youxianji-guize.md)
+详见 [references/优先级规则.md](./references/优先级规则.md)
 
 案由选择优先级：
 - 第一优先：专门案由
@@ -49,7 +49,7 @@ description: |
 - 第三优先：通用案由
 
 ### 四、冲突处理
-详见 [references/chongtu-chuli.md](./references/chongtu-chuli.md)
+详见 [references/冲突处理.md](./references/冲突处理.md)
 
 冲突情形处理：
 - 检索结果 vs 过往经验 → 检索结果为准
