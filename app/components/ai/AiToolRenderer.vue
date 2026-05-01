@@ -59,11 +59,9 @@ function subAgentTitleFromName(name: string): string {
   return name
 }
 
-// 守卫：仅在该子代理工具有数据 / 正在跑 / 失败时显示 CoT，避免 cancelled tool 显示空白卡。
-// 范围扩展到所有子代理工具（draft_document / review_contract / ask_*_expert）—
-// CoT 卡跟主体卡（包括 interrupt 卡 / 结果卡）共存渲染，不被任何 v-if 分支屏蔽。
+// 守卫：仅在有数据 / 正在跑 / 失败时显示 CoT，避免 cancelled tool 显示空白卡
 const shouldShowSubAgentCoT = computed(() => {
-  if (!isSubAgentTool(props.toolCall.name)) return false
+  if (!SUB_AGENT_LIKE_TOOLS.has(props.toolCall.name)) return false
   return subAgentMessages(props.toolCall.id).length > 0
     || subAgentIsRunning(props.toolCall.id)
     || subAgentIsFailed(props.toolCall.id)
@@ -142,18 +140,6 @@ function subAgentError(toolCallId: string): string | undefined {
 </script>
 
 <template>
-  <!-- 子流 CoT 始终优先渲染：跟下面的主体卡（interrupt / 结果卡 / 普通工具卡）共存，
-       不受 v-if 链屏蔽。让 interrupt 阻塞期间用户也能看到子流跑中或已跑过的思考历史。
-       适用所有子代理工具：draft_document / review_contract / ask_*_expert。 -->
-  <SubAgentChainOfThought
-    v-if="shouldShowSubAgentCoT"
-    :agent-title="subAgentTitleFromName(toolCall.name)"
-    :sub-messages="subAgentMessages(toolCall.id)"
-    :is-running="subAgentIsRunning(toolCall.id)"
-    :is-failed="subAgentIsFailed(toolCall.id)"
-    :failure-reason="subAgentError(toolCall.id)"
-  />
-
   <!-- interrupt 工具卡（active 或 resolved）：active 优先于 resolved（避免同一 toolCallId
        重复触发时 UI 显示 stale snapshot）；resumeValue 仅在 resolved 且非 active 时传入。 -->
   <template v-if="isInterruptToolCardCall">
@@ -174,22 +160,27 @@ function subAgentError(toolCallId: string): string | undefined {
       :state="toolCall.state"
     />
   </template>
-  <!-- SUB_AGENT_LIKE 工具结果卡（CoT 已在顶部渲染；这里仅 output-available 时显示结果） -->
-  <component
-    v-else-if="SUB_AGENT_LIKE_TOOLS.has(toolCall.name) && toolCall.state === 'output-available' && toolMap?.[toolCall.name]"
-    :is="toolMap[toolCall.name]"
-    :tool-name="toolCall.name"
-    :input="toolCall.args"
-    :output="toolCall.result"
-    :state="toolCall.state"
-    @confirm="emit('confirm', $event)"
-    @reject="emit('reject')"
-  />
-  <!-- SUB_AGENT_LIKE 工具跑中（input-available）：仅顶部 CoT，主体不渲染 -->
-  <template v-else-if="SUB_AGENT_LIKE_TOOLS.has(toolCall.name)" />
-  <!-- legacy ask_*_expert：CoT 已在顶部渲染，主体也不再单独渲染（避免重复） -->
-  <template v-else-if="isLegacySubAgentTool(toolCall.name)" />
-  <!-- 用户自定义工具卡（非子代理工具） -->
+  <!-- 新加：SUB_AGENT_LIKE 工具双卡共存（CoT 在前，结果卡在后） -->
+  <template v-else-if="shouldShowSubAgentCoT">
+    <SubAgentChainOfThought
+      :agent-title="subAgentTitleFromName(toolCall.name)"
+      :sub-messages="subAgentMessages(toolCall.id)"
+      :is-running="subAgentIsRunning(toolCall.id)"
+      :is-failed="subAgentIsFailed(toolCall.id)"
+      :failure-reason="subAgentError(toolCall.id)"
+    />
+    <component
+      v-if="toolCall.state === 'output-available' && toolMap?.[toolCall.name]"
+      :is="toolMap[toolCall.name]"
+      :tool-name="toolCall.name"
+      :input="toolCall.args"
+      :output="toolCall.result"
+      :state="toolCall.state"
+      @confirm="emit('confirm', $event)"
+      @reject="emit('reject')"
+    />
+  </template>
+  <!-- 用户自定义工具优先（draft_document / review_contract 在上面已命中，不会落到这里） -->
   <component
     v-else-if="toolMap?.[toolCall.name]"
     :is="toolMap[toolCall.name]"
@@ -199,6 +190,15 @@ function subAgentError(toolCallId: string): string | undefined {
     :state="toolCall.state"
     @confirm="emit('confirm', $event)"
     @reject="emit('reject')"
+  />
+  <!-- 子 Agent 工具（legacy ask_*_expert）：用 Chain of Thought 展示内部思考过程 -->
+  <SubAgentChainOfThought
+    v-else-if="isLegacySubAgentTool(toolCall.name)"
+    :agent-title="subAgentTitleFromName(toolCall.name)"
+    :sub-messages="subAgentMessages(toolCall.id)"
+    :is-running="subAgentIsRunning(toolCall.id)"
+    :is-failed="subAgentIsFailed(toolCall.id)"
+    :failure-reason="subAgentError(toolCall.id)"
   />
   <AiToolsMaterialProcessTool v-else-if="toolCall.name === 'process_materials'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
   <AiToolsPointsReserveTool v-else-if="toolCall.name === 'reserve_points'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />

@@ -248,13 +248,10 @@ async function handleCancel() {
     }
 }
 
-// snapshot 模式：mount 时即视为 confirmed（复用现有 confirmed 视觉）。
-// 用 watch + immediate 而非 setup 阶段一次性 if：避免组件先以 active mode mount
-// （resumeValue 还是 undefined）后，resolved 状态到来 prop 变成 isSnapshot=true 时
-// confirmed 没被同步翻成 true，按钮一直显示——即 user 反馈"使用此模板点了卡片状态没变"。
-watch(isSnapshot, (snap) => {
-    if (snap) confirmed.value = true
-}, { immediate: true })
+// snapshot 模式：mount 时即视为 confirmed（复用现有 confirmed 视觉）
+if (isSnapshot.value) {
+    confirmed.value = true
+}
 
 // active 模式首次 mount 滚到视口（snapshot 不滚——用户已在历史里）
 const cardRef = ref<HTMLElement | null>(null)

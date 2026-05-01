@@ -122,9 +122,6 @@ export async function runAssistantChat(
         checkpointer,
         store,
         tools,
-        // 强制 v1：v2 多 tool_calls 并行 Send 时撞 jumpTo channel 抛 InvalidUpdateError，
-        // 详见 documentMainAgent 同款修复
-        version: 'v1',
         middleware: [
             // 消息完整性兜底：必须最先，补齐 orphan tool_use 防 Provider 400
             createMessageIntegrityMiddleware(),
