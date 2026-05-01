@@ -138,7 +138,16 @@ function subAgentMessages(toolCallId: string): any[] {
   return subAgentAccess?.subThreadsMap?.[toolCallId]?.messages ?? []
 }
 function subAgentIsRunning(toolCallId: string): boolean {
-  return subAgentAccess?.subThreadsMap?.[toolCallId]?.status === 'running'
+  // bucket 不存在的两种场景：
+  //  1. 主流刚发出 tool_call AIMessage，但子流首个 SSE 事件还没到（bucket 待建）
+  //  2. subAgentAccess 没 provide（无法判断），返回 false
+  // 场景 1 必须算"跑中"——否则 header 错显"已完成" + CoT 默认折叠，用户看到
+  // 假象"加载就完成"，等事件累完展开才"突然出现"。
+  const map = subAgentAccess?.subThreadsMap
+  if (!map) return false
+  const bucket = map[toolCallId]
+  if (!bucket) return true
+  return bucket.status === 'running'
 }
 function subAgentIsFailed(toolCallId: string): boolean {
   return subAgentAccess?.subThreadsMap?.[toolCallId]?.status === 'failed'
@@ -221,7 +230,7 @@ const internalToolComponent = computed<Component>(() => INTERNAL_TOOL_MAP[props.
   <!-- legacy ask_*_expert：caseAnalysis 7 个分析子代理，仍走老 CoT 路径 -->
   <SubAgentChainOfThought
     v-else-if="isLegacySubAgentTool(toolCall.name)"
-    :agent-title="subAgentTitleFromName(toolCall.name)"
+    :agent-title="toolDisplayName(toolCall.name)"
     :sub-messages="subAgentMessages(toolCall.id)"
     :is-running="subAgentIsRunning(toolCall.id)"
     :is-failed="subAgentIsFailed(toolCall.id)"

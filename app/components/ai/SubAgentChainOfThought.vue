@@ -41,8 +41,13 @@ const props = withDefaults(defineProps<Props>(), {
 // 用户后续可点击 header 自由切换。
 const isOpen = ref<boolean>(props.isRunning || props.isFailed)
 watch(() => props.isRunning, (running, prev) => {
-  // 跑完瞬间（true → false）自动折叠 — 失败保持展开让用户看到错误
-  if (prev && !running && !props.isFailed) {
+  // false → true：开始跑时主动展开（场景：tool_call 出现时 bucket 还没建，
+  // 首个 SSE 事件到达后 status='running'，用户应立即看到流式内容）
+  if (!prev && running) {
+    isOpen.value = true
+  }
+  // true → false：跑完瞬间自动折叠节省空间——失败保持展开让用户看到错误
+  else if (prev && !running && !props.isFailed) {
     isOpen.value = false
   }
 })
