@@ -316,8 +316,14 @@ describe('AiToolRenderer - SUB_AGENT_LIKE 双卡分支（draft_document / review
         expect(wrapper.findComponent({ name: 'SubAgentChainOfThought' }).exists()).toBe(true)
     })
 
-    it('interrupt 优先级 > SUB_AGENT_LIKE：active interrupt 时 CoT 不抢渲染', () => {
-        const subAccess = makeSubAccess('call-int', { status: 'running' })
+    it('interrupt 期间 CoT 与 interrupt 卡共存：CoT 顶部独立渲染（修复跑中黑盒）', () => {
+        // 行为变更：旧版 v-if 链让 isInterruptToolCardCall 屏蔽 SubAgentChainOfThought，
+        // 导致 interrupt 阻塞期间用户看不到子流跑过的思考。新版 CoT 提到 v-if 顶部，
+        // 跟 interrupt 卡共存。前置：subAccess 含 messages（守卫 shouldShowSubAgentCoT 通过）。
+        const subAccess = makeSubAccess('call-int', {
+            messages: [{ type: 'ai', content: '已搜过法规' }],
+            status: 'running',
+        })
         const ctx = makeContext({
             interruptData: { type: 'stub_tool_select', toolCallId: 'call-int' },
         })
@@ -328,6 +334,29 @@ describe('AiToolRenderer - SUB_AGENT_LIKE 双卡分支（draft_document / review
             },
             global: { provide: { subAgentAccess: subAccess, messageStreamContext: ctx } },
         })
+        // CoT 卡 + interrupt dispatch 卡都存在
+        expect(wrapper.findComponent({ name: 'SubAgentChainOfThought' }).exists()).toBe(true)
+        expect(wrapper.find('.stub-tool-card').exists()).toBe(true)
+    })
+
+    it('interrupt + 无子流数据：仅 interrupt 卡渲染，不显示空 CoT（守卫生效）', () => {
+        // 边界保护：interrupt 触发但 subThreadsMap 还没数据（子流尚未启动）—
+        // shouldShowSubAgentCoT 守卫返回 false，CoT 不出现，避免空白卡。
+        const subAccess = makeSubAccess('call-int2', { messages: [], status: 'running' })
+        // 守卫看 messages.length > 0 || running || failed —— 这里 status=running 通过
+        // 改用 completed + 空 messages 模拟"interrupt 之前子流还没启动"的真实场景
+        subAccess.subThreadsMap['call-int2'].status = 'completed'
+        const ctx = makeContext({
+            interruptData: { type: 'stub_tool_select', toolCallId: 'call-int2' },
+        })
+        const wrapper = mount(AiToolRenderer, {
+            props: {
+                toolCall: { id: 'call-int2', name: 'draft_document', args: {}, state: 'input-available' },
+                toolMap: { draft_document: StubResultCard },
+            },
+            global: { provide: { subAgentAccess: subAccess, messageStreamContext: ctx } },
+        })
         expect(wrapper.findComponent({ name: 'SubAgentChainOfThought' }).exists()).toBe(false)
+        expect(wrapper.find('.stub-tool-card').exists()).toBe(true)
     })
 })
