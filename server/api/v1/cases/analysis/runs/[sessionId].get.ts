@@ -1,7 +1,7 @@
 /**
  * 查询 session 的 run 列表 API
  *
- * GET /api/v1/case/analysis/runs/:sessionId
+ * GET /api/v1/cases/analysis/runs/:sessionId
  */
 
 import { findCaseBySessionIdService } from '~~/server/services/case/caseSession.service'

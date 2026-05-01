@@ -489,7 +489,7 @@ if (run && TERMINAL_STATUSES.includes(run.status)) {
 
 ### 相关文件
 
-- `server/api/v1/case/init-analysis.post.ts:329-374`（`createSSEResponse` fallback 路径）
+- `server/api/v1/cases/init-analysis.post.ts:329-374`（`createSSEResponse` fallback 路径）
 - `server/services/workflow/agents/threadState.ts`（`getThreadValuesService`）
 
 ## 十九、vue-stream-markdown 表格底部 loading 图标不消失

@@ -1,5 +1,5 @@
 /**
- * DELETE /api/v1/case/memories/:memoryId
+ * DELETE /api/v1/cases/memories/:memoryId
  *
  * 严格限制：仅 source='manual_user' + 案件 owner 可删。
  * 软删：jsonb_set(metadata, '{invalidatedAt}', now)，与 LangChain 同构表对齐。

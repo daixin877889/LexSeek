@@ -1,5 +1,5 @@
 /**
- * POST /api/v1/case/memories/by-case/:caseId
+ * POST /api/v1/cases/memories/by-case/:caseId
  *
  * 用户手动添加案件记忆（source=manual_user）。
  * subjectKey 留空时调 caseMemorySubjectInfer 节点推断；推断失败 fallback null。

@@ -64,12 +64,12 @@ export function useCaseDetail(
 
   // 案件基本信息（响应式，用于页面头部标题等）
   const { data: caseInfo, refresh: refreshCase } = useApi<CaseDetailInfo>(
-    () => `/api/v1/case/${id.value}`,
+    () => `/api/v1/cases/${id.value}`,
   )
 
   // 材料列表（响应式）
   const { data: materials, refresh: refreshMaterials } = useApi<CaseDetailMaterialItem[]>(
-    () => `/api/v1/case/materials/${id.value}`,
+    () => `/api/v1/cases/materials/${id.value}`,
   )
 
   // 文书草稿列表（响应式，按 caseId 过滤）
@@ -82,7 +82,7 @@ export function useCaseDetail(
 
   // 分析状态和结果
   const { data: analysisStatus, refresh: refreshAnalysis } = useApi<InitAnalysisStatusResponse>(
-    () => `/api/v1/case/init-analysis-status/${id.value}`,
+    () => `/api/v1/cases/init-analysis-status/${id.value}`,
   )
 
   // 跨标签页同步：其他标签页的 init-analysis 或模块对话完成时自动刷新
@@ -93,7 +93,7 @@ export function useCaseDetail(
     if (data.caseId === id.value) {
       const seq = ++crossTabFetchSeq
       const fresh = await useApiFetch<InitAnalysisStatusResponse>(
-        `/api/v1/case/init-analysis-status/${id.value}`,
+        `/api/v1/cases/init-analysis-status/${id.value}`,
       )
       if (fresh && seq === crossTabFetchSeq) analysisStatus.value = fresh
     }
@@ -222,7 +222,7 @@ export function useCaseDetail(
       }))
 
       const response = await useApiFetch<CaseDetailMaterialItem[]>(
-        `/api/v1/case/materials/${id.value}`,
+        `/api/v1/cases/materials/${id.value}`,
         {
           method: 'POST',
           body: { materials: materialParams },
@@ -306,7 +306,7 @@ export function useCaseDetail(
 
     isDeleting.value = true
     try {
-      await useApiFetch(`/api/v1/case/materials/delete/${id.value}`, {
+      await useApiFetch(`/api/v1/cases/materials/delete/${id.value}`, {
         method: 'DELETE',
         body: { materialIds },
       })

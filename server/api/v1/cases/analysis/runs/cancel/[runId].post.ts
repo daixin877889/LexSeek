@@ -1,7 +1,7 @@
 /**
  * 取消 run API
  *
- * POST /api/v1/case/analysis/runs/cancel/:runId
+ * POST /api/v1/cases/analysis/runs/cancel/:runId
  */
 
 import { cancelRunService } from '~~/server/services/agent/agentRun.service'

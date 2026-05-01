@@ -136,15 +136,15 @@ function defaultApiEndpoints(scope: DomainScope): ResolvedApiConfig {
         listUrl: (caseId, moduleName) => {
           if (!caseId) throw new Error('scope=case 时 caseId 必填')
           return moduleName
-            ? `/api/v1/case/analysis/module-sessions?caseId=${caseId}&moduleName=${moduleName}`
-            : `/api/v1/case/analysis/xiaosuo-sessions?caseId=${caseId}`
+            ? `/api/v1/cases/analysis/module-sessions?caseId=${caseId}&moduleName=${moduleName}`
+            : `/api/v1/cases/analysis/xiaosuo-sessions?caseId=${caseId}`
         },
-        createUrl: '/api/v1/case/analysis/xiaosuo-session',
-        deleteUrl: (sid) => `/api/v1/case/analysis/xiaosuo-session/${sid}`,
-        renameUrl: (sid) => `/api/v1/case/analysis/session/rename/${sid}`,
-        chatUrl: '/api/v1/case/analysis/chat',
+        createUrl: '/api/v1/cases/analysis/xiaosuo-session',
+        deleteUrl: (sid) => `/api/v1/cases/analysis/xiaosuo-session/${sid}`,
+        renameUrl: (sid) => `/api/v1/cases/analysis/session/rename/${sid}`,
+        chatUrl: '/api/v1/cases/analysis/chat',
         // case scope 复用案件分析模块的 thread 历史 endpoint：返回 subAgentThreads
-        historyUrl: (sid) => `/api/v1/case/analysis/thread/${sid}`,
+        historyUrl: (sid) => `/api/v1/cases/analysis/thread/${sid}`,
       }
     case 'legal_assistant':
       return {
@@ -182,7 +182,7 @@ function defaultApiEndpoints(scope: DomainScope): ResolvedApiConfig {
         createUrl: null,
         deleteUrl: null,
         renameUrl: null,
-        chatUrl: '/api/v1/case/init-analysis',
+        chatUrl: '/api/v1/cases/init-analysis',
         historyUrl: null,
       }
     default: {
@@ -361,8 +361,8 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
     // 小索走 xiaosuo-session（type=1）。defaultApiEndpoints 的 createUrl 默认是
     // 后者，moduleName 非空时改路由到前者。
     const createUrl = (scope === 'case' && moduleName
-        && apiConfig.createUrl === '/api/v1/case/analysis/xiaosuo-session')
-        ? '/api/v1/case/analysis/module-session'
+        && apiConfig.createUrl === '/api/v1/cases/analysis/xiaosuo-session')
+        ? '/api/v1/cases/analysis/module-session'
         : apiConfig.createUrl
 
     const result = await useApiFetch<{ sessionId: string; title: string }>(
@@ -505,8 +505,8 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
     // 后者，moduleName 非空时改路由到前者（与 createSession 同步）。
     const baseUrl = apiConfig.deleteUrl(sessionId)
     const deleteUrl = (scope === 'case' && moduleName
-        && baseUrl === `/api/v1/case/analysis/xiaosuo-session/${sessionId}`)
-        ? `/api/v1/case/analysis/module-session/${sessionId}`
+        && baseUrl === `/api/v1/cases/analysis/xiaosuo-session/${sessionId}`)
+        ? `/api/v1/cases/analysis/module-session/${sessionId}`
         : baseUrl
 
     await useApiFetch(deleteUrl, { method: 'DELETE' })

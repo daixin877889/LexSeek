@@ -1,7 +1,7 @@
 /**
  * 更新案件状态（含归档）
  *
- * PATCH /api/v1/case/[caseId]
+ * PATCH /api/v1/cases/[caseId]
  *
  * 仅允许更新 status 字段；归档（status=999）后案件变为只读。
  * updateCaseService 内置 ARCHIVED 守卫，归档后再次调用会返回 403。

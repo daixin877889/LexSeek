@@ -1,7 +1,7 @@
 /**
  * 删除案件材料
  *
- * DELETE /api/v1/case/materials/delete/:caseId
+ * DELETE /api/v1/cases/materials/delete/:caseId
  *
  * 支持单个和批量删除（软删除 + 清理向量数据）
  */

@@ -11,14 +11,14 @@ import { useApiFetch } from '~/composables/useApiFetch'
 export async function stopActiveRun(sessionId: string): Promise<{ ok: boolean; error?: string }> {
     try {
         const runData = await useApiFetch<{ run: { id: string } | null }>(
-            `/api/v1/case/analysis/runs/current/${sessionId}`,
+            `/api/v1/cases/analysis/runs/current/${sessionId}`,
         )
         // 没有活跃 run 视为成功（无需取消）
         if (!runData?.run?.id) {
             return { ok: true }
         }
         await useApiFetch(
-            `/api/v1/case/analysis/runs/cancel/${runData.run.id}`,
+            `/api/v1/cases/analysis/runs/cancel/${runData.run.id}`,
             { method: 'POST' },
         )
         return { ok: true }

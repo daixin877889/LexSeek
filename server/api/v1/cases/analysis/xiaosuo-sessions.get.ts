@@ -1,6 +1,6 @@
 /**
  * 查询小索对话 Session 列表
- * GET /api/v1/case/analysis/xiaosuo-sessions?caseId=xxx
+ * GET /api/v1/cases/analysis/xiaosuo-sessions?caseId=xxx
  */
 import { listSessionsWithActiveRunDAO } from '~~/server/services/case/session.dao'
 

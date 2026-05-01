@@ -1,7 +1,7 @@
 /**
  * 更新案件基本信息
  *
- * PUT /api/v1/case/[caseId]
+ * PUT /api/v1/cases/[caseId]
  *
  * 更新案件标题、原告、被告，同步写入 DB、JSONB 和长期记忆三层存储
  */

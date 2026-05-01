@@ -1,5 +1,5 @@
 /**
- * GET /api/v1/case/memories/by-case/:caseId
+ * GET /api/v1/cases/memories/by-case/:caseId
  *
  * 案件记忆时间线列表（按 createdAt 倒序，游标分页）。
  * 权限：仅案件 owner（归档案件允许查，与 search_case_memory 一致）。

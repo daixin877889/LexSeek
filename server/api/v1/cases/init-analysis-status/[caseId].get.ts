@@ -1,7 +1,7 @@
 /**
  * 初始化分析状态查询端点
  *
- * GET /api/v1/case/init-analysis-status/:caseId
+ * GET /api/v1/cases/init-analysis-status/:caseId
  *
  * 返回案件的初始化分析状态和各模块结果
  */

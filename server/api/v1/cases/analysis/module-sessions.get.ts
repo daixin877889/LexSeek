@@ -1,7 +1,7 @@
 /**
  * 查询活跃模块 Session 列表
  *
- * GET /api/v1/case/analysis/module-sessions?caseId=xxx&moduleName=summary
+ * GET /api/v1/cases/analysis/module-sessions?caseId=xxx&moduleName=summary
  *
  * 返回指定案件所有 type=3 的模块对话 session
  * 包含是否有 activeRun 的状态，用于页面刷新后恢复

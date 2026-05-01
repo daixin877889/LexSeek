@@ -1,7 +1,7 @@
 /**
  * 创建案件
  *
- * POST /api/v1/case/create
+ * POST /api/v1/cases/create
  *
  * 创建新案件并生成唯一的 sessionId（作为 LangGraph thread_id）
  * Requirements: 1.3, 3.1

@@ -1,7 +1,7 @@
 /**
  * 统一对话 API 端点
  *
- * POST /api/v1/case/analysis/chat
+ * POST /api/v1/cases/analysis/chat
  *
  * 兼容 @langchain/vue FetchStreamTransport 协议：
  * - 请求体: { input, config, command, streamSubgraphs }

@@ -1,7 +1,7 @@
 /**
  * 获取线程历史状态 API
  *
- * GET /api/v1/case/analysis/thread/:sessionId
+ * GET /api/v1/cases/analysis/thread/:sessionId
  *
  * 从 checkpointer 读取指定线程的最新状态，
  * 返回给前端用于渲染历史消息和作为 useStream 的 initialValues。

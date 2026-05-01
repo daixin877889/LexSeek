@@ -1,6 +1,6 @@
 /**
  * 删除模块对话 Session
- * DELETE /api/v1/case/analysis/module-session/:sessionId
+ * DELETE /api/v1/cases/analysis/module-session/:sessionId
  */
 import { softDeleteSessionDAO } from '~~/server/services/case/session.dao'
 

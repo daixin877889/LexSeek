@@ -1,7 +1,7 @@
 /**
  * 通用 Agent SSE 流构造器
  *
- * 抽取自 server/api/v1/case/analysis/chat.post.ts 的内联实现（原 L215-370），
+ * 抽取自 server/api/v1/cases/analysis/chat.post.ts 的内联实现（原 L215-370），
  * 用于服务所有订阅 AgentRun 事件流的 SSE 端点（case chat、assistant chat 等）。
  *
  * 行为：

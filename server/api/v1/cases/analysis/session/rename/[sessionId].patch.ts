@@ -1,6 +1,6 @@
 /**
  * 重命名 Session（通用，适用于所有 session 类型）
- * PATCH /api/v1/case/analysis/session/rename/:sessionId
+ * PATCH /api/v1/cases/analysis/session/rename/:sessionId
  */
 import { z } from 'zod'
 import { renameSessionDAO } from '~~/server/services/case/session.dao'

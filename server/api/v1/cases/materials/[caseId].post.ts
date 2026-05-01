@@ -1,7 +1,7 @@
 /**
  * 向已有案件添加材料
  *
- * POST /api/v1/case/materials/:caseId
+ * POST /api/v1/cases/materials/:caseId
  *
  * 仅支持文件类材料（type=2/3/4），不支持文本（type=1）
  */

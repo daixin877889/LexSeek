@@ -1,6 +1,6 @@
 /**
  * 创建小索对话 Session
- * POST /api/v1/case/analysis/xiaosuo-session
+ * POST /api/v1/cases/analysis/xiaosuo-session
  *
  * 请求体: { caseId: number, title?: string }
  * 响应: { code: 200, data: { sessionId, title } }

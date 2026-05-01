@@ -1,7 +1,7 @@
 /**
  * AI 信息提取端点
  *
- * POST /api/v1/case/extract
+ * POST /api/v1/cases/extract
  *
  * 调用 extractInfo 节点从案件描述中提取结构化信息
  * 返回 JSON 格式的 ExtractedCaseInfo

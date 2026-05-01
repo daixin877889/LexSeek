@@ -60,7 +60,7 @@ watch(open, (val) => {
 async function activateVersion(versionId: number) {
   activating.value = true
   try {
-    await useApiFetch(`/api/v1/case/analysis/versions/activate/${versionId}`, {
+    await useApiFetch(`/api/v1/cases/analysis/versions/activate/${versionId}`, {
       method: 'POST',
     })
     emit('activated')

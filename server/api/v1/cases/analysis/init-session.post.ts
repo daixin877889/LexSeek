@@ -1,7 +1,7 @@
 /**
  * 初始化分析 Session 创建（补充分析入口）
  *
- * POST /api/v1/case/analysis/init-session
+ * POST /api/v1/cases/analysis/init-session
  *
  * 为指定案件创建 type=2 的初始化分析 session，不启动分析。
  * 创建后前端跳转到 init-analysis 页面，用户选择模块后开始分析。

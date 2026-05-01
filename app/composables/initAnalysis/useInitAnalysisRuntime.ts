@@ -35,7 +35,7 @@ export function useInitAnalysisRuntime(sessionId: Ref<string>) {
   )
 
   const stream = useStreamChat<InitAnalysisState>({
-    apiUrl: '/api/v1/case/init-analysis',
+    apiUrl: '/api/v1/cases/init-analysis',
     threadId: sessionId.value,
     messagesKey: 'messages',
   })
@@ -135,7 +135,7 @@ export function useInitAnalysisRuntime(sessionId: Ref<string>) {
     const sessionInfo = await useApiFetch<{
       case: { id: number }
       session: { id: number; sessionId: string; status: number }
-    }>(`/api/v1/case/session/${sessionId.value}`)
+    }>(`/api/v1/cases/session/${sessionId.value}`)
 
     if (!sessionInfo?.case) {
       isInitialized.value = true
@@ -151,7 +151,7 @@ export function useInitAnalysisRuntime(sessionId: Ref<string>) {
     }
 
     const status = await useApiFetch<InitAnalysisStatusResponse>(
-      `/api/v1/case/init-analysis-status/${caseId.value}`,
+      `/api/v1/cases/init-analysis-status/${caseId.value}`,
       { query: { sessionId: sessionId.value } },
     )
 

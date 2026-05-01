@@ -1,7 +1,7 @@
 /**
  * 获取案件材料列表
  *
- * GET /api/v1/case/materials/:caseId
+ * GET /api/v1/cases/materials/:caseId
  *
  * 获取指定案件的所有材料（带文件信息和真实处理状态）
  */

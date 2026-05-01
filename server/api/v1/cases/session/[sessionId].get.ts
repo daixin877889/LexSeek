@@ -1,7 +1,7 @@
 /**
  * 通过会话 ID 获取案件信息
  *
- * GET /api/v1/case/session/[sessionId]
+ * GET /api/v1/cases/session/[sessionId]
  *
  * 获取指定会话对应的案件详细信息
  * Requirements: 9.1

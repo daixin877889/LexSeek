@@ -1,7 +1,7 @@
 /**
  * 获取分析模块的版本列表
  *
- * GET /api/v1/case/analysis/versions/[caseId]?analysisType=summary
+ * GET /api/v1/cases/analysis/versions/[caseId]?analysisType=summary
  *
  * 按 caseId + analysisType 查询已完成的分析版本，按版本号降序
  */

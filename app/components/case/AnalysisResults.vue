@@ -150,14 +150,14 @@ async function refreshVersionList() {
     versionLoading.value = true
     try {
         const data = await useApiFetch<typeof versionItems.value>(
-            `/api/v1/case/analysis/versions/${props.caseId}`,
+            `/api/v1/cases/analysis/versions/${props.caseId}`,
             { query: { analysisType: currentResult.value!.moduleName } },
         )
         versionItems.value = data ?? []
         if (versionItems.value.length === 0) {
             // fallback：从 init-analysis-status 获取版本信息
             const status = await useApiFetch<{ modules?: Array<{ name: string; version?: number }> }>(
-                `/api/v1/case/init-analysis-status/${props.caseId}`,
+                `/api/v1/cases/init-analysis-status/${props.caseId}`,
             )
             const moduleStatus = status?.modules?.find(m => m.name === currentResult.value!.moduleName)
             if (moduleStatus?.version && moduleStatus.version > 0) {

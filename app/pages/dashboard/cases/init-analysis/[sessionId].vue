@@ -223,7 +223,7 @@ async function loadMaterials(id: number) {
   if (id <= 0) return
   materialsLoading.value = true
   try {
-    const data = await useApiFetch<CaseDetailMaterialItem[]>(`/api/v1/case/materials/${id}`)
+    const data = await useApiFetch<CaseDetailMaterialItem[]>(`/api/v1/cases/materials/${id}`)
     if (data) materials.value = data
   } finally {
     materialsLoading.value = false
@@ -359,7 +359,7 @@ watch(caseId, async (id) => {
   if (id <= 0) return
   // 并行加载材料和标题
   loadMaterials(id)
-  const data = await useApiFetch<{ title: string }>(`/api/v1/case/${id}`)
+  const data = await useApiFetch<{ title: string }>(`/api/v1/cases/${id}`)
   if (data?.title) caseTitle.value = data.title
 }, { immediate: true })
 

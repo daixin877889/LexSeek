@@ -70,7 +70,7 @@ export function useInitAnalysisSyncBridge(deps: SyncBridgeDeps) {
     if (data.caseId === caseId.value) {
       const seq = ++crossTabFetchSeq
       const status = await useApiFetch<InitAnalysisStatusResponse>(
-        `/api/v1/case/init-analysis-status/${caseId.value}`,
+        `/api/v1/cases/init-analysis-status/${caseId.value}`,
         { query: { sessionId: sessionId.value } },
       )
       if (status && seq === crossTabFetchSeq) {

@@ -3,7 +3,7 @@
  *
  * POST /api/v1/assistant/runs/cancel/:runId
  *
- * 与 case 域取消接口（/api/v1/case/analysis/runs/cancel/:runId）的区别：
+ * 与 case 域取消接口（/api/v1/cases/analysis/runs/cancel/:runId）的区别：
  * - 额外校验关联 session 的 scope 必须为 'assistant'
  * - scope='case' 的 run 返回 403，避免跨域误操作
  *

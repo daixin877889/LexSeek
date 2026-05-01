@@ -35,7 +35,7 @@ export default defineEventHandler(async (event) => {
         draft.id,
     )
 
-    // 映射到 CaseDetailMaterialItem 形状（与 /api/v1/case/:caseId/materials 保持风格一致）
+    // 映射到 CaseDetailMaterialItem 形状（与 /api/v1/cases/:caseId/materials 保持风格一致）
     const responseData = materials.map(m => ({
         id: m.id,
         name: m.name,

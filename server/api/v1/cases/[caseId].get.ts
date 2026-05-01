@@ -1,7 +1,7 @@
 /**
  * 获取案件信息
  *
- * GET /api/v1/case/[caseId]
+ * GET /api/v1/cases/[caseId]
  *
  * 获取指定案件的详细信息，包括案件类型和会话列表
  * Requirements: 9.1

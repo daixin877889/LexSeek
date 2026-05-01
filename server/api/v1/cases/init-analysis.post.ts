@@ -1,7 +1,7 @@
 /**
  * 初始化分析 SSE 端点
  *
- * POST /api/v1/case/init-analysis
+ * POST /api/v1/cases/init-analysis
  *
  * 创建或重连初始化分析会话，返回 SSE 流推送分析进度
  * - 新建：创建 type=2 session → 入队 AgentRun → 订阅 Redis 事件 → SSE

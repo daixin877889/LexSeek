@@ -93,7 +93,7 @@ async function handleAiSubmit(data: AiPromptSubmitData) {
     const createResult = await useApiFetch<{
       caseId: number
       sessionId: string
-    }>('/api/v1/case/create', {
+    }>('/api/v1/cases/create', {
       method: 'POST',
       body: {
         title,

@@ -1,7 +1,7 @@
 /**
  * 模块对话 Session 创建
  *
- * POST /api/v1/case/analysis/module-session
+ * POST /api/v1/cases/analysis/module-session
  *
  * 为指定案件的指定模块创建 type=3 的对话 session
  * 模块对话支持多 session，不再做幂等约束

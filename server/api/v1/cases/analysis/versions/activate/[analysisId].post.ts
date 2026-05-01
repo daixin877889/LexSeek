@@ -1,7 +1,7 @@
 /**
  * 切换分析结果的激活版本
  *
- * POST /api/v1/case/analysis/versions/activate/[analysisId]
+ * POST /api/v1/cases/analysis/versions/activate/[analysisId]
  *
  * 将指定版本设为激活，同模块其他版本自动取消激活
  */
