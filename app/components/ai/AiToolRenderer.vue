@@ -2,6 +2,7 @@
 import { computed, inject } from 'vue'
 import type { Component } from 'vue'
 import { SYNTHETIC_TOOL_GENERATE_SUMMARY } from '#shared/types/agentEvent'
+import { toolDisplayName } from '~/utils/toolDisplayName'
 import type { ToolCallWithResult } from './composables/useMessageParser'
 import SubAgentChainOfThought from './SubAgentChainOfThought.vue'
 import InterruptDispatcher from '~/components/InterruptDispatcher.vue'
@@ -26,8 +27,29 @@ import AiToolsUploadWorkspaceFileTool from '~/components/ai/tools/UploadWorkspac
 import AiToolsWriteSkillFileTool from '~/components/ai/tools/WriteSkillFileTool.vue'
 import AiToolsWriteTodosTool from '~/components/ai/tools/WriteTodosTool.vue'
 
-// 新加：SUB_AGENT_LIKE 工具集（用 CoT + 结果卡共存渲染）
 const SUB_AGENT_LIKE_TOOLS = new Set(['draft_document', 'review_contract'])
+
+const INTERNAL_TOOL_MAP: Record<string, Component> = {
+  process_materials: AiToolsMaterialProcessTool,
+  reserve_points: AiToolsPointsReserveTool,
+  confirm_points: AiToolsConfirmPointsTool,
+  rollback_points: AiToolsRollbackPointsTool,
+  write_todos: AiToolsWriteTodosTool,
+  search_case_materials: AiToolsMaterialSearchTool,
+  search_case_analysis: AiToolsAnalysisSearchTool,
+  search_law: AiToolsLawSearchTool,
+  search_case_memory: AiToolsMemorySearchTool,
+  write_case_memory: AiToolsMemoryWriteTool,
+  update_case_memory: AiToolsMemoryUpdateTool,
+  extract_case_info: AiToolsExtractInfoTool,
+  upload_workspace_file: AiToolsUploadWorkspaceFileTool,
+  read_skill_file: AiToolsReadSkillFileTool,
+  write_skill_file: AiToolsWriteSkillFileTool,
+  run_skill_script: AiToolsRunSkillScriptTool,
+  save_analysis_result: AiToolsSaveAnalysisResultTool,
+  // 合成卡片：由 saveAnalysisResult 工具的 ANALYSIS_SUMMARY 事件触发，非真实 LLM 工具
+  [SYNTHETIC_TOOL_GENERATE_SUMMARY]: AiToolsGenerateSummaryTool,
+}
 
 interface Props {
   toolCall: ToolCallWithResult
@@ -44,19 +66,6 @@ const emit = defineEmits<{
 function isLegacySubAgentTool(name: string): boolean {
   // ask_*_expert（caseAnalysis 7 个分析子代理）
   return name.startsWith('ask_') && name.endsWith('_expert')
-}
-
-function isSubAgentTool(name: string): boolean {
-  return isLegacySubAgentTool(name) || SUB_AGENT_LIKE_TOOLS.has(name)
-}
-
-function subAgentTitleFromName(name: string): string {
-  if (isLegacySubAgentTool(name)) {
-    return name.replace(/^ask_/, '').replace(/_expert$/, '').replace(/_/g, ' ')
-  }
-  if (name === 'draft_document') return '文书生成'
-  if (name === 'review_contract') return '合同审查'
-  return name
 }
 
 // 守卫：仅在有数据 / 正在跑 / 失败时显示 CoT，避免 cancelled tool 显示空白卡
@@ -137,12 +146,12 @@ function subAgentIsFailed(toolCallId: string): boolean {
 function subAgentError(toolCallId: string): string | undefined {
   return subAgentAccess?.subThreadsMap?.[toolCallId]?.error
 }
+
+const internalToolComponent = computed<Component>(() => INTERNAL_TOOL_MAP[props.toolCall.name] ?? AiToolsDefaultTool)
 </script>
 
 <template>
-  <!-- interrupt 工具卡（active 或 resolved）：先于 CoT 渲染。
-       时序：用户选模板 (interrupt) → agent 开始跑 (CoT) → 结果卡。
-       SUB_AGENT_LIKE 工具的 CoT / 结果卡都嵌在 interrupt 分支内部，避免 v-if 互斥。 -->
+  <!-- SUB_AGENT_LIKE 工具的 CoT / 结果卡嵌在 interrupt 分支内部，避免 v-if 互斥 -->
   <template v-if="isInterruptToolCardCall">
     <InterruptDispatcher
       :interrupt="isActiveInterruptForThisCall
@@ -154,7 +163,7 @@ function subAgentError(toolCallId: string): string | undefined {
     />
     <SubAgentChainOfThought
       v-if="shouldShowSubAgentCoT"
-      :agent-title="subAgentTitleFromName(toolCall.name)"
+      :agent-title="toolDisplayName(toolCall.name)"
       :sub-messages="subAgentMessages(toolCall.id)"
       :is-running="subAgentIsRunning(toolCall.id)"
       :is-failed="subAgentIsFailed(toolCall.id)"
@@ -169,10 +178,9 @@ function subAgentError(toolCallId: string): string | undefined {
       :state="toolCall.state"
     />
   </template>
-  <!-- 无 interrupt 的 SUB_AGENT_LIKE 工具：CoT + 结果卡（跑完时） -->
   <template v-else-if="shouldShowSubAgentCoT">
     <SubAgentChainOfThought
-      :agent-title="subAgentTitleFromName(toolCall.name)"
+      :agent-title="toolDisplayName(toolCall.name)"
       :sub-messages="subAgentMessages(toolCall.id)"
       :is-running="subAgentIsRunning(toolCall.id)"
       :is-failed="subAgentIsFailed(toolCall.id)"
@@ -200,7 +208,6 @@ function subAgentError(toolCallId: string): string | undefined {
     @confirm="emit('confirm', $event)"
     @reject="emit('reject')"
   />
-  <!-- 普通用户自定义工具（非 SUB_AGENT_LIKE）：走原 toolMap 路由，不限 state -->
   <component
     v-else-if="!SUB_AGENT_LIKE_TOOLS.has(toolCall.name) && toolMap?.[toolCall.name]"
     :is="toolMap[toolCall.name]"
@@ -211,7 +218,7 @@ function subAgentError(toolCallId: string): string | undefined {
     @confirm="emit('confirm', $event)"
     @reject="emit('reject')"
   />
-  <!-- 子 Agent 工具（legacy ask_*_expert）：用 Chain of Thought 展示内部思考过程 -->
+  <!-- legacy ask_*_expert：caseAnalysis 7 个分析子代理，仍走老 CoT 路径 -->
   <SubAgentChainOfThought
     v-else-if="isLegacySubAgentTool(toolCall.name)"
     :agent-title="subAgentTitleFromName(toolCall.name)"
@@ -220,24 +227,14 @@ function subAgentError(toolCallId: string): string | undefined {
     :is-failed="subAgentIsFailed(toolCall.id)"
     :failure-reason="subAgentError(toolCall.id)"
   />
-  <AiToolsMaterialProcessTool v-else-if="toolCall.name === 'process_materials'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
-  <AiToolsPointsReserveTool v-else-if="toolCall.name === 'reserve_points'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
-  <AiToolsConfirmPointsTool v-else-if="toolCall.name === 'confirm_points'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
-  <AiToolsRollbackPointsTool v-else-if="toolCall.name === 'rollback_points'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
-  <AiToolsWriteTodosTool v-else-if="toolCall.name === 'write_todos'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
-  <AiToolsMaterialSearchTool v-else-if="toolCall.name === 'search_case_materials'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
-  <AiToolsAnalysisSearchTool v-else-if="toolCall.name === 'search_case_analysis'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" />
-  <AiToolsLawSearchTool v-else-if="toolCall.name === 'search_law'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
-  <AiToolsMemorySearchTool v-else-if="toolCall.name === 'search_case_memory'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" />
-  <AiToolsMemoryWriteTool v-else-if="toolCall.name === 'write_case_memory'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" />
-  <AiToolsMemoryUpdateTool v-else-if="toolCall.name === 'update_case_memory'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" />
-  <AiToolsExtractInfoTool v-else-if="toolCall.name === 'extract_case_info'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
-  <AiToolsUploadWorkspaceFileTool v-else-if="toolCall.name === 'upload_workspace_file'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
-  <AiToolsReadSkillFileTool v-else-if="toolCall.name === 'read_skill_file'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
-  <AiToolsWriteSkillFileTool v-else-if="toolCall.name === 'write_skill_file'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
-  <AiToolsRunSkillScriptTool v-else-if="toolCall.name === 'run_skill_script'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
-  <AiToolsSaveAnalysisResultTool v-else-if="toolCall.name === 'save_analysis_result'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
-  <!-- generate_summary 是合成卡片（非真实 LLM 工具）：由 saveAnalysisResult 工具发出的 ANALYSIS_SUMMARY 事件触发，紧跟在 save_analysis_result 卡片之后 -->
-  <AiToolsGenerateSummaryTool v-else-if="toolCall.name === SYNTHETIC_TOOL_GENERATE_SUMMARY" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" />
-  <AiToolsDefaultTool v-else :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
+  <component
+    v-else
+    :is="internalToolComponent"
+    :tool-name="toolCall.name"
+    :input="toolCall.args"
+    :output="toolCall.result"
+    :state="toolCall.state"
+    @confirm="emit('confirm', $event)"
+    @reject="emit('reject')"
+  />
 </template>
