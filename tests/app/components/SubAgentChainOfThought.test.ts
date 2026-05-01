@@ -62,9 +62,9 @@ describe('SubAgentChainOfThought (static render)', () => {
       props: { agentTitle: 'x', subMessages: msgs, isRunning: true },
       ...globalStubs,
     })
-    // 工具步骤用轻量渲染：显示中文工具名和结果摘要
+    // 验证 step 列表：tool_call label（中文工具名）+ conclusion label
+    // 工具结果摘要现在交给工具卡组件（AiToolRenderer 异步加载）显示，不在本组件职责
     expect(w.text()).toContain('法律检索')
-    expect(w.text()).toContain('找到 1 条结果')
     expect(w.text()).toContain('得出结论')
   })
 
