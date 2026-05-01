@@ -119,6 +119,26 @@ const modelCreators: Record<SdkType, (config: ChatModelConfig) => BaseChatModel>
      * @see Requirements 5.4
      */
     anthropic: (config: ChatModelConfig): BaseChatModel => {
+        // 拦截 outbound request body：deepseek 兼容协议只要看到 thinking 字段（包括
+        // type='disabled'）就进入 thinking mode 严格校验，messages 里没 thinking
+        // content blocks 时返回 400「The content[].thinking ... must be passed back」。
+        // LangChain @langchain/anthropic 1.x 给 ChatAnthropic.thinking 默认值
+        // `{ type: 'disabled' }`（chat_models.js:632），invocationParams 直接打包到 body。
+        // 不能简单把 model.thinking 设 undefined—— isThinkingEnabled() 会访问 .type 炸掉。
+        // 所以在请求出门前 strip 掉 disabled 的 thinking 字段（保留 enabled）。
+        const stripDisabledThinking: typeof fetch = async (input, init) => {
+            try {
+                const url = typeof input === 'string' ? input : (input as URL | Request).toString()
+                if (url.includes('/v1/messages') && init?.body && typeof init.body === 'string') {
+                    const parsed = JSON.parse(init.body) as { thinking?: { type?: string } }
+                    if (parsed.thinking?.type === 'disabled') {
+                        delete parsed.thinking
+                        init = { ...init, body: JSON.stringify(parsed) }
+                    }
+                }
+            } catch { /* 解析失败维持原 init */ }
+            return fetch(input, init)
+        }
         return new ChatAnthropic({
             model: config.modelName,
             apiKey: config.apiKey,
@@ -131,7 +151,7 @@ const modelCreators: Record<SdkType, (config: ChatModelConfig) => BaseChatModel>
                 : (config.maxTokens ?? DEFAULT_MAX_TOKENS),
             // 防止 Anthropic SDK 从 ANTHROPIC_AUTH_TOKEN 环境变量读取 Bearer token
             // 并同时发送 X-Api-Key + Authorization: Bearer，导致 DeepSeek 等兼容接口 401
-            clientOptions: { authToken: null },
+            clientOptions: { authToken: null, fetch: stripDisabledThinking },
             ...(config.thinking && {
                 thinking: { type: 'enabled' as const, budget_tokens: 4096 },
             }),

@@ -41,24 +41,6 @@ export function createMessageIntegrityMiddleware() {
         }),
         beforeModel: {
             hook: async (state: { messages: BaseMessage[], _messageIntegrityFixedTotal?: number }) => {
-                // [ThinkingProbe] 临时调试：dump 每条 AIMessage 的 content 形态，用于定位 thinking 块剥离时机
-                // 修复完成后即移除
-                const probe = state.messages.map((m, idx) => {
-                    const t = (m as any)._getType?.() ?? (m as any).type
-                    if (t !== 'ai') return null
-                    const c = (m as any).content
-                    const tcCount = Array.isArray((m as any).tool_calls) ? (m as any).tool_calls.length : 0
-                    if (typeof c === 'string') {
-                        return { idx, contentType: 'string', length: c.length, tcCount, blockTypes: [], hasThinking: false }
-                    }
-                    if (Array.isArray(c)) {
-                        const blockTypes = c.map((b: any) => b?.type ?? 'unknown')
-                        return { idx, contentType: 'array', length: c.length, tcCount, blockTypes, hasThinking: blockTypes.includes('thinking') }
-                    }
-                    return { idx, contentType: typeof c, tcCount, blockTypes: [], hasThinking: false }
-                }).filter(Boolean)
-                logger.warn('[ThinkingProbe] beforeModel 即将喂给 LLM 的 AIMessages', { count: probe.length, probe })
-
                 const { patched, fixed } = repairRuntimeMessages(
                     state.messages,
                     '上一轮工具调用未产生 tool_result（运行时兜底修复）',
