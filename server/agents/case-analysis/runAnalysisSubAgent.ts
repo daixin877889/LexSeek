@@ -182,7 +182,8 @@ export async function runAnalysisSubAgent(
     const middleware = buildMiddlewareStack(middlewareItems)
 
     // 子图每次主图节点调用一次性 invoke，不需要 checkpointer / store
-    const agent = createAgent({ model, systemPrompt: systemMessage, tools, middleware })
+    // version: 'v1' 避免 v2 多 tool_calls 并行 Send 撞 jumpTo channel（详见 documentMainAgent 同款修复）
+    const agent = createAgent({ model, systemPrompt: systemMessage, tools, middleware, version: 'v1' })
 
     logger.info('[runAnalysisSubAgent] 启动', {
         agentName,

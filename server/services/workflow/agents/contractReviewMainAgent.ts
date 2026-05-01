@@ -444,6 +444,9 @@ export async function runContractReviewChat(
         store,
         tools,
         middleware,
+        // 强制 v1：v2 把多个 tool_calls dispatch 成并行 Send 时撞 jumpTo channel
+        // 抛 InvalidUpdateError，详见 documentMainAgent 同款修复
+        version: 'v1',
     })
 
     // M6.1 子期 1：在 agent 启动前预切分条款并发 segment 事件

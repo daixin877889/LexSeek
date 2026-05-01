@@ -166,6 +166,9 @@ export async function createSubAgentTools(
                         tools: subTools,
                         checkpointer,
                         store,
+                        // 强制 v1：v2 多 tool_calls 并行 Send 时撞 jumpTo channel 抛 InvalidUpdateError，
+                        // 详见 documentMainAgent 同款修复
+                        version: 'v1',
                         middleware: [
                             // 消息完整性兜底必须最先：子 agent 独立 thread 同样会遗留 orphan tool_use
                             createMessageIntegrityMiddleware(),

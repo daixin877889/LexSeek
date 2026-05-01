@@ -252,6 +252,9 @@ export async function runDomainAgent(
         store,
         tools: allTools,
         middleware,
+        // 强制 v1：v2 多 tool_calls 并行 Send 时撞 jumpTo channel 抛 InvalidUpdateError，
+        // 详见 documentMainAgent 同款修复
+        version: 'v1',
     })
 
     // 11. 构造输入（resume 使用 Command，首次使用 HumanMessage）

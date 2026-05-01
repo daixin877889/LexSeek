@@ -306,6 +306,12 @@ export async function runDocumentChat(
         tools,
         responseFormat,
         middleware,
+        // 强制 v1：v2 把同一 AI 消息里的多个 tool_calls dispatch 成多个并行 Send，
+        // 每个 Send 任务在同 superstep 末尾都会写一次 jumpTo（即使是 undefined），
+        // UntrackedValue(guard=true) 收到多 values 就抛 InvalidUpdateError。
+        // documentMain 单步调多个 search_* 工具时被这个 bug 撞上，主流 runStatus=failed。
+        // v1 走单 ToolNode + Promise.all 并发跑 tool_calls，行为等价但只产生 1 次 channel write。
+        version: 'v1',
     })
 
     // 9. 构造输入：中断恢复时使用 Command；否则用用户消息或从 draft.sourceRef 自动组装启动指令
