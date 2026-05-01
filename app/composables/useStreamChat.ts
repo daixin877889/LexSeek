@@ -135,6 +135,14 @@ export interface StreamChatOptions {
         threadId: string
         messages: Record<string, unknown>[]
     }>
+    /**
+     * 子流跑完时（status_change=completed）用 checkpoint 替换实时累积的 bucket.messages。
+     *
+     * 实时累积来源是 LLM token 流（含 tool_use input_json delta），跑完后展示的"得出结论"
+     * 等 step 内容会跟刷新后的 checkpoint 不一致。hydrate 一次让两种场景视觉对齐。
+     * 返回 null 时跳过替换（保留实时数据）。
+     */
+    hydrateSubBucket?: (toolCallId: string) => Promise<{ messages: Record<string, unknown>[] } | null>
 }
 
 export function useStreamChat<T extends Record<string, unknown> = Record<string, unknown>>(options: StreamChatOptions) {
@@ -180,6 +188,23 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
         const b = subThreadsMap[md.parentToolCallId]
             ?? (subThreadsMap[md.parentToolCallId] = createEmptyBucket(md.agentName, md.threadId))
         mergeEventIntoBucket(b, ev)
+        // 子流跑完瞬间用 checkpoint 替换实时累积的 messages（实时累 token 流含 tool_use
+        // input_json，跟刷新后从 LangGraph checkpoint 读的 content array 形态不一致；
+        // 替换后两种场景视觉对齐）。hydrate 是 best-effort，失败保留实时数据。
+        if (
+            ev.type === 'status_change'
+            && (ev as AgentStatusEvent).status === 'completed'
+            && options.hydrateSubBucket
+        ) {
+            const toolCallId = md.parentToolCallId
+            options.hydrateSubBucket(toolCallId)
+                .then((result) => {
+                    if (result?.messages?.length && subThreadsMap[toolCallId]) {
+                        subThreadsMap[toolCallId]!.messages = result.messages
+                    }
+                })
+                .catch((err: unknown) => console.warn('[useStreamChat] hydrateSubBucket 失败', err))
+        }
     }
 
     const streamOptions: UseStreamCustomOptions<T> = {

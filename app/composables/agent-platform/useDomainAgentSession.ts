@@ -418,6 +418,26 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
     }
 
     const newScope = effectScope()
+    // 子流跑完时拉一次 thread state 从 checkpoint 取最新 messages，覆盖实时累积的版本。
+    // 让"实时输出"和"刷新后加载"两种场景视觉一致（解决得出结论 step 内容差异等）。
+    const hydrateSubBucket = apiConfig.historyUrl
+      ? async (toolCallId: string) => {
+          try {
+            const history = await useApiFetch<{
+              subAgentThreads?: Array<{
+                toolCallId: string
+                messages: Record<string, unknown>[]
+              }>
+            }>(apiConfig.historyUrl!(sessionId), { showError: false })
+            const sub = history?.subAgentThreads?.find(s => s.toolCallId === toolCallId)
+            return sub?.messages?.length ? { messages: sub.messages } : null
+          } catch (err) {
+            console.warn('[useDomainAgentSession] hydrateSubBucket 失败', err)
+            return null
+          }
+        }
+      : undefined
+
     const streamChat = newScope.run(() =>
       useStreamChat({
         apiUrl: apiConfig.chatUrl,
@@ -427,6 +447,7 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
         // 剩余 custom_event 透传给业务方按 name 分发
         onCustomEvent: config.onCustomEvent,
         initialSubThreads,
+        hydrateSubBucket,
       }),
     )!
 
