@@ -112,8 +112,7 @@
     </template>
   </AiChat>
 
-  <!-- 统一中断处理器（阶段 7：改用 InterruptDispatcher）
-       z-[70] 与小索/模块对话浮窗内中断 Dialog 保持一致；外层 Dialog 控制 open 态 -->
+  <!-- 统一中断处理器：z-[70] 与小索/模块对话浮窗内中断 Dialog 保持一致 -->
   <Dialog :open="!!interruptData" @update:open="() => {}">
     <DialogContent
       class="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0 z-[70]"
@@ -261,7 +260,7 @@ async function openMaterialPreview(material: CaseDetailMaterialItem) {
 // 面板布局模式：选择阶段只显示左侧
 const panelMode = ref<'left' | 'right' | 'both'>('left')
 
-// === 阶段 7：直接在页面组装 runtime + projection + bridge（旧 useInitAnalysis 已删）===
+// 直接在页面组装 runtime + projection + bridge（旧 useInitAnalysis 已删）
 const runtime = useInitAnalysisRuntime(sessionId)
 
 // projection 依赖：DB 结果 / status modules / 跨标签生成中模块

@@ -48,6 +48,59 @@ export interface ParsedMessage {
 
 // --- Helpers ---
 
+const ATTACH_SENTINEL = '__ATTACHMENTS__\n'
+
+interface ParsedHumanContent {
+  attachments?: ParsedAttachment[]
+  rawContent: string
+}
+
+// 模块级 WeakMap：human message 的附件解析含 JSON.parse + 字符串 slice，
+// computed 每次 messages 数组重排或 isInterrupted 切换都会重跑；message 实例稳定
+// 且 human content 不会变（仅 AIMessage 的 token 会流入），缓存安全。
+const humanContentParseCache = new WeakMap<object, ParsedHumanContent>()
+
+function isParsedAttachment(a: unknown): a is ParsedAttachment {
+  return !!a && typeof a === 'object' && typeof (a as ParsedAttachment).id === 'number'
+    && typeof (a as ParsedAttachment).fileName === 'string'
+}
+
+function parseHumanContent(m: any): ParsedHumanContent {
+  const cached = humanContentParseCache.get(m)
+  if (cached) return cached
+
+  let attachments: ParsedAttachment[] | undefined
+  const attMeta = m.additional_kwargs?.attachments
+  if (Array.isArray(attMeta) && attMeta.length > 0) {
+    const filtered = attMeta.filter(isParsedAttachment)
+    if (filtered.length) attachments = filtered
+  }
+
+  let rawContent = typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
+  if (rawContent.startsWith(ATTACH_SENTINEL)) {
+    const newlineIdx = rawContent.indexOf('\n', ATTACH_SENTINEL.length)
+    const sentinelJson = newlineIdx === -1
+      ? rawContent.slice(ATTACH_SENTINEL.length)
+      : rawContent.slice(ATTACH_SENTINEL.length, newlineIdx)
+    if (!attachments) {
+      try {
+        const arr = JSON.parse(sentinelJson)
+        if (Array.isArray(arr)) {
+          const filtered = arr.filter(isParsedAttachment)
+          if (filtered.length) attachments = filtered
+        }
+      } catch {
+        // sentinel JSON parse 失败，忽略
+      }
+    }
+    rawContent = newlineIdx === -1 ? '' : rawContent.slice(newlineIdx + 1).replace(/^\n+/, '')
+  }
+
+  const result: ParsedHumanContent = { attachments, rawContent }
+  humanContentParseCache.set(m, result)
+  return result
+}
+
 /**
  * 将 API 返回的字典格式消息转为 BaseMessage 实例。
  * 已经是 BaseMessage 实例（包括 MessageChunk）的消息直接透传。
@@ -213,59 +266,13 @@ export function useMessageParser(
         const msgType = (m as any)._getType?.() ?? (m as any).type
 
         if (msgType === 'human') {
-          // 阶段 5 方案 C：附件元数据来源两条路径
-          //   1. 优先：LangChain 标准 additional_kwargs.attachments（理想路径）
-          //   2. fallback：content sentinel `__ATTACHMENTS__\n[json]` 解析
-          //      （LangGraph SDK 在 stream.submit 序列化普通 plain object 的
-          //       messages 时**会丢弃 additional_kwargs 字段**，因此 content
-          //       sentinel 是当前 transport 实际可靠的承载方式）
-          let attachments: ParsedAttachment[] | undefined
-          const attMeta = (m as any).additional_kwargs?.attachments
-          if (Array.isArray(attMeta) && attMeta.length > 0) {
-            attachments = attMeta
-              .filter(
-                (a): a is ParsedAttachment =>
-                  a && typeof a === 'object' && typeof a.id === 'number' && typeof a.fileName === 'string',
-              )
-            if (!attachments.length) attachments = undefined
-          }
+          // 附件元数据双路径：metadata.additional_kwargs.attachments 优先，
+          // content sentinel `__ATTACHMENTS__\n[json]` 兜底（LangGraph SDK 在
+          // stream.submit 序列化 plain object messages 时会丢 additional_kwargs）
+          const { attachments, rawContent } = parseHumanContent(m)
 
-          // content 中剥离 sentinel 段（让用户文字气泡只显示原话）；
-          // 同时若 metadata 没拿到 attachments，从这里 parse JSON 兜底
-          const ATTACH_SENTINEL = '__ATTACHMENTS__\n'
-          let rawContent = typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
-          if (rawContent.startsWith(ATTACH_SENTINEL)) {
-            const newlineIdx = rawContent.indexOf('\n', ATTACH_SENTINEL.length)
-            const sentinelJson = newlineIdx === -1
-              ? rawContent.slice(ATTACH_SENTINEL.length)
-              : rawContent.slice(ATTACH_SENTINEL.length, newlineIdx)
-            // 兜底：metadata 没拿到时从 sentinel JSON 解析
-            if (!attachments) {
-              try {
-                const arr = JSON.parse(sentinelJson)
-                if (Array.isArray(arr) && arr.length > 0) {
-                  const filtered = arr.filter(
-                    (a): a is ParsedAttachment =>
-                      a && typeof a === 'object' && typeof a.id === 'number' && typeof a.fileName === 'string',
-                  )
-                  if (filtered.length) attachments = filtered
-                }
-              } catch {
-                // sentinel JSON parse 失败，忽略
-              }
-            }
-            // 剥离 sentinel 段，rawContent 仅保留用户原话
-            if (newlineIdx === -1) {
-              rawContent = ''
-            } else {
-              rawContent = rawContent.slice(newlineIdx + 1).replace(/^\n+/, '')
-            }
-          }
-
-          // 单条 LangChain message → 展开为两条 ParsedMessage：
-          //   ① 附件气泡（仅当 attachments 非空）
-          //   ② 用户文字（仅当 rawContent 非空）
-          // 顺序对齐 mockup D1：附件先于文字（视觉上"先看到上传了什么，再看到留言"）
+          // 单条 message → 两条 ParsedMessage：附件气泡先于文字（mockup D1：
+          // "先看到上传了什么，再看到留言"）
           const parts: ParsedMessage[] = []
           if (attachments) {
             parts.push({

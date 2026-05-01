@@ -68,12 +68,20 @@ function extractContentText(m: AIMessage | any): string {
   return ''
 }
 
+// ToolMessage 实例稳定 + content 不可变，WeakMap 缓存 parse 结果避免每帧重复 JSON.parse
+const toolResultParseCache = new WeakMap<object, unknown>()
+
 /** 解析 ToolMessage.content 为 toolResult（string 尝试 JSON.parse，失败保留原串） */
-function parseToolResult(content: unknown): unknown {
-  if (typeof content === 'string') {
-    try { return JSON.parse(content) } catch { return content }
-  }
-  return content
+function parseToolResult(toolMsg: ToolMessage | any): unknown {
+  if (!toolMsg || typeof toolMsg !== 'object') return toolMsg
+  const cached = toolResultParseCache.get(toolMsg)
+  if (cached !== undefined) return cached
+  const content = (toolMsg as any).content
+  const parsed = typeof content === 'string'
+    ? (() => { try { return JSON.parse(content) } catch { return content } })()
+    : content
+  toolResultParseCache.set(toolMsg, parsed)
+  return parsed
 }
 
 /**
@@ -157,10 +165,8 @@ export function mapMessagesToSteps(
       const tc = toolCalls[j]
       const toolRes = toolResultMap.get(tc.id)
       const hasResult = toolRes !== undefined
-      // 描述从 args JSON 改为简洁的结果摘要或空；详细内容在展开后由 AiToolRenderer 渲染
-      const resultHint = hasResult
-        ? truncate(JSON.stringify(parseToolResult((toolRes as any).content)), TOOL_ARGS_MAX)
-        : ''
+      const parsedResult = hasResult ? parseToolResult(toolRes) : undefined
+      const resultHint = hasResult ? truncate(JSON.stringify(parsedResult), TOOL_ARGS_MAX) : ''
       steps.push({
         key: `${i}-tool-${j}`,
         kind: 'tool_call',
@@ -174,7 +180,7 @@ export function mapMessagesToSteps(
         toolCallId: tc.id,
         toolName: tc.name,
         toolArgs: tc.args,
-        toolResult: hasResult ? parseToolResult((toolRes as any).content) : undefined,
+        toolResult: parsedResult,
       })
     }
   }

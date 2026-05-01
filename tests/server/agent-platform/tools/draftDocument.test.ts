@@ -42,6 +42,7 @@ vi.mock('~~/server/services/agent-platform/subAgent/runAndDrain', () => ({
 }))
 vi.mock('~~/server/services/agent/agentEventBridge', () => ({
     publishCustomEvent: vi.fn().mockResolvedValue(undefined),
+    publishStatusChange: vi.fn().mockResolvedValue(undefined),
 }))
 
 import { interrupt } from '@langchain/langgraph'

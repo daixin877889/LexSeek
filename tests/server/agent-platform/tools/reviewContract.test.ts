@@ -50,6 +50,7 @@ vi.mock('~~/server/agents/contract/contractRisk.dao', () => ({
 }))
 vi.mock('~~/server/services/agent/agentEventBridge', () => ({
     publishCustomEvent: vi.fn().mockResolvedValue(undefined),
+    publishStatusChange: vi.fn().mockResolvedValue(undefined),
 }))
 
 // prisma 是全局自动注入；这里通过 globalThis stub

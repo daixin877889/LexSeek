@@ -18,12 +18,10 @@ import InterruptDispatcher from '~/components/InterruptDispatcher.vue'
 import CaseChatWindowShell from '~/components/case/ChatWindowShell.vue'
 import CaseSessionListPopover from '~/components/case/SessionListPopover.vue'
 import CaseAnalysisMaterialSelector from '~/components/caseAnalysis/materialSelector.vue'
-import AgentsDocumentDraftDocumentCard from '~/components/agents/document/tools/DraftDocumentCard.vue'
-import AgentsContractReviewContractCard from '~/components/agents/contract/tools/ReviewContractCard.vue'
+import { PANEL_TOOL_MAP } from '~/components/agents/panelToolMap'
 import IconXiaosuoIcon from '~/components/icon/XiaosuoIcon.vue'
 import { useInterruptToast } from '~/composables/useInterruptToast'
-import { useInterruptSnapshot } from '~/composables/agent-platform/useInterruptSnapshot'
-import { globalInterruptRegistry } from '~/composables/agent-platform/interruptRegistry'
+import { usePanelMessageStreamContext } from '~/composables/agent-platform/usePanelMessageStreamContext'
 
 const props = defineProps<{
   xiaosuoChat: ReturnType<typeof useCaseMainAgent>
@@ -75,7 +73,6 @@ const aiChatRef = ref<{
   selectedFileIds: number[]
 } | null>(null)
 
-// 阶段 6：MaterialSelector 上传支持（参照 AssistantChatPanel 模式）
 const materialSelectorRef = ref<{ openDialog: () => void } | null>(null)
 const selectedFileIds = computed(() => aiChatRef.value?.selectedFileIds ?? [])
 
@@ -87,42 +84,10 @@ function handleFilesFromSelector(files: OssFileItem[]) {
   aiChatRef.value?.addFiles(files)
 }
 
-// 阶段 6：toolMap — 子代理工具结果卡片（与法律助手对齐）
-const toolMap = {
-  draft_document: AgentsDocumentDraftDocumentCard,
-  review_contract: AgentsContractReviewContractCard,
-}
-
-// interrupt 内联快照：让 AiToolRenderer 通过 inject 拿到 resolved 工具卡的 snapshot 视图
-const { resolvedInterrupts, record: recordResolved, clear: clearResolved } = useInterruptSnapshot()
-
-// 阶段 7：resolveInterrupt 包 toolCallId 路由
-// LangGraph createAgent 路径下，sub-agent 工具的 interrupt 必须按 toolCallId 路由，
-// 否则 interrupt() 返回 undefined，工具误以为用户取消。
-async function resolveInterrupt(value: unknown) {
-  recordResolved(interruptData.value, value)
-  const tcId = (interruptData.value as { toolCallId?: unknown } | null)?.toolCallId
-  if (typeof tcId === 'string' && tcId.length > 0) {
-    props.xiaosuoChat.resumeInterrupt({ [tcId]: value })
-  } else {
-    props.xiaosuoChat.resumeInterrupt(value)
-  }
-}
-
-provide('messageStreamContext', {
+const { resolveInterrupt, isCurrentInterruptToolCard } = usePanelMessageStreamContext({
   interruptData,
-  resolvedInterrupts,
-  resolveInterrupt,
-})
-
-const isCurrentInterruptToolCard = computed(() => {
-  const t = interruptData.value?.type
-  return typeof t === 'string' && globalInterruptRegistry.isToolCard(t)
-})
-
-// session 切换时清空快照（resolvedInterrupts 仅当前 session 内存有效）
-watch(() => props.xiaosuoChat.currentSessionId.value, () => {
-  clearResolved()
+  resumeInterrupt: (value) => props.xiaosuoChat.resumeInterrupt(value),
+  sessionRef: () => props.xiaosuoChat.currentSessionId.value,
 })
 
 watch(runStatus, (status) => {
@@ -199,10 +164,8 @@ async function handleStop() {
 // 中断出现时 toast 提示，工具卡片从"运行中"切到"已暂停"（:is-interrupted 透传）
 useInterruptToast(interruptData)
 
-// 首次打开时初始化；关闭时重置全屏
-// immediate: true 兼容 父组件 mount 时已经把 isOpen=true 的场景
-// （Task 18：?focus=xiaosuo 在 onMounted 把 xiaosuoOpen=true，子组件 setup 时 isOpen 已经是 true，
-// 普通 watch 会错过这次"变化"导致 init 不触发，sendMessage 静默失败）
+// immediate: true 处理父组件 onMounted 把 isOpen=true 的场景（如 ?focus=xiaosuo
+// 直接打开），普通 watch 会错过这次"变化"导致 init 不触发、sendMessage 静默失败
 watch(isOpen, (open) => {
   if (open) props.xiaosuoChat.init()
 }, { immediate: true })
@@ -247,7 +210,7 @@ watch(isOpen, (open) => {
       :queue-length="queueLen"
       :queue-full="queueFull"
       :is-stopping="isStopping"
-      :tool-map="toolMap"
+      :tool-map="PANEL_TOOL_MAP"
       :on-file-button-click="openMaterialSelector"
       prompt-placeholder="问我任何关于案件的问题..."
       @submit="handleSubmit"
@@ -285,9 +248,8 @@ watch(isOpen, (open) => {
     />
   </div>
 
-  <!-- 中断处理弹窗
-       阶段 7：改用 InterruptDispatcher 按注册表分发（template_select / stance_select / case_info_check 等）
-       阶段 8：仅 isToolCard=false 的中断卡走 Dialog；isToolCard=true 的工具卡走消息流内联（AiToolRenderer 渲染）
+  <!-- isToolCard=false 的中断走 Dialog（InterruptDispatcher 按注册表分发）；
+       isToolCard=true 的工具卡走消息流内联（AiToolRenderer 渲染）。
        z-[200] 确保完整遮盖浮窗（ChatWindowShell z-[60]）。 -->
   <Dialog :open="!!interruptData && !isCurrentInterruptToolCard" @update:open="() => {}">
     <DialogContent class="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0 z-[200]" overlay-class="z-[200]" :show-close-button="false"
@@ -306,7 +268,6 @@ watch(isOpen, (open) => {
     </DialogContent>
   </Dialog>
 
-  <!-- 阶段 6：上传材料弹框（参照 AssistantChatPanel 复用） -->
   <CaseAnalysisMaterialSelector
     ref="materialSelectorRef"
     :disabled-file-ids="selectedFileIds"

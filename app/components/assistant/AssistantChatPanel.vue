@@ -2,24 +2,9 @@
 /**
  * 法律助手 · 对话面板
  *
- * 用途：承载 `useAssistantChat(sessionId)` 的完整对话 UI。
- *
- * 设计要点：
- * - 父组件 chat.vue 用 `:key="sessionId"` 强制 remount 本组件，
- *   从而让 useAssistantChat/useStreamChat 基于新的 threadId 重建实例，
- *   避免跨会话的消息串流污染。
- * - 本组件只关心"当前 session 下的一次完整生命周期"，sessionId 一旦传入就固定。
- *
- * 阶段 5 Task 13 增量：
- * - 通过 toolMap 注入 2 张工具结果卡（DraftDocumentCard / ReviewContractCard）
- * - interrupt dialog 内按 interruptData.type 分发到对应交互卡：
- *   template_select → TemplateSelectCard
- *   stance_select   → StanceSelectCard
- *   其他            → CaseInterruptConfirmation（既有 fallback，覆盖案件域几个 type）
- * - resume value 走 LangGraph 标准的 stream.submit({ command: { resume: value } })，
- *   即既有的 resumeInterrupt(value)。
- *
- * 参见 spec §8.1 / §8.2、阶段 5 plan §五子组4 Task 13。
+ * 父组件 chat.vue 用 `:key="sessionId"` 强制 remount 本组件，让 useStreamChat 基于
+ * 新 threadId 重建实例避免跨会话污染。本组件只管"当前 session 下的一次完整生命周期"，
+ * sessionId 一旦传入就固定。
  */
 import { RefreshCw as RefreshCwIcon } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
@@ -28,11 +13,9 @@ import type { OssFileItem } from '~/store/file'
 import AiChat from '~/components/ai/AiChat.vue'
 import InterruptDispatcher from '~/components/InterruptDispatcher.vue'
 import CaseAnalysisMaterialSelector from '~/components/caseAnalysis/materialSelector.vue'
-import AgentsDocumentDraftDocumentCard from '~/components/agents/document/tools/DraftDocumentCard.vue'
-import AgentsContractReviewContractCard from '~/components/agents/contract/tools/ReviewContractCard.vue'
+import { PANEL_TOOL_MAP } from '~/components/agents/panelToolMap'
 import { useLegalAssistantAgent } from '~/composables/agents'
-import { useInterruptSnapshot } from '~/composables/agent-platform/useInterruptSnapshot'
-import { globalInterruptRegistry } from '~/composables/agent-platform/interruptRegistry'
+import { usePanelMessageStreamContext } from '~/composables/agent-platform/usePanelMessageStreamContext'
 
 const props = defineProps<{
   sessionId: string
@@ -101,9 +84,9 @@ function handleSubmit(data: AiPromptSubmitData) {
   sendMessage(data, { thinking: thinking.value })
 }
 
-// 阶段 5：上传材料按钮接 MaterialSelector（参照 dashboard/cases/create.vue 既有模式）
-// 不走 AiPromptInput 默认的 hidden file input click（display:none 触发不稳），
-// 而是打开材料选择器：用户从云盘已识别文件里选 → addFiles 灌进 prompt → 直接拿到 ossFileId。
+// 上传材料按钮接 MaterialSelector：用户从云盘已识别文件里选 → addFiles 灌进 prompt
+// → 直接拿到 ossFileId。绕开 AiPromptInput 默认的 hidden file input click（display:none
+// 触发不稳）。
 const aiChatRef = ref<{
   resetPrompt: () => void
   addFiles: (files: unknown[]) => void
@@ -147,45 +130,10 @@ async function handleStop() {
   }
 }
 
-// ========== 阶段 5 Task 13：toolMap + interrupt 分发 ==========
-// 子代理工具结果卡：法律助手 chat 中遇到这两个工具时，AiToolRenderer 用对应卡片渲染
-const toolMap = {
-  draft_document: AgentsDocumentDraftDocumentCard,
-  review_contract: AgentsContractReviewContractCard,
-}
-
-// interrupt 内联快照：让 AiToolRenderer 通过 inject 拿到 resolved 工具卡的 snapshot 视图
-const { resolvedInterrupts, record: recordResolved, clear: clearResolved } = useInterruptSnapshot()
-
-// 阶段 7：interrupt dialog 内统一走 InterruptDispatcher（注册表分发到对应卡片）
-// resolveInterrupt 包 toolCallId 路由：
-// LangGraph createAgent 路径下，tool 内 throw 的 interrupt 必须按 toolCallId 路由，
-// 否则 interrupt() 返回 undefined 让工具误以为用户取消。
-async function resolveInterrupt(value: unknown) {
-  recordResolved(interruptData.value, value)
-  const tcId = (interruptData.value as { toolCallId?: unknown } | null)?.toolCallId
-  if (typeof tcId === 'string' && tcId.length > 0) {
-    resumeInterrupt({ [tcId]: value })
-  } else {
-    resumeInterrupt(value)
-  }
-}
-
-provide('messageStreamContext', {
+const { resolveInterrupt, isCurrentInterruptToolCard } = usePanelMessageStreamContext({
   interruptData,
-  resolvedInterrupts,
-  resolveInterrupt,
-})
-
-const isCurrentInterruptToolCard = computed(() => {
-  const t = interruptData.value?.type
-  return typeof t === 'string' && globalInterruptRegistry.isToolCard(t)
-})
-
-// 法律助手用 props.sessionId 作为单 session 标识（父组件 chat.vue 通过 :key=sessionId 强制 remount，
-// 但当前 panel 实例切换时仍需在快照层面把上一轮残留的 resolvedInterrupts 清空）
-watch(() => props.sessionId, () => {
-  clearResolved()
+  resumeInterrupt,
+  sessionRef: () => props.sessionId,
 })
 
 // 初次挂载后调用工厂 init()：单 session 模式下会 switchSession 到固定 id，
@@ -203,7 +151,7 @@ onMounted(async () => {
   <div class="flex flex-col h-full min-h-0">
     <AiChat ref="aiChatRef" :messages="messages" :loading="isLoading" :is-interrupted="isInterrupted"
       v-model:thinking="thinking" panel-mode="left" :show-header="false" :enable-file-upload="true"
-      :is-stopping="isStopping" prompt-placeholder="输入你的法律问题..." class="flex-1 min-h-0" :tool-map="toolMap"
+      :is-stopping="isStopping" prompt-placeholder="输入你的法律问题..." class="flex-1 min-h-0" :tool-map="PANEL_TOOL_MAP"
       :on-file-button-click="openMaterialSelector" @submit="handleSubmit" @stop="handleStop">
       <template #prompt-actions>
         <div v-if="showRetryButton" class="flex items-center gap-2 px-4 py-2">
@@ -215,8 +163,8 @@ onMounted(async () => {
       </template>
     </AiChat>
 
-    <!-- 中断确认弹窗：阶段 7 改用 InterruptDispatcher，按注册表分发到对应卡片
-         阶段 8：仅 isToolCard=false 的中断卡走 Dialog；isToolCard=true 的工具卡走消息流内联 -->
+    <!-- isToolCard=false 的中断走 Dialog（按注册表分发到对应卡片）；
+         isToolCard=true 的工具卡改走消息流内联（AiToolRenderer 渲染）。 -->
     <Dialog :open="!!interruptData && !isCurrentInterruptToolCard" @update:open="() => { }">
       <DialogContent class="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0" :show-close-button="false"
         @pointer-down-outside.prevent @escape-key-down.prevent @open-auto-focus.prevent>
@@ -234,7 +182,6 @@ onMounted(async () => {
       </DialogContent>
     </Dialog>
 
-    <!-- 阶段 5：上传材料弹框（参照 dashboard/cases/create.vue 复用） -->
     <CaseAnalysisMaterialSelector ref="materialSelectorRef" :disabled-file-ids="selectedFileIds"
       @files-selected="handleFilesFromSelector" />
   </div>
