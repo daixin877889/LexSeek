@@ -1,5 +1,6 @@
 ---
 name: litigation-visualization
+title: 案件可视化
 description: 诉讼可视化 skill，提供案件事实图和法律关系图的可视化分析，使用 Mermaid 生成图表代码块
 ---
 

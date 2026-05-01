@@ -1,5 +1,6 @@
 ---
 name: docx
+title: word 编辑
 description: "只要用户想创建、读取、编辑或操纵 Word 文档（.docx 文件），就使用此技能。触发器包括：任何提及'Word doc'、'word 文档'、'.docx'，或请求生成具有目录、标题、页码或信头等格式的专业文档。也用于从 .docx 文件提取或重新组织内容、在文档中插入或替换图像、在 Word 文件中执行查找和替换、处理跟踪的更改或评论，或将内容转换为精美的 Word 文档。如果用户要求以 Word 或 .docx 文件形式提供'报告'、'备忘录'、'信件'、'模板'或类似的可交付成果，使用此技能。不要用于 PDF、电子表格、Google Docs 或与文档生成无关的常规编码任务。"
 license: Proprietary. LICENSE.txt has complete terms
 ---
