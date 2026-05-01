@@ -140,20 +140,9 @@ function subAgentError(toolCallId: string): string | undefined {
 </script>
 
 <template>
-  <!-- 子流 CoT：SUB_AGENT_LIKE 工具（draft_document / review_contract）独立前置渲染。
-       不参与下方互斥 v-if 链，确保跟 interrupt 卡（active / resolved snapshot）+ 结果卡共存。
-       守卫 shouldShowSubAgentCoT 保证只在有数据 / 跑中 / 失败时显示，cancelled 不渲染空卡。 -->
-  <SubAgentChainOfThought
-    v-if="shouldShowSubAgentCoT"
-    :agent-title="subAgentTitleFromName(toolCall.name)"
-    :sub-messages="subAgentMessages(toolCall.id)"
-    :is-running="subAgentIsRunning(toolCall.id)"
-    :is-failed="subAgentIsFailed(toolCall.id)"
-    :failure-reason="subAgentError(toolCall.id)"
-  />
-
-  <!-- interrupt 工具卡（active 或 resolved）：active 优先于 resolved（避免同一 toolCallId
-       重复触发时 UI 显示 stale snapshot）；resumeValue 仅在 resolved 且非 active 时传入。 -->
+  <!-- interrupt 工具卡（active 或 resolved）：先于 CoT 渲染。
+       时序：用户选模板 (interrupt) → agent 开始跑 (CoT) → 结果卡。
+       SUB_AGENT_LIKE 工具的 CoT / 结果卡都嵌在 interrupt 分支内部，避免 v-if 互斥。 -->
   <template v-if="isInterruptToolCardCall">
     <InterruptDispatcher
       :interrupt="isActiveInterruptForThisCall
@@ -162,6 +151,14 @@ function subAgentError(toolCallId: string): string | undefined {
       :resume-value="isActiveInterruptForThisCall ? undefined : resolvedEntry?.resumeValue"
       @submit="(v) => messageStreamContext?.resolveInterrupt(v)"
       @cancel="() => messageStreamContext?.resolveInterrupt(null)"
+    />
+    <SubAgentChainOfThought
+      v-if="shouldShowSubAgentCoT"
+      :agent-title="subAgentTitleFromName(toolCall.name)"
+      :sub-messages="subAgentMessages(toolCall.id)"
+      :is-running="subAgentIsRunning(toolCall.id)"
+      :is-failed="subAgentIsFailed(toolCall.id)"
+      :failure-reason="subAgentError(toolCall.id)"
     />
     <component
       v-if="resolvedEntry && toolCall.state === 'output-available' && toolMap?.[toolCall.name]"
@@ -172,8 +169,27 @@ function subAgentError(toolCallId: string): string | undefined {
       :state="toolCall.state"
     />
   </template>
-  <!-- SUB_AGENT_LIKE 工具结果卡（draft_document / review_contract）：仅在跑完时渲染。
-       跑中阶段只显示顶部 CoT，避免空白结果卡污染界面。 -->
+  <!-- 无 interrupt 的 SUB_AGENT_LIKE 工具：CoT + 结果卡（跑完时） -->
+  <template v-else-if="shouldShowSubAgentCoT">
+    <SubAgentChainOfThought
+      :agent-title="subAgentTitleFromName(toolCall.name)"
+      :sub-messages="subAgentMessages(toolCall.id)"
+      :is-running="subAgentIsRunning(toolCall.id)"
+      :is-failed="subAgentIsFailed(toolCall.id)"
+      :failure-reason="subAgentError(toolCall.id)"
+    />
+    <component
+      v-if="toolCall.state === 'output-available' && toolMap?.[toolCall.name]"
+      :is="toolMap[toolCall.name]"
+      :tool-name="toolCall.name"
+      :input="toolCall.args"
+      :output="toolCall.result"
+      :state="toolCall.state"
+      @confirm="emit('confirm', $event)"
+      @reject="emit('reject')"
+    />
+  </template>
+  <!-- SUB_AGENT_LIKE 工具结果卡（无 CoT 数据时直接渲染结果卡，如 cancelled 路径） -->
   <component
     v-else-if="SUB_AGENT_LIKE_TOOLS.has(toolCall.name) && toolCall.state === 'output-available' && toolMap?.[toolCall.name]"
     :is="toolMap[toolCall.name]"
