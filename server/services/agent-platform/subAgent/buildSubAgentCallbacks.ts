@@ -56,12 +56,21 @@ export function buildSubAgentCallbacks(opts: BuildSubAgentCallbacksOptions): Cal
             }).catch((e: unknown) => logger.warn('publishCustomEvent(SUB_AGENT_TOOL_START) failed', { e }))
         },
         async handleToolEnd(output: unknown, cbRunId: string) {
+            // LangChain handleToolEnd 的 output 在 createAgent 路径下是 ToolMessage 实例
+            // （或 BaseMessage 派生类）。直接 JSON.stringify 会序列化成 lc_serializable
+            // 形态 `{"lc":1,"type":"constructor","id":[...],"kwargs":{"content":"...","tool_call_id":"..."}}`，
+            // 让前端工具卡拿不到真实结果。这里提取 .content 字段送给前端。
+            const realOutput: unknown = (output && typeof output === 'object'
+                && 'content' in (output as Record<string, unknown>)
+                && typeof (output as { _getType?: () => string })._getType === 'function')
+                ? (output as { content: unknown }).content
+                : output
             await publishCustomEvent({
                 type: 'custom_event',
                 runId: mainRunId,
                 sessionId,
                 name: SSECustomEventType.SUB_AGENT_TOOL_END,
-                data: { cbRunId, output },
+                data: { cbRunId, output: realOutput },
                 metadata: meta,
             }).catch((e: unknown) => logger.warn('publishCustomEvent(SUB_AGENT_TOOL_END) failed', { e }))
         },
