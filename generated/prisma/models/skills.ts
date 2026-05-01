@@ -41,6 +41,7 @@ export type SkillsMinAggregateOutputType = {
   title: string | null
   description: string | null
   version: string | null
+  customTitle: string | null
   status: number | null
   syncedAt: Date | null
   createdAt: Date | null
@@ -54,6 +55,7 @@ export type SkillsMaxAggregateOutputType = {
   title: string | null
   description: string | null
   version: string | null
+  customTitle: string | null
   status: number | null
   syncedAt: Date | null
   createdAt: Date | null
@@ -67,6 +69,7 @@ export type SkillsCountAggregateOutputType = {
   title: number
   description: number
   version: number
+  customTitle: number
   status: number
   syncedAt: number
   createdAt: number
@@ -90,6 +93,7 @@ export type SkillsMinAggregateInputType = {
   title?: true
   description?: true
   version?: true
+  customTitle?: true
   status?: true
   syncedAt?: true
   createdAt?: true
@@ -103,6 +107,7 @@ export type SkillsMaxAggregateInputType = {
   title?: true
   description?: true
   version?: true
+  customTitle?: true
   status?: true
   syncedAt?: true
   createdAt?: true
@@ -116,6 +121,7 @@ export type SkillsCountAggregateInputType = {
   title?: true
   description?: true
   version?: true
+  customTitle?: true
   status?: true
   syncedAt?: true
   createdAt?: true
@@ -216,6 +222,7 @@ export type SkillsGroupByOutputType = {
   title: string | null
   description: string | null
   version: string | null
+  customTitle: string | null
   status: number
   syncedAt: Date | null
   createdAt: Date
@@ -252,6 +259,7 @@ export type skillsWhereInput = {
   title?: Prisma.StringNullableFilter<"skills"> | string | null
   description?: Prisma.StringNullableFilter<"skills"> | string | null
   version?: Prisma.StringNullableFilter<"skills"> | string | null
+  customTitle?: Prisma.StringNullableFilter<"skills"> | string | null
   status?: Prisma.IntFilter<"skills"> | number
   syncedAt?: Prisma.DateTimeNullableFilter<"skills"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"skills"> | Date | string
@@ -266,6 +274,7 @@ export type skillsOrderByWithRelationInput = {
   title?: Prisma.SortOrderInput | Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
   version?: Prisma.SortOrderInput | Prisma.SortOrder
+  customTitle?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   syncedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -283,6 +292,7 @@ export type skillsWhereUniqueInput = Prisma.AtLeast<{
   title?: Prisma.StringNullableFilter<"skills"> | string | null
   description?: Prisma.StringNullableFilter<"skills"> | string | null
   version?: Prisma.StringNullableFilter<"skills"> | string | null
+  customTitle?: Prisma.StringNullableFilter<"skills"> | string | null
   status?: Prisma.IntFilter<"skills"> | number
   syncedAt?: Prisma.DateTimeNullableFilter<"skills"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"skills"> | Date | string
@@ -297,6 +307,7 @@ export type skillsOrderByWithAggregationInput = {
   title?: Prisma.SortOrderInput | Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
   version?: Prisma.SortOrderInput | Prisma.SortOrder
+  customTitle?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   syncedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -318,6 +329,7 @@ export type skillsScalarWhereWithAggregatesInput = {
   title?: Prisma.StringNullableWithAggregatesFilter<"skills"> | string | null
   description?: Prisma.StringNullableWithAggregatesFilter<"skills"> | string | null
   version?: Prisma.StringNullableWithAggregatesFilter<"skills"> | string | null
+  customTitle?: Prisma.StringNullableWithAggregatesFilter<"skills"> | string | null
   status?: Prisma.IntWithAggregatesFilter<"skills"> | number
   syncedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"skills"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"skills"> | Date | string
@@ -331,6 +343,7 @@ export type skillsCreateInput = {
   title?: string | null
   description?: string | null
   version?: string | null
+  customTitle?: string | null
   status?: number
   syncedAt?: Date | string | null
   createdAt?: Date | string
@@ -345,6 +358,7 @@ export type skillsUncheckedCreateInput = {
   title?: string | null
   description?: string | null
   version?: string | null
+  customTitle?: string | null
   status?: number
   syncedAt?: Date | string | null
   createdAt?: Date | string
@@ -359,6 +373,7 @@ export type skillsUpdateInput = {
   title?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  customTitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   syncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -373,6 +388,7 @@ export type skillsUncheckedUpdateInput = {
   title?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  customTitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   syncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -387,6 +403,7 @@ export type skillsCreateManyInput = {
   title?: string | null
   description?: string | null
   version?: string | null
+  customTitle?: string | null
   status?: number
   syncedAt?: Date | string | null
   createdAt?: Date | string
@@ -400,6 +417,7 @@ export type skillsUpdateManyMutationInput = {
   title?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  customTitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   syncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -413,6 +431,7 @@ export type skillsUncheckedUpdateManyInput = {
   title?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  customTitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   syncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -426,6 +445,7 @@ export type skillsCountOrderByAggregateInput = {
   title?: Prisma.SortOrder
   description?: Prisma.SortOrder
   version?: Prisma.SortOrder
+  customTitle?: Prisma.SortOrder
   status?: Prisma.SortOrder
   syncedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -443,6 +463,7 @@ export type skillsMaxOrderByAggregateInput = {
   title?: Prisma.SortOrder
   description?: Prisma.SortOrder
   version?: Prisma.SortOrder
+  customTitle?: Prisma.SortOrder
   status?: Prisma.SortOrder
   syncedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -456,6 +477,7 @@ export type skillsMinOrderByAggregateInput = {
   title?: Prisma.SortOrder
   description?: Prisma.SortOrder
   version?: Prisma.SortOrder
+  customTitle?: Prisma.SortOrder
   status?: Prisma.SortOrder
   syncedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -492,6 +514,7 @@ export type skillsCreateWithoutNodeSkillsInput = {
   title?: string | null
   description?: string | null
   version?: string | null
+  customTitle?: string | null
   status?: number
   syncedAt?: Date | string | null
   createdAt?: Date | string
@@ -505,6 +528,7 @@ export type skillsUncheckedCreateWithoutNodeSkillsInput = {
   title?: string | null
   description?: string | null
   version?: string | null
+  customTitle?: string | null
   status?: number
   syncedAt?: Date | string | null
   createdAt?: Date | string
@@ -534,6 +558,7 @@ export type skillsUpdateWithoutNodeSkillsInput = {
   title?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  customTitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   syncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -547,6 +572,7 @@ export type skillsUncheckedUpdateWithoutNodeSkillsInput = {
   title?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  customTitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   syncedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -591,6 +617,7 @@ export type skillsSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   title?: boolean
   description?: boolean
   version?: boolean
+  customTitle?: boolean
   status?: boolean
   syncedAt?: boolean
   createdAt?: boolean
@@ -606,6 +633,7 @@ export type skillsSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extens
   title?: boolean
   description?: boolean
   version?: boolean
+  customTitle?: boolean
   status?: boolean
   syncedAt?: boolean
   createdAt?: boolean
@@ -619,6 +647,7 @@ export type skillsSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extens
   title?: boolean
   description?: boolean
   version?: boolean
+  customTitle?: boolean
   status?: boolean
   syncedAt?: boolean
   createdAt?: boolean
@@ -632,13 +661,14 @@ export type skillsSelectScalar = {
   title?: boolean
   description?: boolean
   version?: boolean
+  customTitle?: boolean
   status?: boolean
   syncedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type skillsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"name" | "path" | "source" | "title" | "description" | "version" | "status" | "syncedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["skills"]>
+export type skillsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"name" | "path" | "source" | "title" | "description" | "version" | "customTitle" | "status" | "syncedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["skills"]>
 export type skillsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   nodeSkills?: boolean | Prisma.skills$nodeSkillsArgs<ExtArgs>
   _count?: boolean | Prisma.SkillsCountOutputTypeDefaultArgs<ExtArgs>
@@ -668,7 +698,7 @@ export type $skillsPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
      */
     source: string
     /**
-     * 中文展示名
+     * 中文展示名（来源 SKILL.md frontmatter；扫描时写入）
      */
     title: string | null
     /**
@@ -679,6 +709,10 @@ export type $skillsPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
      * 版本号（SKILL.md frontmatter version；缺失时为 NULL）
      */
     version: string | null
+    /**
+     * 中文展示名（管理员后台自定义；为 NULL 时回退到 title 字段）
+     */
+    customTitle: string | null
     /**
      * 状态：1 启用 / 0 停用
      */
@@ -1125,6 +1159,7 @@ export interface skillsFieldRefs {
   readonly title: Prisma.FieldRef<"skills", 'String'>
   readonly description: Prisma.FieldRef<"skills", 'String'>
   readonly version: Prisma.FieldRef<"skills", 'String'>
+  readonly customTitle: Prisma.FieldRef<"skills", 'String'>
   readonly status: Prisma.FieldRef<"skills", 'Int'>
   readonly syncedAt: Prisma.FieldRef<"skills", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"skills", 'DateTime'>

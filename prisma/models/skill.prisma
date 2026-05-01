@@ -6,7 +6,7 @@ model skills {
   path        String       @db.VarChar(500)
   /// 来源：filesystem 由扫描入库，uploaded 预留给后台上传（本期不实现）
   source      String       @default("filesystem") @db.VarChar(20)
-  /// 中文展示名
+  /// 中文展示名（来源 SKILL.md frontmatter；扫描时写入）
   title       String?      @db.VarChar(200)
   /// SKILL.md frontmatter description（触发场景 / 完整说明）
   description String?      @db.Text

@@ -6819,6 +6819,7 @@ export const SkillsScalarFieldEnum = {
   title: 'title',
   description: 'description',
   version: 'version',
+  customTitle: 'customTitle',
   status: 'status',
   syncedAt: 'syncedAt',
   createdAt: 'createdAt',
