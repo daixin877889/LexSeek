@@ -25,6 +25,36 @@ describe('parseSkillFrontmatterFromMarkdown', () => {
     })
 })
 
+describe('parseSkillFrontmatterFromMarkdown - title 字段', () => {
+    it('解析合法 string title', () => {
+        const md = `---\nname: foo\ntitle: 案件证据辩护\n---\n\n# body`
+        const fm = parseSkillFrontmatterFromMarkdown(md)
+        expect(fm).not.toBeNull()
+        expect(fm!.title).toBe('案件证据辩护')
+    })
+
+    it('title 为数字时返回 undefined（类型守卫）', () => {
+        const md = `---\nname: foo\ntitle: 123\n---\n\n# body`
+        const fm = parseSkillFrontmatterFromMarkdown(md)
+        expect(fm).not.toBeNull()
+        expect(fm!.title).toBeUndefined()
+    })
+
+    it('title 为数组时返回 undefined（类型守卫）', () => {
+        const md = `---\nname: foo\ntitle:\n  - a\n  - b\n---\n\n# body`
+        const fm = parseSkillFrontmatterFromMarkdown(md)
+        expect(fm).not.toBeNull()
+        expect(fm!.title).toBeUndefined()
+    })
+
+    it('frontmatter 没写 title 时为 undefined', () => {
+        const md = `---\nname: foo\n---\n\n# body`
+        const fm = parseSkillFrontmatterFromMarkdown(md)
+        expect(fm).not.toBeNull()
+        expect(fm!.title).toBeUndefined()
+    })
+})
+
 describe('scanAndSyncSkillsService', () => {
     let tempRoot: string
     const cleanupNames: string[] = []

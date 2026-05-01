@@ -47,6 +47,7 @@ export function parseSkillFrontmatterFromMarkdown(content: string): SkillFrontma
         if (typeof data.name !== 'string' || data.name.trim() === '') return null
         return {
             name: String(data.name),
+            title: typeof data.title === 'string' ? data.title : undefined,
             description: typeof data.description === 'string' ? data.description : undefined,
             license: typeof data.license === 'string' ? data.license : undefined,
             version: typeof data.version === 'string' ? data.version : (data.version != null ? String(data.version) : undefined),
