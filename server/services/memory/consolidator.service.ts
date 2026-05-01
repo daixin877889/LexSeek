@@ -71,19 +71,23 @@ export async function drainDueSessions(): Promise<string[]> {
   return ids
 }
 
-export async function consolidateSession(sessionId: string): Promise<void> {
+export async function consolidateSession(sessionId: string, knownCaseId?: number): Promise<void> {
   try {
-    const session = await prisma.caseSessions.findUnique({
-      where: { sessionId },
-      select: { caseId: true },
-    })
-    if (!session?.caseId) return
+    let caseId = knownCaseId
+    if (caseId == null) {
+      const session = await prisma.caseSessions.findUnique({
+        where: { sessionId },
+        select: { caseId: true },
+      })
+      if (!session?.caseId) return
+      caseId = session.caseId
+    }
 
     const messages = await loadRecentAgentMessages(sessionId, 20)
     if (messages.length === 0) return
 
     // 复用 memoryExtraction 主路径（caseMemoryExtract 节点 + invokeNodeJson）
-    await runMemoryExtractionService({ caseId: session.caseId, sessionId, messages })
+    await runMemoryExtractionService({ caseId, sessionId, messages })
   } catch (e) {
     logger.warn('consolidator run 失败（best-effort，下轮自动重试）', { sessionId, error: e })
   }
@@ -143,5 +147,5 @@ export async function processNowService(
   // 多 session 并发抽取；consolidateSession 内部 try/catch 已吞错（best-effort），
   // 单个失败不影响其它。SESSION_CONCURRENCY 保守，避免压垮 LLM provider rate-limit。
   const limit = pLimit(SESSION_CONCURRENCY)
-  await Promise.all(sessionIds.map(sid => limit(() => consolidateSession(sid))))
+  await Promise.all(sessionIds.map(sid => limit(() => consolidateSession(sid, caseId))))
 }

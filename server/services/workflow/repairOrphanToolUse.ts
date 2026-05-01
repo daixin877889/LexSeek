@@ -328,30 +328,22 @@ export async function repairOrphanToolUseCheckpoint(
     sessionId: string,
     errorMessage: string,
 ): Promise<RepairResult> {
-    // 1. 枚举该 session 的所有相关 thread_id
+    // 一次性枚举该 session 全部相关 (thread_id, checkpoint_ns) scope，避免按 thread 二次循环查询
     const subPattern = `${sessionId}_sub_%`
-    const threads = await prisma.$queryRaw<{ thread_id: string }[]>`
-        SELECT DISTINCT thread_id
+    const scopes = await prisma.$queryRaw<{ thread_id: string; checkpoint_ns: string }[]>`
+        SELECT DISTINCT thread_id, checkpoint_ns
         FROM checkpoints
         WHERE thread_id = ${sessionId}
            OR thread_id LIKE ${subPattern}
     `
-    if (threads.length === 0) return { fixed: 0, parseFailures: 0 }
+    if (scopes.length === 0) return { fixed: 0, parseFailures: 0 }
 
     let fixed = 0
     let parseFailures = 0
-    for (const { thread_id } of threads) {
-        // 2. 枚举该 thread 下所有 checkpoint_ns
-        const namespaces = await prisma.$queryRaw<{ checkpoint_ns: string }[]>`
-            SELECT DISTINCT checkpoint_ns
-            FROM checkpoints
-            WHERE thread_id = ${thread_id}
-        `
-        for (const { checkpoint_ns } of namespaces) {
-            const r = await repairSingleScope(thread_id, checkpoint_ns, errorMessage)
-            fixed += r.fixed
-            if (r.parseFailed) parseFailures += 1
-        }
+    for (const { thread_id, checkpoint_ns } of scopes) {
+        const r = await repairSingleScope(thread_id, checkpoint_ns, errorMessage)
+        fixed += r.fixed
+        if (r.parseFailed) parseFailures += 1
     }
     return { fixed, parseFailures }
 }

@@ -218,7 +218,6 @@ export function createTool(context: ModuleToolContext) {
                     const summary = await completeAnalysisWithRAG({
                         analysisId: analysis.id,
                         analysisResult: lastAi.text,
-                        model: context.model,
                     })
                     endPayload = {
                         phase: 'end',

@@ -47,43 +47,50 @@ export default defineEventHandler(async (event) => {
             return resError(event, 404, '会员级别不存在')
         }
 
-        // 使用事务更新权益配置
+        // 使用事务更新权益配置（批量预查避免循环内 N+1）
+        const benefitIds = benefits.map(b => b.benefitId)
+
         await prisma.$transaction(async (tx) => {
+            const validBenefits = await tx.benefits.findMany({
+                where: { id: { in: benefitIds }, deletedAt: null },
+                select: { id: true },
+            })
+            const validBenefitIds = new Set(validBenefits.map(b => b.id))
             for (const item of benefits) {
-                // 检查权益是否存在
-                const benefit = await tx.benefits.findFirst({
-                    where: { id: item.benefitId, deletedAt: null },
-                })
-                if (!benefit) {
+                if (!validBenefitIds.has(item.benefitId)) {
                     throw new Error(`权益ID ${item.benefitId} 不存在`)
                 }
+            }
 
-                // 查找现有配置
-                const existing = await tx.membershipBenefits.findFirst({
-                    where: { levelId, benefitId: item.benefitId, deletedAt: null },
-                })
+            const existingConfigs = await tx.membershipBenefits.findMany({
+                where: { levelId, benefitId: { in: benefitIds }, deletedAt: null },
+            })
+            const existingMap = new Map(existingConfigs.map(c => [c.benefitId, c]))
 
+            const now = new Date()
+            const toCreate = []
+            for (const item of benefits) {
+                const existing = existingMap.get(item.benefitId)
                 if (existing) {
-                    // 更新现有配置
                     await tx.membershipBenefits.update({
                         where: { id: existing.id },
                         data: {
                             benefitValue: BigInt(item.benefitValue),
-                            updatedAt: new Date(),
+                            updatedAt: now,
                         },
                     })
                 } else {
-                    // 创建新配置
-                    await tx.membershipBenefits.create({
-                        data: {
-                            levelId,
-                            benefitId: item.benefitId,
-                            benefitValue: BigInt(item.benefitValue),
-                            createdAt: new Date(),
-                            updatedAt: new Date(),
-                        },
+                    toCreate.push({
+                        levelId,
+                        benefitId: item.benefitId,
+                        benefitValue: BigInt(item.benefitValue),
+                        createdAt: now,
+                        updatedAt: now,
                     })
                 }
+            }
+            if (toCreate.length > 0) {
+                await tx.membershipBenefits.createMany({ data: toCreate })
             }
         })
 

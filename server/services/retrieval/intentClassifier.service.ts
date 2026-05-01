@@ -222,13 +222,21 @@ export async function invalidateIntentCacheService(
     try {
         const redis = getRedisClient()
         const pattern = type ? `intent:${type}:*` : 'intent:*'
-        const keys = await redis.keys(pattern)
-        if (keys.length === 0) return 0
-        await redis.del(...keys)
-        logger.info('意图分类缓存已清', { pattern, cleared: keys.length })
-        return keys.length
+        // 用 SCAN 增量遍历替代 KEYS 全量阻塞扫描，避免 Redis 长时间不响应
+        let cursor = '0'
+        let cleared = 0
+        do {
+            const [next, batch] = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', 100)
+            if (batch.length > 0) {
+                await redis.del(...batch)
+                cleared += batch.length
+            }
+            cursor = next
+        } while (cursor !== '0')
+        if (cleared > 0) logger.info('意图分类缓存已清', { pattern, cleared })
+        return cleared
     } catch (e) {
-        logger.warn('意图分类缓存清理失败:', e)
+        logger.warn('意图分类缓存清理失败', { type, error: e })
         return 0
     }
 }

@@ -83,16 +83,14 @@ export default defineEventHandler(async (event) => {
     )
     const systemPrompt = systemPromptConfig?.content ?? ''
 
-    const enabledCaseTypes = await getEnabledCaseTypesService()
+    // 案件类型 + 文件识别独立无依赖，并发执行
+    const ossFileIds = materials?.length ? materials.map(m => m.ossFileId) : []
+    const [enabledCaseTypes, fileContexts] = await Promise.all([
+        getEnabledCaseTypesService(),
+        ossFileIds.length ? processFileMaterials(ossFileIds, user.id) : Promise.resolve<FileProcessContext[]>([]),
+    ])
     const caseTypeNames = enabledCaseTypes.map(ct => ct.name)
     const caseTypeConstraint = `\n\n## 案件类型约束\n案件类型（caseType）必须从以下列表中选择，不得自行创造：\n${caseTypeNames.map(n => `- ${n}`).join('\n')}\n如果无法确定案件类型，请选择最接近的一个。`
-
-    // 材料处理：识别 → 读取内容
-    let fileContexts: FileProcessContext[] = []
-    if (materials?.length) {
-        const ossFileIds = materials.map(m => m.ossFileId)
-        fileContexts = await processFileMaterials(ossFileIds, user.id)
-    }
 
     // 一次性分组，后续复用
     const succeeded = fileContexts.filter(f => f.recognitionStatus === 'success' && f.content)
@@ -191,40 +189,34 @@ async function summarizeAndExtract(
     caseTypeConstraint: string,
     nodeConfig: any,
 ): Promise<{ extractedInfo: any; message: string | null }> {
-    // 并行生成各文件摘要
-    const summaryResults = await Promise.allSettled(
-        fileContexts
-            .filter(f => f.content)
-            .map(file => generateFileSummary(file)),
-    )
-
     const filesWithContent = fileContexts.filter(f => f.content)
-    const summaries = summaryResults.map((r, i) => {
-        const file = filesWithContent[i]!
-        if (r.status === 'fulfilled') return r.value
-        logger.warn(`材料摘要生成失败: ${file.name}`, { error: (r.reason as Error)?.message })
-        return `【${file.name}摘要】\n[摘要生成失败，原文预览: ${file.content!.slice(0, 200)}...]`
-    })
+    if (filesWithContent.length === 0) {
+        return await doExtract(model, systemPrompt + caseTypeConstraint, userMessage, nodeConfig.outputSchema)
+    }
+
+    // material_summarizer 节点配置 + model 整批共用一次，避免 N 文件 N 次 DB 查询和 model 初始化
+    const summarizerCtx = await loadSummarizerContext()
+    const summaries = summarizerCtx
+        ? await Promise.all(filesWithContent.map(f => generateFileSummary(f, summarizerCtx)))
+        : filesWithContent.map(f => `[摘要生成失败：material_summarizer 节点未配置]`)
 
     const summaryContext = '\n\n## 材料摘要\n' + summaries.join('\n\n')
-    const finalSystemPrompt = systemPrompt + summaryContext + caseTypeConstraint
-
-    return await doExtract(model, finalSystemPrompt, userMessage, nodeConfig.outputSchema)
+    return await doExtract(model, systemPrompt + summaryContext + caseTypeConstraint, userMessage, nodeConfig.outputSchema)
 }
 
-/** 生成单个文件的摘要 */
-async function generateFileSummary(file: FileProcessContext): Promise<string> {
-    const truncated = file.content!.length > MAX_CONTENT_CHARS_FOR_SUMMARY
-        ? file.content!.slice(0, MAX_CONTENT_CHARS_FOR_SUMMARY) + '\n\n[内容过长已截断]'
-        : file.content!
+interface SummarizerContext {
+    model: any
+    systemPrompt: string
+}
+
+/** 加载 material_summarizer 节点的 model + systemPrompt（整批文件共用） */
+async function loadSummarizerContext(): Promise<SummarizerContext | null> {
     try {
         const config = await getValidNodeConfig('material_summarizer', '材料摘要')
         const apiKey = config.modelApiKeys.find(k => k.status === 1)?.apiKey
         const systemPrompt = config.prompts.find(p => p.type === 'system' && p.status === 1)?.content
-        if (!apiKey || !systemPrompt) {
-            return `[摘要生成失败：material_summarizer 节点未配置]`
-        }
-        const summaryModel = createChatModel({
+        if (!apiKey || !systemPrompt) return null
+        const model = createChatModel({
             sdkType: config.modelSdkType,
             modelName: config.modelName,
             apiKey,
@@ -232,10 +224,23 @@ async function generateFileSummary(file: FileProcessContext): Promise<string> {
             temperature: 0,
             streaming: false,
         })
+        return { model, systemPrompt }
+    } catch (err) {
+        logger.warn('material_summarizer 节点配置加载失败', { error: err })
+        return null
+    }
+}
+
+/** 生成单个文件的摘要（model + systemPrompt 由外部预加载并复用） */
+async function generateFileSummary(file: FileProcessContext, ctx: SummarizerContext): Promise<string> {
+    const truncated = file.content!.length > MAX_CONTENT_CHARS_FOR_SUMMARY
+        ? file.content!.slice(0, MAX_CONTENT_CHARS_FOR_SUMMARY) + '\n\n[内容过长已截断]'
+        : file.content!
+    try {
         const summary = await generateSummaryService(
-            summaryModel,
+            ctx.model,
             `材料名称：${file.name}\n\n材料内容：\n${truncated}`,
-            { maxChars: 500, systemPrompt },
+            { maxChars: 500, systemPrompt: ctx.systemPrompt },
         )
         return `【${file.name}摘要】\n${summary.trim()}`
     } catch (err) {

@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod'
-import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
+import { findOssFileByIdsDao } from '~~/server/services/files/ossFiles.dao'
 import { ensureSourceFileRecognitionService } from '~~/server/services/case/demoCase.service'
 import { createDemoCaseService } from '~~/server/services/case/demoCase.service'
 
@@ -62,11 +62,14 @@ export default defineEventHandler(async (event) => {
         return resError(event, 400, '请至少填写案件描述或上传一个文件材料')
     }
 
-    // 校验每个 sourceOssFileId 存在性
-    for (const m of data.materials) {
-        const source = await findOssFileByIdDao(m.sourceOssFileId)
-        if (!source || source.deletedAt) {
-            return resError(event, 400, `材料 "${m.name}" 的源文件不存在或已删除`)
+    // 批量校验源文件存在性（findOssFileByIdsDao 已过滤 deletedAt: null）
+    if (data.materials.length > 0) {
+        const ossFileIds = data.materials.map(m => m.sourceOssFileId)
+        const existing = await findOssFileByIdsDao(ossFileIds)
+        const existingIds = new Set(existing.map(f => f.id))
+        const missing = data.materials.find(m => !existingIds.has(m.sourceOssFileId))
+        if (missing) {
+            return resError(event, 400, `材料 "${missing.name}" 的源文件不存在或已删除`)
         }
     }
 

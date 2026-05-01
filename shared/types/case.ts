@@ -489,16 +489,6 @@ export interface CaseListParams {
     orderDir?: 'asc' | 'desc'
 }
 
-/** 会话类型枚举 */
-export enum SessionType {
-    /** 普通对话 */
-    NORMAL = 1,
-    /** 初始化分析 */
-    INIT_ANALYSIS = 2,
-    /** 模块对话 */
-    MODULE_CHAT = 3,
-}
-
 /** 创建会话输入 */
 export interface CreateSessionInput {
     /** 会话唯一标识（对应 LangGraph thread_id） */

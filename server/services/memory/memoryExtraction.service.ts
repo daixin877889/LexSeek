@@ -11,7 +11,7 @@ import { z } from 'zod'
 import { logger } from '#shared/utils/logger'
 import { invokeNodeJson } from '~~/server/services/agent-platform/tools/invokeNodeJson'
 import { writeMemoryService } from './memory.service'
-import { findActiveMemoryBySubjectDAO } from './memory.dao'
+import { findActiveMemoriesBySubjectKeysDAO } from './memory.dao'
 import { calcSimilarity } from '~~/server/agents/contract/utils/textSimilarity'
 import type { BaseMessage } from '@langchain/core/messages'
 
@@ -49,10 +49,19 @@ export async function runMemoryExtractionService(params: MemoryExtractionParams)
             logContext: { caseId, sessionId },
         })
 
+        // 一次查出所有候选 subjectKey 已有的 active memory，用于循环内 O(1) 软去重
+        const subjectKeys = Array.from(
+            new Set(
+                result.memories
+                    .map(m => m.subject_key)
+                    .filter((s): s is string => !!s),
+            ),
+        )
+        const existingBySubject = await findActiveMemoriesBySubjectKeysDAO(caseId, subjectKeys)
+
         for (const m of result.memories) {
-            // 软去重：同 subjectKey 已有 active 记忆且文本相似 → 跳过
             if (m.subject_key) {
-                const existing = await findActiveMemoryBySubjectDAO(caseId, m.subject_key)
+                const existing = existingBySubject.get(m.subject_key)
                 if (existing && calcSimilarity(existing.text, m.text) > SIMILARITY_THRESHOLD) {
                     logger.debug('memoryExtraction 跳过相似条目', { caseId, subjectKey: m.subject_key })
                     continue

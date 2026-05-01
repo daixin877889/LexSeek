@@ -5,7 +5,6 @@
  */
 
 import crypto from 'node:crypto'
-import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import { VALID_MODULE_NAMES, INIT_ANALYSIS_MODULES } from '#shared/types/initAnalysis'
 import type { InitAnalysisStatusResponse } from '#shared/types/initAnalysis'
 import { isCaseReadOnly } from '#shared/types/case'
@@ -301,7 +300,6 @@ export function buildTerminalSnapshotEvents(params: {
 export interface CompleteAnalysisWithRAGInput {
     analysisId: number
     analysisResult: string
-    model: BaseChatModel
 }
 
 /**
@@ -315,7 +313,6 @@ export interface CompleteAnalysisWithRAGInput {
  *          ANALYSIS_SUMMARY end 事件携带给前端展示
  */
 export async function completeAnalysisWithRAG(input: CompleteAnalysisWithRAGInput): Promise<string> {
-    // model 入参保留以兼容现有调用方（如 saveAnalysisResult.tool），但摘要不再使用——改走 analysisSummary 节点
     const { analysisId, analysisResult } = input
 
     // 事务外先查 existing（只读），不占用事务连接

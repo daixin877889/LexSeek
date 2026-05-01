@@ -34,10 +34,11 @@ import type { ToolContext, ToolDefinition } from './types'
 import type { Stance } from '#shared/types/contract'
 import { SSECustomEventType } from '#shared/types/agentEvent'
 import type { ContractReviewEvent } from '#shared/types/contract'
-import { publishCustomEvent, publishStatusChange } from '~~/server/services/agent/agentEventBridge'
+import { publishCustomEvent } from '~~/server/services/agent/agentEventBridge'
 import type { CustomEventEmitter } from '~~/server/services/agent-platform/sse/customEventEmitter'
 import { runAndDrainStream } from '~~/server/services/agent-platform/subAgent/runAndDrain'
 import { buildSubAgentCallbacks } from '~~/server/services/agent-platform/subAgent/buildSubAgentCallbacks'
+import { publishSubAgentStatus } from '~~/server/services/agent-platform/subAgent/publishSubAgentStatus'
 import type { Prisma } from '~~/generated/prisma/client'
 
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
@@ -353,7 +354,6 @@ export function createTool(context: ToolContext) {
             })
 
             // Task 12: 用 try/finally 兜底写 cotMessages（drain 成功后累积器已有数据）
-            // 主动 publish 子流 status_change 兜底前端 isRunning 卡死（同 draftDocument 的考虑）
             const subAgentMeta = {
                 agentName: 'contractReviewMain',
                 threadId: subSessionId,
@@ -362,23 +362,21 @@ export function createTool(context: ToolContext) {
             try {
                 const drainResult = await runAndDrainStream(stream)
                 if (!drainResult.success) {
-                    await publishStatusChange({
-                        type: 'status_change',
+                    await publishSubAgentStatus({
                         runId,
                         sessionId,
                         status: 'failed',
                         error: drainResult.error,
-                        metadata: subAgentMeta,
-                    }).catch((err: unknown) => logger.warn('publishStatusChange(sub failed) 失败', { err }))
+                        ...subAgentMeta,
+                    })
                     throw new Error(`review_contract: 合同 Agent 执行失败 - ${drainResult.error ?? '未知错误'}`)
                 }
-                await publishStatusChange({
-                    type: 'status_change',
+                await publishSubAgentStatus({
                     runId,
                     sessionId,
                     status: 'completed',
-                    metadata: subAgentMeta,
-                }).catch((err: unknown) => logger.warn('publishStatusChange(sub completed) 失败', { err }))
+                    ...subAgentMeta,
+                })
 
                 // 7. 取 Top 3 风险 + 等级统计
                 const { listContractRisksDAO } = await import(

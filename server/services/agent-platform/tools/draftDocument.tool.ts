@@ -26,9 +26,10 @@ import { z } from 'zod'
 import type { ToolContext, ToolDefinition } from './types'
 import { DOCUMENT_CATEGORY_KEYS, type DocumentCategoryKey } from '#shared/types/document'
 import { SSECustomEventType } from '#shared/types/agentEvent'
-import { publishCustomEvent, publishStatusChange } from '~~/server/services/agent/agentEventBridge'
+import { publishCustomEvent } from '~~/server/services/agent/agentEventBridge'
 import { runAndDrainStream } from '~~/server/services/agent-platform/subAgent/runAndDrain'
 import { buildSubAgentCallbacks } from '~~/server/services/agent-platform/subAgent/buildSubAgentCallbacks'
+import { publishSubAgentStatus } from '~~/server/services/agent-platform/subAgent/publishSubAgentStatus'
 
 const schema = z.object({
     intent: z.string().min(1).describe('用户起草意图的简短自然语言描述，例如："起诉某某拖欠工资"'),
@@ -161,24 +162,19 @@ export function createTool(context: ToolContext) {
                 callbacks,
             })
             const drainResult = await runAndDrainStream(stream)
-            // 主动 publish 子流 status_change：buildSubAgentCallbacks.handleChainEnd 在 stream 模式下
-            // 的 root chain 识别不可靠（cbParentRunId 在 LangGraph 包装后未必为 undefined），导致前端
-            // subThreadsMap[toolCallId].status 卡在 'running' → CoT 永久"思考中..."。这里在工具层
-            // 显式发一次 completed/failed 兜底。
             const subAgentMeta = {
                 agentName: 'documentMain',
                 threadId: subSessionId,
                 parentToolCallId: toolCallId,
             }
             if (!drainResult.success) {
-                await publishStatusChange({
-                    type: 'status_change',
+                await publishSubAgentStatus({
                     runId,
                     sessionId,
                     status: 'failed',
                     error: drainResult.error,
-                    metadata: subAgentMeta,
-                }).catch((err: unknown) => logger.warn('publishStatusChange(sub failed) 失败', { err }))
+                    ...subAgentMeta,
+                })
                 // graph 抛错时 afterAgent hook 也没机会跑 → draft.status 仍卡在 'filling'。
                 // 主动改成 'failed'，让前端文书页 / 列表显示失败态而非卡死的"生成中"。
                 const { updateDocumentDraftDAO } = await import(
@@ -187,13 +183,12 @@ export function createTool(context: ToolContext) {
                 await updateDocumentDraftDAO(draftId, { status: 'failed' }).catch(() => { /* 已经在错误路径，吞 */ })
                 throw new Error(`draft_document: 文书 Agent 执行失败 - ${drainResult.error ?? '未知错误'}`)
             }
-            await publishStatusChange({
-                type: 'status_change',
+            await publishSubAgentStatus({
                 runId,
                 sessionId,
                 status: 'completed',
-                metadata: subAgentMeta,
-            }).catch((err: unknown) => logger.warn('publishStatusChange(sub completed) 失败', { err }))
+                ...subAgentMeta,
+            })
             if (drainResult.interrupt) {
                 // 文书 Agent 内部不应再 interrupt 主 Agent；如果出现就是配置异常
                 logger.warn('draft_document: 子流内出现 interrupt（异常），按未完成处理', {

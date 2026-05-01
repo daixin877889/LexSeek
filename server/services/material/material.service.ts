@@ -533,18 +533,18 @@ async function loadMaterialText(materialId: number, maxChars: number): Promise<s
         select: { id: true, type: true, ossFileId: true },
     })
     if (!m) return ''
-    // type=1 文本：从 textContentRecords 读
-    if (m.type === 1) {
+    // 文本：从 textContentRecords 读
+    if (m.type === CaseMaterialType.CASE_CONTENT) {
         const record = await findTextContentRecordByMaterialIdDAO(materialId)
         return (record?.content ?? '').slice(0, maxChars)
     }
-    // type=2 文档 / type=3 图片：走 OCR（docRecognitionRecords → markdownContent）
-    if ((m.type === 2 || m.type === 3) && m.ossFileId) {
+    // 文档 / 图片：走 OCR（docRecognitionRecords → markdownContent）
+    if ((m.type === CaseMaterialType.DOCUMENT || m.type === CaseMaterialType.IMAGE) && m.ossFileId) {
         const record = await findDocRecognitionByOssFileIdDao(m.ossFileId)
         return (record?.markdownContent ?? '').slice(0, maxChars)
     }
-    // type=4 音频：从 asrRecords 读 summary
-    if (m.type === 4 && m.ossFileId) {
+    // 音频：从 asrRecords 读 summary
+    if (m.type === CaseMaterialType.AUDIO && m.ossFileId) {
         const asr = await prisma.asrRecords.findFirst({
             where: { ossFileId: m.ossFileId, deletedAt: null },
             select: { summary: true },

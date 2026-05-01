@@ -62,6 +62,17 @@ function joinTemplate(strings: TemplateStringsArray | { raw: readonly string[] }
 function setupPrismaMock(state: PrismaMockState) {
     const $queryRaw = vi.fn(async (strings: TemplateStringsArray, ...values: unknown[]) => {
         const sql = joinTemplate(strings)
+        // 合并查询：SELECT DISTINCT thread_id, checkpoint_ns FROM checkpoints WHERE ... OR thread_id LIKE ${}
+        // 必须在 'SELECT DISTINCT thread_id' 之前匹配（前者 substring 包含后者）
+        if (sql.includes('SELECT DISTINCT thread_id, checkpoint_ns')) {
+            const scopes: { thread_id: string; checkpoint_ns: string }[] = []
+            for (const { thread_id } of state.threads) {
+                for (const { checkpoint_ns } of state.namespacesByThread[thread_id] ?? []) {
+                    scopes.push({ thread_id, checkpoint_ns })
+                }
+            }
+            return scopes
+        }
         // SELECT DISTINCT thread_id FROM checkpoints WHERE thread_id = ${} OR LIKE ${}
         if (sql.includes('SELECT DISTINCT thread_id')) {
             return state.threads

@@ -149,7 +149,6 @@ export const analysisResultPersistenceMiddleware = (
                     await completeAnalysisWithRAG({
                         analysisId: analysisRecordId,
                         analysisResult: resultText,
-                        model,
                     })
 
                     logger.info('分析持久化：完成分析记录', {

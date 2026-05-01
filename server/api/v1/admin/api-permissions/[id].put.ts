@@ -53,7 +53,6 @@ export default defineEventHandler(async (event) => {
 
     const updateData = { ...result.data }
 
-    // 规范化 path/method
     if (typeof updateData.path === 'string') {
         const normalized = normalizeApiPath(updateData.path)
         const reason = validateApiPathFormat(normalized)

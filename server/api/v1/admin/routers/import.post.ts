@@ -48,23 +48,29 @@ export default defineEventHandler(async (event) => {
             return resSuccess(event, '没有新路由需要导入', { imported: 0, skipped: items.length })
         }
 
-        // 获取或创建路由组
+        // 获取或创建路由组（批量查询 + 批量创建，避免 N+1）
         const groupNames = [...new Set(newItems.map(i => i.group).filter(Boolean))] as string[]
         const groupMap = new Map<string, number>()
 
-        for (const groupName of groupNames) {
-            // 查找或创建分组
-            let group = await prisma.routerGroups.findFirst({
-                where: { name: groupName, deletedAt: null },
+        if (groupNames.length > 0) {
+            const existingGroups = await prisma.routerGroups.findMany({
+                where: { name: { in: groupNames }, deletedAt: null },
+                select: { id: true, name: true },
             })
+            for (const g of existingGroups) groupMap.set(g.name, g.id)
 
-            if (!group) {
-                group = await prisma.routerGroups.create({
-                    data: { name: groupName, description: groupName },
+            const missingNames = groupNames.filter(name => !groupMap.has(name))
+            if (missingNames.length > 0) {
+                await prisma.routerGroups.createMany({
+                    data: missingNames.map(name => ({ name, description: name })),
+                    skipDuplicates: true,
                 })
+                const created = await prisma.routerGroups.findMany({
+                    where: { name: { in: missingNames }, deletedAt: null },
+                    select: { id: true, name: true },
+                })
+                for (const g of created) groupMap.set(g.name, g.id)
             }
-
-            groupMap.set(groupName, group.id)
         }
 
         // 批量创建路由

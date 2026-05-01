@@ -41,7 +41,6 @@ export default defineEventHandler(async (event) => {
         return resError(event, 400, result.error.issues[0]?.message || '参数错误')
     }
 
-    // 规范化 + 校验
     const normalizedPath = normalizeApiPath(result.data.path)
     const reason = validateApiPathFormat(normalizedPath)
     if (reason) {

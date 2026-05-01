@@ -8,10 +8,9 @@
 
 import { z } from 'zod'
 import { validateCaseAccessService } from '~~/server/services/case/case.service'
-import { deleteMaterialService } from '~~/server/services/material/material.service'
-import { deleteMaterialEmbeddings } from '~~/server/services/material/materialEmbedding.service'
+import { deleteMaterialsDao } from '~~/server/services/material/material.dao'
+import { deleteMaterialsEmbeddings } from '~~/server/services/material/materialEmbedding.service'
 import { parseErrorMessage } from '#shared/utils/apiResponse'
-import type { caseMaterials } from '~~/generated/prisma/client'
 
 const paramsSchema = z.object({
     caseId: z.coerce.number().int().positive(),
@@ -61,19 +60,15 @@ export default defineEventHandler(async (event) => {
             return resError(event, 400, '未找到有效的材料')
         }
 
-        // 3. 逐个软删除 + 清理向量
-        const results = await Promise.allSettled(
-            validIds.map(async (id) => {
-                await deleteMaterialService(id)
-                await deleteMaterialEmbeddings(id)
-            }),
-        )
-
-        const succeeded = results.filter(r => r.status === 'fulfilled').length
-        const failed = results.filter(r => r.status === 'rejected').length
-
-        if (failed > 0) {
-            logger.warn('部分材料删除失败', { caseId, succeeded, failed })
+        // 3. 批量软删除 + 批量清理向量（单次 SQL 替代 N 次 round-trip）
+        let succeeded = 0
+        let failed = 0
+        try {
+            succeeded = await deleteMaterialsDao(validIds)
+            await deleteMaterialsEmbeddings(validIds)
+        } catch (err) {
+            failed = validIds.length
+            logger.warn('批量材料删除失败', { caseId, ids: validIds, error: (err as Error).message })
         }
 
         logger.info('删除案件材料', {

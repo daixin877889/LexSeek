@@ -37,60 +37,75 @@ export const getUserBenefitSummaryService = async (
     userId: number
 ): Promise<UserBenefitSummary[]> => {
     try {
-        // 查询所有启用的权益类型
         const allBenefits = await findAllActiveBenefitsDao()
-        const summaries: UserBenefitSummary[] = []
+        if (allBenefits.length === 0) return []
 
-        for (const benefit of allBenefits) {
-            // 计算用户该权益的总值
-            const totalValue = await sumUserBenefitValueDao(
+        // 一次查出该用户全部生效中的权益记录，按 benefitId 分组，避免循环 N 次 sumUserBenefitValueDao
+        const now = new Date()
+        const activeRecords = await prisma.userBenefits.findMany({
+            where: {
                 userId,
-                benefit.code,
-                benefit.consumptionMode
-            )
+                benefitId: { in: allBenefits.map(b => b.id) },
+                status: 1,
+                effectiveAt: { lte: now },
+                expiredAt: { gte: now },
+                deletedAt: null,
+            },
+            select: { benefitId: true, benefitValue: true },
+        })
+        const valuesByBenefit = new Map<number, bigint[]>()
+        for (const r of activeRecords) {
+            const arr = valuesByBenefit.get(r.benefitId) ?? []
+            arr.push(r.benefitValue)
+            valuesByBenefit.set(r.benefitId, arr)
+        }
 
-            // 如果用户没有该权益记录，使用默认值
-            const finalTotalValue = totalValue > 0 ? totalValue : benefit.defaultValue
+        // 云盘空间用量提到循环外，最多查 1 次（仅 STORAGE_SPACE 命中时）
+        const needsStorageUsage = allBenefits.some(b => b.code === BenefitCode.STORAGE_SPACE)
+        let storageUsedValue = BigInt(0)
+        if (needsStorageUsage) {
+            const ossUsage = await ossUsageDao(userId)
+            storageUsedValue = BigInt(ossUsage.fileSize || 0)
+        }
 
-            // 计算已使用量（目前只支持云盘空间）
-            let usedValue = BigInt(0)
-            if (benefit.code === BenefitCode.STORAGE_SPACE) {
-                const ossUsage = await ossUsageDao(userId)
-                usedValue = BigInt(ossUsage.fileSize || 0)
+        return allBenefits.map(benefit => {
+            const values = valuesByBenefit.get(benefit.id) ?? []
+
+            let totalValue = BigInt(0)
+            if (values.length === 0) {
+                totalValue = benefit.defaultValue
+            } else if (benefit.consumptionMode === BenefitConsumptionMode.MAX) {
+                for (const v of values) {
+                    if (v > totalValue) totalValue = v
+                }
+            } else {
+                for (const v of values) totalValue += v
             }
 
-            // 计算剩余量
-            const remainingValue = finalTotalValue - usedValue
+            const usedValue = benefit.code === BenefitCode.STORAGE_SPACE ? storageUsedValue : BigInt(0)
+            const remainingValue = totalValue - usedValue
             const remaining = remainingValue > 0 ? remainingValue : BigInt(0)
-
-            // 计算使用率百分比
-            const percentage = finalTotalValue > 0
-                ? Math.round(Number(usedValue * BigInt(100) / finalTotalValue))
+            const percentage = totalValue > 0
+                ? Math.round(Number(usedValue * BigInt(100) / totalValue))
                 : 0
 
-            // 格式化展示值
             const formatted = formatBenefitValues(
-                Number(finalTotalValue),
+                Number(totalValue),
                 Number(usedValue),
                 Number(remaining),
                 benefit.unitType
             )
 
-            summaries.push({
+            return {
                 code: benefit.code,
                 name: benefit.name,
-                totalValue: Number(finalTotalValue),
+                totalValue: Number(totalValue),
                 usedValue: Number(usedValue),
                 remainingValue: Number(remaining),
                 unitType: benefit.unitType,
-                formatted: {
-                    ...formatted,
-                    percentage,
-                },
-            })
-        }
-
-        return summaries
+                formatted: { ...formatted, percentage },
+            }
+        })
     } catch (error) {
         logger.error('获取用户权益汇总失败：', error)
         throw error
