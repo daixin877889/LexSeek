@@ -37,19 +37,16 @@ const props = withDefaults(defineProps<Props>(), {
   durationSec: 0,
 })
 
-// 折叠状态：初值跟随 isRunning（跑中默认展开实时看进度，跑完后默认折叠节省空间）。
-// 用户后续可点击 header 自由切换。
-const isOpen = ref<boolean>(props.isRunning || props.isFailed)
+// 折叠状态：跑中/失败默认展开，跑完默认折叠节省空间，用户手动操作后以用户偏好为准。
+// 用 computed 派生而不是 watch+ref，避免 mount 时机/v-model 同步错位导致流式跑中没展开。
+const userToggled = ref<boolean | null>(null)
+const isOpen = computed<boolean>({
+  get: () => userToggled.value ?? (props.isRunning || props.isFailed),
+  set: (v) => { userToggled.value = v },
+})
+// isRunning 翻 false 时（跑完）清除用户偏好，下次跑时重新跟随状态
 watch(() => props.isRunning, (running, prev) => {
-  // false → true：开始跑时主动展开（场景：tool_call 出现时 bucket 还没建，
-  // 首个 SSE 事件到达后 status='running'，用户应立即看到流式内容）
-  if (!prev && running) {
-    isOpen.value = true
-  }
-  // true → false：跑完瞬间自动折叠节省空间——失败保持展开让用户看到错误
-  else if (prev && !running && !props.isFailed) {
-    isOpen.value = false
-  }
+  if (prev && !running) userToggled.value = null
 })
 
 const steps = computed<StepVM[]>(() => mapMessagesToSteps(props.subMessages, props.isRunning))
