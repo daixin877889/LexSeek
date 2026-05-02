@@ -261,13 +261,39 @@ describe('analysisResultPersistenceMiddleware afterAgent', () => {
         })
     })
 
-    it('从 state._totalTokensConsumed 提取 token 写入 caseAnalyses', async () => {
+    it('优先从 AIMessage.usage_metadata.total_tokens 累加 token 写入 caseAnalyses', async () => {
+        // 主路径：LangChain SDK 直接填 usage_metadata，不经 middleware reducer 最稳。
+        // 子代理多轮 LLM 调用累加（800 + 1500 = 2300）。
         vi.mocked(completeAnalysisWithRAG).mockResolvedValue('mock-summary')
 
         const hook = getAfterAgentHook()
         const state = {
             _analysisRecordId: 42,
-            _totalTokensConsumed: 2350,  // pointConsumptionMiddleware 累计
+            messages: [
+                { _getType: () => 'ai', content: '中间步骤', usage_metadata: { total_tokens: 800 } },
+                { _getType: () => 'ai', content: '完整分析报告', usage_metadata: { total_tokens: 1500 } },
+            ],
+        }
+
+        await hook(state)
+
+        expect(completeAnalysisWithRAG).toHaveBeenCalledWith({
+            analysisId: 42,
+            analysisResult: '完整分析报告',
+            tokens: 2300,         // 实际 token 总数（800 + 1500）
+            tokenCount: 3,         // ceil(2300/1000)
+        })
+    })
+
+    it('messages 无 usage_metadata 时 fallback 到 state._totalTokensConsumed', async () => {
+        // 兜底路径：当 provider 没填 usage_metadata（例如某些自托管模型）时
+        // 退回到 pointConsumptionMiddleware 累计的共享 state 字段
+        vi.mocked(completeAnalysisWithRAG).mockResolvedValue('mock-summary')
+
+        const hook = getAfterAgentHook()
+        const state = {
+            _analysisRecordId: 42,
+            _totalTokensConsumed: 2350,
             messages: [{ _getType: () => 'ai', content: '完整分析报告' }],
         }
 
@@ -276,8 +302,8 @@ describe('analysisResultPersistenceMiddleware afterAgent', () => {
         expect(completeAnalysisWithRAG).toHaveBeenCalledWith({
             analysisId: 42,
             analysisResult: '完整分析报告',
-            tokens: 2350,         // 实际 token 总数
-            tokenCount: 3,         // ceil(2350/1000) 千 token 数
+            tokens: 2350,
+            tokenCount: 3,
         })
     })
 

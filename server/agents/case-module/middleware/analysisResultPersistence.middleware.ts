@@ -154,11 +154,32 @@ export const analysisResultPersistenceMiddleware = (
                         return
                     }
 
-                    // 从 pointConsumptionMiddleware 共享 state 提取 token 用量
-                    // _totalTokensConsumed 是 LLM 实际 token 总数；除以 1000 向上取整 = 千 token 数（积分扣减单位）
-                    const totalTokens = (state._totalTokensConsumed as number | undefined) ?? 0
+                    // 提取 token 用量。两条路双保险：
+                    //   1) 优先遍历 state.messages 累加 AIMessage.usage_metadata.total_tokens
+                    //      —— 这是 LangChain SDK 直接填的 provider 响应字段，**不经任何 middleware
+                    //      reducer**，最稳。pointConsumption 内部 getTokenCount 也是先读这个字段。
+                    //   2) 兜底：state._totalTokensConsumed（pointConsumptionMiddleware 累计），
+                    //      仅当上一条路完全没拿到时使用。
+                    let tokensFromMessages = 0
+                    for (const m of (state.messages ?? []) as any[]) {
+                        const t = m?._getType?.() ?? m?.type
+                        if (t !== 'ai') continue
+                        const used = m?.usage_metadata?.total_tokens
+                        if (typeof used === 'number' && used > 0) tokensFromMessages += used
+                    }
+                    const tokensFromState = (state._totalTokensConsumed as number | undefined) ?? 0
+                    const totalTokens = tokensFromMessages > 0 ? tokensFromMessages : tokensFromState
                     const tokens = totalTokens > 0 ? totalTokens : null
                     const tokenCount = totalTokens > 0 ? Math.ceil(totalTokens / 1000) : null
+
+                    logger.info('分析持久化：token 提取', {
+                        analysisRecordId,
+                        agentName,
+                        tokensFromMessages,
+                        tokensFromState,
+                        finalTokens: tokens,
+                        finalTokenCount: tokenCount,
+                    })
 
                     await completeAnalysisWithRAG({
                         analysisId: analysisRecordId,
