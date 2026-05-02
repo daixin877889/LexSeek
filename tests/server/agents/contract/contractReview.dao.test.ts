@@ -125,7 +125,7 @@ describe('contractReview.dao（补充覆盖）', () => {
             const risk = await createContractRiskDAO({
                 reviewId: r.id, source: 'ai', category: '原',
                 level: 'medium', stance: 'balanced',
-                problem: '原 problem', anchorQuote: '原 anchor',
+                problem: '原 problem', clauseText: '原 anchor',
             })
             // 模拟已迁移
             await prisma.contractReviews.update({
@@ -186,11 +186,11 @@ describe('contractReview.dao（补充覆盖）', () => {
             const r = await makeReview()
             const risk1 = await createContractRiskDAO({
                 reviewId: r.id, source: 'ai', category: 'a',
-                level: 'medium', stance: 'balanced', problem: 'p1', anchorQuote: 'q1',
+                level: 'medium', stance: 'balanced', problem: 'p1', clauseText: 'q1',
             })
             const risk2 = await createContractRiskDAO({
                 reviewId: r.id, source: 'ai', category: 'b',
-                level: 'low', stance: 'balanced', problem: 'p2', anchorQuote: 'q2',
+                level: 'low', stance: 'balanced', problem: 'p2', clauseText: 'q2',
             })
             const v = await prisma.contractReviewVersions.create({
                 data: {
@@ -392,16 +392,16 @@ describe('contractReview.dao（补充覆盖）', () => {
             })
             await createContractRiskDAO({
                 reviewId: r.id, source: 'ai', category: 'x',
-                level: 'high', stance: 'balanced', problem: 'p', anchorQuote: 'q',
+                level: 'high', stance: 'balanced', problem: 'p', clauseText: 'q',
             })
             await createContractRiskDAO({
                 reviewId: r.id, source: 'ai', category: 'x',
-                level: 'medium', stance: 'balanced', problem: 'p2', anchorQuote: 'q2',
+                level: 'medium', stance: 'balanced', problem: 'p2', clauseText: 'q2',
             })
             // archived 不计入
             const archived = await createContractRiskDAO({
                 reviewId: r.id, source: 'ai', category: 'x',
-                level: 'high', stance: 'balanced', problem: 'p3', anchorQuote: 'q3',
+                level: 'high', stance: 'balanced', problem: 'p3', clauseText: 'q3',
             })
             await prisma.contractRisks.update({
                 where: { id: archived.id },

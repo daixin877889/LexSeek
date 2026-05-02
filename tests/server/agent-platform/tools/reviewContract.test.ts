@@ -102,9 +102,9 @@ describe('review_contract tool', () => {
         ;(runContractReviewChat as any).mockResolvedValue(new ReadableStream())
         ;(runAndDrainStream as any).mockResolvedValue({ success: true, finalState: {} })
         ;(listContractRisksDAO as any).mockResolvedValue([
-            { id: 1, level: 'high', source: 'AI', anchorQuote: '违约金过高', createdAt: new Date('2025-01-01') },
-            { id: 2, level: 'low', source: 'AI', anchorQuote: '小风险', createdAt: new Date('2025-01-02') },
-            { id: 3, level: 'medium', source: 'AI', anchorQuote: '中风险', createdAt: new Date('2025-01-03') },
+            { id: 1, level: 'high', source: 'AI', clauseText: '违约金过高', createdAt: new Date('2025-01-01') },
+            { id: 2, level: 'low', source: 'AI', clauseText: '小风险', createdAt: new Date('2025-01-02') },
+            { id: 3, level: 'medium', source: 'AI', clauseText: '中风险', createdAt: new Date('2025-01-03') },
         ])
 
         const tool = createTool(ctx)
