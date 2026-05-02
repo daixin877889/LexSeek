@@ -9,6 +9,7 @@ interface SkillLabel {
 /**
  * 模块级 Promise 缓存：多个组件同时挂载共享同一个请求。
  * 单次会话内不重取——管理员改完中文名后，用户刷新页面才看到新值。
+ * 请求失败不缓存结果，下次调用会重试。
  */
 let cache: Promise<Record<string, string>> | null = null
 
@@ -19,9 +20,12 @@ async function ensureLoaded(): Promise<Record<string, string>> {
                 if (!Array.isArray(list)) return {} as Record<string, string>
                 return Object.fromEntries(list.map(s => [s.name, s.label]))
             })
-            .catch(() => ({} as Record<string, string>))
+            .catch((err) => {
+                cache = null
+                throw err
+            })
     }
-    return cache
+    return cache.catch(() => ({} as Record<string, string>))
 }
 
 /**
