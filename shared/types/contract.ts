@@ -162,9 +162,10 @@ export interface Risk {
     /**
      * "非空段落序号"（与后端 server/agents/contract/utils/clauseToParagraph.ts
      * 的 buildClauseToParagraphMap 输出同口径），仅在前端渲染时由 RiskDisplay
-     * 透传，用于 clauseLocator 的优先级 0 直定位。后端落库不读不写此字段。
+     * 透传，用于 clauseLocator 的优先级 0 直定位。后端落库不读不写此字段（DB
+     * 用 contractRisks.clauseParagraphIndex 列）。
      */
-    anchorParagraphIndex?: number | null
+    clauseParagraphIndex?: number | null
 }
 
 /**
@@ -179,13 +180,13 @@ export type RiskDisplay = Risk & {
 
 /**
  * Phase B：RiskListPanel / RiskCard 共享的扩展显示类型。
- * source/orphaned/originalAnchorQuote 字段从 contractRisks 表透传（首次审查后由后端补齐），
+ * source/orphaned/originalClauseText 字段从 contractRisks 表透传（首次审查后由后端补齐），
  * 前端依据这些字段做"外部新增分组""孤立批注区"等分组渲染。
  */
 export type RiskDisplayPhaseB = RiskDisplay & {
     source?: RiskSource
     orphaned?: boolean
-    originalAnchorQuote?: string | null
+    originalClauseText?: string | null
 }
 
 export interface CreateReviewRequest {
@@ -490,15 +491,30 @@ export interface ContractRiskEntity {
     suggestedClauseText: string | null
     archivedStatus: RiskArchivedStatus | null
     archivedAt: string | null
-    anchorQuote: string
-    anchorParagraphIndex: number | null
-    anchorCharStart: number | null
-    anchorCharEnd: number | null
+
+    // 双锚点 · 层 1 完整条款
+    /** 条款序号（segmentClauses 产出）；source='global_review' 时为 null。PR 2 全为 null，PR 3 起填值 */
+    clauseIndex: number | null
+    /** 完整条款原文（NOT NULL） */
+    clauseText: string
+    /** 非空段落序号（commentInjector 期望空间） */
+    clauseParagraphIndex: number | null
+    /** clause 在文档全文 normalizedText 里的 offset */
+    clauseCharStart: number | null
+    clauseCharEnd: number | null
+
+    // 双锚点 · 层 2 精确问题片段（PR 2 全为 null，PR 3 主路径填值）
+    problematicQuote: string | null
+    quoteCharStart: number | null
+    quoteCharEnd: number | null
+    quoteMatchSource: 'sentence_id' | 'fuzzy' | 'fallback' | null
+
+    // Phase B 锚点迁移痕迹
+    originalClauseText: string | null
+    orphaned: boolean
+
     createdAt: string
     updatedAt: string
-    // Phase B
-    originalAnchorQuote: string | null
-    orphaned: boolean
 }
 
 export interface ContractAnnotationEntity {

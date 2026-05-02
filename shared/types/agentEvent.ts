@@ -186,7 +186,8 @@ export interface ContractRiskPayload {
     code?: string
     level: RiskLevel
     source: string
-    anchorQuote?: string
+    /** SSE 推送增量风险卡时携带的完整条款原文（前端展示用，等价于 contractRisks.clauseText） */
+    clauseText?: string
 }
 
 export interface ContractProgressPayload {
