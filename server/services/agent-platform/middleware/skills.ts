@@ -30,6 +30,7 @@ export async function buildSkillsMiddlewareForNode(
     const skills = await listSkillsByNodeIdDAO(nodeId)
     if (skills.length === 0) return null
     const sources = [...new Set(skills.map(s => dirname(s.path)))]
-    const backend = getFilesystemBackend(sources)
+    const allowedSkillNames = new Set(skills.map(s => s.name))
+    const backend = getFilesystemBackend(sources, allowedSkillNames)
     return createSkillsMiddleware({ backend, sources }) as unknown as AgentMiddleware
 }
