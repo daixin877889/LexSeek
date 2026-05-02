@@ -122,3 +122,18 @@ export async function updateSkillStatusDAO(name: string, status: SkillStatus) {
 export async function deleteSkillDAO(name: string) {
     await prisma.skills.delete({ where: { name } })
 }
+
+/**
+ * 更新单条 skill 的 customTitle（管理员后台编辑入口）。
+ *
+ * @param name skill 主键
+ * @param customTitle 新值；null 表示恢复代码默认（DB 列设为 NULL）
+ * @returns 更新后的 skill 行
+ * @throws Prisma P2025 当 name 不存在
+ */
+export async function updateSkillCustomTitleDAO(name: string, customTitle: string | null) {
+    return prisma.skills.update({
+        where: { name },
+        data: { customTitle },
+    })
+}

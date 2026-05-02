@@ -12,6 +12,7 @@ import {
     listSkillsByNodeIdDAO,
     markSkillsDisabledByNamesDAO,
     deleteSkillDAO,
+    updateSkillCustomTitleDAO,
 } from '~~/server/services/agent-platform/skills/skillSync.dao'
 import { SkillSource, SkillStatus } from '#shared/types/skill'
 import { prisma } from '~~/server/utils/db'
@@ -155,5 +156,40 @@ describe('buildUpsertSkillOp - 扫描不覆盖后台字段', () => {
         const row = await prisma.skills.findUnique({ where: { name } })
         expect(row?.status).toBe(SkillStatus.ENABLED)
         expect(row?.customTitle).toBeNull()
+    })
+})
+
+describe('updateSkillCustomTitleDAO', () => {
+    const testSkillNames: string[] = []
+
+    afterEach(async () => {
+        if (testSkillNames.length > 0) {
+            await prisma.skills.deleteMany({ where: { name: { in: testSkillNames } } })
+            testSkillNames.length = 0
+        }
+    })
+
+    it('设置 customTitle 为字符串', async () => {
+        const name = `test_skill_${Date.now()}_ct_set`
+        testSkillNames.push(name)
+        await upsertSkillDAO({ name, path: `p/${name}`, source: SkillSource.FILESYSTEM })
+
+        const row = await updateSkillCustomTitleDAO(name, '我的中文名')
+        expect(row.customTitle).toBe('我的中文名')
+    })
+
+    it('设置 customTitle 为 null（恢复代码默认）', async () => {
+        const name = `test_skill_${Date.now()}_ct_clear`
+        testSkillNames.push(name)
+        await upsertSkillDAO({ name, path: `p/${name}`, source: SkillSource.FILESYSTEM })
+        await updateSkillCustomTitleDAO(name, '先设值')
+
+        const row = await updateSkillCustomTitleDAO(name, null)
+        expect(row.customTitle).toBeNull()
+    })
+
+    it('skill 不存在抛 P2025', async () => {
+        await expect(updateSkillCustomTitleDAO('not_exist_skill_xxx', 'x'))
+            .rejects.toMatchObject({ code: 'P2025' })
     })
 })
