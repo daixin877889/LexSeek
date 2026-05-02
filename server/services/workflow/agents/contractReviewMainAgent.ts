@@ -111,7 +111,7 @@ async function persistRisksAndCreateV1Snapshot(
         return
     }
 
-    // Bug 修复：clauseIndex（segmentClauses 产出的"条款序号"）≠ anchorParagraphIndex
+    // Bug 修复：clauseIndex（segmentClauses 产出的"条款序号"）≠ clauseParagraphIndex
     // （commentInjector / parseWordComments 使用的"非空段落序号"）。
     // 先构造 clauseIndex → 非空段落序号 的映射：segment.offsetStart 落在哪一段，
     // 该条款就归属哪一段。docxText 是 paragraphs.join('\n')，所以累加段落长度
@@ -122,7 +122,7 @@ async function persistRisksAndCreateV1Snapshot(
     // CORE-R2：风险落库收口到 persistAiRisksAsContractRows，annotation 由调用方按需创建
     const riskRows: PersistAiRiskRow[] = risks.map(aiRisk => ({
         risk: aiRisk,
-        anchorParagraphIndex: clauseIndexToParagraphIndex.get(aiRisk.clauseIndex) ?? null,
+        clauseParagraphIndex: clauseIndexToParagraphIndex.get(aiRisk.clauseIndex) ?? null,
     }))
     const createdRisks = await persistAiRisksAsContractRows({ reviewId, rows: riskRows })
     for (let i = 0; i < createdRisks.length; i++) {
