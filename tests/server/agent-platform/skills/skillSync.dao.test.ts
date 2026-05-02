@@ -13,6 +13,7 @@ import {
     markSkillsDisabledByNamesDAO,
     deleteSkillDAO,
     updateSkillCustomTitleDAO,
+    listEnabledSkillLabelsDAO,
 } from '~~/server/services/agent-platform/skills/skillSync.dao'
 import { SkillSource, SkillStatus } from '#shared/types/skill'
 import { prisma } from '~~/server/utils/db'
@@ -191,5 +192,48 @@ describe('updateSkillCustomTitleDAO', () => {
     it('skill 不存在抛 P2025', async () => {
         await expect(updateSkillCustomTitleDAO('not_exist_skill_xxx', 'x'))
             .rejects.toMatchObject({ code: 'P2025' })
+    })
+})
+
+describe('listEnabledSkillLabelsDAO', () => {
+    const testSkillNames: string[] = []
+
+    afterEach(async () => {
+        if (testSkillNames.length > 0) {
+            await prisma.skills.deleteMany({ where: { name: { in: testSkillNames } } })
+            testSkillNames.length = 0
+        }
+    })
+
+    it('仅返回 status=ENABLED 的 skill', async () => {
+        const enabledName = `test_skill_${Date.now()}_label_e`
+        const disabledName = `test_skill_${Date.now()}_label_d`
+        testSkillNames.push(enabledName, disabledName)
+
+        await upsertSkillDAO({ name: enabledName, path: `p/${enabledName}`, source: SkillSource.FILESYSTEM, title: 'A 中文' })
+        await upsertSkillDAO({ name: disabledName, path: `p/${disabledName}`, source: SkillSource.FILESYSTEM, title: 'B 中文' })
+        await prisma.skills.update({ where: { name: disabledName }, data: { status: SkillStatus.DISABLED } })
+
+        const list = await listEnabledSkillLabelsDAO()
+        expect(list.find(s => s.name === enabledName)).toBeDefined()
+        expect(list.find(s => s.name === disabledName)).toBeUndefined()
+    })
+
+    it('label 优先级：customTitle > title > name', async () => {
+        const a = `test_skill_${Date.now()}_label_a`   // 仅 title
+        const b = `test_skill_${Date.now()}_label_b`   // customTitle 优先
+        const c = `test_skill_${Date.now()}_label_c`   // title 也无（清空），兜底 name
+        testSkillNames.push(a, b, c)
+
+        await upsertSkillDAO({ name: a, path: `p/${a}`, source: SkillSource.FILESYSTEM, title: 'A 中文' })
+        await upsertSkillDAO({ name: b, path: `p/${b}`, source: SkillSource.FILESYSTEM, title: 'B 代码默认' })
+        await prisma.skills.update({ where: { name: b }, data: { customTitle: 'B 后台覆盖' } })
+        await upsertSkillDAO({ name: c, path: `p/${c}`, source: SkillSource.FILESYSTEM })
+        await prisma.skills.update({ where: { name: c }, data: { title: null } })
+
+        const list = await listEnabledSkillLabelsDAO()
+        expect(list.find(s => s.name === a)?.label).toBe('A 中文')
+        expect(list.find(s => s.name === b)?.label).toBe('B 后台覆盖')
+        expect(list.find(s => s.name === c)?.label).toBe(c)
     })
 })

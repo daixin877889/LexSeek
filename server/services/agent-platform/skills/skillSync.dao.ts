@@ -137,3 +137,19 @@ export async function updateSkillCustomTitleDAO(name: string, customTitle: strin
         data: { customTitle },
     })
 }
+
+/**
+ * 列出所有启用 skill 的 name → label 映射（用户端工具卡片消费）。
+ * label 优先级：customTitle > title > name。
+ */
+export async function listEnabledSkillLabelsDAO(): Promise<Array<{ name: string; label: string }>> {
+    const rows = await prisma.skills.findMany({
+        where: { status: SkillStatus.ENABLED },
+        select: { name: true, title: true, customTitle: true },
+        orderBy: { name: 'asc' },
+    })
+    return rows.map(r => ({
+        name: r.name,
+        label: r.customTitle ?? r.title ?? r.name,
+    }))
+}
