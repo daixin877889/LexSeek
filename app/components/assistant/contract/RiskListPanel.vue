@@ -361,7 +361,7 @@ function handleArchive(riskStringId: string, status: RiskArchivedStatus | null) 
                                 </Badge>
                                 <!-- AI 已重审徽章 -->
                                 <Badge
-                                    v-if="r.originalAnchorQuote"
+                                    v-if="r.originalClauseText"
                                     variant="secondary"
                                     class="text-[10px] px-1.5 py-0 shrink-0 flex items-center gap-0.5 bg-primary/10 text-primary"
                                 >

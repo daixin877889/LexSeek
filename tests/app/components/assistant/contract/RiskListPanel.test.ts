@@ -747,7 +747,7 @@ type RiskDisplayPhaseB = Risk & {
     entityId?: number
     source?: 'ai' | 'external_new' | 'global_review'
     orphaned?: boolean
-    originalAnchorQuote?: string | null
+    originalClauseText?: string | null
 }
 
 function makeAnnotation(over: Partial<ContractAnnotationEntity> = {}): ContractAnnotationEntity {
@@ -851,11 +851,11 @@ describe('RiskListPanel · Phase B 孤立批注区', () => {
         expect(w.text()).not.toContain('无法定位（')
     })
 
-    it('孤立风险卡片展开后显示 originalAnchorQuote 原锚点', async () => {
+    it('孤立风险卡片展开后显示 originalClauseText 原锚点', async () => {
         const orphanRisk: RiskDisplayPhaseB = {
             ...makeRisk({ id: 'o-1' }),
             orphaned: true,
-            originalAnchorQuote: '此处为原合同第三条款内容',
+            originalClauseText: '此处为原合同第三条款内容',
         }
         const w = mountPanelPhaseB({ risks: [orphanRisk] })
         await w.find('[data-risk-id="o-1"]').trigger('click')
@@ -866,7 +866,7 @@ describe('RiskListPanel · Phase B 孤立批注区', () => {
         const orphanRisk: RiskDisplayPhaseB = {
             ...makeRisk({ id: 'o-1' }),
             orphaned: true,
-            originalAnchorQuote: '原文片段',
+            originalClauseText: '原文片段',
         }
         const w = mountPanelPhaseB({ risks: [orphanRisk] })
         await w.find('[data-risk-id="o-1"]').trigger('click')

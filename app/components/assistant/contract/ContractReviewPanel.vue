@@ -268,7 +268,7 @@ const effectiveRisks = computed<RiskDisplay[]>(() => {
      * 把 entity row 映射成 RiskDisplay。两条产生 entity 数据的路径：
      * - versioning.workspace（Phase A 后的工作区数据）→ entities 数组
      * - review.value.risks（GET /reviews/:id 的 entity 转换数组，在 currentVersionId 不为空时返回）
-     * 两边 shape 一致，统一用本函数映射，不能直接 spread——否则 entity 字段名（anchorQuote / problem / id:number）
+     * 两边 shape 一致，统一用本函数映射，不能直接 spread——否则 entity 字段名（clauseText / problem / id:number）
      * 跟 RiskDisplay 期望（clauseText / risk / id:string）错位，导致 RiskClauseDiff 收到 clauseText=undefined
      * 触发 dmp.diff_main(undefined) Throw 让整个 Vue 渲染崩溃 + 风险卡无法点击。
      */
@@ -276,9 +276,9 @@ const effectiveRisks = computed<RiskDisplay[]>(() => {
         return {
             id: String(e.id),
             entityId: typeof e.id === 'number' ? e.id : undefined,
-            clauseIndex: e.anchorParagraphIndex ?? 0,
-            clauseText: e.anchorQuote,
-            anchorParagraphIndex: e.anchorParagraphIndex,
+            clauseIndex: e.clauseParagraphIndex ?? 0,
+            clauseText: e.clauseText,
+            clauseParagraphIndex: e.clauseParagraphIndex,
             level: e.level,
             category: e.category,
             problem: e.problem,

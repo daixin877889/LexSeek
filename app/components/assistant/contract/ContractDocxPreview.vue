@@ -56,10 +56,10 @@ function runDecorateOnce(): Set<string> {
     if (!containerRef.value) return new Set(props.risks.map(r => r.id))
     const notLocatedIds = new Set<string>()
     for (const risk of props.risks) {
-        // 优先级 0：anchorParagraphIndex 直定位（与后端"非空段落序号"空间一致），
-        // 解决 reviewed docx 注入批注后 textContent 与原 anchor_quote 微差异（全角空格、
+        // 优先级 0：clauseParagraphIndex 直定位（与后端"非空段落序号"空间一致），
+        // 解决 reviewed docx 注入批注后 textContent 与原 clause_text 微差异（全角空格、
         // 标点变体）导致的"未定位"误报。详见 shared/utils/clauseLocator.ts。
-        const el = locateClauseElement(containerRef.value, risk.clauseText, risk.anchorParagraphIndex)
+        const el = locateClauseElement(containerRef.value, risk.clauseText, risk.clauseParagraphIndex)
         if (!el || !(el instanceof HTMLElement)) {
             notLocatedIds.add(risk.id)
             continue

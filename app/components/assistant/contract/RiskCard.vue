@@ -37,7 +37,7 @@ const props = defineProps<{
     isPinned?: boolean
     isHovered?: boolean
     isJustAdded?: boolean
-    /** 孤立分支：去掉处置/编辑/删除按钮，加 originalAnchorQuote 提示与"查看原始语境" */
+    /** 孤立分支：去掉处置/编辑/删除按钮，加 originalClauseText 提示与"查看原始语境" */
     isOrphaned?: boolean
     archivedStatus?: RiskArchivedStatus | null
     /** 未定位徽章 */
@@ -117,12 +117,12 @@ function handleArchive(status: RiskArchivedStatus | null) {
         </CardHeader>
         <CardContent v-if="expanded" class="py-2 px-3 text-sm space-y-3" @click.stop>
             <!-- 原锚点提示 -->
-            <div v-if="risk.originalAnchorQuote" class="rounded-md bg-muted p-2 text-xs text-muted-foreground space-y-1">
+            <div v-if="risk.originalClauseText" class="rounded-md bg-muted p-2 text-xs text-muted-foreground space-y-1">
                 <div class="font-medium flex items-center gap-1">
                     <TriangleAlert class="size-3 text-amber-500" />
                     原锚点引文
                 </div>
-                <div class="italic line-clamp-3">{{ risk.originalAnchorQuote }}</div>
+                <div class="italic line-clamp-3">{{ risk.originalClauseText }}</div>
             </div>
 
             <div><div class="text-xs text-muted-foreground">条款分析</div><div class="whitespace-pre-wrap">{{ risk.analysis }}</div></div>
@@ -186,7 +186,7 @@ function handleArchive(status: RiskArchivedStatus | null) {
                 </Badge>
                 <!-- AI 已重审徽章：经历过锚点迁移的风险条目 -->
                 <Badge
-                    v-if="risk.originalAnchorQuote"
+                    v-if="risk.originalClauseText"
                     variant="secondary"
                     class="text-[10px] px-1.5 py-0 shrink-0 flex items-center gap-0.5 bg-primary/10 text-primary"
                 >
