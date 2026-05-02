@@ -20,10 +20,14 @@ export interface CreateContractRiskInput {
     legalBasis?: string | null
     analysis?: string | null
     suggestion?: string | null
-    anchorQuote: string
-    anchorParagraphIndex?: number | null
-    anchorCharStart?: number | null
-    anchorCharEnd?: number | null
+    /** 完整条款原文（NOT NULL） */
+    clauseText: string
+    /** 非空段落序号（commentInjector 期望空间） */
+    clauseParagraphIndex?: number | null
+    /** PR 2 不写，PR 3 主路径起填值 */
+    clauseIndex?: number | null
+    clauseCharStart?: number | null
+    clauseCharEnd?: number | null
 }
 
 export async function createContractRiskDAO(input: CreateContractRiskInput): Promise<contractRisks> {
@@ -34,8 +38,9 @@ export interface UpdateContractRiskInput {
     level?: RiskLevel
     suggestion?: string | null
     archivedStatus?: RiskArchivedStatus | null
-    anchorQuote?: string
-    anchorParagraphIndex?: number | null
+    /** 律师手工编辑业务文字时 clause_* / quote_* 字段视为只读，不在此 input 暴露（spec §5.0）*/
+    clauseText?: string
+    clauseParagraphIndex?: number | null
 }
 
 export async function updateContractRiskDAO(id: number, input: UpdateContractRiskInput): Promise<contractRisks> {
