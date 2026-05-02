@@ -74,7 +74,6 @@
 
         <AdminSkillsSkillEditDialog
             ref="editDialogRef"
-            v-model:open="editDialogOpen"
             @success="loadSkills"
         />
     </div>
@@ -136,7 +135,6 @@ async function handleResync() {
 }
 
 const editDialogRef = ref<{ openEdit: (skill: Skill) => void } | null>(null)
-const editDialogOpen = ref(false)
 function handleEdit(skill: Skill) {
     editDialogRef.value?.openEdit(skill)
 }
