@@ -1,5 +1,5 @@
 <template>
-  <div class="flex size-full flex-col justify-end relative p-4" ref="dropZoneRef">
+  <div class="@container/prompt flex size-full flex-col justify-end relative p-4 @max-[400px]/prompt:p-2" ref="dropZoneRef">
     <div class="px-0 relative">
       <!-- 全屏拖拽覆盖层 -->
       <Transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0 scale-95"
@@ -100,10 +100,10 @@
           <!-- 中间部分 -->
           <PromptInputBody>
             <PromptInputTextarea :placeholder="placeholder" :min-rows="minRows" :max-rows="maxRows"
-              :class="['px-4', selectedFiles.length > 0 ? 'pt-0' : 'pt-6']" />
+              :class="['px-4 @max-[400px]/prompt:px-3', selectedFiles.length > 0 ? 'pt-0' : 'pt-6 @max-[400px]/prompt:pt-4']" />
           </PromptInputBody>
           <!-- 底部 -->
-          <PromptInputFooter class="border-t border-muted-foreground/20 border-dashed px-4">
+          <PromptInputFooter class="border-t border-muted-foreground/20 border-dashed px-4 @max-[400px]/prompt:px-2">
             <!-- 工具栏 -->
             <PromptInputTools class="px-0">
               <PromptInputButton v-if="enableFileUpload" variant="ghost" @click="handleFileButtonClick"
@@ -131,11 +131,11 @@
               </TooltipProvider>
             </PromptInputTools>
             <!-- 提交按钮 -->
-            <div class="flex items-center gap-2 mr-[-8px]">
+            <div class="flex items-center gap-2 mr-[-8px] @max-[400px]/prompt:gap-1">
               <!-- 非 loading 态：使用原有 PromptInputSubmit（承担 type=submit 原生提交） -->
               <PromptInputSubmit
                 v-if="!loading"
-                class="h-9 px-4! rounded-md shadow-lg shadow-primary/20 active:scale-95 transition-all"
+                class="h-9 px-4! rounded-md shadow-lg shadow-primary/20 active:scale-95 transition-all @max-[400px]/prompt:h-8 @max-[400px]/prompt:px-3!"
                 :status="submitStatus"
                 :disabled="isSendDisabled"
                 size="xs"
