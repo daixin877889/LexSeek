@@ -189,8 +189,7 @@ export async function scanAndSyncSkillsService(skillsRoot?: string): Promise<Sca
  * 完全无关——这两个缓存内容里都不含 customTitle 字段。
  */
 export async function updateSkillCustomTitleService(name: string, raw: string | null) {
-    const trimmed = typeof raw === 'string' ? raw.trim() : null
-    const customTitle = trimmed ? trimmed : null
+    const customTitle = raw?.trim() || null
     return await updateSkillCustomTitleDAO(name, customTitle)
 }
 
