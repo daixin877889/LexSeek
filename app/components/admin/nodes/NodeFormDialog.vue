@@ -72,8 +72,13 @@
                                     :aria-expanded="modelOpen"
                                     class="w-full justify-between font-normal"
                                 >
-                                    <span :class="form.modelId ? '' : 'text-muted-foreground'">
-                                        {{ selectedModelLabel || '选择模型' }}
+                                    <span class="flex items-center gap-2 min-w-0"
+                                        :class="form.modelId ? '' : 'text-muted-foreground'">
+                                        <Badge v-if="selectedModel" variant="outline"
+                                            class="shrink-0 text-xs font-normal">
+                                            {{ MODEL_TYPE_SHORT[selectedModel.modelType] ?? selectedModel.modelType }}
+                                        </Badge>
+                                        <span class="truncate">{{ selectedModelLabel || '选择模型' }}</span>
                                     </span>
                                     <ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
@@ -88,14 +93,17 @@
                                                 v-for="m in models"
                                                 :key="m.id"
                                                 :value="String(m.id)"
-                                                :keywords="[m.displayName]"
+                                                :keywords="[m.displayName, MODEL_TYPE_SHORT[m.modelType] ?? '']"
                                                 @select="onSelectModel(String(m.id))"
                                             >
                                                 <Check
-                                                    class="mr-2 h-4 w-4"
+                                                    class="mr-2 h-4 w-4 shrink-0"
                                                     :class="form.modelId === String(m.id) ? 'opacity-100' : 'opacity-0'"
                                                 />
-                                                {{ m.displayName }}
+                                                <Badge variant="outline" class="mr-2 shrink-0 text-xs font-normal">
+                                                    {{ MODEL_TYPE_SHORT[m.modelType] ?? m.modelType }}
+                                                </Badge>
+                                                <span class="truncate">{{ m.displayName }}</span>
                                             </CommandItem>
                                         </CommandGroup>
                                     </CommandList>
@@ -244,6 +252,14 @@ interface ToolMeta {
 }
 
 type TabKey = 'basic' | 'tools' | 'skills' | 'schema'
+
+/** 模型类型简短标签（前缀小标签用，比 ModelTypeLabels 短） */
+const MODEL_TYPE_SHORT: Record<string, string> = {
+    chat: '对话',
+    embedding: '嵌入',
+    asr: '语音',
+    rerank: '排序',
+}
 
 // 定义 props
 const props = defineProps<{
