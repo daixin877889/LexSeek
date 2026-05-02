@@ -48,13 +48,17 @@ export function mergeEventIntoBucket(bucket: SubThreadState, ev: AgentEvent) {
       case 'sub_agent_token': {
         const md = cev.metadata
         if (!md?.messageId) return
-        const existing = bucket.messages.find((m: any) => m.id === md.messageId && m.type === 'ai')
-        if (existing) {
-          ;(existing as any).content = ((existing as any).content ?? '') + (md.delta ?? '')
+        // ⚠️ Vue 3 reactive 不代理 LangChain BaseMessage 实例（targetTypeMap INVALID），
+        // 直接 `instance.content = ...` 不触发响应 → 流式累积不渲染，下一次 push
+        // 触发数组 set 时才一次性显示之前累积的所有 token。
+        // 用 plain object 让 reactive 代理生效，extractThinking / mapMessagesToSteps
+        // 都用 `_getType?.() ?? type` 兜底兼容。
+        const idx = bucket.messages.findIndex((m: any) => m.id === md.messageId && (m.type === 'ai' || m._getType?.() === 'ai'))
+        if (idx >= 0) {
+          const m = bucket.messages[idx] as any
+          m.content = (typeof m.content === 'string' ? m.content : '') + (md.delta ?? '')
         } else {
-          const ai: any = new AIMessage({ content: md.delta ?? '' })
-          ai.id = md.messageId
-          bucket.messages.push(ai)
+          bucket.messages.push({ type: 'ai', id: md.messageId, content: md.delta ?? '' } as any)
         }
         return
       }
@@ -65,20 +69,21 @@ export function mergeEventIntoBucket(bucket: SubThreadState, ev: AgentEvent) {
         if (!md?.messageId) return
         const delta = md.delta ?? ''
         if (!delta) return
-        const existing = bucket.messages.find((m: any) => m.id === md.messageId && m.type === 'ai') as any
-        if (existing) {
-          existing.additional_kwargs = existing.additional_kwargs ?? {}
-          const prev = typeof existing.additional_kwargs.reasoning_content === 'string'
-            ? existing.additional_kwargs.reasoning_content
+        const idx = bucket.messages.findIndex((m: any) => m.id === md.messageId && (m.type === 'ai' || m._getType?.() === 'ai'))
+        if (idx >= 0) {
+          const m = bucket.messages[idx] as any
+          m.additional_kwargs = m.additional_kwargs ?? {}
+          const prev = typeof m.additional_kwargs.reasoning_content === 'string'
+            ? m.additional_kwargs.reasoning_content
             : ''
-          existing.additional_kwargs.reasoning_content = prev + delta
+          m.additional_kwargs.reasoning_content = prev + delta
         } else {
-          const ai: any = new AIMessage({
+          bucket.messages.push({
+            type: 'ai',
+            id: md.messageId,
             content: '',
             additional_kwargs: { reasoning_content: delta },
-          })
-          ai.id = md.messageId
-          bucket.messages.push(ai)
+          } as any)
         }
         return
       }
@@ -108,13 +113,13 @@ export function mergeEventIntoBucket(bucket: SubThreadState, ev: AgentEvent) {
               && m.tool_calls.some((c: any) => c?.id === d.innerToolCallId),
           )
           if (!exists) {
-            // 始终为每个 tool_call 创建独立的空 AIMessage
-            const ai = new AIMessage({
-              content: '',
+            // 始终为每个 tool_call 创建独立的空 AIMessage（plain object 让 reactive 生效）
+            bucket.messages.push({
+              type: 'ai',
               id: d.cbRunId ?? d.innerToolCallId,
+              content: '',
               tool_calls: [{ id: d.innerToolCallId, name: d.toolName, args: parsedArgs }],
-            })
-            bucket.messages.push(ai)
+            } as any)
           }
         }
         return
@@ -124,11 +129,12 @@ export function mergeEventIntoBucket(bucket: SubThreadState, ev: AgentEvent) {
         if (!d?.cbRunId) return
         const innerToolCallId = bucket.runIdToInnerToolCallId.get(d.cbRunId)
         if (!innerToolCallId) return
-        const tool: any = new ToolMessage({
+        // plain object（同 sub_agent_token 修复）
+        bucket.messages.push({
+          type: 'tool',
           tool_call_id: innerToolCallId,
           content: typeof d.output === 'string' ? d.output : JSON.stringify(d.output ?? null),
-        })
-        bucket.messages.push(tool)
+        } as any)
         return
       }
       default: return
