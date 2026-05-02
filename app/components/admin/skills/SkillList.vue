@@ -28,7 +28,7 @@
                     <TableHeader>
                         <TableRow>
                             <TableHead>名称</TableHead>
-                            <TableHead>标题</TableHead>
+                            <TableHead>中文名</TableHead>
                             <TableHead>版本</TableHead>
                             <TableHead>来源</TableHead>
                             <TableHead>路径</TableHead>
@@ -39,7 +39,14 @@
                     <TableBody>
                         <TableRow v-for="skill in skills" :key="skill.name">
                             <TableCell class="font-mono text-sm font-medium">{{ skill.name }}</TableCell>
-                            <TableCell>{{ skill.title || '-' }}</TableCell>
+                            <TableCell>
+                                <div class="flex items-center gap-2">
+                                    <span>{{ skill.customTitle ?? skill.title ?? '-' }}</span>
+                                    <Button variant="ghost" size="icon" class="h-6 w-6" @click="handleEdit(skill)">
+                                        <Pencil class="h-3.5 w-3.5" />
+                                    </Button>
+                                </div>
+                            </TableCell>
                             <TableCell>
                                 <Badge v-if="skill.version" variant="secondary">v{{ skill.version }}</Badge>
                                 <span v-else class="text-muted-foreground text-sm">-</span>
@@ -64,15 +71,22 @@
                 </Table>
             </div>
         </template>
+
+        <AdminSkillsSkillEditDialog
+            ref="editDialogRef"
+            v-model:open="editDialogOpen"
+            @success="loadSkills"
+        />
     </div>
 </template>
 
 <script setup lang="ts">
-import { Boxes, Loader2, RefreshCw } from 'lucide-vue-next'
+import { Boxes, Loader2, Pencil, RefreshCw } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useFormatters } from '~/composables/useFormatters'
 import AdminSkillsSkillEnableSwitch from '~/components/admin/skills/SkillEnableSwitch.vue'
+import AdminSkillsSkillEditDialog from '~/components/admin/skills/SkillEditDialog.vue'
 
 const { formatDate: formatDateRaw } = useFormatters()
 
@@ -81,6 +95,7 @@ interface Skill {
     path: string
     source: string
     title: string | null
+    customTitle: string | null
     description: string | null
     version: string | null
     status: number
@@ -118,6 +133,12 @@ async function handleResync() {
     } finally {
         resyncing.value = false
     }
+}
+
+const editDialogRef = ref<{ openEdit: (skill: Skill) => void } | null>(null)
+const editDialogOpen = ref(false)
+function handleEdit(skill: Skill) {
+    editDialogRef.value?.openEdit(skill)
 }
 
 onMounted(loadSkills)
