@@ -372,6 +372,8 @@ DB 节点 `contractReviewAnalyzeClause` 的 system prompt（id=28）改造：
 新建 `server/agents/contract/utils/resolveQuoteAnchor.ts`：
 
 ```ts
+import { getDmp, normalizeForMatch } from './textSimilarity'
+
 export interface QuoteAnchorResult {
     /** 精确问题片段；null = 全失败降级 */
     problematicQuote: string | null
@@ -387,7 +389,7 @@ export function resolveQuoteAnchor(input: {
     sentences: SentenceSpan[]
     aiOutput: { problemSentenceIds?: number[]; problematicQuote?: string }
 }): QuoteAnchorResult {
-    // 档 1：sentence_id 主路径
+    // 档 1：sentence_id 主路径（deterministic）
     const ids = input.aiOutput.problemSentenceIds
     if (ids && ids.length > 0) {
         const validIds = ids.filter(id => id >= 1 && id <= input.sentences.length)
@@ -403,7 +405,7 @@ export function resolveQuoteAnchor(input: {
         }
     }
 
-    // 档 2：fuzzy match fallback
+    // 档 2：fuzzy match fallback（dmp.match_main + 标点归一化）
     const quote = input.aiOutput.problematicQuote?.trim()
     if (quote && quote.length >= 4) {
         const offset = fuzzyMatchOffset(input.clauseText, quote)
@@ -421,12 +423,58 @@ export function resolveQuoteAnchor(input: {
     return { problematicQuote: null, charStart: null, charEnd: null, matchSource: 'fallback' }
 }
 
-/** 用 diff-match-patch 找最相似 substring */
+/**
+ * 用 diff-match-patch 的 Bitap 算法找最相似 substring 起点。
+ *
+ * 关键约束（diff-match-patch 官方文档）：
+ * - `Match_MaxBits = 32`：pattern.length > 32 时 Bitap 算法失败 → 必须用前 32 字符做 anchor locate
+ * - `Match_Threshold` 默认 0.5（越小越严格、越快）；合同场景压到 0.3 兼顾精度
+ * - `Match_Distance` 默认 1000（搜索范围）；合同条款可超 1000 字符 → 设为 clauseText.length 保证全段可搜
+ * - `match_main` 返回 number（起点 offset）；找不到返回 -1（不是 null）
+ * - 中文 BMP 字符 1 字 = 1 UTF-16 code unit，offset 即字符 offset（surrogate pair 罕见，作为已知限制忽略）
+ *
+ * 复用项目已有 `textSimilarity.ts` 的 `getDmp()` 单例：textSimilarity 注释明确"只读不改 dmp 参数"，
+ * 本函数需要修改 Match_Threshold/Match_Distance，因此**调用前后保存/恢复参数**避免污染共享实例。
+ *
+ * 标点归一化：`normalizeForMatch()` 把全角/半角标点等价化（"，" → ","、"；" → ";" 等）——
+ * 客户文档可能用中文标点而 LLM 输出用英文标点（或反之），归一化后才能 fuzzy 命中。
+ */
 function fuzzyMatchOffset(text: string, pattern: string): { start: number; end: number } | null {
-    // 用 dmp.match_main 找 substring 起点（双向 Bitap + Levenshtein）
-    // Match_Threshold 默认 0.5（越小越严格），合同场景设 0.3 更稳
+    const MAX_PATTERN = 32 // diff-match-patch Match_MaxBits
+
+    // 标点归一化（text 和 pattern 用同一份映射，offset 在归一化空间内仍对齐原文，因为映射是 1:1 字符替换）
+    const normText = normalizeForMatch(text)
+    const normPattern = normalizeForMatch(pattern)
+
+    const dmp = getDmp()
+    const savedThreshold = dmp.Match_Threshold
+    const savedDistance = dmp.Match_Distance
+    try {
+        dmp.Match_Threshold = 0.3
+        dmp.Match_Distance = Math.max(1000, normText.length) // 保证全段可搜
+
+        // pattern 长度 ≤ 32：直接 match_main
+        if (normPattern.length <= MAX_PATTERN) {
+            const start = dmp.match_main(normText, normPattern, 0)
+            if (start === -1) return null
+            return { start, end: Math.min(start + pattern.length, text.length) }
+        }
+
+        // pattern > 32：取前 32 字符做 anchor locate，按 pattern.length 推算 end
+        const anchor = normPattern.slice(0, MAX_PATTERN)
+        const start = dmp.match_main(normText, anchor, 0)
+        if (start === -1) return null
+        return { start, end: Math.min(start + pattern.length, text.length) }
+    }
+    finally {
+        // 恢复共享实例参数（防止污染 calcSimilarity 等其他调用方）
+        dmp.Match_Threshold = savedThreshold
+        dmp.Match_Distance = savedDistance
+    }
 }
 ```
+
+> **已知限制**：`text.slice(start, start + pattern.length)` 取出的字符串与 LLM 给的 quote 略有出入（fuzzy 匹配下可能差几个字符的标点）；这是预期行为，UI 显示时是"文档原文里实际存在的相似片段"，比 LLM 自由摘取更可信。
 
 ### 5.4 risksSchema.builder 同步
 
@@ -492,30 +540,30 @@ const item: Prisma.contractRisksUncheckedCreateInput = {
 
 ### 6.1 Layout A（Stacked 三段，默认）
 
-风险卡展开后：
+风险卡展开后（图标用 lucide-vue-next，不用 emoji——遵循 CLAUDE.md 铁律 §3）：
 
 ```
 ┌─────────────────────────────────────────────────┐
-│ [中] 违约金  [📋 命中清单 · payment_default]      │
+│ [中] 违约金  [<ClipboardList/> 命中清单 · payment_default] │
 │ 逾期付款违约金过低，对乙方追讨成本不足            │
 ├─────────────────────────────────────────────────┤
-│ 📄 条款标题                                       │
+│ <FileText/> 条款标题                              │
 │ 第三条 工资支付（第 5 段）                         │
 │                                                  │
-│ 📜 完整原文                                       │
+│ <Quote/> 完整原文                                 │
 │ ┌─────────────────────────────────────────────┐ │
 │ │ 工资按月支付。 [深黄底高亮 quote 字符段]      │ │
 │ │ 工资按月底前最后一个工作日结算；逾期支付的，  │ │
 │ │ 每日按 0.05% 加收滞纳金 [/高亮]。乙方有权追讨。│ │
 │ └─────────────────────────────────────────────┘ │
 │                                                  │
-│ ⚠️ 问题片段                                       │
+│ <AlertTriangle/> 问题片段                         │
 │ ┌─────────────────────────────────────────────┐ │
 │ │ "工资按月底前最后一个工作日结算；逾期支付的， │ │
 │ │  每日按 0.05% 加收滞纳金"                    │ │
 │ └─────────────────────────────────────────────┘ │
 │                                                  │
-│ ✏️ 建议改写                                       │
+│ <PencilLine/> 建议改写                            │
 │ ┌─────────────────────────────────────────────┐ │
 │ │ 工资按月底前最后一个工作日结算；逾期支付的，  │ │
 │ │ 每日按 **0.5%** 加收滞纳金，且累计逾期超 30   │ │
@@ -523,6 +571,8 @@ const item: Prisma.contractRisksUncheckedCreateInput = {
 │ └─────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────┘
 ```
+
+> 实际代码用 lucide 组件：`<FileText class="size-3" />` / `<Quote class="size-3" />` / `<AlertTriangle class="size-3 text-amber-500" />` / `<PencilLine class="size-3 text-emerald-600" />`。色调跟现有 RiskCard 内已用 lucide 图标保持一致。
 
 ### 6.2 Layout C（Inline diff，可切）
 
@@ -562,30 +612,156 @@ UI 不暴露"匹配失败"状态——用户无感降级到"段落级"基线（=
 
 ### 7.1 现状
 
-`DocxPreview.vue` 用 `docx-preview` 库渲染 docx，按 `anchorParagraphIndex` 给段落加黄色背景。
+`ContractDocxPreview.vue` 用 `docx-preview` 库渲染 docx，按 `anchorParagraphIndex` 给段落（`<p>` 元素）加底色，**底色按风险等级配色**——`app/utils/contractRiskLevelStyle.ts` 的 `RISK_LEVEL_DOCX_BG_CLASS`：high=红 / medium=橙 / low=灰。三态视觉：focused（点击聚焦）= 红边框 + 红光晕、pinned = 同 active、hovered = 淡黄。
 
-### 7.2 升级
+### 7.2 升级目标 · 双层视觉系统
 
-双层渐进高亮：
-- 段落级（浅黄底 `bg-yellow-50/40`）：clause_paragraph_index 命中
-- 字符级（深黄底 `bg-yellow-300/60`）：quote_char_start..quote_char_end 命中
+保留现状段落按级别配色（不破坏视觉级别信号），新增 quote 字符段的"统一深黄"高亮：
 
-实现思路：
-1. 找到 `<w:p>` 对应的 DOM 元素（段落级，已有逻辑）
-2. 在该段落内根据 `quote_char_start/end`（在 clause_text 内的相对 offset）→ 计算在段落 textContent 里的 offset
-3. **手动 split text node + insert span**：遍历段落内 text node，累加字符数找到 quote 起止位置；分别拆 startOffset / endOffset 的 text node；中间所有 node（含跨多个 `<w:r>` run 的）外包 `<span class="quote-highlight">`（不能用 `Range.surroundContents`，它不支持跨多节点）
+| 层 | 命中条件 | 视觉 | 实现 |
+|---|---|---|---|
+| 段落级（保留） | `clause_paragraph_index` 命中 | 现状不变：high=红/medium=橙/low=灰浅底 + 焦点态红边框红光晕 | 现状 `decorateRisks` 流程 |
+| 字符级（新增） | `quote_char_start..quote_char_end` 命中 | 统一深黄底（focus/pin 三态用更深变体） | CSS Custom Highlight API |
+| quote=null 降级 | quote 字段全失败 | 仅段落级高亮（=现状） | 跳过字符级 |
 
-边角情况：
-- quote=null 时只做段落级浅黄高亮（=现状）
-- quote 起止偏移落在段落空白字符（如换行 / 制表符）→ 自动 trim 到最近非空字符
-- 段落 textContent 长度 < quote_char_end → 写日志告警 + 降级到段落级高亮（不该出现，但兜底）
+### 7.3 主实现 · CSS Custom Highlight API（推荐路径）
 
-### 7.3 焦点动画
+行业标准做法（Hypothesis 等开源标注工具 2024Q4 已迁移）。**不修改第三方 DOM**，跨 `<p>` / `<span>` / text node 任意区间通过 `Range` 表达，浏览器内核渲染高亮。
+
+浏览器支持：Chrome 105+ / Safari 17.2+ / Firefox 140，**baseline 2025/06**。LexSeek 浏览器目标全覆盖。
+
+```ts
+// 1. CSS（global.css 或 component scoped）
+::highlight(quote-default) { background-color: rgb(252 211 77 / 0.6); }
+::highlight(quote-focused) { background-color: rgb(245 158 11 / 0.85); }
+::highlight(quote-pinned)  { background-color: rgb(217 119 6 / 0.7); }
+
+// 2. 渲染完成后构建 Range + Highlight
+function decorateQuoteRange(risk: ContractRiskEntity, container: HTMLElement) {
+    const range = computeQuoteRange(risk, container)
+    if (!range) return
+    const stateName = pickHighlightState(risk) // 'quote-default' | 'quote-focused' | 'quote-pinned'
+    const existing = CSS.highlights.get(stateName) ?? new Highlight()
+    existing.add(range)
+    CSS.highlights.set(stateName, existing)
+}
+```
+
+#### 7.3.1 关键算法 · clauseText offset → DOM Range 对齐
+
+`clause_text` 是 `segmentClauses` 产出的 `raw.trim()`（含 `\n` 作多行段落分隔），但 docx-preview 把每个 `<w:p>` 单独渲染成 `<p>` 元素，`<p>.textContent` **不含 `\n`**——一个 `clause_text` 可能横跨多个 `<p>` 元素。
+
+对齐算法（伪代码）：
+
+```ts
+function computeQuoteRange(risk: ContractRiskEntity, container: HTMLElement): Range | null {
+    if (risk.quoteCharStart == null || risk.quoteCharEnd == null) return null
+
+    // 1. clause_text 按 \n 拆行（segmentClauses 用 \n 连接 lines）
+    const clauseLines = risk.clauseText.split('\n')
+
+    // 2. 累加每行长度（含行尾 \n 的 1 字符），找到 quoteCharStart/End 落在哪些行 + 行内 offset
+    const linePositions = computeLinePositions(clauseLines) // [{ start, end }, ...]
+    const startHit = locateInLines(linePositions, risk.quoteCharStart)  // { lineIdx, lineOffset }
+    const endHit = locateInLines(linePositions, risk.quoteCharEnd)
+
+    // 3. 用 clause_paragraph_index 找起始 <p>，往后取连续 N 个非空 <p> 对应到 clauseLines[i]
+    const paragraphs = findClauseParagraphs(container, risk.clauseParagraphIndex, clauseLines.length)
+    if (!paragraphs[startHit.lineIdx] || !paragraphs[endHit.lineIdx]) return null
+
+    // 4. 在 startHit 段落内按 textContent 累加字符找到对应 text node + 内部 offset；endHit 同理
+    const startAnchor = walkToTextNode(paragraphs[startHit.lineIdx], startHit.lineOffset)
+    const endAnchor = walkToTextNode(paragraphs[endHit.lineIdx], endHit.lineOffset)
+    if (!startAnchor || !endAnchor) return null
+
+    // 5. 构建跨节点 Range
+    const range = new Range()
+    range.setStart(startAnchor.node, startAnchor.offset)
+    range.setEnd(endAnchor.node, endAnchor.offset)
+    return range
+}
+
+/** 在 paragraph element 内遍历 text node，累加字符数找到 offset 对应的 (textNode, innerOffset) */
+function walkToTextNode(p: HTMLElement, charOffset: number): { node: Text; offset: number } | null {
+    let consumed = 0
+    const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT)
+    let node = walker.nextNode() as Text | null
+    while (node) {
+        const len = node.data.length
+        if (consumed + len >= charOffset) {
+            return { node, offset: charOffset - consumed }
+        }
+        consumed += len
+        node = walker.nextNode() as Text | null
+    }
+    return null
+}
+```
+
+#### 7.3.2 字符等价性边角
+
+docx-preview 渲染时部分字符被替换：
+- `<w:tab>` → `<span>&emsp;</span>`（textContent = ` ` 全角空格），但 clause_text 里 tab 是 `\t`
+- `<w:br>` → `<br>`（textContent = ''），clause_text 里换行被 segmentClauses 折叠为 `\n` 行分隔
+
+**对齐策略**：在 `walkToTextNode` 累加时把 ` ` 视作 1 字符，对齐 clause_text 里 `\t` 的 1 字符（基本可用）。如果实测出现明显偏差，再加映射表。
+
+#### 7.3.3 fallback 路径 · DOM 手动 split
+
+极端情况（旧浏览器 / `CSS.highlights` 不可用）：
+
+```ts
+if (typeof CSS === 'undefined' || !('highlights' in CSS)) {
+    // 退化为手动 split text node + 包 <span class="quote-highlight">
+    // 注意：Range.surroundContents 跨节点会抛 InvalidStateError，必须手动遍历 + split + 多 span 包裹
+}
+```
+
+fallback 实现细节留 plan 阶段；上线先看真实环境是否需要触发 fallback（理论上 LexSeek 用户都是现代浏览器）。
+
+### 7.4 重渲染保护
+
+`docx-preview.renderAsync` 把 `target.innerHTML = ''`，所有手动插入物作废；CSS Custom Highlight API 的 `Range` 引用旧 text node 也会失效。
+
+**生命周期 hook**：
+
+```ts
+watch(
+    [() => props.reviewedFileId, () => props.risks, () => props.focusedRiskId, () => props.pinnedRiskIds],
+    async () => {
+        await renderAsync(...) // docx-preview 渲染完成
+        clearAllQuoteHighlights() // CSS.highlights.delete('quote-default') 等
+        for (const risk of props.risks) decorateQuoteRange(risk, container)
+    },
+    { immediate: true },
+)
+```
+
+`clearAllQuoteHighlights` 在每次重渲染前调用：
+
+```ts
+function clearAllQuoteHighlights() {
+    CSS.highlights.delete('quote-default')
+    CSS.highlights.delete('quote-focused')
+    CSS.highlights.delete('quote-pinned')
+}
+```
+
+### 7.5 焦点动画
 
 点击风险卡时（focusedRiskId 变化）：
-- 滚动到段落
-- quote 高亮加 `animate-pulse` 1 秒（CSS animation）
-- pin 状态保持深黄；focus 状态深红边框
+- 滚动到段落（已有逻辑沿用）
+- **不用 `animate-pulse` CSS class**（CSS.highlights 不支持 animation）；改用 1 秒后 `setTimeout` 把 `quote-focused` 切回 `quote-default` 实现"闪一下"效果，或者通过 `::highlight()` 的 `transition` 渐变（部分浏览器支持）
+
+### 7.6 视觉态矩阵
+
+| 风险态 | 段落底色 | quote 高亮 | 段落边框 |
+|---|---|---|---|
+| idle（无聚焦） | level 浅底（red-50 / orange-50 / gray-50） | quote-default 深黄 60% | 无 |
+| hovered | 淡黄 (yellow-50) | quote-default | 无 |
+| focused（点击） | level 浅底 | quote-focused 深橙 85% + 1秒后回 default | 红边框 + 红光晕 |
+| pinned | level 浅底 | quote-pinned 棕黄 70% | 橙边框 |
+| quote=null | 上面四种段落底色不变 | 无字符级高亮 | 同上 |
 
 ---
 
@@ -618,37 +794,191 @@ GET `/api/v1/assistant/contract/reviews/download/:id?mode=comment|redline|both`
 
 ### 8.3 OOXML 实现
 
-新建 `server/agents/contract/docx/redlineInjector.ts`：
+新建 `server/agents/contract/docx/redlineInjector.ts`，复用现有 `xmlAst.ts` (`parseOoxml` / `stringifyOoxml` / `makeElement` / `walk` / `findFirst` / `escapeXml`) + `zipRewriter.ts` 基础设施：
 
 ```ts
 export async function injectRedlineMarks(
     docxBuffer: Buffer,
     risks: ContractRiskEntity[],
-    options: { author: string; reviewId: number }
-): Promise<{ buffer: Buffer; warnings: string[] }>
+    options: { reviewId: number; idStart: number }
+): Promise<{ buffer: Buffer; warnings: string[]; nextIdAfter: number }>
 ```
 
-对每个有 `problematicQuote` + `suggestedClauseText` 的 risk：
-1. 找到 quote 在 docx `<w:p>` 里的字符 offset（用 quote_char_start/end + clauseParagraphIndex）
-2. 把 quote 字符段拆出独立 `<w:r>`
-3. **整段替换策略**（v1）：删除整个 `problematicQuote`、新增整个 `suggestedClauseText`（不做字符级 inline diff）：
+#### 8.3.1 ID 池协调（关键 · 不修会让 Word 拒打开）
+
+OOXML 的 `w:id` 在文档内是**跨多种元素共享 ID 池**：bookmark / `<w:ins>` / `<w:del>` / `<w:rPrChange>` / `<w:pPrChange>` / `<w:commentRangeStart>` / `<w:commentRangeEnd>` / `<w:commentReference>` / `<w:moveFromRangeStart>` 等。**ID 撞车 → Word 报"文件已损坏"拒打开**（macOS Preview 容忍但 Windows Word 严格）。
+
+实现：
+
+```ts
+/** 扫描 document.xml 收集所有共享 ID 池里的 w:id 最大值 */
+function findMaxSharedId(rootAst: AstNode): number {
+    const ID_BEARING_TAGS = new Set([
+        'w:bookmarkStart', 'w:bookmarkEnd',
+        'w:ins', 'w:del', 'w:rPrChange', 'w:pPrChange',
+        'w:sectPrChange', 'w:tblPrChange', 'w:tcPrChange', 'w:trPrChange',
+        'w:cellIns', 'w:cellDel', 'w:cellMerge', 'w:numberingChange',
+        'w:commentRangeStart', 'w:commentRangeEnd', 'w:commentReference',
+        'w:moveFromRangeStart', 'w:moveToRangeStart',
+        'w:moveFromRangeEnd', 'w:moveToRangeEnd',
+    ])
+    let max = -1
+    walk(rootAst, (node) => {
+        if (ID_BEARING_TAGS.has(node.tag)) {
+            const id = parseInt(node.attrs?.['w:id'] ?? '-1', 10)
+            if (Number.isFinite(id) && id > max) max = id
+        }
+    })
+    return max
+}
+```
+
+**调用方协调**：mode='both' 时 redlineInjector 先跑（占用 idStart..idStart+2*N），返回 nextIdAfter 给 commentInjector 接力（commentInjector 也要从 nextIdAfter 起步——**修改现有 commentInjector**：当前用数组下标当 `w:id` 是错的，必须改成扫描后递增）。
+
+#### 8.3.2 跨 run 拆分（关键 · 不修会丢字体格式）
+
+合同正文里同一句话可能跨多个 `<w:r>` run（粗体的"违约金"在自己的 run、普通字"百分之"在另一个 run）。Quote 起止可能落在 run 内部：
+
+```
+原 <w:p> 结构：
+  <w:r> <w:rPr>...粗体...</w:rPr> <w:t>违约金</w:t> </w:r>
+  <w:r> <w:rPr>...常规...</w:rPr> <w:t>按月底前最后一个工作日结算；逾期支付的</w:t> </w:r>
+  <w:r> <w:rPr>...常规...</w:rPr> <w:t>，每日按 </w:t> </w:r>
+  <w:r> <w:rPr>...粗体红色...</w:rPr> <w:t>0.05%</w:t> </w:r>
+  <w:r> <w:rPr>...常规...</w:rPr> <w:t> 加收滞纳金。</w:t> </w:r>
+```
+
+quote 跨这 5 个 run 时，正确处理：
+1. 找到 quote 起止 char offset 落在哪个 run / run 内部什么位置
+2. 起止 run 在 offset 处**拆成两个 run**（保留原 `<w:rPr>` 副本，`<w:t>` 文本拆开）
+3. 把 quote 范围内的所有完整 run **保持各自的 `<w:rPr>` 不变**，每个 `<w:r>` 替换为：
    ```xml
-   <w:del w:id="N" w:author="LexSeek" w:date="...">
-     <w:r><w:delText xml:space="preserve">[完整 problematicQuote 文字]</w:delText></w:r>
-   </w:del>
-   <w:ins w:id="N+1" w:author="LexSeek" w:date="...">
-     <w:r><w:t xml:space="preserve">[完整 suggestedClauseText]</w:t></w:r>
-   </w:ins>
+   <w:r>
+     <w:rPr>...原 rPr 副本...</w:rPr>
+     <w:delText xml:space="preserve">原文片段</w:delText>
+   </w:r>
    ```
-   选择整段替换的理由：① 实现简单可靠，每个 risk 只产生一对 ins/del；② Word 接受/拒绝时律师可整条决策；③ 字符级 inline diff（用 dmp 拆 ins/del 多段）留作 v2 优化项
-4. mode='both' 时同时挂 comment（现有 commentInjector 逻辑），mode='redline' 时只 redline 不 comment
-5. `w:id` 在文档内唯一递增（从现有 `<w:document>` 里最大 id + 1 起）；`w:author` 固定 "LexSeek"（v2 按律师姓名）；`w:date` ISO 8601
+4. 最后在第一个改造的 run 之前 insert `<w:del w:id="N" w:author="..." w:date="...">`、最后一个之后 insert `</w:del>` 闭合（在 AST 里就是 wrap N 个 run 进一个 `<w:del>` 节点）
+
+> 这样修订接受后保留原字体格式，律师拒绝时也能完美还原。
+
+#### 8.3.3 多行 suggestedClauseText 处理
+
+`<w:t>` 里的 `\n` Word 渲染时会被替换成空格（不会换行）。如果 LLM 输出含换行的 suggestedClauseText，必须按 `\n` 拆分成多段，每段一个 `<w:p>`，每个 `<w:p>` 内一对 `<w:ins>`。
+
+**v1 简化策略**：在 risksSchema.builder 里强制 `suggestedClauseText` 不含 `\n`：
+
+```ts
+suggestedClauseText: z.string().max(10000).refine(
+    s => !s.includes('\n'),
+    { message: 'suggestedClauseText 不允许换行（v1 整段替换不支持多段插入）' }
+).optional()
+```
+
+LLM prompt 里同步加约束："suggestedClauseText 必须是单段连续文字，不要使用换行/项目符号/多段。"
+
+v2 再支持多段插入。
+
+#### 8.3.4 整段替换 · 标准 XML 模板
+
+```xml
+<w:del w:id="N" w:author="LexSeek AI" w:date="2026-05-02T10:30:00Z">
+    <w:r>
+        <w:rPr>...原 run 1 的 rPr 副本...</w:rPr>
+        <w:delText xml:space="preserve">违约金</w:delText>
+    </w:r>
+    <w:r>
+        <w:rPr>...原 run 2 的 rPr 副本...</w:rPr>
+        <w:delText xml:space="preserve">按月底前...的，每日按 </w:delText>
+    </w:r>
+    <w:r>
+        <w:rPr>...原 run 4 的 rPr 副本（粗体红色）...</w:rPr>
+        <w:delText xml:space="preserve">0.05%</w:delText>
+    </w:r>
+    <w:r>
+        <w:rPr>...原 run 5 的 rPr 副本...</w:rPr>
+        <w:delText xml:space="preserve"> 加收滞纳金。</w:delText>
+    </w:r>
+</w:del>
+<w:ins w:id="N+1" w:author="LexSeek AI" w:date="2026-05-02T10:30:00Z">
+    <w:r>
+        <w:rPr>...继承 quote 起始 run 的 rPr 副本...</w:rPr>
+        <w:t xml:space="preserve">每日按 0.5% 加收滞纳金，且累计逾期超 30 日的，乙方有权解除合同。</w:t>
+    </w:r>
+</w:ins>
+```
+
+要点：
+- `xml:space="preserve"` 必加（任何位置含空白都不能丢）
+- `w:date` 必带时区（`Z` UTC 或 `+08:00`）；`new Date().toISOString()` 自带 `Z`，OK
+- `w:author` 固定 "LexSeek AI"（v1）；和现有 commentInjector 的 `LS:{律师名} [#...]` 格式不同**有意为之**——comment 是律师署名（要回传识别），redline 是 AI 操作（律师接受/拒绝即消失）
+- `<w:ins>` 的 run 不需要保留所有原 run 的 rPr 副本，可继承 quote 起始 run 的 rPr 一段（v1 简化）
+
+#### 8.3.5 整段删除时段落标记同步
+
+如果 quote 范围 == 完整 clause_text，且 clause_text 是整个段落 → 律师"接受所有修订"会留下空段落（只删了文字没删段落标记）。
+
+修复：在该 `<w:p>` 的 `<w:pPr><w:rPr>` 里追加 `<w:del>` 子标记：
+
+```xml
+<w:p>
+    <w:pPr>
+        <w:rPr>
+            <w:del w:id="N+2" w:author="LexSeek AI" w:date="2026-05-02T10:30:00Z"/>
+        </w:rPr>
+    </w:pPr>
+    ...上面的 <w:del> + <w:ins>...
+</w:p>
+```
+
+仅当"删完整 clause_text"时启用；部分 quote 不需要。
+
+#### 8.3.6 mode='both' 协调 comment 和 redline
+
+both 模式下：
+- redline 先 inject（占 idStart..idStart+2N）
+- 然后 commentInjector 跑，从 nextIdAfter 接力
+- comment 的 `<w:commentRangeStart>` / `<w:commentRangeEnd>` 包裹 `<w:del>` + `<w:ins>` **整体**（律师悬停时高亮 = 修订段，气泡显示"为什么这样改"）
+- comment 内容文本去掉 suggestedClauseText 段（避免和 redline 重复信息）；保留 problem / risk / suggestion 业务字段
+
+**comment range 与 redline 的相对位置**：
+
+```xml
+<w:p>
+    ...前文...
+    <w:commentRangeStart w:id="M"/>
+    <w:del w:id="N">...</w:del>
+    <w:ins w:id="N+1">...</w:ins>
+    <w:commentRangeEnd w:id="M"/>
+    <w:r><w:commentReference w:id="M"/></w:r>
+    ...后文...
+</w:p>
+```
+
+`<w:commentRangeStart/End>` 是 `<w:p>` 直接子节点（不能塞进 `<w:r>`）。
+
+#### 8.3.7 settings.xml 不变
+
+`<w:trackChanges/>` 是 settings.xml 里的开关——作用是"让 Word 在编辑时自动追踪新修改"。**已存在的 `<w:ins>` / `<w:del>` 标签不依赖此开关**，Word 打开任何 docx 都会显示已存在的修订。redlineInjector **不需要改 settings.xml**。
+
+#### 8.3.8 输入清理
+
+LLM 输出可能含非法 XML 字符（U+0008 等控制字符）；用现有 `xmlAst.escapeXml` 过滤所有要写入 `<w:t>` / `<w:delText>` 的文本。
 
 ### 8.4 边角
 
-- quote=null 的 risk：redline 模式下只挂 comment（无锚点不能 redline）
-- suggestedClauseText 为 low risk 没填的：跳过 redline，但仍挂 comment
-- both 模式下 comment 文本去掉 suggestedClauseText 段（避免和 redline 重复显示）
+- `problematicQuote=null` 的 risk：redline 模式下只挂 comment（无锚点不能 redline）
+- `suggestedClauseText` 为空（low risk）的：跳过 redline，但仍挂 comment
+- both 模式下 comment 内容去掉 suggestedClauseText 段（同 8.3.6）
+- LLM 输出 `suggestedClauseText` 含换行的：v1 直接 schema reject 让 LLM 重生成（同 8.3.3）；v2 再支持多段插入
+
+### 8.5 验证
+
+- [ ] 输出 docx 用 mammoth round-trip：parse → re-serialize 成功
+- [ ] 用 Python python-docx 打开 docx：能识别 `<w:ins>` / `<w:del>` 元素，author 和 date 正确
+- [ ] 用 Word 桌面版（Windows + macOS）打开：不报损坏、修订面板显示 ins/del、能正常接受/拒绝
+- [ ] both 模式：redline 和 comment 的 `w:id` 不撞车（专项单测）
+- [ ] 跨多 run 的 quote redline 后：律师 reject 修订，原 run 的字体格式（粗体/红色等）完整恢复
 
 ---
 
@@ -682,10 +1012,11 @@ export async function injectRedlineMarks(
 | 文件 | 覆盖 |
 |---|---|
 | `splitSentences.test.ts` | 中文断句规则：分号 / 子项编号 / 嵌套 / 引号内分号不切 / 连续分号 |
-| `resolveQuoteAnchor.test.ts` | 三档 fallback：sentence_id 命中 / fuzzy 命中 / 全失败降级 |
+| `resolveQuoteAnchor.test.ts` | 三档 fallback：sentence_id 命中 / fuzzy 命中 / 全失败降级；**重点：pattern.length > 32（合同长 quote）走 anchor locate 路径；Match_Distance 设置后长条款末尾 quote 能找到；getDmp 共享实例参数恢复**（保护 calcSimilarity 不被污染） |
 | `contractRisk.service.test.ts` | persistAiRisksAsContractRows 双锚点字段写入（已有，需扩展新字段断言） |
 | `partyDetector.test.ts` | 正则命中 + LLM 推 contractType / 正则失败 + LLM 全识别 / LLM 失败 + 正则降级 |
-| `redlineInjector.test.ts` | OOXML 输出验证：`<w:ins>` / `<w:del>` / `<w:delText>` 标签结构 |
+| `redlineInjector.test.ts` | OOXML 输出验证：① `<w:ins>` / `<w:del>` / `<w:delText>` 标签结构；② **`w:id` 跨 bookmark / comment / ins / del 不撞车**（专项）；③ **跨多 run 的 quote 拆分后保留各 run 的 `<w:rPr>`**；④ **`xml:space="preserve"` 在所有 `<w:t>` / `<w:delText>` 都加**；⑤ **完整 clause 删除时 `<w:pPr><w:rPr><w:del/></w:rPr></w:pPr>` 段落标记同步**；⑥ both 模式 comment 包裹 `<w:del>` + `<w:ins>` 整体；⑦ LLM 输出含 `\n` 的 suggestedClauseText 被 schema reject |
+| `docxPreview.highlight.test.ts`（前端） | computeQuoteRange 算法：① clause_text 含 `\n` 跨多 `<p>` 的 offset 对齐；② quote 起止落在 run 内部时 Range 正确；③ quote=null 时不创建 Highlight；④ 重渲染后 clearAllQuoteHighlights 清干净；⑤ CSS.highlights 不可用时 fallback 到 DOM-mutate |
 
 ### 10.2 集成测试
 
@@ -724,15 +1055,21 @@ ORDER BY COUNT(*) DESC;
 
 | # | PR | 内容 | 预计工作量 |
 |---|---|---|---|
-| 1 | `pre-1-party-detector-fix` | partyDetector 修复 + 测试 | 0.5 天 |
+| 1 | `pre-1-party-detector-fix` | partyDetector 修复（删短路 + LLM hint 注入）+ 测试 | 0.5 天 |
 | 2 | `sub-1-data-model-refactor` | Prisma schema 重构 + 迁移 + truncate + service/dao 改名 + 类型 | 1.5 天 |
-| 3 | `sub-1-route2-anchoring` | splitSentences + resolveQuoteAnchor + prompt 改造 + risksSchema 扩展 + 单测 | 2.5 天 |
+| 3 | `sub-1-route2-anchoring` | splitSentences + resolveQuoteAnchor（含 32 字符 anchor + Match_Distance + textSimilarity 单例隔离）+ prompt 改造 + risksSchema 扩展 + 单测 | 2.5 天 |
 | 4 | `sub-1-frontend-risk-card` | RiskCard Layout A + C 切换 + RiskListPanel 适配 + e2e | 2 天 |
-| 5 | `sub-1-docx-preview-highlight` | 字符级高亮 + 焦点动画 | 1 天 |
-| 6 | `sub-1-redline-export` | redlineInjector + 下载模式 toggle + 后端 API | 2.5 天 |
+| 5 | `sub-1-docx-preview-highlight` | computeQuoteRange 算法 + CSS Custom Highlight API 主路径 + DOM-mutate fallback + 重渲染保护 + 视觉态矩阵 | 1.5 天 |
+| 6 | `sub-1-redline-export` | redlineInjector（findMaxSharedId 扫描共享 ID 池 + 跨 run split + 完整 clause 删除段落标记 + xml:space + 输入清理）+ commentInjector 改造接受 idStart 参数 + 下载模式 toggle + 后端 API + Word 实测 | 3.5 天 |
 | 7 | `sub-1-phase-b-dual-anchor` | uploadClientVersion 锚点迁移升级 + 双锚点优先级 | 2 天 |
 
-**总计**：12 天工作量。每个 PR 独立可发布 / 可回滚。1+2+3 是基础（前后端断开会有空窗），4-7 可在 3 之后任意顺序。
+**总计**：13.5 天工作量。每个 PR 独立可发布 / 可回滚。1+2+3 是基础（前后端断开会有空窗），4-7 可在 3 之后任意顺序。
+
+依赖关系：
+- PR 1 完全独立（PRE-1）
+- PR 2 必须先于 PR 3-7（数据模型不重构后续都无依据）
+- PR 3 必须先于 PR 4-6（前端要消费新字段）
+- PR 6 内部依赖 PR 5 字符 offset 对齐算法的部分逻辑（quote → docx 字符位置定位），实际两 PR 可由同一开发者承接以共享 mental model
 
 ---
 
@@ -741,10 +1078,17 @@ ORDER BY COUNT(*) DESC;
 | 风险 | 影响 | mitigation |
 |---|---|---|
 | DeepSeek-v4-flash 不严格遵守 sentence_id 输出 | sentence_id 命中率低，fuzzy 兜底压力大 | 上线后用 quote_match_source 埋点观察；若 fallback > 20% 改 prompt 加 example / 改 model |
-| OOXML redline 实现踩 Word 兼容性坑 | 修订模式打开错位 / 丢标记 | 用 mammoth 解析自己输出的 docx 做 round-trip 测试；准备一组 fixture 合同 |
+| OOXML redline 实现踩 Word 兼容性坑 | 修订模式打开错位 / 丢标记 | 用 mammoth 解析自己输出的 docx 做 round-trip 测试；准备一组 fixture 合同；用 Word 桌面版（Win + macOS）实测 |
+| **`w:id` 跨元素 ID 池冲突** | both 模式下 redline + comment 撞 id → Word 拒打开 | findMaxSharedId 扫描所有共享 ID 池元素；redline 先跑返回 nextIdAfter，commentInjector 改造后从 nextIdAfter 接力；专项单测 |
+| **跨 run quote 不保留 `<w:rPr>`** | 律师拒绝修订后字体格式（粗体/字号/颜色）丢失 | run 拆分时 deep-copy 原 `<w:rPr>` 副本到每个 delText run；fixture 测试含粗体 + 红色 quote |
+| **suggestedClauseText 含换行** | Word 渲染时换行变空格丢段落 | risksSchema.builder 的 refine 强制 reject 含 `\n` 的输出；prompt 加约束让 LLM 输出单段；v2 再支持多段 |
+| **`w:t` / `<w:delText>` 缺 `xml:space="preserve"`** | quote 含空白字符时 XML 解析丢空格 | redlineInjector 所有写文本节点统一用 `makeTextElement` helper 强制带属性 |
+| **CSS Custom Highlight API 浏览器不支持** | 前端高亮失效 | 检测 `'highlights' in CSS` → 不支持时 fallback DOM-mutate；`navigator.userAgent` 上报埋点观察占比 |
+| **clause_text 含 `\n` 跨多 `<p>` 对齐错位** | 字符级高亮位置错 | computeQuoteRange 算法明确按 `\n` 拆行映射；e2e 测试覆盖跨段 quote |
 | Phase B 双锚点迁移逻辑改动大易回归 | 客户回传链路炸 | 先在 Phase B 测试 fixture 全量过一遍；保留旧逻辑作为 feature flag 兜底 1 周 |
 | 命名重构 anchor → clause 影响面广 | 漏改某处 → 编译通不过 | 一次性完成 + 全量 typecheck + 测试 |
 | Layout C 内联 diff 中 dmp 跨段标点变化导致诡异 diff | 律师困惑 | dmp 设置 timeout=0.1 + diff_cleanupSemantic；提供 fallback 到 Layout A 的退路 |
+| dmp 共享单例参数被污染 | calcSimilarity 等其他调用方读到错的 Match_Threshold/Distance | resolveQuoteAnchor 用 try/finally 保存恢复参数；专项单测 |
 
 ---
 
