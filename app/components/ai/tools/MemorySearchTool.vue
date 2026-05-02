@@ -5,10 +5,12 @@
  * 输入：{ query: string }
  * 输出：Array<{ id, text, kind, subjectKey?, score? }> 或 string（JSON）
  *
- * 视觉：默认折叠 "找到 N 条相关记忆"，展开显示 Top 3 一行预览。
+ * 视觉：默认折叠 "找到 N 条相关记忆"，展开显示 Top 3 一行预览；
+ * 桌面端鼠标悬停在条目上展示完整内容（HoverCard），移动端点击弹底部 Sheet。
  */
 import { computed, ref } from 'vue'
 import { ChevronDownIcon, LightbulbIcon } from 'lucide-vue-next'
+import { useMediaQuery } from '@vueuse/core'
 import type { ExtendedToolState } from '@/components/ai-elements/types'
 
 interface MemorySearchHit {
@@ -28,6 +30,16 @@ const props = defineProps<{
 }>()
 
 const isOpen = ref(false)
+
+// SSR 期间为 false，水合后客户端重新计算；对话流为客户端渲染，无视觉抖动
+const canHover = useMediaQuery('(hover: hover)')
+
+const mobileSheetOpen = ref(false)
+const activeHit = ref<MemorySearchHit | null>(null)
+function openMobileDetail(hit: MemorySearchHit) {
+    activeHit.value = hit
+    mobileSheetOpen.value = true
+}
 
 const query = computed<string>(() => {
     const q = props.input?.query
@@ -68,10 +80,14 @@ const KIND_LABELS: Record<string, string> = {
 <template>
     <div class="rounded-md border bg-card text-xs my-2">
         <!-- 状态：进行中 -->
-        <div v-if="!isDone && !isError" class="flex items-center gap-2 px-3 py-2 text-muted-foreground">
-            <LightbulbIcon class="size-3.5 animate-pulse" />
-            <span>正在检索案件记忆...</span>
-            <span v-if="query" class="font-mono text-[10px] text-muted-foreground/70 truncate">"{{ query }}"</span>
+        <div v-if="!isDone && !isError" class="px-3 py-2 text-muted-foreground">
+            <div class="flex items-center gap-2">
+                <LightbulbIcon class="size-3.5 shrink-0 animate-pulse" />
+                <span class="shrink-0">正在检索案件记忆...</span>
+            </div>
+            <div v-if="query" class="mt-0.5 truncate pl-[22px] font-mono text-[10px] text-muted-foreground/70">
+                "{{ query }}"
+            </div>
         </div>
 
         <!-- 状态：失败 -->
@@ -103,19 +119,95 @@ const KIND_LABELS: Record<string, string> = {
             <!-- 结果列表 -->
             <div class="px-3 py-2 space-y-1.5">
                 <div v-if="hits.length === 0" class="text-muted-foreground/70 italic">没有命中条目</div>
-                <div v-for="(hit, idx) in hits.slice(0, 3)" :key="hit.id ?? idx"
-                    class="flex items-start gap-1.5">
-                    <span v-if="hit.kind"
-                        class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] leading-none font-medium flex-shrink-0"
-                        :class="KIND_COLORS[hit.kind]">
-                        {{ KIND_LABELS[hit.kind] ?? hit.kind }}
-                    </span>
-                    <span class="line-clamp-1 text-foreground">{{ hit.text }}</span>
-                </div>
+
+                <template v-for="(hit, idx) in hits.slice(0, 3)" :key="hit.id ?? idx">
+                    <HoverCard v-if="canHover" :open-delay="200" :close-delay="100">
+                        <HoverCardTrigger as-child>
+                            <div class="flex cursor-default items-start gap-1.5 -mx-1 rounded px-1 py-0.5 transition-colors hover:bg-muted/50">
+                                <span v-if="hit.kind"
+                                    class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] leading-none font-medium flex-shrink-0"
+                                    :class="KIND_COLORS[hit.kind]">
+                                    {{ KIND_LABELS[hit.kind] ?? hit.kind }}
+                                </span>
+                                <span class="line-clamp-1 text-foreground">{{ hit.text }}</span>
+                            </div>
+                        </HoverCardTrigger>
+                        <HoverCardContent
+                            v-if="hit.text"
+                            side="top"
+                            align="start"
+                            class="z-[200] flex max-h-[400px] w-[420px] flex-col overflow-hidden p-0"
+                        >
+                            <div class="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
+                                <LightbulbIcon class="size-4 shrink-0 text-amber-500" />
+                                <span v-if="hit.kind"
+                                    class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] leading-none font-medium"
+                                    :class="KIND_COLORS[hit.kind]">
+                                    {{ KIND_LABELS[hit.kind] ?? hit.kind }}
+                                </span>
+                                <span v-else class="text-sm font-semibold text-foreground">记忆详情</span>
+                            </div>
+                            <div class="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 py-3">
+                                <p class="whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground/90">
+                                    {{ hit.text }}
+                                </p>
+                                <p v-if="hit.subjectKey" class="font-mono text-[10px] text-muted-foreground/60">
+                                    {{ hit.subjectKey }}
+                                </p>
+                            </div>
+                        </HoverCardContent>
+                    </HoverCard>
+
+                    <button
+                        v-else
+                        type="button"
+                        class="block w-full -mx-1 rounded px-1 py-0.5 text-left transition-colors active:bg-muted/60"
+                        @click="openMobileDetail(hit)"
+                    >
+                        <div class="flex items-start gap-1.5">
+                            <span v-if="hit.kind"
+                                class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] leading-none font-medium flex-shrink-0"
+                                :class="KIND_COLORS[hit.kind]">
+                                {{ KIND_LABELS[hit.kind] ?? hit.kind }}
+                            </span>
+                            <span class="line-clamp-1 text-foreground">{{ hit.text }}</span>
+                        </div>
+                    </button>
+                </template>
+
                 <div v-if="hits.length > 3" class="text-[10px] text-muted-foreground/60 pt-0.5">
                     还有 {{ hits.length - 3 }} 条命中（被 AI 用作回答上下文）
                 </div>
             </div>
         </div>
+
+        <!-- 移动端全文 Sheet（z-[200] 防止被对话面板挡住） -->
+        <Sheet v-model:open="mobileSheetOpen">
+            <SheetContent
+                side="bottom"
+                class="z-[200] flex max-h-[80vh] flex-col gap-0 p-0"
+            >
+                <SheetHeader class="border-b border-border px-4 py-3 pr-12">
+                    <SheetTitle class="flex items-center gap-2 text-sm">
+                        <LightbulbIcon class="size-4 shrink-0 text-amber-500" />
+                        <span v-if="activeHit?.kind"
+                            class="inline-flex items-center px-1.5 py-0.5 rounded text-xs leading-none font-medium"
+                            :class="KIND_COLORS[activeHit.kind]">
+                            {{ KIND_LABELS[activeHit.kind] ?? activeHit.kind }}
+                        </span>
+                        <span v-else>记忆详情</span>
+                    </SheetTitle>
+                    <SheetDescription class="sr-only">案件记忆完整内容</SheetDescription>
+                </SheetHeader>
+                <div class="flex-1 space-y-2 overflow-y-auto px-4 py-3">
+                    <p class="whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground/90">
+                        {{ activeHit?.text }}
+                    </p>
+                    <p v-if="activeHit?.subjectKey" class="font-mono text-[10px] text-muted-foreground/60">
+                        {{ activeHit.subjectKey }}
+                    </p>
+                </div>
+            </SheetContent>
+        </Sheet>
     </div>
 </template>

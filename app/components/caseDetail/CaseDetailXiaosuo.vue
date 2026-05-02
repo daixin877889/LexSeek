@@ -177,8 +177,8 @@ watch(isOpen, (open) => {
     v-model:open="isOpen"
     v-model:fullscreen="isFullscreen"
     title="小索"
-    :initial-width="380"
-    :initial-height="500"
+    :initial-width="450"
+    :initial-height="550"
   >
     <!-- 标题栏图标 -->
     <template #titlebar-icon>

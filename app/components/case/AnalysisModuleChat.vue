@@ -161,8 +161,8 @@ useInterruptToast(interruptData)
     v-model:open="isOpen"
     v-model:fullscreen="isFullscreen"
     :title="chatInstance.moduleTitle"
-    :initial-width="380"
-    :initial-height="640"
+    :initial-width="450"
+    :initial-height="550"
     :position-offset="{ x: -40, y: -40 }"
   >
     <!-- 标题栏左侧：session 选择器（前缀由 UI 动态拼接为"模块名 - 时间"） -->

@@ -138,7 +138,7 @@ const resultSummary = computed(() => {
     if (!isDone.value) return ''
     return results.value.length === 0
         ? '未找到相关材料'
-        : `找到 ${results.value.length} 条结果`
+        : `${results.value.length} 条结果`
 })
 
 // 有查询关键词或结果时即可展开，避免 0 结果时整个面板消失看不到查询条件
