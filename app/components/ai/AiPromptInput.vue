@@ -1,5 +1,5 @@
 <template>
-  <div class="@container/prompt flex size-full flex-col justify-end relative p-4 @max-[400px]/prompt:p-2" ref="dropZoneRef">
+  <div class="@container/prompt flex size-full flex-col justify-end relative p-4 @max-[500px]:p-0" ref="dropZoneRef">
     <div class="px-0 relative">
       <!-- 全屏拖拽覆盖层 -->
       <Transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0 scale-95"
@@ -100,14 +100,14 @@
           <!-- 中间部分 -->
           <PromptInputBody>
             <PromptInputTextarea :placeholder="placeholder" :min-rows="minRows" :max-rows="maxRows"
-              :class="['px-4 @max-[400px]/prompt:px-3', selectedFiles.length > 0 ? 'pt-0' : 'pt-6 @max-[400px]/prompt:pt-4']" />
+              :class="['px-4 @max-[500px]:px-3', selectedFiles.length > 0 ? 'pt-0' : 'pt-6 @max-[500px]:pt-4']" />
           </PromptInputBody>
           <!-- 底部 -->
-          <PromptInputFooter class="border-t border-muted-foreground/20 border-dashed px-4 @max-[400px]/prompt:px-2">
+          <PromptInputFooter class="border-t border-muted-foreground/20 border-dashed px-4 @max-[500px]:px-2 @max-[500px]:py-1.5!">
             <!-- 工具栏 -->
             <PromptInputTools class="px-0">
               <PromptInputButton v-if="enableFileUpload" variant="ghost" @click="handleFileButtonClick"
-                class="ml-[-8px] hover:bg-primary/5 transition-colors">
+                class="ml-[-8px] hover:bg-primary/5 transition-colors @max-[500px]:ml-0 @max-[500px]:h-7 @max-[500px]:px-2">
                 <Paperclip class="text-muted-foreground" :size="16" />
                 {{ uploadButtonLabel }}
                 <span v-if="selectedFiles.length > 0" class="ml-1 text-xs text-primary font-bold">({{
@@ -118,7 +118,7 @@
                 <Tooltip>
                   <TooltipTrigger as-child>
                     <PromptInputButton variant="ghost"
-                      :class="['transition-colors', thinking ? 'text-primary hover:bg-primary/5' : 'text-muted-foreground hover:bg-muted/50']"
+                      :class="['transition-colors @max-[500px]:h-7 @max-[500px]:px-2', thinking ? 'text-primary hover:bg-primary/5' : 'text-muted-foreground hover:bg-muted/50']"
                       @click="thinking = !thinking">
                       <BrainIcon :size="16" />
                       深度思考
@@ -131,11 +131,11 @@
               </TooltipProvider>
             </PromptInputTools>
             <!-- 提交按钮 -->
-            <div class="flex items-center gap-2 mr-[-8px] @max-[400px]/prompt:gap-1">
+            <div class="flex items-center gap-2 mr-[-8px] @max-[500px]:gap-1 @max-[500px]:mr-0">
               <!-- 非 loading 态：使用原有 PromptInputSubmit（承担 type=submit 原生提交） -->
               <PromptInputSubmit
                 v-if="!loading"
-                class="h-9 px-4! rounded-md shadow-lg shadow-primary/20 active:scale-95 transition-all @max-[400px]/prompt:h-8 @max-[400px]/prompt:px-3!"
+                class="h-9 px-4! rounded-md shadow-lg shadow-primary/20 active:scale-95 transition-all @max-[500px]:h-7 @max-[500px]:px-2!"
                 :status="submitStatus"
                 :disabled="isSendDisabled"
                 size="xs"
@@ -148,13 +148,14 @@
 
               <!-- loading 态：独立的停止 + 加入队列双按钮 -->
               <!-- 原 @stop="emit('stop')" 是死代码（PromptInputSubmit 未声明 stop emit），此处用独立 Button 替代 -->
-              <div v-else class="flex items-center gap-1.5">
+              <div v-else class="flex items-center gap-1.5 @max-[500px]:gap-1">
                 <!-- 停止按钮：destructive 变体（红色突出）+ icon-sm 方形图标按钮
                      让用户一眼识别危险/中止操作；isStopping=true 时禁用防止重复点击 -->
                 <Button
                   type="button"
                   size="icon-sm"
                   variant="destructive"
+                  class="@max-[500px]:size-7"
                   :disabled="props.isStopping"
                   aria-label="停止当前对话"
                   data-testid="stop-button"
@@ -168,6 +169,7 @@
                   <Button
                     type="button"
                     size="sm"
+                    class="@max-[500px]:h-7 @max-[500px]:px-2"
                     :disabled="isEnqueueDisabled"
                     :aria-disabled="isEnqueueDisabled"
                     :aria-label="`加入发送队列（当前已有 ${props.queueLength ?? 0} 条）`"
