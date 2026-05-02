@@ -483,13 +483,18 @@ export const ContractRisksScalarFieldEnum = {
   suggestedClauseText: 'suggestedClauseText',
   archivedStatus: 'archivedStatus',
   archivedAt: 'archivedAt',
-  anchorQuote: 'anchorQuote',
-  anchorParagraphIndex: 'anchorParagraphIndex',
-  anchorCharStart: 'anchorCharStart',
-  anchorCharEnd: 'anchorCharEnd',
+  clauseIndex: 'clauseIndex',
+  clauseText: 'clauseText',
+  clauseParagraphIndex: 'clauseParagraphIndex',
+  clauseCharStart: 'clauseCharStart',
+  clauseCharEnd: 'clauseCharEnd',
+  problematicQuote: 'problematicQuote',
+  quoteCharStart: 'quoteCharStart',
+  quoteCharEnd: 'quoteCharEnd',
+  quoteMatchSource: 'quoteMatchSource',
+  originalClauseText: 'originalClauseText',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  originalAnchorQuote: 'originalAnchorQuote',
   orphaned: 'orphaned'
 } as const
 
