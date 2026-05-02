@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 把 `contract_risks` 表从单锚点（`anchor_*` 5 字段）重构为"完整条款 + 精确问题片段"双锚点（`clause_*` + `quote_*` 9 字段），同步刷新 shared types / server service / 前端字段读取，并通过手工修订的 Prisma migration 一次性 truncate 老数据。schema 落地后整个 server + app 必须 typecheck 通过、全量测试 PASS。
+**Goal:** 把 `contract_risks` 表从单锚点（`anchor_*` 5 字段）重构为"完整条款 + 精确问题片段"双锚点（`clause_*` + `quote_*` 9 字段），同步刷新 shared types / server service / 前端字段读取。架构变更（schema）由 `prisma migrate dev` 自动生成迁移，**不手写迁移脚本**；老 review/risk/annotation 数据由开发者在自己的 dev 库 `TRUNCATE` 清场（**不进 migration、不进 seedData.sql**——合同审查未上线，生产无数据可清）。schema 落地后整个 server + app 必须 typecheck 通过、全量测试 PASS。
 
 **Architecture:** 改动按"schema → 类型 → 后端 service → 后端测试 → 前端 surgical 改名 → 前端测试 → 收尾"线性推进，每步完成一个独立 commit。所有调用方改字段名时遵循"surgical 改动"原则——只改字段名映射，不调 UI 行为、不删未使用代码、不重构无关结构。`commentInjector.ts` 自身入参字段名（`anchorQuote` / `anchorParagraphIndex`）保留不动（docx 注入工具内部语义稳定），仅在调用点把 `risk.anchorQuote` → `risk.clauseText` 重映射。
 
-**Tech Stack:** Prisma 7（`package.json` 锁 `prisma`/`@prisma/client` `^7.7.0`）+ PostgreSQL 14+（手工修订 `prisma migrate dev --create-only`） / TypeScript / Vitest（worker 级 DB 隔离）
+**Tech Stack:** Prisma 7（`package.json` 锁 `prisma`/`@prisma/client` `^7.7.0`）+ PostgreSQL 14+（`prisma migrate dev` 自动生成迁移） / TypeScript / Vitest（worker 级 DB 隔离）
 
 **Spec 参考：** `docs/superpowers/specs/2026-05-02-contract-review-precise-anchoring-and-track-changes-design.md` § 1、§ 4、§ 5.0、§ 11.2
 
@@ -21,7 +21,7 @@
 
 ### Prisma / 迁移
 - 修改：`prisma/models/contractRiskAndAnnotation.prisma`
-- 新建：`prisma/migrations/<ts>_refactor_contract_risks_dual_anchor/migration.sql`（`--create-only` 生成后手工修订）
+- 新建：`prisma/migrations/<ts>_refactor_contract_risks_dual_anchor/migration.sql`（由 `prisma migrate dev` 自动生成，不手工修订）
 
 ### shared types
 - 修改：`shared/types/contract.ts`
@@ -81,7 +81,7 @@
 
 | 旧（`anchor_*` 单锚点） | 新（`clause_*` / `quote_*` 双锚点） | 行为 |
 |---|---|---|
-| `anchor_quote` (DB) / `anchorQuote` (TS) | `clause_text` (DB) / `clauseText` (TS) | NOT NULL；PR 2 直接写 `segment.text` 完整条款 |
+| `anchor_quote` (DB) / `anchorQuote` (TS) | `clause_text` (DB) / `clauseText` (TS) | NOT NULL `@default("")`（escape hatch，业务不依赖）；PR 2 service 始终显式写 `segment.text` 完整条款 |
 | `anchor_paragraph_index` / `anchorParagraphIndex` | `clause_paragraph_index` / `clauseParagraphIndex` | NULLABLE；语义不变（commentInjector 期望"非空段落序号"空间） |
 | `anchor_char_start` / `anchorCharStart` | `clause_char_start` / `clauseCharStart` | NULLABLE；语义为"在文档全文 normalizedText 内的 offset" |
 | `anchor_char_end` / `anchorCharEnd` | `clause_char_end` / `clauseCharEnd` | NULLABLE |
@@ -217,83 +217,7 @@ bun run prisma:migrate --name refactor_contract_risks_dual_anchor
 
 > **不要**手工修订生成的 migration.sql。如果生成内容意外缺字段，说明 schema 改动有误，回 step 1.1 重看。
 
-> _以下旧版"手工修订迁移 SQL"已废弃，仅留作参考_：
-
-```sql
--- =========================================================================
--- 合同审查 · contract_risks 双锚点重构（drop 5 + add 9）
--- 改动审批：合同审查模块未上线，允许丢老数据；理由：跨步骤需保数据顺序避免
--- NOT NULL 列加列报错；用户同意人：（PR 创建时填）
--- =========================================================================
-
--- 1. drop 5 个老字段（合并为单条 ALTER TABLE，PostgreSQL 只扫表一次、ACCESS
---    EXCLUSIVE 锁只持一次；列内容随 step 2 truncate 一并清空，无数据保全顾虑）
-ALTER TABLE "contract_risks"
-    DROP COLUMN "anchor_quote",
-    DROP COLUMN "anchor_paragraph_index",
-    DROP COLUMN "anchor_char_start",
-    DROP COLUMN "anchor_char_end",
-    DROP COLUMN "original_anchor_quote";
-
--- 2. truncate 老数据（合同审查未上线，老 review 重传即可恢复）
---    contract_annotations 随 contract_risks 的 FK CASCADE 自动跟随；显式列出与
---    spec §4.3 对齐，并让阅读者一眼看到"两张表都会清空"，不留猜测空间。
---    RESTART IDENTITY：相对 spec 的额外补强——重启 contract_risks /
---    contract_annotations / legacy_backup / versions 四张表的自增序列，让
---    PR 4 / PR 7 测试可以稳定断言 "新建第 1 条 risk id=1"，行为更确定。
-TRUNCATE TABLE "contract_risks", "contract_annotations" RESTART IDENTITY CASCADE;
-
--- contract_review_versions / contract_review_legacy_risks_backup 与 contract_risks
--- 之间没有 FK，TRUNCATE CASCADE 不会自动带走它们；但 snapshotData / risks JSONB
--- 内嵌旧字段名（"anchorQuote" / "anchorParagraphIndex"），不 truncate 会导致旧
--- snapshot 反序列化让前端炸（前端已迁移到读 clauseText）。所以必须显式单独 truncate。
-TRUNCATE TABLE "contract_review_legacy_risks_backup" RESTART IDENTITY;
-TRUNCATE TABLE "contract_review_versions" RESTART IDENTITY;
-
--- 3. 把所有 review 置 failed（让用户重传），currentVersionId/maxVersionNo 重置。
---    用 IS DISTINCT FROM 防御 status 为 NULL 的边角行（PostgreSQL `!=` 对 NULL
---    不命中——虽然现 schema status 默认非空，但显式 NULL-safe 不出错）。
-UPDATE "contract_reviews"
-SET "status" = 'failed',
-    "current_version_id" = NULL,
-    "max_version_no" = 0,
-    "has_unsaved_docx_changes" = false,
-    "updated_at" = NOW()
-WHERE "deleted_at" IS NULL AND "status" IS DISTINCT FROM 'failed';
-
--- 4. 新增 9 个字段
-ALTER TABLE "contract_risks" ADD COLUMN "clause_index" INT;
--- clause_text 是 NOT NULL；上面 truncate 后表为空，可直接加 NOT NULL 列
-ALTER TABLE "contract_risks" ADD COLUMN "clause_text" TEXT NOT NULL;
-ALTER TABLE "contract_risks" ADD COLUMN "clause_paragraph_index" INT;
-ALTER TABLE "contract_risks" ADD COLUMN "clause_char_start" INT;
-ALTER TABLE "contract_risks" ADD COLUMN "clause_char_end" INT;
-ALTER TABLE "contract_risks" ADD COLUMN "problematic_quote" TEXT;
-ALTER TABLE "contract_risks" ADD COLUMN "quote_char_start" INT;
-ALTER TABLE "contract_risks" ADD COLUMN "quote_char_end" INT;
-ALTER TABLE "contract_risks" ADD COLUMN "quote_match_source" VARCHAR(20);
-ALTER TABLE "contract_risks" ADD COLUMN "original_clause_text" TEXT;
-```
-
-> 与 spec §4.3 的差异（已写入 SQL 注释）：合并 5 句 DROP COLUMN、加 RESTART IDENTITY、UPDATE 用 `IS DISTINCT FROM`。功能等价，仅性能/防御性补强；不影响 spec 主线。
-
-- [ ] **Step 1.4：apply 到本地 DB**
-
-Run:
-```bash
-bun run prisma:migrate
-```
-
-期望输出：
-```
-Applying migration `<ts>_refactor_contract_risks_dual_anchor`
-... 1 migration applied ...
-✔ Generated Prisma Client (...) to ./generated/prisma/client
-```
-
-如果报错"NOT NULL column 'clause_text' added on non-empty table"，说明 truncate 没生效——重新检查 SQL 里 `TRUNCATE` 在 `ADD COLUMN clause_text NOT NULL` 之前。
-
-- [ ] **Step 1.5：验证 schema 对齐**
+- [ ] **Step 1.4：验证 schema 对齐**
 
 ```bash
 # 1. Prisma 视角：schema 与 DB 是否一致
@@ -310,17 +234,39 @@ docker exec -i $(docker ps -qf name=postgres) psql -U postgres -d ls_new -c "\d 
 
 期望输出包含 `clause_text` / `clause_paragraph_index` / `quote_char_start` 等 10 个新列；**不包含任何 `anchor_*` 列**。如果 `docker ps -qf name=postgres` 返回空，先确认本地 docker compose 已启动 postgres 容器。
 
-- [ ] **Step 1.6：commit 1 — schema + migration**
+- [ ] **Step 1.5：同步测试模板库 schema**
+
+LexSeek 测试基建（`tests/_infra/global-setup.ts`）每个 vitest worker 启动时从 `ls_new_testing` 模板库 CLONE 出 `ls_test_w<id>`。`prisma migrate dev` 默认只 apply 到 dev 库（`ls_new`），**不会**触达模板库——必须手工把新 schema push 到模板库，否则测试 worker DB schema 与 server 代码不一致，所有合同测试会炸（项目记忆 2026-04-01 已踩过这个坑）。
+
+```bash
+DATABASE_URL='postgresql://postgres:postgres@localhost:5432/ls_new_testing?schema=public&connection_limit=20' \
+  bunx prisma db push --accept-data-loss --skip-generate
+```
+
+`--accept-data-loss` 显式接受 drop columns 的数据丢失；`--skip-generate` 避免重复跑 generate（dev 库迁移已生成过 client）。
+
+期望输出：`The database is now in sync with your schema.`
+
+验证模板库列结构：
+
+```bash
+docker exec -i $(docker ps -qf name=postgres) psql -U postgres -d ls_new_testing -c "\d contract_risks" \
+  | grep -E "clause|quote|anchor|original"
+```
+
+应与 dev 库 step 1.4 输出一致（10 个新列、无 `anchor_*`）。
+
+- [ ] **Step 1.6：commit 1 — schema + 自动生成的迁移**
 
 ```bash
 git add prisma/models/contractRiskAndAnnotation.prisma prisma/migrations/<ts>_refactor_contract_risks_dual_anchor
-git commit -m "refactor(contract): contract_risks 双锚点 schema 重构 + truncate 迁移
+git commit -m "refactor(contract): contract_risks 双锚点 schema 重构
 
-drop 5 个 anchor_* 字段，新增 9 个 clause_* / quote_* 字段；
-合同审查模块未上线，迁移直接 truncate contract_risks /
-contract_annotations / contract_review_legacy_risks_backup /
-contract_review_versions，并把所有 review 置 failed 让用户重传。
-PR 2-4 同窗口发布，单独发布 PR 2 会让前端 NPE。"
+drop 5 个 anchor_* 字段，新增 9 个 clause_* / quote_* 字段（含
+clauseText NOT NULL @default('') escape hatch，业务层不依赖该 default）。
+迁移由 prisma migrate dev 自动生成，未手写。dev 库老数据由开发者
+本地 truncate（不进 migration、不进 seedData.sql；合同审查未上线，
+生产无数据可清）。PR 2-4 同窗口发布，单独发布 PR 2 会让前端 NPE。"
 ```
 
 ---
@@ -522,7 +468,8 @@ npx vitest run tests/server/assistant/contract/contractRisk.dao.test.ts --report
 期望：所有 case PASS。
 
 如果失败，常见原因：
-- DB schema 没 apply 上（回 Task 1 step 1.4）
+- 测试模板库 schema 没同步（回 Task 1 step 1.5 跑 `bunx prisma db push --accept-data-loss` 同步 ls_new_testing）
+- dev 库 schema 没 apply 上（回 Task 1 step 1.3 重跑 prisma migrate dev）
 - 测试里某行漏改（回 step 3.2 grep 检查）
 
 - [ ] **Step 3.4：commit 3 — contractRisk DAO 改名**
@@ -1286,6 +1233,8 @@ surgical 改名，UI 行为不变；新 layout 与字符级高亮在 PR 4 / PR 5
 - Modify: `shared/utils/clauseLocator.ts`（仅注释）
 - Modify: `scripts/cleanup-review-863.sql`（文件头加废弃注释）
 
+> 用户原则提示：本 task 不动 `seedData.sql`（合同审查无需补基础数据）；scripts/cleanup-review-863.sql 是 review 863 的一次性清理脚本，本 PR 走 dev 库 truncate 后该 review 数据已清空，脚本失去意义但保留作为历史现场参考（按 CLAUDE.md "手术性修改" — 发现废弃代码不擅删，加废弃注释）。
+
 - [ ] **Step 13.1：改 `clauseLocator.ts` 注释**
 
 `shared/utils/clauseLocator.ts:10` 注释里：
@@ -1305,10 +1254,11 @@ surgical 改名，UI 行为不变；新 layout 与字符级高亮在 PR 4 / PR 5
 
 ```sql
 -- =========================================================================
--- 已废弃（2026-05-02）：合同审查双锚点重构（migration
--- refactor_contract_risks_dual_anchor）已 truncate contract_risks 与
--- contract_annotations 全表；review 863 的脏数据随之清空，本脚本不再有
--- 数据可清。脚本保留作为历史现场参考，不要再执行。
+-- 已废弃（2026-05-02）：合同审查双锚点重构（PR 2，migration
+-- refactor_contract_risks_dual_anchor）已要求各开发者在 dev 库 truncate
+-- contract_risks / contract_annotations / contract_review_legacy_risks_backup /
+-- contract_review_versions 全表；review 863 的脏数据随之清空，本脚本不再
+-- 有数据可清。脚本保留作为历史现场参考，不要再执行。
 -- =========================================================================
 
 ```
@@ -1355,11 +1305,11 @@ git push -u origin <branch>
 gh pr create --base dev --title "refactor(contract): contract_risks 双锚点 schema 重构（PR 2/7）" --body "$(cat <<'EOF'
 ## Summary
 
-合同审查精准锚点 + Track Changes 路线图 PR 2 — 把 `contract_risks` 表从单锚点（`anchor_*` 5 字段）重构为"完整条款 + 精确问题片段"双锚点（`clause_*` + `quote_*` 9 字段），刷新 shared types / server service / 前端字段读取，并通过手工修订的 Prisma migration 一次性 truncate 老数据（合同审查模块未上线，老数据可丢）。
+合同审查精准锚点 + Track Changes 路线图 PR 2 — 把 `contract_risks` 表从单锚点（`anchor_*` 5 字段）重构为"完整条款 + 精确问题片段"双锚点（`clause_*` + `quote_*` 9 字段），刷新 shared types / server service / 前端字段读取。
 
 新 schema 落地后整个 server + app 字段名同步迁移为 `clauseText` / `clauseParagraphIndex` / `originalClauseText`；UI 行为不变（新 layout / 字符级高亮在 PR 4 / PR 5 实现）。`commentInjector` 入参字段名（`anchorQuote` / `anchorParagraphIndex`）保留不动（docx 注入工具内部语义稳定）。
 
-**手工修订 migration.sql 内容（按 .claude/rules/database.md "唯一例外" 章节）**：truncate `contract_risks` / `contract_annotations` / `contract_review_legacy_risks_backup` / `contract_review_versions` + drop+add 顺序保护、合同审查未上线允许丢老数据。理由：跨步骤需保数据顺序避免 NOT NULL 列加列报错；用户同意人：（请填）。
+**迁移策略（按用户原则）**：架构改 schema → `prisma migrate dev` 自动生成迁移文件，**不手写**；老 review/risk/annotation/version/legacy_backup 数据由开发者在 dev 库手工 `TRUNCATE` 清场（不进 migration、不进 seedData.sql）。`clauseText NOT NULL` 在 schema 加 `@default('')` escape hatch 让 prisma 自动 ADD COLUMN 不阻塞，业务层始终显式写 `segment.text` 真值不依赖 default。**生产部署影响**：合同审查未上线，生产 `contract_risks` 表为空，`prisma migrate deploy` 直接 apply schema 变更即可，**无需任何数据动作**。
 
 **发布顺序约束**：PR 2 / PR 3 / PR 4 必须捆绑在同一 release window 上线 — PR 2 落地后 anchor_* 字段被 drop，老前端代码（仍读 anchorQuote / anchorParagraphIndex）会立刻 NPE。
 
@@ -1387,13 +1337,18 @@ EOF
 **Spec coverage:**
 - spec §3 PR 1 partyDetector → 已在 commits `bd72611e` / `b7a4a3e6` 合入（不在 PR 2 范围）✓
 - spec §4.1 字段变更全貌（drop 5 + 加 9）→ Task 1 ✓
-- spec §4.1.1 各 source 的 clauseText 填充规则 → Task 4（`clauseText: row.clauseText ?? r.clauseText`）+ Task 9（external_new / global_review 路径）✓
+- spec §4.1.1 各 source 的 clauseText 填充规则 → Task 4（`clauseText: row.clauseText ?? r.clauseText`）+ Task 9（external_new / global_review 路径，PR 2 surgical 保留 `r.problem` fallback，PR 3 改 globalReview prompt 后升级到 spec 完整规则）✓
 - spec §4.2 Prisma schema → Task 1 step 1.1 ✓
-- spec §4.3 迁移策略 → Task 1 step 1.3-1.4 ✓
+- spec §4.3 迁移策略 → **plan 偏离 spec**：spec 是"`--create-only` 生成 + 手工修订迁移 SQL"；plan 改为按用户原则 "schema 改 + prisma 自动生成迁移 + dev 库手工清场"。功能上等价（最终 schema 状态相同、老数据均被清空），但**迁移文件由 prisma 自动生成不再手工修订**，老数据动作脱钩到开发者 dev 库手工 SQL（不进 commit）。
 - spec §4.4 类型同步 → Task 2 ✓
 - spec §5.0 风险编辑 PATCH 时锚点字段只读 → Task 3 step 3.1（`UpdateContractRiskInput` 不暴露 quote_* / clause_index）✓
 - spec §11.2 PR 2-4 同窗口 → PR 描述明确 ✓
-- spec §11.3 truncate 执行确认 → Task 1 step 1.3 SQL 注释 + PR 描述模板 ✓
+- spec §11.3 truncate 执行确认 → 偏离同 §4.3：清场动作改在 dev 库手工执行，不需要"PR 描述同意人"留痕（不再走 database.md "唯一例外"章节）
+
+**基建复用确认：**
+- 已确认 contract 域无共享 risk fixture（`grep "makeRisk\|riskFactory" tests/server/agents/contract/ tests/server/assistant/contract/` 无公共 fixture 文件）；本 plan 字段重命名沿用各 .test.ts 现有 inline mock 风格，不引入公共 fixture（属 PR 2 范围外重构）。
+- 未引入新 fuzzy match / dmp 工具（`server/agents/contract/utils/textSimilarity.ts` PR 2 不动；PR 3 才扩展该模块）。
+- 未误碰 `anchorMigrate.ts` / `wordCommentParser.ts` / `commentInjector.ts`（PR 2 范围外的 utils 内部命名 / docx 解析 / docx 注入语义，均显式标注保留）。
 
 **未覆盖项（spec 留作后续 PR）：**
 - PR 3 路线 2 sentence_id 解析、splitSentences、resolveQuoteAnchor

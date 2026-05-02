@@ -11,6 +11,7 @@
 **禁止**：
 - 绕开 schema 直接在生产 / 开发库里改结构（例如用 psql `ALTER TABLE` 或 GUI 工具修改）
 - 修改 schema 却不跑迁移，让 schema 与 DB 漂移
+- 在 `prisma/migrations/` 文件夹下手写迁移脚本
 
 ### 2. 迁移必须通过 `prisma migrate dev` 生成
 
