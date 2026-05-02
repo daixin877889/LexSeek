@@ -180,6 +180,9 @@ export async function createSubAgentTools(
                                 caseId: context.caseId,
                                 sessionId: context.sessionId,
                                 model,
+                                // 主 Agent runId：让 middleware afterAgent 完成落库后能 publish
+                                // ANALYSIS_RESULT_SAVED 事件给主流，前端分析模块列表实时刷新
+                                runId: mainRunId,
                             }),
                             afterAgentMemoryMiddleware({
                                 caseId: context.caseId,

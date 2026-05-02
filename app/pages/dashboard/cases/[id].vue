@@ -160,7 +160,14 @@ function navigateToAnalysis(moduleName: string) {
 }
 
 // --- 小索对话管理 ---
-const xiaosuoChat = useCaseMainAgent(caseId)
+// 小索调起 ask_*_expert 子代理跑完模块分析后，复用 moduleChatManager 同款回调
+// 让前端"分析结果"卡片实时刷新（不再需要手动刷新页面）
+const xiaosuoChat = useCaseMainAgent(caseId, {
+  onAnalysisSaved: () => {
+    _refreshAnalysis?.()
+    postCrossTabEvent('analysis:updated', { caseId: caseId.value })
+  },
+})
 
 async function handleModuleRegenerate(result: AnalysisResult) {
   const instance = moduleChatManager.getOrCreateInstance(result.moduleName, result.moduleTitle)

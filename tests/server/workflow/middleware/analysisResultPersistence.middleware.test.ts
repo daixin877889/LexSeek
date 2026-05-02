@@ -229,7 +229,8 @@ describe('analysisResultPersistenceMiddleware afterAgent', () => {
         expect(completeAnalysisWithRAG).toHaveBeenCalledWith({
             analysisId: 42,
             analysisResult: '法律分析结果文本',
-            model: options.model,
+            tokens: null,
+            tokenCount: null,
         })
     })
 
@@ -255,7 +256,28 @@ describe('analysisResultPersistenceMiddleware afterAgent', () => {
         expect(completeAnalysisWithRAG).toHaveBeenCalledWith({
             analysisId: 42,
             analysisResult: '结论一结论二',
-            model: options.model,
+            tokens: null,
+            tokenCount: null,
+        })
+    })
+
+    it('从 state._totalTokensConsumed 提取 token 写入 caseAnalyses', async () => {
+        vi.mocked(completeAnalysisWithRAG).mockResolvedValue('mock-summary')
+
+        const hook = getAfterAgentHook()
+        const state = {
+            _analysisRecordId: 42,
+            _totalTokensConsumed: 2350,  // pointConsumptionMiddleware 累计
+            messages: [{ _getType: () => 'ai', content: '完整分析报告' }],
+        }
+
+        await hook(state)
+
+        expect(completeAnalysisWithRAG).toHaveBeenCalledWith({
+            analysisId: 42,
+            analysisResult: '完整分析报告',
+            tokens: 2350,         // 实际 token 总数
+            tokenCount: 3,         // ceil(2350/1000) 千 token 数
         })
     })
 

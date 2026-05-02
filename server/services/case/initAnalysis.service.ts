@@ -300,6 +300,10 @@ export function buildTerminalSnapshotEvents(params: {
 export interface CompleteAnalysisWithRAGInput {
     analysisId: number
     analysisResult: string
+    /** 实际 token 总数（_totalTokensConsumed） */
+    tokens?: number | null
+    /** 千 token 数（积分扣减单位 = ceil(tokens/1000)） */
+    tokenCount?: number | null
 }
 
 /**
@@ -371,6 +375,8 @@ export async function completeAnalysisWithRAG(input: CompleteAnalysisWithRAGInpu
                 analysisResult,
                 summary,
                 isActive: true,
+                tokens: input.tokens ?? null,
+                tokenCount: input.tokenCount ?? null,
             },
         })
 

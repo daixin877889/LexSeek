@@ -20,6 +20,8 @@ import {
 import { failAnalysisService } from '~~/server/services/case/analysis.service'
 import { completeAnalysisWithRAG } from '~~/server/services/case/initAnalysis.service'
 import { getNodeByNameService } from '~~/server/services/node/node.service'
+import { publishCustomEvent } from '~~/server/services/agent/agentEventBridge'
+import { SSECustomEventType } from '#shared/types/agentEvent'
 
 /** 中间件参数 */
 interface AnalysisResultPersistenceOptions {
@@ -27,10 +29,16 @@ interface AnalysisResultPersistenceOptions {
     agentName: string
     /** 案件 ID */
     caseId: number
-    /** 会话 ID */
+    /** 会话 ID（子代理也用主流 sessionId 让前端能收到事件） */
     sessionId: string
     /** 用于生成 summary 的模型实例 */
     model: BaseChatModel
+    /**
+     * 主 Agent run id（agentRuns.id）。
+     * 子代理跑完后用这个 runId publish ANALYSIS_RESULT_SAVED 事件让前端列表刷新。
+     * 不传则跳过事件发送（向后兼容，不阻塞历史调用）。
+     */
+    runId?: string
 }
 
 /**
@@ -61,7 +69,7 @@ export function extractLastAIMessageContent(messages: any[]): string | null {
 export const analysisResultPersistenceMiddleware = (
     options: AnalysisResultPersistenceOptions
 ) => {
-    const { agentName, caseId, sessionId, model } = options
+    const { agentName, caseId, sessionId, model, runId } = options
 
     return createMiddleware({
         name: 'AnalysisResultPersistenceMiddleware',
@@ -146,16 +154,46 @@ export const analysisResultPersistenceMiddleware = (
                         return
                     }
 
+                    // 从 pointConsumptionMiddleware 共享 state 提取 token 用量
+                    // _totalTokensConsumed 是 LLM 实际 token 总数；除以 1000 向上取整 = 千 token 数（积分扣减单位）
+                    const totalTokens = (state._totalTokensConsumed as number | undefined) ?? 0
+                    const tokens = totalTokens > 0 ? totalTokens : null
+                    const tokenCount = totalTokens > 0 ? Math.ceil(totalTokens / 1000) : null
+
                     await completeAnalysisWithRAG({
                         analysisId: analysisRecordId,
                         analysisResult: resultText,
+                        tokens,
+                        tokenCount,
                     })
 
                     logger.info('分析持久化：完成分析记录', {
                         analysisId: analysisRecordId,
                         agentName,
                         resultLength: resultText.length,
+                        tokens,
+                        tokenCount,
                     })
+
+                    // 发 ANALYSIS_RESULT_SAVED 事件让前端分析模块列表刷新（caseMain 主流子代理同款体验）
+                    if (runId) {
+                        try {
+                            await publishCustomEvent({
+                                type: 'custom_event',
+                                runId,
+                                sessionId,
+                                name: SSECustomEventType.ANALYSIS_RESULT_SAVED,
+                                data: {
+                                    moduleName: agentName,
+                                    analysisId: analysisRecordId,
+                                    tokens,
+                                    tokenCount,
+                                },
+                            })
+                        } catch (err) {
+                            logger.warn('publishCustomEvent(ANALYSIS_RESULT_SAVED) 失败', { analysisRecordId, err })
+                        }
+                    }
                 } catch (error) {
                     logger.error('分析持久化 afterAgent 异常', {
                         analysisRecordId,
