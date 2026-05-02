@@ -7,8 +7,8 @@
  * 成功后同时失效 NodeConfig 缓存和 FilesystemBackend 缓存，
  * 保证下次 createAgent 时使用最新配置。
  *
- * 鉴权：依赖 server/middleware/03.permission.ts 的 super_admin 拦截
- *      （非 super_admin 访问 /api/v1/admin/** 直接 403）。
+ * 鉴权：由 server/middleware/03.permission.ts 按 RBAC 权限表细粒度判定
+ *      （任意被授予该 API 权限的管理类角色均可访问）。
  */
 
 import { z } from 'zod'
