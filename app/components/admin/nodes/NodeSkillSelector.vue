@@ -20,7 +20,7 @@
                     class="cursor-pointer"
                     @click="toggleSkill(name)"
                 >
-                    {{ name }}
+                    {{ displayLabel(name) }}
                     <X class="h-3 w-3 ml-1" />
                 </Badge>
             </div>
@@ -43,8 +43,10 @@
                     </div>
                     <!-- Skill 信息 -->
                     <div class="flex-1 min-w-0">
-                        <div class="font-medium text-sm font-mono">{{ skill.name }}</div>
-                        <div v-if="skill.title" class="text-xs text-muted-foreground">{{ skill.title }}</div>
+                        <div class="font-medium text-sm">
+                            {{ skill.customTitle ?? skill.title ?? skill.name }}
+                        </div>
+                        <div class="text-xs text-muted-foreground font-mono">{{ skill.name }}</div>
                         <div v-if="skill.status === 0" class="text-xs text-destructive">已停用</div>
                     </div>
                 </div>
@@ -70,6 +72,7 @@ const emit = defineEmits<{
 interface SkillOption {
     name: string
     title: string | null
+    customTitle: string | null
     status: number
 }
 
@@ -84,6 +87,12 @@ async function loadSkills() {
     } finally {
         loading.value = false
     }
+}
+
+function displayLabel(name: string) {
+    const skill = availableSkills.value.find(s => s.name === name)
+    if (!skill) return name
+    return skill.customTitle ?? skill.title ?? skill.name
 }
 
 function toggleSkill(name: string) {
