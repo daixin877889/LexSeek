@@ -52,7 +52,7 @@ export function buildUpsertSkillOp(input: UpsertSkillInput) {
 
 /**
  * upsert 单条 skill 记录（即时执行版本）。
- * 同名记录已存在则更新元数据 + 把 status 置为 ENABLED + 更新 syncedAt。
+ * 同名记录已存在则更新元数据 + 更新 syncedAt；status 与 customTitle 保留管理员手动设置（不被扫描覆盖）。
  */
 export async function upsertSkillDAO(input: UpsertSkillInput) {
     return buildUpsertSkillOp(input)
