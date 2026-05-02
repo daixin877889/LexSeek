@@ -16,6 +16,7 @@ import {
 } from 'lucide-vue-next'
 import { mapMessagesToSteps } from './composables/mapMessagesToSteps'
 import type { StepKind, StepVM } from './composables/mapMessagesToSteps'
+import type { ExtendedToolState } from '~/components/ai-elements/types'
 
 // 异步加载避免 AiToolRenderer ↔ SubAgentChainOfThought 循环引用
 const AiToolRenderer = defineAsyncComponent(() => import('./AiToolRenderer.vue'))
@@ -134,7 +135,7 @@ function toolCallVMFromStep(step: StepVM) {
     name: step.toolName ?? '',
     args: step.toolArgs ?? {},
     result: step.toolResult,
-    state: step.toolResult !== undefined ? 'output-available' : 'input-available',
+    state: (step.toolResult !== undefined ? 'output-available' : 'input-available') as ExtendedToolState,
   }
 }
 
