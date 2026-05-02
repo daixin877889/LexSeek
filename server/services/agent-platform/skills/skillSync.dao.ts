@@ -43,7 +43,8 @@ export function buildUpsertSkillOp(input: UpsertSkillInput) {
             title: input.title ?? null,
             description: input.description ?? null,
             version: input.version ?? null,
-            status: SkillStatus.ENABLED,
+            // status 不写：保留管理员手动设置（启用开关 bug fix）
+            // customTitle 不写：后台编辑专属，扫描永不覆盖
             syncedAt: now,
         },
     })

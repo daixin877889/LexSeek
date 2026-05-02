@@ -14,6 +14,7 @@ import {
     deleteSkillDAO,
 } from '~~/server/services/agent-platform/skills/skillSync.dao'
 import { SkillSource, SkillStatus } from '#shared/types/skill'
+import { prisma } from '~~/server/utils/db'
 
 describe('SkillSync DAO', () => {
     const testSkillNames: string[] = []
@@ -88,5 +89,71 @@ describe('SkillSync DAO', () => {
         // 用 -1（不存在的节点）测试空数组返回
         const skills = await listSkillsByNodeIdDAO(-1)
         expect(skills).toEqual([])
+    })
+})
+
+describe('buildUpsertSkillOp - 扫描不覆盖后台字段', () => {
+    const testSkillNames: string[] = []
+
+    afterEach(async () => {
+        if (testSkillNames.length > 0) {
+            await prisma.skills.deleteMany({ where: { name: { in: testSkillNames } } })
+            testSkillNames.length = 0
+        }
+    })
+
+    it('管理员手动停用的 skill 重扫后保持 DISABLED', async () => {
+        const name = `test_skill_${Date.now()}_status_keep`
+        testSkillNames.push(name)
+
+        // 第一次创建（默认 ENABLED）
+        await upsertSkillDAO({
+            name, path: `path/${name}`, source: SkillSource.FILESYSTEM,
+        })
+        // 管理员手动停用
+        await prisma.skills.update({ where: { name }, data: { status: SkillStatus.DISABLED } })
+
+        // 第二次扫描（模拟 resync）
+        await upsertSkillDAO({
+            name, path: `path/${name}`, source: SkillSource.FILESYSTEM,
+        })
+
+        const row = await prisma.skills.findUnique({ where: { name } })
+        expect(row?.status).toBe(SkillStatus.DISABLED)
+    })
+
+    it('管理员设置的 customTitle 重扫后保持不变', async () => {
+        const name = `test_skill_${Date.now()}_ct_keep`
+        testSkillNames.push(name)
+
+        await upsertSkillDAO({
+            name, path: `path/${name}`, source: SkillSource.FILESYSTEM,
+            title: '代码默认名',
+        })
+        // 管理员设置 customTitle
+        await prisma.skills.update({ where: { name }, data: { customTitle: '后台覆盖名' } })
+
+        // 第二次扫描
+        await upsertSkillDAO({
+            name, path: `path/${name}`, source: SkillSource.FILESYSTEM,
+            title: '代码默认名 v2',
+        })
+
+        const row = await prisma.skills.findUnique({ where: { name } })
+        expect(row?.customTitle).toBe('后台覆盖名')
+        expect(row?.title).toBe('代码默认名 v2')   // title 跟随代码
+    })
+
+    it('新 skill 第一次入库 status 默认 ENABLED', async () => {
+        const name = `test_skill_${Date.now()}_new_enabled`
+        testSkillNames.push(name)
+
+        await upsertSkillDAO({
+            name, path: `path/${name}`, source: SkillSource.FILESYSTEM,
+        })
+
+        const row = await prisma.skills.findUnique({ where: { name } })
+        expect(row?.status).toBe(SkillStatus.ENABLED)
+        expect(row?.customTitle).toBeNull()
     })
 })
