@@ -178,8 +178,8 @@ export async function detectParties(paragraphs: string[]): Promise<PartyDetectio
 
 | 字段 | 类型 | 用途 |
 |---|---|---|
-| `clause_index` | INT NOT NULL | 条款序号（segmentClauses 产出，1-based） |
-| `clause_text` | TEXT NOT NULL | 完整条款原文（=segment.text） |
+| `clause_index` | INT | 条款序号（segmentClauses 产出，1-based）；**source='global_review' 时为 null**（全局复核无单条款锚） |
+| `clause_text` | TEXT NOT NULL | 完整条款原文（按 source 填充，见 §4.2.1） |
 | `clause_paragraph_index` | INT | 非空段落序号（commentInjector 期望空间） |
 | `clause_char_start` | INT | 在文档全文 normalizedText 里的 offset |
 | `clause_char_end` | INT | 同上 |
@@ -188,6 +188,18 @@ export async function detectParties(paragraphs: string[]): Promise<PartyDetectio
 | `quote_char_end` | INT | 同上 |
 | `quote_match_source` | VARCHAR(20) | `sentence_id` / `fuzzy` / `fallback`（运维埋点） |
 | `original_clause_text` | TEXT | 客户回传迁移前的原 `clause_text`（原 `original_anchor_quote` 改名） |
+
+#### 4.1.1 各 source 的 clause_text 填充规则
+
+`clause_text NOT NULL` 跨三种 source 都要有值：
+
+| source | clause_text 来源 | clause_index | 字段语义 |
+|---|---|---|---|
+| `ai`（首次审查） | segmentClauses 产出的 `segment.text` | segment.index | 完整条款 |
+| `external_new`（Phase B 客户外部新增批注） | 客户回传 docx 里批注 `<w:commentRangeStart>` 所在段落的全文（uploadClientVersion 已有逻辑产出） | 找匹配的最近 segment.index；找不到时填 0 | 批注所在段落 |
+| `global_review`（全局复核） | review 全局风险描述（无具体条款）→ 由 globalReview 节点 LLM 输出 `representativeQuote` 字段填充；找不到时填 review.summary 摘录 | NULL | 整篇复核 |
+
+`clauseIndex` 只对 `ai`/`external_new` 必填，`global_review` 可空——schema 在 Prisma 里用 nullable Int，DAO 写入校验保证非 global_review 必有。
 
 ### 4.2 Prisma schema
 
@@ -212,9 +224,9 @@ model contractRisks {
   archivedAt     DateTime? @map("archived_at")
 
   // ===== 双锚点：层 1 完整条款（粗）=====
-  /// 条款序号（segmentClauses 产出）
-  clauseIndex          Int    @map("clause_index")
-  /// 完整条款原文（segmentClauses 产出的 segment.text）
+  /// 条款序号（segmentClauses 产出）；source='global_review' 时为 null
+  clauseIndex          Int?   @map("clause_index")
+  /// 完整条款原文：ai → segment.text；external_new → 批注所在段落；global_review → review 全局描述
   clauseText           String @map("clause_text") @db.Text
   /// 非空段落序号（commentInjector 期望空间）
   clauseParagraphIndex Int?   @map("clause_paragraph_index")
@@ -324,6 +336,15 @@ export interface ContractRiskEntity {
 
 ## 5. 路线 2 主路径：Sentence ID 解析
 
+### 5.0 风险编辑（PATCH）时的锚点字段处理
+
+`PATCH /api/v1/assistant/contract/reviews/risks/:riskId` 现在允许律师手工改 problem / suggestion / level 等业务字段。新数据模型下：
+
+- **clause_* 字段全部视为只读**——律师改业务文字不应破坏与原文的锚定
+- **quote_* 字段也视为只读**——律师不应通过编辑 quote 触发服务端重算 offset
+- 仅当律师在 UI 显式选择"重定位锚点"（v2 功能，暂不实现）时才走 resolveQuoteAnchor 重算
+- handler 层的 zod schema 拒绝 clause/quote 字段出现在 PATCH body
+
 ### 5.1 切句规则（splitSentences）
 
 新建 `server/agents/contract/utils/splitSentences.ts`：
@@ -345,9 +366,15 @@ export interface SentenceSpan {
  *
  * 切分点：
  * - `。！？；` + `\n`
- * - 行首子项编号：`^\s*[（(]?(?:[一二三四五六七八九十]+|\d+(\.\d+)*|[a-zA-Z])[）)]?[、.\s]`
+ * - 行首子项编号：`/^\s*[（(]?(?:[一二三四五六七八九十百]+|\d+(?:\.\d+)*|[a-zA-Z])[）)][\s、]?|^\s*\d+(?:\.\d+)*[\s、.]/`
  *
- * 不切分：逗号、顿号、引号内/括号内
+ * 不切分：逗号、顿号、引号 / 括号 / 双引号"" / 单引号'' 内的标点
+ *
+ * 边角行为：
+ * - 输入 `""` → 返回 `[]`（无句子）
+ * - 输入仅含 1 字符（"。"）→ 切出 1 个空句子或不切（实现时返回 `[{ id: 1, text: '', charStart: 0, charEnd: 1 }]`）
+ * - 整段无切分点（如标题行）→ 整段作 1 个 sentence
+ * - 行内中文序数词（"前段。第二，违约金..."）不作切分点——只在行首 `^\s*` 锚定才识别为子项编号
  */
 export function splitSentences(segmentText: string): SentenceSpan[]
 ```
@@ -990,14 +1017,27 @@ LLM 输出可能含非法 XML 字符（U+0008 等控制字符）；用现有 `xm
 
 ### 9.2 双锚点优先级
 
-新逻辑：
-1. **优先用 `problematicQuote`** 在客户新 docx 里做 dmp 模糊匹配
-   - 命中 → 取上下文找 `clauseText` 在新 docx 里的位置 → 写入新 `clauseText` / `clauseCharStart/End` / `problematicQuote` / `quoteCharStart/End`
-2. **fallback：用 `clauseText` 模糊匹配**
-   - 命中 → 写入新 clauseText，**置 `problematicQuote = null`**（迁移后 quote 失效；下次审查会重新分析）
-3. **都失败 → `orphaned = true`**
+前置：客户新 docx 解析后用 `segmentClauses` 重新切分得到 `newSegments[]`（与首次审查走同一管线，结果是新的 clauseIndex / clauseText / clauseCharStart-End）。
 
-为什么优先 quote：精确句子比整段更稳定（条款里其它字改了，只要"导致风险的那句话"还在就能锚住）。
+迁移每条旧 risk：
+
+1. **档 1：用 `existing.problematicQuote` 在客户新 docx normalizedText 上做 dmp 模糊匹配**
+   - 命中位置 `quoteHitOffset` → 在 `newSegments[]` 里找包含 `quoteHitOffset` 的 segment：
+     ```
+     const newSegment = newSegments.find(s => s.charStart <= quoteHitOffset && quoteHitOffset < s.charEnd)
+     ```
+   - 找到 → 写入：`clauseIndex = newSegment.index` / `clauseText = newSegment.text` / `clauseCharStart/End = newSegment.charStart/End` / `problematicQuote` 重新摘录 / `quoteCharStart/End` 重算（在新 clauseText 里的相对 offset）
+   - 找不到（quote 落在 segment 边界外）→ 视为档 1 失败，进档 2
+
+2. **档 2：用 `existing.clauseText` 在客户新 docx normalizedText 上做 dmp 模糊匹配**
+   - 命中位置 `clauseHitOffset` → 同样在 `newSegments[]` 里找包含 `clauseHitOffset` 的 segment
+   - 找到 → 写入新 `clauseText`、`clauseCharStart/End`，**置 `problematicQuote = null` / `quoteCharStart/End = null` / `quoteMatchSource = null`**（迁移后 quote 失效，律师下次手动 PATCH 或下次全局重审重生）
+
+3. **档 3：两档都失败 → `orphaned = true`**，保留旧 clauseText / problematicQuote 不变（孤立批注区展示用）
+
+为什么优先 quote：精确句子比整段更稳定（条款里其它字改了，只要"导致风险的那句话"还在就能锚住）；clauseText 含整段更易因字面变化失败。
+
+> **注意**：档 1 / 档 2 都依赖客户新 docx 重新跑一次 segmentClauses（与首次审查同算法，结果可重现）；这步是 Phase B 客户回传链路的必经动作（uploadClientVersion 现有逻辑也调用 segmentClauses 做 oldClauses vs newClauses diff），新方案复用同一份 newSegments 即可，无额外开销。
 
 ### 9.3 originalClauseText 写入
 
@@ -1042,6 +1082,16 @@ ORDER BY COUNT(*) DESC;
 期望分布（理想）：`sentence_id` ≥ 80%，`fuzzy` ≤ 15%，`fallback` ≤ 5%。
 监控阈值：`fallback` > 10% 时复查 prompt / 切句规则。
 
+#### 10.3.1 上线前 baseline
+
+首次上线前必须有"DeepSeek-v4-flash 当前 prompt 下的实际分布 baseline"才能判断阈值合理性。Baseline 生成步骤（PR 3 落地后即可跑）：
+
+1. 准备 N=20 真实合同 fixture（覆盖 11 大类各类型 1-2 份，含规整格式 + 不规整格式各半）
+2. 离线脚本 `scripts/contractAnchoringBaseline.ts`：依次跑 AI 审查管线，收集每条 risk 的 `quote_match_source`
+3. 输出 baseline 报告：各 source 占比 + 失败 case 的 problematicQuote vs 实际原文对比
+4. baseline 报告 commit 到 `docs/eval-reports/contract-anchoring-baseline-{date}.json` 供后续回归对比
+5. 若 baseline `fallback` > 15% → 不能上线，先调 prompt（重新生成 baseline 直至达标）
+
 ### 10.4 e2e 测试
 
 `tests/e2e/contract-review-precise-anchoring.test.ts`：
@@ -1063,13 +1113,34 @@ ORDER BY COUNT(*) DESC;
 | 6 | `sub-1-redline-export` | redlineInjector（findMaxSharedId 扫描共享 ID 池 + 跨 run split + 完整 clause 删除段落标记 + xml:space + 输入清理）+ commentInjector 改造接受 idStart 参数 + 下载模式 toggle + 后端 API + Word 实测 | 3.5 天 |
 | 7 | `sub-1-phase-b-dual-anchor` | uploadClientVersion 锚点迁移升级 + 双锚点优先级 | 2 天 |
 
-**总计**：13.5 天工作量。每个 PR 独立可发布 / 可回滚。1+2+3 是基础（前后端断开会有空窗），4-7 可在 3 之后任意顺序。
+**总计**：13.5 天工作量。
 
-依赖关系：
-- PR 1 完全独立（PRE-1）
+### 11.1 依赖关系
+
+- PR 1（PRE-1）完全独立，可单独发布并立即生效（playbook 立刻恢复参与 prompt）
 - PR 2 必须先于 PR 3-7（数据模型不重构后续都无依据）
-- PR 3 必须先于 PR 4-6（前端要消费新字段）
-- PR 6 内部依赖 PR 5 字符 offset 对齐算法的部分逻辑（quote → docx 字符位置定位），实际两 PR 可由同一开发者承接以共享 mental model
+- PR 3 必须先于 PR 4-6（前端要消费新字段、redlineInjector 要消费 quote）
+- PR 5（前端字符级高亮）和 PR 6（OOXML redline）**没有代码依赖**——分别跑在 DOM Range 和 XML AST 两套数据结构上，算法不可复用；建议同人承接是为了 mental model 共享，不是必须
+
+### 11.2 发布顺序约束（关键）
+
+**PR 2-4 必须捆绑发布在同一窗口**，不能严格"独立可发布"——原因：PR 2 落地后 `anchor_*` 字段被 drop，旧前端代码（仍在读 `anchorQuote` / `anchorParagraphIndex`）会立刻 NPE。三种发布策略：
+
+| 策略 | 描述 | 优劣 |
+|---|---|---|
+| **A. 三 PR 同窗口发布**（推荐） | PR 2/3/4 合并到一个 release tag 同时上线 | 简单；窗口期略长 |
+| **B. 别名兼容层** | PR 2 后端 mapper 临时输出新+旧字段（旧字段名作 alias），PR 4 后端 mapper 删 alias | 多写一层兼容代码；后续要清理 |
+| **C. Feature flag** | PR 2-4 都先合代码不上线，最后 flag 一次性打开 | 适合大版本；当前 PR 体量不必 |
+
+选择 **A**：PR 1（PRE-1）和 PR 7（Phase B 升级）独立发布；PR 2/3/4 同窗口；PR 5/6 各自独立。
+
+### 11.3 truncate 的环境约束
+
+§4.3 的 `TRUNCATE TABLE contract_risks, contract_annotations, contract_review_versions CASCADE` 仅在合同审查未上线的环境执行：
+- **dev / staging**：执行前 `SELECT COUNT(*) FROM contract_reviews WHERE status='completed'`，若有数据先备份或 abort
+- **prod**：必须 confirm "合同审查未对外上线"才执行；否则升级前需出迁移脚本（不在本 spec 范围）
+
+迁移脚本写明放 `prisma/migrations/` 同迁移目录的 `migration.sql` 里，配合 `--create-only` 流程做 review。
 
 ---
 
