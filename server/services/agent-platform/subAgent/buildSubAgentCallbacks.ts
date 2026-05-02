@@ -7,11 +7,44 @@
  * 旧 subAgentToolFactory 内联实现漏了 handleChainError，本 helper 一并补齐：
  * 子代理 chain 抛错时主流也能收到 status='failed' 让 CoT 显示红徽章。
  */
-import type { CallbackHandlerMethods } from '@langchain/core/callbacks/base'
+import type { CallbackHandlerMethods, HandleLLMNewTokenCallbackFields } from '@langchain/core/callbacks/base'
 import { BaseMessage } from '@langchain/core/messages'
 import { publishCustomEvent, publishStatusChange } from '~~/server/services/agent/agentEventBridge'
 import { SSECustomEventType } from '#shared/types/agentEvent'
 import { logger } from '#shared/utils/logger'
+
+/**
+ * 从 ChatGenerationChunk 提取 thinking/reasoning 增量。
+ *
+ * Anthropic extended thinking：chunk.message.content 是 array 含
+ *   { type:'thinking', thinking:'...' } 或 { type:'reasoning', reasoning:'...' } block
+ * DeepSeek-Reasoner / OpenAI o1：chunk.message.additional_kwargs.reasoning_content
+ *
+ * extractToken（@langchain/anthropic chat_models.js:84）三个分支都不匹配 thinking 块时
+ * 返回 undefined → handleLLMNewToken 第一参数 token 是空字符串 → 思考内容完全丢失。
+ * 这里从第 6 参数 fields.chunk 直接拿到完整 chunk 解析。
+ */
+function extractThinkingDelta(fields: HandleLLMNewTokenCallbackFields | undefined): string {
+    const message = (fields?.chunk as { message?: { content?: unknown, additional_kwargs?: Record<string, unknown> } } | undefined)?.message
+    if (!message) return ''
+    // 路径 1：DeepSeek/o1 把 reasoning 放 additional_kwargs.reasoning_content（string 增量）
+    const ak = message.additional_kwargs
+    if (ak && typeof ak.reasoning_content === 'string' && ak.reasoning_content.length > 0) {
+        return ak.reasoning_content
+    }
+    // 路径 2：Anthropic 把 thinking 放 content array 里
+    if (Array.isArray(message.content)) {
+        const parts: string[] = []
+        for (const block of message.content as Array<Record<string, unknown>>) {
+            if (!block || typeof block !== 'object') continue
+            const t = block.type
+            if (t === 'thinking' && typeof block.thinking === 'string') parts.push(block.thinking)
+            else if (t === 'reasoning' && typeof block.reasoning === 'string') parts.push(block.reasoning)
+        }
+        if (parts.length > 0) return parts.join('')
+    }
+    return ''
+}
 
 export interface BuildSubAgentCallbacksOptions {
     /** 主 Agent run id（agentRuns.id） */
@@ -31,15 +64,38 @@ export function buildSubAgentCallbacks(opts: BuildSubAgentCallbacksOptions): Cal
     const meta = { agentName, threadId: subThreadId, parentToolCallId }
 
     return [{
-        async handleLLMNewToken(token: string, _idx: unknown, cbRunId: string) {
-            await publishCustomEvent({
-                type: 'custom_event',
-                runId: mainRunId,
-                sessionId,
-                name: SSECustomEventType.SUB_AGENT_TOKEN,
-                data: undefined,
-                metadata: { ...meta, messageId: cbRunId, delta: token },
-            }).catch((e: unknown) => logger.warn('publishCustomEvent(SUB_AGENT_TOKEN) failed', { e }))
+        async handleLLMNewToken(
+            token: string,
+            _idx: unknown,
+            cbRunId: string,
+            _parentRunId?: string,
+            _tags?: string[],
+            fields?: HandleLLMNewTokenCallbackFields,
+        ) {
+            // 1. text 增量（不含 thinking — 见 extractThinkingDelta 注释）
+            if (token) {
+                await publishCustomEvent({
+                    type: 'custom_event',
+                    runId: mainRunId,
+                    sessionId,
+                    name: SSECustomEventType.SUB_AGENT_TOKEN,
+                    data: undefined,
+                    metadata: { ...meta, messageId: cbRunId, delta: token },
+                }).catch((e: unknown) => logger.warn('publishCustomEvent(SUB_AGENT_TOKEN) failed', { e }))
+            }
+
+            // 2. thinking 增量（独立事件，前端累到 additional_kwargs.reasoning_content）
+            const thinkingDelta = extractThinkingDelta(fields)
+            if (thinkingDelta) {
+                await publishCustomEvent({
+                    type: 'custom_event',
+                    runId: mainRunId,
+                    sessionId,
+                    name: SSECustomEventType.SUB_AGENT_THINKING_TOKEN,
+                    data: undefined,
+                    metadata: { ...meta, messageId: cbRunId, delta: thinkingDelta },
+                }).catch((e: unknown) => logger.warn('publishCustomEvent(SUB_AGENT_THINKING_TOKEN) failed', { e }))
+            }
         },
         async handleToolStart(
             _tool: unknown, input: string, cbRunId: string,

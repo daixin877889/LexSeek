@@ -45,6 +45,13 @@ export enum SessionType {
 export enum SSECustomEventType {
     // ── 子代理工具相关（subAgentToolFactory 发布）──
     SUB_AGENT_TOKEN = 'sub_agent_token',
+    /**
+     * 子代理思考 token 流。LangChain handleLLMNewToken 的 token 参数对 Anthropic
+     * thinking 块和 DeepSeek/OpenAI o1 的 reasoning_content 都不暴露 — 必须从第 6
+     * 参数 fields.chunk 解析。前端累到 AIMessage.additional_kwargs.reasoning_content，
+     * extractThinking 走格式 3 直接渲染"思考"step。
+     */
+    SUB_AGENT_THINKING_TOKEN = 'sub_agent_thinking_token',
     SUB_AGENT_TOOL_START = 'sub_agent_tool_start',
     SUB_AGENT_TOOL_END = 'sub_agent_tool_end',
     SUB_AGENT_STATUS = 'sub_agent_status',
@@ -200,6 +207,8 @@ export interface ChildAgentInvokedPayload {
  */
 export interface SSECustomEventMap {
     [SSECustomEventType.SUB_AGENT_TOKEN]: SubAgentTokenPayload
+    /** 复用 SubAgentTokenPayload 形状，metadata 含 messageId/delta（同 SUB_AGENT_TOKEN） */
+    [SSECustomEventType.SUB_AGENT_THINKING_TOKEN]: SubAgentTokenPayload
     [SSECustomEventType.SUB_AGENT_TOOL_START]: SubAgentToolStartPayload
     [SSECustomEventType.SUB_AGENT_TOOL_END]: SubAgentToolEndPayload
     [SSECustomEventType.SUB_AGENT_STATUS]: SubAgentStatusPayload

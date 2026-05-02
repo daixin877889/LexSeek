@@ -72,6 +72,55 @@ describe('useStreamChat · subThreadsMap 分桶 reducer', () => {
     expect(b.error).toBe('超时')
   })
 
+  it('sub_agent_thinking_token 累积到 AIMessage.additional_kwargs.reasoning_content', () => {
+    const b = createEmptyBucket('e', 't')
+    mergeEventIntoBucket(b, {
+      type: 'custom_event', runId: 'r', sessionId: 's', name: 'sub_agent_thinking_token',
+      data: undefined,
+      metadata: { agentName: 'e', threadId: 't', parentToolCallId: 'p', messageId: 'm1', delta: '让我' },
+    } as any)
+    mergeEventIntoBucket(b, {
+      type: 'custom_event', runId: 'r', sessionId: 's', name: 'sub_agent_thinking_token',
+      data: undefined,
+      metadata: { agentName: 'e', threadId: 't', parentToolCallId: 'p', messageId: 'm1', delta: '推理' },
+    } as any)
+    expect(b.messages).toHaveLength(1)
+    const msg = b.messages[0] as any
+    expect(msg.id).toBe('m1')
+    expect(msg.content).toBe('')
+    expect(msg.additional_kwargs?.reasoning_content).toBe('让我推理')
+  })
+
+  it('sub_agent_thinking_token 与 sub_agent_token 共用同一 messageId 时分别累 thinking / content', () => {
+    const b = createEmptyBucket('e', 't')
+    // 先到一个 thinking delta（创建 AIMessage）
+    mergeEventIntoBucket(b, {
+      type: 'custom_event', runId: 'r', sessionId: 's', name: 'sub_agent_thinking_token',
+      data: undefined,
+      metadata: { agentName: 'e', threadId: 't', parentToolCallId: 'p', messageId: 'm1', delta: '思考A' },
+    } as any)
+    // 再来一个普通 text delta（命中已有 AIMessage）
+    mergeEventIntoBucket(b, {
+      type: 'custom_event', runId: 'r', sessionId: 's', name: 'sub_agent_token',
+      data: undefined,
+      metadata: { agentName: 'e', threadId: 't', parentToolCallId: 'p', messageId: 'm1', delta: '回复A' },
+    } as any)
+    expect(b.messages).toHaveLength(1)
+    const msg = b.messages[0] as any
+    expect(msg.content).toBe('回复A')
+    expect(msg.additional_kwargs?.reasoning_content).toBe('思考A')
+  })
+
+  it('sub_agent_thinking_token 空 delta → 不触发任何变更', () => {
+    const b = createEmptyBucket('e', 't')
+    mergeEventIntoBucket(b, {
+      type: 'custom_event', runId: 'r', sessionId: 's', name: 'sub_agent_thinking_token',
+      data: undefined,
+      metadata: { agentName: 'e', threadId: 't', parentToolCallId: 'p', messageId: 'm1', delta: '' },
+    } as any)
+    expect(b.messages).toHaveLength(0)
+  })
+
   it('sub_agent_tool_start 创建独立 AIMessage（id=cbRunId）含 tool_call，token 累积的 AIMessage 不被污染', () => {
     const b = createEmptyBucket('expert_a', 'sess_sub_a')
     mergeEventIntoBucket(b, {

@@ -68,6 +68,76 @@ describe('buildSubAgentCallbacks', () => {
         })
     })
 
+    it('handleLLMNewToken 空 token + 无 chunk → 不发事件', async () => {
+        const h = buildSubAgentCallbacks(opts)[0]!
+        await h.handleLLMNewToken!('', undefined as any, 'cb-1')
+        expect(publishCustomEventMock).not.toHaveBeenCalled()
+    })
+
+    it('handleLLMNewToken 从 fields.chunk 提取 Anthropic thinking block → 发 SUB_AGENT_THINKING_TOKEN', async () => {
+        const h = buildSubAgentCallbacks(opts)[0]!
+        // Anthropic 的 thinking chunk：token 参数被 extractToken 返回 undefined（""），
+        // 真实内容在 fields.chunk.message.content[0] = { type:'thinking', thinking:'...' }
+        const fields: any = {
+            chunk: {
+                message: {
+                    content: [{ type: 'thinking', thinking: '正在思考要件构成…' }],
+                },
+            },
+        }
+        await h.handleLLMNewToken!('', undefined as any, 'cb-1', undefined, undefined, fields)
+        expect(publishCustomEventMock).toHaveBeenCalledWith({
+            type: 'custom_event',
+            runId: 'run-1',
+            sessionId: 'sess-1',
+            name: SSECustomEventType.SUB_AGENT_THINKING_TOKEN,
+            data: undefined,
+            metadata: { ...expectedMeta, messageId: 'cb-1', delta: '正在思考要件构成…' },
+        })
+    })
+
+    it('handleLLMNewToken 从 fields.chunk 提取 DeepSeek/o1 reasoning_content → 发 SUB_AGENT_THINKING_TOKEN', async () => {
+        const h = buildSubAgentCallbacks(opts)[0]!
+        const fields: any = {
+            chunk: {
+                message: {
+                    content: '',
+                    additional_kwargs: { reasoning_content: '让我推理下这一步…' },
+                },
+            },
+        }
+        await h.handleLLMNewToken!('', undefined as any, 'cb-1', undefined, undefined, fields)
+        expect(publishCustomEventMock).toHaveBeenCalledWith({
+            type: 'custom_event',
+            runId: 'run-1',
+            sessionId: 'sess-1',
+            name: SSECustomEventType.SUB_AGENT_THINKING_TOKEN,
+            data: undefined,
+            metadata: { ...expectedMeta, messageId: 'cb-1', delta: '让我推理下这一步…' },
+        })
+    })
+
+    it('handleLLMNewToken 同一 chunk 含 text token 又含 thinking → 两个事件都发', async () => {
+        const h = buildSubAgentCallbacks(opts)[0]!
+        const fields: any = {
+            chunk: {
+                message: {
+                    additional_kwargs: { reasoning_content: '思考' },
+                },
+            },
+        }
+        await h.handleLLMNewToken!('文本', undefined as any, 'cb-1', undefined, undefined, fields)
+        expect(publishCustomEventMock).toHaveBeenCalledTimes(2)
+        expect(publishCustomEventMock).toHaveBeenCalledWith(expect.objectContaining({
+            name: SSECustomEventType.SUB_AGENT_TOKEN,
+            metadata: expect.objectContaining({ delta: '文本' }),
+        }))
+        expect(publishCustomEventMock).toHaveBeenCalledWith(expect.objectContaining({
+            name: SSECustomEventType.SUB_AGENT_THINKING_TOKEN,
+            metadata: expect.objectContaining({ delta: '思考' }),
+        }))
+    })
+
     it('handleToolStart → publishCustomEvent SUB_AGENT_TOOL_START（含 toolName=runName）', async () => {
         const h = buildSubAgentCallbacks(opts)[0]!
         await h.handleToolStart!(

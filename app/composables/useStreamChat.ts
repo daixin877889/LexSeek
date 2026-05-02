@@ -58,6 +58,30 @@ export function mergeEventIntoBucket(bucket: SubThreadState, ev: AgentEvent) {
         }
         return
       }
+      case 'sub_agent_thinking_token': {
+        // thinking/reasoning 增量累到 additional_kwargs.reasoning_content 字段，
+        // mapMessagesToSteps 内的 extractThinking 走格式 3 直接渲染"思考"step
+        const md = cev.metadata
+        if (!md?.messageId) return
+        const delta = md.delta ?? ''
+        if (!delta) return
+        const existing = bucket.messages.find((m: any) => m.id === md.messageId && m.type === 'ai') as any
+        if (existing) {
+          existing.additional_kwargs = existing.additional_kwargs ?? {}
+          const prev = typeof existing.additional_kwargs.reasoning_content === 'string'
+            ? existing.additional_kwargs.reasoning_content
+            : ''
+          existing.additional_kwargs.reasoning_content = prev + delta
+        } else {
+          const ai: any = new AIMessage({
+            content: '',
+            additional_kwargs: { reasoning_content: delta },
+          })
+          ai.id = md.messageId
+          bucket.messages.push(ai)
+        }
+        return
+      }
       case 'sub_agent_tool_start': {
         const d = cev.data as { innerToolCallId?: string; input?: unknown; cbRunId?: string; toolName?: string }
         if (d?.cbRunId && d?.innerToolCallId) {
