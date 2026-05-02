@@ -92,10 +92,12 @@ export async function summarizeOverview(
 }
 
 /**
- * 渲染 DB 模板：替换 {{stance}} / {{contractType}} / {{riskList}} 占位符
+ * 渲染 DB 模板：替换 {{stance}} / {{stanceLabel}} / {{contractType}} / {{riskList}} 占位符
  *
  * riskList 是长文本（每条 risk 一行），不适合直接放在模板的 variables 字段里——
  * variables 是 JSON 数组只做字段名声明；实际值在调用处拼接好再 renderContent。
+ *
+ * stanceLabel 是 stance 的中文标签（甲方/乙方/中立第三方），LLM 直接读中文比读英文 enum 准确。
  */
 function renderPromptTemplate(
     template: string,
@@ -106,8 +108,10 @@ function renderPromptTemplate(
     const riskList = risks
         .map(r => `${r.level.toUpperCase()} · ${r.id} · ${r.category} · ${r.problem}`)
         .join('\n')
+    const stanceLabel = stance === 'partyA' ? '甲方' : stance === 'partyB' ? '乙方' : '中立第三方'
     const rendered = renderContent(template, {
         stance,
+        stanceLabel,
         contractType: contractType ?? '合同',
         riskList,
     })
