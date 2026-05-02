@@ -3,13 +3,17 @@ import { computed, defineAsyncComponent, reactive, ref, watch } from 'vue'
 import type { Component } from 'vue'
 import type { BaseMessage } from '@langchain/core/messages'
 import { useThrottleFn } from '@vueuse/core'
+import { ChainOfThoughtStep } from '~/components/ai-elements/chain-of-thought'
 import {
-  ChainOfThought,
-  ChainOfThoughtHeader,
-  ChainOfThoughtContent,
-  ChainOfThoughtStep,
-} from '~/components/ai-elements/chain-of-thought'
-import { Lightbulb, FileText, Wrench, CheckCircle2, Loader2 } from 'lucide-vue-next'
+  Lightbulb,
+  FileText,
+  Wrench,
+  CheckCircle2,
+  Loader2,
+  Sparkles,
+  XCircle,
+  ChevronDown,
+} from 'lucide-vue-next'
 import { mapMessagesToSteps } from './composables/mapMessagesToSteps'
 import type { StepKind, StepVM } from './composables/mapMessagesToSteps'
 
@@ -100,6 +104,25 @@ const stepColorClass: Record<StepKind, string> = {
   conclusion: 'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
 }
 
+const wrapperClass = computed(() => {
+  if (props.isFailed) return 'border-destructive/40 border-l-[3px] border-l-destructive bg-muted/30'
+  if (props.isRunning) return 'border-border border-l-[3px] border-l-primary bg-muted/30 shadow-sm'
+  return 'border-border/60 border-l-[3px] border-l-primary/60 bg-muted/30'
+})
+
+const statusText = computed(() => {
+  if (props.isRunning) return '思考中…'
+  if (props.isFailed) return `失败${props.failureReason ? `：${props.failureReason}` : ''}`
+  if (props.durationSec) return `已完成 · ${props.durationSec}s`
+  return '已完成'
+})
+
+const statusClass = computed(() => {
+  if (props.isRunning) return 'text-primary font-medium'
+  if (props.isFailed) return 'text-destructive font-medium'
+  return 'text-muted-foreground'
+})
+
 function isCollapsibleTextStep(step: StepVM): boolean {
   return (step.kind === 'thinking' || step.kind === 'analysis' || step.kind === 'conclusion') && step.hasMore
 }
@@ -118,72 +141,89 @@ function toolCallVMFromStep(step: StepVM) {
 </script>
 
 <template>
-  <ChainOfThought v-model="isOpen" class="my-2">
-    <ChainOfThoughtHeader>
-      <span class="flex flex-1 items-baseline gap-3 text-left">
-        <span class="text-foreground font-semibold">{{ agentTitle }}</span>
-        <span class="inline-flex items-center gap-1 text-xs text-muted-foreground/80">
-          <Loader2 v-if="isRunning" class="size-3 animate-spin" />
-          <span v-if="isRunning">思考中…</span>
-          <span v-else-if="isFailed" class="text-destructive">失败{{ failureReason ? `：${failureReason}` : '' }}</span>
-          <span v-else-if="durationSec">思考 {{ durationSec }}s</span>
-          <span v-else>已完成</span>
-        </span>
-      </span>
-    </ChainOfThoughtHeader>
-
-    <ChainOfThoughtContent>
-      <ChainOfThoughtStep
-        v-for="step in steps"
-        :key="step.key"
-        :label="step.label"
-        :description="''"
-        :status="step.status"
-        :class="step.isFailed ? 'text-destructive' : undefined"
+  <div
+    class="not-prose mt-2 max-w-prose rounded-md border"
+    :class="wrapperClass"
+  >
+    <Collapsible v-model:open="isOpen">
+      <CollapsibleTrigger
+        class="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
       >
-        <template #icon>
-          <component
-            :is="iconFor(step.kind)"
-            class="size-3.5 rounded-full p-0.5"
-            :class="stepColorClass[step.kind]"
-          />
-        </template>
-
-        <!-- 工具步骤：可展开看完整 args + result -->
-        <template v-if="step.kind === 'tool_call'">
-          <!-- 跑中：仅 spinner -->
-          <template v-if="step.status === 'active'">
-            <span class="text-muted-foreground text-xs">
-              <Loader2 class="inline size-3 animate-spin" />
-            </span>
-          </template>
-          <!-- 跑完：直接渲染工具卡片（工具卡自带展开/收起，无需再外包一层 toggle） -->
-          <AiToolRenderer v-else :tool-call="toolCallVMFromStep(step)" />
-        </template>
-
-        <!-- 思考 / 分析 / 结论：内容长时支持点击展开/收起 -->
-        <template v-else>
-          <template v-if="isCollapsibleTextStep(step)">
-            <div
-              v-if="!isStepExpanded(step)"
-              class="text-muted-foreground text-xs cursor-pointer hover:text-foreground transition-colors"
-              @click="toggleStepExpand(step)"
-            >
-              {{ displayDescription(step) }}
-            </div>
-            <div
-              v-else
-              class="cursor-pointer"
-              @click="toggleStepExpand(step)"
-            >
-              <MessageResponse :content="step.fullContent" mode="static" />
-            </div>
-          </template>
-          <div v-else-if="displayDescription(step)" class="text-muted-foreground text-xs">
-            {{ displayDescription(step) }}
+        <Sparkles class="size-4 shrink-0 text-primary" />
+        <div class="min-w-0 flex-1">
+          <div class="truncate text-sm font-semibold text-foreground">
+            {{ agentTitle }}
           </div>
-        </template>
-      </ChainOfThoughtStep>
-    </ChainOfThoughtContent>
-  </ChainOfThought>
+          <div class="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px]">
+            <span class="shrink-0 text-muted-foreground">专家调用</span>
+            <span class="shrink-0 text-muted-foreground/40">·</span>
+            <span class="inline-flex min-w-0 items-center gap-1" :class="statusClass">
+              <Loader2 v-if="isRunning" class="size-3 shrink-0 animate-spin" />
+              <CheckCircle2 v-else-if="!isFailed" class="size-3 shrink-0" />
+              <XCircle v-else class="size-3 shrink-0" />
+              <span class="truncate">{{ statusText }}</span>
+            </span>
+          </div>
+        </div>
+        <ChevronDown
+          class="size-4 shrink-0 text-muted-foreground/60 transition-transform"
+          :class="{ 'rotate-180': isOpen }"
+        />
+      </CollapsibleTrigger>
+
+      <CollapsibleContent
+        class="border-t border-border/60 bg-background/40"
+      >
+        <div class="space-y-3 px-4 py-3">
+          <ChainOfThoughtStep
+            v-for="step in steps"
+            :key="step.key"
+            :label="step.label"
+            :description="''"
+            :status="step.status"
+            :class="step.isFailed ? 'text-destructive' : undefined"
+          >
+            <template #icon>
+              <component
+                :is="iconFor(step.kind)"
+                class="size-3.5 rounded-full p-0.5"
+                :class="stepColorClass[step.kind]"
+              />
+            </template>
+
+            <template v-if="step.kind === 'tool_call'">
+              <template v-if="step.status === 'active'">
+                <span class="text-muted-foreground text-xs">
+                  <Loader2 class="inline size-3 animate-spin" />
+                </span>
+              </template>
+              <AiToolRenderer v-else :tool-call="toolCallVMFromStep(step)" />
+            </template>
+
+            <template v-else>
+              <template v-if="isCollapsibleTextStep(step)">
+                <div
+                  v-if="!isStepExpanded(step)"
+                  class="text-muted-foreground text-xs cursor-pointer hover:text-foreground transition-colors"
+                  @click="toggleStepExpand(step)"
+                >
+                  {{ displayDescription(step) }}
+                </div>
+                <div
+                  v-else
+                  class="cursor-pointer"
+                  @click="toggleStepExpand(step)"
+                >
+                  <MessageResponse :content="step.fullContent" mode="static" />
+                </div>
+              </template>
+              <div v-else-if="displayDescription(step)" class="text-muted-foreground text-xs">
+                {{ displayDescription(step) }}
+              </div>
+            </template>
+          </ChainOfThoughtStep>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  </div>
 </template>
