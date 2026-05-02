@@ -15,6 +15,8 @@ import {
     buildUpsertSkillOp,
     listAllSkillsDAO,
     markSkillsDisabledByNamesDAO,
+    updateSkillCustomTitleDAO,
+    listEnabledSkillLabelsDAO,
     type UpsertSkillInput,
 } from './skillSync.dao'
 import { prisma } from '~~/server/utils/db'
@@ -172,4 +174,29 @@ export async function scanAndSyncSkillsService(skillsRoot?: string): Promise<Sca
     invalidateBackendCache()
 
     return result
+}
+
+/**
+ * 编辑 skill 的中文名（后台覆盖层）。
+ *
+ * @param name skill 主键
+ * @param raw 用户输入；trim 后空字符串等价 null（恢复代码默认）
+ * @throws Prisma P2025 当 name 不存在
+ *
+ * 注：不调用 invalidateNodeConfigCache / invalidateBackendCache。
+ * customTitle 仅服务于"用户端 /skills/labels 映射表 + 后台显示"，
+ * 与 NodeConfig（节点+模型+提示词）和 deepagents FilesystemBackend（按 skill 父目录加载 SKILL.md）
+ * 完全无关——这两个缓存内容里都不含 customTitle 字段。
+ */
+export async function updateSkillCustomTitleService(name: string, raw: string | null) {
+    const trimmed = typeof raw === 'string' ? raw.trim() : null
+    const customTitle = trimmed ? trimmed : null
+    return await updateSkillCustomTitleDAO(name, customTitle)
+}
+
+/**
+ * 列出启用 skill 的 name → label 映射（直接转发 DAO）。
+ */
+export async function listEnabledSkillLabelsService() {
+    return listEnabledSkillLabelsDAO()
 }
