@@ -1,11 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdir, writeFile, rm } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { resolve, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import {
     scanAndSyncSkillsService,
     parseSkillFrontmatterFromMarkdown,
 } from '~~/server/services/agent-platform/skills/skillSync.service'
+import { prisma } from '~~/server/utils/db'
 import { SkillSource, SkillStatus } from '#shared/types/skill'
 
 describe('parseSkillFrontmatterFromMarkdown', () => {
@@ -227,5 +229,66 @@ describe('scanAndSyncSkillsService', () => {
         const result = await scanAndSyncSkillsService(tempRoot)
         // stat 失败被吞，scanned 不含该项
         expect(result.scanned).not.toContain('broken_link')
+    })
+})
+
+describe('scanAndSyncSkillsService - title 兜底', () => {
+    let tmpRoot: string
+    const createdNames: string[] = []
+
+    afterEach(async () => {
+        if (tmpRoot) rmSync(tmpRoot, { recursive: true, force: true })
+        if (createdNames.length > 0) {
+            await prisma.skills.deleteMany({ where: { name: { in: createdNames } } })
+            createdNames.length = 0
+        }
+    })
+
+    it('SKILL.md 有 title 字段时入库 title=frontmatter.title', async () => {
+        tmpRoot = mkdtempSync(join(tmpdir(), 'skills-test-'))
+        const skillName = `t_skill_${Date.now()}_a`
+        createdNames.push(skillName)
+        const dir = join(tmpRoot, skillName)
+        mkdirSync(dir)
+        writeFileSync(
+            join(dir, 'SKILL.md'),
+            `---\nname: ${skillName}\ntitle: 中文名 A\n---\n\nbody`,
+        )
+
+        await scanAndSyncSkillsService(tmpRoot)
+
+        const row = await prisma.skills.findUnique({ where: { name: skillName } })
+        expect(row?.title).toBe('中文名 A')
+    })
+
+    it('SKILL.md 没 title 字段时入库 title=name（兜底）', async () => {
+        tmpRoot = mkdtempSync(join(tmpdir(), 'skills-test-'))
+        const skillName = `t_skill_${Date.now()}_b`
+        createdNames.push(skillName)
+        const dir = join(tmpRoot, skillName)
+        mkdirSync(dir)
+        writeFileSync(join(dir, 'SKILL.md'), `---\nname: ${skillName}\n---\n\nbody`)
+
+        await scanAndSyncSkillsService(tmpRoot)
+
+        const row = await prisma.skills.findUnique({ where: { name: skillName } })
+        expect(row?.title).toBe(skillName)
+    })
+
+    it('SKILL.md title 是空白字符串时入库 title=name（兜底）', async () => {
+        tmpRoot = mkdtempSync(join(tmpdir(), 'skills-test-'))
+        const skillName = `t_skill_${Date.now()}_c`
+        createdNames.push(skillName)
+        const dir = join(tmpRoot, skillName)
+        mkdirSync(dir)
+        writeFileSync(
+            join(dir, 'SKILL.md'),
+            `---\nname: ${skillName}\ntitle: "   "\n---\n\nbody`,
+        )
+
+        await scanAndSyncSkillsService(tmpRoot)
+
+        const row = await prisma.skills.findUnique({ where: { name: skillName } })
+        expect(row?.title).toBe(skillName)
     })
 })

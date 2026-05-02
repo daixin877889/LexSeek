@@ -133,7 +133,7 @@ export async function scanAndSyncSkillsService(skillsRoot?: string): Promise<Sca
                 name: fm.name,
                 path: `${SKILLS_FS_ROOT}/${entry}`,
                 source: SkillSource.FILESYSTEM,
-                title: fm.name,
+                title: fm.title?.trim() || fm.name,
                 description: fm.description ?? null,
                 version: fm.version ?? null,
             },
