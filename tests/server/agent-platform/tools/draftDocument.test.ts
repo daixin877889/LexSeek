@@ -229,8 +229,10 @@ describe('callbacks 注入 + 返回 JSON 含 subSessionId', () => {
         expect(typeof h.handleLLMNewToken).toBe('function')
         expect(typeof h.handleToolStart).toBe('function')
         expect(typeof h.handleToolEnd).toBe('function')
-        expect(typeof h.handleChainEnd).toBe('function')
-        expect(typeof h.handleChainError).toBe('function')
+        // chainEnd / chainError 已从 callback 内移除：status_change 由调用方在
+        // drainStream 完成后显式发，避免 LangGraph 多层 chain 提前触发 completed
+        expect(h.handleChainEnd).toBeUndefined()
+        expect(h.handleChainError).toBeUndefined()
     })
 
     it('成功返回 JSON 含 subSessionId 字段（值 = createDraftService 的 sessionId）', async () => {

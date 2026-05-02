@@ -1,25 +1,26 @@
 /**
  * buildSubAgentCallbacks 单测
  *
- * 验证 5 个 handler 行为：
- * - handleLLMNewToken → publishCustomEvent SUB_AGENT_TOKEN，metadata 含 messageId/delta
+ * 验证 3 个 handler 行为（status_change 由调用方在 invoke 完成后显式发，不在 callback 内）：
+ * - handleLLMNewToken → publishCustomEvent SUB_AGENT_TOKEN / SUB_AGENT_THINKING_TOKEN
  * - handleToolStart → publishCustomEvent SUB_AGENT_TOOL_START，data 含 innerToolCallId/input/cbRunId/toolName
  * - handleToolEnd → publishCustomEvent SUB_AGENT_TOOL_END，data 含 cbRunId/output
- * - handleChainEnd（root：cbParentRunId=undefined）→ publishStatusChange status='completed'
- * - handleChainEnd（非 root：cbParentRunId 存在）→ 不发事件
- * - handleChainError（root）→ publishStatusChange status='failed' + error message
  * - publish 抛错时不向上传播（.catch 兜底）
+ *
+ * 注：handleChainEnd / handleChainError 已删除——LangGraph 多层 chain 包装下 cbParentRunId
+ * === undefined 不止匹配最外层，子代理还在跑就会触发 completed → 前端 generatingModules
+ * 提前清空、跨标签 module:generating 提前广播 modules=[]。所有调用方（subAgentToolFactory /
+ * reviewContract / draftDocument）已经在 invoke / drainStream 完成后显式调
+ * publishSubAgentStatus 兜底。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const { publishCustomEventMock, publishStatusChangeMock } = vi.hoisted(() => ({
+const { publishCustomEventMock } = vi.hoisted(() => ({
     publishCustomEventMock: vi.fn().mockResolvedValue(undefined),
-    publishStatusChangeMock: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('~~/server/services/agent/agentEventBridge', () => ({
     publishCustomEvent: publishCustomEventMock,
-    publishStatusChange: publishStatusChangeMock,
 }))
 vi.mock('#shared/utils/logger', () => ({
     logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -44,15 +45,16 @@ const expectedMeta = {
 describe('buildSubAgentCallbacks', () => {
     beforeEach(() => { vi.clearAllMocks() })
 
-    it('返回单元素数组 + 含 5 个 handler', () => {
+    it('返回单元素数组 + 仅含 3 个增量事件 handler（status_change 由调用方在 invoke 后显式发）', () => {
         const cbs = buildSubAgentCallbacks(opts)
         expect(cbs).toHaveLength(1)
         const h = cbs[0]!
         expect(typeof h.handleLLMNewToken).toBe('function')
         expect(typeof h.handleToolStart).toBe('function')
         expect(typeof h.handleToolEnd).toBe('function')
-        expect(typeof h.handleChainEnd).toBe('function')
-        expect(typeof h.handleChainError).toBe('function')
+        // status_change 不再由 callback 发——避免 LangGraph 多层 chain 提前触发 completed
+        expect(h.handleChainEnd).toBeUndefined()
+        expect(h.handleChainError).toBeUndefined()
     })
 
     it('handleLLMNewToken → publishCustomEvent SUB_AGENT_TOKEN', async () => {
@@ -176,51 +178,6 @@ describe('buildSubAgentCallbacks', () => {
         }))
     })
 
-    it('handleChainEnd root（cbParentRunId=undefined）→ publishStatusChange completed', async () => {
-        const h = buildSubAgentCallbacks(opts)[0]!
-        await h.handleChainEnd!({}, 'cb-4', undefined)
-        expect(publishStatusChangeMock).toHaveBeenCalledWith({
-            type: 'status_change',
-            runId: 'run-1',
-            sessionId: 'sess-1',
-            status: 'completed',
-            metadata: expectedMeta,
-        })
-    })
-
-    it('handleChainEnd 非 root（cbParentRunId 存在）→ 不发事件', async () => {
-        const h = buildSubAgentCallbacks(opts)[0]!
-        await h.handleChainEnd!({}, 'cb-5', 'parent-1')
-        expect(publishStatusChangeMock).not.toHaveBeenCalled()
-    })
-
-    it('handleChainError root → publishStatusChange failed + error message', async () => {
-        const h = buildSubAgentCallbacks(opts)[0]!
-        await h.handleChainError!(new Error('boom'), 'cb-6', undefined)
-        expect(publishStatusChangeMock).toHaveBeenCalledWith({
-            type: 'status_change',
-            runId: 'run-1',
-            sessionId: 'sess-1',
-            status: 'failed',
-            error: 'boom',
-            metadata: expectedMeta,
-        })
-    })
-
-    it('handleChainError 非 root → 不发事件', async () => {
-        const h = buildSubAgentCallbacks(opts)[0]!
-        await h.handleChainError!(new Error('boom'), 'cb-7', 'parent-2')
-        expect(publishStatusChangeMock).not.toHaveBeenCalled()
-    })
-
-    it('handleChainError 非 Error 实例（字符串）→ 用 String(error)', async () => {
-        const h = buildSubAgentCallbacks(opts)[0]!
-        await h.handleChainError!('string-error' as any, 'cb-8', undefined)
-        expect(publishStatusChangeMock).toHaveBeenCalledWith(expect.objectContaining({
-            error: 'string-error',
-        }))
-    })
-
     it('publishCustomEvent 抛错时不向上传播（.catch 兜底，handleLLMNewToken）', async () => {
         publishCustomEventMock.mockRejectedValueOnce(new Error('redis down'))
         const h = buildSubAgentCallbacks(opts)[0]!
@@ -237,17 +194,5 @@ describe('buildSubAgentCallbacks', () => {
         publishCustomEventMock.mockRejectedValueOnce(new Error('redis down'))
         const h = buildSubAgentCallbacks(opts)[0]!
         await expect(h.handleToolEnd!('out', 'cb')).resolves.toBeUndefined()
-    })
-
-    it('publishStatusChange 抛错时不向上传播', async () => {
-        publishStatusChangeMock.mockRejectedValueOnce(new Error('redis down'))
-        const h = buildSubAgentCallbacks(opts)[0]!
-        await expect(h.handleChainEnd!({}, 'cb', undefined)).resolves.toBeUndefined()
-    })
-
-    it('publishStatusChange 抛错时不向上传播（.catch 兜底，handleChainError）', async () => {
-        publishStatusChangeMock.mockRejectedValueOnce(new Error('redis down'))
-        const h = buildSubAgentCallbacks(opts)[0]!
-        await expect(h.handleChainError!(new Error('boom'), 'cb', undefined)).resolves.toBeUndefined()
     })
 })

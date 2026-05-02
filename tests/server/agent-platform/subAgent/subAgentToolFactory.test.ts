@@ -253,7 +253,7 @@ describe('createSubAgentTools', () => {
         expect(getToolInstancesService).toHaveBeenCalledWith(['search_law'], expect.objectContaining({ userId: 1 }))
     })
 
-    it('callbacks：handleLLMNewToken / ToolStart / ToolEnd / ChainEnd 各自发对应事件', async () => {
+    it('callbacks：handleLLMNewToken / ToolStart / ToolEnd 各自发对应事件（chainEnd 已删除）', async () => {
         let capturedCallbacks: any
         createAgentMock.mockReturnValue({
             invoke: vi.fn().mockImplementation(async (_input: any, opts: any) => {
@@ -264,17 +264,20 @@ describe('createSubAgentTools', () => {
         const tools = await createSubAgentTools([makeNodeConfig()], baseCtx)
         await tools[0].invoke({ question: 'q' }, { toolCall: { id: 'parent-tc' } } as any)
 
-        // 触发 4 种回调
+        // 触发 3 种增量事件回调（status_change 由调用方在 invoke 完成后显式发，不在 callback 内）
         capturedCallbacks.handleLLMNewToken('片段', null, 'cb-1')
         capturedCallbacks.handleToolStart({}, '工具入参', 'cb-2', 'parent', [], {}, 'name', 'inner-tc')
         capturedCallbacks.handleToolEnd({ data: 'x' }, 'cb-3')
-        // 非 root（cbParentRunId !== undefined）→ 不发
-        capturedCallbacks.handleChainEnd({}, 'cb-4', 'parent')
-        // root → 发 completed
-        capturedCallbacks.handleChainEnd({}, 'cb-5')
 
-        // 4 个 publishCustomEvent + 1 个 publishStatusChange(completed)
+        // chainEnd / chainError 已从 callback 内删除：LangGraph 多层 chain 包装下 cbParentRunId
+        // === undefined 不止匹配最外层（inner LLM/RunnableSequence 也是 root），子代理还在跑就
+        // 触发 completed → 前端 generatingModules 提前清空、跨标签 module:generating 提前广播
+        // modules=[]。改由 subAgentToolFactory 在 invoke 完成后调 publishSubAgentStatus。
+        expect(capturedCallbacks.handleChainEnd).toBeUndefined()
+        expect(capturedCallbacks.handleChainError).toBeUndefined()
+
         expect(publishCustomEventMock).toHaveBeenCalledTimes(3)
+        // invoke 成功路径：subAgentToolFactory 显式发 completed
         expect(publishStatusChangeMock).toHaveBeenCalledWith(expect.objectContaining({ status: 'completed' }))
 
         const tokenCall = publishCustomEventMock.mock.calls.find(c => c[0].name === 'sub_agent_token')
@@ -303,14 +306,10 @@ describe('createSubAgentTools', () => {
     })
 })
 
-describe('handleChainError 新增覆盖', () => {
-    it('子代理 chain 抛错触发 handleChainError → publishStatusChange failed', async () => {
-        let capturedCallbacks: any[] = []
+describe('invoke 抛错路径', () => {
+    it('子代理 invoke 抛错 → tool catch 块发 publishStatusChange failed（callback 内 chain handlers 已删）', async () => {
         createAgentMock.mockReturnValue({
-            invoke: vi.fn(async (_input, opts) => {
-                capturedCallbacks = opts.callbacks
-                const h = capturedCallbacks[0]
-                await h.handleChainError(new Error('chain failed'), 'cb-r', undefined)
+            invoke: vi.fn(async () => {
                 throw new Error('chain failed')
             }),
         })
@@ -319,7 +318,7 @@ describe('handleChainError 新增覆盖', () => {
             { ...baseCtx },
         )
         const result = await tools[0]!.invoke({ question: 'q' }, { toolCall: { id: 'tc-X' } } as any)
-        // tool catch 块也会 publishStatusChange failed（双发，但 metadata 一致；都为 best-effort）
+        // tool catch 块发 failed（唯一 publish 路径——chain callbacks 中已无 status_change 发送）
         expect(publishStatusChangeMock).toHaveBeenCalledWith(expect.objectContaining({
             status: 'failed',
             error: 'chain failed',
