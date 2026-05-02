@@ -1,3 +1,11 @@
+-- =========================================================================
+-- 已废弃（2026-05-02）：合同审查双锚点重构（PR 2，migration
+-- refactor_contract_risks_dual_anchor）已要求各开发者在 dev 库 truncate
+-- contract_risks / contract_annotations / contract_review_legacy_risks_backup /
+-- contract_review_versions 全表；review 863 的脏数据随之清空，本脚本不再
+-- 有数据可清。脚本保留作为历史现场参考，不要再执行。
+-- =========================================================================
+
 -- 一次性清理 review 863 在 Phase C 改造前被误判的脏数据
 --
 -- 前置条件：

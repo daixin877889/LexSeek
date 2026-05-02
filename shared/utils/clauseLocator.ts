@@ -7,7 +7,7 @@
  *
  * 0. paragraphIndex 直定位（"非空段落序号"空间，与后端
  *    server/agents/contract/utils/clauseToParagraph.ts 同口径）
- *    —— 解决 reviewed docx 注入批注后段落 textContent 与原 anchor_quote 因
+ *    —— 解决 reviewed docx 注入批注后段落 textContent 与原 clause_text 因
  *    全角/半角/特殊空格等微差异致文本匹配失败的问题
  * 1. 精确子串匹配（按块级元素，归一化空白；逐行尝试前 3 行）
  * 2. 模糊匹配：取首行前 20 字 + 去标点空白，作子串/前缀匹配
