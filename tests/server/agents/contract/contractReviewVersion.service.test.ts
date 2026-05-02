@@ -199,8 +199,8 @@ describe('contractReviewVersion.service', () => {
                 data: {
                     reviewId, source: 'ai', category: 'test',
                     level: 'medium', stance: 'balanced',
-                    problem: 'p', anchorQuote: 'q',
-                    anchorParagraphIndex: 0,
+                    problem: 'p', clauseText: 'q',
+                    clauseParagraphIndex: 0,
                 },
             })
             await prisma.contractAnnotations.create({
@@ -219,8 +219,8 @@ describe('contractReviewVersion.service', () => {
                 data: {
                     reviewId, source: 'ai', category: 'test',
                     level: 'medium', stance: 'balanced',
-                    problem: 'p', anchorQuote: 'q',
-                    anchorParagraphIndex: 0,
+                    problem: 'p', clauseText: 'q',
+                    clauseParagraphIndex: 0,
                 },
             })
             await prisma.contractAnnotations.create({
@@ -404,7 +404,7 @@ describe('contractReviewVersion.service', () => {
 
         it('happy path：返回 downloadUrl + filename', async () => {
             const risk = {
-                id: 1, anchorQuote: '原文', anchorParagraphIndex: 0,
+                id: 1, clauseText: '原文', clauseParagraphIndex: 0,
                 level: 'medium', category: 'test', problem: 'p',
                 analysis: 'a', suggestion: 's',
                 source: 'ai', stance: 'balanced',
@@ -443,8 +443,8 @@ describe('contractReviewVersion.service', () => {
                 data: {
                     reviewId, source: 'ai', category: 't',
                     level: 'low', stance: 'balanced',
-                    problem: 'p', anchorQuote: 'q',
-                    anchorParagraphIndex: 0,
+                    problem: 'p', clauseText: 'q',
+                    clauseParagraphIndex: 0,
                 },
             })
             const dbAnn = await prisma.contractAnnotations.create({
@@ -459,7 +459,7 @@ describe('contractReviewVersion.service', () => {
                 data: {
                     reviewId, versionNumber: 2, systemLabel: 'lawyer_save',
                     snapshotData: {
-                        risks: [{ id: dbRisk.id, anchorQuote: 'q', anchorParagraphIndex: 0, level: 'low', category: 't', problem: 'p' }],
+                        risks: [{ id: dbRisk.id, clauseText: 'q', clauseParagraphIndex: 0, level: 'low', category: 't', problem: 'p' }],
                         annotations: [{ id: dbAnn.id, riskId: dbRisk.id, authorType: 'ai', authorName: 'AI', content: 'c', parentAnnotationId: null, wordCommentRef: null }],
                     },
                     createdById: userId,
@@ -480,7 +480,7 @@ describe('contractReviewVersion.service', () => {
         })
 
         it('signedUrl 抛错 → 触发孤儿清理 + inject_failed', async () => {
-            const risk = { id: 1, anchorQuote: 'q', anchorParagraphIndex: 0, level: 'low', category: 't', problem: 'p' }
+            const risk = { id: 1, clauseText: 'q', clauseParagraphIndex: 0, level: 'low', category: 't', problem: 'p' }
             const annotation = { id: 10, riskId: 1, authorType: 'ai', authorName: 'AI', content: 'c', parentAnnotationId: null, wordCommentRef: 'LEXSEEK-10-abcd1234' }
             const v = await prisma.contractReviewVersions.create({
                 data: {
@@ -503,7 +503,7 @@ describe('contractReviewVersion.service', () => {
         })
 
         it('signedUrl 抛错 + delete 也抛错 → 仍返回 inject_failed（不冒泡 cleanup error）', async () => {
-            const risk = { id: 1, anchorQuote: 'q', anchorParagraphIndex: 0, level: 'low', category: 't', problem: 'p' }
+            const risk = { id: 1, clauseText: 'q', clauseParagraphIndex: 0, level: 'low', category: 't', problem: 'p' }
             const annotation = { id: 10, riskId: 1, authorType: 'ai', authorName: 'AI', content: 'c', parentAnnotationId: null, wordCommentRef: 'LEXSEEK-10-abcd1234' }
             const v = await prisma.contractReviewVersions.create({
                 data: {

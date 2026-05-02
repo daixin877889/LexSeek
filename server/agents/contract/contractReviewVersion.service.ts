@@ -219,7 +219,7 @@ export type DownloadVersionResult =
  *
  * 基底文件优先级：version.docxFileId（客户回传原件）→ review.originalFileId。
  * 过滤：
- *   - annotation 关联的 risk.anchorParagraphIndex 为 null → 跳过（孤立批注无法注入）
+ *   - annotation 关联的 risk.clauseParagraphIndex 为 null → 跳过（孤立批注无法注入）
  *   - risk.orphaned === true → 跳过（原文已变更，批注无意义）
  */
 export async function downloadContractReviewVersionService(
@@ -276,7 +276,7 @@ export async function downloadContractReviewVersionService(
     for (const a of snapshot.annotations) {
         const risk = riskById.get(a.riskId)
         // VER-R3：共享 isAnnotationExportable 谓词（含 deletedAt / suppressInExport /
-        // anchorParagraphIndex / orphaned 四条规则），与 rebuild service / middleware 同口径。
+        // clauseParagraphIndex / orphaned 四条规则），与 rebuild service / middleware 同口径。
         if (!isAnnotationExportable(a, risk)) continue
         if (!risk) continue // 类型守卫：上面已 guard，这里仅缩窄类型
         exportable.push({
@@ -286,9 +286,9 @@ export async function downloadContractReviewVersionService(
             authorName: a.authorName,
             content: a.content,
             parentAnnotationId: a.parentAnnotationId,
-            anchorQuote: risk.anchorQuote,
-            // isAnnotationExportable 已 guard anchorParagraphIndex !== null
-            anchorParagraphIndex: risk.anchorParagraphIndex!,
+            anchorQuote: risk.clauseText,                       // commentInjector 入参字段名保留
+            // isAnnotationExportable 已 guard clauseParagraphIndex !== null
+            anchorParagraphIndex: risk.clauseParagraphIndex!,   // commentInjector 入参字段名保留
             // 优先 snapshot 冻结值；null 时回退到 DB 当前值；仍 null → injectAnnotations
             // 当场生成新的（单次下载内所有 ref 依然一致，只是跨下载会变）
             wordCommentRef: a.wordCommentRef ?? dbRefByAnnId.get(a.id) ?? null,
