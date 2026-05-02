@@ -62,8 +62,8 @@ export async function rebuildDocxService(review: contractReviews): Promise<Rebui
         authorName: a.authorName,
         content: a.content,
         parentAnnotationId: a.parentAnnotationId,
-        anchorQuote: a.risk.anchorQuote,
-        anchorParagraphIndex: a.risk.anchorParagraphIndex!,
+        anchorQuote: a.risk.clauseText,
+        anchorParagraphIndex: a.risk.clauseParagraphIndex!,
         wordCommentRef: a.wordCommentRef,
         createdAt: a.createdAt,
     }))
