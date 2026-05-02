@@ -17,22 +17,132 @@ export type ContractReviewStatus =
     | 'failed'
 
 /**
- * 合同类型候选集。
+ * 合同类型大类（11 种）。
  *
- * 仅作为 LLM prompt 的提示词使用（"从这些里选一个或返回其它"）；
- * DB 存储为 varchar(50) 不加约束，允许 LLM 在必要时输出新类型。
- * 所有引用这个列表的代码（如 partyDetector 的 prompt 模板）都应从这里导入，
- * 避免枚举硬编码在多处形成偏差。
+ * 用途：管理页左侧一级 Tab 与 UI 归类。
+ * DB 不存大类（contract_playbooks.contractType 存的是细分），大类通过 SUBTYPE_TO_CATEGORY 推导。
+ */
+export const CONTRACT_TYPE_CATEGORIES = [
+    '劳动用工',
+    '保密协议',
+    '买卖合同',
+    '租赁合同',
+    '服务承揽委托',
+    '仓储物流',
+    '担保借贷',
+    '婚姻家庭继承',
+    '知识产权',
+    '软件与创作',
+    '互联网平台',
+] as const
+
+export type ContractTypeCategory = typeof CONTRACT_TYPE_CATEGORIES[number]
+
+/**
+ * 合同类型细分候选集（41 种 + "其他" 兜底）。
+ *
+ * 用途：
+ *  - LLM partyDetector 的候选集（"从这些里选一个或返回其它"）
+ *  - 管理页右侧二级列表（按大类归类，参见 CATEGORY_TO_SUBTYPES）
+ *  - contract_playbooks.contractType 字段值域
+ *
+ * DB 存储为 varchar(50) 不加约束，允许 LLM 在必要时输出新类型；管理端 z.enum 校验仍以本数组为准。
  */
 export const CONTRACT_TYPE_OPTIONS = [
+    // 劳动用工
     '劳动合同',
-    '租赁合同',
-    '买卖合同',
-    '服务合同',
-    '借款合同',
+    '劳务派遣协议',
+    '业务外包合同',
+    '退休返聘合同',
+    '学生实习协议',
+    '非全日制劳动合同',
+    '竞业限制协议',
+    '培训服务期协议',
+    '个人劳务承包合同',
+    // 保密
     '保密协议',
+    // 买卖
+    '动产买卖合同',
+    '二手房买卖合同',
+    '经销买卖合同',
+    // 租赁
+    '房产租赁合同',
+    '建筑设备租赁合同',
+    // 服务承揽委托
+    '服务类合同',
+    '承揽合同',
+    '委托合同',
+    '中介合同',
+    '消费者服务合同',
+    // 仓储物流
+    '保管合同',
+    '仓储合同',
+    '运输合同',
+    // 担保借贷
+    '保证合同',
+    '抵押/质押合同',
+    '民间借款合同',
+    '赠与合同',
+    // 婚姻家庭继承
+    '夫妻财产约定',
+    '离婚协议',
+    '遗赠扶养协议',
+    '遗嘱',
+    // 知识产权
+    '知识产权转让合同',
+    '知识产权许可合同',
+    '商标转让合同',
+    '商标许可合同',
+    // 软件与创作
+    '软件委托开发合同',
+    '软件许可合同（分发许可模式）',
+    '软件许可合同（自用许可模式）',
+    '委托创作合同',
+    // 互联网平台
+    '隐私政策（用户协议）',
+    '订单协议（电商平台）',
+    // LLM 兜底
     '其他',
 ] as const
+
+/** 大类 → 该大类下的细分清单（管理页二级展开使用，顺序与 UI 渲染一致） */
+export const CATEGORY_TO_SUBTYPES: Record<ContractTypeCategory, string[]> = {
+    劳动用工: [
+        '劳动合同',
+        '劳务派遣协议',
+        '业务外包合同',
+        '退休返聘合同',
+        '学生实习协议',
+        '非全日制劳动合同',
+        '竞业限制协议',
+        '培训服务期协议',
+        '个人劳务承包合同',
+    ],
+    保密协议: ['保密协议'],
+    买卖合同: ['动产买卖合同', '二手房买卖合同', '经销买卖合同'],
+    租赁合同: ['房产租赁合同', '建筑设备租赁合同'],
+    服务承揽委托: ['服务类合同', '承揽合同', '委托合同', '中介合同', '消费者服务合同'],
+    仓储物流: ['保管合同', '仓储合同', '运输合同'],
+    担保借贷: ['保证合同', '抵押/质押合同', '民间借款合同', '赠与合同'],
+    婚姻家庭继承: ['夫妻财产约定', '离婚协议', '遗赠扶养协议', '遗嘱'],
+    知识产权: ['知识产权转让合同', '知识产权许可合同', '商标转让合同', '商标许可合同'],
+    软件与创作: [
+        '软件委托开发合同',
+        '软件许可合同（分发许可模式）',
+        '软件许可合同（自用许可模式）',
+        '委托创作合同',
+    ],
+    互联网平台: ['隐私政策（用户协议）', '订单协议（电商平台）'],
+}
+
+/** 细分 → 大类反查映射（不含 "其他"，由 CATEGORY_TO_SUBTYPES 自动派生，保持单一数据源） */
+export const SUBTYPE_TO_CATEGORY: Readonly<Record<string, ContractTypeCategory>> = Object.freeze(
+    Object.fromEntries(
+        (Object.entries(CATEGORY_TO_SUBTYPES) as [ContractTypeCategory, string[]][]).flatMap(
+            ([cat, subs]) => subs.map(sub => [sub, cat] as [string, ContractTypeCategory]),
+        ),
+    ),
+)
 
 /** 单条风险（存 contractReviews.risks JSON 字段；schema 层 refine 强制 high/medium 必含 suggestedClauseText） */
 export interface Risk {
