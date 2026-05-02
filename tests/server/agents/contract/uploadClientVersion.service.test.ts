@@ -290,8 +290,8 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                     reviewId, source: 'ai',
                     category: '风险', level: 'medium',
                     problem: '违约金偏高',
-                    anchorQuote: '第一条 甲方应支付首付款。',
-                    anchorParagraphIndex: 0,
+                    clauseText: '第一条 甲方应支付首付款。',
+                    clauseParagraphIndex: 0,
                 },
             })
             const sysAnn = await prisma.contractAnnotations.create({
@@ -342,8 +342,8 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                 data: {
                     reviewId, source: 'ai', category: '风险',
                     level: 'medium', problem: '原始问题',
-                    anchorQuote: '第一条 甲方应支付首付款。',
-                    anchorParagraphIndex: 0,
+                    clauseText: '第一条 甲方应支付首付款。',
+                    clauseParagraphIndex: 0,
                 },
             })
             const sysAnn = await prisma.contractAnnotations.create({
@@ -417,7 +417,7 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                 data: {
                     reviewId, source: 'ai', category: '风险',
                     level: 'medium', problem: 'p',
-                    anchorQuote: 'q', anchorParagraphIndex: 0,
+                    clauseText: 'q', clauseParagraphIndex: 0,
                 },
             })
             await prisma.contractAnnotations.create({
@@ -457,7 +457,7 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                 data: {
                     reviewId, source: 'ai', category: '风险',
                     level: 'medium', problem: 'p',
-                    anchorQuote: 'q', anchorParagraphIndex: 0,
+                    clauseText: 'q', clauseParagraphIndex: 0,
                 },
             })
             const sysAnn = await prisma.contractAnnotations.create({
@@ -569,14 +569,14 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
             const newParas = ['第一条 这是旧条款 A 的全文，超过四十个字符方便后续 oldClauseHead 匹配命中。修改追加。', '第二条 旧 B。']
             await setupV1Snapshot(oldText, newParas)
 
-            // 预置一个 ai risk（anchorQuote 包含 oldClauseHead）
+            // 预置一个 ai risk（clauseText 包含 oldClauseHead）
             const oldHead = oldText.split('\n')[0]!.slice(0, 40)
             const existingRisk = await prisma.contractRisks.create({
                 data: {
                     reviewId, source: 'ai', category: '原',
                     level: 'low', stance: 'balanced',
-                    problem: '原 problem', anchorQuote: oldHead,
-                    anchorParagraphIndex: 0,
+                    problem: '原 problem', clauseText: oldHead,
+                    clauseParagraphIndex: 0,
                 },
             })
 
@@ -658,8 +658,8 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                 data: {
                     reviewId, source: 'ai', category: 't',
                     level: 'low', stance: 'balanced',
-                    problem: 'p', anchorQuote: 'q',
-                    anchorParagraphIndex: 0,
+                    problem: 'p', clauseText: 'q',
+                    clauseParagraphIndex: 0,
                 },
             })
             await prisma.contractAnnotations.create({
@@ -744,7 +744,7 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                 data: {
                     reviewId, source: 'ai', category: '风险',
                     level: 'medium', problem: 'p',
-                    anchorQuote: 'q', anchorParagraphIndex: 0,
+                    clauseText: 'q', clauseParagraphIndex: 0,
                 },
             })
             await prisma.contractAnnotations.create({
