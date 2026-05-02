@@ -1,6 +1,6 @@
 # 数据模型
 
-LexSeek 使用 Prisma ORM + PostgreSQL 管理数据，采用模块化 schema 拆分，共 23 个 `.prisma` 模型文件，覆盖用户、案件、会员、支付、权限、AI 模型、法律知识库、合同审查等核心业务域。
+LexSeek 使用 Prisma ORM + PostgreSQL 管理数据，采用模块化 schema 拆分，共 28 个 `.prisma` 模型文件，覆盖用户、案件、会员、支付、权限、AI 模型、法律知识库、合同审查、文书起草、Agent skills 等核心业务域。
 
 ---
 
@@ -31,8 +31,13 @@ LexSeek 使用 Prisma ORM + PostgreSQL 管理数据，采用模块化 schema 拆
 | `system.prisma` | `systemConfigs` | 系统配置 |
 | `legal.prisma` | `legalMain`, `legalArticles`, `lawEmbeddings` | 法律知识库 |
 | `agentRun.prisma` | `agentRuns` | Agent 任务队列 |
-| `checkpoint.prisma` | (空，保留文件) | LangGraph 检查点 |
-| `contractReview.prisma` | `contractReviews` | 合同审查 |
+| `contractReview.prisma` | `contractReviews` | 合同审查主表 |
+| `contractPlaybook.prisma` | `contractPlaybooks` | 合同审查规则库（playbook 要点） |
+| `contractReviewVersion.prisma` | `contractReviewVersions` | 合同审查版本快照（律师保存 / 客户回传） |
+| `contractRiskAndAnnotation.prisma` | `contractRisks`, `contractAnnotations` | 合同审查风险点与批注 |
+| `contractReviewLegacyBackup.prisma` | `contractReviewLegacyRisksBackup` | 合同审查历史风险数据备份（迁移期保留） |
+| `document.prisma` | `documentTemplates`, `documentDrafts`, `documentDraftSnapshots`, `documentDraftVersions` | 文档起草（模板 + 草稿版本） |
+| `skill.prisma` | `skills`, `node_skills` | Agent skills 注册表与节点关联 |
 
 ---
 

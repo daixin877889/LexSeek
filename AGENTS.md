@@ -39,11 +39,12 @@ LexSeek 是一个全栈法律服务 AI 应用，通过 AI 赋能法律分析。
 | types.md | 全局 |
 | database.md | 全局 |
 | api.md | server/** |
-| ui.md | app/components/**, app/**/*.vue |
+| ui.md | app/components/**, app/pages/**, app/**/*.vue |
 | testing.md | tests/** |
 | fetch.md | app/** |
-| tech-docs.md | server/services/**, prisma/** |
-| tech-docs-frontend.md | app/components/**, app/composables/**, app/store/** |
+| tech-docs.md | server/services/**, server/lib/**, prisma/** |
+| tech-docs-frontend.md | app/components/**, app/composables/**, app/store/**, app/layouts/**, app/pages/** |
+| agent-platform.md | server/services/agent-platform/**, server/agents/**, server/services/memory/** |
 
 ## 技术文档
 
