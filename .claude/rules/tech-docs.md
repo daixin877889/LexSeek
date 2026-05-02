@@ -40,6 +40,7 @@ paths:
 | `server/services/material/` | `docs/tech-docs/backend/material.md` |
 | `server/services/agent/`、`server/services/sse/` | `docs/tech-docs/backend/agent.md` |
 | `server/services/agent-platform/`、`server/agents/` | `docs/tech-docs/patterns/workflow-middleware.md` + 阅读 `agent-platform/factory/defineDomainAgent.ts` 与 `registry/agentRegistry.ts` 源码 |
+| `server/agents/contract/`、`server/api/v1/assistant/contract/`、`server/api/v1/admin/contract-*/` | `docs/tech-docs/backend/contract.md` |
 | `server/services/memory/` | 暂无独立文档；阅读 `services/memory/memory.service.ts` + `agent-platform/middleware/afterAgentMemory.middleware.ts` |
 | `server/services/security/` | 阅读 `services/security/aliyunCaptcha.service.ts` + `loginRisk.service.ts` |
 | `server/services/retrieval/` | `docs/tech-docs/backend/retrieval.md` |
@@ -52,7 +53,7 @@ paths:
 | `server/services/rbac/` | `docs/tech-docs/backend/rbac.md` |
 | `server/services/auth/`、`users/`、`sms/` | `docs/tech-docs/backend/auth-users-sms.md` |
 | `server/services/audit/` | 阅读 `services/audit/auditLog.service.ts`（含订单/支付审计 log 函数） |
-| `server/services/assistant/` | 阅读 `services/assistant/document/` 与 `services/assistant/contract/` 子目录 |
+| `server/services/assistant/` | 阅读 `services/assistant/document/`（合同实体已迁到 `server/agents/contract/` → 见 `backend/contract.md`，`services/assistant/contract/` 仅保留 re-export shim） |
 | `server/lib/storage/`、`server/lib/oss/` | `docs/tech-docs/patterns/adapter-factory.md` |
 | `prisma/` | `docs/tech-docs/infra/database.md` + `docs/tech-docs/architecture/data-model.md` |
 
