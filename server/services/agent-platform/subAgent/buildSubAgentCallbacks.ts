@@ -4,12 +4,16 @@
  * 与 useStreamChat.subThreadsMap 协议对齐：metadata.parentToolCallId 是分桶 key，
  * 前端按此命中并累积 messages，让 SubAgentChainOfThought 自动渲染。
  *
- * 旧 subAgentToolFactory 内联实现漏了 handleChainError，本 helper 一并补齐：
- * 子代理 chain 抛错时主流也能收到 status='failed' 让 CoT 显示红徽章。
+ * 仅负责 token / tool_start / tool_end 三类增量事件转发；
+ * status_change（completed / failed）的发送由调用方在 invoke / drainStream 完成后
+ * 通过 publishSubAgentStatus 显式发——callback 内的 handleChainEnd 在
+ * LangGraph 多层 chain 包装下 cbParentRunId === undefined 不止匹配最外层
+ * （某个 inner LLM/RunnableSequence 也是 root level chain），子代理还在跑就发
+ * completed 会让前端 generatingModules 提前清空、跨标签同步丢"生成中"状态。
  */
 import type { CallbackHandlerMethods, HandleLLMNewTokenCallbackFields } from '@langchain/core/callbacks/base'
 import { BaseMessage } from '@langchain/core/messages'
-import { publishCustomEvent, publishStatusChange } from '~~/server/services/agent/agentEventBridge'
+import { publishCustomEvent } from '~~/server/services/agent/agentEventBridge'
 import { SSECustomEventType } from '#shared/types/agentEvent'
 import { logger } from '#shared/utils/logger'
 
@@ -125,29 +129,11 @@ export function buildSubAgentCallbacks(opts: BuildSubAgentCallbacksOptions): Cal
                 metadata: meta,
             }).catch((e: unknown) => logger.warn('publishCustomEvent(SUB_AGENT_TOOL_END) failed', { e }))
         },
-        async handleChainEnd(_outputs: unknown, _cbRunId: string, cbParentRunId?: string) {
-            // 仅 root chain（无 parent）才视为整个子流结束
-            if (cbParentRunId !== undefined) return
-            await publishStatusChange({
-                type: 'status_change',
-                runId: mainRunId,
-                sessionId,
-                status: 'completed',
-                metadata: meta,
-            }).catch((e: unknown) => logger.warn('publishStatusChange(sub completed) failed', { e }))
-        },
-        async handleChainError(error: Error, _cbRunId: string, cbParentRunId?: string) {
-            if (cbParentRunId !== undefined) return
-            // 防御：LangChain 类型签名是 Error，但运行时可能存在非 Error 值（字符串等）
-            const message = error instanceof Error ? error.message : String(error)
-            await publishStatusChange({
-                type: 'status_change',
-                runId: mainRunId,
-                sessionId,
-                status: 'failed',
-                error: message,
-                metadata: meta,
-            }).catch((e: unknown) => logger.warn('publishStatusChange(sub failed) failed', { e }))
-        },
+        // status_change 不在 callback 内发：handleChainEnd 在 LangGraph 内部多层
+        // chain 中 cbParentRunId === undefined 不止匹配最外层（subAgent 还在跑就触发
+        // completed → 前端 bucket.status 提前翻 completed → generatingModules 清空 →
+        // 跨标签广播 modules=[]）。所有子代理工具（subAgentToolFactory /
+        // reviewContract / draftDocument）已经在 invoke / drainStream 完成后显式调
+        // publishSubAgentStatus，callback 这里再发是冗余且时机错误。
     }]
 }
