@@ -264,14 +264,20 @@ function handleUpdateVersionNote(versionId: number, note: string | null) {
  */
 const effectiveRisks = computed<RiskDisplay[]>(() => {
     const entities = versioning.currentView.value.risks
-    if (entities.length > 0) {
-        return entities.map<RiskDisplay>(e => ({
+    /**
+     * 把 entity row 映射成 RiskDisplay。两条产生 entity 数据的路径：
+     * - versioning.workspace（Phase A 后的工作区数据）→ entities 数组
+     * - review.value.risks（GET /reviews/:id 的 entity 转换数组，在 currentVersionId 不为空时返回）
+     * 两边 shape 一致，统一用本函数映射，不能直接 spread——否则 entity 字段名（anchorQuote / problem / id:number）
+     * 跟 RiskDisplay 期望（clauseText / risk / id:string）错位，导致 RiskClauseDiff 收到 clauseText=undefined
+     * 触发 dmp.diff_main(undefined) Throw 让整个 Vue 渲染崩溃 + 风险卡无法点击。
+     */
+    function mapEntityToDisplay(e: any): RiskDisplay {
+        return {
             id: String(e.id),
-            entityId: e.id,
+            entityId: typeof e.id === 'number' ? e.id : undefined,
             clauseIndex: e.anchorParagraphIndex ?? 0,
             clauseText: e.anchorQuote,
-            // 独立透传 anchorParagraphIndex：clauseIndex 在 entity 缺失时回落 0，
-            // 而 clauseLocator 优先级 0 必须能区分"未知"与"第 0 段"
             anchorParagraphIndex: e.anchorParagraphIndex,
             level: e.level,
             category: e.category,
@@ -280,12 +286,22 @@ const effectiveRisks = computed<RiskDisplay[]>(() => {
             analysis: e.analysis ?? '',
             risk: e.problem,
             suggestion: e.suggestion ?? '',
-            // AI 改写文本：RiskClauseDiff 据此做字符级 diff 着色
             suggestedClauseText: e.suggestedClauseText ?? undefined,
             archivedStatus: e.archivedStatus,
-        }))
+        }
     }
-    return (review.value?.risks ?? []).map<RiskDisplay>(r => ({ ...r }))
+
+    if (entities.length > 0) {
+        return entities.map<RiskDisplay>(mapEntityToDisplay)
+    }
+
+    // fallback：review.value.risks 同样可能是 entity-shape（GET endpoint 在 currentVersionId
+    // 非空时直接返回 contractRisks 表的 row spread）；用 typeof id === 'number' 探测 entity
+    // 走映射，旧 JSON shape（id 是 string）保留 spread 行为
+    return (review.value?.risks ?? []).map<RiskDisplay>((r: any) => {
+        if (typeof r?.id === 'number') return mapEntityToDisplay(r)
+        return { ...r }
+    })
 })
 
 const versionedAnnotations = computed(() => versioning.currentView.value.annotations)

@@ -16,14 +16,19 @@ const dmp = new DiffMatchPatch()
  */
 
 const props = defineProps<{
-    clauseText: string
+    // clauseText 实际可能是 undefined（如上游 ContractReviewPanel.effectiveRisks fallback path
+    // 直接 spread entity 时丢字段映射）；接受 undefined 防止 Vue prop 类型 warning
+    // 后让模板 / computed 防御处理。
+    clauseText?: string
     suggestedClauseText?: string
 }>()
 
 type DiffSegment = { kind: 'equal' | 'delete' | 'insert'; text: string }
 
 const diff = computed<{ original: DiffSegment[]; revised: DiffSegment[] } | null>(() => {
-    if (!props.suggestedClauseText) return null
+    // 双向防御：任一字段为 falsy（undefined / null / 空串）→ 不做 diff
+    // dmp.diff_main 接收 undefined 会抛 "Null input" 错误，导致 Vue 整条渲染管线崩溃
+    if (!props.suggestedClauseText || !props.clauseText) return null
     const raw = dmp.diff_main(props.clauseText, props.suggestedClauseText)
     dmp.diff_cleanupSemantic(raw)
     const original: DiffSegment[] = []

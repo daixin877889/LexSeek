@@ -60,6 +60,34 @@ describe('RiskClauseDiff', () => {
         expect(w.text()).toContain('本合同自双方签字盖章之日起生效。')
         expect(w.text()).toContain('无建议改写')
     })
+
+    // 回归：上游 ContractReviewPanel.effectiveRisks fallback path 之前直接 spread entity
+    // shape 导致 clauseText 漏字段映射成 undefined，传给 RiskClauseDiff 后 dmp.diff_main(undefined)
+    // 抛 "Null input" → Vue 渲染管线崩溃 → 风险卡无法点击展开。本 case 验证 RiskClauseDiff
+    // 收到 undefined 不抛错（即便 suggestedClauseText 非空也降级到无 diff 状态）。
+    it('clauseText 为 undefined 时不抛错且降级到无 diff（防御）', () => {
+        const w = mount(RiskClauseDiff, {
+            props: {
+                clauseText: undefined,
+                suggestedClauseText: '甲方应于合同签订之日起五日内支付定金。',
+            },
+        })
+
+        // 不抛错（dmp.diff_main 不被调用）；UI 把 suggestedClauseText 当 fallback 文案展示
+        expect(() => w.text()).not.toThrow()
+    })
+
+    it('clauseText 与 suggestedClauseText 都为 undefined 时不抛错', () => {
+        const w = mount(RiskClauseDiff, {
+            props: {
+                clauseText: undefined,
+                suggestedClauseText: undefined,
+            },
+        })
+
+        expect(() => w.text()).not.toThrow()
+        expect(w.text()).toContain('无建议改写')
+    })
 })
 
 /**
