@@ -1,9 +1,9 @@
 <template>
     <!-- Skill 启停开关 -->
     <Switch
-        :checked="modelValue === 1"
+        :model-value="modelValue === 1"
         :disabled="loading"
-        @update:checked="handleChange"
+        @update:model-value="handleChange"
     />
 </template>
 
