@@ -133,12 +133,23 @@ export async function detectParties(paragraphs: string[]): Promise<PartyDetectio
             },
             errorPrefix: 'contractPartyDetect',
         })
+        // 加 logger 埋点观察 regex/LLM 一致率（不污染 source 字面量 union）
+        const regexHinted = !!(matchA && matchB)
+        if (regexHinted) {
+            logger.info('[contractPartyDetect] regex+llm', {
+                regexHinted,
+                regexPartyA: matchA, regexPartyB: matchB,
+                llmPartyA: result.partyA, llmPartyB: result.partyB,
+                contractType: result.contractType,
+                consistent: result.partyA === matchA && result.partyB === matchB,
+            })
+        }
         return {
             // 正则结果作为 fallback——LLM 没输出但正则有则用正则
             partyA: result.partyA ?? matchA ?? null,
             partyB: result.partyB ?? matchB ?? null,
             contractType: result.contractType ?? null,
-            source: (matchA && matchB) ? 'regex+llm' : 'llm',
+            source: 'llm', // 调过 LLM 就是 llm（无需新增 'regex+llm' 字面量）
         }
     } catch (_err) {
         // LLM 失败时退回到只有正则的结果（contractType 仍为 null，等同于历史行为）
@@ -153,10 +164,10 @@ export async function detectParties(paragraphs: string[]): Promise<PartyDetectio
 
 ### 3.4 验证
 
-- [ ] 正则命中甲乙方但 LLM 失败 → 回退到正则结果（不退化）
-- [ ] 正则命中甲乙方 + LLM 成功 → contractType 不再 null
-- [ ] 正则未命中 → 走原 LLM 全识别路径
-- [ ] `source` 字段值新增 `regex+llm`（仅作为 PartyDetectionResult 内存返回值；调用方 `parseAndAskStance.tool.ts` 用 `logger.info` 落日志便于线上观察 regex/llm 一致率，不入 DB）
+- [ ] 正则命中甲乙方但 LLM 失败 → 回退到正则结果（不退化，source='regex'）
+- [ ] 正则命中甲乙方 + LLM 成功 → contractType 不再 null（source='llm'，logger 落 regexHinted=true）
+- [ ] 正则未命中 → 走原 LLM 全识别路径（source='llm'）
+- [ ] `PartyDetectionResult.source` 字面量 union 保持 `'regex' | 'llm' | 'none'` 不变（不扩 'regex+llm'）；运维观察 regex/LLM 一致率走 `logger.info` 的 `regexHinted` / `consistent` 字段
 
 ---
 
@@ -261,10 +272,10 @@ model contractRisks {
 
 ### 4.3 迁移策略
 
-合同审查功能未上线，老数据可丢。迁移做：
+合同审查功能未上线，老数据可丢。迁移走 Prisma migrate **--create-only** 流程（按 `.claude/rules/database.md` "唯一例外" 章节），手工修订 SQL 加 truncate + drop+add 顺序保护：
 
-1. `bun run prisma:migrate --name refactor_contract_risks_dual_anchor --create-only` 生成迁移
-2. 手工编辑迁移 SQL：
+1. `bun run prisma:migrate -- --create-only --name refactor_contract_risks_dual_anchor` 生成迁移（注意 `--` 显式分隔以确保参数透传给 prisma CLI）
+2. 手工编辑生成的 `prisma/migrations/<ts>_refactor_contract_risks_dual_anchor/migration.sql`：
    ```sql
    -- 1. drop 老字段
    ALTER TABLE "contract_risks" DROP COLUMN "anchor_quote";
@@ -272,10 +283,10 @@ model contractRisks {
    ALTER TABLE "contract_risks" DROP COLUMN "anchor_char_start";
    ALTER TABLE "contract_risks" DROP COLUMN "anchor_char_end";
    ALTER TABLE "contract_risks" DROP COLUMN "original_anchor_quote";
-   -- 2. truncate 已有数据（用户同意）
+   -- 2. truncate 已有数据（合同审查未上线，老数据可丢；执行前必须 confirm 未上线）
    TRUNCATE TABLE "contract_risks", "contract_annotations" CASCADE;
    -- 3. 新增字段
-   ALTER TABLE "contract_risks" ADD COLUMN "clause_index" INT NOT NULL;
+   ALTER TABLE "contract_risks" ADD COLUMN "clause_index" INT;
    ALTER TABLE "contract_risks" ADD COLUMN "clause_text" TEXT NOT NULL;
    ALTER TABLE "contract_risks" ADD COLUMN "clause_paragraph_index" INT;
    ALTER TABLE "contract_risks" ADD COLUMN "clause_char_start" INT;
@@ -288,6 +299,9 @@ model contractRisks {
    ```
 3. 同步清空 `contract_review_legacy_risks_backup` 与 `contract_review_versions`（snapshot 引用旧字段）
 4. `bun run prisma:migrate` 应用并把 review 状态全部置 failed（让用户重传）
+
+**PR 2 描述模板必含**（按 `.claude/rules/database.md:51` 要求）：
+> 手工修订 migration.sql：truncate + drop+add 顺序保护、合同审查未上线允许丢老数据。理由：跨步骤需保数据顺序避免 NOT NULL 列加列报错；用户同意人：（PR 创建时填）。
 
 ### 4.4 类型同步
 
@@ -350,6 +364,13 @@ export interface ContractRiskEntity {
 新建 `server/agents/contract/utils/splitSentences.ts`：
 
 ```ts
+// 复用 clauseSegmenter.ts 已有的子项编号识别正则（避免重复造轮子）
+import {
+    RE_DI_TIAO,    // 「第X条」
+    RE_NUM_DOT,    // 「3.1」 / 「3.1.2」
+    RE_CN_COMMA,   // 「一、」中文序号
+} from '../docx/clauseSegmenter'
+
 export interface SentenceSpan {
     /** 1-based ID，给 LLM prompt 用 */
     id: number
@@ -362,11 +383,11 @@ export interface SentenceSpan {
 }
 
 /**
- * 中文合同条款断句：分号 + 句号/问号/感叹号 + 换行 + 子项编号行首
+ * 中文合同条款断句（一个 segment 内部继续切句）。
  *
  * 切分点：
- * - `。！？；` + `\n`
- * - 行首子项编号：`/^\s*[（(]?(?:[一二三四五六七八九十百]+|\d+(?:\.\d+)*|[a-zA-Z])[）)][\s、]?|^\s*\d+(?:\.\d+)*[\s、.]/`
+ * - 标点：`。！？；` + 换行符 `\n`
+ * - 行首子项编号：复用 `clauseSegmenter.ts` 已有的 `RE_DI_TIAO` / `RE_NUM_DOT` / `RE_CN_COMMA`（已含 cnNumToInt 中文百千位）
  *
  * 不切分：逗号、顿号、引号 / 括号 / 双引号"" / 单引号'' 内的标点
  *
@@ -374,7 +395,9 @@ export interface SentenceSpan {
  * - 输入 `""` → 返回 `[]`（无句子）
  * - 输入仅含 1 字符（"。"）→ 切出 1 个空句子或不切（实现时返回 `[{ id: 1, text: '', charStart: 0, charEnd: 1 }]`）
  * - 整段无切分点（如标题行）→ 整段作 1 个 sentence
- * - 行内中文序数词（"前段。第二，违约金..."）不作切分点——只在行首 `^\s*` 锚定才识别为子项编号
+ * - 行内中文序数词（"前段。第二，违约金..."）不作切分点——只在行首 `^\s*` 锚定才识别为子项编号（即 RE_CN_COMMA 仅匹配行首）
+ *
+ * 实施前提：在 `clauseSegmenter.ts` 把 `RE_DI_TIAO` / `RE_NUM_DOT` / `RE_CN_COMMA` 三个常量从模块级 `const` 改成 `export const`（当前是模块私有），不需要新建 utils 文件单独存放。
  */
 export function splitSentences(segmentText: string): SentenceSpan[]
 ```
@@ -396,10 +419,70 @@ DB 节点 `contractReviewAnalyzeClause` 的 system prompt（id=28）改造：
 
 ### 5.3 服务端解析（resolveQuoteAnchor）
 
-新建 `server/agents/contract/utils/resolveQuoteAnchor.ts`：
+#### 5.3.1 公共 helper · `fuzzyLocateInText`（抽到 textSimilarity.ts）
+
+`resolveQuoteAnchor` 档 2 fuzzy 匹配 与 `anchorMigrate.ts:findBestSubstring` 业务一致（都是"在文本里找最相似 substring 的起点"）。抽公共 helper 放进 `server/agents/contract/utils/textSimilarity.ts`，两边复用：
 
 ```ts
-import { getDmp, normalizeForMatch } from './textSimilarity'
+// server/agents/contract/utils/textSimilarity.ts 新增 export
+import { getDmp } from './textSimilarity' // self-import 示意
+
+/**
+ * 用 diff-match-patch 的 Bitap 算法找 pattern 在 text 内最相似 substring 的起点 offset。
+ *
+ * **关键约束（diff-match-patch 官方文档 + 源码）**：
+ * - `Match_MaxBits = 32`：pattern.length > 32 时 `match_main` **抛 throw "Pattern too long"**
+ *   （**不是**返回 -1）；调用方必须先做长度判断或截前 32 字符做 anchor locate
+ * - `Match_Threshold` 默认 0.5（越小越严格、越快）；合同场景压到 0.3 兼顾精度
+ * - `Match_Distance` 默认 1000（搜索半径）；合同条款可超 1000 字符 → 显式设到 text.length 保证全段可搜
+ * - `match_main` 找到时返回起点 offset（number），找不到返回 `-1`（不是 null）
+ * - 中文 BMP 字符 1 字 = 1 UTF-16 code unit，offset 即字符 offset
+ *
+ * **不做标点归一化**：normalizeForMatch 含 1→3 字符（如 `'…' → '...'`） + 多空白折叠 + trim，
+ * 不是 1:1 字符替换；归一化后 offset 与原文不对齐。dmp.match_main 的 Bitap fuzzy 容错本身
+ * 已能处理标点小差异（中文逗号 `,` vs 英文 `,` 在 Match_Threshold=0.3 下仍可命中）；
+ * 主路径 sentence_id 是 deterministic 的（无 fuzzy 容错诉求），fuzzy 路径占比 ≤ 15% 的边角
+ * 标点差异由 dmp 自身吸收，不再叠归一化。
+ *
+ * **共享实例参数恢复**：textSimilarity.getDmp() 是全局单例，calcSimilarity / anchorMigrate
+ * 等其他调用方依赖默认 Match_Threshold/Distance；本函数 try/finally 保存/恢复参数避免污染。
+ */
+export function fuzzyLocateInText(
+    text: string,
+    pattern: string,
+    options?: { threshold?: number; loc?: number },
+): { start: number; end: number } | null {
+    const MAX_PATTERN = 32
+    if (pattern.length === 0 || text.length === 0) return null
+
+    const dmp = getDmp()
+    const savedThreshold = dmp.Match_Threshold
+    const savedDistance = dmp.Match_Distance
+    try {
+        dmp.Match_Threshold = options?.threshold ?? 0.3
+        dmp.Match_Distance = Math.max(1000, text.length)
+
+        // pattern > 32 抛 throw → 必须用前 32 字符做 anchor locate，按 pattern.length 推算 end
+        const probe = pattern.length <= MAX_PATTERN ? pattern : pattern.slice(0, MAX_PATTERN)
+        const start = dmp.match_main(text, probe, options?.loc ?? 0)
+        if (start === -1) return null
+        return { start, end: Math.min(start + pattern.length, text.length) }
+    }
+    finally {
+        dmp.Match_Threshold = savedThreshold
+        dmp.Match_Distance = savedDistance
+    }
+}
+```
+
+`anchorMigrate.ts:findBestSubstring` 同步重构：把内部 `dmp.match_main` 调用改为 `fuzzyLocateInText`；对返回 offset 再做现有的 Levenshtein 精扫逻辑（功能等价不变）。
+
+#### 5.3.2 resolveQuoteAnchor 实现
+
+```ts
+// server/agents/contract/utils/resolveQuoteAnchor.ts
+import { fuzzyLocateInText } from './textSimilarity'
+import type { SentenceSpan } from './splitSentences'
 
 export interface QuoteAnchorResult {
     /** 精确问题片段；null = 全失败降级 */
@@ -432,10 +515,10 @@ export function resolveQuoteAnchor(input: {
         }
     }
 
-    // 档 2：fuzzy match fallback（dmp.match_main + 标点归一化）
+    // 档 2：fuzzy match fallback（不归一化；offset 直接对齐原文）
     const quote = input.aiOutput.problematicQuote?.trim()
     if (quote && quote.length >= 4) {
-        const offset = fuzzyMatchOffset(input.clauseText, quote)
+        const offset = fuzzyLocateInText(input.clauseText, quote)
         if (offset !== null) {
             return {
                 problematicQuote: input.clauseText.slice(offset.start, offset.end),
@@ -449,59 +532,9 @@ export function resolveQuoteAnchor(input: {
     // 档 3：全失败降级
     return { problematicQuote: null, charStart: null, charEnd: null, matchSource: 'fallback' }
 }
-
-/**
- * 用 diff-match-patch 的 Bitap 算法找最相似 substring 起点。
- *
- * 关键约束（diff-match-patch 官方文档）：
- * - `Match_MaxBits = 32`：pattern.length > 32 时 Bitap 算法失败 → 必须用前 32 字符做 anchor locate
- * - `Match_Threshold` 默认 0.5（越小越严格、越快）；合同场景压到 0.3 兼顾精度
- * - `Match_Distance` 默认 1000（搜索范围）；合同条款可超 1000 字符 → 设为 clauseText.length 保证全段可搜
- * - `match_main` 返回 number（起点 offset）；找不到返回 -1（不是 null）
- * - 中文 BMP 字符 1 字 = 1 UTF-16 code unit，offset 即字符 offset（surrogate pair 罕见，作为已知限制忽略）
- *
- * 复用项目已有 `textSimilarity.ts` 的 `getDmp()` 单例：textSimilarity 注释明确"只读不改 dmp 参数"，
- * 本函数需要修改 Match_Threshold/Match_Distance，因此**调用前后保存/恢复参数**避免污染共享实例。
- *
- * 标点归一化：`normalizeForMatch()` 把全角/半角标点等价化（"，" → ","、"；" → ";" 等）——
- * 客户文档可能用中文标点而 LLM 输出用英文标点（或反之），归一化后才能 fuzzy 命中。
- */
-function fuzzyMatchOffset(text: string, pattern: string): { start: number; end: number } | null {
-    const MAX_PATTERN = 32 // diff-match-patch Match_MaxBits
-
-    // 标点归一化（text 和 pattern 用同一份映射，offset 在归一化空间内仍对齐原文，因为映射是 1:1 字符替换）
-    const normText = normalizeForMatch(text)
-    const normPattern = normalizeForMatch(pattern)
-
-    const dmp = getDmp()
-    const savedThreshold = dmp.Match_Threshold
-    const savedDistance = dmp.Match_Distance
-    try {
-        dmp.Match_Threshold = 0.3
-        dmp.Match_Distance = Math.max(1000, normText.length) // 保证全段可搜
-
-        // pattern 长度 ≤ 32：直接 match_main
-        if (normPattern.length <= MAX_PATTERN) {
-            const start = dmp.match_main(normText, normPattern, 0)
-            if (start === -1) return null
-            return { start, end: Math.min(start + pattern.length, text.length) }
-        }
-
-        // pattern > 32：取前 32 字符做 anchor locate，按 pattern.length 推算 end
-        const anchor = normPattern.slice(0, MAX_PATTERN)
-        const start = dmp.match_main(normText, anchor, 0)
-        if (start === -1) return null
-        return { start, end: Math.min(start + pattern.length, text.length) }
-    }
-    finally {
-        // 恢复共享实例参数（防止污染 calcSimilarity 等其他调用方）
-        dmp.Match_Threshold = savedThreshold
-        dmp.Match_Distance = savedDistance
-    }
-}
 ```
 
-> **已知限制**：`text.slice(start, start + pattern.length)` 取出的字符串与 LLM 给的 quote 略有出入（fuzzy 匹配下可能差几个字符的标点）；这是预期行为，UI 显示时是"文档原文里实际存在的相似片段"，比 LLM 自由摘取更可信。
+> **已知限制**：fuzzy 路径下 `text.slice(start, start + pattern.length)` 取出的字符串与 LLM 给的 quote 可能差几个字符（容标点差异 / Bitap 模糊匹配本身的 ±1 偏差），这是预期行为；UI 显示的是"文档原文里实际存在的相似片段"，比 LLM 自由摘取更可信。
 
 ### 5.4 risksSchema.builder 同步
 
@@ -605,7 +638,7 @@ const item: Prisma.contractRisksUncheckedCreateInput = {
 
 ```
 ┌─────────────────────────────────────────────────┐
-│ [中] 违约金  [📋 命中清单 · payment_default]      │
+│ [中] 违约金  [<ClipboardList/> 命中清单 · payment_default] │
 │ 逾期付款违约金过低，对乙方追讨成本不足            │
 ├─────────────────────────────────────────────────┤
 │ 原文 → 建议（行内 diff）                           │
@@ -733,18 +766,16 @@ docx-preview 渲染时部分字符被替换：
 
 **对齐策略**：在 `walkToTextNode` 累加时把 ` ` 视作 1 字符，对齐 clause_text 里 `\t` 的 1 字符（基本可用）。如果实测出现明显偏差，再加映射表。
 
-#### 7.3.3 fallback 路径 · DOM 手动 split
-
-极端情况（旧浏览器 / `CSS.highlights` 不可用）：
+#### 7.3.3 浏览器不支持 CSS Highlight 时的降级
 
 ```ts
 if (typeof CSS === 'undefined' || !('highlights' in CSS)) {
-    // 退化为手动 split text node + 包 <span class="quote-highlight">
-    // 注意：Range.surroundContents 跨节点会抛 InvalidStateError，必须手动遍历 + split + 多 span 包裹
+    // 直接 return 不渲染字符级高亮 → 用户只看到段落级浅黄高亮（=quote=null 降级路径，§6.4）
+    return
 }
 ```
 
-fallback 实现细节留 plan 阶段；上线先看真实环境是否需要触发 fallback（理论上 LexSeek 用户都是现代浏览器）。
+LexSeek 浏览器目标全部支持 CSS Custom Highlight API（baseline 2025/06）；不支持的边角浏览器降级到段落级高亮，与现状视觉一致。**不再写一份 DOM-mutate fallback 实现**——为不存在的目标用户写代码是 YAGNI。
 
 ### 7.4 重渲染保护
 
@@ -835,20 +866,22 @@ export async function injectRedlineMarks(
 
 OOXML 的 `w:id` 在文档内是**跨多种元素共享 ID 池**：bookmark / `<w:ins>` / `<w:del>` / `<w:rPrChange>` / `<w:pPrChange>` / `<w:commentRangeStart>` / `<w:commentRangeEnd>` / `<w:commentReference>` / `<w:moveFromRangeStart>` 等。**ID 撞车 → Word 报"文件已损坏"拒打开**（macOS Preview 容忍但 Windows Word 严格）。
 
-实现：
+实现：把 `findMaxSharedId` 放到现有 `server/agents/contract/docx/xmlAst.ts`（与 `walk` / `findFirst` 等 OOXML AST helper 同模块），让 `commentInjector` 和 `redlineInjector` 共用同一个扫描函数：
 
 ```ts
-/** 扫描 document.xml 收集所有共享 ID 池里的 w:id 最大值 */
-function findMaxSharedId(rootAst: AstNode): number {
-    const ID_BEARING_TAGS = new Set([
-        'w:bookmarkStart', 'w:bookmarkEnd',
-        'w:ins', 'w:del', 'w:rPrChange', 'w:pPrChange',
-        'w:sectPrChange', 'w:tblPrChange', 'w:tcPrChange', 'w:trPrChange',
-        'w:cellIns', 'w:cellDel', 'w:cellMerge', 'w:numberingChange',
-        'w:commentRangeStart', 'w:commentRangeEnd', 'w:commentReference',
-        'w:moveFromRangeStart', 'w:moveToRangeStart',
-        'w:moveFromRangeEnd', 'w:moveToRangeEnd',
-    ])
+// server/agents/contract/docx/xmlAst.ts 新增 export
+const ID_BEARING_TAGS = new Set([
+    'w:bookmarkStart', 'w:bookmarkEnd',
+    'w:ins', 'w:del', 'w:rPrChange', 'w:pPrChange',
+    'w:sectPrChange', 'w:tblPrChange', 'w:tcPrChange', 'w:trPrChange',
+    'w:cellIns', 'w:cellDel', 'w:cellMerge', 'w:numberingChange',
+    'w:commentRangeStart', 'w:commentRangeEnd', 'w:commentReference',
+    'w:moveFromRangeStart', 'w:moveToRangeStart',
+    'w:moveFromRangeEnd', 'w:moveToRangeEnd',
+])
+
+/** 扫描 document.xml AST 收集所有共享 ID 池里的 w:id 最大值；空返回 -1（调用方 +1 起 0） */
+export function findMaxSharedId(rootAst: AstNode): number {
     let max = -1
     walk(rootAst, (node) => {
         if (ID_BEARING_TAGS.has(node.tag)) {
@@ -860,7 +893,10 @@ function findMaxSharedId(rootAst: AstNode): number {
 }
 ```
 
-**调用方协调**：mode='both' 时 redlineInjector 先跑（占用 idStart..idStart+2*N），返回 nextIdAfter 给 commentInjector 接力（commentInjector 也要从 nextIdAfter 起步——**修改现有 commentInjector**：当前用数组下标当 `w:id` 是错的，必须改成扫描后递增）。
+**调用方协调**：
+- `redlineInjector` 入口扫一次 `findMaxSharedId`，从 `max+1` 起分配 `w:id`，返回 `nextIdAfter`
+- `commentInjector` 改造：去掉当前用数组下标当 `w:id` 的逻辑（这是已有 bug），改为接受 `idStart` 参数并从该值起递增
+- `mode='both'` 时由顶层调用方协调：`redlineInjector` 先跑 → 返回 `nextIdAfter` → `commentInjector` 从 `nextIdAfter` 起步（共用同一份 ID 池基线）
 
 #### 8.3.2 跨 run 拆分（关键 · 不修会丢字体格式）
 
@@ -1056,7 +1092,7 @@ LLM 输出可能含非法 XML 字符（U+0008 等控制字符）；用现有 `xm
 | `contractRisk.service.test.ts` | persistAiRisksAsContractRows 双锚点字段写入（已有，需扩展新字段断言） |
 | `partyDetector.test.ts` | 正则命中 + LLM 推 contractType / 正则失败 + LLM 全识别 / LLM 失败 + 正则降级 |
 | `redlineInjector.test.ts` | OOXML 输出验证：① `<w:ins>` / `<w:del>` / `<w:delText>` 标签结构；② **`w:id` 跨 bookmark / comment / ins / del 不撞车**（专项）；③ **跨多 run 的 quote 拆分后保留各 run 的 `<w:rPr>`**；④ **`xml:space="preserve"` 在所有 `<w:t>` / `<w:delText>` 都加**；⑤ **完整 clause 删除时 `<w:pPr><w:rPr><w:del/></w:rPr></w:pPr>` 段落标记同步**；⑥ both 模式 comment 包裹 `<w:del>` + `<w:ins>` 整体；⑦ LLM 输出含 `\n` 的 suggestedClauseText 被 schema reject |
-| `docxPreview.highlight.test.ts`（前端） | computeQuoteRange 算法：① clause_text 含 `\n` 跨多 `<p>` 的 offset 对齐；② quote 起止落在 run 内部时 Range 正确；③ quote=null 时不创建 Highlight；④ 重渲染后 clearAllQuoteHighlights 清干净；⑤ CSS.highlights 不可用时 fallback 到 DOM-mutate |
+| `docxPreview.highlight.test.ts`（前端） | computeQuoteRange 算法：① clause_text 含 `\n` 跨多 `<p>` 的 offset 对齐；② quote 起止落在 run 内部时 Range 正确；③ quote=null 时不创建 Highlight；④ 重渲染后 clearAllQuoteHighlights 清干净；⑤ CSS.highlights 不可用时 return 早出（不渲染字符级高亮，回到段落级） |
 
 ### 10.2 集成测试
 
@@ -1081,16 +1117,6 @@ ORDER BY COUNT(*) DESC;
 
 期望分布（理想）：`sentence_id` ≥ 80%，`fuzzy` ≤ 15%，`fallback` ≤ 5%。
 监控阈值：`fallback` > 10% 时复查 prompt / 切句规则。
-
-#### 10.3.1 上线前 baseline
-
-首次上线前必须有"DeepSeek-v4-flash 当前 prompt 下的实际分布 baseline"才能判断阈值合理性。Baseline 生成步骤（PR 3 落地后即可跑）：
-
-1. 准备 N=20 真实合同 fixture（覆盖 11 大类各类型 1-2 份，含规整格式 + 不规整格式各半）
-2. 离线脚本 `scripts/contractAnchoringBaseline.ts`：依次跑 AI 审查管线，收集每条 risk 的 `quote_match_source`
-3. 输出 baseline 报告：各 source 占比 + 失败 case 的 problematicQuote vs 实际原文对比
-4. baseline 报告 commit 到 `docs/eval-reports/contract-anchoring-baseline-{date}.json` 供后续回归对比
-5. 若 baseline `fallback` > 15% → 不能上线，先调 prompt（重新生成 baseline 直至达标）
 
 ### 10.4 e2e 测试
 
@@ -1134,13 +1160,9 @@ ORDER BY COUNT(*) DESC;
 
 选择 **A**：PR 1（PRE-1）和 PR 7（Phase B 升级）独立发布；PR 2/3/4 同窗口；PR 5/6 各自独立。
 
-### 11.3 truncate 的环境约束
+### 11.3 truncate 的执行确认
 
-§4.3 的 `TRUNCATE TABLE contract_risks, contract_annotations, contract_review_versions CASCADE` 仅在合同审查未上线的环境执行：
-- **dev / staging**：执行前 `SELECT COUNT(*) FROM contract_reviews WHERE status='completed'`，若有数据先备份或 abort
-- **prod**：必须 confirm "合同审查未对外上线"才执行；否则升级前需出迁移脚本（不在本 spec 范围）
-
-迁移脚本写明放 `prisma/migrations/` 同迁移目录的 `migration.sql` 里，配合 `--create-only` 流程做 review。
+§4.3 的 `TRUNCATE TABLE contract_risks, contract_annotations, contract_review_versions CASCADE` 执行前必须确认"合同审查模块未对外上线"。迁移脚本随 `prisma/migrations/<ts>_refactor_contract_risks_dual_anchor/migration.sql` 一起 commit，配合 `bun run prisma:migrate -- --create-only --name refactor_contract_risks_dual_anchor` 流程 review 后再 apply。
 
 ---
 
@@ -1154,7 +1176,7 @@ ORDER BY COUNT(*) DESC;
 | **跨 run quote 不保留 `<w:rPr>`** | 律师拒绝修订后字体格式（粗体/字号/颜色）丢失 | run 拆分时 deep-copy 原 `<w:rPr>` 副本到每个 delText run；fixture 测试含粗体 + 红色 quote |
 | **suggestedClauseText 含换行** | Word 渲染时换行变空格丢段落 | risksSchema.builder 的 refine 强制 reject 含 `\n` 的输出；prompt 加约束让 LLM 输出单段；v2 再支持多段 |
 | **`w:t` / `<w:delText>` 缺 `xml:space="preserve"`** | quote 含空白字符时 XML 解析丢空格 | redlineInjector 所有写文本节点统一用 `makeTextElement` helper 强制带属性 |
-| **CSS Custom Highlight API 浏览器不支持** | 前端高亮失效 | 检测 `'highlights' in CSS` → 不支持时 fallback DOM-mutate；`navigator.userAgent` 上报埋点观察占比 |
+| **CSS Custom Highlight API 浏览器不支持** | 前端字符级高亮失效（降级到段落级） | 检测 `'highlights' in CSS` → 不支持直接 return 不渲染字符级；段落级浅黄高亮仍然生效（=quote=null 降级路径，与现状视觉一致） |
 | **clause_text 含 `\n` 跨多 `<p>` 对齐错位** | 字符级高亮位置错 | computeQuoteRange 算法明确按 `\n` 拆行映射；e2e 测试覆盖跨段 quote |
 | Phase B 双锚点迁移逻辑改动大易回归 | 客户回传链路炸 | 先在 Phase B 测试 fixture 全量过一遍；保留旧逻辑作为 feature flag 兜底 1 周 |
 | 命名重构 anchor → clause 影响面广 | 漏改某处 → 编译通不过 | 一次性完成 + 全量 typecheck + 测试 |
@@ -1184,21 +1206,3 @@ ORDER BY COUNT(*) DESC;
 - 修订作者多元（当前固定 author="LexSeek"，未来按律师姓名）
 - LLM 自评（输出 sentence_id 后再让 LLM 验证片段是否真的对应）
 
----
-
-## 14. 附录 · 命名词典
-
-| 旧名 | 新名 | 备注 |
-|---|---|---|
-| `anchor_quote` | `clause_text` | 完整条款原文 |
-| `anchor_paragraph_index` | `clause_paragraph_index` | 非空段落序号 |
-| `anchor_char_start/end` | `clause_char_start/end` | 在文档全文 offset |
-| `original_anchor_quote` | `original_clause_text` | Phase B 锚点迁移痕迹 |
-| —（新增） | `problematic_quote` | 精确问题片段 |
-| —（新增） | `quote_char_start/end` | 在 clause 内相对 offset |
-| —（新增） | `quote_match_source` | 解析来源运维埋点 |
-| —（新增） | `clause_index` | 条款序号 |
-
-代码层面：所有 `anchor*` 标识符改名 `clause*`（DAO / Service / Type / 前端）。一次性 search-replace + 测试覆盖。
-
-用户语言层面：UI 仍叫"原文条款"+"问题片段"+"建议改写"，不暴露 `anchor` / `clause` / `quote` 等技术词。
