@@ -83,6 +83,8 @@ interface Props {
     showBatchButton?: boolean
     /** 是否有待处理的中断 */
     hasPendingInterrupt?: boolean
+    /** 工作流是否正在执行（init-analysis status === 'in_progress'） */
+    isAnalysisRunning?: boolean
     /** 只读模式：禁用生成操作和模块对话 */
     readonly?: boolean
     /** 是否显示"查看全部"按钮（案件详情概览视图使用） */
@@ -127,6 +129,8 @@ const emit = defineEmits<{
     (e: 'batchGenerate'): void
     /** 前往处理中断 */
     (e: 'goToInterrupt'): void
+    /** 查看正在运行的工作流详情 */
+    (e: 'goToRunningWorkflow'): void
     /** 查看全部（跳转分析视图） */
     (e: 'viewAll'): void
 }>()
@@ -485,16 +489,29 @@ function formatAnalyzedAt(dateStr: string): string {
                         </div>
                     </div>
 
+                    <!-- 工作流运行中提示条（中断时让位给中断 bar） -->
+                    <div v-if="isAnalysisRunning && !hasPendingInterrupt"
+                        class="flex items-center gap-3 p-3 mb-4 rounded-lg bg-primary/10 border border-primary/20 text-primary">
+                        <Loader2Icon class="size-4 shrink-0 animate-spin" />
+                        <span class="text-xs flex-1">案件分析正在进行中…</span>
+                        <button
+                            class="text-xs font-medium px-2.5 py-1 rounded-md bg-primary/15 hover:bg-primary/25 transition-colors shrink-0"
+                            @click="emit('goToRunningWorkflow')"
+                        >
+                            查看详情
+                        </button>
+                    </div>
+
                     <!-- 中断提示条 -->
                     <div v-if="hasPendingInterrupt"
                         class="flex items-center gap-3 p-3 mb-4 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400">
                         <AlertCircleIcon class="size-4 shrink-0" />
-                        <span class="text-xs flex-1">初始化分析已中断（积分不足），部分模块暂不可用</span>
+                        <span class="text-xs flex-1">案件分析已经中断（积分不足）</span>
                         <button
                             class="text-xs font-medium px-2.5 py-1 rounded-md bg-amber-500/15 hover:bg-amber-500/25 transition-colors shrink-0"
                             @click="emit('goToInterrupt')"
                         >
-                            前往处理
+                            去处理
                         </button>
                     </div>
 
