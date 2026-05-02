@@ -218,8 +218,15 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
     function handleAgentEvent(ev: AgentEvent) {
         if (!ev.metadata?.parentToolCallId) return
         const md = ev.metadata
-        const b = subThreadsMap[md.parentToolCallId]
-            ?? (subThreadsMap[md.parentToolCallId] = createEmptyBucket(md.agentName, md.threadId))
+        // ⚠️ 必须从 subThreadsMap[k] 读取拿到 reactive 代理对象。
+        // 之前用 `b = subThreadsMap[k] ?? (subThreadsMap[k] = createEmptyBucket(...))`，
+        // 赋值表达式返回的是 plain bucket（赋值表达式返回的是 RHS 的值，不是 LHS 读取的代理），
+        // 导致首次创建后 b.messages 上的所有 mutation 都跑在 plain array 上不触发响应式 →
+        // 用户表现为"thinking 累到内存了但 UI 不动，等到下一个事件才一次性显示"。
+        if (!subThreadsMap[md.parentToolCallId]) {
+            subThreadsMap[md.parentToolCallId] = createEmptyBucket(md.agentName, md.threadId)
+        }
+        const b = subThreadsMap[md.parentToolCallId]!
         mergeEventIntoBucket(b, ev)
         // 子流跑完瞬间用 checkpoint 替换实时累积的 messages（实时累 token 流含 tool_use
         // input_json，跟刷新后从 LangGraph checkpoint 读的 content array 形态不一致；

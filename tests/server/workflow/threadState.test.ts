@@ -581,7 +581,7 @@ describe('loadSubAgentThreads', () => {
             expect(result).toHaveLength(2)
             const A = result.find(r => r.toolCallId === 'tc-A')!
             const B = result.find(r => r.toolCallId === 'tc-B')!
-            expect(A.threadId).toBe('case-1_sub_evidence')
+            expect(A.threadId).toBe('case-1_sub_evidence_tc-A')
             expect(A.agentName).toBe('evidence')
             expect(B.threadId).toBe('sub-B')
             expect(B.agentName).toBe('documentMain')

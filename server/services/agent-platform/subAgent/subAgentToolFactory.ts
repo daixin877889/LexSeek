@@ -105,8 +105,12 @@ export async function createSubAgentTools(
                 const mainRunId = context.runId
                 const nodeConfig = config   // 外层闭包的 NodeConfig（forEach 迭代变量）
 
-                // subThreadId 提前声明，catch 分支发 failed 事件时也需要
-                const subThreadId = `${context.sessionId}_sub_${safeName}`
+                // subThreadId 提前声明，catch 分支发 failed 事件时也需要。
+                // 加 parentToolCallId 后缀让每次主流 LLM 调用都得到独立 thread —— 旧版用
+                // `${sessionId}_sub_${safeName}` 固定命名导致同 expert 多次调用复用同一
+                // checkpoint，第二次 invoke 把 systemMessage append 到累积 messages 末尾
+                // → Anthropic 报错 "System messages are only permitted as the first passed message"。
+                const subThreadId = `${context.sessionId}_sub_${safeName}_${parentToolCallId}`
 
                 try {
                     // 创建模型实例

@@ -206,9 +206,11 @@ export async function loadSubAgentThreads(
             let agentName: string
 
             if (toolName?.startsWith('ask_') && toolName?.endsWith('_expert')) {
-                // ask_*_expert：命名规则反推
+                // ask_*_expert：命名规则反推（加 toolCallId 后缀避免同 expert 多次调用
+                // 复用 checkpoint 触发 Anthropic "System messages are only permitted as
+                // the first passed message" 报错；与 subAgentToolFactory.ts:109 同款规则）
                 const safeName = toolName.slice(4, -7)
-                subThreadId = `${sessionId}_sub_${safeName}`
+                subThreadId = `${sessionId}_sub_${safeName}_${toolCall.id}`
                 agentName = safeName
             }
             else if (toolName === 'draft_document' || toolName === 'review_contract') {
