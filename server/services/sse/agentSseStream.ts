@@ -63,6 +63,29 @@ function filterMessagesEvent(data: any): any | null {
 }
 
 /**
+ * 仅当 run 处于 INTERRUPTED 时才把 `__interrupt__` 透传给前端——这是合法的
+ * "等待用户输入"暂停态，interrupt 卡片需要据此渲染。其它任何状态下：
+ *   - PENDING / RUNNING：run 正在执行，不应弹 interrupt UI（用户没在等输入）
+ *   - COMPLETED / FAILED / CANCELLED：run 已落幕，残留 interrupt 必然是 stale
+ *
+ * 已知触发：合同审查 vertical 的 resume 分支（runContractReviewChat）完全绕过
+ * LangGraph，`parseAndAskStance` 工具写入的 `__interrupt__` 永远不会被
+ * `__resume__` 抵消。无论是审查完成后刷新（status=COMPLETED）还是 stance 提交后
+ * resume run B 进行中（status=PENDING/RUNNING），`getThreadValuesService` 都会
+ * 从 pendingWrites 抽出陈旧 interrupt；前端不剥离就会反复误开 stance Dialog
+ * （刷新场景）或在 resume 流期间 modal 遮挡风险卡片点击（流中场景）。
+ */
+export function stripStaleInterrupt(
+  values: Record<string, unknown>,
+  runStatus: string | undefined,
+): Record<string, unknown> {
+  if (runStatus === AGENT_RUN_STATUS.INTERRUPTED) return values
+  if (!('__interrupt__' in values)) return values
+  const { __interrupt__: _omit, ...rest } = values
+  return rest
+}
+
+/**
  * 创建 Agent SSE 流所需的入参。
  *
  * - `runId`：初始 run 标识。若启动时检测到当前 session 有更新的活跃 run，内部会覆盖为该 run。
@@ -133,7 +156,10 @@ export function createAgentSseStream(
           runId = currentActiveRun.id
         }
         else if (isCompletedRun) {
-          const checkpointValues = await getThreadValuesService(sessionId)
+          const rawCheckpointValues = await getThreadValuesService(sessionId)
+          const checkpointValues = rawCheckpointValues
+            ? stripStaleInterrupt(rawCheckpointValues, latestRunStatus)
+            : null
           const messages = (checkpointValues?.messages as any[]) || []
           logger.info(`[SSE] checkpointValues exists=${!!checkpointValues}, messages count=${messages.length}`)
           if (checkpointValues) {
@@ -167,7 +193,10 @@ export function createAgentSseStream(
         //      Redis Stream 已过期，前端 stream 永久 loading 卡死）
         let hasFallbackData = false
         if (missed.length === 0) {
-          const checkpointValues = await getThreadValuesService(sessionId)
+          const rawCheckpointValues = await getThreadValuesService(sessionId)
+          const checkpointValues = rawCheckpointValues
+            ? stripStaleInterrupt(rawCheckpointValues, currentActiveRun?.status)
+            : null
           if (checkpointValues) {
             const messages = (checkpointValues.messages as any[]) || []
             if (messages.length > 0) {

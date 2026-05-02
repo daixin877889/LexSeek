@@ -1,15 +1,10 @@
 /**
  * 构造 LangChain Callbacks 旁路转发子 Agent 内部事件到主 SSE 流。
+ * 仅转发 token / tool_start / tool_end 增量事件；
+ * status_change 由调用方在 invoke 完成后通过 publishSubAgentStatus 显式发。
  *
  * 与 useStreamChat.subThreadsMap 协议对齐：metadata.parentToolCallId 是分桶 key，
  * 前端按此命中并累积 messages，让 SubAgentChainOfThought 自动渲染。
- *
- * 仅负责 token / tool_start / tool_end 三类增量事件转发；
- * status_change（completed / failed）的发送由调用方在 invoke / drainStream 完成后
- * 通过 publishSubAgentStatus 显式发——callback 内的 handleChainEnd 在
- * LangGraph 多层 chain 包装下 cbParentRunId === undefined 不止匹配最外层
- * （某个 inner LLM/RunnableSequence 也是 root level chain），子代理还在跑就发
- * completed 会让前端 generatingModules 提前清空、跨标签同步丢"生成中"状态。
  */
 import type { CallbackHandlerMethods, HandleLLMNewTokenCallbackFields } from '@langchain/core/callbacks/base'
 import { BaseMessage } from '@langchain/core/messages'
