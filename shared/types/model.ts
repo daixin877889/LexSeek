@@ -68,6 +68,18 @@ export const ModelTypeLabels: Record<ModelType, string> = {
     rerank: '重排序模型',
 }
 
+/**
+ * 模型类型简短标签
+ * 主要给搜索/筛选场景的关键词匹配用；UI 渲染走 `app/components/admin/ModelTypeBadge.vue`，
+ * 那里写完整 class 字面量，避免 Tailwind v4 漏扫 .ts 里的 class。
+ */
+export const ModelTypeShortLabels: Record<ModelType, string> = {
+    chat: '对话',
+    embedding: '嵌入',
+    asr: '语音',
+    rerank: '排序',
+}
+
 /** 模型状态枚举 */
 export enum ModelStatus {
     /** 禁用 */

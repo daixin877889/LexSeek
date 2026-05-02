@@ -74,10 +74,7 @@
                                 >
                                     <span class="flex items-center gap-2 min-w-0"
                                         :class="form.modelId ? '' : 'text-muted-foreground'">
-                                        <Badge v-if="selectedModel" variant="outline"
-                                            class="shrink-0 text-xs font-normal">
-                                            {{ MODEL_TYPE_SHORT[selectedModel.modelType] ?? selectedModel.modelType }}
-                                        </Badge>
+                                        <AdminModelTypeBadge v-if="selectedModel" :type="selectedModel.modelType" />
                                         <span class="truncate">{{ selectedModelLabel || '选择模型' }}</span>
                                     </span>
                                     <ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -93,17 +90,15 @@
                                                 v-for="m in models"
                                                 :key="m.id"
                                                 :value="String(m.id)"
-                                                :keywords="[m.displayName, MODEL_TYPE_SHORT[m.modelType] ?? '']"
+                                                :keywords="[m.displayName, modelTypeLabel(m.modelType)]"
                                                 @select="onSelectModel(String(m.id))"
                                             >
+                                                <AdminModelTypeBadge :type="m.modelType" />
+                                                <span class="truncate flex-1">{{ m.displayName }}</span>
                                                 <Check
-                                                    class="mr-2 h-4 w-4 shrink-0"
-                                                    :class="form.modelId === String(m.id) ? 'opacity-100' : 'opacity-0'"
+                                                    v-if="form.modelId === String(m.id)"
+                                                    class="h-4 w-4 shrink-0"
                                                 />
-                                                <Badge variant="outline" class="mr-2 shrink-0 text-xs font-normal">
-                                                    {{ MODEL_TYPE_SHORT[m.modelType] ?? m.modelType }}
-                                                </Badge>
-                                                <span class="truncate">{{ m.displayName }}</span>
                                             </CommandItem>
                                         </CommandGroup>
                                     </CommandList>
@@ -234,7 +229,9 @@ import { Check, ChevronsUpDown, Loader2, Search, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { NodeTypeLabels } from '#shared/types/node'
 import type { NodeGroup, NodeWithRelations } from '#shared/types/node'
-import type { Model } from '#shared/types/model'
+import type { Model, ModelType } from '#shared/types/model'
+import { ModelTypeShortLabels } from '#shared/types/model'
+import AdminModelTypeBadge from '~/components/admin/ModelTypeBadge.vue'
 import AdminNodesOutputSchemaEditor from '~/components/admin/nodes/OutputSchemaEditor.vue'
 import AdminNodesNodeSkillSelector from '~/components/admin/nodes/NodeSkillSelector.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
@@ -253,13 +250,8 @@ interface ToolMeta {
 
 type TabKey = 'basic' | 'tools' | 'skills' | 'schema'
 
-/** 模型类型简短标签（前缀小标签用，比 ModelTypeLabels 短） */
-const MODEL_TYPE_SHORT: Record<string, string> = {
-    chat: '对话',
-    embedding: '嵌入',
-    asr: '语音',
-    rerank: '排序',
-}
+/** 取模型类型简短标签（仅给 Command 搜索 keywords 用，UI 显示走 AdminModelTypeBadge 组件） */
+const modelTypeLabel = (t: string) => ModelTypeShortLabels[t as ModelType] ?? t
 
 // 定义 props
 const props = defineProps<{
