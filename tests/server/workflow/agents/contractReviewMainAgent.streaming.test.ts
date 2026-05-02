@@ -154,9 +154,9 @@ describe('runAnalyzeLoop', () => {
 
     it('按 clauseSegments 循环调用 analyzeSingleClause，每条发 progress + 命中风险发 risk', async () => {
         ;(analyzeSingleClause as any)
-            .mockResolvedValueOnce(null)          // 第 1 条无风险
-            .mockResolvedValueOnce(riskHigh)       // 第 2 条高风险
-            .mockResolvedValueOnce(riskMedium)     // 第 3 条中风险
+            .mockResolvedValueOnce([])            // 第 1 条无风险
+            .mockResolvedValueOnce([riskHigh])    // 第 2 条高风险
+            .mockResolvedValueOnce([riskMedium])  // 第 3 条中风险
 
         const result = await runAnalyzeLoop({
             segments: mockSegments,
@@ -214,7 +214,7 @@ describe('runAnalyzeLoop', () => {
     it('单条失败走 progress.error，其他条款继续，warnings 累积', async () => {
         ;(analyzeSingleClause as any)
             .mockRejectedValueOnce(new Error('zod 失败'))
-            .mockResolvedValueOnce({ id: 'r2', level: 'low', clauseIndex: 2, clauseText: 'b', category: '其他', problem: 'p', analysis: 'a', risk: 'r', suggestion: 's' })
+            .mockResolvedValueOnce([{ id: 'r2', level: 'low', clauseIndex: 2, clauseText: 'b', category: '其他', problem: 'p', analysis: 'a', risk: 'r', suggestion: 's' }])
 
         const result = await runAnalyzeLoop({
             segments: [

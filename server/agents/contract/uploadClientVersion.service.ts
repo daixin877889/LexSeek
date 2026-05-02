@@ -500,7 +500,10 @@ export async function* uploadClientVersionService(params: {
                 offsetEnd: item.offsetEnd,
             }
             try {
-                const risk = await analyzeSingleClause({
+                // analyzeSingleClause 现返回 Risk[]；Phase B 增量审查的旧 vs 新 多对多
+                // 配对 v1 暂不重写，取首条与历史行为一致（多 risk 拆分为单条款多卡片是
+                // Phase A 主路径的改进；Phase B 配对逻辑留 backlog）
+                const segRisks = await analyzeSingleClause({
                     clause,
                     stance: (review.stance ?? 'balanced') as Stance,
                     partyA: review.partyA,
@@ -508,6 +511,7 @@ export async function* uploadClientVersionService(params: {
                     contractType: review.contractType,
                     playbookSnapshot: review.playbookSnapshot as PlaybookSnapshot | null,
                 })
+                const risk = segRisks[0] ?? null
                 return { ok: true, i, m, clause, risk } as LlmResult
             } catch (err) {
                 return { ok: false, i, m, clause, err } as LlmResult

@@ -21,16 +21,36 @@ const MAX_CLAUSE_CHARS = 20000
 const NODE_NAME = 'contractReviewAnalyzeClause'
 
 /**
- * 单条输出 schema：要么返回 risk，要么 skip。
- * 两个字段都 optional：
- *   - LLM 只返回 `{"skip": true}` → risk=undefined（下面 line 112 当 null 处理）
- *   - LLM 只返回 `{"risk": {...}}` → skip=false（default）
- *   - LLM 返回 `{"risk": null, "skip": false}` → 无风险条款
+ * 单条款输出 schema：返回 risks 数组。每个独立违法点（playbook 要点）一条 risk。
+ *
+ * 设计理由（升级自旧 `risk: Risk | null` 单值）：同一条款可能违反多个 playbook 要点
+ * （如劳动合同"试用期 6 个月（超长）+ 单方延长（违法）+ 工资 50%（低于 80% 底线）"），
+ * 旧单值 schema 让 LLM 把多个违法点合并成一条 risk，只能挑一个 matchedPointCode，
+ * 导致 playbook 命中率天花板低。
+ *
+ * 字段语义：
+ *   - risks: 数组，每个元素是独立 risk；空数组等同于"无风险"
+ *   - skip: 兼容字段；旧 LLM 可能输出 `{skip: true}` 表示无风险；与 risks 空数组等价
+ *
+ * 旧 LLM 输出兜底：preprocess 把单值 `{risk: ...}` 透明升级到 `{risks: [...]}`，prompt
+ * 改造后这层兜底主要应对未热更 prompt 缓存的边角，最终可移除。
  */
-const SingleClauseResponse = z.object({
-    risk: RISK_SHAPE.nullable().optional(),
-    skip: z.boolean().default(false),
-})
+const SingleClauseResponse = z.preprocess(
+    (val: unknown) => {
+        if (val && typeof val === 'object') {
+            const obj = val as Record<string, unknown>
+            // 兼容旧 LLM 输出：risk 单值 → 升级到 risks 数组
+            if (obj.risk !== undefined && obj.risks === undefined) {
+                return { ...obj, risks: obj.risk == null ? [] : [obj.risk], risk: undefined }
+            }
+        }
+        return val
+    },
+    z.object({
+        risks: z.array(RISK_SHAPE).default([]),
+        skip: z.boolean().default(false),
+    }),
+)
 
 export interface AnalyzeClauseContext {
     clause: ClauseSegment
@@ -42,8 +62,8 @@ export interface AnalyzeClauseContext {
     playbookSnapshot?: PlaybookSnapshot | null
 }
 
-/** 返回 null 表示该条款无风险；返回 Risk 则已校验通过 */
-export async function analyzeSingleClause(ctx: AnalyzeClauseContext): Promise<Risk | null> {
+/** 返回风险数组；空数组表示该条款无风险 */
+export async function analyzeSingleClause(ctx: AnalyzeClauseContext): Promise<Risk[]> {
     const data = await invokeNodeJson({
         nodeName: NODE_NAME,
         temperature: 0,
@@ -56,31 +76,35 @@ export async function analyzeSingleClause(ctx: AnalyzeClauseContext): Promise<Ri
         },
     })
 
-    if (data.skip || !data.risk) return null
+    if (data.skip || data.risks.length === 0) return []
 
-    const rawRisk = data.risk
-    let matchedPointCode: string | undefined = (rawRisk.matchedPointCode?.trim() || undefined)
+    const validCodes: Set<string> | null = ctx.playbookSnapshot
+        ? new Set(ctx.playbookSnapshot.points.map(p => p.code))
+        : null
 
-    // 白名单校验：AI 返回的 code 必须在快照里存在；否则降级为清单外（警告）
-    if (matchedPointCode && ctx.playbookSnapshot) {
-        const validCodes = new Set(ctx.playbookSnapshot.points.map(p => p.code))
-        if (!validCodes.has(matchedPointCode)) {
-            logger.warn('analyzeSingleClause: AI 返回未知的 matchedPointCode，降级为清单外', {
-                clauseIndex: ctx.clause.index,
-                returnedCode: matchedPointCode,
-                validCodeCount: validCodes.size,
-            })
+    return data.risks.map((rawRisk) => {
+        let matchedPointCode: string | undefined = (rawRisk.matchedPointCode?.trim() || undefined)
+
+        // 白名单校验：AI 返回的 code 必须在快照里存在；否则降级为清单外（警告）
+        if (matchedPointCode && validCodes) {
+            if (!validCodes.has(matchedPointCode)) {
+                logger.warn('analyzeSingleClause: AI 返回未知的 matchedPointCode，降级为清单外', {
+                    clauseIndex: ctx.clause.index,
+                    returnedCode: matchedPointCode,
+                    validCodeCount: validCodes.size,
+                })
+                matchedPointCode = undefined
+            }
+        }
+        // snapshot 不存在时，AI 不应返回 matchedPointCode；如果返了，静默忽略（不 warn）
+        if (matchedPointCode && !ctx.playbookSnapshot) {
             matchedPointCode = undefined
         }
-    }
-    // snapshot 不存在时，AI 不应返回 matchedPointCode；如果返了，静默忽略（不 warn）
-    if (matchedPointCode && !ctx.playbookSnapshot) {
-        matchedPointCode = undefined
-    }
 
-    // 服务端强制覆盖 id：LLM 偶发对多条 risk 返回相同 UUID，导致前端 data-risk-id
-    // 冲突（多张卡片/文档段被同一 focus/pin 联动）。用 randomUUID 保证唯一。
-    return { ...rawRisk, id: randomUUID(), matchedPointCode } as Risk
+        // 服务端强制覆盖 id：LLM 偶发对多条 risk 返回相同 UUID，导致前端 data-risk-id
+        // 冲突（多张卡片/文档段被同一 focus/pin 联动）。用 randomUUID 保证唯一。
+        return { ...rawRisk, id: randomUUID(), matchedPointCode } as Risk
+    })
 }
 
 /**

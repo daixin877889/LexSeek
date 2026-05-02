@@ -3196,29 +3196,38 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 - lenient 要点：若属行业商业惯例可接受可不报；但若该条款明显不利于当前审查立场，仍按审查立场原则定性
 
 ## 输出要求
-请判断该条款是否有风险。严格按 JSON 输出，字段如下：
+请判断该条款是否有风险。严格按 JSON 输出 risks 数组，字段如下：
 
-- 有风险（若违反清单某条，matchedPointCode 填对应 code；清单外风险 matchedPointCode 留空）：
+**关键规则：同一条款违反多个清单要点时，每个独立违法点输出一条独立 risk（不要合并）。** 例如劳动合同试用期同时违反"试用期超长 + 单方延长 + 工资低于法定底线"三个要点，应输出三条 risks 各自命中对应清单 code（probation_period / clause_validity / probation_wage_floor）。优先选最具体的 code（如试用期工资低于 80% → probation_wage_floor，不要选 generic 的 clause_validity）。
+
+- 有风险：
   {
-    "risk": {
-      "id": "<UUID v4>",
-      "clauseIndex": {{clauseIndex}},
-      "clauseText": "<被分析的条款原文片段>",
-      "level": "high" | "medium" | "low",
-      "category": "<风险类别，如 ''付款'' / ''违约'' / ''知识产权'' 等>",
-      "problem": "<简短问题描述，必须包含''对{{stanceLabel}}''的视角>",
-      "analysis": "<详细分析，结合{{stanceLabel}}立场展开>",
-      "risk": "<对{{stanceLabel}}方具体的风险点>",
-      "suggestion": "<改进建议，方向更有利于{{stanceLabel}}（中立时朝公平方向）>",
-      "suggestedClauseText": "<可选，推荐改写后的条款>",
-      "matchedPointCode": "<若命中清单要点，填其 code 原文，如 \"probation\"；否则留空或不返此字段>"
-    },
+    "risks": [
+      {
+        "id": "<UUID v4>",
+        "clauseIndex": {{clauseIndex}},
+        "clauseText": "<被分析的条款原文片段>",
+        "level": "high" | "medium" | "low",
+        "category": "<风险类别，如 ''付款'' / ''违约'' / ''知识产权'' 等>",
+        "problem": "<简短问题描述，必须包含''对{{stanceLabel}}''的视角>",
+        "analysis": "<详细分析，结合{{stanceLabel}}立场展开>",
+        "risk": "<对{{stanceLabel}}方具体的风险点>",
+        "suggestion": "<改进建议，方向更有利于{{stanceLabel}}（中立时朝公平方向）>",
+        "suggestedClauseText": "<可选，推荐改写后的条款>",
+        "matchedPointCode": "<若命中清单要点，填其 code 原文；否则留空或不返此字段>"
+      }
+    ],
     "skip": false
   }
 
-- 无风险：{ "risk": null, "skip": true }
+- 无风险：{ "risks": [], "skip": true }
 
-注意：matchedPointCode 只能使用上方清单里列出的 code 原文，不要编号（如不要写 P1/P2）；清单外风险 matchedPointCode 留空字符串或不返此字段。只输出 JSON，不要任何解释。', '["stanceLabel", "contractType", "partyA", "partyB", "clauseIndex", "clauseNumber", "clauseText", "playbookSection"]', 'v2', 'system', 1, 20, '2026-04-21 20:30:00+08', '2026-04-22 03:00:00+08', NULL);
+注意：
+- risks 数组中每条 risk 必须独立完整（不能拆字段到多条 risk）
+- matchedPointCode 只能使用上方清单里列出的 code 原文，不要编号（如不要写 P1/P2）
+- 清单外风险 matchedPointCode 留空字符串或不返此字段
+- 优先选最具体的 code（clause_validity 是兜底；其它专项 code 优先）
+- 只输出 JSON，不要任何解释。', '["stanceLabel", "contractType", "partyA", "partyB", "clauseIndex", "clauseNumber", "clauseText", "playbookSection"]', 'v2', 'system', 1, 20, '2026-04-21 20:30:00+08', '2026-04-22 03:00:00+08', NULL);
 INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (29, 'contractReviewGlobalReview_system', '合同审查·全局复核提示词 v1', '你正在对一份{{contractType}}（甲方：{{partyA}}；乙方：{{partyB}}）进行全局平衡性复核。用户已在客户版本的基础上做了修改，现在需要对整篇新上传的完整合同文本做综合检查。
 
 ## 任务目标

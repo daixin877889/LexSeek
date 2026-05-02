@@ -38,14 +38,14 @@ describe('runAnalyzeLoop · playbook snapshot', () => {
         }
         analyzeSingleClauseMock.mockImplementation(async (ctx: any) => {
             if (ctx.clause.index === 1) {
-                return {
+                return [{
                     id: 'r1', clauseIndex: 1, clauseText: ctx.clause.text,
                     level: 'high', category: 't', problem: 'p',
                     analysis: 'a', risk: 'r', suggestion: 's',
                     matchedPointCode: ctx.playbookSnapshot?.points[0]?.code,
-                }
+                }]
             }
-            return null
+            return []
         })
 
         const result = await runAnalyzeLoop({
@@ -68,7 +68,7 @@ describe('runAnalyzeLoop · playbook snapshot', () => {
     })
 
     it('playbookSnapshot 不传时下游收到 undefined', async () => {
-        analyzeSingleClauseMock.mockResolvedValue(null)
+        analyzeSingleClauseMock.mockResolvedValue([])
         await runAnalyzeLoop({
             segments: [{ index: 1, number: '1', text: 'x' }],
             stance: 'neutral',

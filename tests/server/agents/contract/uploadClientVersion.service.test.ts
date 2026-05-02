@@ -59,9 +59,9 @@ vi.mock('~~/server/agents/contract/docx/wordCommentParser', () => ({
     })),
 }))
 
-// 默认 analyzeSingleClause：返回 null（无 risk），调用方按"无新风险"处理
+// 默认 analyzeSingleClause：返回空数组（无 risk），调用方按"无新风险"处理
 vi.mock('~~/server/agents/contract/analyzeSingleClause', () => ({
-    analyzeSingleClause: vi.fn(async () => null),
+    analyzeSingleClause: vi.fn(async () => []),
 }))
 
 // 默认 contractReviewVersion.service：透传真实实现（不 mock 整个模块）
@@ -139,7 +139,7 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
             annotationRefsByWId: new Map(),
         })
         mockAnalyzeClause.mockReset()
-        mockAnalyzeClause.mockResolvedValue(null) // 默认无新 risk
+        mockAnalyzeClause.mockResolvedValue([]) // 默认无新 risk
 
         userId = await ensureTestUser()
         const review = await prisma.contractReviews.create({
@@ -524,13 +524,13 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
             ]
             await setupV1Snapshot(oldText, newParas)
 
-            // mock LLM 返回 risk
-            mockAnalyzeClause.mockResolvedValueOnce({
+            // mock LLM 返回 risk（数组形式）
+            mockAnalyzeClause.mockResolvedValueOnce([{
                 id: '', clauseIndex: 0, clauseText: '',
                 level: 'high', category: '违约', problem: '修改后的条款问题',
                 analysis: '分析', risk: '风险', suggestion: '建议',
                 legalBasis: '《合同法》第X条',
-            })
+            }])
 
             const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
             const events = await collectEvents(
@@ -551,9 +551,9 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
             const newParas = ['第一条 改 A。', '第二条 改 B。', '第三条 旧 C。']
             await setupV1Snapshot(oldText, newParas)
 
-            // 第一次抛错，第二次返回 null
+            // 第一次抛错，第二次返回空数组
             mockAnalyzeClause.mockRejectedValueOnce(new Error('LLM down'))
-            mockAnalyzeClause.mockResolvedValueOnce(null)
+            mockAnalyzeClause.mockResolvedValueOnce([])
 
             const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
             const events = await collectEvents(
@@ -580,11 +580,11 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                 },
             })
 
-            mockAnalyzeClause.mockResolvedValueOnce({
+            mockAnalyzeClause.mockResolvedValueOnce([{
                 id: '', clauseIndex: 0, clauseText: '',
                 level: 'high', category: '新分类', problem: '新 problem',
                 analysis: '', risk: '', suggestion: '',
-            })
+            }])
 
             const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
             await collectEvents(uploadClientVersionService({ review, ossFileId, userId }))

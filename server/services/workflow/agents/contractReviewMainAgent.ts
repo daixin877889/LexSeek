@@ -244,7 +244,8 @@ export async function runAnalyzeLoop(ctx: AnalyzeLoopContext): Promise<{ risks: 
     const limit = pLimit(ANALYZE_CONCURRENCY)
     await Promise.all(ctx.segments.map(seg => limit(async () => {
         try {
-            const risk = await analyzeSingleClause({
+            // analyzeSingleClause 现返回 Risk[]：同一条款多违法点出独立 risks（提升 playbook 命中率）
+            const segRisks = await analyzeSingleClause({
                 clause: seg,
                 stance: ctx.stance,
                 partyA: ctx.partyA,
@@ -255,7 +256,7 @@ export async function runAnalyzeLoop(ctx: AnalyzeLoopContext): Promise<{ risks: 
             await emitContractReviewEvent(ctx.emitterCtx, {
                 type: 'progress', current: seg.index, total,
             })
-            if (risk) {
+            for (const risk of segRisks) {
                 risks.push(risk)
                 await emitContractReviewEvent(ctx.emitterCtx, { type: 'risk', risk })
             }
