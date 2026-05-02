@@ -98,6 +98,7 @@ export async function persistAiRisksAsContractRows(input: {
             legalBasis: r.legalBasis ?? null,
             analysis: r.analysis ?? null,
             suggestion: r.suggestion ?? null,
+            suggestedClauseText: r.suggestedClauseText ?? null,
             anchorQuote: row.anchorQuote ?? r.clauseText,
             anchorParagraphIndex: row.anchorParagraphIndex ?? null,
         }

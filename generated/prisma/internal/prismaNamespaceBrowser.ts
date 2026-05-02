@@ -480,6 +480,7 @@ export const ContractRisksScalarFieldEnum = {
   legalBasis: 'legalBasis',
   analysis: 'analysis',
   suggestion: 'suggestion',
+  suggestedClauseText: 'suggestedClauseText',
   archivedStatus: 'archivedStatus',
   archivedAt: 'archivedAt',
   anchorQuote: 'anchorQuote',

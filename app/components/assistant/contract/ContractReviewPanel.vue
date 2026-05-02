@@ -280,6 +280,8 @@ const effectiveRisks = computed<RiskDisplay[]>(() => {
             analysis: e.analysis ?? '',
             risk: e.problem,
             suggestion: e.suggestion ?? '',
+            // AI 改写文本：RiskClauseDiff 据此做字符级 diff 着色
+            suggestedClauseText: e.suggestedClauseText ?? undefined,
             archivedStatus: e.archivedStatus,
         }))
     }

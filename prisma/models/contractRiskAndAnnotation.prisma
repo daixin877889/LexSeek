@@ -15,6 +15,9 @@ model contractRisks {
   legalBasis String? @map("legal_basis") @db.Text
   analysis   String? @db.Text
   suggestion String? @db.Text
+  /// AI 生成的完整改写后条款（high/medium 必有；low 可空）；
+  /// 前端 RiskClauseDiff 据此做字符级 diff 着色
+  suggestedClauseText String? @map("suggested_clause_text") @db.Text
 
   /// 处置状态：Phase A 仅 handled / ignored；Phase B 扩展 client_removed
   archivedStatus String?   @map("archived_status") @db.VarChar(20)

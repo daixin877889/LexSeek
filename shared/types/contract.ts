@@ -486,6 +486,8 @@ export interface ContractRiskEntity {
     legalBasis: string | null
     analysis: string | null
     suggestion: string | null
+    /** AI 生成的完整改写后条款（high/medium 必有；low 可空） */
+    suggestedClauseText: string | null
     archivedStatus: RiskArchivedStatus | null
     archivedAt: string | null
     anchorQuote: string

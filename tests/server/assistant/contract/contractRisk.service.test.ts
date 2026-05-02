@@ -119,6 +119,26 @@ describe('contractRisk.service · persistAiRisksAsContractRows', () => {
         expect(created!.anchorParagraphIndex).toBeNull()
     })
 
+    it('AI 改写文本（suggestedClauseText）必须落库', async () => {
+        const aiRisk = buildAiRisk({
+            suggestedClauseText: '试用期为 3 个月，符合《劳动合同法》第19条规定。',
+        })
+        const [created] = await persistAiRisksAsContractRows({
+            reviewId,
+            rows: [{ risk: aiRisk, anchorParagraphIndex: 7 }],
+        })
+        expect(created!.suggestedClauseText).toBe('试用期为 3 个月，符合《劳动合同法》第19条规定。')
+    })
+
+    it('AI 未提供 suggestedClauseText（如 low 风险）时落 null', async () => {
+        const aiRisk = buildAiRisk({ level: 'low', suggestedClauseText: undefined })
+        const [created] = await persistAiRisksAsContractRows({
+            reviewId,
+            rows: [{ risk: aiRisk, anchorParagraphIndex: 7 }],
+        })
+        expect(created!.suggestedClauseText).toBeNull()
+    })
+
     it('批量写入按入参顺序返回，便于调用方按 index 配对生成批注', async () => {
         const rows = [
             { risk: buildAiRisk({ category: 'A', clauseText: '甲条款' }), anchorParagraphIndex: 1 },
