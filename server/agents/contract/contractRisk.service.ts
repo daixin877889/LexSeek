@@ -27,7 +27,7 @@ export async function archiveContractRiskService(params: {
  * AI 风险 → contractRisks 落库的输入行（CORE-R2）。
  *
  * 调用方负责把 segmentClauses 的 clauseIndex 通过 buildClauseToParagraphMap
- * 转换好后传入 anchorParagraphIndex；本服务不做转换。
+ * 转换好后传入 clauseParagraphIndex；本服务不做转换。
  */
 export interface PersistAiRiskRow {
     /** AI 产出的 Risk（来自 #shared/types/contract，注意 risk.id 是前端 string，不写 DB） */
@@ -35,16 +35,16 @@ export interface PersistAiRiskRow {
     /** 默认 'ai'；调用方需要 'global_review' / 'external_new' 时显式传入 */
     source?: RiskSource
     /**
-     * 显式覆盖 anchorQuote。
+     * 显式覆盖 clauseText（NOT NULL，必有值）。
      * - 首次审查（contractReviewMainAgent）：不传，使用 risk.clauseText
      * - 增量审查（uploadClientVersion Step 4a）：传入新条款原文（clause.text），
      *   避免 LLM 自填的 clauseText 与新条款字面差异导致后续 diff/锚点匹配失真
      */
-    anchorQuote?: string
+    clauseText?: string
     /** 已转换好的非空段落序号（commentInjector 期望空间）；null 表示无锚点 */
-    anchorParagraphIndex?: number | null
+    clauseParagraphIndex?: number | null
     /** Phase B：锚点首次迁移前的原文 */
-    originalAnchorQuote?: string | null
+    originalClauseText?: string | null
     /** Phase B：当前版本无法定位锚点（孤立批注区） */
     orphaned?: boolean
 }
@@ -62,9 +62,11 @@ export interface PersistAiRiskRow {
  * - category / level / problem：直接取 risk 对应字段
  * - legalBasis / analysis / suggestion：?? null，DB 列允许 null
  * - stance：参数 stance ?? DEFAULT_AI_RISK_STANCE
- * - anchorQuote：row.anchorQuote ?? risk.clauseText
- * - anchorParagraphIndex：row.anchorParagraphIndex ?? null
- * - originalAnchorQuote / orphaned：仅在 row 显式提供时写入
+ * - clauseText：row.clauseText ?? risk.clauseText（NOT NULL）
+ * - clauseParagraphIndex：row.clauseParagraphIndex ?? null
+ * - originalClauseText / orphaned：仅在 row 显式提供时写入
+ * - clauseIndex / problematicQuote / quoteCharStart / quoteCharEnd / quoteMatchSource：
+ *   PR 2 阶段全显式置 null；PR 3 主路径接入 splitSentences + resolveQuoteAnchor 后才填值
  *
  * 说明：
  * - risk.id 是前端字符串 UUID，contractRisks.id 是 DB 自增主键，两者不互写
@@ -99,10 +101,18 @@ export async function persistAiRisksAsContractRows(input: {
             analysis: r.analysis ?? null,
             suggestion: r.suggestion ?? null,
             suggestedClauseText: r.suggestedClauseText ?? null,
-            anchorQuote: row.anchorQuote ?? r.clauseText,
-            anchorParagraphIndex: row.anchorParagraphIndex ?? null,
+            // 双锚点 · 层 1：clauseText 是 NOT NULL 列
+            clauseText: row.clauseText ?? r.clauseText,
+            clauseParagraphIndex: row.clauseParagraphIndex ?? null,
+            // PR 2 全为 null；PR 3 主路径起填 clauseIndex / quote_*
+            clauseIndex: null,
+            // 双锚点 · 层 2：PR 2 全为 null
+            problematicQuote: null,
+            quoteCharStart: null,
+            quoteCharEnd: null,
+            quoteMatchSource: null,
         }
-        if (row.originalAnchorQuote !== undefined) item.originalAnchorQuote = row.originalAnchorQuote
+        if (row.originalClauseText !== undefined) item.originalClauseText = row.originalClauseText
         if (row.orphaned !== undefined) item.orphaned = row.orphaned
         return item
     })
