@@ -287,6 +287,10 @@ const effectiveRisks = computed<RiskDisplay[]>(() => {
             risk: e.problem,
             suggestion: e.suggestion ?? '',
             suggestedClauseText: e.suggestedClauseText ?? undefined,
+            // Playbook 命中：entity 字段名是 code（contract_risks.code），
+            // 前端 useContractPlaybookMatch / RiskCard 读 matchedPointCode；漏映射会让"清单对照"
+            // 永远 0/N 命中（即便 LLM 实际写了 code）
+            matchedPointCode: e.code ?? undefined,
             archivedStatus: e.archivedStatus,
         }
     }
