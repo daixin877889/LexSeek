@@ -4,17 +4,18 @@
  * PATCH /api/v1/admin/skills/status/:name
  * Body: { status: 0 | 1 }
  *
- * 成功后同时失效 NodeConfig 缓存和 FilesystemBackend 缓存，
- * 保证下次 createAgent 时使用最新配置。
+ * 启用前会校验 skill 目录与 SKILL.md 是否存在，缺失则拒绝启用并给中文提示。
+ * 禁用永远允许。成功后失效 NodeConfig + FilesystemBackend 缓存。
  *
  * 鉴权：由 server/middleware/03.permission.ts 按 RBAC 权限表细粒度判定
  *      （任意被授予该 API 权限的管理类角色均可访问）。
  */
 
 import { z } from 'zod'
-import { updateSkillStatusDAO } from '~~/server/services/agent-platform/skills/skillSync.dao'
-import { invalidateNodeConfigCache } from '~~/server/services/agent-platform/nodeConfig/loader'
-import { invalidateBackendCache } from '~~/server/services/agent-platform/skills/filesystemBackendCache'
+import {
+    setSkillStatusService,
+    SkillFsMissingError,
+} from '~~/server/services/agent-platform/skills/skillSync.service'
 import { SkillStatus } from '#shared/types/skill'
 
 const bodySchema = z.object({
@@ -36,15 +37,12 @@ export default defineEventHandler(async (event) => {
     }
 
     try {
-        const skill = await updateSkillStatusDAO(name, result.data.status as SkillStatus)
-
-        // 失效缓存，确保节点配置与 backend 使用最新状态
-        invalidateNodeConfigCache()
-        invalidateBackendCache()
-
+        const skill = await setSkillStatusService(name, result.data.status as SkillStatus)
         return resSuccess(event, result.data.status === 1 ? '已启用' : '已禁用', skill)
     } catch (err: any) {
-        // Prisma P2025: 记录不存在
+        if (err instanceof SkillFsMissingError) {
+            return resError(event, 400, err.message)
+        }
         if (err?.code === 'P2025') {
             return resError(event, 404, `skill "${name}" 不存在`)
         }

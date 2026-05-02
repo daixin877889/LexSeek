@@ -7,8 +7,8 @@
  * @see docs/superpowers/specs/2026-04-26-ai-infrastructure-unification-design.md §3.5
  */
 
-import { readdir, readFile, stat } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { readdir, readFile, stat, access } from 'node:fs/promises'
+import { resolve, isAbsolute } from 'node:path'
 import matter from 'gray-matter'
 
 import {
@@ -16,11 +16,12 @@ import {
     listAllSkillsDAO,
     markSkillsDisabledByNamesDAO,
     updateSkillCustomTitleDAO,
+    updateSkillStatusDAO,
     listEnabledSkillLabelsDAO,
     type UpsertSkillInput,
 } from './skillSync.dao'
 import { prisma } from '~~/server/utils/db'
-import { SkillSource, SKILLS_FS_ROOT, type SkillFrontmatter } from '#shared/types/skill'
+import { SkillSource, SKILLS_FS_ROOT, SkillStatus, type SkillFrontmatter } from '#shared/types/skill'
 import { invalidateNodeConfigCache } from '~~/server/services/agent-platform/nodeConfig/loader'
 import { invalidateBackendCache } from '~~/server/services/agent-platform/skills/filesystemBackendCache'
 
@@ -198,4 +199,59 @@ export async function updateSkillCustomTitleService(name: string, raw: string | 
  */
 export async function listEnabledSkillLabelsService() {
     return listEnabledSkillLabelsDAO()
+}
+
+/**
+ * 错误：skill 的文件系统目录或 SKILL.md 已不存在，无法启用。
+ * handler 捕获后返回 400 + 中文 message。
+ */
+export class SkillFsMissingError extends Error {
+    constructor(public readonly skillName: string, public readonly missingPath: string) {
+        super(`skill "${skillName}" 的文件已不在 ${missingPath}，无法启用。请确认 .deepagents/skills/<name> 目录与 SKILL.md 完整后再试。`)
+        this.name = 'SkillFsMissingError'
+    }
+}
+
+/**
+ * 启用/禁用 skill。启用前校验 path 对应目录 + SKILL.md 存在。
+ * 禁用永远允许（哪怕文件已被删，仍要支持显式停用）。
+ *
+ * skill.path 入库时一般是相对项目根的相对路径（如 .deepagents/skills/foo），
+ * 但测试 / 上传 skill 等场景也允许绝对路径，这里 isAbsolute 兜底。
+ *
+ * @throws Prisma P2025 当 skill name 不存在
+ * @throws SkillFsMissingError 启用时目录或 SKILL.md 缺失
+ */
+export async function setSkillStatusService(name: string, status: SkillStatus) {
+    if (status === SkillStatus.ENABLED) {
+        const skill = await prisma.skills.findUnique({
+            where: { name },
+            select: { path: true },
+        })
+        if (!skill) {
+            const err: any = new Error('Skill not found')
+            err.code = 'P2025'
+            throw err
+        }
+        const absDir = isAbsolute(skill.path) ? skill.path : resolve(process.cwd(), skill.path)
+        let dirOk = false
+        try {
+            const st = await stat(absDir)
+            dirOk = st.isDirectory()
+        } catch {
+            // ENOENT 等：目录不存在
+        }
+        if (!dirOk) {
+            throw new SkillFsMissingError(name, skill.path)
+        }
+        try {
+            await access(resolve(absDir, 'SKILL.md'))
+        } catch {
+            throw new SkillFsMissingError(name, `${skill.path}/SKILL.md`)
+        }
+    }
+    const updated = await updateSkillStatusDAO(name, status)
+    invalidateNodeConfigCache()
+    invalidateBackendCache()
+    return updated
 }
