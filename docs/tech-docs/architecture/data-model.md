@@ -139,6 +139,8 @@ nodes (1) ──> (N) prompts
 nodes (1) ──> (N) levelNodeAccess
 nodes (1) ──> (N) caseAnalyses
 
+nodes (N) <──> (N) skills      (via node_skills, priority 排序)
+
 nodeGroups (1) ──> (N) nodes
 ```
 
@@ -146,6 +148,7 @@ nodeGroups (1) ──> (N) nodes
 - `models.sdkType` 标识 LangChain 适配器类型：`openai`、`deepseek`、`gemini`、`anthropic`
 - `nodes.type` 区分节点功能：`analysis`（分析模块）、`document`（文书模块）、`extraction`（数据提取）、`agent`（主代理）
 - `prompts` 支持版本管理，`status=1` 表示当前生效版本
+- `node_skills.priority` 决定 skill 在 system prompt 中出现的顺序（数字越小越靠前）；`nodes.useSkillsAsLogic` 控制是否把 skills 注入为可调用工具
 
 ### 2.7 法律知识库
 

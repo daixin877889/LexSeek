@@ -23,6 +23,8 @@ LexSeek 是基于 Nuxt 4 全栈架构的法律服务 AI 应用，本文档体系
 | 开发支付/会员功能 | [backend/payment.md](./backend/payment.md) + [backend/membership.md](./backend/membership.md) |
 | 开发权限管理功能 | [backend/rbac.md](./backend/rbac.md) + [backend/auth-users-sms.md](./backend/auth-users-sms.md) |
 | 开发 Agent 节点功能 | [backend/agent.md](./backend/agent.md) + [backend/node.md](./backend/node.md) |
+| 理解 LangGraph 适配层（业务 vertical 注册 / 中间件栈 / 工具体系） | [backend/agent-platform.md](./backend/agent-platform.md) |
+| 开发 / 配置 Agent Skill | [backend/skills.md](./backend/skills.md) |
 | 开发前端页面或组件 | [frontend/overview.md](./frontend/overview.md) + [frontend/components.md](./frontend/components.md) |
 | 了解前端状态管理 | [frontend/stores.md](./frontend/stores.md) |
 | 了解前端数据请求 | [frontend/composables.md](./frontend/composables.md) |
@@ -52,7 +54,9 @@ tech-docs/
 │   ├── workflow.md                    # 工作流引擎（LangGraph）
 │   ├── case.md                        # 案件管理
 │   ├── material.md                    # 素材处理（OCR/ASR/MinerU）
-│   ├── agent.md                       # Agent 任务调度
+│   ├── agent.md                       # Agent 任务调度（任务队列 + Redis SSE）
+│   ├── agent-platform.md              # LangGraph 适配层（vertical 注册 / 中间件栈 / 工具体系）
+│   ├── skills.md                      # Agent Skills 注册表与运行时挂载
 │   ├── retrieval.md                   # 检索服务（混合检索、重排）
 │   ├── legal.md                       # 法律法规管理
 │   ├── model.md                       # 模型管理（多供应商）
