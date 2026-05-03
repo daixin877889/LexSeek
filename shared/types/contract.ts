@@ -194,6 +194,8 @@ export type RiskDisplayPhaseB = RiskDisplay & {
     source?: RiskSource
     orphaned?: boolean
     originalClauseText?: string | null
+    quoteCharStart?: number | null
+    quoteCharEnd?: number | null
 }
 
 export interface CreateReviewRequest {
