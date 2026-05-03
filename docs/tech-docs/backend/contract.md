@@ -317,3 +317,47 @@ quote == 整段 `clauseText` 且 textContent 完全覆盖时，`addParagraphDele
 - `server/agents/contract/contractReviewRebuild.service.ts` — 接受 `opts.mode`
 - `server/agents/contract/contractReviewVersion.service.ts` — `downloadContractReviewVersionService` 接受 `opts.mode`
 - `server/agents/contract/riskSchema.builder.ts` — `suggestedClauseText` reject `\r|\n`
+
+---
+
+## 12. Phase B 双锚点迁移（PR7）
+
+客户回传 docx 时，`uploadClientVersionService` Step 5 走双锚点优先级把旧 risk 的位置迁到新文档：
+
+| 档 | 命中条件 | 写入字段 |
+|---|---|---|
+| 1 (quote) | `problematicQuote` 在新文档 `normalizedText` 上 fuzzy 命中且未跨段 | `clauseText` 升级为新段 segment.text 全段；`problematicQuote` 重摘录；`quoteCharStart/End` 重算到新 clauseText 内的相对 offset；`quoteMatchSource` 沿用旧值；`orphaned=false` |
+| 2 (clause) | 档 1 失败 + `clauseText` 走 `migrateAnchor` 命中 | `clauseText` 升级为新段全段；`problematicQuote/quoteCharStart/End/quoteMatchSource` 全清空 null；`orphaned=false` |
+| 3 (orphaned) | 两档都失败 | `orphaned=true`；`clauseText/problematicQuote/quoteMatchSource` 全保留旧值（孤立批注区展示用） |
+
+`originalClauseText` 在迁移后 clauseText 实际变化 + 旧值非空 + 未备份过时首次写入（幂等：已有值则不覆盖）。
+
+实现位置：
+- `server/agents/contract/utils/anchorMigrate.ts` `migrateRiskWithDualAnchor` wrapper（spec §9.2，含档 1 命中后 calcSimilarity 二次校验阻断长 quote 假阳）
+- `server/agents/contract/uploadClientVersion.service.ts` Step 5（spec §9.3）
+
+为什么 quote 优先：精确句子比整段更稳定——条款里其它字改了，只要"导致风险的那句话"还在就能锚住；clauseText 含整段更易因字面变化失败。
+
+之前 orphaned=true 的 risk 在后续回传里能再次定位时 `orphaned` 自动复位 false（不需要律师手工"重激活"）。
+
+### 12.1 运维监控注意事项（与 spec §10.3 衔接）
+
+spec §10.3 监控 SQL 期望首次审查的 `quote_match_source` 分布是 `sentence_id ≥ 80%, fuzzy ≤ 15%, fallback ≤ 5%`。**Phase B 迁移会污染这个分布**：
+
+- 档 1 命中：沿用旧 `quote_match_source`（首次审查写入的值），分布无影响
+- 档 2 命中：把 `quote_match_source` 清 null，独立桶
+- 档 3 orphaned：保留旧值，分布无影响
+
+**告警 SQL 必须排除迁移行**：迁移行在 Phase B 客户回传后 `updated_at > created_at`。建议监控 SQL：
+
+```sql
+-- 仅统计首次审查的命中分布，排除 Phase B 迁移行
+SELECT quote_match_source, COUNT(*),
+       ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 1) AS pct
+FROM contract_risks
+WHERE source = 'ai'
+  AND created_at > NOW() - INTERVAL '7 days'
+  AND created_at = updated_at  -- 排除 Phase B 迁移行
+GROUP BY quote_match_source
+ORDER BY COUNT(*) DESC;
+```
