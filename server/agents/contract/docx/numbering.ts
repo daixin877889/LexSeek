@@ -112,6 +112,112 @@ export function buildNumberingPrefixMap(
     const numbering = parseNumberingXml(numberingXml)
     if (!numbering) return prefixMap
 
-    // Task 5-8 在此基础上实现段落遍历 + 渲染
+    let docAst: NodeArray
+    try {
+        docAst = parseOoxml(documentXml)
+    } catch (err) {
+        logger.warn('[numbering] document.xml 解析失败，降级为空 prefixMap', { err })
+        return prefixMap
+    }
+
+    /** key = `${numId}:${ilvl}`，value = 当前已渲染数（首次见时取 start）*/
+    const counters = new Map<string, number>()
+    let paraIndex = -1
+
+    walk(docAst, (node) => {
+        if (tagOf(node) !== 'w:p') return
+        // 与 paragraphsFromAst 严格同口径：先过滤无 <w:r> 的"空段落"，再 trim 二次过滤
+        if (!hasRunChild(node)) return
+        const text = paragraphText(node).trim()
+        if (text.length === 0) return
+        paraIndex++
+
+        // findFirst 接收 NodeArray，传 [node] 让深度优先 walk 进入子树
+        const numPr = findFirst([node], 'w:numPr')
+        if (!numPr) return
+
+        const numIdNode = findFirst([numPr], 'w:numId')
+        const ilvlNode = findFirst([numPr], 'w:ilvl')
+        if (!numIdNode) return
+
+        const numIdStr = getAttr(numIdNode, 'w:val')
+        const numId = numIdStr ? parseInt(numIdStr, 10) : NaN
+        const ilvl = ilvlNode ? parseInt(getAttr(ilvlNode, 'w:val') ?? '0', 10) : 0
+        if (Number.isNaN(numId)) return
+
+        const abstractNumId = numbering.numIdMap.get(numId)
+        if (abstractNumId == null) {
+            logger.warn('[numbering] numId 引用不存在', { numId, paraIndex })
+            return
+        }
+        const abstractNum = numbering.abstractNums.get(abstractNumId)
+        if (!abstractNum) {
+            logger.warn('[numbering] abstractNum 不存在', { abstractNumId, paraIndex })
+            return
+        }
+        const lvl = abstractNum.levels.get(ilvl)
+        if (!lvl) {
+            logger.warn('[numbering] ilvl 不存在', { numId, ilvl, paraIndex })
+            return
+        }
+
+        // counter ++ 或首次取 start
+        const counterKey = `${numId}:${ilvl}`
+        const currentCount = counters.has(counterKey)
+            ? counters.get(counterKey)! + 1
+            : lvl.start
+        counters.set(counterKey, currentCount)
+
+        // 渲染前缀（Task 6-8 会扩展支持更多 numFmt）
+        const prefix = renderLvlText(lvl, abstractNum, counters, numId, ilvl)
+        if (prefix !== null) {
+            prefixMap.set(paraIndex, prefix + ' ')
+        }
+    })
+
     return prefixMap
+}
+
+/**
+ * 把 lvlText 模板（含 %1 %2 ...）替换为各级 counter 的渲染值。
+ * 返回 null 表示未识别 numFmt / 空 lvlText / 渲染后空白 → 跳过该段。
+ *
+ * 注意：OOXML ECMA-376 §17.9.13 lvlText.val 规定「除 %<digit> 外全部按字面量输出」，
+ * 不存在 %% 转义概念。renderNumber 输出仅含数字/中文/字母/罗马字符。
+ */
+function renderLvlText(
+    lvl: LvlConfig,
+    abstractNum: AbstractNum,
+    counters: Map<string, number>,
+    numId: number,
+    currentIlvl: number,
+): string | null {
+    if (lvl.lvlText.length === 0) return null
+
+    let result = lvl.lvlText
+    // 倒序替换避免 %10 被 %1 拦截
+    for (let i = currentIlvl + 1; i >= 1; i--) {
+        const targetIlvl = i - 1
+        const targetLvl = abstractNum.levels.get(targetIlvl)
+        if (!targetLvl) continue
+        const count = counters.get(`${numId}:${targetIlvl}`) ?? targetLvl.start
+        const rendered = renderNumber(targetLvl.numFmt, count)
+        if (rendered === null) {
+            logger.warn('[numbering] 未识别 numFmt，跳过段落', { numFmt: targetLvl.numFmt, numId, ilvl: targetIlvl })
+            return null
+        }
+        result = result.replace(new RegExp(`%${i}`, 'g'), rendered)
+    }
+
+    if (result.trim().length === 0) return null
+    return result
+}
+
+/** 把数字渲染成对应 numFmt 的字符串。未识别格式返回 null。Task 6 会扩展。*/
+function renderNumber(numFmt: string, n: number): string | null {
+    switch (numFmt) {
+        case 'decimal': return String(n)
+        default:
+            return null
+    }
 }
