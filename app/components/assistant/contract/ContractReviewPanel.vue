@@ -666,7 +666,7 @@ function handleContainerClick(e: MouseEvent) {
                 />
 
                 <!-- 右侧内容区 -->
-                <div class="flex-1 min-h-0 flex flex-col">
+                <div class="flex-1 min-h-0 min-w-0 flex flex-col">
                     <!-- 分栏（>=1024px）：对齐文书编辑器工作区。右侧风险面板比例 = 文书编辑器左侧表单比例 -->
                     <ResizablePanelGroup
                         v-if="isSplit"
