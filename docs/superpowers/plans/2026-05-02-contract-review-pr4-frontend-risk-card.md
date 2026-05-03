@@ -497,6 +497,7 @@ const clauseTitle = computed(() => {
                     <span>{{ stackedClauseSegments.prefix }}</span>
                     <mark
                         v-if="stackedClauseSegments.quote"
+                        aria-label="问题片段"
                         class="bg-yellow-300 dark:bg-yellow-700/60 text-yellow-950 dark:text-yellow-50 rounded-sm px-0.5"
                     >{{ stackedClauseSegments.quote }}</mark>
                     <span>{{ stackedClauseSegments.suffix }}</span>
@@ -790,7 +791,9 @@ const cardLayout = useLocalStorage<'stacked' | 'inline-diff'>(
     </Tabs>
 ```
 
-> **关于 `<Tabs v-model>` 的兼容性**：`useLocalStorage` 返回 `Ref<string>`，`<Tabs>` 的 v-model 接受字符串模型；shadcn-vue Tabs 双向绑定通过 `v-model` 直接工作。NewReviewDialog.vue:204 已有相同模式（`<Tabs v-model="activeTab">`）。
+> **关于 `<Tabs v-model>` 的兼容性**：`useLocalStorage` 返回 `Ref<string>`，`<Tabs>` 的 v-model 接受字符串模型；shadcn-vue Tabs 双向绑定通过 `v-model` 直接工作。`NewReviewDialog.vue` 已有相同模式（`<Tabs v-model="activeTab">`）。
+
+> **流式态可切换性**：`<Tabs>` 不接 `:disabled`，与 `editable` / `isCompleted` 链路解耦——`status=reviewing` 流式审查中律师仍可切布局；新冒出的风险卡自动继承当前 `cardLayout`（cardLayout 是响应式 ref，`<RiskCard :layout="cardLayout">` 自动触发 layoutMode 重算 → RiskClauseDiff 切 mode）。
 
 - [ ] **Step 5.4：把 layout 透传给主清单 RiskCard**
 
@@ -1119,6 +1122,20 @@ describe('RiskClauseDiff · inline-diff（Layout C）', () => {
         const w = mountInline({})
         expect(() => w.text()).not.toThrow()
     })
+
+    it('clauseText === suggestedClauseText（无变更）+ problematicQuote 非空 → 渲染无 diff class', () => {
+        // dmp.diff_main 对完全相同文本返回全 equal segments，不应渲染 line-through / font-medium
+        const same = '甲方应支付定金 10 万元'
+        const w = mountInline({
+            clauseText: same,
+            suggestedClauseText: same,
+            problematicQuote: '甲方应支付定金',
+        })
+        const html = w.html()
+        expect(html).not.toContain('line-through')
+        expect(html).not.toContain('font-medium')
+        expect(w.text()).toContain(same)
+    })
 })
 ```
 
@@ -1198,59 +1215,39 @@ describe('RiskCard · layout prop 透传（PR 4）', () => {
 
 - [ ] **Step 7.4：改写 RiskListPanel.test.ts 加布局 Tabs 用例**
 
-打开 `tests/app/components/assistant/contract/RiskListPanel.test.ts`。先 Read 全文确认 stubs 结构（前文 Read 的是头 60 行）。需要：
+打开 `tests/app/components/assistant/contract/RiskListPanel.test.ts`。先确认现有 import 块（line 1-3 已含 `vi` / `afterEach` / `mount` / `defineComponent` / `h` / `nextTick`）—— **无需追加 import**（重复 import 会编译报错）；现有 stubs 表（line 144-160）也**无需追加 `Switch`**（实测既有"隐藏已处置"测试用真实 shadcn Switch 渲染通过）。
 
-1. 给 stubs 表加 `Tabs` / `TabsList` / `TabsTrigger`（passthrough 即可，关键是不让组件解析失败）
-2. 在文件末尾追加新 describe `RiskListPanel · 布局切换（PR 4）`
+需要做的只有两件事：
 
-读测试 stubs 部分以确认：
+1. **stubs 表追加 `Tabs` / `TabsList` / `TabsTrigger` 三个 stub**（line 144-160 范围内）
+2. **文件末尾追加新 describe `RiskListPanel · 布局切换（PR 4）`**
 
-```bash
-sed -n '60,160p' tests/app/components/assistant/contract/RiskListPanel.test.ts
-```
+为什么要给 Tabs 自定义 stub 而不是 passthrough？因为后续测试用例需要识别 `data-stub="TabsTrigger"` + `data-value="stacked"` 属性；passthrough 只透传 attrs 但不暴露 value 字段做断言点。
 
-预期看到 `stubs` 对象。把 `Tabs` 系列加到 stubs 表，参考 RiskCard.test.ts 的 `passthrough` 模式。如下示例（如果 stubs 是对象字面量，找到 `stubs = {` 并加 Tabs；如果是函数，按已有风格 mirror）：
+stubs 表（line 144-160）也无需追加 `Switch` —— 该组件目前作为真实 shadcn 渲染，既有"隐藏已处置"测试已经通过，不要替换。**只追加 `Tabs` / `TabsList` / `TabsTrigger` 三个 stub**：
 
 ```typescript
-const Tabs = defineComponent({
-    name: 'Tabs',
-    props: { modelValue: String },
-    emits: ['update:modelValue'],
-    setup(_, { slots }) {
-        return () => h('div', { 'data-stub': 'Tabs' }, slots.default?.())
-    },
-})
-const TabsList = passthrough('TabsList')
-const TabsTrigger = defineComponent({
-    name: 'TabsTrigger',
-    props: { value: String },
-    setup(props, { slots, attrs }) {
-        return () =>
-            h('button', { 'data-stub': 'TabsTrigger', 'data-value': props.value, ...attrs }, slots.default?.())
-    },
-})
-
-// 然后在 stubs 对象里追加
+// 在既有 stubs 对象里追加（line 144-160 范围内）
 const stubs = {
-    // ... 既有 stubs ...
-    Tabs,
-    TabsList,
-    TabsTrigger,
-    Switch: passthrough('Switch'),  // 如果还没有
-    AssistantContractRiskCard: passthrough('AssistantContractRiskCard'),
-    AssistantContractRiskClauseDiff: passthrough('AssistantContractRiskClauseDiff'),
+    // ...既有 stubs 全部保留 ...
+    Tabs: defineComponent({
+        name: 'Tabs',
+        props: { modelValue: String },
+        emits: ['update:modelValue'],
+        setup(_, { slots }) {
+            return () => h('div', { 'data-stub': 'Tabs' }, slots.default?.())
+        },
+    }),
+    TabsList: passthrough('TabsList'),
+    TabsTrigger: defineComponent({
+        name: 'TabsTrigger',
+        props: { value: String },
+        setup(props, { slots, attrs }) {
+            return () =>
+                h('button', { 'data-stub': 'TabsTrigger', 'data-value': props.value, ...attrs }, slots.default?.())
+        },
+    }),
 }
-```
-
-> 具体改动取决于既有文件结构，按 Read 出来的当前 stubs 集合按需增删；不要全部覆盖。
-
-在文件顶部 import 块追加（项目自动导入对测试文件不生效，`nextTick` 需显式 import）：
-
-```typescript
-import { describe, it, expect, vi, afterEach } from 'vitest'
-import { mount } from '@vue/test-utils'
-import { defineComponent, h, nextTick } from 'vue'
-// ...其它既有 import 保留
 ```
 
 在文件末尾追加：
@@ -1278,7 +1275,7 @@ describe('RiskListPanel · 布局切换（PR 4）', () => {
         // 清理 localStorage 避免前序用例残留污染
         localStorage.removeItem('contract-review-risk-card-layout')
         const w = mountPanel({
-            risks: [makePanelRisk({ id: 'r1' })],
+            risks: [makeRisk({ id: 'r1' })],
         })
         const stub = w.find('[data-stub="AssistantContractRiskCard"]')
         expect(stub.attributes('layout')).toBe('stacked')
@@ -1290,7 +1287,7 @@ describe('RiskListPanel · 布局切换（PR 4）', () => {
         // 源码确认：node_modules/@vueuse/core/dist/index.js StorageSerializers.string.write = (v) => String(v)
         localStorage.setItem('contract-review-risk-card-layout', 'inline-diff')
         const w = mountPanel({
-            risks: [makePanelRisk({ id: 'r1' })],
+            risks: [makeRisk({ id: 'r1' })],
         })
         await nextTick()
         const stub = w.find('[data-stub="AssistantContractRiskCard"]')
@@ -1299,7 +1296,7 @@ describe('RiskListPanel · 布局切换（PR 4）', () => {
 })
 ```
 
-> 上面 `mountPanel` / `makePanelRisk` 是测试文件已有的工厂；如果命名不同，按文件实际命名调整（Read 时确认）。`localStorage` 在 jsdom 里默认可用；**@vueuse/core useLocalStorage 对字符串类型直接以裸字符串存储**（无 JSON 引号），所以 `setItem` / `expect.toBe` 都用裸字符串 `'inline-diff'`。
+> 上面 `mountPanel` / `makeRisk` 是测试文件已有的工厂；如果命名不同，按文件实际命名调整（Read 时确认）。`localStorage` 在 jsdom 里默认可用；**@vueuse/core useLocalStorage 对字符串类型直接以裸字符串存储**（无 JSON 引号），所以 `setItem` / `expect.toBe` 都用裸字符串 `'inline-diff'`。
 
 - [ ] **Step 7.5：跑全部 RiskClauseDiff / RiskCard / RiskListPanel 测试**
 
@@ -1331,12 +1328,16 @@ git commit -m "test(contract): 风险卡 Layout A/C 单元测试覆盖"
 
 ---
 
-## Task 8：e2e 测试 · 端到端切换 + localStorage 验证
+## Task 8：e2e 蓝图 spec + chrome-devtools MCP 手动验收
 
 **Files:**
-- Create: `tests/e2e/contract-review-risk-card-layout.spec.ts`
+- Create: `tests/e2e/contract-review-risk-card-layout.spec.ts`（蓝图，不在 CI 跑）
 
-用 Playwright 跑端到端：登录 → 进入合同审查页 → 等审查完成 → 切换布局 Tabs → 验证 RiskClauseDiff DOM 渲染随 mode 变化 → 重新加载页面 → 验证 localStorage 偏好持久化。
+**项目现状**：当前 `package.json` 未安装 `@playwright/test`，`tests/e2e/` 已有 3 份 .spec.ts（document-draft / module-chat-history-load / xiaosuo-chat-queue）都是同样的"未启用蓝图"——文件存在、约定好选择器，但需要等独立 PR 接通 playwright 工具链才能在 CI 跑。本 PR 沿用同模式：
+
+- **写 spec 文件**：作为未来启用 playwright 后的执行底稿（README、selector、测试数据准备步骤都列清楚）
+- **不在本 PR 安装 playwright**（独立工具链 PR 范围）
+- **PR 4 验收用 chrome-devtools MCP 手动跑**（与 Task 9.4 浏览器肉眼抽样合并，覆盖端到端切换 + localStorage 偏好持久化）
 
 > **测试数据前置**：测试账号 `13064768490` / `daixin88` 名下需要存在至少一份 **status=completed** 的合同审查（含至少 1 条 risk）。如果当前没有，先在 `bun dev` 下手动新建一份；后续 e2e 直接复用。
 
@@ -1382,7 +1383,10 @@ grep -rn "ReviewListItem\|reviewList\|contract.*list" app/components/assistant/c
 
 ```typescript
 /**
- * 合同审查 · 风险卡 Layout A/C 切换 E2E 测试（PR 4）
+ * 合同审查 · 风险卡 Layout A/C 切换 E2E 测试（PR 4）· **蓝图状态**
+ *
+ * ⚠️ 项目当前未安装 @playwright/test，本文件为未来 playwright 工具链 PR 启用后的执行底稿。
+ * PR 4 验收用 chrome-devtools MCP 手动跑（详见 plan Task 8 Step 8.4）。
  *
  * 测试目标：验证"切换布局 Tabs → 风险卡 DOM 跟随重渲染 → localStorage 偏好持久化 → 重新加载后偏好仍在"。
  *
@@ -1391,9 +1395,9 @@ grep -rn "ReviewListItem\|reviewList\|contract.*list" app/components/assistant/c
  * - 测试账号名下至少有一份 status=completed 的合同审查（手动预创建）
  * - 测试账号：13064768490 / daixin88（见 .env.testing）
  *
- * 运行命令：
+ * 未来启用 playwright 后运行命令：
+ *   bun add -D @playwright/test && npx playwright install chromium
  *   npx playwright test tests/e2e/contract-review-risk-card-layout.spec.ts
- *   npx playwright test tests/e2e/contract-review-risk-card-layout.spec.ts --headed
  *
  * 不覆盖：
  * - PR 3 的 quote 字符级高亮（取决于 PR 3 是否合）
@@ -1500,23 +1504,41 @@ test.describe('合同审查 · 风险卡 Layout 切换 E2E', () => {
 > - `[data-risk-id]` 是 RiskCard 已有的 attribute（line 102 / 157）
 > - 不再 fallback 到 svg / href / 文案选择器（Agent B audit 指出 fallback 是反模式 —— Step 8.2.5 已统一加 data-testid 解决）
 
-- [ ] **Step 8.4：跑 e2e 验证**
+- [ ] **Step 8.4：用 chrome-devtools MCP 手动跑 spec 三个场景**
 
-```bash
-npx playwright test tests/e2e/contract-review-risk-card-layout.spec.ts --reporter=list 2>&1 | tail -30
-```
+playwright 未安装，spec 文件作为蓝图保留；本步用 chrome-devtools MCP 按 spec 三个场景人工验收：
 
-Expected: 三个场景全部 PASS。如果任一 fail：
-- 场景 1 fail：检查 RiskListPanel 是否真的渲染了 Tabs（检查 8.3 selector 是否拿到对的元素）
-- 场景 2 fail：localStorage key 名称不对（看实际值 `console.log(stored)`）；记住 @vueuse/core string 类型 serializer 是 `String(v)`，存的是裸字符串而非 `JSON.stringify` 加引号
-- 场景 3 fail：tabs 切换没触发响应式（检查 Tabs 的 `v-model` 绑定，shadcn-vue Tabs 内部已 forward `update:modelValue`）
+**前置**：`bun dev` 已起；浏览器登录 13064768490 / daixin88，进入一份 completed 合同审查详情页。
 
-- [ ] **Step 8.5：commit**
+**场景 1：默认 stacked → 切换 inline-diff → DOM 跟随变化**
+1. 验证页面顶部能看到布局段控（"分段 / 对照"）
+2. 默认状态下（DevTools Application → Local Storage 看 `contract-review-risk-card-layout` 应为空 / `stacked`），展开第一条风险卡能看到「条款标题 / 完整原文 / 建议改写」
+3. 点击「对照」段控按钮，风险卡内容切换为单栏行内 diff（红底删除线 + 绿底加粗）
+4. DevTools Application Local Storage `contract-review-risk-card-layout` 值变为裸字符串 `inline-diff`（**无 JSON 引号**）
+
+**场景 2：localStorage 偏好持久化 · 刷新仍 inline-diff**
+5. 在场景 1 切到 inline-diff 后按 F5 刷新
+6. 重新展开风险卡，应直接是 inline-diff 形态
+
+**场景 3：切回 stacked → 偏好同步切回**
+7. 点击「分段」段控按钮 → 风险卡恢复四段式
+8. Local Storage 值变回 `stacked`
+
+3 个场景全过 → e2e 验收通过。
+
+> **常见排错**：
+> - 场景 1 没切换：检查 cardLayout `useLocalStorage` 是否真的双向绑定（DevTools Console: `localStorage.getItem('contract-review-risk-card-layout')` 应跟着变）
+> - 场景 2 刷新偏好丢失：@vueuse/core string serializer 行为——存的是裸字符串而非 `JSON.stringify` 加引号；如果调试时人工 setItem 时加了引号，会被解析回字面量带引号的字符串导致 v-model 比对失败
+> - 场景 3 切回失败：tabs 切换没触发响应式（检查 `<Tabs v-model="cardLayout">` 而不是 `:value=`）
+
+- [ ] **Step 8.5：commit spec 蓝图（不跑）**
 
 ```bash
 git add tests/e2e/contract-review-risk-card-layout.spec.ts
-git commit -m "test(contract): 风险卡 Layout 切换 e2e 测试"
+git commit -m "test(contract): 风险卡 Layout 切换 e2e spec 蓝图"
 ```
+
+> commit message 加"蓝图"二字，明示非可执行测试，避免后人误以为 CI 已覆盖。
 
 ---
 
@@ -1569,13 +1591,9 @@ Expected: 全部 PASS。
 
 > 7 条全过 → 视为 UI 验收通过。
 
-- [ ] **Step 9.5：（可选）跑一次 e2e 总体回归**
+- [ ] **Step 9.5：（跳过）e2e 回归**
 
-```bash
-npx playwright test tests/e2e/contract-review-risk-card-layout.spec.ts tests/e2e/document-draft-workflow.spec.ts --reporter=list 2>&1 | tail -30
-```
-
-Expected: 两个 spec 都 PASS（确认 PR 4 没影响其他无关 e2e）。
+playwright 未在项目内启用，跳过。`tests/e2e/*.spec.ts` 全是蓝图状态，PR 4 沿用同模式。如果未来引入 playwright 工具链 PR，届时 `npx playwright test tests/e2e/` 一次性跑全部蓝图。
 
 - [ ] **Step 9.6：commit message 验证（可选）**
 
@@ -1631,8 +1649,8 @@ docs/superpowers/specs/2026-05-02-contract-review-precise-anchoring-and-track-ch
 - [x] Vitest: `npx vitest run tests/app/components/assistant/contract/`
 - [x] Vitest: `npx vitest run tests/shared/types/contract.test.ts tests/shared/types/contract.types.test.ts`
 - [x] Typecheck: `bun run typecheck`
-- [x] Playwright e2e: `npx playwright test tests/e2e/contract-review-risk-card-layout.spec.ts`
-- [x] 浏览器肉眼抽样：默认布局 / 切换 / localStorage 持久化 / 刷新偏好沿用 / status=reviewing 流式态布局正常
+- [x] e2e spec 蓝图（playwright 未启用）：`tests/e2e/contract-review-risk-card-layout.spec.ts` 已写入待未来工具链 PR 跑
+- [x] chrome-devtools MCP 手动验收三场景：默认布局 / Tabs 切换 / localStorage 持久化 / 刷新偏好沿用 / status=reviewing 流式态布局正常
 EOF
 )"
 ```
