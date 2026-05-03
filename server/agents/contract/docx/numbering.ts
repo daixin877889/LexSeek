@@ -29,6 +29,63 @@ interface NumberingDef {
     abstractNums: Map<number, AbstractNum>
 }
 
+function parseNumberingXml(numberingXml: string): NumberingDef | null {
+    let ast: NodeArray
+    try {
+        ast = parseOoxml(numberingXml)
+    } catch (err) {
+        logger.warn('[numbering] numbering.xml 解析失败，降级为空 NumberingDef', { err })
+        return null
+    }
+
+    const numIdMap = new Map<number, number>()
+    const abstractNums = new Map<number, AbstractNum>()
+
+    // 解析 <w:num> → numId → abstractNumId 映射
+    for (const numNode of findAll(ast, 'w:num')) {
+        const numIdStr = getAttr(numNode, 'w:numId')
+        if (!numIdStr) continue
+        const numId = parseInt(numIdStr, 10)
+        if (Number.isNaN(numId)) continue
+        const refNode = findFirst([numNode], 'w:abstractNumId')
+        if (!refNode) continue
+        const refStr = getAttr(refNode, 'w:val')
+        const ref = refStr ? parseInt(refStr, 10) : NaN
+        if (Number.isNaN(ref)) continue
+        numIdMap.set(numId, ref)
+    }
+
+    // 解析 <w:abstractNum> → abstractNumId → AbstractNum
+    for (const abstractNumNode of findAll(ast, 'w:abstractNum')) {
+        const idStr = getAttr(abstractNumNode, 'w:abstractNumId')
+        if (!idStr) continue
+        const id = parseInt(idStr, 10)
+        if (Number.isNaN(id)) continue
+
+        const levels = new Map<number, LvlConfig>()
+        for (const lvlNode of findAll([abstractNumNode], 'w:lvl')) {
+            const ilvlStr = getAttr(lvlNode, 'w:ilvl')
+            if (!ilvlStr) continue
+            const ilvl = parseInt(ilvlStr, 10)
+            if (Number.isNaN(ilvl)) continue
+
+            const numFmtNode = findFirst([lvlNode], 'w:numFmt')
+            const lvlTextNode = findFirst([lvlNode], 'w:lvlText')
+            const startNode = findFirst([lvlNode], 'w:start')
+
+            const numFmt = numFmtNode ? (getAttr(numFmtNode, 'w:val') ?? 'decimal') : 'decimal'
+            const lvlText = lvlTextNode ? (getAttr(lvlTextNode, 'w:val') ?? '') : ''
+            // Word 实际渲染：start 缺省按 1（与 ECMA-376 字面默认 0 不同；生产合同几乎都显式写 1）
+            const start = startNode ? parseInt(getAttr(startNode, 'w:val') ?? '1', 10) : 1
+
+            levels.set(ilvl, { numFmt, lvlText, start: Number.isNaN(start) ? 1 : start })
+        }
+        abstractNums.set(id, { levels })
+    }
+
+    return { numIdMap, abstractNums }
+}
+
 /**
  * 解析 OOXML numbering.xml + document.xml，返回每个 list item 段落的渲染前缀。
  *
@@ -51,6 +108,10 @@ export function buildNumberingPrefixMap(
 ): NumberingPrefixMap {
     const prefixMap = new Map<number, string>()
     if (!numberingXml) return prefixMap
-    // 后续 Task 4-8 实现
+
+    const numbering = parseNumberingXml(numberingXml)
+    if (!numbering) return prefixMap
+
+    // Task 5-8 在此基础上实现段落遍历 + 渲染
     return prefixMap
 }
