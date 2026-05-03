@@ -114,9 +114,9 @@ function handleArchive(status: RiskArchivedStatus | null) {
         @click="onCardClick"
     >
         <CardHeader class="py-2 px-3">
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 min-w-0">
                 <span class="inline-block px-2 py-0.5 rounded text-xs shrink-0" :class="LEVEL_CLASS[risk.level]">{{ RISK_LEVEL_LABEL[risk.level] }}</span>
-                <span class="text-sm font-medium truncate">{{ risk.category }}</span>
+                <span class="text-sm font-medium truncate flex-1 min-w-0">{{ risk.category }}</span>
                 <Badge variant="secondary" class="text-[10px] px-1.5 py-0 shrink-0 flex items-center gap-0.5 text-amber-700 dark:text-amber-400">
                     <TriangleAlert class="size-2.5" />
                     原文已修改
@@ -182,9 +182,9 @@ function handleArchive(status: RiskArchivedStatus | null) {
             class="absolute top-1 left-1 bg-yellow-200 dark:bg-yellow-800 text-yellow-900 dark:text-yellow-100 text-[10px] px-1.5 py-0 shrink-0"
         >刚刚</Badge>
         <CardHeader class="py-2 px-3">
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 min-w-0">
                 <span class="inline-block px-2 py-0.5 rounded text-xs shrink-0" :class="LEVEL_CLASS[risk.level]">{{ RISK_LEVEL_LABEL[risk.level] }}</span>
-                <span class="text-sm font-medium truncate">{{ risk.category }}</span>
+                <span class="text-sm font-medium truncate flex-1 min-w-0">{{ risk.category }}</span>
                 <!-- 已处置徽章 -->
                 <Badge
                     v-if="archivedStatus"

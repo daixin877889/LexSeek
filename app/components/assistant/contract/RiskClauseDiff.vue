@@ -99,10 +99,10 @@ const clauseTitle = computed(() => {
     <!-- ============================== Layout A · Stacked 三段式 ============================== -->
     <div v-if="mode === 'stacked'" class="space-y-3 text-sm">
         <!-- 条款标题（spec § 6.1 mockup："第三条 工资支付（第 5 段）"） -->
-        <div v-if="clauseTitle" class="flex items-center gap-1.5">
+        <div v-if="clauseTitle" class="flex items-center gap-1.5 min-w-0">
             <FileText class="size-3 text-muted-foreground shrink-0" />
-            <span class="text-xs text-muted-foreground">条款标题</span>
-            <span class="font-medium truncate">{{ clauseTitle }}</span>
+            <span class="text-xs text-muted-foreground shrink-0">条款标题</span>
+            <span class="font-medium truncate flex-1 min-w-0">{{ clauseTitle }}</span>
             <span
                 v-if="clauseParagraphIndex != null"
                 class="text-xs text-muted-foreground shrink-0"
