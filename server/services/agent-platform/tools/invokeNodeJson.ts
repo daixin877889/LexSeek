@@ -30,11 +30,36 @@ export interface InvokeNodeJsonOptions<T> {
     logContext?: Record<string, unknown>
 }
 
+/** 顶部 const，不暴露 API（spec §2.2 YAGNI 原则） */
+const MAX_RETRIES = 3
+
 /**
  * 加载节点配置 → 渲染 prompt → invoke → extractFirstJsonObject → JSON.parse → schema.safeParse。
  *
- * 任何步骤失败都先 `logger.warn` 携带完整诊断信息（path/issues/rawShape/rawContent 预览），
- * 再抛出带 `errorPrefix` 的 Error，方便上层 SSE 错误事件直接透传。
+ * **PR8 升级**：schema safeParse fail 时自动 retry 最多 3 次。retry prompt 用
+ * 「重新渲染 base prompt + 拼接 `## 上次输出违反 schema：${path}: ${message}` 段」方式，
+ * 不堆叠、不走 multi-turn history。
+ *
+ * **为什么手写 retry 而不用 LangChain `Runnable.withRetry`**：
+ *   - withRetry / modelRetryMiddleware 都基于 throw Error 触发（签名 `retryOn: (e: Error) => boolean`）；
+ *     本场景 schema fail 是 `safeParse` 业务校验，不抛异常进 retry boundary
+ *   - withRetry 的 `onFailedAttempt(error, input)` 签名只读 input 不返回新 input，无法实现
+ *     "retry 时把上次错误带回 prompt" 这种 input mutation
+ *   - 框架 retry 适合 transport 层（429 / timeout / 5xx），业务级条件 retry 必须手写
+ *   - 项目内既有先例：`server/services/material/ocr.service.ts:38-55` 同样手写 for loop + 条件判断
+ *
+ * **不 retry 的场景（spec §3 决定）**：
+ *   - LLM invoke 抛错（网络/超时/context overflow）→ 直接 throw（既有 logContextOverflow 路径不变）
+ *   - extractFirstJsonObject 返回 null（LLM 输出连 JSON 格式都没出）
+ *   - JSON.parse 失败（同上）
+ * 这些场景 retry 大概率仍失败，浪费 token。
+ *
+ * **三态 logger.warn 埋点**（运维监控 retry 有效率，spec §3.4，全中文与项目 `ocr.service.ts` 风格一致）：
+ *   - `${errorPrefix}: schema 校验失败，触发重试` — 每次 schema fail 且未达 MAX_RETRIES 时
+ *   - `${errorPrefix}: 第 N 次重试成功` — attempt > 1 且 PASS 时
+ *   - `${errorPrefix}: 重试 MAX_RETRIES 次仍失败` — 三次都 fail 时
+ *
+ * 任何步骤失败都先 `logger.warn` 携带完整诊断信息，再抛出带 `errorPrefix` 的 Error。
  */
 export async function invokeNodeJson<T>(opts: InvokeNodeJsonOptions<T>): Promise<T> {
     const { nodeName, temperature, schema, buildPrompt, errorPrefix, logContext = {} } = opts
@@ -61,78 +86,102 @@ export async function invokeNodeJson<T>(opts: InvokeNodeJsonOptions<T>): Promise
         streaming: false,
     })
 
-    const prompt = buildPrompt(template)
+    let lastFirstIssue = ''
 
-    let response
-    try {
-        // 双层 tag 防止后台 LLM 调用泄漏到主 SSE 通道：
-        //   1) langsmith:nostream — LangGraph 内置 TAG_NOSTREAM 短路，
-        //      StreamMessagesHandler 不记录 metadatas[runId]，
-        //      handleChatModelStart/handleLLMNewToken/handleLLMEnd 均静默退出，
-        //      事件从源头不进 SSE 流（@langchain/langgraph/dist/pregel/messages.cjs:55-72）。
-        //   2) internal — 项目约定（同 intentClassifier.service.ts），
-        //      若上游 contract 失效，agentWorker.stripSystemMessages 仍可在
-        //      SSE 转发层兜底过滤（agentWorker.ts:isInternalLLMEvent）。
-        // 注意：streaming:false 单独不够，因为非流式时 LangGraph 的 handleLLMEnd
-        // 会把完整响应一次性 emit 出去（messages.cjs:67-70），用户看到的孤立
-        // JSON 代码块就是这条路径泄漏的，必须靠 tag 阻断。
-        response = await model.invoke(prompt, { tags: ['langsmith:nostream', 'internal'] })
-    } catch (err) {
-        logContextOverflow(err, {
-            source: nodeName,
-            modelName: config.modelName,
-            sdkType: config.modelSdkType,
-            contextWindow: config.modelContextWindow,
-            extra: { ...logContext, promptLength: prompt.length },
-        })
-        throw err
-    }
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        const basePrompt = buildPrompt(template)
+        const currentPrompt = attempt === 1
+            ? basePrompt
+            : `${basePrompt}\n\n## 上次输出违反 schema：\n${lastFirstIssue}\n请重新生成符合 schema 的 JSON。`
 
-    const content = typeof response.content === 'string' ? response.content : ''
+        let response
+        try {
+            // 双层 tag 防止后台 LLM 调用泄漏到主 SSE 通道：
+            //   1) langsmith:nostream — LangGraph 内置 TAG_NOSTREAM 短路，
+            //      StreamMessagesHandler 不记录 metadatas[runId]，
+            //      handleChatModelStart/handleLLMNewToken/handleLLMEnd 均静默退出，
+            //      事件从源头不进 SSE 流（@langchain/langgraph/dist/pregel/messages.cjs:55-72）。
+            //   2) internal — 项目约定（同 intentClassifier.service.ts），
+            //      若上游 contract 失效，agentWorker.stripSystemMessages 仍可在
+            //      SSE 转发层兜底过滤（agentWorker.ts:isInternalLLMEvent）。
+            // 注意：streaming:false 单独不够，因为非流式时 LangGraph 的 handleLLMEnd
+            // 会把完整响应一次性 emit 出去（messages.cjs:67-70），用户看到的孤立
+            // JSON 代码块就是这条路径泄漏的，必须靠 tag 阻断。
+            response = await model.invoke(currentPrompt, { tags: ['langsmith:nostream', 'internal'] })
+        } catch (err) {
+            // LLM invoke 抛错：不 retry，直接抛
+            logContextOverflow(err, {
+                source: nodeName,
+                modelName: config.modelName,
+                sdkType: config.modelSdkType,
+                contextWindow: config.modelContextWindow,
+                extra: { ...logContext, promptLength: currentPrompt.length, attempt },
+            })
+            throw err
+        }
 
-    const jsonText = extractFirstJsonObject(content)
-    if (!jsonText) {
-        logger.warn(`${errorPrefix}: LLM 未返回 JSON`, {
-            ...logContext,
-            rawContent: content.slice(0, 500),
-        })
-        throw new Error(`${errorPrefix} LLM 未返回 JSON`)
-    }
+        const content = typeof response.content === 'string' ? response.content : ''
 
-    let rawJson: unknown
-    try {
-        rawJson = JSON.parse(jsonText)
-    } catch (err) {
-        logger.warn(`${errorPrefix}: JSON.parse 失败`, {
-            ...logContext,
-            jsonText: jsonText.slice(0, 500),
-            errMessage: err instanceof Error ? err.message : String(err),
-        })
-        throw new Error(`${errorPrefix} JSON 解析失败`)
-    }
+        const jsonText = extractFirstJsonObject(content)
+        if (!jsonText) {
+            // JSON 提取 fail：不 retry，直接抛
+            logger.warn(`${errorPrefix}: LLM 未返回 JSON`, {
+                ...logContext,
+                rawContent: content.slice(0, 500),
+                attempt,
+            })
+            throw new Error(`${errorPrefix} LLM 未返回 JSON`)
+        }
 
-    const parsed = schema.safeParse(rawJson)
-    if (!parsed.success) {
-        const issues = parsed.error.issues.slice(0, 5).map(i => ({
-            path: i.path.join('.') || '(root)',
-            message: i.message,
-            code: i.code,
-        }))
-        logger.warn(`${errorPrefix}: schema 校验失败`, {
-            ...logContext,
-            rawShape: summarizeJsonShape(rawJson),
-            issues,
-            rawJsonPreview: JSON.stringify(rawJson).slice(0, 500),
-            rawContentPreview: content.slice(0, 300),
-        })
+        let rawJson: unknown
+        try {
+            rawJson = JSON.parse(jsonText)
+        } catch (err) {
+            // JSON.parse fail：不 retry，直接抛
+            logger.warn(`${errorPrefix}: JSON.parse 失败`, {
+                ...logContext,
+                jsonText: jsonText.slice(0, 500),
+                errMessage: err instanceof Error ? err.message : String(err),
+                attempt,
+            })
+            throw new Error(`${errorPrefix} JSON 解析失败`)
+        }
+
+        const parsed = schema.safeParse(rawJson)
+        if (parsed.success) {
+            if (attempt > 1) {
+                logger.warn(`${errorPrefix}: 第 ${attempt} 次重试成功`, {
+                    ...logContext,
+                    attempt,
+                })
+            }
+            return parsed.data
+        }
+
+        // schema fail：拼 firstIssue 准备下一次 retry，或最终 throw
         const firstIssue = parsed.error.issues[0]
         const pretty = firstIssue
             ? `${firstIssue.path.join('.') || '(root)'}: ${firstIssue.message}`
             : 'unknown'
-        throw new Error(`${errorPrefix} schema 校验失败: ${pretty}`)
+        lastFirstIssue = pretty
+
+        if (attempt < MAX_RETRIES) {
+            logger.warn(`${errorPrefix}: schema 校验失败，触发重试`, {
+                ...logContext,
+                attempt,
+                firstIssue: pretty,
+                rawShape: summarizeJsonShape(rawJson),
+            })
+        }
     }
 
-    return parsed.data
+    // 3 次都 fail
+    logger.warn(`${errorPrefix}: 重试 ${MAX_RETRIES} 次仍失败`, {
+        ...logContext,
+        totalAttempts: MAX_RETRIES,
+        firstIssue: lastFirstIssue,
+    })
+    throw new Error(`${errorPrefix} schema 校验失败: ${lastFirstIssue}`)
 }
 
 /**
