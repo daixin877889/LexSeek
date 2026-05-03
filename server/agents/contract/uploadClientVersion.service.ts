@@ -174,8 +174,10 @@ export async function* uploadClientVersionService(params: {
             newClauses = segments.map((s) => ({
                 index: s.index,
                 text: s.text,
+                textWithoutNumber: s.textWithoutNumber,
                 offsetStart: s.offsetStart,
                 offsetEnd: s.offsetEnd,
+                offsetStartWithoutNumber: s.offsetStartWithoutNumber,
             }))
 
             // bug #9：parseWordComments 失败不再静默降级为空批注，
@@ -214,8 +216,12 @@ export async function* uploadClientVersionService(params: {
             try {
                 const { segments } = await segmentClauses(oldDocxText)
                 oldClauses = segments.map(s => ({
-                    index: s.index, text: s.text,
-                    offsetStart: s.offsetStart, offsetEnd: s.offsetEnd,
+                    index: s.index,
+                    text: s.text,
+                    textWithoutNumber: s.textWithoutNumber,
+                    offsetStart: s.offsetStart,
+                    offsetEnd: s.offsetEnd,
+                    offsetStartWithoutNumber: s.offsetStartWithoutNumber,
                 }))
                 logger.info('[uploadClientVersion] 对 Phase A 存量 snapshot 重切 clauses', {
                     reviewId: review.id,
