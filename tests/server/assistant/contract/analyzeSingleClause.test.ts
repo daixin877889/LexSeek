@@ -359,3 +359,78 @@ describe('analyzeSingleClause · playbook', () => {
         expect(capturedPrompt).not.toContain('code=')
     })
 })
+
+describe('renderPromptTemplate 占位符（PR 3）', () => {
+    it('占位符 {{sentencesNumbered}} 被替换为 [S1] xxx [S2] yyy 形式', async () => {
+        const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
+        const { getValidNodeConfig } = await import('~~/server/services/node/node.service')
+
+        // 覆盖默认 nodeConfig 为本测试需要的 prompt 模板
+        ;(getValidNodeConfig as any).mockResolvedValueOnce({
+            modelApiKeys: [{ apiKey: 'sk-test', status: 1 }],
+            modelSdkType: 'openai',
+            modelName: 'gpt-4',
+            modelProviderBaseUrl: 'https://api.openai.com/v1',
+            prompts: [{
+                type: 'system',
+                status: 1,
+                content: '当前条款：\n{{sentencesNumbered}}\n\n原文（兜底回溯）：{{clauseTextRaw}}',
+            }],
+        })
+
+        // 让 createChatModel 返回一个截获 prompt 的 stub
+        // invoke 收到的是字符串 prompt（invokeNodeJson 传的是 string，非消息数组）
+        let captured: string | null = null
+        ;(createChatModel as any).mockReturnValueOnce({
+            invoke: vi.fn(async (prompt: string) => {
+                captured = prompt
+                return { content: JSON.stringify({ risks: [], skip: true }) }
+            }),
+        })
+
+        const { analyzeSingleClause } = await import('~~/server/agents/contract/analyzeSingleClause')
+        await analyzeSingleClause({
+            clause: { index: 1, number: '第一条', text: '工资按月支付。逾期违约。', offsetStart: 0, offsetEnd: 12 },
+            stance: 'partyA',
+            partyA: '公司A',
+            partyB: '员工B',
+            contractType: '劳动合同',
+        })
+
+        expect(captured).not.toBeNull()
+        expect(captured).toContain('[S1]')
+        expect(captured).toContain('[S2]')
+        expect(captured).toContain('工资按月支付')
+        expect(captured).toContain('逾期违约')
+        expect(captured).toContain('原文（兜底回溯）：工资按月支付。逾期违约。')
+    })
+
+    it('单句条款（如纯标题）也至少产出 [S1]', async () => {
+        const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
+        const { getValidNodeConfig } = await import('~~/server/services/node/node.service')
+
+        ;(getValidNodeConfig as any).mockResolvedValueOnce({
+            modelApiKeys: [{ apiKey: 'sk-test', status: 1 }],
+            modelSdkType: 'openai',
+            modelName: 'gpt-4',
+            modelProviderBaseUrl: 'https://api.openai.com/v1',
+            prompts: [{ type: 'system', status: 1, content: '{{sentencesNumbered}}' }],
+        })
+
+        let captured: string | null = null
+        ;(createChatModel as any).mockReturnValueOnce({
+            invoke: vi.fn(async (prompt: string) => {
+                captured = prompt
+                return { content: JSON.stringify({ risks: [], skip: true }) }
+            }),
+        })
+
+        const { analyzeSingleClause } = await import('~~/server/agents/contract/analyzeSingleClause')
+        await analyzeSingleClause({
+            clause: { index: 1, number: '第一条', text: '合同总则', offsetStart: 0, offsetEnd: 4 },
+            stance: 'neutral', partyA: null, partyB: null, contractType: null,
+        })
+
+        expect(captured).toContain('[S1] 合同总则')
+    })
+})

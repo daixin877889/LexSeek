@@ -13,6 +13,7 @@ import { logger } from '#shared/utils/logger'
 import { renderContent } from '~~/server/services/node/prompt.service'
 import { RISK_SHAPE } from './riskSchema.builder'
 import { invokeNodeJson, warnUnreplacedTemplateVars } from './utils/llmInvokeJson'
+import { splitSentences } from './utils/splitSentences'
 import type { Risk, Stance, ClauseSegment, PlaybookSnapshot } from '#shared/types/contract'
 
 /** 单条条款文本硬截断（字符），防止单条超大条款把整个 prompt 撑爆 */
@@ -108,11 +109,12 @@ export async function analyzeSingleClause(ctx: AnalyzeClauseContext): Promise<Ri
 }
 
 /**
- * 渲染 DB 模板：替换 8 个占位符
- *  - stanceLabel 在代码侧把 partyA/partyB/neutral 映射为"甲方/乙方/中立第三方"
- *    （DB 模板只认字符串变量，不适合做条件分支）
- *  - clauseText 硬截断到 MAX_CLAUSE_CHARS 防 prompt 爆炸
- *  - playbookSection 由 renderPlaybookSection 生成；无快照时为空串
+ * 渲染 DB 模板（PR 3 升级到双视图）：
+ *  - {{sentencesNumbered}}：切句后的 [S1] xxx [S2] yyy 视图（替换原 {{clauseText}}），
+ *    给 LLM 选 problemSentenceIds 用
+ *  - {{clauseTextRaw}}：完整原文（截断后）保留兜底回溯，避免 LLM 在 sentence 视角下丢失整体上下文
+ *  - 其他占位符（stanceLabel / contractType / partyA / partyB / clauseIndex / clauseNumber / playbookSection）保留
+ *  - clauseTextRaw 硬截断到 MAX_CLAUSE_CHARS 防 prompt 爆炸
  */
 function renderPromptTemplate(template: string, ctx: AnalyzeClauseContext): string {
     const stanceLabel = ctx.stance === 'partyA'
@@ -120,9 +122,15 @@ function renderPromptTemplate(template: string, ctx: AnalyzeClauseContext): stri
         : ctx.stance === 'partyB'
             ? '乙方'
             : '中立第三方'
-    const clauseText = ctx.clause.text.length > MAX_CLAUSE_CHARS
+    const clauseTextRaw = ctx.clause.text.length > MAX_CLAUSE_CHARS
         ? `${ctx.clause.text.slice(0, MAX_CLAUSE_CHARS)}…(已截断)`
         : ctx.clause.text
+
+    // 切句给 LLM 的 [Sn] 编号视图（1-based，与 problemSentenceIds 输出对齐）
+    const sentences = splitSentences(clauseTextRaw)
+    const sentencesNumbered = sentences.length > 0
+        ? sentences.map(s => `[S${s.id}] ${s.text}`).join('\n')
+        : clauseTextRaw // 切不出句子的极端兜底（理论上 splitSentences 至少产出 1 个）
 
     const rendered = renderContent(template, {
         stanceLabel,
@@ -131,7 +139,8 @@ function renderPromptTemplate(template: string, ctx: AnalyzeClauseContext): stri
         partyB: ctx.partyB ?? '未知',
         clauseIndex: String(ctx.clause.index),
         clauseNumber: ctx.clause.number ?? '无',
-        clauseText,
+        sentencesNumbered,
+        clauseTextRaw,
         playbookSection: renderPlaybookSection(ctx.playbookSnapshot),
     })
     warnUnreplacedTemplateVars(rendered, 'analyzeSingleClause', { clauseIndex: ctx.clause.index })
