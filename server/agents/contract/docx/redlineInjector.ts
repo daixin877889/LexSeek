@@ -25,6 +25,7 @@ import {
     tagOf,
     textOf,
     makeElement,
+    makeLeaf,
     makeText,
     collectNonEmptyParagraphs,
     stripIllegalXmlChars,
@@ -37,7 +38,12 @@ import {
     writeTextToZip,
     zipToBuffer,
 } from './zipRewriter'
-import { locateQuoteInParagraphs, type RunSplit } from './redlineLocate'
+import {
+    locateQuoteInParagraphs,
+    computeRunLength,
+    paragraphTextLengthByRunRule,
+    type RunSplit,
+} from './redlineLocate'
 
 const REDLINE_AUTHOR = 'LexSeek AI'
 
@@ -142,35 +148,64 @@ export async function injectRedlineMarks(
             continue
         }
 
-        // 同段（暂不处理跨段，跨段在 Task 8 加上）
-        if (loc.startParaIdx !== loc.endParaIdx) {
-            skippedRiskIds.push(risk.id)
-            warnings.push(`risk ${risk.id}: quote 跨多段，PR6 暂仅同段支持`)
-            continue
-        }
+        // 整段删除判定：startParaIdx == endParaIdx 且 quote 覆盖该段所有 textContent
+        const isWholeParagraphDeletion = (() => {
+            if (loc.startParaIdx !== loc.endParaIdx) return false
+            const split = loc.splits[0]!.runSplit
+            if (!split) return false
+            const para = nonEmptyParagraphs[loc.startParaIdx]!
+            const paraLen = paragraphTextLengthByRunRule(para)
+            return split.startRunIdx === firstRunIdx(para)
+                && split.startRunOffset === 0
+                && split.endRunOffset === computeRunLength(childrenOf(para)[split.endRunIdx]!)
+                && split.endRunIdx === lastRunIdx(para)
+                && paraLen === risk.quoteCharEnd! - risk.quoteCharStart!
+        })()
 
-        const split = loc.splits[0]!
-        if (!split.runSplit) {
-            skippedRiskIds.push(risk.id)
-            warnings.push(`risk ${risk.id}: runSplit 为 null`)
-            continue
+        if (loc.startParaIdx === loc.endParaIdx) {
+            const split = loc.splits[0]!.runSplit!
+            const delId = cursorId
+            const insId = cursorId + 1
+            applyRedlineToParagraph({
+                paraNode: nonEmptyParagraphs[loc.startParaIdx]!,
+                runSplit: split,
+                suggestedClauseText: risk.suggestedClauseText,
+                delId,
+                insId,
+                dateIso,
+            })
+            cursorId += 2
+            if (isWholeParagraphDeletion) {
+                addParagraphDeleteMark(nonEmptyParagraphs[loc.startParaIdx]!, cursorId, dateIso)
+                cursorId += 1
+            }
+            spansByRiskId.set(risk.id, {
+                paragraphSpans: [{ paraIdx: loc.startParaIdx, delId, insId }],
+            })
         }
-
-        const delId = cursorId
-        const insId = cursorId + 1
-        applyRedlineToParagraph({
-            paraNode: nonEmptyParagraphs[loc.startParaIdx]!,
-            runSplit: split.runSplit,
-            suggestedClauseText: risk.suggestedClauseText,
-            delId,
-            insId,
-            dateIso,
-        })
-        cursorId += 2
-        // 收集 redline 段落坐标供 both 模式 commentRange 包裹（spec §8.3.6）
-        spansByRiskId.set(risk.id, {
-            paragraphSpans: [{ paraIdx: loc.startParaIdx, delId, insId }],
-        })
+        else {
+            // 跨段：每段独立 w:del，结尾段后追加 w:ins
+            const paragraphSpans: RedlineWrapTarget['paragraphSpans'] = []
+            for (let i = 0; i < loc.splits.length; i++) {
+                const seg = loc.splits[i]!
+                const para = nonEmptyParagraphs[seg.paraIdx]!
+                const isEnd = i === loc.splits.length - 1
+                const split = seg.runSplit ?? wholeParagraphRunSplit(para)
+                const delId = cursorId
+                const insId = isEnd ? cursorId + 1 : null
+                applyRedlineToParagraph({
+                    paraNode: para,
+                    runSplit: split,
+                    suggestedClauseText: isEnd ? risk.suggestedClauseText : null,
+                    delId,
+                    insId,
+                    dateIso,
+                })
+                cursorId += isEnd ? 2 : 1
+                paragraphSpans.push({ paraIdx: seg.paraIdx, delId, insId })
+            }
+            spansByRiskId.set(risk.id, { paragraphSpans })
+        }
     }
 
     writeTextToZip(zip, 'word/document.xml', stringifyOoxml(documentAst))
@@ -410,4 +445,62 @@ function buildInsertNode(input: {
         'w:author': REDLINE_AUTHOR,
         'w:date': dateIso,
     }, [makeElement('w:r', {}, runChildren)])
+}
+
+function firstRunIdx(paraNode: Node): number {
+    const kids = childrenOf(paraNode)
+    return kids.findIndex(k => tagOf(k) === 'w:r')
+}
+
+function lastRunIdx(paraNode: Node): number {
+    const kids = childrenOf(paraNode)
+    for (let i = kids.length - 1; i >= 0; i--) {
+        if (tagOf(kids[i]!) === 'w:r') return i
+    }
+    return -1
+}
+
+function wholeParagraphRunSplit(paraNode: Node): RunSplit {
+    const kids = childrenOf(paraNode)
+    const startIdx = firstRunIdx(paraNode)
+    const endIdx = lastRunIdx(paraNode)
+    return {
+        startRunIdx: startIdx,
+        startRunOffset: 0,
+        endRunIdx: endIdx,
+        endRunOffset: computeRunLength(kids[endIdx]!),
+    }
+}
+
+/**
+ * 段落整段被删时同步加 <w:pPr><w:rPr><w:del/></w:rPr></w:pPr>。
+ * 已存在 w:pPr 时复用，否则新建放到段落首位。
+ */
+function addParagraphDeleteMark(paraNode: Node, delId: number, dateIso: string): void {
+    const tag = tagOf(paraNode)
+    if (!tag) return
+    const kids = paraNode[tag] as NodeArray
+    if (!Array.isArray(kids)) return
+
+    let pPr = kids.find(k => tagOf(k) === 'w:pPr')
+    if (!pPr) {
+        pPr = makeElement('w:pPr', {}, [])
+        kids.unshift(pPr)
+    }
+
+    const pPrTag = tagOf(pPr)!
+    const pPrKids = pPr[pPrTag] as NodeArray
+
+    let rPr = pPrKids.find(k => tagOf(k) === 'w:rPr')
+    if (!rPr) {
+        rPr = makeElement('w:rPr', {}, [])
+        pPrKids.unshift(rPr)
+    }
+    const rPrTag = tagOf(rPr)!
+    const rPrKids = rPr[rPrTag] as NodeArray
+    rPrKids.push(makeLeaf('w:del', {
+        'w:id': String(delId),
+        'w:author': REDLINE_AUTHOR,
+        'w:date': dateIso,
+    }))
 }

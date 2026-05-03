@@ -176,3 +176,72 @@ describe('injectRedlineMarks 装配（同段 quote）', () => {
         expect(docXml).toMatch(/w:date="\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z"/)
     })
 })
+
+describe('injectRedlineMarks 跨段 / 整段删除', () => {
+    async function buildFixtureBuffer(documentXml: string): Promise<Buffer> {
+        const original = await readFile(SAMPLE)
+        const zip = await loadDocxZip(original)
+        zip.file('word/document.xml', documentXml)
+        return await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' })
+    }
+
+    it('quote 跨多段：起始段 + 中间段 + 结尾段都装 w:del，结尾段后插 w:ins', async () => {
+        const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t xml:space="preserve">第一行内容</w:t></w:r></w:p>
+    <w:p><w:r><w:t xml:space="preserve">第二行内容</w:t></w:r></w:p>
+  </w:body>
+</w:document>`
+        const buffer = await buildFixtureBuffer(xml)
+        // clauseText = "第一行内容\n第二行内容" (11 字符)
+        // quote = "内容\n第二" (offset 3..8)
+        const result = await injectRedlineMarks(buffer, [{
+            id: 1,
+            clauseText: '第一行内容\n第二行内容',
+            clauseParagraphIndex: 0,
+            problematicQuote: '内容\n第二',
+            quoteCharStart: 3,
+            quoteCharEnd: 8,
+            suggestedClauseText: 'XYZ',
+        }], { reviewId: 999, idStart: 0 })
+
+        expect(result.skippedRiskIds).toEqual([])
+        const zip = await loadDocxZip(result.buffer)
+        const docXml = await readTextFromZip(zip, 'word/document.xml')
+        // 第一段含 w:del 包裹 "内容"
+        expect(docXml).toMatch(/<w:del[^>]*><w:r>(<w:rPr\/>)?<w:delText xml:space="preserve">内容<\/w:delText><\/w:r><\/w:del>/)
+        // 第二段含 w:del 包裹 "第二" + 后面跟 w:ins "XYZ"
+        expect(docXml).toMatch(/<w:delText xml:space="preserve">第二<\/w:delText>[\s\S]*<w:ins[^>]*>[\s\S]*XYZ/)
+        // ID 顺序：每段 1 个 del + 全 redline 共 1 个 ins → 共 3 ID
+        expect(result.nextIdAfter).toBe(3)
+    })
+
+    it('整段删除（quote 覆盖整段 textContent）：段落 pPr/rPr/del 同步加上', async () => {
+        const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t xml:space="preserve">这一整段都是问题。</w:t></w:r></w:p>
+  </w:body>
+</w:document>`
+        const buffer = await buildFixtureBuffer(xml)
+        const clauseText = '这一整段都是问题。'
+        const result = await injectRedlineMarks(buffer, [{
+            id: 1,
+            clauseText,
+            clauseParagraphIndex: 0,
+            problematicQuote: clauseText,
+            quoteCharStart: 0,
+            quoteCharEnd: clauseText.length,
+            suggestedClauseText: '建议改写后的整段。',
+        }], { reviewId: 999, idStart: 0 })
+
+        expect(result.skippedRiskIds).toEqual([])
+        const zip = await loadDocxZip(result.buffer)
+        const docXml = await readTextFromZip(zip, 'word/document.xml')
+        // 段落 pPr/rPr/del 加上
+        expect(docXml).toMatch(/<w:pPr><w:rPr><w:del[^/]*\/><\/w:rPr><\/w:pPr>/)
+        // 占用 3 个 ID（del + ins + pPr/del）
+        expect(result.nextIdAfter).toBe(3)
+    })
+})
