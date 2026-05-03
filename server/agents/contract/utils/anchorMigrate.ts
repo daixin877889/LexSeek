@@ -1,5 +1,5 @@
 import type { ClauseSnapshotItem } from '#shared/types/contract'
-import { calcSimilarity, getDmp } from './textSimilarity'
+import { calcSimilarity, fuzzyLocateInText } from './textSimilarity'
 
 export interface AnchorMigrateResult {
     newClauseIndex: number
@@ -32,9 +32,9 @@ interface MigrateAnchorParams {
  *
  * DOCX-H1 性能优化：旧实现是双层循环 winLen × i 全扫，对长 clauseText（>2000 字）
  * × 长 anchor（>200 字）单条迁移可能跑分钟级。改为：
- *   1. 先用 dmp.match_main 用模糊匹配快速锚定大致位置（O(N) 字符级 fingerprint）
+ *   1. 先用 fuzzyLocateInText 模糊匹配快速锚定大致位置（O(N) 字符级 fingerprint）
  *   2. 仅在锚定位置 ±100 字符的小窗内做 Levenshtein 精算
- *   3. 锚定失败（match_main 返回 -1）才回落到原全扫
+ *   3. 锚定失败（fuzzyLocateInText 返回 null）才回落到原全扫
  *
  * 容忍小幅修改（增删字符）+ 大幅截断（截断 < 50% anchor 长度）。
  */
@@ -49,12 +49,13 @@ function findBestSubstring(
     const minWin = Math.max(1, anchorLen - delta)
     const maxWin = Math.min(clauseText.length, anchorLen + delta)
 
-    // 性能 fast-path：用 dmp.match_main 锚定 anchor 在 clauseText 的近似位置
-    // Match_Threshold 越小匹配越严格；0.5 默认值已经足够宽容
-    const dmp = getDmp()
-    const matchLoc = clauseText.length >= anchorLen
-        ? dmp.match_main(clauseText, anchor.slice(0, Math.min(anchorLen, 100)), 0)
-        : -1
+    // 性能 fast-path：用 fuzzyLocateInText（封装 dmp.match_main + 单例参数隔离 + 32 字符 Bitap 上限保护）
+    // 锚定 anchor 在 clauseText 的近似位置。Match_Threshold/Distance 由 fuzzyLocateInText 内部托管。
+    const probe = anchor.slice(0, Math.min(anchorLen, 100))
+    const located = clauseText.length >= anchorLen
+        ? fuzzyLocateInText(clauseText, probe)
+        : null
+    const matchLoc = located?.start ?? -1
 
     let bestSim = -1
     let bestStart = 0
@@ -82,7 +83,7 @@ function findBestSubstring(
         }
     }
 
-    // fallback：match_main 失败或精扫窗口为空，全文扫描兜底
+    // fallback：fuzzyLocateInText 失败或精扫窗口为空，全文扫描兜底
     for (let winLen = minWin; winLen <= maxWin; winLen++) {
         for (let i = 0; i <= clauseText.length - winLen; i++) {
             const window = clauseText.slice(i, i + winLen)
