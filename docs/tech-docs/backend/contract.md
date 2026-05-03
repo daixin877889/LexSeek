@@ -248,3 +248,72 @@ type ContractReviewEvent =
 | [case.md](./case.md) | `contractReviews.caseId` 关联 cases 表，案件详情 Tab 入口 |
 | [data-model.md](../architecture/data-model.md) | 5 张合同表的字段全貌与关系图 |
 | [sse-event-bridge.md](../patterns/sse-event-bridge.md) | `publishCustomEvent` SSE 事件桥接通用模式 |
+
+---
+
+## 11. 导出模式（批注 / 修订 / 双模式）
+
+PR6 落地的 Track Changes 导出能力。下载按钮（`RiskListPanel.vue` 底部 DropdownMenu）支持三种模式，模式偏好持久化到 `localStorage:contract-review-export-mode`。
+
+### 11.1 三模式定义
+
+| 模式 | API mode | 用途 | OOXML 标签 |
+|---|---|---|---|
+| 批注模式 | `comment`（默认） | 律师/客户对话讨论阶段 | `<w:comment>` + `<w:commentRangeStart/End>` |
+| 修订模式 | `redline` | 定稿前一轮，律师按 Track Changes 接受/拒绝 AI 改写 | `<w:ins>` / `<w:del>` |
+| 两者并存 | `both` | 既要修订动作又要保留沟通气泡，悬停修订段直接弹气泡 | 上面两套并存，commentRange 精确包到 del+ins 周围 |
+
+入口：`GET /api/v1/assistant/contract/reviews/download/:id?mode=comment|redline|both`（同样适用于 `/versions/download/:versionId`）。
+
+### 11.2 ID 协调（关键 · 不修会让 Word 拒打开）
+
+OOXML `w:id` 在文档内是跨多种元素**共享**的 ID 池：bookmark / `<w:ins>` / `<w:del>` / `<w:rPrChange>` / `<w:pPrChange>` / `<w:commentRangeStart/End>` / `<w:commentReference>` / `<w:moveFromRangeStart>` 等。撞 ID → Word 报"文件已损坏"拒打开。
+
+`server/agents/contract/docx/xmlAst.ts` 的 `findMaxSharedId` 扫所有此类标签返回最大 w:id；`rebuildDocxService` 用 `findMaxSharedId(原 docx) + 1` 作为 `idStart` 喂给 `redlineInjector`，再用 `redlineInjector.nextIdAfter` 接力 `commentInjector` 的 `idStart` 参数。`commentInjector` 默认 `idStart=0` 完全向后兼容。
+
+注意：`<w:commentRangeStart/End/Reference>` 三标签共享同一个 w:id（指向同一个 comment）是 OOXML 标准设计，不算撞车。撞车专指"实例标签"（ins/del/bookmark）的 w:id 与 commentReference w:id 落入同一池后冲突。
+
+### 11.3 跨 run 拆分保留 rPr
+
+合同正文同一句话常跨多个 `<w:r>`（粗体的"违约金"在自己 run、普通字在另一 run）。`redlineInjector.splitRunAtOffset` 拆 run 时 deep-clone `<w:rPr>` 副本到两侧，quote 范围 run 把 `<w:t>` 替换为 `<w:delText>`（保留 `xml:space="preserve"`），整体 wrap 进 `<w:del>`。律师拒绝修订时原字体格式（粗体/字号/颜色）完整恢复。
+
+### 11.4 整段删除段落标记同步
+
+quote == 整段 `clauseText` 且 textContent 完全覆盖时，`addParagraphDeleteMark` 在 `<w:p><w:pPr><w:rPr>` 内追加 `<w:del/>` 子标记——律师"接受所有修订"会同时删段落标记不留空段。
+
+### 11.5 both 模式 commentRange 精确包裹（spec §8.3.6 核心 UX）
+
+`redlineInjector` 装填后返回 `spansByRiskId: Map<riskId, RedlineWrapTarget>`，记录每条 risk 的 `<w:del>` / `<w:ins>` 节点 w:id 与所在段落索引。`rebuildDocxService` both 模式调 `injectAnnotations` 时透传 `wrapTargetByRiskId`，`commentInjector.injectMarkersIntoParagraph` 在该 risk 段落内按精确坐标插 `<w:commentRangeStart>` 到 `<w:del>` 之前、`<w:commentRangeEnd>` 到 `<w:ins>` 之后——律师悬停修订段直接弹批注气泡。
+
+跨段 risk 的 `paragraphSpans` 含多个元素，commentRange 跨第一段到最后一段。
+
+### 11.6 边角处理
+
+| 场景 | 行为 |
+|---|---|
+| `problematicQuote=null` 的 risk | redline 模式跳过 → fallback 走 comment（spec §8.4） |
+| `suggestedClauseText` 为空的 low risk | redline 模式跳过 → fallback 走 comment |
+| LLM 输出 `suggestedClauseText` 含 `\n` | `riskSchema.builder.ts` refine 直接 reject，让 LLM 重生成 |
+| LLM 输出含 U+0008 等控制字符 | `xmlAst.stripIllegalXmlChars` 在 `buildInsertNode` / `convertRunToDeleteRun` 写文本前过滤 |
+| `clauseText` 与 OOXML 段落 textContent 不一致 | `redlineLocate.locateQuoteInParagraphs` 返回 null，redlineInjector 跳过该 risk → fallback 走 comment |
+
+### 11.7 已知不做（v2 范畴）
+
+- "一键接受所有 AI 修订"按钮（律师批量接受 redline）
+- 修订模式下"评论 + 修订"对话线（comment 仍只在 comment 模式有）
+- 修订作者多元（当前固定 author=`LexSeek AI`，未来按律师姓名）
+- LLM 自评（输出 sentence_id 后让 LLM 验证片段是否真对应）
+- Windows Word 兼容性：开发端是 macOS + Docker 部署，PR6 仅做 macOS Word 实测；Windows 兼容靠线上回归
+
+### 11.8 关键文件清单
+
+**新建**：
+- `server/agents/contract/docx/redlineLocate.ts` — OOXML AST 内定位 quote 字符段（含 `computeRunLength` / `paragraphTextLengthByRunRule` export）
+- `server/agents/contract/docx/redlineInjector.ts` — `<w:del>` / `<w:ins>` 装配 + 段落删除标记 + ID 协调 + spansByRiskId 收集
+
+**改造**：
+- `server/agents/contract/docx/xmlAst.ts` — 加 `findMaxSharedId` / `stripIllegalXmlChars` / `collectNonEmptyParagraphs`（抽出公共）
+- `server/agents/contract/docx/commentInjector.ts` — `InjectAnnotationsOptions { idStart, wrapTargetByRiskId }` + `nextIdAfter`
+- `server/agents/contract/contractReviewRebuild.service.ts` — 接受 `opts.mode`
+- `server/agents/contract/contractReviewVersion.service.ts` — `downloadContractReviewVersionService` 接受 `opts.mode`
+- `server/agents/contract/riskSchema.builder.ts` — `suggestedClauseText` reject `\r|\n`

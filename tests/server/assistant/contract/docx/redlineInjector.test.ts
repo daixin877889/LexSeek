@@ -4,6 +4,10 @@ import { join } from 'node:path'
 import {
     parseOoxml,
     findAll,
+    walk,
+    tagOf,
+    getAttr,
+    findMaxSharedId,
 } from '~~/server/agents/contract/docx/xmlAst'
 import {
     loadDocxZip,
@@ -13,6 +17,8 @@ import {
     injectRedlineMarks,
     type RedlineRisk,
 } from '~~/server/agents/contract/docx/redlineInjector'
+import { injectAnnotations, type ContractAnnotationForExport } from '~~/server/agents/contract/docx/commentInjector'
+import { parseContractDocx } from '~~/server/agents/contract/docx/parser'
 
 const SAMPLE = join(__dirname, '../../../../../prisma/seeds/contract-samples/labor.docx')
 const W_AUTHOR = 'LexSeek AI'
@@ -243,5 +249,131 @@ describe('injectRedlineMarks 跨段 / 整段删除', () => {
         expect(docXml).toMatch(/<w:pPr><w:rPr><w:del[^/]*\/><\/w:rPr><\/w:pPr>/)
         // 占用 3 个 ID（del + ins + pPr/del）
         expect(result.nextIdAfter).toBe(3)
+    })
+})
+
+// ===== Task 17 集成测试：spec §8.5 验证项 =====
+
+describe('injectRedlineMarks · 完整 docx round-trip + spec §8.5 验证项', () => {
+    it('spec §8.5 ①：mammoth 解析含 ins/del 的输出 → 不抛错且 raw text 含 ins 内容', async () => {
+        const original = await readFile(SAMPLE)
+        const { paragraphs } = await parseContractDocx(original)
+        const firstPara = paragraphs[0]!
+        if (firstPara.length < 6) return // 样本过短就跳
+
+        const result = await injectRedlineMarks(original, [{
+            id: 1,
+            clauseText: firstPara,
+            clauseParagraphIndex: 0,
+            problematicQuote: firstPara.slice(0, 5),
+            quoteCharStart: 0,
+            quoteCharEnd: 5,
+            suggestedClauseText: 'XYZ',
+        }], { reviewId: 999, idStart: 0 })
+        expect(result.skippedRiskIds).toEqual([])
+
+        const mammoth = await import('mammoth')
+        const parsed = await mammoth.extractRawText({ buffer: result.buffer })
+        // mammoth 会渲染 w:ins 内容（XYZ 必出现）；w:del 渲染策略不同 mammoth 版本
+        // 不一致，本测试仅验证 round-trip 不抛错 + ins 内容能被解析到
+        expect(parsed.value).toContain('XYZ')
+    })
+
+    it('spec §8.5 ④：both 模式串联 redlineInjector + commentInjector → 全部 w:id 跨标签唯一', async () => {
+        // 真实跑两个 injector 串联，不用 mock；验证 w:id 池协调正确
+        const original = await readFile(SAMPLE)
+        const { paragraphs } = await parseContractDocx(original)
+        if (paragraphs.length < 3) return
+
+        // 准备 3 条 risk 落到不同段落（quote 取每段前 5 字符）
+        const risks: RedlineRisk[] = [0, 1, 2].map(i => ({
+            id: i + 1,
+            clauseText: paragraphs[i]!,
+            clauseParagraphIndex: i,
+            problematicQuote: paragraphs[i]!.slice(0, Math.min(5, paragraphs[i]!.length)),
+            quoteCharStart: 0,
+            quoteCharEnd: Math.min(5, paragraphs[i]!.length),
+            suggestedClauseText: `改写${i}`,
+        }))
+        const annotations: ContractAnnotationForExport[] = risks.map(r => ({
+            id: r.id,
+            riskId: r.id,
+            authorType: 'ai',
+            authorName: 'AI',
+            content: '审查意见',
+            parentAnnotationId: null,
+            wordCommentRef: null,
+            anchorQuote: r.clauseText,
+            anchorParagraphIndex: r.clauseParagraphIndex!,
+        }))
+
+        const docAst0 = parseOoxml(await readTextFromZip(await loadDocxZip(original), 'word/document.xml'))
+        const idStart = findMaxSharedId(docAst0) + 1
+
+        const redlineResult = await injectRedlineMarks(original, risks, { reviewId: 999, idStart })
+        const commentResult = await injectAnnotations(redlineResult.buffer, annotations, 999, {
+            idStart: redlineResult.nextIdAfter,
+            wrapTargetByRiskId: redlineResult.spansByRiskId,
+        })
+
+        // 抽取最终 docx 的 document.xml
+        const finalAst = parseOoxml(await readTextFromZip(await loadDocxZip(commentResult.buffer), 'word/document.xml'))
+
+        // OOXML w:id 池语义：ins/del/bookmark 各自代表"独立实例"，必须全局唯一；
+        // commentRangeStart/End/Reference 三标签共享同一个 id（指向同一个 comment），
+        // 这是 OOXML 标准设计，不算"撞车"。
+        // 真正撞车 = ins/del/bookmark 的 id 与 commentReference id 重合（同一池）。
+        const instanceTags = new Set(['w:bookmarkStart', 'w:ins', 'w:del'])
+        const instanceIds: number[] = []
+        const commentIds: number[] = []
+        walk(finalAst, (n) => {
+            const t = tagOf(n)
+            const idStr = getAttr(n, 'w:id')
+            if (!t || !idStr) return
+            const id = parseInt(idStr, 10)
+            if (!Number.isFinite(id)) return
+            if (instanceTags.has(t)) instanceIds.push(id)
+            else if (t === 'w:commentReference') commentIds.push(id)
+        })
+        expect(instanceIds.length).toBeGreaterThan(0)
+        expect(commentIds.length).toBeGreaterThan(0)
+        // 实例标签内部各自唯一
+        expect(new Set(instanceIds).size).toBe(instanceIds.length)
+        // comment id 内部唯一
+        expect(new Set(commentIds).size).toBe(commentIds.length)
+        // ins/del/bookmark 与 comment 之间无交集（spec §8.5 ④ 撞车语义）
+        const inter = instanceIds.filter(id => commentIds.includes(id))
+        expect(inter).toEqual([])
+    })
+
+    it('spec §8.5 ⑤ 端到端：含控制字符的 suggestedClauseText 经 stripIllegalXmlChars 后产物 XML 不含 0x00-0x08/0x0B/0x0C/0x0E-0x1F', async () => {
+        const original = await readFile(SAMPLE)
+        const { paragraphs } = await parseContractDocx(original)
+        if (paragraphs.length === 0 || paragraphs[0]!.length < 6) return
+
+        // 构造含 0x08 0x1B 0x07 等非法字符的 suggestedClauseText
+        const dirty = 'A'
+            + String.fromCharCode(0x08) + 'B'
+            + String.fromCharCode(0x1B) + 'C'
+            + String.fromCharCode(0x07) + 'D'
+
+        const result = await injectRedlineMarks(original, [{
+            id: 1,
+            clauseText: paragraphs[0]!,
+            clauseParagraphIndex: 0,
+            problematicQuote: paragraphs[0]!.slice(0, 5),
+            quoteCharStart: 0,
+            quoteCharEnd: 5,
+            suggestedClauseText: dirty,
+        }], { reviewId: 999, idStart: 0 })
+
+        const docXml = await readTextFromZip(await loadDocxZip(result.buffer), 'word/document.xml')
+
+        // 装填后 XML 必须不含任何 XML 1.0 禁用字符（U+0000-U+0008/U+000B/U+000C/U+000E-U+001F/U+FFFE/U+FFFF）
+        // eslint-disable-next-line no-control-regex
+        const ILLEGAL = /[ --￾￿]/
+        expect(docXml).not.toMatch(ILLEGAL)
+        // 但合法部分仍然出现
+        expect(docXml).toContain('ABCD')
     })
 })
