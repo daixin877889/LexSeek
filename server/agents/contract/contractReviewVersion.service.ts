@@ -17,8 +17,19 @@ import type {
 } from '#shared/types/contract'
 import { getContractReviewVersionByIdDAO } from './contractReviewVersion.dao'
 import { isAnnotationExportable } from './contractAnnotation.service'
-import { injectAnnotations } from './docx'
-import type { ContractAnnotationForExport } from './docx'
+import {
+    injectAnnotations,
+    injectRedlineMarks,
+    findMaxSharedId,
+    loadDocxZip,
+    readTextFromZip,
+} from './docx'
+import { parseOoxml } from './docx/xmlAst'
+import type {
+    ContractAnnotationForExport,
+    RedlineRisk,
+} from './docx'
+import type { ContractExportMode } from '#shared/types/contract'
 import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
 import {
     downloadFileService,
@@ -225,7 +236,10 @@ export type DownloadVersionResult =
 export async function downloadContractReviewVersionService(
     review: contractReviews,
     versionId: number,
+    opts: { mode?: ContractExportMode } = {},
 ): Promise<DownloadVersionResult> {
+    const mode: ContractExportMode = opts.mode ?? 'comment'
+
     const version = await getContractReviewVersionByIdDAO(versionId)
     if (!version) return { error: 'version_not_found' as const }
 
@@ -298,12 +312,56 @@ export async function downloadContractReviewVersionService(
 
     let injectedBuffer: Buffer
     try {
-        const result = await injectAnnotations(baseBuffer, exportable, review.id)
-        injectedBuffer = Buffer.isBuffer(result.buffer) ? result.buffer : Buffer.from(result.buffer)
+        if (mode === 'comment') {
+            const result = await injectAnnotations(baseBuffer, exportable, review.id)
+            injectedBuffer = Buffer.isBuffer(result.buffer) ? result.buffer : Buffer.from(result.buffer)
+        }
+        else {
+            // PR6 §8.2 历史版本下载也支持 redline / both 三模式
+            const docAst = parseOoxml(await readTextFromZip(await loadDocxZip(baseBuffer), 'word/document.xml'))
+            const idStart = findMaxSharedId(docAst) + 1
+
+            // snapshot 里的 risks 已含 PR2/PR3 的 quote 字段
+            const redlineRisks: RedlineRisk[] = snapshot.risks.map(r => ({
+                id: r.id,
+                clauseText: r.clauseText,
+                clauseParagraphIndex: r.clauseParagraphIndex ?? null,
+                problematicQuote: r.problematicQuote ?? null,
+                quoteCharStart: r.quoteCharStart ?? null,
+                quoteCharEnd: r.quoteCharEnd ?? null,
+                suggestedClauseText: r.suggestedClauseText ?? null,
+            }))
+            const redlineResult = await injectRedlineMarks(baseBuffer, redlineRisks, {
+                reviewId: review.id, idStart,
+            })
+
+            if (mode === 'redline') {
+                const skippedSet = new Set(redlineResult.skippedRiskIds)
+                const fallback = exportable.filter(a => skippedSet.has(a.riskId))
+                if (fallback.length > 0) {
+                    const cr = await injectAnnotations(redlineResult.buffer, fallback, review.id, {
+                        idStart: redlineResult.nextIdAfter,
+                    })
+                    injectedBuffer = Buffer.isBuffer(cr.buffer) ? cr.buffer : Buffer.from(cr.buffer)
+                }
+                else {
+                    injectedBuffer = Buffer.isBuffer(redlineResult.buffer) ? redlineResult.buffer : Buffer.from(redlineResult.buffer)
+                }
+            }
+            else {
+                // both
+                const cr = await injectAnnotations(redlineResult.buffer, exportable, review.id, {
+                    idStart: redlineResult.nextIdAfter,
+                    wrapTargetByRiskId: redlineResult.spansByRiskId,
+                })
+                injectedBuffer = Buffer.isBuffer(cr.buffer) ? cr.buffer : Buffer.from(cr.buffer)
+            }
+        }
     } catch (err) {
         logger.error('[downloadContractReviewVersion] 注入批注失败', {
             reviewId: review.id,
             versionId,
+            mode,
             err,
         })
         return { error: 'inject_failed' as const }
