@@ -60,14 +60,16 @@ function splitClauseLines(clauseText: string): string[] {
  * "非空段落序号"空间双重计数），用 PARA_BLOCK_SELECTOR 与 docx 原生 w:p 对齐。
  */
 const BLOCK_SELECTOR = 'p, li, h1, h2, h3, h4, h5, h6, td'
-const PARA_BLOCK_SELECTOR = 'p, li, h1, h2, h3, h4, h5, h6'
+/** 与后端 `clauseToParagraph.ts` 同口径的"非空段落"块级元素选择器（PR 5 复用） */
+export const PARA_BLOCK_SELECTOR = 'p, li, h1, h2, h3, h4, h5, h6'
 
 /**
- * 取容器内第 N 个非空块级元素，对齐后端"非空段落序号"空间
- * （server/agents/contract/docx/parser.ts 的 paragraphs[] 与
- *  utils/clauseToParagraph.ts 的 buildClauseToParagraphMap 输出）。
+ * 取容器内第 N 个非空块级元素（PARA_BLOCK_SELECTOR 范围）。
+ * 与后端 `server/agents/contract/utils/clauseToParagraph.ts` 的"非空段落序号"同算法。
+ *
+ * PR 5 `app/utils/quoteHighlight.ts` 复用本函数。
  */
-function findByParagraphIndex(container: Element, paragraphIndex: number): Element | null {
+export function findByParagraphIndex(container: Element, paragraphIndex: number): Element | null {
     const blocks = container.querySelectorAll(PARA_BLOCK_SELECTOR)
     let count = 0
     for (const el of blocks) {
