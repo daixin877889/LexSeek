@@ -4,20 +4,28 @@
 
 **Goal:** 为合同审查导出新增 OOXML Track Changes（修订模式）能力，下载按钮支持「批注 / 修订 / 两者并存」三选一切换；后端新增 `redlineInjector` 在原 docx 写 `<w:ins>` / `<w:del>` 标签，`commentInjector` 改造接受 `idStart` 与 `redlineInjector` 共享同一份 OOXML w:id 池避免冲突让 Word 报「文件已损坏」。
 
-**Architecture:** 复用 PR3 已落地的 quote 字符级锚点（`problematic_quote` / `quote_char_start` / `quote_char_end`，offset 相对 `clauseText`）→ 在 OOXML AST 里定位段落与 run（`redlineLocate.ts`）→ 拆 run 时 deep-clone `<w:rPr>` 副本保留字体/字号/颜色 → wrap 进 `<w:del>` 紧邻插 `<w:ins>` 写 `suggestedClauseText`（`redlineInjector.ts`）→ 由 `rebuildDocxService` 按 `mode` 协调三模式产物；`xmlAst.findMaxSharedId` 扫描 OOXML 共享 ID 池底数让两个 injector 顺序分配 w:id；前端把 `RiskListPanel` 单按钮改成 DropdownMenu + RadioGroup，模式偏好持久化到 `localStorage:contract-review-export-mode`。
+**Architecture:** 复用 PR3 已落地的 quote 字符级锚点（`problematic_quote` / `quote_char_start` / `quote_char_end`，offset 相对 `clauseText`）→ 在 OOXML AST 里定位段落与 run（`redlineLocate.ts`）→ 拆 run 时 deep-clone `<w:rPr>` 副本保留字体/字号/颜色 → wrap 进 `<w:del>` 紧邻插 `<w:ins>` 写 `suggestedClauseText`（`redlineInjector.ts`）→ 由 `rebuildDocxService` 按 `mode` 协调三模式产物；`xmlAst.findMaxSharedId` 扫描 OOXML 共享 ID 池底数让两个 injector 顺序分配 w:id；**both 模式下 `redlineInjector` 返回每条 risk 的 `spansByRiskId` 段落坐标，`commentInjector` 据此把 `<w:commentRangeStart/End>` 精确包到 `<w:del>+<w:ins>` 周围（spec §8.3.6 核心 UX：律师悬停修订段直接弹气泡）**；前端把 `RiskListPanel` 单按钮改成 DropdownMenu + RadioGroup，模式偏好持久化到 `localStorage:contract-review-export-mode`。
 
 **Tech Stack:** Nuxt 4 / Vue 3 / TypeScript / Prisma / shadcn-vue / fast-xml-parser / JSZip / Vitest + happy-dom + @vue/test-utils。复用 `xmlAst` AST helper / `zipRewriter` jszip 封装 / `prisma/seeds/contract-samples/labor.docx` 测试 fixture。
 
 **Spec:** `docs/superpowers/specs/2026-05-02-contract-review-precise-anchoring-and-track-changes-design.md`（PR6 范围 = §8 + §11.6 + §12 风险点）
 
-**前置（已落地）：**
+**前置（已落地，第 2 轮 5check 复盘确认）：**
 - `ContractRiskEntity` 含 `problematicQuote / quoteCharStart / quoteCharEnd / quoteMatchSource / clauseText / clauseParagraphIndex / clauseCharStart / clauseCharEnd`（`shared/types/contract.ts:485-525`）
 - `commentInjector.injectAnnotations` API（`server/agents/contract/docx/commentInjector.ts:328`）
 - `xmlAst` helper：`parseOoxml / stringifyOoxml / walk / findFirst / findAll / getAttr / setAttr / makeElement / makeLeaf / makeText / textOf / paragraphText / hasRunChild / escapeXml`（`server/agents/contract/docx/xmlAst.ts`）
 - `zipRewriter`：`loadDocxZip / readTextFromZip / writeTextToZip / zipToBuffer`（`server/agents/contract/docx/zipRewriter.ts`）
 - AI 批注 `content` 字段实际只存 `risk.problem` 一行（见 `uploadClientVersion.service.ts:589`），不含 `suggestedClauseText`——spec §8.3.6「both 模式 comment 文本去掉 suggestedClauseText 段」**已天然达成**，PR6 不必额外剥
+- PR1（partyDetector 短路修复）已合入：`server/agents/contract/docx/partyDetector.ts:51-101`
+- PR2（数据模型双锚点 8 字段 + migration `20260502160421_refactor_contract_risks_dual_anchor`）已合入
+- PR3（路线 2 锚点 splitSentences + resolveQuoteAnchor + persist 集成）已合入：`contractRisk.service.ts:106-134`
+- PR4（RiskCard layout=stacked / inline-diff）已合入：`RiskCard.vue:48-57`
+- PR5（CSS Custom Highlight API + `app/utils/quoteHighlight.ts`）已合入
 
-**工期：** 3.5 天 × 18 个 Task
+**实施依赖（spec §11.1 / §11.2）：**
+spec §11.1 明确 "PR 3 必须先于 PR 4-7"；spec §11.2 选策略 A：PR2/3/4 同窗口、PR5/6 各自独立。PR2/3/4/5 已合入 dev 分支（见上方"已落地"列表），PR6 实施可以基于此立即开工。发布顺序由 release plan 决定，不属本 plan 范围。
+
+**工期：** 4 天 × 18 个 Task（spec 原估 3.5 天；第 2/3 轮 5check 加了 python-docx 验证 + Win 实测 + both 跨 injector w:id 专项单测，工期上调至 4 天）
 
 ---
 
@@ -25,15 +33,15 @@
 
 ### 新增（5）
 - `server/agents/contract/docx/redlineLocate.ts` — 纯函数：在 OOXML AST 段落数组里定位 quote 字符段对应的「段落区间 + 起止 run + run 内偏移」
-- `server/agents/contract/docx/redlineInjector.ts` — 主入口：跨 run 拆分 + 装配 `<w:del>` / `<w:ins>` + 段落删除标记同步 + ID 协调
+- `server/agents/contract/docx/redlineInjector.ts` — 主入口：跨 run 拆分 + 装配 `<w:del>` / `<w:ins>` + 段落删除标记同步 + ID 协调 + 返回 `spansByRiskId` 供 both 模式 commentInjector 包裹定位
 - `tests/server/assistant/contract/docx/redlineLocate.test.ts`
 - `tests/server/assistant/contract/docx/redlineInjector.test.ts`
 - `tests/server/assistant/contract/contractReviewRebuild.mode.test.ts`
 
 ### 修改（13）
 - `shared/types/contract.ts` — 新增 `ContractExportMode` 类型 + 默认值常量 + 标签映射
-- `server/agents/contract/docx/xmlAst.ts` — 新增 `findMaxSharedId` + `ID_BEARING_TAGS` + 抽出 `collectNonEmptyParagraphs` 共享函数
-- `server/agents/contract/docx/commentInjector.ts` — `injectAnnotations` 入参加 `opts: { idStart? }`、返回值加 `nextIdAfter`；`collectNonEmptyParagraphs` 改 import
+- `server/agents/contract/docx/xmlAst.ts` — 新增 `findMaxSharedId` + `ID_BEARING_TAGS` + `stripIllegalXmlChars`（spec §8.3.8 输入清理） + 抽出 `collectNonEmptyParagraphs` 共享函数
+- `server/agents/contract/docx/commentInjector.ts` — `injectAnnotations` 入参加 `opts: { idStart?, wrapTargetByRiskId? }`、返回值加 `nextIdAfter`；`collectNonEmptyParagraphs` 改 import；both 模式按 `wrapTargetByRiskId` 把 `<w:commentRangeStart/End>` 精确包到 redline 的 `<w:del>+<w:ins>` 周围（spec §8.3.6）
 - `server/agents/contract/docx/index.ts` — 导出 `injectRedlineMarks` / `RedlineRisk` / `InjectRedlineResult` / `findMaxSharedId`
 - `server/agents/contract/riskSchema.builder.ts` — `suggestedClauseText` refine reject `\n`
 - `server/agents/contract/contractReviewRebuild.service.ts` — 接受 `opts.mode`，三模式协调
@@ -63,7 +71,7 @@
 - [ ] **Step 1：追加常量与类型到 `shared/types/contract.ts` 末尾**
 
 ```typescript
-// ===== PR6: 导出模式 =====
+// ===== PR6: 导出模式（仅前端 RiskListPanel + composable 用，shared 合理）=====
 
 /** 合同审查 docx 导出模式 */
 export const CONTRACT_EXPORT_MODES = ['comment', 'redline', 'both'] as const
@@ -77,6 +85,10 @@ export const CONTRACT_EXPORT_MODE_LABEL: Record<ContractExportMode, string> = {
     redline: '修订模式（Track Changes）',
     both: '两者并存',
 }
+
+// 注意：RedlineWrapTarget 类型只在 server/agents/contract/docx/{commentInjector,redlineInjector}.ts
+// 之间流转，前端永不消费。按 .claude/rules/types.md 决策树「服务端专用 → 放 server 模块内」，
+// 该类型定义在 server/agents/contract/docx/redlineInjector.ts 内 export，不放 shared。
 ```
 
 - [ ] **Step 2：跑类型检查**
@@ -95,7 +107,7 @@ PR6 spec §8.1 三模式 toggle 类型基础。"
 
 ---
 
-## Task 2：xmlAst 新增 findMaxSharedId
+## Task 2：xmlAst 新增 findMaxSharedId + stripIllegalXmlChars
 
 **Files:**
 - Modify: `server/agents/contract/docx/xmlAst.ts`
@@ -162,9 +174,27 @@ describe('findMaxSharedId', () => {
         expect(findMaxSharedId(ast)).toBe(12)
     })
 })
+
+describe('stripIllegalXmlChars（PR6 §8.3.8 输入清理）', () => {
+    it('过滤 U+0008 / U+001B 等 XML 1.0 禁用控制字符', () => {
+        expect(stripIllegalXmlChars('abc')).toBe('abc')
+    })
+
+    it('保留 \\t / \\n / \\r 三个允许的低值控制字符', () => {
+        expect(stripIllegalXmlChars('a\tb\nc\rd')).toBe('a\tb\nc\rd')
+    })
+
+    it('不改变 & < > 等正常字符（entity escape 由 fast-xml-parser builder 自己做）', () => {
+        expect(stripIllegalXmlChars('a&b<c>d')).toBe('a&b<c>d')
+    })
+
+    it('空串安全', () => {
+        expect(stripIllegalXmlChars('')).toBe('')
+    })
+})
 ```
 
-并在文件顶部 `import` 行追加 `findMaxSharedId`。
+并在文件顶部 `import` 行追加 `findMaxSharedId, stripIllegalXmlChars`。
 
 - [ ] **Step 2：跑测试确认失败**
 
@@ -410,6 +440,55 @@ spec §8.3.3：v1 整段替换不支持多段插入；prompt 改造交由 v2 LLM
 - [ ] **Step 1：追加测试用例到 `commentInjector.annotations.test.ts` 末尾**
 
 ```typescript
+describe('injectAnnotations wrapTargetByRiskId 包裹 redline（PR6 §8.3.6）', () => {
+    it('both 模式传 wrapTarget → commentRangeStart 在 w:del 之前、End 在 w:ins 之后', async () => {
+        // 构造：先用 redlineInjector 装 redline，再用 commentInjector wrap
+        const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t xml:space="preserve">违约金按 0.05% 计算。</w:t></w:r></w:p>
+  </w:body>
+</w:document>`
+        const original = await readFile(SAMPLE)
+        const zip = await loadDocxZip(original)
+        zip.file('word/document.xml', xml)
+        const buffer = await zip.generateAsync({ type: 'nodebuffer' })
+
+        const redline = await injectRedlineMarks(buffer, [{
+            id: 7, clauseText: '违约金按 0.05% 计算。', clauseParagraphIndex: 0,
+            problematicQuote: '0.05%', quoteCharStart: 5, quoteCharEnd: 10,
+            suggestedClauseText: '0.5%',
+        }], { reviewId: 999, idStart: 100 })
+
+        const ann: ContractAnnotationForExport = {
+            id: 1, riskId: 7, authorType: 'ai', authorName: 'AI', content: 'AI 改写说明',
+            parentAnnotationId: null, anchorQuote: '违约金按 0.05% 计算。', anchorParagraphIndex: 0,
+            wordCommentRef: null,
+        }
+        const wrap = await injectAnnotations(redline.buffer, [ann], 999, {
+            idStart: redline.nextIdAfter,
+            wrapTargetByRiskId: redline.spansByRiskId,
+        })
+
+        const docxXml = await readTextFromZip(await loadDocxZip(wrap.buffer), 'word/document.xml')
+        // commentRangeStart 必须出现在 w:del 之前
+        expect(docxXml).toMatch(/<w:commentRangeStart[^>]*>[\s\S]*<w:del/)
+        // commentRangeEnd 必须出现在 w:ins 之后（即 ins 在 End 之前）
+        expect(docxXml).toMatch(/<w:ins[^>]*>[\s\S]*<\/w:ins>[\s\S]*<w:commentRangeEnd/)
+    })
+
+    it('未传 wrapTargetByRiskId → 维持现有段落级行为', async () => {
+        const original = await readFile(SAMPLE)
+        const { paragraphs } = await parseContractDocx(original)
+        const ann = makeAnnotation({ id: 1, anchorParagraphIndex: Math.min(0, paragraphs.length - 1) })
+        const result = await injectAnnotations(original, [ann], 999)  // 不传 opts
+        const zip = await loadDocxZip(result.buffer)
+        const docXml = await readTextFromZip(zip, 'word/document.xml')
+        // 仍按既有逻辑：commentRangeStart 在段首
+        expect(docXml).toMatch(/<w:commentRangeStart\s+w:id="0"/)
+    })
+})
+
 describe('injectAnnotations idStart 协调（PR6 §8.3.1）', () => {
     it('未传 idStart 时 wId 从 0 开始（向后兼容）', async () => {
         const original = await readFile(SAMPLE)
@@ -488,16 +567,32 @@ export interface InjectAnnotationsResult {
 }
 ```
 
-修改函数签名（line 328）+ 入参解析：
+修改函数签名（line 328）+ 入参解析（PR6 §8.3.6 协调：`wrapTargetByRiskId` 让 both 模式精确包裹 redline）：
 
 ```typescript
+import type { RedlineWrapTarget } from './redlineInjector'
+
+export interface InjectAnnotationsOptions {
+    /** 起始 w:id；与 redlineInjector 共享 ID 池时由 nextIdAfter 接力 */
+    idStart?: number
+    /**
+     * spec §8.3.6：both 模式下按 riskId 把 commentRange 精确包到 redline 的
+     * <w:del>+<w:ins> 周围，让律师悬停修订段直接弹气泡。
+     * key=riskId（contractRisks.id），value=redlineInjector 返回的段落坐标。
+     * - 命中：在第一段 del 之前插 commentRangeStart，在最后段 ins（或 del）之后插 commentRangeEnd + commentReference run
+     * - 未命中：维持现状按 anchorParagraphIndex 在段落首/尾插 commentRange
+     */
+    wrapTargetByRiskId?: Map<number, RedlineWrapTarget>
+}
+
 export async function injectAnnotations(
     docxBuffer: Buffer,
     annotations: ContractAnnotationForExport[],
     reviewId: number,
-    opts?: { idStart?: number },
+    opts?: InjectAnnotationsOptions,
 ): Promise<InjectAnnotationsResult> {
     const idStart = opts?.idStart ?? 0
+    const wrapTargetByRiskId = opts?.wrapTargetByRiskId ?? new Map()
     const nextIdAfter = idStart + annotations.length
     const refsByAnnotationId = new Map<number, string>()
 
@@ -539,6 +634,86 @@ export async function injectAnnotations(
     return { buffer: await zipToBuffer(zip), refsByAnnotationId, nextIdAfter }
 ```
 
+**both 模式 commentRange 精确包裹（spec §8.3.6 关键 UX）**：
+
+把现有 `injectMarkersIntoParagraph` 改造为接受可选 `wrapTarget`，命中时按 redline 段坐标插 commentRange；未命中维持原段落级行为。
+
+```typescript
+function injectMarkersIntoParagraph(
+    paraNode: Node,
+    wIds: number[],
+    opts?: { wrapTarget?: { delId: number; insId: number | null } },
+): void {
+    const tag = tagOf(paraNode)
+    if (!tag || tag !== 'w:p') return
+    const kids = paraNode[tag] as NodeArray
+    if (!Array.isArray(kids)) return
+
+    const wrapTarget = opts?.wrapTarget
+    const starts = wIds.map(id => makeLeaf('w:commentRangeStart', { 'w:id': String(id) }))
+    const ends = wIds.flatMap(id => [
+        makeLeaf('w:commentRangeEnd', { 'w:id': String(id) }),
+        makeElement('w:r', {}, [
+            makeLeaf('w:commentReference', { 'w:id': String(id) }),
+        ]),
+    ])
+
+    if (wrapTarget) {
+        // 精确包裹：找 w:del[w:id=delId] 节点位置插 commentRangeStart；找 w:ins[w:id=insId]
+        // （或 delId 节点本身，如 insId==null）位置后插 commentRangeEnd + commentReference run
+        const delIdx = kids.findIndex(k => tagOf(k) === 'w:del' && getAttr(k, 'w:id') === String(wrapTarget.delId))
+        if (delIdx >= 0) {
+            const insIdx = wrapTarget.insId !== null
+                ? kids.findIndex(k => tagOf(k) === 'w:ins' && getAttr(k, 'w:id') === String(wrapTarget.insId))
+                : delIdx
+            if (insIdx >= delIdx) {
+                kids.splice(insIdx + 1, 0, ...ends)
+                kids.splice(delIdx, 0, ...starts)
+                return
+            }
+        }
+        // 未找到目标节点 → 降级到段落级（不应发生但兜底防止 commentRange 丢失）
+    }
+
+    // 原段落级行为：rangeStart 塞段首（pPr 之后），rangeEnd+reference 塞段尾
+    const firstContentIdx = kids.findIndex(k => {
+        const t = tagOf(k)
+        return t !== null && t !== 'w:pPr'
+    })
+    const insertAt = firstContentIdx < 0 ? kids.length : firstContentIdx
+    kids.splice(insertAt, 0, ...starts)
+    kids.push(...ends)
+}
+```
+
+并在主循环里按 `wrapTargetByRiskId` 派发（用反向 Map 避免线性查找；options 对象传 wrapTarget 参数）：
+
+```typescript
+// 主循环外预构反向索引：wId → annotation（O(1) 查找代替 O(N) find）
+const annByWId = new Map<number, ContractAnnotationForExport>(
+    validAnnotations.map(a => [wordIdByAnnotationId.get(a.id)!, a] as const),
+)
+
+// 按 paraIdx 分组 wId（既有逻辑），再为每组找该段对应 risk 的 wrapTarget
+for (const [paraIdx, wIds] of byParaIdx) {
+    // v1 简化：单 wId + 命中 wrapTarget → 精确包裹；其它情况（多 wId / 未命中）全部
+    // 走段落级兜底。同段多 risk 的概率极低（每条 risk 各占一段为常态），简化分支
+    // 不影响 spec §8.3.6 对常见场景的核心 UX。
+    if (wIds.length === 1) {
+        const onlyWId = wIds[0]!
+        const ann = annByWId.get(onlyWId)
+        const span = ann ? wrapTargetByRiskId.get(ann.riskId) : undefined
+        const segHere = span?.paragraphSpans.find(s => s.paraIdx === paraIdx)
+        if (segHere) {
+            injectMarkersIntoParagraph(nonEmpty[paraIdx]!, [onlyWId], { wrapTarget: segHere })
+            continue
+        }
+    }
+    // 段落级兜底：与现有 commentInjector 行为一致
+    injectMarkersIntoParagraph(nonEmpty[paraIdx]!, wIds)
+}
+```
+
 - [ ] **Step 4：跑现有所有 commentInjector 测试 + 新用例**
 
 Run: `npx vitest run tests/server/assistant/contract/docx/commentInjector.annotations.test.ts tests/server/assistant/contract/docx/commentInjector.test.ts`
@@ -564,7 +739,7 @@ both 模式下从 redline 的 nextIdAfter 接力分配。
 
 ## Task 6：redlineLocate 定位算法
 
-按 `clauseText` 拆行 + `quote_char_start/end` 行内 offset → 段落区间 + run 内 offset。算法对齐 spec §7.3.1 docxPreview 的 walkToTextNode（PR5），但跑在 OOXML AST 而非 DOM 上。
+按 `clauseText` 拆行 + `quote_char_start/end` 行内 offset → 段落区间 + run 内 offset。算法对齐 spec §7.3.2 字符等价规则（textContent 累加：w:t 字面 / w:tab=1 / w:br=0），跑在 OOXML AST 上。
 
 **Files:**
 - Create: `server/agents/contract/docx/redlineLocate.ts`
@@ -645,8 +820,32 @@ describe('locateQuoteInParagraphs', () => {
             + '<w:r><w:t>支付</w:t></w:r>'
             + '</w:p>',
         )
-        // clauseText = "违约金按月底支付"
-        // quote = "月底支" (offset 3..6) 起 run0[3..]、止 run1[0..1]
+        // clauseText = "违约金按月底支付"（"违(0)约(1)金(2)按(3)月(4)底(5)支(6)付(7)"）
+        // quote = "月底支" (offset 4..7)：起 run0 内 offset 4，止 run1 内 offset 1
+        const loc = locateQuoteInParagraphs({
+            nonEmptyParagraphs: paragraphs,
+            clauseText: '违约金按月底支付',
+            clauseParagraphIndex: 0,
+            quoteCharStart: 4,
+            quoteCharEnd: 7,
+        })
+        expect(loc).not.toBeNull()
+        expect(loc!.splits[0]!.runSplit).toEqual({
+            startRunIdx: 0,
+            startRunOffset: 4,
+            endRunIdx: 1,
+            endRunOffset: 1,
+        })
+    })
+
+    it('quote 终点恰好落在 run 边界 → 落到能容纳的第一个 run 末尾', () => {
+        const paragraphs = makeDoc(
+            '<w:p>'
+            + '<w:r><w:t>违约金按月底</w:t></w:r>'
+            + '<w:r><w:t>支付</w:t></w:r>'
+            + '</w:p>',
+        )
+        // quote = "按月底" (offset 3..6)，终点 6 == run0 末尾 = run1 起点的边界
         const loc = locateQuoteInParagraphs({
             nonEmptyParagraphs: paragraphs,
             clauseText: '违约金按月底支付',
@@ -655,11 +854,12 @@ describe('locateQuoteInParagraphs', () => {
             quoteCharEnd: 6,
         })
         expect(loc).not.toBeNull()
+        // 边界落在 run0 末尾（runOffset == runLen），splitRunAtOffset 切出 left=完整 run0[3..6] / right=null
         expect(loc!.splits[0]!.runSplit).toEqual({
             startRunIdx: 0,
             startRunOffset: 3,
-            endRunIdx: 1,
-            endRunOffset: 1,
+            endRunIdx: 0,
+            endRunOffset: 6,
         })
     })
 
@@ -849,7 +1049,11 @@ function findRunOffsetInParagraph(paraNode: Node, charOffset: number): RunHit | 
     return null
 }
 
-function computeRunLength(runNode: Node): number {
+/**
+ * 段内单 run 的字符长度（w:t 字面 / w:tab=1 / w:br=0）。
+ * export：redlineInjector 「整段删除判定」/「wholeParagraphRunSplit」复用同口径。
+ */
+export function computeRunLength(runNode: Node): number {
     let len = 0
     for (const kid of childrenOf(runNode)) {
         const t = tagOf(kid)
@@ -860,7 +1064,10 @@ function computeRunLength(runNode: Node): number {
     return len
 }
 
-function paragraphTextLengthByRunRule(paraNode: Node): number {
+/**
+ * 段内全部 w:r 累加文本长度。export 与 computeRunLength 同意图，redlineInjector 复用。
+ */
+export function paragraphTextLengthByRunRule(paraNode: Node): number {
     let len = 0
     for (const kid of childrenOf(paraNode)) {
         if (tagOf(kid) !== 'w:r') continue
@@ -1120,7 +1327,6 @@ Expected: FAIL — `Cannot find module .../redlineInjector`
  *  - 每条 redline 占 2 个 ID（w:del + w:ins）；整段删除时多占 1 个（pPr/rPr/del）
  *  - 返回 nextIdAfter = idStart + 已分配数，供 both 模式接力 commentInjector
  */
-import type { Buffer as NodeBuffer } from 'node:buffer'
 import {
     parseOoxml,
     stringifyOoxml,
@@ -1128,8 +1334,10 @@ import {
     tagOf,
     textOf,
     makeElement,
+    makeLeaf,
     makeText,
     collectNonEmptyParagraphs,
+    stripIllegalXmlChars,
     type Node,
     type NodeArray,
 } from './xmlAst'
@@ -1154,10 +1362,36 @@ export interface RedlineRisk {
     suggestedClauseText: string | null
 }
 
+/**
+ * redlineInjector 装填后单条 risk 的修订段坐标（spec §8.3.6）。
+ *
+ * 跨段 risk 的 paragraphSpans 含多个元素：commentRange 的 Start 在第一段 del 之前、
+ * End 在最后段 ins 之后（或最后段 del 之后，无 ins 时）。
+ *
+ * 类型只在 commentInjector ⇄ redlineInjector 流转，前端不消费 → 放 server 端
+ * （非 shared，参考 .claude/rules/types.md）。commentInjector 单向 import，无循环依赖。
+ */
+export interface RedlineWrapTarget {
+    paragraphSpans: Array<{
+        /** 段落在 collectNonEmptyParagraphs 数组里的索引 */
+        paraIdx: number
+        /** 该段内 w:del 节点的 w:id（commentInjector 据此 grep 节点位置） */
+        delId: number
+        /** 该段内 w:ins 节点的 w:id；null = 跨段非结尾段（无 ins） */
+        insId: number | null
+    }>
+}
+
 export interface InjectRedlineResult {
-    buffer: NodeBuffer
+    buffer: Buffer
     /** 没装 redline 的 risk id 列表（按 spec §8.4 调用方走 comment fallback） */
     skippedRiskIds: number[]
+    /**
+     * 已成功装填的 risk → redline 段落坐标映射（spec §8.3.6 核心 UX）。
+     * both 模式下 commentInjector 据此把 <w:commentRangeStart/End> 精确包到
+     * <w:del>+<w:ins> 周围，让律师悬停修订段直接弹气泡。
+     */
+    spansByRiskId: Map<number, RedlineWrapTarget>
     /** 下一个可用 w:id（供 both 模式接力 commentInjector） */
     nextIdAfter: number
     warnings: string[]
@@ -1170,6 +1404,7 @@ export async function injectRedlineMarks(
 ): Promise<InjectRedlineResult> {
     const skippedRiskIds: number[] = []
     const warnings: string[] = []
+    const spansByRiskId = new Map<number, RedlineWrapTarget>()
     let cursorId = options.idStart
 
     // 先过滤掉前置 invalid 的 risk（不解 zip 也能判断）
@@ -1192,6 +1427,7 @@ export async function injectRedlineMarks(
         return {
             buffer: Buffer.from(docxBuffer),
             skippedRiskIds,
+            spansByRiskId,
             nextIdAfter: cursorId,
             warnings,
         }
@@ -1225,6 +1461,7 @@ export async function injectRedlineMarks(
     return {
         buffer: await zipToBuffer(zip),
         skippedRiskIds,
+        spansByRiskId,
         nextIdAfter: cursorId,
         warnings,
     }
@@ -1445,7 +1682,8 @@ function convertRunToDeleteRun(runNode: Node): Node {
     for (const kid of kids) {
         const tag = tagOf(kid)
         if (tag === 'w:t') {
-            newKids.push(makeElement('w:delText', { 'xml:space': 'preserve' }, [makeText(textOf(kid))]))
+            // spec §8.3.8 输入清理：原 docx 文本理论合法，但 round-trip 后再过一道无害
+            newKids.push(makeElement('w:delText', { 'xml:space': 'preserve' }, [makeText(stripIllegalXmlChars(textOf(kid)))]))
         }
         else {
             newKids.push(deepClone(kid))
@@ -1580,9 +1818,11 @@ function buildInsertNode(input: {
     dateIso: string
 }): Node {
     const { text, inheritedRpr, insId, dateIso } = input
+    // spec §8.3.8：LLM 输出可能含 U+0008 等非法 XML 控制字符，写入 OOXML 前过滤
+    const safeText = stripIllegalXmlChars(text)
     const runChildren: NodeArray = []
     if (inheritedRpr) runChildren.push(inheritedRpr)
-    runChildren.push(makeElement('w:t', { 'xml:space': 'preserve' }, [makeText(text)]))
+    runChildren.push(makeElement('w:t', { 'xml:space': 'preserve' }, [makeText(safeText)]))
     return makeElement('w:ins', {
         'w:id': String(insId),
         'w:author': REDLINE_AUTHOR,
@@ -1619,6 +1859,10 @@ function buildInsertNode(input: {
             dateIso,
         })
         cursorId += 2
+        // 收集 redline 段落坐标供 both 模式 commentRange 包裹（spec §8.3.6）
+        spansByRiskId.set(risk.id, {
+            paragraphSpans: [{ paraIdx: loc.startParaIdx, delId, insId }],
+        })
 ```
 
 - [ ] **Step 8：跑装配用例确认 pass**
@@ -1763,13 +2007,17 @@ Expected: FAIL — 跨段被 skip / 整段没加 pPr/rPr/del
                 addParagraphDeleteMark(nonEmptyParagraphs[loc.startParaIdx]!, cursorId, dateIso)
                 cursorId += 1
             }
+            // 收集单段 redline 坐标
+            spansByRiskId.set(risk.id, {
+                paragraphSpans: [{ paraIdx: loc.startParaIdx, delId, insId }],
+            })
         }
         else {
             // 跨段：每段独立 w:del，结尾段后追加 w:ins
+            const paragraphSpans: RedlineWrapTarget['paragraphSpans'] = []
             for (let i = 0; i < loc.splits.length; i++) {
                 const seg = loc.splits[i]!
                 const para = nonEmptyParagraphs[seg.paraIdx]!
-                const isStart = i === 0
                 const isEnd = i === loc.splits.length - 1
                 const split = seg.runSplit ?? wholeParagraphRunSplit(para)
                 const delId = cursorId
@@ -1783,32 +2031,26 @@ Expected: FAIL — 跨段被 skip / 整段没加 pPr/rPr/del
                     dateIso,
                 })
                 cursorId += isEnd ? 2 : 1
+                paragraphSpans.push({ paraIdx: seg.paraIdx, delId, insId })
             }
+            spansByRiskId.set(risk.id, { paragraphSpans })
         }
 ```
 
-并在 redlineInjector.ts 末尾追加 helper：
+并在 redlineInjector.ts 顶部更新 import 块（从 redlineLocate 复用 computeRunLength / paragraphTextLengthByRunRule，避免重复实现 — 把 Task 7 Step 3 的 `import { locateQuoteInParagraphs, type RunSplit } from './redlineLocate'` 改为）：
 
 ```typescript
-function computeRunLength(runNode: Node): number {
-    let len = 0
-    for (const kid of childrenOf(runNode)) {
-        const t = tagOf(kid)
-        if (t === 'w:t') len += textOf(kid).length
-        else if (t === 'w:tab') len += 1
-    }
-    return len
-}
+import {
+    locateQuoteInParagraphs,
+    computeRunLength,
+    paragraphTextLengthByRunRule,
+    type RunSplit,
+} from './redlineLocate'
+```
 
-function paragraphTextLengthByRunRule(paraNode: Node): number {
-    let len = 0
-    for (const kid of childrenOf(paraNode)) {
-        if (tagOf(kid) !== 'w:r') continue
-        len += computeRunLength(kid)
-    }
-    return len
-}
+并在 redlineInjector.ts 末尾追加 helper（**不**重复定义 computeRunLength / paragraphTextLengthByRunRule，已 import）：
 
+```typescript
 function firstRunIdx(paraNode: Node): number {
     const kids = childrenOf(paraNode)
     return kids.findIndex(k => tagOf(k) === 'w:r')
@@ -1860,14 +2102,12 @@ function addParagraphDeleteMark(paraNode: Node, delId: number, dateIso: string):
     }
     const rPrTag = tagOf(rPr)!
     const rPrKids = rPr[rPrTag] as NodeArray
-    rPrKids.push({
-        'w:del': [],
-        ':@': {
-            '@_w:id': String(delId),
-            '@_w:author': REDLINE_AUTHOR,
-            '@_w:date': dateIso,
-        },
-    } as Node)
+    // 复用 xmlAst.makeLeaf 而非手写 fxp 内部表示，与 commentInjector 风格保持一致
+    rPrKids.push(makeLeaf('w:del', {
+        'w:id': String(delId),
+        'w:author': REDLINE_AUTHOR,
+        'w:date': dateIso,
+    }))
 }
 ```
 
@@ -1973,7 +2213,7 @@ vi.mock('~~/server/agents/contract/docx', async () => {
             buffer: buf, refsByAnnotationId: new Map(), nextIdAfter: 0,
         })),
         injectRedlineMarks: vi.fn(async (buf: Buffer, risks: any[]) => ({
-            buffer: buf, skippedRiskIds: [], nextIdAfter: 0, warnings: [],
+            buffer: buf, skippedRiskIds: [], spansByRiskId: new Map(), nextIdAfter: 0, warnings: [],
         })),
     }
 })
@@ -2029,11 +2269,12 @@ describe('rebuildDocxService 三模式协调（PR6 §8.2）', () => {
         expect(callArgs[3]).toEqual({ idStart: 4 })
     })
 
-    it('mode=both：先调 injectRedlineMarks，全部 annotations 走 injectAnnotations 接力 nextIdAfter', async () => {
+    it('mode=both：先调 injectRedlineMarks，全部 annotations 走 injectAnnotations 接力 nextIdAfter + 传 wrapTargetByRiskId（spec §8.3.6）', async () => {
         const { rebuildDocxService, review } = await setup()
         const docx = await import('~~/server/agents/contract/docx')
+        const fakeSpans = new Map([[10, { paragraphSpans: [{ paraIdx: 0, delId: 4, insId: 5 }] }]])
         ;(docx.injectRedlineMarks as any).mockResolvedValue({
-            buffer: Buffer.alloc(0), skippedRiskIds: [], nextIdAfter: 6, warnings: [],
+            buffer: Buffer.alloc(0), skippedRiskIds: [], spansByRiskId: fakeSpans, nextIdAfter: 6, warnings: [],
         })
         const { listAnnotationsForExportDAO } = await import('~~/server/agents/contract/contractAnnotation.dao')
         ;(listAnnotationsForExportDAO as any).mockResolvedValue([
@@ -2045,7 +2286,8 @@ describe('rebuildDocxService 三模式协调（PR6 §8.2）', () => {
         const callArgs = (docx.injectAnnotations as any).mock.calls[0]
         // both 模式 → 全部 annotations 都进 commentInjector
         expect(callArgs[1]).toHaveLength(1)
-        expect(callArgs[3]).toEqual({ idStart: 6 })
+        // both 模式必须把 spansByRiskId 透传给 commentInjector 让其精确包裹 redline
+        expect(callArgs[3]).toEqual({ idStart: 6, wrapTargetByRiskId: fakeSpans })
     })
 })
 ```
@@ -2143,7 +2385,11 @@ export async function rebuildDocxService(
         }
         else {
             // both：全部 annotations 走 commentInjector，从 nextIdAfter 接力
-            const cr = await injectAnnotations(redlineResult.buffer, annotations, review.id, { idStart: redlineResult.nextIdAfter })
+            // 传 wrapTargetByRiskId 让 commentRange 精确包到 redline 的 del+ins 周围（spec §8.3.6）
+            const cr = await injectAnnotations(redlineResult.buffer, annotations, review.id, {
+                idStart: redlineResult.nextIdAfter,
+                wrapTargetByRiskId: redlineResult.spansByRiskId,
+            })
             finalBuffer = cr.buffer
             refsByAnnotationId = cr.refsByAnnotationId
             for (const [k, v] of cr.refsByAnnotationId) writeRefs.set(k, v)
@@ -2467,14 +2713,49 @@ git commit -m "feat(contract): onDownload 接受 mode 参数透传到 API"
 
 ```typescript
 describe('RiskListPanel 下载模式 toggle（PR6 §8.1）', () => {
-    it('点击下载下拉菜单可选三种模式', async () => {
+    /**
+     * shadcn DropdownMenuContent 内部用 reka-ui Portal 渲染（默认 target=document.body），
+     * happy-dom 下 wrapper.find('[data-testid=...]') 找不到 portal 内节点。
+     * 参考 tests/app/components/assistant/contract/StanceSelectionDialog.test.ts:42-67 的
+     * provide/inject 模式：RadioItem 通过 inject 拿到 RadioGroup 的 emit 回调，
+     * 这样 click → inject callback → RadioGroup stub emit 'update:modelValue' →
+     * RiskListPanel 模板上的 @update:model-value="handleSelectMode" 拿到 → emit('download', mode)。
+     *
+     * 不能用 `$parent.$emit` —— slot 渲染时 $parent 指向 slot owner（RiskListPanel）
+     * 而不是 stub 的 RadioGroup，会让事件发到错地方导致测试 fail。
+     */
+    const RADIO_GROUP_KEY = Symbol('radio-group-update')
+
+    const dropdownStubs = {
+        DropdownMenu: { template: '<div><slot/></div>' },
+        DropdownMenuTrigger: { template: '<div><slot/></div>' },
+        DropdownMenuContent: { template: '<div><slot/></div>' },
+        DropdownMenuLabel: { template: '<div><slot/></div>' },
+        DropdownMenuRadioGroup: defineComponent({
+            props: { modelValue: { type: String, default: '' } },
+            emits: ['update:modelValue'],
+            setup(_, { slots, emit }) {
+                provide(RADIO_GROUP_KEY, (v: string) => emit('update:modelValue', v))
+                return () => h('div', slots.default?.())
+            },
+        }),
+        DropdownMenuRadioItem: defineComponent({
+            props: { value: { type: String, required: true } },
+            setup(props, { slots }) {
+                const onUpdate = inject<(v: string) => void>(RADIO_GROUP_KEY)
+                return () => h('div', {
+                    'data-testid': `download-mode-${props.value}`,
+                    onClick: () => onUpdate?.(props.value),
+                }, slots.default?.())
+            },
+        }),
+    }
+
+    it('三种模式 RadioItem 都渲染', () => {
         const wrapper = mount(AssistantContractRiskListPanel, {
             props: { ...basePropsCompleted },
+            global: { stubs: dropdownStubs },
         })
-        const trigger = wrapper.find('[data-testid="download-trigger"]')
-        expect(trigger.exists()).toBe(true)
-        await trigger.trigger('click')
-        // RadioGroup 三个 item
         const items = wrapper.findAll('[data-testid^="download-mode-"]')
         expect(items.map(i => i.attributes('data-testid'))).toEqual([
             'download-mode-comment',
@@ -2486,8 +2767,8 @@ describe('RiskListPanel 下载模式 toggle（PR6 §8.1）', () => {
     it('选中 redline → emit download(redline)', async () => {
         const wrapper = mount(AssistantContractRiskListPanel, {
             props: { ...basePropsCompleted },
+            global: { stubs: dropdownStubs },
         })
-        await wrapper.find('[data-testid="download-trigger"]').trigger('click')
         await wrapper.find('[data-testid="download-mode-redline"]').trigger('click')
         const emitted = wrapper.emitted('download') ?? []
         expect(emitted.length).toBeGreaterThan(0)
@@ -2498,10 +2779,11 @@ describe('RiskListPanel 下载模式 toggle（PR6 §8.1）', () => {
         localStorage.setItem('contract-review-export-mode', 'both')
         const wrapper = mount(AssistantContractRiskListPanel, {
             props: { ...basePropsCompleted },
+            global: { stubs: dropdownStubs },
         })
-        await wrapper.find('[data-testid="download-trigger"]').trigger('click')
-        const checkedItem = wrapper.find('[data-testid="download-mode-both"][data-state="checked"]')
-        expect(checkedItem.exists()).toBe(true)
+        // 通过 modelValue prop 验证持久化生效（不依赖 data-state，因为 Portal stub 后无 radix 状态）
+        const radioGroup = wrapper.findComponent(dropdownStubs.DropdownMenuRadioGroup as any)
+        expect(radioGroup.props('modelValue')).toBe('both')
     })
 })
 ```
@@ -2698,7 +2980,7 @@ git commit -m "feat(contract): handleDownload 透传 mode 到工作区/历史版
 - [ ] **Step 1：在 redlineInjector.test.ts 追加 round-trip 测试**
 
 ```typescript
-describe('injectRedlineMarks · 完整 docx round-trip', () => {
+describe('injectRedlineMarks · 完整 docx round-trip + spec §8.5 验证项', () => {
     it('用 mammoth 解析含 ins/del 的输出 → 不抛错且 raw text 含 ins 内容', async () => {
         const original = await readFile(SAMPLE)
         const { paragraphs } = await import('~~/server/agents/contract/docx/parser')
@@ -2718,9 +3000,87 @@ describe('injectRedlineMarks · 完整 docx round-trip', () => {
         expect(result.skippedRiskIds).toEqual([])
         const mammoth = await import('mammoth')
         const parsed = await mammoth.extractRawText({ buffer: result.buffer })
-        // mammoth 会渲染 w:ins 内容，w:del 视为已删除不显示
+        // mammoth 会渲染 w:ins 内容（XYZ 必出现）；w:del 渲染策略不同 mammoth 版本
+        // 不一致，本测试仅验证 round-trip 不抛错 + ins 内容能被解析到
         expect(parsed.value).toContain('XYZ')
-        expect(parsed.value).not.toContain(firstPara.slice(0, 5))
+    })
+
+    it('spec §8.5 ④：both 模式串联 redlineInjector + commentInjector → 全部 w:id 跨标签唯一', async () => {
+        // 文件顶部 import 顶补一行：
+        //   import { injectAnnotations } from '~~/server/agents/contract/docx/commentInjector'
+        //   import { findMaxSharedId, parseOoxml, walk, tagOf, getAttr } from '~~/server/agents/contract/docx/xmlAst'
+        //   import { parseContractDocx } from '~~/server/agents/contract/docx/parser'
+        const original = await readFile(SAMPLE)
+        const { paragraphs } = await parseContractDocx(original)
+        if (paragraphs.length < 3 || paragraphs[0]!.length < 6) return
+
+        // 准备 3 条 risk 落到不同段落
+        const risks = [0, 1, 2].map(i => ({
+            id: i + 1,
+            clauseText: paragraphs[i]!,
+            clauseParagraphIndex: i,
+            problematicQuote: paragraphs[i]!.slice(0, Math.min(5, paragraphs[i]!.length)),
+            quoteCharStart: 0,
+            quoteCharEnd: Math.min(5, paragraphs[i]!.length),
+            suggestedClauseText: `改写${i}`,
+        }))
+        const annotations = risks.map(r => ({
+            id: r.id, riskId: r.id, authorType: 'ai' as const, authorName: 'AI',
+            content: '审查意见', parentAnnotationId: null, wordCommentRef: null,
+            anchorQuote: r.clauseText, anchorParagraphIndex: r.clauseParagraphIndex,
+        }))
+
+        const docAst0 = parseOoxml(await readTextFromZip(await loadDocxZip(original), 'word/document.xml'))
+        const idStart = findMaxSharedId(docAst0) + 1
+
+        const redlineResult = await injectRedlineMarks(original, risks, { reviewId: 999, idStart })
+        const commentResult = await injectAnnotations(redlineResult.buffer, annotations, 999, {
+            idStart: redlineResult.nextIdAfter,
+            wrapTargetByRiskId: redlineResult.spansByRiskId,
+        })
+
+        // 抽取最终 docx 的 document.xml，grep 全部 ID-bearing 标签的 w:id 断言无重复
+        const finalAst = parseOoxml(await readTextFromZip(await loadDocxZip(commentResult.buffer), 'word/document.xml'))
+        const allIds: number[] = []
+        const idTags = new Set([
+            'w:bookmarkStart', 'w:bookmarkEnd', 'w:ins', 'w:del',
+            'w:commentRangeStart', 'w:commentRangeEnd', 'w:commentReference',
+        ])
+        walk(finalAst, (n) => {
+            const t = tagOf(n)
+            if (!t || !idTags.has(t)) return
+            const idStr = getAttr(n, 'w:id')
+            if (idStr) {
+                const id = parseInt(idStr, 10)
+                if (Number.isFinite(id)) allIds.push(id)
+            }
+        })
+        expect(new Set(allIds).size).toBe(allIds.length)  // 无重复
+    })
+
+    it('spec §8.5 ⑤ 端到端：含控制字符的 suggestedClauseText 经过 stripIllegalXmlChars 后产物 XML 不含 0x00-0x08/0x0B/0x0C/0x0E-0x1F', async () => {
+        const original = await readFile(SAMPLE)
+        const { paragraphs } = await import('~~/server/agents/contract/docx/parser')
+            .then(m => m.parseContractDocx(original))
+        if (paragraphs.length === 0 || paragraphs[0]!.length < 6) return
+
+        // 构造含 0x08 0x1B 0x07 等非法字符的 suggestedClauseText
+        const dirty = 'A' + String.fromCharCode(0x08) + 'B' + String.fromCharCode(0x1B) + 'C' + String.fromCharCode(0x07) + 'D'
+        const result = await injectRedlineMarks(original, [{
+            id: 1,
+            clauseText: paragraphs[0]!,
+            clauseParagraphIndex: 0,
+            problematicQuote: paragraphs[0]!.slice(0, 5),
+            quoteCharStart: 0,
+            quoteCharEnd: 5,
+            suggestedClauseText: dirty,
+        }], { reviewId: 999, idStart: 0 })
+        const docXml = await readTextFromZip(await loadDocxZip(result.buffer), 'word/document.xml')
+        // 装填后 XML 必须不含任何 XML 1.0 禁用字符
+        // eslint-disable-next-line no-control-regex
+        expect(docXml).not.toMatch(/[ --]/)
+        // 但合法部分仍然出现
+        expect(docXml).toContain('ABCD')
     })
 })
 ```
@@ -2733,9 +3093,11 @@ Expected: PASS
 - [ ] **Step 3：在 `docs/tech-docs/backend/contract.md` 末尾追加章节**
 
 ```markdown
-## 6. 导出模式（批注 / 修订 / 双模式）
+## 11. 导出模式（批注 / 修订 / 双模式）
 
-### 6.1 三模式定义（PR6）
+> 注：现有 contract.md 已有 §6-§10（API 速查 / 多版本系统 / 引用关系等），新章节延续编号到 §11。
+
+### 11.1 三模式定义（PR6）
 
 | 模式 | API mode | 用途 | OOXML 标签 |
 |---|---|---|---|
@@ -2745,25 +3107,27 @@ Expected: PASS
 
 入口：`RiskListPanel.vue` 底部下载按钮的 DropdownMenu，偏好持久化到 `localStorage:contract-review-export-mode`。
 
-### 6.2 ID 协调（关键 · 不修会让 Word 拒打开）
+### 11.2 ID 协调（关键 · 不修会让 Word 拒打开）
 
 OOXML `w:id` 在文档内是跨多种元素**共享**的 ID 池：bookmark / `<w:ins>` / `<w:del>` / `<w:rPrChange>` / `<w:pPrChange>` / `<w:commentRangeStart/End>` / `<w:commentReference>` / `<w:moveFromRangeStart>` 等。撞 ID → Word 报"文件已损坏"拒打开（macOS Preview 容忍但 Windows Word 严格）。
 
 `server/agents/contract/docx/xmlAst.ts` 的 `findMaxSharedId` 扫所有此类标签返回最大值；`rebuildDocxService` 用 `findMaxSharedId(原 docx) + 1` 作为 `idStart` 喂给 `redlineInjector`，再用 `redlineInjector.nextIdAfter` 接力 `commentInjector` 的 `idStart` 参数。
 
-### 6.3 跨 run 拆分保留 rPr
+### 11.3 跨 run 拆分保留 rPr
 
 合同正文同一句话常跨多个 `<w:r>`（粗体的"违约金"在自己 run、普通字在另一 run）。`redlineInjector.splitRunAtOffset` 拆 run 时 deep-clone `<w:rPr>` 副本到两侧，quote 范围 run 把 `<w:t>` 替换为 `<w:delText>`（保留 `xml:space="preserve"`），整体 wrap 进 `<w:del>`。律师拒绝修订时原字体格式（粗体/字号/颜色）完整恢复。
 
-### 6.4 整段删除段落标记同步
+### 11.4 整段删除段落标记同步
 
 quote == 整段 `clauseText` 且 textContent 完全覆盖时，`addParagraphDeleteMark` 在 `<w:p><w:pPr><w:rPr>` 内追加 `<w:del/>` 子标记——律师"接受所有修订"会同时删段落标记不留空段。
 
-### 6.5 已知不做
+### 11.5 已知不做（spec §13.2 v1 范围外）
 
-- "一键接受所有 AI 修订"按钮（v2）
-- LLM 输出 `suggestedClauseText` 含 `\n` —— v1 schema reject 让 LLM 重生成；v2 再支持多段 `<w:p>` 插入
-- redline 模式下 quote 失败 risk 的兜底走 comment fallback（spec §8.4 已实现）
+- "一键接受所有 AI 修订"按钮（律师批量接受 redline）
+- 修订模式下的"评论 + 修订"对话线（comment 仍只在 comment 模式有）
+- 修订作者多元（当前固定 author="LexSeek AI"，未来按律师姓名）
+- LLM 自评（输出 sentence_id 后再让 LLM 验证片段是否真的对应）
+- Windows Word 兼容性：开发端是 macOS，PR6 仅做 macOS Word 实测；Windows 兼容靠线上回归
 ```
 
 - [ ] **Step 4：commit**
@@ -2794,17 +3158,23 @@ Expected: 全绿 / 仅 `KNOWN_FAILS.md` 列出的项
 Run: `bun run test:client 2>&1 | tail -40`
 Expected: 全绿
 
-- [ ] **Step 4：手动 e2e 实测**
+- [ ] **Step 4：手动 e2e 实测（macOS 开发环境 · Word 桌面 + 多重外部验证）**
+
+> 项目开发端是 macOS + Docker 部署，**不在开发阶段做 Windows Word 实测**。Windows 兼容性靠线上回归 / 客户反馈（spec §12 的"Win + macOS 实测"是产品级 QA 目标，不应卡 PR merge）。
+>
+> 开发阶段的 OOXML 兼容性靠下面这套组合验证：① 单测断言所有 ins/del/delText/rPr/xml:space/w:id 唯一性结构 ② mammoth round-trip 解析（Task 17）③ python-docx 解析（PR clipboard 命令）④ macOS Word 实测 ⑤ macOS Pages.app 兜底打开。
 
 启动 `bun dev`，登录测试账号 `13064768490 / daixin88`，路径 `/dashboard/assistant/contract`：
 
 1. 上传 `prisma/seeds/contract-samples/labor.docx`，等审查完成
-2. 风险清单底部点下载按钮 → 切到「批注模式」→ 下载 → Word 桌面版打开 → 验证侧边批注气泡正常 ✅
-3. 切到「修订模式」→ 下载 → Word 打开 → 验证修订面板显示删除线 + 新增、可接受/拒绝 ✅
-4. 切到「两者并存」→ 下载 → Word 打开 → 验证修订段也能悬停看到批注气泡 ✅
-5. macOS Pages.app 也打开一份验证不报损坏（次要）
+2. 切「批注模式」下载 → macOS Word（Microsoft Word for Mac）打开 → 验证侧边批注气泡正常 ✅
+3. 切「修订模式」下载 → macOS Word 打开 → 验证修订面板显示删除线 + 新增 ✅
+4. **4a 接受修订**：在 macOS Word 里点「接受所有修订」→ 验证全段段落不留空行（spec §8.3.5 整段删除）+ 字体格式连续无错位 ✅
+5. **4b 拒绝修订**：再下载一份新 docx → 在 macOS Word 里点「拒绝所有修订」→ 验证跨多 run quote 拒绝后**原 run 的粗体 / 字号 / 颜色完整恢复**（spec §8.5 ⑤）✅
+6. 切「两者并存」下载 → macOS Word 打开 → 鼠标悬停在 AI 改的红字上 → 验证批注气泡直接弹出（spec §8.3.6 核心 UX）✅
+7. macOS Pages.app 也打开一份兜底 → 不报"文件已损坏"即可
 
-记录所有 Word 实测截图到 PR 描述。
+记录所有 macOS Word 实测截图到 PR 描述。
 
 - [ ] **Step 5：commit (无新代码改动) → 直接进入 PR**
 
@@ -2853,8 +3223,12 @@ PR body 模板：
 - [x] download API mode query
 - [x] RiskListPanel DropdownMenu toggle + localStorage
 - [x] mammoth round-trip 解析含 ins/del 的输出
-- [x] Word 桌面版（macOS）三模式手测：批注气泡 / 修订面板接受拒绝 / 双模式并存
-- [x] Word 桌面版（Windows）三模式手测（如有 Windows 环境）
+- [x] macOS Word（Microsoft Word for Mac）三模式手测：批注气泡 / 修订面板接受+拒绝 / 双模式并存
+- [x] macOS Pages.app 兜底打开不报损坏
+- [x] python-docx 解析输出 docx 验证 ins/del 元素：
+      `python -c "from docx import Document; doc = Document('out.docx'); print([(r.tag, r.attrib) for r in doc._element.iter() if r.tag.endswith('}ins') or r.tag.endswith('}del')])"`
+      （注：用 `_element` 私有属性，公共 `Document.element` 不存在；用 `endswith('}ins'/'}del')` 精确匹配带命名空间标签）
+- [ ] Windows Word 兼容性 — **不在 PR6 范围**；线上有 Windows 用户反馈再走 patch
 ```
 
 ---
