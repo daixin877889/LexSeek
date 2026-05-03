@@ -142,9 +142,11 @@ throw new Error(`${errorPrefix} schema 校验失败: ${lastFirstIssue}`)
 
 | 事件 | logger 级别 | 字段 |
 |---|---|---|
-| `${errorPrefix}: schema 校验失败，触发 retry` | warn | `attempt`、`firstIssue`（拼接好的 `path: message` 字符串）、`rawShape`、`logContext` 透传 |
-| `${errorPrefix}: retry 第 N 次成功` | warn | `attempt`、`logContext` 透传 |
-| `${errorPrefix}: retry ${MAX_RETRIES} 次仍 fail` | warn | `totalAttempts`、`firstIssue`（拼接好的字符串）、`logContext` 透传 |
+| `${errorPrefix}: schema 校验失败，触发重试` | warn | `attempt`、`firstIssue`（拼接好的 `path: message` 字符串）、`rawShape`、`logContext` 透传 |
+| `${errorPrefix}: 第 N 次重试成功` | warn | `attempt`、`logContext` 透传 |
+| `${errorPrefix}: 重试 ${MAX_RETRIES} 次仍失败` | warn | `totalAttempts`、`firstIssue`（拼接好的字符串）、`logContext` 透传 |
+
+> 关键字全中文与项目既有 retry 类埋点风格一致（参考 `ocr.service.ts:50` 的「OCR 调用触发 429 限流，${delay}ms 后重试」、`password.ts:85` 的「已达到最大重试次数」）。
 
 `firstIssue` 拼接格式与 §3.1 现状 `pretty = ${path}: ${message}` 保持一致，便于运维 SQL 字符串匹配。
 
@@ -156,9 +158,9 @@ throw new Error(`${errorPrefix} schema 校验失败: ${lastFirstIssue}`)
 
 | 关键字 | 含义 | 健康阈值 |
 |---|---|---|
-| `触发 retry` | retry 触发次数（含未成功） | — |
-| `retry 第`...`次成功` | retry 命中次数 | `succeeded / triggered ≥ 80%` |
-| `retry`...`次仍 fail` | 3 次 retry 仍 fail 次数 | `final_failed / triggered ≤ 5%` |
+| `触发重试` | retry 触发次数（含未成功） | — |
+| `第`...`次重试成功` | retry 命中次数 | `succeeded / triggered ≥ 80%` |
+| `重试`...`次仍失败` | 3 次 retry 仍 fail 次数 | `final_failed / triggered ≤ 5%` |
 
 `final_failed / triggered` 长期超 10% 时考虑：(a) 升级 LLM model、(b) 强化 prompt、(c) 在 `InvokeNodeJsonOptions` 加可配 maxRetries（YAGNI 路线见 §8）。
 
