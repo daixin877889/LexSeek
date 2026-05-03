@@ -13,7 +13,7 @@
 import { Loader2Icon, SaveIcon, HistoryIcon, UploadIcon, TrendingUpIcon, XIcon } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useMediaQuery, useLocalStorage } from '@vueuse/core'
-import type { Risk, RiskDisplay, ContractReviewStatus, StanceRequest, PlaybookSnapshot, RiskArchivedStatus, ReviewWithParsedRisks } from '#shared/types/contract'
+import type { Risk, RiskDisplay, RiskDisplayPhaseB, ContractReviewStatus, StanceRequest, PlaybookSnapshot, RiskArchivedStatus, ReviewWithParsedRisks } from '#shared/types/contract'
 import InterruptDispatcher from '~/components/InterruptDispatcher.vue'
 import AssistantContractDocxPreview from '~/components/assistant/contract/ContractDocxPreview.vue'
 import AssistantContractSaveVersionDialog from '~/components/assistant/contract/ContractSaveVersionDialog.vue'
@@ -262,7 +262,7 @@ function handleUpdateVersionNote(versionId: number, note: string | null) {
  * - 有 workspace.risks（已迁移）时，把 entity 转成 RiskDisplay 结构，entity.id（number）stringified 作为 Risk.id
  * - 否则 fallback 用 review.risks（旧 JSON 字段）
  */
-const effectiveRisks = computed<RiskDisplay[]>(() => {
+const effectiveRisks = computed<RiskDisplayPhaseB[]>(() => {
     const entities = versioning.currentView.value.risks
     /**
      * 把 entity row 映射成 RiskDisplay。两条产生 entity 数据的路径：
@@ -272,7 +272,7 @@ const effectiveRisks = computed<RiskDisplay[]>(() => {
      * 跟 RiskDisplay 期望（clauseText / risk / id:string）错位，导致 RiskClauseDiff 收到 clauseText=undefined
      * 触发 dmp.diff_main(undefined) Throw 让整个 Vue 渲染崩溃 + 风险卡无法点击。
      */
-    function mapEntityToDisplay(e: any): RiskDisplay {
+    function mapEntityToDisplay(e: any): RiskDisplayPhaseB {
         return {
             id: String(e.id),
             entityId: typeof e.id === 'number' ? e.id : undefined,
@@ -292,17 +292,20 @@ const effectiveRisks = computed<RiskDisplay[]>(() => {
             // 永远 0/N 命中（即便 LLM 实际写了 code）
             matchedPointCode: e.code ?? undefined,
             archivedStatus: e.archivedStatus,
+            problematicQuote: e.problematicQuote ?? undefined,
+            quoteCharStart: e.quoteCharStart ?? null,
+            quoteCharEnd: e.quoteCharEnd ?? null,
         }
     }
 
     if (entities.length > 0) {
-        return entities.map<RiskDisplay>(mapEntityToDisplay)
+        return entities.map<RiskDisplayPhaseB>(mapEntityToDisplay)
     }
 
     // fallback：review.value.risks 同样可能是 entity-shape（GET endpoint 在 currentVersionId
     // 非空时直接返回 contractRisks 表的 row spread）；用 typeof id === 'number' 探测 entity
     // 走映射，旧 JSON shape（id 是 string）保留 spread 行为
-    return (review.value?.risks ?? []).map<RiskDisplay>((r: any) => {
+    return (review.value?.risks ?? []).map<RiskDisplayPhaseB>((r: any) => {
         if (typeof r?.id === 'number') return mapEntityToDisplay(r)
         return { ...r }
     })
