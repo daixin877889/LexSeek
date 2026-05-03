@@ -13,7 +13,7 @@
 import { Loader2Icon, SaveIcon, HistoryIcon, UploadIcon, TrendingUpIcon, XIcon } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useMediaQuery, useLocalStorage } from '@vueuse/core'
-import type { Risk, RiskDisplay, RiskDisplayPhaseB, ContractReviewStatus, StanceRequest, PlaybookSnapshot, RiskArchivedStatus, ReviewWithParsedRisks } from '#shared/types/contract'
+import type { Risk, RiskDisplay, RiskDisplayPhaseB, ContractReviewStatus, StanceRequest, PlaybookSnapshot, RiskArchivedStatus, ReviewWithParsedRisks, ContractExportMode } from '#shared/types/contract'
 import InterruptDispatcher from '~/components/InterruptDispatcher.vue'
 import AssistantContractDocxPreview from '~/components/assistant/contract/ContractDocxPreview.vue'
 import AssistantContractSaveVersionDialog from '~/components/assistant/contract/ContractSaveVersionDialog.vue'
@@ -453,17 +453,18 @@ const previewVersionNumber = computed<number | null>(() => {
  */
 const isDownloading = ref(false)
 
-async function handleDownload() {
+async function handleDownload(mode: ContractExportMode = 'comment') {
     if (isDownloading.value) return
     isDownloading.value = true
     try {
         const previewVid = versioning.previewVersionId.value
         if (previewVid === null) {
-            await onDownload()
+            await onDownload(mode)
             return
         }
+        const url = `/api/v1/assistant/contract/reviews/versions/download/${previewVid}?mode=${mode}`
         const resp = await useApiFetch<{ downloadUrl: string; filename: string }>(
-            `/api/v1/assistant/contract/reviews/versions/download/${previewVid}`,
+            url,
             { showError: false } as any,
         )
         if (!resp?.downloadUrl) {
