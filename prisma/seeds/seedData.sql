@@ -3163,7 +3163,7 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 
 严格按如下 JSON 输出，不要解释、不要代码块标记：
 {"highlights": {"high":[{"text":"...","riskId":"..."}], "medium":[...], "low":[...]}, "overall":"..."}', '["stanceLabel", "stance", "contractType", "riskList"]', 'v1', 'system', 1, 19, '2026-04-21 20:00:00+08', '2026-04-21 20:00:00+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (28, 'contractReviewAnalyzeClause_system', '合同审查·逐条条款分析提示词 v3', '你正在审查合同（{{contractType}}），站在{{stanceLabel}}立场。
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (28, 'contractReviewAnalyzeClause_system', '合同审查·逐条条款分析提示词 v4', '你正在审查合同（{{contractType}}），站在{{stanceLabel}}立场。
 甲方：{{partyA}}；乙方：{{partyB}}。
 当前条款（第 {{clauseIndex}} 条，编号 {{clauseNumber}}），已按句切分为以下编号视图（每行 [S<id>] 起头，id 从 1 起）：
 """
@@ -3236,7 +3236,35 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 - 优先选最具体的 code（clause_validity 是兜底；其它专项 code 优先）
 - problemSentenceIds：必填非空数组（除非整条 risk 实属"无法定位到具体句子的全段问题"，此时给所有 [Sn] 的 ID）；ID 必须真实出现在上方 sentencesNumbered 视图中
 - problematicQuote：可选，应是 problemSentenceIds 对应句子里逐字摘录的子串；不要改写、不要加标点
-- 只输出 JSON，不要任何解释。', '["stanceLabel", "contractType", "partyA", "partyB", "clauseIndex", "clauseNumber", "sentencesNumbered", "clauseTextRaw", "playbookSection"]', 'v3', 'system', 1, 20, '2026-04-21 20:30:00+08', '2026-05-03 10:00:00+08', NULL);
+- 只输出 JSON，不要任何解释。
+
+
+## suggestedClauseText 输出格式约束（铁律）
+
+`suggestedClauseText` 必须是单段连续文字，**绝对不可包含**：
+- 换行符（`\n` / `\r` / 任何形式的换行）
+- 项目符号（`-` / `•` / `1.` / `(1)` 等列表标记开头）
+- 多段（用空行分隔的多个段落）
+
+理由：Word 文档导出时，OOXML 的 `<w:t>` 元素里换行会被渲染成空格不换行，多段建议会变成"一长串混在一起的文字"，律师无法判断段落结构。
+
+❌ 错误示例（schema 会 reject 整条建议）：
+
+```json
+"suggestedClauseText": "第一款 甲方应支付货款。\n第二款 逾期支付按 0.5% 加收滞纳金。"
+```
+
+```json
+"suggestedClauseText": "1. 甲方应支付货款；2. 逾期支付按 0.5% 加收滞纳金"
+```
+
+✅ 正确示例（用分号 / 逗号串联多句）：
+
+```json
+"suggestedClauseText": "甲方应支付货款；逾期支付按 0.5% 加收滞纳金，且累计超 30 日的乙方有权解除合同。"
+```
+
+如果有多个独立条款建议，请合并成单段语义连贯的文字，用分号或逗号串联。', '["stanceLabel", "contractType", "partyA", "partyB", "clauseIndex", "clauseNumber", "sentencesNumbered", "clauseTextRaw", "playbookSection"]', 'v4', 'system', 1, 20, '2026-04-21 20:30:00+08', '2026-05-03 10:00:00+08', NULL);
 INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (29, 'contractReviewGlobalReview_system', '合同审查·全局复核提示词 v1', '你正在对一份{{contractType}}（甲方：{{partyA}}；乙方：{{partyB}}）进行全局平衡性复核。用户已在客户版本的基础上做了修改，现在需要对整篇新上传的完整合同文本做综合检查。
 
 ## 任务目标
