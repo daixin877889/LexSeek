@@ -39,6 +39,7 @@ import {
     appendChildToFirst,
     paragraphText,
     hasRunChild,
+    collectNonEmptyParagraphs,
     type Node,
     type NodeArray,
 } from './xmlAst'
@@ -131,24 +132,6 @@ function findParagraphIndexByQuote(
         if (dist < bestDist) { best = idx; bestDist = dist }
     }
     return best
-}
-
-/**
- * 取 w:body 下的直接子 <w:p> 列表，过滤出"非空段落"。
- *
- * 注意：只看 body 的直接子段落，不递归进 w:tbl 里的单元格段落——这是历史
- * 行为，保持不变以免改变 anchorParagraphIndex 的语义。
- */
-function collectNonEmptyParagraphs(documentAst: NodeArray): Node[] {
-    const body = findFirst(documentAst, 'w:body')
-    if (!body) return []
-    const result: Node[] = []
-    for (const kid of childrenOf(body)) {
-        if (tagOf(kid) !== 'w:p') continue
-        if (!hasRunChild(kid)) continue
-        result.push(kid)
-    }
-    return result
 }
 
 /**

@@ -273,6 +273,24 @@ const ID_BEARING_TAGS = new Set([
 ])
 
 /**
+ * 取 w:body 直接子 <w:p> 列表，过滤"非空段落"（含 w:r 子节点）。
+ *
+ * 注意：只看 body 直接子段落，不递归 w:tbl 单元格里的段落——保持与 anchorParagraphIndex
+ * 历史口径一致。commentInjector 与 redlineInjector 共享。
+ */
+export function collectNonEmptyParagraphs(documentAst: NodeArray): Node[] {
+    const body = findFirst(documentAst, 'w:body')
+    if (!body) return []
+    const result: Node[] = []
+    for (const kid of childrenOf(body)) {
+        if (tagOf(kid) !== 'w:p') continue
+        if (!hasRunChild(kid)) continue
+        result.push(kid)
+    }
+    return result
+}
+
+/**
  * 扫描 OOXML AST 的所有 w:id 共享池标签，返回最大 w:id。
  *
  * @param rootAst 已 parseOoxml 的 document.xml AST
