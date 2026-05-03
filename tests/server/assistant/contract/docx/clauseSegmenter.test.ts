@@ -133,3 +133,50 @@ describe('clauseSegmenter · 正则切分', () => {
         expect(normalizedText.slice(s.offsetStart, s.offsetEnd)).toBe(s.text)
     })
 })
+
+describe('PR10 textWithoutNumber 填充', () => {
+    it('单数字「1. 合同期限」剥编号字符', () => {
+        const text = '1. 合同期限：本合同期限为 3 年\n2. 试用期：2 个月'
+        const r = segmentClausesByRegex(text)
+        expect(r.segments).toHaveLength(2)
+        const s1 = r.segments[0]!
+        expect(s1.text).toBe('1. 合同期限：本合同期限为 3 年')
+        expect(s1.textWithoutNumber).toBe('合同期限：本合同期限为 3 年')
+        expect(s1.offsetStartWithoutNumber).toBe(s1.offsetStart + 3)  // "1. " 占 3 字符
+    })
+
+    it('「第一条」剥编号字符', () => {
+        const text = '第一条 总则\n第二条 双方义务'
+        const r = segmentClausesByRegex(text)
+        expect(r.segments).toHaveLength(2)
+        const s1 = r.segments[0]!
+        expect(s1.number).toBe('第一条')
+        expect(s1.textWithoutNumber).toBe('总则')
+    })
+
+    it('「一、」剥编号字符', () => {
+        const text = '一、双方义务\n二、违约责任'
+        const r = segmentClausesByRegex(text)
+        expect(r.segments).toHaveLength(2)
+        const s1 = r.segments[0]!
+        expect(s1.textWithoutNumber).toBe('双方义务')
+    })
+
+    it('多级「3.1」剥编号字符', () => {
+        const text = '第三条 工作时间\n3.1 标准工时\n3.2 加班规则'
+        const r = segmentClausesByRegex(text)
+        const sub = r.segments.find(s => s.number === '3.1')
+        expect(sub).toBeDefined()
+        expect(sub!.textWithoutNumber).toBe('标准工时')
+    })
+
+    it('无编号 segment（fallback 散段）：textWithoutNumber === text', () => {
+        // segmentClausesByRegex 命中 0 时不切；测试用前置编号逼出散段
+        const text = '1. xxx\n散段无编号正文也归到此 segment\n2. yyy'
+        const r = segmentClausesByRegex(text)
+        const s1 = r.segments[0]!
+        // s1.text 跨多行，textWithoutNumber 仅剥行首 "1. "
+        expect(s1.textWithoutNumber.startsWith('xxx')).toBe(true)
+        expect(s1.textWithoutNumber).not.toMatch(/^1\./)
+    })
+})

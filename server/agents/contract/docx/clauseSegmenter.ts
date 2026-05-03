@@ -211,7 +211,15 @@ export function segmentClausesByRegex(fullText: string): SegmentClausesResult {
         // trim() 可能截掉头部空白，offsetStart 需找到 trim 后第一个字符的位置
         const offsetStart = normalizedText.indexOf(text)
         return {
-            segments: [{ index: 1, number: null, text, offsetStart, offsetEnd: offsetStart + text.length }],
+            segments: [{
+                index: 1,
+                number: null,
+                text,
+                textWithoutNumber: text,
+                offsetStart,
+                offsetEnd: offsetStart + text.length,
+                offsetStartWithoutNumber: offsetStart,
+            }],
             normalizedText,
         }
     }
@@ -239,12 +247,25 @@ export function segmentClausesByRegex(fullText: string): SegmentClausesResult {
         // trim() 可能截掉 raw 头部空白，offsetStart 是 raw 内 text 的起始相对位移
         const trimOffset = raw.indexOf(text)
         const offsetStart = rawStart + trimOffset
+
+        // PR10：剥行首编号字符填 textWithoutNumber + offsetStartWithoutNumber
+        const number = matches[i]!.number
+        let textWithoutNumber = text
+        let skippedLen = 0
+        if (number && text.startsWith(number)) {
+            const afterNumber = text.slice(number.length).replace(/^\s+/, '')
+            skippedLen = text.length - afterNumber.length
+            textWithoutNumber = afterNumber
+        }
+
         segments.push({
             index: segments.length + 1,
-            number: matches[i]!.number,
+            number,
             text,
+            textWithoutNumber,
             offsetStart,
             offsetEnd: offsetStart + text.length,
+            offsetStartWithoutNumber: offsetStart + skippedLen,
         })
     }
     return { segments, normalizedText }
