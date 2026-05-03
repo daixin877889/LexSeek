@@ -771,3 +771,172 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
         }, 60000)
     })
 })
+
+// ==================== Phase B 双锚点迁移（PR7） ====================
+
+describe('uploadClientVersionService（Phase B 双锚点迁移 spec §9.2）', () => {
+    let userId: number
+    let reviewId: number
+    let ossFileId: number
+    let initialVersionId: number
+
+    const createdOssFileIds: number[] = []
+    const createdReviewIds: number[] = []
+    const createdUserIds: number[] = []
+
+    beforeEach(async () => {
+        // 重置 mock 默认值（避免上轮 describe 块粘性 mockResolvedValueOnce 残留）
+        mockDownload.mockReset()
+        mockDownload.mockResolvedValue(FAKE_DOCX_BUFFER)
+        mockParseDocx.mockReset()
+        mockParseDocx.mockResolvedValue({
+            paragraphs: [
+                '第一条 工资按月支付。',
+                '第二条 乙方逾期支付的，每日按 0.05% 加收滞纳金。',
+            ],
+            rawXml: '<root/>',
+        })
+        mockParseComments.mockReset()
+        mockParseComments.mockResolvedValue({
+            comments: [],
+            annotationRefsByWId: new Map(),
+        })
+        mockAnalyzeClause.mockReset()
+        mockAnalyzeClause.mockResolvedValue([])
+
+        userId = await ensureTestUser()
+        createdUserIds.push(userId)
+
+        const review = await prisma.contractReviews.create({
+            data: {
+                userId,
+                status: 'completed',
+                risks: [],
+                sessionId: `pr7-dual-anchor-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                originalFileId: 0,
+                maxVersionNo: 1,
+            },
+        })
+        reviewId = review.id
+        createdReviewIds.push(reviewId)
+
+        // 旧版本 snapshot：包含 oldClauses，让 diffClauses 能识别 modified
+        const oldVersion = await prisma.contractReviewVersions.create({
+            data: {
+                reviewId,
+                versionNumber: 1,
+                systemLabel: 'initial_upload',
+                createdById: userId,
+                snapshotData: {
+                    docxText: '第一条 工资按月支付。\n第二条 乙方逾期支付的，每日按 0.05% 加收滞纳金。',
+                    clauses: [
+                        { index: 1, text: '第一条 工资按月支付。', offsetStart: 0, offsetEnd: 11 },
+                        { index: 2, text: '第二条 乙方逾期支付的，每日按 0.05% 加收滞纳金。', offsetStart: 12, offsetEnd: 40 },
+                    ],
+                } as any,
+            },
+        })
+        initialVersionId = oldVersion.id
+        await prisma.contractReviews.update({
+            where: { id: reviewId },
+            data: { currentVersionId: initialVersionId },
+        })
+
+        const oss = await createOssFileDao({
+            userId,
+            bucketName: 'test-bucket',
+            fileName: 'client-return.docx',
+            filePath: `pr7/dual-anchor/${Date.now()}-${Math.random().toString(36).slice(2)}.docx`,
+            fileSize: 1024,
+            fileType: DOCX_MIME,
+            status: 1,
+        })
+        ossFileId = oss.id
+        createdOssFileIds.push(ossFileId)
+    })
+
+    afterEach(async () => {
+        vi.clearAllMocks()
+        // 反向清理：annotations → risks → versions → reviews → ossFiles → users
+        await prisma.contractAnnotations.deleteMany({ where: { reviewId: { in: createdReviewIds } } })
+        await prisma.contractRisks.deleteMany({ where: { reviewId: { in: createdReviewIds } } })
+        await prisma.contractReviewVersions.deleteMany({ where: { reviewId: { in: createdReviewIds } } })
+        await prisma.contractReviews.deleteMany({ where: { id: { in: createdReviewIds } } })
+        if (createdOssFileIds.length > 0) {
+            await prisma.ossFiles.deleteMany({ where: { id: { in: createdOssFileIds } } })
+        }
+        if (createdUserIds.length > 0) {
+            await prisma.users.deleteMany({ where: { id: { in: createdUserIds } } })
+        }
+        createdReviewIds.length = 0
+        createdOssFileIds.length = 0
+        createdUserIds.length = 0
+    })
+
+    it('档 1：quote 命中 → clauseText 升级为新段全文，problematicQuote 重摘，quote_char_offset 重算到新 clauseText 内', async () => {
+        // 旧 risk：clauseText="第二条 乙方逾期支付的，每日按 0.05% 加收滞纳金。"
+        //         problematicQuote="逾期支付的，每日按 0.05% 加收滞纳金"
+        //         quoteCharStart/End 在旧 clauseText 内
+        //         quoteMatchSource='sentence_id'（PR3 路径）
+        const oldClauseText = '第二条 乙方逾期支付的，每日按 0.05% 加收滞纳金。'
+        const oldQuote = '逾期支付的，每日按 0.05% 加收滞纳金'
+        const risk = await prisma.contractRisks.create({
+            data: {
+                reviewId,
+                source: 'ai',
+                level: 'medium',
+                stance: 'balanced',
+                category: '违约金',
+                problem: '违约金过低',
+                clauseIndex: 2,
+                clauseText: oldClauseText,
+                clauseParagraphIndex: 1,
+                clauseCharStart: 12,
+                clauseCharEnd: 40,
+                problematicQuote: oldQuote,
+                quoteCharStart: oldClauseText.indexOf(oldQuote),
+                quoteCharEnd: oldClauseText.indexOf(oldQuote) + oldQuote.length,
+                quoteMatchSource: 'sentence_id',
+            },
+        })
+
+        // 客户回传新 docx：把第二条改写但保留 quote 那一句
+        mockParseDocx.mockResolvedValueOnce({
+            paragraphs: [
+                '第一条 工资按月支付，并应在月底前一个工作日完成。',
+                '第二条 乙方应当及时履行付款义务；逾期支付的，每日按 0.05% 加收滞纳金；累计超 30 日的，甲方有权单方解除。',
+            ],
+            rawXml: '<root/>',
+        })
+
+        const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+        const events = await collectEvents(uploadClientVersionService({
+            review,
+            ossFileId,
+            userId,
+        }))
+
+        // 没有 error 事件
+        expect(events.find(e => e.type === 'error')).toBeUndefined()
+        expect(events.find(e => e.type === 'complete')).toBeDefined()
+
+        // 验证 risk 行被升级为档 1 命中
+        const updated = await prisma.contractRisks.findUnique({ where: { id: risk.id } })
+        expect(updated).not.toBeNull()
+        expect(updated!.orphaned).toBe(false)
+        // clauseText 升级为新段全文（包含原 quote + 新增前后文）
+        expect(updated!.clauseText).toContain('逾期支付的，每日按 0.05% 加收滞纳金')
+        expect(updated!.clauseText).toContain('累计超 30 日的') // 新增的后文
+        // problematicQuote 重新摘录
+        expect(updated!.problematicQuote).toBe('逾期支付的，每日按 0.05% 加收滞纳金')
+        // quoteCharStart/End 是在新 clauseText 内的相对 offset
+        expect(updated!.quoteCharStart).toBeGreaterThanOrEqual(0)
+        expect(
+            updated!.clauseText.slice(updated!.quoteCharStart!, updated!.quoteCharEnd!),
+        ).toBe('逾期支付的，每日按 0.05% 加收滞纳金')
+        // quoteMatchSource 沿用旧值（迁移不改变首次审查命中来源语义）
+        expect(updated!.quoteMatchSource).toBe('sentence_id')
+        // originalClauseText 已写入（旧 clauseText 备份）
+        expect(updated!.originalClauseText).toBe(oldClauseText)
+    }, 60000)
+})
