@@ -213,11 +213,58 @@ function renderLvlText(
     return result
 }
 
-/** 把数字渲染成对应 numFmt 的字符串。未识别格式返回 null。Task 6 会扩展。*/
+/** 把数字渲染成对应 numFmt 的字符串。未识别格式返回 null。*/
 function renderNumber(numFmt: string, n: number): string | null {
     switch (numFmt) {
         case 'decimal': return String(n)
+        case 'chineseCounting': return cnNum(n)
+        case 'chineseLegalSimplified': return cnLegalNum(n)
+        case 'decimalEnclosedCircle': return circledNum(n)
+        case 'lowerLetter': return letterNum(n, false)
+        case 'upperLetter': return letterNum(n, true)
+        case 'lowerRoman': return romanNum(n, false)
+        case 'upperRoman': return romanNum(n, true)
         default:
             return null
     }
+}
+
+function cnNum(n: number): string {
+    const digits = '〇一二三四五六七八九'
+    if (n < 10) return digits[n]!
+    if (n < 20) return n === 10 ? '十' : '十' + digits[n - 10]!
+    if (n < 100) {
+        const tens = Math.floor(n / 10), ones = n % 10
+        return digits[tens]! + '十' + (ones === 0 ? '' : digits[ones]!)
+    }
+    return String(n)  // 100+ fallback 阿拉伯数字（合同子项不会超 100）
+}
+
+function cnLegalNum(n: number): string {
+    const digits = '零壹贰叁肆伍陆柒捌玖'
+    if (n < 10) return digits[n]!
+    if (n < 20) return n === 10 ? '拾' : '拾' + digits[n - 10]!
+    if (n < 100) {
+        const tens = Math.floor(n / 10), ones = n % 10
+        return digits[tens]! + '拾' + (ones === 0 ? '' : digits[ones]!)
+    }
+    return String(n)
+}
+
+function circledNum(n: number): string {
+    if (n >= 1 && n <= 20) return String.fromCharCode(0x2460 + n - 1)  // ①..⑳
+    if (n >= 21 && n <= 35) return String.fromCharCode(0x3251 + n - 21)
+    return String(n)
+}
+
+function letterNum(n: number, upper: boolean): string {
+    const base = upper ? 'A'.charCodeAt(0) : 'a'.charCodeAt(0)
+    return String.fromCharCode(base + (n - 1))
+}
+
+function romanNum(n: number, upper: boolean): string {
+    const lower = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x',
+                   'xi', 'xii', 'xiii', 'xiv', 'xv', 'xvi', 'xvii', 'xviii', 'xix', 'xx']
+    const s = lower[n - 1] ?? String(n)
+    return upper ? s.toUpperCase() : s
 }

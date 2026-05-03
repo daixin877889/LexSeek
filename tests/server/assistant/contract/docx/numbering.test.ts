@@ -73,4 +73,66 @@ describe('numbering · buildNumberingPrefixMap', () => {
         const result = buildNumberingPrefixMap(DOC_XML_TWO_DECIMAL_PARAS, numberingXml)
         expect(result.size).toBe(0)
     })
+
+    it('chineseCounting "%1、" 渲染一、二、三、', () => {
+        const result = buildNumberingPrefixMap(DOC_XML_TWO_DECIMAL_PARAS, makeNumberingXml('chineseCounting', '%1、'))
+        expect(result.get(0)).toBe('一、 ')
+        expect(result.get(1)).toBe('二、 ')
+    })
+
+    it('chineseLegalSimplified "%1、" 渲染壹、贰、', () => {
+        const result = buildNumberingPrefixMap(DOC_XML_TWO_DECIMAL_PARAS, makeNumberingXml('chineseLegalSimplified', '%1、'))
+        expect(result.get(0)).toBe('壹、 ')
+        expect(result.get(1)).toBe('贰、 ')
+    })
+
+    it('decimalEnclosedCircle "%1" 渲染 ① ②', () => {
+        const result = buildNumberingPrefixMap(DOC_XML_TWO_DECIMAL_PARAS, makeNumberingXml('decimalEnclosedCircle', '%1'))
+        expect(result.get(0)).toBe('① ')
+        expect(result.get(1)).toBe('② ')
+    })
+
+    it('lowerLetter "%1." 渲染 a. b.', () => {
+        const result = buildNumberingPrefixMap(DOC_XML_TWO_DECIMAL_PARAS, makeNumberingXml('lowerLetter', '%1.'))
+        expect(result.get(0)).toBe('a. ')
+        expect(result.get(1)).toBe('b. ')
+    })
+
+    it('upperLetter "%1." 渲染 A. B.', () => {
+        const result = buildNumberingPrefixMap(DOC_XML_TWO_DECIMAL_PARAS, makeNumberingXml('upperLetter', '%1.'))
+        expect(result.get(0)).toBe('A. ')
+        expect(result.get(1)).toBe('B. ')
+    })
+
+    it('lowerRoman "%1." 渲染 i. ii.', () => {
+        const result = buildNumberingPrefixMap(DOC_XML_TWO_DECIMAL_PARAS, makeNumberingXml('lowerRoman', '%1.'))
+        expect(result.get(0)).toBe('i. ')
+        expect(result.get(1)).toBe('ii. ')
+    })
+
+    it('upperRoman "%1." 渲染 I. II.', () => {
+        const result = buildNumberingPrefixMap(DOC_XML_TWO_DECIMAL_PARAS, makeNumberingXml('upperRoman', '%1.'))
+        expect(result.get(0)).toBe('I. ')
+        expect(result.get(1)).toBe('II. ')
+    })
+
+    it('decimal "（%1）" 渲染（1）（2）', () => {
+        const result = buildNumberingPrefixMap(DOC_XML_TWO_DECIMAL_PARAS, makeNumberingXml('decimal', '（%1）'))
+        expect(result.get(0)).toBe('（1） ')
+        expect(result.get(1)).toBe('（2） ')
+    })
 })
+
+function makeNumberingXml(numFmt: string, lvlText: string): string {
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+    <w:abstractNum w:abstractNumId="0">
+        <w:lvl w:ilvl="0">
+            <w:start w:val="1"/>
+            <w:numFmt w:val="${numFmt}"/>
+            <w:lvlText w:val="${lvlText}"/>
+        </w:lvl>
+    </w:abstractNum>
+    <w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>
+</w:numbering>`
+}
