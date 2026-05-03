@@ -175,12 +175,24 @@ export function segmentClausesByRegex(fullText: string): SegmentClausesResult {
             continue
         }
 
-        // 「X.X」级编号：若存在「第X条」格式，则要求整数前缀等于当前父级序号
+        // 编号识别：区分单数字 X.（相对父条款内部计数）vs 多级 X.Y（全局多级编号）
+        //   - 单数字 X.：每个父条款内从 1. 重置（如「第一条」「第二条」内都有自己的「1.」），
+        //     与父级序号无关 → 总是识别为子项
+        //   - 多级 X.Y：整数前缀是父级序号（如「3.1」属「第三条」），需匹配 currentDiTiaoIdx
+        //     才识别（避免「3.1」在「第二条」内被误判为子项）
         const m1 = line.match(RE_NUM_DOT)
         if (m1?.[1]) {
-            const intPrefix = parseInt(m1[1].split('.')[0]!, 10)
-            if (!hasDiTiao || currentDiTiaoIdx === intPrefix) {
-                matches.push({ lineIdx: i, number: m1[1].replace(/\s+$/, '') })
+            const numStr = m1[1]
+            const isMultiLevel = /^\d+\.\d/.test(numStr) // 形如「3.1」「1.2.3」
+            if (isMultiLevel) {
+                const intPrefix = parseInt(numStr.split('.')[0]!, 10)
+                if (!hasDiTiao || currentDiTiaoIdx === intPrefix) {
+                    matches.push({ lineIdx: i, number: numStr.replace(/\s+$/, '') })
+                    continue
+                }
+            } else {
+                // 单数字 X. 总识别（hasDiTiao 模式下相对父级；无 hasDiTiao 时是顶级编号）
+                matches.push({ lineIdx: i, number: numStr.replace(/\s+$/, '') })
                 continue
             }
         }
