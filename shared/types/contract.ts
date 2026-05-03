@@ -159,6 +159,13 @@ export interface Risk {
     suggestedClauseText?: string
     /** 命中的要点 code；清单外风险留空（M7 Playbook） */
     matchedPointCode?: string
+
+    // 路线 2 精准锚点（PR 3）—— LLM 输出，service 解析后写 contractRisks.problematic_quote
+    /** LLM 选择的"产生风险的句子 ID"（1-based，对应 prompt 里的 [Sn] 编号）。default []。 */
+    problemSentenceIds?: number[]
+    /** LLM 从 sentence 里逐字摘录的问题片段（fuzzy fallback 用）。 */
+    problematicQuote?: string
+
     /**
      * "非空段落序号"（与后端 server/agents/contract/utils/clauseToParagraph.ts
      * 的 buildClauseToParagraphMap 输出同口径），仅在前端渲染时由 RiskDisplay
