@@ -29,7 +29,12 @@ export const RISK_SHAPE = z.object({
     analysis: z.string().min(1).max(2000).describe('条款分析'),
     risk: z.string().min(1).max(2000).describe('对当前立场方的法律风险'),
     suggestion: z.string().min(1).max(2000).describe('修改建议（文字描述）'),
-    suggestedClauseText: z.string().max(10000).optional().describe('AI 重写后的完整条款（high/medium 必填）'),
+    suggestedClauseText: z.string().max(10000)
+        .refine(s => !/\r|\n/.test(s), {
+            message: 'suggestedClauseText 不允许换行（v1 整段替换不支持多段插入；spec §8.3.3）',
+        })
+        .optional()
+        .describe('AI 重写后的完整条款（high/medium 必填，单段连续文字不可含 CR/LF）'),
     matchedPointCode: z.string().optional().describe('命中的审查清单要点 code（由 AI 填写，服务端白名单校验后透传）'),
 
     // 路线 2 精准锚点（spec §5.4）—— PR 3 起 LLM 输出，service 用于 resolveQuoteAnchor 解析
