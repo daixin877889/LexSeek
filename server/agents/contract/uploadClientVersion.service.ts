@@ -502,8 +502,11 @@ export async function* uploadClientVersionService(params: {
                 index: item.index,
                 number: null,
                 text: item.text,
+                // PR10：从 ClauseSnapshotItem（optional 字段，旧 snapshot 可能无）兜底到 text
+                textWithoutNumber: item.textWithoutNumber ?? item.text,
                 offsetStart: item.offsetStart,
                 offsetEnd: item.offsetEnd,
+                offsetStartWithoutNumber: item.offsetStartWithoutNumber ?? item.offsetStart,
             }
             try {
                 // analyzeSingleClause 现返回 Risk[]；Phase B 增量审查的旧 vs 新 多对多
@@ -564,7 +567,9 @@ export async function* uploadClientVersionService(params: {
                             legalBasis: risk.legalBasis ?? null,
                             analysis: risk.analysis ?? null,
                             suggestion: risk.suggestion ?? null,
-                            clauseText: clause.text,
+                            // PR10 方案 D：用不含编号字符的文本作 anchor，规避 redlineInjector 严格匹配失败
+                            // ?? clause.text 是 ClauseSnapshotItem.textWithoutNumber 的 optional 字段 fallback
+                            clauseText: clause.textWithoutNumber ?? clause.text,
                             // 锚点迁移到新条款对应的段落序号，避免 Step 5 再扫一次
                             clauseParagraphIndex: newParaIdx,
                             ...(existing.originalClauseText ? {} : { originalClauseText: existing.clauseText }),
@@ -579,7 +584,8 @@ export async function* uploadClientVersionService(params: {
                     reviewId: review.id,
                     rows: [{
                         risk,
-                        clauseText: clause.text,
+                        // PR10 方案 D：理由同上
+                        clauseText: clause.textWithoutNumber ?? clause.text,
                         clauseParagraphIndex: newParaIdx,
                     }],
                     stance: ((review.stance ?? DEFAULT_AI_RISK_STANCE) as unknown) as StancePreference,
