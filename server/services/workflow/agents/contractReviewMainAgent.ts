@@ -118,10 +118,15 @@ async function persistRisksAndCreateV1Snapshot(
     // + 1 (for '\n') 就能找到对应段落序号。
     const clauseIndexToParagraphIndex = buildClauseToParagraphMap(segments, paragraphs)
 
+    // PR10：用 segment.textWithoutNumber 作 anchor 字段（覆盖 LLM 自填的含编号 clauseText）
+    const segmentByIndex = new Map(segments.map(s => [s.index, s]))
+
     // 写 ContractRisk + ContractAnnotation（每条 AI 风险各一条）
     // CORE-R2：风险落库收口到 persistAiRisksAsContractRows，annotation 由调用方按需创建
     const riskRows: PersistAiRiskRow[] = risks.map(aiRisk => ({
         risk: aiRisk,
+        // PR10 方案 D：注入 segment.textWithoutNumber，规避 redlineInjector 严格行级匹配失败
+        clauseText: segmentByIndex.get(aiRisk.clauseIndex)?.textWithoutNumber ?? aiRisk.clauseText,
         clauseParagraphIndex: clauseIndexToParagraphIndex.get(aiRisk.clauseIndex) ?? null,
     }))
     const createdRisks = await persistAiRisksAsContractRows({ reviewId, rows: riskRows })

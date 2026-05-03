@@ -217,4 +217,27 @@ describe('contractRisk.service · persistAiRisksAsContractRows', () => {
         expect(row.quoteCharStart).toBeNull()
         expect(row.quoteCharEnd).toBeNull()
     })
+
+    // PR10 方案 D 收口：首次审查路径用 segment.textWithoutNumber 覆盖 LLM 自填的含编号 clauseText
+    it('PR10 方案 D：row.clauseText 优先于 risk.clauseText（覆盖 LLM 自填的含编号 clauseText）', async () => {
+        const aiRisk = buildAiRisk({
+            clauseIndex: 1,
+            clauseText: '1. 合同期限：本合同期限为 3 年',  // LLM 自填含编号
+            problemSentenceIds: [],
+            problematicQuote: undefined,
+        })
+
+        const created = await persistAiRisksAsContractRows({
+            reviewId,
+            rows: [{
+                risk: aiRisk,
+                clauseText: '合同期限：本合同期限为 3 年',  // PR10 方案 D 注入：不含编号
+                clauseParagraphIndex: 0,
+            }],
+        })
+
+        const row = created[0]!
+        expect(row.clauseText).toBe('合同期限：本合同期限为 3 年')   // 注入值生效
+        expect(row.clauseText).not.toMatch(/^1\./)                    // LLM 自填的含编号被覆盖
+    })
 })
