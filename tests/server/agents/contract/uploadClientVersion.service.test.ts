@@ -939,4 +939,121 @@ describe('uploadClientVersionService（Phase B 双锚点迁移 spec §9.2）', (
         // originalClauseText 已写入（旧 clauseText 备份）
         expect(updated!.originalClauseText).toBe(oldClauseText)
     }, 60000)
+
+    it('档 2：客户删除了 quote 那一句但保留了大半条款 → fallback 到 clauseText fuzzy，quote 字段全清空', async () => {
+        // fixture 设计要点：
+        //   - 老 clauseText 必须足够长（≥53 字），让 quote 占比 <40%，删除 quote 后 sim ≥ 0.6
+        //   - 新 clauseText 长度也必须 ≥ 老 75%（minWin=42），否则 migrateAnchor findBestSubstring
+        //     窗口循环空跑直接返回 null（25% 长度容差边界，team-lead Task 1 单测踩过）
+        //   - 新 clauseText 不能含 quote 子串，否则档 1 fuzzy 命中走档 1 不走档 2
+        const oldClauseText = '第二条 甲乙双方约定货款支付义务，乙方应在收货后 7 日内全额结清，逾期支付的，每日按 0.05% 加收滞纳金。'
+        const oldQuote = '逾期支付的，每日按 0.05% 加收滞纳金'
+        const risk = await prisma.contractRisks.create({
+            data: {
+                reviewId,
+                source: 'ai',
+                level: 'medium',
+                stance: 'balanced',
+                category: '违约金',
+                problem: '违约金过低',
+                clauseIndex: 2,
+                clauseText: oldClauseText,
+                clauseParagraphIndex: 1,
+                clauseCharStart: 12,
+                clauseCharEnd: 12 + oldClauseText.length,
+                problematicQuote: oldQuote,
+                quoteCharStart: oldClauseText.indexOf(oldQuote),
+                quoteCharEnd: oldClauseText.indexOf(oldQuote) + oldQuote.length,
+                quoteMatchSource: 'fuzzy',
+            },
+        })
+
+        // 客户回传：保留前半条款，把 quote 那一句改成"协商解决"——档 1 fuzzy miss，档 2 sim≈0.625 命中
+        mockParseDocx.mockResolvedValueOnce({
+            paragraphs: [
+                '第一条 工资按月支付。',
+                '第二条 甲乙双方约定货款支付义务，乙方应在收货后 7 日内全额结清，由双方协商决定付款方式与具体争议处理事项。',
+            ],
+            rawXml: '<root/>',
+        })
+
+        const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+        const events = await collectEvents(uploadClientVersionService({
+            review,
+            ossFileId,
+            userId,
+        }))
+
+        expect(events.find(e => e.type === 'error')).toBeUndefined()
+
+        const updated = await prisma.contractRisks.findUnique({ where: { id: risk.id } })
+        expect(updated).not.toBeNull()
+        expect(updated!.orphaned).toBe(false)
+        // clauseText 升级为新段（不再含 quote）
+        expect(updated!.clauseText).toContain('由双方协商决定付款方式')
+        expect(updated!.clauseText).not.toContain('0.05%')
+        // quote 字段全清空（档 2 兜底）
+        expect(updated!.problematicQuote).toBeNull()
+        expect(updated!.quoteCharStart).toBeNull()
+        expect(updated!.quoteCharEnd).toBeNull()
+        expect(updated!.quoteMatchSource).toBeNull()
+        // originalClauseText 写入了旧 clauseText
+        expect(updated!.originalClauseText).toBe(oldClauseText)
+    }, 60000)
+
+    it('PR3 之前老 risk 兼容：problematicQuote / quoteCharStart / quoteMatchSource 全为 null → 自动走档 2 不抛错', async () => {
+        // spec §11.2 独立发布约束：PR7 假设 PR2 schema + PR3 sentence_id 已发生产，
+        // 但既有库里仍有 PR3 上线前残留的 risk 行（quote 字段全 null）。本 case 守住前向兼容。
+        const oldClauseText = '第二条 乙方逾期支付的，每日按 0.05% 加收滞纳金。'
+        const risk = await prisma.contractRisks.create({
+            data: {
+                reviewId,
+                source: 'ai',
+                level: 'medium',
+                stance: 'balanced',
+                category: '违约金',
+                problem: '违约金过低',
+                clauseIndex: 2,
+                clauseText: oldClauseText,
+                clauseParagraphIndex: 1,
+                clauseCharStart: 12,
+                clauseCharEnd: 40,
+                // 全 null：PR3 上线前的存量行
+                problematicQuote: null,
+                quoteCharStart: null,
+                quoteCharEnd: null,
+                quoteMatchSource: null,
+                originalClauseText: null,
+            },
+        })
+
+        // 客户回传：第二条被微调
+        mockParseDocx.mockResolvedValueOnce({
+            paragraphs: [
+                '第一条 工资按月支付。',
+                '第二条 乙方逾期支付货款的，每日按 0.05% 加收滞纳金。',
+            ],
+            rawXml: '<root/>',
+        })
+
+        const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+        const events = await collectEvents(uploadClientVersionService({
+            review,
+            ossFileId,
+            userId,
+        }))
+
+        expect(events.find(e => e.type === 'error')).toBeUndefined()
+
+        const updated = await prisma.contractRisks.findUnique({ where: { id: risk.id } })
+        expect(updated).not.toBeNull()
+        expect(updated!.orphaned).toBe(false)
+        // 老 risk 没 quote → wrapper 自动跳过档 1 → 档 2 命中 → clauseText 升级
+        expect(updated!.clauseText).toContain('乙方逾期支付货款的')
+        // quote 字段保持 null（档 2 不写）
+        expect(updated!.problematicQuote).toBeNull()
+        expect(updated!.quoteMatchSource).toBeNull()
+        // originalClauseText 回填旧 clauseText
+        expect(updated!.originalClauseText).toBe(oldClauseText)
+    }, 60000)
 })
