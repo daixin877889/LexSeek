@@ -174,6 +174,15 @@ export function buildNumberingPrefixMap(
             : lvl.start
         counters.set(counterKey, currentCount)
 
+        // 子层级 reset 子层 counter（OOXML 规则：父级 ++ 时子级归零）
+        // 实施：删除子层 counter，下次见时按 start 重启
+        for (const [k] of counters) {
+            const [kNumId, kIlvlStr] = k.split(':')
+            if (kNumId === String(numId) && parseInt(kIlvlStr!, 10) > ilvl) {
+                counters.delete(k)
+            }
+        }
+
         // 渲染前缀（Task 6-8 会扩展支持更多 numFmt）
         const prefix = renderLvlText(lvl, abstractNum, counters, numId, ilvl)
         if (prefix !== null) {

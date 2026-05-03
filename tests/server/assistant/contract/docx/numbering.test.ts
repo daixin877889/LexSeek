@@ -136,7 +136,44 @@ describe('numbering · buildNumberingPrefixMap', () => {
         const result = buildNumberingPrefixMap(DOC_XML_TWO_DECIMAL_PARAS, makeNumberingXml('hindiNumbers', '%1.'))
         expect(result.size).toBe(0)
     })
+
+    it('多层嵌套 ilvl=1 lvlText="%1.%2" 父级 ++ 时子级 reset', () => {
+        const result = buildNumberingPrefixMap(DOC_XML_TWO_LEVEL_PARAS, NUMBERING_XML_TWO_LEVELS)
+        expect(result.get(0)).toBe('1. ')      // 父项 A
+        expect(result.get(1)).toBe('1.1 ')     // 子项 1
+        expect(result.get(2)).toBe('1.2 ')     // 子项 2
+        expect(result.get(3)).toBe('2. ')      // 父项 B
+        expect(result.get(4)).toBe('2.1 ')     // 子项 1（不是 1.3，验证子级 reset）
+    })
 })
+
+const NUMBERING_XML_TWO_LEVELS = `<?xml version="1.0" encoding="UTF-8"?>
+<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+    <w:abstractNum w:abstractNumId="0">
+        <w:lvl w:ilvl="0">
+            <w:start w:val="1"/>
+            <w:numFmt w:val="decimal"/>
+            <w:lvlText w:val="%1."/>
+        </w:lvl>
+        <w:lvl w:ilvl="1">
+            <w:start w:val="1"/>
+            <w:numFmt w:val="decimal"/>
+            <w:lvlText w:val="%1.%2"/>
+        </w:lvl>
+    </w:abstractNum>
+    <w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>
+</w:numbering>`
+
+const DOC_XML_TWO_LEVEL_PARAS = `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+    <w:body>
+        <w:p><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr></w:pPr><w:r><w:t>父项 A</w:t></w:r></w:p>
+        <w:p><w:pPr><w:numPr><w:ilvl w:val="1"/><w:numId w:val="1"/></w:numPr></w:pPr><w:r><w:t>子项 1</w:t></w:r></w:p>
+        <w:p><w:pPr><w:numPr><w:ilvl w:val="1"/><w:numId w:val="1"/></w:numPr></w:pPr><w:r><w:t>子项 2</w:t></w:r></w:p>
+        <w:p><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr></w:pPr><w:r><w:t>父项 B</w:t></w:r></w:p>
+        <w:p><w:pPr><w:numPr><w:ilvl w:val="1"/><w:numId w:val="1"/></w:numPr></w:pPr><w:r><w:t>子项 1</w:t></w:r></w:p>
+    </w:body>
+</w:document>`
 
 function makeNumberingXml(numFmt: string, lvlText: string): string {
     return `<?xml version="1.0" encoding="UTF-8"?>
