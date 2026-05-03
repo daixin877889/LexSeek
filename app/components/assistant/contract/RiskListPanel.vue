@@ -20,8 +20,16 @@ import {
     SparklesIcon,
 } from 'lucide-vue-next'
 import { useLocalStorage } from '@vueuse/core'
-import type { ContractOverview, Risk, RiskDisplayPhaseB, ContractReviewStatus, PlaybookSnapshot, ContractAnnotationEntity, RiskArchivedStatus } from '#shared/types/contract'
+import type { ContractOverview, Risk, RiskDisplayPhaseB, ContractReviewStatus, PlaybookSnapshot, ContractAnnotationEntity, RiskArchivedStatus, ContractExportMode } from '#shared/types/contract'
 import { RISK_LEVEL_LABEL } from '#shared/types/contract'
+import {
+    DropdownMenu,
+    DropdownMenuTrigger,
+    DropdownMenuContent,
+    DropdownMenuLabel,
+    DropdownMenuRadioGroup,
+    DropdownMenuRadioItem,
+} from '~/components/ui/dropdown-menu'
 // UI-L1：徽章配色集中到 app/utils/contractRiskLevelStyle，与 ContractDocxPreview 共享
 import { RISK_LEVEL_BADGE_CLASS as LEVEL_CLASS } from '~/utils/contractRiskLevelStyle'
 import AssistantContractAnnotationBubble from '~/components/assistant/contract/AnnotationBubble.vue'
@@ -63,7 +71,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-    download: []
+    download: [mode: ContractExportMode]
     editRisks: [risks: Risk[]]
     exportPdf: [includeRisks: boolean]
     focusRisk: [riskId: string]
@@ -304,6 +312,40 @@ function handleArchive(riskStringId: string, status: RiskArchivedStatus | null) 
     if (props.readOnly) return
     emit('archive', riskStringId, status)
 }
+
+// ===== PR6：导出模式 toggle（批注 / 修订 / 两者并存）=====
+
+/**
+ * 模式偏好持久化到 localStorage:contract-review-export-mode。
+ * 默认 'comment' 保持向后兼容（旧用户体感不变）。
+ */
+const exportMode = useLocalStorage<ContractExportMode>('contract-review-export-mode', 'comment')
+
+function handleSelectMode(value: string | number) {
+    const next = value as ContractExportMode
+    exportMode.value = next
+    emit('download', next)
+}
+
+const exportModeLabel = computed(() => ({
+    comment: '批注模式',
+    redline: '修订模式',
+    both: '两者并存',
+} satisfies Record<ContractExportMode, string>)[exportMode.value])
+
+const downloadButtonLabel = computed(() => {
+    if (props.isDownloading) return '下载中...'
+    if (props.previewVersionNumber !== null && props.previewVersionNumber !== undefined) {
+        return `下载 v${props.previewVersionNumber} 历史版本`
+    }
+    return '下载批注 Word'
+})
+
+const downloadButtonTitle = computed(() => {
+    return props.previewVersionNumber !== null && props.previewVersionNumber !== undefined
+        ? `下载 v${props.previewVersionNumber} 历史版本（${exportModeLabel.value}）`
+        : `下载当前工作区（${exportModeLabel.value}）`
+})
 </script>
 
 <template>
@@ -617,20 +659,38 @@ function handleArchive(riskStringId: string, status: RiskArchivedStatus | null) 
                     <FileTextIcon v-else class="size-4 mr-1" />
                     {{ isExportingPdf ? '生成中...' : '导出评审报告' }}
                 </Button>
-                <Button
-                    class="flex-1"
-                    :disabled="!canDownload || isDownloading"
-                    :title="previewVersionNumber !== null && previewVersionNumber !== undefined
-                        ? `下载 v${previewVersionNumber} 历史版本的批注 Word`
-                        : '下载当前工作区的批注 Word'"
-                    @click="emit('download')"
-                >
-                    <Loader2Icon v-if="isDownloading" class="size-4 mr-1 animate-spin" />
-                    <DownloadIcon v-else class="size-4 mr-1" />
-                    {{ isDownloading ? '下载中...' : (previewVersionNumber !== null && previewVersionNumber !== undefined
-                        ? `下载 v${previewVersionNumber} 历史版本`
-                        : '下载批注 Word') }}
-                </Button>
+                <DropdownMenu>
+                    <DropdownMenuTrigger as-child>
+                        <Button
+                            class="flex-1"
+                            :disabled="!canDownload || isDownloading"
+                            data-testid="download-trigger"
+                            :title="downloadButtonTitle"
+                        >
+                            <Loader2Icon v-if="isDownloading" class="size-4 mr-1 animate-spin" />
+                            <DownloadIcon v-else class="size-4 mr-1" />
+                            {{ downloadButtonLabel }}
+                            <ChevronDownIcon class="size-3 ml-1 opacity-60" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" class="w-56">
+                        <DropdownMenuLabel>导出模式</DropdownMenuLabel>
+                        <DropdownMenuRadioGroup
+                            :model-value="exportMode"
+                            @update:model-value="handleSelectMode"
+                        >
+                            <DropdownMenuRadioItem value="comment" data-testid="download-mode-comment">
+                                批注模式
+                            </DropdownMenuRadioItem>
+                            <DropdownMenuRadioItem value="redline" data-testid="download-mode-redline">
+                                修订模式（Track Changes）
+                            </DropdownMenuRadioItem>
+                            <DropdownMenuRadioItem value="both" data-testid="download-mode-both">
+                                两者并存
+                            </DropdownMenuRadioItem>
+                        </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
         </div>
 

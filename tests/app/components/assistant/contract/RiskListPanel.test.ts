@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { defineComponent, h, nextTick } from 'vue'
+import { defineComponent, h, inject, nextTick, provide } from 'vue'
 import RiskListPanel from '~/components/assistant/contract/RiskListPanel.vue'
 import type { ContractOverview, Risk, ContractReviewStatus, PlaybookSnapshot, ContractAnnotationEntity } from '#shared/types/contract'
 
@@ -384,14 +384,13 @@ describe('RiskListPanel', () => {
         expect((btn.element as HTMLButtonElement).disabled).toBe(true)
     })
 
-    it('status=completed 且 reviewedFileId 有值时下载按钮 enable，点击 emit download', async () => {
+    it('status=completed 且 reviewedFileId 有值时下载按钮 enable', () => {
+        // PR6：下载入口改为 DropdownMenu，点击 trigger 仅打开菜单不直接 emit；
+        // emit('download', mode) 在选中 RadioItem 时触发，断言移到下方
+        // "RiskListPanel 下载模式 toggle" describe 块。
         const w = mountPanel({ status: 'completed', reviewedFileId: 123 })
         const btn = findDownloadButton(w)
         expect((btn.element as HTMLButtonElement).disabled).toBe(false)
-
-        await btn.trigger('click')
-        expect(w.emitted('download')).toBeTruthy()
-        expect(w.emitted('download')!.length).toBe(1)
     })
 })
 
@@ -1023,5 +1022,98 @@ describe('RiskListPanel · 布局切换（PR 4）', () => {
         const diff = w.find('[data-stub="RiskClauseDiff"]')
         expect(diff.exists()).toBe(true)
         expect(diff.attributes('data-mode')).toBe('inline-diff')
+    })
+})
+
+describe('RiskListPanel 下载模式 toggle（PR6 §8.1）', () => {
+    /**
+     * shadcn DropdownMenuContent 内部用 reka-ui Portal 渲染（默认 target=document.body），
+     * happy-dom 下 wrapper.find('[data-testid=...]') 找不到 portal 内节点。
+     * 参考 tests/app/components/assistant/contract/StanceSelectionDialog.test.ts:42-67 的
+     * provide/inject 模式：RadioItem 通过 inject 拿到 RadioGroup 的 emit 回调，
+     * 这样 click → inject callback → RadioGroup stub emit 'update:modelValue' →
+     * RiskListPanel 模板上的 @update:model-value="handleSelectMode" 拿到 → emit('download', mode)。
+     *
+     * 不能用 `$parent.$emit` —— slot 渲染时 $parent 指向 slot owner（RiskListPanel）
+     * 而不是 stub 的 RadioGroup，会让事件发到错地方导致测试 fail。
+     */
+    const RADIO_GROUP_KEY = Symbol('radio-group-update')
+
+    const dropdownStubs = {
+        DropdownMenu: { template: '<div><slot/></div>' },
+        DropdownMenuTrigger: { template: '<div><slot/></div>' },
+        DropdownMenuContent: { template: '<div><slot/></div>' },
+        DropdownMenuLabel: { template: '<div><slot/></div>' },
+        DropdownMenuRadioGroup: defineComponent({
+            name: 'DropdownMenuRadioGroup',
+            props: { modelValue: { type: String, default: '' } },
+            emits: ['update:modelValue'],
+            setup(_, { slots, emit }) {
+                provide(RADIO_GROUP_KEY, (v: string) => emit('update:modelValue', v))
+                return () => h('div', slots.default?.())
+            },
+        }),
+        DropdownMenuRadioItem: defineComponent({
+            name: 'DropdownMenuRadioItem',
+            props: { value: { type: String, required: true } },
+            setup(props, { slots }) {
+                const onUpdate = inject<(v: string) => void>(RADIO_GROUP_KEY)
+                return () => h('div', {
+                    'data-testid': `download-mode-${props.value}`,
+                    onClick: () => onUpdate?.(props.value),
+                }, slots.default?.())
+            },
+        }),
+    }
+
+    // 合并已有 stubs：保留 ScrollArea / Card / Button / Tabs / RiskEditDialog / AlertDialog 等基础 stub，
+    // 再叠加新增的 DropdownMenu 系列；mountPanel 默认只用 stubs，这里需要 mount 时手动并入。
+    const mergedStubs = { ...stubs, ...dropdownStubs }
+
+    function mountWithMode(props: Partial<Parameters<typeof mountPanel>[0]> = {}) {
+        return mount(RiskListPanel, {
+            props: {
+                risks: [],
+                status: 'completed' as ContractReviewStatus,
+                reviewedFileId: 123,
+                summary: null,
+                focusedRiskId: null,
+                hoveredRiskId: null,
+                pinnedRiskIds: new Set<string>(),
+                notLocatedIds: new Set<string>(),
+                ...props,
+            },
+            global: { stubs: mergedStubs },
+        })
+    }
+
+    afterEach(() => {
+        localStorage.removeItem('contract-review-export-mode')
+    })
+
+    it('三种模式 RadioItem 都渲染', () => {
+        const w = mountWithMode()
+        const items = w.findAll('[data-testid^="download-mode-"]')
+        expect(items.map(i => i.attributes('data-testid'))).toEqual([
+            'download-mode-comment',
+            'download-mode-redline',
+            'download-mode-both',
+        ])
+    })
+
+    it('选中 redline → emit download(redline)', async () => {
+        const w = mountWithMode()
+        await w.find('[data-testid="download-mode-redline"]').trigger('click')
+        const emitted = w.emitted('download') ?? []
+        expect(emitted.length).toBeGreaterThan(0)
+        expect(emitted[emitted.length - 1]).toEqual(['redline'])
+    })
+
+    it('localStorage 持久化模式偏好', async () => {
+        localStorage.setItem('contract-review-export-mode', 'both')
+        const w = mountWithMode()
+        // 通过 modelValue prop 验证持久化生效（不依赖 data-state，因为 Portal stub 后无 radix 状态）
+        const radioGroup = w.findComponent(dropdownStubs.DropdownMenuRadioGroup as any)
+        expect(radioGroup.props('modelValue')).toBe('both')
     })
 })
