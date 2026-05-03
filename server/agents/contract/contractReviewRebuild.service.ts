@@ -17,9 +17,17 @@ import { randomUUID } from 'node:crypto'
 import type { contractReviews } from '~~/generated/prisma/client'
 import { findOssFileByIdDao, createOssFileDao } from '~~/server/services/files/ossFiles.dao'
 import { setCompletedAfterRebuildDAO } from './contractReview.dao'
-import { injectAnnotations } from './docx'
+import {
+    injectAnnotations,
+    injectRedlineMarks,
+    findMaxSharedId,
+    loadDocxZip,
+    readTextFromZip,
+} from './docx'
+import { parseOoxml } from './docx/xmlAst'
 import { listAnnotationsForExportDAO } from './contractAnnotation.dao'
 import { filterExportableDbAnnotations } from './contractAnnotation.service'
+import { listContractRisksDAO } from './contractRisk.dao'
 import {
     downloadFileService,
     uploadFileService,
@@ -30,11 +38,15 @@ import { getDefaultStorageConfigDao } from '~~/server/services/storage/storageCo
 import { StorageProviderType } from '~~/server/lib/storage/types'
 import { FileSource, OssFileStatus } from '#shared/types/file'
 import { DOCX_MIME } from '#shared/utils/mime'
-import type { ContractAnnotationForExport } from './docx'
+import type {
+    ContractAnnotationForExport,
+    RedlineRisk,
+} from './docx'
 import {
     buildContractReviewFilename,
     buildContentDispositionForFilename,
 } from './contractReviewFilename'
+import type { ContractExportMode } from '#shared/types/contract'
 
 export interface RebuildDocxResult {
     reviewedFileId: number
@@ -42,7 +54,12 @@ export interface RebuildDocxResult {
     filename: string
 }
 
-export async function rebuildDocxService(review: contractReviews): Promise<RebuildDocxResult> {
+export async function rebuildDocxService(
+    review: contractReviews,
+    opts: { mode?: ContractExportMode } = {},
+): Promise<RebuildDocxResult> {
+    const mode: ContractExportMode = opts.mode ?? 'comment'
+
     if (!review.originalFileId) throw new Error('审查没有原始文件，无法重生批注')
     const origOssFile = await findOssFileByIdDao(review.originalFileId)
     if (!origOssFile?.filePath) throw new Error('原始文件已丢失，无法重生批注')
@@ -68,24 +85,72 @@ export async function rebuildDocxService(review: contractReviews): Promise<Rebui
         createdAt: a.createdAt,
     }))
 
-    const injectResult = await injectAnnotations(origBuffer, annotations, review.id)
+    let finalBuffer: Buffer
+    const writeRefs = new Map<number, string>()
+
+    if (mode === 'comment') {
+        const r = await injectAnnotations(origBuffer, annotations, review.id)
+        finalBuffer = Buffer.isBuffer(r.buffer) ? r.buffer : Buffer.from(r.buffer)
+        for (const [k, v] of r.refsByAnnotationId) writeRefs.set(k, v)
+    }
+    else {
+        // redline / both 都需要先扫 ID 池底数
+        const docAst = parseOoxml(await readTextFromZip(await loadDocxZip(origBuffer), 'word/document.xml'))
+        const idStart = findMaxSharedId(docAst) + 1
+
+        const risks = await listContractRisksDAO(review.id)
+        const redlineRisks: RedlineRisk[] = risks.map(r => ({
+            id: r.id,
+            clauseText: r.clauseText,
+            clauseParagraphIndex: r.clauseParagraphIndex,
+            problematicQuote: r.problematicQuote,
+            quoteCharStart: r.quoteCharStart,
+            quoteCharEnd: r.quoteCharEnd,
+            suggestedClauseText: r.suggestedClauseText,
+        }))
+        const redlineResult = await injectRedlineMarks(origBuffer, redlineRisks, {
+            reviewId: review.id, idStart,
+        })
+
+        if (mode === 'redline') {
+            // 跳过的 risk → fallback 挂 comment
+            const skippedSet = new Set(redlineResult.skippedRiskIds)
+            const fallback = annotations.filter(a => skippedSet.has(a.riskId))
+            if (fallback.length > 0) {
+                const cr = await injectAnnotations(redlineResult.buffer, fallback, review.id, { idStart: redlineResult.nextIdAfter })
+                finalBuffer = Buffer.isBuffer(cr.buffer) ? cr.buffer : Buffer.from(cr.buffer)
+                for (const [k, v] of cr.refsByAnnotationId) writeRefs.set(k, v)
+            }
+            else {
+                finalBuffer = Buffer.isBuffer(redlineResult.buffer) ? redlineResult.buffer : Buffer.from(redlineResult.buffer)
+            }
+        }
+        else {
+            // both：全部 annotations 走 commentInjector，从 nextIdAfter 接力
+            // 传 wrapTargetByRiskId 让 commentRange 精确包到 redline 的 del+ins 周围（spec §8.3.6）
+            const cr = await injectAnnotations(redlineResult.buffer, annotations, review.id, {
+                idStart: redlineResult.nextIdAfter,
+                wrapTargetByRiskId: redlineResult.spansByRiskId,
+            })
+            finalBuffer = Buffer.isBuffer(cr.buffer) ? cr.buffer : Buffer.from(cr.buffer)
+            for (const [k, v] of cr.refsByAnnotationId) writeRefs.set(k, v)
+        }
+    }
 
     // 将新生成的 wordCommentRef 批量回写到 DB（只更新已导出且 wordCommentRef 为 null 的条目）
-    const toUpdate = exportable.filter(a => a.wordCommentRef === null)
+    const toUpdate = exportable.filter(a => a.wordCommentRef === null && writeRefs.has(a.id))
     if (toUpdate.length > 0) {
         await prisma.$transaction(
             toUpdate.map(a =>
                 prisma.contractAnnotations.update({
                     where: { id: a.id },
-                    data: { wordCommentRef: injectResult.refsByAnnotationId.get(a.id) },
+                    data: { wordCommentRef: writeRefs.get(a.id) },
                 }),
             ),
         )
     }
 
-    const buffer = Buffer.isBuffer(injectResult.buffer)
-        ? injectResult.buffer
-        : Buffer.from(injectResult.buffer)
+    const buffer = finalBuffer
 
     // OSS 路径与 M3 contractReview.service 保持同构：contract-review/<userId>/<uuid>.docx
     const ossPath = `contract-review/${review.userId}/rebuild-${randomUUID()}.docx`
