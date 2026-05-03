@@ -184,6 +184,22 @@ function handleExportPdfConfirm(includeRisks: boolean) {
 /** 隐藏已处置开关（持久化到 localStorage） */
 const hideArchived = useLocalStorage('contract-hide-archived-risks', false)
 
+/**
+ * PR 4：风险卡布局偏好（持久化到 localStorage）
+ * - 'stacked'：Layout A 四段式（默认）
+ * - 'inline-diff'：Layout C 行内差异
+ *
+ * @vueuse/core 的 useLocalStorage **string serializer 是 `String(v)` 不是 `JSON.stringify`**——
+ * localStorage 里存的是裸字符串 `inline-diff`（无 JSON 引号）。`as const` 让初值字面量
+ * 不被 TS 推断成 `string`，满足联合泛型约束。
+ *
+ * 复用既有约定：ContractReviewPanel.vue 已有 `useLocalStorage<number>('contract-review-split-...')` 同前缀模式。
+ */
+const cardLayout = useLocalStorage<'stacked' | 'inline-diff'>(
+    'contract-review-risk-card-layout',
+    'stacked' as const,
+)
+
 /** 已处置状态文案 */
 const ARCHIVED_STATUS_LABEL: Record<RiskArchivedStatus, string> = {
     handled: '已处理',
@@ -317,6 +333,21 @@ function handleArchive(riskStringId: string, status: RiskArchivedStatus | null) 
                     </div>
                 </div>
 
+                <!--
+                    PR 4：布局切换段控（持久化到 localStorage:contract-review-risk-card-layout）
+                    UX 偏差说明：spec § 6.3 写的是 dropdown，本 plan 改用 Tabs 段控——理由：
+                    (a) 项目无 ToggleGroup 组件，shadcn-vue 唯一段控候选是 Tabs；
+                    (b) 复用 NewReviewDialog.vue:204 的 v-model 模式，与既有 UI 风格一致；
+                    (c) 两选项段控视觉负担比 dropdown 低（一眼可见、一键切换）。
+                    如产品要求严格 dropdown，回滚到 <DropdownMenu> + <DropdownMenuRadioGroup>。
+                -->
+                <Tabs v-model="cardLayout" class="w-full" data-testid="risk-card-layout-tabs">
+                    <TabsList class="grid w-full grid-cols-2 h-8">
+                        <TabsTrigger value="stacked" class="text-xs">分段</TabsTrigger>
+                        <TabsTrigger value="inline-diff" class="text-xs">对照</TabsTrigger>
+                    </TabsList>
+                </Tabs>
+
                 <!-- 只读模式提示 -->
                 <div v-if="readOnly" class="text-xs text-center text-muted-foreground py-1">
                     只读模式，编辑操作已禁用
@@ -389,7 +420,15 @@ function handleArchive(riskStringId: string, status: RiskArchivedStatus | null) 
                             <div class="mt-1 text-xs text-muted-foreground line-clamp-2">{{ r.problem }}</div>
                         </CardHeader>
                         <CardContent v-if="expandedId === r.id" class="py-2 px-3 text-sm space-y-3" @click.stop>
-                            <AssistantContractRiskClauseDiff :clause-text="r.clauseText" :suggested-clause-text="r.suggestedClauseText" />
+                            <AssistantContractRiskClauseDiff
+                                :mode="cardLayout"
+                                :clause-text="r.clauseText"
+                                :suggested-clause-text="r.suggestedClauseText"
+                                :problematic-quote="r.problematicQuote ?? null"
+                                :quote-char-start="r.quoteCharStart ?? null"
+                                :quote-char-end="r.quoteCharEnd ?? null"
+                                :clause-paragraph-index="r.clauseParagraphIndex ?? null"
+                            />
                             <div v-if="r.legalBasis"><div class="text-xs text-muted-foreground">法律依据</div><div>{{ r.legalBasis }}</div></div>
                             <div><div class="text-xs text-muted-foreground">条款分析</div><div class="whitespace-pre-wrap">{{ r.analysis }}</div></div>
                             <div><div class="text-xs text-muted-foreground">法律风险</div><div class="whitespace-pre-wrap">{{ r.risk }}</div></div>
@@ -484,6 +523,7 @@ function handleArchive(riskStringId: string, status: RiskArchivedStatus | null) 
                     :archived-status="getArchivedStatus(r)"
                     :not-located="hasLocated !== false && notLocatedIds.has(r.id)"
                     :playbook-snapshot="playbookSnapshot ?? null"
+                    :layout="cardLayout"
                     @toggle="toggle"
                     @focus="(id: string) => emit('focusRisk', id)"
                     @archive="(id: string, status: RiskArchivedStatus | null) => emit('archive', id, status)"

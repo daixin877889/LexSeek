@@ -44,7 +44,17 @@ const props = defineProps<{
     notLocated?: boolean
     /** playbook 快照：用于显示匹配的合规检查项 tooltip */
     playbookSnapshot?: PlaybookSnapshot | null
+    /**
+     * PR 4：风险卡布局（可选，默认 'stacked'）
+     * - 'stacked'：Layout A 四段式（条款标题 / 完整原文 + quote 高亮 / 问题片段 / 建议改写）
+     * - 'inline-diff'：Layout C 行内差异（dmp diff 单栏）
+     * orphaned 形态不消费此 prop（无 clause anchor）；调用方可不传走默认值。
+     */
+    layout?: 'stacked' | 'inline-diff'
 }>()
+
+/** PR 4：layout 默认值（pass-through 给 RiskClauseDiff 的 mode） */
+const layoutMode = computed<'stacked' | 'inline-diff'>(() => props.layout ?? 'stacked')
 
 const emit = defineEmits<{
     toggle: [riskId: string]
@@ -240,7 +250,15 @@ function handleArchive(status: RiskArchivedStatus | null) {
             <div class="mt-1 text-xs text-muted-foreground line-clamp-2">{{ risk.problem }}</div>
         </CardHeader>
         <CardContent v-if="expanded" class="py-2 px-3 text-sm space-y-3" @click.stop>
-            <AssistantContractRiskClauseDiff :clause-text="risk.clauseText" :suggested-clause-text="risk.suggestedClauseText" />
+            <AssistantContractRiskClauseDiff
+                :mode="layoutMode"
+                :clause-text="risk.clauseText"
+                :suggested-clause-text="risk.suggestedClauseText"
+                :problematic-quote="risk.problematicQuote ?? null"
+                :quote-char-start="risk.quoteCharStart ?? null"
+                :quote-char-end="risk.quoteCharEnd ?? null"
+                :clause-paragraph-index="risk.clauseParagraphIndex ?? null"
+            />
             <div v-if="risk.legalBasis"><div class="text-xs text-muted-foreground">法律依据</div><div>{{ risk.legalBasis }}</div></div>
             <div><div class="text-xs text-muted-foreground">条款分析</div><div class="whitespace-pre-wrap">{{ risk.analysis }}</div></div>
             <div><div class="text-xs text-muted-foreground">法律风险</div><div class="whitespace-pre-wrap">{{ risk.risk }}</div></div>
