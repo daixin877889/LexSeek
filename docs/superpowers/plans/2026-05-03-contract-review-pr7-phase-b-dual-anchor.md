@@ -8,6 +8,11 @@
 
 **与 spec §9.1 现状描述的差异说明**：spec §9.1 描述的 `r.anchorQuote.includes(oldClauseHead)` 旧实现已被前置 PR 重构为 `findOldClauseArrayIdxByAnchor` + `clauseDiffResult` 路由（`uploadClientVersion.service.ts:798-868`）。本 PR 在重构后的代码上把 modified/removed/null 三个分支的 `migrateAnchor` 单调用升级为 `migrateRiskWithDualAnchor` 双锚点 wrapper，clauseDiff 路由层不动。
 
+**clauseText 写 segment.text 全段是 PR5/6 的隐含前置依赖（不止"顺带修复"）**：
+- `server/agents/contract/docx/redlineLocate.ts:5-7,145,148` 期望 `clauseText` 是含 `\n` 的 segment.text 全段，并严格校验 `quoteCharEnd <= clauseText.length`，否则 `return null` —— 老 migration 把 clauseText 切短到 `slice(newCharStart, newCharEnd)` 让 PR3 写入的 quoteCharStart/End **必然越界**，触发 PR5 redlineLocate / PR6 redlineInjector spec §8.4 降级路径（Phase B 客户回传后的 risk 在 redline 模式下退化为 comment）
+- `app/components/assistant/contract/RiskClauseDiff.vue:55` 同样有 `end > clauseText.length` 校验，越界时**默默跳过 quote 字符级高亮**
+- 因此 PR7 把 clauseText 写入改为 segment.text 全段，是**让 Phase B 客户回传后的 risk 仍能正常使用 PR5 高亮 + PR6 redline 的必要修复**，不是单纯审美改进
+
 **关于 spec §12 feature flag 的取舍（与用户确认放弃）**：spec §12 建议"保留旧逻辑作为 feature flag 兜底 1 周"。**本 plan 不实现 flag**，理由：(1) wrapper 的档 2 (clause fuzzy fallback) 就是旧 `migrateAnchor` 的等价行为——软兜底已天然存在；(2) PR2 已 drop `anchor_*` 5 字段，flag-off 路径无法实现完全等价；(3) 客户回传链路本身有完整事务回滚 + status=failed + Step 4 风险新增同样回滚的多层保护（`uploadClientVersion.service.ts:702 / :895`）。如上线后档 1 误命中率超预期，回退手段是 hot-fix 把 wrapper 档 1 短路（一行 `return null`），不需要 flag。
 
 **Tech Stack:** TypeScript / Vitest / Prisma / diff-match-patch（已封装）。复用 `fuzzyLocateInText` / `migrateAnchor` / `ClauseSnapshotItem` / 既有 worker 级 DB 隔离测试基建。
@@ -253,9 +258,12 @@ describe('migrateRiskWithDualAnchor', () => {
         })
 
         it('quote 在新文档已被客户彻底删除：fuzzy miss → 落档 2', async () => {
+            // 注意：新 clauseText 需 >= 老 clauseText 的 75% 长度（27 字）才能让既有 migrateAnchor
+            // 的 delta = anchorLen * 0.25 容差不把 minWin 撑超 maxWin 让循环空跑——这是档 2 的真实
+            // 命中边界，fixture 必须遵守。
             const { newClauses, newDocxText } = await makeClauseFixture([
                 '第一条 甲方应当按时支付货款。',
-                '第二条 乙方应在收款后 7 日内交付货物。', // 删掉了"逾期"那一句
+                '第二条 乙方应当在收款后 7 个工作日内将货物按时按量交付。', // 删掉了"逾期"那一句但保留长度
             ])
             const result = migrateRiskWithDualAnchor({
                 oldClauseText: '第二条 乙方应在收款后 7 日内交付货物，逾期支付的，每日按 0.05% 加收滞纳金。',
@@ -316,14 +324,15 @@ describe('migrateRiskWithDualAnchor', () => {
 
     describe('档 1 边界：quote 跨 segment 边界', () => {
         it('quote 起点在某 segment 内但终点超过该 segment：判档 1 失败，落档 2', async () => {
-            // 构造一个边界场景：quote 起点 = segment[0] 末尾，终点会超过 offsetEnd
+            // 构造跨段 quote 场景：必须用「第X条」编号让 segmentClauses 真切 2 段（无编号会并入散段单 segment）。
+            // quote 跨 segment[0] 末尾 + segment[1] 开头让 wrapper 跨段校验失败。
             const { newClauses, newDocxText } = await makeClauseFixture([
-                '前段',                                  // segment[0]
-                '后段且包含很长的内容用于 fallback 命中', // segment[1]
+                '第一条 前段简短。',
+                '第二条 后段且包含很长的内容用于 fallback 命中且确保 migrateAnchor 能匹配上的足够长度版本。',
             ])
             const result = migrateRiskWithDualAnchor({
-                oldClauseText: '后段且包含很长的内容用于 fallback 命中',
-                oldProblematicQuote: '段\n后段', // quote 跨越段间 \n
+                oldClauseText: '第二条 后段且包含很长的内容用于 fallback 命中且确保 migrateAnchor 能匹配上的足够长度版本。',
+                oldProblematicQuote: '简短。\n第二条', // 横跨 segment[0] 末尾 + segment[1] 开头
                 preferredNewClauseArrayIdx: 1,
                 newClauses,
                 newDocxText,
@@ -540,11 +549,15 @@ grep -rn "clauseText.length\|clauseCharEnd - clauseCharStart\|clauseText.slice" 
 
 Expected：检查命中行，确认下游使用模式都是「`clauseText.slice(quoteCharStart, quoteCharEnd)` 在 clauseText 内做 quote 切片」（这是 PR7 修复方向，不是依赖被破坏方向）。如果发现真有下游依赖 `clauseText.length === clauseCharEnd - clauseCharStart`（例如 commentInjector 用 char range 严格定位），停下与用户对齐再继续。
 
-预判已知（plan 作者已 grep 一次，附确认结论）：
-- `app/components/assistant/contract/RiskClauseDiff.vue:55-61` 用 `clauseText.length` 校验 quote offset 不越界，并 `clauseText.slice(start, end)` 切 quote —— **PR7 反而修复**了 quote offset 越界的潜在问题（之前 quote_char_offset 是相对 segment.text 全段写入的，老 migrate 把 clauseText 切短让 offset 越界）
-- `server/agents/contract/middleware/reviewResultPersistence.middleware.ts:90` 用 `a.risk.clauseText` 作 anchorQuote 给 commentInjector 做 fuzzy 段落搜索 —— 全段更稳定，无破坏
+预判已知（plan 作者已 grep + git log 核对 PR1-6 实施，附确认结论）：
+- `server/agents/contract/docx/redlineLocate.ts:5-7,145,148` **强假设** clauseText 是含 `\n` 的 segment.text 全段，并校验 `quoteCharEnd <= clauseText.length` —— PR7 写全段 = **PR5/6 redline 的前置依赖**（不写全段会让客户回传后的 risk 在 redline 模式失效降级 comment）
+- `server/agents/contract/docx/redlineInjector.ts:140-142` 直接 `clauseText: risk.clauseText` 透传给 redlineLocate —— 同上
+- `app/components/assistant/contract/RiskClauseDiff.vue:55-61` 用 `clauseText.length` 校验 quote offset 不越界 —— PR7 写全段 = **修复字符级高亮越界悄悄消失**
+- `app/components/assistant/contract/ContractDocxPreview.vue:73` 调 `locateClauseElement(container, risk.clauseText, risk.clauseParagraphIndex)` —— 用 clauseText 做 fuzzy 段落定位，全段比切片前几行更稳定（DOM Range 高亮也间接受益）
+- `server/agents/contract/middleware/reviewResultPersistence.middleware.ts:90` / `contractReviewRebuild.service.ts:82` / `contractReviewVersion.service.ts:303` 把 `risk.clauseText` 作 anchorQuote 传 commentInjector —— commentInjector L415 取前几行做 fuzzy，全段时前几行更稳定（标题 + 正文头）
+- `server/agents/contract/contractAnnotation.service.ts:110` `isAnnotationExportable` 只看 `clauseParagraphIndex` 和 `orphaned`，不依赖 clauseText 长度 —— 无影响
 
-如果 grep 出新的依赖点，按需追加迁移步骤。
+如果 grep 出新的依赖点（特别是 `clauseCharEnd - clauseCharStart === clauseText.length` 这种隐式约束），按需追加迁移步骤。
 
 - [ ] **Step 1：替换 import 行（顶部 import block）**
 
@@ -739,9 +752,9 @@ migrateRiskWithDualAnchor 双锚点 wrapper：
 
 变化对比：
   - clauseText 不再取 slice(newCharStart..newCharEnd)，改写 segment.text 全段
-    （双锚点模型下层 1 必须保完整上下文；顺带修复 quote_char_offset 在被切片
-    clauseText 内可能越界的潜在 bug——RiskClauseDiff.vue:55 的 end > clauseText.length
-    校验之前会让 quote 高亮悄悄消失）
+    （双锚点模型下层 1 必须保完整上下文；同时这是 PR5 redlineLocate / PR6 redlineInjector
+    / PR4 RiskClauseDiff 的隐含前置依赖——三者都校验 quoteCharEnd <= clauseText.length，
+    切片让 PR3 写入的 quote offset 越界 → redline 降级 + 字符级高亮悄悄失效）
   - clauseCharStart/End 改写 segment.offsetStart/End（文档全文 offset，符合 schema 注释）
   - 新增 clauseIndex 字段同步（newClauses[idx].index 1-based）
   - originalClauseText 收紧条件：clauseText 实际变化 + 旧值非空时才回填（spec §9.3）
@@ -948,11 +961,14 @@ quote 在新 clauseText 内的相对 offset，quoteMatchSource 沿用 sentence_i
             },
         })
 
-        // 客户回传：第二条改成"乙方应于每月末前向甲方完成结算"，原 quote 那一句被彻底删掉
+        // 客户回传：第二条改成"乙方应于每月末前向甲方完成结算"，原 quote 那一句被彻底删掉。
+        // 新 clauseText 必须 ≥ 老 clauseText 的 75% 长度（27 字以上）才能让既有 migrateAnchor 的
+        // delta=anchorLen*0.25 容差不让 minWin 超过 maxWin（否则档 2 命中失败 → wrapper 返回
+        // null → orphaned=true，与本 case 期望档 2 命中清空 quote 字段不符）。
         mockParseDocx.mockResolvedValueOnce({
             paragraphs: [
                 '第一条 工资按月支付。',
-                '第二条 乙方应于每月末前向甲方完成结算。',
+                '第二条 乙方应于每月末前向甲方完成所有货款的结算与对账。',
             ],
             rawXml: '<root/>',
         })
@@ -1422,7 +1438,7 @@ PR body 模板：
 
 ## 关键决策
 
-- `clauseText` 写 `segment.text` 全段（不再切片到 `newCharStart..newCharEnd`）—— 顺带修复 quote_char_offset 在被切片 clauseText 内可能越界的潜在 bug
+- `clauseText` 写 `segment.text` 全段（不再切片到 `newCharStart..newCharEnd`）—— **PR5 redlineLocate / PR6 redlineInjector / PR4 RiskClauseDiff 的隐含前置依赖**（三者都校验 quoteCharEnd <= clauseText.length，老切片让 PR3 quote offset 越界 → redline 降级 + 字符级高亮失效）
 - `clauseCharStart/End` 写 `segment.offsetStart/End`（文档全文 offset，符合 schema 注释）
 - `quoteMatchSource` 档 1 沿用旧值（迁移不改命中来源语义）；档 2 清 null
 - `originalClauseText` 收紧到「clauseText 实际变化 + 旧值非空」才回填（spec §9.3）
