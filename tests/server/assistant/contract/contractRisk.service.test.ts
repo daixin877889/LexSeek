@@ -153,20 +153,68 @@ describe('contractRisk.service · persistAiRisksAsContractRows', () => {
         expect(created.map(r => r.clauseParagraphIndex)).toEqual([1, 2, 3])
     })
 
-    // 注意：本断言锁的是 "PR 2 阶段双锚点层 2 字段都是 null 占位" 的临时契约。
-    // PR 3 主路径接入 splitSentences + resolveQuoteAnchor 后，problematicQuote /
-    // quoteCharStart/End / quoteMatchSource / clauseIndex 会按真实路径填值，
-    // 该断言会被 PR 3 改写为 "sentence_id 主路径命中时 quoteMatchSource='sentence_id' 等"。
-    it('PR 2 落库时 quote_* / clauseIndex 全部为 null（PR 3 主路径前为 null 占位）', async () => {
+    // PR 3 主路径接入 splitSentences + resolveQuoteAnchor 后：
+    // - 有 problemSentenceIds → quoteMatchSource='sentence_id'，quote 字段按 sentenceId 解析
+    // - 没有 ids 但有 problematicQuote → quoteMatchSource='fuzzy'
+    // - 两者都无 → quoteMatchSource='fallback'，quote 字段全 null
+    // clauseIndex 由 risk.clauseIndex 填值（不再是 null）
+    it('有 problemSentenceIds 时：quote_* 字段按 sentence_id 解析，quoteMatchSource=sentence_id', async () => {
+        const clauseText = '第三条 工资支付。逾期支付的，每日按 0.05% 加收滞纳金。'
         const rows: PersistAiRiskRow[] = [{
-            risk: buildAiRisk({ clauseText: '第三条 工资支付。逾期支付的，每日按 0.05% 加收滞纳金。' }),
+            risk: buildAiRisk({
+                clauseText,
+                clauseIndex: 3,
+                problemSentenceIds: [2],
+                problematicQuote: '逾期支付的，每日按 0.05% 加收滞纳金',
+            }),
         }]
         const created = await persistAiRisksAsContractRows({ reviewId, rows })
-        expect(created[0]!.clauseText).toBe('第三条 工资支付。逾期支付的，每日按 0.05% 加收滞纳金。')
-        expect(created[0]!.clauseIndex).toBeNull()
-        expect(created[0]!.problematicQuote).toBeNull()
-        expect(created[0]!.quoteCharStart).toBeNull()
-        expect(created[0]!.quoteCharEnd).toBeNull()
-        expect(created[0]!.quoteMatchSource).toBeNull()
+        const row = created[0]!
+        expect(row.clauseText).toBe(clauseText)
+        expect(row.clauseIndex).toBe(3)
+        expect(row.quoteMatchSource).toBe('sentence_id')
+        expect(row.problematicQuote).toBeTruthy()
+        expect(row.quoteCharStart).not.toBeNull()
+        expect(row.quoteCharEnd).not.toBeNull()
+        expect(row.quoteCharEnd!).toBeGreaterThan(row.quoteCharStart!)
+        // 解析出的 quote 必须是 clauseText 的子串
+        expect(clauseText.slice(row.quoteCharStart!, row.quoteCharEnd!)).toBe(row.problematicQuote)
+    })
+
+    it('没有 problemSentenceIds 但有 problematicQuote → quoteMatchSource=fuzzy', async () => {
+        const clauseText = '甲方应当履行义务。乙方支付报酬，逾期支付按 0.05% 加收。'
+        const rows: PersistAiRiskRow[] = [{
+            risk: buildAiRisk({
+                clauseText,
+                clauseIndex: 1,
+                problemSentenceIds: [],
+                problematicQuote: '逾期支付按 0.05% 加收',
+            }),
+        }]
+        const created = await persistAiRisksAsContractRows({ reviewId, rows })
+        const row = created[0]!
+        expect(row.clauseIndex).toBe(1)
+        expect(row.quoteMatchSource).toBe('fuzzy')
+        expect(row.problematicQuote).toContain('0.05%')
+        expect(row.quoteCharStart).not.toBeNull()
+    })
+
+    it('没有 problemSentenceIds 也没有 problematicQuote → quoteMatchSource=fallback，quote 字段全 null', async () => {
+        const clauseText = '工资按月支付。'
+        const rows: PersistAiRiskRow[] = [{
+            risk: buildAiRisk({
+                clauseText,
+                clauseIndex: 2,
+                problemSentenceIds: [],
+                problematicQuote: undefined,
+            }),
+        }]
+        const created = await persistAiRisksAsContractRows({ reviewId, rows })
+        const row = created[0]!
+        expect(row.clauseIndex).toBe(2)
+        expect(row.quoteMatchSource).toBe('fallback')
+        expect(row.problematicQuote).toBeNull()
+        expect(row.quoteCharStart).toBeNull()
+        expect(row.quoteCharEnd).toBeNull()
     })
 })

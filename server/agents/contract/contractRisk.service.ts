@@ -10,6 +10,8 @@ import type { Prisma, contractRisks } from '~~/generated/prisma/client'
 import type { Risk, RiskArchivedStatus, RiskLevel, RiskSource, StancePreference } from '#shared/types/contract'
 import { DEFAULT_AI_RISK_STANCE } from '#shared/types/contract'
 import { updateContractRiskDAO } from './contractRisk.dao'
+import { splitSentences } from './utils/splitSentences'
+import { resolveQuoteAnchor } from './utils/resolveQuoteAnchor'
 
 /**
  * 更新风险处置状态。
@@ -66,7 +68,7 @@ export interface PersistAiRiskRow {
  * - clauseParagraphIndex：row.clauseParagraphIndex ?? null
  * - originalClauseText / orphaned：仅在 row 显式提供时写入
  * - clauseIndex / problematicQuote / quoteCharStart / quoteCharEnd / quoteMatchSource：
- *   PR 2 阶段全显式置 null；PR 3 主路径接入 splitSentences + resolveQuoteAnchor 后才填值
+ *   PR 3 主路径接入 splitSentences + resolveQuoteAnchor，按三档 fallback 解析后落库
  *
  * 说明：
  * - risk.id 是前端字符串 UUID，contractRisks.id 是 DB 自增主键，两者不互写
@@ -89,6 +91,28 @@ export async function persistAiRisksAsContractRows(input: {
 
     const data: Prisma.contractRisksUncheckedCreateInput[] = rows.map((row) => {
         const r = row.risk
+        /**
+         * 双锚点 · 层 1：完整条款。优先 row.clauseText（增量审查传新条款原文），
+         * 否则用 r.clauseText（首次审查 LLM 自填）。
+         */
+        const clauseText = row.clauseText ?? r.clauseText
+
+        /**
+         * 双锚点 · 层 2：精准 quote 解析（spec §5.5）。
+         * - 切句标 [Sn] ID（与 LLM prompt 视图对齐）
+         * - resolveQuoteAnchor 三档 fallback：sentence_id → fuzzy → fallback
+         * - 调用方零改动；anchor 解析逻辑收敛在 service 内部
+         */
+        const sentences = splitSentences(clauseText)
+        const anchor = resolveQuoteAnchor({
+            clauseText,
+            sentences,
+            aiOutput: {
+                problemSentenceIds: r.problemSentenceIds,
+                problematicQuote: r.problematicQuote,
+            },
+        })
+
         const item: Prisma.contractRisksUncheckedCreateInput = {
             reviewId,
             source: row.source ?? 'ai',
@@ -101,16 +125,16 @@ export async function persistAiRisksAsContractRows(input: {
             analysis: r.analysis ?? null,
             suggestion: r.suggestion ?? null,
             suggestedClauseText: r.suggestedClauseText ?? null,
-            // 双锚点 · 层 1：clauseText 是 NOT NULL 列
-            clauseText: row.clauseText ?? r.clauseText,
+            // 双锚点 · 层 1
+            clauseText,
             clauseParagraphIndex: row.clauseParagraphIndex ?? null,
-            // PR 2 全为 null；PR 3 主路径起填 clauseIndex / quote_*
-            clauseIndex: null,
-            // 双锚点 · 层 2：PR 2 全为 null
-            problematicQuote: null,
-            quoteCharStart: null,
-            quoteCharEnd: null,
-            quoteMatchSource: null,
+            // clauseIndex 由 PR 3 起填值；clauseCharStart/End 由 Phase B 锚点迁移路径填，首次审查不显式列出 = 数据库 NULL
+            clauseIndex: r.clauseIndex,
+            // 双锚点 · 层 2（PR 3 主路径填值）
+            problematicQuote: anchor.problematicQuote,
+            quoteCharStart: anchor.charStart,
+            quoteCharEnd: anchor.charEnd,
+            quoteMatchSource: anchor.matchSource,
         }
         if (row.originalClauseText !== undefined) item.originalClauseText = row.originalClauseText
         if (row.orphaned !== undefined) item.orphaned = row.orphaned
