@@ -20,6 +20,8 @@ import {
     findAll,
     appendChildToFirst,
     textOf,
+    findMaxSharedId,
+    stripIllegalXmlChars,
 } from '~~/server/agents/contract/docx/xmlAst'
 
 describe('xmlAst', () => {
@@ -116,5 +118,82 @@ describe('xmlAst', () => {
         const ast2 = parseOoxml(out)
         const t = findFirst(ast2, 'w:t')!
         expect(textOf(t)).toBe('条款 <A> 与 "B" & \'C\'')
+    })
+})
+
+describe('findMaxSharedId', () => {
+    const W_NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+
+    it('空文档返回 -1', () => {
+        const ast = parseOoxml(`<?xml version="1.0"?><w:document ${W_NS}><w:body/></w:document>`)
+        expect(findMaxSharedId(ast)).toBe(-1)
+    })
+
+    it('扫描 bookmarkStart / commentRangeStart / w:ins 跨标签取最大', () => {
+        const xml = `<?xml version="1.0"?>
+<w:document ${W_NS}>
+  <w:body>
+    <w:bookmarkStart w:id="3" w:name="b1"/>
+    <w:p>
+      <w:commentRangeStart w:id="7"/>
+      <w:ins w:id="5" w:author="x" w:date="2024-01-01T00:00:00Z">
+        <w:r><w:t>foo</w:t></w:r>
+      </w:ins>
+    </w:p>
+  </w:body>
+</w:document>`
+        const ast = parseOoxml(xml)
+        expect(findMaxSharedId(ast)).toBe(7)
+    })
+
+    it('忽略非 ID 池标签的同名 w:id 属性', () => {
+        const xml = `<?xml version="1.0"?>
+<w:document ${W_NS}>
+  <w:body><w:p w:id="999"><w:r><w:t>foo</w:t></w:r></w:p></w:body>
+</w:document>`
+        const ast = parseOoxml(xml)
+        expect(findMaxSharedId(ast)).toBe(-1)
+    })
+
+    it('忽略非数字 w:id 值', () => {
+        const xml = `<?xml version="1.0"?>
+<w:document ${W_NS}>
+  <w:body><w:bookmarkStart w:id="abc" w:name="b1"/></w:body>
+</w:document>`
+        const ast = parseOoxml(xml)
+        expect(findMaxSharedId(ast)).toBe(-1)
+    })
+
+    it('w:del 与 rPrChange 也算入', () => {
+        const xml = `<?xml version="1.0"?>
+<w:document ${W_NS}>
+  <w:body>
+    <w:p>
+      <w:del w:id="11" w:author="LexSeek AI" w:date="2026-05-02T10:30:00Z">
+        <w:r><w:rPr><w:rPrChange w:id="12" w:author="x" w:date="2026-05-02T10:30:00Z"><w:rPr/></w:rPrChange></w:rPr><w:delText>原</w:delText></w:r>
+      </w:del>
+    </w:p>
+  </w:body>
+</w:document>`
+        const ast = parseOoxml(xml)
+        expect(findMaxSharedId(ast)).toBe(12)
+    })
+})
+
+describe('stripIllegalXmlChars（PR6 §8.3.8 输入清理）', () => {
+    it('过滤 U+0008 / U+001B 等 XML 1.0 禁用控制字符', () => {
+        expect(stripIllegalXmlChars('abc')).toBe('abc')
+    })
+
+    it('保留 \\t / \\n / \\r 三个允许的低值控制字符', () => {
+        expect(stripIllegalXmlChars('a\tb\nc\rd')).toBe('a\tb\nc\rd')
+    })
+
+    it('不改变 & < > 等正常字符（entity escape 由 fast-xml-parser builder 自己做）', () => {
+        expect(stripIllegalXmlChars('a&b<c>d')).toBe('a&b<c>d')
+    })
+
+    it('空串安全', () => {
+        expect(stripIllegalXmlChars('')).toBe('')
     })
 })

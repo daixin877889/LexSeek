@@ -243,3 +243,50 @@ export function escapeXml(input: string): string {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&apos;')
 }
+
+/**
+ * 仅过滤 XML 1.0 禁用的非法控制字符（不做 entity escape，保留 & < > " '）。
+ *
+ * 用于 redlineInjector / commentInjector 在通过 fast-xml-parser AST 写入文本时
+ * 先清理 LLM / 剪贴板可能混入的退格 / ESC / 响铃等控制字符；entity escape 由
+ * fxp builder 自动负责（`processEntities: true`）。
+ */
+export function stripIllegalXmlChars(input: string): string {
+    return input.replace(ILLEGAL_XML_CHARS, '')
+}
+
+/**
+ * OOXML 共享 w:id 池涉及的标签集合。
+ *
+ * 来源：ECMA-376 第一部分对 `w:id` 属性的定义——同一份 docx 内多种修订/书签/批注/移动元素
+ * 共享一套唯一 ID 池。撞 ID → Word 报"文件已损坏"拒打开（macOS Preview 容忍但 Windows
+ * Word 严格）。redlineInjector 与 commentInjector 必须协调使用 findMaxSharedId 获取起始 ID。
+ */
+const ID_BEARING_TAGS = new Set([
+    'w:bookmarkStart', 'w:bookmarkEnd',
+    'w:ins', 'w:del', 'w:rPrChange', 'w:pPrChange',
+    'w:sectPrChange', 'w:tblPrChange', 'w:tcPrChange', 'w:trPrChange',
+    'w:cellIns', 'w:cellDel', 'w:cellMerge', 'w:numberingChange',
+    'w:commentRangeStart', 'w:commentRangeEnd', 'w:commentReference',
+    'w:moveFromRangeStart', 'w:moveToRangeStart',
+    'w:moveFromRangeEnd', 'w:moveToRangeEnd',
+])
+
+/**
+ * 扫描 OOXML AST 的所有 w:id 共享池标签，返回最大 w:id。
+ *
+ * @param rootAst 已 parseOoxml 的 document.xml AST
+ * @returns 最大 w:id；不存在时返回 -1（调用方 +1 起 0）
+ */
+export function findMaxSharedId(rootAst: NodeArray): number {
+    let max = -1
+    walk(rootAst, (node) => {
+        const tag = tagOf(node)
+        if (!tag || !ID_BEARING_TAGS.has(tag)) return
+        const idStr = getAttr(node, 'w:id')
+        if (!idStr) return
+        const id = parseInt(idStr, 10)
+        if (Number.isFinite(id) && id > max) max = id
+    })
+    return max
+}
