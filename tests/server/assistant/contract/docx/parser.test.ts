@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import JSZip from 'jszip'
 import { parseContractDocx } from '~~/server/agents/contract/docx/parser'
+import { segmentClauses } from '~~/server/agents/contract/docx/clauseSegmenter'
 
 /**
  * PR10 测试 helper：合成最小 docx Buffer（含 numbering.xml 引用 decimal numId=1）。
@@ -110,5 +111,35 @@ describe('PR10 numbering 前缀拼接', () => {
         const { paragraphs } = await parseContractDocx(buf)
         // 无前缀拼接，paragraphs 仍是原 mammoth 输出（PR10 之前的行为）
         expect(paragraphs.length).toBeGreaterThan(0)
+    })
+})
+
+describe('PR10 e2e：parseContractDocx → segmentClauses 子项级切分', () => {
+    it('合成 docx（含 decimal numbering）上传后能切到子项级，且 segment.textWithoutNumber 不含编号', async () => {
+        const buffer = await buildMinimalDocxWithDecimalNumbering([
+            '合同期限：本合同期限为 3 年',
+            '试用期：2 个月',
+            '工资：每月 10000 元',
+            '违约责任：违约金为月工资的 1 倍',
+        ])
+        const { paragraphs } = await parseContractDocx(buffer)
+
+        // 关键验证 1：paragraphs 全部以 "数字.\s" 开头（前缀拼接生效）
+        expect(paragraphs.length).toBe(4)
+        for (let i = 0; i < paragraphs.length; i++) {
+            expect(paragraphs[i]).toMatch(new RegExp(`^${i + 1}\\.\\s`))
+        }
+
+        // 关键验证 2：segmentClauses 切分识别子项（每个 list item 一个 segment）
+        const fullText = paragraphs.join('\n')
+        const { segments } = await segmentClauses(fullText)
+        expect(segments.length).toBe(4)
+
+        // 关键验证 3：segment.textWithoutNumber 全部不含编号字符；segment.text 仍含编号（向后兼容）
+        for (const s of segments) {
+            expect(s.number).toMatch(/^\d+\.$/)
+            expect(s.textWithoutNumber).not.toMatch(/^\d+\./)
+            expect(s.text).toMatch(/^\d+\./)
+        }
     })
 })
