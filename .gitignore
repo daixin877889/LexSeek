@@ -48,3 +48,4 @@ coverage
 tests/e2e/screenshots/
 
 .tsbuildinfo
+update-prompt-*.sql

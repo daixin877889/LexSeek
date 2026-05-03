@@ -3163,11 +3163,16 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 
 严格按如下 JSON 输出，不要解释、不要代码块标记：
 {"highlights": {"high":[{"text":"...","riskId":"..."}], "medium":[...], "low":[...]}, "overall":"..."}', '["stanceLabel", "stance", "contractType", "riskList"]', 'v1', 'system', 1, 19, '2026-04-21 20:00:00+08', '2026-04-21 20:00:00+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (28, 'contractReviewAnalyzeClause_system', '合同审查·逐条条款分析提示词 v2', '你正在审查合同（{{contractType}}），站在{{stanceLabel}}立场。
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (28, 'contractReviewAnalyzeClause_system', '合同审查·逐条条款分析提示词 v3', '你正在审查合同（{{contractType}}），站在{{stanceLabel}}立场。
 甲方：{{partyA}}；乙方：{{partyB}}。
-当前条款（第 {{clauseIndex}} 条，编号 {{clauseNumber}}）：
+当前条款（第 {{clauseIndex}} 条，编号 {{clauseNumber}}），已按句切分为以下编号视图（每行 [S<id>] 起头，id 从 1 起）：
 """
-{{clauseText}}
+{{sentencesNumbered}}
+"""
+
+兜底回溯（完整条款原文，仅供你参考整体语境，不要在输出里引用此节）：
+"""
+{{clauseTextRaw}}
 """
 
 {{playbookSection}}
@@ -3214,7 +3219,9 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
         "risk": "<对{{stanceLabel}}方具体的风险点>",
         "suggestion": "<改进建议，方向更有利于{{stanceLabel}}（中立时朝公平方向）>",
         "suggestedClauseText": "<可选，推荐改写后的条款>",
-        "matchedPointCode": "<若命中清单要点，填其 code 原文；否则留空或不返此字段>"
+        "matchedPointCode": "<若命中清单要点，填其 code 原文；否则留空或不返此字段>",
+        "problemSentenceIds": [<必填，1-based ID 数组，从上面 [Sn] 编号里选出"产生风险的句子"，按出现顺序>],
+        "problematicQuote": "<可选，从所选 sentence 里逐字摘录的精确问题片段，不要改写、不要省略号、不要加标点>"
       }
     ],
     "skip": false
@@ -3227,7 +3234,9 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 - matchedPointCode 只能使用上方清单里列出的 code 原文，不要编号（如不要写 P1/P2）
 - 清单外风险 matchedPointCode 留空字符串或不返此字段
 - 优先选最具体的 code（clause_validity 是兜底；其它专项 code 优先）
-- 只输出 JSON，不要任何解释。', '["stanceLabel", "contractType", "partyA", "partyB", "clauseIndex", "clauseNumber", "clauseText", "playbookSection"]', 'v2', 'system', 1, 20, '2026-04-21 20:30:00+08', '2026-04-22 03:00:00+08', NULL);
+- problemSentenceIds：必填非空数组（除非整条 risk 实属"无法定位到具体句子的全段问题"，此时给所有 [Sn] 的 ID）；ID 必须真实出现在上方 sentencesNumbered 视图中
+- problematicQuote：可选，应是 problemSentenceIds 对应句子里逐字摘录的子串；不要改写、不要加标点
+- 只输出 JSON，不要任何解释。', '["stanceLabel", "contractType", "partyA", "partyB", "clauseIndex", "clauseNumber", "sentencesNumbered", "clauseTextRaw", "playbookSection"]', 'v3', 'system', 1, 20, '2026-04-21 20:30:00+08', '2026-05-03 10:00:00+08', NULL);
 INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (29, 'contractReviewGlobalReview_system', '合同审查·全局复核提示词 v1', '你正在对一份{{contractType}}（甲方：{{partyA}}；乙方：{{partyB}}）进行全局平衡性复核。用户已在客户版本的基础上做了修改，现在需要对整篇新上传的完整合同文本做综合检查。
 
 ## 任务目标
