@@ -360,12 +360,21 @@ export interface ClauseSegment {
     index: number
     /** 条款编号文本，如 "3.2"、"第五条"、null（无标号散段） */
     number: string | null
-    /** 条款正文 */
+    /** 条款正文（含编号字符；保持向后兼容，prompt 模板从此字段取 clauseTextRaw） */
     text: string
+    /**
+     * PR10 新增：条款正文（不含编号字符；anchor 锚定专用）。
+     * 用途：redlineInjector / commentInjector 在 OOXML <w:p> 上做严格行级匹配时，
+     * OOXML textContent 永远不含 numbering 前缀（Word 渲染时动态生成），
+     * 必须用此字段而非 text 才能严格等值匹配。
+     */
+    textWithoutNumber: string
     /** Phase B：该条款在 docxText 中的起始字符偏移（闭区间） */
     offsetStart: number
     /** Phase B：该条款在 docxText 中的结束字符偏移（开区间，即 offsetStart + text.length） */
     offsetEnd: number
+    /** PR10 新增：textWithoutNumber 在 docxText 中的起始字符偏移（= offsetStart + 编号字符长度） */
+    offsetStartWithoutNumber: number
 }
 
 /**
@@ -453,8 +462,16 @@ export interface PlaybookSnapshot {
 export interface ClauseSnapshotItem {
     index: number
     text: string
+    /**
+     * PR10 新增（optional）：与 ClauseSegment.textWithoutNumber 同源。
+     * 历史 snapshot 数据无此字段；使用方应 fallback 到 text（含编号）。
+     * Phase A 兜底重切（uploadClientVersion.service.ts:215-219）会填值。
+     */
+    textWithoutNumber?: string
     offsetStart: number
     offsetEnd: number
+    /** PR10 新增（optional）：理由同上 */
+    offsetStartWithoutNumber?: number
 }
 
 // ===== 多版本：枚举 =====
