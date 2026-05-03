@@ -161,6 +161,12 @@ export function buildNumberingPrefixMap(
             return
         }
 
+        // bullet 显式 skip：拼 "￮" "•" 会污染原文且 segmentClauses 不识别为编号
+        if (lvl.numFmt === 'bullet') {
+            logger.info('[numbering] bullet 段落跳过不拼前缀', { numId, ilvl, paraIndex })
+            return
+        }
+
         // counter ++ 或首次取 start
         const counterKey = `${numId}:${ilvl}`
         const currentCount = counters.has(counterKey)

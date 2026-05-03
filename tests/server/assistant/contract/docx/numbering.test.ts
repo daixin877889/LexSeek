@@ -121,6 +121,21 @@ describe('numbering · buildNumberingPrefixMap', () => {
         expect(result.get(0)).toBe('（1） ')
         expect(result.get(1)).toBe('（2） ')
     })
+
+    it('bullet 段落跳过不写入 prefixMap（避免拼 "￮" 污染原文）', () => {
+        const result = buildNumberingPrefixMap(DOC_XML_TWO_DECIMAL_PARAS, makeNumberingXml('bullet', '￮'))
+        expect(result.size).toBe(0)
+    })
+
+    it('空 lvlText 跳过段落（避免拼单空格污染原文）', () => {
+        const result = buildNumberingPrefixMap(DOC_XML_TWO_DECIMAL_PARAS, makeNumberingXml('decimal', ''))
+        expect(result.size).toBe(0)
+    })
+
+    it('未识别 numFmt（如 hindiNumbers）跳过段落', () => {
+        const result = buildNumberingPrefixMap(DOC_XML_TWO_DECIMAL_PARAS, makeNumberingXml('hindiNumbers', '%1.'))
+        expect(result.size).toBe(0)
+    })
 })
 
 function makeNumberingXml(numFmt: string, lvlText: string): string {
