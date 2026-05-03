@@ -125,10 +125,13 @@ function extractDiTiaoIndex(number: string): number | null {
     return null
 }
 
-/** 常用条款编号正则（按优先级组合，每组捕获"标号"） */
-const RE_DI_TIAO = /(第[一二三四五六七八九十零百千0-9\.]+条)/
-const RE_NUM_DOT = /^(\d+(?:\.\d+)*\.?)\s/
-const RE_CN_COMMA = /^([一二三四五六七八九十百千]+、)/
+/**
+ * 常用条款编号正则（按优先级组合，每组捕获"标号"）
+ * `splitSentences` 也复用这三个正则识别行首子项编号作为切句点（spec §5.1）。
+ */
+export const RE_DI_TIAO = /(第[一二三四五六七八九十零百千0-9\.]+条)/
+export const RE_NUM_DOT = /^(\d+(?:\.\d+)*\.?)\s/
+export const RE_CN_COMMA = /^([一二三四五六七八九十百千]+、)/
 
 /**
  * 按正则切分合同全文。每个 segment 包括编号及其到下一个编号（或文末）之间的全部文本。
