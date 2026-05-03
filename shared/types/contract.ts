@@ -606,3 +606,22 @@ export interface UploadVersionErrorData {
     code: string
     message: string
 }
+
+// ===== PR6: 导出模式（仅前端 RiskListPanel + composable 用，shared 合理）=====
+
+/** 合同审查 docx 导出模式 */
+export const CONTRACT_EXPORT_MODES = ['comment', 'redline', 'both'] as const
+export type ContractExportMode = typeof CONTRACT_EXPORT_MODES[number]
+
+/** 默认模式：保持现状向后兼容（未传 mode 时走批注） */
+export const DEFAULT_CONTRACT_EXPORT_MODE: ContractExportMode = 'comment'
+
+export const CONTRACT_EXPORT_MODE_LABEL: Record<ContractExportMode, string> = {
+    comment: '批注模式',
+    redline: '修订模式（Track Changes）',
+    both: '两者并存',
+}
+
+// 注意：RedlineWrapTarget 类型只在 server/agents/contract/docx/{commentInjector,redlineInjector}.ts
+// 之间流转，前端永不消费。按 .claude/rules/types.md 决策树「服务端专用 → 放 server 模块内」，
+// 该类型定义在 server/agents/contract/docx/redlineInjector.ts 内 export，不放 shared。
