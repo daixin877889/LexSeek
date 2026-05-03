@@ -28,7 +28,7 @@ import { parseContractDocx } from './docx'
 import { saveContractReviewVersionService } from './contractReviewVersion.service'
 import { analyzeSingleClause } from './analyzeSingleClause'
 import { diffClauses } from './utils/clauseDiff'
-import { migrateAnchor } from './utils/anchorMigrate'
+import { migrateRiskWithDualAnchor } from './utils/anchorMigrate'
 import { parseWordComments, type ParsedWordComment, type AnnotationRefEntry } from './docx/wordCommentParser'
 import { parseCommentRef, generateWordCommentRef, stripAuthorRef } from './utils/wordCommentRef'
 import { buildClauseToParagraphMap } from './utils/clauseToParagraph'
@@ -821,42 +821,73 @@ export async function* uploadClientVersionService(params: {
                     : null
 
                 if (isModified || isRemoved || oldArrayIdx === null) {
-                    // modified / removed / 完全找不到对应旧条款 → 都走全局漂移迁移
+                    // modified / removed / 完全找不到对应旧条款 → 走双锚点迁移（spec §9.2）
                     const preferredNew = isModified
                         ? (clauseDiffResult.modified.find((m) => m.oldIndex === oldArrayIdx)?.newIndex ?? null)
                         : null
-                    const result = migrateAnchor({
-                        oldAnchorQuote: r.clauseText ?? '',
+                    const result = migrateRiskWithDualAnchor({
+                        oldClauseText: r.clauseText ?? '',
+                        oldProblematicQuote: r.problematicQuote,
                         preferredNewClauseArrayIdx: preferredNew,
                         newClauses,
+                        newDocxText,
                     })
                     if (result) {
-                        // newClauses[result.newClauseIndex] 是数组下标 → 转段落序号
-                        const newParaIdx = newClauseArrayIdxToParaIdx(result.newClauseIndex)
+                        const newParaIdx = newClauseArrayIdxToParaIdx(result.newClauseArrayIdx)
+                        // spec §9.3：clauseText 实际变化 + 旧值非空 + 未备份过时才回填 originalClauseText
+                        // 旧值非空守护：PR2 schema 给 clauseText `@default("")`，存量行可能是空串，
+                        // 备份空串无业务意义反而污染"原文已修改"UI 提示
+                        const oldClauseTextStr = r.clauseText ?? ''
+                        const clauseTextChanged = oldClauseTextStr.length > 0 && oldClauseTextStr !== result.newClauseText
+                        const originalUpdate = clauseTextChanged && !r.originalClauseText
+                            ? { originalClauseText: oldClauseTextStr }
+                            : {}
+                        // 档 1 (matchType=quote)：写双锚点全字段；保留原 quoteMatchSource
+                        // 档 2 (matchType=clause)：写 clause 字段 + 清空 quote 字段（含 quoteMatchSource）
+                        const quoteUpdate = result.matchType === 'quote'
+                            ? {
+                                problematicQuote: result.newProblematicQuote,
+                                quoteCharStart: result.newQuoteCharStart,
+                                quoteCharEnd: result.newQuoteCharEnd,
+                                // quoteMatchSource 沿用旧值（迁移不改变首次审查时的命中来源语义）
+                            }
+                            : {
+                                problematicQuote: null,
+                                quoteCharStart: null,
+                                quoteCharEnd: null,
+                                quoteMatchSource: null,
+                            }
                         await tx.contractRisks.update({
                             where: { id: r.id },
                             data: {
+                                clauseIndex: newClauses[result.newClauseArrayIdx]!.index,
                                 clauseParagraphIndex: newParaIdx,
-                                clauseCharStart: result.newCharStart,
-                                clauseCharEnd: result.newCharEnd,
-                                clauseText: newClauses[result.newClauseIndex]!.text.slice(
-                                    result.newCharStart,
-                                    result.newCharEnd,
-                                ),
-                                ...(r.originalClauseText ? {} : { originalClauseText: r.clauseText }),
+                                clauseText: result.newClauseText,
+                                clauseCharStart: result.newClauseCharStart,
+                                clauseCharEnd: result.newClauseCharEnd,
+                                orphaned: false, // 之前 orphaned=true 的 risk 重传后又能定位时复活
+                                ...quoteUpdate,
+                                ...originalUpdate,
                             },
                         })
                     } else {
+                        // 档 3：两档都失败 → orphaned，保留旧 clauseText / problematicQuote 不动
+                        // originalClauseText 仅在旧值非空 + 未备份过时回填（与档 1/2 同口径）
+                        const oldClauseTextStr = r.clauseText ?? ''
+                        const orphanedOriginalUpdate = oldClauseTextStr.length > 0 && !r.originalClauseText
+                            ? { originalClauseText: oldClauseTextStr }
+                            : {}
                         await tx.contractRisks.update({
                             where: { id: r.id },
                             data: {
                                 orphaned: true,
-                                ...(r.originalClauseText ? {} : { originalClauseText: r.clauseText }),
+                                ...orphanedOriginalUpdate,
                             },
                         })
                     }
                 } else if (unchangedMapping) {
                     // unchanged clause：位置可能变化，更新 clauseParagraphIndex 到新段落序号
+                    // （quote 字段无需动——clauseText 没变，相对 offset 仍然有效）
                     const newParaIdx = newClauseArrayIdxToParaIdx(unchangedMapping.newIndex)
                     if (newParaIdx !== r.clauseParagraphIndex) {
                         await tx.contractRisks.update({
