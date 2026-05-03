@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { defineComponent, h, nextTick } from 'vue'
 import RiskListPanel from '~/components/assistant/contract/RiskListPanel.vue'
@@ -65,6 +65,9 @@ const RiskClauseDiffStub = defineComponent({
     props: {
         clauseText: { type: String, default: '' },
         suggestedClauseText: { type: String, default: '' },
+        // PR 4：mode 由 RiskCard 透传（来自 RiskListPanel 的 cardLayout），
+        // 把它落到 data-mode 上让"布局切换"链路在 stub 层可断言
+        mode: { type: String, default: '' },
     },
     setup(props) {
         return () =>
@@ -72,6 +75,7 @@ const RiskClauseDiffStub = defineComponent({
                 'data-stub': 'RiskClauseDiff',
                 'data-clause-text': props.clauseText,
                 'data-suggested-clause-text': props.suggestedClauseText,
+                'data-mode': props.mode,
             })
     },
 })
@@ -157,6 +161,24 @@ const stubs = {
     AlertDialogFooter: passthrough('AlertDialogFooter'),
     AlertDialogAction: alertBtn('AlertDialogAction'),
     AlertDialogCancel: alertBtn('AlertDialogCancel'),
+    // PR 4：布局 Tabs 段控相关 stub
+    Tabs: defineComponent({
+        name: 'Tabs',
+        props: { modelValue: String },
+        emits: ['update:modelValue'],
+        setup(_, { slots }) {
+            return () => h('div', { 'data-stub': 'Tabs' }, slots.default?.())
+        },
+    }),
+    TabsList: passthrough('TabsList'),
+    TabsTrigger: defineComponent({
+        name: 'TabsTrigger',
+        props: { value: String },
+        setup(props, { slots, attrs }) {
+            return () =>
+                h('button', { 'data-stub': 'TabsTrigger', 'data-value': props.value, ...attrs }, slots.default?.())
+        },
+    }),
 }
 
 function makeRisk(over: Partial<Risk> = {}): Risk {
@@ -953,5 +975,53 @@ describe('RiskListPanel · Phase B 渲染顺序', () => {
         const aiCardIdx = html.indexOf('data-risk-id="ai-1"')
         const orphanSectionIdx = html.indexOf('无法定位')
         expect(aiCardIdx).toBeLessThan(orphanSectionIdx)
+    })
+})
+
+describe('RiskListPanel · 布局切换（PR 4）', () => {
+    // 兜底清理：测试串行共享 jsdom，前一个 it 异常退出会残留偏好
+    afterEach(() => {
+        localStorage.removeItem('contract-review-risk-card-layout')
+    })
+
+    it('渲染顶部布局 Tabs 段控（分段 / 对照 两选项）', () => {
+        const w = mountPanel({ risks: [] })
+        const tabs = w.find('[data-testid="risk-card-layout-tabs"]')
+        expect(tabs.exists()).toBe(true)
+        const triggers = w.findAll('[data-stub="TabsTrigger"]')
+        expect(triggers.length).toBe(2)
+        expect(triggers[0]?.attributes('data-value')).toBe('stacked')
+        expect(triggers[1]?.attributes('data-value')).toBe('inline-diff')
+        expect(triggers[0]?.text()).toBe('分段')
+        expect(triggers[1]?.text()).toBe('对照')
+    })
+
+    it('cardLayout 默认 stacked → 链路最终把 mode="stacked" 透传到 RiskClauseDiff', async () => {
+        // 清理 localStorage 避免前序用例残留污染
+        localStorage.removeItem('contract-review-risk-card-layout')
+        const w = mountPanel({
+            risks: [makeRisk({ id: 'r1' })],
+        })
+        // RiskListPanel.cardLayout → RiskCard.layout → RiskClauseDiff.mode 链路
+        // 展开第一张卡让 RiskClauseDiff 进入 DOM
+        await w.find('[data-risk-id="r1"]').trigger('click')
+        const diff = w.find('[data-stub="RiskClauseDiff"]')
+        expect(diff.exists()).toBe(true)
+        expect(diff.attributes('data-mode')).toBe('stacked')
+    })
+
+    it('localStorage 已存 inline-diff → 链路最终把 mode="inline-diff" 透传到 RiskClauseDiff', async () => {
+        // @vueuse/core useLocalStorage 对 string 类型走 String(v) serializer，
+        // localStorage 里的值是裸字符串 'inline-diff'（**不带 JSON 引号**）。
+        // 源码确认：node_modules/@vueuse/core/dist/index.js StorageSerializers.string.write = (v) => String(v)
+        localStorage.setItem('contract-review-risk-card-layout', 'inline-diff')
+        const w = mountPanel({
+            risks: [makeRisk({ id: 'r1' })],
+        })
+        await nextTick()
+        await w.find('[data-risk-id="r1"]').trigger('click')
+        const diff = w.find('[data-stub="RiskClauseDiff"]')
+        expect(diff.exists()).toBe(true)
+        expect(diff.attributes('data-mode')).toBe('inline-diff')
     })
 })

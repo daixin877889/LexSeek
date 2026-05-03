@@ -70,6 +70,8 @@ function mountCard(props: Partial<{
     archivedStatus: any
     notLocated: boolean
     playbookSnapshot: any
+    /** PR 4：layout 可选；不传时 RiskCard 内 layoutMode 走默认 'stacked' */
+    layout: 'stacked' | 'inline-diff'
 }> = {}) {
     return mount(RiskCard, {
         props: {
@@ -175,5 +177,32 @@ describe('RiskCard · 钉住按钮', () => {
         expect(w.emitted('togglePin')![0]).toEqual(['risk-1'])
         // 点击钉按钮不应触发卡片自身的 focus
         expect(w.emitted('focus')).toBeFalsy()
+    })
+})
+
+describe('RiskCard · layout prop 透传（PR 4）', () => {
+    it('layout 不传（默认）展开时把 mode="stacked" 传给 RiskClauseDiff stub', () => {
+        const w = mountCard({ expanded: true })
+        const stub = w.find('[data-stub="RiskClauseDiff"]')
+        expect(stub.exists()).toBe(true)
+        // passthrough stub 不声明 props，所以 :mode 落入 attrs，序列化成 HTML 属性
+        expect(stub.attributes('mode')).toBe('stacked')
+    })
+
+    it('layout="stacked" 显式传入展开时把 mode="stacked" 传给 RiskClauseDiff stub', () => {
+        const w = mountCard({ expanded: true, layout: 'stacked' })
+        const stub = w.find('[data-stub="RiskClauseDiff"]')
+        expect(stub.attributes('mode')).toBe('stacked')
+    })
+
+    it('layout="inline-diff" 展开时把 mode="inline-diff" 传给 RiskClauseDiff stub', () => {
+        const w = mountCard({ expanded: true, layout: 'inline-diff' })
+        const stub = w.find('[data-stub="RiskClauseDiff"]')
+        expect(stub.attributes('mode')).toBe('inline-diff')
+    })
+
+    it('isOrphaned=true 时不渲染 RiskClauseDiff（孤立卡无 clause anchor）', () => {
+        const w = mountCard({ expanded: true, isOrphaned: true })
+        expect(w.find('[data-stub="RiskClauseDiff"]').exists()).toBe(false)
     })
 })
