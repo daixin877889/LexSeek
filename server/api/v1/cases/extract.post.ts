@@ -25,7 +25,7 @@ import { processFileMaterials } from '~~/server/services/material/fileProcess.se
 import type { FileProcessContext } from '~~/server/services/material/fileProcess.service'
 import { countTokens } from '~~/server/utils/tokenCounter'
 import { getEnabledCaseTypesService } from '~~/server/services/case/caseType.service'
-import { withLangfuseContext } from '~~/server/lib/langfuse'
+import { buildLangfuseTopLevelConfig, withLangfuseContext } from '~~/server/lib/langfuse'
 
 const EXTRACT_NODE_NAME = 'extractInfo'
 
@@ -173,12 +173,15 @@ async function doExtract(
         new HumanMessage(userMessage),
     ]
 
+    // 裸 model 调用：显式注入 langfuseHandler 让 trace 产生 generation span。
+    // modelProxy 已不再主动注入 callbacks（避免覆盖 chain 内调用的 ALS callbacks）。
+    const lfConfig = buildLangfuseTopLevelConfig()
     if (outputSchema) {
         const structuredModel = model.withStructuredOutput(outputSchema)
-        const result = await structuredModel.invoke(messages)
+        const result = await structuredModel.invoke(messages, lfConfig)
         return { extractedInfo: result, message: null }
     } else {
-        const result = await model.invoke(messages)
+        const result = await model.invoke(messages, lfConfig)
         const content = typeof result.content === 'string'
             ? result.content
             : JSON.stringify(result.content)

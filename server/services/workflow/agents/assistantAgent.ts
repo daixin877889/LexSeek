@@ -18,6 +18,7 @@ import { getValidNodeConfig, resolveThinkingFromNodeConfig } from '../../node/no
 import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
 import { renderSystemPrompt } from '../utils/promptRenderer'
+import { buildLangfuseTopLevelConfig } from '~~/server/lib/langfuse'
 import { buildSystemPromptForAgent } from '../context/moduleContextBuilder'
 import {
     createAuditMiddleware,
@@ -161,6 +162,7 @@ export async function runAssistantChat(
             encoding: 'text/event-stream',
             recursionLimit: 1000,
             signal,
+            ...buildLangfuseTopLevelConfig({ vertical: 'legal-assistant' }),
         },
     )
 }

@@ -438,11 +438,14 @@ describe('callbacks 选项透传', () => {
         expect(streamArgs.callbacks).toContain(userCallback)
     })
 
-    it('首轮不传 callbacks → agent.stream callbacks 选项是 undefined（向后兼容）', async () => {
+    it('首轮不传 callbacks → agent.stream callbacks 仅含 langfuseHandler（buildLangfuseTopLevelConfig 注入）', async () => {
         const { runContractReviewChat } = await import('~~/server/services/workflow/agents/contractReviewMainAgent')
         await runContractReviewChat('sess-z2', { userId: 1 })
         const streamArgs = mockStream.mock.calls.at(-1)?.[1] as any
-        expect(streamArgs.callbacks).toBeUndefined()
+        // langfuse 集成后由 buildLangfuseTopLevelConfig 在 stream 顶层注入 langfuseHandler；
+        // 业务未传 callbacks 时这里应是 [langfuseHandler]
+        expect(Array.isArray(streamArgs.callbacks)).toBe(true)
+        expect(streamArgs.callbacks).toHaveLength(1)
     })
 
     it('skipStanceInterrupt=true（review.stance 已落库）→ 不走 agent.stream（callbacks 不触发，设计意图）', async () => {

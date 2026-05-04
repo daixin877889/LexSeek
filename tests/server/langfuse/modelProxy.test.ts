@@ -19,7 +19,7 @@ describe('wrapWithLangfuse', () => {
     _resetLangfuseClientCache()
   })
 
-  it('invoke 注入完整 RunnableConfig（runName / tags 顶层 / camelCase metadata）', async () => {
+  it('invoke 注入 runName / tags / camelCase metadata（不注入 callbacks）', async () => {
     const model = createFakeModel()
     const wrapped = wrapWithLangfuse(model)
 
@@ -40,16 +40,19 @@ describe('wrapWithLangfuse', () => {
     expect(input).toBe('hello')
     expect(config.runName).toBe('case-analysis')
     expect(config.tags).toContain('case-analysis')
-    expect(config.metadata.langfuseUserId).toBe('42')
-    expect(config.metadata.langfuseSessionId).toBe('sess-1')
+    // ⚠️ proxy 用 fallback* 前缀（不是 langfuseUserId/SessionId）—— 后者会被 langfuse v5
+    // CallbackHandler.handleGenerationStart 主动 strip，写到 model 层无效
+    expect(config.metadata.fallbackUserId).toBe('42')
+    expect(config.metadata.fallbackSessionId).toBe('sess-1')
     expect(config.metadata.requestId).toBe('req-1')
     expect(config.metadata.runId).toBe('run-1')
     expect(config.metadata.caseId).toBe(100)
-    expect(config.metadata.scope).toBe('CASE')
-    expect(Array.isArray(config.callbacks)).toBe(true)
+    expect(config.metadata.businessScope).toBe('CASE')
+    // proxy 不再主动注入 callbacks（避免覆盖 LangChain ALS 中的 StreamMessagesHandler 等）
+    expect('callbacks' in config).toBe(false)
   })
 
-  it('已存在的 callbacks / tags / metadata 应合并而不是覆盖', async () => {
+  it('用户已传入的 callbacks / tags / metadata 透传，proxy 不动 callbacks', async () => {
     const model = createFakeModel()
     const wrapped = wrapWithLangfuse(model)
     const existingCallback = { handleLLMStart: vi.fn() }
@@ -66,9 +69,10 @@ describe('wrapWithLangfuse', () => {
     const [, config] = model.invoke.mock.calls[0]!
     expect(config.tags).toContain('custom-tag')
     expect(config.tags).toContain('contract')
-    expect(config.callbacks).toContain(existingCallback)
+    // 透传：用户传什么 callbacks 就保留什么；proxy 不追加 langfuseHandler
+    expect(config.callbacks).toEqual([existingCallback])
     expect(config.metadata.customField).toBe('x')
-    expect(config.metadata.scope).toBe('CONTRACT')
+    expect(config.metadata.businessScope).toBe('CONTRACT')
   })
 
   it('用户传入的 runName 优先于默认 vertical', async () => {
@@ -92,8 +96,8 @@ describe('wrapWithLangfuse', () => {
 
     expect(model.invoke).toHaveBeenCalledTimes(1)
     const [, config] = model.invoke.mock.calls[0]!
-    expect(config.metadata.langfuseUserId).toBeUndefined()
-    expect(config.metadata.langfuseSessionId).toBeUndefined()
+    expect(config.metadata.fallbackUserId).toBeUndefined()
+    expect(config.metadata.fallbackSessionId).toBeUndefined()
   })
 
   it('stream / batch / streamEvents 同样被拦截', async () => {
@@ -114,7 +118,7 @@ describe('wrapWithLangfuse', () => {
       expect(fn).toHaveBeenCalledTimes(1)
       const [, config] = fn.mock.calls[0]!
       expect(config.runName).toBe('document')
-      expect(config.metadata.scope).toBe('DOCUMENT')
+      expect(config.metadata.businessScope).toBe('DOCUMENT')
     }
   })
 

@@ -47,7 +47,7 @@ import { createTool as createRunSkillCommandTool } from '~~/server/services/agen
 
 import { createCustomEventEmitter } from '~~/server/services/agent-platform/sse/customEventEmitter'
 
-import { withLangfuseContext } from '~~/server/lib/langfuse'
+import { buildLangfuseTopLevelConfig, withLangfuseContext } from '~~/server/lib/langfuse'
 import type { LangfuseVertical } from '~~/server/lib/langfuse'
 
 import { SessionScope } from '#shared/types/agentEvent'
@@ -298,6 +298,8 @@ async function runDomainAgentInner(
     await def.hooks?.beforeRun?.(ctx)
 
     // 13. 流式执行，返回 ReadableStream
+    // Langfuse 4 件套（callbacks/runName/tags/metadata.langfuseUserId/SessionId）
+    // 由 buildLangfuseTopLevelConfig 从 ALS 上下文（外层 withLangfuseContext 已包）注入
     const stream = await agent.stream(
         input as any,
         {
@@ -309,6 +311,7 @@ async function runDomainAgentInner(
             encoding: 'text/event-stream',
             recursionLimit: 1000,
             signal: ctx.signal,
+            ...buildLangfuseTopLevelConfig(),
         },
     )
 

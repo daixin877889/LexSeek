@@ -13,6 +13,7 @@
 import { trimMessages } from '@langchain/core/messages'
 import { HumanMessage, type BaseMessage, isAIMessage } from '@langchain/core/messages'
 import { countTokensSync } from '~~/server/utils/tokenCounter'
+import { buildLangfuseTopLevelConfig } from '~~/server/lib/langfuse'
 
 /** 默认上下文窗口（tokens）：主流模型的保守默认，agent 和 compressor 统一使用 */
 export const DEFAULT_CONTEXT_WINDOW = 128000
@@ -196,10 +197,16 @@ export async function compressMessages(
     // 用模型生成中间消息的摘要
     try {
         const summaryPrompt = buildSummaryPrompt(middleMessages)
-        const summaryResponse = await model.invoke([
-            { role: 'system', content: '你是一个信息压缩助手。请将以下工具调用和对话内容压缩为结构化摘要，保留所有关键发现和数据点。' },
-            new HumanMessage(summaryPrompt),
-        ])
+        // 裸 model 调用：显式注入 langfuseHandler，并通过 langfuse:nostream tag 让
+        // SpanProcessor 豁免本条 generation 上报（内部上下文压缩调用不进 Langfuse trace）。
+        const lfConfig = buildLangfuseTopLevelConfig()
+        const summaryResponse = await model.invoke(
+            [
+                { role: 'system', content: '你是一个信息压缩助手。请将以下工具调用和对话内容压缩为结构化摘要，保留所有关键发现和数据点。' },
+                new HumanMessage(summaryPrompt),
+            ],
+            { ...lfConfig, tags: [...(lfConfig.tags ?? []), 'langfuse:nostream', 'internal'] },
+        )
 
         const summaryContent = typeof summaryResponse.content === 'string'
             ? summaryResponse.content

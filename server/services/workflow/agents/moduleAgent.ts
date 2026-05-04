@@ -28,7 +28,7 @@ import {
 import { buildSystemPromptForAgent } from '../context/moduleContextBuilder'
 import { safetyTrimMiddleware } from '../middleware/safetyTrim.middleware'
 import { createTool as createSaveAnalysisResultTool } from '../tools/saveAnalysisResult.tool'
-import { withLangfuseContext } from '~~/server/lib/langfuse'
+import { buildLangfuseTopLevelConfig, withLangfuseContext } from '~~/server/lib/langfuse'
 import { renderSystemPrompt } from '../utils/promptRenderer'
 import { buildSkillsMiddlewareForNode } from '~~/server/services/agent-platform/middleware/skills'
 import { afterAgentMemoryMiddleware } from '~~/server/services/agent-platform/middleware/afterAgentMemory.middleware'
@@ -210,5 +210,6 @@ async function runModuleChatInner(
         encoding: 'text/event-stream',
         recursionLimit: 1000,
         signal: options.signal,
+        ...buildLangfuseTopLevelConfig(),
     })
 }

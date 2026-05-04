@@ -204,16 +204,18 @@ describe('callbacks 选项透传', () => {
         })
     })
 
-    it('不传 callbacks（向后兼容）→ stream 被调用，callbacks 含 errorTraceHandler', async () => {
+    it('不传 callbacks（向后兼容）→ stream 被调用，callbacks 含 errorTraceHandler + langfuseHandler', async () => {
         const { runDocumentChat } = await import('~~/server/services/workflow/agents/documentMainAgent')
         await runDocumentChat('sess-x', '问', { userId: 1 })
         const streamArgs = mockStream.mock.calls[0]?.[1] as any
         expect(streamArgs.callbacks).toBeDefined()
         expect(Array.isArray(streamArgs.callbacks)).toBe(true)
-        expect(streamArgs.callbacks).toHaveLength(1)  // 仅 errorTraceHandler
+        // [langfuseHandler, errorTraceHandler]
+        // langfuseHandler 由 buildLangfuseTopLevelConfig 在 stream 顶层注入；errorTraceHandler 由业务追加
+        expect(streamArgs.callbacks).toHaveLength(2)
     })
 
-    it('传 callbacks → 与 errorTraceHandler 合并到 callbacks 数组', async () => {
+    it('传 callbacks → 与 errorTraceHandler / langfuseHandler 合并到 callbacks 数组', async () => {
         const userCallback: CallbackHandlerMethods = { handleLLMNewToken: vi.fn() }
         const { runDocumentChat } = await import('~~/server/services/workflow/agents/documentMainAgent')
         await runDocumentChat('sess-y', '问', {
@@ -221,7 +223,8 @@ describe('callbacks 选项透传', () => {
             callbacks: [userCallback],
         })
         const streamArgs = mockStream.mock.calls[0]?.[1] as any
-        expect(streamArgs.callbacks).toHaveLength(2)  // errorTraceHandler + userCallback
-        expect(streamArgs.callbacks[1]).toBe(userCallback)
+        // [langfuseHandler, errorTraceHandler, userCallback]
+        expect(streamArgs.callbacks).toHaveLength(3)
+        expect(streamArgs.callbacks).toContain(userCallback)
     })
 })

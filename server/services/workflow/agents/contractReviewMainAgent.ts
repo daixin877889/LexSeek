@@ -41,6 +41,7 @@ import {
     type ReactAgent,
 } from 'langchain'
 import { HumanMessage } from '@langchain/core/messages'
+import { buildLangfuseTopLevelConfig } from '~~/server/lib/langfuse'
 import pLimit from 'p-limit'
 import { getCheckpointer, getStore } from '../checkpointer'
 import { getValidNodeConfig, type NodeConfig } from '../../node/node.service'
@@ -685,6 +686,6 @@ export async function runContractReviewChat(
         encoding: 'text/event-stream',
         recursionLimit: 1000,
         signal,
-        callbacks: options.callbacks,
+        ...buildLangfuseTopLevelConfig({ additionalCallbacks: options.callbacks }),
     })
 }

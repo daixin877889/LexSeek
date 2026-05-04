@@ -50,10 +50,10 @@ describe('Langfuse 业务接入集成', () => {
     expect(config.runName).toBe('init-analysis')
     expect(config.tags).toContain('init-analysis')
     expect(config.metadata.caseId).toBe(999)
-    expect(config.metadata.langfuseUserId).toBe('100')
-    expect(config.metadata.langfuseSessionId).toBe('sess-init-1')
+    expect(config.metadata.fallbackUserId).toBe('100')
+    expect(config.metadata.fallbackSessionId).toBe('sess-init-1')
     expect(config.metadata.runId).toBe('run-init-1')
-    expect(config.metadata.scope).toBe('CASE')
+    expect(config.metadata.businessScope).toBe('CASE')
   })
 
   it('嵌套 vertical：runtime 顶层 case-main → 子 agent invoke-node-json 覆盖（merge 语义）', async () => {
@@ -79,12 +79,12 @@ describe('Langfuse 业务接入集成', () => {
 
     const [, config] = model.invoke.mock.calls[0]!
     // 内层 vertical 覆盖外层
-    expect(config.metadata.scope).toBe('TOOL')
+    expect(config.metadata.businessScope).toBe('TOOL')
     expect(config.runName).toBe('invoke-node-json')
     // 外层业务字段保留
     expect(config.metadata.runId).toBe('run-2')
     expect(config.metadata.caseId).toBe(42)
-    expect(config.metadata.langfuseUserId).toBe('7')
+    expect(config.metadata.fallbackUserId).toBe('7')
   })
 
   it('合同审查链路：handler 包 reviewId/caseId → 内层 model.invoke 拿到 reviewId metadata', async () => {
@@ -106,7 +106,7 @@ describe('Langfuse 业务接入集成', () => {
     const [, config] = model.invoke.mock.calls[0]!
     expect(config.metadata.reviewId).toBe('review-XYZ')
     expect(config.metadata.caseId).toBe(1234)
-    expect(config.metadata.scope).toBe('CONTRACT')
+    expect(config.metadata.businessScope).toBe('CONTRACT')
     expect(config.tags).toContain('contract')
   })
 
@@ -140,7 +140,7 @@ describe('Langfuse 业务接入集成', () => {
 
     const [, config] = model.invoke.mock.calls[0]!
     expect(config.metadata.runId).toBe('worker-run-1')
-    expect(config.metadata.langfuseSessionId).toBe('sess-worker-1')
+    expect(config.metadata.fallbackSessionId).toBe('sess-worker-1')
     expect(config.metadata.caseId).toBe(555)
     expect(config.runName).toBe('case-main')
   })
@@ -162,7 +162,7 @@ describe('Langfuse 业务接入集成', () => {
 
     const [, config] = model.invoke.mock.calls[0]!
     expect(config.metadata.materialId).toBe('mat-77')
-    expect(config.metadata.scope).toBe('MATERIAL')
+    expect(config.metadata.businessScope).toBe('MATERIAL')
     expect(config.tags).toContain('material-summary')
   })
 })

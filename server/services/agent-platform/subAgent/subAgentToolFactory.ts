@@ -29,7 +29,7 @@ import { buildSystemPromptForAgent } from '~~/server/services/agent-platform/con
 import type { NodeConfig } from '~~/server/services/node/node.service'
 import { buildSubAgentCallbacks } from './buildSubAgentCallbacks'
 import { publishSubAgentStatus } from './publishSubAgentStatus'
-import { withLangfuseContext } from '~~/server/lib/langfuse'
+import { buildLangfuseTopLevelConfig, withLangfuseContext } from '~~/server/lib/langfuse'
 
 /** 子代理工具上下文 */
 export interface SubAgentToolContext {
@@ -216,12 +216,14 @@ export async function createSubAgentTools(
                                 thread_id: subThreadId,
                             },
                             recursionLimit: 1000,
-                            callbacks: buildSubAgentCallbacks({
-                                mainRunId,
-                                sessionId: context.sessionId,
-                                parentToolCallId,
-                                agentName: nodeConfig.name,
-                                subThreadId,
+                            ...buildLangfuseTopLevelConfig({
+                                additionalCallbacks: buildSubAgentCallbacks({
+                                    mainRunId,
+                                    sessionId: context.sessionId,
+                                    parentToolCallId,
+                                    agentName: nodeConfig.name,
+                                    subThreadId,
+                                }),
                             }),
                         },
                     )

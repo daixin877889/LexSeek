@@ -31,6 +31,7 @@ import {
     MIDDLEWARE_NAMES,
 } from '../middleware'
 import { afterAgentMemoryMiddleware } from '~~/server/services/agent-platform/middleware/afterAgentMemory.middleware'
+import { buildLangfuseTopLevelConfig } from '~~/server/lib/langfuse'
 import { findDraftBySessionIdDAO } from '../../assistant/document/documentDraft.dao'
 import { getDocumentTemplateDAO } from '../../assistant/document/documentTemplate.dao'
 import { buildDraftSchema } from '../../assistant/document/draftSchema.builder'
@@ -339,14 +340,16 @@ export async function runDocumentChat(
             encoding: 'text/event-stream',
             recursionLimit: 1000,
             signal,
-            callbacks: [
-                createErrorTraceHandler({
-                    sessionId,
-                    agentName: 'documentMain',
-                    extra: { draftId: draft.id, templateId: template.id, caseId: resolvedCaseId },
-                }),
-                ...(options.callbacks ?? []),
-            ],
+            ...buildLangfuseTopLevelConfig({
+                additionalCallbacks: [
+                    createErrorTraceHandler({
+                        sessionId,
+                        agentName: 'documentMain',
+                        extra: { draftId: draft.id, templateId: template.id, caseId: resolvedCaseId },
+                    }),
+                    ...(options.callbacks ?? []),
+                ],
+            }),
         },
     )
 }

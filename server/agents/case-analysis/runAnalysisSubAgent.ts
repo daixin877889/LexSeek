@@ -209,6 +209,13 @@ async function runAnalysisSubAgentInner(
         skillToolsCount: skillTools.length,
     })
 
+    // 关键：本子 agent 在 caseAnalysisV2 graph 节点内执行，必须让父 graph 通过 ALS 传入的
+    // callbacks（含 LangGraph StreamMessagesHandler 与 chain 顶层挂的 langfuseHandler）继续生效。
+    // 显式传 { callbacks: [...] } 会被 LangChain ensureConfig 视为覆盖 ALS implicit config，
+    // 把 StreamMessagesHandler 挤掉 → handleLLMNewToken 失踪 → 整个 ai message 改走 handleLLMEnd
+    // 一次性 emit，前端表现为"等模块结束才一次性渲染"。
+    // langfuse 上下文已由外层 withLangfuseContext + chain 顶层 buildLangfuseTopLevelConfig 完成；
+    // model 层的 metadata 注入由 modelProxy 兜底。
     const response = await agent.invoke(
         { messages: [new HumanMessage(`现在请开始"${moduleTitle}"分析。`)] },
         { recursionLimit: 1000, signal },
