@@ -27,8 +27,9 @@ export async function withLangfuseContext<T>(
 }
 
 export function enterLangfuseContext(patch: Partial<LangfuseTraceContext>): void {
-  const merged = mergeContext(storage.getStore(), patch)
-  storage.enterWith(merged)
+  // "起根上下文"语义：HTTP 入口处覆盖旧 ALS（不 merge 上一次请求残留），
+  // 确保每个新请求的根上下文是干净的。
+  storage.enterWith({ requestId: '', ...stripUndefined(patch) })
 }
 
 function mergeContext(
