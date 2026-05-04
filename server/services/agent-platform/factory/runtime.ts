@@ -47,10 +47,28 @@ import { createTool as createRunSkillCommandTool } from '~~/server/services/agen
 
 import { createCustomEventEmitter } from '~~/server/services/agent-platform/sse/customEventEmitter'
 
+import { withLangfuseContext } from '~~/server/lib/langfuse'
+import type { LangfuseVertical } from '~~/server/lib/langfuse'
+
 import { SessionScope } from '#shared/types/agentEvent'
 import type { DomainAgentDefinition, StateGraphAgentContext } from './types'
 import type { AgentRunnerContext } from '~~/server/services/agent-platform/registry/types'
 import type { ToolContext } from '~~/server/services/agent-platform/tools/types'
+
+/**
+ * SessionScope → 默认 LangfuseVertical 映射。
+ * 业务子节点（case-analysis / case-module / init-analysis 等）由更内层的
+ * withLangfuseContext 覆盖（merge 语义：内层补字段 + 覆盖 vertical）。
+ */
+function deriveDefaultVertical(scope: SessionScope): LangfuseVertical {
+    switch (scope) {
+        case SessionScope.CASE: return 'case-main'
+        case SessionScope.ASSISTANT: return 'legal-assistant'
+        case SessionScope.DOCUMENT: return 'document'
+        case SessionScope.CONTRACT: return 'contract'
+        default: return 'case-main'
+    }
+}
 
 // -----------------------------------------------------------------------
 // 工具函数
@@ -91,6 +109,23 @@ function mergeToolsByName(tools: StructuredToolInterface[]): StructuredToolInter
  * stateGraph 路径由 defineDomainAgent 直接调用 def.runStateGraph。
  */
 export async function runDomainAgent(
+    def: DomainAgentDefinition,
+    ctx: AgentRunnerContext,
+): Promise<ReadableStream> {
+    return withLangfuseContext(
+        {
+            runId: ctx.runId,
+            sessionId: ctx.sessionId,
+            threadId: ctx.sessionId,
+            userId: ctx.userId,
+            caseId: ctx.caseId ?? undefined,
+            vertical: deriveDefaultVertical(def.scope),
+        },
+        () => runDomainAgentInner(def, ctx),
+    )
+}
+
+async function runDomainAgentInner(
     def: DomainAgentDefinition,
     ctx: AgentRunnerContext,
 ): Promise<ReadableStream> {
@@ -361,6 +396,23 @@ export async function runStateGraphAgent(
         )
     }
 
+    return withLangfuseContext(
+        {
+            runId: ctx.runId,
+            sessionId: ctx.sessionId,
+            threadId: ctx.sessionId,
+            userId: ctx.userId,
+            caseId: ctx.caseId ?? undefined,
+            vertical: deriveDefaultVertical(def.scope),
+        },
+        () => runStateGraphAgentInner(def, ctx),
+    )
+}
+
+async function runStateGraphAgentInner(
+    def: DomainAgentDefinition,
+    ctx: AgentRunnerContext,
+): Promise<ReadableStream> {
     // 1. 解析节点名称（支持动态函数形式）
     const resolvedNodeName = typeof def.nodeName === 'function' ? def.nodeName(ctx) : def.nodeName
 
@@ -394,7 +446,8 @@ export async function runStateGraphAgent(
     //    这里只 logger.error + afterRun(false) + rethrow，避免重复发事件。
     let stream: ReadableStream
     try {
-        stream = await def.runStateGraph(enhancedCtx)
+        // wrapper 函数已校验 def.runStateGraph 非空，inner 函数无法继承 narrow，加 ! 断言
+        stream = await def.runStateGraph!(enhancedCtx)
     } catch (err) {
         logger.error('[runStateGraphAgent] business throw', {
             scope: def.scope,

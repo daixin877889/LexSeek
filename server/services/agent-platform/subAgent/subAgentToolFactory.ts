@@ -29,6 +29,7 @@ import { buildSystemPromptForAgent } from '~~/server/services/agent-platform/con
 import type { NodeConfig } from '~~/server/services/node/node.service'
 import { buildSubAgentCallbacks } from './buildSubAgentCallbacks'
 import { publishSubAgentStatus } from './publishSubAgentStatus'
+import { withLangfuseContext } from '~~/server/lib/langfuse'
 
 /** 子代理工具上下文 */
 export interface SubAgentToolContext {
@@ -112,12 +113,22 @@ export async function createSubAgentTools(
                 // → Anthropic 报错 "System messages are only permitted as the first passed message"。
                 const subThreadId = `${context.sessionId}_sub_${safeName}_${parentToolCallId}`
 
+                return withLangfuseContext(
+                    {
+                        vertical: 'sub-agent',
+                        threadId: subThreadId,
+                    },
+                    () => runSubAgentInner(),
+                )
+
+                async function runSubAgentInner(): Promise<string> {
                 try {
                     // 创建模型实例
                     const model = createChatModel({
                         sdkType: config.modelSdkType,
                         modelName: config.modelName,
-                        apiKey: activeApiKey.apiKey,
+                        // 外层 forEach 已校验 activeApiKey 非空（continue 跳过），嵌套 inner 函数 TS narrow 失效，加 ! 断言
+                        apiKey: activeApiKey!.apiKey,
                         baseUrl: config.modelProviderBaseUrl,
                         temperature: 0.7,
                         streaming: true,
@@ -259,6 +270,7 @@ export async function createSubAgentTools(
                     })
 
                     return `子代理 ${config.title} 执行失败: ${errorMessage}`
+                }
                 }
             },
             {

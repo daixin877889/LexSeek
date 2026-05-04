@@ -11,6 +11,7 @@ import { createChatModel } from '~~/server/services/node/chatModelFactory'
 import { getValidNodeConfig } from '~~/server/services/node/node.service'
 import { logContextOverflow } from '~~/server/services/agent-platform/context/contextErrorLogger'
 import { extractFirstJsonObject, summarizeJsonShape } from '~~/server/services/assistant/contract/utils/llmJson'
+import { withLangfuseContext } from '~~/server/lib/langfuse'
 
 export interface InvokeNodeJsonOptions<T> {
     /** nodes 表 name 字段 */
@@ -62,6 +63,10 @@ const MAX_RETRIES = 3
  * 任何步骤失败都先 `logger.warn` 携带完整诊断信息，再抛出带 `errorPrefix` 的 Error。
  */
 export async function invokeNodeJson<T>(opts: InvokeNodeJsonOptions<T>): Promise<T> {
+    return withLangfuseContext({ vertical: 'invoke-node-json' }, () => invokeNodeJsonInner(opts))
+}
+
+async function invokeNodeJsonInner<T>(opts: InvokeNodeJsonOptions<T>): Promise<T> {
     const { nodeName, temperature, schema, buildPrompt, errorPrefix, logContext = {} } = opts
 
     const config = await getValidNodeConfig(nodeName)
