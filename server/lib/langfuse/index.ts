@@ -8,3 +8,4 @@ export type { LangfuseRuntimeConfig, LangfuseScope, LangfuseTraceContext, Langfu
 export { deriveScope } from './types'
 export { redactPII } from './redactPII'
 export { enterLangfuseContext, getLangfuseContext, withLangfuseContext } from './context'
+export { getLangfuseHandler, getLangfuseRuntimeConfig } from './client'
