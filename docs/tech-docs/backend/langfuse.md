@@ -187,6 +187,20 @@ LANGFUSE_ENVIRONMENT=development
 
 测试环境强制禁用：`tests/_infra/global-setup.ts` 顶部 `process.env.LANGFUSE_TRACING_ENABLED = 'false'`，防止误上送到生产。
 
+### ⚠️ Serverless 部署必须设置（当前自托管 Docker 不需要）
+
+LangChain v0.3+ 把 callbacks 改为后台执行。serverless 平台（AWS Lambda、Cloudflare Workers、Vercel Edge、阿里云函数计算）进程执行完立刻退出，**后台任务来不及把 trace 上报到 Langfuse 就被杀**，会丢数据。
+
+部署到上述平台时 `.env` 必须加：
+
+```
+LANGCHAIN_CALLBACKS_BACKGROUND=false
+```
+
+效果：把 callbacks 改回前台同步执行，handler 完成上报后再返回响应。代价是单次响应延迟略增（trace flush 时间）。
+
+LexSeek 当前 docker 长进程部署不需要此设置——Nitro `close` hook 在 SIGTERM 时调 `nodeSdk.shutdown()` 自动 flush（见 `server/plugins/langfuse-otel.ts`）。
+
 ## 故障排查
 
 ### dev 启动看不到 `[langfuse] OTel NodeSDK 已启动`
