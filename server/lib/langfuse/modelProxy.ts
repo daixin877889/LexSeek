@@ -11,11 +11,14 @@
  * - 不参与 nostream 豁免（统一闸口在 LangfuseSpanProcessor.shouldExportSpan）
  */
 
+import type { BaseCallbackHandler, CallbackHandlerMethods } from '@langchain/core/callbacks/base'
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import type { RunnableConfig } from '@langchain/core/runnables'
 import { getLangfuseHandler, getLangfuseRuntimeConfig } from './client'
 import { getLangfuseContext } from './context'
 import { deriveScope } from './types'
+
+type CallbackEntry = BaseCallbackHandler | CallbackHandlerMethods
 
 const INTERCEPTED = new Set(['invoke', 'stream', 'batch', 'streamEvents'])
 
@@ -44,7 +47,7 @@ export function wrapWithLangfuse<M extends BaseChatModel>(model: M): M {
           ...config,
           runName: config?.runName ?? ctx?.vertical,
           tags: mergedTags,
-          callbacks: [...((config?.callbacks as unknown[] | undefined) ?? []), handler],
+          callbacks: [...((config?.callbacks as CallbackEntry[] | undefined) ?? []), handler],
           metadata: {
             ...(config?.metadata ?? {}),
             langfuseUserId: ctx?.userId !== undefined ? String(ctx.userId) : undefined,

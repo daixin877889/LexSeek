@@ -16,6 +16,7 @@ import { ChatAnthropic } from '@langchain/anthropic'
 import type { SdkType } from '#shared/types/model'
 import { SDK_TYPES } from '#shared/types/model'
 import type { CachedPrompt } from '#shared/types/prompt'
+import { wrapWithLangfuse } from '~~/server/lib/langfuse'
 
 // ============================================================================
 // 类型定义
@@ -235,8 +236,9 @@ export function createChatModel(config: ChatModelConfig): BaseChatModel {
         )
     }
 
-    // 创建并返回模型实例
-    return creator(config)
+    // 创建模型实例后用 Langfuse ES Proxy 包一层，
+    // 使后续 invoke/stream/batch/streamEvents 自动从 ALS 注入 RunnableConfig（runName/tags/metadata + Langfuse callback）
+    return wrapWithLangfuse(creator(config))
 }
 
 /**
