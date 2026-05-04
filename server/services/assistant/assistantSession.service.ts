@@ -24,6 +24,7 @@ import { getValidNodeConfig } from '../node/node.service'
 import { createChatModel } from '../node/chatModelFactory'
 import { renderContent } from '../node/prompt.service'
 import { logContextOverflow } from '../workflow/context/contextErrorLogger'
+import { withLangfuseContext } from '~~/server/lib/langfuse'
 
 /**
  * 标题生成节点名称。
@@ -122,6 +123,18 @@ function sanitizeTitle(raw: string): string {
  * @param firstAssistantReply 首条助手回复
  */
 export async function generateSessionTitleAsync(
+    sessionId: string,
+    userId: number,
+    firstUserMessage: string,
+    firstAssistantReply: string,
+): Promise<void> {
+    return withLangfuseContext(
+        { sessionId, threadId: sessionId, userId, vertical: 'legal-assistant' },
+        () => generateSessionTitleInner(sessionId, userId, firstUserMessage, firstAssistantReply),
+    )
+}
+
+async function generateSessionTitleInner(
     sessionId: string,
     userId: number,
     firstUserMessage: string,
