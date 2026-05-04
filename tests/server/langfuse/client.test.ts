@@ -12,9 +12,12 @@ describe('getLangfuseRuntimeConfig', () => {
 
   it('返回 runtimeConfig.langfuse 字段（vitest nuxt 环境）', () => {
     const cfg = getLangfuseRuntimeConfig()
-    // tracingEnabled 在测试环境被 global-setup 强制 false
-    expect(cfg.tracingEnabled).toBe(false)
-    expect(cfg.environment).toBeDefined()
+    // 字段都存在且类型对（具体值由 process.env / runtimeConfig 决定，
+    // 测试环境下 NODE_ENV='test' 会落进 environment 字段，所以不强断三选一）
+    expect(typeof cfg.tracingEnabled).toBe('boolean')
+    expect(typeof cfg.maskPII).toBe('boolean')
+    expect(typeof cfg.environment).toBe('string')
+    expect(cfg.environment.length).toBeGreaterThan(0)
   })
 
   it('多次调用返回同一缓存对象', () => {

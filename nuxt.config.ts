@@ -192,6 +192,18 @@ export default defineNuxtConfig({
       // 授权回调重定向白名单（逗号分隔）
       authRedirectWhitelist: '',
     },
+    // Langfuse 可观测性配置（自托管）
+    langfuse: {
+      publicKey: process.env.LANGFUSE_PUBLIC_KEY ?? '',
+      secretKey: process.env.LANGFUSE_SECRET_KEY ?? '',
+      baseUrl: process.env.LANGFUSE_BASE_URL ?? '',
+      tracingEnabled: process.env.LANGFUSE_TRACING_ENABLED !== 'false',
+      maskPII: process.env.LANGFUSE_MASK_PII !== 'false',
+      environment: (process.env.LANGFUSE_ENVIRONMENT
+        ?? process.env.NODE_ENV
+        ?? 'development') as 'development' | 'staging' | 'production',
+      gitSha: process.env.GIT_SHA ?? '',
+    },
     aliyun: {
       accessKeyId: '',
       accessKeySecret: '',
