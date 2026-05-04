@@ -12,6 +12,7 @@ import { generateSummaryService } from '../ai/summaryService'
 import { addDocumentsToVectorStore } from '../legal/vectorStore.service'
 import { getValidNodeConfig } from '../node/node.service'
 import { createChatModel } from '../node/chatModelFactory'
+import { withLangfuseContext } from '~~/server/lib/langfuse'
 
 /**
  * 验证并排序选中的模块
@@ -337,6 +338,16 @@ export async function completeAnalysisWithRAG(input: CompleteAnalysisWithRAGInpu
     if (existing.case && isCaseReadOnly(existing.case.status)) {
         throw new Error('案件已归档，不可启动分析')
     }
+
+    // 注入 Langfuse 上下文：caseId + vertical='init-analysis'，覆盖后续 summary LLM 调用
+    return withLangfuseContext(
+        { caseId: existing.caseId, vertical: 'init-analysis' },
+        () => completeAnalysisWithRAGInner(input),
+    )
+}
+
+async function completeAnalysisWithRAGInner(input: CompleteAnalysisWithRAGInput): Promise<string> {
+    const { analysisId, analysisResult } = input
 
     // LLM 调用在事务外：网络 IO 不受事务超时约束，LLM 慢不会拖垮主分析落库
     // 摘要生成走 analysisSummary 节点（模型 + system prompt 均来自节点配置），失败不阻塞主流程

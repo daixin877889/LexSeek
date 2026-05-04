@@ -28,6 +28,7 @@ import {
 import { buildSystemPromptForAgent } from '../context/moduleContextBuilder'
 import { safetyTrimMiddleware } from '../middleware/safetyTrim.middleware'
 import { createTool as createSaveAnalysisResultTool } from '../tools/saveAnalysisResult.tool'
+import { withLangfuseContext } from '~~/server/lib/langfuse'
 import { renderSystemPrompt } from '../utils/promptRenderer'
 import { buildSkillsMiddlewareForNode } from '~~/server/services/agent-platform/middleware/skills'
 import { afterAgentMemoryMiddleware } from '~~/server/services/agent-platform/middleware/afterAgentMemory.middleware'
@@ -61,6 +62,24 @@ interface ModuleAgentOptions {
  * @returns SSE 格式的 ReadableStream
  */
 export async function runModuleChat(
+    sessionId: string,
+    message: string | undefined,
+    options: ModuleAgentOptions,
+): Promise<ReadableStream<Uint8Array>> {
+    return withLangfuseContext(
+        {
+            runId: options.runId,
+            sessionId,
+            threadId: sessionId,
+            userId: options.userId,
+            caseId: options.caseId,
+            vertical: 'case-module',
+        },
+        () => runModuleChatInner(sessionId, message, options),
+    )
+}
+
+async function runModuleChatInner(
     sessionId: string,
     message: string | undefined,
     options: ModuleAgentOptions,

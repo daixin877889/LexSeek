@@ -48,6 +48,7 @@ import { createTool as createRunSkillScriptTool } from '~~/server/services/agent
 import { createTool as createRunSkillCommandTool } from '~~/server/services/agent-platform/tools/runSkillCommand.tool'
 
 import type { ToolContext } from '~~/server/services/agent-platform/tools/types'
+import { withLangfuseContext } from '~~/server/lib/langfuse'
 
 export interface RunAnalysisSubAgentParams {
     /** 节点名 = analysis_type，如 'trend' */
@@ -73,6 +74,22 @@ export interface RunAnalysisSubAgentResult {
 }
 
 export async function runAnalysisSubAgent(
+    params: RunAnalysisSubAgentParams,
+): Promise<RunAnalysisSubAgentResult> {
+    return withLangfuseContext(
+        {
+            runId: params.runId,
+            sessionId: params.sessionId,
+            threadId: params.sessionId,
+            userId: params.userId,
+            caseId: params.caseId,
+            vertical: 'case-analysis',
+        },
+        () => runAnalysisSubAgentInner(params),
+    )
+}
+
+async function runAnalysisSubAgentInner(
     params: RunAnalysisSubAgentParams,
 ): Promise<RunAnalysisSubAgentResult> {
     const { agentName, moduleTitle, userId, caseId, sessionId, runId, thinking, signal } = params

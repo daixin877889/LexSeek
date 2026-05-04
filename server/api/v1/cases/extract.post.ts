@@ -15,6 +15,7 @@
  * 4. 返回提取结果
  */
 
+import type { H3Event } from 'h3'
 import { z } from 'zod'
 import { getValidNodeConfig } from '~~/server/services/node/node.service'
 import { createChatModel } from '~~/server/services/node/chatModelFactory'
@@ -24,6 +25,7 @@ import { processFileMaterials } from '~~/server/services/material/fileProcess.se
 import type { FileProcessContext } from '~~/server/services/material/fileProcess.service'
 import { countTokens } from '~~/server/utils/tokenCounter'
 import { getEnabledCaseTypesService } from '~~/server/services/case/caseType.service'
+import { withLangfuseContext } from '~~/server/lib/langfuse'
 
 const EXTRACT_NODE_NAME = 'extractInfo'
 
@@ -39,6 +41,10 @@ const schema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
+    return withLangfuseContext({ vertical: 'extract' }, () => extractHandler(event))
+})
+
+async function extractHandler(event: H3Event) {
     const user = event.context.auth?.user
     if (!user) {
         return resError(event, 401, '请先登录')
@@ -144,7 +150,7 @@ export default defineEventHandler(async (event) => {
             failedMaterials: failedMaterials.length > 0 ? failedMaterials : undefined,
         },
     })
-})
+}
 
 /** 构建材料上下文（全文模式） */
 function buildMaterialContext(fileContexts: FileProcessContext[]): string {
