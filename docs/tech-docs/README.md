@@ -26,6 +26,7 @@ LexSeek 是基于 Nuxt 4 全栈架构的法律服务 AI 应用，本文档体系
 | 开发 Agent 节点功能 | [backend/agent.md](./backend/agent.md) + [backend/node.md](./backend/node.md) |
 | 理解 LangGraph 适配层（业务 vertical 注册 / 中间件栈 / 工具体系） | [backend/agent-platform.md](./backend/agent-platform.md) |
 | 开发 / 配置 Agent Skill | [backend/skills.md](./backend/skills.md) |
+| 排查 LLM trace / token / 反查线上 run | [backend/langfuse.md](./backend/langfuse.md) |
 | 开发前端页面或组件 | [frontend/overview.md](./frontend/overview.md) + [frontend/components.md](./frontend/components.md) |
 | 了解前端状态管理 | [frontend/stores.md](./frontend/stores.md) |
 | 了解前端数据请求 | [frontend/composables.md](./frontend/composables.md) |
@@ -67,7 +68,8 @@ tech-docs/
 │   ├── membership.md                  # 会员与权益
 │   ├── point.md                       # 积分系统
 │   ├── rbac.md                        # 角色权限控制
-│   └── auth-users-sms.md             # 认证、用户、短信
+│   ├── auth-users-sms.md             # 认证、用户、短信
+│   └── langfuse.md                    # Langfuse 可观测性集成（OTel + ALS + ModelProxy + PII 脱敏）
 ├── frontend/                          # 前端模块文档
 │   ├── overview.md                    # 前端架构总览
 │   ├── composables.md                 # Composables 函数
