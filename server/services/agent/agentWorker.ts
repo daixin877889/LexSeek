@@ -33,6 +33,7 @@ import { generateSessionTitleAsync } from '../assistant/assistantSession.service
 import { getRedisSubscriber } from '~~/server/lib/redis'
 import { isContextOverflowError, logContextOverflow } from '../workflow/context/contextErrorLogger'
 import { getCheckpointer } from '../workflow/checkpointer'
+import { withLangfuseContext } from '~~/server/lib/langfuse'
 
 export interface AgentWorkerConfig {
   maxConcurrent: number
@@ -126,6 +127,20 @@ export class AgentWorker {
 
   /** 执行单个 run */
   private async executeRun(run: agentRuns): Promise<void> {
+    // worker 任务不在 HTTP 上下文内，从 run / session 重建 Langfuse ALS
+    return withLangfuseContext(
+      {
+        runId: run.id,
+        sessionId: run.sessionId,
+        threadId: run.sessionId,
+        userId: run.userId,
+        caseId: run.caseId ?? undefined,
+      },
+      () => this.executeRunInner(run),
+    )
+  }
+
+  private async executeRunInner(run: agentRuns): Promise<void> {
     const abortController = new AbortController()
     this.activeRuns.set(run.id, abortController)
 
