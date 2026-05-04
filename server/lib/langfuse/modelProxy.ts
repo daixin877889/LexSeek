@@ -29,6 +29,8 @@ export function wrapWithLangfuse<M extends BaseChatModel>(model: M): M {
     get(target, prop, receiver) {
       const original = Reflect.get(target, prop, receiver)
       if (typeof original !== 'function') return original
+      // constructor 必须保持原引用，否则 .bind() 会让 model.constructor.name 变成 'bound ChatOpenAI'
+      if (prop === 'constructor') return original
       if (!INTERCEPTED.has(String(prop))) return original.bind(target)
 
       return function (this: unknown, input: unknown, config?: ProxyConfig, ...rest: unknown[]) {
