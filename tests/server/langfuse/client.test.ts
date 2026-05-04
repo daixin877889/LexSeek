@@ -46,4 +46,15 @@ describe('getLangfuseHandler', () => {
       expect(() => h.handleLLMStart!({ lc: 1, type: 'not_implemented', id: [], kwargs: {} } as any, [], 'r1')).not.toThrow()
     }
   })
+
+  it('缺 publicKey/secretKey 时返回 NoopCallbackHandler（避免无谓的 OTel span 创建开销）', () => {
+    // 测试环境一般不配真凭据，应回退到 Noop
+    const cfg = getLangfuseRuntimeConfig()
+    if (cfg.publicKey && cfg.secretKey && cfg.tracingEnabled) {
+      // 配了凭据 → 真 handler；本断言场景不适用
+      return
+    }
+    const h = getLangfuseHandler()
+    expect(h.name).toBe('NoopLangfuseCallbackHandler')
+  })
 })
