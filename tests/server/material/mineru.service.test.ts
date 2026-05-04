@@ -57,7 +57,8 @@ const mockLogger = {
 // 模拟依赖模块
 vi.mock('~~/server/services/material/mineruToken.service', () => ({
     getActiveTokenValueService: vi.fn().mockResolvedValue('mock-token'),
-    hasActiveTokenService: vi.fn().mockResolvedValue(true),
+    getTokenForExistingTaskService: vi.fn().mockResolvedValue('mock-token'),
+    pickTokenForNewTaskService: vi.fn().mockResolvedValue({ id: 1, token: 'mock-token' }),
 }))
 
 vi.mock('~~/server/services/material/mineruTask.service', () => ({
@@ -471,8 +472,8 @@ describe('MinerU 服务 - 服务层函数', () => {
             const { findDocRecognitionByOssFileIdDao } = await import('~~/server/services/material/mineru.dao')
             vi.mocked(findDocRecognitionByOssFileIdDao).mockResolvedValue(null)
 
-            const { hasActiveTokenService } = await import('~~/server/services/material/mineruToken.service')
-            vi.mocked(hasActiveTokenService).mockResolvedValue(false)
+            const { pickTokenForNewTaskService } = await import('~~/server/services/material/mineruToken.service')
+            vi.mocked(pickTokenForNewTaskService).mockResolvedValue(null)
 
             const { submitPdfConversionService } = await import('~~/server/services/material/mineru.service')
             const result = await submitPdfConversionService(10, 1)
@@ -485,9 +486,8 @@ describe('MinerU 服务 - 服务层函数', () => {
             const { findDocRecognitionByOssFileIdDao } = await import('~~/server/services/material/mineru.dao')
             vi.mocked(findDocRecognitionByOssFileIdDao).mockResolvedValue(null)
 
-            const { hasActiveTokenService, getActiveTokenValueService } = await import('~~/server/services/material/mineruToken.service')
-            vi.mocked(hasActiveTokenService).mockResolvedValue(true)
-            vi.mocked(getActiveTokenValueService).mockResolvedValue('mock-token')
+            const { pickTokenForNewTaskService } = await import('~~/server/services/material/mineruToken.service')
+            vi.mocked(pickTokenForNewTaskService).mockResolvedValue({ id: 1, token: 'mock-token' })
 
             const { findOssFileByIdDao } = await import('~~/server/services/files/ossFiles.dao')
             vi.mocked(findOssFileByIdDao).mockResolvedValue(null)
@@ -503,9 +503,8 @@ describe('MinerU 服务 - 服务层函数', () => {
             const { findDocRecognitionByOssFileIdDao } = await import('~~/server/services/material/mineru.dao')
             vi.mocked(findDocRecognitionByOssFileIdDao).mockResolvedValue(null)
 
-            const { hasActiveTokenService, getActiveTokenValueService } = await import('~~/server/services/material/mineruToken.service')
-            vi.mocked(hasActiveTokenService).mockResolvedValue(true)
-            vi.mocked(getActiveTokenValueService).mockResolvedValue('mock-token')
+            const { pickTokenForNewTaskService } = await import('~~/server/services/material/mineruToken.service')
+            vi.mocked(pickTokenForNewTaskService).mockResolvedValue({ id: 1, token: 'mock-token' })
 
             const { findOssFileByIdDao } = await import('~~/server/services/files/ossFiles.dao')
             vi.mocked(findOssFileByIdDao).mockResolvedValue({
@@ -532,9 +531,8 @@ describe('MinerU 服务 - 服务层函数', () => {
             const { findDocRecognitionByOssFileIdDao } = await import('~~/server/services/material/mineru.dao')
             vi.mocked(findDocRecognitionByOssFileIdDao).mockResolvedValue(null)
 
-            const { hasActiveTokenService, getActiveTokenValueService } = await import('~~/server/services/material/mineruToken.service')
-            vi.mocked(hasActiveTokenService).mockResolvedValue(true)
-            vi.mocked(getActiveTokenValueService).mockResolvedValue('mock-token')
+            const { pickTokenForNewTaskService } = await import('~~/server/services/material/mineruToken.service')
+            vi.mocked(pickTokenForNewTaskService).mockResolvedValue({ id: 1, token: 'mock-token' })
 
             const { findOssFileByIdDao } = await import('~~/server/services/files/ossFiles.dao')
             vi.mocked(findOssFileByIdDao).mockResolvedValue({
@@ -571,9 +569,8 @@ describe('MinerU 服务 - 服务层函数', () => {
             const { findDocRecognitionByOssFileIdDao } = await import('~~/server/services/material/mineru.dao')
             vi.mocked(findDocRecognitionByOssFileIdDao).mockResolvedValue(null)
 
-            const { hasActiveTokenService, getActiveTokenValueService } = await import('~~/server/services/material/mineruToken.service')
-            vi.mocked(hasActiveTokenService).mockResolvedValue(true)
-            vi.mocked(getActiveTokenValueService).mockResolvedValue('mock-token')
+            const { pickTokenForNewTaskService } = await import('~~/server/services/material/mineruToken.service')
+            vi.mocked(pickTokenForNewTaskService).mockResolvedValue({ id: 1, token: 'mock-token' })
 
             const { findOssFileByIdDao } = await import('~~/server/services/files/ossFiles.dao')
             vi.mocked(findOssFileByIdDao).mockResolvedValue({
@@ -741,8 +738,9 @@ describe('MinerU 服务 - 服务层函数', () => {
         })
 
         it('没有可用 Token 时应返回 false', async () => {
-            const { isMineruTaskProcessedService } = await import('~~/server/services/material/mineruTask.service')
+            const { isMineruTaskProcessedService, getMineruTaskByTaskIdService } = await import('~~/server/services/material/mineruTask.service')
             vi.mocked(isMineruTaskProcessedService).mockResolvedValue(false)
+            vi.mocked(getMineruTaskByTaskIdService).mockResolvedValue(null)
 
             const { getActiveTokenValueService } = await import('~~/server/services/material/mineruToken.service')
             vi.mocked(getActiveTokenValueService).mockResolvedValue(null as any)
@@ -756,10 +754,10 @@ describe('MinerU 服务 - 服务层函数', () => {
         it('任务状态为 failed 时应标记失败并返回 true', async () => {
             const { isMineruTaskProcessedService, getMineruTaskByTaskIdService } = await import('~~/server/services/material/mineruTask.service')
             vi.mocked(isMineruTaskProcessedService).mockResolvedValue(false)
-            vi.mocked(getMineruTaskByTaskIdService).mockResolvedValue({ id: 1, taskId: 'task-fail' } as any)
+            vi.mocked(getMineruTaskByTaskIdService).mockResolvedValue({ id: 1, taskId: 'task-fail', mineruTokenId: null } as any)
 
-            const { getActiveTokenValueService } = await import('~~/server/services/material/mineruToken.service')
-            vi.mocked(getActiveTokenValueService).mockResolvedValue('mock-token')
+            const { getTokenForExistingTaskService } = await import('~~/server/services/material/mineruToken.service')
+            vi.mocked(getTokenForExistingTaskService).mockResolvedValue('mock-token')
 
             const { $fetch } = await import('ofetch')
             vi.mocked($fetch).mockResolvedValue({
@@ -779,11 +777,12 @@ describe('MinerU 服务 - 服务层函数', () => {
         })
 
         it('任务仍在处理中时应返回 false', async () => {
-            const { isMineruTaskProcessedService } = await import('~~/server/services/material/mineruTask.service')
+            const { isMineruTaskProcessedService, getMineruTaskByTaskIdService } = await import('~~/server/services/material/mineruTask.service')
             vi.mocked(isMineruTaskProcessedService).mockResolvedValue(false)
+            vi.mocked(getMineruTaskByTaskIdService).mockResolvedValue({ id: 1, taskId: 'task-running', mineruTokenId: null } as any)
 
-            const { getActiveTokenValueService } = await import('~~/server/services/material/mineruToken.service')
-            vi.mocked(getActiveTokenValueService).mockResolvedValue('mock-token')
+            const { getTokenForExistingTaskService } = await import('~~/server/services/material/mineruToken.service')
+            vi.mocked(getTokenForExistingTaskService).mockResolvedValue('mock-token')
 
             const { $fetch } = await import('ofetch')
             vi.mocked($fetch).mockResolvedValue({
@@ -801,6 +800,55 @@ describe('MinerU 服务 - 服务层函数', () => {
 
             expect(result).toBe(false)
         })
+
+        it('任务绑定了 mineruTokenId 时应用绑定的 token 调用 API', async () => {
+            const boundTask = { id: 99, taskId: 'task-bound', mineruTokenId: 42 }
+            const { isMineruTaskProcessedService, getMineruTaskByTaskIdService } = await import('~~/server/services/material/mineruTask.service')
+            vi.mocked(isMineruTaskProcessedService).mockResolvedValue(false)
+            vi.mocked(getMineruTaskByTaskIdService).mockResolvedValue(boundTask as any)
+
+            const { getTokenForExistingTaskService } = await import('~~/server/services/material/mineruToken.service')
+            vi.mocked(getTokenForExistingTaskService).mockResolvedValue('token-of-id-42')
+
+            const { $fetch } = await import('ofetch')
+            vi.mocked($fetch).mockResolvedValue({
+                code: 0,
+                msg: 'success',
+                data: { task_id: 'task-bound', state: 'running' },
+            })
+
+            const { pollTaskStatusService } = await import('~~/server/services/material/mineru.service')
+            await pollTaskStatusService('task-bound')
+
+            expect(getTokenForExistingTaskService).toHaveBeenCalledWith(boundTask)
+            const fetchCall = vi.mocked($fetch).mock.calls.find(c =>
+                String(c[0]).includes('/extract/task/task-bound'),
+            )
+            expect(fetchCall).toBeDefined()
+            expect((fetchCall![1] as any).headers.Authorization).toBe('Bearer token-of-id-42')
+        })
+
+        it('task 不存在时应回退到当前可用 token', async () => {
+            const { isMineruTaskProcessedService, getMineruTaskByTaskIdService } = await import('~~/server/services/material/mineruTask.service')
+            vi.mocked(isMineruTaskProcessedService).mockResolvedValue(false)
+            vi.mocked(getMineruTaskByTaskIdService).mockResolvedValue(null)
+
+            const { getTokenForExistingTaskService, getActiveTokenValueService } = await import('~~/server/services/material/mineruToken.service')
+            vi.mocked(getActiveTokenValueService).mockResolvedValue('fallback-token')
+
+            const { $fetch } = await import('ofetch')
+            vi.mocked($fetch).mockResolvedValue({
+                code: 0,
+                msg: 'success',
+                data: { task_id: 'task-orphan', state: 'running' },
+            })
+
+            const { pollTaskStatusService } = await import('~~/server/services/material/mineru.service')
+            await pollTaskStatusService('task-orphan')
+
+            expect(getTokenForExistingTaskService).not.toHaveBeenCalled()
+            expect(getActiveTokenValueService).toHaveBeenCalled()
+        })
     })
 
     // ==================== convertPdfService ====================
@@ -809,8 +857,8 @@ describe('MinerU 服务 - 服务层函数', () => {
             const { findDocRecognitionByOssFileIdDao } = await import('~~/server/services/material/mineru.dao')
             vi.mocked(findDocRecognitionByOssFileIdDao).mockResolvedValue(null)
 
-            const { hasActiveTokenService } = await import('~~/server/services/material/mineruToken.service')
-            vi.mocked(hasActiveTokenService).mockResolvedValue(false)
+            const { pickTokenForNewTaskService } = await import('~~/server/services/material/mineruToken.service')
+            vi.mocked(pickTokenForNewTaskService).mockResolvedValue(null)
 
             const { convertPdfService } = await import('~~/server/services/material/mineru.service')
             const result = await convertPdfService(10, 1)

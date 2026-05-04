@@ -32,7 +32,7 @@ vi.mock('~~/server/services/material/mineruTask.dao', () => ({
 
 // Mock token 服务
 vi.mock('~~/server/services/material/mineruToken.service', () => ({
-    getActiveTokenValueService: vi.fn(),
+    getTokenForExistingTaskService: vi.fn(),
 }))
 
 // Mock ofetch
@@ -67,7 +67,7 @@ import {
     findPendingMineruTasksDao,
 } from '~~/server/services/material/mineruTask.dao'
 
-import { getActiveTokenValueService } from '~~/server/services/material/mineruToken.service'
+import { getTokenForExistingTaskService } from '~~/server/services/material/mineruToken.service'
 import { $fetch } from 'ofetch'
 
 const baseMockTask = {
@@ -226,7 +226,7 @@ describe('MinerU 任务服务层', () => {
         it('没有可用 Token 时应抛出错误', async () => {
             const processing = { ...baseMockTask, status: MineruTaskStatus.PROCESSING }
             vi.mocked(findMineruTaskByIdDao).mockResolvedValue(processing as any)
-            vi.mocked(getActiveTokenValueService).mockResolvedValue(null)
+            vi.mocked(getTokenForExistingTaskService).mockResolvedValue(null)
 
             await expect(queryMineruTaskStatusService(1)).rejects.toThrow('没有可用的 MinerU Token')
         })
@@ -236,7 +236,7 @@ describe('MinerU 任务服务层', () => {
             vi.mocked(findMineruTaskByIdDao)
                 .mockResolvedValueOnce(processing as any)
                 .mockResolvedValueOnce({ ...processing, status: MineruTaskStatus.SUCCESS } as any)
-            vi.mocked(getActiveTokenValueService).mockResolvedValue('test-token')
+            vi.mocked(getTokenForExistingTaskService).mockResolvedValue('test-token')
             vi.mocked($fetch).mockResolvedValue({
                 code: 0,
                 msg: 'ok',
@@ -257,7 +257,7 @@ describe('MinerU 任务服务层', () => {
             vi.mocked(findMineruTaskByIdDao)
                 .mockResolvedValueOnce(processing as any)
                 .mockResolvedValueOnce({ ...processing, status: MineruTaskStatus.FAILED } as any)
-            vi.mocked(getActiveTokenValueService).mockResolvedValue('test-token')
+            vi.mocked(getTokenForExistingTaskService).mockResolvedValue('test-token')
             vi.mocked($fetch).mockResolvedValue({
                 code: 0,
                 msg: 'ok',
@@ -277,10 +277,35 @@ describe('MinerU 任务服务层', () => {
         it('API 返回非零 code 时应抛出错误', async () => {
             const processing = { ...baseMockTask, status: MineruTaskStatus.PROCESSING }
             vi.mocked(findMineruTaskByIdDao).mockResolvedValue(processing as any)
-            vi.mocked(getActiveTokenValueService).mockResolvedValue('test-token')
+            vi.mocked(getTokenForExistingTaskService).mockResolvedValue('test-token')
             vi.mocked($fetch).mockResolvedValue({ code: 1001, msg: '参数错误' })
 
             await expect(queryMineruTaskStatusService(1)).rejects.toThrow('参数错误')
+        })
+
+        it('应通过 getTokenForExistingTaskService(task) 取 token 并发送 API 请求', async () => {
+            const boundTask = {
+                ...baseMockTask,
+                mineruTokenId: 42,
+                status: MineruTaskStatus.PROCESSING,
+            }
+            vi.mocked(findMineruTaskByIdDao)
+                .mockResolvedValueOnce(boundTask as any)
+                .mockResolvedValueOnce(boundTask as any)
+            vi.mocked(getTokenForExistingTaskService).mockResolvedValue('token-of-id-42')
+            vi.mocked($fetch).mockResolvedValue({
+                code: 0,
+                msg: 'ok',
+                data: { state: 'running' },
+            })
+            vi.mocked(updateMineruTaskDao).mockResolvedValue({} as any)
+            mockPrisma.ossFiles.findFirst.mockResolvedValue(null)
+
+            await queryMineruTaskStatusService(1)
+
+            expect(getTokenForExistingTaskService).toHaveBeenCalledWith(boundTask)
+            const fetchCall = vi.mocked($fetch).mock.calls[0]
+            expect((fetchCall![1] as any).headers.Authorization).toBe('Bearer token-of-id-42')
         })
     })
 

@@ -6,7 +6,11 @@
  */
 
 import type { mineruTasks, docRecognitionRecords, Prisma } from '~~/generated/prisma/client'
-import { getActiveTokenValueService, hasActiveTokenService } from './mineruToken.service'
+import {
+    getActiveTokenValueService,
+    getTokenForExistingTaskService,
+    pickTokenForNewTaskService,
+} from './mineruToken.service'
 import {
     createMineruTaskService,
     updateMineruTaskService,
@@ -304,17 +308,13 @@ export const submitPdfConversionService = async (
             }
         }
 
-        // 2. 检查是否有可用的 Token
+        // 2. LRU 选取一个可用 token（启用 + 未过期），并记录 id 供轮询时复用
         // Requirements: 3.1.1.6, 3.1.1.7
-        const hasToken = await hasActiveTokenService()
-        if (!hasToken) {
+        const picked = await pickTokenForNewTaskService()
+        if (!picked) {
             return { success: false, error: '没有可用的 MinerU Token' }
         }
-
-        const token = await getActiveTokenValueService()
-        if (!token) {
-            return { success: false, error: '获取 MinerU Token 失败' }
-        }
+        const { id: mineruTokenId, token } = picked
 
         // 3. 获取文件信息（通过 DAO 层）
         const ossFile = await findOssFileByIdDao(ossFileId)
@@ -395,6 +395,7 @@ export const submitPdfConversionService = async (
             taskId,
             ossFileId,
             userId,
+            mineruTokenId,
             status: MineruTaskStatus.PROCESSING,
             taskRawData: {
                 fileUrl,
@@ -643,8 +644,10 @@ export const pollTaskStatusService = async (taskId: string): Promise<boolean> =>
             return true
         }
 
-        // 获取 Token
-        const token = await getActiveTokenValueService()
+        const taskRecord = await getMineruTaskByTaskIdService(taskId)
+        const token = taskRecord
+            ? await getTokenForExistingTaskService(taskRecord)
+            : await getActiveTokenValueService()
         if (!token) {
             logger.error('轮询任务状态失败：没有可用的 Token')
             return false
@@ -696,10 +699,7 @@ export const pollTaskStatusService = async (taskId: string): Promise<boolean> =>
                 // Requirements: 3.1.11
                 const downloadUrl = data.full_zip_url
                 if (downloadUrl) {
-                    // 获取任务信息以获取 userId
-                    const task = await getMineruTaskByTaskIdService(taskId)
-                    const userId = task?.userId || 0
-
+                    const userId = taskRecord?.userId || 0
                     const result = await processConversionResultService(taskId, downloadUrl, userId)
                     if (result.success && result.markdownContent && result.htmlContent) {
                         await completeConversionService(

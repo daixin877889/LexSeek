@@ -1172,6 +1172,8 @@ export const MineruTokensScalarFieldEnum = {
   token: 'token',
   remark: 'remark',
   status: 'status',
+  expiresAt: 'expiresAt',
+  lastUsedAt: 'lastUsedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'
@@ -1185,6 +1187,7 @@ export const MineruTasksScalarFieldEnum = {
   taskId: 'taskId',
   ossFileId: 'ossFileId',
   userId: 'userId',
+  mineruTokenId: 'mineruTokenId',
   status: 'status',
   isEncrypted: 'isEncrypted',
   taskRawData: 'taskRawData',

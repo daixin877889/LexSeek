@@ -30,6 +30,7 @@ export type MineruTasksAvgAggregateOutputType = {
   id: number | null
   ossFileId: number | null
   userId: number | null
+  mineruTokenId: number | null
   status: number | null
   retryCount: number | null
 }
@@ -38,6 +39,7 @@ export type MineruTasksSumAggregateOutputType = {
   id: number | null
   ossFileId: number | null
   userId: number | null
+  mineruTokenId: number | null
   status: number | null
   retryCount: number | null
 }
@@ -47,6 +49,7 @@ export type MineruTasksMinAggregateOutputType = {
   taskId: string | null
   ossFileId: number | null
   userId: number | null
+  mineruTokenId: number | null
   status: number | null
   isEncrypted: boolean | null
   errorMsg: string | null
@@ -62,6 +65,7 @@ export type MineruTasksMaxAggregateOutputType = {
   taskId: string | null
   ossFileId: number | null
   userId: number | null
+  mineruTokenId: number | null
   status: number | null
   isEncrypted: boolean | null
   errorMsg: string | null
@@ -77,6 +81,7 @@ export type MineruTasksCountAggregateOutputType = {
   taskId: number
   ossFileId: number
   userId: number
+  mineruTokenId: number
   status: number
   isEncrypted: number
   taskRawData: number
@@ -95,6 +100,7 @@ export type MineruTasksAvgAggregateInputType = {
   id?: true
   ossFileId?: true
   userId?: true
+  mineruTokenId?: true
   status?: true
   retryCount?: true
 }
@@ -103,6 +109,7 @@ export type MineruTasksSumAggregateInputType = {
   id?: true
   ossFileId?: true
   userId?: true
+  mineruTokenId?: true
   status?: true
   retryCount?: true
 }
@@ -112,6 +119,7 @@ export type MineruTasksMinAggregateInputType = {
   taskId?: true
   ossFileId?: true
   userId?: true
+  mineruTokenId?: true
   status?: true
   isEncrypted?: true
   errorMsg?: true
@@ -127,6 +135,7 @@ export type MineruTasksMaxAggregateInputType = {
   taskId?: true
   ossFileId?: true
   userId?: true
+  mineruTokenId?: true
   status?: true
   isEncrypted?: true
   errorMsg?: true
@@ -142,6 +151,7 @@ export type MineruTasksCountAggregateInputType = {
   taskId?: true
   ossFileId?: true
   userId?: true
+  mineruTokenId?: true
   status?: true
   isEncrypted?: true
   taskRawData?: true
@@ -246,6 +256,7 @@ export type MineruTasksGroupByOutputType = {
   taskId: string | null
   ossFileId: number
   userId: number
+  mineruTokenId: number | null
   status: number
   isEncrypted: boolean
   taskRawData: runtime.JsonValue | null
@@ -286,6 +297,7 @@ export type mineruTasksWhereInput = {
   taskId?: Prisma.StringNullableFilter<"mineruTasks"> | string | null
   ossFileId?: Prisma.IntFilter<"mineruTasks"> | number
   userId?: Prisma.IntFilter<"mineruTasks"> | number
+  mineruTokenId?: Prisma.IntNullableFilter<"mineruTasks"> | number | null
   status?: Prisma.IntFilter<"mineruTasks"> | number
   isEncrypted?: Prisma.BoolFilter<"mineruTasks"> | boolean
   taskRawData?: Prisma.JsonNullableFilter<"mineruTasks">
@@ -297,6 +309,7 @@ export type mineruTasksWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"mineruTasks"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"mineruTasks"> | Date | string | null
   user?: Prisma.XOR<Prisma.UsersScalarRelationFilter, Prisma.usersWhereInput>
+  mineruToken?: Prisma.XOR<Prisma.MineruTokensNullableScalarRelationFilter, Prisma.mineruTokensWhereInput> | null
 }
 
 export type mineruTasksOrderByWithRelationInput = {
@@ -304,6 +317,7 @@ export type mineruTasksOrderByWithRelationInput = {
   taskId?: Prisma.SortOrderInput | Prisma.SortOrder
   ossFileId?: Prisma.SortOrder
   userId?: Prisma.SortOrder
+  mineruTokenId?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   isEncrypted?: Prisma.SortOrder
   taskRawData?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -315,6 +329,7 @@ export type mineruTasksOrderByWithRelationInput = {
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   user?: Prisma.usersOrderByWithRelationInput
+  mineruToken?: Prisma.mineruTokensOrderByWithRelationInput
 }
 
 export type mineruTasksWhereUniqueInput = Prisma.AtLeast<{
@@ -325,6 +340,7 @@ export type mineruTasksWhereUniqueInput = Prisma.AtLeast<{
   taskId?: Prisma.StringNullableFilter<"mineruTasks"> | string | null
   ossFileId?: Prisma.IntFilter<"mineruTasks"> | number
   userId?: Prisma.IntFilter<"mineruTasks"> | number
+  mineruTokenId?: Prisma.IntNullableFilter<"mineruTasks"> | number | null
   status?: Prisma.IntFilter<"mineruTasks"> | number
   isEncrypted?: Prisma.BoolFilter<"mineruTasks"> | boolean
   taskRawData?: Prisma.JsonNullableFilter<"mineruTasks">
@@ -336,6 +352,7 @@ export type mineruTasksWhereUniqueInput = Prisma.AtLeast<{
   updatedAt?: Prisma.DateTimeFilter<"mineruTasks"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"mineruTasks"> | Date | string | null
   user?: Prisma.XOR<Prisma.UsersScalarRelationFilter, Prisma.usersWhereInput>
+  mineruToken?: Prisma.XOR<Prisma.MineruTokensNullableScalarRelationFilter, Prisma.mineruTokensWhereInput> | null
 }, "id">
 
 export type mineruTasksOrderByWithAggregationInput = {
@@ -343,6 +360,7 @@ export type mineruTasksOrderByWithAggregationInput = {
   taskId?: Prisma.SortOrderInput | Prisma.SortOrder
   ossFileId?: Prisma.SortOrder
   userId?: Prisma.SortOrder
+  mineruTokenId?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   isEncrypted?: Prisma.SortOrder
   taskRawData?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -368,6 +386,7 @@ export type mineruTasksScalarWhereWithAggregatesInput = {
   taskId?: Prisma.StringNullableWithAggregatesFilter<"mineruTasks"> | string | null
   ossFileId?: Prisma.IntWithAggregatesFilter<"mineruTasks"> | number
   userId?: Prisma.IntWithAggregatesFilter<"mineruTasks"> | number
+  mineruTokenId?: Prisma.IntNullableWithAggregatesFilter<"mineruTasks"> | number | null
   status?: Prisma.IntWithAggregatesFilter<"mineruTasks"> | number
   isEncrypted?: Prisma.BoolWithAggregatesFilter<"mineruTasks"> | boolean
   taskRawData?: Prisma.JsonNullableWithAggregatesFilter<"mineruTasks">
@@ -394,6 +413,7 @@ export type mineruTasksCreateInput = {
   updatedAt?: Date | string
   deletedAt?: Date | string | null
   user: Prisma.usersCreateNestedOneWithoutMineruTasksInput
+  mineruToken?: Prisma.mineruTokensCreateNestedOneWithoutMineruTasksInput
 }
 
 export type mineruTasksUncheckedCreateInput = {
@@ -401,6 +421,7 @@ export type mineruTasksUncheckedCreateInput = {
   taskId?: string | null
   ossFileId: number
   userId: number
+  mineruTokenId?: number | null
   status?: number
   isEncrypted?: boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -427,6 +448,7 @@ export type mineruTasksUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   user?: Prisma.usersUpdateOneRequiredWithoutMineruTasksNestedInput
+  mineruToken?: Prisma.mineruTokensUpdateOneWithoutMineruTasksNestedInput
 }
 
 export type mineruTasksUncheckedUpdateInput = {
@@ -434,6 +456,7 @@ export type mineruTasksUncheckedUpdateInput = {
   taskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ossFileId?: Prisma.IntFieldUpdateOperationsInput | number
   userId?: Prisma.IntFieldUpdateOperationsInput | number
+  mineruTokenId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isEncrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -451,6 +474,7 @@ export type mineruTasksCreateManyInput = {
   taskId?: string | null
   ossFileId: number
   userId: number
+  mineruTokenId?: number | null
   status?: number
   isEncrypted?: boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -483,6 +507,7 @@ export type mineruTasksUncheckedUpdateManyInput = {
   taskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ossFileId?: Prisma.IntFieldUpdateOperationsInput | number
   userId?: Prisma.IntFieldUpdateOperationsInput | number
+  mineruTokenId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isEncrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -495,11 +520,22 @@ export type mineruTasksUncheckedUpdateManyInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
+export type MineruTasksListRelationFilter = {
+  every?: Prisma.mineruTasksWhereInput
+  some?: Prisma.mineruTasksWhereInput
+  none?: Prisma.mineruTasksWhereInput
+}
+
+export type mineruTasksOrderByRelationAggregateInput = {
+  _count?: Prisma.SortOrder
+}
+
 export type mineruTasksCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   taskId?: Prisma.SortOrder
   ossFileId?: Prisma.SortOrder
   userId?: Prisma.SortOrder
+  mineruTokenId?: Prisma.SortOrder
   status?: Prisma.SortOrder
   isEncrypted?: Prisma.SortOrder
   taskRawData?: Prisma.SortOrder
@@ -516,6 +552,7 @@ export type mineruTasksAvgOrderByAggregateInput = {
   id?: Prisma.SortOrder
   ossFileId?: Prisma.SortOrder
   userId?: Prisma.SortOrder
+  mineruTokenId?: Prisma.SortOrder
   status?: Prisma.SortOrder
   retryCount?: Prisma.SortOrder
 }
@@ -525,6 +562,7 @@ export type mineruTasksMaxOrderByAggregateInput = {
   taskId?: Prisma.SortOrder
   ossFileId?: Prisma.SortOrder
   userId?: Prisma.SortOrder
+  mineruTokenId?: Prisma.SortOrder
   status?: Prisma.SortOrder
   isEncrypted?: Prisma.SortOrder
   errorMsg?: Prisma.SortOrder
@@ -540,6 +578,7 @@ export type mineruTasksMinOrderByAggregateInput = {
   taskId?: Prisma.SortOrder
   ossFileId?: Prisma.SortOrder
   userId?: Prisma.SortOrder
+  mineruTokenId?: Prisma.SortOrder
   status?: Prisma.SortOrder
   isEncrypted?: Prisma.SortOrder
   errorMsg?: Prisma.SortOrder
@@ -554,18 +593,51 @@ export type mineruTasksSumOrderByAggregateInput = {
   id?: Prisma.SortOrder
   ossFileId?: Prisma.SortOrder
   userId?: Prisma.SortOrder
+  mineruTokenId?: Prisma.SortOrder
   status?: Prisma.SortOrder
   retryCount?: Prisma.SortOrder
 }
 
-export type MineruTasksListRelationFilter = {
-  every?: Prisma.mineruTasksWhereInput
-  some?: Prisma.mineruTasksWhereInput
-  none?: Prisma.mineruTasksWhereInput
+export type mineruTasksCreateNestedManyWithoutMineruTokenInput = {
+  create?: Prisma.XOR<Prisma.mineruTasksCreateWithoutMineruTokenInput, Prisma.mineruTasksUncheckedCreateWithoutMineruTokenInput> | Prisma.mineruTasksCreateWithoutMineruTokenInput[] | Prisma.mineruTasksUncheckedCreateWithoutMineruTokenInput[]
+  connectOrCreate?: Prisma.mineruTasksCreateOrConnectWithoutMineruTokenInput | Prisma.mineruTasksCreateOrConnectWithoutMineruTokenInput[]
+  createMany?: Prisma.mineruTasksCreateManyMineruTokenInputEnvelope
+  connect?: Prisma.mineruTasksWhereUniqueInput | Prisma.mineruTasksWhereUniqueInput[]
 }
 
-export type mineruTasksOrderByRelationAggregateInput = {
-  _count?: Prisma.SortOrder
+export type mineruTasksUncheckedCreateNestedManyWithoutMineruTokenInput = {
+  create?: Prisma.XOR<Prisma.mineruTasksCreateWithoutMineruTokenInput, Prisma.mineruTasksUncheckedCreateWithoutMineruTokenInput> | Prisma.mineruTasksCreateWithoutMineruTokenInput[] | Prisma.mineruTasksUncheckedCreateWithoutMineruTokenInput[]
+  connectOrCreate?: Prisma.mineruTasksCreateOrConnectWithoutMineruTokenInput | Prisma.mineruTasksCreateOrConnectWithoutMineruTokenInput[]
+  createMany?: Prisma.mineruTasksCreateManyMineruTokenInputEnvelope
+  connect?: Prisma.mineruTasksWhereUniqueInput | Prisma.mineruTasksWhereUniqueInput[]
+}
+
+export type mineruTasksUpdateManyWithoutMineruTokenNestedInput = {
+  create?: Prisma.XOR<Prisma.mineruTasksCreateWithoutMineruTokenInput, Prisma.mineruTasksUncheckedCreateWithoutMineruTokenInput> | Prisma.mineruTasksCreateWithoutMineruTokenInput[] | Prisma.mineruTasksUncheckedCreateWithoutMineruTokenInput[]
+  connectOrCreate?: Prisma.mineruTasksCreateOrConnectWithoutMineruTokenInput | Prisma.mineruTasksCreateOrConnectWithoutMineruTokenInput[]
+  upsert?: Prisma.mineruTasksUpsertWithWhereUniqueWithoutMineruTokenInput | Prisma.mineruTasksUpsertWithWhereUniqueWithoutMineruTokenInput[]
+  createMany?: Prisma.mineruTasksCreateManyMineruTokenInputEnvelope
+  set?: Prisma.mineruTasksWhereUniqueInput | Prisma.mineruTasksWhereUniqueInput[]
+  disconnect?: Prisma.mineruTasksWhereUniqueInput | Prisma.mineruTasksWhereUniqueInput[]
+  delete?: Prisma.mineruTasksWhereUniqueInput | Prisma.mineruTasksWhereUniqueInput[]
+  connect?: Prisma.mineruTasksWhereUniqueInput | Prisma.mineruTasksWhereUniqueInput[]
+  update?: Prisma.mineruTasksUpdateWithWhereUniqueWithoutMineruTokenInput | Prisma.mineruTasksUpdateWithWhereUniqueWithoutMineruTokenInput[]
+  updateMany?: Prisma.mineruTasksUpdateManyWithWhereWithoutMineruTokenInput | Prisma.mineruTasksUpdateManyWithWhereWithoutMineruTokenInput[]
+  deleteMany?: Prisma.mineruTasksScalarWhereInput | Prisma.mineruTasksScalarWhereInput[]
+}
+
+export type mineruTasksUncheckedUpdateManyWithoutMineruTokenNestedInput = {
+  create?: Prisma.XOR<Prisma.mineruTasksCreateWithoutMineruTokenInput, Prisma.mineruTasksUncheckedCreateWithoutMineruTokenInput> | Prisma.mineruTasksCreateWithoutMineruTokenInput[] | Prisma.mineruTasksUncheckedCreateWithoutMineruTokenInput[]
+  connectOrCreate?: Prisma.mineruTasksCreateOrConnectWithoutMineruTokenInput | Prisma.mineruTasksCreateOrConnectWithoutMineruTokenInput[]
+  upsert?: Prisma.mineruTasksUpsertWithWhereUniqueWithoutMineruTokenInput | Prisma.mineruTasksUpsertWithWhereUniqueWithoutMineruTokenInput[]
+  createMany?: Prisma.mineruTasksCreateManyMineruTokenInputEnvelope
+  set?: Prisma.mineruTasksWhereUniqueInput | Prisma.mineruTasksWhereUniqueInput[]
+  disconnect?: Prisma.mineruTasksWhereUniqueInput | Prisma.mineruTasksWhereUniqueInput[]
+  delete?: Prisma.mineruTasksWhereUniqueInput | Prisma.mineruTasksWhereUniqueInput[]
+  connect?: Prisma.mineruTasksWhereUniqueInput | Prisma.mineruTasksWhereUniqueInput[]
+  update?: Prisma.mineruTasksUpdateWithWhereUniqueWithoutMineruTokenInput | Prisma.mineruTasksUpdateWithWhereUniqueWithoutMineruTokenInput[]
+  updateMany?: Prisma.mineruTasksUpdateManyWithWhereWithoutMineruTokenInput | Prisma.mineruTasksUpdateManyWithWhereWithoutMineruTokenInput[]
+  deleteMany?: Prisma.mineruTasksScalarWhereInput | Prisma.mineruTasksScalarWhereInput[]
 }
 
 export type mineruTasksCreateNestedManyWithoutUserInput = {
@@ -610,6 +682,86 @@ export type mineruTasksUncheckedUpdateManyWithoutUserNestedInput = {
   deleteMany?: Prisma.mineruTasksScalarWhereInput | Prisma.mineruTasksScalarWhereInput[]
 }
 
+export type mineruTasksCreateWithoutMineruTokenInput = {
+  taskId?: string | null
+  ossFileId: number
+  status?: number
+  isEncrypted?: boolean
+  taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  errorMsg?: string | null
+  retryCount?: number
+  completedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+  user: Prisma.usersCreateNestedOneWithoutMineruTasksInput
+}
+
+export type mineruTasksUncheckedCreateWithoutMineruTokenInput = {
+  id?: number
+  taskId?: string | null
+  ossFileId: number
+  userId: number
+  status?: number
+  isEncrypted?: boolean
+  taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  errorMsg?: string | null
+  retryCount?: number
+  completedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+}
+
+export type mineruTasksCreateOrConnectWithoutMineruTokenInput = {
+  where: Prisma.mineruTasksWhereUniqueInput
+  create: Prisma.XOR<Prisma.mineruTasksCreateWithoutMineruTokenInput, Prisma.mineruTasksUncheckedCreateWithoutMineruTokenInput>
+}
+
+export type mineruTasksCreateManyMineruTokenInputEnvelope = {
+  data: Prisma.mineruTasksCreateManyMineruTokenInput | Prisma.mineruTasksCreateManyMineruTokenInput[]
+  skipDuplicates?: boolean
+}
+
+export type mineruTasksUpsertWithWhereUniqueWithoutMineruTokenInput = {
+  where: Prisma.mineruTasksWhereUniqueInput
+  update: Prisma.XOR<Prisma.mineruTasksUpdateWithoutMineruTokenInput, Prisma.mineruTasksUncheckedUpdateWithoutMineruTokenInput>
+  create: Prisma.XOR<Prisma.mineruTasksCreateWithoutMineruTokenInput, Prisma.mineruTasksUncheckedCreateWithoutMineruTokenInput>
+}
+
+export type mineruTasksUpdateWithWhereUniqueWithoutMineruTokenInput = {
+  where: Prisma.mineruTasksWhereUniqueInput
+  data: Prisma.XOR<Prisma.mineruTasksUpdateWithoutMineruTokenInput, Prisma.mineruTasksUncheckedUpdateWithoutMineruTokenInput>
+}
+
+export type mineruTasksUpdateManyWithWhereWithoutMineruTokenInput = {
+  where: Prisma.mineruTasksScalarWhereInput
+  data: Prisma.XOR<Prisma.mineruTasksUpdateManyMutationInput, Prisma.mineruTasksUncheckedUpdateManyWithoutMineruTokenInput>
+}
+
+export type mineruTasksScalarWhereInput = {
+  AND?: Prisma.mineruTasksScalarWhereInput | Prisma.mineruTasksScalarWhereInput[]
+  OR?: Prisma.mineruTasksScalarWhereInput[]
+  NOT?: Prisma.mineruTasksScalarWhereInput | Prisma.mineruTasksScalarWhereInput[]
+  id?: Prisma.IntFilter<"mineruTasks"> | number
+  taskId?: Prisma.StringNullableFilter<"mineruTasks"> | string | null
+  ossFileId?: Prisma.IntFilter<"mineruTasks"> | number
+  userId?: Prisma.IntFilter<"mineruTasks"> | number
+  mineruTokenId?: Prisma.IntNullableFilter<"mineruTasks"> | number | null
+  status?: Prisma.IntFilter<"mineruTasks"> | number
+  isEncrypted?: Prisma.BoolFilter<"mineruTasks"> | boolean
+  taskRawData?: Prisma.JsonNullableFilter<"mineruTasks">
+  result?: Prisma.JsonNullableFilter<"mineruTasks">
+  errorMsg?: Prisma.StringNullableFilter<"mineruTasks"> | string | null
+  retryCount?: Prisma.IntFilter<"mineruTasks"> | number
+  completedAt?: Prisma.DateTimeNullableFilter<"mineruTasks"> | Date | string | null
+  createdAt?: Prisma.DateTimeFilter<"mineruTasks"> | Date | string
+  updatedAt?: Prisma.DateTimeFilter<"mineruTasks"> | Date | string
+  deletedAt?: Prisma.DateTimeNullableFilter<"mineruTasks"> | Date | string | null
+}
+
 export type mineruTasksCreateWithoutUserInput = {
   taskId?: string | null
   ossFileId: number
@@ -623,12 +775,14 @@ export type mineruTasksCreateWithoutUserInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
+  mineruToken?: Prisma.mineruTokensCreateNestedOneWithoutMineruTasksInput
 }
 
 export type mineruTasksUncheckedCreateWithoutUserInput = {
   id?: number
   taskId?: string | null
   ossFileId: number
+  mineruTokenId?: number | null
   status?: number
   isEncrypted?: boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -667,30 +821,78 @@ export type mineruTasksUpdateManyWithWhereWithoutUserInput = {
   data: Prisma.XOR<Prisma.mineruTasksUpdateManyMutationInput, Prisma.mineruTasksUncheckedUpdateManyWithoutUserInput>
 }
 
-export type mineruTasksScalarWhereInput = {
-  AND?: Prisma.mineruTasksScalarWhereInput | Prisma.mineruTasksScalarWhereInput[]
-  OR?: Prisma.mineruTasksScalarWhereInput[]
-  NOT?: Prisma.mineruTasksScalarWhereInput | Prisma.mineruTasksScalarWhereInput[]
-  id?: Prisma.IntFilter<"mineruTasks"> | number
-  taskId?: Prisma.StringNullableFilter<"mineruTasks"> | string | null
-  ossFileId?: Prisma.IntFilter<"mineruTasks"> | number
-  userId?: Prisma.IntFilter<"mineruTasks"> | number
-  status?: Prisma.IntFilter<"mineruTasks"> | number
-  isEncrypted?: Prisma.BoolFilter<"mineruTasks"> | boolean
-  taskRawData?: Prisma.JsonNullableFilter<"mineruTasks">
-  result?: Prisma.JsonNullableFilter<"mineruTasks">
-  errorMsg?: Prisma.StringNullableFilter<"mineruTasks"> | string | null
-  retryCount?: Prisma.IntFilter<"mineruTasks"> | number
-  completedAt?: Prisma.DateTimeNullableFilter<"mineruTasks"> | Date | string | null
-  createdAt?: Prisma.DateTimeFilter<"mineruTasks"> | Date | string
-  updatedAt?: Prisma.DateTimeFilter<"mineruTasks"> | Date | string
-  deletedAt?: Prisma.DateTimeNullableFilter<"mineruTasks"> | Date | string | null
+export type mineruTasksCreateManyMineruTokenInput = {
+  id?: number
+  taskId?: string | null
+  ossFileId: number
+  userId: number
+  status?: number
+  isEncrypted?: boolean
+  taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  errorMsg?: string | null
+  retryCount?: number
+  completedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+}
+
+export type mineruTasksUpdateWithoutMineruTokenInput = {
+  taskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ossFileId?: Prisma.IntFieldUpdateOperationsInput | number
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  isEncrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  errorMsg?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  retryCount?: Prisma.IntFieldUpdateOperationsInput | number
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  user?: Prisma.usersUpdateOneRequiredWithoutMineruTasksNestedInput
+}
+
+export type mineruTasksUncheckedUpdateWithoutMineruTokenInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  taskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ossFileId?: Prisma.IntFieldUpdateOperationsInput | number
+  userId?: Prisma.IntFieldUpdateOperationsInput | number
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  isEncrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  errorMsg?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  retryCount?: Prisma.IntFieldUpdateOperationsInput | number
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+}
+
+export type mineruTasksUncheckedUpdateManyWithoutMineruTokenInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  taskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ossFileId?: Prisma.IntFieldUpdateOperationsInput | number
+  userId?: Prisma.IntFieldUpdateOperationsInput | number
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  isEncrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  errorMsg?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  retryCount?: Prisma.IntFieldUpdateOperationsInput | number
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type mineruTasksCreateManyUserInput = {
   id?: number
   taskId?: string | null
   ossFileId: number
+  mineruTokenId?: number | null
   status?: number
   isEncrypted?: boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -716,12 +918,14 @@ export type mineruTasksUpdateWithoutUserInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mineruToken?: Prisma.mineruTokensUpdateOneWithoutMineruTasksNestedInput
 }
 
 export type mineruTasksUncheckedUpdateWithoutUserInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   taskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ossFileId?: Prisma.IntFieldUpdateOperationsInput | number
+  mineruTokenId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isEncrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -738,6 +942,7 @@ export type mineruTasksUncheckedUpdateManyWithoutUserInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   taskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ossFileId?: Prisma.IntFieldUpdateOperationsInput | number
+  mineruTokenId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isEncrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
@@ -757,6 +962,7 @@ export type mineruTasksSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   taskId?: boolean
   ossFileId?: boolean
   userId?: boolean
+  mineruTokenId?: boolean
   status?: boolean
   isEncrypted?: boolean
   taskRawData?: boolean
@@ -768,6 +974,7 @@ export type mineruTasksSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   updatedAt?: boolean
   deletedAt?: boolean
   user?: boolean | Prisma.usersDefaultArgs<ExtArgs>
+  mineruToken?: boolean | Prisma.mineruTasks$mineruTokenArgs<ExtArgs>
 }, ExtArgs["result"]["mineruTasks"]>
 
 export type mineruTasksSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -775,6 +982,7 @@ export type mineruTasksSelectCreateManyAndReturn<ExtArgs extends runtime.Types.E
   taskId?: boolean
   ossFileId?: boolean
   userId?: boolean
+  mineruTokenId?: boolean
   status?: boolean
   isEncrypted?: boolean
   taskRawData?: boolean
@@ -786,6 +994,7 @@ export type mineruTasksSelectCreateManyAndReturn<ExtArgs extends runtime.Types.E
   updatedAt?: boolean
   deletedAt?: boolean
   user?: boolean | Prisma.usersDefaultArgs<ExtArgs>
+  mineruToken?: boolean | Prisma.mineruTasks$mineruTokenArgs<ExtArgs>
 }, ExtArgs["result"]["mineruTasks"]>
 
 export type mineruTasksSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -793,6 +1002,7 @@ export type mineruTasksSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.E
   taskId?: boolean
   ossFileId?: boolean
   userId?: boolean
+  mineruTokenId?: boolean
   status?: boolean
   isEncrypted?: boolean
   taskRawData?: boolean
@@ -804,6 +1014,7 @@ export type mineruTasksSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.E
   updatedAt?: boolean
   deletedAt?: boolean
   user?: boolean | Prisma.usersDefaultArgs<ExtArgs>
+  mineruToken?: boolean | Prisma.mineruTasks$mineruTokenArgs<ExtArgs>
 }, ExtArgs["result"]["mineruTasks"]>
 
 export type mineruTasksSelectScalar = {
@@ -811,6 +1022,7 @@ export type mineruTasksSelectScalar = {
   taskId?: boolean
   ossFileId?: boolean
   userId?: boolean
+  mineruTokenId?: boolean
   status?: boolean
   isEncrypted?: boolean
   taskRawData?: boolean
@@ -823,15 +1035,18 @@ export type mineruTasksSelectScalar = {
   deletedAt?: boolean
 }
 
-export type mineruTasksOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "taskId" | "ossFileId" | "userId" | "status" | "isEncrypted" | "taskRawData" | "result" | "errorMsg" | "retryCount" | "completedAt" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["mineruTasks"]>
+export type mineruTasksOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "taskId" | "ossFileId" | "userId" | "mineruTokenId" | "status" | "isEncrypted" | "taskRawData" | "result" | "errorMsg" | "retryCount" | "completedAt" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["mineruTasks"]>
 export type mineruTasksInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.usersDefaultArgs<ExtArgs>
+  mineruToken?: boolean | Prisma.mineruTasks$mineruTokenArgs<ExtArgs>
 }
 export type mineruTasksIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.usersDefaultArgs<ExtArgs>
+  mineruToken?: boolean | Prisma.mineruTasks$mineruTokenArgs<ExtArgs>
 }
 export type mineruTasksIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.usersDefaultArgs<ExtArgs>
+  mineruToken?: boolean | Prisma.mineruTasks$mineruTokenArgs<ExtArgs>
 }
 
 export type $mineruTasksPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -841,6 +1056,10 @@ export type $mineruTasksPayload<ExtArgs extends runtime.Types.Extensions.Interna
      * 关联的用户
      */
     user: Prisma.$usersPayload<ExtArgs>
+    /**
+     * 关联的 MinerU Token（创建任务时使用的 token，轮询时复用；token 被删除则置 NULL）
+     */
+    mineruToken: Prisma.$mineruTokensPayload<ExtArgs> | null
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     /**
@@ -859,6 +1078,10 @@ export type $mineruTasksPayload<ExtArgs extends runtime.Types.Extensions.Interna
      * 关联的用户ID
      */
     userId: number
+    /**
+     * 创建该任务时使用的 MinerU Token ID（用于轮询时复用同一 token；token 删除时置 NULL，调用方走兜底）
+     */
+    mineruTokenId: number | null
     /**
      * 任务状态：0-待处理，1-处理中，2-成功，3-失败
      */
@@ -1294,6 +1517,7 @@ readonly fields: mineruTasksFieldRefs;
 export interface Prisma__mineruTasksClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   user<T extends Prisma.usersDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.usersDefaultArgs<ExtArgs>>): Prisma.Prisma__usersClient<runtime.Types.Result.GetResult<Prisma.$usersPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  mineruToken<T extends Prisma.mineruTasks$mineruTokenArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.mineruTasks$mineruTokenArgs<ExtArgs>>): Prisma.Prisma__mineruTokensClient<runtime.Types.Result.GetResult<Prisma.$mineruTokensPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1327,6 +1551,7 @@ export interface mineruTasksFieldRefs {
   readonly taskId: Prisma.FieldRef<"mineruTasks", 'String'>
   readonly ossFileId: Prisma.FieldRef<"mineruTasks", 'Int'>
   readonly userId: Prisma.FieldRef<"mineruTasks", 'Int'>
+  readonly mineruTokenId: Prisma.FieldRef<"mineruTasks", 'Int'>
   readonly status: Prisma.FieldRef<"mineruTasks", 'Int'>
   readonly isEncrypted: Prisma.FieldRef<"mineruTasks", 'Boolean'>
   readonly taskRawData: Prisma.FieldRef<"mineruTasks", 'Json'>
@@ -1735,6 +1960,25 @@ export type mineruTasksDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.I
    * Limit how many mineruTasks to delete.
    */
   limit?: number
+}
+
+/**
+ * mineruTasks.mineruToken
+ */
+export type mineruTasks$mineruTokenArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the mineruTokens
+   */
+  select?: Prisma.mineruTokensSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the mineruTokens
+   */
+  omit?: Prisma.mineruTokensOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.mineruTokensInclude<ExtArgs> | null
+  where?: Prisma.mineruTokensWhereInput
 }
 
 /**

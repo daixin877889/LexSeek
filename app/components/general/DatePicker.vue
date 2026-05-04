@@ -1,7 +1,7 @@
 <template>
     <Popover v-model:open="isOpen">
         <PopoverTrigger as-child>
-            <Button variant="outline" :class="cn(
+            <Button type="button" variant="outline" :class="cn(
                 'w-full justify-start text-left font-normal',
                 !modelValue && 'text-muted-foreground',
                 props.class
