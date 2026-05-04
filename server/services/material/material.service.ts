@@ -29,6 +29,7 @@ import { getValidNodeConfig } from '../node/node.service'
 import { generateSummaryService } from '../ai/summaryService'
 import { findDocRecognitionByOssFileIdDao } from './mineru.dao'
 import type { asrRecords, ossFiles } from '~~/generated/prisma/client'
+import { withLangfuseContext } from '~~/server/lib/langfuse'
 
 /** 材料（包含文件信息） */
 export interface MaterialWithFile extends caseMaterials {
@@ -483,6 +484,13 @@ export const getMaterialsStatsService = async (
  * 失败不阻塞主流程，仅 logger.warn
  */
 export async function generateMaterialSummaryService(materialId: number): Promise<void> {
+    return withLangfuseContext(
+        { materialId: String(materialId), vertical: 'material-summary' },
+        () => generateMaterialSummaryInner(materialId),
+    )
+}
+
+async function generateMaterialSummaryInner(materialId: number): Promise<void> {
     try {
         const material = await prisma.caseMaterials.findUnique({
             where: { id: materialId },

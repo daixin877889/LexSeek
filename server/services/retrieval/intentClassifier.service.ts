@@ -16,6 +16,7 @@ import { normalizeQuery, tryExactRegex } from './queryNormalizer'
 import { getRedisClient } from '../../lib/redis'
 import { logContextOverflow } from '../workflow/context/contextErrorLogger'
 import type { IntentClassification } from './types'
+import { withLangfuseContext } from '~~/server/lib/langfuse'
 
 // ============================================================================
 // 常量定义
@@ -78,6 +79,17 @@ function buildCacheKey(type: 'law' | 'case_material' | 'case_memory' | 'case_ana
  * @returns 意图分类结果，失败时降级返回 semantic
  */
 export async function classifyIntentService(
+    query: string,
+    type: 'law' | 'case_material' | 'case_memory' | 'case_analysis',
+    options?: { skipCache?: boolean },
+): Promise<IntentClassification> {
+    return withLangfuseContext(
+        { vertical: 'intent-classifier' },
+        () => classifyIntentInner(query, type, options),
+    )
+}
+
+async function classifyIntentInner(
     query: string,
     type: 'law' | 'case_material' | 'case_memory' | 'case_analysis',
     options?: { skipCache?: boolean },

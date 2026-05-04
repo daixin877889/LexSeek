@@ -25,6 +25,7 @@ import { getValidNodeConfig, getNodeConfigService, type NodeConfig } from '../no
 import { embedImageService } from './materialEmbedding.service'
 import { markdownToHtmlService } from './mineruResult.service'
 import { ImageType } from '#shared/types/recognition'
+import { withLangfuseContext } from '~~/server/lib/langfuse'
 
 /** OCR 节点名称 */
 const OCR_NODE_NAME = 'extractImageInfo'
@@ -304,6 +305,17 @@ async function extractImageInfoByBase64(base64Data: string, mimeType: string): P
  * Requirements: 3.3.1-3.3.8
  */
 export async function createImageConversionService(
+    ossFileId: number,
+    userId: number,
+    tx?: Prisma.TransactionClient
+): Promise<OcrResult> {
+    return withLangfuseContext(
+        { userId, vertical: 'material-summary' },
+        () => createImageConversionInner(ossFileId, userId, tx),
+    )
+}
+
+async function createImageConversionInner(
     ossFileId: number,
     userId: number,
     tx?: Prisma.TransactionClient

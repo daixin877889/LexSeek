@@ -7,6 +7,7 @@
 
 import { getValidNodeConfig } from '../node/node.service'
 import { createChatModel } from '../node/chatModelFactory'
+import { withLangfuseContext } from '~~/server/lib/langfuse'
 
 /** 摘要生成使用的节点名称 */
 const SUMMARIZER_NODE_NAME = 'material_summarizer'
@@ -19,6 +20,16 @@ const SUMMARIZER_NODE_NAME = 'material_summarizer'
  * @returns 材料 ID → 生成的摘要映射
  */
 export async function generateAndCacheSummaries(
+    materials: Array<{ id: number; name: string }>,
+    contentMap: Map<number, string>,
+): Promise<Map<number, string>> {
+    return withLangfuseContext(
+        { vertical: 'material-summary' },
+        () => generateAndCacheSummariesInner(materials, contentMap),
+    )
+}
+
+async function generateAndCacheSummariesInner(
     materials: Array<{ id: number; name: string }>,
     contentMap: Map<number, string>,
 ): Promise<Map<number, string>> {
