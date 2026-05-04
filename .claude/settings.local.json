@@ -22,7 +22,14 @@
       "Bash(mkdir -p ~/.claude/plugins/claude-hud)",
       "Read(//Users/daixin/.claude/plugins/claude-hud/**)",
       "Read(//Users/daixin/.claude/plans/**)",
-      "Bash(mkdir -p /Users/daixin/.claude/plans/)"
+      "Bash(mkdir -p /Users/daixin/.claude/plans/)",
+      "Bash(bun run *)",
+      "Bash(lsof -nP -iTCP:3000 -sTCP:LISTEN)",
+      "Bash(curl -s http://localhost:3000/ -o /dev/null -w \"http_code=%{http_code}\\\\n\" --max-time 5)",
+      "Bash(curl -s http://localhost:3000/api/v1/health)",
+      "Bash(npx vitest *)",
+      "Bash(curl -s \"http://localhost:3000/api/v1/health\" -w \"\\\\nhttp=%{http_code}\\\\n\" --max-time 5)",
+      "Bash(curl -s \"http://localhost:3000/captcha/config\" -w \"\\\\nhttp=%{http_code}\\\\n\" --max-time 5)"
     ]
   },
   "enabledPlugins": {
