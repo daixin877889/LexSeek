@@ -230,6 +230,52 @@ describe('scanAndSyncSkillsService', () => {
         // stat 失败被吞，scanned 不含该项
         expect(result.scanned).not.toContain('broken_link')
     })
+
+    it('skill 目录还在盘上但 SKILL.md 临时缺失时，不应被标记 DISABLED', async () => {
+        const skillName = `test_md_missing_${Date.now()}`
+        cleanupNames.push(skillName)
+
+        const skillDir = resolve(tempRoot, skillName)
+        await mkdir(skillDir, { recursive: true })
+        const skillMd = resolve(skillDir, 'SKILL.md')
+        await writeFile(skillMd, `---\nname: ${skillName}\n---\n\n# body\n`)
+
+        // 第一次扫描入库 ENABLED
+        await scanAndSyncSkillsService(tempRoot)
+
+        // 模拟"目录在、SKILL.md 临时丢失"
+        await rm(skillMd)
+
+        const result = await scanAndSyncSkillsService(tempRoot)
+        expect(result.scanned).not.toContain(skillName)
+        expect(result.disabled).not.toContain(skillName)
+
+        const found = await prisma.skills.findUnique({ where: { name: skillName } })
+        expect(found?.status).toBe(SkillStatus.ENABLED)
+    })
+
+    it('skill 目录还在盘上但 frontmatter 临时损坏时，不应被标记 DISABLED', async () => {
+        const skillName = `test_fm_broken_${Date.now()}`
+        cleanupNames.push(skillName)
+
+        const skillDir = resolve(tempRoot, skillName)
+        await mkdir(skillDir, { recursive: true })
+        const skillMd = resolve(skillDir, 'SKILL.md')
+        await writeFile(skillMd, `---\nname: ${skillName}\n---\n\n# body\n`)
+
+        // 第一次扫描入库 ENABLED
+        await scanAndSyncSkillsService(tempRoot)
+
+        // 模拟 frontmatter 临时损坏（缺 name）
+        await writeFile(skillMd, `---\ndescription: 临时坏掉\n---\n\nbody\n`)
+
+        const result = await scanAndSyncSkillsService(tempRoot)
+        expect(result.errors.some(e => e.name === skillName)).toBe(true)
+        expect(result.disabled).not.toContain(skillName)
+
+        const found = await prisma.skills.findUnique({ where: { name: skillName } })
+        expect(found?.status).toBe(SkillStatus.ENABLED)
+    })
 })
 
 describe('scanAndSyncSkillsService - title 兜底', () => {

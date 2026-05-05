@@ -96,6 +96,8 @@ export async function scanAndSyncSkillsService(skillsRoot?: string): Promise<Sca
     )
 
     // 3. 第一遍：遍历每个子目录、读 SKILL.md、解析 frontmatter，收集合法 upsert 输入
+    //    顺带维护"盘上是目录的 entry"集合，第 5 步用作停用判定基准（避免再次 stat）。
+    const dirEntries = new Set<string>()
     const validated: Array<{ input: UpsertSkillInput; isNew: boolean }> = []
     for (const entry of entries) {
         if (entry.startsWith('.')) continue
@@ -106,6 +108,7 @@ export async function scanAndSyncSkillsService(skillsRoot?: string): Promise<Sca
         } catch {
             continue
         }
+        dirEntries.add(entry)
 
         const skillMdPath = resolve(subDir, 'SKILL.md')
         let mdContent: string
@@ -162,9 +165,10 @@ export async function scanAndSyncSkillsService(skillsRoot?: string): Promise<Sca
         }
     }
 
-    // 5. 清理文件系统已删除但数据库还在的（限 source=filesystem）
-    const stillSeen = new Set(result.scanned)
-    const toDisable = Array.from(existingFilesystemSkills).filter(n => !stillSeen.has(n))
+    // 5. 清理盘上已删除但数据库还在的（限 source=filesystem）
+    //    判定基准是"盘上目录是否仍在"——SKILL.md/frontmatter 临时损坏 / bulk upsert tx 失败时
+    //    目录仍在盘上，不应被误标 disabled。目录名 === skill name 是入库不变量（fm.name === entry）。
+    const toDisable = Array.from(existingFilesystemSkills).filter(name => !dirEntries.has(name))
     if (toDisable.length > 0) {
         await markSkillsDisabledByNamesDAO(toDisable)
         result.disabled.push(...toDisable)
