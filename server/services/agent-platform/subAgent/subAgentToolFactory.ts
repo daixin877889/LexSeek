@@ -22,6 +22,7 @@ import {
 import { safetyTrimMiddleware } from '~~/server/services/agent-platform/middleware/safetyTrim.middleware'
 import { analysisResultPersistenceMiddleware } from '~~/server/services/workflow/middleware/analysisResultPersistence.middleware'
 import { afterAgentMemoryMiddleware } from '~~/server/services/agent-platform/middleware/afterAgentMemory.middleware'
+import { buildSkillsMiddlewareForNode } from '~~/server/services/agent-platform/middleware/skills'
 import { getCheckpointer, getStore } from '~~/server/services/agent-platform/checkpointer'
 import { renderSystemPrompt } from '~~/server/services/workflow/utils/promptRenderer'
 import { resolveContextWindow } from '~~/server/services/agent-platform/context/messageCompressor'
@@ -30,6 +31,12 @@ import type { NodeConfig } from '~~/server/services/node/node.service'
 import { buildSubAgentCallbacks } from './buildSubAgentCallbacks'
 import { publishSubAgentStatus } from './publishSubAgentStatus'
 import { buildLangfuseTopLevelConfig, withLangfuseContext } from '~~/server/lib/langfuse'
+
+// 4 个 skill 工具：仅当节点关联了 skill（buildSkillsMiddlewareForNode 非 null）时跟随注入
+import { createTool as createReadSkillFileTool } from '~~/server/services/agent-platform/tools/readSkillFile.tool'
+import { createTool as createWriteSkillFileTool } from '~~/server/services/agent-platform/tools/writeSkillFile.tool'
+import { createTool as createRunSkillScriptTool } from '~~/server/services/agent-platform/tools/runSkillScript.tool'
+import { createTool as createRunSkillCommandTool } from '~~/server/services/agent-platform/tools/runSkillCommand.tool'
 
 /** 子代理工具上下文 */
 export interface SubAgentToolContext {
@@ -144,21 +151,45 @@ export async function createSubAgentTools(
                         maxTokens: config.modelMaxOutputTokens,
                     })
 
-                    // 加载子代理工具
+                    // 防回归：早期此处漏挂导致小索 ask_*_expert 子代理没有 skill，与 runAnalysisSubAgent 路径不一致
+                    // 同时与下面的 getCheckpointer/getStore 合并 Promise.all（互不依赖，省 1 RTT）
+                    const [skillsMw, checkpointer, store] = await Promise.all([
+                        buildSkillsMiddlewareForNode(config.id),
+                        getCheckpointer(),
+                        getStore(),
+                    ])
+
                     const toolContext = {
                         userId: context.userId,
                         caseId: context.caseId,
                         sessionId: context.sessionId,
+                        runId: context.runId,
                     }
-                    const subTools = config.tools.length > 0
+                    const nodeTools = config.tools.length > 0
                         ? getToolInstancesService(config.tools, toolContext)
                         : []
 
-                    // 获取检查点器和存储
-                    const [checkpointer, store] = await Promise.all([
-                        getCheckpointer(),
-                        getStore(),
-                    ])
+                    const skillTools: StructuredToolInterface[] = skillsMw
+                        ? [
+                            createReadSkillFileTool(toolContext),
+                            createWriteSkillFileTool(toolContext),
+                            createRunSkillScriptTool(toolContext),
+                            createRunSkillCommandTool(toolContext),
+                        ]
+                        : []
+
+                    // name 去重避免 LangChain AgentNode 检测到「同名不同实例」抛错（同名时后者 skill 工具胜出，与 runtime.ts mergeToolsByName 一致）
+                    const subToolsByName = new Map<string, StructuredToolInterface>()
+                    for (const t of [...nodeTools, ...skillTools]) subToolsByName.set(t.name, t)
+                    const subTools = Array.from(subToolsByName.values())
+
+                    logger.info('[subAgentTool] 创建子代理', {
+                        agentName,
+                        nodeId: config.id,
+                        nodeToolsCount: nodeTools.length,
+                        skillToolsCount: skillTools.length,
+                        hasSkillsMw: !!skillsMw,
+                    })
 
                     // 构建 5 段式上下文（与主 agent 同套 helper，保证 cache_control 行为一致）
                     const { systemMessage, plainText: systemPromptPlainText } = await buildSystemPromptForAgent(
@@ -196,6 +227,7 @@ export async function createSubAgentTools(
                             }),
                             // 与主 agent 一致：用完整 5 段拼接的纯文本估算 token，避免低估
                             safetyTrimMiddleware({ model, maxTokens, systemPrompt: systemPromptPlainText, maxOutputTokens }),
+                            ...(skillsMw ? [skillsMw] : []),
                             analysisResultPersistenceMiddleware({
                                 agentName,
                                 caseId: context.caseId,

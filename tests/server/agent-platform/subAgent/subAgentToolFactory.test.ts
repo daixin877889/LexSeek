@@ -14,6 +14,11 @@ const {
     warnSpy, errorSpy, infoSpy,
     publishCustomEventMock, publishStatusChangeMock,
     createAgentMock,
+    buildSkillsMiddlewareForNodeMock,
+    createReadSkillFileToolMock,
+    createWriteSkillFileToolMock,
+    createRunSkillScriptToolMock,
+    createRunSkillCommandToolMock,
 } = vi.hoisted(() => ({
     warnSpy: vi.fn(),
     errorSpy: vi.fn(),
@@ -21,6 +26,12 @@ const {
     publishCustomEventMock: vi.fn().mockResolvedValue(undefined),
     publishStatusChangeMock: vi.fn().mockResolvedValue(undefined),
     createAgentMock: vi.fn(),
+    // 默认无 skill：返回 null（与 buildSkillsMiddlewareForNode 真实契约一致）
+    buildSkillsMiddlewareForNodeMock: vi.fn().mockResolvedValue(null),
+    createReadSkillFileToolMock: vi.fn(() => ({ name: 'read_skill_file' })),
+    createWriteSkillFileToolMock: vi.fn(() => ({ name: 'write_skill_file' })),
+    createRunSkillScriptToolMock: vi.fn(() => ({ name: 'run_skill_script' })),
+    createRunSkillCommandToolMock: vi.fn(() => ({ name: 'run_skill_command' })),
 }))
 vi.mock('#shared/utils/logger', () => ({
     logger: { error: errorSpy, info: infoSpy, warn: warnSpy, debug: vi.fn() },
@@ -72,6 +83,22 @@ vi.mock('~~/server/services/agent-platform/context/moduleContextBuilder', async 
 vi.mock('~~/server/services/agent/agentEventBridge', () => ({
     publishCustomEvent: publishCustomEventMock,
     publishStatusChange: publishStatusChangeMock,
+}))
+
+vi.mock('~~/server/services/agent-platform/middleware/skills', () => ({
+    buildSkillsMiddlewareForNode: buildSkillsMiddlewareForNodeMock,
+}))
+vi.mock('~~/server/services/agent-platform/tools/readSkillFile.tool', () => ({
+    createTool: createReadSkillFileToolMock,
+}))
+vi.mock('~~/server/services/agent-platform/tools/writeSkillFile.tool', () => ({
+    createTool: createWriteSkillFileToolMock,
+}))
+vi.mock('~~/server/services/agent-platform/tools/runSkillScript.tool', () => ({
+    createTool: createRunSkillScriptToolMock,
+}))
+vi.mock('~~/server/services/agent-platform/tools/runSkillCommand.tool', () => ({
+    createTool: createRunSkillCommandToolMock,
 }))
 
 vi.mock('langchain', () => ({
@@ -303,6 +330,124 @@ describe('createSubAgentTools', () => {
             expect.stringContaining('SUB_AGENT_TOKEN'),
             expect.anything(),
         )
+    })
+})
+
+describe('skill middleware 与 skill 工具挂载', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+        // 每个 case 重新设默认行为（vi.clearAllMocks 会清掉默认 resolved value）
+        buildSkillsMiddlewareForNodeMock.mockResolvedValue(null)
+        createReadSkillFileToolMock.mockReturnValue({ name: 'read_skill_file' })
+        createWriteSkillFileToolMock.mockReturnValue({ name: 'write_skill_file' })
+        createRunSkillScriptToolMock.mockReturnValue({ name: 'run_skill_script' })
+        createRunSkillCommandToolMock.mockReturnValue({ name: 'run_skill_command' })
+    })
+
+    it('节点未关联 skill（buildSkillsMiddlewareForNode 返回 null）：不挂 skill 中间件、不注入 4 个 skill 工具', async () => {
+        buildSkillsMiddlewareForNodeMock.mockResolvedValue(null)
+        createAgentMock.mockReturnValue({
+            invoke: vi.fn().mockResolvedValue({ messages: [new AIMessage('done')] }),
+        })
+
+        const tools = await createSubAgentTools([makeNodeConfig()], baseCtx)
+        await tools[0].invoke({ question: 'q' }, { toolCall: { id: 'p' } } as any)
+
+        expect(buildSkillsMiddlewareForNodeMock).toHaveBeenCalledWith(1)
+        expect(createReadSkillFileToolMock).not.toHaveBeenCalled()
+        expect(createWriteSkillFileToolMock).not.toHaveBeenCalled()
+        expect(createRunSkillScriptToolMock).not.toHaveBeenCalled()
+        expect(createRunSkillCommandToolMock).not.toHaveBeenCalled()
+
+        const opts = createAgentMock.mock.calls[0][0]
+        const toolNames = (opts.tools as any[]).map(t => t.name)
+        expect(toolNames).not.toContain('read_skill_file')
+        expect(toolNames).not.toContain('write_skill_file')
+        expect(toolNames).not.toContain('run_skill_script')
+        expect(toolNames).not.toContain('run_skill_command')
+
+        // middleware 中不应出现 skillsMw（mock 返回 null 即被跳过）
+        const middlewareMarkers = (opts.middleware as any[]).map(m => m?._mw ?? null)
+        expect(middlewareMarkers).not.toContain('skills')
+    })
+
+    it('节点关联 skill（buildSkillsMiddlewareForNode 返回非空）：挂 skill 中间件 + 注入 4 个 skill 工具 + 日志记录 hasSkillsMw=true', async () => {
+        buildSkillsMiddlewareForNodeMock.mockResolvedValue({ _mw: 'skills' })
+        createAgentMock.mockReturnValue({
+            invoke: vi.fn().mockResolvedValue({ messages: [new AIMessage('done')] }),
+        })
+
+        const tools = await createSubAgentTools([makeNodeConfig()], baseCtx)
+        await tools[0].invoke({ question: 'q' }, { toolCall: { id: 'p' } } as any)
+
+        // 4 个 skill 工具都被工厂调用且传入了完整 ToolContext（含 runId）
+        const expectedToolContext = expect.objectContaining({
+            userId: baseCtx.userId,
+            caseId: baseCtx.caseId,
+            sessionId: baseCtx.sessionId,
+            runId: baseCtx.runId,
+        })
+        expect(createReadSkillFileToolMock).toHaveBeenCalledWith(expectedToolContext)
+        expect(createWriteSkillFileToolMock).toHaveBeenCalledWith(expectedToolContext)
+        expect(createRunSkillScriptToolMock).toHaveBeenCalledWith(expectedToolContext)
+        expect(createRunSkillCommandToolMock).toHaveBeenCalledWith(expectedToolContext)
+
+        const opts = createAgentMock.mock.calls[0][0]
+        const toolNames = (opts.tools as any[]).map(t => t.name)
+        expect(toolNames).toContain('read_skill_file')
+        expect(toolNames).toContain('write_skill_file')
+        expect(toolNames).toContain('run_skill_script')
+        expect(toolNames).toContain('run_skill_command')
+
+        // middleware 数组中能找到 skillsMw 实例
+        expect(opts.middleware as any[]).toContainEqual({ _mw: 'skills' })
+
+        // 日志记录 hasSkillsMw 与 skillToolsCount，便于线上验证
+        expect(infoSpy).toHaveBeenCalledWith(
+            expect.stringContaining('创建子代理'),
+            expect.objectContaining({ hasSkillsMw: true, skillToolsCount: 4 }),
+        )
+    })
+
+    it('skill 中间件位于 safetyTrim 之后、analysisResultPersistence 之前（与 runtime.ts priority=60 保持一致）', async () => {
+        buildSkillsMiddlewareForNodeMock.mockResolvedValue({ _mw: 'skills' })
+        createAgentMock.mockReturnValue({
+            invoke: vi.fn().mockResolvedValue({ messages: [new AIMessage('done')] }),
+        })
+
+        const tools = await createSubAgentTools([makeNodeConfig()], baseCtx)
+        await tools[0].invoke({ question: 'q' }, { toolCall: { id: 'p' } } as any)
+
+        const opts = createAgentMock.mock.calls[0][0]
+        const order = (opts.middleware as any[]).map(m => m?._mw ?? null)
+        const skillIdx = order.indexOf('skills')
+        const trimIdx = order.indexOf('trim')
+        const persistIdx = order.indexOf('persist')
+        expect(skillIdx).toBeGreaterThan(trimIdx)
+        expect(skillIdx).toBeLessThan(persistIdx)
+    })
+
+    it('节点 tools 与 skill 工具同名时按 name 去重（最终列表每个名字仅一份；与 runtime.ts mergeToolsByName 一致）', async () => {
+        buildSkillsMiddlewareForNodeMock.mockResolvedValue({ _mw: 'skills' })
+        // 让 nodeTools 提前占用 read_skill_file 名称
+        const { getToolInstancesService } = await import('~~/server/services/agent-platform/tools')
+        ;(getToolInstancesService as any).mockReturnValueOnce([{ name: 'read_skill_file', _src: 'node' }])
+        createAgentMock.mockReturnValue({
+            invoke: vi.fn().mockResolvedValue({ messages: [new AIMessage('done')] }),
+        })
+
+        const cfg = makeNodeConfig({ tools: ['read_skill_file'] })
+        const tools = await createSubAgentTools([cfg], baseCtx)
+        await tools[0].invoke({ question: 'q' }, { toolCall: { id: 'p' } } as any)
+
+        const opts = createAgentMock.mock.calls[0][0]
+        // 去重：每个工具名只出现一次
+        expect((opts.tools as any[]).filter(t => t.name === 'read_skill_file')).toHaveLength(1)
+        // 4 个 skill 工具的其它 3 个仍在（write/runScript/runCommand 与节点 tools 无名字冲突）
+        const allToolNames = (opts.tools as any[]).map(t => t.name)
+        expect(allToolNames).toEqual(expect.arrayContaining([
+            'read_skill_file', 'write_skill_file', 'run_skill_script', 'run_skill_command',
+        ]))
     })
 })
 
