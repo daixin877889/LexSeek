@@ -43,6 +43,7 @@ export type LangfuseVertical =
   | 'ocr'
   | 'sub-agent'
   | 'invoke-node-json'
+  | 'memory-consolidator'
 
 export type LangfuseScope =
   | 'CASE'
@@ -75,6 +76,8 @@ export function deriveScope(vertical: LangfuseVertical): LangfuseScope {
     case 'sub-agent':
     case 'invoke-node-json':
       return 'TOOL'
+    case 'memory-consolidator':
+      return 'CASE'
   }
 }
 

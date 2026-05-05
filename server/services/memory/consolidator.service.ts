@@ -1,6 +1,7 @@
 import type Redis from 'ioredis'
 import pLimit from 'p-limit'
 import { getRedisClient } from '~~/server/lib/redis'
+import { withLangfuseContext } from '~~/server/lib/langfuse'
 import { runMemoryExtractionService } from './memoryExtraction.service'
 import { getCheckpointer } from '~~/server/services/workflow/checkpointer'
 
@@ -73,21 +74,31 @@ export async function drainDueSessions(): Promise<string[]> {
 
 export async function consolidateSession(sessionId: string, knownCaseId?: number): Promise<void> {
   try {
-    let caseId = knownCaseId
-    if (caseId == null) {
-      const session = await prisma.caseSessions.findUnique({
-        where: { sessionId },
-        select: { caseId: true },
-      })
-      if (!session?.caseId) return
-      caseId = session.caseId
-    }
+    // cron 任务不走 HTTP middleware，ALS 上下文为空；一次性反查 caseSessions 拿
+    // caseId + userId 注入 ALS，后续 invokeNodeJson 触发的 LLM trace 顶层属性才能继承
+    const session = await prisma.caseSessions.findUnique({
+      where: { sessionId },
+      select: { caseId: true, userId: true },
+    })
+    const caseId = knownCaseId ?? session?.caseId ?? null
+    const userId = session?.userId ?? null
+    if (caseId == null) return
 
     const messages = await loadRecentAgentMessages(sessionId, 20)
     if (messages.length === 0) return
 
-    // 复用 memoryExtraction 主路径（caseMemoryExtract 节点 + invokeNodeJson）
-    await runMemoryExtractionService({ caseId, sessionId, messages })
+    // withLangfuseContext 让内层 invokeNodeJson 触发的 LLM 调用继承 userId/sessionId/caseId
+    return withLangfuseContext(
+      {
+        userId: userId ?? undefined,
+        sessionId,
+        threadId: sessionId,
+        caseId,
+        vertical: 'memory-consolidator',
+      },
+      // 复用 memoryExtraction 主路径（caseMemoryExtract 节点 + invokeNodeJson）
+      () => runMemoryExtractionService({ caseId, sessionId, messages }),
+    )
   } catch (e) {
     logger.warn('consolidator run 失败（best-effort，下轮自动重试）', { sessionId, error: e })
   }

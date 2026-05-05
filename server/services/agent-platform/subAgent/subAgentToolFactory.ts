@@ -115,8 +115,14 @@ export async function createSubAgentTools(
 
                 return withLangfuseContext(
                     {
-                        vertical: 'sub-agent',
+                        // 显式带 ctx 字段（context 已有，不依赖外层 ALS 兜底；cron / 单测等
+                        // 没经过 runtime 的调用栈也能保证 trace 顶层 userId/sessionId 完整）
+                        userId: context.userId,
+                        sessionId: context.sessionId,
                         threadId: subThreadId,
+                        caseId: context.caseId,
+                        runId: context.runId,
+                        vertical: 'sub-agent',
                     },
                     () => runSubAgentInner(),
                 )
