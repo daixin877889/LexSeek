@@ -11,6 +11,7 @@ import { mapStoredMessageToChatMessage } from '@langchain/core/messages'
 import { sanitizeName } from './subAgentToolFactory'
 import { logger } from '#shared/utils/logger'
 import { prisma } from '~~/server/utils/db'
+import { isInjectedContextMessage } from '~~/server/services/agent-platform/context/injectorDetection'
 
 /**
  * 将 checkpointer 中的消息转为 useStream 期望的平坦字典格式
@@ -89,13 +90,8 @@ export async function getThreadValuesService(
         // 过滤掉 system message 和注入的上下文消息，防止泄露到前端
         const filteredMessages = flatMessages.filter(msg => {
             if (msg.type === 'system') return false
-            // 检查 HumanMessage 是否是注入的上下文消息
-            if (msg.type === 'human') {
-                const injector = (msg as any).response_metadata?.injectedBy as string | undefined
-                if (injector?.startsWith('ModuleContext') || injector?.startsWith('CaseMaterial') || injector?.startsWith('SubAgentContext') || injector === 'CaseContextMiddleware') {
-                    return false
-                }
-            }
+            // 用中央判定函数（自动覆盖新 tag CaseContextSyncMiddleware 与所有旧 tag）
+            if (msg.type === 'human' && isInjectedContextMessage(msg)) return false
             return true
         })
         return {
@@ -263,8 +259,7 @@ export async function loadSubAgentThreads(
                         .map(messageToFlatDict)
                         .filter(msg => {
                             if (msg.type === 'system') return false
-                            const meta = msg.response_metadata as { injectedBy?: string } | undefined
-                            if (meta?.injectedBy) return false
+                            if (isInjectedContextMessage(msg)) return false
                             return true
                         })
                     subAgentThreads.push({
