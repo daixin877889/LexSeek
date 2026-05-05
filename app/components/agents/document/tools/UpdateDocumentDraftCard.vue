@@ -21,6 +21,7 @@ import {
     XCircle,
 } from 'lucide-vue-next'
 import type { ExtendedToolState } from '~/components/ai-elements/types'
+import { useToolResultState } from '~/composables/useToolResultState'
 
 interface UpdateDocumentDraftInput {
     draftId?: number
@@ -42,32 +43,7 @@ const props = defineProps<{
     state: ExtendedToolState
 }>()
 
-const result = computed<UpdateDocumentDraftOutput | null>(() => {
-    const raw = props.output
-    if (raw == null) return null
-    if (typeof raw === 'string') {
-        try { return JSON.parse(raw) as UpdateDocumentDraftOutput } catch { return null }
-    }
-    if (typeof raw === 'object') return raw as UpdateDocumentDraftOutput
-    return null
-})
-
-const isRunning = computed(() =>
-    props.state === 'input-streaming' || props.state === 'input-available',
-)
-
-const isFailed = computed(() => {
-    if (props.state === 'output-error' || props.state === 'output-denied') return true
-    if (result.value?.success === false) return true
-    if (props.state === 'output-available' && !result.value) return true
-    return false
-})
-
-const isCompleted = computed(() =>
-    !isRunning.value
-    && !isFailed.value
-    && result.value?.success === true,
-)
+const { result, isRunning, isFailed, isCompleted } = useToolResultState<UpdateDocumentDraftOutput>(props)
 
 const changedFields = computed(() => result.value?.changedFields ?? [])
 

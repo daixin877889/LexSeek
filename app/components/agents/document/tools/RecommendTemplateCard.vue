@@ -22,6 +22,7 @@ import {
     XCircle,
 } from 'lucide-vue-next'
 import type { ExtendedToolState } from '~/components/ai-elements/types'
+import { useToolResultState } from '~/composables/useToolResultState'
 
 interface RecommendTemplateInput {
     intent?: string
@@ -47,36 +48,13 @@ const props = defineProps<{
     state: ExtendedToolState
 }>()
 
-const result = computed<RecommendTemplateOutput | null>(() => {
-    const raw = props.output
-    if (raw == null) return null
-    if (typeof raw === 'string') {
-        try { return JSON.parse(raw) as RecommendTemplateOutput } catch { return null }
-    }
-    if (typeof raw === 'object') return raw as RecommendTemplateOutput
-    return null
-})
+const { result, isRunning, isFailed: rawFailed, isCompleted: rawCompleted } = useToolResultState<RecommendTemplateOutput>(props)
 
-const isRunning = computed(() =>
-    props.state === 'input-streaming' || props.state === 'input-available',
-)
-
+// recommend_template 通过 result.cancelled === true 区分"用户取消"与"工具失败",
+// 取消优先于失败/完成,使用单独的 isCancelled 派生
 const isCancelled = computed(() => result.value?.cancelled === true)
-
-const isFailed = computed(() => {
-    if (isCancelled.value) return false
-    if (props.state === 'output-error' || props.state === 'output-denied') return true
-    if (result.value?.success === false) return true
-    if (props.state === 'output-available' && !result.value) return true
-    return false
-})
-
-const isCompleted = computed(() =>
-    !isRunning.value
-    && !isFailed.value
-    && !isCancelled.value
-    && result.value?.success === true,
-)
+const isFailed = computed(() => !isCancelled.value && rawFailed.value)
+const isCompleted = computed(() => !isCancelled.value && rawCompleted.value)
 
 const templateName = computed(() => result.value?.templateName?.trim() || '模板')
 
