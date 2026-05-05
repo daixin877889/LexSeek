@@ -22,6 +22,7 @@ import type { CaseDetailMaterialItem } from '~/composables/useCaseDetail'
 import { CaseMaterialType } from '#shared/types/case'
 import AiChat from '~/components/ai/AiChat.vue'
 import AiChatQueueChips from '~/components/ai/AiChatQueueChips.vue'
+import { PANEL_TOOL_MAP } from '~/components/agents/panelToolMap'
 import AssistantDocumentAllMaterialsSheet from '~/components/assistant/document/AllMaterialsSheet.vue'
 import AssistantDocumentDraftTitleInput from '~/components/assistant/document/DocumentDraftTitleInput.vue'
 import AssistantDocumentFieldForm from '~/components/assistant/document/DocumentFieldForm.vue'
@@ -772,6 +773,7 @@ function handlePanelResize(sizes: number[]) {
             <AiChat ref="aiChatRef" :messages="chatMessages" :loading="chatLoading" :is-interrupted="isInterrupted"
                 :enable-file-upload="true" :queue-length="queueLen" :queue-full="queueFull" :is-stopping="isStopping"
                 prompt-placeholder="告诉 AI 你想怎么填..." :show-header="false" panel-mode="left"
+                :tool-map="PANEL_TOOL_MAP"
                 :on-file-button-click="openMaterialSelector" @submit="handleChatSubmit" @stop="handleStop">
                 <template #prompt-actions>
                     <div v-if="showRetryButton && currentQueue.length === 0" class="flex items-center gap-2 px-4 py-2">

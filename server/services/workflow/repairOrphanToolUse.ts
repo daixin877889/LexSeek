@@ -332,7 +332,7 @@ export async function repairOrphanToolUseCheckpoint(
     const subPattern = `${sessionId}_sub_%`
     const scopes = await prisma.$queryRaw<{ thread_id: string; checkpoint_ns: string }[]>`
         SELECT DISTINCT thread_id, checkpoint_ns
-        FROM checkpoints
+        FROM langgraph.checkpoints
         WHERE thread_id = ${sessionId}
            OR thread_id LIKE ${subPattern}
     `
@@ -364,7 +364,7 @@ async function repairSingleScope(
     // 1. 查最新 checkpoint 获取 messages 的 version
     const checkpoints = await prisma.$queryRaw<CheckpointRow[]>`
         SELECT checkpoint
-        FROM checkpoints
+        FROM langgraph.checkpoints
         WHERE thread_id = ${threadId}
           AND checkpoint_ns = ${checkpointNs}
         ORDER BY checkpoint_id DESC
@@ -380,7 +380,7 @@ async function repairSingleScope(
     // 2. 查 messages blob
     const blobs = await prisma.$queryRaw<BlobRow[]>`
         SELECT blob, type
-        FROM checkpoint_blobs
+        FROM langgraph.checkpoint_blobs
         WHERE thread_id = ${threadId}
           AND checkpoint_ns = ${checkpointNs}
           AND channel = 'messages'
@@ -414,7 +414,7 @@ async function repairSingleScope(
     // 4. 写回同一 version 的 blob
     const patchedBuffer = Buffer.from(JSON.stringify(patched), 'utf8')
     await prisma.$executeRaw`
-        UPDATE checkpoint_blobs
+        UPDATE langgraph.checkpoint_blobs
         SET blob = ${patchedBuffer}
         WHERE thread_id = ${threadId}
           AND checkpoint_ns = ${checkpointNs}

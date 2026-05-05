@@ -1,230 +1,289 @@
 /**
- * documentMainAgent buildContextSegments 接入测试
+ * documentMainAgent 单测(新架构,标准 ReAct + 平级主 Agent)
  *
- * **Feature: context-segments-rollout (Phase 5)**
- * **Validates: documentMainAgent 调用 buildContextSegments，caseId 真值/null 两个场景**
+ * 删除测试范围:toolStrategy / responseFormat / buildDraftSchema / draftResultPersistence
+ * 新增测试范围:中间件挂载 + 系统 prompt 注入 draft 状态 + 工具列表含三个新工具
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // ==================== Mock 定义 ====================
 
-const mockBuildContextSegments = vi.fn()
-const mockBuildSystemPromptForAgent = vi.fn()
-vi.mock('~~/server/services/workflow/context/moduleContextBuilder', () => ({
-    buildContextSegments: (...args: unknown[]) => mockBuildContextSegments(...args),
-    toCachedPrompt: () => [{ text: 'cached prompt' }],
-    buildSystemPromptForAgent: (...args: unknown[]) => mockBuildSystemPromptForAgent(...args),
-}))
-
-vi.mock('~~/server/services/node/chatModelFactory', () => ({
-    createChatModel: vi.fn(() => ({ __mock: 'model' })),
-    cachedPromptToAnthropicContent: vi.fn(() => [{ type: 'text', text: 'sys' }]),
-    cachedPromptToPlainText: vi.fn(() => 'sys plain'),
-}))
-
-const mockStream = vi.fn(async () => new ReadableStream<Uint8Array>({
-    start(c) { c.close() },
-}))
-vi.mock('langchain', () => ({
-    createAgent: vi.fn(() => ({ stream: mockStream })),
-    summarizationMiddleware: vi.fn(() => ({})),
-    toolStrategy: vi.fn(() => ({ __mock: 'responseFormat' })),
-    createMiddleware: (cfg: any) => cfg,
-}))
-
-vi.mock('~~/server/services/workflow/checkpointer', () => ({
-    getCheckpointer: vi.fn(async () => ({ __mock: 'checkpointer' })),
-    getStore: vi.fn(async () => ({ __mock: 'store' })),
-}))
-
-const mockNodeConfig = {
-    id: 1,
-    name: 'documentMain',
-    title: '文书生成主Agent',
-    modelSdkType: 'openai',
-    modelName: 'gpt-4o',
-    modelProviderBaseUrl: 'https://api.openai.com/v1',
-    modelMaxOutputTokens: 4096,
-    modelContextWindow: 128000,
-    modelApiKeys: [{ id: 1, apiKey: 'sk-test', status: 1 }],
-    tools: [],
-    prompts: [
-        { name: 'system', content: 'doc role', type: 'system', status: 1 },
-        {
-            name: 'documentMain_user_with_files',
-            type: 'user',
-            status: 1,
-            content: '请为《{{templateName}}》生成（fileIds={{fileIds}}）。{{userExtraText}}',
-        },
-        {
-            name: 'documentMain_user_with_case',
-            type: 'user',
-            status: 1,
-            content: '请为《{{templateName}}》生成（关联案件）。{{userExtraText}}',
-        },
-        {
-            name: 'documentMain_user_standalone',
-            type: 'user',
-            status: 1,
-            content: '请为《{{templateName}}》生成（独立草稿）。{{userExtraText}}',
-        },
-    ],
-}
-vi.mock('~~/server/services/node/node.service', () => ({
-    getValidNodeConfig: vi.fn(async () => mockNodeConfig),
-}))
-
-const mockFindDraft = vi.fn()
-vi.mock('~~/server/agents/document/documentDraft.dao', () => ({
-    findDraftBySessionIdDAO: (...args: unknown[]) => mockFindDraft(...args),
-}))
-
-vi.mock('~~/server/agents/document/documentTemplate.dao', () => ({
-    getDocumentTemplateDAO: vi.fn(async () => ({
-        id: 9,
-        name: '起诉状',
-        category: '诉讼',
-        placeholders: [],
-    })),
-}))
-
-vi.mock('~~/server/agents/document/draftSchema.builder', () => ({
-    buildDraftSchema: vi.fn(() => ({ __mock: 'schema' })),
-}))
-
-vi.mock('~~/server/services/workflow/utils/promptRenderer', () => ({
-    renderSystemPrompt: vi.fn(() => 'rendered role+flow'),
-}))
-
-vi.mock('~~/server/services/workflow/tools', () => ({
-    getToolInstancesService: vi.fn(() => []),
-}))
-
-vi.mock('~~/server/services/workflow/middleware', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('~~/server/services/workflow/middleware')>()
-    return {
-        ...actual,
-        createAuditMiddleware: vi.fn(() => ({})),
-        createMessageIntegrityMiddleware: vi.fn(() => ({})),
-        createScopeGuardMiddleware: vi.fn(() => ({})),
-        pointConsumptionMiddleware: vi.fn(() => ({})),
-        safetyTrimMiddleware: vi.fn(() => ({})),
-        draftResultPersistenceMiddleware: vi.fn(() => ({})),
-    }
+vi.stubGlobal('logger', {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
 })
 
-vi.mock('~~/server/services/workflow/context/messageCompressor', () => ({
+// mock langchain（createAgent, summarizationMiddleware）
+const mockStream = vi.fn().mockReturnValue('mock-stream')
+vi.mock('langchain', () => ({
+    createAgent: vi.fn(() => ({ stream: mockStream })),
+    summarizationMiddleware: vi.fn(() => ({ name: 'summarizationMiddleware' })),
+}))
+
+// mock @langchain/core/messages
+vi.mock('@langchain/core/messages', () => ({
+    HumanMessage: class MockHumanMessage {
+        content: string
+        constructor(content: string) {
+            this.content = content
+        }
+    },
+}))
+
+// mock @langchain/langgraph
+vi.mock('@langchain/langgraph', () => ({
+    Command: class Command {
+        resume: unknown
+        constructor(opts: { resume: unknown }) {
+            this.resume = opts.resume
+        }
+    },
+}))
+
+// mock checkpointer
+vi.mock('../../../../server/services/workflow/checkpointer', () => ({
+    getCheckpointer: vi.fn().mockResolvedValue({ __mock: 'checkpointer' }),
+    getStore: vi.fn().mockResolvedValue({ __mock: 'store' }),
+}))
+
+// mock node.service
+const mockGetValidNodeConfig = vi.fn()
+vi.mock('../../../../server/services/node/node.service', () => ({
+    getValidNodeConfig: (...args: unknown[]) => mockGetValidNodeConfig(...args),
+}))
+
+// mock chatModelFactory
+vi.mock('../../../../server/services/node/chatModelFactory', () => ({
+    createChatModel: vi.fn(() => ({ name: 'mockModel' })),
+}))
+
+// mock workflow/tools（实现文件 import 的是 '../tools' 即 workflow/tools）
+const mockGetToolInstancesService = vi.fn(() => [])
+vi.mock('../../../../server/services/workflow/tools', () => ({
+    getToolInstancesService: (...args: unknown[]) => mockGetToolInstancesService(...args),
+}))
+
+// mock promptRenderer
+const mockRenderSystemPrompt = vi.fn((cfg: unknown, ctx: unknown) => `RENDERED:${JSON.stringify(ctx)}`)
+vi.mock('../../../../server/services/workflow/utils/promptRenderer', () => ({
+    renderSystemPrompt: (...args: unknown[]) => mockRenderSystemPrompt(...args),
+}))
+
+// mock moduleContextBuilder
+vi.mock('../../../../server/services/workflow/context/moduleContextBuilder', () => ({
+    buildSystemPromptForAgent: vi.fn().mockResolvedValue({
+        systemMessage: { type: 'system', content: 'system' },
+        plainText: 'plain',
+    }),
+}))
+
+// mock messageCompressor
+vi.mock('../../../../server/services/workflow/context/messageCompressor', () => ({
     resolveContextWindow: vi.fn(() => ({
         triggerTokens: 100000,
         maxTokens: 120000,
-        maxOutputTokens: 4096,
+        maxOutputTokens: 4000,
     })),
 }))
 
-vi.stubGlobal('logger', { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })
+// mock workflow/middleware（需包含 buildMiddlewareStack + MIDDLEWARE_PRIORITY + MIDDLEWARE_NAMES）
+vi.mock('../../../../server/services/workflow/middleware', () => ({
+    createMessageIntegrityMiddleware: vi.fn(() => ({ name: 'messageIntegrity' })),
+    createScopeGuardMiddleware: vi.fn(() => ({ name: 'scopeGuard' })),
+    createAuditMiddleware: vi.fn(() => ({ name: 'audit' })),
+    pointConsumptionMiddleware: vi.fn(() => ({ name: 'pointConsumption' })),
+    safetyTrimMiddleware: vi.fn(() => ({ name: 'safetyTrim' })),
+    buildMiddlewareStack: vi.fn((items: Array<{ middleware: unknown; name: string }>) =>
+        items.map(i => i.middleware),
+    ),
+    MIDDLEWARE_PRIORITY: {
+        MESSAGE_INTEGRITY: 1,
+        SCOPE_GUARD: 5,
+        POINT_CONSUMPTION: 20,
+        SUMMARIZATION: 40,
+        SAFETY_TRIM: 50,
+        RESULT_PERSISTENCE: 90,
+        AUDIT: 100,
+    },
+    MIDDLEWARE_NAMES: {
+        MESSAGE_INTEGRITY: 'messageIntegrity',
+        SCOPE_GUARD: 'scopeGuard',
+        POINT_CONSUMPTION: 'pointConsumption',
+        SUMMARIZATION: 'summarization',
+        SAFETY_TRIM: 'safetyTrim',
+        AUDIT: 'audit',
+    },
+}))
+
+// mock afterAgentMemoryMiddleware
+vi.mock('~~/server/services/agent-platform/middleware/afterAgentMemory.middleware', () => ({
+    afterAgentMemoryMiddleware: vi.fn(() => ({ name: 'afterAgentMemory' })),
+}))
+
+// mock langfuse
+vi.mock('~~/server/lib/langfuse', () => ({
+    buildLangfuseTopLevelConfig: vi.fn((opts: { additionalCallbacks?: unknown[] }) => ({
+        callbacks: opts?.additionalCallbacks ?? [],
+    })),
+}))
+
+// mock documentDraft.dao
+const mockFindDraftBySessionIdDAO = vi.fn()
+vi.mock('../../../../server/services/assistant/document/documentDraft.dao', () => ({
+    findDraftBySessionIdDAO: (...args: unknown[]) => mockFindDraftBySessionIdDAO(...args),
+}))
+
+// mock documentTemplate.dao
+const mockGetDocumentTemplateDAO = vi.fn()
+vi.mock('../../../../server/services/assistant/document/documentTemplate.dao', () => ({
+    getDocumentTemplateDAO: (...args: unknown[]) => mockGetDocumentTemplateDAO(...args),
+}))
+
+// mock errorTraceHandler（动态 import 内）
+vi.mock('~~/server/services/agent-platform/diagnostics/errorTraceHandler', () => ({
+    createErrorTraceHandler: vi.fn(() => ({ __mock: 'errorTraceHandler' })),
+}))
+
+// ==================== 导入被测模块 ====================
+
+import { runDocumentChat } from '~~/server/services/workflow/agents/documentMainAgent'
+import { createAgent } from 'langchain'
+import { buildSystemPromptForAgent } from '~~/server/services/workflow/context/moduleContextBuilder'
+
+// ==================== 测试数据工厂 ====================
+
+function makeNodeConfig(overrides: Record<string, unknown> = {}) {
+    return {
+        id: 17,
+        name: 'documentMain',
+        title: '文书生成主Agent',
+        description: '',
+        type: 'main',
+        modelId: 1,
+        modelType: 'chat',
+        modelStatus: 1,
+        modelProviderId: 1,
+        modelProviderName: 'Anthropic',
+        modelProviderDescription: '',
+        modelSdkType: 'anthropic',
+        modelName: 'deepseek-v4-flash',
+        modelProviderBaseUrl: 'https://example.com',
+        modelMaxOutputTokens: 4000,
+        modelContextWindow: 100000,
+        modelApiKeys: [{ id: 1, apiKey: 'sk-test', status: 1 }],
+        tools: ['recommend_template', 'save_document_draft', 'update_document_draft'],
+        prompts: [],
+        outputSchema: null,
+        ...overrides,
+    }
+}
+
+function makeDraft(overrides: Record<string, unknown> = {}) {
+    return {
+        id: 100,
+        sessionId: 'sess-x',
+        templateId: 1,
+        caseId: null,
+        values: { 原告: '张三' },
+        status: 'ready',
+        sourceRef: null,
+        ...overrides,
+    }
+}
+
+function makeTemplate(overrides: Record<string, unknown> = {}) {
+    return {
+        id: 1,
+        name: '民事起诉状',
+        category: '民事',
+        placeholders: [
+            { name: '原告', firstContext: '原告:{{原告}}' },
+            { name: '被告', firstContext: '被告:{{被告}}' },
+        ],
+        ...overrides,
+    }
+}
 
 // ==================== 测试用例 ====================
 
-describe('runDocumentChat - buildContextSegments 接入', () => {
+describe('documentMainAgent (新架构)', () => {
     beforeEach(() => {
-        vi.clearAllMocks()
-        mockBuildContextSegments.mockResolvedValue({
-            roleAndFlow: 'rendered role+flow',
-            caseProfile: '',
-            moduleSummaries: '',
-            dynamicContext: '',
-        })
-        mockBuildSystemPromptForAgent.mockImplementation(async (_sdkType: string, params: unknown) => {
-            const segments = await mockBuildContextSegments(params)
-            return {
-                segments,
-                systemMessage: { content: 'mock-sys' },
-                plainText: 'mock-plain',
-            }
+        vi.resetAllMocks()
+
+        // 重置 mockStream
+        mockStream.mockReturnValue('mock-stream')
+        ;(createAgent as ReturnType<typeof vi.fn>).mockReturnValue({ stream: mockStream })
+
+        // 默认 mock 返回值
+        mockGetValidNodeConfig.mockResolvedValue(makeNodeConfig())
+        mockFindDraftBySessionIdDAO.mockResolvedValue(makeDraft())
+        mockGetDocumentTemplateDAO.mockResolvedValue(makeTemplate())
+        mockRenderSystemPrompt.mockImplementation((_cfg: unknown, ctx: unknown) => `RENDERED:${JSON.stringify(ctx)}`)
+        mockGetToolInstancesService.mockReturnValue([])
+        ;(buildSystemPromptForAgent as ReturnType<typeof vi.fn>).mockResolvedValue({
+            systemMessage: { type: 'system', content: 'system' },
+            plainText: 'plain',
         })
     })
 
-    it('draft.caseId 非空 → 透传真实 caseId 给 buildContextSegments', async () => {
-        mockFindDraft.mockResolvedValueOnce({
-            id: 1,
-            sessionId: 'sess-1',
-            templateId: 9,
-            caseId: 555,
-            sourceRef: { fileIds: [], text: '' },
-        })
+    it('createAgent 调用不含 responseFormat(toolStrategy 已删)', async () => {
+        await runDocumentChat('sess-x', '帮我起草起诉状', { userId: 1 })
 
-        const { runDocumentChat } = await import(
-            '~~/server/services/workflow/agents/documentMainAgent'
+        const callArgs = (createAgent as ReturnType<typeof vi.fn>).mock.calls[0][0]
+        expect(callArgs).not.toHaveProperty('responseFormat')
+    })
+
+    it('renderSystemPrompt 接收新增的 4 个字段(draftId/status/currentValuesJSON/placeholdersWithHints)', async () => {
+        await runDocumentChat('sess-x', '帮我起草', { userId: 1 })
+
+        expect(mockRenderSystemPrompt).toHaveBeenCalledWith(
+            expect.any(Object),
+            expect.objectContaining({
+                draftId: 100,
+                status: 'ready',
+                currentValuesJSON: expect.stringContaining('原告'),
+                placeholdersWithHints: expect.stringContaining('原告'),
+            }),
         )
-
-        await runDocumentChat('sess-1', '帮我起草', { userId: 1, caseId: 555 })
-
-        expect(mockBuildContextSegments).toHaveBeenCalledTimes(1)
-        const args = mockBuildContextSegments.mock.calls[0][0]
-        expect(args.caseId).toBe(555)
-        expect(args.agentName).toBe('documentMain')
-        expect(args.userQuery).toBe('帮我起草')
-        expect(args.roleAndFlowTemplate).toBe('rendered role+flow')
     })
 
-    it('独立文书草稿（draft.caseId 为 null 且未传 options.caseId）→ caseId=null', async () => {
-        mockFindDraft.mockResolvedValueOnce({
-            id: 2,
-            sessionId: 'sess-2',
-            templateId: 9,
-            caseId: null,
-            sourceRef: { fileIds: [], text: '' },
-        })
+    it('caseId 为 null 时不挂 afterAgentMemory 中间件', async () => {
+        // draft.caseId = null（默认），options 也不传 caseId
+        await runDocumentChat('sess-x', '帮我起草', { userId: 1 })
 
-        const { runDocumentChat } = await import(
-            '~~/server/services/workflow/agents/documentMainAgent'
+        const { buildMiddlewareStack } = await import('../../../../server/services/workflow/middleware')
+        const callItems = (buildMiddlewareStack as ReturnType<typeof vi.fn>).mock.calls[0][0] as Array<{ name: string }>
+        const names = callItems.map(i => i.name)
+        expect(names).not.toContain('afterAgentMemory')
+    })
+
+    it('caseId 非空时挂 afterAgentMemory 中间件', async () => {
+        mockFindDraftBySessionIdDAO.mockResolvedValue(makeDraft({ caseId: 5 }))
+
+        await runDocumentChat('sess-x', '帮我起草', { userId: 1, caseId: 5 })
+
+        const { buildMiddlewareStack } = await import('../../../../server/services/workflow/middleware')
+        const callItems = (buildMiddlewareStack as ReturnType<typeof vi.fn>).mock.calls[0][0] as Array<{ name: string }>
+        const names = callItems.map(i => i.name)
+        expect(names).toContain('afterAgentMemory')
+    })
+
+    it('工具列表包含 recommend_template / save_document_draft / update_document_draft', async () => {
+        await runDocumentChat('sess-x', '帮我起草', { userId: 1 })
+
+        expect(mockGetToolInstancesService).toHaveBeenCalledWith(
+            expect.arrayContaining(['recommend_template', 'save_document_draft', 'update_document_draft']),
+            expect.any(Object),
         )
-
-        await runDocumentChat('sess-2', undefined, { userId: 1 })
-
-        expect(mockBuildContextSegments).toHaveBeenCalledTimes(1)
-        const args = mockBuildContextSegments.mock.calls[0][0]
-        expect(args.caseId).toBeNull()
-        expect(args.agentName).toBe('documentMain')
-    })
-})
-
-import type { CallbackHandlerMethods } from '@langchain/core/callbacks/base'
-
-describe('callbacks 选项透传', () => {
-    beforeEach(() => {
-        mockStream.mockClear()
-        mockFindDraft.mockResolvedValue({
-            id: 99,
-            sessionId: 'sess-x',
-            templateId: 9,
-            caseId: 555,
-            sourceRef: { fileIds: [], text: '' },
-        })
     })
 
-    it('不传 callbacks（向后兼容）→ stream 被调用，callbacks 含 errorTraceHandler + langfuseHandler', async () => {
-        const { runDocumentChat } = await import('~~/server/services/workflow/agents/documentMainAgent')
-        await runDocumentChat('sess-x', '问', { userId: 1 })
-        const streamArgs = mockStream.mock.calls[0]?.[1] as any
-        expect(streamArgs.callbacks).toBeDefined()
-        expect(Array.isArray(streamArgs.callbacks)).toBe(true)
-        // [langfuseHandler, errorTraceHandler]
-        // langfuseHandler 由 buildLangfuseTopLevelConfig 在 stream 顶层注入；errorTraceHandler 由业务追加
-        expect(streamArgs.callbacks).toHaveLength(2)
-    })
+    it('draft 不存在时抛错', async () => {
+        mockFindDraftBySessionIdDAO.mockResolvedValue(null)
 
-    it('传 callbacks → 与 errorTraceHandler / langfuseHandler 合并到 callbacks 数组', async () => {
-        const userCallback: CallbackHandlerMethods = { handleLLMNewToken: vi.fn() }
-        const { runDocumentChat } = await import('~~/server/services/workflow/agents/documentMainAgent')
-        await runDocumentChat('sess-y', '问', {
-            userId: 1,
-            callbacks: [userCallback],
-        })
-        const streamArgs = mockStream.mock.calls[0]?.[1] as any
-        // [langfuseHandler, errorTraceHandler, userCallback]
-        expect(streamArgs.callbacks).toHaveLength(3)
-        expect(streamArgs.callbacks).toContain(userCallback)
+        await expect(runDocumentChat('sess-missing', 'msg', { userId: 1 }))
+            .rejects.toThrow('未找到 sessionId=sess-missing')
     })
 })

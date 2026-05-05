@@ -154,11 +154,17 @@ export async function getDraftService(
 /**
  * 更新草稿 values。drafting/filling 状态拒绝修改（409）。
  * 仅保留 template.placeholders 中定义的 key，多余 key 忽略，缺失 key 保留原值。
+ *
+ * 可选 metadata 参数：工具一次写入 values + suggestions 等元数据时使用。
+ * metadata 与 draft.metadata 现有键合并（spread），不覆盖未传的旧键。
  */
 export async function patchDraftService(
     userId: number,
     draftId: number,
-    input: { values: Record<string, string | null> },
+    input: {
+        values: Record<string, string | null>
+        metadata?: Record<string, unknown>
+    },
 ): Promise<{ draft: any } | ServiceError> {
     const draft = await getDocumentDraftDAO(draftId)
     if (!draft) {
@@ -188,9 +194,14 @@ export async function patchDraftService(
     const existingValues = (draft.values as Record<string, string | null>) ?? {}
     const mergedValues = { ...existingValues, ...filteredValues }
 
-    const updated = await updateDocumentDraftDAO(draftId, {
-        values: mergedValues as any,
-    })
+    // 构造 update 入参，可选写入 metadata（合并 draft.metadata 现有键，不覆盖未传的旧键）
+    const updateData: { values: any; metadata?: any } = { values: mergedValues as any }
+    if (input.metadata !== undefined) {
+        const existingMetadata = (draft.metadata as Record<string, unknown> | null) ?? {}
+        updateData.metadata = { ...existingMetadata, ...input.metadata }
+    }
+
+    const updated = await updateDocumentDraftDAO(draftId, updateData as any)
 
     return { draft: updated }
 }

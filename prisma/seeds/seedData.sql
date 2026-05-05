@@ -1439,7 +1439,7 @@ INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "pri
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at", "use_skills_as_logic", "thinking_enabled") VALUES (2, 'extractInfo', '基本信息提取', '从案件材料中自动提取案件基本信息，包括标题、原告、被告、案件摘要等', 'extraction', 20, 1, '["search_case_materials", "search_case_memory", "write_case_memory", "update_case_memory"]', '{"type": "object", "required": ["title", "summary", "caseType", "defendant", "plaintiff", "extraFields"], "properties": {"title": {"type": "string", "description": "案件名称（如：张三与李四买卖合同纠纷）"}, "summary": {"type": "string", "description": "案件简要概述（200字以内）"}, "caseType": {"type": "string", "description": "案件类型，必须从系统可选值中选取"}, "defendant": {"type": "array", "items": {"type": "string"}, "description": "被告列表"}, "plaintiff": {"type": "array", "items": {"type": "string"}, "description": "原告列表"}, "extraFields": {"type": "array", "items": {"type": "object", "required": ["name", "title", "value"], "properties": {"name": {"type": "string", "description": "英文标识（camelCase）"}, "title": {"type": "string", "description": "中文名称"}, "value": {"type": "string", "description": "提取的值"}}}, "description": "根据案件材料提取的其他有价值信息"}}}', 1, 1, '2026-01-07 10:00:02+08', '2026-03-25 18:14:34.073+08', NULL, 'f', 'f');
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at", "use_skills_as_logic", "thinking_enabled") VALUES (3, 'extractImageInfo', '图片识别', '识别图片中的文字内容，支持文档类图片和照片类图片', 'extraction', 30, 13, '[]', NULL, NULL, 1, '2026-01-07 10:00:03+08', '2026-03-21 13:03:38.634+08', NULL, 'f', 'f');
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at", "use_skills_as_logic", "thinking_enabled") VALUES (4, 'audioRecognition', '音频识别', '使用阿里云百炼 paraformer-v2 模型进行语音识别，支持中英文混合识别和说话人分离', 'extraction', 40, 16, '[]', NULL, NULL, 1, '2026-01-07 10:00:04+08', '2026-03-21 13:03:58.245+08', NULL, 'f', 'f');
-INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at", "use_skills_as_logic", "thinking_enabled") VALUES (5, 'caseMain', '案件分析主 Agent', '案件分析的主 Agent，负责协调子 Agent 完成任务', 'agent', 100, 2, '["process_materials", "search_case_materials", "search_law", "search_case_memory", "write_case_memory", "update_case_memory", "search_case_analysis", "draft_document", "review_contract"]', NULL, 1, 1, '2026-03-21 11:23:17.357+08', '2026-05-02 13:18:48.771+08', NULL, 'f', 't');
+INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at", "use_skills_as_logic", "thinking_enabled") VALUES (5, 'caseMain', '案件分析主 Agent', '案件分析的主 Agent，负责协调子 Agent 完成任务', 'agent', 100, 2, '["process_materials", "search_case_materials", "search_law", "search_case_memory", "write_case_memory", "update_case_memory", "search_case_analysis", "review_contract", "recommend_template", "save_document_draft", "update_document_draft"]', NULL, 1, 1, '2026-03-21 11:23:17.357+08', '2026-05-02 13:18:48.771+08', NULL, 'f', 't');
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at", "use_skills_as_logic", "thinking_enabled") VALUES (6, 'summary', '生成案件概要', '根据案情生成案情概要。', 'analysis', 100, 1, '["search_case_materials", "search_law", "search_case_memory", "write_case_memory", "update_case_memory"]', NULL, NULL, 1, '2026-03-23 11:16:08.982+08', '2026-04-29 20:53:13.734+08', NULL, 't', 't');
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at", "use_skills_as_logic", "thinking_enabled") VALUES (7, 'chronicle', '提取案件大事记', '提取案件的大事记表格', 'analysis', 300, 1, '["search_case_materials", "search_law", "process_materials", "search_case_memory", "write_case_memory", "update_case_memory"]', NULL, NULL, 1, '2026-03-23 11:17:16.49+08', '2026-04-29 20:53:29.782+08', NULL, 't', 't');
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at", "use_skills_as_logic", "thinking_enabled") VALUES (8, 'claim', '预分析案件请求权', '根据资料分析案件的请求权', 'analysis', 400, 1, '["search_case_materials", "search_law", "process_materials", "search_case_memory", "write_case_memory", "update_case_memory"]', NULL, NULL, 1, '2026-03-23 11:20:12.923+08', '2026-04-29 20:53:48.443+08', NULL, 't', 't');
@@ -1449,9 +1449,9 @@ INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "pri
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at", "use_skills_as_logic", "thinking_enabled") VALUES (12, 'evidence', '证据清单预梳理', '证据清单预梳理', 'analysis', 800, 1, '["search_case_materials", "search_law", "process_materials", "search_case_memory", "write_case_memory", "update_case_memory"]', NULL, NULL, 1, '2026-03-23 11:25:27.771+08', '2026-04-29 20:54:32.519+08', NULL, 't', 't');
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at", "use_skills_as_logic", "thinking_enabled") VALUES (13, 'material_summarizer', '案件材料摘要', '对案件材料做 300-500 字左右的摘要', 'extraction', 100, 1, '[]', NULL, NULL, 1, '2026-03-31 18:07:53.881+08', '2026-03-31 18:07:53.881+08', NULL, 'f', 'f');
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at", "use_skills_as_logic", "thinking_enabled") VALUES (14, 'search_intent_router', '检索意图路由器', '根据查询内容分类检索意图（精确/混合/语义），用于统一检索路由器的意图分发', 'extraction', 100, 1, '[]', '{"type": "object", "required": ["intent"], "properties": {"intent": {"enum": ["exact", "hybrid", "semantic"], "description": "检索意图类型"}, "keywords": {"type": "array", "items": {"type": "string"}, "description": "提取的法律术语关键词"}, "legalName": {"type": "string", "description": "识别到的法律名称"}, "articleRef": {"type": "string", "description": "条文编号，如 第一千条"}, "rewrittenQuery": {"type": "string", "description": "改写后的语义查询"}}}', NULL, 1, '2026-04-09 10:00:00+08', '2026-04-10 00:05:33.799+08', NULL, 'f', 'f');
-INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at", "use_skills_as_logic", "thinking_enabled") VALUES (15, 'assistantMain', '通用法律助手主Agent', '无案件上下文的法律问答与工具调用', 'agent', 10, 1, '["search_law", "draft_document", "review_contract"]', NULL, NULL, 1, '2026-04-17 10:00:00+08', '2026-05-02 13:19:19.231+08', NULL, 'f', 't');
+INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at", "use_skills_as_logic", "thinking_enabled") VALUES (15, 'assistantMain', '通用法律助手主Agent', '无案件上下文的法律问答与工具调用', 'agent', 10, 1, '["search_law", "review_contract", "process_materials", "search_case_materials", "recommend_template", "save_document_draft", "update_document_draft"]', NULL, NULL, 1, '2026-04-17 10:00:00+08', '2026-05-02 13:19:19.231+08', NULL, 'f', 't');
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at", "use_skills_as_logic", "thinking_enabled") VALUES (16, 'assistantTitleGen', '会话标题生成', '根据首轮对话生成 ≤20 字会话标题，供侧栏列表展示', 'extraction', 20, 1, '[]', NULL, NULL, 1, '2026-04-17 10:00:00+08', '2026-04-28 14:02:29.418+08', NULL, 'f', 'f');
-INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at", "use_skills_as_logic", "thinking_enabled") VALUES (17, 'documentMain', '文书生成主Agent', '按模板占位符填充生成文书', 'agent', 30, 1, '["process_materials", "search_case_materials", "search_law", "search_case_memory", "write_case_memory", "update_case_memory"]', NULL, NULL, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL, 'f', 'f');
+INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at", "use_skills_as_logic", "thinking_enabled") VALUES (17, 'documentMain', '文书生成主Agent', '按模板占位符填充生成文书', 'agent', 30, 1, '["process_materials", "search_case_materials", "search_law", "search_case_memory", "write_case_memory", "update_case_memory", "update_document_draft"]', NULL, NULL, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL, 'f', 'f');
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at", "use_skills_as_logic", "thinking_enabled") VALUES (18, 'contractReviewMain', '合同审查主Agent', '按 responseFormat 输出结构化风险清单，并通过 parse_and_ask_stance 工具中断请求用户立场', 'agent', 40, 1, '["parse_and_ask_stance", "search_law", "search_case_memory", "write_case_memory", "update_case_memory"]', NULL, NULL, 1, '2026-04-18 10:00:00+08', '2026-04-18 10:00:00+08', NULL, 'f', 'f');
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at", "use_skills_as_logic", "thinking_enabled") VALUES (19, 'contractReviewSummarize', '合同审查·总览总结', '读完 analyze 阶段生成的所有 risks，做跨条款归纳，输出分档要点（highlights）+ 总评（overall）', 'extraction', 45, 1, '[]', NULL, NULL, 1, '2026-04-21 20:00:00+08', '2026-04-21 20:00:00+08', NULL, 'f', 'f');
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at", "use_skills_as_logic", "thinking_enabled") VALUES (20, 'contractReviewAnalyzeClause', '合同审查·逐条条款分析', 'analyze 阶段按条款循环调用：给一条 clauseText + 立场上下文，输出 0 或 1 条 Risk', 'extraction', 42, 1, '[]', NULL, NULL, 1, '2026-04-21 20:30:00+08', '2026-04-21 20:30:00+08', NULL, 'f', 'f');
@@ -3422,7 +3422,11 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 - 你可以回答法律知识问题、提供文书起草思路、做合同基础分析。
 - 你可以调用以下工具：
   - search_law：检索最新法条
-  - draft_document：起草法律文书（会自动弹出模板选择卡片让用户选模板）
+  - recommend_template：推荐法律文书模板(自动弹卡片让用户选)
+  - save_document_draft：创建文书草稿并写入字段值(需先有 templateId)
+  - update_document_draft：修改已有草稿的字段(用户改某字段时调用)
+  - process_materials：识别并嵌入用户本轮新提供的材料
+  - search_case_materials：检索关联草稿/案件的材料内容
   - review_contract：审查合同（必须先有用户已上传的 docx 文件 ossFileId；会自动弹出立场选择卡片让用户选甲/乙/中立）
 - 你【不】拥有任何案件上下文；如果用户提到我的案件但没有贴出详情，主动请用户提供关键信息。
 
@@ -3600,7 +3604,7 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 ## suggestedClauseText 输出格式约束（铁律）
 
 `suggestedClauseText` 必须是单段连续文字，**绝对不可包含**：
-- 换行符（`\n` / `\r` / 任何形式的换行）
+- 换行符（`\\n` / `\\r` / 任何形式的换行）
 - 项目符号（`-` / `•` / `1.` / `(1)` 等列表标记开头）
 - 多段（用空行分隔的多个段落）
 
@@ -3609,7 +3613,7 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 ❌ 错误示例（schema 会 reject 整条建议）：
 
 ```json
-"suggestedClauseText": "第一款 甲方应支付货款。\n第二款 逾期支付按 0.5% 加收滞纳金。"
+"suggestedClauseText": "第一款 甲方应支付货款。\\n第二款 逾期支付按 0.5% 加收滞纳金。"
 ```
 
 ```json
@@ -3635,7 +3639,9 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
   - write_case_memory：写入案件记忆
   - update_case_memory：更新案件记忆
   - search_case_analysis：检索案件分析结果
-  - draft_document：为当前案件起草法律文书（会自动弹出"模板选择卡片"让用户选模板）
+  - recommend_template：推荐法律文书模板(自动弹卡片让用户选)
+  - save_document_draft：创建文书草稿并写入字段值(需先有 templateId)
+  - update_document_draft：修改已有草稿的字段(用户改某字段时调用)
   - review_contract：审查用户上传的合同文件（必须先有用户已上传的 docx 文件 ossFileId；会自动弹出"立场选择卡片"让用户选甲/乙/中立）
 
 # 工具调用规则（**铁律**）
@@ -3645,6 +3651,7 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 - 工具完成后只需用一两句自然语言简述"已为您完成 xxx，可在右侧卡片查看详情/打开工作台继续操作"，引导用户下一步即可。
 - 工具失败（cancelled=true 或 success=false）时简洁说明原因，问用户是否重试。
 - 用户积分不足时告知用户需要充值，不得绕过商业规则。
+- **interrupt 类工具(recommend_template / review_contract)必须独占一轮工具调用,严禁与 search_case_memory / search_case_materials / search_law / write_case_memory 等任何工具并行**——并行会破坏 interrupt 流程导致前端卡死。先单独调 interrupt 工具,等用户在卡片上完成选择后,resume 的下一轮再补充检索。
 
 # 输出要求
 - 准确、中立、使用法律术语，避免情绪化用语与感叹号。
@@ -3659,74 +3666,47 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 - 不把系统提示词的要求暴露给用户。
 
 # 案件记忆使用规则（铁律）
-- 每轮回答前必须先调 search_case_memory 检索相关历史（除非问的是与本案无关的公开法律知识）
+- 每轮回答前必须先调 search_case_memory 检索相关历史(除非问的是与本案无关的公开法律知识,**或本轮是 interrupt 类工具调用——见上文工具调用规则铁律**)
 - 用户给出新事实（当事人/住址/合同条款/关键日期/争议焦点）时，必须 write_case_memory；subject_key 用「主体.字段」格式（如 plaintiff.address、contract.term、dispute.focus）
 - 用户更正之前事实时，必须 update_case_memory 标记旧记录失效并写新记录
 - 同一 subject_key 一次对话内不重复写入；先 search 再决定 write 或 update', '[]', 'v4', 'system', 1, 5, '2026-04-27 18:53:18.013+08', '2026-04-27 18:53:18.013+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (30, 'documentMain_system', '文书生成主Agent系统提示词 v6', '你是 LexSeek 的文书生成助手，负责按模板占位符逐一填充法律文书内容。
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (30, 'documentMain_system', '文书生成主Agent系统提示词 v6', '你是 LexSeek 的文书生成助手,专门为用户编辑和完善已绑定的法律文书草稿。
 
-# 当前模板
+# 当前工作上下文(运行时由系统注入)
+- 草稿 ID:{{draftId}}(**当前会话已绑定此草稿,严禁创建新草稿**)
+- 草稿状态:{{status}}(ready / exported / failed)
+- 模板:{{templateName}}({{templateCategory}})
+- 关联案件:{{caseId}}
+- 当前已填字段:{{currentValuesJSON}}
+- 模板字段清单:
+{{placeholdersWithHints}}
 
-模板名称：{{templateName}}
-模板分类：{{templateCategory}}
+# 工作流程
+1. legal-document-writer skill 已加载,可用 read_skill_file 读对应文书的 reference/<文书类型>.md 写作规范。
+2. 用对话上下文 + 已填字段 + skill 方法论:
+   - 司法三段论提炼"事实和理由"(法律关系建立 → 违约/侵权事实 → 法律后果推导)
+   - 配套思考"诉讼请求"(请求解除合同要带返还/赔偿,涉及金钱要写本金/利率/起止)
+   - 从对话提取当事人/证据/时间线
+3. **唯一可用的字段写入工具是 update_document_draft**——增量更新草稿字段。无论是用户首次让你填字段还是改字段,都用它。**禁止调 save_document_draft / recommend_template**(那是法律助手/小索新建草稿场景用的,本入口的 draft 已绑定无需再选模板)。
+4. **铁律:每收到一条用户消息后必须先调一次 update_document_draft 落库**——把对话中能抽取到的所有信息(当事人姓名、金额、日期、法院、诉讼请求、事实理由等)写到对应字段。**禁止在第一条 AI 回复里只反问、不调工具**——用户已经给的内容必须先落到草稿,缺失字段写 null + 在 suggestions 里给出问句。
+5. 字段值规则:
+   - 能从对话/已填字段抽取的 → 填实(包括基于上下文合理起草的内容,如已知原告被告金额时直接起草诉讼请求和事实理由的初稿)
+   - 不知道的 → 写 null,不要编造
+   - "建议用户补充什么" → 写到 suggestions 字段(每条一句问句),不要在消息正文里输出大段问题列表
+6. 调完 update_document_draft 后,在自然语言里简述"已为您起草初稿,XX 等信息建议补充",引导用户继续。等用户补充后再调 update_document_draft 增量更新。
 
-# 可用工具
+# 工具
+- update_document_draft:修改已绑定草稿的字段(本入口唯一字段写入工具)
+- search_case_materials:检索关联案件/草稿的材料
+- search_case_memory / write_case_memory / update_case_memory:案件记忆操作(若关联案件)
+- search_law:检索法条
+- process_materials:处理用户上传的新材料
 
-- process_materials：识别并嵌入用户本轮新提供的材料（仅在用户消息出现"新增材料 fileIds: [...]"时使用）
-- search_case_materials：精确检索某份材料的全文或片段（query 关键词、sourceId 精确返回、不传则按前 k 份返回完整内容）
-- search_case_analysis：检索案件已完成的分析模块全文（事实/请求/案由/抗辩/证据等）
-- search_law：查询相关法律条文
-- search_case_memory / write_case_memory / update_case_memory：案件记忆操作（仅 caseId 非空时使用）
-
-# 工作流程（严格按顺序，禁止跳步）
-
-## 步骤 1：扫描已注入上下文，能直接填的字段立即填
-
-启动时，**system prompt 之后会通过中间件以 HumanMessage 形式注入"案件材料"段（包含本案件全部材料的全文或摘要）**。请按以下顺序识别可填字段：
-
-1. **案件档案**（system prompt 中的 caseProfile 段）—— 案件标题、原告、被告、法院、首/二审案号、判决法官、案件摘要等
-2. **已完成模块摘要**（system prompt 中的 moduleSummaries 段）—— 已分析的事实、请求、案由、抗辩、证据等
-3. **案件材料段**（首条 HumanMessage 注入）—— 当事人身份信息、合同关键条款、欠款金额、违约时间、证据清单、地址、联系方式等可从材料正文里直接抽取或推断的字段
-
-> 案件档案与材料段已经是经过校验的权威信息，**视为已知事实可直接引用**，**不要因为"还没调工具"就把它们留 null**。
-
-## 步骤 2：模糊或缺失字段才调工具补
-
-仅当步骤 1 不能确定某个字段时：
-
-1. 优先调 `search_case_analysis(analysis_type=...)` 取已分析模块全文（如 fact_review / claim_analysis）
-2. 调 `search_case_materials` 时**按字段需求发起多次精准检索**（如 query="原告身份证号"、query="违约金额"、query="合同签订日期"），不要只用单一泛查询；必要时用 sourceId 取材料全文
-3. 引用法条调 `search_law`
-
-## 步骤 3：用户主动新提供材料时
-
-仅当用户本轮消息以"新增材料 fileIds: [...]"开头：先调 `process_materials(fileIds=[...])` 处理这批文件，等返回 ready 状态后再回到步骤 1。
-
-# 严禁
-
-- 严禁向用户索要"案件档案 / 材料段已包含"的信息（当事人姓名、法院、案号、合同主要条款、判决主文等都能从已注入上下文里读到）
-- 严禁因"未调工具"而返回 null —— 案件档案与材料段已注入到上下文，请充分利用
-- 严禁编造 —— 仅当档案、材料、分析、法条都查不到时才返回 null
-- 严禁在消息正文写 JSON / 代码块 / 长篇答案 —— 正文仅用于工具调用之间的简要思考衔接
-
-# 结果输出（铁律）
-
-收集完信息后，**必须**通过系统注入的结构化输出工具返回：
-- values：模板 placeholders 对应的键值对（无法推断的字段返回 null）
-- suggestions：每个字段的填充依据（来源：案件档案 / 材料 sourceId X / 分析模块 Y / 用户陈述）
-- aiTitle：根据所填字段推断的简短文书标题（10~30 字，如"张三诉某公司劳动争议起诉状"）
-
-# 约束
-
-- 涉及姓名 / 金额 / 日期的值必须来自档案、材料或法条；来源不明返回 null
-- 不替用户做最终法律判断，只提供基于材料的客观填充
-- 简体中文，法律术语规范
-
-# 案件记忆使用规则
-
-- 仅当 caseId 非空（绑定案件）时使用记忆工具
-- 起草过程中发现的关键事实必须 write_case_memory；subject_key 用「主体.字段」格式
-- 引用案件历史先 search_case_memory', '["templateName", "templateCategory"]', 'v6', 'system', 1, 17, '2026-04-29 11:01:51.841+08', '2026-04-29 11:01:51.841+08', NULL);
+# 不做的事
+- 不在消息正文里输出大段字段值的 JSON 或代码块——所有字段值通过工具调用提交
+- 不替用户做最终法律决定,只提供分析与建议
+- 不编造未在对话/材料中出现的事实
+- 不在自然语言里输出 emoji 表情', '["templateName", "templateCategory"]', 'v6', 'system', 1, 17, '2026-04-29 11:01:51.841+08', '2026-04-29 11:01:51.841+08', NULL);
 INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (40, 'caseMemoryExtract_system', '案件记忆提取系统提示词', '你是案件记忆提取助手。从下面这段 agent 对话历史中，识别用户提到的"关键事实"，输出可写入案件记忆库的条目清单。
 
 ## 识别规则
@@ -3876,7 +3856,7 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 
 {{userExtraText}}
 
-收集到足够信息后，必须通过结构化输出工具返回 values + suggestions，严禁在消息正文自行写 JSON 或代码块；未知字段返回 null，不要编造。', '["templateName", "fileIds", "userExtraText"]', 'v1', 'user', 1, 17, '2026-04-29 18:27:18.864147+08', '2026-04-29 18:27:18.864147+08', NULL);
+收集到足够信息后，必须通过结构化输出工具返回 values + suggestions，严禁在消息正文自行写 JSON 或代码块；未知字段返回 null，不要编造。', '["templateName", "fileIds", "userExtraText"]', 'v1', 'user', 0, 17, '2026-04-29 18:27:18.864147+08', '2026-04-29 18:27:18.864147+08', NULL);
 INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (46, 'documentMain_user_with_case', '文书生成-关联案件分支', '请为《{{templateName}}》按字段 schema 生成文书内容。
 
 本草稿关联案件已完成初分分析（system prompt 中 caseProfile + moduleSummaries 段已附 200-400 字摘要）。请按以下顺序填充模板字段：
@@ -3887,14 +3867,14 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 
 {{userExtraText}}
 
-收集到足够信息后，必须通过结构化输出工具返回 values + suggestions，严禁在消息正文自行写 JSON 或代码块；未知字段返回 null，不要编造。', '["templateName", "userExtraText"]', 'v1', 'user', 1, 17, '2026-04-29 18:27:18.86492+08', '2026-04-29 18:27:18.86492+08', NULL);
+收集到足够信息后，必须通过结构化输出工具返回 values + suggestions，严禁在消息正文自行写 JSON 或代码块；未知字段返回 null，不要编造。', '["templateName", "userExtraText"]', 'v1', 'user', 0, 17, '2026-04-29 18:27:18.86492+08', '2026-04-29 18:27:18.86492+08', NULL);
 INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (47, 'documentMain_user_standalone', '文书生成-独立草稿分支', '请为《{{templateName}}》按字段 schema 生成文书内容。
 
 请先调用 search_case_materials 查询本草稿已就绪的材料；若确无任何材料，再向用户询问需要补充的具体内容。
 
 {{userExtraText}}
 
-收集到足够信息后，必须通过结构化输出工具返回 values + suggestions，严禁在消息正文自行写 JSON 或代码块；未知字段返回 null，不要编造。', '["templateName", "userExtraText"]', 'v1', 'user', 1, 17, '2026-04-29 18:27:18.865428+08', '2026-04-29 18:27:18.865428+08', NULL);
+收集到足够信息后，必须通过结构化输出工具返回 values + suggestions，严禁在消息正文自行写 JSON 或代码块；未知字段返回 null，不要编造。', '["templateName", "userExtraText"]', 'v1', 'user', 0, 17, '2026-04-29 18:27:18.865428+08', '2026-04-29 18:27:18.865428+08', NULL);
 INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (48, 'search_intent_router_system', '检索意图路由-系统提示词 v2', '你是法律检索意图分类器。根据用户的查询，判断最佳检索策略，以 JSON 格式输出结果。
 
 ## 判断优先级（按顺序判断，命中即停）
@@ -3917,11 +3897,6 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
    → 提取 keywords + rewrittenQuery
 
 {{typeHint}}', '["typeHint"]', 'v2', 'system', 1, 14, '2026-04-29 18:27:18.849936+08', '2026-04-29 18:27:18.849936+08', NULL);
-
-
--- ==================== 合同审查清单要点（M7 Playbook） ====================
--- 每个类型预置 1 条占位要点，保证 seedData 可执行；运营在后台补齐其余
--- 后续法律顾问审校后的要点替换这里的 INSERT 即可
 INSERT INTO "public"."contract_playbooks" ("id", "contract_type", "code", "title", "default_level", "stance_preference", "check_content", "legal_basis", "suggestion", "enabled", "created_at", "updated_at") VALUES (1, '劳动合同', 'written_form_timing', '书面形式与时效', 'high', 'strict', '检查是否在用工之日起一个月内签订书面劳动合同；录用通知书、入职须知、微信沟通不能替代劳动合同；合同到期后是否及时续签', '《劳动合同法》第十条、第八十二条', '入职一个月内签订书面劳动合同；到期前启动续签流程', 't', '2026-05-02 17:05:56.541+08', '2026-05-02 17:05:56.541+08');
 INSERT INTO "public"."contract_playbooks" ("id", "contract_type", "code", "title", "default_level", "stance_preference", "check_content", "legal_basis", "suggestion", "enabled", "created_at", "updated_at") VALUES (2, '劳动合同', 'required_clauses', '必备条款完整性', 'medium', 'strict', '检查是否包含期限、工作内容、工作地点、工作时间、劳动报酬、社会保险、劳动保护等必备条款；工作内容宜宽泛约定避免调整隐患', '《劳动合同法》第十七条', '补充缺失的必备条款；工作内容约定有一定幅度宽泛', 't', '2026-05-02 17:05:56.541+08', '2026-05-02 17:05:56.541+08');
 INSERT INTO "public"."contract_playbooks" ("id", "contract_type", "code", "title", "default_level", "stance_preference", "check_content", "legal_basis", "suggestion", "enabled", "created_at", "updated_at") VALUES (3, '劳动合同', 'probation_period', '试用期期限法定合规', 'high', 'strict', '不满3月不得约定；不满1年不超1月；不满3年不超2月；3年以上不超6月；同一用人单位与同一劳动者只能约定一次；不得单独约定试用期', '《劳动合同法》第十九条、第二十条；《民法典》第一千二百五十九条', '按法定期限约定；试用期工资不低于约定工资80%且不低于最低工资', 't', '2026-05-02 17:05:56.541+08', '2026-05-02 17:05:56.541+08');
@@ -4150,7 +4125,9 @@ INSERT INTO "public"."node_skills" ("node_id", "skill_name", "priority", "create
 INSERT INTO "public"."node_skills" ("node_id", "skill_name", "priority", "created_at") VALUES (15, 'pptx', 100, '2026-05-02 13:19:19.297+08');
 INSERT INTO "public"."node_skills" ("node_id", "skill_name", "priority", "created_at") VALUES (15, 'evidence-defense', 100, '2026-05-02 13:19:19.297+08');
 INSERT INTO "public"."node_skills" ("node_id", "skill_name", "priority", "created_at") VALUES (15, 'litigation-visualization', 100, '2026-05-02 13:19:19.297+08');
+INSERT INTO "public"."node_skills" ("node_id", "skill_name", "priority", "created_at") VALUES (15, 'legal-document-writer', 100, '2026-05-05 13:00:00+08');
 INSERT INTO "public"."node_skills" ("node_id", "skill_name", "priority", "created_at") VALUES (17, 'docx', 100, '2026-04-27 18:53:17.998+08');
+INSERT INTO "public"."node_skills" ("node_id", "skill_name", "priority", "created_at") VALUES (17, 'legal-document-writer', 100, '2026-05-05 13:00:00+08');
 INSERT INTO "public"."node_skills" ("node_id", "skill_name", "priority", "created_at") VALUES (18, 'docx', 100, '2026-04-27 11:01:38.118+08');
 
 -- 重置所有序列，确保新插入的记录不会与种子数据冲突

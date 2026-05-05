@@ -69,6 +69,7 @@ export enum SSECustomEventType {
     ANALYSIS_SUMMARY = 'analysis_summary',
     /** 阶段 5：文书草稿落库通知 */
     DRAFT_SAVED = 'draft_saved',
+    DRAFT_UPDATED = 'draft_updated',
     /** 阶段 5：合同审查结果落库通知 */
     CONTRACT_REVIEW_SAVED = 'contract_review_saved',
 
@@ -168,6 +169,13 @@ export interface DraftSavedPayload {
     href: string
 }
 
+/** DRAFT_UPDATED event payload(update_document_draft 工具发) */
+export interface DraftUpdatedPayload {
+    draftId: number
+    changedFields: string[]
+    summary: string
+}
+
 export interface ContractReviewSavedPayload {
     reviewId: number
     riskCount: number
@@ -216,6 +224,7 @@ export interface SSECustomEventMap {
     [SSECustomEventType.ANALYSIS_RESULT_SAVED]: AnalysisResultSavedPayload
     [SSECustomEventType.ANALYSIS_SUMMARY]: AnalysisSummaryPayload
     [SSECustomEventType.DRAFT_SAVED]: DraftSavedPayload
+    [SSECustomEventType.DRAFT_UPDATED]: DraftUpdatedPayload
     [SSECustomEventType.CONTRACT_REVIEW_SAVED]: ContractReviewSavedPayload
     [SSECustomEventType.CONTRACT_REVIEW]: ContractReviewEvent
     [SSECustomEventType.CONTRACT_STAGE]: ContractStagePayload

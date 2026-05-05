@@ -83,7 +83,7 @@ function setupPrismaMock(state: PrismaMockState) {
             return state.namespacesByThread[threadId] ?? []
         }
         // SELECT checkpoint FROM checkpoints WHERE thread_id = ${} AND checkpoint_ns = ${}
-        if (sql.includes('SELECT checkpoint') && sql.includes('FROM checkpoints')) {
+        if (sql.includes('SELECT checkpoint') && sql.includes('FROM langgraph.checkpoints')) {
             const threadId = String(values[0])
             const ns = String(values[1])
             return state.checkpointsByScope[`${threadId}::${ns}`] ?? []
@@ -288,7 +288,7 @@ describe('repairOrphanToolUseCheckpoint DB 集成', () => {
         const result = await repairOrphanToolUseCheckpoint('session-H', '执行被打断')
         expect(result).toEqual({ fixed: 1, parseFailures: 0 })
         expect(state.executeRawCalls).toHaveLength(1)
-        expect(state.executeRawCalls[0].sqlPart).toContain('UPDATE checkpoint_blobs')
+        expect(state.executeRawCalls[0].sqlPart).toContain('UPDATE langgraph.checkpoint_blobs')
     })
 
     it('messages 为空数组（无 orphan）时不写回 blob', async () => {
@@ -326,7 +326,7 @@ describe('repairOrphanToolUseCheckpoint DB 集成', () => {
         // 验证 UPDATE 调用并确认 version 是 '11'
         expect(state.executeRawCalls).toHaveLength(1)
         const updateCall = state.executeRawCalls[0]
-        expect(updateCall.sqlPart).toContain('UPDATE checkpoint_blobs')
+        expect(updateCall.sqlPart).toContain('UPDATE langgraph.checkpoint_blobs')
         // values: [patchedBuffer, threadId, checkpointNs, versionStr]
         expect(updateCall.values[1]).toBe('session-J')
         expect(updateCall.values[2]).toBe('')

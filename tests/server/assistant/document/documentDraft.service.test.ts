@@ -39,10 +39,6 @@ vi.mock('~~/server/services/material/materialPipeline.service', () => ({
     ensureMaterialsReadyForDraftService: vi.fn(),
 }))
 
-vi.mock('~~/server/agents/document/draftSchema.builder', () => ({
-    buildDraftSchema: vi.fn(),
-}))
-
 // ==================== 导入被测模块（在 mock 之后） ====================
 
 import {
@@ -61,8 +57,6 @@ import {
 import { createAssistantSessionDAO } from '~~/server/services/assistant/assistantSession.dao'
 import { enqueueRunService } from '~~/server/services/agent/agentRun.service'
 import { ensureMaterialsReadyForDraftService } from '~~/server/services/material/materialPipeline.service'
-import { buildDraftSchema } from '~~/server/agents/document/draftSchema.builder'
-import { z } from 'zod'
 
 // ==================== 类型转换（方便使用 mockResolvedValue） ====================
 
@@ -74,7 +68,6 @@ const mockSoftDeleteDocumentDraftDAO = softDeleteDocumentDraftDAO as ReturnType<
 const mockCreateAssistantSessionDAO = createAssistantSessionDAO as ReturnType<typeof vi.fn>
 const mockEnqueueRunService = enqueueRunService as ReturnType<typeof vi.fn>
 const mockEnsureMaterialsReadyForDraftService = ensureMaterialsReadyForDraftService as ReturnType<typeof vi.fn>
-const mockBuildDraftSchema = buildDraftSchema as ReturnType<typeof vi.fn>
 
 // ==================== 测试帮助数据 ====================
 
@@ -151,13 +144,6 @@ beforeEach(() => {
         template: MOCK_GLOBAL_TEMPLATE,
     })
     mockUpdateDocumentDraftDAO.mockResolvedValue(MOCK_DRAFT_READY)
-
-    // buildDraftSchema mock：返回有 plaintiff key 的 schema
-    mockBuildDraftSchema.mockReturnValue(
-        z.object({
-            values: z.object({ plaintiff: z.string().nullable() }),
-        }),
-    )
 })
 
 afterEach(() => {
@@ -516,5 +502,80 @@ describe('deleteDraftService', () => {
         const result = await deleteDraftService(100, MOCK_DRAFT.id)
         expect(result).toEqual({ ok: true })
         expect(mockSoftDeleteDocumentDraftDAO).toHaveBeenCalledWith(MOCK_DRAFT.id)
+    })
+})
+
+// ==================== patchDraftService - metadata 参数 ====================
+
+describe('patchDraftService - metadata 参数', () => {
+    it('传入 metadata 时一并写入 draft.metadata 字段', async () => {
+        mockGetDocumentDraftDAO.mockResolvedValue({
+            ...MOCK_DRAFT_READY,
+            userId: 100,
+            template: MOCK_GLOBAL_TEMPLATE,
+            metadata: null,
+        })
+        const updatedDraft = {
+            ...MOCK_DRAFT_READY,
+            values: { plaintiff: '张三' },
+            metadata: { suggestions: { defendant: '请补充被告住址' } },
+        }
+        mockUpdateDocumentDraftDAO.mockResolvedValue(updatedDraft)
+
+        const result = await patchDraftService(100, MOCK_DRAFT.id, {
+            values: { plaintiff: '张三' },
+            metadata: { suggestions: { defendant: '请补充被告住址' } },
+        })
+
+        expect(result).toHaveProperty('draft')
+        expect((result as any).draft.values.plaintiff).toBe('张三')
+        expect((result as any).draft.metadata.suggestions.defendant).toBe('请补充被告住址')
+        // 验证 DAO 调用时 update 入参包含 metadata 字段
+        expect(mockUpdateDocumentDraftDAO).toHaveBeenCalledWith(
+            MOCK_DRAFT.id,
+            expect.objectContaining({ metadata: expect.objectContaining({ suggestions: expect.any(Object) }) }),
+        )
+    })
+
+    it('不传 metadata 时不修改 draft.metadata 字段（DAO 调用入参不含 metadata key）', async () => {
+        mockGetDocumentDraftDAO.mockResolvedValue({
+            ...MOCK_DRAFT_READY,
+            userId: 100,
+            template: MOCK_GLOBAL_TEMPLATE,
+        })
+
+        await patchDraftService(100, MOCK_DRAFT.id, {
+            values: { plaintiff: '李四' },
+        })
+
+        // 验证 updateDocumentDraftDAO 调用时 update 入参不含 metadata key
+        expect(mockUpdateDocumentDraftDAO).toHaveBeenCalledWith(
+            MOCK_DRAFT.id,
+            expect.not.objectContaining({ metadata: expect.anything() }),
+        )
+    })
+
+    it('传入 metadata 时与现有 draft.metadata 合并（不覆盖旧键）', async () => {
+        mockGetDocumentDraftDAO.mockResolvedValue({
+            ...MOCK_DRAFT_READY,
+            userId: 100,
+            template: MOCK_GLOBAL_TEMPLATE,
+            metadata: { existingKey: '旧值', suggestions: { old: '旧建议' } },
+        })
+
+        await patchDraftService(100, MOCK_DRAFT.id, {
+            values: { plaintiff: '王五' },
+            metadata: { suggestions: { new: '新建议' } },
+        })
+
+        expect(mockUpdateDocumentDraftDAO).toHaveBeenCalledWith(
+            MOCK_DRAFT.id,
+            expect.objectContaining({
+                metadata: expect.objectContaining({
+                    existingKey: '旧值',
+                    suggestions: expect.objectContaining({ new: '新建议' }),
+                }),
+            }),
+        )
     })
 })
