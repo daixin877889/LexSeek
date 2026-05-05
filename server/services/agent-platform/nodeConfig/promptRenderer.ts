@@ -29,6 +29,14 @@ export interface PromptRenderContext {
     fileIds?: string
     /** 用户补充说明文本 */
     userExtraText?: string
+    /** 文书草稿 ID（documentMain 系统 prompt 注入当前 draft 状态用） */
+    draftId?: number
+    /** 草稿当前状态('drafting' / 'filling' / 'ready' / 'exported' / 'failed') */
+    status?: string
+    /** 当前已填字段值的 JSON 字符串(documentMain 启动时一次性注入快照) */
+    currentValuesJSON?: string
+    /** 模板字段清单 + 提示语(documentMain 知道要填哪些字段) */
+    placeholdersWithHints?: string
 }
 
 /**
@@ -76,6 +84,18 @@ export function renderSystemPrompt(
     }
     if (context.userExtraText) {
         variables.userExtraText = context.userExtraText
+    }
+    if (context.draftId != null) {
+        variables.draftId = String(context.draftId)
+    }
+    if (context.status) {
+        variables.status = context.status
+    }
+    if (context.currentValuesJSON) {
+        variables.currentValuesJSON = context.currentValuesJSON
+    }
+    if (context.placeholdersWithHints) {
+        variables.placeholdersWithHints = context.placeholdersWithHints
     }
 
     const rendered = renderContent(raw, variables)
