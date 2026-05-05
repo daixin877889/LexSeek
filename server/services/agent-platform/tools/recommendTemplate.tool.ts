@@ -124,6 +124,14 @@ export function createTool(context: ToolContext) {
                 })
             }
             catch (err) {
+                // 关键:LangGraph 的 interrupt() 通过抛 GraphInterrupt 暂停 graph 执行;
+                // ParentCommand / 其他 bubble-up 错误也必须重抛让调度器接住。
+                // 用 GraphBubbleUp 基类的 is_bubble_up getter 检测,覆盖所有子类。
+                // 参考 @langchain/langgraph/dist/errors.d.ts 的 isGraphBubbleUp 实现。
+                if (err && typeof err === 'object' && 'is_bubble_up' in err
+                    && (err as { is_bubble_up?: boolean }).is_bubble_up === true) {
+                    throw err
+                }
                 logger.error('recommend_template 执行失败', { err, input, sessionId: context.sessionId })
                 return JSON.stringify({
                     success: false,
