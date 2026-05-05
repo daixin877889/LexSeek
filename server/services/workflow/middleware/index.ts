@@ -13,5 +13,4 @@ export * from '~~/server/services/agent-platform/middleware'
 // 业务私有中间件（留在 workflow/middleware，待后续 vertical 阶段迁移）
 export * from './caseProcessMaterial.middleware'
 export * from './analysisResultPersistence.middleware'
-export { draftResultPersistenceMiddleware } from './draftResultPersistence.middleware'
 export { reviewResultPersistenceMiddleware } from './reviewResultPersistence.middleware'
