@@ -253,9 +253,13 @@ export function useMessageParser(
         if (msgType === 'system' || msgType === 'tool') return false
 
         // HumanMessage 检测 metadata（注入的上下文消息）
+        // 前端兜底定位：仅识别新机制 tag CaseContextSyncMiddleware；
+        // 旧 tag（CaseContextMiddleware / ModuleContext* / CaseMaterial*）老数据
+        // 由后端 SSE 流（agentSseStream）已过滤，前端不重复兜底（spec §4.3）。
         if (msgType === 'human') {
-          const injector = (m as any).response_metadata?.injectedBy as string | undefined
-          if (injector?.startsWith('ModuleContext') || injector?.startsWith('CaseMaterial') || injector?.startsWith('SubAgentContext') || injector === 'CaseContextMiddleware') {
+          const injector = (m as any).response_metadata?.injectedBy
+            ?? (m as any).additional_kwargs?.injectedBy
+          if (injector === 'CaseContextSyncMiddleware') {
             return false
           }
         }
