@@ -146,13 +146,14 @@ export const createTool = createSimpleTool(
             logger.warn('save_document_draft: publishCustomEvent(DRAFT_SAVED) 失败(不阻塞)', { draftId, err })
         }
 
-        // 10. 返回 JSON 给 LLM
+        // 10. 返回 JSON 给 LLM(title 字段对齐旧 draft_document 工具卡片渲染)
         return {
             success: true,
             draftId,
             sessionId: subSessionId,
             href,
-            templateName,
+            title,           // 卡片显示 "已完成起草《{title}》" — 优先 aiTitle 否则 templateName
+            templateName,    // 保留供 LLM 引用
             filledFieldCount,
             totalFields,
             summary,
