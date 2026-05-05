@@ -158,28 +158,31 @@ export const findMineruTokenByIdRawDao = async (id: number): Promise<mineruToken
  * 选择规则：status=启用 + 未删除 + (expiresAt IS NULL 或 expiresAt > NOW())
  * 排序规则：lastUsedAt asc nulls first（最久未用 / 从未用过的优先），同 lastUsedAt 时按 createdAt asc
  *
- * 在事务中先 SELECT 候选再 UPDATE lastUsedAt，避免并发请求选中同一 token 后的轻微不均衡（可接受，
- * Postgres 不开 FOR UPDATE SKIP LOCKED 的代价是并发同时刻的读读不冲突，最坏情况两个并发请求选到同一 token，
- * 长期来看 LRU 仍然均衡）。
+ * 用 `FOR UPDATE SKIP LOCKED` 让并发请求各自挑到不同 token（参考 agentRun.dao.ts claimPendingRunDAO）；
+ * 否则两个并发选取的 SELECT 会读到同一行 → 都 UPDATE lastUsedAt → 短时间内同一 token 被打多次，负载分摊失效。
  */
 export const pickLeastRecentlyUsedActiveTokenDao = async (): Promise<mineruTokens | null> => {
     try {
         return await prisma.$transaction(async (tx) => {
-            const candidate = await tx.mineruTokens.findFirst({
-                where: usableTokenWhere(new Date()),
-                orderBy: [
-                    { lastUsedAt: { sort: 'asc', nulls: 'first' } },
-                    { createdAt: 'asc' },
-                ],
-            })
+            // 只取 id：$queryRaw 返回的是 snake_case 列，与 mineruTokens 的 camelCase 类型不一致；
+            // 后续 update 返回的才是 Prisma 标准对象。
+            const rows = await tx.$queryRaw<Array<{ id: number }>>`
+                SELECT id FROM mineru_tokens
+                WHERE deleted_at IS NULL
+                  AND status = ${MineruTokenStatus.ENABLED}
+                  AND (expires_at IS NULL OR expires_at > NOW())
+                ORDER BY last_used_at ASC NULLS FIRST, created_at ASC
+                LIMIT 1
+                FOR UPDATE SKIP LOCKED
+            `
+            const candidate = rows[0]
             if (!candidate) {
                 return null
             }
-            const updated = await tx.mineruTokens.update({
+            return tx.mineruTokens.update({
                 where: { id: candidate.id },
                 data: { lastUsedAt: new Date() },
             })
-            return updated
         })
     } catch (error) {
         logger.error('LRU 选取 MinerU Token 失败：', error)
