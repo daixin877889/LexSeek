@@ -89,28 +89,6 @@ function buildInitialPromptFromDraft(
     })
 }
 
-/**
- * 创建 Agent 错误追踪 callback handler。
- *
- * Agent 执行过程中遇到未捕获错误时记录日志（含 sessionId / agentName / extra 上下文），
- * 便于排查问题。非侵入式设计：不干扰正常 streaming。
- */
-function createErrorTraceHandler(params: {
-    sessionId: string
-    agentName: string
-    extra?: Record<string, unknown>
-}): CallbackHandlerMethods {
-    return {
-        handleChainError: async (err: Error) => {
-            logger.error(`[${params.agentName}] Chain execution error`, {
-                sessionId: params.sessionId,
-                error: err.message,
-                ...(params.extra ?? {}),
-            })
-        },
-    }
-}
-
 export interface DocumentAgentOptions {
     /** 用户 ID */
     userId: number
