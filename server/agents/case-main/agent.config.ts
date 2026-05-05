@@ -22,7 +22,7 @@ import {
     MIDDLEWARE_PRIORITY,
     MIDDLEWARE_NAMES,
 } from '~~/server/services/agent-platform/middleware/types'
-import { caseContextMiddleware } from '~~/server/agents/_shared/case-context/caseContext.middleware'
+import { caseContextSyncMiddleware } from '~~/server/agents/_shared/case-context/caseContextSync.middleware'
 import { caseProcessMaterialMiddleware } from '~~/server/agents/_shared/case-context/caseProcessMaterial.middleware'
 import { afterAgentMemoryMiddleware } from '~~/server/services/agent-platform/middleware/afterAgentMemory.middleware'
 import { createSubAgentTools } from '~~/server/services/agent-platform/subAgent/subAgentToolFactory'
@@ -54,7 +54,10 @@ export const caseMainAgent = defineDomainAgent({
             name: MIDDLEWARE_NAMES.PROCESS_MATERIAL,
         },
         {
-            middleware: caseContextMiddleware(ctx.caseId!, 'caseMain'),
+            middleware: caseContextSyncMiddleware({
+                caseId: ctx.caseId!,
+                agentName: 'caseMain',
+            }),
             priority: MIDDLEWARE_PRIORITY.MODULE_CONTEXT,
             name: MIDDLEWARE_NAMES.MODULE_CONTEXT,
         },
