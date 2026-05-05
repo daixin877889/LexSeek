@@ -1,20 +1,23 @@
 /**
- * 文书生成主代理（documentMain 节点）
+ * 文书生成主代理(documentMain 节点)
  *
- * 仿 caseMainAgent 骨架，专用于文书草稿填写场景：
- * - 从 sessionId 反查 draft + template
- * - 按模板占位符构造 responseFormat schema
- * - 挂载 draftResultPersistenceMiddleware 持久化结果
+ * 平级主 Agent,跟 caseMain / assistantMain 同构。挂 legal-document-writer skill,
+ * 用对话上下文 + skill 写作规范方法论产出字段值,通过 save_document_draft /
+ * update_document_draft 工具主动写库。
  *
- * 参见 spec §6.7
+ * 架构差异(对比旧实现):
+ * - 删除 toolStrategy / responseFormat / buildDraftSchema 强约束 schema
+ * - 删除 draftResultPersistenceMiddleware afterAgent hook 兜底
+ * - 系统 prompt 启动时注入 draft 当前状态(模板/已填字段/字段清单)
+ *
+ * @see docs/superpowers/specs/2026-05-05-document-agent-tool-refactor-design.md §5
  */
 
-import { createAgent, summarizationMiddleware, toolStrategy, type ReactAgent } from 'langchain'
+import { createAgent, summarizationMiddleware, type ReactAgent } from 'langchain'
 import { HumanMessage } from '@langchain/core/messages'
 import { Command } from '@langchain/langgraph'
 import { getCheckpointer, getStore } from '../checkpointer'
-import { getValidNodeConfig, type NodeConfig } from '../../node/node.service'
-import { renderContent } from '../../node/prompt.service'
+import { getValidNodeConfig } from '../../node/node.service'
 import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
 import { renderSystemPrompt } from '../utils/promptRenderer'
@@ -25,7 +28,6 @@ import {
     createScopeGuardMiddleware,
     pointConsumptionMiddleware,
     safetyTrimMiddleware,
-    draftResultPersistenceMiddleware,
     buildMiddlewareStack,
     MIDDLEWARE_PRIORITY,
     MIDDLEWARE_NAMES,
@@ -34,92 +36,21 @@ import { afterAgentMemoryMiddleware } from '~~/server/services/agent-platform/mi
 import { buildLangfuseTopLevelConfig } from '~~/server/lib/langfuse'
 import { findDraftBySessionIdDAO } from '../../assistant/document/documentDraft.dao'
 import { getDocumentTemplateDAO } from '../../assistant/document/documentTemplate.dao'
-import { buildDraftSchema } from '../../assistant/document/draftSchema.builder'
-import type { Placeholder } from '#shared/types/document'
 import { resolveContextWindow } from '../context/messageCompressor'
 import type { CallbackHandlerMethods } from '@langchain/core/callbacks/base'
 
-/** 文书主代理节点名称 */
 const DOCUMENT_MAIN_NODE_NAME = 'documentMain'
 
-/**
- * 根据 draft 状态选择对应的 user prompt name。
- */
-function pickInitialPromptName(draft: { sourceRef: unknown; caseId: number | null }): string {
-    const sourceRef = (draft.sourceRef as Record<string, unknown> | null) ?? {}
-    const fileIds = Array.isArray(sourceRef.fileIds)
-        ? (sourceRef.fileIds as unknown[]).map(x => Number(x)).filter(n => Number.isInteger(n) && n > 0)
-        : []
-    if (fileIds.length > 0) return 'documentMain_user_with_files'
-    if (draft.caseId != null) return 'documentMain_user_with_case'
-    return 'documentMain_user_standalone'
-}
-
-/**
- * 从 draft.sourceRef 构造 Agent 首轮启动指令。
- *
- * 读 nodeConfig.prompts 中对应分支的 user prompt template，用 renderContent 注入变量。
- * 模板内容由运营在后台节点管理维护，不在代码中硬编。
- */
-function buildInitialPromptFromDraft(
-    draft: { sourceRef: unknown; caseId: number | null },
-    templateName: string,
-    nodeConfig: NodeConfig,
-): string {
-    const sourceRef = (draft.sourceRef as Record<string, unknown> | null) ?? {}
-    const fileIds = Array.isArray(sourceRef.fileIds)
-        ? (sourceRef.fileIds as unknown[]).map(x => Number(x)).filter(n => Number.isInteger(n) && n > 0)
-        : []
-    const userExtraText = typeof sourceRef.text === 'string' && sourceRef.text.trim()
-        ? `用户补充说明：\n${sourceRef.text.trim()}`
-        : ''
-
-    const promptName = pickInitialPromptName(draft)
-    const template = nodeConfig.prompts.find(
-        p => p.name === promptName && p.type === 'user' && p.status === 1,
-    )?.content
-    if (!template) {
-        throw new Error(`documentMain 节点缺少 ${promptName} prompt 配置`)
-    }
-
-    return renderContent(template, {
-        templateName,
-        fileIds: JSON.stringify(fileIds),
-        userExtraText,
-    })
-}
-
 export interface DocumentAgentOptions {
-    /** 用户 ID */
     userId: number
-    /** 案件 ID（可选） */
     caseId?: number
-    /** 来自 agentWorker.executeRun 的 AbortController，用户取消/超时时传入 */
     signal?: AbortSignal
-    /** 中断恢复命令（若存在则走 resume 分支） */
     command?: unknown
-    /**
-     * 子流事件转发到主流的 callbacks。
-     *
-     * 由 draftDocument.tool 调用时构造（buildSubAgentCallbacks），
-     * 让 documentMain 内部的 LLM/tool 事件旁路 publish 给前端 subThreadsMap
-     * 渲染 SubAgentChainOfThought CoT。
-     *
-     * 与 errorTraceHandler 合并：errorTraceHandler 在前（保留诊断），用户 callbacks 在后。
-     */
     callbacks?: CallbackHandlerMethods[]
 }
 
 /**
- * 执行文书草稿生成对话。
- *
- * 使用 createAgent + 文书专用中间件创建主代理，
- * 返回 SSE 格式的 ReadableStream。
- *
- * @param sessionId 会话 ID（同时作为 thread_id 和 draft.sessionId）
- * @param message 用户消息（中断恢复时为 undefined）
- * @param options Agent 选项
- * @returns ReadableStream（SSE 格式）
+ * 执行文书草稿生成对话(平级主 Agent 模式)。
  */
 export async function runDocumentChat(
     sessionId: string,
@@ -128,7 +59,7 @@ export async function runDocumentChat(
 ): Promise<ReadableStream<Uint8Array>> {
     const { userId, caseId, signal, command } = options
 
-    // 1. 从 sessionId 反查 draft + template（并发加载基础设施）
+    // 1. 反查 draft + template + nodeConfig + 基建(并发)
     const [checkpointer, store, nodeConfig, draft] = await Promise.all([
         getCheckpointer(),
         getStore(),
@@ -151,13 +82,7 @@ export async function runDocumentChat(
         throw new Error(`${DOCUMENT_MAIN_NODE_NAME} 节点没有可用的 API 密钥`)
     }
 
-    // 3. 构造 responseFormat schema（由占位符列表动态生成）
-    // 显式使用 toolStrategy：强制所有模型（含 DeepSeek）通过专用结构化工具返回最终结果，
-    // 避免模型把 JSON 写到消息正文里导致 state.structuredResponse 缺失。
-    const schema = buildDraftSchema(template.placeholders as unknown as Placeholder[])
-    const responseFormat = toolStrategy(schema)
-
-    // 4. 创建模型实例
+    // 3. 创建模型实例
     const model = createChatModel({
         sdkType: nodeConfig.modelSdkType,
         modelName: nodeConfig.modelName,
@@ -168,12 +93,22 @@ export async function runDocumentChat(
         maxTokens: nodeConfig.modelMaxOutputTokens,
     })
 
-    // 5. 构建 5 段式系统提示词（caseId 可空：独立文书草稿场景传 null）
+    // 4. 构建系统 prompt(注入 draft 当前状态)
+    const placeholders = (template.placeholders ?? []) as Array<{ name: string; firstContext?: string }>
+    const placeholdersWithHints = placeholders
+        .map(p => `- ${p.name}${p.firstContext ? `(参考上下文:${p.firstContext})` : ''}`)
+        .join('\n')
+    const currentValuesJSON = JSON.stringify(draft.values ?? {}, null, 2)
+
     const resolvedCaseId = draft.caseId ?? caseId
     const roleAndFlowTemplate = renderSystemPrompt(nodeConfig, {
         caseId: resolvedCaseId,
         templateName: template.name,
         templateCategory: template.category,
+        draftId: draft.id,
+        status: draft.status,
+        currentValuesJSON,
+        placeholdersWithHints,
     })
     const { systemMessage, plainText: systemPromptPlainText } = await buildSystemPromptForAgent(
         nodeConfig.modelSdkType,
@@ -185,7 +120,7 @@ export async function runDocumentChat(
         },
     )
 
-    // 6. 加载工具（传入 draftId 关键上下文）
+    // 5. 加载工具(含 recommend_template / save_document_draft / update_document_draft)
     const toolContext = {
         userId,
         caseId: resolvedCaseId,
@@ -195,8 +130,6 @@ export async function runDocumentChat(
     const baseTools = nodeConfig.tools.length > 0
         ? getToolInstancesService(nodeConfig.tools, toolContext)
         : []
-    // 文书草稿场景必须能取案件已分析模块的全文（事实/请求/案由等精确字段）
-    // 旧 nodes 表 documentMain.tools 未登记 search_case_analysis，此处兜底注入避免依赖 DB 配置
     const requiredToolNames = ['search_case_analysis']
     const baseNames = new Set(baseTools.map(t => t.name))
     const missingNames = requiredToolNames.filter(n => !baseNames.has(n))
@@ -219,8 +152,7 @@ export async function runDocumentChat(
         nodeConfig.modelMaxOutputTokens,
     )
 
-    // 8. 组装 Agent（通过 buildMiddlewareStack 按 priority 排序，保证顺序不依赖手动排列）
-    // draftResultPersistenceMiddleware 必须最后，确保拿到最终 structuredResponse
+    // 6. 组装中间件栈(afterAgentMemory 条件挂载,agent-platform.md 铁律)
     const middleware = buildMiddlewareStack([
         {
             middleware: createMessageIntegrityMiddleware(),
@@ -255,11 +187,7 @@ export async function runDocumentChat(
             priority: MIDDLEWARE_PRIORITY.SAFETY_TRIM,
             name: MIDDLEWARE_NAMES.SAFETY_TRIM,
         },
-        {
-            middleware: draftResultPersistenceMiddleware({ draftId: draft.id, sessionId }),
-            priority: MIDDLEWARE_PRIORITY.RESULT_PERSISTENCE,
-            name: 'draftResultPersistence',
-        },
+        // afterAgentMemory 条件挂载:caseId 非空时才挂(铁律)
         ...(resolvedCaseId
             ? [{
                 middleware: afterAgentMemoryMiddleware({
@@ -277,33 +205,31 @@ export async function runDocumentChat(
             name: MIDDLEWARE_NAMES.AUDIT,
         },
     ])
+
     const agent: ReactAgent = createAgent({
         model,
         systemPrompt: systemMessage,
         checkpointer,
         store,
         tools,
-        responseFormat,
+        // 不再有 responseFormat:Agent 通过 tool call 主动写库,不靠 toolStrategy 强约束
         middleware,
     })
 
-    // 9. 构造输入：中断恢复时使用 Command；否则用用户消息或从 draft.sourceRef 自动组装启动指令
-    // message 为 undefined 是正常场景（创建草稿后首次入队），此时从 draft 的 sourceRef 拼接启动提示
+    // 7. 构造输入
     let input: Command | { messages: HumanMessage[] }
     if (command) {
         input = new Command({ resume: command })
     }
+    else if (message !== undefined) {
+        input = { messages: [new HumanMessage(message)] }
+    }
     else {
-        const startMessage = message ?? buildInitialPromptFromDraft(draft, template.name, nodeConfig)
-        input = { messages: [new HumanMessage(startMessage)] }
+        // 启动时无消息(checkpoint 重放),传空 messages 让 graph 从 checkpoint 恢复
+        input = { messages: [] }
     }
 
-    // 10. 流式执行，返回 SSE 格式的 ReadableStream
-    // callbacks 挂诊断 handler：documentMain 由 draft_document 子代理工具内部调用，
-    // graph 内部抛错会被 LangGraph 序列化为 `{name, message}` 写到 SSE error 帧 →
-    // AggregateError.errors[] 数组在序列化前丢失 → runAndDrainStream 拿到的 error
-    // 字段无法定位真实 root cause。本 handler 在序列化前命中 handleChainError /
-    // handleToolError / handleLLMError，把完整原始 error 写 logger，方便排查。
+    // 8. 流式执行
     const { createErrorTraceHandler } = await import(
         '~~/server/services/agent-platform/diagnostics/errorTraceHandler'
     )
@@ -333,16 +259,12 @@ export async function runDocumentChat(
 }
 
 /**
- * 读取文书生成会话 checkpoint 状态（用于 interrupt 检测）。
- *
- * 结构与 caseMainAgent 的 getChatThreadState 一致。
- *
- * @param sessionId 会话 ID
+ * 读取文书会话 checkpoint 状态(用于 interrupt 检测)。
+ * 结构与 caseMainAgent.getChatThreadState 一致。
  */
 export async function getDocumentThreadState(sessionId: string) {
     const checkpointer = await getCheckpointer()
 
-    // 创建最小化 agent 用于读取 state（不需要真实模型和工具）
     const dummyModel = createChatModel({
         sdkType: 'openai',
         modelName: 'gpt-4',
