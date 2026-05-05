@@ -130,39 +130,9 @@ git commit --allow-empty -m "spike(C1): 验证 seedData.sql 修改不触发 pris
 
 ---
 
-### Task 0.2:spike C3 — review_contract toolCallId 双层包装解析参考
-
-**目的**:确认 `recommend_template` 工具内 interrupt 的 `toolCallId` 解包逻辑可以直接复用现有 `draftDocument.tool.ts:104-112` 的实现,不需要单独 helper。
-
-**Files:** 仅读源码,不改代码
-
-- [ ] **Step 1:读 reviewContract.tool 的 interrupt 处理**
-
-```bash
-grep -A 30 "const resumed = interrupt" /Users/daixin/work/dev/LexSeek/LexSeek/server/services/agent-platform/tools/reviewContract.tool.ts
-```
-
-Expected: 看到类似 `const layer1 = (resumed as { resume?: unknown }).resume ?? resumed` 的双层解包逻辑。
-
-- [ ] **Step 2:读 draftDocument.tool 的对应实现作对照**
-
-```bash
-sed -n '99,113p' /Users/daixin/work/dev/LexSeek/LexSeek/server/services/agent-platform/tools/draftDocument.tool.ts
-```
-
-Expected: 看到相同的 `{ resume: { [toolCallId]: realValue } }` 解包模式。
-
-- [ ] **Step 3:确认两者机制一致 + 在 plan 中复用**
-
-记下结论:`recommend_template` 工具内可以直接抄 `draftDocument.tool.ts:99-112` 的解包逻辑(下文 Task 1.3 会用到)。
-
-- [ ] **Step 4:Commit spike 验证记录**
-
-```bash
-git commit --allow-empty -m "spike(C3): 确认 toolCallId 双层包装解析机制可直接复用 draftDocument.tool.ts:99-112"
-```
-
-> spike C2(systemPrompt 跨轮次 values 感知)在 Stage 2 完成 documentMain 重写后才能跑,放到 Task 2.10 内做。
+> **spike C3 已合并到 Task 1.4 实现注释**(原独立任务删除)。toolCallId 双层包装解包逻辑直接抄 `draftDocument.tool.ts:99-112` + `reviewContract.tool.ts` 同款机制,实施时在 Task 1.4 代码注释里对照即可。
+>
+> spike C2(systemPrompt 跨轮次 values 感知)在 Stage 2 完成 documentMain 重写后才能跑,放到 Task 2.12 内做。
 
 ---
 
@@ -1098,74 +1068,87 @@ export const toolDefinition: ToolDefinition<typeof schema> = {
 export function createTool(context: ToolContext) {
     return tool(
         async (input: z.infer<typeof schema>, cfg): Promise<string> => {
-            const toolCallId = (cfg as any)?.toolCall?.id ?? ''
-            const { sessionId, userId } = context
-            if (!sessionId || !userId) {
-                throw new Error('recommend_template: ToolContext 缺少 sessionId/userId')
-            }
-
-            // 1. 模板推荐
-            const { recommendDocumentTemplatesService } = await import(
-                '~~/server/agents/document/templateRecommend.service'
-            )
-            const reco = await recommendDocumentTemplatesService({
-                userId,
-                intent: input.intent,
-                keywords: input.keywords,
-                categoryHint: input.category,
-            })
-
-            // 2. interrupt 弹卡片(沿用 TemplateSelectCard 既有 payload 形态)
-            const resumed = interrupt({
-                type: 'template_select',
-                toolCallId,
-                intent: input.intent,
-                keywords: reco.usedKeywords,
-                recommendations: reco.items,
-                total: reco.total,
-                fallbackToRecency: reco.fallbackToRecency,
-            }) as unknown
-
-            // 3. 双层包装解包:{ resume: { [toolCallId]: realValue } } → realValue
-            //    参考 draftDocument.tool.ts:99-112(spike C3 验证机制可复用)
-            const unpacked = ((): TemplateSelectResumeValue | null => {
-                if (!resumed || typeof resumed !== 'object') return null
-                const layer1 = (resumed as { resume?: unknown }).resume ?? resumed
-                if (layer1 && typeof layer1 === 'object' && toolCallId in (layer1 as Record<string, unknown>)) {
-                    return (layer1 as Record<string, unknown>)[toolCallId] as TemplateSelectResumeValue | null
+            // 顶层 try/catch:对齐 createSimpleTool 工厂的统一异常处理风格
+            // (本工具因要带 cfg 参数读 toolCall.id,无法用 createSimpleTool 工厂,
+            // 手动加顶层异常兜底,保证工具返回值始终是有效 JSON 字符串)
+            try {
+                const toolCallId = (cfg as any)?.toolCall?.id ?? ''
+                const { sessionId, userId } = context
+                if (!sessionId || !userId) {
+                    throw new Error('recommend_template: ToolContext 缺少 sessionId/userId')
                 }
-                return layer1 as TemplateSelectResumeValue | null
-            })()
 
-            // 4. 用户取消(resume 为 null 或缺 templateId):返回 cancelled
-            if (!unpacked || typeof unpacked.templateId !== 'number') {
+                // 1. 模板推荐
+                const { recommendDocumentTemplatesService } = await import(
+                    '~~/server/agents/document/templateRecommend.service'
+                )
+                const reco = await recommendDocumentTemplatesService({
+                    userId,
+                    intent: input.intent,
+                    keywords: input.keywords,
+                    categoryHint: input.category,
+                })
+
+                // 2. interrupt 弹卡片(沿用 TemplateSelectCard 既有 payload 形态)
+                const resumed = interrupt({
+                    type: 'template_select',
+                    toolCallId,
+                    intent: input.intent,
+                    keywords: reco.usedKeywords,
+                    recommendations: reco.items,
+                    total: reco.total,
+                    fallbackToRecency: reco.fallbackToRecency,
+                }) as unknown
+
+                // 3. 双层包装解包:{ resume: { [toolCallId]: realValue } } → realValue
+                //    抄 draftDocument.tool.ts:99-112 + reviewContract.tool.ts 同款机制
+                //    (原 spike C3 已合并到本注释,实施时可对照原文件确认仍是项目标准)
+                const unpacked = ((): TemplateSelectResumeValue | null => {
+                    if (!resumed || typeof resumed !== 'object') return null
+                    const layer1 = (resumed as { resume?: unknown }).resume ?? resumed
+                    if (layer1 && typeof layer1 === 'object' && toolCallId in (layer1 as Record<string, unknown>)) {
+                        return (layer1 as Record<string, unknown>)[toolCallId] as TemplateSelectResumeValue | null
+                    }
+                    return layer1 as TemplateSelectResumeValue | null
+                })()
+
+                // 4. 用户取消(resume 为 null 或缺 templateId):返回 cancelled
+                if (!unpacked || typeof unpacked.templateId !== 'number') {
+                    return JSON.stringify({
+                        success: false,
+                        cancelled: true,
+                        message: '用户已取消模板选择',
+                    })
+                }
+
+                // 5. 拉模板的 placeholders 列表回给 LLM
+                const { getDocumentTemplateDAO } = await import(
+                    '~~/server/agents/document/documentTemplate.dao'
+                )
+                const template = await getDocumentTemplateDAO(unpacked.templateId)
+                if (!template) {
+                    return JSON.stringify({
+                        success: false,
+                        error: `模板 #${unpacked.templateId} 不存在或已删除`,
+                    })
+                }
+
                 return JSON.stringify({
-                    success: false,
-                    cancelled: true,
-                    message: '用户已取消模板选择',
+                    success: true,
+                    templateId: unpacked.templateId,
+                    templateName: template.name,
+                    templateCategory: template.category ?? null,
+                    placeholders: template.placeholders, // [{ name, firstContext }, ...]
+                    sourceText: unpacked.sourceText ?? null, // 用户在卡片里补充的额外说明
                 })
             }
-
-            // 5. 拉模板的 placeholders 列表回给 LLM
-            const { getDocumentTemplateDAO } = await import(
-                '~~/server/agents/document/documentTemplate.dao'
-            )
-            const template = await getDocumentTemplateDAO(unpacked.templateId)
-            if (!template) {
+            catch (err) {
+                logger.error('recommend_template 执行失败', { err, input, sessionId: context.sessionId })
                 return JSON.stringify({
                     success: false,
-                    error: `模板 #${unpacked.templateId} 不存在或已删除`,
+                    error: err instanceof Error ? err.message : '推荐模板失败',
                 })
             }
-
-            return JSON.stringify({
-                success: true,
-                templateId: unpacked.templateId,
-                templateName: template.name,
-                templateCategory: template.category ?? null,
-                placeholders: template.placeholders, // [{ name, firstContext }, ...]
-                sourceText: unpacked.sourceText ?? null, // 用户在卡片里补充的额外说明
-            })
         },
         {
             name: toolDefinition.name,
@@ -2301,6 +2284,33 @@ Expected: dev server 启动,无 startup 错误。
 - [ ] 每次成功草稿字段非 null 比例 ≥ 80%
 - [ ] 事实和理由 / 诉讼请求 / 原告 三个核心字段必非 null
 
+**字段非 null 比例的验证方法**(每次起草后跑一次):
+
+```bash
+# 替换 <draftId> 为本次起草的 draftId
+DRAFT_ID=<draftId>
+docker exec postgres-postgres-1 psql -U daixin -d ls_new -c "
+SELECT
+  d.id,
+  d.status,
+  jsonb_array_length(t.placeholders) AS total_fields,
+  (SELECT COUNT(*) FROM jsonb_each(d.values) WHERE value::text NOT IN ('null', '\"\"')) AS filled_fields,
+  ROUND(
+    (SELECT COUNT(*) FROM jsonb_each(d.values) WHERE value::text NOT IN ('null', '\"\"')) * 100.0
+    / NULLIF(jsonb_array_length(t.placeholders), 0),
+    1
+  ) AS fill_pct,
+  d.values->'事实和理由' AS facts,
+  d.values->'诉讼请求' AS claims,
+  d.values->'原告' AS plaintiff
+FROM document_drafts d
+JOIN document_templates t ON d.template_id = t.id
+WHERE d.id = $DRAFT_ID;
+"
+```
+
+Expected: `fill_pct >= 80.0`,`facts / claims / plaintiff` 三个字段都不是 null。
+
 - [ ] **Step 8:停止 dev server**
 
 ```bash
@@ -2332,18 +2342,24 @@ git commit --allow-empty -m "test(manual): 三入口手动验证通过,法律助
 - 工具返回 changedFields=['被告住址']
 - 字段表单刷新显示新值
 
-- [ ] **Step 3:跨轮次验证**
+- [ ] **Step 3:跨轮次验证(量化判断)**
 
-继续输入"原告联系电话填 13800138000",然后再输入"我的住址刚才说错了,改成上海市浦东新区世纪大道 200 号"。
+继续输入"原告联系电话填 13800138000",观察 documentMain 是否调 update_document_draft 工具更新字段。
+然后再输入"我的住址刚才说错了,改成上海市浦东新区世纪大道 200 号"。
 
-**期望**:第三轮 LLM 应该:
-- 知道刚才"原告联系电话已填",不重复问
-- 把"原告住址"改成最新值(覆盖第一次起草时的住址)
+**通过判断标准(以下任一满足即通过)**:
+- LLM 第三轮回复中**明确引用**已填字段值,例如:"我注意到您刚才填的原告联系电话是 13800138000……"
+- LLM 调 update_document_draft 时只传"原告住址"(说明它知道"原告联系电话已经填过了,不需要改")
+- 字段表单显示"原告住址"被改为新值,"原告联系电话"保持 13800138000 不变
+
+**失败判断标准(以下任一满足即失败)**:
+- LLM 在第三轮再次询问"请提供原告联系电话"(已填字段被重复问)
+- LLM 调 save_document_draft(而不是 update),把所有字段重新写一遍,且其中"原告联系电话"被覆盖为 null 或丢失
+- 字段表单中"原告联系电话"在第三轮后变成 null
 
 - [ ] **Step 4:记录结果**
 
-如果 LLM 能正确感知最新 values:**spike C2 通过**,无需升级方案。
-如果 LLM 表现出"看不到最新值"(比如反复问已填字段、把改过的值改回旧值):**spike C2 失败,需升级**。
+按 Step 3 标准明确记录通过 / 失败。
 
 - [ ] **Step 5:Commit spike 结论**
 
@@ -2353,13 +2369,16 @@ git commit --allow-empty -m "test(manual): 三入口手动验证通过,法律助
 git commit --allow-empty -m "spike(C2): 通过 - systemPrompt 启动时注入 currentValuesJSON 足够,LLM 跨轮次感知正确"
 ```
 
-或失败情况(需要升级方案):
+或失败情况:
 
 ```bash
-git commit --allow-empty -m "spike(C2): 失败 - LLM 跨轮次看不到最新 values,Stage 4 升级为 beforeAgent middleware"
+git commit --allow-empty -m "spike(C2): 失败 - LLM 跨轮次看不到最新 values,优先评估 beforeAgent middleware 升级"
 ```
 
-> 若 spike 失败,在 Stage 4 加一个新 task:实现 documentDraftContextMiddleware(beforeAgent hook,每轮从 DB 读最新 draft.values 注入 HumanMessage,参考 moduleContextBuilder 模式)。
+> **若 spike 失败**:优先评估 `documentDraftContextMiddleware` 升级方案(beforeAgent hook,每轮从 DB 读最新 draft.values 注入 HumanMessage,参考 `moduleContextBuilder` 模式)。
+> - 评估通过且实施简单(< 1 天):在 Stage 4 加新 task 实施
+> - 评估发现实施代价大或不确定:暂不强制升级,在 plan 末尾的"已知待优化"清单记录,后续迭代实施
+> - 用户在文书页改字段 Agent 看不到 = 核心体验影响,但非 blocker(用户可以重新对话让 Agent 自己 update)
 
 ---
 
@@ -2606,44 +2625,34 @@ assistantMain 同构的平级主 Agent。三个 Agent 都挂 legal-document-writ
 
 打开 `docs/tech-docs/backend/workflow.md`,搜索 `draft_document` / `runDocumentChat` 相关段落,删除"工具同步嵌套子 Agent"等过时描述。如无相关段落,跳过。
 
-- [ ] **Step 3:Commit**
+- [ ] **Step 3:Commit 文档更新**
 
 ```bash
 git add docs/tech-docs/backend/agent-platform.md docs/tech-docs/backend/workflow.md
 git commit -m "docs(tech-docs): 更新 agent-platform / workflow 文档反映 documentMain 平级架构"
 ```
 
----
+- [ ] **Step 4:边缘测试 mock 修复 checklist**(按需,只改实际 fail 的)
 
-### Task 4.3:小调其他可能受影响的测试(按需)
+跑一次 `bun run test` 看是否有以下三个测试因新架构 fail,逐一处理:
 
-**Files:** 按 typecheck 和测试结果决定
+- [ ] `tests/server/workflow/threadState.test.ts` — 若 fail,通常是 documentMain mock 仍假设有 toolStrategy/responseFormat。改成普通 ReAct mock
+- [ ] `tests/app/components/ai/AiToolRenderer.test.ts` — 若 fail,通常是工具卡渲染断言依赖 `draft_document` 名。加上新 3 工具卡(`recommend_template` / `save_document_draft` / `update_document_draft`)的渲染断言
+- [ ] `tests/server/assistant/document/documentDraft.service.test.ts` — Task 2.10 已处理,无需再动
 
-- [ ] **Step 1:跑全套测试 + typecheck 一遍兜底**
+每修一个跑一次对应测试确认通过。**所有都不 fail 则跳过本步**。
 
-```bash
-bun run typecheck 2>&1 | tail -10
-bun run test 2>&1 | tail -20
-```
-
-Expected: 都过。如果有失败,根据错误信息定位:
-- `tests/server/workflow/threadState.test.ts` 若失败:可能依赖了 documentMain 旧 toolStrategy 行为,小调 mock
-- `tests/app/components/ai/AiToolRenderer.test.ts` 若失败:可能依赖了 draft_document 工具卡渲染,加上新 3 工具卡的渲染断言
-
-- [ ] **Step 2:对应失败小调**
-
-按需修测试 mock。每修一个跑一次对应测试。
-
-- [ ] **Step 3:Commit**
+- [ ] **Step 5:Commit 边缘测试修(若有改动)**
 
 ```bash
 git add -A
-git commit -m "test: 小调受新架构影响的边缘测试(threadState / AiToolRenderer 等按需)"
+git status --short  # 确认只动了上述 checklist 文件
+git commit -m "test: 修复新架构对边缘测试的影响(若有)"
 ```
 
 ---
 
-### Task 4.4:最终全套验证
+### Task 4.3:最终全套验证
 
 **Files:** 无
 
@@ -2686,13 +2695,27 @@ Expected: `Database schema is up to date!`
 - 法律助手 → 起诉状(原始 bug 场景) ✓
 - 文书入口 → 跟 documentMain 对话 ✓
 
-- [ ] **Step 6:Commit 最终验收**
+- [ ] **Step 6:验证前端零改动(spec §12.3 要求)**
 
 ```bash
-git commit --allow-empty -m "verify: 全套验证通过,可合并到 dev"
+# 检查 spec §12.3 列出的"零改动"前端组件确实没被本分支改过
+git diff dev --stat -- \
+  app/components/agents/document/interrupts/TemplateSelectCard.vue \
+  app/composables/agents/useDocumentAgent.ts \
+  app/composables/document/useDocumentDraftFields.ts \
+  app/pages/dashboard/document/drafts/\[id\].vue \
+  app/components/InterruptDispatcher.vue
 ```
 
-- [ ] **Step 7:推分支(等用户合并)**
+Expected: 输出为空(以上 5 个文件零改动)。如有改动,要么是误改要回滚,要么是确实需要改要在 spec §12.3 里更新清单。
+
+- [ ] **Step 7:Commit 最终验收**
+
+```bash
+git commit --allow-empty -m "verify: 全套验证通过 + 前端零改动确认,可合并到 dev"
+```
+
+- [ ] **Step 8:推分支(等用户合并)**
 
 ```bash
 git push -u origin feature/document-agent-tool-refactor
@@ -2703,7 +2726,7 @@ echo "分支已推,等用户 review + 合并到 dev"
 
 ## 完成标记
 
-全部 4 个 Stage 完成且 Task 4.4 全套验证通过后:
+全部 4 个 Stage 完成且 Task 4.3 全套验证通过后:
 
 - [ ] 创建 PR 从 `feature/document-agent-tool-refactor` 合到 `dev` 分支
 - [ ] PR 描述列出:
