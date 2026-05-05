@@ -8,7 +8,7 @@
  *
  * 业务私有中间件：
  * - caseProcessMaterialMiddleware：Agent 启动前预处理未向量化材料
- * - caseContextMiddleware：5 段式案件上下文注入（档案 + 模块摘要 + 召回记忆 + 材料清单）
+ * - caseContextSyncMiddleware：每轮注入案件 4 段 HumanMessage（档案 + 模块摘要 + 召回记忆 + 材料清单）+ 双轨 metadata 标记
  *
  * 子代理工具：
  * - createSubAgentTools：从 analysis / document 类型子节点生成专家工具
