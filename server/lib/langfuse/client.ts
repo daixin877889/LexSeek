@@ -28,8 +28,33 @@ const DEFAULT_CONFIG: LangfuseRuntimeConfig = {
 
 export function getLangfuseRuntimeConfig(): LangfuseRuntimeConfig {
   if (cachedConfig) return cachedConfig
-  const raw = useRuntimeConfig().langfuse as Partial<LangfuseRuntimeConfig> | undefined
-  cachedConfig = { ...DEFAULT_CONFIG, ...raw }
+  const raw = (useRuntimeConfig().langfuse as Partial<LangfuseRuntimeConfig> | undefined) ?? {}
+
+  // 兜底从 process.env 直读（Nuxt runtimeConfig 默认值是构建时烤死的；
+  // 部署到 FC3 / Lambda / Cloudflare Workers 等场景，控制台只配 LANGFUSE_*（无 NUXT_ 前缀）
+  // 时 useRuntimeConfig 取不到——这里直接补一次 process.env 让两种命名都能命中）
+  cachedConfig = {
+    publicKey: raw.publicKey || process.env.LANGFUSE_PUBLIC_KEY || DEFAULT_CONFIG.publicKey,
+    secretKey: raw.secretKey || process.env.LANGFUSE_SECRET_KEY || DEFAULT_CONFIG.secretKey,
+    baseUrl: raw.baseUrl || process.env.LANGFUSE_BASE_URL || DEFAULT_CONFIG.baseUrl,
+    tracingEnabled: raw.tracingEnabled !== undefined
+      ? raw.tracingEnabled
+      : process.env.LANGFUSE_TRACING_ENABLED !== undefined
+        ? process.env.LANGFUSE_TRACING_ENABLED !== 'false'
+        : DEFAULT_CONFIG.tracingEnabled,
+    maskPII: raw.maskPII !== undefined
+      ? raw.maskPII
+      : process.env.LANGFUSE_MASK_PII !== undefined
+        ? process.env.LANGFUSE_MASK_PII !== 'false'
+        : DEFAULT_CONFIG.maskPII,
+    environment: raw.environment
+      || (process.env.LANGFUSE_ENVIRONMENT as LangfuseRuntimeConfig['environment'])
+      || (process.env.NODE_ENV as LangfuseRuntimeConfig['environment'])
+      || DEFAULT_CONFIG.environment,
+    gitSha: raw.gitSha || process.env.GIT_SHA || DEFAULT_CONFIG.gitSha,
+    exportMode: raw.exportMode
+      || (process.env.LANGFUSE_EXPORT_MODE === 'immediate' ? 'immediate' : DEFAULT_CONFIG.exportMode),
+  }
   return cachedConfig
 }
 
