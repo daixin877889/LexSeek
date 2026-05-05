@@ -143,11 +143,21 @@ export interface BuiltSystemPrompt {
 }
 
 /**
- * 一站式构建 agent 的 SystemMessage：
- * buildContextSegments → toCachedPrompt → 按 sdkType 分流（anthropic content blocks / plain text） → SystemMessage。
+ * 主 Agent caseMain（runtime.ts）/ caseModule（moduleAgent）/ documentMain
+ * （documentMainAgent）已于 2026-05-05 改造为 SystemMessage 仅含 roleAndFlow
+ * + caseContextSyncMiddleware 注入 4+2 段 HumanMessage 模式。三者通过 caseId=null
+ * 退化路径仅复用本函数的"按 SDK 分流构造 SystemMessage（Anthropic 自动加 1h
+ * cache_control）"能力。
  *
- * 6 个主代理 / 子代理之前各自重复这段 7-10 行样板，统一抽出后调用点缩成 1 行。
- * 后续若 cache 协议变更（Anthropic 加新断点 / OpenAI 支持 cache 字段），只改本函数。
+ * 当前使用本函数完整 5 段式拼装的调用方：
+ * - subAgentToolFactory（ask_*_expert 子 Agent）
+ * - runAnalysisSubAgent（案件分析子 Agent）
+ * - contractReviewMainAgent（合同审查主 Agent，本次改造非目标范围 spec §2.2）
+ * - assistantAgent（法律助手主 Agent，caseId 永远 null，本次改造非目标）
+ *
+ * 一站式构建 agent 的 SystemMessage：
+ * buildContextSegments → toCachedPrompt → 按 sdkType 分流（anthropic content blocks
+ * / plain text） → SystemMessage。
  */
 export async function buildSystemPromptForAgent(
   modelSdkType: string,

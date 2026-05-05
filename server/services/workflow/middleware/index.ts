@@ -5,8 +5,9 @@
  * 业务私有中间件（caseProcessMaterial 等）仍在本目录。
  *
  * 注：caseMaterialContextMiddleware 已于 2026-04-30 删除——
- * caseMain 切换到 caseContextMiddleware（5 段式标准管线），
- * documentMainAgent 已直接调 buildSystemPromptForAgent 注入 5 段式 SystemMessage，无需独立中间件。
+ * caseMain / caseModule / documentMain 三个 Agent 已于 2026-05-05 统一切换到
+ * caseContextSyncMiddleware（HumanMessage 注入 + 双轨 metadata + splice 模式），
+ * 不再走 SystemMessage 拼装。详见 spec §4.2 与本仓库 plan 2026-05-05-agent-context-sync-unification.md。
  */
 // 通用中间件（主体在 agent-platform，此处 re-export）
 export * from '~~/server/services/agent-platform/middleware'
