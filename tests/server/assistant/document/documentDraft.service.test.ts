@@ -39,10 +39,6 @@ vi.mock('~~/server/services/material/materialPipeline.service', () => ({
     ensureMaterialsReadyForDraftService: vi.fn(),
 }))
 
-vi.mock('~~/server/agents/document/draftSchema.builder', () => ({
-    buildDraftSchema: vi.fn(),
-}))
-
 // ==================== 导入被测模块（在 mock 之后） ====================
 
 import {
@@ -61,8 +57,6 @@ import {
 import { createAssistantSessionDAO } from '~~/server/services/assistant/assistantSession.dao'
 import { enqueueRunService } from '~~/server/services/agent/agentRun.service'
 import { ensureMaterialsReadyForDraftService } from '~~/server/services/material/materialPipeline.service'
-import { buildDraftSchema } from '~~/server/agents/document/draftSchema.builder'
-import { z } from 'zod'
 
 // ==================== 类型转换（方便使用 mockResolvedValue） ====================
 
@@ -74,7 +68,6 @@ const mockSoftDeleteDocumentDraftDAO = softDeleteDocumentDraftDAO as ReturnType<
 const mockCreateAssistantSessionDAO = createAssistantSessionDAO as ReturnType<typeof vi.fn>
 const mockEnqueueRunService = enqueueRunService as ReturnType<typeof vi.fn>
 const mockEnsureMaterialsReadyForDraftService = ensureMaterialsReadyForDraftService as ReturnType<typeof vi.fn>
-const mockBuildDraftSchema = buildDraftSchema as ReturnType<typeof vi.fn>
 
 // ==================== 测试帮助数据 ====================
 
@@ -151,13 +144,6 @@ beforeEach(() => {
         template: MOCK_GLOBAL_TEMPLATE,
     })
     mockUpdateDocumentDraftDAO.mockResolvedValue(MOCK_DRAFT_READY)
-
-    // buildDraftSchema mock：返回有 plaintiff key 的 schema
-    mockBuildDraftSchema.mockReturnValue(
-        z.object({
-            values: z.object({ plaintiff: z.string().nullable() }),
-        }),
-    )
 })
 
 afterEach(() => {
