@@ -310,7 +310,7 @@ export async function createImageConversionService(
     tx?: Prisma.TransactionClient
 ): Promise<OcrResult> {
     return withLangfuseContext(
-        { userId, vertical: 'material-summary' },
+        { userId, vertical: 'ocr' },
         () => createImageConversionInner(ossFileId, userId, tx),
     )
 }

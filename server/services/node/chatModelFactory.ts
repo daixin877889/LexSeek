@@ -237,7 +237,9 @@ export function createChatModel(config: ChatModelConfig): BaseChatModel {
     }
 
     // 创建模型实例后用 Langfuse ES Proxy 包一层，
-    // 使后续 invoke/stream/batch/streamEvents 自动从 ALS 注入 RunnableConfig（runName/tags/metadata + Langfuse callback）
+    // 使后续 invoke/stream/batch/streamEvents 自动从 ALS 注入 runName/tags/metadata。
+    // 不注入 callbacks（顶层 chain 通过 buildLangfuseTopLevelConfig 统一注入 langfuseHandler，
+    // 详见 modelProxy.ts 文件头注释）
     return wrapWithLangfuse(creator(config))
 }
 

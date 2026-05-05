@@ -11,8 +11,7 @@
 
 import { LangfuseSpanProcessor } from '@langfuse/otel'
 import { NodeSDK } from '@opentelemetry/sdk-node'
-import { getLangfuseRuntimeConfig } from '~~/server/lib/langfuse/client'
-import { redactPII } from '~~/server/lib/langfuse/redactPII'
+import { getLangfuseRuntimeConfig, redactPII } from '~~/server/lib/langfuse'
 
 let nodeSdk: NodeSDK | undefined
 
@@ -37,6 +36,8 @@ export default defineNitroPlugin((nitroApp) => {
     secretKey: cfg.secretKey,
     baseUrl: cfg.baseUrl,
     environment: cfg.environment,
+    // serverless（FC3/Lambda）必须用 'immediate' —— 容器被回收时 batched 队列里的 span 会丢
+    exportMode: cfg.exportMode,
     // v5 SDK：data 是 stringified JSON 字符串，整段调 redactPII 即可
     mask: enableMask
       ? ({ data }: { data: string }) => redactPII(data)
@@ -55,6 +56,7 @@ export default defineNitroPlugin((nitroApp) => {
       baseUrl: cfg.baseUrl,
       environment: cfg.environment,
       maskPII: enableMask,
+      exportMode: cfg.exportMode,
     })
   }
   catch (err) {

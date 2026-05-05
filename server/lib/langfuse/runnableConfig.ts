@@ -51,9 +51,9 @@
 
 import type { Callbacks } from '@langchain/core/callbacks/manager'
 import type { RunnableConfig } from '@langchain/core/runnables'
+import { buildEntityMetadata, buildEnvTags } from './_metadata'
 import { getLangfuseHandler, getLangfuseRuntimeConfig } from './client'
 import { getLangfuseContext } from './context'
-import { deriveScope } from './types'
 import type { LangfuseVertical } from './types'
 
 export type LangfuseConfigOverride = {
@@ -85,25 +85,14 @@ export function buildLangfuseTopLevelConfig(
   const ctx = getLangfuseContext()
 
   const vertical = override?.vertical ?? ctx?.vertical
-  const tags: string[] = [vertical, cfg.environment]
-    .filter((t): t is NonNullable<typeof t> => Boolean(t))
-    .map(String)
+  const tags = buildEnvTags(vertical, cfg)
 
   const metadata: Record<string, unknown> = {
     // 官方文档约定 camelCase；LangChain CallbackHandler 在 handleChainStart 识别这两个字段，
     // 写到 trace 顶层 user_id / session_id（仅顶层 chain 路径生效）
     langfuseUserId: ctx?.userId !== undefined ? String(ctx.userId) : undefined,
     langfuseSessionId: ctx?.sessionId,
-    // 业务自由 metadata（反查 / 过滤用）
-    requestId: ctx?.requestId,
-    runId: ctx?.runId,
-    caseId: ctx?.caseId,
-    reviewId: ctx?.reviewId,
-    draftId: ctx?.draftId,
-    materialId: ctx?.materialId,
-    businessScope: vertical ? deriveScope(vertical) : undefined,
-    gitSha: cfg.gitSha,
-    environment: cfg.environment,
+    ...buildEntityMetadata(ctx, cfg, vertical),
   }
   for (const k of Object.keys(metadata)) {
     if (metadata[k] === undefined) delete metadata[k]

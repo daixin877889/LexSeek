@@ -23,6 +23,7 @@ const DEFAULT_CONFIG: LangfuseRuntimeConfig = {
   maskPII: true,
   environment: 'development',
   gitSha: '',
+  exportMode: 'batched',
 }
 
 export function getLangfuseRuntimeConfig(): LangfuseRuntimeConfig {

@@ -5,7 +5,7 @@
  * 后续业务节点用 withLangfuseContext 增量补 sessionId / runId / 业务实体 ID / vertical。
  */
 
-import { enterLangfuseContext } from '~~/server/lib/langfuse/context'
+import { enterLangfuseContext } from '~~/server/lib/langfuse'
 
 export default defineEventHandler((event) => {
   enterLangfuseContext({

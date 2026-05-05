@@ -203,6 +203,10 @@ export default defineNuxtConfig({
         ?? process.env.NODE_ENV
         ?? 'development') as 'development' | 'staging' | 'production',
       gitSha: process.env.GIT_SHA ?? '',
+      // serverless（FC3/Lambda）必须配 'immediate'，否则容器被回收前 batched 队列里 span 不 flush 全丢
+      exportMode: (process.env.LANGFUSE_EXPORT_MODE === 'immediate'
+        ? 'immediate'
+        : 'batched') as 'immediate' | 'batched',
     },
     aliyun: {
       accessKeyId: '',

@@ -40,6 +40,7 @@ export type LangfuseVertical =
   | 'extract'
   | 'intent-classifier'
   | 'material-summary'
+  | 'ocr'
   | 'sub-agent'
   | 'invoke-node-json'
 
@@ -67,6 +68,7 @@ export function deriveScope(vertical: LangfuseVertical): LangfuseScope {
     case 'legal-assistant':
       return 'ASSISTANT'
     case 'material-summary':
+    case 'ocr':
       return 'MATERIAL'
     case 'intent-classifier':
       return 'RETRIEVAL'
@@ -84,4 +86,11 @@ export type LangfuseRuntimeConfig = {
   maskPII: boolean
   environment: 'development' | 'staging' | 'production'
   gitSha: string
+  /**
+   * OTel span 上送模式
+   * - 'batched'（默认）：BatchSpanProcessor 5s 内累积批量发送，长生命周期进程（dev/常驻容器）用
+   * - 'immediate'：SimpleSpanProcessor 每 span end 时立即发送，serverless（FC3/Lambda 等）必须用此模式
+   *   否则函数 handler 返回后容器被回收，队列里 span 还没 flush 就丢
+   */
+  exportMode: 'batched' | 'immediate'
 }

@@ -38,9 +38,9 @@
 
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import type { RunnableConfig } from '@langchain/core/runnables'
+import { buildEntityMetadata, buildEnvTags } from './_metadata'
 import { getLangfuseRuntimeConfig } from './client'
 import { getLangfuseContext } from './context'
-import { deriveScope } from './types'
 
 const INTERCEPTED = new Set(['invoke', 'stream', 'batch', 'streamEvents'])
 
@@ -60,16 +60,10 @@ export function wrapWithLangfuse<M extends BaseChatModel>(model: M): M {
         const ctx = getLangfuseContext()
         const incomingTags: string[] = (config?.tags as string[] | undefined) ?? []
 
-        const mergedTags = [
-          ...incomingTags,
-          ctx?.vertical,
-          cfg.environment,
-        ].filter((t): t is string => Boolean(t))
-
         const mergedConfig: ProxyConfig = {
           ...config,
           runName: config?.runName ?? ctx?.vertical,
-          tags: mergedTags,
+          tags: buildEnvTags(ctx?.vertical, cfg, incomingTags),
           metadata: {
             ...(config?.metadata ?? {}),
             // ⚠️ 故意 *不用* langfuseUserId / langfuseSessionId 命名：
@@ -78,15 +72,7 @@ export function wrapWithLangfuse<M extends BaseChatModel>(model: M): M {
             // 用 fallback* 前缀让 metadata 真正落到 generation span 上做业务反查兜底。
             fallbackUserId: ctx?.userId !== undefined ? String(ctx.userId) : undefined,
             fallbackSessionId: ctx?.sessionId,
-            requestId: ctx?.requestId,
-            runId: ctx?.runId,
-            caseId: ctx?.caseId,
-            reviewId: ctx?.reviewId,
-            draftId: ctx?.draftId,
-            materialId: ctx?.materialId,
-            businessScope: ctx?.vertical ? deriveScope(ctx.vertical) : undefined,
-            gitSha: cfg.gitSha,
-            environment: cfg.environment,
+            ...buildEntityMetadata(ctx, cfg, ctx?.vertical),
           },
         }
 
