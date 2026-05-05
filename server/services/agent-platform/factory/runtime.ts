@@ -21,6 +21,7 @@ import type { StructuredToolInterface } from '@langchain/core/tools'
 
 import { getNodeConfigCached } from '~~/server/services/agent-platform/nodeConfig/loader'
 import { renderSystemPrompt } from '~~/server/services/agent-platform/nodeConfig/promptRenderer'
+import { buildSystemPromptForAgent } from '~~/server/services/agent-platform/context/moduleContextBuilder'
 import { createChatModel } from '~~/server/services/agent-platform/modelFactory'
 import { resolveThinkingFromNodeConfig } from '~~/server/services/node/node.service'
 import { getCheckpointer, getStore } from '~~/server/services/agent-platform/checkpointer'
@@ -156,10 +157,22 @@ async function runDomainAgentInner(
         maxTokens: nodeConfig.modelMaxOutputTokens,
     })
 
-    // 4. 渲染 system prompt（plain text）
-    const systemPrompt = renderSystemPrompt(nodeConfig, {
+    // 4. 渲染 system prompt：仅 roleAndFlow 段；4 段案件上下文交给 caseContextSyncMiddleware
+    //    注入 HumanMessage（业务私有中间件由 vertical 通过 customMiddlewares 挂载）
+    //    构造方式与 assistantAgent 同款：buildSystemPromptForAgent 在 caseId=null 时退化为
+    //    "仅 roleAndFlow + 按 SDK 分流（Anthropic 1h cache_control / 其他 plain text）"
+    const systemPromptText = renderSystemPrompt(nodeConfig, {
         caseId: ctx.caseId ?? undefined,
     })
+    const { systemMessage: systemPrompt, plainText: systemPromptPlainText } = await buildSystemPromptForAgent(
+        nodeConfig.modelSdkType,
+        {
+            caseId: null,
+            agentName: resolvedNodeName,
+            userQuery: '',
+            roleAndFlowTemplate: systemPromptText,
+        },
+    )
 
     // 5. 解析上下文窗口参数
     const { triggerTokens, maxTokens, maxOutputTokens } = resolveContextWindow(
@@ -213,7 +226,7 @@ async function runDomainAgentInner(
             middleware: safetyTrimMiddleware({
                 model,
                 maxTokens,
-                systemPrompt,
+                systemPrompt: systemPromptPlainText,
                 maxOutputTokens,
             }),
             priority: MIDDLEWARE_PRIORITY.SAFETY_TRIM,
