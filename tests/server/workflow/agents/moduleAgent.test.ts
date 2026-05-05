@@ -244,10 +244,13 @@ describe('runModuleChat 模块对话 Agent', () => {
 
         expect(mockBuildContextSegments).toHaveBeenCalledTimes(1)
         const args = mockBuildContextSegments.mock.calls[0][0]
+        // 2026-05-05 改造后：4 段案件上下文交给 caseContextSyncMiddleware 注入 HumanMessage，
+        // SystemMessage 仅含 roleAndFlow，buildSystemPromptForAgent 走 caseId=null 退化路径
+        // （与 assistantAgent / runtime.ts 同款）；agentName 仍为 moduleName。
         expect(args).toMatchObject({
-            caseId: 100,
+            caseId: null,
             agentName: 'summary',
-            userQuery: '请分析摘要',
+            userQuery: '',
         })
         // roleAndFlowTemplate 应包含 renderSystemPrompt 渲染结果 + save_analysis_result 提醒
         expect(args.roleAndFlowTemplate).toContain('你是案件摘要专家')

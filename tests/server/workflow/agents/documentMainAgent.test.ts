@@ -16,11 +16,14 @@ vi.stubGlobal('logger', {
     debug: vi.fn(),
 })
 
-// mock langchain（createAgent, summarizationMiddleware）
+// mock langchain（createAgent, summarizationMiddleware, createMiddleware）
 const mockStream = vi.fn().mockReturnValue('mock-stream')
 vi.mock('langchain', () => ({
     createAgent: vi.fn(() => ({ stream: mockStream })),
     summarizationMiddleware: vi.fn(() => ({ name: 'summarizationMiddleware' })),
+    // caseContextSyncMiddleware / caseProcessMaterialMiddleware 都用 createMiddleware
+    // 工厂构造，本测只关心被测 Agent 的中间件挂载顺序，给个返回带 name 的占位即可
+    createMiddleware: vi.fn((opts: { name: string }) => ({ name: opts?.name ?? 'mockMiddleware' })),
 }))
 
 // mock @langchain/core/messages
@@ -102,6 +105,8 @@ vi.mock('../../../../server/services/workflow/middleware', () => ({
     MIDDLEWARE_PRIORITY: {
         MESSAGE_INTEGRITY: 1,
         SCOPE_GUARD: 5,
+        PROCESS_MATERIAL: 8,
+        MODULE_CONTEXT: 10,
         POINT_CONSUMPTION: 20,
         SUMMARIZATION: 40,
         SAFETY_TRIM: 50,
@@ -111,6 +116,8 @@ vi.mock('../../../../server/services/workflow/middleware', () => ({
     MIDDLEWARE_NAMES: {
         MESSAGE_INTEGRITY: 'messageIntegrity',
         SCOPE_GUARD: 'scopeGuard',
+        PROCESS_MATERIAL: 'caseProcessMaterial',
+        MODULE_CONTEXT: 'caseContext',
         POINT_CONSUMPTION: 'pointConsumption',
         SUMMARIZATION: 'summarization',
         SAFETY_TRIM: 'safetyTrim',
@@ -236,7 +243,11 @@ describe('documentMainAgent (新架构)', () => {
         expect(callArgs).not.toHaveProperty('responseFormat')
     })
 
-    it('renderSystemPrompt 接收新增的 4 个字段(draftId/status/currentValuesJSON/placeholdersWithHints)', async () => {
+    it('renderSystemPrompt 仅注入稳定字段(draftId/status/templateName/templateCategory)', async () => {
+        // 2026-05-05 改造后：currentValuesJSON / placeholdersWithHints 不再走 SystemMessage
+        // 模板变量替换；草稿当前字段值与模板占位符通过 caseContextSyncMiddleware 的
+        // draftLoader 注入到 HumanMessage（spec §4.2.3）。renderSystemPrompt 只接收稳定的
+        // roleAndFlow 段所需变量。
         await runDocumentChat('sess-x', '帮我起草', { userId: 1 })
 
         expect(mockRenderSystemPrompt).toHaveBeenCalledWith(
@@ -244,10 +255,14 @@ describe('documentMainAgent (新架构)', () => {
             expect.objectContaining({
                 draftId: 100,
                 status: 'ready',
-                currentValuesJSON: expect.stringContaining('原告'),
-                placeholdersWithHints: expect.stringContaining('原告'),
+                templateName: '民事起诉状',
+                templateCategory: '民事',
             }),
         )
+        // 关键回归：dead 字段不再出现在 renderSystemPrompt 调用参数中
+        const ctx = mockRenderSystemPrompt.mock.calls.at(-1)?.[1] as Record<string, unknown>
+        expect(ctx).not.toHaveProperty('currentValuesJSON')
+        expect(ctx).not.toHaveProperty('placeholdersWithHints')
     })
 
     it('caseId 为 null 时不挂 afterAgentMemory 中间件', async () => {
