@@ -27,6 +27,9 @@ import * as updateCaseMemoryTool from './update_case_memory.tool'
 import * as searchCaseAnalysisTool from './search_case_analysis.tool'
 import * as draftDocumentTool from './draftDocument.tool'
 import * as reviewContractTool from './reviewContract.tool'
+import * as recommendTemplateTool from './recommendTemplate.tool'
+import * as saveDocumentDraftTool from './saveDocumentDraft.tool'
+import * as updateDocumentDraftTool from './updateDocumentDraft.tool'
 
 /** 通用工具模块映射 */
 const toolModules: Record<string, ToolModule> = {
@@ -45,8 +48,12 @@ const toolModules: Record<string, ToolModule> = {
     write_case_memory: writeCaseMemoryTool,
     update_case_memory: updateCaseMemoryTool,
     search_case_analysis: searchCaseAnalysisTool,
-    // 阶段 5：法律助手 → 文书 / 合同 子代理工具
+    // 阶段 5：法律助手 → 文书 / 合同 子代理工具(draft_document 将在 Stage 3 删除,
+    // 由 recommend_template + save_document_draft + update_document_draft 三个无会话纯函数取代)
     draft_document: draftDocumentTool,
+    recommend_template: recommendTemplateTool,
+    save_document_draft: saveDocumentDraftTool,
+    update_document_draft: updateDocumentDraftTool,
     review_contract: reviewContractTool,
 }
 
