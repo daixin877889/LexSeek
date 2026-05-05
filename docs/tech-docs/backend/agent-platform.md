@@ -116,16 +116,26 @@ LangGraph stream  ──> customEventEmitter ──> eventBridge ──> SSE Str
 | `reservePoints` / `confirmPoints` / `rollbackPoints` | 工具调用前后积分预扣 / 确认 / 回滚 |
 | `saveAnalysisResult` | 写回 `caseAnalyses` |
 | `searchCaseMaterials` / `uploadWorkspaceFile` | 工作区文件操作（与 `workspace.ts` 配合） |
-| `draftDocument` / `reviewContract` | 子 Agent 工具（启动文书 / 合同子流） |
+| ~~`draftDocument`~~ | ❌ 已删除(2026-05-05),反模式重构,被下面 3 个无会话工具取代 |
+| `recommend_template` / `save_document_draft` / `update_document_draft` | 文书起草纯函数工具(无会话,平级 Agent 共用) |
+| `reviewContract` | 子 Agent 工具(启动合同子流;文书侧已迁出该模式) |
 | `readSkillFile` / `writeSkillFile` / `runSkillScript` / `runSkillCommand` | Skill 文件读 / 写 / 执行 |
 
 工具按节点关联在 `nodes` 表 `tools` 字段配置（JSON 数组，`getToolInstancesService` 反射加载）。
 
 ---
 
+## documentMain 是平级 Agent(2026-05-05 修正)
+
+**重要架构变化**:documentMain 不再是"被 draft_document 工具嵌套调用的子 Agent",而是跟 caseMain / assistantMain 同构的平级主 Agent。三个 Agent 都挂 `legal-document-writer` skill,通过 `recommend_template` / `save_document_draft` / `update_document_draft` 三个无会话纯函数工具协作起草文书,工具不嵌套调用任何 Agent,不依赖 `toolStrategy / responseFormat / draftResultPersistence` 中间件。
+
+详见 `docs/superpowers/specs/2026-05-05-document-agent-tool-refactor-design.md` 和 `docs/superpowers/plans/2026-05-05-document-agent-tool-refactor.md`。
+
+---
+
 ## 6. 子 Agent 工具
 
-业务可通过 `subAgent/subAgentToolFactory` 把"启动一个独立 thread 的子 Agent"包装成工具：
+业务可通过 `subAgent/subAgentToolFactory` 把"启动一个独立 thread 的子 Agent"包装成工具:
 
 - `runAndDrain` 把 LangGraph stream 完整跑完并 invoke 拿最终值
 - `buildSubAgentCallbacks` 构造一组旁路回调（向父流转发关键事件）
