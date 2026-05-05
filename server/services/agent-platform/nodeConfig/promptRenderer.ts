@@ -33,10 +33,10 @@ export interface PromptRenderContext {
     draftId?: number
     /** 草稿当前状态('drafting' / 'filling' / 'ready' / 'exported' / 'failed') */
     status?: string
-    /** 当前已填字段值的 JSON 字符串(documentMain 启动时一次性注入快照) */
-    currentValuesJSON?: string
-    /** 模板字段清单 + 提示语(documentMain 知道要填哪些字段) */
-    placeholdersWithHints?: string
+    // 注：currentValuesJSON / placeholdersWithHints 字段已删除
+    // 草稿当前字段值与模板占位符现在通过 caseContextSyncMiddleware 的 draftLoader
+    // 注入到对话 HumanMessage 中，不再走 SystemMessage 模板变量替换。
+    // 见 spec §4.2.3 与 §6.2 改动清单。
 }
 
 /**
@@ -90,12 +90,6 @@ export function renderSystemPrompt(
     }
     if (context.status) {
         variables.status = context.status
-    }
-    if (context.currentValuesJSON) {
-        variables.currentValuesJSON = context.currentValuesJSON
-    }
-    if (context.placeholdersWithHints) {
-        variables.placeholdersWithHints = context.placeholdersWithHints
     }
 
     const rendered = renderContent(raw, variables)
