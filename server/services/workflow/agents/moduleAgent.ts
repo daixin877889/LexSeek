@@ -32,6 +32,8 @@ import { buildLangfuseTopLevelConfig, withLangfuseContext } from '~~/server/lib/
 import { renderSystemPrompt } from '../utils/promptRenderer'
 import { buildSkillsMiddlewareForNode } from '~~/server/services/agent-platform/middleware/skills'
 import { afterAgentMemoryMiddleware } from '~~/server/services/agent-platform/middleware/afterAgentMemory.middleware'
+import { caseProcessMaterialMiddleware } from '~~/server/agents/_shared/case-context/caseProcessMaterial.middleware'
+import { caseContextSyncMiddleware } from '~~/server/agents/_shared/case-context/caseContextSync.middleware'
 import { createTool as createReadSkillFileTool } from '../tools/readSkillFile.tool'
 import { createTool as createWriteSkillFileTool } from '../tools/writeSkillFile.tool'
 import { createTool as createRunSkillScriptTool } from '../tools/runSkillScript.tool'
@@ -149,17 +151,16 @@ async function runModuleChatInner(
     }
     const allTools = Array.from(toolsByName.values())
 
-    // 构建 5 段式上下文 prompt（roleAndFlow 段含 save_analysis_result 提醒，命中 1h cache）
-    // 关键差异：agentName 用 moduleName，让 buildContextSegments 内部 caseAnalyses.findMany
-    // { NOT: { analysisType: agentName } } 能正确排除当前模块自身的旧结果
-    const roleAndFlowTemplate = [
+    // SystemMessage 仅含 roleAndFlow（4 段案件上下文交给 caseContextSyncMiddleware 注入 HumanMessage）
+    // 复用 buildSystemPromptForAgent 退化路径：caseId=null 时仅返单段 roleAndFlow + 按 SDK 分流
+    const roleAndFlowText = [
         renderSystemPrompt(nodeConfig, { caseId, moduleName }),
         '当你完成该模块的分析后，请按以下顺序操作：1) 先以纯文本形式输出完整的分析报告（Markdown 格式）；2) 然后调用 save_analysis_result 工具（无需任何参数）。工具会自动从你刚输出的报告中读取内容保存。请勿在工具参数中重复正文。',
     ].filter(Boolean).join('\n\n')
 
     const { systemMessage, plainText: plainTextPrompt } = await buildSystemPromptForAgent(
         nodeConfig.modelSdkType,
-        { caseId, agentName: moduleName, userQuery: message ?? '', roleAndFlowTemplate },
+        { caseId: null, agentName: moduleName, userQuery: '', roleAndFlowTemplate: roleAndFlowText },
     )
 
     const { triggerTokens, maxTokens, maxOutputTokens } = resolveContextWindow(
@@ -174,6 +175,9 @@ async function runModuleChatInner(
         store,
         tools: allTools,
         middleware: [
+            // 业务私有：每轮自动补做未处理材料 + 实时拉案件上下文（plain array 顺序执行）
+            caseProcessMaterialMiddleware(userId, caseId),
+            caseContextSyncMiddleware({ caseId, agentName: moduleName }),
             // 消息完整性兜底必须最先：防止 orphan tool_use 引发 Provider 400
             createMessageIntegrityMiddleware(),
             createScopeGuardMiddleware(),
