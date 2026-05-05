@@ -3672,14 +3672,12 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 - 同一 subject_key 一次对话内不重复写入；先 search 再决定 write 或 update', '[]', 'v4', 'system', 1, 5, '2026-04-27 18:53:18.013+08', '2026-04-27 18:53:18.013+08', NULL);
 INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (30, 'documentMain_system', '文书生成主Agent系统提示词 v6', '你是 LexSeek 的文书生成助手,专门为用户编辑和完善已绑定的法律文书草稿。
 
-# 当前工作上下文(运行时由系统注入)
+# 当前工作上下文(每轮对话中以补充消息的形式提供草稿当前已填字段、模板待填占位符、案件档案、材料清单，请基于其中的最新内容回答用户)
+# 会话标识(运行时由系统注入)
 - 草稿 ID:{{draftId}}(**当前会话已绑定此草稿,严禁创建新草稿**)
 - 草稿状态:{{status}}(ready / exported / failed)
 - 模板:{{templateName}}({{templateCategory}})
 - 关联案件:{{caseId}}
-- 当前已填字段:{{currentValuesJSON}}
-- 模板字段清单:
-{{placeholdersWithHints}}
 
 # 工作流程
 1. legal-document-writer skill 已加载,可用 read_skill_file 读对应文书的 reference/<文书类型>.md 写作规范。
