@@ -33,6 +33,8 @@ import {
     MIDDLEWARE_NAMES,
 } from '../middleware'
 import { afterAgentMemoryMiddleware } from '~~/server/services/agent-platform/middleware/afterAgentMemory.middleware'
+import { caseProcessMaterialMiddleware } from '~~/server/agents/_shared/case-context/caseProcessMaterial.middleware'
+import { caseContextSyncMiddleware } from '~~/server/agents/_shared/case-context/caseContextSync.middleware'
 import { buildLangfuseTopLevelConfig } from '~~/server/lib/langfuse'
 import { findDraftBySessionIdDAO } from '../../assistant/document/documentDraft.dao'
 import { getDocumentTemplateDAO } from '../../assistant/document/documentTemplate.dao'
@@ -93,30 +95,31 @@ export async function runDocumentChat(
         maxTokens: nodeConfig.modelMaxOutputTokens,
     })
 
-    // 4. 构建系统 prompt(注入 draft 当前状态)
+    // 4. 构建系统 prompt（仅含 roleAndFlow，草稿字段+占位符通过 caseContextSyncMiddleware 注入 HumanMessage）
+    // 闭包外捕获：placeholders 渲染（template 不变，整 session 复用）
     const placeholders = (template.placeholders ?? []) as Array<{ name: string; firstContext?: string }>
     const placeholdersWithHints = placeholders
         .map(p => `- ${p.name}${p.firstContext ? `(参考上下文:${p.firstContext})` : ''}`)
         .join('\n')
-    const currentValuesJSON = JSON.stringify(draft.values ?? {}, null, 2)
 
     const resolvedCaseId = draft.caseId ?? caseId
-    const roleAndFlowTemplate = renderSystemPrompt(nodeConfig, {
+    // SystemMessage 仅含 roleAndFlow（草稿字段+占位符 通过 caseContextSyncMiddleware 注入 HumanMessage）
+    const roleAndFlowText = renderSystemPrompt(nodeConfig, {
         caseId: resolvedCaseId,
         templateName: template.name,
         templateCategory: template.category,
         draftId: draft.id,
         status: draft.status,
-        currentValuesJSON,
-        placeholdersWithHints,
     })
+    // 复用 buildSystemPromptForAgent 退化路径：caseId=null 时仅返单段 roleAndFlow + 按 SDK 分流
+    // （Anthropic 1h cache_control / 其他 SDK plain text）。与 assistantAgent / runtime.ts 同款。
     const { systemMessage, plainText: systemPromptPlainText } = await buildSystemPromptForAgent(
         nodeConfig.modelSdkType,
         {
-            caseId: resolvedCaseId ?? null,
+            caseId: null,
             agentName: DOCUMENT_MAIN_NODE_NAME,
-            userQuery: message ?? '',
-            roleAndFlowTemplate,
+            userQuery: '',
+            roleAndFlowTemplate: roleAndFlowText,
         },
     )
 
@@ -152,8 +155,34 @@ export async function runDocumentChat(
         nodeConfig.modelMaxOutputTokens,
     )
 
+    // draftLoader：闭包外 placeholders 已渲染好不变；闭包内每轮实时查 draft.values
+    const draftLoader = async () => ({
+        placeholdersWithHints,
+        draftValuesJSON: async () => {
+            const latest = await findDraftBySessionIdDAO(sessionId)
+            return JSON.stringify(latest?.values ?? draft.values ?? {}, null, 2)
+        },
+    })
+
     // 6. 组装中间件栈(afterAgentMemory 条件挂载,agent-platform.md 铁律)
     const middleware = buildMiddlewareStack([
+        // 业务私有：每轮自动补做未处理材料（仅 caseId 非空时挂）+ 实时拉案件 4 段 + 文书 2 段
+        ...(resolvedCaseId
+            ? [{
+                middleware: caseProcessMaterialMiddleware(userId, resolvedCaseId),
+                priority: MIDDLEWARE_PRIORITY.PROCESS_MATERIAL,
+                name: MIDDLEWARE_NAMES.PROCESS_MATERIAL,
+            }]
+            : []),
+        {
+            middleware: caseContextSyncMiddleware({
+                caseId: resolvedCaseId ?? null,
+                agentName: DOCUMENT_MAIN_NODE_NAME,
+                draftLoader,
+            }),
+            priority: MIDDLEWARE_PRIORITY.MODULE_CONTEXT,
+            name: MIDDLEWARE_NAMES.MODULE_CONTEXT,
+        },
         {
             middleware: createMessageIntegrityMiddleware(),
             priority: MIDDLEWARE_PRIORITY.MESSAGE_INTEGRITY,
