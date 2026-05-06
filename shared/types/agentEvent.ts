@@ -84,6 +84,16 @@ export enum SSECustomEventType {
     CONTRACT_RISK = 'contract_risk',
     CONTRACT_PROGRESS = 'contract_progress',
 
+    /**
+     * 材料就绪保底进度事件（中间件等待期间发出）。
+     *
+     * 由 caseProcessMaterialMiddleware 在等待识别+200 字摘要双就绪期间发出
+     * phase:'start'/'progress'/'end'。前端 useStreamChat 拦截后合成
+     * process_materials 同款 toolCall（toolCallId='prepare-${runId}'），
+     * 复用 MaterialProcessTool.vue 渲染。
+     */
+    PREPARE_MATERIALS = 'prepare_materials',
+
     /** 阶段 5/6：主代理调起子代理时通知前端 */
     CHILD_AGENT_INVOKED = 'child_agent_invoked',
 }
@@ -210,6 +220,22 @@ export interface ChildAgentInvokedPayload {
     toolName: string
 }
 
+/** 材料项状态（保底进度卡片用） */
+export type MaterialItemStatus = 'pending' | 'recognizing' | 'summarizing' | 'ready' | 'failed'
+
+/** 单条材料状态（不携带 type 字段——前端渲染只用 name + status） */
+export interface MaterialItem {
+    id: number
+    name: string
+    status: MaterialItemStatus
+}
+
+/** PREPARE_MATERIALS payload */
+export type PrepareMaterialsPayload =
+    | { phase: 'start';    toolCallId: string; materials: MaterialItem[] }
+    | { phase: 'progress'; toolCallId: string; materials: MaterialItem[] }
+    | { phase: 'end';      toolCallId: string; materials: MaterialItem[]; failedCount: number }
+
 /**
  * SSE 自定义事件类型 → payload 类型映射。
  * publishCustomEvent<T> 用此映射做编译期类型校验。
@@ -231,6 +257,7 @@ export interface SSECustomEventMap {
     [SSECustomEventType.CONTRACT_RISK]: ContractRiskPayload
     [SSECustomEventType.CONTRACT_PROGRESS]: ContractProgressPayload
     [SSECustomEventType.CHILD_AGENT_INVOKED]: ChildAgentInvokedPayload
+    [SSECustomEventType.PREPARE_MATERIALS]: PrepareMaterialsPayload
 }
 
 /**

@@ -169,7 +169,9 @@ export async function runDocumentChat(
         // 业务私有：每轮自动补做未处理材料（仅 caseId 非空时挂）+ 实时拉案件 4 段 + 文书 2 段
         ...(resolvedCaseId
             ? [{
-                middleware: caseProcessMaterialMiddleware(userId, resolvedCaseId),
+                // 文书生成主 Agent 函数签名当前没有 runId 闭包，传 null（中间件会跳过 SSE 推送，
+                // 行为与升级前一致；用户在文书页看不到材料预处理进度卡片，但识别+摘要双就绪逻辑保留）
+                middleware: caseProcessMaterialMiddleware(userId, resolvedCaseId, null, sessionId),
                 priority: MIDDLEWARE_PRIORITY.PROCESS_MATERIAL,
                 name: MIDDLEWARE_NAMES.PROCESS_MATERIAL,
             }]

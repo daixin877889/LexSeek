@@ -49,7 +49,7 @@ export const caseMainAgent = defineDomainAgent({
      */
     customMiddlewares: async (ctx) => [
         {
-            middleware: caseProcessMaterialMiddleware(ctx.userId, ctx.caseId!),
+            middleware: caseProcessMaterialMiddleware(ctx.userId, ctx.caseId!, ctx.runId, ctx.sessionId),
             priority: MIDDLEWARE_PRIORITY.PROCESS_MATERIAL,
             name: MIDDLEWARE_NAMES.PROCESS_MATERIAL,
         },

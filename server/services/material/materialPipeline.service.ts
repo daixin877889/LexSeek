@@ -61,6 +61,7 @@ async function runRecognitionAndEmbeddingPipeline(
     materials: MaterialWithFile[],
     userId: number,
     initialFailed: MaterialFailedItem[] = [],
+    onProgress?: (snapshot: MaterialReadinessSnapshot[]) => void | Promise<void>,
 ): Promise<MaterialReadyResult> {
     if (materials.length === 0) {
         return {
@@ -84,16 +85,6 @@ async function runRecognitionAndEmbeddingPipeline(
             notRecognized.map(material => processMaterialService(material.id, userId)),
         )
         failed.push(...collectSettledFailures(recognitionResults, notRecognized))
-    }
-
-    // 摘要兜底：对所有已识别材料都尝试 fire-and-forget 触发摘要生成
-    // 历史 bug 兜底：早期 pipeline 没在识别完成时触发 generateMaterialSummaryService，
-    // 导致大量材料 status=COMPLETED 但 summary=null。本调用复用早返保护
-    // （material.summary 非空时立即 return），重复调 0 副作用。
-    for (const m of materials) {
-        if (recognizedMap.get(m.id)) {
-            generateMaterialSummaryService(m.id).catch(() => { /* 已在内部 catch */ })
-        }
     }
 
     // 嵌入阶段：检查嵌入状态，对未嵌入的触发嵌入
@@ -121,11 +112,20 @@ async function runRecognitionAndEmbeddingPipeline(
         failed.push(...embeddingFailures)
     }
 
-    // 终态轮询：等所有材料 status ∈ {COMPLETED, FAILED} 且 COMPLETED 的 summary !== null。
-    // 历史 bug：pipeline 不轮询 PDF/ASR 异步终态 + 不等摘要生成，导致 V2 分析启动时
-    // system prompt 里"待识别"+"摘要生成中"。
+    // 阶段 3：对所有已识别材料并行触发摘要生成
+    // generateMaterialSummaryService 内部 inflight + 防重，重复触发 0 副作用
+    const recognizedMatIds = materials
+        .filter(m => recognizedMap.get(m.id))
+        .map(m => m.id)
+    if (recognizedMatIds.length > 0) {
+        await Promise.allSettled(
+            recognizedMatIds.map(id => generateMaterialSummaryService(id)),
+        )
+    }
+
+    // 阶段 4：终态轮询（识别+摘要双就绪 / FAILED）
     if (materials.length > 0) {
-        await waitMaterialsTerminalAndSummary(materials.map(m => m.id))
+        await waitMaterialsTerminalAndSummary(materials, onProgress)
     }
 
     return {
@@ -138,54 +138,92 @@ async function runRecognitionAndEmbeddingPipeline(
     }
 }
 
+import type { MaterialItemStatus } from '#shared/types/agentEvent'
+
+/** 材料就绪快照单项 */
+export interface MaterialReadinessSnapshot {
+    materialId: number
+    name: string
+    status: MaterialItemStatus
+}
+
 /**
- * 等所有材料到达"识别终态 + 摘要生成完毕"
+ * 等所有材料到达"识别终态 + 200 字摘要生成完毕"
  *
- * 终态判定：
- * - status ∈ {COMPLETED, FAILED}（不再 PENDING/PROCESSING）
- * - status === COMPLETED 时 summary !== null
+ * 终态判定（按文件级跨 4 表查 summary）：
+ * - status=FAILED 视为终态（不卡用户）
+ * - status=COMPLETED 且 summary 非 null 视为终态
  *
- * 超时策略（3 分钟）：
- * 1. 时间内每 1 秒查一次状态
- * 2. 超时后对仍 summary=null 的 COMPLETED 材料 await 一次同步摘要生成兜底
- *    （摘要 LLM 偶发失败时不让分析永远卡）
+ * 不设硬超时（自动重试 3 次由 generateMaterialSummaryService 内部承担；
+ * 重试穷尽会标记 status=FAILED）。
  *
- * 设计：3 分钟覆盖 PDF MinerU（30s-2min）+ ASR（1-3min）+ 摘要 LLM（5-15s）。
- * 真超时（>3min 仍未识别完）时不再继续等，让 V2 以"识别失败"渲染（避免无限卡死）。
+ * onProgress 回调每次轮询拿到当前快照后调一次，用于中间件推送 SSE 进度。
  */
-async function waitMaterialsTerminalAndSummary(materialIds: number[]): Promise<void> {
-    // ⚠️ Task 7 会用 getMaterialSummariesByMaterials 跨表查 summary 重写本函数为
-    //   "识别 + 200 字摘要双就绪" 判定 + onProgress 回调推 SSE 进度卡片。
-    // 当前 caseMaterials.summary 已删（Task 1）—— 此处临时退化为 "只看识别终态"，
-    // 不再卡 summary。Task 7 落地前调用方拿到的就绪信号只代表识别完成。
-    const startedAt = Date.now()
-    const TIMEOUT_MS = 3 * 60 * 1000
-    const POLL_MS = 1000
+async function waitMaterialsTerminalAndSummary(
+    materials: MaterialWithFile[],
+    onProgress?: (snapshot: MaterialReadinessSnapshot[]) => void | Promise<void>,
+): Promise<void> {
+    const POLL_MS = 2000  // 5check 优化：2 秒一次
 
-    while (Date.now() - startedAt < TIMEOUT_MS) {
-        const records = await prisma.caseMaterials.findMany({
-            where: { id: { in: materialIds }, deletedAt: null },
-            select: { id: true, status: true },
-        })
-
-        const allReady = records.every(r => {
-            if (r.status === MaterialStatus.FAILED) return true
-            if (r.status === MaterialStatus.COMPLETED) return true
-            return false  // PENDING / PROCESSING
-        })
-
-        if (allReady) return
+    while (true) {
+        const snapshot = await snapshotMaterialReadiness(materials)
+        if (onProgress) {
+            try { await onProgress(snapshot) } catch { /* 推送失败不阻塞 */ }
+        }
+        const allTerminal = snapshot.every(s => s.status === 'ready' || s.status === 'failed')
+        if (allTerminal) return
 
         await new Promise(r => setTimeout(r, POLL_MS))
     }
 }
 
+/**
+ * 查询材料就绪状态快照（按文件级跨 4 表 join 查 summary）
+ *
+ * 状态映射：
+ * - FAILED → 'failed'
+ * - PENDING → 'pending'
+ * - PROCESSING → 'recognizing'
+ * - COMPLETED + summary 已生成 → 'ready'
+ * - COMPLETED + summary 未生成 → 'summarizing'
+ */
+export async function snapshotMaterialReadiness(
+    materials: MaterialWithFile[],
+): Promise<MaterialReadinessSnapshot[]> {
+    if (materials.length === 0) return []
+
+    // 实时查 status（轮询过程中 status 会变）
+    const matIds = materials.map(m => m.id)
+    const fresh = await prisma.caseMaterials.findMany({
+        where: { id: { in: matIds }, deletedAt: null },
+        select: { id: true, status: true },
+    })
+    const freshStatus = new Map(fresh.map(r => [r.id, r.status]))
+
+    const summaryMap = await getMaterialSummariesByMaterials(
+        materials.map(m => ({ id: m.id, type: m.type, ossFileId: m.ossFileId })),
+    )
+
+    return materials.map(m => {
+        const status = freshStatus.get(m.id) ?? m.status
+        const hasSummary = summaryMap.has(m.id)
+        let s: MaterialItemStatus
+        if (status === MaterialStatus.FAILED) s = 'failed'
+        else if (status === MaterialStatus.PENDING) s = 'pending'
+        else if (status === MaterialStatus.PROCESSING) s = 'recognizing'
+        else if (status === MaterialStatus.COMPLETED) s = hasSummary ? 'ready' : 'summarizing'
+        else s = 'pending'
+        return { materialId: m.id, name: m.name, status: s }
+    })
+}
+
 export async function ensureMaterialsReadyService(
     caseId: number,
     userId: number,
+    onProgress?: (snapshot: MaterialReadinessSnapshot[]) => void | Promise<void>,
 ): Promise<MaterialReadyResult> {
     const materials = await getMaterialsByCaseIdService(caseId)
-    return runRecognitionAndEmbeddingPipeline(materials, userId)
+    return runRecognitionAndEmbeddingPipeline(materials, userId, [], onProgress)
 }
 
 /**

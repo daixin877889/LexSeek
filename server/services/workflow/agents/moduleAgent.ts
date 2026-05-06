@@ -176,7 +176,7 @@ async function runModuleChatInner(
         tools: allTools,
         middleware: [
             // 业务私有：每轮自动补做未处理材料 + 实时拉案件上下文（plain array 顺序执行）
-            caseProcessMaterialMiddleware(userId, caseId),
+            caseProcessMaterialMiddleware(userId, caseId, runId, sessionId),
             caseContextSyncMiddleware({ caseId, agentName: moduleName }),
             // 消息完整性兜底必须最先：防止 orphan tool_use 引发 Provider 400
             createMessageIntegrityMiddleware(),
