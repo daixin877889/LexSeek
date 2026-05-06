@@ -18,6 +18,27 @@ import type { prompts } from '~~/generated/prisma/client'
 type PrismaClient = typeof prisma
 
 /**
+ * 从版本号字符串中提取首个数字 token 作为排序权重
+ * 适配 'v1' / 'v10' / '1.0.0' / '2.0.0' 等多种历史格式
+ * 无数字时返回 -1，排在最后
+ */
+const extractVersionNumber = (version: string): number => {
+    const match = version.match(/(\d+)/)
+    return match ? parseInt(match[1]!, 10) : -1
+}
+
+/**
+ * 版本号降序比较：先按数字大小，相同时按字符串字典序兜底
+ * 修复 VarChar 字段直接 ORDER BY 导致 'v9' > 'v10' 的字典序卡死问题
+ */
+const compareVersionDesc = (a: string, b: string): number => {
+    const na = extractVersionNumber(a)
+    const nb = extractVersionNumber(b)
+    if (na !== nb) return nb - na
+    return b.localeCompare(a)
+}
+
+/**
  * 创建提示词
  * @param data 提示词创建数据
  * @param version 版本号
@@ -174,9 +195,12 @@ export const findPromptsByNodeIdDao = async (
                     },
                 },
             },
-            orderBy: [{ type: 'asc' }, { version: 'desc' }],
+            orderBy: { type: 'asc' },
         })
-        return prompts
+        return prompts.sort((a, b) => {
+            if (a.type !== b.type) return a.type < b.type ? -1 : 1
+            return compareVersionDesc(a.version, b.version)
+        })
     } catch (error) {
         logger.error('查询节点提示词失败：', error)
         throw error
@@ -242,9 +266,8 @@ export const findPromptVersionsDao = async (
                 type,
                 deletedAt: null,
             },
-            orderBy: { version: 'desc' },
         })
-        return prompts
+        return prompts.sort((a, b) => compareVersionDesc(a.version, b.version))
     } catch (error) {
         logger.error('查询提示词版本历史失败：', error)
         throw error
@@ -266,17 +289,20 @@ export const getLatestVersionDao = async (
     tx?: PrismaClient
 ) => {
     try {
-        const prompt = await (tx || prisma).prompts.findFirst({
+        const versions = await (tx || prisma).prompts.findMany({
             where: {
                 nodeId,
                 name,
                 type,
                 deletedAt: null,
             },
-            orderBy: { version: 'desc' },
             select: { version: true },
         })
-        return prompt?.version ?? null
+        if (versions.length === 0) return null
+        const sorted = versions
+            .map(v => v.version)
+            .sort(compareVersionDesc)
+        return sorted[0] ?? null
     } catch (error) {
         logger.error('获取提示词最新版本号失败：', error)
         throw error

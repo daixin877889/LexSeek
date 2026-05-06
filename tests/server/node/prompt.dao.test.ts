@@ -435,6 +435,31 @@ describe('提示词 DAO 测试', () => {
             const version = await getLatestVersionDao(999999, 'nonexistent', 'system')
             expect(version).toBeNull()
         })
+
+        it('v\\d+ 版本号需按数字大小取最新（v10 > v9，避免字典序卡死）', async () => {
+            const model = await createTestModel()
+            const node = await createTestNode(model.id)
+            const promptName = `prompt_${generateTestId()}`
+
+            for (let i = 1; i <= 10; i++) {
+                const created = await createPromptDao({
+                    name: promptName,
+                    title: `版本v${i}`,
+                    content: `内容 v${i}`,
+                    type: 'system',
+                    nodeId: node.id,
+                }, `v${i}`)
+                testIds.promptIds.push(created.id)
+            }
+
+            const latest = await getLatestVersionDao(node.id, promptName, 'system')
+            expect(latest).toBe('v10')
+
+            const versions = await findPromptVersionsDao(node.id, promptName, 'system')
+            expect(versions.map(v => v.version)).toEqual([
+                'v10', 'v9', 'v8', 'v7', 'v6', 'v5', 'v4', 'v3', 'v2', 'v1',
+            ])
+        })
     })
 
     describe('updatePromptDao', () => {
