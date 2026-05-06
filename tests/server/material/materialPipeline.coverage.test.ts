@@ -35,6 +35,8 @@ vi.stubGlobal('prisma', mockPrisma)
 const mockGetMaterialsByCaseIdService = vi.fn()
 vi.mock('~~/server/services/material/material.service', () => ({
     getMaterialsByCaseIdService: (...args: any[]) => mockGetMaterialsByCaseIdService(...args),
+    // T9：getMaterialContextService 跨表查 summary，本测试不关心 summary 命中，mock 成空 Map
+    getMaterialSummariesByMaterials: vi.fn().mockResolvedValue(new Map()),
 }))
 
 const mockBatchCheckMaterialEmbeddedService = vi.fn()

@@ -12,7 +12,7 @@ import { CaseMaterialType } from '#shared/types/case'
 import type { CaseMaterialParam } from '#shared/types/case'
 import { validateCaseAccessService } from '~~/server/services/case/case.service'
 import { batchAddCaseMaterialsService } from '~~/server/services/case/caseMaterial.service'
-import { getMaterialsByCaseIdWithStatusService } from '~~/server/services/material/material.service'
+import { getMaterialsByCaseIdWithStatusService, getMaterialSummariesByMaterials } from '~~/server/services/material/material.service'
 import { CaseMaterialTypeText } from '#shared/types/case'
 import { parseErrorMessage } from '#shared/utils/apiResponse'
 import { processMaterialService } from '~~/server/services/material/materialProcess.service'
@@ -97,7 +97,10 @@ export default defineEventHandler(async (event) => {
             ).catch(() => {})
         }
 
-        // 6. 返回新增材料列表
+        // 6. 返回新增材料列表（跨表查 summary，已迁出 caseMaterials.summary）
+        const summaryMap = await getMaterialSummariesByMaterials(
+            addedMaterials.map(m => ({ id: m.id, type: m.type, ossFileId: m.ossFileId })),
+        )
         const responseData = addedMaterials.map(m => ({
             id: m.id,
             name: m.name,
@@ -106,7 +109,7 @@ export default defineEventHandler(async (event) => {
             ossFileId: m.ossFileId,
             isEncrypted: m.isEncrypted,
             status: m.realStatus,
-            summary: m.summary,
+            summary: summaryMap.get(m.id) ?? null,
             fileName: m.fileName,
             fileSize: m.fileSize,
             fileType: m.fileType,

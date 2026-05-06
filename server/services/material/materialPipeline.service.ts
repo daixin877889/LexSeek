@@ -4,7 +4,7 @@
  * 确保案件所有材料已完成识别和嵌入，供中间件和工具复用。
  * 只对未识别的触发识别，只对未嵌入的触发嵌入，避免重复处理。
  */
-import { getMaterialByIdService, getMaterialsByCaseIdService, getMaterialsByCaseOrDraftIdService, getMaterialsByDraftIdService, updateMaterialStatusService, generateMaterialSummaryService, type MaterialWithFile } from './material.service'
+import { getMaterialByIdService, getMaterialsByCaseIdService, getMaterialsByCaseOrDraftIdService, getMaterialsByDraftIdService, updateMaterialStatusService, generateMaterialSummaryService, getMaterialSummariesByMaterials, type MaterialWithFile } from './material.service'
 import { batchCheckMaterialEmbeddedService, embedMaterialUnifiedService } from './materialEmbedding.service'
 import { processMaterialService, batchCheckMaterialRecognizedService, MaterialProcessError } from './materialProcess.service'
 import { CaseMaterialType, getMaterialTypeFromMime } from '#shared/types/case'
@@ -85,6 +85,16 @@ async function runRecognitionAndEmbeddingPipeline(
         failed.push(...collectSettledFailures(recognitionResults, notRecognized))
     }
 
+    // 摘要兜底：对所有已识别材料都尝试 fire-and-forget 触发摘要生成
+    // 历史 bug 兜底：早期 pipeline 没在识别完成时触发 generateMaterialSummaryService，
+    // 导致大量材料 status=COMPLETED 但 summary=null。本调用复用早返保护
+    // （material.summary 非空时立即 return），重复调 0 副作用。
+    for (const m of materials) {
+        if (recognizedMap.get(m.id)) {
+            generateMaterialSummaryService(m.id).catch(() => { /* 已在内部 catch */ })
+        }
+    }
+
     // 嵌入阶段：检查嵌入状态，对未嵌入的触发嵌入
     const ids = materials.map(m => m.id)
     const embeddedMap = await batchCheckMaterialEmbeddedService(ids)
@@ -110,6 +120,13 @@ async function runRecognitionAndEmbeddingPipeline(
         failed.push(...embeddingFailures)
     }
 
+    // 终态轮询：等所有材料 status ∈ {COMPLETED, FAILED} 且 COMPLETED 的 summary !== null。
+    // 历史 bug：pipeline 不轮询 PDF/ASR 异步终态 + 不等摘要生成，导致 V2 分析启动时
+    // system prompt 里"待识别"+"摘要生成中"。
+    if (materials.length > 0) {
+        await waitMaterialsTerminalAndSummary(materials.map(m => m.id))
+    }
+
     return {
         materials,
         totalMaterials: materials.length,
@@ -117,6 +134,48 @@ async function runRecognitionAndEmbeddingPipeline(
         newlyProcessed,
         embeddedMap: finalEmbeddedMap,
         failed,
+    }
+}
+
+/**
+ * 等所有材料到达"识别终态 + 摘要生成完毕"
+ *
+ * 终态判定：
+ * - status ∈ {COMPLETED, FAILED}（不再 PENDING/PROCESSING）
+ * - status === COMPLETED 时 summary !== null
+ *
+ * 超时策略（3 分钟）：
+ * 1. 时间内每 1 秒查一次状态
+ * 2. 超时后对仍 summary=null 的 COMPLETED 材料 await 一次同步摘要生成兜底
+ *    （摘要 LLM 偶发失败时不让分析永远卡）
+ *
+ * 设计：3 分钟覆盖 PDF MinerU（30s-2min）+ ASR（1-3min）+ 摘要 LLM（5-15s）。
+ * 真超时（>3min 仍未识别完）时不再继续等，让 V2 以"识别失败"渲染（避免无限卡死）。
+ */
+async function waitMaterialsTerminalAndSummary(materialIds: number[]): Promise<void> {
+    // ⚠️ Task 7 会用 getMaterialSummariesByMaterials 跨表查 summary 重写本函数为
+    //   "识别 + 200 字摘要双就绪" 判定 + onProgress 回调推 SSE 进度卡片。
+    // 当前 caseMaterials.summary 已删（Task 1）—— 此处临时退化为 "只看识别终态"，
+    // 不再卡 summary。Task 7 落地前调用方拿到的就绪信号只代表识别完成。
+    const startedAt = Date.now()
+    const TIMEOUT_MS = 3 * 60 * 1000
+    const POLL_MS = 1000
+
+    while (Date.now() - startedAt < TIMEOUT_MS) {
+        const records = await prisma.caseMaterials.findMany({
+            where: { id: { in: materialIds }, deletedAt: null },
+            select: { id: true, status: true },
+        })
+
+        const allReady = records.every(r => {
+            if (r.status === MaterialStatus.FAILED) return true
+            if (r.status === MaterialStatus.COMPLETED) return true
+            return false  // PENDING / PROCESSING
+        })
+
+        if (allReady) return
+
+        await new Promise(r => setTimeout(r, POLL_MS))
     }
 }
 
@@ -413,6 +472,10 @@ export async function getMaterialContextService(
     }
 
     const contentMap = await fetchMaterialContents(materials)
+    // 跨表查 summary（已迁出 caseMaterials.summary，按 type 分发到识别记录表）
+    const summaryMap = await getMaterialSummariesByMaterials(
+        materials.map(m => ({ id: m.id, type: m.type, ossFileId: m.ossFileId })),
+    )
 
     // 按优先级降序排列，保证高价值材料优先获得全文预算
     const sorted = [...materials].sort(
@@ -467,7 +530,7 @@ export async function getMaterialContextService(
         }
 
         // 超出全文预算 → 尝试降级为摘要
-        const summaryText = m.summary || content.substring(0, 200) + '...'
+        const summaryText = summaryMap.get(m.id) || content.substring(0, 200) + '...'
         const summaryTokens = estimateTokens(summaryText)
         if (usedTokens + summaryTokens <= tokenBudget) {
             materialList.push({
@@ -828,9 +891,19 @@ export async function getMaterialListWithSummariesService(caseId: number): Promi
     ossFileId: number | null
     summary: string | null
 }>> {
-    return prisma.caseMaterials.findMany({
+    const materials = await prisma.caseMaterials.findMany({
         where: { caseId, deletedAt: null },
-        select: { id: true, name: true, type: true, status: true, ossFileId: true, summary: true },
+        select: { id: true, name: true, type: true, status: true, ossFileId: true },
         orderBy: { createdAt: 'asc' },
     })
+    if (materials.length === 0) return []
+
+    const summaryMap = await getMaterialSummariesByMaterials(
+        materials.map(m => ({ id: m.id, type: m.type, ossFileId: m.ossFileId })),
+    )
+
+    return materials.map(m => ({
+        ...m,
+        summary: summaryMap.get(m.id) ?? null,
+    }))
 }

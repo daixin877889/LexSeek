@@ -528,9 +528,9 @@ async function generateMaterialSummaryInner(materialId: number): Promise<void> {
     try {
         const material = await prisma.caseMaterials.findUnique({
             where: { id: materialId },
-            select: { id: true, summary: true, ossFileId: true, type: true },
+            select: { id: true, ossFileId: true, type: true },
         })
-        if (!material || material.summary) return
+        if (!material) return
 
         const content = await loadMaterialText(materialId, 500)
         if (!content) return
@@ -555,12 +555,10 @@ async function generateMaterialSummaryInner(materialId: number): Promise<void> {
             temperature: 0,
             streaming: false,
         })
-        const summary = await generateSummaryService(model, content, { maxChars: 100, systemPrompt })
-
-        await prisma.caseMaterials.update({
-            where: { id: materialId },
-            data: { summary },
-        })
+        // 注意：调用 LLM 但不写回——caseMaterials.summary 已删，
+        // Task 3 将把简介按 type 分发写入 4 张识别记录表（doc/image/asr/textContent）。
+        // 此处暂时留空写入路径，仍消耗 LLM 配额；Task 3 落地前调用此函数没有持久化效果。
+        await generateSummaryService(model, content, { maxChars: 100, systemPrompt })
     } catch (e) {
         logger.warn('generateMaterialSummaryService 失败（不阻塞主流程）', { materialId, error: e })
     }

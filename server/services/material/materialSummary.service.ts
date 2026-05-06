@@ -89,15 +89,10 @@ async function generateAndCacheSummariesInner(
         await Promise.all(tasks)
     }
 
-    // 批量写入 DB（事务）
-    if (summaryMap.size > 0) {
-        const updates = [...summaryMap.entries()].map(([id, summary]) =>
-            prisma.caseMaterials.update({ where: { id }, data: { summary } }),
-        )
-        await prisma.$transaction(updates)
-    }
-
-    logger.info('材料摘要生成完成', {
+    // 注意：caseMaterials.summary 字段已删（迁到识别记录表）；本服务的 DB 持久化已撤销。
+    // Task 3 会把"按 type 分发写入 4 张识别记录表"的逻辑统一到 generateMaterialSummaryService；
+    // 调用方仍可使用 summaryMap 拿到本次生成的内存结果。
+    logger.info('材料摘要生成完成（仅返回内存结果，不写库）', {
         total: materials.length,
         generated: summaryMap.size,
     })

@@ -14,7 +14,7 @@
  */
 
 import { getDocumentDraftDAO } from '~~/server/services/assistant/document/documentDraft.dao'
-import { getMaterialsByCaseOrDraftIdWithStatusService } from '~~/server/services/material/material.service'
+import { getMaterialsByCaseOrDraftIdWithStatusService, getMaterialSummariesByMaterials } from '~~/server/services/material/material.service'
 import { CaseMaterialType, CaseMaterialTypeText } from '#shared/types/case'
 
 export default defineEventHandler(async (event) => {
@@ -35,6 +35,11 @@ export default defineEventHandler(async (event) => {
         draft.id,
     )
 
+    // 跨表查 summary（已迁出 caseMaterials.summary，按 type 分发到识别记录表）
+    const summaryMap = await getMaterialSummariesByMaterials(
+        materials.map(m => ({ id: m.id, type: m.type, ossFileId: m.ossFileId })),
+    )
+
     // 映射到 CaseDetailMaterialItem 形状（与 /api/v1/cases/:caseId/materials 保持风格一致）
     const responseData = materials.map(m => ({
         id: m.id,
@@ -44,7 +49,7 @@ export default defineEventHandler(async (event) => {
         ossFileId: m.ossFileId,
         isEncrypted: m.isEncrypted,
         status: m.realStatus,
-        summary: m.summary,
+        summary: summaryMap.get(m.id) ?? null,
         createdAt: m.createdAt,
         fileName: m.fileName ?? null,
         fileSize: m.fileSize ?? null,

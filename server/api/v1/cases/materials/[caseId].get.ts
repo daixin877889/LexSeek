@@ -7,7 +7,7 @@
  */
 
 import { z } from 'zod'
-import { getMaterialsByCaseIdWithStatusService } from '~~/server/services/material/material.service'
+import { getMaterialsByCaseIdWithStatusService, getMaterialSummariesByMaterials } from '~~/server/services/material/material.service'
 import { validateCaseAccessService } from '~~/server/services/case/case.service'
 import { CaseMaterialType, CaseMaterialTypeText } from '#shared/types/case'
 import { parseErrorMessage } from '#shared/utils/apiResponse'
@@ -35,6 +35,11 @@ export default defineEventHandler(async (event) => {
 
         const materials = await getMaterialsByCaseIdWithStatusService(caseId)
 
+        // 跨表查 summary（已迁出 caseMaterials.summary，按 type 分发到识别记录表）
+        const summaryMap = await getMaterialSummariesByMaterials(
+            materials.map(m => ({ id: m.id, type: m.type, ossFileId: m.ossFileId })),
+        )
+
         const responseData = materials.map(m => ({
             id: m.id,
             name: m.name,
@@ -43,7 +48,7 @@ export default defineEventHandler(async (event) => {
             ossFileId: m.ossFileId,
             isEncrypted: m.isEncrypted,
             status: m.realStatus,
-            summary: m.summary,
+            summary: summaryMap.get(m.id) ?? null,
             createdAt: m.createdAt,
             fileName: m.fileName,
             fileSize: m.fileSize,

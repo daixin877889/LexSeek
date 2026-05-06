@@ -17,13 +17,18 @@ import {
 import { v7 as uuidv7 } from 'uuid'
 
 // 同 Task 2：mock 识别流水线避免真跑
+// (caseMaterials.summary 字段已删/迁出，T9 阶段 waitMaterialsTerminalAndSummary 暂时只看 status；
+//  T7 会重写为跨表查 summary 的双就绪判定)
 vi.mock('~~/server/services/material/materialProcess.service', async (orig) => {
     const actual = await orig<any>()
     return {
         ...actual,
         processMaterialService: vi.fn(async (id: number) => {
             const prisma = getTestPrisma()
-            await prisma.caseMaterials.update({ where: { id }, data: { status: 3 } })
+            await prisma.caseMaterials.update({
+                where: { id },
+                data: { status: 3 },
+            })
         }),
         batchCheckMaterialRecognizedService: vi.fn(async () => new Map()),
     }
