@@ -289,7 +289,7 @@ const emit = createCustomEventEmitter({ runId, sessionId })
 await emit({ name: SSECustomEventType.PREPARE_MATERIALS, data: payload })
 ```
 
-`runId / sessionId` 从 LangGraph runtime ALS 拿（runtime.ts:444 已暴露），不强制透传给中间件签名——挂载点不必改签名。
+`runId / sessionId` 由挂载点显式透传（项目所有现有中间件都不用 hook 第二参数 runtime；保持一致性）。`caseProcessMaterialMiddleware(userId, caseId, runId, sessionId)` 签名加两个参数，4 处挂载点（caseMain / moduleAgent / documentMain / runAnalysisSubAgent）本身在自己闭包里已能拿到这些值。
 
 #### 4.7.5 phase=end 用 lastSnapshot
 

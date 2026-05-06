@@ -122,13 +122,59 @@ git commit -m "feat(db): 统一材料 summary 语义，迁移到识别记录表
 
 **注意：保留 `UpdateAsrRecordInput.summary` / `updateAsrRecordService` 入参类型字段**——Task 3 的简介写入还要用。只删 `embedAsrRecordService` 内 `summary: text` 这一处实际写入。
 
-- [ ] **Step 1: export `extractTextFromSimplifiedResult`**
+- [ ] **Step 1: export `extractTextFromSimplifiedResult` + 把 `extractTextFromAsrResult` 从 pipeline 移到 asr.service**
 
 修改 `server/services/material/asr.service.ts`，找到 `function extractTextFromSimplifiedResult(...)`（约 line 1331），改为：
 
 ```typescript
 export function extractTextFromSimplifiedResult(
 ```
+
+然后**把 `materialPipeline.service.ts:300` 的 `extractTextFromAsrResult` 函数整段剪到 asr.service.ts 末尾**（保持 export）：
+
+```typescript
+/**
+ * 从 ASR result JSON 提取纯文本（兼容多种 result 形态）
+ * 与 extractTextFromSimplifiedResult 不同：本函数不带说话人/时间戳，纯文本；用于简介 LLM 输入和材料正文读取。
+ */
+export function extractTextFromAsrResult(result: any): string | null {
+    if (!result) return null
+
+    // 扁平格式: { sentences: [...] }
+    if (result.sentences && Array.isArray(result.sentences)) {
+        const text = result.sentences
+            .map((s: any) => s.text || '')
+            .filter(Boolean)
+            .join('\n')
+        if (text) return text
+    }
+
+    // SimplifiedAsrResult 嵌套格式: { transcripts: [{ sentences: [...] }] }
+    if (result.transcripts && Array.isArray(result.transcripts)) {
+        const text = result.transcripts
+            .flatMap((t: any) => t.sentences || [])
+            .map((s: any) => s.text || '')
+            .filter(Boolean)
+            .join('\n')
+        if (text) return text
+    }
+
+    // 兜底：直接取 text 字段
+    if (typeof result.text === 'string' && result.text.trim()) {
+        return result.text
+    }
+
+    return null
+}
+```
+
+`materialPipeline.service.ts` 删除该函数原定义，改为从 asr.service.ts 引入：
+
+```typescript
+import { extractTextFromAsrResult } from './asr.service'
+```
+
+**目的**：让 material.service.ts 能从 asr.service.ts 引入 extractTextFromAsrResult 而不形成循环依赖（pipeline.service.ts 已经 import material.service.ts）。
 
 - [ ] **Step 2: 删 embedAsrRecordService 内 summary 写入**
 
@@ -243,7 +289,7 @@ import { extractTextFromSimplifiedResult } from './asr.service'
 文件顶部加 import：
 
 ```typescript
-import { extractTextFromAsrResult } from './materialPipeline.service'
+import { extractTextFromAsrResult } from './asr.service'
 ```
 
 - [ ] **Step 5: 改 materialPipeline.service.ts 的 fetchMaterialContents 音频分支**
@@ -548,14 +594,14 @@ async function persistSummary(
 }
 ```
 
-文件顶部追加 import：
+文件顶部追加 import（`extractTextFromAsrResult` 走 asr.service.ts，避免循环依赖）：
 
 ```typescript
 import { findTextContentRecordByMaterialIdDAO } from './textContentRecords.dao'
 import { findDocRecognitionByOssFileIdDao, updateDocRecognitionRecordDao } from './mineru.dao'
 import { findImageRecognitionByOssFileIdDao, updateImageRecognitionRecordDao } from './ocr.dao'
 import { findAsrRecordByOssFileIdDao, updateAsrRecordDao } from './asr.dao'
-import { extractTextFromAsrResult } from './materialPipeline.service'
+import { extractTextFromAsrResult } from './asr.service'
 ```
 
 注意：`MaterialStatus` 已在文件中 import。
@@ -1208,18 +1254,20 @@ import type { MaterialItem, PrepareMaterialsPayload } from "#shared/types/agentE
  * 等待期间通过 SSE PREPARE_MATERIALS 事件推送进度，前端 useStreamChat
  * 拦截后合成 process_materials 同款 toolCall，复用 MaterialProcessTool.vue 渲染。
  *
- * runId / sessionId 从 LangGraph runtime ALS / RunnableConfig 拿，
- * 不强制透传给中间件签名（与现有 middleware 设计一致）。
+ * runId / sessionId 由挂载点显式透传（项目所有现有中间件都不用 hook 第二参数 runtime）。
+ * 4 处挂载点本身在自己的闭包里都能拿到 runId/sessionId（caseMain 的 ctx.runId、
+ * moduleAgent/documentMain/runAnalysisSubAgent 的函数入参 runId）。
  */
-export const caseProcessMaterialMiddleware = (userId: number, caseId: number) => {
+export const caseProcessMaterialMiddleware = (
+    userId: number,
+    caseId: number,
+    runId: string | null = null,
+    sessionId: string = '',
+) => {
     return createMiddleware({
         name: "CaseProcessMaterialMiddleware",
         beforeAgent: {
-            hook: async (_state, runtime?) => {
-                // 从 runtime / ALS 拿 runId 和 sessionId
-                const runId = (runtime as any)?.context?.runId ?? (runtime as any)?.configurable?.runId
-                const sessionId = (runtime as any)?.context?.sessionId ?? (runtime as any)?.configurable?.thread_id ?? ''
-
+            hook: async (_state) => {
                 let toolCallId: string | null = null
                 let started = false
                 let lastSnapshot: MaterialReadinessSnapshot[] = []
@@ -1281,20 +1329,63 @@ export const caseProcessMaterialMiddleware = (userId: number, caseId: number) =>
 }
 ```
 
-- [ ] **Step 4: 跑测试**
+- [ ] **Step 4: 现有 3 处挂载点透传 runId / sessionId**
+
+修改 3 处现有挂载点，把签名从 `(userId, caseId)` 升级为 `(userId, caseId, runId, sessionId)`：
+
+`server/agents/case-main/agent.config.ts:52`：
+
+原：
+```typescript
+            middleware: caseProcessMaterialMiddleware(ctx.userId, ctx.caseId!),
+```
+
+改为：
+```typescript
+            middleware: caseProcessMaterialMiddleware(ctx.userId, ctx.caseId!, ctx.runId, ctx.sessionId),
+```
+
+`server/services/workflow/agents/moduleAgent.ts:179`（runId / sessionId 已在函数闭包里）：
+
+原：
+```typescript
+            caseProcessMaterialMiddleware(userId, caseId),
+```
+
+改为：
+```typescript
+            caseProcessMaterialMiddleware(userId, caseId, runId, sessionId),
+```
+
+`server/services/workflow/agents/documentMainAgent.ts:172`：
+
+原：
+```typescript
+                middleware: caseProcessMaterialMiddleware(userId, resolvedCaseId),
+```
+
+改为：
+```typescript
+                middleware: caseProcessMaterialMiddleware(userId, resolvedCaseId, runId, sessionId),
+```
+
+注：runId / sessionId 在这 3 处的当前函数闭包里都已存在（grep 验证过 moduleAgent.ts:175、documentMainAgent.ts:170 周边的函数签名）；无须改函数签名。
+
+- [ ] **Step 5: 跑测试**
 
 Run: `VITEST_MAX_WORKERS=4 npx vitest run tests/server/material/ tests/server/agents/ --reporter=default 2>&1 | tail -10`
 Expected: 全部通过
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add shared/types/agentEvent.ts server/services/material/materialPipeline.service.ts server/agents/_shared/case-context/
+git add shared/types/agentEvent.ts server/services/material/materialPipeline.service.ts server/agents/_shared/case-context/ server/agents/case-main/ server/services/workflow/agents/
 git commit -m "feat(cases): 中间件升级'识别+简介双就绪'判定 + SSE 进度推送
 
 - ensureMaterialsReadyService 加阶段 3：并行触发已识别材料的简介生成
 - waitMaterialsTerminalAndSummary 按文件级查 summary（不再读 caseMaterials.summary）
-- 中间件用 createCustomEventEmitter 推 PREPARE_MATERIALS，runId/sessionId 从 ALS 拿
+- 中间件用 createCustomEventEmitter 推 PREPARE_MATERIALS
+- 中间件签名加 runId/sessionId，3 处现有挂载点显式透传
 - onProgress 回调累积 lastSnapshot，end 阶段直接用（不重新查 DB）"
 ```
 
@@ -1326,11 +1417,11 @@ import { ensureMaterialsReadyService } from '~~/server/services/material/materia
 
 - [ ] **Step 2: V2 子代理挂中间件**
 
-修改 `server/agents/case-analysis/runAnalysisSubAgent.ts`，找到 `middlewareItems` 列表（约 line 155-191），在 `MESSAGE_INTEGRITY` 之后追加：
+修改 `server/agents/case-analysis/runAnalysisSubAgent.ts`，找到 `middlewareItems` 列表（约 line 155-191），在 `MESSAGE_INTEGRITY` 之后追加（runId / sessionId 都在 runAnalysisSubAgent 函数的入参里，闭包可见）：
 
 ```typescript
         {
-            middleware: caseProcessMaterialMiddleware(userId, caseId),
+            middleware: caseProcessMaterialMiddleware(userId, caseId, runId, sessionId),
             priority: MIDDLEWARE_PRIORITY.PROCESS_MATERIAL,
             name: MIDDLEWARE_NAMES.PROCESS_MATERIAL,
         },
