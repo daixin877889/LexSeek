@@ -128,6 +128,20 @@ export default defineEventHandler(async (event) => {
             ? (isSyncProcessing ? 'completed' : 'processing')
             : 'failed'
 
+        // 同步识别成功 → 如有对应 caseMaterials 行 fire-and-forget 触发摘要生成
+        if (resultStatus === 'completed') {
+            prisma.caseMaterials.findMany({
+                where: { ossFileId, deletedAt: null },
+                select: { id: true },
+            }).then(rows => {
+                for (const r of rows) {
+                    import('~~/server/services/material/material.service').then(svc =>
+                        svc.generateMaterialSummaryService(r.id),
+                    ).catch(() => { /* 已在内部 catch */ })
+                }
+            }).catch(() => { /* 已在内部 catch */ })
+        }
+
         results.push({
             ossFileId,
             status: resultStatus,

@@ -24,8 +24,9 @@ import {
     updateAsrRecordsByTaskIdDao,
 } from './asr.dao'
 import { generateSignedUrlService, uploadFileService, deleteFileService } from '../storage/storage.service'
-import { markMaterialsByOssFileIdService } from './material.service'
+import { markMaterialsByOssFileIdService, generateMaterialSummaryService } from './material.service'
 import { MaterialStatus } from '#shared/types/material'
+import { CaseMaterialType } from '#shared/types/case'
 import { v7 as uuidv7 } from 'uuid'
 import dayjs from 'dayjs'
 import { $fetch as ofetch } from 'ofetch'
@@ -880,6 +881,17 @@ export const completeTranscriptionService = async (
         // 6.1 切对应 caseMaterials 状态为 COMPLETED + 异步生成摘要
         // 历史 bug：之前只更新 asrTasks/asrRecords，case_materials.status 永远停在 PENDING/PROCESSING
         await markMaterialsByOssFileIdService(ossFileId, MaterialStatus.COMPLETED)
+
+        // 6.2 fire-and-forget 触发对应 caseMaterials 的摘要生成
+        // generateMaterialSummaryService 内部 inflight Map 防并发 + summary 已非空早返
+        prisma.caseMaterials.findMany({
+            where: { ossFileId, type: CaseMaterialType.AUDIO, deletedAt: null },
+            select: { id: true },
+        }).then(rows => {
+            for (const r of rows) {
+                generateMaterialSummaryService(r.id).catch(() => { /* 已在内部 catch */ })
+            }
+        }).catch(() => { /* 已在内部 catch */ })
 
         // 7. 清理临时文件（加密文件解密后上传的临时文件）
         // Requirements: 6.7.3
