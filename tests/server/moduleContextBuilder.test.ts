@@ -19,6 +19,7 @@ vi.mock('~~/server/services/material/materialPipeline.service', () => ({
   getMaterialListWithSummariesService: vi.fn().mockResolvedValue([
     { name: '合同', type: 2, summary: '约定 6 月前交付' },
   ]),
+  getSourceId: vi.fn((mat: any) => mat?.ossFileId ?? mat?.id ?? null),
 }))
 vi.mock('~~/server/services/memory/memory.service', () => ({
   recallMemoryService: vi.fn().mockResolvedValue([
