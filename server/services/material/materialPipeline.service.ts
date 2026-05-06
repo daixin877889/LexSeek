@@ -799,18 +799,24 @@ export async function ensureMaterialsReadyForDraftService(
 }
 
 /**
- * 返回案件材料清单 + 摘要（供 moduleContextBuilder ⑤ 段使用）
- * 不返回全文；全文请通过 search_case_materials 工具按需召回。
+ * 返回案件全量未删除材料 + 摘要 + 状态（供 moduleContextBuilder ⑤ 段使用）
+ *
+ * 不再过滤 status=3——把 status=1/2/4 的材料也列出，由调用方按 status 渲染状态文字
+ * （已识别 / 识别中 / 待识别 / 识别失败），让 LLM 知情更全。
+ *
+ * 全文请通过 search_case_materials 工具按需召回；本接口仅返回元信息 + 摘要。
  */
 export async function getMaterialListWithSummariesService(caseId: number): Promise<Array<{
     id: number
     name: string
     type: number
+    status: number
+    ossFileId: number | null
     summary: string | null
 }>> {
     return prisma.caseMaterials.findMany({
-        where: { caseId, deletedAt: null, status: 3 /* COMPLETED */ },
-        select: { id: true, name: true, type: true, summary: true },
+        where: { caseId, deletedAt: null },
+        select: { id: true, name: true, type: true, status: true, ossFileId: true, summary: true },
         orderBy: { createdAt: 'asc' },
     })
 }

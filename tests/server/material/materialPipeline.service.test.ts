@@ -4,7 +4,9 @@
  * 测试材料就绪保障 pipeline：
  * 获取材料 → 检查识别 → 对未识别的触发识别 → 检查嵌入 → 对未嵌入的触发嵌入
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { prisma } from '~~/server/utils/db'
+import { MaterialStatus } from '#shared/types/material'
 import type { MaterialWithFile } from '../../../server/services/material/material.service'
 
 const mocks = vi.hoisted(() => ({
@@ -38,7 +40,7 @@ vi.mock('~~/server/services/material/materialProcess.service', () => ({
     batchCheckMaterialRecognizedService: mocks.batchCheckMaterialRecognizedService,
 }))
 
-import { ensureMaterialsReadyService } from '../../../server/services/material/materialPipeline.service'
+import { ensureMaterialsReadyService, getMaterialListWithSummariesService } from '../../../server/services/material/materialPipeline.service'
 
 function makeMaterial(overrides: Partial<MaterialWithFile> & { id: number; type: number; name: string }): MaterialWithFile {
     return {
@@ -256,5 +258,84 @@ describe('ensureMaterialsReadyService', () => {
         // id=1 和 id=2 都触发嵌入
         expect(mocks.embedMaterialUnifiedService).toHaveBeenCalledTimes(2)
         expect(result.newlyProcessed).toBe(2)
+    })
+})
+
+/**
+ * getMaterialListWithSummariesService 测试（真实 DB）
+ *
+ * 验证：返回案件全量未删材料 + 字段（含 status / ossFileId），
+ * 不再过滤 status=3——让上下文构建方按 status 渲染状态文字。
+ */
+describe('getMaterialListWithSummariesService', () => {
+    const cleanup = { caseIds: [] as number[], materialIds: [] as number[] }
+
+    afterEach(async () => {
+        if (cleanup.materialIds.length) {
+            await prisma.caseMaterials.deleteMany({ where: { id: { in: cleanup.materialIds } } })
+            cleanup.materialIds = []
+        }
+        if (cleanup.caseIds.length) {
+            await prisma.cases.deleteMany({ where: { id: { in: cleanup.caseIds } } })
+            cleanup.caseIds = []
+        }
+    })
+
+    async function seedCase(): Promise<number> {
+        // 测试库 userId/caseTypeId 从 1000+ 开始，必须动态查询
+        const caseType = await prisma.caseTypes.findFirst()
+        const user = await prisma.users.findFirst()
+        const c = await prisma.cases.create({
+            data: {
+                userId: user!.id,
+                caseTypeId: caseType!.id,
+                title: 'mp-test-case',
+                status: 1,
+            },
+        })
+        cleanup.caseIds.push(c.id)
+        return c.id
+    }
+
+    async function seedMaterial(caseId: number, fields: { name: string; type: number; status: number; ossFileId?: number | null; summary?: string | null }) {
+        const m = await prisma.caseMaterials.create({
+            data: {
+                caseId,
+                name: fields.name,
+                type: fields.type,
+                status: fields.status,
+                ossFileId: fields.ossFileId ?? null,
+                summary: fields.summary ?? null,
+            },
+        })
+        cleanup.materialIds.push(m.id)
+        return m
+    }
+
+    it('返回所有未删除材料（含 status=1/2/4，不再仅过滤 status=3）', async () => {
+        const caseId = await seedCase()
+        await seedMaterial(caseId, { name: '已识别材料', type: 1, status: MaterialStatus.COMPLETED, summary: 'a' })
+        await seedMaterial(caseId, { name: '识别中材料', type: 2, status: MaterialStatus.PROCESSING, ossFileId: 1001 })
+        await seedMaterial(caseId, { name: '待识别材料', type: 3, status: MaterialStatus.PENDING, ossFileId: 1002 })
+        await seedMaterial(caseId, { name: '识别失败材料', type: 4, status: MaterialStatus.FAILED, ossFileId: 1003 })
+
+        const list = await getMaterialListWithSummariesService(caseId)
+        const names = list.map(m => m.name)
+        expect(names).toHaveLength(4)
+        expect(new Set(names)).toEqual(new Set(['已识别材料', '识别中材料', '识别失败材料', '待识别材料']))
+    })
+
+    it('返回字段含 status 与 ossFileId', async () => {
+        const caseId = await seedCase()
+        await seedMaterial(caseId, { name: '文档材料', type: 2, status: MaterialStatus.COMPLETED, ossFileId: 2001, summary: 's' })
+
+        const list = await getMaterialListWithSummariesService(caseId)
+        expect(list[0]).toMatchObject({
+            name: '文档材料',
+            type: 2,
+            status: MaterialStatus.COMPLETED,
+            ossFileId: 2001,
+            summary: 's',
+        })
     })
 })
