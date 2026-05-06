@@ -5877,8 +5877,7 @@ export const CaseMaterialsScalarFieldEnum = {
   status: 'status',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  deletedAt: 'deletedAt',
-  summary: 'summary'
+  deletedAt: 'deletedAt'
 } as const
 
 export type CaseMaterialsScalarFieldEnum = (typeof CaseMaterialsScalarFieldEnum)[keyof typeof CaseMaterialsScalarFieldEnum]
@@ -6228,6 +6227,7 @@ export const TextContentRecordsScalarFieldEnum = {
   materialId: 'materialId',
   content: 'content',
   htmlContent: 'htmlContent',
+  summary: 'summary',
   status: 'status',
   vectorIds: 'vectorIds',
   lastEmbeddingAt: 'lastEmbeddingAt',

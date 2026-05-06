@@ -14,7 +14,7 @@ model docRecognitionRecords {
   markdownContent String?   @map("markdown_content") @db.Text
   /// 关键词（JSON 数组）
   keywords        Json?     @default("[]")
-  /// 摘要
+  /// 200 字摘要（统一语义：识别完成后由 generateMaterialSummaryService 写入）
   summary         String?   @db.Text
   /// 向量存储 ID 集合（JSON 数组）
   vectorIds       Json?     @default("[]") @map("vector_ids")
@@ -57,7 +57,7 @@ model imageRecognitionRecords {
   markdownContent String?   @map("markdown_content") @db.Text
   /// 关键词（JSON 数组）
   keywords        Json?     @default("[]")
-  /// 摘要
+  /// 200 字摘要（统一语义：识别完成后由 generateMaterialSummaryService 写入）
   summary         String?   @db.Text
   /// 向量存储 ID 集合（JSON 数组）
   vectorIds       Json?     @default("[]") @map("vector_ids")
@@ -139,7 +139,7 @@ model asrRecords {
   speakers        Json?     @default("[]")
   /// 关键词（JSON 数组）
   keywords        Json?     @default("[]")
-  /// 摘要
+  /// 200 字摘要（统一语义：识别完成后由 generateMaterialSummaryService 写入）
   summary         String?   @db.Text
   /// 向量存储 ID 集合（JSON 数组）
   vectorIds       Json?     @default("[]") @map("vector_ids")
