@@ -19,6 +19,7 @@ import {
     estimateTokens,
     getSourceId,
     TOKEN_THRESHOLD,
+    snapshotMaterialReadiness,
 } from '~~/server/services/material/materialPipeline.service'
 import { countTokensSync } from '~~/server/utils/tokenCounter'
 
@@ -77,6 +78,10 @@ export function createTool(context: ToolContext) {
                 // 2. 获取材料上下文（自动判断 full/summary 模式）
                 const materialContext = await getMaterialContextService(materials)
 
+                // 2.1 获取材料就绪状态快照（供前端五态指示）
+                const snapshot = await snapshotMaterialReadiness(materials)
+                const statusMap = new Map(snapshot.map(s => [s.materialId, s.status]))
+
                 // 3. 在 context.materialList 基础上补充 tool 特有字段
                 const materialList = materialContext.materialList.map(m => {
                     // 反向映射 sourceId→materialId 以查找 embeddedMap
@@ -90,6 +95,7 @@ export function createTool(context: ToolContext) {
                         id: material?.id,
                         tokenCount: payloadText ? estimateTokens(payloadText) : 0,
                         embedded: material ? (embeddedMap.get(material.id) ?? false) : false,
+                        status: material ? (statusMap.get(material.id) ?? 'pending') : 'pending',
                     }
                 })
 
