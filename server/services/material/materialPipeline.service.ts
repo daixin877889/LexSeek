@@ -733,6 +733,10 @@ export async function ensureMaterialsReadyForDraftService(
 
         // 已 COMPLETED 直接返回（跳过识别）
         if (existing.status === MaterialStatus.COMPLETED) {
+            // 历史数据兜底：若该 COMPLETED 材料 summary 仍为空（历史 pipeline 未触发摘要生成），
+            // 在这条幂等路径上补触发一次摘要生成（fire-and-forget；generateMaterialSummaryService
+            // 内部已有 `material.summary` 非空早返保护，重复调用 0 副作用）。
+            generateMaterialSummaryService(existing.id).catch(() => { /* 已在内部 catch */ })
             return { id: existing.id, status: existing.status, draftId, ossFileId: existing.ossFileId }
         }
     } else {
@@ -792,6 +796,11 @@ export async function ensureMaterialsReadyForDraftService(
     for (let i = 0; i < MAX_POLLS; i++) {
         const updated = await findMaterialByIdDao(materialId)
         if (updated?.status === MaterialStatus.COMPLETED) {
+            // 异步触发摘要生成（fire-and-forget，失败不阻塞）
+            // 与上面"跨 draft 复用"路径（line 771）保持一致：识别+嵌入完成后即时生成 100 字摘要写回。
+            // 历史 bug：仅"跨 draft 复用"路径触发本调用，主流程（材料首次上传 → processMaterialService
+            // → 轮询 COMPLETED）未触发，导致线上所有首次上传的材料 summary 永远为 null。
+            generateMaterialSummaryService(materialId).catch(() => { /* 已在内部 catch */ })
             return { id: updated.id, status: updated.status, draftId: updated.draftId, ossFileId: updated.ossFileId }
         }
         if (updated?.status === MaterialStatus.FAILED) {
