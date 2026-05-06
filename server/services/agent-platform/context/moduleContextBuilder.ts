@@ -1,4 +1,5 @@
 import { SystemMessage } from '@langchain/core/messages'
+import dayjs from 'dayjs'
 import type { CachedPrompt } from '#shared/types/prompt'
 import { getMaterialListWithSummariesService } from '~~/server/services/material/materialPipeline.service'
 import { recallMemoryService } from '~~/server/services/memory/memory.service'
@@ -61,7 +62,13 @@ export async function buildContextSegments(params: Params): Promise<ContextSegme
     }),
     prisma.caseAnalyses.findMany({
       where: { caseId, isActive: true, deletedAt: null, NOT: { analysisType: agentName } },
-      select: { analysisType: true, summary: true },
+      select: {
+        analysisType: true,
+        summary: true,
+        version: true,
+        updatedAt: true,
+        analysisResult: true,
+      },
       orderBy: { analysisType: 'asc' },
     }),
     getMaterialListWithSummariesService(caseId).catch(() => []),
@@ -92,13 +99,27 @@ export async function buildContextSegments(params: Params): Promise<ContextSegme
   }
   const caseProfile = `## 案件档案\n\`\`\`json\n${JSON.stringify(profile, Object.keys(profile).sort(), 2)}\n\`\`\``
 
-  // ④ 已完成模块摘要（只塞 summary，不塞全文；全文由 search_case_analysis 工具按需召回）
+  // ④ 已分析模块（当前激活版本）
+  // - 不再因 summary 缺失整条跳过；summary 为 null 时降级用 analysisResult 前 500 字 + 标识
+  // - 段头加 search_case_analysis 工具查询条件提示，让 LLM 知道工具参数怎么填
   let moduleSummaries = ''
   if (activeAnalyses.length > 0) {
-    const lines = ['## 已完成分析模块（全文请调用 search_case_analysis 工具）']
+    const lines = ['## 已分析模块（当前激活版本，全文请调用 search_case_analysis 工具，参数 analysis_type 填模块名 + query 填问题关键词）']
     for (const a of activeAnalyses) {
-      if (!a.summary) continue // 无摘要的旧版本跳过（Q4.3 B 旧数据不补）
-      lines.push(`### ${a.analysisType}\n${a.summary}`)
+      const updatedAtStr = dayjs(a.updatedAt).format('YYYY-MM-DD HH:mm:ss')
+      const header = `### ${a.analysisType}（v${a.version}，更新于 ${updatedAtStr}）`
+
+      if (a.summary) {
+        lines.push(`${header}\n${a.summary}`)
+      }
+      else if (a.analysisResult) {
+        const excerpt = a.analysisResult.slice(0, 500)
+        const tail = a.analysisResult.length > 500 ? '...' : ''
+        lines.push(`${header}\n（暂无独立摘要，正文节选）\n${excerpt}${tail}`)
+      }
+      else {
+        lines.push(`${header}\n（暂无内容）`)
+      }
     }
     moduleSummaries = lines.length > 1 ? lines.join('\n\n') : ''
   }
