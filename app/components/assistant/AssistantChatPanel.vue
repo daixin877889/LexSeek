@@ -80,8 +80,13 @@ function onRetry() {
 }
 
 function handleSubmit(data: AiPromptSubmitData) {
-  if (!data.text.trim()) return
+  // 允许 files-only 提交：用户上传材料让 AI 直接看不留言是合理场景。
+  // 旧版 !data.text.trim() 守卫会把"光附件"消息吞掉。
+  if (!data.text.trim() && !data.files?.length) return
   sendMessage(data, { thinking: thinking.value })
+  // 发送动作落定后立即清空输入框（含已选文件 chip + 文本），
+  // 与小索保持一致，避免下一轮发送时附件残留导致重复发送。
+  aiChatRef.value?.resetPrompt()
 }
 
 // 上传材料按钮接 MaterialSelector：用户从云盘已识别文件里选 → addFiles 灌进 prompt

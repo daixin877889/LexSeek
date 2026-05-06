@@ -30,6 +30,57 @@ export type QueuePauseReason = 'stopped' | 'failed' | null
 /** 队列容量上限（spec §3 决策） */
 export const QUEUE_MAX_SIZE = 5
 
+/** wrappedChat.sendMessage 可消费的最小轻量附件元数据（与前端解析 / 后端 metadata 同口径） */
+export interface AttachmentPayloadItem {
+  id: number
+  fileName: string
+  fileType: string
+  fileSize: number
+  encrypted: boolean
+}
+
+export interface AttachmentsPayloadResult {
+  /** 最终发给 wrappedChat 的 message content（含 sentinel） */
+  content: string
+  /** message.additional_kwargs；无附件时省略 */
+  additionalKwargs?: Record<string, any>
+}
+
+/** content sentinel 前缀（与 useMessageParser ATTACH_SENTINEL 完全一致，禁止漂移） */
+const ATTACH_SENTINEL = '__ATTACHMENTS__\n'
+
+/**
+ * 把"用户输入文本 + 附件列表"统一构造成 wrappedChat.sendMessage 需要的双轨载体：
+ * - content：sentinel + JSON + （可选）正文，让纯字符串 transport 也能还原附件
+ * - additional_kwargs.attachments：metadata 一等公民，前端 useMessageParser 优先识别
+ *
+ * 抽到这里集中维护是因为：(1) 顶层 sendMessage 与 (2) 队列派发器 派发时
+ * 都必须走完全相同的口径，否则同一条消息的"立即发"和"队列发"渲染会不一致。
+ */
+export function buildAttachmentsPayload(
+  text: string,
+  files?: OssFileItem[] | null,
+): AttachmentsPayloadResult {
+  const trimmed = (text ?? '').trim()
+  if (!files || files.length === 0) {
+    return { content: trimmed }
+  }
+
+  const payload: AttachmentPayloadItem[] = files.map(f => ({
+    id: f.id,
+    fileName: f.fileName,
+    fileType: f.fileType,
+    fileSize: f.fileSize,
+    encrypted: f.encrypted,
+  }))
+  const sentinel = `${ATTACH_SENTINEL}${JSON.stringify(payload)}`
+  const content = trimmed ? `${sentinel}\n\n${trimmed}` : sentinel
+  return {
+    content,
+    additionalKwargs: { attachments: payload },
+  }
+}
+
 // ─────────────────────────────────────────────────
 // 纯函数：所有操作返回新 Map
 // ─────────────────────────────────────────────────

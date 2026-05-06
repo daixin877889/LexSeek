@@ -18,6 +18,7 @@ import { nanoid } from 'nanoid'
 import type { BaseMessage } from '@langchain/core/messages'
 import type { AgentRunStatus } from '#shared/types/agentRun'
 import {
+  buildAttachmentsPayload,
   enqueueAction,
   type QueueItem,
   type QueuePauseReason,
@@ -579,27 +580,16 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
 
     lastLocalSendSeq.value++
 
-    let content = (text ?? '').trim()
-    const additional_kwargs: Record<string, any> = {}
-    if (files && files.length > 0) {
-      const payload = files.map((f: any) => ({
-        id: f.id,
-        fileName: f.fileName,
-        fileType: f.fileType,
-        fileSize: f.fileSize,
-        encrypted: f.encrypted,
-      }))
-      additional_kwargs.attachments = payload
-      const sentinel = `__ATTACHMENTS__\n${JSON.stringify(payload)}`
-      content = content ? `${sentinel}\n\n${content}` : sentinel
-    }
+    // 附件预处理（sentinel + additional_kwargs.attachments 双轨）抽到
+    // chatQueueActions.buildAttachmentsPayload，与 useQueueDispatcher 派发路径口径完全一致。
+    const { content, additionalKwargs } = buildAttachmentsPayload(text ?? '', files)
 
     if (!content) return
 
     // 走 wrappedChat 唯一入口（与 dispatcher 同路径）
     await currentChat.value.sendMessage(content, {
       thinking,
-      additional_kwargs: Object.keys(additional_kwargs).length > 0 ? additional_kwargs : undefined,
+      additional_kwargs: additionalKwargs,
     })
   }
 

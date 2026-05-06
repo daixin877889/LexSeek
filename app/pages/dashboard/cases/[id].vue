@@ -447,8 +447,14 @@ function handleXiaosuoFocusQuery() {
     </ClientOnly>
 
     <!-- 小索助手 - 提升到此层级以覆盖 header -->
+    <!-- on-attach-files-to-case：把小索输入框上传的附件入"案件材料"，
+         让 caseProcessMaterialMiddleware 能扫到并喂给 AI；同时立即刷新材料列表 -->
     <ClientOnly>
-      <CaseDetailXiaosuo v-model="xiaosuoOpen" :xiaosuo-chat="xiaosuoChat" />
+      <CaseDetailXiaosuo
+        v-model="xiaosuoOpen"
+        :xiaosuo-chat="xiaosuoChat"
+        :on-attach-files-to-case="addMaterials"
+      />
     </ClientOnly>
   </div>
 

@@ -25,6 +25,18 @@ import { usePanelMessageStreamContext } from '~/composables/agent-platform/usePa
 
 const props = defineProps<{
   xiaosuoChat: ReturnType<typeof useCaseMainAgent>
+  /**
+   * 用户在小索输入框上传附件并发送时，外部页面把这些文件同步入"案件材料"
+   * 列表的回调。父页一般传 useCaseDetail 的 addMaterials；不传则跳过同步。
+   *
+   * 接受 OssFileItem[]，内部决定是否调用 POST /api/v1/cases/materials/:caseId
+   * 并刷新材料列表。本组件 await 该回调以保证：
+   *   1. 附件成为 case_materials 一员，caseProcessMaterialMiddleware 才能扫到，
+   *      AI 调 process_materials 工具时不会再"看不到刚上传的文件"。
+   *   2. 父页材料列表与小索新加附件实时同步，符合"小索上传后入案件材料列表"
+   *      产品诉求。
+   */
+  onAttachFilesToCase?: (files: OssFileItem[]) => Promise<void>
 }>()
 
 const isOpen = defineModel<boolean>({ default: false })
@@ -109,8 +121,19 @@ function onRetry() {
   if (content) props.xiaosuoChat.sendMessage(content, { thinking: thinking.value })
 }
 
-function handleSubmit(data: { text: string; files?: any[] }) {
+async function handleSubmit(data: { text: string; files?: any[] }) {
   if (!data.text.trim() && !data.files?.length) return
+
+  // 必须 await：caseProcessMaterialMiddleware 在 SSE 流里同步扫 case_materials，
+  // 附件没入库时 AI 调 process_materials 看不到刚上传的文件。
+  // 同步失败 addMaterials 已弹 toast，这里吞错继续发避免双 toast。
+  if (data.files?.length && props.onAttachFilesToCase) {
+    try {
+      await props.onAttachFilesToCase(data.files as OssFileItem[])
+    } catch (err) {
+      console.warn('[xiaosuo] sync materials failed', err)
+    }
+  }
 
   // 暂停态强制入队 + loading 期间入队（spec §5.3）
   const shouldEnqueue =
@@ -120,13 +143,14 @@ function handleSubmit(data: { text: string; files?: any[] }) {
     const ok = props.xiaosuoChat.enqueueMessage(data.text, data.files, thinking.value)
     if (!ok) {
       toast.warning(`队列已满（最多 ${QUEUE_MAX_SIZE} 条），请等待当前对话结束或清空队列`)
-    } else {
-      aiChatRef.value?.resetPrompt()
+      return
     }
   } else {
-    // 阶段 6：透传 files，sendMessage 内部做双轨承载（sentinel + additional_kwargs）
     props.xiaosuoChat.sendMessage(data.text, { thinking: thinking.value, files: data.files })
   }
+
+  // 旧实现仅入队成功路径 reset，直接发送路径会让附件 chip 残留导致重复发送。
+  aiChatRef.value?.resetPrompt()
 }
 
 async function handleStop() {
