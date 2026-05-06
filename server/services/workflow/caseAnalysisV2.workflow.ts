@@ -29,6 +29,7 @@ import { checkPointsService, consumePointsService } from '../point/pointConsumpt
 import { getCurrentMembershipService } from '../membership/userMembership.service'
 import { InterruptType } from '#shared/types/case'
 import { runAnalysisSubAgent } from '~~/server/agents/case-analysis/runAnalysisSubAgent'
+import { completeAnalysisWithRAG } from '../case/initAnalysis.service'
 
 
 /**
@@ -290,6 +291,30 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
                             analysisRecordId = newRecord.id
                         }
                         logger.info('分析结果持久化完成', { agentName, resultLength: resultText.length, totalTokens })
+
+                        // 异步触发摘要生成 + RAG embedding（fire-and-forget）
+                        // 历史 bug：V2 工作流直接 update caseAnalyses 写库，从不调
+                        // completeAnalysisWithRAG，导致初始分析的 7 个模块 summary 永远为 null。
+                        // 模块对话路径（saveAnalysisResult.tool）才会同步生成 summary。
+                        //
+                        // 不 await：单模块摘要 5-15s LLM + embedding，7 模块串行会让 V2 主流程
+                        // 总耗时 +1-2 分钟。fire-and-forget 让用户感知不到延迟，几秒到几十秒后
+                        // summary 自动写回（completeAnalysisWithRAG 内部已 try/catch summary 失败
+                        // 不阻塞）。
+                        if (analysisRecordId) {
+                            completeAnalysisWithRAG({
+                                analysisId: analysisRecordId,
+                                analysisResult: resultText,
+                                tokens: totalTokens,
+                                tokenCount: tokenQuantity,
+                            }).catch(err => {
+                                logger.warn('caseAnalysisV2 摘要生成失败（不阻塞主流程）', {
+                                    agentName,
+                                    analysisId: analysisRecordId,
+                                    err: err instanceof Error ? err.message : String(err),
+                                })
+                            })
+                        }
                     }
                 } catch (persistError) {
                     logger.error('分析结果持久化失败', { agentName, error: persistError })
