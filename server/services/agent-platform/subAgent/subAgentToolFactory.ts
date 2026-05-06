@@ -202,7 +202,13 @@ export async function createSubAgentTools(
                         },
                     )
 
-                    const initialMessages = [systemMessage, new HumanMessage(input.question)]
+                    // 仅放 HumanMessage；SystemMessage 通过 createAgent.systemPrompt 参数传入。
+                    // 历史教训：把 SystemMessage 塞 messages 数组在 anthropic SDK 路径下会触发
+                    // "System messages are only permitted as the first passed message" 报错——
+                    // anthropic API 的 messages 数组不接受 system role，必须走顶层 system 参数。
+                    // LangChain createAgent v1.x 的 normalizeSystemPrompt 已支持 SystemMessage
+                    // 实例（含 content blocks + cache_control），由它内部正确放到 LLM 调用的 system 参数。
+                    const initialMessages = [new HumanMessage(input.question)]
 
                     // 上下文压缩参数（与主 agent 同规格）
                     const { triggerTokens, maxTokens, maxOutputTokens } = resolveContextWindow(
@@ -210,9 +216,10 @@ export async function createSubAgentTools(
                         config.modelMaxOutputTokens,
                     )
 
-                    // 创建子代理（systemPrompt 已通过 SystemMessage 注入，不再走 createAgent.systemPrompt）
+                    // 创建子代理：systemPrompt 走 createAgent 参数（不塞 messages 数组）
                     const agent = createAgent({
                         model,
+                        systemPrompt: systemMessage,
                         tools: subTools,
                         checkpointer,
                         store,
