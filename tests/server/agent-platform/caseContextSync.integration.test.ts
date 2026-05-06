@@ -20,6 +20,8 @@ import { HumanMessage } from '@langchain/core/messages'
 import { v7 as uuidv7 } from 'uuid'
 import { caseContextSyncMiddleware } from '~~/server/agents/_shared/case-context/caseContextSync.middleware'
 import { prisma } from '~~/server/utils/db'
+import { CaseMaterialType } from '#shared/types/case'
+import { MaterialStatus } from '#shared/types/material'
 import {
     createTestUser,
     createTestCaseType,
@@ -34,6 +36,9 @@ const createdIds = {
     ossFiles: [] as number[],
     caseTypes: [] as number[],
     users: [] as number[],
+    materials: [] as number[],     // 新增（Task 4）
+    analyses: [] as number[],       // 新增（Task 4）
+    sessions: [] as number[],       // 新增（Task 4，caseAnalyses.sessionId FK 父表 caseSessions.id）
 }
 
 let sharedUserId: number
@@ -85,12 +90,24 @@ describe('caseContextSyncMiddleware 集成测试（穿透真实 DB）', () => {
         createdIds.caseTypes.push(ct.id)
     })
 
-    // 每个 it 跑完后反向清理（叶表 documentDrafts → 父表 cases）。
-    // 类型 C 防 FK 残留 + 类型 B 防 unique 冲突，对齐 testing.md 套路。
+    // 每个 it 跑完后反向清理（叶表 caseAnalyses → caseMaterials → documentDrafts →
+    // caseSessions → cases）。类型 C 防 FK 残留 + 类型 B 防 unique 冲突，对齐 testing.md 套路。
     afterEach(async () => {
+        if (createdIds.analyses.length) {
+            await prisma.caseAnalyses.deleteMany({ where: { id: { in: createdIds.analyses } } })
+            createdIds.analyses = []
+        }
+        if (createdIds.materials.length) {
+            await prisma.caseMaterials.deleteMany({ where: { id: { in: createdIds.materials } } })
+            createdIds.materials = []
+        }
         if (createdIds.drafts.length) {
             await prisma.documentDrafts.deleteMany({ where: { id: { in: createdIds.drafts } } })
             createdIds.drafts = []
+        }
+        if (createdIds.sessions.length) {
+            await prisma.caseSessions.deleteMany({ where: { id: { in: createdIds.sessions } } })
+            createdIds.sessions = []
         }
         if (createdIds.cases.length) {
             await prisma.cases.deleteMany({ where: { id: { in: createdIds.cases } } })
@@ -211,5 +228,96 @@ describe('caseContextSyncMiddleware 集成测试（穿透真实 DB）', () => {
         const lastIdx = state.messages.length - 1
         expect((state.messages[lastIdx] as any).content).toBe('q2')
         expect((state.messages[lastIdx - 1] as any).response_metadata?.injectedBy).toBe('CaseContextSyncMiddleware')
+    })
+
+    it('混合 status + summary 缺失场景：注入消息含所有 4 种材料状态 + 模块降级显示 result 截断', async () => {
+        const { caseId } = await seedCaseFixture()
+
+        // 4 种 status 的材料（用 MaterialStatus / CaseMaterialType 枚举，与 Task 1/3 同款风格）
+        const m1 = await prisma.caseMaterials.create({
+            data: { caseId, name: '已识别材料', type: CaseMaterialType.CASE_CONTENT, status: MaterialStatus.COMPLETED, summary: 'sum' },
+        })
+        const m2 = await prisma.caseMaterials.create({
+            data: { caseId, name: '识别中材料', type: CaseMaterialType.DOCUMENT, status: MaterialStatus.PROCESSING, ossFileId: 50001 },
+        })
+        const m3 = await prisma.caseMaterials.create({
+            data: { caseId, name: '待识别材料', type: CaseMaterialType.IMAGE, status: MaterialStatus.PENDING, ossFileId: 50002 },
+        })
+        const m4 = await prisma.caseMaterials.create({
+            data: { caseId, name: '识别失败材料', type: CaseMaterialType.AUDIO, status: MaterialStatus.FAILED, ossFileId: 50003 },
+        })
+        createdIds.materials.push(m1.id, m2.id, m3.id, m4.id)
+
+        // caseAnalyses.sessionId → caseSessions.sessionId（FK），必须先建会话
+        // nodeId → nodes.id（FK），从已有种子节点取
+        const node = await prisma.nodes.findFirst()
+        if (!node) throw new Error('seed missing: nodes')
+        const sessionToken1 = `it-ana-${uuidv7()}`
+        const sessionToken2 = `it-ana-${uuidv7()}`
+        const sess1 = await prisma.caseSessions.create({
+            data: { sessionId: sessionToken1, caseId, scope: 'case', status: 1 },
+        })
+        const sess2 = await prisma.caseSessions.create({
+            data: { sessionId: sessionToken2, caseId, scope: 'case', status: 1 },
+        })
+        createdIds.sessions.push(sess1.id, sess2.id)
+
+        // 一个 summary 非空 + 一个 summary 缺失但 result 非空（验证 Task 2 的降级逻辑）
+        const a1 = await prisma.caseAnalyses.create({
+            data: {
+                caseId,
+                sessionId: sessionToken1,
+                nodeId: node.id,
+                analysisType: 'case_summary',
+                version: 1,
+                status: 2,
+                isActive: true,
+                summary: '案件摘要内容',
+                analysisResult: '完整正文 1',
+            },
+        })
+        const a2 = await prisma.caseAnalyses.create({
+            data: {
+                caseId,
+                sessionId: sessionToken2,
+                nodeId: node.id,
+                analysisType: 'chronicle',
+                version: 1,
+                status: 2,
+                isActive: true,
+                summary: null,
+                // 7 字 * 80 = 560 字符，超过 500 字截断阈值，触发 tail "..."
+                analysisResult: '大事记完整正文'.repeat(80),
+            },
+        })
+        createdIds.analyses.push(a1.id, a2.id)
+
+        const mw = caseContextSyncMiddleware({ caseId, agentName: 'caseMain' })
+        const state = { messages: [new HumanMessage('总结一下案件')] }
+        await mw.beforeAgent.hook(state)
+
+        const ctx = state.messages[0] as any
+        const content = String(ctx.content ?? '')
+
+        // 4 种状态文字都在
+        expect(content).toContain('— 已识别 —')
+        expect(content).toContain('— 识别中 —')
+        expect(content).toContain('— 待识别 —')
+        expect(content).toContain('— 识别失败 —')
+
+        // 段头查询条件
+        expect(content).toContain('参数 analysis_type 填模块名')
+        expect(content).toContain('参数 sourceId 填下面括号中的值')
+
+        // summary 非空模块直接显示
+        expect(content).toContain('案件摘要内容')
+
+        // summary 缺失模块走降级
+        expect(content).toContain('（暂无独立摘要，正文节选）')
+        expect(content).toContain('### chronicle（v1，更新于')
+        // 验证降级路径下正文片段进了 prompt
+        expect(content).toContain('大事记完整正文')
+        // 验证 result > 500 字符触发截断（tail "..."）
+        expect(content).toMatch(/大事记完整正文.*\.\.\./)
     })
 })
