@@ -8,7 +8,7 @@
 
 ## 1. 背景
 
-当前案件材料的"100 字简介"机制存在多个问题，导致用户体验和数据架构都不健康：
+当前案件材料的"200 字简介"机制存在多个问题，导致用户体验和数据架构都不健康：
 
 ### 1.1 用户体验痛点
 
@@ -41,9 +41,9 @@
 
 1. **简介生成提前**：用户在选文件后到提交分析之间这段时间内，简介就已经准备好；分析启动时绝大多数情况无需等待
 2. **数据按"文件"存**：简介存储在文件级（识别记录表），同一文件被多个案件引用时天然复用
-3. **字段语义统一**：四种材料类型（文字/文档/图片/音频）的"100 字简介"在同一逻辑字段中表达
+3. **字段语义统一**：四种材料类型（文字/文档/图片/音频）的"200 字简介"在同一逻辑字段中表达
 4. **保底机制收口在中间件**：所有跟材料相关的 Agent（含案件初分 V2）启动前都过同一个中间件，确保识别 + 简介双就绪
-5. **保底等待时给用户反馈**：复用现有"合成工具卡片"机制，前端展示"准备材料中"卡片
+5. **保底等待时给用户反馈**：复用现有"材料处理"卡片（`MaterialProcessTool.vue`）+ 升级状态指示，每条材料展示当前处理阶段
 6. **杜绝重复调 LLM**：已有简介的不再重做、并发触发去重
 7. **并行启动多份材料的处理**
 
@@ -55,7 +55,7 @@
 ┌─────────────────────────────────────────────────────────────┐
 │ 主路径（99% 情况，看不到任何等待）                           │
 │                                                             │
-│ 选文件 → 后端识别（已有）→ 并行触发 100 字简介生成（新）   │
+│ 选文件 → 后端识别（已有）→ 并行触发 200 字简介生成（新）   │
 │   │                                                         │
 │   ├─ 简介存进识别记录的 summary 字段（按文件，天然复用）   │
 │   └─ 状态接口"已就绪"= 识别成功 + 简介非空                  │
@@ -77,7 +77,7 @@
 | 文字材料     | `textContentRecords.summary`（新增字段） |
 | 文档（PDF/Word） | `docRecognitionRecords.summary`（已有字段，启用） |
 | 图片         | `imageRecognitionRecords.summary`（已有字段，启用） |
-| 音频         | `asrRecords.summary`（语义切换为 100 字简介） |
+| 音频         | `asrRecords.summary`（语义切换为 200 字简介） |
 
 - **删除** `caseMaterials.summary` 字段
 - **删除** ASR 记录中"格式化转录文本缓存"——读音频内容时改为从 `result` JSON 现拼（已有提取函数）
@@ -107,7 +107,7 @@
 
 #### 4.1.1 删除字段
 - `caseMaterials.summary`：所有读取改为按 ossFileId / materialId 关联识别记录表
-- `asrRecords.summary` 的"完整转录文本缓存"语义被废弃；字段不删，**语义切换**为 100 字简介
+- `asrRecords.summary` 的"完整转录文本缓存"语义被废弃；字段不删，**语义切换**为 200 字简介
 
 #### 4.1.2 新增字段
 - `textContentRecords.summary`：与其他识别记录表对齐
@@ -116,10 +116,10 @@
 
 | 表                          | summary 字段语义（统一后） |
 | --------------------------- | -------------------------- |
-| `textContentRecords`        | 100 字简介                 |
-| `docRecognitionRecords`     | 100 字简介                 |
-| `imageRecognitionRecords`   | 100 字简介                 |
-| `asrRecords`                | 100 字简介                 |
+| `textContentRecords`        | 200 字简介                 |
+| `docRecognitionRecords`     | 200 字简介                 |
+| `imageRecognitionRecords`   | 200 字简介                 |
+| `asrRecords`                | 200 字简介                 |
 | `caseMaterials`             | 字段不存在（已删）         |
 
 ### 4.2 简介生成函数
@@ -135,7 +135,7 @@
 5. 否则启动 LLM 调用：
    - 读识别记录的内容字段（markdownContent / result JSON 提取的转录文本 / textContentRecords.content）
    - 截取前 N 字（按类型设定）作为输入
-   - 调用 LLM 生成 100 字简介
+   - 调用 LLM 生成 200 字简介
    - 写回识别记录的 summary 字段
 6. inflight Map 清理
 
@@ -218,45 +218,73 @@
 - 用 `Promise.allSettled` 并行启动所有简介生成任务
 - 不再使用 `for` 循环串行触发
 
-### 4.7 UI 进度卡片
+### 4.7 UI 进度卡片：复用并增强现有"材料处理"卡片
 
-#### 4.7.1 复用现有机制
+#### 4.7.1 设计原则
 
-复用 `SYNTHETIC_TOOL_GENERATE_SUMMARY` 同款机制（合成工具卡片），新增事件类型 `PREPARE_MATERIALS`。
+项目里已有 `MaterialProcessTool.vue`（工具卡片，渲染 `process_materials` 工具的 output——一个材料列表，每条左侧绿/灰圆点表示是否已嵌入）。
 
-#### 4.7.2 事件契约
+**本次方案复用这个卡片**——既给 LLM 主动调起 `process_materials` 工具用，也给中间件保底等待时用。前端只有这一个组件，新旧路径渲染逻辑一致。
+
+#### 4.7.2 卡片信息升级
+
+每条材料行从"二态圆点"升级为"五态状态指示 + 进度文字"：
+
+| 状态        | 状态指示          | 行尾文字          |
+| ----------- | ----------------- | ----------------- |
+| 待处理      | 灰色实心圆        | 待识别            |
+| 识别中      | 蓝色脉动圆 + 进度 | 识别中…           |
+| 生成简介中  | 蓝色脉动圆 + 进度 | 生成简介中…       |
+| 已就绪      | 绿色实心圆        | 已就绪            |
+| 处理失败    | 红色叉            | 识别失败          |
+
+整体卡片头部显示"X/Y 已就绪"汇总。
+
+#### 4.7.3 事件契约（中间件保底路径）
+
+新增 SSE 事件类型 `PREPARE_MATERIALS`：
 
 ```typescript
-// SSE 事件类型枚举新增
 PREPARE_MATERIALS = 'prepare_materials'
 
-// payload 类型
+type MaterialItemStatus = 'pending' | 'recognizing' | 'summarizing' | 'ready' | 'failed'
+
+interface MaterialItem {
+  id: number
+  name: string
+  type: number          // CaseMaterialType
+  status: MaterialItemStatus
+}
+
 type PrepareMaterialsPayload =
-  | { phase: 'start'; toolCallId: string; total: number; pending: number }
-  | { phase: 'progress'; toolCallId: string; total: number; pending: number; currentName: string; currentStep: '识别' | '生成简介' }
-  | { phase: 'end'; toolCallId: string; success: boolean; failedCount: number }
+  | { phase: 'start';    toolCallId: string; materials: MaterialItem[] }
+  | { phase: 'progress'; toolCallId: string; materials: MaterialItem[] }  // 每次轮询全量推送当前快照
+  | { phase: 'end';      toolCallId: string; materials: MaterialItem[]; failedCount: number }
 ```
 
-#### 4.7.3 触发逻辑
+中间件每秒轮询一次 → 推送一次全量快照（事件量小，简化前端 diff 逻辑）。
 
-中间件第一次发现有材料未就绪时：
-1. 生成 toolCallId
-2. 发送 phase: 'start' 事件
-3. 每隔 1 秒轮询时发送 phase: 'progress'
-4. 全部就绪或超时退出时发送 phase: 'end'
+#### 4.7.4 前端拦截与渲染
 
-#### 4.7.4 前端展示
+`useStreamChat` 拦截 `prepare_materials` 事件：
 
-`useStreamChat` 拦截 `prepare_materials` 事件，转换为合成工具卡片：
+1. **phase=start**：合成一个 toolCall 项，`name='process_materials'`、`toolCallId='prepare-${runId}'`、`state='input-available'`、`args={ materials }`
+2. **phase=progress**：找到同 toolCallId 的项，更新 `args={ materials }`
+3. **phase=end**：更新 `state='output-available'`、`result={ materials }`
 
-- 工具名："准备材料"
-- 进度："X/Y 份"
-- 当前状态：通过 currentStep 字段展示"正在识别"/"正在生成简介"
-- 完成后置为 success/failed 终态
+`AiToolRenderer.vue` 已按 toolName 路由到 `MaterialProcessTool.vue`——零路由改动。
 
-#### 4.7.5 卡片归属
+#### 4.7.5 MaterialProcessTool.vue 改造
 
-合成工具卡片需要 parentMessageId 才能挂到对应 AIMessage 上。中间件运行在 `beforeAgent` 阶段，此时还没有 AIMessage——使用约定的 sentinel parentMessageId（如 `'pre-agent-${runId}'`），前端识别该 sentinel 后挂到当前会话的最新交互卡片或独立显示。
+- 数据来源升级：从仅读 `output.materials.embedded` 改为读 `materials.status`（同时支持 input 和 output 两种来源——保底路径数据在 input/args 中）
+- 渲染按 4.7.2 表格的五态显示（用 lucide 图标，禁 emoji；进度态用 Tailwind 脉动动画 `animate-pulse`）
+- 卡片头部新增 "X/Y 已就绪" 汇总文字
+
+LLM 主动调 `process_materials` 工具的路径同样受益于这次升级——工具 output 的 materials 字段也同步加 `status` 字段，渲染统一。
+
+#### 4.7.6 卡片归属
+
+合成工具卡片用 sentinel toolCallId `prepare-${runId}` 标识，挂在当前会话最新一条 AIMessage 之前作为"前置"步骤，或独立显示。等中间件结束后真正的 LLM 输出接入 AIMessage 流，卡片不再变化。
 
 ### 4.8 数据迁移
 
@@ -268,15 +296,10 @@ type PrepareMaterialsPayload =
 
 #### 4.8.2 历史数据影响
 
-- **案件材料表 summary 字段中现存的数据丢弃**——这部分简介内容在用户首次访问案件时由保底中间件重新生成
-- **ASR 表中现存的"格式化转录文本"丢弃**——读音频内容的代码改为从 `result` JSON 现拼
-- **文字 / 文档 / 图片识别记录表当前 summary 字段为空**——按需生成
-
-#### 4.8.3 一次性数据回填脚本（可选）
-
-写一个 ts 脚本，扫描所有未删除的案件材料，按文件维度去重，触发一遍简介生成。这样升级上线后用户首次访问不会感受到等待。
-
-**这一步不是必须**——保底中间件本身就能 cover；脚本只是为了优化首次访问体验。
+历史数据**不需要任何回填操作**：
+- 系统跑起来后，用户访问任何旧案件时，保底中间件会检测到简介缺失，自动并行生成并写入识别记录表
+- 用户感知：第一次访问旧案件时看到一次"材料处理"卡片走完进度，后续访问立即放行
+- 不写一次性回填脚本
 
 ### 4.9 读取改造
 
@@ -356,12 +379,11 @@ type PrepareMaterialsPayload =
 
 ### 7.3 前端代码
 
-| 模块                  | 改动类型                       |
-| --------------------- | ------------------------------ |
-| `useStreamChat`       | 新增拦截 `prepare_materials`   |
-| 工具显示名映射        | 加"准备材料"显示名             |
-| `AiPromptInput`       | 零改动                         |
-| 工具卡片渲染          | 复用现有合成卡片组件           |
+| 模块                            | 改动类型                                      |
+| ------------------------------- | --------------------------------------------- |
+| `useStreamChat`                 | 新增拦截 `prepare_materials` → 合成 toolCall  |
+| `MaterialProcessTool.vue`       | 渲染升级（五态状态指示 + 进度脉动 + 头部汇总） |
+| `AiPromptInput`                 | 零改动                                         |
 
 ### 7.4 测试代码
 
@@ -370,37 +392,19 @@ type PrepareMaterialsPayload =
 
 ---
 
-## 8. 开放问题（待用户拍板）
+## 8. 关键决策（已拍板）
 
-### 8.1 简介长度
-
-- **方案 A**：所有类型统一 100 字
-- **方案 B**：按类型差异化（文档 100 / 图片 60 / 音频 150 / 文字 80）
-
-**默认采用方案 A**（实施简单、prompt 一致），如有偏好再调整。
-
-### 8.2 一次性数据回填脚本
-
-- **方案 A**：不写脚本，依赖保底中间件首次访问触发
-- **方案 B**：写一个扫描 + 触发脚本，升级时一次跑完
-
-**默认采用方案 A**（保底机制本身可靠，脚本是 nice-to-have）。
-
-### 8.3 UI 卡片归属
-
-中间件在 `beforeAgent` 触发时还没有 AIMessage 作为 parentMessageId 锚点。两种处理：
-
-- **方案 A**：sentinel parentMessageId（如 `pre-agent-${runId}`），前端识别后挂到独立悬浮卡片
-- **方案 B**：先发一条空白 placeholder AIMessage 作为锚点，中间件结束后该 AIMessage 被实际 LLM 输出替换
-
-**默认采用方案 A**（侵入性小）。
+1. **简介长度统一 200 字**——所有类型同一 prompt 模板，实施简单
+2. **不写历史数据回填脚本**——保底中间件首次访问自动覆盖
+3. **UI 复用现有"材料处理"卡片**（`MaterialProcessTool.vue`）—— 同一组件支持工具调用和保底两种数据来源
+4. **保底卡片用 sentinel toolCallId `prepare-${runId}`** —— 零侵入挂入会话流
 
 ---
 
 ## 9. 不在本次范围
 
 - **历史卡住数据的批量回填脚本**——可作为单独优化任务后续做
-- **简介展示 UI（材料列表显示 100 字简介给用户看）**——本次仅保证 LLM 系统提示词里有简介；用户可见 UI 是单独需求
+- **简介展示 UI（材料列表显示 200 字简介给用户看）**——本次仅保证 LLM 系统提示词里有简介；用户可见 UI 是单独需求
 - **简介质量评估 / A/B 测试 prompt**——后续优化
 
 ---
