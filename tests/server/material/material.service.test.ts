@@ -34,7 +34,10 @@ import {
     getCompletedMaterialsContentService,
     hasPendingMaterialsService,
     getMaterialsStatsService,
+    markMaterialsByOssFileIdService,
+    getMaterialSummariesByMaterials,
 } from '../../../server/services/material/material.service'
+import { prisma } from '~~/server/utils/db'
 import { MaterialStatus } from '../../../shared/types/material'
 import { CaseMaterialType } from '../../../shared/types/case'
 
@@ -236,6 +239,77 @@ describe('材料服务层', () => {
             const updated = await updateMaterialStatusService(material.id, MaterialStatus.PROCESSING)
 
             expect(updated.status).toBe(MaterialStatus.PROCESSING)
+        })
+    })
+
+    describe('markMaterialsByOssFileIdService - ASR/MinerU 异步完成时切状态', () => {
+        it('应该把所有引用该 ossFile 的活跃材料切到 COMPLETED', async () => {
+            const ossFile = await createTestOssFile({ userId: testUser.id })
+            const m1 = await createTestMaterial({
+                caseId: testCase.id,
+                ossFileId: ossFile.id,
+                type: CaseMaterialType.AUDIO,
+                status: MaterialStatus.PROCESSING,
+            })
+            const m2 = await createTestMaterial({
+                caseId: testCase.id,
+                ossFileId: ossFile.id,
+                type: CaseMaterialType.AUDIO,
+                status: MaterialStatus.PENDING,
+            })
+            testIds.materialIds.push(m1.id, m2.id)
+
+            await markMaterialsByOssFileIdService(ossFile.id, MaterialStatus.COMPLETED)
+
+            const after1 = await prisma.caseMaterials.findUnique({ where: { id: m1.id } })
+            const after2 = await prisma.caseMaterials.findUnique({ where: { id: m2.id } })
+            expect(after1?.status).toBe(MaterialStatus.COMPLETED)
+            expect(after2?.status).toBe(MaterialStatus.COMPLETED)
+        })
+
+        it('应该把所有引用该 ossFile 的活跃材料切到 FAILED', async () => {
+            const ossFile = await createTestOssFile({ userId: testUser.id })
+            const m = await createTestMaterial({
+                caseId: testCase.id,
+                ossFileId: ossFile.id,
+                type: CaseMaterialType.DOCUMENT,
+                status: MaterialStatus.PROCESSING,
+            })
+            testIds.materialIds.push(m.id)
+
+            await markMaterialsByOssFileIdService(ossFile.id, MaterialStatus.FAILED)
+
+            const after = await prisma.caseMaterials.findUnique({ where: { id: m.id } })
+            expect(after?.status).toBe(MaterialStatus.FAILED)
+        })
+
+        it('找不到 ossFile 关联的材料时应安静返回，不抛错', async () => {
+            // 用一个不存在的 ossFileId
+            await expect(
+                markMaterialsByOssFileIdService(99999999, MaterialStatus.COMPLETED),
+            ).resolves.toBeUndefined()
+        })
+
+        it('已软删除的材料不应被切状态', async () => {
+            const ossFile = await createTestOssFile({ userId: testUser.id })
+            const m = await createTestMaterial({
+                caseId: testCase.id,
+                ossFileId: ossFile.id,
+                type: CaseMaterialType.AUDIO,
+                status: MaterialStatus.PENDING,
+            })
+            testIds.materialIds.push(m.id)
+            // 模拟软删除
+            await prisma.caseMaterials.update({
+                where: { id: m.id },
+                data: { deletedAt: new Date() },
+            })
+
+            await markMaterialsByOssFileIdService(ossFile.id, MaterialStatus.COMPLETED)
+
+            const after = await prisma.caseMaterials.findUnique({ where: { id: m.id } })
+            // 软删除的材料保持 PENDING，不被 helper 切
+            expect(after?.status).toBe(MaterialStatus.PENDING)
         })
     })
 
@@ -455,6 +529,62 @@ describe('材料服务层', () => {
                     { ...PBT_CONFIG, numRuns: 20 }
                 )
             })
+        })
+    })
+
+    describe('getMaterialSummariesByMaterials - 跨表读取摘要', () => {
+        it('混合类型：按 ossFileId / materialId 关联读到对应 summary', async () => {
+            const ossFileDoc = await createTestOssFile({ userId: testUser.id }, testIds)
+            const ossFileImg = await createTestOssFile({ userId: testUser.id }, testIds)
+            const ossFileAudio = await createTestOssFile({ userId: testUser.id }, testIds)
+
+            const matText = await createTestMaterial({ caseId: testCase.id, type: CaseMaterialType.CASE_CONTENT })
+            const matDoc = await createTestMaterial({ caseId: testCase.id, type: CaseMaterialType.DOCUMENT, ossFileId: ossFileDoc.id })
+            const matImg = await createTestMaterial({ caseId: testCase.id, type: CaseMaterialType.IMAGE, ossFileId: ossFileImg.id })
+            const matAudio = await createTestMaterial({ caseId: testCase.id, type: CaseMaterialType.AUDIO, ossFileId: ossFileAudio.id })
+            testIds.materialIds.push(matText.id, matDoc.id, matImg.id, matAudio.id)
+
+            await prisma.textContentRecords.create({
+                data: { userId: testUser.id, caseId: testCase.id, materialId: matText.id, content: 'x', summary: '文字摘要', status: 2 },
+            })
+            await prisma.docRecognitionRecords.create({
+                data: { userId: testUser.id, ossFileId: ossFileDoc.id, status: 2, summary: '文档摘要', markdownContent: 'x' },
+            })
+            await prisma.imageRecognitionRecords.create({
+                data: { userId: testUser.id, ossFileId: ossFileImg.id, status: 2, summary: '图片摘要', markdownContent: 'x' },
+            })
+            await prisma.asrRecords.create({
+                data: { userId: testUser.id, ossFileId: ossFileAudio.id, status: 2, summary: '音频摘要', result: {} },
+            })
+
+            const map = await getMaterialSummariesByMaterials([
+                { id: matText.id, type: CaseMaterialType.CASE_CONTENT, ossFileId: null },
+                { id: matDoc.id, type: CaseMaterialType.DOCUMENT, ossFileId: ossFileDoc.id },
+                { id: matImg.id, type: CaseMaterialType.IMAGE, ossFileId: ossFileImg.id },
+                { id: matAudio.id, type: CaseMaterialType.AUDIO, ossFileId: ossFileAudio.id },
+            ])
+
+            expect(map.get(matText.id)).toBe('文字摘要')
+            expect(map.get(matDoc.id)).toBe('文档摘要')
+            expect(map.get(matImg.id)).toBe('图片摘要')
+            expect(map.get(matAudio.id)).toBe('音频摘要')
+        })
+
+        it('空数组直接返回空 Map', async () => {
+            const map = await getMaterialSummariesByMaterials([])
+            expect(map.size).toBe(0)
+        })
+
+        it('找不到识别记录的材料：Map 不含该 materialId', async () => {
+            const ossFile = await createTestOssFile({ userId: testUser.id }, testIds)
+            const mat = await createTestMaterial({
+                caseId: testCase.id, type: CaseMaterialType.DOCUMENT, ossFileId: ossFile.id,
+            })
+            testIds.materialIds.push(mat.id)
+            const map = await getMaterialSummariesByMaterials([
+                { id: mat.id, type: CaseMaterialType.DOCUMENT, ossFileId: ossFile.id },
+            ])
+            expect(map.get(mat.id)).toBeUndefined()
         })
     })
 })

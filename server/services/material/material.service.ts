@@ -348,6 +348,40 @@ export const updateMaterialContentService = async (
 }
 
 /**
+ * ASR / MinerU 等异步识别完成时调用：把所有引用该 ossFile 的活跃 caseMaterials
+ * 切到目标状态（COMPLETED / FAILED）。COMPLETED 时异步触发 100 字摘要生成。
+ *
+ * 历史 bug：ASR/MinerU 的 complete*Service 只更新自己的 records 表（asrRecords /
+ * docRecognitionRecords），不切 caseMaterials.status，导致 case 列表里音频/PDF 永远
+ * 显示"待识别"。原本只有 ensureMaterialsReadyForDraftService 走 draft 单文件路径才有轮询
+ * 兜底切状态——普通案件 fire-and-forget 上传走 processMaterialService 完全没人切。
+ *
+ * 业务边界：理论上一个 ossFile 一般只对应一条 caseMaterials，但跨 case/draft 引用同一文件
+ * 时可能多条，故用 updateMany + findMany 全部切。
+ */
+export async function markMaterialsByOssFileIdService(
+    ossFileId: number,
+    status: MaterialStatus.COMPLETED | MaterialStatus.FAILED,
+): Promise<void> {
+    const records = await prisma.caseMaterials.findMany({
+        where: { ossFileId, deletedAt: null },
+        select: { id: true },
+    })
+    if (records.length === 0) return
+
+    await prisma.caseMaterials.updateMany({
+        where: { ossFileId, deletedAt: null },
+        data: { status },
+    })
+
+    if (status === MaterialStatus.COMPLETED) {
+        for (const r of records) {
+            generateMaterialSummaryService(r.id).catch(() => { /* 已在内部 catch */ })
+        }
+    }
+}
+
+/**
  * 删除材料
  */
 export const deleteMaterialService = async (
@@ -560,4 +594,125 @@ async function loadMaterialText(materialId: number, maxChars: number): Promise<s
         if (asr?.summary) return asr.summary.slice(0, maxChars)
     }
     return ''
+}
+
+// ==================== 跨表摘要查询 ====================
+
+/** 输入：批量按材料查 200 字摘要时所需的最小字段集 */
+export interface MaterialSummaryInput {
+    id: number
+    type: number  // CaseMaterialType
+    ossFileId: number | null
+}
+
+/**
+ * 批量按材料查 200 字摘要，按 type 分组并行查 4 张表后合并到 Map<materialId, summary>。
+ *
+ * - 4 种类型并行查询（Promise.all），单次往返时间取决于最慢的那张表
+ * - 找不到识别记录或 summary 为 null 的 materialId 不进 Map（调用方自行处理 fallback）
+ *
+ * 用途：替换原来读 caseMaterials.summary 的所有路径（系统提示词构建、material API、
+ * process_materials 工具等）。
+ */
+export async function getMaterialSummariesByMaterials(
+    inputs: MaterialSummaryInput[],
+): Promise<Map<number, string>> {
+    const result = new Map<number, string>()
+    if (inputs.length === 0) return result
+
+    const textIds = inputs.filter(m => m.type === CaseMaterialType.CASE_CONTENT).map(m => m.id)
+    const docOssFileIds = inputs
+        .filter(m => m.type === CaseMaterialType.DOCUMENT && m.ossFileId)
+        .map(m => m.ossFileId!)
+    const imgOssFileIds = inputs
+        .filter(m => m.type === CaseMaterialType.IMAGE && m.ossFileId)
+        .map(m => m.ossFileId!)
+    const audioOssFileIds = inputs
+        .filter(m => m.type === CaseMaterialType.AUDIO && m.ossFileId)
+        .map(m => m.ossFileId!)
+
+    // 反向映射 ossFileId → materialId[]（同一文件可能被多个材料引用）
+    const docOssToMat = new Map<number, number[]>()
+    const imgOssToMat = new Map<number, number[]>()
+    const audioOssToMat = new Map<number, number[]>()
+    for (const m of inputs) {
+        if (!m.ossFileId) continue
+        const target =
+            m.type === CaseMaterialType.DOCUMENT ? docOssToMat
+            : m.type === CaseMaterialType.IMAGE ? imgOssToMat
+            : m.type === CaseMaterialType.AUDIO ? audioOssToMat
+            : null
+        if (!target) continue
+        const list = target.get(m.ossFileId) ?? []
+        list.push(m.id)
+        target.set(m.ossFileId, list)
+    }
+
+    await Promise.all([
+        textIds.length > 0
+            ? prisma.textContentRecords
+                .findMany({
+                    where: { materialId: { in: textIds }, deletedAt: null },
+                    select: { materialId: true, summary: true },
+                })
+                .then(rows => {
+                    for (const r of rows) {
+                        if (r.materialId && r.summary) result.set(r.materialId, r.summary)
+                    }
+                })
+            : Promise.resolve(),
+        docOssFileIds.length > 0
+            ? prisma.docRecognitionRecords
+                .findMany({
+                    where: { ossFileId: { in: docOssFileIds }, deletedAt: null },
+                    select: { ossFileId: true, summary: true },
+                    orderBy: { createdAt: 'desc' },
+                })
+                .then(rows => {
+                    for (const r of rows) {
+                        if (r.ossFileId && r.summary) {
+                            for (const matId of docOssToMat.get(r.ossFileId) ?? []) {
+                                if (!result.has(matId)) result.set(matId, r.summary)
+                            }
+                        }
+                    }
+                })
+            : Promise.resolve(),
+        imgOssFileIds.length > 0
+            ? prisma.imageRecognitionRecords
+                .findMany({
+                    where: { ossFileId: { in: imgOssFileIds }, deletedAt: null },
+                    select: { ossFileId: true, summary: true },
+                    orderBy: { createdAt: 'desc' },
+                })
+                .then(rows => {
+                    for (const r of rows) {
+                        if (r.ossFileId && r.summary) {
+                            for (const matId of imgOssToMat.get(r.ossFileId) ?? []) {
+                                if (!result.has(matId)) result.set(matId, r.summary)
+                            }
+                        }
+                    }
+                })
+            : Promise.resolve(),
+        audioOssFileIds.length > 0
+            ? prisma.asrRecords
+                .findMany({
+                    where: { ossFileId: { in: audioOssFileIds }, deletedAt: null },
+                    select: { ossFileId: true, summary: true },
+                    orderBy: { createdAt: 'desc' },
+                })
+                .then(rows => {
+                    for (const r of rows) {
+                        if (r.ossFileId && r.summary) {
+                            for (const matId of audioOssToMat.get(r.ossFileId) ?? []) {
+                                if (!result.has(matId)) result.set(matId, r.summary)
+                            }
+                        }
+                    }
+                })
+            : Promise.resolve(),
+    ])
+
+    return result
 }
