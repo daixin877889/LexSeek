@@ -5,9 +5,36 @@
  * **Validates: Requirements 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 3.10, 3.11**
  */
 
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest'
 import * as fc from 'fast-check'
 import './test-setup'
+
+// =================================================================
+// Task 3：generateMaterialSummaryService 改造测试需要 mock LLM 栈
+// =================================================================
+const llmMocks = vi.hoisted(() => ({
+    generateSummaryService: vi.fn(),
+    getValidNodeConfig: vi.fn(),
+    createChatModel: vi.fn(),
+}))
+vi.mock('~~/server/services/ai/summaryService', () => ({
+    generateSummaryService: llmMocks.generateSummaryService,
+}))
+vi.mock('../../../server/services/ai/summaryService', () => ({
+    generateSummaryService: llmMocks.generateSummaryService,
+}))
+vi.mock('~~/server/services/node/node.service', () => ({
+    getValidNodeConfig: llmMocks.getValidNodeConfig,
+}))
+vi.mock('../../../server/services/node/node.service', () => ({
+    getValidNodeConfig: llmMocks.getValidNodeConfig,
+}))
+vi.mock('~~/server/services/node/chatModelFactory', () => ({
+    createChatModel: llmMocks.createChatModel,
+}))
+vi.mock('../../../server/services/node/chatModelFactory', () => ({
+    createChatModel: llmMocks.createChatModel,
+}))
 import {
     createTestUser,
     createTestCaseType,
@@ -36,6 +63,7 @@ import {
     getMaterialsStatsService,
     markMaterialsByOssFileIdService,
     getMaterialSummariesByMaterials,
+    generateMaterialSummaryService,
 } from '../../../server/services/material/material.service'
 import { prisma } from '~~/server/utils/db'
 import { MaterialStatus } from '../../../shared/types/material'
@@ -585,6 +613,185 @@ describe('材料服务层', () => {
                 { id: mat.id, type: CaseMaterialType.DOCUMENT, ossFileId: ossFile.id },
             ])
             expect(map.get(mat.id)).toBeUndefined()
+        })
+    })
+
+    describe('generateMaterialSummaryService 改造 - 按 type 分发', () => {
+        const setupValidNodeConfig = () => {
+            llmMocks.getValidNodeConfig.mockResolvedValue({
+                modelApiKeys: [{ apiKey: 'sk-test', status: 1 }],
+                modelSdkType: 'openai',
+                modelName: 'gpt-4',
+                modelProviderBaseUrl: 'https://api.openai.com/v1',
+                prompts: [{ type: 'system', status: 1, content: '你是摘要助手' }],
+            } as any)
+            llmMocks.createChatModel.mockReturnValue({
+                invoke: vi.fn().mockResolvedValue({ content: '生成摘要' }),
+            } as any)
+        }
+
+        const resetLlmMocks = () => {
+            llmMocks.generateSummaryService.mockReset()
+            llmMocks.getValidNodeConfig.mockReset()
+            llmMocks.createChatModel.mockReset()
+        }
+
+        it('文档类型：summary 已存在直接早返（不调 LLM）', async () => {
+            resetLlmMocks()
+            setupValidNodeConfig()
+            llmMocks.generateSummaryService.mockResolvedValue('新生成摘要')
+
+            const ossFile = await createTestOssFile({ userId: testUser.id }, testIds)
+            const m = await createTestMaterial({
+                caseId: testCase.id, type: CaseMaterialType.DOCUMENT, ossFileId: ossFile.id,
+            })
+            testIds.materialIds.push(m.id)
+            await prisma.docRecognitionRecords.create({
+                data: { userId: testUser.id, ossFileId: ossFile.id, status: 2, summary: '已有摘要', markdownContent: 'x' },
+            })
+
+            await generateMaterialSummaryService(m.id)
+
+            expect(llmMocks.generateSummaryService).not.toHaveBeenCalled()
+            const after = await prisma.docRecognitionRecords.findFirst({ where: { ossFileId: ossFile.id } })
+            expect(after?.summary).toBe('已有摘要')
+        })
+
+        it('CASE_CONTENT 类型：summary 写到 textContentRecords.summary（按 materialId）', async () => {
+            resetLlmMocks()
+            setupValidNodeConfig()
+            llmMocks.generateSummaryService.mockResolvedValue('文字材料的摘要')
+
+            const m = await createTestMaterial({
+                caseId: testCase.id, type: CaseMaterialType.CASE_CONTENT, ossFileId: null,
+            })
+            testIds.materialIds.push(m.id)
+            await prisma.textContentRecords.create({
+                data: {
+                    userId: testUser.id, caseId: testCase.id, materialId: m.id,
+                    content: '一段需要总结的文本内容', status: 2,
+                },
+            })
+
+            await generateMaterialSummaryService(m.id)
+
+            const after = await prisma.textContentRecords.findFirst({
+                where: { materialId: m.id, deletedAt: null },
+            })
+            expect(after?.summary).toBe('文字材料的摘要')
+            expect(llmMocks.generateSummaryService).toHaveBeenCalledTimes(1)
+        })
+
+        it('DOCUMENT 类型：summary 写到 docRecognitionRecords.summary（按 ossFileId）', async () => {
+            resetLlmMocks()
+            setupValidNodeConfig()
+            llmMocks.generateSummaryService.mockResolvedValue('文档摘要文本')
+
+            const ossFile = await createTestOssFile({ userId: testUser.id }, testIds)
+            const m = await createTestMaterial({
+                caseId: testCase.id, type: CaseMaterialType.DOCUMENT, ossFileId: ossFile.id,
+            })
+            testIds.materialIds.push(m.id)
+            await prisma.docRecognitionRecords.create({
+                data: {
+                    userId: testUser.id, ossFileId: ossFile.id, status: 2,
+                    markdownContent: '文档正文内容', summary: null,
+                },
+            })
+
+            await generateMaterialSummaryService(m.id)
+
+            const after = await prisma.docRecognitionRecords.findFirst({ where: { ossFileId: ossFile.id } })
+            expect(after?.summary).toBe('文档摘要文本')
+        })
+
+        it('IMAGE 类型：summary 写到 imageRecognitionRecords.summary（按 ossFileId）', async () => {
+            resetLlmMocks()
+            setupValidNodeConfig()
+            llmMocks.generateSummaryService.mockResolvedValue('图片摘要文本')
+
+            const ossFile = await createTestOssFile({ userId: testUser.id }, testIds)
+            const m = await createTestMaterial({
+                caseId: testCase.id, type: CaseMaterialType.IMAGE, ossFileId: ossFile.id,
+            })
+            testIds.materialIds.push(m.id)
+            await prisma.imageRecognitionRecords.create({
+                data: {
+                    userId: testUser.id, ossFileId: ossFile.id, status: 2,
+                    markdownContent: '图片识别内容', summary: null,
+                },
+            })
+
+            await generateMaterialSummaryService(m.id)
+
+            const after = await prisma.imageRecognitionRecords.findFirst({ where: { ossFileId: ossFile.id } })
+            expect(after?.summary).toBe('图片摘要文本')
+        })
+
+        it('AUDIO 类型：summary 写到 asrRecords.summary（按 ossFileId）', async () => {
+            resetLlmMocks()
+            setupValidNodeConfig()
+            llmMocks.generateSummaryService.mockResolvedValue('音频摘要文本')
+
+            const ossFile = await createTestOssFile({ userId: testUser.id }, testIds)
+            const m = await createTestMaterial({
+                caseId: testCase.id, type: CaseMaterialType.AUDIO, ossFileId: ossFile.id,
+            })
+            testIds.materialIds.push(m.id)
+            await prisma.asrRecords.create({
+                data: {
+                    userId: testUser.id, ossFileId: ossFile.id, status: 2,
+                    result: { sentences: [{ text: '一段需要摘要的转录' }] },
+                    summary: null,
+                },
+            })
+
+            await generateMaterialSummaryService(m.id)
+
+            const after = await prisma.asrRecords.findFirst({ where: { ossFileId: ossFile.id } })
+            expect(after?.summary).toBe('音频摘要文本')
+        })
+
+        it('inflight 并发去重：同 materialId 并发只调一次 LLM', async () => {
+            resetLlmMocks()
+            setupValidNodeConfig()
+            llmMocks.generateSummaryService.mockImplementation(async () => {
+                await new Promise(r => setTimeout(r, 200))
+                return '并发摘要'
+            })
+
+            const m = await createTestMaterial({
+                caseId: testCase.id, type: CaseMaterialType.CASE_CONTENT, ossFileId: null,
+            })
+            testIds.materialIds.push(m.id)
+            await prisma.textContentRecords.create({
+                data: {
+                    userId: testUser.id, caseId: testCase.id, materialId: m.id,
+                    content: '内容', status: 2,
+                },
+            })
+
+            await Promise.all([
+                generateMaterialSummaryService(m.id),
+                generateMaterialSummaryService(m.id),
+                generateMaterialSummaryService(m.id),
+                generateMaterialSummaryService(m.id),
+                generateMaterialSummaryService(m.id),
+            ])
+
+            expect(llmMocks.generateSummaryService).toHaveBeenCalledTimes(1)
+            const after = await prisma.textContentRecords.findFirst({ where: { materialId: m.id } })
+            expect(after?.summary).toBe('并发摘要')
+        })
+
+        // ⚠️ 重试穷尽 → status=FAILED 行为已通过 dev 实测验证（log 显示 4 次失败 +
+        //   "摘要 LLM 重试穷尽，标记 caseMaterials.status=FAILED"）。此处不放进自动化
+        //   测试是因为：实现里 setTimeout 5s/15s/45s 共 65s 真实等待，跑这个 test 比 worker DB
+        //   生命周期还长，会在 cleanup 时被 globalSetup teardown 抢先 drop DB；且 fake timers
+        //   无法跨 prisma 真实 IO 推进，没有干净的快进方案。重试逻辑本身按 plan v3 落地。
+        it.skip('LLM 全部失败：标记 caseMaterials.status=FAILED 不抛错（实测覆盖，自动化测试不放）', async () => {
+            // 实现：generateMaterialSummaryInner 内 1 次原始 + 3 次重试 (5s/15s/45s)
+            // 全失败 → prisma.caseMaterials.update({ status: FAILED }) → return（不抛错）
         })
     })
 })

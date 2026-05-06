@@ -27,7 +27,9 @@ import { CaseMaterialType } from '#shared/types/case'
 import { createChatModel } from '../node/chatModelFactory'
 import { getValidNodeConfig } from '../node/node.service'
 import { generateSummaryService } from '../ai/summaryService'
-import { findDocRecognitionByOssFileIdDao } from './mineru.dao'
+import { findDocRecognitionByOssFileIdDao, updateDocRecognitionRecordDao } from './mineru.dao'
+import { findImageRecognitionByOssFileIdDao, updateImageRecognitionRecordDao } from './ocr.dao'
+import { findAsrRecordByOssFileIdDao, updateAsrRecordDao } from './asr.dao'
 import { extractTextFromAsrResult } from './asr.service'
 import type { asrRecords, ossFiles } from '~~/generated/prisma/client'
 import { withLangfuseContext } from '~~/server/lib/langfuse'
@@ -513,28 +515,59 @@ export const getMaterialsStatsService = async (
     return { total, pending, processing, completed, failed }
 }
 
+/** 摘要长度统一 200 字（spec §8.1 拍板） */
+const SUMMARY_MAX_CHARS = 200
+
+/** 单次 LLM 失败重试间隔（毫秒，指数退避） */
+const RETRY_DELAYS_MS = [5_000, 15_000, 45_000]
+
 /**
- * 为材料生成 100 字摘要并写入 caseMaterials.summary
- * 触发时机：材料文本就绪（OCR/ASR 完成）后异步调用
- * 失败不阻塞主流程，仅 logger.warn
+ * inflight Map：同一 materialId 的并发请求复用同一 Promise，避免重复 LLM 调用
+ */
+const inflight = new Map<number, Promise<void>>()
+
+/**
+ * 为材料生成 200 字摘要。
+ *
+ * 升级版（spec §4.2）：
+ * - 内部按 caseMaterials.{type, ossFileId} 分发到 4 张表的 summary 字段
+ *   - CASE_CONTENT → textContentRecords.summary（按 materialId）
+ *   - DOCUMENT → docRecognitionRecords.summary（按 ossFileId）
+ *   - IMAGE → imageRecognitionRecords.summary（按 ossFileId）
+ *   - AUDIO → asrRecords.summary（按 ossFileId）
+ * - 防重：先 select 对应表 summary，已非空直接 return
+ * - 并发去重：进程内 inflight Map<materialId, Promise<void>>
+ * - 失败重试：3 次（5s/15s/45s 指数退避）
+ * - 重试穷尽：caseMaterials.status=FAILED + return（不抛错）
+ *
+ * 失败不阻塞主流程，仅 logger.warn。
  */
 export async function generateMaterialSummaryService(materialId: number): Promise<void> {
-    return withLangfuseContext(
+    const existing = inflight.get(materialId)
+    if (existing) return existing
+
+    const task = withLangfuseContext(
         { materialId: String(materialId), vertical: 'material-summary' },
         () => generateMaterialSummaryInner(materialId),
-    )
+    ).finally(() => inflight.delete(materialId))
+
+    inflight.set(materialId, task)
+    return task
 }
 
 async function generateMaterialSummaryInner(materialId: number): Promise<void> {
     try {
         const material = await prisma.caseMaterials.findUnique({
             where: { id: materialId },
-            select: { id: true, ossFileId: true, type: true },
+            select: { id: true, type: true, ossFileId: true },
         })
         if (!material) return
 
-        const content = await loadMaterialText(materialId, 500)
-        if (!content) return
+        // 按类型读对应识别记录的 summary + content（防重 + 提供 LLM 输入）
+        const target = await loadSummaryTarget(material.id, material.type, material.ossFileId)
+        if (!target) return  // 识别记录不存在 / 无内容
+        if (target.summary) return  // 已有摘要，防重早返
+        if (!target.content) return  // 无内容可总结
 
         const config = await getValidNodeConfig('materialAutoSummary', '材料自动摘要')
         const apiKey = config.modelApiKeys.find(k => k.status === 1)?.apiKey
@@ -547,7 +580,6 @@ async function generateMaterialSummaryInner(materialId: number): Promise<void> {
             logger.warn('materialAutoSummary 节点无 system prompt', { materialId })
             return
         }
-
         const model = createChatModel({
             sdkType: config.modelSdkType,
             modelName: config.modelName,
@@ -556,47 +588,100 @@ async function generateMaterialSummaryInner(materialId: number): Promise<void> {
             temperature: 0,
             streaming: false,
         })
-        // 注意：调用 LLM 但不写回——caseMaterials.summary 已删，
-        // Task 3 将把简介按 type 分发写入 4 张识别记录表（doc/image/asr/textContent）。
-        // 此处暂时留空写入路径，仍消耗 LLM 配额；Task 3 落地前调用此函数没有持久化效果。
-        await generateSummaryService(model, content, { maxChars: 100, systemPrompt })
+
+        // LLM 调用 + 自动重试 3 次（指数退避）
+        let summary: string | null = null
+        let lastErr: unknown = null
+        for (let attempt = 0; attempt < RETRY_DELAYS_MS.length + 1; attempt++) {
+            try {
+                summary = await generateSummaryService(model, target.content, {
+                    maxChars: SUMMARY_MAX_CHARS,
+                    systemPrompt,
+                })
+                break
+            } catch (e) {
+                lastErr = e
+                logger.warn(`摘要 LLM 调用第 ${attempt + 1} 次失败`, { materialId, error: e })
+                if (attempt < RETRY_DELAYS_MS.length) {
+                    await new Promise(r => setTimeout(r, RETRY_DELAYS_MS[attempt]))
+                }
+            }
+        }
+        if (!summary) {
+            logger.error('摘要 LLM 重试穷尽，标记 caseMaterials.status=FAILED', { materialId, error: lastErr })
+            await prisma.caseMaterials.update({
+                where: { id: materialId },
+                data: { status: MaterialStatus.FAILED },
+            }).catch(() => { /* 忽略状态写入失败 */ })
+            return
+        }
+
+        // 写回对应表 summary
+        await persistSummary(material.id, material.type, material.ossFileId, summary)
     } catch (e) {
         logger.warn('generateMaterialSummaryService 失败（不阻塞主流程）', { materialId, error: e })
     }
 }
 
-/**
- * 读材料正文前 maxChars 字（用于摘要生成）
- */
-async function loadMaterialText(materialId: number, maxChars: number): Promise<string> {
-    const m = await prisma.caseMaterials.findUnique({
-        where: { id: materialId },
-        select: { id: true, type: true, ossFileId: true },
-    })
-    if (!m) return ''
-    // 文本：从 textContentRecords 读
-    if (m.type === CaseMaterialType.CASE_CONTENT) {
-        const record = await findTextContentRecordByMaterialIdDAO(materialId)
-        return (record?.content ?? '').slice(0, maxChars)
+interface SummaryTarget {
+    summary: string | null
+    content: string  // 摘要 LLM 的输入文本（已 slice 到合理长度）
+}
+
+async function loadSummaryTarget(
+    materialId: number,
+    type: number,
+    ossFileId: number | null,
+): Promise<SummaryTarget | null> {
+    if (type === CaseMaterialType.CASE_CONTENT) {
+        const r = await findTextContentRecordByMaterialIdDAO(materialId)
+        if (!r) return null
+        return { summary: r.summary, content: (r.content ?? '').slice(0, 2000) }
     }
-    // 文档 / 图片：走 OCR（docRecognitionRecords → markdownContent）
-    if ((m.type === CaseMaterialType.DOCUMENT || m.type === CaseMaterialType.IMAGE) && m.ossFileId) {
-        const record = await findDocRecognitionByOssFileIdDao(m.ossFileId)
-        return (record?.markdownContent ?? '').slice(0, maxChars)
+    if (!ossFileId) return null
+    if (type === CaseMaterialType.DOCUMENT) {
+        const r = await findDocRecognitionByOssFileIdDao(ossFileId)
+        if (!r || r.status !== 2) return null
+        return { summary: r.summary, content: (r.markdownContent ?? '').slice(0, 2000) }
     }
-    // 音频：从 asrRecords.result JSON 现拼纯文本（摘要 LLM 输入用）
-    if (m.type === CaseMaterialType.AUDIO && m.ossFileId) {
-        const asr = await prisma.asrRecords.findFirst({
-            where: { ossFileId: m.ossFileId, deletedAt: null },
-            select: { result: true },
-            orderBy: { createdAt: 'desc' },
+    if (type === CaseMaterialType.IMAGE) {
+        const r = await findImageRecognitionByOssFileIdDao(ossFileId)
+        if (!r || r.status !== 2) return null
+        return { summary: r.summary, content: (r.markdownContent ?? '').slice(0, 2000) }
+    }
+    if (type === CaseMaterialType.AUDIO) {
+        const r = await findAsrRecordByOssFileIdDao(ossFileId)
+        if (!r || r.status !== 2) return null
+        const transcribed = extractTextFromAsrResult(r.result) ?? ''
+        return { summary: r.summary, content: transcribed.slice(0, 2000) }
+    }
+    return null
+}
+
+async function persistSummary(
+    materialId: number,
+    type: number,
+    ossFileId: number | null,
+    summary: string,
+): Promise<void> {
+    if (type === CaseMaterialType.CASE_CONTENT) {
+        await prisma.textContentRecords.updateMany({
+            where: { materialId, deletedAt: null },
+            data: { summary },
         })
-        if (asr?.result) {
-            const text = extractTextFromAsrResult(asr.result)
-            if (text) return text.slice(0, maxChars)
-        }
+        return
     }
-    return ''
+    if (!ossFileId) return
+    if (type === CaseMaterialType.DOCUMENT) {
+        const r = await findDocRecognitionByOssFileIdDao(ossFileId)
+        if (r) await updateDocRecognitionRecordDao(r.id, { summary })
+    } else if (type === CaseMaterialType.IMAGE) {
+        const r = await findImageRecognitionByOssFileIdDao(ossFileId)
+        if (r) await updateImageRecognitionRecordDao(r.id, { summary })
+    } else if (type === CaseMaterialType.AUDIO) {
+        const r = await findAsrRecordByOssFileIdDao(ossFileId)
+        if (r) await updateAsrRecordDao(r.id, { summary })
+    }
 }
 
 // ==================== 跨表摘要查询 ====================
