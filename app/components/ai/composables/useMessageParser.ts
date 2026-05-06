@@ -347,6 +347,23 @@ export function useMessageParser(
       })
       .filter(Boolean) as ParsedMessage[]
 
+    // orphan synthetic toolCalls：使用 sentinel parentId='__pre_agent__' 的合成卡片
+    // 独立渲染在消息流头部，不依赖任何 AIMessage（用于材料预处理保底卡片等场景）
+    const orphanList = extras['__pre_agent__'] ?? []
+    if (orphanList.length > 0) {
+      return [
+        {
+          id: '__pre_agent_synthetic__',
+          type: 'ai' as const,
+          content: '',
+          thinking: undefined,
+          toolCalls: orphanList,
+          raw: null as any,
+        },
+        ...result,
+      ]
+    }
+
     return result
   })
 

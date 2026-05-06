@@ -18,7 +18,7 @@ import type { UseStreamCustomOptions } from '@langchain/vue'
 import { AIMessage, ToolMessage } from '@langchain/core/messages'
 import type { BaseMessage } from '@langchain/core/messages'
 import type { AgentRunStatus, AgentEvent, AgentCustomEvent, AgentStatusEvent } from '#shared/types/agentRun'
-import type { AnalysisSummaryPayload } from '#shared/types/agentEvent'
+import type { AnalysisSummaryPayload, PrepareMaterialsPayload } from '#shared/types/agentEvent'
 import { SYNTHETIC_TOOL_GENERATE_SUMMARY } from '#shared/types/agentEvent'
 import type { ToolCallWithResult } from '~/components/ai/composables/useMessageParser'
 
@@ -322,6 +322,54 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
                     syntheticToolCalls[payload.parentMessageId] = [...list]
                 }
                 return  // 不透传给外部 onCustomEvent
+            }
+
+            // 准备材料卡片（保底中间件触发）：合成 process_materials 工具卡片
+            if (
+                data
+                && typeof data === 'object'
+                && 'name' in data
+                && (data as { name: unknown }).name === 'prepare_materials'
+            ) {
+                const payload = (data as unknown as { data: PrepareMaterialsPayload }).data
+                const parentId = '__pre_agent__'
+
+                const list = syntheticToolCalls[parentId] ?? []
+                let mutated = false
+                if (payload.phase === 'start') {
+                    if (!list.some(t => t.id === payload.toolCallId)) {
+                        list.push({
+                            id: payload.toolCallId,
+                            name: 'process_materials',
+                            args: { materials: payload.materials },
+                            state: 'input-available',
+                        })
+                        mutated = true
+                    }
+                } else if (payload.phase === 'progress') {
+                    const idx = list.findIndex(t => t.id === payload.toolCallId)
+                    if (idx >= 0) {
+                        list[idx] = {
+                            ...list[idx]!,
+                            args: { materials: payload.materials },
+                        }
+                        mutated = true
+                    }
+                } else {
+                    const idx = list.findIndex(t => t.id === payload.toolCallId)
+                    if (idx >= 0) {
+                        list[idx] = {
+                            ...list[idx]!,
+                            result: { materials: payload.materials, failedCount: payload.failedCount },
+                            state: payload.failedCount === 0 ? 'output-available' : 'output-error',
+                        }
+                        mutated = true
+                    }
+                }
+                if (mutated) {
+                    syntheticToolCalls[parentId] = [...list]
+                }
+                return
             }
 
             options.onCustomEvent?.(data)
