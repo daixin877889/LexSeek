@@ -66,8 +66,8 @@ vi.mock('~~/server/services/legal/vectorStore.service', () => ({
     similaritySearchWithScore: vi.fn().mockResolvedValue([]),
 }))
 
+import { extractTextFromAsrResult } from '../../../server/services/material/asr.service'
 import {
-    extractTextFromAsrResult,
     fetchMaterialContents,
     getMaterialContextService,
     buildMaterialContextMessage,
@@ -213,12 +213,12 @@ describe('materialPipeline.service - 补充覆盖率', () => {
             expect(contentMap.get(2)).toBe('图片识别')
         })
 
-        it('获取音频材料内容（优先 summary）', async () => {
+        it('获取音频材料内容（T2：从 result JSON 现拼，summary 字段已切换语义）', async () => {
             mockPrisma.textContentRecords.findMany.mockResolvedValue([])
             mockPrisma.docRecognitionRecords.findMany.mockResolvedValue([])
             mockPrisma.imageRecognitionRecords.findMany.mockResolvedValue([])
             mockPrisma.asrRecords.findMany.mockResolvedValue([
-                { ossFileId: 300, summary: '音频摘要', result: null },
+                { ossFileId: 300, result: { sentences: [{ text: '音频转录文本' }] } },
             ])
 
             const materials = [
@@ -227,10 +227,10 @@ describe('materialPipeline.service - 补充覆盖率', () => {
 
             const contentMap = await fetchMaterialContents(materials)
 
-            expect(contentMap.get(3)).toBe('音频摘要')
+            expect(contentMap.get(3)).toBe('音频转录文本')
         })
 
-        it('获取音频材料内容（fallback 到 result）', async () => {
+        it('获取音频材料内容（result 嵌套 transcripts 格式）', async () => {
             mockPrisma.textContentRecords.findMany.mockResolvedValue([])
             mockPrisma.docRecognitionRecords.findMany.mockResolvedValue([])
             mockPrisma.imageRecognitionRecords.findMany.mockResolvedValue([])

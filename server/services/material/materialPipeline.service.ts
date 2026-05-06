@@ -10,6 +10,7 @@ import { processMaterialService, batchCheckMaterialRecognizedService, MaterialPr
 import { CaseMaterialType, getMaterialTypeFromMime } from '#shared/types/case'
 import { MaterialStatus } from '#shared/types/material'
 import { createMaterialDao, findMaterialByIdDao, findActiveMaterialByOssFileIdDao } from './material.dao'
+import { extractTextFromAsrResult } from './asr.service'
 import { countTokensSync } from '~~/server/utils/tokenCounter'
 
 export interface MaterialFailedItem {
@@ -278,43 +279,6 @@ export function estimateTokens(text: string): number {
  * - 音频(4): asrRecords.summary (按 ossFileId)，fallback 到 result JSON 提取纯文本
  */
 
-/**
- * 从 ASR result JSON 中提取纯文本（当 summary 为空时的 fallback）
- *
- * 兼容两种格式：
- * - 扁平格式: { sentences: [{ text }] }
- * - SimplifiedAsrResult 嵌套格式: { transcripts: [{ sentences: [{ text }] }] }
- */
-export function extractTextFromAsrResult(result: any): string | null {
-    if (!result) return null
-
-    // 扁平格式: { sentences: [...] }
-    if (result.sentences && Array.isArray(result.sentences)) {
-        const text = result.sentences
-            .map((s: any) => s.text || '')
-            .filter(Boolean)
-            .join('\n')
-        if (text) return text
-    }
-
-    // SimplifiedAsrResult 嵌套格式: { transcripts: [{ sentences: [...] }] }
-    if (result.transcripts && Array.isArray(result.transcripts)) {
-        const text = result.transcripts
-            .flatMap((t: any) => t.sentences || [])
-            .map((s: any) => s.text || '')
-            .filter(Boolean)
-            .join('\n')
-        if (text) return text
-    }
-
-    // 兜底：直接取 text 字段
-    if (typeof result.text === 'string' && result.text.trim()) {
-        return result.text
-    }
-
-    return null
-}
-
 export async function fetchMaterialContents(
     materials: { id: number; type: number; ossFileId: number | null }[]
 ): Promise<Map<number, string>> {
@@ -407,15 +371,14 @@ export async function fetchMaterialContents(
                     status: 2, // SUCCESS
                     deletedAt: null,
                 },
-                select: { ossFileId: true, summary: true, result: true },
+                select: { ossFileId: true, result: true },
                 orderBy: { createdAt: 'desc' },
             }).then(records => {
                 const seen = new Set<number>()
                 for (const r of records) {
                     if (r.ossFileId && !seen.has(r.ossFileId)) {
-                        // 优先使用 summary（已格式化的转录文本）
-                        // fallback：从 result JSON 提取纯文本
-                        const content = r.summary || extractTextFromAsrResult(r.result)
+                        // 从 result JSON 现拼纯文本（summary 字段已切换语义为 200 字摘要，不再存转录文本）
+                        const content = extractTextFromAsrResult(r.result)
                         if (content) {
                             seen.add(r.ossFileId)
                             const materialId = ossFileIdToMaterialId.get(r.ossFileId)

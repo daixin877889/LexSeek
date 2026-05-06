@@ -16,6 +16,7 @@ import {
     getPool,
     type VectorStoreConfig,
 } from '~~/server/services/legal/vectorStore.service'
+import { extractTextFromSimplifiedResult } from './asr.service'
 
 
 /** 材料向量存储配置 */
@@ -1215,14 +1216,19 @@ export async function embedMaterialUnifiedService(
             }
             const asrRecord = await prisma.asrRecords.findFirst({
                 where: { ossFileId: material.ossFileId, deletedAt: null },
-                select: { summary: true },
+                select: { result: true, speakers: true },
                 orderBy: { createdAt: 'desc' },
             })
-            if (!asrRecord?.summary) {
+            if (!asrRecord?.result) {
+                return { success: false, error: '音频识别记录内容为空' }
+            }
+            const speakers = asrRecord.speakers as Array<{ id: number; name: string }> | null
+            const text = extractTextFromSimplifiedResult(asrRecord.result as any, speakers || undefined)
+            if (!text) {
                 return { success: false, error: '音频识别记录内容为空' }
             }
             const audioResult = await embedAudioService({
-                content: asrRecord.summary,
+                content: text,
                 userId,
                 ossFileId: material.ossFileId,
                 fileName: material.name,

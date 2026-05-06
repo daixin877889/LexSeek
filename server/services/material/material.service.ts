@@ -28,6 +28,7 @@ import { createChatModel } from '../node/chatModelFactory'
 import { getValidNodeConfig } from '../node/node.service'
 import { generateSummaryService } from '../ai/summaryService'
 import { findDocRecognitionByOssFileIdDao } from './mineru.dao'
+import { extractTextFromAsrResult } from './asr.service'
 import type { asrRecords, ossFiles } from '~~/generated/prisma/client'
 import { withLangfuseContext } from '~~/server/lib/langfuse'
 
@@ -583,13 +584,17 @@ async function loadMaterialText(materialId: number, maxChars: number): Promise<s
         const record = await findDocRecognitionByOssFileIdDao(m.ossFileId)
         return (record?.markdownContent ?? '').slice(0, maxChars)
     }
-    // 音频：从 asrRecords 读 summary
+    // 音频：从 asrRecords.result JSON 现拼纯文本（摘要 LLM 输入用）
     if (m.type === CaseMaterialType.AUDIO && m.ossFileId) {
         const asr = await prisma.asrRecords.findFirst({
             where: { ossFileId: m.ossFileId, deletedAt: null },
-            select: { summary: true },
+            select: { result: true },
+            orderBy: { createdAt: 'desc' },
         })
-        if (asr?.summary) return asr.summary.slice(0, maxChars)
+        if (asr?.result) {
+            const text = extractTextFromAsrResult(asr.result)
+            if (text) return text.slice(0, maxChars)
+        }
     }
     return ''
 }
