@@ -1,9 +1,39 @@
 import { SystemMessage } from '@langchain/core/messages'
 import dayjs from 'dayjs'
+import { CaseMaterialTypeText, type CaseMaterialType } from '#shared/types/case'
+import { MaterialStatus } from '#shared/types/material'
 import type { CachedPrompt } from '#shared/types/prompt'
-import { getMaterialListWithSummariesService } from '~~/server/services/material/materialPipeline.service'
+import { getMaterialListWithSummariesService, getSourceId } from '~~/server/services/material/materialPipeline.service'
 import { recallMemoryService } from '~~/server/services/memory/memory.service'
 import { cachedPromptToAnthropicContent, cachedPromptToPlainText } from '~~/server/services/node/chatModelFactory'
+
+/**
+ * LLM 提示词专用状态文案，与 shared/types/material.ts 的 MaterialStatusText 区分：
+ * UI 用"处理中/已完成/处理失败"，LLM 提示词用"识别中/已识别/识别失败"贴合
+ * OCR/ASR 业务概念，让 LLM 一眼看出"哪些材料还查不了全文"。
+ */
+const STATUS_LABEL_MAP: Record<MaterialStatus, string> = {
+  [MaterialStatus.PENDING]: '待识别',
+  [MaterialStatus.PROCESSING]: '识别中',
+  [MaterialStatus.COMPLETED]: '已识别',
+  [MaterialStatus.FAILED]: '识别失败',
+}
+
+/**
+ * 按材料 status 与 summary 渲染材料行尾的描述文字。
+ * - COMPLETED + summary 非空：直接返回 summary
+ * - COMPLETED + summary 空：返回"（摘要生成中）"
+ * - PROCESSING / PENDING / FAILED：返回对应状态提示，告诉 LLM 暂不可查全文
+ */
+function renderMaterialSummary(status: MaterialStatus, summary: string | null): string {
+  if (summary) return summary
+  switch (status) {
+    case MaterialStatus.COMPLETED: return '（摘要生成中）'
+    case MaterialStatus.PROCESSING: return '（识别中，待识别完成后可查全文）'
+    case MaterialStatus.PENDING: return '（待识别，上传中或排队中）'
+    case MaterialStatus.FAILED: return '（识别失败，可联系客服重新处理）'
+  }
+}
 
 export interface ContextSegments {
   /** 角色 + 流程规范（来自 NodeConfig） */
@@ -131,10 +161,13 @@ export async function buildContextSegments(params: Params): Promise<ContextSegme
     for (const m of memoryHits) dynLines.push(`- ${m.text}`)
   }
   if (materials.length > 0) {
-    dynLines.push('\n## 案件材料清单（全文请调用 search_case_materials 工具）')
+    dynLines.push('\n## 案件材料清单（全文请调用 search_case_materials 工具，参数 sourceId 填下面括号中的值精确取该材料；或参数 query 填关键词跨材料搜索）')
     for (const mat of materials) {
-      const typeLabel = ({ 1: '文本', 2: '文档', 3: '图片', 4: '音频' } as const)[mat.type as 1|2|3|4] ?? '其它'
-      dynLines.push(`- **${mat.name}**（${typeLabel}）— ${mat.summary ?? '（摘要生成中）'}`)
+      const typeLabel = CaseMaterialTypeText[mat.type as CaseMaterialType]
+      const statusLabel = STATUS_LABEL_MAP[mat.status as MaterialStatus]
+      const sourceId = getSourceId(mat)
+      const summaryText = renderMaterialSummary(mat.status as MaterialStatus, mat.summary)
+      dynLines.push(`- **${mat.name}**（${typeLabel}，sourceId=${sourceId ?? '未生成'}）— ${statusLabel} — ${summaryText}`)
     }
   }
   const dynamicContext = dynLines.join('\n')

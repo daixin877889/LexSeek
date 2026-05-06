@@ -189,12 +189,13 @@ export async function ensureMaterialsReadyByDraftService(
  */
 export const TOKEN_THRESHOLD = 15000
 
-/** 按材料类型返回向量表中的 sourceId */
-export function getSourceId(material: MaterialWithFile): number {
+/** 按材料类型返回向量表中的 sourceId（异常数据 ossFileId=null 时返回 null，由调用方决定兜底） */
+export type MaterialSourceIdInput = Pick<MaterialWithFile, 'type' | 'id' | 'ossFileId'>
+export function getSourceId(material: MaterialSourceIdInput): number | null {
     if (material.type === CaseMaterialType.CASE_CONTENT) {
         return material.id
     }
-    return material.ossFileId!
+    return material.ossFileId
 }
 
 /**
@@ -432,11 +433,14 @@ export async function getMaterialContextService(
     // 2) summary — 摘要（summary 字段或内容前 200 字）
     // 3) index — 只保留名称/类型占位，AI 需通过 search_case_materials 按需调档
     // summary 分支也必须累加实际 tokens，否则 totalTokens 与返回 payload 严重不符。
+    // 内部 pipeline 流转的 materials 都来自 runRecognitionAndEmbeddingPipeline 走完识别 +
+    // 嵌入流水线，type=2/3/4 必有 ossFileId，type=1 走 material.id 兜底，故 getSourceId
+    // 在此处永不返回 null，用 ! 表达该不变量（getSourceId 公共签名仍允许 null 以反映 schema 现实）。
     for (const m of sorted) {
         const content = contentMap.get(m.id)
         if (!content) {
             materialList.push({
-                sourceId: getSourceId(m),
+                sourceId: getSourceId(m)!,
                 name: m.name,
                 type: m.type,
                 hasContent: false,
@@ -450,7 +454,7 @@ export async function getMaterialContextService(
         const fullTokens = estimateTokens(content)
         if (usedTokens + fullTokens <= tokenBudget) {
             materialList.push({
-                sourceId: getSourceId(m),
+                sourceId: getSourceId(m)!,
                 name: m.name,
                 type: m.type,
                 hasContent: true,
@@ -467,7 +471,7 @@ export async function getMaterialContextService(
         const summaryTokens = estimateTokens(summaryText)
         if (usedTokens + summaryTokens <= tokenBudget) {
             materialList.push({
-                sourceId: getSourceId(m),
+                sourceId: getSourceId(m)!,
                 name: m.name,
                 type: m.type,
                 hasContent: true,
@@ -481,7 +485,7 @@ export async function getMaterialContextService(
 
         // 摘要也超预算 → 降级为索引模式（名称 + 占位文案）
         materialList.push({
-            sourceId: getSourceId(m),
+            sourceId: getSourceId(m)!,
             name: m.name,
             type: m.type,
             hasContent: true,
@@ -498,8 +502,8 @@ export async function getMaterialContextService(
     )
     if (needSummaryItems.length > 0) {
         const needSourceIds = new Set(needSummaryItems.map(item => item.sourceId))
-        const sourceIdToMaterial = new Map(sorted.map(m => [getSourceId(m), m]))
-        const needSummaryMaterials = sorted.filter(m => needSourceIds.has(getSourceId(m)))
+        const sourceIdToMaterial = new Map(sorted.map(m => [getSourceId(m)!, m]))
+        const needSummaryMaterials = sorted.filter(m => needSourceIds.has(getSourceId(m)!))
         try {
             const { generateAndCacheSummaries } = await import('./materialSummary.service')
             const generatedMap = await generateAndCacheSummaries(needSummaryMaterials, contentMap)
@@ -592,14 +596,15 @@ async function searchWithinMaterialsService(
             index: index + 1,
             content: contentMap.get(m.id) || '[暂无内容]',
             source: {
-                sourceId: getSourceId(m),
+                // 检索流水线只处理识别+嵌入完成的材料，getSourceId 必非 null
+                sourceId: getSourceId(m)!,
                 sourceName: m.name,
             },
         }))
     }
 
     // 有 query → 走统一检索路由器
-    const sourceIds = targetMaterials.map(m => String(getSourceId(m)))
+    const sourceIds = targetMaterials.map(m => String(getSourceId(m)!))
     const results = await retrievalRouterService({
         query,
         type: 'case_material',
