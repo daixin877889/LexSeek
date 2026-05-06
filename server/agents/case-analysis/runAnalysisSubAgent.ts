@@ -49,6 +49,7 @@ import { createTool as createRunSkillCommandTool } from '~~/server/services/agen
 
 import type { ToolContext } from '~~/server/services/agent-platform/tools/types'
 import { withLangfuseContext } from '~~/server/lib/langfuse'
+import { caseProcessMaterialMiddleware } from '~~/server/agents/_shared/case-context/caseProcessMaterial.middleware'
 
 export interface RunAnalysisSubAgentParams {
     /** 节点名 = analysis_type，如 'trend' */
@@ -157,6 +158,11 @@ async function runAnalysisSubAgentInner(
             middleware: createMessageIntegrityMiddleware(),
             priority: MIDDLEWARE_PRIORITY.MESSAGE_INTEGRITY,
             name: MIDDLEWARE_NAMES.MESSAGE_INTEGRITY,
+        },
+        {
+            middleware: caseProcessMaterialMiddleware(userId, caseId, runId, sessionId),
+            priority: MIDDLEWARE_PRIORITY.PROCESS_MATERIAL,
+            name: MIDDLEWARE_NAMES.PROCESS_MATERIAL,
         },
         {
             middleware: createScopeGuardMiddleware(),
