@@ -35,7 +35,8 @@ const TOOL_PAYLOAD_HARD_CAP = 25000
 const INDEX_MODE_HINT = '[内容已压缩，请使用 search_case_materials 工具按材料名或关键字检索完整内容]'
 
 const schema = z.object({
-    fileIds: z.array(z.number().int().positive()).optional().describe('可选：仅处理这些 OSS 文件 ID（不传则处理当前上下文下的全部材料）'),
+    // LLM 偶尔会把数字 ID 当字符串回传，coerce 自动转 number 增强鲁棒性
+    fileIds: z.array(z.coerce.number().int().positive()).optional().describe('可选：仅处理这些 OSS 文件 ID（不传则处理当前上下文下的全部材料）'),
 })
 
 export const toolDefinition: ToolDefinition<typeof schema> = {

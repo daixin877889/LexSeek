@@ -15,8 +15,10 @@ import { createSimpleTool } from './types'
 import { SSECustomEventType } from '#shared/types/agentEvent'
 import { publishCustomEvent } from '~~/server/services/agent/agentEventBridge'
 
+// LLM 偶尔会把数字 ID 当字符串回传（templateId / fileIds 可能从 prompt 上下文或工具返回值取），
+// 用 z.coerce.number() 自动转换增强鲁棒性（与 reviewContract.tool / updateDocumentDraft.tool 对齐）。
 const schema = z.object({
-    templateId: z.number().int().positive().describe('模板 ID,从 recommend_template 工具的返回值取'),
+    templateId: z.coerce.number().int().positive().describe('模板 ID,从 recommend_template 工具的返回值取'),
     fieldValues: z.record(z.string(), z.string().nullable()).describe(
         '占位符名 → 值的映射;不知道的字段填 null,不要编造。至少一个字段非 null。',
     ),
@@ -29,7 +31,7 @@ const schema = z.object({
     sourceText: z.string().optional().describe(
         '用户原始诉求文字,会写到 draft.sourceRef.text 留档(后续 documentMain 重启会话时可读为初始上下文)',
     ),
-    fileIds: z.array(z.number().int().positive()).optional().describe(
+    fileIds: z.array(z.coerce.number().int().positive()).optional().describe(
         '关联的 OSS 材料文件 ID 列表(若用户上传过材料)',
     ),
 })

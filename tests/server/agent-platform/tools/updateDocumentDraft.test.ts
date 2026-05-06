@@ -92,4 +92,24 @@ describe('update_document_draft tool', () => {
 
         expect(applyAITitleIfAllowedService).toHaveBeenCalledWith(100, '新标题')
     })
+
+    // 回归：documentMain system prompt 里把 draftId 渲染成"草稿 ID:90"，LLM 偶尔会原样把 "90"
+    // 字符串当成 draftId 回传，导致 zod 抛 "expected number, received string"。
+    // schema 应当 coerce 字符串 → number，对齐 reviewContract.tool 的同类修复。
+    it('schema 自动把字符串 draftId coerce 为 number(LLM 把 prompt 中的草稿 ID 当字符串回传)', async () => {
+        ;(patchDraftService as any).mockResolvedValue({
+            draft: { id: 90, values: { 被告: '李四' } },
+        })
+
+        const tool = createTool({ userId: 1, sessionId: 'sess-x', runId: 'run-x' })
+        const result = await tool.invoke({
+            draftId: '90' as unknown as number,
+            fieldUpdates: { 被告: '李四' },
+        })
+
+        const parsed = JSON.parse(result as string)
+        expect(parsed.success).toBe(true)
+        expect(parsed.draftId).toBe(90)
+        expect(patchDraftService).toHaveBeenCalledWith(1, 90, expect.any(Object))
+    })
 })

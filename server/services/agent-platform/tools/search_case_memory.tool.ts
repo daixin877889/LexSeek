@@ -8,7 +8,7 @@ import { createSimpleTool, type ToolDefinition } from './types'
 const schema = z.object({
     query: z.string().optional().describe('检索关键词或问题（必填，缺失会返回错误提示让 LLM 补全）'),
     kind: z.enum(['fact', 'preference', 'dialogue_note']).optional(),
-    top_k: z.number().default(5),
+    top_k: z.coerce.number().default(5),
     include_history: z.boolean().default(false)
         .describe('是否放开已失效记忆（仅在用户明确问"之前/历史/曾经/当初"等时序追溯问题时设为 true）'),
 })

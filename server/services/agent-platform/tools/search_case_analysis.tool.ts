@@ -23,7 +23,7 @@ const schema = z.object({
         .describe(`限定分析模块类型，仅接受以下值：${VALID_ANALYSIS_TYPES.join(' / ')}。不传则跨所有模块检索。`),
     include_all_versions: z.boolean().default(false)
         .describe('是否返回非生效版本（对比历史版本时用）'),
-    top_k: z.number().default(5),
+    top_k: z.coerce.number().default(5),
 })
 
 export const toolDefinition: ToolDefinition<typeof schema> = {

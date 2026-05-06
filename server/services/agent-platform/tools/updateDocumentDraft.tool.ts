@@ -15,7 +15,9 @@ import { SSECustomEventType } from '#shared/types/agentEvent'
 import { publishCustomEvent } from '~~/server/services/agent/agentEventBridge'
 
 const schema = z.object({
-    draftId: z.number().int().positive().describe('要更新的草稿 ID(从 save_document_draft 的返回值取)'),
+    // documentMain 在 system prompt 里把草稿 ID 渲染成"草稿 ID:90"文本注入，LLM 偶尔会原样
+    // 把 "90" 字符串当 draftId 回传，用 coerce 自动转 number 增强鲁棒性（与 reviewContract.tool 对齐）。
+    draftId: z.coerce.number().int().positive().describe('要更新的草稿 ID(从 save_document_draft 的返回值取)'),
     fieldUpdates: z.record(z.string(), z.string().nullable()).describe(
         '只传要改的字段(占位符名 → 新值);超出模板字段范围的会被忽略',
     ),
