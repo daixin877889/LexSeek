@@ -12,6 +12,10 @@
                 </div>
             </div>
             <div class="flex gap-2">
+                <Button v-if="node" variant="outline" @click="formDialogRef?.openEdit(node)" :disabled="loading">
+                    <Pencil class="h-4 w-4 mr-2" />
+                    编辑
+                </Button>
                 <Button variant="outline" @click="handleToggleStatus" :disabled="loading">
                     <Power class="h-4 w-4 mr-2" />
                     {{ node?.status === 1 ? '禁用' : '启用' }}
@@ -41,13 +45,7 @@
             <!-- 基本信息卡片 -->
             <Card>
                 <CardHeader>
-                    <div class="flex items-center justify-between">
-                        <CardTitle>基本信息</CardTitle>
-                        <Button variant="outline" size="sm" @click="formDialogRef?.openEdit(node)">
-                            <Pencil class="h-4 w-4 mr-2" />
-                            编辑
-                        </Button>
-                    </div>
+                    <CardTitle>基本信息</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -91,28 +89,6 @@
                             <Label class="text-muted-foreground">节点描述</Label>
                             <p>{{ node.description || '暂无描述' }}</p>
                         </div>
-                        <div class="col-span-full space-y-1">
-                            <Label class="text-muted-foreground">工具列表</Label>
-                            <div v-if="toolDetails.length" class="rounded-md border divide-y bg-card">
-                                <div
-                                    v-for="tool in toolDetails"
-                                    :key="tool.name"
-                                    class="flex items-start gap-3 p-3"
-                                >
-                                    <Wrench class="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
-                                    <div class="flex-1 min-w-0">
-                                        <div class="font-mono text-sm truncate">{{ tool.name }}</div>
-                                        <div
-                                            class="text-xs text-muted-foreground truncate"
-                                            :title="tool.description ?? ''"
-                                        >
-                                            {{ tool.description || '该工具已从注册表移除或暂无描述' }}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <p v-else class="text-muted-foreground">暂无配置工具</p>
-                        </div>
                         <!-- outputSchema 展示 -->
                         <div v-if="node.outputSchema" class="col-span-full space-y-1">
                             <Label class="text-muted-foreground">结构化输出 Schema</Label>
@@ -124,60 +100,10 @@
                 </CardContent>
             </Card>
 
-            <!-- 关联 Skills 卡片（只读列表，按 priority 升序） -->
-            <Card>
-                <CardHeader>
-                    <CardTitle>关联 Skills</CardTitle>
-                    <CardDescription>该节点挂载的 Skills（按 priority 升序，只读；如需调整请回到节点列表点编辑）</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div
-                        v-if="!nodeSkills.length"
-                        class="flex flex-col items-center justify-center py-8 text-center"
-                    >
-                        <Sparkles class="h-10 w-10 text-muted-foreground/50 mb-3" />
-                        <p class="text-muted-foreground text-sm">该节点未关联 Skills</p>
-                    </div>
-                    <div v-else class="rounded-md border divide-y bg-card">
-                        <div
-                            v-for="skill in nodeSkills"
-                            :key="skill.name"
-                            class="flex items-start gap-3 p-3"
-                        >
-                            <span class="w-12 shrink-0 text-center font-mono text-xs text-muted-foreground pt-0.5">
-                                {{ skill.priority }}
-                            </span>
-                            <div class="flex-1 min-w-0">
-                                <div class="font-medium text-sm truncate">
-                                    {{ skill.customTitle || skill.title || skill.name }}
-                                </div>
-                                <div class="text-xs text-muted-foreground font-mono truncate">{{ skill.name }}</div>
-                                <div
-                                    v-if="skill.description"
-                                    class="text-xs text-muted-foreground mt-1 line-clamp-2"
-                                    :title="skill.description"
-                                >
-                                    {{ skill.description }}
-                                </div>
-                            </div>
-                            <Badge :variant="skill.status === 1 ? 'default' : 'secondary'" class="shrink-0">
-                                {{ skill.status === 1 ? '生效' : '停用' }}
-                            </Badge>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-
             <!-- 提示词列表卡片（按 type 分组只读展示） -->
             <Card>
                 <CardHeader>
-                    <div class="flex items-center justify-between">
-                        <CardTitle>关联提示词</CardTitle>
-                        <Button variant="outline" size="sm" @click="navigateTo(`/admin/prompts?nodeId=${node.id}`)">
-                            <Settings class="h-4 w-4 mr-2" />
-                            管理提示词
-                        </Button>
-                    </div>
+                    <CardTitle>关联提示词</CardTitle>
                     <CardDescription>该节点关联的提示词配置（按装配位置分组展示，只读；如需调整请回到节点列表点编辑）</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -223,6 +149,82 @@
                                 </div>
                             </div>
                         </template>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <!-- 工具列表卡片（独立展示，数据来自 toolDetails） -->
+            <Card>
+                <CardHeader>
+                    <CardTitle>工具列表</CardTitle>
+                    <CardDescription>该节点可调用的工具</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div v-if="toolDetails.length" class="rounded-md border divide-y bg-card">
+                        <div
+                            v-for="tool in toolDetails"
+                            :key="tool.name"
+                            class="flex items-start gap-3 p-3"
+                        >
+                            <Wrench class="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                            <div class="flex-1 min-w-0">
+                                <div class="font-mono text-sm truncate">{{ tool.name }}</div>
+                                <div
+                                    class="text-xs text-muted-foreground line-clamp-2"
+                                    :title="tool.description ?? ''"
+                                >
+                                    {{ tool.description || '该工具已从注册表移除或暂无描述' }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-else class="flex flex-col items-center justify-center py-8 text-center">
+                        <Wrench class="h-10 w-10 text-muted-foreground/50 mb-3" />
+                        <p class="text-muted-foreground text-sm">暂无配置工具</p>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <!-- 关联 Skills 卡片（只读列表，按 priority 升序） -->
+            <Card>
+                <CardHeader>
+                    <CardTitle>关联 Skills</CardTitle>
+                    <CardDescription>该节点挂载的 Skills（按 priority 升序，只读；如需调整请回到节点列表点编辑）</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div
+                        v-if="!nodeSkills.length"
+                        class="flex flex-col items-center justify-center py-8 text-center"
+                    >
+                        <Sparkles class="h-10 w-10 text-muted-foreground/50 mb-3" />
+                        <p class="text-muted-foreground text-sm">该节点未关联 Skills</p>
+                    </div>
+                    <div v-else class="rounded-md border divide-y bg-card">
+                        <div
+                            v-for="skill in nodeSkills"
+                            :key="skill.name"
+                            class="flex items-start gap-3 p-3"
+                        >
+                            <span class="w-12 shrink-0 text-center font-mono text-xs text-muted-foreground pt-0.5">
+                                {{ skill.priority }}
+                            </span>
+                            <div class="flex-1 min-w-0">
+                                <div class="font-medium text-sm truncate">
+                                    {{ skill.customTitle || skill.title || skill.name }}
+                                </div>
+                                <div class="text-xs text-muted-foreground font-mono truncate">{{ skill.name }}</div>
+                                <div
+                                    v-if="skill.description"
+                                    class="text-xs text-muted-foreground mt-1 line-clamp-2"
+                                    :title="skill.description"
+                                >
+                                    {{ skill.description }}
+                                </div>
+                            </div>
+                            <Badge :variant="skill.status === 1 ? 'default' : 'secondary'" class="shrink-0">
+                                {{ skill.status === 1 ? '生效' : '停用' }}
+                            </Badge>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
@@ -277,7 +279,7 @@
 </template>
 
 <script setup lang="ts">
-import { ArrowLeft, Loader2, AlertCircle, Pencil, Power, Trash2, Settings, FileText, Sparkles, Wrench } from 'lucide-vue-next'
+import { ArrowLeft, Loader2, AlertCircle, Pencil, Power, Trash2, FileText, Sparkles, Wrench } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import dayjs from 'dayjs'
 import { NodeTypeLabels, NodeTypeVariants } from '#shared/types/node'
