@@ -173,7 +173,9 @@
                         <FileText class="h-8 w-8 text-muted-foreground/50 mb-2" />
                         <p class="text-muted-foreground text-sm">暂无可预览的 system prompt</p>
                     </div>
-                    <pre v-else class="text-xs bg-muted p-4 rounded whitespace-pre-wrap font-mono">{{ promptPreview.systemPromptPreview }}</pre>
+                    <div v-else class="bg-muted rounded p-4 max-h-[600px] overflow-y-auto text-sm">
+                        <Markdown :content="promptPreview.systemPromptPreview" mode="static" />
+                    </div>
                 </CardContent>
             </Card>
 
@@ -282,6 +284,8 @@
 import { ArrowLeft, Loader2, AlertCircle, Pencil, Power, Trash2, FileText, Sparkles, Wrench } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import dayjs from 'dayjs'
+import { Markdown } from 'vue-stream-markdown'
+import 'vue-stream-markdown/index.css'
 import { NodeTypeLabels, NodeTypeVariants } from '#shared/types/node'
 import type { NodePromptRef, NodeSkillRef, NodeToolDetailRef, NodeWithRelations, PromptType } from '#shared/types/node'
 import AdminNodesNodeFormDialog from '~/components/admin/nodes/NodeFormDialog.vue'

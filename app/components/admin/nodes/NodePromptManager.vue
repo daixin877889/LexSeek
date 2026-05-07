@@ -155,8 +155,14 @@
                         <Loader2 class="h-4 w-4 mr-2 animate-spin" />
                         加载中...
                     </div>
-                    <pre v-else
-                        class="text-xs whitespace-pre-wrap break-words bg-muted/50 rounded p-4 font-mono">{{ preview?.systemPromptPreview || '（暂无可预览的 system prompt）' }}</pre>
+                    <div v-else class="bg-muted/50 rounded p-4 text-sm">
+                        <Markdown
+                            v-if="preview?.systemPromptPreview"
+                            :content="preview.systemPromptPreview"
+                            mode="static"
+                        />
+                        <p v-else class="text-muted-foreground">（暂无可预览的 system prompt）</p>
+                    </div>
                 </div>
             </SheetContent>
         </Sheet>
@@ -167,6 +173,8 @@
 import { Eye, FilePlus, FileText, GripVertical, Loader2, Pencil, Plus, Trash2 } from 'lucide-vue-next'
 import { VueDraggable } from 'vue-draggable-plus'
 import { toast } from 'vue-sonner'
+import { Markdown } from 'vue-stream-markdown'
+import 'vue-stream-markdown/index.css'
 import type { NodePromptRef, PromptType } from '#shared/types/node'
 import NodePromptSelector from '~/components/admin/nodes/NodePromptSelector.vue'
 import PromptFormDialog from '~/components/admin/prompts/PromptFormDialog.vue'

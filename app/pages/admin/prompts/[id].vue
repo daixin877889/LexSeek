@@ -118,8 +118,8 @@
                         <CardDescription>编辑内容将创建新版本，不会覆盖当前版本</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div class="rounded-md border bg-muted/50 p-4">
-                            <pre class="whitespace-pre-wrap text-sm font-mono">{{ prompt.content }}</pre>
+                        <div class="rounded-md border bg-muted/50 p-4 max-h-[800px] overflow-y-auto text-sm">
+                            <Markdown :content="prompt.content" mode="static" />
                         </div>
                     </CardContent>
                 </Card>
@@ -157,8 +157,8 @@
                         <!-- 预览结果 -->
                         <div v-if="previewResult" class="space-y-2">
                             <Label class="text-muted-foreground">渲染结果</Label>
-                            <div class="rounded-md border bg-background p-4">
-                                <pre class="whitespace-pre-wrap text-sm font-mono">{{ previewResult }}</pre>
+                            <div class="rounded-md border bg-background p-4 max-h-[600px] overflow-y-auto text-sm">
+                                <Markdown :content="previewResult" mode="static" />
                             </div>
                         </div>
                     </CardContent>
@@ -196,6 +196,8 @@
 import { ArrowLeft, Loader2, AlertCircle, Pencil, Trash2, History, CheckCircle, Eye } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import dayjs from 'dayjs'
+import { Markdown } from 'vue-stream-markdown'
+import 'vue-stream-markdown/index.css'
 import type { PromptWithRelations } from '#shared/types/node'
 import AdminPromptsPromptFormDialog from '~/components/admin/prompts/PromptFormDialog.vue'
 import AdminPromptsVersionHistoryDialog from '~/components/admin/prompts/VersionHistoryDialog.vue'
