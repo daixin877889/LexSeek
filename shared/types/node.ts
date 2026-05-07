@@ -320,3 +320,37 @@ export interface PreviewPromptInput {
     /** 变量值映射 */
     variables: Record<string, string>
 }
+
+// ==================== 完整 prompt 预览相关类型 ====================
+
+/**
+ * 节点完整 prompt 预览中单条 user / assistant 消息项
+ *
+ * 用于「用户触发消息」「预设助手消息」两类列表式展示，
+ * 每条独立卡片，不做拼接（与 system / user_injection 多段拼接行为不同）。
+ */
+export interface NodePromptsPreviewItem {
+    /** 提示词唯一名称（数据库 prompts.name） */
+    name: string
+    /** 提示词显示标题（管理员自定义，可空） */
+    title: string | null
+    /** 已完成模板变量占位渲染的内容 */
+    content: string
+}
+
+/**
+ * 节点完整 prompt 预览返回结构（4 类分组动态展示）
+ *
+ * 后端按 type 分桶：
+ * - `system` / `userInjection`：多段按 displayOrder 升序 `'\n\n'` join，给出拼接结果 + 段数
+ * - `userItems` / `assistantItems`：列表式输出，按 displayOrder 升序，每项独立卡片
+ *
+ * 任意一类为空（无生效 prompt）时返回 null（system / userInjection）或 null（userItems / assistantItems），
+ * 前端按 v-if 动态渲染对应分段，不渲染空段。
+ */
+export interface NodePromptsPreview {
+    system: { content: string; count: number } | null
+    userInjection: { content: string; count: number } | null
+    userItems: NodePromptsPreviewItem[] | null
+    assistantItems: NodePromptsPreviewItem[] | null
+}
