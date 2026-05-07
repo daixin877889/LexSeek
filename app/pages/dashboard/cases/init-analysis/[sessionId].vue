@@ -6,6 +6,7 @@
     :loading="isLoading && phase !== 'complete'"
     :show-prompt="false"
     :show-task-queue="false"
+    :extra-tool-calls="syntheticToolCalls"
     class="h-full" style="height: calc(100vh - 48px)"
     @back="goBack"
   >
@@ -324,6 +325,11 @@ const runError = runtime.runError
 const interruptData = runtime.interruptData
 const mergedResult = projection.mergedResult
 const streamMessages = projection.streamMessages
+// useStreamChat 暴露的合成工具卡片字典（reactive），用于"材料处理"等保底卡片渲染：
+// 中间件经 SSE 推 prepare_materials 事件后，由 useStreamChat 内部填到
+// __pre_agent__ 桶；AiChat 的 extra-tool-calls prop 接收后由 useMessageParser
+// 拼到消息列表头部。不传 → 即使 SSE 事件到达卡片也不会出现。
+const syntheticToolCalls = runtime.stream.syntheticToolCalls
 const loadStatus = runtime.loadStatus
 const activeIndex = runtime.activeIndex
 
