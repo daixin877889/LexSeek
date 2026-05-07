@@ -111,7 +111,7 @@
                 </CardContent>
             </Card>
 
-            <!-- 提示词列表卡片 -->
+            <!-- 提示词列表卡片（按 type 分组只读展示） -->
             <Card>
                 <CardHeader>
                     <div class="flex items-center justify-between">
@@ -121,7 +121,7 @@
                             管理提示词
                         </Button>
                     </div>
-                    <CardDescription>该节点关联的提示词配置</CardDescription>
+                    <CardDescription>该节点关联的提示词配置（按装配位置分组展示，只读；如需调整请回到节点列表点编辑）</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div v-if="!node.prompts?.length"
@@ -129,33 +129,43 @@
                         <FileText class="h-10 w-10 text-muted-foreground/50 mb-3" />
                         <p class="text-muted-foreground text-sm">暂无关联提示词</p>
                     </div>
-                    <div v-else class="rounded-md border">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>名称</TableHead>
-                                    <TableHead>类型</TableHead>
-                                    <TableHead>版本</TableHead>
-                                    <TableHead>状态</TableHead>
-                                    <TableHead>更新时间</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                <TableRow v-for="prompt in node.prompts" :key="prompt.id">
-                                    <TableCell>{{ prompt.title || prompt.name }}</TableCell>
-                                    <TableCell>
-                                        <Badge variant="outline">{{ getPromptTypeLabel(prompt.type) }}</Badge>
-                                    </TableCell>
-                                    <TableCell class="font-mono text-sm">{{ prompt.version }}</TableCell>
-                                    <TableCell>
-                                        <Badge :variant="prompt.status === 1 ? 'default' : 'secondary'">
-                                            {{ prompt.status === 1 ? '生效' : '未生效' }}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell>{{ formatDate(prompt.updatedAt) }}</TableCell>
-                                </TableRow>
-                            </TableBody>
-                        </Table>
+                    <div v-else class="rounded-md border overflow-hidden bg-card">
+                        <template v-for="group in visiblePromptGroups" :key="group.type">
+                            <!-- 分组标题 -->
+                            <div
+                                class="flex flex-wrap items-center gap-x-2 gap-y-1 bg-muted/80 px-3 py-1.5 border-b text-xs"
+                            >
+                                <span class="font-semibold text-foreground">{{ group.label }}</span>
+                                <span class="text-muted-foreground">· {{ group.items.length }} 段</span>
+                                <span class="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-[10px]">
+                                    {{ group.position }}
+                                </span>
+                            </div>
+                            <!-- 行（只读，无拖拽 / 编辑 / 移除按钮） -->
+                            <div class="divide-y">
+                                <div
+                                    v-for="p in group.items"
+                                    :key="p.id"
+                                    class="flex items-center gap-3 p-3"
+                                >
+                                    <span class="w-12 shrink-0 text-center font-mono text-xs text-muted-foreground">
+                                        {{ p.displayOrder }}
+                                    </span>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="font-medium text-sm truncate">{{ p.title || p.name }}</div>
+                                        <div class="text-xs text-muted-foreground font-mono truncate">
+                                            {{ p.name }} · {{ p.version }} · 被 {{ p.referencedByCount }} 个节点引用
+                                        </div>
+                                    </div>
+                                    <Badge variant="outline" class="shrink-0">
+                                        {{ getPromptTypeLabel(p.type) }}
+                                    </Badge>
+                                    <Badge :variant="p.status === 1 ? 'default' : 'secondary'" class="shrink-0">
+                                        {{ p.status === 1 ? '生效' : '未生效' }}
+                                    </Badge>
+                                </div>
+                            </div>
+                        </template>
                     </div>
                 </CardContent>
             </Card>
@@ -214,7 +224,7 @@ import { ArrowLeft, Loader2, AlertCircle, Pencil, Power, Trash2, Settings, FileT
 import { toast } from 'vue-sonner'
 import dayjs from 'dayjs'
 import { NodeTypeLabels, NodeTypeVariants } from '#shared/types/node'
-import type { NodeWithRelations } from '#shared/types/node'
+import type { NodePromptRef, NodeWithRelations, PromptType } from '#shared/types/node'
 import AdminNodesNodeFormDialog from '~/components/admin/nodes/NodeFormDialog.vue'
 import { useApi } from '~/composables/useApi'
 import { useApiFetch } from '~/composables/useApiFetch'
@@ -254,16 +264,49 @@ const formatOutputSchema = (schema: unknown) => {
     }
 }
 
-// 提示词类型标签
+// 提示词类型行内 Badge 短标签（与节点弹框 NodePromptManager 对齐）
 const getPromptTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
-        system: '系统提示词',
-        user: '用户提示词',
-        user_injection: '用户每轮注入',
-        assistant: '助手提示词',
+        system: '系统',
+        user: '用户',
+        user_injection: '每轮注入',
+        assistant: '助手',
     }
     return labels[type] || type
 }
+
+/**
+ * 提示词分组定义（顺序与节点弹框一致：system → user_injection → user → assistant）。
+ * 详情页只读展示，不允许拖拽 / 编辑 / 移除。
+ */
+const PROMPT_TYPE_GROUPS: Array<{
+    type: PromptType
+    label: string
+    position: string
+}> = [
+    { type: 'system', label: '系统提示词', position: '→ 装配到 system message' },
+    { type: 'user_injection', label: '每轮隐藏注入', position: '→ 每轮紧贴最新用户消息前注入' },
+    { type: 'user', label: '用户触发消息', position: '→ UI 触发时模拟用户发送' },
+    { type: 'assistant', label: '预设助手消息', position: '→ 罕用，预设 AI 回复' },
+]
+
+/**
+ * 节点详情接口实际返回 `NodePromptRef[]`（带 displayOrder + referencedByCount），
+ * 但 NodeWithRelations.prompts 类型仍保留旧的 Prompt[] 形态，这里做一次窄化以便在
+ * 模板里访问 displayOrder / referencedByCount。
+ */
+const visiblePromptGroups = computed(() => {
+    const list = (node.value?.prompts ?? []) as unknown as NodePromptRef[]
+    return PROMPT_TYPE_GROUPS
+        .map((g) => {
+            const items = list
+                .filter(p => p.type === g.type)
+                .slice()
+                .sort((a, b) => a.displayOrder - b.displayOrder)
+            return { ...g, items }
+        })
+        .filter(g => g.items.length > 0)
+})
 
 // 完整 system prompt 预览（按节点 ID 自动加载，节点切换时自动刷新）
 const previewUrl = computed(() => `/api/v1/admin/nodes/${nodeId.value}/prompts/preview`)
