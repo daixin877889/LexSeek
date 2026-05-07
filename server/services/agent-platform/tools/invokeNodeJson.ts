@@ -101,19 +101,26 @@ async function invokeNodeJsonInner<T>(opts: InvokeNodeJsonOptions<T>): Promise<T
 
         let response
         try {
-            // 双层 tag 防止后台 LLM 调用泄漏到主 SSE 通道：
-            //   1) langfuse:nostream — OTel 模式下由 LangfuseSpanProcessor.shouldExportSpan
-            //      统一豁免，避免内部 JSON 节点 trace 进 Langfuse；同时 LangGraph
-            //      内置 TAG_NOSTREAM 也兼容前缀匹配，StreamMessagesHandler 不记录
-            //      metadatas[runId]，handleChatModelStart/handleLLMNewToken/handleLLMEnd
-            //      均静默退出，事件从源头不进 SSE 流。
-            //   2) internal — 项目约定（同 intentClassifier.service.ts），
+            // 三层 tag 防止后台 LLM 调用泄漏到主 SSE 通道：
+            //   1) langsmith:nostream — LangGraph StreamMessagesHandler 唯二识别的 tag
+            //      之一（messages.cjs:56 严格相等匹配，无前缀匹配）。命中后
+            //      handleChatModelStart 不记录 metadatas[runId]，
+            //      handleLLMNewToken/handleLLMEnd 静默退出，事件从源头不进 SSE 流。
+            //      历史教训：项目曾只挂 'langfuse:nostream' 自定义 tag，langgraph
+            //      根本不识别 → afterAgentMemoryMiddleware fire-and-forget 调用
+            //      在主流关闭后仍 fire newToken，写已关 controller 抛 ERR_INVALID_STATE。
+            //   2) langfuse:nostream — Langfuse SDK 自身识别的非导出标记，OTel 模式
+            //      下由 LangfuseSpanProcessor.shouldExportSpan 统一豁免，避免内部
+            //      JSON 节点 trace 进 Langfuse。
+            //   3) internal — 项目约定（同 intentClassifier.service.ts），
             //      若上游 contract 失效，agentWorker.stripSystemMessages 仍可在
             //      SSE 转发层兜底过滤（agentWorker.ts:isInternalLLMEvent）。
             // 注意：streaming:false 单独不够，因为非流式时 LangGraph 的 handleLLMEnd
             // 会把完整响应一次性 emit 出去（messages.cjs:67-70），用户看到的孤立
             // JSON 代码块就是这条路径泄漏的，必须靠 tag 阻断。
-            response = await model.invoke(currentPrompt, { tags: ['langfuse:nostream', 'internal'] })
+            response = await model.invoke(currentPrompt, {
+                tags: ['langsmith:nostream', 'langfuse:nostream', 'internal'],
+            })
         } catch (err) {
             // LLM invoke 抛错：不 retry，直接抛
             logContextOverflow(err, {

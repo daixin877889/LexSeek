@@ -33,10 +33,6 @@ export interface PromptRenderContext {
     draftId?: number
     /** 草稿当前状态('drafting' / 'filling' / 'ready' / 'exported' / 'failed') */
     status?: string
-    // 注：currentValuesJSON / placeholdersWithHints 字段已删除
-    // 草稿当前字段值与模板占位符现在通过 caseContextSyncMiddleware 的 draftLoader
-    // 注入到对话 HumanMessage 中，不再走 SystemMessage 模板变量替换。
-    // 见 spec §4.2.3 与 §6.2 改动清单。
 }
 
 /**
