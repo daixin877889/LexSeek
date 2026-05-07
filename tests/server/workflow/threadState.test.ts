@@ -462,6 +462,66 @@ describe('loadSubAgentThreads', () => {
         expect(mockCheckpointer.getTuple).not.toHaveBeenCalled()
     })
 
+    // @langchain/anthropic 1.x streaming + thinking 模式下 AIMessageChunk reduce
+    // 把 tool_use 块只塞进 content 数组,顶层 tool_calls 字段为空——loadSubAgentThreads
+    // 必须从 content 数组里也读取 tool_use,否则刷新历史会话时子代理 CoT 卡片整个丢失
+    it('content 数组含 tool_use 但顶层 tool_calls=[] 时仍识别子代理调用', async () => {
+        const mockCheckpointer = {
+            getTuple: vi.fn().mockResolvedValue({
+                checkpoint: {
+                    channel_values: {
+                        messages: [
+                            { type: 'ai', content: '子代理回答', id: 'sub-msg-1' },
+                        ],
+                    },
+                },
+            }),
+        }
+        vi.mocked(getCheckpointer).mockResolvedValue(mockCheckpointer as any)
+
+        const messages = [
+            {
+                type: 'ai',
+                content: [
+                    { type: 'thinking', thinking: '让我请教法理分析专家' },
+                    { type: 'tool_use', id: 'tc-content-1', name: 'ask_legal_analyzer_expert', input: {} },
+                ],
+                tool_calls: [],
+            },
+        ]
+        const result = await loadSubAgentThreads('session-1', messages)
+        expect(result).toHaveLength(1)
+        expect(result[0]!.agentName).toBe('legal_analyzer')
+        expect(result[0]!.toolCallId).toBe('tc-content-1')
+        expect(result[0]!.threadId).toBe('session-1_sub_legal_analyzer_tc-content-1')
+    })
+
+    it('顶层 tool_calls 与 content tool_use 同 id 时去重不重复加载', async () => {
+        const mockCheckpointer = {
+            getTuple: vi.fn().mockResolvedValue({
+                checkpoint: {
+                    channel_values: {
+                        messages: [{ type: 'ai', content: '子回答', id: 'sub-1' }],
+                    },
+                },
+            }),
+        }
+        vi.mocked(getCheckpointer).mockResolvedValue(mockCheckpointer as any)
+
+        const messages = [
+            {
+                type: 'ai',
+                content: [
+                    { type: 'tool_use', id: 'tc-dup', name: 'ask_test_expert', input: {} },
+                ],
+                tool_calls: [{ id: 'tc-dup', name: 'ask_test_expert', args: {} }],
+            },
+        ]
+        const result = await loadSubAgentThreads('session-1', messages)
+        expect(result).toHaveLength(1)
+        expect(mockCheckpointer.getTuple).toHaveBeenCalledTimes(1)
+    })
+
     describe('draft_document / review_contract 历史恢复', () => {
         it('draft_document tool_call + 配对 ToolMessage JSON 含 subSessionId → 加载子 thread', async () => {
             const subTuple = {

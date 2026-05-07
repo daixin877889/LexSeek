@@ -12,6 +12,7 @@ import { sanitizeName } from './subAgentToolFactory'
 import { logger } from '#shared/utils/logger'
 import { prisma } from '~~/server/utils/db'
 import { isInjectedContextMessage } from '~~/server/services/agent-platform/context/injectorDetection'
+import { collectToolUsesFromContent } from '~~/server/services/workflow/repairOrphanToolUse'
 
 /**
  * 将 checkpointer 中的消息转为 useStream 期望的平坦字典格式
@@ -194,10 +195,27 @@ export async function loadSubAgentThreads(
     }
 
     for (const msg of messages) {
-        if (msg.type !== 'ai' || !Array.isArray(msg.tool_calls)) continue
+        if (msg.type !== 'ai') continue
 
-        for (const toolCall of msg.tool_calls as any[]) {
-            const toolName = toolCall.name as string
+        // 合并 tool_calls 字段 + content 数组里的 tool_use 块(后者应对 streaming + thinking 模式)
+        const seen = new Set<string>()
+        const effectiveCalls: Array<{ id: string, name: string }> = []
+        if (Array.isArray(msg.tool_calls)) {
+            for (const tc of msg.tool_calls as any[]) {
+                const id = tc?.id
+                const name = tc?.name
+                if (typeof id !== 'string' || typeof name !== 'string' || seen.has(id)) continue
+                seen.add(id)
+                effectiveCalls.push({ id, name })
+            }
+        }
+        for (const block of collectToolUsesFromContent(msg.content, seen)) {
+            if (block.name) effectiveCalls.push({ id: block.id, name: block.name })
+        }
+        if (effectiveCalls.length === 0) continue
+
+        for (const toolCall of effectiveCalls) {
+            const toolName = toolCall.name
             let subThreadId: string | null = null
             let agentName: string
 
