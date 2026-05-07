@@ -85,12 +85,17 @@ describe('runAssistantChat - 集成', () => {
             testIds.nodeIds.push(node.id)
         }
 
-        // 系统 prompt 没有 name 唯一约束，先查后建避免重复
+        // ★ Phase 6 改造：prompts.nodeId 字段已删，节点关联通过 node_prompts 表维护。
+        // 系统 prompt 没有 name 唯一约束，先查后建避免重复，再补 node_prompts 关联。
         const existingPrompt = await prisma.prompts.findFirst({
-            where: { name: 'assistantMain_system', nodeId: node.id, status: 1 },
+            where: {
+                name: 'assistantMain_system',
+                status: 1,
+                nodePrompts: { some: { nodeId: node.id } },
+            },
         })
         if (!existingPrompt) {
-            await prisma.prompts.create({
+            const created = await prisma.prompts.create({
                 data: {
                     name: 'assistantMain_system',
                     title: '通用法律助手系统提示词 v1',
@@ -98,8 +103,10 @@ describe('runAssistantChat - 集成', () => {
                     version: '1.0',
                     type: 'system',
                     status: 1,
-                    nodeId: node.id,
                 },
+            })
+            await prisma.node_prompts.create({
+                data: { nodeId: node.id, promptId: created.id, displayOrder: 100 },
             })
         }
     })

@@ -266,10 +266,8 @@ export const findNodeByIdDao = async (
                         displayName: true,
                     },
                 },
-                prompts: {
-                    where: { deletedAt: null },
-                    orderBy: [{ type: 'asc' }, { version: 'desc' }],
-                },
+                // ★ Phase 6 改造：prompts 反向单值字段已删，这里不再 include；
+                // 节点详情接口（GET /api/v1/admin/nodes/:id）单独查询 node_prompts 关联表后映射 NodePromptRef[]。
             },
         })
         return node

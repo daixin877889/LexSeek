@@ -6497,7 +6497,6 @@ export const PromptsScalarFieldEnum = {
   version: 'version',
   type: 'type',
   status: 'status',
-  nodeId: 'nodeId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'

@@ -79,9 +79,10 @@ describe('POST /api/v1/admin/prompts (Phase 4)', () => {
         createdPromptIds.push(data.id)
         expect(data.id).toBeGreaterThan(0)
 
-        // 验证：DB 中 nodeId 为 null（不再绑定单节点）
+        // ★ Phase 6 改造：prompts.nodeId 字段已彻底删除，无需断言；
+        // zod strip + dao 不再写入 nodeId 已由"创建成功"间接验证
         const row = await prisma.prompts.findUnique({ where: { id: data.id } })
-        expect(row?.nodeId).toBeNull()
+        expect(row).not.toBeNull()
         // 自动提取的变量
         expect(row?.variables).toEqual(['caseId'])
     })

@@ -144,9 +144,9 @@ const createPrompt = async (
     nodeId: number,
     overrides: { type?: string; status?: number; content?: string; version?: string } = {}
 ) => {
+    // ★ Phase 6 改造：prompts.nodeId 字段已删，改用 node_prompts 关联表维护
     const prompt = await testPrisma.prompts.create({
         data: {
-            nodeId,
             name: `prompt_${generateTestId()}`,
             title: '测试提示词',
             content: overrides.content ?? '你是一个助手',
@@ -157,18 +157,23 @@ const createPrompt = async (
         },
     })
     testIds.promptIds.push(prompt.id)
+    await testPrisma.node_prompts.create({
+        data: { nodeId, promptId: prompt.id, displayOrder: 100 },
+    })
     return prompt
 }
 
 const cleanupTestData = async () => {
     try {
         if (testIds.promptIds.length > 0) {
+            await testPrisma.node_prompts.deleteMany({ where: { promptId: { in: testIds.promptIds } } })
             await testPrisma.prompts.deleteMany({ where: { id: { in: testIds.promptIds } } })
         }
         testIds.promptIds = []
     } catch {}
     try {
         if (testIds.nodeIds.length > 0) {
+            await testPrisma.node_prompts.deleteMany({ where: { nodeId: { in: testIds.nodeIds } } })
             await testPrisma.nodes.deleteMany({ where: { id: { in: testIds.nodeIds } } })
         }
         testIds.nodeIds = []
@@ -588,7 +593,8 @@ describe('节点服务 - 覆盖率补齐（gap）', () => {
                                     tools: [],
                                     outputSchema: null,
                                     status: 1,
-                                    prompts: [],
+                                    // ★ Phase 6：prompts 单值反向已删，多对多挂在 nodePrompts 字段
+                                    nodePrompts: [],
                                     model: null,
                                 },
                                 // 节点 2：model 存在但 modelProvider 为 null，应被过滤
@@ -603,7 +609,7 @@ describe('节点服务 - 覆盖率补齐（gap）', () => {
                                     tools: [],
                                     outputSchema: null,
                                     status: 1,
-                                    prompts: [],
+                                    nodePrompts: [],
                                     model: {
                                         id: 2,
                                         name: 'm',
@@ -626,14 +632,17 @@ describe('节点服务 - 覆盖率补齐（gap）', () => {
                                     tools: ['t1'],
                                     outputSchema: { a: 1 },
                                     status: 1,
-                                    prompts: [
+                                    nodePrompts: [
                                         {
-                                            id: 10,
-                                            name: 'p',
-                                            content: 'c',
-                                            version: 'v1',
-                                            type: 'system',
-                                            status: 1,
+                                            displayOrder: 100,
+                                            prompt: {
+                                                id: 10,
+                                                name: 'p',
+                                                content: 'c',
+                                                version: 'v1',
+                                                type: 'system',
+                                                status: 1,
+                                            },
                                         },
                                     ],
                                     model: {

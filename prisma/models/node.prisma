@@ -67,9 +67,6 @@ model nodes {
   /// 关联的模型
   model models @relation(fields: [modelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  /// 关联的提示词
-  prompts prompts[]
-
   /// 关联的会员节点权限
   levelNodeAccess levelNodeAccess[]
 
@@ -110,8 +107,6 @@ model prompts {
   type      String    @db.VarChar(100)
   /// 状态：0-未生效，1-生效
   status    Int       @default(0)
-  /// 关联的节点ID
-  nodeId    Int?      @map("node_id")
   /// 创建时间
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   /// 最后更新时间
@@ -119,14 +114,10 @@ model prompts {
   /// 删除时间，为 NULL 表示未删除
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  /// 关联的节点
-  node nodes? @relation(fields: [nodeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
   /// 多对多反向：被节点引用的关联
   nodePrompts node_prompts[]
 
   @@index([name], map: "idx_prompts_name")
-  @@index([nodeId], map: "idx_prompts_node_id")
   @@index([type], map: "idx_prompts_type")
   @@index([status], map: "idx_prompts_status")
   @@index([deletedAt], map: "idx_prompts_deleted_at")

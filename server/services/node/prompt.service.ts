@@ -1,7 +1,13 @@
 /**
  * 提示词服务层
  *
- * 提供提示词的业务逻辑封装，包括 CRUD、版本管理、激活/停用、变量渲染
+ * 提供提示词的业务逻辑封装，包括 CRUD、版本管理、激活/停用、变量渲染。
+ *
+ * Phase 6 改造：删除 prompts.nodeId 单值字段后，
+ *  - 创建提示词不再绑定 nodeId（节点关联通过 node_prompts 关联表 PATCH API 完成）；
+ *  - 版本号 / 激活/停用 改为按 (name, type) 维度判定；
+ *  - 节点维度的查询通过 node_prompts join 实现。
+ *
  * Requirements: 14.9, 14.10, 14.11, 14.12, 14.13, 14.14
  */
 
@@ -13,6 +19,7 @@ import type {
     RenderPromptInput,
     PreviewPromptInput,
 } from '#shared/types/node'
+import { prisma } from '~~/server/utils/db'
 import {
     createPromptDao,
     findPromptByIdDao,
@@ -92,32 +99,25 @@ export const renderContent = (
 
 /**
  * 创建提示词
+ *
+ * Phase 6 改造：不再要求传入 nodeId。提示词独立存在，通过 node_prompts 关联表 PATCH 接口
+ * 与节点建立关联（参考 PATCH /api/v1/admin/nodes/:id/prompts）。
+ *
+ * 版本号自动按 (name, type) 维度递增。
+ *
  * Requirements: 14.10
- * @param data 提示词创建数据
+ * @param data 提示词创建数据（CreatePromptInput.nodeId 已废弃，参数不再使用）
  * @returns 创建的提示词
  */
 export const createPromptService = async (data: CreatePromptInput) => {
-    // 检查节点是否存在
-    const node = await findNodeByIdDao(data.nodeId)
-    if (!node) {
-        throw new Error('关联的节点不存在')
-    }
-
-    // 获取最新版本号并生成下一个版本
-    const latestVersion = await getLatestVersionDao(
-        data.nodeId,
-        data.name,
-        data.type
-    )
+    // 获取最新版本号并生成下一个版本（按 name + type 维度）
+    const latestVersion = await getLatestVersionDao(data.name, data.type)
     const nextVersion = generateNextVersion(latestVersion)
 
     // 自动提取变量（如果未提供）
     const variables = data.variables ?? extractVariables(data.content)
 
-    return await createPromptDao(
-        { ...data, variables },
-        nextVersion
-    )
+    return await createPromptDao({ ...data, variables }, nextVersion)
 }
 
 /**
@@ -171,6 +171,9 @@ export const getActivePromptService = async (
 
 /**
  * 获取提示词版本历史
+ *
+ * Phase 6 改造：版本范围按 (name, type) 取，不再依赖节点。
+ *
  * Requirements: 14.13
  * @param promptId 提示词 ID
  * @returns 版本列表
@@ -181,21 +184,16 @@ export const getPromptVersionsService = async (promptId: number) => {
     if (!prompt) {
         throw new Error('提示词不存在')
     }
-    if (prompt.nodeId == null) {
-        throw new Error('提示词未关联节点，无法查询版本历史')
-    }
 
-    return await findPromptVersionsDao(
-        prompt.nodeId,
-        prompt.name,
-        prompt.type as PromptType
-    )
+    return await findPromptVersionsDao(prompt.name, prompt.type as PromptType)
 }
 
 /**
  * 更新提示词（创建新版本）
+ *
+ * Phase 6 改造：内容变化时按 (name, type) 维度生成新版本，不再要求节点绑定。
+ *
  * Requirements: 14.11
- * 注意：更新提示词会创建新版本，而非覆盖原版本
  * @param id 提示词 ID
  * @param data 更新数据
  * @returns 新版本的提示词
@@ -212,12 +210,8 @@ export const updatePromptService = async (
 
     // 如果内容有变化，创建新版本
     if (data.content !== undefined && data.content !== existing.content) {
-        if (existing.nodeId == null) {
-            throw new Error('提示词未关联节点，无法创建新版本')
-        }
-        // 获取最新版本号并生成下一个版本
+        // 获取最新版本号并生成下一个版本（按 name + type 维度）
         const latestVersion = await getLatestVersionDao(
-            existing.nodeId,
             existing.name,
             existing.type as PromptType
         )
@@ -226,7 +220,7 @@ export const updatePromptService = async (
         // 自动提取变量（如果未提供）
         const variables = data.variables ?? extractVariables(data.content)
 
-        // 创建新版本
+        // 创建新版本（CreatePromptInput.nodeId 字段虽然仍在类型上，运行期不再写入）
         return await createPromptDao(
             {
                 name: existing.name,
@@ -234,7 +228,7 @@ export const updatePromptService = async (
                 content: data.content,
                 variables,
                 type: existing.type as PromptType,
-                nodeId: existing.nodeId,
+                nodeId: 0, // ★ Phase 6 已废弃：dao 内部不再使用此字段，仅满足 CreatePromptInput 类型签名
             },
             nextVersion
         )
@@ -246,8 +240,11 @@ export const updatePromptService = async (
 
 /**
  * 激活提示词版本
+ *
+ * Phase 6 改造：互斥范围由"同节点同类型"改为"同 name+type 全局"。
+ * 同一 (name, type) 下只允许一条 status=1。
+ *
  * Requirements: 14.12
- * 同一节点、同一类型下只能有一个版本处于生效状态
  * @param id 提示词 ID
  * @returns 激活后的提示词
  */
@@ -263,16 +260,11 @@ export const activatePromptService = async (id: number) => {
         return prompt
     }
 
-    if (prompt.nodeId == null) {
-        throw new Error('提示词未关联节点，无法激活')
-    }
-    const targetNodeId = prompt.nodeId
-
     // 使用事务确保原子性
     return await prisma.$transaction(async (tx) => {
-        // 先停用同节点、同类型的其他提示词
+        // 先停用同 name + type 的其他提示词版本
         await deactivatePromptsByTypeDao(
-            targetNodeId,
+            prompt.name,
             prompt.type as PromptType,
             tx as typeof prisma
         )

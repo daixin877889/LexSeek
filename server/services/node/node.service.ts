@@ -592,11 +592,14 @@ export const getNodeConfigsByTypes = async (
                     },
                 },
             },
-            prompts: {
+            // ★ Phase 6 改造：从 prompts 单值反向 include 切到 node_prompts 多对多 join，
+            // 仅取 status=1 / 未软删的 prompts，按 displayOrder 升序，保持与 nodeConfig.loader 一致。
+            nodePrompts: {
                 where: {
-                    status: 1,
-                    deletedAt: null,
+                    prompt: { status: 1, deletedAt: null },
                 },
+                orderBy: { displayOrder: 'asc' },
+                include: { prompt: true },
             },
         },
         orderBy: { priority: 'asc' },
@@ -610,13 +613,13 @@ export const getNodeConfigsByTypes = async (
             title: node.title || node.name,
             description: node.description || '',
             type: node.type,
-            prompts: node.prompts.map(prompt => ({
-                id: prompt.id,
-                name: prompt.name,
-                content: prompt.content,
-                version: prompt.version,
-                type: prompt.type,
-                status: prompt.status,
+            prompts: node.nodePrompts.map(np => ({
+                id: np.prompt.id,
+                name: np.prompt.name,
+                content: np.prompt.content,
+                version: np.prompt.version,
+                type: np.prompt.type,
+                status: np.prompt.status,
             })),
             modelId: node.modelId,
             modelName: node.model!.name,

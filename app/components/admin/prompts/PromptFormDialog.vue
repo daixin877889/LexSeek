@@ -239,7 +239,8 @@ const openEdit = (prompt: PromptWithRelations) => {
         title: prompt.title || '',
         content: prompt.content,
         type: prompt.type,
-        nodeId: String(prompt.nodeId),
+        // ★ Phase 6：prompts.nodeId 字段已删，节点关联通过 node_prompts 表 PATCH 维护
+        nodeId: '',
     }
     loadNodes()
     open.value = true
@@ -271,7 +272,7 @@ const handleSubmit = async () => {
     try {
         let result
         if (isEdit.value && selectedPrompt.value) {
-            // 编辑模式：创建新版本
+            // 编辑模式：创建新版本（节点关联通过 node_prompts 表 PATCH 维护，本接口不再传 nodeId）
             result = await useApiFetch('/api/v1/admin/prompts', {
                 method: 'POST',
                 body: {
@@ -279,12 +280,11 @@ const handleSubmit = async () => {
                     title: form.value.title || null,
                     content: form.value.content,
                     type: selectedPrompt.value.type,
-                    nodeId: selectedPrompt.value.nodeId,
                     variables: extractedVariables.value,
                 },
             })
         } else {
-            // 创建模式
+            // 创建模式（节点关联通过 node_prompts 表 PATCH 维护，本接口不再传 nodeId）
             result = await useApiFetch('/api/v1/admin/prompts', {
                 method: 'POST',
                 body: {
@@ -292,7 +292,6 @@ const handleSubmit = async () => {
                     title: form.value.title || null,
                     content: form.value.content,
                     type: form.value.type,
-                    nodeId: parseInt(form.value.nodeId),
                     variables: extractedVariables.value,
                 },
             })

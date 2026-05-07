@@ -74,7 +74,7 @@
                             </div>
                             <div class="space-y-1">
                                 <Label class="text-muted-foreground">关联节点</Label>
-                                <NuxtLink v-if="prompt.node" :to="`/admin/nodes/${prompt.nodeId}`"
+                                <NuxtLink v-if="prompt.node" :to="`/admin/nodes/${prompt.node.id}`"
                                     class="text-primary hover:underline">
                                     {{ prompt.node.title || prompt.node.name }}
                                 </NuxtLink>

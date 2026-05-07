@@ -1,8 +1,10 @@
 /**
  * 提示词数据访问层
  *
- * 提供提示词的 CRUD 操作
- * Requirements: 14.9, 14.10, 14.11, 14.12, 14.13, 14.14
+ * 提供提示词的 CRUD 操作。Phase 6 改造：删除 prompts.nodeId 单值字段后，
+ *  - 创建/更新/查询不再写入或读取 nodeId 列；
+ *  - "节点维度"的查询统一通过 node_prompts 关联表 join；
+ *  - 版本/激活/停用按 (name, type) 维度判定（一段提示词可被多节点引用）。
  */
 
 import type {
@@ -12,7 +14,6 @@ import type {
     PromptType,
 } from '#shared/types/node'
 import type { Prisma } from '~~/generated/prisma/client'
-import type { prompts } from '~~/generated/prisma/client'
 
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma
@@ -40,7 +41,11 @@ const compareVersionDesc = (a: string, b: string): number => {
 
 /**
  * 创建提示词
- * @param data 提示词创建数据
+ *
+ * Phase 6 改造：不再写入 prompts.nodeId（字段已删除）。
+ * 节点关联通过单独调用 prisma.node_prompts.create 完成（由调用方决定）。
+ *
+ * @param data 提示词创建数据（CreatePromptInput.nodeId 字段已废弃，写入时被忽略）
  * @param version 版本号
  * @param tx 事务客户端（可选）
  * @returns 创建的提示词
@@ -60,16 +65,6 @@ export const createPromptDao = async (
                 version,
                 type: data.type,
                 status: 0, // 新创建的提示词默认未生效
-                nodeId: data.nodeId,
-            },
-            include: {
-                node: {
-                    select: {
-                        id: true,
-                        name: true,
-                        title: true,
-                    },
-                },
             },
         })
         return prompt
@@ -81,6 +76,9 @@ export const createPromptDao = async (
 
 /**
  * 通过 ID 查询提示词
+ *
+ * 返回体附带 nodePrompts 多对多关联（按 displayOrder 升序），便于上层映射 referencedByNodes。
+ *
  * @param id 提示词 ID
  * @param tx 事务客户端（可选）
  * @returns 提示词或 null
@@ -93,13 +91,6 @@ export const findPromptByIdDao = async (
         const prompt = await (tx || prisma).prompts.findUnique({
             where: { id, deletedAt: null },
             include: {
-                node: {
-                    select: {
-                        id: true,
-                        name: true,
-                        title: true,
-                    },
-                },
                 nodePrompts: {
                     include: {
                         node: {
@@ -119,6 +110,9 @@ export const findPromptByIdDao = async (
 
 /**
  * 查询提示词列表
+ *
+ * Phase 6 改造：`nodeId` 过滤改为通过 node_prompts 关联表 some 过滤。
+ *
  * @param options 查询选项
  * @param tx 事务客户端（可选）
  * @returns 提示词列表和总数
@@ -143,7 +137,9 @@ export const findManyPromptsDao = async (
         // 构建查询条件
         const where: Prisma.promptsWhereInput = {
             deletedAt: null,
-            ...(nodeId !== undefined && { nodeId }),
+            ...(nodeId !== undefined && {
+                nodePrompts: { some: { nodeId } },
+            }),
             ...(type !== undefined && { type }),
             ...(status !== undefined && { status }),
             ...(keyword && {
@@ -161,13 +157,6 @@ export const findManyPromptsDao = async (
                 skip,
                 take: pageSize,
                 include: {
-                    node: {
-                        select: {
-                            id: true,
-                            name: true,
-                            title: true,
-                        },
-                    },
                     _count: {
                         select: { nodePrompts: true },
                     },
@@ -186,6 +175,9 @@ export const findManyPromptsDao = async (
 
 /**
  * 查询节点的所有提示词
+ *
+ * Phase 6 改造：通过 node_prompts 关联表 join 获取，按 displayOrder 升序，再按 type 排序补充次序。
+ *
  * @param nodeId 节点 ID
  * @param tx 事务客户端（可选）
  * @returns 提示词列表
@@ -196,15 +188,9 @@ export const findPromptsByNodeIdDao = async (
 ) => {
     try {
         const prompts = await (tx || prisma).prompts.findMany({
-            where: { nodeId, deletedAt: null },
-            include: {
-                node: {
-                    select: {
-                        id: true,
-                        name: true,
-                        title: true,
-                    },
-                },
+            where: {
+                deletedAt: null,
+                nodePrompts: { some: { nodeId } },
             },
             orderBy: { type: 'asc' },
         })
@@ -220,6 +206,10 @@ export const findPromptsByNodeIdDao = async (
 
 /**
  * 查询节点指定类型的生效提示词
+ *
+ * Phase 6 改造：通过 node_prompts join 找出该节点关联且 status=1、type 匹配的 prompts；
+ * 同节点同类型理论上仍只有一条生效，但若有多条按 displayOrder 升序取第一条。
+ *
  * @param nodeId 节点 ID
  * @param type 提示词类型
  * @param tx 事务客户端（可选）
@@ -233,19 +223,10 @@ export const findActivePromptDao = async (
     try {
         const prompt = await (tx || prisma).prompts.findFirst({
             where: {
-                nodeId,
                 type,
                 status: 1,
                 deletedAt: null,
-            },
-            include: {
-                node: {
-                    select: {
-                        id: true,
-                        name: true,
-                        title: true,
-                    },
-                },
+                nodePrompts: { some: { nodeId } },
             },
         })
         return prompt
@@ -257,14 +238,16 @@ export const findActivePromptDao = async (
 
 /**
  * 查询提示词版本历史
- * @param nodeId 节点 ID
+ *
+ * Phase 6 改造：版本范围由 (nodeId, name, type) 改为 (name, type)。
+ * 一段提示词可以被多个节点引用，但版本历史只取决于其自身 (name, type) 标识。
+ *
  * @param name 提示词名称
  * @param type 提示词类型
  * @param tx 事务客户端（可选）
  * @returns 版本列表
  */
 export const findPromptVersionsDao = async (
-    nodeId: number,
     name: string,
     type: PromptType,
     tx?: PrismaClient
@@ -272,7 +255,6 @@ export const findPromptVersionsDao = async (
     try {
         const prompts = await (tx || prisma).prompts.findMany({
             where: {
-                nodeId,
                 name,
                 type,
                 deletedAt: null,
@@ -287,14 +269,15 @@ export const findPromptVersionsDao = async (
 
 /**
  * 获取提示词最新版本号
- * @param nodeId 节点 ID
+ *
+ * Phase 6 改造：版本范围由 (nodeId, name, type) 改为 (name, type)。
+ *
  * @param name 提示词名称
  * @param type 提示词类型
  * @param tx 事务客户端（可选）
  * @returns 最新版本号或 null
  */
 export const getLatestVersionDao = async (
-    nodeId: number,
     name: string,
     type: PromptType,
     tx?: PrismaClient
@@ -302,7 +285,6 @@ export const getLatestVersionDao = async (
     try {
         const versions = await (tx || prisma).prompts.findMany({
             where: {
-                nodeId,
                 name,
                 type,
                 deletedAt: null,
@@ -341,15 +323,6 @@ export const updatePromptDao = async (
                 ...(data.variables !== undefined && { variables: data.variables }),
                 updatedAt: new Date(),
             },
-            include: {
-                node: {
-                    select: {
-                        id: true,
-                        name: true,
-                        title: true,
-                    },
-                },
-            },
         })
         return prompt
     } catch (error) {
@@ -386,20 +359,24 @@ export const updatePromptStatusDao = async (
 }
 
 /**
- * 停用节点指定类型的所有提示词
- * @param nodeId 节点 ID
+ * 停用同一 (name, type) 下的所有生效提示词
+ *
+ * Phase 6 改造：作用域从"节点内同类型"改为"全局同 (name, type)"。
+ * 因一段提示词可被多个节点引用，"激活某版本"语义改为：同 name+type 仅允许一条 status=1。
+ *
+ * @param name 提示词名称
  * @param type 提示词类型
  * @param tx 事务客户端（可选）
  */
 export const deactivatePromptsByTypeDao = async (
-    nodeId: number,
+    name: string,
     type: PromptType,
     tx?: PrismaClient
 ) => {
     try {
         await (tx || prisma).prompts.updateMany({
             where: {
-                nodeId,
+                name,
                 type,
                 status: 1,
                 deletedAt: null,
