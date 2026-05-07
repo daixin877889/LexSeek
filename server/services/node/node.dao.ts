@@ -16,7 +16,11 @@ import { Prisma } from '~~/generated/prisma/client'
 import type { nodes } from '~~/generated/prisma/client'
 
 // 定义 Prisma 客户端类型（支持事务）
-type PrismaClient = typeof prisma
+// 用 Prisma.TransactionClient 而非 typeof prisma：前者是事务回调里 tx 参数的精确类型，
+// 而后者带有 $transaction / $extends 等顶层方法，会与 $transaction 回调里的 tx 不兼容
+// （Omit<PrismaClient, ...> 与全量 PrismaClient 的 GlobalOmitConfig 也对不上）。
+// 全量 prisma 实例本身可赋值给 TransactionClient（结构子类型），普通调用不受影响。
+type PrismaClient = Prisma.TransactionClient
 
 // ==================== 节点分组 DAO ====================
 
