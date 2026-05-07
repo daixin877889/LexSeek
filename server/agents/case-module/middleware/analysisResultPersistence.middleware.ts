@@ -15,6 +15,7 @@ import {
     updateAnalysisDao,
     getNextVersionDao,
     findAnalysisBySessionAndNodeDao,
+    findAnalysisByIdDao,
     AnalysisStatus,
 } from '~~/server/services/case/analysis.dao'
 import { failAnalysisService } from '~~/server/services/case/analysis.service'
@@ -148,6 +149,22 @@ export const analysisResultPersistenceMiddleware = (
                 if (!analysisRecordId) return
 
                 try {
+                    // ────────────────────────────────────────────────────────────
+                    // 幂等检查：save_analysis_result 工具已用 _analysisRecordId 走过
+                    // completeAnalysisWithRAG 把记录改成 COMPLETED 时，afterAgent
+                    // 必须跳过——否则 RAG 切块会重复写一份、summary 也会被重算覆盖。
+                    // 仅当记录仍是 IN_PROGRESS 时（LLM 没调工具 / 工具异常退出）
+                    // afterAgent 才走兜底落库，保障"分析结果一定保存"的不变量。
+                    // ────────────────────────────────────────────────────────────
+                    const existing = await findAnalysisByIdDao(analysisRecordId)
+                    if (existing && existing.status === AnalysisStatus.COMPLETED) {
+                        logger.info('分析持久化：工具已完成保存，afterAgent 跳过', {
+                            analysisRecordId,
+                            agentName,
+                        })
+                        return
+                    }
+
                     const resultText = extractLastAIMessageContent(state.messages ?? [])
                     if (!resultText) {
                         logger.warn('分析持久化：未找到 AIMessage 内容，跳过落库', { analysisRecordId, agentName })

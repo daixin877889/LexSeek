@@ -161,6 +161,57 @@ export const saveAndActivateAnalysisService = async (
     })
 }
 
+/** updateAndActivateAnalysis 入参 */
+export interface UpdateAndActivateAnalysisInput {
+    /** 分析结果（Markdown 格式）—— 落到 caseAnalyses.analysisResult */
+    analysisResult: string
+    /** 实际 token 总数 */
+    tokens?: number | null
+    /** 千 token 数（积分扣减单位） */
+    tokenCount?: number | null
+}
+
+/**
+ * 把已存在的 IN_PROGRESS 记录原地 update 成 COMPLETED + 激活（事务内）。
+ *
+ * 用于 save_analysis_result 工具走 _analysisRecordId 协同路径时——
+ * middleware.beforeAgent 已经预创建了 IN_PROGRESS 记录，工具内不再 createDao 新版本，
+ * 而是直接 update 同一条记录。本函数必须在 publishCustomEvent(ANALYSIS_RESULT_SAVED)
+ * **之前**调用，否则前端 _refreshAnalysis 拉到的 case_analyses 仍是 IN_PROGRESS、
+ * result=NULL，模块卡片会卡 in_progress 直到 completeAnalysisWithRAG 内的 Stage 1
+ * 事务跑完（含一次额外的 LLM 摘要调用，可能 5-30s）。
+ *
+ * 与 saveAndActivateAnalysisService 区别：
+ *   - saveAndActivate: createDao 新版本（用于无 middleware 兜底的旧路径）
+ *   - updateAndActivate: update 同一 id（用于 middleware 已预创建的 A 方案路径）
+ */
+export const updateAndActivateAnalysisService = async (
+    id: number,
+    data: UpdateAndActivateAnalysisInput,
+): Promise<caseAnalyses> => {
+    return await prisma.$transaction(async (tx) => {
+        const existing = await tx.caseAnalyses.findFirst({
+            where: { id, deletedAt: null },
+        })
+        if (!existing) {
+            throw new Error(`分析记录不存在: ${id}`)
+        }
+        const updated = await updateAnalysisDao(
+            id,
+            {
+                status: AnalysisStatus.COMPLETED,
+                analysisResult: data.analysisResult,
+                tokens: data.tokens ?? null,
+                tokenCount: data.tokenCount ?? null,
+                isActive: true,
+            },
+            tx,
+        )
+        await activateVersionDao(updated.id, updated.caseId, updated.nodeId, tx)
+        return updated
+    })
+}
+
 /**
  * 开始分析（创建进行中状态的记录）
  * 用于在分析开始时创建记录，后续更新结果

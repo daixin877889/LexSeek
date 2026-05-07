@@ -137,6 +137,11 @@ vi.mock('../../../../server/services/workflow/state/storage', () => ({
     getSessionState: vi.fn(async () => ({})),
 }))
 
+// mock analysisResultPersistence middleware (A 方案末位兜底)
+vi.mock('../../../../server/agents/case-module/middleware/analysisResultPersistence.middleware', () => ({
+    analysisResultPersistenceMiddleware: vi.fn(() => ({ __mock: 'analysisResultPersistence' })),
+}))
+
 // mock promptRenderer
 vi.mock('../../../../server/services/workflow/utils/promptRenderer', () => ({
     renderSystemPrompt: vi.fn(() => '你是案件摘要专家'),
@@ -319,6 +324,40 @@ describe('runModuleChat 模块对话 Agent', () => {
         const call = vi.mocked(createAgent).mock.calls.at(-1)![0] as any
         const labels = (call.middleware as Array<{ __mock?: string }>).map(m => m.__mock)
         expect(labels).not.toContain('moduleContext')
+    })
+
+    it('middleware 链末位挂载 analysisResultPersistenceMiddleware（A 方案兜底）', async () => {
+        const { createAgent } = await import('langchain')
+        const { analysisResultPersistenceMiddleware } = await import(
+            '../../../../server/agents/case-module/middleware/analysisResultPersistence.middleware'
+        )
+        const { runModuleChat } = await import(
+            '../../../../server/services/workflow/agents/moduleAgent'
+        )
+
+        await runModuleChat('session-arp', '分析', {
+            userId: 7,
+            caseId: 1064,
+            moduleName: 'defense',
+            nodeId: 11,
+            runId: 'run-arp',
+        })
+
+        const call = vi.mocked(createAgent).mock.calls.at(-1)![0] as any
+        const mwList = call.middleware as Array<{ __mock?: string }>
+
+        // 1) 工厂被调用且入参带 agentName/caseId/sessionId/runId/model
+        expect(analysisResultPersistenceMiddleware).toHaveBeenCalledWith(
+            expect.objectContaining({
+                agentName: 'defense',
+                caseId: 1064,
+                sessionId: 'session-arp',
+                runId: 'run-arp',
+            }),
+        )
+
+        // 2) 数组末位（afterAgent 最后执行，所有其他 middleware 改完 messages 再读）
+        expect(mwList[mwList.length - 1]).toEqual({ __mock: 'analysisResultPersistence' })
     })
 
     it('safetyTrim 收到的 systemPrompt 是 plain text（非 SystemMessage）', async () => {

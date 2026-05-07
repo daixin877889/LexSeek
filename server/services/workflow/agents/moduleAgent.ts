@@ -8,7 +8,10 @@
  * - pointConsumptionMiddleware: 按 token 计费
  * - 上下文注入: 通过 buildContextSegments 一次性构建 5 段式 system prompt（命中 prompt cache）
  * - summarizationMiddleware: 长对话摘要
- * - 注意：不挂载 analysisResultPersistenceMiddleware（与 save_analysis_result 工具冲突）
+ * - analysisResultPersistenceMiddleware: 末位兜底，与 save_analysis_result 工具通过
+ *   state._analysisRecordId 协同——beforeAgent 先建 IN_PROGRESS 记录并把 id 注入 state；
+ *   工具读到 id 时直接 update 同一条记录（避免双写）；afterAgent 检查 status，
+ *   COMPLETED 跳过、IN_PROGRESS 兜底，保障"分析结果一定保存"的不变量。
  */
 
 import { createAgent, summarizationMiddleware, type ReactAgent } from 'langchain'
@@ -32,6 +35,7 @@ import { buildLangfuseTopLevelConfig, withLangfuseContext } from '~~/server/lib/
 import { renderSystemPrompt } from '../utils/promptRenderer'
 import { buildSkillsMiddlewareForNode } from '~~/server/services/agent-platform/middleware/skills'
 import { afterAgentMemoryMiddleware } from '~~/server/services/agent-platform/middleware/afterAgentMemory.middleware'
+import { analysisResultPersistenceMiddleware } from '~~/server/agents/case-module/middleware/analysisResultPersistence.middleware'
 import { caseProcessMaterialMiddleware } from '~~/server/agents/_shared/case-context/caseProcessMaterial.middleware'
 import { caseContextSyncMiddleware } from '~~/server/agents/_shared/case-context/caseContextSync.middleware'
 import { createTool as createReadSkillFileTool } from '../tools/readSkillFile.tool'
@@ -196,6 +200,15 @@ async function runModuleChatInner(
             ...(skillsMw ? [skillsMw] : []),
             afterAgentMemoryMiddleware({ caseId, sessionId, userId }),
             createAuditMiddleware(),
+            // 末位兜底：beforeAgent 创建 IN_PROGRESS + 注入 _analysisRecordId；
+            // afterAgent 看 record.status：工具改过 → 跳过，没改 → 兜底落库。
+            analysisResultPersistenceMiddleware({
+                agentName: moduleName,
+                caseId,
+                sessionId,
+                model,
+                runId,
+            }),
         ],
     })
 
