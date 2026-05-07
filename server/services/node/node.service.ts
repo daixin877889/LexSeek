@@ -194,24 +194,28 @@ export const deleteNodeGroupService = async (id: number) => {
  * 创建节点
  * Requirements: 14.2
  * @param data 节点创建数据
+ * @param tx 事务客户端（可选） — 调用方需要把节点创建与其他变更（如关联提示词）放进同一个事务时传入
  * @returns 创建的节点
  */
-export const createNodeService = async (data: CreateNodeInput) => {
+export const createNodeService = async (
+    data: CreateNodeInput,
+    tx?: Parameters<typeof createNodeDao>[1],
+) => {
     // 检查节点名称是否已存在
-    const existingNode = await findNodeByNameDao(data.name)
+    const existingNode = await findNodeByNameDao(data.name, tx)
     if (existingNode) {
         throw new Error('节点名称已存在')
     }
 
     // 检查模型是否存在
-    const model = await findModelByIdDao(data.modelId)
+    const model = await findModelByIdDao(data.modelId, tx)
     if (!model) {
         throw new Error('关联的模型不存在')
     }
 
     // 如果指定了分组，检查分组是否存在
     if (data.groupId) {
-        const group = await findNodeGroupByIdDao(data.groupId)
+        const group = await findNodeGroupByIdDao(data.groupId, tx)
         if (!group) {
             throw new Error('关联的分组不存在')
         }
@@ -222,7 +226,7 @@ export const createNodeService = async (data: CreateNodeInput) => {
     const cleanedData = (!SCHEMA_TYPES.includes(data.type) && data.outputSchema)
         ? { ...data, outputSchema: null }
         : data
-    return await createNodeDao(cleanedData)
+    return await createNodeDao(cleanedData, tx)
 }
 
 /**

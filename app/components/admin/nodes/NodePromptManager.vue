@@ -97,7 +97,7 @@
                 <FilePlus class="size-4 mr-1" />
                 新建提示词
             </Button>
-            <Button variant="outline" size="sm" @click="openPreview">
+            <Button v-if="props.nodeId > 0" variant="outline" size="sm" @click="openPreview">
                 <Eye class="size-4 mr-1" />
                 查看完整 prompt 预览
             </Button>

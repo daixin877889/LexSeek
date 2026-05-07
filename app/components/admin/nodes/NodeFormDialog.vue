@@ -218,21 +218,17 @@
                     <AdminNodesOutputSchemaEditor v-model="form.outputSchema" />
                 </TabsContent>
 
-                <!-- 提示词（多对多关联，仅编辑模式可用） -->
+                <!-- 提示词（多对多关联） -->
                 <TabsContent value="prompts"
                     class="flex-1 flex flex-col overflow-hidden py-4 px-1 data-[state=inactive]:hidden mt-0">
-                    <div v-if="!isEdit"
-                        class="flex-1 flex items-center justify-center text-sm text-muted-foreground border rounded-md">
-                        请先创建节点，再回到此处管理关联提示词
-                    </div>
-                    <div v-else-if="promptsLoading"
+                    <div v-if="isEdit && promptsLoading"
                         class="flex-1 flex items-center justify-center text-sm text-muted-foreground">
                         <Loader2 class="h-4 w-4 mr-2 animate-spin" />
                         加载已挂提示词...
                     </div>
                     <AdminNodesNodePromptManager
                         v-else
-                        :node-id="selectedNode!.id"
+                        :node-id="selectedNode?.id ?? 0"
                         :prompts="nodePrompts"
                         @update:staged-changes="onStagedPromptChanges"
                     />
@@ -575,6 +571,10 @@ const handleSubmit = async () => {
             nodeId = selectedNode.value.id
         } else {
             body.name = form.value.name
+            // 阶段 G：新建时把 staged 提示词关联一并塞进 POST body，后端同事务创建
+            if (stagedPromptChanges.value && stagedPromptChanges.value.length > 0) {
+                body.prompts = stagedPromptChanges.value
+            }
             const result = await useApiFetch<{ id: number }>('/api/v1/admin/nodes', {
                 method: 'POST',
                 body,

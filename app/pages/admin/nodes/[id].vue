@@ -165,7 +165,7 @@
                 <CardHeader>
                     <CardTitle>完整 system prompt 预览</CardTitle>
                     <CardDescription>
-                        按 displayOrder 升序拼接 {{ promptPreview?.promptCount ?? 0 }} 段提示词的实际效果（未替换的 <code class="text-xs">{{ '{{xxx}}' }}</code> 字面量保留，便于核对运行时变量）
+                        按 displayOrder 升序拼接 {{ promptPreview?.promptCount ?? 0 }} 段提示词的实际效果（未替换的 <code v-pre class="text-xs">{{xxx}}</code> 字面量保留，便于核对运行时变量）
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
