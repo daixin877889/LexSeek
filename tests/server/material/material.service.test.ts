@@ -614,6 +614,39 @@ describe('材料服务层', () => {
             ])
             expect(map.get(mat.id)).toBeUndefined()
         })
+
+        it('ASR summary 长度超阈值（旧逐字稿残留）：Map 不含该 materialId', async () => {
+            const ossFile = await createTestOssFile({ userId: testUser.id }, testIds)
+            const mat = await createTestMaterial({
+                caseId: testCase.id, type: CaseMaterialType.AUDIO, ossFileId: ossFile.id,
+            })
+            testIds.materialIds.push(mat.id)
+            // 模拟 commit aad0e0a1 之前的逐字稿残留（>600 字符）
+            const longTranscript = '说话人：'.repeat(200) // 800 字符
+            await prisma.asrRecords.create({
+                data: { userId: testUser.id, ossFileId: ossFile.id, status: 2, summary: longTranscript, result: {} },
+            })
+            const map = await getMaterialSummariesByMaterials([
+                { id: mat.id, type: CaseMaterialType.AUDIO, ossFileId: ossFile.id },
+            ])
+            expect(map.get(mat.id)).toBeUndefined()
+        })
+
+        it('ASR summary 长度合理（200 字摘要）：正常进入 Map', async () => {
+            const ossFile = await createTestOssFile({ userId: testUser.id }, testIds)
+            const mat = await createTestMaterial({
+                caseId: testCase.id, type: CaseMaterialType.AUDIO, ossFileId: ossFile.id,
+            })
+            testIds.materialIds.push(mat.id)
+            const validSummary = '本案是一起买卖合同纠纷，原告主张被告交付的车辆存在重大质量瑕疵。'
+            await prisma.asrRecords.create({
+                data: { userId: testUser.id, ossFileId: ossFile.id, status: 2, summary: validSummary, result: {} },
+            })
+            const map = await getMaterialSummariesByMaterials([
+                { id: mat.id, type: CaseMaterialType.AUDIO, ossFileId: ossFile.id },
+            ])
+            expect(map.get(mat.id)).toBe(validSummary)
+        })
     })
 
     describe('generateMaterialSummaryService 改造 - 按 type 分发', () => {

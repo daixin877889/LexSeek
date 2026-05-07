@@ -518,6 +518,17 @@ export const getMaterialsStatsService = async (
 /** 摘要长度统一 200 字（spec §8.1 拍板） */
 const SUMMARY_MAX_CHARS = 200
 
+/**
+ * ASR summary 字段有效长度上限（字符）。
+ *
+ * commit aad0e0a1 之前 asr_records.summary 存的是逐字稿（数千~数万字），
+ * 之后语义改成 200 字摘要。历史数据未迁移，旧逐字稿会被 generateMaterialSummaryService
+ * 的"已存在 summary 防重早返"逻辑挡住，永远不重生成；snapshotMaterialReadiness 也会
+ * 把它当成"已就绪摘要"，绕过 summarizing 状态。阈值 600 = SUMMARY_MAX_CHARS × 3 的
+ * 宽容 buffer，与逐字稿动辄数千字明显区分。
+ */
+export const ASR_SUMMARY_MAX_VALID_CHARS = 600
+
 /** 单次 LLM 失败重试间隔（毫秒，指数退避） */
 const RETRY_DELAYS_MS = [5_000, 15_000, 45_000]
 
@@ -653,7 +664,12 @@ async function loadSummaryTarget(
         const r = await findAsrRecordByOssFileIdDao(ossFileId)
         if (!r || r.status !== 2) return null
         const transcribed = extractTextFromAsrResult(r.result) ?? ''
-        return { summary: r.summary, content: transcribed.slice(0, 2000) }
+        // ASR summary 长度超阈值 = commit aad0e0a1 之前的逐字稿残留：
+        // 视为无效，触发重新生成 200 字摘要
+        const validSummary = r.summary && r.summary.length <= ASR_SUMMARY_MAX_VALID_CHARS
+            ? r.summary
+            : null
+        return { summary: validSummary, content: transcribed.slice(0, 2000) }
     }
     return null
 }
@@ -792,7 +808,8 @@ export async function getMaterialSummariesByMaterials(
                 })
                 .then(rows => {
                     for (const r of rows) {
-                        if (r.ossFileId && r.summary) {
+                        // 过滤旧 ASR summary 残留（commit aad0e0a1 之前存的是逐字稿）：长度超阈值视为无效
+                        if (r.ossFileId && r.summary && r.summary.length <= ASR_SUMMARY_MAX_VALID_CHARS) {
                             for (const matId of audioOssToMat.get(r.ossFileId) ?? []) {
                                 if (!result.has(matId)) result.set(matId, r.summary)
                             }
