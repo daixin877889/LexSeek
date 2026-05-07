@@ -17,7 +17,7 @@ import { embedDocumentService } from '~~/server/services/material/materialEmbedd
 import { getExtensionFromFileName } from '~~/shared/utils/file'
 import { findDocRecognitionByOssFileIdDao, updateDocRecognitionRecordDao } from '~~/server/services/material/mineru.dao'
 import { generatePostSignatureService } from '~~/server/services/storage/storage.service'
-import { markMaterialsByOssFileIdService, generateMaterialSummaryService } from '~~/server/services/material/material.service'
+import { markMaterialsByOssFileIdService, generateOssFileSummaryService } from '~~/server/services/material/material.service'
 import { MaterialStatus } from '#shared/types/material'
 
 /** ZIP 中提取的图片信息 */
@@ -385,15 +385,9 @@ export async function processMineruResultService(
     // 与 ASR completeTranscriptionService 保持一致
     await markMaterialsByOssFileIdService(ossFileId, MaterialStatus.COMPLETED)
 
-    // 8. fire-and-forget 触发摘要生成
-    prisma.caseMaterials.findMany({
-        where: { ossFileId, type: 2, deletedAt: null }, // 2 = DOCUMENT
-        select: { id: true },
-    }).then(rows => {
-        for (const r of rows) {
-            generateMaterialSummaryService(r.id).catch(() => { /* 已在内部 catch */ })
-        }
-    }).catch(() => { /* 已在内部 catch */ })
+    // 8. fire-and-forget 按 OssFile 触发摘要生成
+    // 不依赖 caseMaterials 行存在（小索/法律助手输入框上传场景下还没创建 caseMaterials）
+    generateOssFileSummaryService(ossFileId).catch(() => { /* 已在内部 catch */ })
 
     logger.info('MinerU 识别结果处理完成', { ossFileId, imageCount: imageMap.size })
 

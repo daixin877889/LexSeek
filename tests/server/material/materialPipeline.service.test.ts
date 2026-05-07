@@ -15,8 +15,16 @@ const mocks = vi.hoisted(() => ({
     batchCheckMaterialRecognizedService: vi.fn(),
     processMaterialService: vi.fn(),
     embedMaterialUnifiedService: vi.fn(),
+    // T7 后 ensureMaterialsReadyService 末尾会 wait 死循环；动态控制它的实现：
+    // ensureMaterialsReadyService describe 用 fake-ready 让 wait 立即退出
+    // getMaterialListWithSummariesService describe 用 actual 实现走真实 DB
+    getMaterialSummariesByMaterials: vi.fn(),
 }))
 
+// T7 后 ensureMaterialsReadyService 末尾会跑 waitMaterialsTerminalAndSummary 死循环。
+// getMaterialSummariesByMaterials 的实现由各 describe 的 beforeEach 控制：
+// - ensureMaterialsReadyService 测试用 fake-ready 让 wait 立即退出
+// - getMaterialListWithSummariesService 测试用 actual 实现走真实 DB 查询
 vi.mock('../../../server/services/material/material.service', async (orig) => {
     const actual = await orig<typeof import('../../../server/services/material/material.service')>()
     return {
@@ -26,7 +34,8 @@ vi.mock('../../../server/services/material/material.service', async (orig) => {
         getMaterialsByDraftIdService: vi.fn().mockResolvedValue([]),
         updateMaterialStatusService: vi.fn(),
         generateMaterialSummaryService: vi.fn().mockResolvedValue(undefined),
-        // 保留 getMaterialSummariesByMaterials 真实实现：getMaterialListWithSummariesService 需要它
+        generateOssFileSummaryService: vi.fn().mockResolvedValue(undefined),
+        getMaterialSummariesByMaterials: mocks.getMaterialSummariesByMaterials,
     }
 })
 vi.mock('~~/server/services/material/material.service', async (orig) => {
@@ -38,6 +47,8 @@ vi.mock('~~/server/services/material/material.service', async (orig) => {
         getMaterialsByDraftIdService: vi.fn().mockResolvedValue([]),
         updateMaterialStatusService: vi.fn(),
         generateMaterialSummaryService: vi.fn().mockResolvedValue(undefined),
+        generateOssFileSummaryService: vi.fn().mockResolvedValue(undefined),
+        getMaterialSummariesByMaterials: mocks.getMaterialSummariesByMaterials,
     }
 })
 vi.mock('../../../server/services/material/materialEmbedding.service', () => ({
@@ -78,6 +89,12 @@ describe('ensureMaterialsReadyService', () => {
 
     beforeEach(() => {
         vi.clearAllMocks()
+        // 让 wait 立即退出：所有材料都视为已有 summary
+        mocks.getMaterialSummariesByMaterials.mockImplementation(async (inputs: Array<{ id: number }>) => {
+            const map = new Map<number, string>()
+            for (const m of inputs) map.set(m.id, 'mocked-summary')
+            return map
+        })
     })
 
     it('空材料时返回空结果', async () => {
@@ -293,6 +310,12 @@ describe('getMaterialListWithSummariesService', () => {
         imageRecognitionRecordIds: [] as number[],
         asrRecordIds: [] as number[],
     }
+
+    beforeEach(async () => {
+        // 还原 actual 实现走真实 DB 查询（与上面 ensureMaterialsReadyService 的 fake-ready mock 区分）
+        const actual = await vi.importActual<typeof import('../../../server/services/material/material.service')>('../../../server/services/material/material.service')
+        mocks.getMaterialSummariesByMaterials.mockImplementation(actual.getMaterialSummariesByMaterials)
+    })
 
     afterEach(async () => {
         // 先删识别记录表（FK 引用 users）

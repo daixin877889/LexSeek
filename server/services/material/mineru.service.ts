@@ -39,8 +39,7 @@ import { getExtensionFromFileName } from '~~/shared/utils/file'
 import { calculateBackoffDelay, DEFAULT_POLLING_CONFIG } from './materialConstants'
 import type { PollingConfig } from './materialConstants'
 import { DocRecognitionStatus, MineruTaskStatus } from '#shared/types/recognition'
-import { generateMaterialSummaryService } from './material.service'
-import { CaseMaterialType } from '#shared/types/case'
+import { generateOssFileSummaryService } from './material.service'
 
 /**
  * MinerU PDF 转换专用轮询配置
@@ -582,16 +581,9 @@ export const completeConversionService = async (
             // TODO: 可以考虑创建一个"待支付"记录，让用户充值后补扣积分
         }
 
-        // 6. fire-and-forget 触发对应 caseMaterials 的摘要生成
-        // generateMaterialSummaryService 内部 inflight Map 防并发 + summary 已非空早返
-        prisma.caseMaterials.findMany({
-            where: { ossFileId: task.ossFileId, type: CaseMaterialType.DOCUMENT, deletedAt: null },
-            select: { id: true },
-        }).then(rows => {
-            for (const r of rows) {
-                generateMaterialSummaryService(r.id).catch(() => { /* 已在内部 catch */ })
-            }
-        }).catch(() => { /* 已在内部 catch */ })
+        // 6. fire-and-forget 按 OssFile 触发摘要生成
+        // 不依赖 caseMaterials 行存在（小索/法律助手输入框上传场景下还没创建 caseMaterials）
+        generateOssFileSummaryService(task.ossFileId).catch(() => { /* 已在内部 catch */ })
 
         logger.info(`PDF 转换完成：taskId=${taskId}`)
     } catch (error) {

@@ -24,9 +24,8 @@ import {
     updateAsrRecordsByTaskIdDao,
 } from './asr.dao'
 import { generateSignedUrlService, uploadFileService, deleteFileService } from '../storage/storage.service'
-import { markMaterialsByOssFileIdService, generateMaterialSummaryService } from './material.service'
+import { markMaterialsByOssFileIdService, generateOssFileSummaryService } from './material.service'
 import { MaterialStatus } from '#shared/types/material'
-import { CaseMaterialType } from '#shared/types/case'
 import { v7 as uuidv7 } from 'uuid'
 import dayjs from 'dayjs'
 import { $fetch as ofetch } from 'ofetch'
@@ -882,16 +881,10 @@ export const completeTranscriptionService = async (
         // 历史 bug：之前只更新 asrTasks/asrRecords，case_materials.status 永远停在 PENDING/PROCESSING
         await markMaterialsByOssFileIdService(ossFileId, MaterialStatus.COMPLETED)
 
-        // 6.2 fire-and-forget 触发对应 caseMaterials 的摘要生成
-        // generateMaterialSummaryService 内部 inflight Map 防并发 + summary 已非空早返
-        prisma.caseMaterials.findMany({
-            where: { ossFileId, type: CaseMaterialType.AUDIO, deletedAt: null },
-            select: { id: true },
-        }).then(rows => {
-            for (const r of rows) {
-                generateMaterialSummaryService(r.id).catch(() => { /* 已在内部 catch */ })
-            }
-        }).catch(() => { /* 已在内部 catch */ })
+        // 6.2 fire-and-forget 按 OssFile 触发摘要生成
+        // 不依赖 caseMaterials 行存在（小索/法律助手输入框上传场景下还没创建 caseMaterials）
+        // 内部按 ossFileId 自动定位识别记录表写入 summary；防重 + 重试由 service 内部承担
+        generateOssFileSummaryService(ossFileId).catch(() => { /* 已在内部 catch */ })
 
         // 7. 清理临时文件（加密文件解密后上传的临时文件）
         // Requirements: 6.7.3
@@ -1457,7 +1450,7 @@ export const embedAsrRecordService = async (
 
         // 8. 更新 ASR 识别记录的向量信息
         // 注意：summary 字段不在此处写入——已切换语义为"200 字摘要"，由
-        // generateMaterialSummaryService 在识别完成后异步生成；
+        // generateOssFileSummaryService 在识别完成后按 ossFileId 异步生成；
         // 转录正文由 fetchMaterialContents 等读取方从 result JSON 现拼。
         await updateAsrRecordDao(recordId, {
             vectorIds: embeddingResult.ids,

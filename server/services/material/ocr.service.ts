@@ -23,6 +23,7 @@ import {
 import { generateSignedUrlService } from '../storage/storage.service'
 import { getValidNodeConfig, getNodeConfigService, type NodeConfig } from '../node/node.service'
 import { embedImageService } from './materialEmbedding.service'
+import { generateOssFileSummaryService } from './material.service'
 import { markdownToHtmlService } from './mineruResult.service'
 import { ImageType } from '#shared/types/recognition'
 import { withLangfuseContext } from '~~/server/lib/langfuse'
@@ -393,6 +394,10 @@ async function createImageConversionInner(
             ossFileId,
             imageType: extractResult.imgType,
         })
+
+        // 8. fire-and-forget 按 OssFile 触发摘要生成
+        // 不依赖 caseMaterials 行存在（小索/法律助手输入框上传场景下还没创建 caseMaterials）
+        generateOssFileSummaryService(ossFileId).catch(() => { /* 已在内部 catch */ })
 
         return {
             record,

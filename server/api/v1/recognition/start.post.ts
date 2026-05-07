@@ -86,13 +86,16 @@ export default defineEventHandler(async (event) => {
         const ext = getExtensionFromFileName(ossFile.fileName) || ''
 
         // 根据文件类型调用对应的识别服务
-        // 标记是否为同步处理（md/txt/docx 是同步处理，图片/音频/pdf 是异步处理）
+        // 标记是否为同步处理（md/txt/docx/图片 是同步处理，音频/pdf 是异步处理）
         // 已有成功记录的文件也视为同步处理（直接返回 completed）
         let isSyncProcessing = false
         let processResult: { success: boolean; error?: string; task?: { taskId?: string } }
 
         switch (fileType) {
             case CaseMaterialType.IMAGE:
+                // 图片 OCR 是同步执行的：createImageConversionService 内部 await OCR API 后落库才返回
+                // 之前误判为异步导致前端按 'processing' 继续轮询、status 接口判定滞后一拍
+                isSyncProcessing = true
                 processResult = await createImageConversionService(ossFileId, user.id) as any
                 break
             case CaseMaterialType.AUDIO:
@@ -128,18 +131,13 @@ export default defineEventHandler(async (event) => {
             ? (isSyncProcessing ? 'completed' : 'processing')
             : 'failed'
 
-        // 同步识别成功 → 如有对应 caseMaterials 行 fire-and-forget 触发摘要生成
+        // 同步识别成功 → 按 OssFile 触发摘要生成（不依赖 caseMaterials 行存在）
+        // 小索/法律助手输入框上传场景下 caseMaterials 行还没创建，按 OssFile 提前算摘要
+        // 让用户点发送时摘要已就绪，命中 spec §2 目标 1
         if (resultStatus === 'completed') {
-            prisma.caseMaterials.findMany({
-                where: { ossFileId, deletedAt: null },
-                select: { id: true },
-            }).then(rows => {
-                for (const r of rows) {
-                    import('~~/server/services/material/material.service').then(svc =>
-                        svc.generateMaterialSummaryService(r.id),
-                    ).catch(() => { /* 已在内部 catch */ })
-                }
-            }).catch(() => { /* 已在内部 catch */ })
+            import('~~/server/services/material/material.service').then(svc =>
+                svc.generateOssFileSummaryService(ossFileId),
+            ).catch(() => { /* 已在内部 catch */ })
         }
 
         results.push({

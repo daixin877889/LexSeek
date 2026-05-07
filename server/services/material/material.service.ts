@@ -538,6 +538,16 @@ const RETRY_DELAYS_MS = [5_000, 15_000, 45_000]
 const inflight = new Map<number, Promise<void>>()
 
 /**
+ * inflight Map：同一 ossFileId 的并发请求复用同一 Promise（OssFile 级摘要专用）
+ *
+ * 与 inflight 是不同命名空间：前者按案件材料 id（已绑定到 caseMaterials），
+ * 后者按上传文件 id（caseMaterials 行未必存在）。
+ *
+ * 跨命名空间防重通过 generateMaterialSummaryInner 入口 await 该 Map 实现。
+ */
+const ossFileSummaryInflight = new Map<number, Promise<void>>()
+
+/**
  * 为材料生成 200 字摘要。
  *
  * 升级版（spec §4.2）：
@@ -574,52 +584,26 @@ async function generateMaterialSummaryInner(materialId: number): Promise<void> {
         })
         if (!material) return
 
+        // 跨命名空间防重：若同 ossFile 已有 OSS 级摘要任务在跑，等它完成再判定
+        // （typical 场景：用户在小索/法律助手输入框上传文件触发 OSS 级摘要，
+        //   随后点发送创建 caseMaterials 行，中间件再走一次 Material 级；
+        //   这里 await 一下让 Material 级直接命中防重早返）
+        if (material.ossFileId) {
+            const ossPending = ossFileSummaryInflight.get(material.ossFileId)
+            if (ossPending) {
+                await ossPending.catch(() => { /* 已在内部 catch */ })
+            }
+        }
+
         // 按类型读对应识别记录的 summary + content（防重 + 提供 LLM 输入）
         const target = await loadSummaryTarget(material.id, material.type, material.ossFileId)
         if (!target) return  // 识别记录不存在 / 无内容
         if (target.summary) return  // 已有摘要，防重早返
         if (!target.content) return  // 无内容可总结
 
-        const config = await getValidNodeConfig('materialAutoSummary', '材料自动摘要')
-        const apiKey = config.modelApiKeys.find(k => k.status === 1)?.apiKey
-        if (!apiKey) {
-            logger.warn('materialAutoSummary 节点无可用 API Key', { materialId })
-            return
-        }
-        const systemPrompt = config.prompts.find(p => p.type === 'system' && p.status === 1)?.content
-        if (!systemPrompt) {
-            logger.warn('materialAutoSummary 节点无 system prompt', { materialId })
-            return
-        }
-        const model = createChatModel({
-            sdkType: config.modelSdkType,
-            modelName: config.modelName,
-            apiKey,
-            baseUrl: config.modelProviderBaseUrl,
-            temperature: 0,
-            streaming: false,
-        })
-
-        // LLM 调用 + 自动重试 3 次（指数退避）
-        let summary: string | null = null
-        let lastErr: unknown = null
-        for (let attempt = 0; attempt < RETRY_DELAYS_MS.length + 1; attempt++) {
-            try {
-                summary = await generateSummaryService(model, target.content, {
-                    maxChars: SUMMARY_MAX_CHARS,
-                    systemPrompt,
-                })
-                break
-            } catch (e) {
-                lastErr = e
-                logger.warn(`摘要 LLM 调用第 ${attempt + 1} 次失败`, { materialId, error: e })
-                if (attempt < RETRY_DELAYS_MS.length) {
-                    await new Promise(r => setTimeout(r, RETRY_DELAYS_MS[attempt]))
-                }
-            }
-        }
+        const summary = await callSummaryLlm(target.content, { materialId })
         if (!summary) {
-            logger.error('摘要 LLM 重试穷尽，标记 caseMaterials.status=FAILED', { materialId, error: lastErr })
+            logger.error('Material 摘要 LLM 重试穷尽，标记 caseMaterials.status=FAILED', { materialId })
             await prisma.caseMaterials.update({
                 where: { id: materialId },
                 data: { status: MaterialStatus.FAILED },
@@ -697,6 +681,163 @@ async function persistSummary(
     } else if (type === CaseMaterialType.AUDIO) {
         const r = await findAsrRecordByOssFileIdDao(ossFileId)
         if (r) await updateAsrRecordDao(r.id, { summary })
+    }
+}
+
+// ==================== OssFile 级摘要（不依赖 caseMaterials 行）====================
+
+/**
+ * 调用 LLM 生成摘要（含 3 次重试 + 节点配置查询）
+ *
+ * 抽出供 generateMaterialSummary / generateOssFileSummary 共用，避免重复实现。
+ * @returns summary 字符串；重试穷尽返回 null（调用方决定后续动作）
+ */
+async function callSummaryLlm(
+    content: string,
+    identifier: { ossFileId?: number; materialId?: number },
+): Promise<string | null> {
+    const config = await getValidNodeConfig('materialAutoSummary', '材料自动摘要')
+    const apiKey = config.modelApiKeys.find(k => k.status === 1)?.apiKey
+    if (!apiKey) {
+        logger.warn('materialAutoSummary 节点无可用 API Key', identifier)
+        return null
+    }
+    const systemPrompt = config.prompts.find(p => p.type === 'system' && p.status === 1)?.content
+    if (!systemPrompt) {
+        logger.warn('materialAutoSummary 节点无 system prompt', identifier)
+        return null
+    }
+    const model = createChatModel({
+        sdkType: config.modelSdkType,
+        modelName: config.modelName,
+        apiKey,
+        baseUrl: config.modelProviderBaseUrl,
+        temperature: 0,
+        streaming: false,
+    })
+
+    let lastErr: unknown = null
+    for (let attempt = 0; attempt < RETRY_DELAYS_MS.length + 1; attempt++) {
+        try {
+            return await generateSummaryService(model, content, {
+                maxChars: SUMMARY_MAX_CHARS,
+                systemPrompt,
+            })
+        } catch (e) {
+            lastErr = e
+            logger.warn(`摘要 LLM 调用第 ${attempt + 1} 次失败`, { ...identifier, error: e })
+            if (attempt < RETRY_DELAYS_MS.length) {
+                await new Promise(r => setTimeout(r, RETRY_DELAYS_MS[attempt]))
+            }
+        }
+    }
+    logger.error('摘要 LLM 重试穷尽', { ...identifier, error: lastErr })
+    return null
+}
+
+interface OssFileSummaryTarget {
+    summary: string | null
+    content: string
+    recordType: 'doc' | 'image' | 'audio'
+    recordId: number
+}
+
+/**
+ * 自动判断 ossFile 对应的识别记录类型（doc / image / audio 三选一）
+ * 并返回当前 summary 与可供 LLM 输入的内容文本
+ */
+async function loadOssFileSummaryTarget(ossFileId: number): Promise<OssFileSummaryTarget | null> {
+    const doc = await findDocRecognitionByOssFileIdDao(ossFileId)
+    if (doc && doc.status === 2) {
+        return {
+            summary: doc.summary,
+            content: (doc.markdownContent ?? '').slice(0, 2000),
+            recordType: 'doc',
+            recordId: doc.id,
+        }
+    }
+    const img = await findImageRecognitionByOssFileIdDao(ossFileId)
+    if (img && img.status === 2) {
+        return {
+            summary: img.summary,
+            content: (img.markdownContent ?? '').slice(0, 2000),
+            recordType: 'image',
+            recordId: img.id,
+        }
+    }
+    const asr = await findAsrRecordByOssFileIdDao(ossFileId)
+    if (asr && asr.status === 2) {
+        const transcribed = extractTextFromAsrResult(asr.result) ?? ''
+        // 旧逐字稿过滤（与 loadSummaryTarget 保持一致）
+        const validSummary = asr.summary && asr.summary.length <= ASR_SUMMARY_MAX_VALID_CHARS
+            ? asr.summary
+            : null
+        return {
+            summary: validSummary,
+            content: transcribed.slice(0, 2000),
+            recordType: 'audio',
+            recordId: asr.id,
+        }
+    }
+    return null
+}
+
+async function persistOssFileSummary(
+    recordType: 'doc' | 'image' | 'audio',
+    recordId: number,
+    summary: string,
+): Promise<void> {
+    if (recordType === 'doc') {
+        await updateDocRecognitionRecordDao(recordId, { summary })
+    } else if (recordType === 'image') {
+        await updateImageRecognitionRecordDao(recordId, { summary })
+    } else {
+        await updateAsrRecordDao(recordId, { summary })
+    }
+}
+
+/**
+ * 按 ossFileId 生成识别记录表的 200 字摘要（不依赖 caseMaterials 行）
+ *
+ * 与 generateMaterialSummaryService 的差异：
+ * - 不依赖 caseMaterials 行（小索/法律助手输入框选文件即触发场景）
+ * - 自动判断 ossFile 对应识别记录类型（doc / image / audio）
+ * - 失败穷尽时不写 caseMaterials.status=FAILED（可能没有 caseMaterials 行；
+ *   后续 generateMaterialSummaryService 会兜底标记）
+ * - 独立 inflight Map（key=ossFileId）；与 Material 级跨命名空间防重通过
+ *   generateMaterialSummaryInner 入口 await 实现
+ *
+ * 文字材料（CASE_CONTENT）不走这个函数——textContentRecords 必然伴随 caseMaterials，
+ * 直接走 generateMaterialSummaryService 即可。
+ *
+ * 失败不阻塞主流程，仅 logger.warn。
+ */
+export async function generateOssFileSummaryService(ossFileId: number): Promise<void> {
+    const existing = ossFileSummaryInflight.get(ossFileId)
+    if (existing) return existing
+
+    const task = withLangfuseContext(
+        { ossFileId: String(ossFileId), vertical: 'material-summary' },
+        () => generateOssFileSummaryInner(ossFileId),
+    ).finally(() => ossFileSummaryInflight.delete(ossFileId))
+
+    ossFileSummaryInflight.set(ossFileId, task)
+    return task
+}
+
+async function generateOssFileSummaryInner(ossFileId: number): Promise<void> {
+    try {
+        const target = await loadOssFileSummaryTarget(ossFileId)
+        if (!target) return  // 识别记录不存在或未成功
+        if (target.summary) return  // 已有摘要，防重早返
+        if (!target.content) return  // 无内容可总结
+
+        const summary = await callSummaryLlm(target.content, { ossFileId })
+        if (!summary) return  // LLM 重试穷尽，不写 caseMaterials.status
+
+        await persistOssFileSummary(target.recordType, target.recordId, summary)
+    } catch (e) {
+        logger.warn('generateOssFileSummaryService 失败（不阻塞主流程）', { ossFileId, error: e })
     }
 }
 

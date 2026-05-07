@@ -64,6 +64,7 @@ import {
     markMaterialsByOssFileIdService,
     getMaterialSummariesByMaterials,
     generateMaterialSummaryService,
+    generateOssFileSummaryService,
 } from '../../../server/services/material/material.service'
 import { prisma } from '~~/server/utils/db'
 import { MaterialStatus } from '../../../shared/types/material'
@@ -825,6 +826,201 @@ describe('材料服务层', () => {
         it.skip('LLM 全部失败：标记 caseMaterials.status=FAILED 不抛错（实测覆盖，自动化测试不放）', async () => {
             // 实现：generateMaterialSummaryInner 内 1 次原始 + 3 次重试 (5s/15s/45s)
             // 全失败 → prisma.caseMaterials.update({ status: FAILED }) → return（不抛错）
+        })
+    })
+
+    describe('generateOssFileSummaryService - OssFile 级摘要（不依赖 caseMaterials）', () => {
+        const setupValidNodeConfig = () => {
+            llmMocks.getValidNodeConfig.mockResolvedValue({
+                modelApiKeys: [{ apiKey: 'sk-test', status: 1 }],
+                modelSdkType: 'openai',
+                modelName: 'gpt-4',
+                modelProviderBaseUrl: 'https://api.openai.com/v1',
+                prompts: [{ type: 'system', status: 1, content: '你是摘要助手' }],
+            } as any)
+            llmMocks.createChatModel.mockReturnValue({
+                invoke: vi.fn().mockResolvedValue({ content: '生成摘要' }),
+            } as any)
+        }
+
+        const resetLlmMocks = () => {
+            llmMocks.generateSummaryService.mockReset()
+            llmMocks.getValidNodeConfig.mockReset()
+            llmMocks.createChatModel.mockReset()
+        }
+
+        it('DOCUMENT：caseMaterials 不存在也能写 docRecognitionRecords.summary', async () => {
+            resetLlmMocks()
+            setupValidNodeConfig()
+            llmMocks.generateSummaryService.mockResolvedValue('文档摘要 OSS 触发')
+
+            const ossFile = await createTestOssFile({ userId: testUser.id }, testIds)
+            // 故意不创建 caseMaterials —— 模拟小索输入框上传瞬间
+            await prisma.docRecognitionRecords.create({
+                data: {
+                    userId: testUser.id, ossFileId: ossFile.id, status: 2,
+                    markdownContent: '文档正文', summary: null,
+                },
+            })
+
+            await generateOssFileSummaryService(ossFile.id)
+
+            const after = await prisma.docRecognitionRecords.findFirst({ where: { ossFileId: ossFile.id } })
+            expect(after?.summary).toBe('文档摘要 OSS 触发')
+            expect(llmMocks.generateSummaryService).toHaveBeenCalledTimes(1)
+        })
+
+        it('IMAGE：caseMaterials 不存在也能写 imageRecognitionRecords.summary', async () => {
+            resetLlmMocks()
+            setupValidNodeConfig()
+            llmMocks.generateSummaryService.mockResolvedValue('图片摘要 OSS 触发')
+
+            const ossFile = await createTestOssFile({ userId: testUser.id }, testIds)
+            await prisma.imageRecognitionRecords.create({
+                data: {
+                    userId: testUser.id, ossFileId: ossFile.id, status: 2,
+                    markdownContent: '图片识别内容', summary: null,
+                },
+            })
+
+            await generateOssFileSummaryService(ossFile.id)
+
+            const after = await prisma.imageRecognitionRecords.findFirst({ where: { ossFileId: ossFile.id } })
+            expect(after?.summary).toBe('图片摘要 OSS 触发')
+        })
+
+        it('AUDIO：caseMaterials 不存在也能写 asrRecords.summary', async () => {
+            resetLlmMocks()
+            setupValidNodeConfig()
+            llmMocks.generateSummaryService.mockResolvedValue('音频摘要 OSS 触发')
+
+            const ossFile = await createTestOssFile({ userId: testUser.id }, testIds)
+            await prisma.asrRecords.create({
+                data: {
+                    userId: testUser.id, ossFileId: ossFile.id, status: 2,
+                    result: { sentences: [{ text: '需要摘要的转录' }] },
+                    summary: null,
+                },
+            })
+
+            await generateOssFileSummaryService(ossFile.id)
+
+            const after = await prisma.asrRecords.findFirst({ where: { ossFileId: ossFile.id } })
+            expect(after?.summary).toBe('音频摘要 OSS 触发')
+        })
+
+        it('summary 已存在 → 早返不调 LLM（防重）', async () => {
+            resetLlmMocks()
+            setupValidNodeConfig()
+            llmMocks.generateSummaryService.mockResolvedValue('不应该被生成的摘要')
+
+            const ossFile = await createTestOssFile({ userId: testUser.id }, testIds)
+            await prisma.docRecognitionRecords.create({
+                data: {
+                    userId: testUser.id, ossFileId: ossFile.id, status: 2,
+                    markdownContent: 'x', summary: '已有摘要',
+                },
+            })
+
+            await generateOssFileSummaryService(ossFile.id)
+
+            expect(llmMocks.generateSummaryService).not.toHaveBeenCalled()
+            const after = await prisma.docRecognitionRecords.findFirst({ where: { ossFileId: ossFile.id } })
+            expect(after?.summary).toBe('已有摘要')
+        })
+
+        it('识别记录不存在 → 早返不调 LLM', async () => {
+            resetLlmMocks()
+            setupValidNodeConfig()
+            llmMocks.generateSummaryService.mockResolvedValue('不应被调')
+
+            const ossFile = await createTestOssFile({ userId: testUser.id }, testIds)
+            // 故意不创建任何识别记录
+
+            await generateOssFileSummaryService(ossFile.id)
+
+            expect(llmMocks.generateSummaryService).not.toHaveBeenCalled()
+        })
+
+        it('识别状态非 SUCCESS（status=1 处理中）→ 早返不调 LLM', async () => {
+            resetLlmMocks()
+            setupValidNodeConfig()
+            llmMocks.generateSummaryService.mockResolvedValue('不应被调')
+
+            const ossFile = await createTestOssFile({ userId: testUser.id }, testIds)
+            await prisma.docRecognitionRecords.create({
+                data: {
+                    userId: testUser.id, ossFileId: ossFile.id, status: 1, // PROCESSING
+                    markdownContent: 'x', summary: null,
+                },
+            })
+
+            await generateOssFileSummaryService(ossFile.id)
+
+            expect(llmMocks.generateSummaryService).not.toHaveBeenCalled()
+        })
+
+        it('inflight 并发去重：同 ossFileId 并发只调一次 LLM', async () => {
+            resetLlmMocks()
+            setupValidNodeConfig()
+            llmMocks.generateSummaryService.mockImplementation(async () => {
+                await new Promise(r => setTimeout(r, 200))
+                return 'OSS 并发摘要'
+            })
+
+            const ossFile = await createTestOssFile({ userId: testUser.id }, testIds)
+            await prisma.docRecognitionRecords.create({
+                data: {
+                    userId: testUser.id, ossFileId: ossFile.id, status: 2,
+                    markdownContent: 'x', summary: null,
+                },
+            })
+
+            await Promise.all([
+                generateOssFileSummaryService(ossFile.id),
+                generateOssFileSummaryService(ossFile.id),
+                generateOssFileSummaryService(ossFile.id),
+                generateOssFileSummaryService(ossFile.id),
+                generateOssFileSummaryService(ossFile.id),
+            ])
+
+            expect(llmMocks.generateSummaryService).toHaveBeenCalledTimes(1)
+            const after = await prisma.docRecognitionRecords.findFirst({ where: { ossFileId: ossFile.id } })
+            expect(after?.summary).toBe('OSS 并发摘要')
+        })
+
+        it('跨命名空间防重：先 OSS 触发 inflight，Material 后到等待 OSS 完成后命中早返', async () => {
+            resetLlmMocks()
+            setupValidNodeConfig()
+            llmMocks.generateSummaryService.mockImplementation(async () => {
+                await new Promise(r => setTimeout(r, 200))
+                return 'OSS 抢先摘要'
+            })
+
+            const ossFile = await createTestOssFile({ userId: testUser.id }, testIds)
+            const m = await createTestMaterial({
+                caseId: testCase.id, type: CaseMaterialType.DOCUMENT, ossFileId: ossFile.id,
+            })
+            testIds.materialIds.push(m.id)
+            await prisma.docRecognitionRecords.create({
+                data: {
+                    userId: testUser.id, ossFileId: ossFile.id, status: 2,
+                    markdownContent: 'x', summary: null,
+                },
+            })
+
+            // OSS 级先启动（fire-and-forget）
+            const ossPromise = generateOssFileSummaryService(ossFile.id)
+            // 短暂等待让 inflight Map 注册
+            await new Promise(r => setTimeout(r, 20))
+            // Material 级后启动（应在 OSS 完成后命中防重早返）
+            await generateMaterialSummaryService(m.id)
+            await ossPromise
+
+            // OSS 调一次 + Material 因防重早返不调 = 共 1 次
+            expect(llmMocks.generateSummaryService).toHaveBeenCalledTimes(1)
+            const after = await prisma.docRecognitionRecords.findFirst({ where: { ossFileId: ossFile.id } })
+            expect(after?.summary).toBe('OSS 抢先摘要')
         })
     })
 })

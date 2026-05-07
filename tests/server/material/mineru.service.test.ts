@@ -116,9 +116,9 @@ vi.mock('~~/server/services/material/materialConstants', () => ({
     },
 }))
 
-// T5：mineru.service 末尾 fire-and-forget 触发摘要生成
+// T5：mineru.service 末尾 fire-and-forget 按 OssFile 触发摘要生成
 vi.mock('~~/server/services/material/material.service', () => ({
-    generateMaterialSummaryService: vi.fn().mockResolvedValue(undefined),
+    generateOssFileSummaryService: vi.fn().mockResolvedValue(undefined),
 }))
 
 // 模拟 ofetch（用于 MinerU API 调用和 ZIP 下载）

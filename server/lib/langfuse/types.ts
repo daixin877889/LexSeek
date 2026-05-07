@@ -24,6 +24,7 @@ export type LangfuseTraceContext = {
   reviewId?: string
   draftId?: string
   materialId?: string
+  ossFileId?: string
 
   /** 业务维度 */
   vertical?: LangfuseVertical
