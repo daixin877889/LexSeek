@@ -17,6 +17,8 @@ import { embedDocumentService } from '~~/server/services/material/materialEmbedd
 import { getExtensionFromFileName } from '~~/shared/utils/file'
 import { findDocRecognitionByOssFileIdDao, updateDocRecognitionRecordDao } from '~~/server/services/material/mineru.dao'
 import { generatePostSignatureService } from '~~/server/services/storage/storage.service'
+import { markMaterialsByOssFileIdService, generateMaterialSummaryService } from '~~/server/services/material/material.service'
+import { MaterialStatus } from '#shared/types/material'
 
 /** ZIP 中提取的图片信息 */
 interface ExtractedImage {
@@ -376,6 +378,22 @@ export async function processMineruResultService(
 
     // 6. 保存识别结果并进行向量化嵌入
     await saveDocRecognitionResultService(ossFileId, htmlContent, processedMarkdown, userId, docFileName)
+
+    // 7. 切对应 caseMaterials 状态为 COMPLETED + 异步生成摘要
+    // 历史 bug：之前只更新 docRecognitionRecords，case_materials.status 永远停在 PENDING/PROCESSING
+    // 导致 waitMaterialsTerminalAndSummary 无限轮询（识别记录表显示已完成，但 case_materials.status 仍是 PENDING）
+    // 与 ASR completeTranscriptionService 保持一致
+    await markMaterialsByOssFileIdService(ossFileId, MaterialStatus.COMPLETED)
+
+    // 8. fire-and-forget 触发摘要生成
+    prisma.caseMaterials.findMany({
+        where: { ossFileId, type: 2, deletedAt: null }, // 2 = DOCUMENT
+        select: { id: true },
+    }).then(rows => {
+        for (const r of rows) {
+            generateMaterialSummaryService(r.id).catch(() => { /* 已在内部 catch */ })
+        }
+    }).catch(() => { /* 已在内部 catch */ })
 
     logger.info('MinerU 识别结果处理完成', { ossFileId, imageCount: imageMap.size })
 

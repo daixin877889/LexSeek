@@ -78,6 +78,20 @@ async function runRecognitionAndEmbeddingPipeline(
 
     // 识别阶段：检查识别状态，对未识别的触发识别
     const recognizedMap = await batchCheckMaterialRecognizedService(materials)
+
+    // 状态漂移修正：识别记录表显示已识别成功，但 case_materials.status 仍是 PENDING / PROCESSING 的材料
+    // 主动同步为 COMPLETED，让 snapshot 能正确判定终态、避免轮询死锁。
+    // FAILED 状态保留不动（业务语义可能是真实失败，不通过本路径覆盖）。
+    const staleMaterials = materials.filter(m =>
+        recognizedMap.get(m.id)
+        && m.status !== MaterialStatus.COMPLETED
+        && m.status !== MaterialStatus.FAILED,
+    )
+    if (staleMaterials.length > 0) {
+        await Promise.all(staleMaterials.map(m => updateMaterialStatusService(m.id, MaterialStatus.COMPLETED)))
+        logger.info('补更新识别完成但状态漂移的材料', { count: staleMaterials.length, ids: staleMaterials.map(m => m.id) })
+    }
+
     const notRecognized = materials.filter(m => !recognizedMap.get(m.id))
     if (notRecognized.length > 0) {
         // TODO: 大量材料时考虑添加并发限制（p-limit）
@@ -180,12 +194,15 @@ async function waitMaterialsTerminalAndSummary(
 /**
  * 查询材料就绪状态快照（按文件级跨 4 表 join 查 summary）
  *
- * 状态映射：
- * - FAILED → 'failed'
- * - PENDING → 'pending'
- * - PROCESSING → 'recognizing'
- * - COMPLETED + summary 已生成 → 'ready'
- * - COMPLETED + summary 未生成 → 'summarizing'
+ * 状态映射（按优先级判定）：
+ * - case_materials.status=FAILED → 'failed'
+ * - 识别记录表 status=2（已识别成功）→ 摘要有 → 'ready'，无 → 'summarizing'
+ *   （识别记录表权威，避免 case_materials.status 落后于真实识别状态时的死锁；
+ *    若 case_materials.status 仍是 PENDING/PROCESSING，由 pipeline 末尾 status 同步补齐）
+ * - case_materials.status=PROCESSING → 'recognizing'
+ * - case_materials.status=COMPLETED + 摘要已生成 → 'ready'
+ * - case_materials.status=COMPLETED + 摘要未生成 → 'summarizing'
+ * - 其他（含 PENDING）→ 'pending'
  */
 export async function snapshotMaterialReadiness(
     materials: MaterialWithFile[],
@@ -200,18 +217,22 @@ export async function snapshotMaterialReadiness(
     })
     const freshStatus = new Map(fresh.map(r => [r.id, r.status]))
 
-    const summaryMap = await getMaterialSummariesByMaterials(
-        materials.map(m => ({ id: m.id, type: m.type, ossFileId: m.ossFileId })),
-    )
+    const [recognizedMap, summaryMap] = await Promise.all([
+        batchCheckMaterialRecognizedService(materials),
+        getMaterialSummariesByMaterials(
+            materials.map(m => ({ id: m.id, type: m.type, ossFileId: m.ossFileId })),
+        ),
+    ])
 
     return materials.map(m => {
-        const status = freshStatus.get(m.id) ?? m.status
+        const rawStatus = freshStatus.get(m.id) ?? m.status
+        const recognized = recognizedMap.get(m.id) ?? false
         const hasSummary = summaryMap.has(m.id)
         let s: MaterialItemStatus
-        if (status === MaterialStatus.FAILED) s = 'failed'
-        else if (status === MaterialStatus.PENDING) s = 'pending'
-        else if (status === MaterialStatus.PROCESSING) s = 'recognizing'
-        else if (status === MaterialStatus.COMPLETED) s = hasSummary ? 'ready' : 'summarizing'
+        if (rawStatus === MaterialStatus.FAILED) s = 'failed'
+        else if (recognized) s = hasSummary ? 'ready' : 'summarizing'
+        else if (rawStatus === MaterialStatus.PROCESSING) s = 'recognizing'
+        else if (rawStatus === MaterialStatus.COMPLETED) s = hasSummary ? 'ready' : 'summarizing'
         else s = 'pending'
         return { materialId: m.id, name: m.name, status: s }
     })
