@@ -16,6 +16,15 @@ const props = defineProps<{
     state: ExtendedToolState
 }>()
 
+// 处理中展开看材料状态进度，处理成功后自动收起（header summary 已显示 N/N 已完成）。
+// 失败时不切换：若先前在处理中已展开则保持展开让用户立即定位失败条目；
+// 历史消息加载时 state 直接进入 output-available，初始化即收起。
+const isOpen = ref(false)
+watch(() => props.state, (s) => {
+    if (s === 'input-available') isOpen.value = true
+    else if (s === 'output-available') isOpen.value = false
+}, { immediate: true })
+
 const sourceData = computed(() => {
     if (props.output != null) {
         try {
@@ -51,7 +60,7 @@ function statusLabel(s: MaterialItem['status']) {
 </script>
 
 <template>
-    <Tool>
+    <Tool v-model:open="isOpen">
         <ToolHeader title="材料处理" type="tool-process_materials" :state="state">
             <template #extra>
                 <span v-if="materials.length" class="text-xs text-muted-foreground">
