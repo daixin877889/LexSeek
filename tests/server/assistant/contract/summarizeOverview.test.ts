@@ -85,13 +85,14 @@ describe('summarizeOverview', () => {
         // invokeNodeJson 必须显式 streaming:false，避免后台 JSON 提取的
         // LLM token chunks 通过 callback 链泄漏到主 SSE 通道（已知 bug）
         expect(createChatModel).toHaveBeenCalledWith(expect.objectContaining({ streaming: false }))
-        // langfuse:nostream + internal 双层 tag 阻断后台 LLM 调用泄漏：
-        // - langfuse:nostream 由 LangfuseSpanProcessor.shouldExportSpan 统一豁免，
-        //   且兼容 LangGraph TAG_NOSTREAM 前缀短路 handleLLMEnd 把完整非流式响应 emit
-        // - internal 保留项目约定，agentWorker.stripSystemMessages SSE 层兜底
+        // langsmith:nostream + langfuse:nostream + internal 三层 tag 阻断后台 LLM 调用泄漏：
+        // - langsmith:nostream 由 LangGraph StreamMessagesHandler 严格相等匹配后短路，
+        //   不进 SSE 流（messages.cjs:56-67）。
+        // - langfuse:nostream 由 LangfuseSpanProcessor.shouldExportSpan 统一豁免。
+        // - internal 保留项目约定，agentWorker.stripSystemMessages SSE 层兜底。
         expect(mockInvoke).toHaveBeenCalledWith(
             expect.any(String),
-            expect.objectContaining({ tags: ['langfuse:nostream', 'internal'] }),
+            expect.objectContaining({ tags: ['langsmith:nostream', 'langfuse:nostream', 'internal'] }),
         )
         expect(result.highlights).not.toBeNull()
         expect(result.highlights!.high).toHaveLength(1)
