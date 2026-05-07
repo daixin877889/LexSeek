@@ -140,6 +140,18 @@ const contentClass = computed(() => (props.nestedZIndex ? `z-[${props.nestedZInd
 const innerContentClass = computed(() => (props.nestedZIndex ? `z-[${props.nestedZIndex + 10}]` : ''))
 const innerOverlayClass = computed(() => (props.nestedZIndex ? `z-[${props.nestedZIndex + 9}]` : ''))
 
+/**
+ * Tailwind v4 JIT 安全清单锚点：
+ * 上面的 `z-[xxx]` 是运行时拼接，JIT 扫不到字面量；这里把所有可能用到的 z-index 类
+ * 以静态字符串形式列出，让 JIT 在源码扫描时生成对应 CSS。如新增其它 nestedZIndex
+ * 取值，必须同步在此处补上对应静态串。
+ *
+ * 当前支持：nestedZIndex = 200
+ *   外层 Dialog: z-[200] / z-[199]
+ *   嵌套 Select / 内层 Dialog: z-[210] / z-[209]
+ */
+// safelist: z-[199] z-[200] z-[209] z-[210]
+
 // 变量插入对话框
 const variableDialogOpen = ref(false)
 const newVariable = ref('')
@@ -242,6 +254,9 @@ const handleSubmit = async () => {
         let result: { id: number } | null = null
         if (isEdit.value && selectedPrompt.value) {
             // 编辑模式：创建新版本（节点关联通过 node_prompts 表 PATCH 维护，本接口不再传 nodeId）
+            // version 在已有版本号末尾追加时间戳，避免与现有同名版本冲突
+            const oldVersion = selectedPrompt.value.version || 'v1'
+            const nextVersion = `${oldVersion}-${Date.now()}`
             result = await useApiFetch<{ id: number }>('/api/v1/admin/prompts', {
                 method: 'POST',
                 body: {
@@ -250,6 +265,8 @@ const handleSubmit = async () => {
                     content: form.value.content,
                     type: selectedPrompt.value.type,
                     variables: extractedVariables.value,
+                    version: nextVersion,
+                    status: 1,
                 },
             })
         } else {
@@ -262,6 +279,8 @@ const handleSubmit = async () => {
                     content: form.value.content,
                     type: form.value.type,
                     variables: extractedVariables.value,
+                    version: 'v1',
+                    status: 1,
                 },
             })
         }

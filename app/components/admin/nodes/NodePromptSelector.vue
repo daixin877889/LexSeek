@@ -62,7 +62,7 @@
                     <div class="flex-1 min-w-0">
                         <div class="font-medium text-sm truncate">{{ p.title || p.name }}</div>
                         <div class="text-xs text-muted-foreground font-mono truncate">
-                            {{ p.name }} · v{{ p.version }} · 已被 {{ p.referencedByCount }} 个节点引用
+                            {{ p.name }} · {{ p.version }} · 已被 {{ p.referencedByCount }} 个节点引用
                         </div>
                     </div>
 

@@ -45,7 +45,7 @@
                     <div class="flex-1 min-w-0">
                         <div class="font-medium text-sm truncate">{{ p.title || p.name }}</div>
                         <div class="text-xs text-muted-foreground font-mono truncate">
-                            {{ p.name }} · v{{ p.version }} · 被 {{ p.referencedByCount }} 个节点引用
+                            {{ p.name }} · {{ p.version }} · 被 {{ p.referencedByCount }} 个节点引用
                         </div>
                     </div>
 
@@ -82,17 +82,22 @@
             </VueDraggable>
         </div>
 
-        <!-- 底部按钮（部分功能将在后续步骤接入） -->
+        <!-- 底部按钮 -->
         <div class="flex flex-wrap gap-2 shrink-0">
             <Button variant="outline" size="sm" @click="showSelector = true">
                 <Plus class="size-4 mr-1" />
                 从提示词库添加
             </Button>
-            <Button variant="outline" size="sm" disabled title="将在「嵌套新建提示词」步骤接入">
+            <Button
+                ref="createBtnRef"
+                variant="outline"
+                size="sm"
+                @click="onClickCreate"
+            >
                 <FilePlus class="size-4 mr-1" />
                 新建提示词
             </Button>
-            <Button variant="outline" size="sm" disabled title="将在「完整 prompt 预览」步骤接入">
+            <Button variant="outline" size="sm" @click="openPreview">
                 <Eye class="size-4 mr-1" />
                 查看完整 prompt 预览
             </Button>
@@ -105,14 +110,49 @@
             :nested-z-index="200"
             @confirmed="onSelectorConfirmed"
         />
+
+        <!-- 「新建提示词」嵌套对话框 -->
+        <PromptFormDialog
+            ref="createDialogRef"
+            v-model:open="showCreate"
+            :nested-z-index="200"
+            @created="onCreated"
+        />
+
+        <!-- 完整 system prompt 预览 Sheet -->
+        <Sheet v-model:open="showPreview">
+            <SheetContent
+                class="w-full sm:max-w-[800px] flex flex-col gap-0 z-[200]"
+                overlay-class="z-[200]"
+            >
+                <SheetHeader class="border-b pb-4">
+                    <SheetTitle>System prompt 拼装预览</SheetTitle>
+                    <SheetDescription>
+                        共 {{ preview?.promptCount ?? 0 }} 段 prompt，按 displayOrder 升序拼接。模板变量（如 {{ VARIABLE_PLACEHOLDER_HINT }}）用占位值预览。
+                    </SheetDescription>
+                </SheetHeader>
+                <div class="flex-1 overflow-y-auto py-4 px-4">
+                    <div v-if="previewLoading"
+                        class="flex items-center justify-center py-8 text-sm text-muted-foreground">
+                        <Loader2 class="h-4 w-4 mr-2 animate-spin" />
+                        加载中...
+                    </div>
+                    <pre v-else
+                        class="text-xs whitespace-pre-wrap break-words bg-muted/50 rounded p-4 font-mono">{{ preview?.systemPromptPreview || '（暂无可预览的 system prompt）' }}</pre>
+                </div>
+            </SheetContent>
+        </Sheet>
     </div>
 </template>
 
 <script setup lang="ts">
-import { Eye, FilePlus, FileText, GripVertical, Pencil, Plus, Trash2 } from 'lucide-vue-next'
+import { Eye, FilePlus, FileText, GripVertical, Loader2, Pencil, Plus, Trash2 } from 'lucide-vue-next'
 import { VueDraggable } from 'vue-draggable-plus'
+import { toast } from 'vue-sonner'
 import type { NodePromptRef } from '#shared/types/node'
 import NodePromptSelector from '~/components/admin/nodes/NodePromptSelector.vue'
+import PromptFormDialog from '~/components/admin/prompts/PromptFormDialog.vue'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 const props = defineProps<{
     /** 当前节点 ID（用于预览接口、嵌套对话框上下文） */
@@ -125,6 +165,9 @@ const emit = defineEmits<{
     /** 列表本地变更（add / remove / reorder）→ 父组件保存时统一提交 PATCH */
     'update:staged-changes': [changes: { promptId: number; displayOrder: number }[]]
 }>()
+
+/** 模板变量占位提示文案（拼成字符串避开 Vue 模板对 \{\{xxx\}\} 的二次解释） */
+const VARIABLE_PLACEHOLDER_HINT = `${'{{'}caseId${'}}'}`
 
 /** 类型 → 中文标签 */
 const PROMPT_TYPE_LABELS: Record<string, string> = {
@@ -190,5 +233,85 @@ function onSelectorConfirmed(items: NodePromptRef[]) {
     const appended = items.map((p, idx) => ({ ...p, displayOrder: maxOrder + (idx + 1) * 100 }))
     localPrompts.value = [...localPrompts.value, ...appended]
     notifyStaged()
+}
+
+// ==================== 「新建提示词」嵌套对话框 ====================
+
+const showCreate = ref(false)
+const createBtnRef = ref<unknown>(null)
+const createDialogRef = ref<InstanceType<typeof PromptFormDialog> | null>(null)
+
+/** 点击按钮：通过 ref 触发 openCreate，确保 isEdit=false + 表单清空 */
+function onClickCreate() {
+    showCreate.value = true
+    // 等下一帧再调，确保 v-model:open 已经把 dialog 打开
+    nextTick(() => {
+        createDialogRef.value?.openCreate?.()
+    })
+}
+
+/** 嵌套保存成功 → 拉新 prompt 详情 → 加入列表 → 关闭 + 显式恢复焦点（plan §5.4.4 第 7 条） */
+async function onCreated(newPromptId: number) {
+    // GET 单条详情，转成 NodePromptRef 形态（接口返回 referencedByCount + name + version 等）
+    const resp = await useApiFetch<{
+        id: number
+        name: string
+        title: string | null
+        type: string
+        status: number
+        version: string
+        referencedByCount: number
+    }>(`/api/v1/admin/prompts/${newPromptId}`)
+    if (resp) {
+        const maxOrder = localPrompts.value.reduce((m, p) => Math.max(m, p.displayOrder), 0)
+        localPrompts.value = [
+            ...localPrompts.value,
+            {
+                id: resp.id,
+                name: resp.name,
+                title: resp.title,
+                type: resp.type,
+                status: resp.status,
+                version: resp.version,
+                displayOrder: maxOrder + 100,
+                referencedByCount: resp.referencedByCount,
+            },
+        ]
+        notifyStaged()
+    } else {
+        toast.error('获取新提示词信息失败')
+    }
+    showCreate.value = false
+    // 显式恢复焦点到「+ 新建提示词」按钮，避免焦点丢到 body 后 Tab 键无法循环
+    await nextTick()
+    const btn = createBtnRef.value as { $el?: HTMLElement } | HTMLElement | null
+    if (btn) {
+        const el = (btn as { $el?: HTMLElement }).$el ?? (btn as HTMLElement)
+        el?.focus?.()
+    }
+}
+
+// ==================== 完整 system prompt 预览 Sheet ====================
+
+const showPreview = ref(false)
+const previewLoading = ref(false)
+const preview = ref<{ systemPromptPreview: string; promptCount: number } | null>(null)
+
+async function openPreview() {
+    showPreview.value = true
+    previewLoading.value = true
+    preview.value = null
+    try {
+        const resp = await useApiFetch<{ systemPromptPreview: string; promptCount: number }>(
+            `/api/v1/admin/nodes/${props.nodeId}/prompts/preview`,
+        )
+        if (resp) {
+            preview.value = resp
+        } else {
+            toast.error('加载预览失败')
+        }
+    } finally {
+        previewLoading.value = false
+    }
 }
 </script>
