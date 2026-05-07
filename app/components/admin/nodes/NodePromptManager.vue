@@ -468,27 +468,22 @@ async function openPreview() {
     previewLoading.value = true
     preview.value = null
     try {
-        let resp: NodePromptsPreview | null = null
-        if (props.nodeId > 0) {
-            // 编辑场景：调节点级 preview，由后端从节点关联表拼装
-            resp = await useApiFetch<NodePromptsPreview>(
-                `/api/v1/admin/nodes/${props.nodeId}/prompts/preview`,
-            )
-        } else {
-            // 新建场景：还没有 nodeId，把本地暂存的 staged prompts 直接交给 preview-bundle 拼装
-            resp = await useApiFetch<NodePromptsPreview>(
-                '/api/v1/admin/prompts/preview-bundle',
-                {
-                    method: 'POST',
-                    body: {
-                        prompts: localPrompts.value.map(p => ({
-                            promptId: p.id,
-                            displayOrder: p.displayOrder,
-                        })),
-                    },
+        // 始终走 preview-bundle：编辑弹框里的拖拽 / 添加 / 移除 / 嵌套新建都还是
+        // staged 在 localPrompts 里、未保存到后端，调节点级 preview 拿到的是后端
+        // 已保存的旧版本，反映不了 staged 改动。preview-bundle 接受当前 staged
+        // 列表，确保预览与编辑器实时一致。
+        const resp = await useApiFetch<NodePromptsPreview>(
+            '/api/v1/admin/prompts/preview-bundle',
+            {
+                method: 'POST',
+                body: {
+                    prompts: localPrompts.value.map(p => ({
+                        promptId: p.id,
+                        displayOrder: p.displayOrder,
+                    })),
                 },
-            )
-        }
+            },
+        )
         if (resp) {
             preview.value = resp
         } else {

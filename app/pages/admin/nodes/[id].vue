@@ -340,7 +340,7 @@
     </div>
 
     <!-- 编辑对话框 -->
-    <AdminNodesNodeFormDialog ref="formDialogRef" @success="loadNode" />
+    <AdminNodesNodeFormDialog ref="formDialogRef" @success="onEditSaved" />
 
     <!-- 删除确认对话框 -->
     <AlertDialog v-model:open="deleteDialogOpen">
@@ -377,6 +377,7 @@ import { useApiFetch } from '~/composables/useApiFetch'
 definePageMeta({ layout: 'admin-layout', title: '节点详情' })
 
 const route = useRoute()
+const router = useRouter()
 const nodeId = computed(() => Number(route.params.id))
 
 // 组件引用
@@ -389,8 +390,25 @@ const node = ref<NodeWithRelations | null>(null)
 const deleteDialogOpen = ref(false)
 
 // Tab 状态：与 NodeFormDialog 内部 TabKey 子集对应（不含弹框独有的 'schema'）
+// 通过 URL ?tab=xxx 持久化，刷新 / 浏览器前进后退都能保持当前 Tab。
 type DetailTab = 'basic' | 'prompts' | 'tools' | 'skills'
-const activeTab = ref<DetailTab>('basic')
+const VALID_TABS: readonly DetailTab[] = ['basic', 'prompts', 'tools', 'skills']
+function parseTab(raw: unknown): DetailTab {
+    return VALID_TABS.includes(raw as DetailTab) ? (raw as DetailTab) : 'basic'
+}
+const activeTab = ref<DetailTab>(parseTab(route.query.tab))
+
+// 切换 Tab 时同步到 URL（replace 当前 history，不堆栈历史）
+watch(activeTab, (newTab) => {
+    if (route.query.tab === newTab) return
+    router.replace({ query: { ...route.query, tab: newTab } })
+})
+
+// 监听 URL 变化（如浏览器后退 / 用户手动改 query）反向同步 activeTab
+watch(() => route.query.tab, (newTab) => {
+    const parsed = parseTab(newTab)
+    if (parsed !== activeTab.value) activeTab.value = parsed
+})
 
 /**
  * 工具列表（带描述）
@@ -475,11 +493,13 @@ const visiblePromptGroups = computed(() => {
 })
 
 // 完整 prompt 预览（4 类分组，按节点 ID 自动加载，节点切换时自动刷新）
+// 详情页是只读视图，拉的是后端已保存版本（与编辑弹框 staged 预览不同）。
 const previewUrl = computed(() => `/api/v1/admin/nodes/${nodeId.value}/prompts/preview`)
 const {
     data: promptPreview,
     error: promptPreviewError,
     status: promptPreviewStatus,
+    refresh: refreshPromptPreview,
 } = await useApi<NodePromptsPreview>(previewUrl, {
     showError: false,
     watch: [nodeId],
@@ -503,6 +523,14 @@ const loadNode = async () => {
     } finally {
         loading.value = false
     }
+}
+
+/**
+ * 编辑弹框保存成功：除了刷新节点详情数据，还要刷新预览数据
+ * （详情数据 refresh 不会自动联动 useApi 的 preview，因此这里显式 refresh）。
+ */
+const onEditSaved = async () => {
+    await Promise.all([loadNode(), refreshPromptPreview()])
 }
 
 // 切换状态
