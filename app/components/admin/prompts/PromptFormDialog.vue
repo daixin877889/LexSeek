@@ -35,7 +35,8 @@
                         </SelectTrigger>
                         <SelectContent :class="innerOverlayClass">
                             <SelectItem value="system">系统提示词</SelectItem>
-                            <SelectItem value="user">用户提示词</SelectItem>
+                            <SelectItem value="user">用户提示词（预设触发消息，由用户主动发送）</SelectItem>
+                            <SelectItem value="user_injection">用户每轮注入（每轮隐藏注入到模型，不进会话历史）</SelectItem>
                             <SelectItem value="assistant">助手提示词</SelectItem>
                         </SelectContent>
                     </Select>

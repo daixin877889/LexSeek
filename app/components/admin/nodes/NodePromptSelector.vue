@@ -124,6 +124,7 @@ const contentClass = computed(() => (props.nestedZIndex ? `z-[${props.nestedZInd
 const PROMPT_TYPE_LABELS: Record<string, string> = {
     system: '系统',
     user: '用户',
+    user_injection: '每轮注入',
     assistant: '助手',
 }
 function getPromptTypeLabel(type: string) {

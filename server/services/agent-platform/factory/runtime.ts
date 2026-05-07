@@ -39,6 +39,7 @@ import {
     createAuditMiddleware,
     createToolCallLimitMiddlewares,
     createMessageIntegrityMiddleware,
+    userInjectionMiddleware,
 } from '~~/server/services/agent-platform/middleware/index'
 
 import { createTool as createReadSkillFileTool } from '~~/server/services/agent-platform/tools/readSkillFile.tool'
@@ -245,6 +246,24 @@ async function runDomainAgentInner(
             middleware: skillsMw,
             priority: MIDDLEWARE_PRIORITY.SKILLS_DISCOVERY,
             name: MIDDLEWARE_NAMES.SKILLS_DISCOVERY,
+        })
+    }
+
+    // user_injection 中间件：节点配置中如有 type=user_injection 的激活提示词，
+    // 会在每轮 LLM 调用前作为隐藏 HumanMessage 注入到 messages 末尾的最新 HumanMessage 之前——
+    // 但**不写回 state.messages / 不进 checkpoint**。下一轮调用时再重新注入。
+    // 节点没有 user_injection 提示词时，middleware 内部 short-circuit，零开销。
+    const hasUserInjection = nodeConfig.prompts.some(
+        (p) => p.type === 'user_injection' && p.status === 1,
+    )
+    if (hasUserInjection) {
+        middlewareItems.push({
+            middleware: userInjectionMiddleware({
+                prompts: nodeConfig.prompts,
+                context: { caseId: ctx.caseId ?? undefined },
+            }),
+            priority: MIDDLEWARE_PRIORITY.USER_INJECTION,
+            name: MIDDLEWARE_NAMES.USER_INJECTION,
         })
     }
 

@@ -252,6 +252,7 @@ const getTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
         system: '系统提示词',
         user: '用户提示词',
+        user_injection: '用户每轮注入',
         assistant: '助手提示词',
     }
     return labels[type] || type
@@ -262,6 +263,7 @@ const getTypeVariant = (type: string) => {
     const variants: Record<string, 'default' | 'secondary' | 'outline'> = {
         system: 'default',
         user: 'secondary',
+        user_injection: 'secondary',
         assistant: 'outline',
     }
     return variants[type] || 'default'

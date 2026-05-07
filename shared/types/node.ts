@@ -46,7 +46,7 @@ export const NodeStatusLabels: Record<NodeStatus, string> = {
 }
 
 /** 提示词类型枚举值数组（单一来源） */
-export const PROMPT_TYPES = ['system', 'user', 'assistant'] as const
+export const PROMPT_TYPES = ['system', 'user', 'user_injection', 'assistant'] as const
 
 /** 提示词类型 */
 export type PromptType = typeof PROMPT_TYPES[number]
@@ -55,6 +55,7 @@ export type PromptType = typeof PROMPT_TYPES[number]
 export const PromptTypeLabels: Record<PromptType, string> = {
     system: '系统提示词',
     user: '用户提示词',
+    user_injection: '用户每轮注入',
     assistant: '助手提示词',
 }
 
