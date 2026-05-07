@@ -40,8 +40,11 @@ beforeEach(() => {
 })
 
 afterEach(async () => {
+    // 阶段 F 改造：node_prompts 不再绑定 promptId，按 nodeId 清理（更可靠）
+    if (createdNodeIds.length > 0) {
+        await prisma.node_prompts.deleteMany({ where: { nodeId: { in: createdNodeIds } } })
+    }
     if (createdPromptIds.length > 0) {
-        await prisma.node_prompts.deleteMany({ where: { promptId: { in: createdPromptIds } } })
         await prisma.prompts.deleteMany({ where: { id: { in: createdPromptIds } } })
         createdPromptIds.length = 0
     }
@@ -129,13 +132,15 @@ describe('DELETE /api/v1/admin/prompts/:id (Phase 4)', () => {
         })
         createdNodeIds.push(node.id)
 
+        const promptName = 'p_' + uniqueSuffix()
         const prompt = await prisma.prompts.create({
-            data: { name: 'p_' + uniqueSuffix(), content: 'x', type: 'system', status: 1, version: 'v1' },
+            data: { name: promptName, content: 'x', type: 'system', status: 1, version: 'v1' },
         })
         createdPromptIds.push(prompt.id)
 
+        // 阶段 F 改造：node_prompts 按业务身份关联
         await prisma.node_prompts.create({
-            data: { nodeId: node.id, promptId: prompt.id, displayOrder: 100 },
+            data: { nodeId: node.id, promptName, promptType: 'system', displayOrder: 100 },
         })
 
         // 预热缓存（让 invalidate 真正命中）
@@ -251,10 +256,11 @@ describe('GET /api/v1/admin/prompts (Phase 4 referencedByCount)', () => {
         })
         createdPromptIds.push(prompt.id)
 
+        // 阶段 F 改造：node_prompts 按业务身份关联
         await prisma.node_prompts.createMany({
             data: [
-                { nodeId: node1.id, promptId: prompt.id, displayOrder: 100 },
-                { nodeId: node2.id, promptId: prompt.id, displayOrder: 200 },
+                { nodeId: node1.id, promptName, promptType: 'system', displayOrder: 100 },
+                { nodeId: node2.id, promptName, promptType: 'system', displayOrder: 200 },
             ],
         })
 
@@ -279,13 +285,15 @@ describe('GET /api/v1/admin/prompts/:id (Phase 4 referencedByNodes)', () => {
         })
         createdNodeIds.push(node.id)
 
+        const detailPromptName = 'p_detail_' + uniqueSuffix()
         const prompt = await prisma.prompts.create({
-            data: { name: 'p_detail_' + uniqueSuffix(), content: 'x', type: 'system', status: 1, version: 'v1' },
+            data: { name: detailPromptName, content: 'x', type: 'system', status: 1, version: 'v1' },
         })
         createdPromptIds.push(prompt.id)
 
+        // 阶段 F 改造：node_prompts 按业务身份关联
         await prisma.node_prompts.create({
-            data: { nodeId: node.id, promptId: prompt.id, displayOrder: 50 },
+            data: { nodeId: node.id, promptName: detailPromptName, promptType: 'system', displayOrder: 50 },
         })
 
         const r = await detailHandler(makeEvent({

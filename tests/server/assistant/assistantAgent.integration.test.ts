@@ -85,28 +85,38 @@ describe('runAssistantChat - 集成', () => {
             testIds.nodeIds.push(node.id)
         }
 
-        // ★ Phase 6 改造：prompts.nodeId 字段已删，节点关联通过 node_prompts 表维护。
-        // 系统 prompt 没有 name 唯一约束，先查后建避免重复，再补 node_prompts 关联。
-        const existingPrompt = await prisma.prompts.findFirst({
+        // 阶段 F 改造：node_prompts 按 (promptName, promptType) 业务身份关联。
+        // 先查节点是否已挂 assistantMain_system；没挂则查/建 prompt + 加 link。
+        const existingLink = await prisma.node_prompts.findFirst({
             where: {
-                name: 'assistantMain_system',
-                status: 1,
-                nodePrompts: { some: { nodeId: node.id } },
+                nodeId: node.id,
+                promptName: 'assistantMain_system',
+                promptType: 'system',
             },
         })
-        if (!existingPrompt) {
-            const created = await prisma.prompts.create({
-                data: {
-                    name: 'assistantMain_system',
-                    title: '通用法律助手系统提示词 v1',
-                    content: '你是 LexSeek 的通用法律助手。',
-                    version: '1.0',
-                    type: 'system',
-                    status: 1,
-                },
+        if (!existingLink) {
+            const existingPrompt = await prisma.prompts.findFirst({
+                where: { name: 'assistantMain_system', type: 'system', status: 1, deletedAt: null },
             })
+            if (!existingPrompt) {
+                await prisma.prompts.create({
+                    data: {
+                        name: 'assistantMain_system',
+                        title: '通用法律助手系统提示词 v1',
+                        content: '你是 LexSeek 的通用法律助手。',
+                        version: '1.0',
+                        type: 'system',
+                        status: 1,
+                    },
+                })
+            }
             await prisma.node_prompts.create({
-                data: { nodeId: node.id, promptId: created.id, displayOrder: 100 },
+                data: {
+                    nodeId: node.id,
+                    promptName: 'assistantMain_system',
+                    promptType: 'system',
+                    displayOrder: 100,
+                },
             })
         }
     })

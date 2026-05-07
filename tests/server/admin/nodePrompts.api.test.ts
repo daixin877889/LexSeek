@@ -66,6 +66,8 @@ describe('PATCH /api/v1/admin/nodes/:id/prompts', () => {
     let nodeId: number
     let prompt1Id: number
     let prompt2Id: number
+    let prompt1Name: string
+    let prompt2Name: string
     const createdNodeIds: number[] = []
     const createdPromptIds: number[] = []
 
@@ -86,9 +88,11 @@ describe('PATCH /api/v1/admin/nodes/:id/prompts', () => {
         nodeId = node.id
         createdNodeIds.push(nodeId)
 
+        prompt1Name = `np_p1_${suffix}`
+        prompt2Name = `np_p2_${suffix}`
         const p1 = await prisma.prompts.create({
             data: {
-                name: `np_p1_${suffix}`,
+                name: prompt1Name,
                 content: 'system content A',
                 type: 'system',
                 status: 1,
@@ -97,7 +101,7 @@ describe('PATCH /api/v1/admin/nodes/:id/prompts', () => {
         })
         const p2 = await prisma.prompts.create({
             data: {
-                name: `np_p2_${suffix}`,
+                name: prompt2Name,
                 content: 'system content B',
                 type: 'system',
                 status: 1,
@@ -108,9 +112,10 @@ describe('PATCH /api/v1/admin/nodes/:id/prompts', () => {
         prompt2Id = p2.id
         createdPromptIds.push(prompt1Id, prompt2Id)
 
+        // 阶段 F 改造：node_prompts 按业务身份 (name, type) 关联
         // 初始关联：prompt1 已挂载（displayOrder=100）
         await prisma.node_prompts.create({
-            data: { nodeId, promptId: prompt1Id, displayOrder: 100 },
+            data: { nodeId, promptName: prompt1Name, promptType: 'system', displayOrder: 100 },
         })
     })
 
@@ -145,7 +150,7 @@ describe('PATCH /api/v1/admin/nodes/:id/prompts', () => {
             orderBy: { displayOrder: 'asc' },
         })
         expect(links).toHaveLength(2)
-        expect(links.map((l) => l.promptId)).toContain(prompt2Id)
+        expect(links.map((l) => l.promptName)).toContain(prompt2Name)
     })
 
     it('remove：从 body 中移除已关联 prompt → 删除关联', async () => {
@@ -176,7 +181,13 @@ describe('PATCH /api/v1/admin/nodes/:id/prompts', () => {
         expect(r.data.removed).toBe(0)
 
         const link = await prisma.node_prompts.findUnique({
-            where: { nodeId_promptId: { nodeId, promptId: prompt1Id } },
+            where: {
+                nodeId_promptName_promptType: {
+                    nodeId,
+                    promptName: prompt1Name,
+                    promptType: 'system',
+                },
+            },
         })
         expect(link?.displayOrder).toBe(10)
     })
@@ -196,7 +207,7 @@ describe('PATCH /api/v1/admin/nodes/:id/prompts', () => {
         expect(r.code).toBe(400)
     })
 
-    it('调用 logNodePromptLink 记录 diff', async () => {
+    it('调用 logNodePromptLink 记录 diff（按业务身份 (name, type)）', async () => {
         await patchHandler(
             makeEvent({
                 params: { id: String(nodeId) },
@@ -213,11 +224,13 @@ describe('PATCH /api/v1/admin/nodes/:id/prompts', () => {
         const callArgs = vi.mocked(logNodePromptLink).mock.calls[0]!
         expect(callArgs[1]).toBe(2) // operatorId
         expect(callArgs[2]).toBe(nodeId)
+        // 阶段 F 改造：审计字段由 addedIds/removedIds/reorderedIds 切到 added/removed/reordered，
+        // 每项是 (name, type[, displayOrder]) 业务身份元组
         expect(callArgs[3]).toEqual(
             expect.objectContaining({
-                addedIds: [prompt2Id],
-                removedIds: [],
-                reorderedIds: [],
+                added: [{ name: prompt2Name, type: 'system', displayOrder: 200 }],
+                removed: [],
+                reordered: [],
             }),
         )
     })

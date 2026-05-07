@@ -71,13 +71,15 @@ export default defineEventHandler(async (event) => {
             { version: updated.version, status: updated.status },
         )
 
-        // 失效所有关联节点的缓存
+        // 失效所有引用该 (name, type) 业务身份的节点缓存
+        // 阶段 F 改造：node_prompts 不再绑定具体 promptId，改按业务身份反查
         const links = await prisma.node_prompts.findMany({
-            where: { promptId },
+            where: { promptName: old.name, promptType: old.type },
             select: { node: { select: { name: true } } },
         })
-        for (const link of links) {
-            invalidateNodeConfigCache(link.node.name)
+        const uniqueNodeNames = new Set(links.map(l => l.node.name))
+        for (const name of uniqueNodeNames) {
+            invalidateNodeConfigCache(name)
         }
 
         return resSuccess(event, '激活提示词成功', updated)

@@ -433,12 +433,19 @@ export const logPromptDelete = async (
 
 /**
  * 记录节点 ↔ 提示词关联变更日志（add / remove / reorder 一锅端）
+ *
+ * 阶段 F 改造：节点关联键由具体 promptId 改为 (name, type) 业务身份，
+ * 因此审计字段也改为 added / removed / reordered，每项是 (name, type[, displayOrder]) 元组。
  */
 export const logNodePromptLink = async (
     event: H3Event,
     operatorId: number,
     nodeId: number,
-    diff: { addedIds: number[]; removedIds: number[]; reorderedIds: number[] },
+    diff: {
+        added: { name: string; type: string; displayOrder: number }[]
+        removed: { name: string; type: string }[]
+        reordered: { name: string; type: string; displayOrder: number }[]
+    },
     tx?: Prisma.TransactionClient,
 ) => {
     return createAuditLogDao({

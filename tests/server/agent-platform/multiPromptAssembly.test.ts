@@ -59,9 +59,11 @@ describe('多 prompt 端到端装配', () => {
         nodeId = node.id
         createdIds.nodeIds.push(node.id)
 
+        const guardName = `guard_${generateTestId()}`
+        const personaName = `persona_${generateTestId()}`
         const guard = await prisma.prompts.create({
             data: {
-                name: `guard_${generateTestId()}`,
+                name: guardName,
                 content: '反越狱护栏内容',
                 type: 'system',
                 status: 1,
@@ -70,7 +72,7 @@ describe('多 prompt 端到端装配', () => {
         })
         const persona = await prisma.prompts.create({
             data: {
-                name: `persona_${generateTestId()}`,
+                name: personaName,
                 content: '你是 LexSeek',
                 type: 'system',
                 status: 1,
@@ -79,23 +81,23 @@ describe('多 prompt 端到端装配', () => {
         })
         createdIds.promptIds.push(guard.id, persona.id)
 
+        // 阶段 F 改造：node_prompts 按业务身份 (name, type) 关联
         // 护栏 displayOrder=10（最前），persona=100
         await prisma.node_prompts.create({
-            data: { nodeId, promptId: guard.id, displayOrder: 10 },
+            data: { nodeId, promptName: guardName, promptType: 'system', displayOrder: 10 },
         })
         await prisma.node_prompts.create({
-            data: { nodeId, promptId: persona.id, displayOrder: 100 },
+            data: { nodeId, promptName: personaName, promptType: 'system', displayOrder: 100 },
         })
     })
 
     afterEach(async () => {
-        if (createdIds.promptIds.length > 0) {
-            await prisma.node_prompts.deleteMany({ where: { promptId: { in: createdIds.promptIds } } })
-            await prisma.prompts.deleteMany({ where: { id: { in: createdIds.promptIds } } })
-        }
         if (createdIds.nodeIds.length > 0) {
             await prisma.node_prompts.deleteMany({ where: { nodeId: { in: createdIds.nodeIds } } })
             await prisma.nodes.deleteMany({ where: { id: { in: createdIds.nodeIds } } })
+        }
+        if (createdIds.promptIds.length > 0) {
+            await prisma.prompts.deleteMany({ where: { id: { in: createdIds.promptIds } } })
         }
         if (createdIds.modelIds.length > 0) {
             await prisma.models.deleteMany({ where: { id: { in: createdIds.modelIds } } })

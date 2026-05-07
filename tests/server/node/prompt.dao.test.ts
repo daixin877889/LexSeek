@@ -84,23 +84,26 @@ const createTestNode = async (modelId: number) => {
 }
 
 /**
- * 把 prompt 关联到 node（多对多）。Phase 6 改造后，"节点维度"的查询
- * 必须通过 node_prompts 关联表实现。
+ * 把 prompt 关联到 node（多对多）。
+ * 阶段 F 改造后，节点关联键由具体 promptId 改为业务身份 (name, type)；
+ * 测试辅助函数接收 prompt 对象，从中读出 name + type 写入关联表。
  */
 const linkPromptToNode = async (
     nodeId: number,
-    promptId: number,
+    prompt: { name: string; type: string },
     displayOrder = 100,
 ) => {
     await testPrisma.node_prompts.create({
-        data: { nodeId, promptId, displayOrder },
+        data: { nodeId, promptName: prompt.name, promptType: prompt.type, displayOrder },
     })
 }
 
 const cleanupTestData = async () => {
     try {
+        if (testIds.nodeIds.length > 0) {
+            await testPrisma.node_prompts.deleteMany({ where: { nodeId: { in: testIds.nodeIds } } })
+        }
         if (testIds.promptIds.length > 0) {
-            await testPrisma.node_prompts.deleteMany({ where: { promptId: { in: testIds.promptIds } } })
             await testPrisma.prompts.deleteMany({ where: { id: { in: testIds.promptIds } } })
         }
     } catch { /* 忽略 */ }
@@ -108,7 +111,6 @@ const cleanupTestData = async () => {
 
     try {
         if (testIds.nodeIds.length > 0) {
-            await testPrisma.node_prompts.deleteMany({ where: { nodeId: { in: testIds.nodeIds } } })
             await testPrisma.levelNodeAccess.deleteMany({ where: { nodeId: { in: testIds.nodeIds } } })
             await testPrisma.caseAnalyses.deleteMany({ where: { nodeId: { in: testIds.nodeIds } } })
             await testPrisma.nodes.deleteMany({ where: { id: { in: testIds.nodeIds } } })
@@ -247,7 +249,7 @@ describe('提示词 DAO 测试', () => {
                 nodeId: 0,
             }, '1.0.0')
             testIds.promptIds.push(p1.id)
-            await linkPromptToNode(node.id, p1.id, 100)
+            await linkPromptToNode(node.id, p1, 100)
 
             const p2 = await createPromptDao({
                 name: `prompt_${generateTestId()}`,
@@ -257,7 +259,7 @@ describe('提示词 DAO 测试', () => {
                 nodeId: 0,
             }, '1.0.0')
             testIds.promptIds.push(p2.id)
-            await linkPromptToNode(node.id, p2.id, 200)
+            await linkPromptToNode(node.id, p2, 200)
 
             const result = await findManyPromptsDao({ nodeId: node.id })
             expect(result.total).toBe(2)
@@ -292,7 +294,7 @@ describe('提示词 DAO 测试', () => {
                 nodeId: 0,
             }, '1.0.0')
             testIds.promptIds.push(p.id)
-            await linkPromptToNode(node.id, p.id)
+            await linkPromptToNode(node.id, p)
 
             const result = await findManyPromptsDao({
                 nodeId: node.id,
@@ -313,7 +315,7 @@ describe('提示词 DAO 测试', () => {
                 nodeId: 0,
             }, '1.0.0')
             testIds.promptIds.push(prompt.id)
-            await linkPromptToNode(node.id, prompt.id)
+            await linkPromptToNode(node.id, prompt)
 
             await updatePromptStatusDao(prompt.id, 1)
 
@@ -338,7 +340,7 @@ describe('提示词 DAO 测试', () => {
                 nodeId: 0,
             }, '1.0.0')
             testIds.promptIds.push(p1.id)
-            await linkPromptToNode(node.id, p1.id, 100)
+            await linkPromptToNode(node.id, p1, 100)
 
             const p2 = await createPromptDao({
                 name: `prompt_${generateTestId()}`,
@@ -348,7 +350,7 @@ describe('提示词 DAO 测试', () => {
                 nodeId: 0,
             }, '1.0.0')
             testIds.promptIds.push(p2.id)
-            await linkPromptToNode(node.id, p2.id, 200)
+            await linkPromptToNode(node.id, p2, 200)
 
             const prompts = await findPromptsByNodeIdDao(node.id)
             expect(prompts.length).toBe(2)
@@ -368,7 +370,7 @@ describe('提示词 DAO 测试', () => {
                 nodeId: 0,
             }, '1.0.0')
             testIds.promptIds.push(prompt.id)
-            await linkPromptToNode(node.id, prompt.id)
+            await linkPromptToNode(node.id, prompt)
 
             await updatePromptStatusDao(prompt.id, 1)
 
@@ -389,7 +391,7 @@ describe('提示词 DAO 测试', () => {
                 nodeId: 0,
             }, '1.0.0')
             testIds.promptIds.push(p.id)
-            await linkPromptToNode(node.id, p.id)
+            await linkPromptToNode(node.id, p)
 
             const found = await findActivePromptDao(node.id, 'system')
             expect(found).toBeNull()

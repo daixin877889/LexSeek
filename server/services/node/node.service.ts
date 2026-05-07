@@ -563,6 +563,9 @@ export const getNodeConfigByIdService = async (id: number): Promise<NodeConfig |
  * 查询指定类型的节点，按 priority 升序排序
  * 用于工作流模块加载、子代理列表等场景
  *
+ * 阶段 F 改造：node_prompts 现按 (promptName, promptType) 业务身份关联，无 prisma 反向关系。
+ * 这里采用三步查询：节点 + 各节点的 link 列表 + 一次性按 (name, type) 拉取激活 prompts。
+ *
  * @param types - 节点类型列表，如 ['analysis'] 或 ['analysis', 'document']
  * @returns NodeConfig 列表，按 priority 升序排序
  */
@@ -592,56 +595,93 @@ export const getNodeConfigsByTypes = async (
                     },
                 },
             },
-            // ★ Phase 6 改造：从 prompts 单值反向 include 切到 node_prompts 多对多 join，
-            // 仅取 status=1 / 未软删的 prompts，按 displayOrder 升序，保持与 nodeConfig.loader 一致。
-            nodePrompts: {
-                where: {
-                    prompt: { status: 1, deletedAt: null },
-                },
-                orderBy: { displayOrder: 'asc' },
-                include: { prompt: true },
-            },
         },
         orderBy: { priority: 'asc' },
     })
 
+    if (nodes.length === 0) return []
+
+    const nodeIds = nodes.map(n => n.id)
+    const links = await prisma.node_prompts.findMany({
+        where: { nodeId: { in: nodeIds } },
+        orderBy: { displayOrder: 'asc' },
+    })
+
+    // 收集所有需要查询的 (name, type) 业务身份（用 OR 数组一次拉激活版本）
+    const uniqueIdentities = new Map<string, { name: string; type: string }>()
+    for (const link of links) {
+        const key = `${link.promptName}::${link.promptType}`
+        if (!uniqueIdentities.has(key)) {
+            uniqueIdentities.set(key, { name: link.promptName, type: link.promptType })
+        }
+    }
+    const activePrompts = uniqueIdentities.size === 0
+        ? []
+        : await prisma.prompts.findMany({
+            where: {
+                OR: Array.from(uniqueIdentities.values()),
+                status: 1,
+                deletedAt: null,
+            },
+        })
+    const promptByKey = new Map(activePrompts.map(p => [`${p.name}::${p.type}`, p]))
+
+    // 按 nodeId 分组 links，已是 displayOrder 升序
+    const linksByNode = new Map<number, typeof links>()
+    for (const link of links) {
+        const arr = linksByNode.get(link.nodeId)
+        if (arr) arr.push(link)
+        else linksByNode.set(link.nodeId, [link])
+    }
+
     return nodes
         .filter(node => node.model && node.model.modelProvider)
-        .map(node => ({
-            id: node.id,
-            name: node.name,
-            title: node.title || node.name,
-            description: node.description || '',
-            type: node.type,
-            prompts: node.nodePrompts.map(np => ({
-                id: np.prompt.id,
-                name: np.prompt.name,
-                content: np.prompt.content,
-                version: np.prompt.version,
-                type: np.prompt.type,
-                status: np.prompt.status,
-            })),
-            modelId: node.modelId,
-            modelName: node.model!.name,
-            modelType: node.model!.modelType,
-            modelStatus: node.model!.status ?? 0,
-            modelSdkType: (node.model!.sdkType as SdkType) || DEFAULT_SDK_TYPE,
-            modelProviderId: node.model!.modelProvider!.id,
-            modelProviderName: node.model!.modelProvider!.name,
-            modelProviderBaseUrl: node.model!.modelProvider!.baseUrl,
-            modelProviderDescription: node.model!.modelProvider!.description || '',
-            modelApiKeys: node.model!.modelProvider!.modelApiKeys.map(apiKey => ({
-                id: apiKey.id,
-                apiKey: apiKey.apiKey,
-                status: apiKey.status ?? 0,
-            })),
-            tools: (node.tools as string[]) || [],
-            outputSchema: (node.outputSchema as Record<string, unknown>) ?? null,
-            modelContextWindow: node.model!.contextWindow ?? undefined,
-            modelMaxOutputTokens: node.model!.maxOutputTokens ?? undefined,
-            thinkingEnabled: node.thinkingEnabled ?? false,
-            modelSupportsThinking: node.model!.supportsThinking ?? false,
-        }))
+        .map(node => {
+            const nodeLinks = linksByNode.get(node.id) ?? []
+            const prompts = nodeLinks
+                .map(link => {
+                    const prompt = promptByKey.get(`${link.promptName}::${link.promptType}`)
+                    return prompt
+                        ? {
+                            id: prompt.id,
+                            name: prompt.name,
+                            content: prompt.content,
+                            version: prompt.version,
+                            type: prompt.type,
+                            status: prompt.status,
+                        }
+                        : null
+                })
+                .filter(Boolean) as NodePromptConfig[]
+            return {
+                id: node.id,
+                name: node.name,
+                title: node.title || node.name,
+                description: node.description || '',
+                type: node.type,
+                prompts,
+                modelId: node.modelId,
+                modelName: node.model!.name,
+                modelType: node.model!.modelType,
+                modelStatus: node.model!.status ?? 0,
+                modelSdkType: (node.model!.sdkType as SdkType) || DEFAULT_SDK_TYPE,
+                modelProviderId: node.model!.modelProvider!.id,
+                modelProviderName: node.model!.modelProvider!.name,
+                modelProviderBaseUrl: node.model!.modelProvider!.baseUrl,
+                modelProviderDescription: node.model!.modelProvider!.description || '',
+                modelApiKeys: node.model!.modelProvider!.modelApiKeys.map(apiKey => ({
+                    id: apiKey.id,
+                    apiKey: apiKey.apiKey,
+                    status: apiKey.status ?? 0,
+                })),
+                tools: (node.tools as string[]) || [],
+                outputSchema: (node.outputSchema as Record<string, unknown>) ?? null,
+                modelContextWindow: node.model!.contextWindow ?? undefined,
+                modelMaxOutputTokens: node.model!.maxOutputTokens ?? undefined,
+                thinkingEnabled: node.thinkingEnabled ?? false,
+                modelSupportsThinking: node.model!.supportsThinking ?? false,
+            }
+        })
 }
 
 /**

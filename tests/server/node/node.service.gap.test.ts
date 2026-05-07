@@ -144,36 +144,40 @@ const createPrompt = async (
     nodeId: number,
     overrides: { type?: string; status?: number; content?: string; version?: string } = {}
 ) => {
-    // ★ Phase 6 改造：prompts.nodeId 字段已删，改用 node_prompts 关联表维护
+    // 阶段 F 改造：node_prompts 按 (name, type) 业务身份关联
+    const promptName = `prompt_${generateTestId()}`
+    const promptType = overrides.type ?? 'system'
     const prompt = await testPrisma.prompts.create({
         data: {
-            name: `prompt_${generateTestId()}`,
+            name: promptName,
             title: '测试提示词',
             content: overrides.content ?? '你是一个助手',
             variables: [] as any,
             version: overrides.version ?? '1.0.0',
-            type: overrides.type ?? 'system',
+            type: promptType,
             status: overrides.status ?? 1,
         },
     })
     testIds.promptIds.push(prompt.id)
     await testPrisma.node_prompts.create({
-        data: { nodeId, promptId: prompt.id, displayOrder: 100 },
+        data: { nodeId, promptName, promptType, displayOrder: 100 },
     })
     return prompt
 }
 
 const cleanupTestData = async () => {
     try {
+        // 阶段 F 改造：node_prompts 不再绑定 promptId，按 nodeId 清理
+        if (testIds.nodeIds.length > 0) {
+            await testPrisma.node_prompts.deleteMany({ where: { nodeId: { in: testIds.nodeIds } } })
+        }
         if (testIds.promptIds.length > 0) {
-            await testPrisma.node_prompts.deleteMany({ where: { promptId: { in: testIds.promptIds } } })
             await testPrisma.prompts.deleteMany({ where: { id: { in: testIds.promptIds } } })
         }
         testIds.promptIds = []
     } catch {}
     try {
         if (testIds.nodeIds.length > 0) {
-            await testPrisma.node_prompts.deleteMany({ where: { nodeId: { in: testIds.nodeIds } } })
             await testPrisma.nodes.deleteMany({ where: { id: { in: testIds.nodeIds } } })
         }
         testIds.nodeIds = []
@@ -574,7 +578,8 @@ describe('节点服务 - 覆盖率补齐（gap）', () => {
         })
 
         it('节点未关联 model 或 provider 时应被过滤掉', async () => {
-            // 通过 Proxy 拦截 prisma.nodes.findMany 返回无 model/provider 的节点，触发 filter 分支
+            // 阶段 F 改造：getNodeConfigsByTypes 不再 include nodePrompts，
+            // 而是分两步查询 nodes + node_prompts；mock 也要拦截两个表。
             const originalPrisma = (globalThis as any).prisma
             ;(globalThis as any).prisma = new Proxy(originalPrisma, {
                 get(target, prop) {
@@ -593,8 +598,6 @@ describe('节点服务 - 覆盖率补齐（gap）', () => {
                                     tools: [],
                                     outputSchema: null,
                                     status: 1,
-                                    // ★ Phase 6：prompts 单值反向已删，多对多挂在 nodePrompts 字段
-                                    nodePrompts: [],
                                     model: null,
                                 },
                                 // 节点 2：model 存在但 modelProvider 为 null，应被过滤
@@ -609,7 +612,6 @@ describe('节点服务 - 覆盖率补齐（gap）', () => {
                                     tools: [],
                                     outputSchema: null,
                                     status: 1,
-                                    nodePrompts: [],
                                     model: {
                                         id: 2,
                                         name: 'm',
@@ -632,19 +634,6 @@ describe('节点服务 - 覆盖率补齐（gap）', () => {
                                     tools: ['t1'],
                                     outputSchema: { a: 1 },
                                     status: 1,
-                                    nodePrompts: [
-                                        {
-                                            displayOrder: 100,
-                                            prompt: {
-                                                id: 10,
-                                                name: 'p',
-                                                content: 'c',
-                                                version: 'v1',
-                                                type: 'system',
-                                                status: 1,
-                                            },
-                                        },
-                                    ],
                                     model: {
                                         id: 3,
                                         name: 'm3',
@@ -662,6 +651,28 @@ describe('节点服务 - 覆盖率补齐（gap）', () => {
                                             ],
                                         },
                                     },
+                                },
+                            ],
+                        }
+                    }
+                    if (prop === 'node_prompts') {
+                        return {
+                            findMany: async () => [
+                                // 节点 3 挂的链接（按 displayOrder 升序返回）
+                                { nodeId: 900003, promptName: 'p', promptType: 'system', displayOrder: 100 },
+                            ],
+                        }
+                    }
+                    if (prop === 'prompts') {
+                        return {
+                            findMany: async () => [
+                                {
+                                    id: 10,
+                                    name: 'p',
+                                    content: 'c',
+                                    version: 'v1',
+                                    type: 'system',
+                                    status: 1,
                                 },
                             ],
                         }

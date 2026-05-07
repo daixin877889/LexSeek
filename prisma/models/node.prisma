@@ -114,8 +114,8 @@ model prompts {
   /// 删除时间，为 NULL 表示未删除
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  /// 多对多反向：被节点引用的关联
-  nodePrompts node_prompts[]
+  /// 阶段 F：node_prompts 关联改为 (promptName, promptType) 业务身份，不再有 prismaORM 反向关系。
+  /// 节点 ↔ 提示词的引用计数 / 引用列表通过 prisma.node_prompts.findMany / count 直接查询。
 
   @@index([name], map: "idx_prompts_name")
   @@index([type], map: "idx_prompts_type")
@@ -152,14 +152,21 @@ model levelNodeAccess {
   @@map("level_node_access")
 }
 
-/// 节点-提示词关联表 - 一段提示词可以被多个节点引用，支持 displayOrder 排序拼接
+/// 节点-提示词关联表 - 节点按"业务身份 (name, type)"关联提示词，激活新版本时零成本即时生效
+///
+/// 阶段 F 架构改造：
+///  - 关联键从具体版本号 promptId 改为业务身份 (promptName, promptType)
+///  - 激活新版本时（同 name+type 维度的另一条 status=1），节点关联自动跟随，无需"搬运"链接
+///  - 不再持有 prisma 反向 1:1 关系（prompts ↔ node_prompts），引用计数走应用层 count
 model node_prompts {
   /// 关联ID，主键，自增
   id           Int       @id @default(autoincrement())
   /// 节点ID
   nodeId       Int       @map("node_id")
-  /// 提示词ID
-  promptId     Int       @map("prompt_id")
+  /// 提示词业务名称（新主键的一部分）
+  promptName   String    @map("prompt_name") @db.VarChar(100)
+  /// 提示词类型（新主键的一部分）：system / user / assistant
+  promptType   String    @map("prompt_type") @db.VarChar(100)
   /// 同节点内拼接顺序（升序），数字越小越靠前；默认 100
   displayOrder Int       @default(100) @map("display_order")
   /// 创建时间
@@ -169,10 +176,9 @@ model node_prompts {
 
   /// 关联的节点
   node    nodes    @relation(fields: [nodeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  /// 关联的提示词
-  prompt  prompts  @relation(fields: [promptId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@unique([nodeId, promptId])
+  @@unique([nodeId, promptName, promptType])
   @@index([nodeId, displayOrder], map: "idx_node_prompts_node_id_display_order")
+  @@index([promptName, promptType], map: "idx_node_prompts_prompt_name_type")
   @@map("node_prompts")
 }

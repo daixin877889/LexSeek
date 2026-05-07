@@ -66,11 +66,18 @@ const createTestPromptDirect = async (
 }
 
 // 清理测试数据
+// 阶段 F 改造：node_prompts 不再绑定 promptId，按 promptName 反查即可清理本测试创建的链接
 const cleanupTestData = async () => {
     if (testIds.promptIds.length > 0) {
-        await testPrisma.node_prompts.deleteMany({
-            where: { promptId: { in: testIds.promptIds } },
+        const promptRows = await testPrisma.prompts.findMany({
+            where: { id: { in: testIds.promptIds } },
+            select: { name: true, type: true },
         })
+        if (promptRows.length > 0) {
+            await testPrisma.node_prompts.deleteMany({
+                where: { OR: promptRows.map(p => ({ promptName: p.name, promptType: p.type })) },
+            })
+        }
         await testPrisma.prompts.deleteMany({
             where: { id: { in: testIds.promptIds } },
         })
@@ -95,14 +102,19 @@ describe('提示词版本互斥性属性测试', () => {
 
     afterAll(async () => {
         // 按前缀做全局清理，覆盖 afterEach 中 testIds 未追踪到的残留数据
+        // 阶段 F 改造：node_prompts 按 (name, type) 关联，先按 name 前缀反查 prompts 拿身份再清 node_prompts
         try {
-            const remainingPromptIds = (await testPrisma.prompts.findMany({
+            const remainingPrompts = await testPrisma.prompts.findMany({
                 where: { name: { startsWith: 'prompt_' } },
-                select: { id: true },
-            })).map(p => p.id)
-            if (remainingPromptIds.length > 0) {
-                await testPrisma.node_prompts.deleteMany({ where: { promptId: { in: remainingPromptIds } } })
-                await testPrisma.prompts.deleteMany({ where: { id: { in: remainingPromptIds } } })
+                select: { id: true, name: true, type: true },
+            })
+            if (remainingPrompts.length > 0) {
+                await testPrisma.node_prompts.deleteMany({
+                    where: { OR: remainingPrompts.map(p => ({ promptName: p.name, promptType: p.type })) },
+                })
+                await testPrisma.prompts.deleteMany({
+                    where: { id: { in: remainingPrompts.map(p => p.id) } },
+                })
             }
         } catch { /* 最终清理忽略错误 */ }
         await testPrisma.$disconnect()

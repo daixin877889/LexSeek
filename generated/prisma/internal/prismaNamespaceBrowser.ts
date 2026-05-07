@@ -893,7 +893,8 @@ export type LevelNodeAccessScalarFieldEnum = (typeof LevelNodeAccessScalarFieldE
 export const Node_promptsScalarFieldEnum = {
   id: 'id',
   nodeId: 'nodeId',
-  promptId: 'promptId',
+  promptName: 'promptName',
+  promptType: 'promptType',
   displayOrder: 'displayOrder',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'

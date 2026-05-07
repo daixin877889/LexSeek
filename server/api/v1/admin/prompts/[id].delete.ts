@@ -38,9 +38,10 @@ export default defineEventHandler(async (event) => {
             return resError(event, 404, '提示词不存在')
         }
 
-        // 取关联节点（用于缓存失效；invalidateNodeConfigCache 接 nodeName 不是 nodeId）
+        // 取所有引用该 (name, type) 业务身份的节点（缓存失效用；invalidateNodeConfigCache 接 nodeName 不是 nodeId）
+        // 阶段 F 改造：node_prompts 不再绑定具体 promptId，改按业务身份反查
         const links = await prisma.node_prompts.findMany({
-            where: { promptId },
+            where: { promptName: target.name, promptType: target.type },
             select: { node: { select: { name: true } } },
         })
 
@@ -56,8 +57,9 @@ export default defineEventHandler(async (event) => {
             version: target.version,
         })
 
-        for (const link of links) {
-            invalidateNodeConfigCache(link.node.name)
+        const uniqueNodeNames = new Set(links.map(l => l.node.name))
+        for (const name of uniqueNodeNames) {
+            invalidateNodeConfigCache(name)
         }
 
         return resSuccess(event, '删除提示词成功', null)

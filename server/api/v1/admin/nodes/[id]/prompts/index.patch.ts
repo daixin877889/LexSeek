@@ -5,16 +5,18 @@
  *
  * 请求体：{ prompts: Array<{ promptId: number; displayOrder: number }> }
  *
+ * 阶段 F 改造：节点关联键由具体 promptId 改为业务身份 (name, type)。
+ * body 仍接 promptId（前端选的是某个具体版本），后端解析出 (name, type) 后写入。
+ * 这样新版本激活后，节点会自动跟随，无需"搬运"链接。
+ *
  * 一锅端语义：以请求体为目标态，对 node_prompts 表做 diff 并在事务内同步
- *  - addedIds：当前未挂载、目标态有 → CREATE
- *  - removedIds：当前已挂载、目标态没有 → DELETE
- *  - reorderedIds：promptId 已挂载但 displayOrder 变化 → UPDATE displayOrder
+ *  - 添加：当前未挂载该 (name, type) 的目标 → CREATE
+ *  - 删除：当前已挂载、目标态没有的 (name, type) → DELETE
+ *  - 重排：(name, type) 已挂载但 displayOrder 变化 → UPDATE displayOrder
  *
  * 完成后：写审计日志（logNodePromptLink）+ 失效 NodeConfig 缓存（按 nodeName）
  *
  * 鉴权：依赖 server/middleware/03.permission.ts RBAC 拦截
- *
- * @see docs/superpowers/plans/2026-05-06-prompts-multi-node-and-anti-jailbreak.md Phase 5
  */
 
 import { z } from 'zod'
@@ -68,72 +70,100 @@ export default defineEventHandler(async (event) => {
         return resError(event, 404, '节点不存在')
     }
 
-    // 算 diff
+    // 解析 desired 里的每个 promptId → (name, type) 业务身份
+    const desiredPromptIds = desired.map(d => d.promptId)
+    const promptRows = desiredPromptIds.length > 0
+        ? await prisma.prompts.findMany({
+            where: { id: { in: desiredPromptIds }, deletedAt: null },
+            select: { id: true, name: true, type: true },
+        })
+        : []
+    const idToIdentity = new Map(promptRows.map(p => [p.id, { name: p.name, type: p.type }]))
+    // 检查是否有 promptId 找不到对应 prompt（说明前端传了不存在的或已删除的版本）
+    const missingPromptIds = desiredPromptIds.filter(id => !idToIdentity.has(id))
+    if (missingPromptIds.length > 0) {
+        return resError(event, 400, `提示词不存在或已删除：promptId ${missingPromptIds.join(', ')}`)
+    }
+    // 检查 (name, type) 在 desired 内是否唯一（防止同一身份的不同版本被同时挂载）
+    const desiredKeys = desired.map(d => {
+        const identity = idToIdentity.get(d.promptId)!
+        return { key: `${identity.name}::${identity.type}`, identity, displayOrder: d.displayOrder }
+    })
+    const seenKeys = new Set<string>()
+    for (const dk of desiredKeys) {
+        if (seenKeys.has(dk.key)) {
+            return resError(event, 400, `同一业务身份的提示词不能被重复挂载：${dk.identity.name}/${dk.identity.type}`)
+        }
+        seenKeys.add(dk.key)
+    }
+
+    // 算 diff（基于 (nodeId, promptName, promptType) 三元组）
     const current = await prisma.node_prompts.findMany({
         where: { nodeId },
-        select: { promptId: true, displayOrder: true },
+        select: { promptName: true, promptType: true, displayOrder: true },
     })
-    const currentMap = new Map(current.map((c) => [c.promptId, c.displayOrder]))
-    const desiredMap = new Map(desired.map((d) => [d.promptId, d.displayOrder]))
+    const currentMap = new Map(
+        current.map(c => [`${c.promptName}::${c.promptType}`, { name: c.promptName, type: c.promptType, displayOrder: c.displayOrder }]),
+    )
+    const desiredMap = new Map(
+        desiredKeys.map(dk => [dk.key, { name: dk.identity.name, type: dk.identity.type, displayOrder: dk.displayOrder }]),
+    )
 
-    const addedIds: number[] = []
-    const removedIds: number[] = []
-    const reorderedIds: number[] = []
+    const added: { name: string; type: string; displayOrder: number }[] = []
+    const removed: { name: string; type: string }[] = []
+    const reordered: { name: string; type: string; displayOrder: number }[] = []
 
-    for (const d of desired) {
-        if (!currentMap.has(d.promptId)) {
-            addedIds.push(d.promptId)
-        } else if (currentMap.get(d.promptId) !== d.displayOrder) {
-            reorderedIds.push(d.promptId)
-        }
+    for (const [key, d] of desiredMap) {
+        const c = currentMap.get(key)
+        if (!c) added.push(d)
+        else if (c.displayOrder !== d.displayOrder) reordered.push(d)
     }
-    for (const c of current) {
-        if (!desiredMap.has(c.promptId)) {
-            removedIds.push(c.promptId)
-        }
+    for (const [key, c] of currentMap) {
+        if (!desiredMap.has(key)) removed.push({ name: c.name, type: c.type })
     }
 
     try {
         await prisma.$transaction(async (tx) => {
-            if (removedIds.length > 0) {
+            if (removed.length > 0) {
                 await tx.node_prompts.deleteMany({
-                    where: { nodeId, promptId: { in: removedIds } },
+                    where: {
+                        nodeId,
+                        OR: removed.map(r => ({ promptName: r.name, promptType: r.type })),
+                    },
                 })
             }
-            for (const id of addedIds) {
+            for (const a of added) {
                 await tx.node_prompts.create({
-                    data: { nodeId, promptId: id, displayOrder: desiredMap.get(id)! },
+                    data: { nodeId, promptName: a.name, promptType: a.type, displayOrder: a.displayOrder },
                 })
             }
-            for (const id of reorderedIds) {
+            for (const r of reordered) {
                 await tx.node_prompts.update({
-                    where: { nodeId_promptId: { nodeId, promptId: id } },
-                    data: { displayOrder: desiredMap.get(id)! },
+                    where: {
+                        nodeId_promptName_promptType: {
+                            nodeId,
+                            promptName: r.name,
+                            promptType: r.type,
+                        },
+                    },
+                    data: { displayOrder: r.displayOrder },
                 })
             }
         })
 
-        await logNodePromptLink(event, operatorId, nodeId, { addedIds, removedIds, reorderedIds })
+        await logNodePromptLink(event, operatorId, nodeId, { added, removed, reordered })
         invalidateNodeConfigCache(node.name)
 
         logger.info(
-            `[admin/nodes/prompts] 节点 ${node.name}(id=${nodeId}) 关联变更：+${addedIds.length} -${removedIds.length} ↕${reorderedIds.length}`,
+            `[admin/nodes/prompts] 节点 ${node.name}(id=${nodeId}) 关联变更：+${added.length} -${removed.length} ↕${reordered.length}`,
         )
 
         return resSuccess(event, '已保存', {
-            added: addedIds.length,
-            removed: removedIds.length,
-            reordered: reorderedIds.length,
+            added: added.length,
+            removed: removed.length,
+            reordered: reordered.length,
         })
     } catch (error: any) {
-        // 外键约束：promptId 不存在（仅识别 node_prompts 表的违例，不要把审计日志等其它 FK 误判）
-        const fkConstraint = error?.meta?.driverAdapterError?.cause?.constraint?.index ?? ''
-        if (
-            error.code === 'P2003' &&
-            (fkConstraint.startsWith('node_prompts_') || error?.meta?.modelName === 'node_prompts')
-        ) {
-            return resError(event, 400, '提示词不存在，请检查 promptId')
-        }
         logger.error('[admin/nodes/prompts] 更新节点提示词关联失败：', error)
         return resError(event, 500, '更新节点提示词关联失败')
     }

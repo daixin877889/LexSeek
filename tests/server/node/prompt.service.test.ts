@@ -100,25 +100,27 @@ const createTestNode = async (modelId: number) => {
 }
 
 /**
- * 把 prompt 关联到 node（多对多）。Phase 6 改造后，"节点维度"的查询
- * 必须通过 node_prompts 关联表实现。
+ * 把 prompt 关联到 node（多对多）。
+ * 阶段 F 改造后，关联键改为业务身份 (name, type)；测试辅助函数接收 prompt 对象。
  */
 const linkPromptToNode = async (
     nodeId: number,
-    promptId: number,
+    prompt: { name: string; type: string },
     displayOrder = 100,
 ) => {
     await testPrisma.node_prompts.create({
-        data: { nodeId, promptId, displayOrder },
+        data: { nodeId, promptName: prompt.name, promptType: prompt.type, displayOrder },
     })
 }
 
 // 清理测试数据（按外键依赖顺序，每个步骤独立处理错误）
+// 阶段 F 改造：node_prompts 不再绑定 promptId，节点 link 通过 nodeId 一并清理
 const cleanupTestData = async () => {
-    // 先删除提示词关联，再删除提示词
     try {
+        if (testIds.nodeIds.length > 0) {
+            await testPrisma.node_prompts.deleteMany({ where: { nodeId: { in: testIds.nodeIds } } })
+        }
         if (testIds.promptIds.length > 0) {
-            await testPrisma.node_prompts.deleteMany({ where: { promptId: { in: testIds.promptIds } } })
             await testPrisma.prompts.deleteMany({ where: { id: { in: testIds.promptIds } } })
         }
     } catch { /* 忽略提示词删除错误 */ }
@@ -609,8 +611,8 @@ describe('提示词服务集成测试', () => {
 
             // ★ Phase 6：节点维度查询通过 node_prompts 关联表 join，
             // 必须显式建立关联，否则 findActivePromptDao(nodeId, type) 返回 null。
-            await linkPromptToNode(node.id, systemPrompt.id, 100)
-            await linkPromptToNode(node.id, userPrompt.id, 200)
+            await linkPromptToNode(node.id, systemPrompt, 100)
+            await linkPromptToNode(node.id, userPrompt, 200)
 
             const result = await getActivePromptsForNodeService(node.id)
             expect(result.system).not.toBeNull()

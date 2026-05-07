@@ -99,27 +99,33 @@ describe('nodeConfig.loader 多对多 prompts 装配', () => {
         nodeId = node.id
         createdIds.nodeIds.push(node.id)
 
+        const p1Name = `p1_${generateTestId()}`
+        const p2Name = `p2_${generateTestId()}`
         const p1 = await prisma.prompts.create({
-            data: { name: `p1_${generateTestId()}`, content: 'A', type: 'system', status: 1, version: 'v1' },
+            data: { name: p1Name, content: 'A', type: 'system', status: 1, version: 'v1' },
         })
         const p2 = await prisma.prompts.create({
-            data: { name: `p2_${generateTestId()}`, content: 'B', type: 'system', status: 1, version: 'v1' },
+            data: { name: p2Name, content: 'B', type: 'system', status: 1, version: 'v1' },
         })
         createdIds.promptIds.push(p1.id, p2.id)
 
-        await prisma.node_prompts.create({ data: { nodeId, promptId: p1.id, displayOrder: 200 } })
-        await prisma.node_prompts.create({ data: { nodeId, promptId: p2.id, displayOrder: 100 } })
+        // 阶段 F 改造：node_prompts 按业务身份 (name, type) 关联
+        await prisma.node_prompts.create({
+            data: { nodeId, promptName: p1Name, promptType: 'system', displayOrder: 200 },
+        })
+        await prisma.node_prompts.create({
+            data: { nodeId, promptName: p2Name, promptType: 'system', displayOrder: 100 },
+        })
     })
 
     afterEach(async () => {
         _resetCacheForTests()
-        if (createdIds.promptIds.length > 0) {
-            await prisma.node_prompts.deleteMany({ where: { promptId: { in: createdIds.promptIds } } })
-            await prisma.prompts.deleteMany({ where: { id: { in: createdIds.promptIds } } })
-        }
         if (createdIds.nodeIds.length > 0) {
             await prisma.node_prompts.deleteMany({ where: { nodeId: { in: createdIds.nodeIds } } })
             await prisma.nodes.deleteMany({ where: { id: { in: createdIds.nodeIds } } })
+        }
+        if (createdIds.promptIds.length > 0) {
+            await prisma.prompts.deleteMany({ where: { id: { in: createdIds.promptIds } } })
         }
         if (createdIds.modelIds.length > 0) {
             await prisma.models.deleteMany({ where: { id: { in: createdIds.modelIds } } })

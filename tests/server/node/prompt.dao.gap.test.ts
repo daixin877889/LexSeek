@@ -103,14 +103,15 @@ const createTestNode = async (modelId: number) => {
 
 /**
  * 把 prompt 关联到 node（多对多）。
+ * 阶段 F 改造后，关联键改为业务身份 (name, type)。
  */
 const linkPromptToNode = async (
     nodeId: number,
-    promptId: number,
+    prompt: { name: string; type: string },
     displayOrder = 100,
 ) => {
     await testPrisma.node_prompts.create({
-        data: { nodeId, promptId, displayOrder },
+        data: { nodeId, promptName: prompt.name, promptType: prompt.type, displayOrder },
     })
 }
 
@@ -141,18 +142,18 @@ describe('提示词 DAO 覆盖率补齐（gap）', () => {
 
     afterAll(async () => {
         try {
-            if (testIds.promptIds.length > 0) {
+            // 阶段 F 改造：node_prompts 不再绑定 promptId，按 nodeId 清理
+            if (testIds.nodeIds.length > 0) {
                 await testPrisma.node_prompts.deleteMany({
-                    where: { promptId: { in: testIds.promptIds } },
+                    where: { nodeId: { in: testIds.nodeIds } },
                 })
+            }
+            if (testIds.promptIds.length > 0) {
                 await testPrisma.prompts.deleteMany({
                     where: { id: { in: testIds.promptIds } },
                 })
             }
             if (testIds.nodeIds.length > 0) {
-                await testPrisma.node_prompts.deleteMany({
-                    where: { nodeId: { in: testIds.nodeIds } },
-                })
                 await testPrisma.nodes.deleteMany({
                     where: { id: { in: testIds.nodeIds } },
                 })
@@ -327,7 +328,7 @@ describe('提示词 DAO 覆盖率补齐（gap）', () => {
                 '1.0.0'
             )
             testIds.promptIds.push(p.id)
-            await linkPromptToNode(node.id, p.id)
+            await linkPromptToNode(node.id, p)
             await updatePromptStatusDao(p.id, 1)
 
             const result = await testPrisma.$transaction(async (tx) => {
@@ -362,7 +363,7 @@ describe('提示词 DAO 覆盖率补齐（gap）', () => {
                 '1.0.0'
             )
             testIds.promptIds.push(p.id)
-            await linkPromptToNode(node.id, p.id)
+            await linkPromptToNode(node.id, p)
 
             const prompts = await testPrisma.$transaction(async (tx) => {
                 return findPromptsByNodeIdDao(node.id, tx as any)
@@ -384,7 +385,7 @@ describe('提示词 DAO 覆盖率补齐（gap）', () => {
                 '1.0.0'
             )
             testIds.promptIds.push(p.id)
-            await linkPromptToNode(node.id, p.id)
+            await linkPromptToNode(node.id, p)
             await updatePromptStatusDao(p.id, 1)
 
             const found = await testPrisma.$transaction(async (tx) => {
