@@ -84,7 +84,7 @@
 
         <!-- 底部按钮（部分功能将在后续步骤接入） -->
         <div class="flex flex-wrap gap-2 shrink-0">
-            <Button variant="outline" size="sm" disabled title="将在「从提示词库添加」步骤接入">
+            <Button variant="outline" size="sm" @click="showSelector = true">
                 <Plus class="size-4 mr-1" />
                 从提示词库添加
             </Button>
@@ -97,6 +97,14 @@
                 查看完整 prompt 预览
             </Button>
         </div>
+
+        <!-- 「从提示词库添加」嵌套对话框 -->
+        <NodePromptSelector
+            v-model:open="showSelector"
+            :exclude-prompt-ids="excludePromptIds"
+            :nested-z-index="200"
+            @confirmed="onSelectorConfirmed"
+        />
     </div>
 </template>
 
@@ -104,6 +112,7 @@
 import { Eye, FilePlus, FileText, GripVertical, Pencil, Plus, Trash2 } from 'lucide-vue-next'
 import { VueDraggable } from 'vue-draggable-plus'
 import type { NodePromptRef } from '#shared/types/node'
+import NodePromptSelector from '~/components/admin/nodes/NodePromptSelector.vue'
 
 const props = defineProps<{
     /** 当前节点 ID（用于预览接口、嵌套对话框上下文） */
@@ -165,5 +174,21 @@ function onRemove(p: NodePromptRef) {
 /** 跳转到提示词详情（新窗口） */
 function openPromptDetail(promptId: number) {
     window.open(`/admin/prompts/${promptId}`, '_blank')
+}
+
+// ==================== 「从提示词库添加」嵌套对话框 ====================
+
+const showSelector = ref(false)
+
+/** 已挂 prompt id 集合（传给 selector 用作排除） */
+const excludePromptIds = computed(() => localPrompts.value.map(p => p.id))
+
+/** 选择器确认：把选中的 prompts 追加到 localPrompts，displayOrder 从当前最大值递增 100 */
+function onSelectorConfirmed(items: NodePromptRef[]) {
+    if (items.length === 0) return
+    const maxOrder = localPrompts.value.reduce((m, p) => Math.max(m, p.displayOrder), 0)
+    const appended = items.map((p, idx) => ({ ...p, displayOrder: maxOrder + (idx + 1) * 100 }))
+    localPrompts.value = [...localPrompts.value, ...appended]
+    notifyStaged()
 }
 </script>
