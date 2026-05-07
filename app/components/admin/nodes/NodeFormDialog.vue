@@ -586,13 +586,31 @@ const handleSubmit = async () => {
         // 同步节点关联的 skills（新增 / 编辑共用）
         // 节点已成功创建/更新，skills 关联失败仅给出告警，避免回滚已建节点
         const skillResult = await saveNodeSkills(nodeId)
+        let skillFailed = false
         if (skillResult === null && form.value.skills.length > 0) {
+            skillFailed = true
             toast.warning(
                 isEdit.value
                     ? '节点已保存，但 Skills 关联更新失败，请稍后重试'
                     : '节点已创建，但 Skills 关联保存失败，请到编辑里补上'
             )
-        } else {
+        }
+
+        // 同步节点关联的 prompts（仅编辑模式 + 用户在「提示词」tab 实际产生过变更才提交）
+        // 创建模式没有 prompts tab，stagedPromptChanges 始终为 null
+        let promptsFailed = false
+        if (isEdit.value && stagedPromptChanges.value !== null) {
+            const promptsResult = await useApiFetch(`/api/v1/admin/nodes/${nodeId}/prompts`, {
+                method: 'PATCH',
+                body: { prompts: stagedPromptChanges.value },
+            })
+            if (promptsResult === null) {
+                promptsFailed = true
+                toast.warning('节点已保存，但提示词关联更新失败，请稍后重试')
+            }
+        }
+
+        if (!skillFailed && !promptsFailed) {
             toast.success(isEdit.value ? '保存成功' : '创建成功')
         }
         open.value = false
