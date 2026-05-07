@@ -153,6 +153,30 @@
                 </CardContent>
             </Card>
 
+            <!-- 完整 system prompt 预览卡片 -->
+            <Card>
+                <CardHeader>
+                    <CardTitle>完整 system prompt 预览</CardTitle>
+                    <CardDescription>
+                        按 displayOrder 升序拼接 {{ promptPreview?.promptCount ?? 0 }} 段提示词的实际效果（未替换的 <code v-pre class="text-xs">{{xxx}}</code> 字面量保留，便于核对运行时变量）
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div v-if="promptPreviewStatus === 'pending'" class="flex justify-center py-8">
+                        <Loader2 class="h-6 w-6 animate-spin text-muted-foreground" />
+                    </div>
+                    <div v-else-if="promptPreviewError" class="flex flex-col items-center justify-center py-8 text-center">
+                        <AlertCircle class="h-8 w-8 text-muted-foreground/50 mb-2" />
+                        <p class="text-muted-foreground text-sm">加载预览失败</p>
+                    </div>
+                    <div v-else-if="!promptPreview?.systemPromptPreview" class="flex flex-col items-center justify-center py-8 text-center">
+                        <FileText class="h-8 w-8 text-muted-foreground/50 mb-2" />
+                        <p class="text-muted-foreground text-sm">暂无可预览的 system prompt</p>
+                    </div>
+                    <pre v-else class="text-xs bg-muted p-4 rounded whitespace-pre-wrap font-mono">{{ promptPreview.systemPromptPreview }}</pre>
+                </CardContent>
+            </Card>
+
             <!-- 工具列表卡片（独立展示，数据来自 toolDetails） -->
             <Card>
                 <CardHeader>
@@ -226,30 +250,6 @@
                             </Badge>
                         </div>
                     </div>
-                </CardContent>
-            </Card>
-
-            <!-- 完整 system prompt 预览卡片 -->
-            <Card>
-                <CardHeader>
-                    <CardTitle>完整 system prompt 预览</CardTitle>
-                    <CardDescription>
-                        按 displayOrder 升序拼接 {{ promptPreview?.promptCount ?? 0 }} 段提示词的实际效果（未替换的 <code v-pre class="text-xs">{{xxx}}</code> 字面量保留，便于核对运行时变量）
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div v-if="promptPreviewStatus === 'pending'" class="flex justify-center py-8">
-                        <Loader2 class="h-6 w-6 animate-spin text-muted-foreground" />
-                    </div>
-                    <div v-else-if="promptPreviewError" class="flex flex-col items-center justify-center py-8 text-center">
-                        <AlertCircle class="h-8 w-8 text-muted-foreground/50 mb-2" />
-                        <p class="text-muted-foreground text-sm">加载预览失败</p>
-                    </div>
-                    <div v-else-if="!promptPreview?.systemPromptPreview" class="flex flex-col items-center justify-center py-8 text-center">
-                        <FileText class="h-8 w-8 text-muted-foreground/50 mb-2" />
-                        <p class="text-muted-foreground text-sm">暂无可预览的 system prompt</p>
-                    </div>
-                    <pre v-else class="text-xs bg-muted p-4 rounded whitespace-pre-wrap font-mono">{{ promptPreview.systemPromptPreview }}</pre>
                 </CardContent>
             </Card>
         </template>
