@@ -84,4 +84,10 @@ export enum AuditLogAction {
     ORDER_CANCEL = 'order_cancel',
     ORDER_REMARK_UPDATE = 'order_remark_update',
     PAYMENT_REMARK_UPDATE = 'payment_remark_update',
+
+    // === 提示词管理审计 ===
+    PROMPT_CREATE = 'prompt.create',
+    PROMPT_UPDATE = 'prompt.update',
+    PROMPT_DELETE = 'prompt.delete',
+    NODE_PROMPTS_LINK = 'node.prompts.link',
 }

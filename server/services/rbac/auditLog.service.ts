@@ -366,3 +366,87 @@ export const logPaymentRemarkUpdate = async (
         ip: getClientIp(event),
     }, tx)
 }
+
+// ==================== 提示词相关日志 ====================
+
+/**
+ * 记录提示词创建日志
+ */
+export const logPromptCreate = async (
+    event: H3Event,
+    operatorId: number,
+    promptId: number,
+    promptData: Record<string, unknown>,
+    tx?: Prisma.TransactionClient,
+) => {
+    return createAuditLogDao({
+        action: AuditLogAction.PROMPT_CREATE,
+        targetType: 'prompt',
+        targetId: promptId,
+        operatorId,
+        newValue: promptData as Prisma.InputJsonValue,
+        ip: getClientIp(event),
+    }, tx)
+}
+
+/**
+ * 记录提示词更新日志（含 activate 切换版本）
+ */
+export const logPromptUpdate = async (
+    event: H3Event,
+    operatorId: number,
+    promptId: number,
+    oldData: Record<string, unknown>,
+    newData: Record<string, unknown>,
+    tx?: Prisma.TransactionClient,
+) => {
+    return createAuditLogDao({
+        action: AuditLogAction.PROMPT_UPDATE,
+        targetType: 'prompt',
+        targetId: promptId,
+        operatorId,
+        oldValue: oldData as Prisma.InputJsonValue,
+        newValue: newData as Prisma.InputJsonValue,
+        ip: getClientIp(event),
+    }, tx)
+}
+
+/**
+ * 记录提示词删除日志
+ */
+export const logPromptDelete = async (
+    event: H3Event,
+    operatorId: number,
+    promptId: number,
+    promptData: Record<string, unknown>,
+    tx?: Prisma.TransactionClient,
+) => {
+    return createAuditLogDao({
+        action: AuditLogAction.PROMPT_DELETE,
+        targetType: 'prompt',
+        targetId: promptId,
+        operatorId,
+        oldValue: promptData as Prisma.InputJsonValue,
+        ip: getClientIp(event),
+    }, tx)
+}
+
+/**
+ * 记录节点 ↔ 提示词关联变更日志（add / remove / reorder 一锅端）
+ */
+export const logNodePromptLink = async (
+    event: H3Event,
+    operatorId: number,
+    nodeId: number,
+    diff: { addedIds: number[]; removedIds: number[]; reorderedIds: number[] },
+    tx?: Prisma.TransactionClient,
+) => {
+    return createAuditLogDao({
+        action: AuditLogAction.NODE_PROMPTS_LINK,
+        targetType: 'node',
+        targetId: nodeId,
+        operatorId,
+        newValue: diff as unknown as Prisma.InputJsonValue,
+        ip: getClientIp(event),
+    }, tx)
+}
