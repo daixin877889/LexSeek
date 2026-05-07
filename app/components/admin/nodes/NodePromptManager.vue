@@ -111,7 +111,6 @@
                 新建
             </Button>
             <Button
-                v-if="props.nodeId > 0"
                 variant="outline"
                 size="sm"
                 class="ml-auto"
@@ -391,9 +390,27 @@ async function openPreview() {
     previewLoading.value = true
     preview.value = null
     try {
-        const resp = await useApiFetch<{ systemPromptPreview: string; promptCount: number }>(
-            `/api/v1/admin/nodes/${props.nodeId}/prompts/preview`,
-        )
+        let resp: { systemPromptPreview: string; promptCount: number } | null = null
+        if (props.nodeId > 0) {
+            // 编辑场景：调节点级 preview，由后端从 nodeConfig 拼装
+            resp = await useApiFetch<{ systemPromptPreview: string; promptCount: number }>(
+                `/api/v1/admin/nodes/${props.nodeId}/prompts/preview`,
+            )
+        } else {
+            // 新建场景：还没有 nodeId，把本地暂存的 staged prompts 直接交给 preview-bundle 拼装
+            resp = await useApiFetch<{ systemPromptPreview: string; promptCount: number }>(
+                '/api/v1/admin/prompts/preview-bundle',
+                {
+                    method: 'POST',
+                    body: {
+                        prompts: localPrompts.value.map(p => ({
+                            promptId: p.id,
+                            displayOrder: p.displayOrder,
+                        })),
+                    },
+                },
+            )
+        }
         if (resp) {
             preview.value = resp
         } else {
