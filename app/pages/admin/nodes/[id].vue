@@ -93,10 +93,23 @@
                         </div>
                         <div class="col-span-full space-y-1">
                             <Label class="text-muted-foreground">工具列表</Label>
-                            <div v-if="nodeTools.length" class="flex flex-wrap gap-2">
-                                <Badge v-for="(tool, index) in nodeTools" :key="index" variant="outline">
-                                    {{ tool }}
-                                </Badge>
+                            <div v-if="toolDetails.length" class="rounded-md border divide-y bg-card">
+                                <div
+                                    v-for="tool in toolDetails"
+                                    :key="tool.name"
+                                    class="flex items-start gap-3 p-3"
+                                >
+                                    <Wrench class="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                                    <div class="flex-1 min-w-0">
+                                        <div class="font-mono text-sm truncate">{{ tool.name }}</div>
+                                        <div
+                                            class="text-xs text-muted-foreground truncate"
+                                            :title="tool.description ?? ''"
+                                        >
+                                            {{ tool.description || '该工具已从注册表移除或暂无描述' }}
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             <p v-else class="text-muted-foreground">暂无配置工具</p>
                         </div>
@@ -106,6 +119,50 @@
                             <div class="bg-muted rounded-md p-4 overflow-auto max-h-96">
                                 <pre class="text-sm font-mono whitespace-pre-wrap">{{ formatOutputSchema(node.outputSchema) }}</pre>
                             </div>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <!-- 关联 Skills 卡片（只读列表，按 priority 升序） -->
+            <Card>
+                <CardHeader>
+                    <CardTitle>关联 Skills</CardTitle>
+                    <CardDescription>该节点挂载的 Skills（按 priority 升序，只读；如需调整请回到节点列表点编辑）</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div
+                        v-if="!nodeSkills.length"
+                        class="flex flex-col items-center justify-center py-8 text-center"
+                    >
+                        <Sparkles class="h-10 w-10 text-muted-foreground/50 mb-3" />
+                        <p class="text-muted-foreground text-sm">该节点未关联 Skills</p>
+                    </div>
+                    <div v-else class="rounded-md border divide-y bg-card">
+                        <div
+                            v-for="skill in nodeSkills"
+                            :key="skill.name"
+                            class="flex items-start gap-3 p-3"
+                        >
+                            <span class="w-12 shrink-0 text-center font-mono text-xs text-muted-foreground pt-0.5">
+                                {{ skill.priority }}
+                            </span>
+                            <div class="flex-1 min-w-0">
+                                <div class="font-medium text-sm truncate">
+                                    {{ skill.customTitle || skill.title || skill.name }}
+                                </div>
+                                <div class="text-xs text-muted-foreground font-mono truncate">{{ skill.name }}</div>
+                                <div
+                                    v-if="skill.description"
+                                    class="text-xs text-muted-foreground mt-1 line-clamp-2"
+                                    :title="skill.description"
+                                >
+                                    {{ skill.description }}
+                                </div>
+                            </div>
+                            <Badge :variant="skill.status === 1 ? 'default' : 'secondary'" class="shrink-0">
+                                {{ skill.status === 1 ? '生效' : '停用' }}
+                            </Badge>
                         </div>
                     </div>
                 </CardContent>
@@ -220,11 +277,11 @@
 </template>
 
 <script setup lang="ts">
-import { ArrowLeft, Loader2, AlertCircle, Pencil, Power, Trash2, Settings, FileText } from 'lucide-vue-next'
+import { ArrowLeft, Loader2, AlertCircle, Pencil, Power, Trash2, Settings, FileText, Sparkles, Wrench } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import dayjs from 'dayjs'
 import { NodeTypeLabels, NodeTypeVariants } from '#shared/types/node'
-import type { NodePromptRef, NodeWithRelations, PromptType } from '#shared/types/node'
+import type { NodePromptRef, NodeSkillRef, NodeToolDetailRef, NodeWithRelations, PromptType } from '#shared/types/node'
 import AdminNodesNodeFormDialog from '~/components/admin/nodes/NodeFormDialog.vue'
 import { useApi } from '~/composables/useApi'
 import { useApiFetch } from '~/composables/useApiFetch'
@@ -243,10 +300,27 @@ const deleting = ref(false)
 const node = ref<NodeWithRelations | null>(null)
 const deleteDialogOpen = ref(false)
 
-// 计算属性：工具列表（处理 JSON 类型）
-const nodeTools = computed(() => {
-    if (!node.value?.tools || !Array.isArray(node.value.tools)) return []
-    return node.value.tools.filter((t): t is string => typeof t === 'string')
+/**
+ * 工具列表（带描述）
+ *
+ * 节点详情接口返回 `toolDetails: NodeToolDetailRef[]`，但 `NodeWithRelations` 类型还停留在
+ * 旧形态（只有 `tools: JsonValue`）；这里做一次窄化以便模板访问 `name` / `description`。
+ *
+ * 历史节点（已下线工具）若注册表里查不到，description 为 null，模板降级展示提示文字。
+ */
+const toolDetails = computed<NodeToolDetailRef[]>(() => {
+    const list = (node.value as unknown as { toolDetails?: NodeToolDetailRef[] } | null)?.toolDetails
+    return Array.isArray(list) ? list : []
+})
+
+/**
+ * 关联 Skills 列表（按 priority 升序）
+ *
+ * 节点详情接口返回 `skills: NodeSkillRef[]`；`NodeWithRelations` 类型未含该字段，做一次窄化。
+ */
+const nodeSkills = computed<NodeSkillRef[]>(() => {
+    const list = (node.value as unknown as { skills?: NodeSkillRef[] } | null)?.skills
+    return Array.isArray(list) ? list : []
 })
 
 // 格式化日期
