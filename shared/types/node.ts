@@ -154,6 +154,39 @@ export interface NodeWithRelations extends Node {
     prompts?: Prompt[]
 }
 
+/**
+ * 节点关联的提示词引用（多对多扁平视图）
+ *
+ * 用途：节点详情接口（GET /api/v1/admin/nodes/:id）返回的 `prompts` 字段元素类型；
+ * 也用于前端节点弹框 "提示词" tab 与提示词选择器组件之间的数据交换。
+ *
+ * 字段语义：
+ * - `displayOrder`：来自 `node_prompts.displayOrder`（同节点内拼接顺序，升序）
+ * - `referencedByCount`：来自 `_count.nodePrompts`（该 prompt 被多少个节点引用）
+ */
+export interface NodePromptRef {
+    id: number
+    name: string
+    title: string | null
+    type: string
+    status: number
+    version: string
+    displayOrder: number
+    referencedByCount: number
+}
+
+/**
+ * GET /api/v1/admin/nodes/:id 返回体类型
+ *
+ * 基于 `NodeWithRelations`，把 `prompts` 字段替换为多对多扁平视图（`NodePromptRef[]`）。
+ *
+ * 历史 `NodeWithRelations.prompts?: Prompt[]` 是直接从 `prompts.nodeId` 单值关系下取的快照，
+ * Phase 6 改造后不再使用；该接口由 `node_prompts` 关联表提供，每条带 `displayOrder` + 引用计数。
+ */
+export type NodeWithPromptsResponse = Omit<NodeWithRelations, 'prompts'> & {
+    prompts: NodePromptRef[]
+}
+
 /** 节点分组详情（包含节点数量） */
 export interface NodeGroupWithCount extends NodeGroup {
     _count?: {
