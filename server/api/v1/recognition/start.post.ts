@@ -16,6 +16,7 @@ import { convertPdfService } from '~~/server/services/material/mineru.service'
 import { transcribeAudioService } from '~~/server/services/material/asr.service'
 import { readTextFileService } from '~~/server/services/material/textReader.service'
 import { recognizeDocxService } from '~~/server/services/material/docxRecognition.service'
+import { generateOssFileSummaryService } from '~~/server/services/material/material.service'
 import { CaseMaterialType } from '#shared/types/case'
 import { getExtensionFromFileName } from '~~/shared/utils/file'
 import type { ossFiles } from '~~/generated/prisma/client'
@@ -133,11 +134,9 @@ export default defineEventHandler(async (event) => {
 
         // 同步识别成功 → 按 OssFile 触发摘要生成（不依赖 caseMaterials 行存在）
         // 小索/法律助手输入框上传场景下 caseMaterials 行还没创建，按 OssFile 提前算摘要
-        // 让用户点发送时摘要已就绪，命中 spec §2 目标 1
+        // 让用户点发送时摘要已就绪
         if (resultStatus === 'completed') {
-            import('~~/server/services/material/material.service').then(svc =>
-                svc.generateOssFileSummaryService(ossFileId),
-            ).catch(() => { /* 已在内部 catch */ })
+            generateOssFileSummaryService(ossFileId).catch(() => { /* 已在内部 catch */ })
         }
 
         results.push({
