@@ -132,7 +132,6 @@ vi.mock('~~/server/utils/chat-branch-utils', () => ({
         command: b?.command,
         thinking: b?.input?.thinking,
     })),
-    RESUME_COMMANDS: {},
     MAX_RESUME_COUNT: 5,
 }))
 
