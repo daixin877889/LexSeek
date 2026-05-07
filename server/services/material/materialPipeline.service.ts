@@ -152,13 +152,13 @@ async function runRecognitionAndEmbeddingPipeline(
     }
 }
 
-import type { MaterialItemStatus } from '#shared/types/agentEvent'
+import type { PrepareMaterialStatus } from '#shared/types/agentEvent'
 
 /** 材料就绪快照单项 */
 export interface MaterialReadinessSnapshot {
     materialId: number
     name: string
-    status: MaterialItemStatus
+    status: PrepareMaterialStatus
 }
 
 /**
@@ -228,7 +228,7 @@ export async function snapshotMaterialReadiness(
         const rawStatus = freshStatus.get(m.id) ?? m.status
         const recognized = recognizedMap.get(m.id) ?? false
         const hasSummary = summaryMap.has(m.id)
-        let s: MaterialItemStatus
+        let s: PrepareMaterialStatus
         if (rawStatus === MaterialStatus.FAILED) s = 'failed'
         else if (recognized) s = hasSummary ? 'ready' : 'summarizing'
         else if (rawStatus === MaterialStatus.PROCESSING) s = 'recognizing'

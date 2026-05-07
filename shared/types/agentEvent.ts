@@ -221,20 +221,26 @@ export interface ChildAgentInvokedPayload {
 }
 
 /** 材料项状态（保底进度卡片用） */
-export type MaterialItemStatus = 'pending' | 'recognizing' | 'summarizing' | 'ready' | 'failed'
+export type PrepareMaterialStatus = 'pending' | 'recognizing' | 'summarizing' | 'ready' | 'failed'
 
-/** 单条材料状态（不携带 type 字段——前端渲染只用 name + status） */
-export interface MaterialItem {
+/**
+ * 单条材料状态（不携带 type 字段——前端渲染只用 name + status）
+ *
+ * 注：`material.ts` 已有 `MaterialItem`（前端上传态，含 file/content/needServerProcess）
+ * 与 `MaterialProcessTool.vue` 局部 `MaterialItem`（卡片渲染用）。三者语义不同，
+ * 此处加 `Prepare` 前缀强调专属 PrepareMaterials SSE 事件。
+ */
+export interface PrepareMaterialItem {
     id: number
     name: string
-    status: MaterialItemStatus
+    status: PrepareMaterialStatus
 }
 
 /** PREPARE_MATERIALS payload */
 export type PrepareMaterialsPayload =
-    | { phase: 'start';    toolCallId: string; materials: MaterialItem[] }
-    | { phase: 'progress'; toolCallId: string; materials: MaterialItem[] }
-    | { phase: 'end';      toolCallId: string; materials: MaterialItem[]; failedCount: number }
+    | { phase: 'start';    toolCallId: string; materials: PrepareMaterialItem[] }
+    | { phase: 'progress'; toolCallId: string; materials: PrepareMaterialItem[] }
+    | { phase: 'end';      toolCallId: string; materials: PrepareMaterialItem[]; failedCount: number }
 
 /**
  * SSE 自定义事件类型 → payload 类型映射。

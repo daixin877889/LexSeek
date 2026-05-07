@@ -3,7 +3,7 @@ import { ensureMaterialsReadyService } from "~~/server/services/material/materia
 import type { MaterialReadinessSnapshot } from "~~/server/services/material/materialPipeline.service"
 import { createCustomEventEmitter } from "~~/server/services/agent-platform/sse/customEventEmitter"
 import { SSECustomEventType } from "#shared/types/agentEvent"
-import type { MaterialItem, PrepareMaterialsPayload } from "#shared/types/agentEvent"
+import type { PrepareMaterialItem, PrepareMaterialsPayload } from "#shared/types/agentEvent"
 
 /**
  * 材料就绪保底中间件
@@ -35,7 +35,7 @@ export const caseProcessMaterialMiddleware = (
                 const onProgress = async (snapshot: MaterialReadinessSnapshot[]) => {
                     lastSnapshot = snapshot  // 累积，end 阶段直接用
                     if (!emit) return  // 无 runId 不推送（兼容旧调用方）
-                    const items: MaterialItem[] = snapshot.map(s => ({
+                    const items: PrepareMaterialItem[] = snapshot.map(s => ({
                         id: s.materialId,
                         name: s.name,
                         status: s.status,
@@ -66,7 +66,7 @@ export const caseProcessMaterialMiddleware = (
 
                     // 发 phase=end（若曾发过 start）
                     if (started && toolCallId && emit) {
-                        const items: MaterialItem[] = lastSnapshot.map(s => ({
+                        const items: PrepareMaterialItem[] = lastSnapshot.map(s => ({
                             id: s.materialId,
                             name: s.name,
                             status: s.status,
