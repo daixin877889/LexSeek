@@ -2,7 +2,11 @@ import { INIT_ANALYSIS_MODULES, DEFAULT_SELECTED_MODULES } from '#shared/types/i
 import type { ModuleRunState, InitAnalysisStatusResponse, ModuleStatus } from '#shared/types/initAnalysis'
 import { coerceRawMessages } from '~/components/ai/composables/useMessageParser'
 import { useStreamChat } from '../useStreamChat'
-import { pickFirstSelectedModule, computeModuleStatesFromSnapshot } from './useInitAnalysisModules'
+import {
+  pickFirstSelectedModule,
+  computeModuleStatesFromSnapshot,
+  extractGlobalStatusSnapshot,
+} from './useInitAnalysisModules'
 import type { InitAnalysisState, AnalysisPhase, SyncCursor, SyncSummary, RuntimeExposed } from './types'
 import { useApiFetch } from '~/composables/useApiFetch'
 
@@ -12,6 +16,11 @@ export function useInitAnalysisRuntime(sessionId: Ref<string>) {
   const selectedModules = ref<string[]>([...DEFAULT_SELECTED_MODULES])
   const moduleStates = ref<Record<string, ModuleRunState>>({})
   const completedModules = ref<string[]>([])
+  // projection 依赖：DB 已生成结果 / status.modules 全量列表
+  // 之前由 [sessionId].vue 自己持有 → 但 runtime.loadStatus 拉到 status 后没回填，
+  // 导致首次进入页面时 projection 看不到 DB 已 complete 的模块，错显"未生成"。
+  const statusModules = ref<InitAnalysisStatusResponse['modules']>([])
+  const resultFromDB = ref<Record<string, string>>({})
   const isInitialized = ref(false)
   const moduleMessagesMap = ref<Record<string, any[]>>({})
   const activeIndex = ref(0)
@@ -244,9 +253,10 @@ export function useInitAnalysisRuntime(sessionId: Ref<string>) {
   }
 
   function applyGlobalStatus(status: InitAnalysisStatusResponse) {
-    completedModules.value = (status.modules ?? [])
-      .filter(m => m.status === 'complete')
-      .map(m => m.name)
+    const snap = extractGlobalStatusSnapshot(status)
+    completedModules.value = snap.completedModules
+    statusModules.value = snap.statusModules
+    resultFromDB.value = snap.resultFromDB
   }
 
   function refreshGlobalStatus(status: InitAnalysisStatusResponse) {
@@ -258,6 +268,8 @@ export function useInitAnalysisRuntime(sessionId: Ref<string>) {
     caseId,
     selectedModules,
     completedModules,
+    statusModules,
+    resultFromDB,
     isInitialized,
     moduleStates,
     moduleMessagesMap,

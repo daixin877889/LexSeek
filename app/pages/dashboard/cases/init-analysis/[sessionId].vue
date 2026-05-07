@@ -194,7 +194,6 @@ import CaseAnalysisDocPreviewDialog from '~/components/caseAnalysis/DocPreviewDi
 import CaseDetailOverview from '~/components/caseDetail/CaseDetailOverview.vue'
 import InitAnalysisModuleSelector from '~/components/initAnalysis/ModuleSelector.vue'
 import InitAnalysisPipelineProgress from '~/components/initAnalysis/PipelineProgress.vue'
-import type { InitAnalysisStatusResponse } from '#shared/types/initAnalysis'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useInitAnalysisRuntime } from '~/composables/initAnalysis/useInitAnalysisRuntime'
 import { useInitAnalysisProjection } from '~/composables/initAnalysis/useInitAnalysisProjection'
@@ -264,17 +263,18 @@ const panelMode = ref<'left' | 'right' | 'both'>('left')
 // 直接在页面组装 runtime + projection + bridge（旧 useInitAnalysis 已删）
 const runtime = useInitAnalysisRuntime(sessionId)
 
-// projection 依赖：DB 结果 / status modules / 跨标签生成中模块
-const resultFromDB = ref<Record<string, string>>({})
-const statusModules = ref<InitAnalysisStatusResponse['modules']>([])
+// 跨标签页正在生成中的模块（仅本页面级状态）
 const externalGenerating = ref<string[]>([])
 
+// projection 的 statusModules / resultFromDB 直接复用 runtime 暴露的 ref
+// 旧实现把这两个 ref 留在页面里，但 runtime.loadStatus 不会回填它们 →
+// 首次进入页面时 projection 看不到 DB 已 complete 的模块，错显"未生成"。
 const projection = useInitAnalysisProjection({
   moduleStates: runtime.moduleStates,
   values: runtime.values,
   streamMessages: runtime.stream.messages,
-  statusModules,
-  resultFromDB,
+  statusModules: runtime.statusModules,
+  resultFromDB: runtime.resultFromDB,
   externalGenerating,
 })
 
@@ -285,10 +285,6 @@ const syncBridge = useInitAnalysisSyncBridge({
   isLoading: runtime.isLoading,
   refreshGlobalStatus(status) {
     runtime.refreshGlobalStatus(status)
-    statusModules.value = status.modules ?? []
-  },
-  refreshGlobalResult(result) {
-    resultFromDB.value = result
   },
   onExternalGenerating(modules) {
     externalGenerating.value = modules
