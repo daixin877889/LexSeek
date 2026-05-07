@@ -475,7 +475,8 @@ const openCreate = () => {
 }
 
 // 打开编辑对话框
-const openEdit = (node: NodeWithRelations) => {
+// initialTab：来自详情页的 tab 联动；未传时默认 'basic'，向下兼容旧调用
+const openEdit = (node: NodeWithRelations, initialTab?: TabKey) => {
     isEdit.value = true
     selectedNode.value = node
     // 处理 tools 字段，确保是字符串数组
@@ -497,7 +498,10 @@ const openEdit = (node: NodeWithRelations) => {
         skills: [],
         thinkingEnabled: node.thinkingEnabled ?? false,
     }
-    activeTab.value = 'basic'
+    // 若指定了 initialTab 且当前节点类型支持（'schema' 仅 extraction/agent 显示），按指定值；否则回落 'basic'
+    const wantTab = initialTab ?? 'basic'
+    const schemaSupported = ['extraction', 'agent'].includes(form.value.type)
+    activeTab.value = (wantTab === 'schema' && !schemaSupported) ? 'basic' : wantTab
     toolSearch.value = ''
     nodePrompts.value = []
     stagedPromptChanges.value = null

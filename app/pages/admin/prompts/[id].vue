@@ -118,7 +118,7 @@
                         <CardDescription>编辑内容将创建新版本，不会覆盖当前版本</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div class="rounded-md border bg-muted/50 p-4 max-h-[800px] overflow-y-auto text-sm">
+                        <div class="rounded-md border bg-muted/50 p-4 text-sm">
                             <Markdown :content="prompt.content" mode="static" />
                         </div>
                     </CardContent>
@@ -157,7 +157,7 @@
                         <!-- 预览结果 -->
                         <div v-if="previewResult" class="space-y-2">
                             <Label class="text-muted-foreground">渲染结果</Label>
-                            <div class="rounded-md border bg-background p-4 max-h-[600px] overflow-y-auto text-sm">
+                            <div class="rounded-md border bg-background p-4 text-sm">
                                 <Markdown :content="previewResult" mode="static" />
                             </div>
                         </div>

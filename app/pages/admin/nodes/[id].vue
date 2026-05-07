@@ -12,7 +12,7 @@
                 </div>
             </div>
             <div class="flex gap-2">
-                <Button v-if="node" variant="outline" @click="formDialogRef?.openEdit(node)" :disabled="loading">
+                <Button v-if="node" variant="outline" @click="formDialogRef?.openEdit(node, activeTab)" :disabled="loading">
                     <Pencil class="h-4 w-4 mr-2" />
                     编辑
                 </Button>
@@ -42,218 +42,236 @@
 
         <!-- 节点详情 -->
         <template v-else>
-            <!-- 基本信息卡片 -->
-            <Card>
-                <CardHeader>
-                    <CardTitle>基本信息</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="space-y-1">
-                            <Label class="text-muted-foreground">节点名称</Label>
-                            <p class="font-mono">{{ node.name }}</p>
-                        </div>
-                        <div class="space-y-1">
-                            <Label class="text-muted-foreground">节点标题</Label>
-                            <p>{{ node.title || '-' }}</p>
-                        </div>
-                        <div class="space-y-1">
-                            <Label class="text-muted-foreground">节点类型</Label>
-                            <Badge :variant="NodeTypeVariants[node.type as keyof typeof NodeTypeVariants] || 'default'">
-                                {{ NodeTypeLabels[node.type as keyof typeof NodeTypeLabels] || node.type }}
-                            </Badge>
-                        </div>
-                        <div class="space-y-1">
-                            <Label class="text-muted-foreground">状态</Label>
-                            <Badge :variant="node.status === 1 ? 'default' : 'secondary'">
-                                {{ node.status === 1 ? '启用' : '禁用' }}
-                            </Badge>
-                        </div>
-                        <div class="space-y-1">
-                            <Label class="text-muted-foreground">优先级</Label>
-                            <p>{{ node.priority }}</p>
-                        </div>
-                        <div class="space-y-1">
-                            <Label class="text-muted-foreground">节点分组</Label>
-                            <p>{{ node.group?.name || '无分组' }}</p>
-                        </div>
-                        <div class="space-y-1">
-                            <Label class="text-muted-foreground">关联模型</Label>
-                            <p>{{ node.model?.displayName || '-' }}</p>
-                        </div>
-                        <div class="space-y-1">
-                            <Label class="text-muted-foreground">创建时间</Label>
-                            <p>{{ formatDate(node.createdAt) }}</p>
-                        </div>
-                        <div class="col-span-full space-y-1">
-                            <Label class="text-muted-foreground">节点描述</Label>
-                            <p>{{ node.description || '暂无描述' }}</p>
-                        </div>
-                        <!-- outputSchema 展示 -->
-                        <div v-if="node.outputSchema" class="col-span-full space-y-1">
-                            <Label class="text-muted-foreground">结构化输出 Schema</Label>
-                            <div class="bg-muted rounded-md p-4 overflow-auto max-h-96">
-                                <pre class="text-sm font-mono whitespace-pre-wrap">{{ formatOutputSchema(node.outputSchema) }}</pre>
-                            </div>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+            <Tabs v-model="activeTab" class="w-full">
+                <TabsList class="grid w-full grid-cols-4">
+                    <TabsTrigger value="basic">基本信息</TabsTrigger>
+                    <TabsTrigger value="prompts">提示词</TabsTrigger>
+                    <TabsTrigger value="tools">工具</TabsTrigger>
+                    <TabsTrigger value="skills">Skills</TabsTrigger>
+                </TabsList>
 
-            <!-- 提示词列表卡片（按 type 分组只读展示） -->
-            <Card>
-                <CardHeader>
-                    <CardTitle>关联提示词</CardTitle>
-                    <CardDescription>该节点关联的提示词配置（按装配位置分组展示，只读；如需调整请回到节点列表点编辑）</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div v-if="!node.prompts?.length"
-                        class="flex flex-col items-center justify-center py-8 text-center">
-                        <FileText class="h-10 w-10 text-muted-foreground/50 mb-3" />
-                        <p class="text-muted-foreground text-sm">暂无关联提示词</p>
-                    </div>
-                    <div v-else class="rounded-md border overflow-hidden bg-card">
-                        <template v-for="group in visiblePromptGroups" :key="group.type">
-                            <!-- 分组标题 -->
-                            <div
-                                class="flex flex-wrap items-center gap-x-2 gap-y-1 bg-muted/80 px-3 py-1.5 border-b text-xs"
-                            >
-                                <span class="font-semibold text-foreground">{{ group.label }}</span>
-                                <span class="text-muted-foreground">· {{ group.items.length }} 段</span>
-                                <span class="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-[10px]">
-                                    {{ group.position }}
-                                </span>
+                <!-- 基本信息 Tab -->
+                <TabsContent value="basic" class="space-y-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>基本信息</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="space-y-1">
+                                    <Label class="text-muted-foreground">节点名称</Label>
+                                    <p class="font-mono">{{ node.name }}</p>
+                                </div>
+                                <div class="space-y-1">
+                                    <Label class="text-muted-foreground">节点标题</Label>
+                                    <p>{{ node.title || '-' }}</p>
+                                </div>
+                                <div class="space-y-1">
+                                    <Label class="text-muted-foreground">节点类型</Label>
+                                    <Badge :variant="NodeTypeVariants[node.type as keyof typeof NodeTypeVariants] || 'default'">
+                                        {{ NodeTypeLabels[node.type as keyof typeof NodeTypeLabels] || node.type }}
+                                    </Badge>
+                                </div>
+                                <div class="space-y-1">
+                                    <Label class="text-muted-foreground">状态</Label>
+                                    <Badge :variant="node.status === 1 ? 'default' : 'secondary'">
+                                        {{ node.status === 1 ? '启用' : '禁用' }}
+                                    </Badge>
+                                </div>
+                                <div class="space-y-1">
+                                    <Label class="text-muted-foreground">优先级</Label>
+                                    <p>{{ node.priority }}</p>
+                                </div>
+                                <div class="space-y-1">
+                                    <Label class="text-muted-foreground">节点分组</Label>
+                                    <p>{{ node.group?.name || '无分组' }}</p>
+                                </div>
+                                <div class="space-y-1">
+                                    <Label class="text-muted-foreground">关联模型</Label>
+                                    <p>{{ node.model?.displayName || '-' }}</p>
+                                </div>
+                                <div class="space-y-1">
+                                    <Label class="text-muted-foreground">创建时间</Label>
+                                    <p>{{ formatDate(node.createdAt) }}</p>
+                                </div>
+                                <div class="col-span-full space-y-1">
+                                    <Label class="text-muted-foreground">节点描述</Label>
+                                    <p>{{ node.description || '暂无描述' }}</p>
+                                </div>
+                                <!-- outputSchema 展示 -->
+                                <div v-if="node.outputSchema" class="col-span-full space-y-1">
+                                    <Label class="text-muted-foreground">结构化输出 Schema</Label>
+                                    <div class="bg-muted rounded-md p-4 overflow-auto max-h-96">
+                                        <pre class="text-sm font-mono whitespace-pre-wrap">{{ formatOutputSchema(node.outputSchema) }}</pre>
+                                    </div>
+                                </div>
                             </div>
-                            <!-- 行（只读，无拖拽 / 编辑 / 移除按钮） -->
-                            <div class="divide-y">
-                                <div
-                                    v-for="p in group.items"
-                                    :key="p.id"
-                                    class="flex items-center gap-3 p-3"
-                                >
-                                    <span class="w-12 shrink-0 text-center font-mono text-xs text-muted-foreground">
-                                        {{ p.displayOrder }}
-                                    </span>
-                                    <div class="flex-1 min-w-0">
-                                        <div class="font-medium text-sm truncate">{{ p.title || p.name }}</div>
-                                        <div class="text-xs text-muted-foreground font-mono truncate">
-                                            {{ p.name }} · {{ p.version }} · 被 {{ p.referencedByCount }} 个节点引用
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <!-- 提示词 Tab：列表 + 完整 prompt 预览 -->
+                <TabsContent value="prompts" class="space-y-6">
+                    <!-- 提示词列表卡片（按 type 分组只读展示） -->
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>关联提示词</CardTitle>
+                            <CardDescription>该节点关联的提示词配置（按装配位置分组展示，只读；如需调整请回到节点列表点编辑）</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div v-if="!node.prompts?.length"
+                                class="flex flex-col items-center justify-center py-8 text-center">
+                                <FileText class="h-10 w-10 text-muted-foreground/50 mb-3" />
+                                <p class="text-muted-foreground text-sm">暂无关联提示词</p>
+                            </div>
+                            <div v-else class="rounded-md border overflow-hidden bg-card">
+                                <template v-for="group in visiblePromptGroups" :key="group.type">
+                                    <!-- 分组标题 -->
+                                    <div
+                                        class="flex flex-wrap items-center gap-x-2 gap-y-1 bg-muted/80 px-3 py-1.5 border-b text-xs"
+                                    >
+                                        <span class="font-semibold text-foreground">{{ group.label }}</span>
+                                        <span class="text-muted-foreground">· {{ group.items.length }} 段</span>
+                                        <span class="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-[10px]">
+                                            {{ group.position }}
+                                        </span>
+                                    </div>
+                                    <!-- 行（只读，无拖拽 / 编辑 / 移除按钮） -->
+                                    <div class="divide-y">
+                                        <div
+                                            v-for="p in group.items"
+                                            :key="p.id"
+                                            class="flex items-center gap-3 p-3"
+                                        >
+                                            <span class="w-12 shrink-0 text-center font-mono text-xs text-muted-foreground">
+                                                {{ p.displayOrder }}
+                                            </span>
+                                            <div class="flex-1 min-w-0">
+                                                <div class="font-medium text-sm truncate">{{ p.title || p.name }}</div>
+                                                <div class="text-xs text-muted-foreground font-mono truncate">
+                                                    {{ p.name }} · {{ p.version }} · 被 {{ p.referencedByCount }} 个节点引用
+                                                </div>
+                                            </div>
+                                            <Badge variant="outline" class="shrink-0">
+                                                {{ getPromptTypeLabel(p.type) }}
+                                            </Badge>
+                                            <Badge :variant="p.status === 1 ? 'default' : 'secondary'" class="shrink-0">
+                                                {{ p.status === 1 ? '生效' : '未生效' }}
+                                            </Badge>
                                         </div>
                                     </div>
-                                    <Badge variant="outline" class="shrink-0">
-                                        {{ getPromptTypeLabel(p.type) }}
-                                    </Badge>
-                                    <Badge :variant="p.status === 1 ? 'default' : 'secondary'" class="shrink-0">
-                                        {{ p.status === 1 ? '生效' : '未生效' }}
-                                    </Badge>
-                                </div>
+                                </template>
                             </div>
-                        </template>
-                    </div>
-                </CardContent>
-            </Card>
+                        </CardContent>
+                    </Card>
 
-            <!-- 完整 system prompt 预览卡片 -->
-            <Card>
-                <CardHeader>
-                    <CardTitle>完整 system prompt 预览</CardTitle>
-                    <CardDescription>
-                        按 displayOrder 升序拼接 {{ promptPreview?.promptCount ?? 0 }} 段提示词的实际效果（未替换的 <code v-pre class="text-xs">{{xxx}}</code> 字面量保留，便于核对运行时变量）
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div v-if="promptPreviewStatus === 'pending'" class="flex justify-center py-8">
-                        <Loader2 class="h-6 w-6 animate-spin text-muted-foreground" />
-                    </div>
-                    <div v-else-if="promptPreviewError" class="flex flex-col items-center justify-center py-8 text-center">
-                        <AlertCircle class="h-8 w-8 text-muted-foreground/50 mb-2" />
-                        <p class="text-muted-foreground text-sm">加载预览失败</p>
-                    </div>
-                    <div v-else-if="!promptPreview?.systemPromptPreview" class="flex flex-col items-center justify-center py-8 text-center">
-                        <FileText class="h-8 w-8 text-muted-foreground/50 mb-2" />
-                        <p class="text-muted-foreground text-sm">暂无可预览的 system prompt</p>
-                    </div>
-                    <div v-else class="bg-muted rounded p-4 max-h-[600px] overflow-y-auto text-sm">
-                        <Markdown :content="promptPreview.systemPromptPreview" mode="static" />
-                    </div>
-                </CardContent>
-            </Card>
+                    <!-- 完整 system prompt 预览卡片 -->
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>完整 system prompt 预览</CardTitle>
+                            <CardDescription>
+                                按 displayOrder 升序拼接 {{ promptPreview?.promptCount ?? 0 }} 段提示词的实际效果（未替换的 <code v-pre class="text-xs">{{xxx}}</code> 字面量保留，便于核对运行时变量）
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div v-if="promptPreviewStatus === 'pending'" class="flex justify-center py-8">
+                                <Loader2 class="h-6 w-6 animate-spin text-muted-foreground" />
+                            </div>
+                            <div v-else-if="promptPreviewError" class="flex flex-col items-center justify-center py-8 text-center">
+                                <AlertCircle class="h-8 w-8 text-muted-foreground/50 mb-2" />
+                                <p class="text-muted-foreground text-sm">加载预览失败</p>
+                            </div>
+                            <div v-else-if="!promptPreview?.systemPromptPreview" class="flex flex-col items-center justify-center py-8 text-center">
+                                <FileText class="h-8 w-8 text-muted-foreground/50 mb-2" />
+                                <p class="text-muted-foreground text-sm">暂无可预览的 system prompt</p>
+                            </div>
+                            <div v-else class="bg-muted rounded p-4 text-sm">
+                                <Markdown :content="promptPreview.systemPromptPreview" mode="static" />
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
 
-            <!-- 工具列表卡片（独立展示，数据来自 toolDetails） -->
-            <Card>
-                <CardHeader>
-                    <CardTitle>工具列表</CardTitle>
-                    <CardDescription>该节点可调用的工具</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div v-if="toolDetails.length" class="rounded-md border divide-y bg-card">
-                        <div
-                            v-for="tool in toolDetails"
-                            :key="tool.name"
-                            class="flex items-start gap-3 p-3"
-                        >
-                            <Wrench class="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
-                            <div class="flex-1 min-w-0">
-                                <div class="font-mono text-sm truncate">{{ tool.name }}</div>
+                <!-- 工具 Tab -->
+                <TabsContent value="tools" class="space-y-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>工具列表</CardTitle>
+                            <CardDescription>该节点可调用的工具</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div v-if="toolDetails.length" class="rounded-md border divide-y bg-card">
                                 <div
-                                    class="text-xs text-muted-foreground line-clamp-2"
-                                    :title="tool.description ?? ''"
+                                    v-for="tool in toolDetails"
+                                    :key="tool.name"
+                                    class="flex items-start gap-3 p-3"
                                 >
-                                    {{ tool.description || '该工具已从注册表移除或暂无描述' }}
+                                    <Wrench class="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                                    <div class="flex-1 min-w-0">
+                                        <div class="font-mono text-sm truncate">{{ tool.name }}</div>
+                                        <div
+                                            class="text-xs text-muted-foreground line-clamp-2"
+                                            :title="tool.description ?? ''"
+                                        >
+                                            {{ tool.description || '该工具已从注册表移除或暂无描述' }}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                    <div v-else class="flex flex-col items-center justify-center py-8 text-center">
-                        <Wrench class="h-10 w-10 text-muted-foreground/50 mb-3" />
-                        <p class="text-muted-foreground text-sm">暂无配置工具</p>
-                    </div>
-                </CardContent>
-            </Card>
+                            <div v-else class="flex flex-col items-center justify-center py-8 text-center">
+                                <Wrench class="h-10 w-10 text-muted-foreground/50 mb-3" />
+                                <p class="text-muted-foreground text-sm">暂无配置工具</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
 
-            <!-- 关联 Skills 卡片（只读列表，按 priority 升序） -->
-            <Card>
-                <CardHeader>
-                    <CardTitle>关联 Skills</CardTitle>
-                    <CardDescription>该节点挂载的 Skills（按 priority 升序，只读；如需调整请回到节点列表点编辑）</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div
-                        v-if="!nodeSkills.length"
-                        class="flex flex-col items-center justify-center py-8 text-center"
-                    >
-                        <Sparkles class="h-10 w-10 text-muted-foreground/50 mb-3" />
-                        <p class="text-muted-foreground text-sm">该节点未关联 Skills</p>
-                    </div>
-                    <div v-else class="rounded-md border divide-y bg-card">
-                        <div
-                            v-for="skill in nodeSkills"
-                            :key="skill.name"
-                            class="flex items-start gap-3 p-3"
-                        >
-                            <span class="w-12 shrink-0 text-center font-mono text-xs text-muted-foreground pt-0.5">
-                                {{ skill.priority }}
-                            </span>
-                            <div class="flex-1 min-w-0">
-                                <div class="font-medium text-sm truncate">
-                                    {{ skill.customTitle || skill.title || skill.name }}
-                                </div>
-                                <div class="text-xs text-muted-foreground font-mono truncate">{{ skill.name }}</div>
+                <!-- Skills Tab -->
+                <TabsContent value="skills" class="space-y-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>关联 Skills</CardTitle>
+                            <CardDescription>该节点挂载的 Skills（按 priority 升序，只读；如需调整请回到节点列表点编辑）</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div
+                                v-if="!nodeSkills.length"
+                                class="flex flex-col items-center justify-center py-8 text-center"
+                            >
+                                <Sparkles class="h-10 w-10 text-muted-foreground/50 mb-3" />
+                                <p class="text-muted-foreground text-sm">该节点未关联 Skills</p>
+                            </div>
+                            <div v-else class="rounded-md border divide-y bg-card">
                                 <div
-                                    v-if="skill.description"
-                                    class="text-xs text-muted-foreground mt-1 line-clamp-2"
-                                    :title="skill.description"
+                                    v-for="skill in nodeSkills"
+                                    :key="skill.name"
+                                    class="flex items-start gap-3 p-3"
                                 >
-                                    {{ skill.description }}
+                                    <span class="w-12 shrink-0 text-center font-mono text-xs text-muted-foreground pt-0.5">
+                                        {{ skill.priority }}
+                                    </span>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="font-medium text-sm truncate">
+                                            {{ skill.customTitle || skill.title || skill.name }}
+                                        </div>
+                                        <div class="text-xs text-muted-foreground font-mono truncate">{{ skill.name }}</div>
+                                        <div
+                                            v-if="skill.description"
+                                            class="text-xs text-muted-foreground mt-1 line-clamp-2"
+                                            :title="skill.description"
+                                        >
+                                            {{ skill.description }}
+                                        </div>
+                                    </div>
+                                    <Badge :variant="skill.status === 1 ? 'default' : 'secondary'" class="shrink-0">
+                                        {{ skill.status === 1 ? '生效' : '停用' }}
+                                    </Badge>
                                 </div>
                             </div>
-                            <Badge :variant="skill.status === 1 ? 'default' : 'secondary'" class="shrink-0">
-                                {{ skill.status === 1 ? '生效' : '停用' }}
-                            </Badge>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+            </Tabs>
         </template>
     </div>
 
@@ -305,6 +323,10 @@ const loading = ref(false)
 const deleting = ref(false)
 const node = ref<NodeWithRelations | null>(null)
 const deleteDialogOpen = ref(false)
+
+// Tab 状态：与 NodeFormDialog 内部 TabKey 子集对应（不含弹框独有的 'schema'）
+type DetailTab = 'basic' | 'prompts' | 'tools' | 'skills'
+const activeTab = ref<DetailTab>('basic')
 
 /**
  * 工具列表（带描述）
