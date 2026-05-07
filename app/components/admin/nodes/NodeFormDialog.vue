@@ -10,11 +10,17 @@
             </DialogHeader>
 
             <Tabs v-model="activeTab" class="flex-1 flex flex-col overflow-hidden mt-2 min-h-0">
-                <TabsList class="shrink-0 grid w-full" :class="showOutputSchema ? 'grid-cols-4' : 'grid-cols-3'">
+                <TabsList class="shrink-0 grid w-full" :class="showOutputSchema ? 'grid-cols-5' : 'grid-cols-4'">
                     <TabsTrigger value="basic">基础信息</TabsTrigger>
                     <TabsTrigger value="tools">工具列表</TabsTrigger>
                     <TabsTrigger value="skills">关联 Skills</TabsTrigger>
                     <TabsTrigger v-if="showOutputSchema" value="schema">结构化输出</TabsTrigger>
+                    <TabsTrigger value="prompts">
+                        提示词
+                        <Badge v-if="nodePrompts.length" variant="secondary" class="ml-1.5">
+                            {{ nodePrompts.length }}
+                        </Badge>
+                    </TabsTrigger>
                 </TabsList>
 
                 <!-- 基础信息 -->
@@ -211,6 +217,26 @@
                     class="flex-1 overflow-y-auto py-4 px-1 data-[state=inactive]:hidden mt-0">
                     <AdminNodesOutputSchemaEditor v-model="form.outputSchema" />
                 </TabsContent>
+
+                <!-- 提示词（多对多关联，仅编辑模式可用） -->
+                <TabsContent value="prompts"
+                    class="flex-1 flex flex-col overflow-hidden py-4 px-1 data-[state=inactive]:hidden mt-0">
+                    <div v-if="!isEdit"
+                        class="flex-1 flex items-center justify-center text-sm text-muted-foreground border rounded-md">
+                        请先创建节点，再回到此处管理关联提示词
+                    </div>
+                    <div v-else-if="promptsLoading"
+                        class="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+                        <Loader2 class="h-4 w-4 mr-2 animate-spin" />
+                        加载已挂提示词...
+                    </div>
+                    <AdminNodesNodePromptManager
+                        v-else
+                        :node-id="selectedNode!.id"
+                        :prompts="nodePrompts"
+                        @update:staged-changes="onStagedPromptChanges"
+                    />
+                </TabsContent>
             </Tabs>
 
             <DialogFooter class="shrink-0">
@@ -228,12 +254,13 @@
 import { Check, ChevronsUpDown, Loader2, Search, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { NodeTypeLabels } from '#shared/types/node'
-import type { NodeGroup, NodeWithRelations } from '#shared/types/node'
+import type { NodeGroup, NodePromptRef, NodeWithRelations } from '#shared/types/node'
 import type { Model, ModelType } from '#shared/types/model'
 import { ModelTypeShortLabels } from '#shared/types/model'
 import AdminModelTypeBadge from '~/components/admin/ModelTypeBadge.vue'
 import AdminNodesOutputSchemaEditor from '~/components/admin/nodes/OutputSchemaEditor.vue'
 import AdminNodesNodeSkillSelector from '~/components/admin/nodes/NodeSkillSelector.vue'
+import AdminNodesNodePromptManager from '~/components/admin/nodes/NodePromptManager.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
 
 /** 工具元信息类型 */
@@ -248,7 +275,7 @@ interface ToolMeta {
     }>
 }
 
-type TabKey = 'basic' | 'tools' | 'skills' | 'schema'
+type TabKey = 'basic' | 'tools' | 'skills' | 'schema' | 'prompts'
 
 /** 取模型类型简短标签（仅给 Command 搜索 keywords 用，UI 显示走 AdminModelTypeBadge 组件） */
 const modelTypeLabel = (t: string) => ModelTypeShortLabels[t as ModelType] ?? t
@@ -281,6 +308,17 @@ const models = ref<Model[]>([])
 const availableTools = ref<ToolMeta[]>([])
 const toolsLoading = ref(false)
 const toolSearch = ref('')
+
+// 已挂提示词列表（来自 GET /admin/nodes/:id 的 prompts 字段；仅编辑模式加载）
+const nodePrompts = ref<NodePromptRef[]>([])
+const promptsLoading = ref(false)
+/**
+ * 提示词关联的 staged 变更（add / remove / reorder）。
+ * - null：用户没动过提示词 tab，保存节点时不提交 PATCH
+ * - []：用户清空了所有关联，保存时提交 PATCH 让后端 diff 出 removed
+ * - [...]：用户调整后的目标列表，保存时一锅端 PATCH
+ */
+const stagedPromptChanges = ref<{ promptId: number; displayOrder: number }[] | null>(null)
 const filteredTools = computed(() => {
     const q = toolSearch.value.trim().toLowerCase()
     if (!q) return availableTools.value
@@ -359,6 +397,27 @@ const resetForm = () => {
     form.value = getDefaultForm()
     activeTab.value = 'basic'
     toolSearch.value = ''
+    nodePrompts.value = []
+    stagedPromptChanges.value = null
+}
+
+/** 子组件触发：本地变更已发生，记录 staged，保存时再一锅端 PATCH */
+const onStagedPromptChanges = (changes: { promptId: number; displayOrder: number }[]) => {
+    stagedPromptChanges.value = changes
+}
+
+/** 拉取节点已挂提示词（编辑回显） */
+const loadNodePrompts = async (nodeId: number) => {
+    promptsLoading.value = true
+    try {
+        // GET /admin/nodes/:id 返回体含 prompts: NodePromptRef[]
+        const data = await useApiFetch<NodeWithRelations & { prompts: NodePromptRef[] }>(
+            `/api/v1/admin/nodes/${nodeId}`,
+        )
+        nodePrompts.value = (data?.prompts ?? []) as NodePromptRef[]
+    } finally {
+        promptsLoading.value = false
+    }
 }
 
 // 加载分组列表
@@ -444,10 +503,13 @@ const openEdit = (node: NodeWithRelations) => {
     }
     activeTab.value = 'basic'
     toolSearch.value = ''
+    nodePrompts.value = []
+    stagedPromptChanges.value = null
     loadGroups()
     loadModels()
     loadTools()
     loadNodeSkills(node.id)
+    loadNodePrompts(node.id)
     open.value = true
 }
 

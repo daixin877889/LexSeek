@@ -1,0 +1,169 @@
+<template>
+    <!-- 节点弹框「提示词」tab：列表 + 拖拽排序 + 底部按钮 -->
+    <div class="flex flex-col gap-3 h-full min-h-0">
+        <!-- 顶部说明 -->
+        <p class="text-xs text-muted-foreground shrink-0 flex items-center gap-1">
+            <span>已挂载 {{ localPrompts.length }} 段提示词，按「序号」从小到大装配为 system prompt；可拖动</span>
+            <GripVertical class="inline size-3" />
+            <span>调整顺序。</span>
+        </p>
+
+        <!-- 空态 -->
+        <div v-if="localPrompts.length === 0"
+            class="flex-1 min-h-0 flex flex-col items-center justify-center border rounded-md py-10 text-center text-sm text-muted-foreground">
+            <FileText class="h-8 w-8 mb-2 text-muted-foreground/50" />
+            <p>该节点尚未挂载提示词</p>
+            <p class="text-xs mt-1">可点击下方按钮从提示词库添加，或新建一段提示词</p>
+        </div>
+
+        <!-- 拖拽列表 -->
+        <div v-else class="flex-1 min-h-0 border rounded-md overflow-y-auto">
+            <VueDraggable
+                v-model="localPrompts"
+                :animation="200"
+                handle=".drag-handle"
+                ghost-class="opacity-50"
+                class="divide-y"
+                @end="onReorder"
+            >
+                <div
+                    v-for="p in localPrompts"
+                    :key="p.id"
+                    class="flex items-center gap-3 p-3 bg-card"
+                >
+                    <!-- 拖拽手柄 -->
+                    <div class="drag-handle cursor-grab active:cursor-grabbing shrink-0 text-muted-foreground">
+                        <GripVertical class="size-4" />
+                    </div>
+
+                    <!-- 序号 -->
+                    <span class="w-12 shrink-0 text-center font-mono text-xs text-muted-foreground">
+                        {{ p.displayOrder }}
+                    </span>
+
+                    <!-- 名称 / 副标题 -->
+                    <div class="flex-1 min-w-0">
+                        <div class="font-medium text-sm truncate">{{ p.title || p.name }}</div>
+                        <div class="text-xs text-muted-foreground font-mono truncate">
+                            {{ p.name }} · v{{ p.version }} · 被 {{ p.referencedByCount }} 个节点引用
+                        </div>
+                    </div>
+
+                    <!-- 类型 Badge -->
+                    <Badge variant="outline" class="shrink-0">
+                        {{ getPromptTypeLabel(p.type) }}
+                    </Badge>
+
+                    <!-- 状态 Badge -->
+                    <Badge :variant="p.status === 1 ? 'default' : 'secondary'" class="shrink-0">
+                        {{ p.status === 1 ? '生效' : '未生效' }}
+                    </Badge>
+
+                    <!-- 操作按钮 -->
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        class="shrink-0"
+                        title="在新窗口查看 / 编辑该提示词"
+                        @click="openPromptDetail(p.id)"
+                    >
+                        <Pencil class="size-4" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        class="shrink-0 text-destructive hover:text-destructive"
+                        title="从该节点移除"
+                        @click="onRemove(p)"
+                    >
+                        <Trash2 class="size-4" />
+                    </Button>
+                </div>
+            </VueDraggable>
+        </div>
+
+        <!-- 底部按钮（部分功能将在后续步骤接入） -->
+        <div class="flex flex-wrap gap-2 shrink-0">
+            <Button variant="outline" size="sm" disabled title="将在「从提示词库添加」步骤接入">
+                <Plus class="size-4 mr-1" />
+                从提示词库添加
+            </Button>
+            <Button variant="outline" size="sm" disabled title="将在「嵌套新建提示词」步骤接入">
+                <FilePlus class="size-4 mr-1" />
+                新建提示词
+            </Button>
+            <Button variant="outline" size="sm" disabled title="将在「完整 prompt 预览」步骤接入">
+                <Eye class="size-4 mr-1" />
+                查看完整 prompt 预览
+            </Button>
+        </div>
+    </div>
+</template>
+
+<script setup lang="ts">
+import { Eye, FilePlus, FileText, GripVertical, Pencil, Plus, Trash2 } from 'lucide-vue-next'
+import { VueDraggable } from 'vue-draggable-plus'
+import type { NodePromptRef } from '#shared/types/node'
+
+const props = defineProps<{
+    /** 当前节点 ID（用于预览接口、嵌套对话框上下文） */
+    nodeId: number
+    /** 父组件传入的初始已挂提示词列表（来自 GET /admin/nodes/:id 返回的 prompts 字段） */
+    prompts: NodePromptRef[]
+}>()
+
+const emit = defineEmits<{
+    /** 列表本地变更（add / remove / reorder）→ 父组件保存时统一提交 PATCH */
+    'update:staged-changes': [changes: { promptId: number; displayOrder: number }[]]
+}>()
+
+/** 类型 → 中文标签 */
+const PROMPT_TYPE_LABELS: Record<string, string> = {
+    system: '系统',
+    user: '用户',
+    assistant: '助手',
+}
+function getPromptTypeLabel(type: string) {
+    return PROMPT_TYPE_LABELS[type] ?? type
+}
+
+/** 本地维护的列表（用户编辑、拖拽、增删都改这里，保存时由父组件读出） */
+const localPrompts = ref<NodePromptRef[]>([])
+
+/** 父组件 prompts 变更时同步进本地（如打开新节点 / 重新加载） */
+watch(
+    () => props.prompts,
+    (next) => {
+        localPrompts.value = next.map(p => ({ ...p }))
+    },
+    { immediate: true, deep: false },
+)
+
+/** 本地变更通知父组件 */
+function notifyStaged() {
+    emit('update:staged-changes', localPrompts.value.map(p => ({
+        promptId: p.id,
+        displayOrder: p.displayOrder,
+    })))
+}
+
+/** 拖拽结束：重新分配 displayOrder（100, 200, 300, ...） */
+function onReorder() {
+    localPrompts.value = localPrompts.value.map((p, idx) => ({
+        ...p,
+        displayOrder: (idx + 1) * 100,
+    }))
+    notifyStaged()
+}
+
+/** 移除某行 */
+function onRemove(p: NodePromptRef) {
+    localPrompts.value = localPrompts.value.filter(x => x.id !== p.id)
+    notifyStaged()
+}
+
+/** 跳转到提示词详情（新窗口） */
+function openPromptDetail(promptId: number) {
+    window.open(`/admin/prompts/${promptId}`, '_blank')
+}
+</script>
