@@ -242,13 +242,24 @@ export interface PromptListParams {
     orderDir?: 'asc' | 'desc'
 }
 
-/** 提示词详情（包含关联数据） */
+/**
+ * 提示词列表 / 详情返回体类型
+ *
+ * Phase 6 起 `prompts.nodeId` 字段已删，节点关联走 `node_prompts` 多对多表。
+ * - 列表接口（GET /api/v1/admin/prompts）：每条带 `referencedByCount`（被多少个节点引用）。
+ * - 详情接口（GET /api/v1/admin/prompts/:id）：额外带 `referencedByNodes`（节点引用列表，含
+ *   `displayOrder` 用于按节点装配顺序展示）。
+ */
 export interface PromptWithRelations extends Prompt {
-    node?: {
+    /** 被多少个节点引用（来自 _count.nodePrompts） */
+    referencedByCount?: number
+    /** 节点引用列表（仅详情接口返回） */
+    referencedByNodes?: Array<{
         id: number
         name: string
         title: string | null
-    }
+        displayOrder: number
+    }>
 }
 
 /** 变量渲染输入类型 */

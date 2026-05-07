@@ -73,16 +73,24 @@
                                 <p class="font-mono">{{ prompt.version }}</p>
                             </div>
                             <div class="space-y-1">
-                                <Label class="text-muted-foreground">关联节点</Label>
-                                <NuxtLink v-if="prompt.node" :to="`/admin/nodes/${prompt.node.id}`"
-                                    class="text-primary hover:underline">
-                                    {{ prompt.node.title || prompt.node.name }}
-                                </NuxtLink>
-                                <p v-else>-</p>
-                            </div>
-                            <div class="space-y-1">
                                 <Label class="text-muted-foreground">更新时间</Label>
                                 <p>{{ formatDate(prompt.updatedAt) }}</p>
+                            </div>
+                            <div class="col-span-full space-y-2">
+                                <Label class="text-muted-foreground">
+                                    被引用：{{ prompt.referencedByCount ?? 0 }} 个节点
+                                </Label>
+                                <ul v-if="referencedNodes.length"
+                                    class="flex flex-wrap gap-2">
+                                    <li v-for="n in referencedNodes" :key="n.id">
+                                        <NuxtLink :to="`/admin/nodes/${n.id}`"
+                                            class="inline-flex items-center rounded-md border bg-muted/30 px-2 py-1 text-sm text-primary hover:bg-muted hover:underline">
+                                            {{ n.title || n.name }}
+                                            <span class="ml-2 text-xs text-muted-foreground">序号 {{ n.displayOrder }}</span>
+                                        </NuxtLink>
+                                    </li>
+                                </ul>
+                                <p v-else class="text-muted-foreground text-sm">暂无节点引用此提示词</p>
                             </div>
                             <div class="col-span-full space-y-1">
                                 <Label class="text-muted-foreground">变量列表</Label>
@@ -215,6 +223,12 @@ const previewResult = ref('')
 const promptVariables = computed(() => {
     if (!prompt.value?.variables || !Array.isArray(prompt.value.variables)) return []
     return prompt.value.variables.filter((v): v is string => typeof v === 'string')
+})
+
+// 计算属性：节点引用列表（按 displayOrder 升序）
+const referencedNodes = computed(() => {
+    const list = prompt.value?.referencedByNodes ?? []
+    return [...list].sort((a, b) => a.displayOrder - b.displayOrder)
 })
 
 // 格式化日期
