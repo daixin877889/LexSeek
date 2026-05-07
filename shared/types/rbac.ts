@@ -89,5 +89,5 @@ export enum AuditLogAction {
     PROMPT_CREATE = 'prompt.create',
     PROMPT_UPDATE = 'prompt.update',
     PROMPT_DELETE = 'prompt.delete',
-    // 注：NODE_PROMPTS_LINK 由 dev-node-prompts-api（Phase 5 / Task #3）增量
+    NODE_PROMPTS_LINK = 'node.prompts.link',
 }

@@ -431,4 +431,22 @@ export const logPromptDelete = async (
     }, tx)
 }
 
-// 注：logNodePromptLink 由 dev-node-prompts-api（Phase 5 / Task #3）增量
+/**
+ * 记录节点 ↔ 提示词关联变更日志（add / remove / reorder 一锅端）
+ */
+export const logNodePromptLink = async (
+    event: H3Event,
+    operatorId: number,
+    nodeId: number,
+    diff: { addedIds: number[]; removedIds: number[]; reorderedIds: number[] },
+    tx?: Prisma.TransactionClient,
+) => {
+    return createAuditLogDao({
+        action: AuditLogAction.NODE_PROMPTS_LINK,
+        targetType: 'node',
+        targetId: nodeId,
+        operatorId,
+        newValue: diff as unknown as Prisma.InputJsonValue,
+        ip: getClientIp(event),
+    }, tx)
+}
