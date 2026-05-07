@@ -4,17 +4,29 @@
  * GET /api/v1/admin/nodes/:id
  * Requirements: 15.1
  *
- * 返回体在原 node 字段基础上额外附加 `prompts: NodePromptRef[]`：
- *  - 来源：node_prompts 关联表（按业务身份 (name, type)），按 displayOrder 升序
- *  - 每条携带当前激活版本（status=1）的 prompt 字段；未激活则跳过
- *  - 每条带 displayOrder + referencedByCount（同 (name, type) 被多少个节点引用）
+ * 返回体在原 node 字段基础上额外附加：
+ *  - `prompts: NodePromptRef[]`
+ *      - 来源：node_prompts 关联表（按业务身份 (name, type)），按 displayOrder 升序
+ *      - 每条携带当前激活版本（status=1）的 prompt 字段；未激活则跳过
+ *      - 每条带 displayOrder + referencedByCount（同 (name, type) 被多少个节点引用）
+ *  - `skills: NodeSkillRef[]`
+ *      - 来源：node_skills 关联表 + skills 表，按 priority 升序
+ *      - 包含 skill 的 name / title / customTitle / description / status + 关联 priority
+ *      - 不做 status 过滤，停用的 skill 也展示（详情页只读，状态 badge 区分）
+ *  - `toolDetails: NodeToolDetailRef[]`
+ *      - 把 nodes.tools JSON 列里的字符串名映射成 { name, description }
+ *      - 工具元信息来自 server/services/workflow/tools 注册表（不持久化）
+ *      - 已从注册表下线的 name 仍保留，description 为 null（避免静默吞掉历史配置）
  *
  * 阶段 F 改造：node_prompts 不再绑定具体 promptId，需要按 (name, type) 分两步取数。
+ * 阶段 J 改造：在原有 prompts 字段基础上新增 skills + toolDetails 两个视图字段。
  */
 
 import { z } from 'zod'
 import { prisma } from '~~/server/utils/db'
 import { getNodeByIdService } from '~~/server/services/node/node.service'
+import { getAllToolsService } from '~~/server/services/workflow/tools'
+import type { NodeSkillRef, NodeToolDetailRef } from '#shared/types/node'
 
 /** 路由参数验证 */
 const paramsSchema = z.object({
@@ -96,7 +108,38 @@ export default defineEventHandler(async (event) => {
             }
         }
 
-        return resSuccess(event, '获取节点详情成功', { ...node, prompts })
+        // 节点关联的 Skills（按 priority 升序，详情页只读展示）
+        const skillLinks = await prisma.node_skills.findMany({
+            where: { nodeId: result.data.id },
+            orderBy: { priority: 'asc' },
+            include: { skill: true },
+        })
+        const skills: NodeSkillRef[] = skillLinks
+            .filter(link => link.skill !== null)
+            .map(link => ({
+                name: link.skill.name,
+                title: link.skill.title,
+                customTitle: link.skill.customTitle,
+                description: link.skill.description,
+                status: link.skill.status,
+                priority: link.priority,
+            }))
+
+        // 节点工具元信息（把 nodes.tools 里的字符串名映射为 { name, description }）
+        const toolNames: string[] = Array.isArray(node.tools)
+            ? node.tools.filter((t): t is string => typeof t === 'string')
+            : []
+        let toolDetails: NodeToolDetailRef[] = []
+        if (toolNames.length > 0) {
+            const allTools = getAllToolsService()
+            const descByName = new Map(allTools.map(t => [t.name, t.description]))
+            toolDetails = toolNames.map(name => ({
+                name,
+                description: descByName.get(name) ?? null,
+            }))
+        }
+
+        return resSuccess(event, '获取节点详情成功', { ...node, prompts, skills, toolDetails })
     } catch (error) {
         logger.error('获取节点详情失败：', error)
         return resError(event, 500, '获取节点详情失败')

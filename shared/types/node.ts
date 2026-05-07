@@ -177,15 +177,57 @@ export interface NodePromptRef {
 }
 
 /**
+ * 节点关联的 Skill 引用（多对多扁平视图）
+ *
+ * 用途：节点详情接口（GET /api/v1/admin/nodes/:id）返回的 `skills` 字段元素类型，
+ * 用于详情页只读展示该节点挂载的 Skills（按 priority 升序）。
+ *
+ * 字段语义：
+ * - `name`：来自 `skills.name`（主键，文件系统 Skill 目录名）
+ * - `title` / `customTitle`：管理员可在后台为 Skill 自定义中文展示名
+ * - `description`：SKILL.md frontmatter 中的描述（触发场景）
+ * - `status`：1 启用 / 0 停用
+ * - `priority`：来自 `node_skills.priority`（同节点内 Skill 排序）
+ */
+export interface NodeSkillRef {
+    name: string
+    title: string | null
+    customTitle: string | null
+    description: string | null
+    status: number
+    priority: number
+}
+
+/**
+ * 节点配置中工具列表项的元信息
+ *
+ * 用途：节点详情接口（GET /api/v1/admin/nodes/:id）返回的 `toolDetails` 字段元素类型，
+ * 用于详情页显示每个挂载工具的名称 + 描述（升级前只有 name 一个 badge）。
+ *
+ * 字段语义：
+ * - `name`：工具唯一标识（与 `nodes.tools` JSON 列里存的字符串一致）
+ * - `description`：工具元信息中的描述；若工具已从注册表移除则为 null（仅返回 name）
+ */
+export interface NodeToolDetailRef {
+    name: string
+    description: string | null
+}
+
+/**
  * GET /api/v1/admin/nodes/:id 返回体类型
  *
- * 基于 `NodeWithRelations`，把 `prompts` 字段替换为多对多扁平视图（`NodePromptRef[]`）。
+ * 基于 `NodeWithRelations`，把 `prompts` 字段替换为多对多扁平视图（`NodePromptRef[]`），
+ * 并补充 `skills` / `toolDetails` 两个只读视图字段（详情页用）：
+ *   - `skills`：节点挂载的 Skills（按 priority 升序）
+ *   - `toolDetails`：节点 `tools` JSON 列对应的工具元信息（含 description）
  *
  * 历史 `NodeWithRelations.prompts?: Prompt[]` 是直接从 `prompts.nodeId` 单值关系下取的快照，
  * Phase 6 改造后不再使用；该接口由 `node_prompts` 关联表提供，每条带 `displayOrder` + 引用计数。
  */
 export type NodeWithPromptsResponse = Omit<NodeWithRelations, 'prompts'> & {
     prompts: NodePromptRef[]
+    skills: NodeSkillRef[]
+    toolDetails: NodeToolDetailRef[]
 }
 
 /** 节点分组详情（包含节点数量） */
