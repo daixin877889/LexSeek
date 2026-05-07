@@ -18,6 +18,7 @@ import {
     createMessageIntegrityMiddleware,
     createScopeGuardMiddleware,
     pointConsumptionMiddleware,
+    userInjectionMiddleware,
 } from '~~/server/services/agent-platform/middleware'
 import { safetyTrimMiddleware } from '~~/server/services/agent-platform/middleware/safetyTrim.middleware'
 import { analysisResultPersistenceMiddleware } from '~~/server/services/workflow/middleware/analysisResultPersistence.middleware'
@@ -235,6 +236,15 @@ export async function createSubAgentTools(
                             // 与主 agent 一致：用完整 5 段拼接的纯文本估算 token，避免低估
                             safetyTrimMiddleware({ model, maxTokens, systemPrompt: systemPromptPlainText, maxOutputTokens }),
                             ...(skillsMw ? [skillsMw] : []),
+                            // 用户每轮注入（反越狱护栏 / 隐藏注入）：节点配置中 type=user_injection &&
+                            // status=1 的提示词，每轮 LLM 调用前作为隐藏 HumanMessage 插入到最新
+                            // HumanMessage 之前；不写回 state.messages、不进 checkpoint。节点无该类
+                            // 提示词时 middleware 内部 short-circuit。优先级 USER_INJECTION=70：
+                            // safetyTrim/skillsDiscovery 之后、analysisResultPersistence/audit 之前
+                            userInjectionMiddleware({
+                                prompts: config.prompts,
+                                context: { caseId: context.caseId, moduleName: agentName },
+                            }),
                             analysisResultPersistenceMiddleware({
                                 agentName,
                                 caseId: context.caseId,
