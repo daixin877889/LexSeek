@@ -30,16 +30,17 @@
                 <div v-if="!isEdit" class="space-y-2">
                     <Label>提示词类型 <span class="text-destructive">*</span></Label>
                     <Select v-model="form.type">
-                        <SelectTrigger class="w-full md:w-1/2">
+                        <SelectTrigger class="w-full">
                             <SelectValue placeholder="选择类型" />
                         </SelectTrigger>
                         <SelectContent :class="innerOverlayClass">
-                            <SelectItem value="system">系统提示词</SelectItem>
-                            <SelectItem value="user">用户提示词（预设触发消息，由用户主动发送）</SelectItem>
-                            <SelectItem value="user_injection">用户每轮注入（每轮隐藏注入到模型，不进会话历史）</SelectItem>
-                            <SelectItem value="assistant">助手提示词</SelectItem>
+                            <SelectItem value="system">系统提示词 (system) — 拼接到 system message</SelectItem>
+                            <SelectItem value="user_injection">每轮隐藏注入 (user_injection) — 每轮紧贴最新用户消息前注入</SelectItem>
+                            <SelectItem value="user">用户触发消息 (user) — UI 触发时模拟用户发送</SelectItem>
+                            <SelectItem value="assistant">预设助手消息 (assistant) — 罕用，预设 AI 回复</SelectItem>
                         </SelectContent>
                     </Select>
+                    <p class="text-xs text-muted-foreground">类型决定 LLM 调用时这段提示词放在 messages 数组的什么位置</p>
                 </div>
 
                 <!-- 提示词内容 -->
