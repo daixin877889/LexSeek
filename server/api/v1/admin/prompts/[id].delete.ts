@@ -2,11 +2,16 @@
  * 删除提示词
  *
  * DELETE /api/v1/admin/prompts/:id
- * Requirements: 15.5
+ *
+ * Phase 4 改造：
+ * - 接入审计日志 logPromptDelete
+ * - 删除后失效所有关联节点的 nodeConfig 缓存（按 node.name）
  */
 
 import { z } from 'zod'
-import { deletePromptService } from '~~/server/services/node/prompt.service'
+import { invalidateNodeConfigCache } from '~~/server/services/agent-platform/nodeConfig/loader'
+import { logPromptDelete } from '~~/server/services/rbac/auditLog.service'
+import { prisma } from '~~/server/utils/db'
 
 /** 路由参数验证 */
 const paramsSchema = z.object({
@@ -14,20 +19,49 @@ const paramsSchema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
+    const operatorId = event.context.auth?.user?.id
+    if (!operatorId) {
+        return resError(event, 401, '请先登录')
+    }
+
     const id = getRouterParam(event, 'id')
     const paramsResult = paramsSchema.safeParse({ id })
     if (!paramsResult.success) {
         return resError(event, 400, '参数错误：' + paramsResult.error.issues[0]!.message)
     }
+    const promptId = paramsResult.data.id
 
     try {
-        await deletePromptService(paramsResult.data.id)
-        return resSuccess(event, '删除提示词成功', null)
-    } catch (error: any) {
-        // 处理业务逻辑错误
-        if (error.message === '提示词不存在') {
-            return resError(event, 404, error.message)
+        // 取旧值用于审计 oldValue
+        const target = await prisma.prompts.findUnique({ where: { id: promptId } })
+        if (!target || target.deletedAt) {
+            return resError(event, 404, '提示词不存在')
         }
+
+        // 取关联节点（用于缓存失效；invalidateNodeConfigCache 接 nodeName 不是 nodeId）
+        const links = await prisma.node_prompts.findMany({
+            where: { promptId },
+            select: { node: { select: { name: true } } },
+        })
+
+        // 软删
+        await prisma.prompts.update({
+            where: { id: promptId },
+            data: { deletedAt: new Date() },
+        })
+
+        await logPromptDelete(event, operatorId, promptId, {
+            name: target.name,
+            type: target.type,
+            version: target.version,
+        })
+
+        for (const link of links) {
+            invalidateNodeConfigCache(link.node.name)
+        }
+
+        return resSuccess(event, '删除提示词成功', null)
+    } catch (error) {
         logger.error('删除提示词失败：', error)
         return resError(event, 500, '删除提示词失败')
     }

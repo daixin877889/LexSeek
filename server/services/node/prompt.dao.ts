@@ -100,6 +100,14 @@ export const findPromptByIdDao = async (
                         title: true,
                     },
                 },
+                nodePrompts: {
+                    include: {
+                        node: {
+                            select: { id: true, name: true, title: true },
+                        },
+                    },
+                    orderBy: { displayOrder: 'asc' },
+                },
             },
         })
         return prompt
@@ -159,6 +167,9 @@ export const findManyPromptsDao = async (
                             name: true,
                             title: true,
                         },
+                    },
+                    _count: {
+                        select: { nodePrompts: true },
                     },
                 },
                 orderBy: { [orderBy]: orderDir },
