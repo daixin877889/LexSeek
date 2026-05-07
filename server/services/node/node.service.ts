@@ -50,6 +50,8 @@ export interface NodePromptConfig {
     version: string
     type: string
     status: number
+    /** 同节点内多 prompt 的拼接顺序，越小越靠前；默认 100 */
+    displayOrder?: number
 }
 
 /** 节点配置中的 API 密钥信息 */
@@ -409,13 +411,14 @@ export const getNodeConfigService = async (name: string): Promise<NodeConfig | n
             title: nodeConfig.title || nodeConfig.name,
             description: nodeConfig.description || '',
             type: nodeConfig.type,
-            prompts: nodeConfig.prompts.map((prompt) => ({
-                id: prompt.id,
-                name: prompt.name,
-                content: prompt.content,
-                version: prompt.version,
-                type: prompt.type,
-                status: prompt.status,
+            prompts: nodeConfig.nodePrompts.map((np) => ({
+                id: np.prompt.id,
+                name: np.prompt.name,
+                content: np.prompt.content,
+                version: np.prompt.version,
+                type: np.prompt.type,
+                status: np.prompt.status,
+                displayOrder: np.displayOrder,
             })),
             modelId: nodeConfig.modelId,
             modelName: nodeConfig.model.name,
@@ -511,13 +514,14 @@ export const getNodeConfigByIdService = async (id: number): Promise<NodeConfig |
             title: nodeConfig.title || nodeConfig.name,
             description: nodeConfig.description || '',
             type: nodeConfig.type,
-            prompts: nodeConfig.prompts.map((prompt) => ({
-                id: prompt.id,
-                name: prompt.name,
-                content: prompt.content,
-                version: prompt.version,
-                type: prompt.type,
-                status: prompt.status,
+            prompts: nodeConfig.nodePrompts.map((np) => ({
+                id: np.prompt.id,
+                name: np.prompt.name,
+                content: np.prompt.content,
+                version: np.prompt.version,
+                type: np.prompt.type,
+                status: np.prompt.status,
+                displayOrder: np.displayOrder,
             })),
             modelId: nodeConfig.modelId,
             modelName: nodeConfig.model.name,

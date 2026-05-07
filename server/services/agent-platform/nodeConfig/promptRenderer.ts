@@ -51,11 +51,13 @@ export function renderSystemPrompt(
     nodeConfig: NodeConfig,
     context: PromptRenderContext = {},
 ): string {
-    const raw = nodeConfig.prompts.find(
-        p => p.type === 'system' && p.status === 1,
-    )?.content || ''
+    // 多 prompt 拼接：按 displayOrder 升序，取所有启用的 system 提示词
+    const systemPrompts = nodeConfig.prompts
+        .filter(p => p.type === 'system' && p.status === 1)
+        .slice()
+        .sort((a, b) => (a.displayOrder ?? 100) - (b.displayOrder ?? 100))
 
-    if (!raw) {
+    if (systemPrompts.length === 0) {
         return ''
     }
 
@@ -88,7 +90,9 @@ export function renderSystemPrompt(
         variables.status = context.status
     }
 
-    const rendered = renderContent(raw, variables)
+    const rendered = systemPrompts
+        .map(p => renderContent(p.content, variables))
+        .join('\n\n')
 
     // 检测未替换的模板变量并记录告警
     const unreplaced = rendered.match(/\{\{(\w+)\}\}/g)

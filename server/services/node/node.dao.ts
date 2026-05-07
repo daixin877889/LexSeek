@@ -633,12 +633,12 @@ export const getNodeConfigDao = async (
                         },
                     },
                 },
-                prompts: {
+                nodePrompts: {
                     where: {
-                        status: 1,
-                        deletedAt: null,
+                        prompt: { status: 1, deletedAt: null },
                     },
-                    orderBy: [{ type: 'asc' }, { version: 'desc' }],
+                    orderBy: { displayOrder: 'asc' },
+                    include: { prompt: true },
                 },
             },
         })
@@ -680,12 +680,12 @@ export const getNodeConfigByIdDao = async (
                         },
                     },
                 },
-                prompts: {
+                nodePrompts: {
                     where: {
-                        status: 1,
-                        deletedAt: null,
+                        prompt: { status: 1, deletedAt: null },
                     },
-                    orderBy: [{ type: 'asc' }, { version: 'desc' }],
+                    orderBy: { displayOrder: 'asc' },
+                    include: { prompt: true },
                 },
             },
         })
