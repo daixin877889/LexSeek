@@ -91,7 +91,14 @@ const parsedAttachments = computed<AttachmentLite[]>(() => {
         <ReasoningContent :content="msg.thinking" />
       </Reasoning>
 
-      <MessageResponse v-if="msg.content" :content="msg.content" mode="static" />
+      <!-- 流式中的最后一条 AI 消息切到 streaming：vue-stream-markdown 在 streaming 模式下会
+           按段落/代码块切片缓存（@markmend/ast LRU），新 token 只解析最后一个 block。
+           历史消息保持 static，避免不必要的分块开销。条件与 Reasoning :is-streaming 对齐。 -->
+      <MessageResponse
+        v-if="msg.content"
+        :content="msg.content"
+        :mode="loading && isLast ? 'streaming' : 'static'"
+      />
 
       <AiToolRenderer
         v-for="tc in msg.toolCalls"

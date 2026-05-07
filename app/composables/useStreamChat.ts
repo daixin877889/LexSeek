@@ -26,6 +26,12 @@ export interface SubThreadState {
   agentName: string
   threadId: string
   messages: any[]          // 子 thread 消息（AIMessage / ToolMessage 等）
+  /**
+   * AI 消息 id → bucket.messages 中的索引。用 Map 替代 findIndex 的 O(n) 扫描，
+   * 让流式 token 累积到同一 messageId 的查找降到 O(1)（子代理消息累计上百条时显著）。
+   * 仅索引 AI 消息——ToolMessage 没有 messageId 维度，原 findIndex 也只查 ai 类型。
+   */
+  aiMessageIdToIndex: Map<string, number>
   status: 'running' | 'completed' | 'failed'
   error?: string
   runIdToInnerToolCallId: Map<string, string>
@@ -36,9 +42,26 @@ export function createEmptyBucket(agentName: string, threadId: string): SubThrea
     agentName,
     threadId,
     messages: [],
+    aiMessageIdToIndex: new Map(),
     status: 'running',
     runIdToInnerToolCallId: new Map(),
   }
+}
+
+/**
+ * 从 bucket.messages 数组重建 aiMessageIdToIndex。
+ * 用于 history hydration / hydrateSubBucket 整体替换 messages 后同步索引。
+ */
+export function rebuildAiMessageIndex(messages: any[]): Map<string, number> {
+  const map = new Map<string, number>()
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i]
+    const t = m?._getType?.() ?? m?.type
+    if (t === 'ai' && typeof m.id === 'string' && m.id) {
+      map.set(m.id, i)
+    }
+  }
+  return map
 }
 
 export function mergeEventIntoBucket(bucket: SubThreadState, ev: AgentEvent) {
@@ -53,12 +76,13 @@ export function mergeEventIntoBucket(bucket: SubThreadState, ev: AgentEvent) {
         // 触发数组 set 时才一次性显示之前累积的所有 token。
         // 用 plain object 让 reactive 代理生效，extractThinking / mapMessagesToSteps
         // 都用 `_getType?.() ?? type` 兜底兼容。
-        const idx = bucket.messages.findIndex((m: any) => m.id === md.messageId && (m.type === 'ai' || m._getType?.() === 'ai'))
+        const idx = bucket.aiMessageIdToIndex.get(md.messageId) ?? -1
         if (idx >= 0) {
           const m = bucket.messages[idx] as any
           m.content = (typeof m.content === 'string' ? m.content : '') + (md.delta ?? '')
         } else {
           bucket.messages.push({ type: 'ai', id: md.messageId, content: md.delta ?? '' } as any)
+          bucket.aiMessageIdToIndex.set(md.messageId, bucket.messages.length - 1)
         }
         return
       }
@@ -69,7 +93,7 @@ export function mergeEventIntoBucket(bucket: SubThreadState, ev: AgentEvent) {
         if (!md?.messageId) return
         const delta = md.delta ?? ''
         if (!delta) return
-        const idx = bucket.messages.findIndex((m: any) => m.id === md.messageId && (m.type === 'ai' || m._getType?.() === 'ai'))
+        const idx = bucket.aiMessageIdToIndex.get(md.messageId) ?? -1
         if (idx >= 0) {
           const m = bucket.messages[idx] as any
           m.additional_kwargs = m.additional_kwargs ?? {}
@@ -84,6 +108,7 @@ export function mergeEventIntoBucket(bucket: SubThreadState, ev: AgentEvent) {
             content: '',
             additional_kwargs: { reasoning_content: delta },
           } as any)
+          bucket.aiMessageIdToIndex.set(md.messageId, bucket.messages.length - 1)
         }
         return
       }
@@ -114,12 +139,14 @@ export function mergeEventIntoBucket(bucket: SubThreadState, ev: AgentEvent) {
           )
           if (!exists) {
             // 始终为每个 tool_call 创建独立的空 AIMessage（plain object 让 reactive 生效）
+            const newId = d.cbRunId ?? d.innerToolCallId
             bucket.messages.push({
               type: 'ai',
-              id: d.cbRunId ?? d.innerToolCallId,
+              id: newId,
               content: '',
               tool_calls: [{ id: d.innerToolCallId, name: d.toolName, args: parsedArgs }],
             } as any)
+            if (newId) bucket.aiMessageIdToIndex.set(newId, bucket.messages.length - 1)
           }
         }
         return
@@ -209,6 +236,7 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
                 agentName: sub.agentName,
                 threadId: sub.threadId,
                 messages: sub.messages,
+                aiMessageIdToIndex: rebuildAiMessageIndex(sub.messages),
                 status: 'completed',
                 runIdToInnerToolCallId: new Map(),
             }
@@ -243,6 +271,8 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
                     .then((result) => {
                         if (result?.messages?.length && subThreadsMap[toolCallId]) {
                             subThreadsMap[toolCallId]!.messages = result.messages
+                            // 整体替换 messages 后必须重建索引：原索引指向旧数组的位置，对新数组无意义
+                            subThreadsMap[toolCallId]!.aiMessageIdToIndex = rebuildAiMessageIndex(result.messages as any[])
                         }
                     })
                     .catch((err: unknown) => {
