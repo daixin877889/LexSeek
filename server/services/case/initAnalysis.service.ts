@@ -229,72 +229,10 @@ export const loadCompletedResultsService = async (
     return results
 }
 
-/** SSE 重连短路路径支持的终态 run 状态 */
-export type TerminalRunStatusForSSE = 'completed' | 'failed' | 'cancelled'
-
-/**
- * 判断 run 状态是否可以走 SSE 短路路径（跳过 Redis Stream 全量 replay）
- *
- * 可短路：completed/failed/cancelled —— 这些 run 已终结，不会再有新事件，
- *   checkpoint 里已包含最终 state，直接发一条 values + 一条 status_change 即可。
- *
- * 不可短路：
- * - interrupted：`__interrupt__` 字段只存在于 Redis Stream 最后一条 values 事件中
- *   （LangGraph 的 `mapOutputValues` 不会写进 checkpoint.channel_values），
- *   短路会丢失恢复对话所需的 interrupt 信息。
- * - running/pending：需继续订阅 pubsub 接收后续实时事件，不能立即关闭 SSE。
- * - 未知/缺失状态：保守拒绝短路，走原 replay 路径。
- */
-export function canShortCircuitSSE(
-    runStatus: string | null | undefined,
-): boolean {
-    return runStatus === 'completed'
-        || runStatus === 'failed'
-        || runStatus === 'cancelled'
-}
-
-/**
- * 构造短路路径要发送的 SSE 事件字符串
- *
- * 输出顺序与当前 createSSEResponse fallback 分支完全一致：
- * 1. （可选）一条 `event: values` —— 仅当 checkpoint 有 messages 时
- * 2. 一条 `event: custom` status_change —— 必发
- *
- * 前端 useStreamChat 的 onCustomEvent 只关心 type/status/error，
- * 发出的报文结构与原 Redis Stream replay 路径兼容。
- *
- * 仅 `failed` 状态在有 errorMessage 时附加 `error` 字段（修复历史 bug：
- * 原 fallback 分支始终不带 error，导致前端展示泛化的"执行失败"文案）。
- */
-export function buildTerminalSnapshotEvents(params: {
-    runId: string
-    runStatus: TerminalRunStatusForSSE
-    checkpointValues: Record<string, unknown> | null
-    errorMessage?: string | null
-}): string[] {
-    const events: string[] = []
-
-    const messages = params.checkpointValues
-        ? (params.checkpointValues.messages as unknown[] | undefined)
-        : undefined
-    if (params.checkpointValues && Array.isArray(messages) && messages.length > 0) {
-        events.push(
-            `event: values\ndata: ${JSON.stringify(params.checkpointValues)}\n\n`,
-        )
-    }
-
-    const statusPayload: Record<string, unknown> = {
-        type: 'status_change',
-        runId: params.runId,
-        status: params.runStatus,
-    }
-    if (params.runStatus === 'failed' && params.errorMessage) {
-        statusPayload.error = params.errorMessage
-    }
-    events.push(`event: custom\ndata: ${JSON.stringify(statusPayload)}\n\n`)
-
-    return events
-}
+// 历史导出的 SSE 短路 helper（canShortCircuitSSE / buildTerminalSnapshotEvents /
+// TerminalRunStatusForSSE）已并入 server/services/sse/agentSseStream.ts 的
+// useShortCircuit 选项，不再外暴露。如需短路 SSE，调 createAgentSseStream({
+// useShortCircuit: true, latestRunStatus, shortCircuitError, ... })。
 
 // ==================== M4: RAG 落库入口 ====================
 

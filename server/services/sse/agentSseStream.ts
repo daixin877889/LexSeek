@@ -92,12 +92,39 @@ export function stripStaleInterrupt(
  * - `event`：H3 事件对象，用于监听客户端断开（`event.node.req.on('close')`）。
  * - `sessionId`：LangGraph thread_id，用于查询当前活跃 run 以及 PostgresSaver checkpoint。
  * - `latestRunStatus`：可选，最近一次 run 的状态；若为终结状态则走"仅发 checkpoint"快路径。
+ * - `replayMode`：可选，Redis Stream 补发策略。
+ *   - `'all'`（默认）：按顺序逐条转发 missed events，适用于一般 chat 类端点
+ *   - `'last-values-only'`：只转发最后一条 values 快照，跳过其它历史事件。适用于事件量极大的
+ *     vertical（如 init-analysis 7 模块累计 ~2000 条 / 几 MB Redis Stream），避免逐条 replay
+ *     让前端卡顿。重连时累积的合成卡片（如材料处理）会丢失，由实时订阅段在下一个事件到达时拉回。
+ * - `useShortCircuit`：可选，启用终态短路。当 `latestRunStatus ∈ {completed,failed,cancelled}` 时
+ *   跳过 Redis Stream 全量 XRANGE，直接读 PostgresSaver checkpoint 发一次 values + 一次
+ *   status_change 后关流。同样为大流量场景设计。
+ *   与默认 `isCompletedRun` 路径的差异：短路会**显式发一条 status_change**——前端
+ *   `useStreamChat` 依赖该事件把 runStatus 切到终态，仅靠 stream EOF 不会触发。
+ * - `shortCircuitError`：可选，短路 + `failed` 状态下附加到 `status_change` 的 error 字段。
+ *   由调用方从 `agentRuns.error` 透传，让前端展示具体错误而非泛化文案。
  */
 export interface CreateAgentSseStreamOptions {
   runId: string
   event: H3Event
   sessionId: string
   latestRunStatus?: string
+  replayMode?: 'all' | 'last-values-only'
+  useShortCircuit?: boolean
+  shortCircuitError?: string | null
+}
+
+/** 短路路径支持的终态状态 */
+const SHORT_CIRCUIT_TERMINAL_STATUSES: readonly string[] = [
+  AGENT_RUN_STATUS.COMPLETED,
+  AGENT_RUN_STATUS.FAILED,
+  AGENT_RUN_STATUS.CANCELLED,
+]
+
+/** 判断 run 状态是否可以走 SSE 短路路径（不含 INTERRUPTED——其 __interrupt__ 仅存在于 Redis Stream 末条 values） */
+function isShortCircuitable(status: string | null | undefined): boolean {
+  return status != null && SHORT_CIRCUIT_TERMINAL_STATUSES.includes(status)
 }
 
 /**
@@ -144,6 +171,34 @@ export function createAgentSseStream(
       }, 15000)
 
       try {
+        // ====== 终态短路（init-analysis 等大流量场景启用）======
+        // 跳过 Redis Stream XRANGE 与 createEventSubscription，直接发 checkpoint values
+        // + status_change 后关流。前端依赖 status_change 把 runStatus 切到终态。
+        if (opts.useShortCircuit && isShortCircuitable(latestRunStatus)) {
+          const checkpointValues = await getThreadValuesService(sessionId)
+          if (checkpointValues) {
+            const messages = (checkpointValues.messages as any[]) || []
+            if (messages.length > 0) {
+              const filteredMessages = filterInjectedMessages(messages)
+              controller.enqueue(encoder.encode(
+                `event: values\ndata: ${JSON.stringify({ ...checkpointValues, messages: filteredMessages })}\n\n`,
+              ))
+            }
+          }
+          const statusPayload: Record<string, unknown> = {
+            type: 'status_change',
+            runId,
+            status: latestRunStatus,
+          }
+          if (latestRunStatus === AGENT_RUN_STATUS.FAILED && opts.shortCircuitError) {
+            statusPayload.error = opts.shortCircuitError
+          }
+          controller.enqueue(encoder.encode(
+            `event: custom\ndata: ${JSON.stringify(statusPayload)}\n\n`,
+          ))
+          return
+        }
+
         const isCompletedRun = latestRunStatus
           ? TERMINAL_STATUSES.includes(latestRunStatus)
           : false
@@ -183,6 +238,48 @@ export function createAgentSseStream(
           logger.warn(`Redis Stream 补发失败: run=${runId}`, err)
         }
 
+        // last-values-only 模式：跳过累积量大的 stream_event（messages/values/updates），
+        // 但**保留** custom_event 与终态 status_change——前者是合成卡片事件
+        // （prepare_materials / analysis_summary / sub_agent_*），phase=start/end 必须配对，
+        // 漏掉 start 则后续 progress/end 在前端找不到 toolCallId 全部废；后者用于关流。
+        //
+        // 时序背景：worker pickup run 的速度通常快于浏览器 SSE 订阅完成（同进程 + 同 Redis），
+        // beforeAgent 中间件发出的 phase=start 在订阅之前就已写入 Redis Stream，pubsub 收不到，
+        // 必须从 missed 里拿。重连场景同理。
+        let lastValuesAlreadyReplayed = false
+        if (opts.replayMode === 'last-values-only' && missed.length > 0) {
+          // 1. 挑最后一条 values 转发，替代逐条 replay 上千条 messages/values/updates
+          const lastValues = [...missed].reverse().find(
+            (e: any) => e.type === 'stream_event' && e.event === 'values',
+          )
+          if (lastValues?.type === 'stream_event') {
+            const data = lastValues.data as { messages?: any[] }
+            const filteredMessages = filterInjectedMessages(data.messages ?? [])
+            controller.enqueue(encoder.encode(
+              `event: values\ndata: ${JSON.stringify({ ...data, messages: filteredMessages })}\n\n`,
+            ))
+            lastValuesAlreadyReplayed = true
+          }
+
+          // 2. 保留所有 custom_event：合成卡片配对事件不可丢
+          for (const evt of missed) {
+            if (evt.type !== 'custom_event') continue
+            controller.enqueue(encoder.encode(
+              `event: custom\ndata: ${JSON.stringify(evt)}\n\n`,
+            ))
+          }
+
+          // 3. 保留终态 status_change（让下方"missed 末条终态 → 关流"逻辑正常触发）。
+          //    非终态 status_change（如 RUNNING）冗余，丢弃；前端通过 stream 自身判断 isLoading。
+          const lastStatus = [...missed].reverse().find(
+            (e: any) =>
+              e.type === 'status_change'
+              && TERMINAL_STATUSES.includes(e.status)
+              && isParentRunTerminal(e),
+          )
+          missed = lastStatus ? [lastStatus] : []
+        }
+
         // 如果 Redis Stream 没有数据，fallback 到 PostgresSaver checkpoint
         // 注意：必须根据 run.status 决定 fallback 后是否继续订阅
         //   - PENDING/RUNNING：worker 还没跑 / 正在跑 → 继续订阅实时事件
@@ -192,7 +289,8 @@ export function createAgentSseStream(
         //     （线上 bug：用户在 template_select interrupt 卡片暂停期间刷新页面，
         //      Redis Stream 已过期，前端 stream 永久 loading 卡死）
         let hasFallbackData = false
-        if (missed.length === 0) {
+        // last-values-only 模式找到了快照就跳过 checkpoint fallback（避免重复发 values）
+        if (missed.length === 0 && !lastValuesAlreadyReplayed) {
           const rawCheckpointValues = await getThreadValuesService(sessionId)
           const checkpointValues = rawCheckpointValues
             ? stripStaleInterrupt(rawCheckpointValues, currentActiveRun?.status)

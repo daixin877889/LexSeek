@@ -36,8 +36,6 @@ vi.mock('~~/server/services/case/caseType.service', () => ({
 vi.mock('~~/server/services/case/initAnalysis.service', () => ({
     getInitAnalysisStatusService: vi.fn(),
     validateAndSortModules: vi.fn(),
-    canShortCircuitSSE: vi.fn(),
-    buildTerminalSnapshotEvents: vi.fn(),
 }))
 vi.mock('~~/server/services/case/session.dao', () => ({
     createSessionDAO: vi.fn(),
