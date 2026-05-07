@@ -137,16 +137,16 @@
             @created="onCreated"
         />
 
-        <!-- 完整 system prompt 预览 Sheet -->
+        <!-- 完整 prompt 预览 Sheet（4 类分组动态展示） -->
         <Sheet v-model:open="showPreview">
             <SheetContent
                 class="w-full sm:max-w-[800px] flex flex-col gap-0 z-[200]"
                 overlay-class="z-[200]"
             >
                 <SheetHeader class="border-b pb-4">
-                    <SheetTitle>System prompt 拼装预览</SheetTitle>
+                    <SheetTitle>完整 prompt 预览</SheetTitle>
                     <SheetDescription>
-                        共 {{ preview?.promptCount ?? 0 }} 段 prompt，按 displayOrder 升序拼接。模板变量（如 {{ VARIABLE_PLACEHOLDER_HINT }}）用占位值预览。
+                        按提示词类型分组展示装配效果。模板变量（如 {{ VARIABLE_PLACEHOLDER_HINT }}）用占位值预览。
                     </SheetDescription>
                 </SheetHeader>
                 <div class="flex-1 overflow-y-auto py-4 px-4">
@@ -155,13 +155,76 @@
                         <Loader2 class="h-4 w-4 mr-2 animate-spin" />
                         加载中...
                     </div>
-                    <div v-else class="bg-muted/50 rounded p-4 text-sm">
-                        <Markdown
-                            v-if="preview?.systemPromptPreview"
-                            :content="preview.systemPromptPreview"
-                            mode="static"
-                        />
-                        <p v-else class="text-muted-foreground">（暂无可预览的 system prompt）</p>
+                    <div v-else-if="!hasAnyPreview"
+                        class="flex items-center justify-center py-8 text-sm text-muted-foreground">
+                        （暂无可预览的提示词）
+                    </div>
+                    <div v-else class="space-y-6">
+                        <!-- 系统提示词段 -->
+                        <div v-if="preview?.system" class="space-y-2">
+                            <h3 class="text-sm font-semibold">系统提示词</h3>
+                            <p class="text-xs text-muted-foreground">
+                                → 装配到 system message · {{ preview.system.count }} 段拼接
+                            </p>
+                            <div class="bg-muted/50 rounded p-4 text-sm">
+                                <Markdown :content="preview.system.content" mode="static" />
+                            </div>
+                        </div>
+
+                        <!-- 每轮隐藏注入段 -->
+                        <div v-if="preview?.userInjection" class="space-y-2">
+                            <h3 class="text-sm font-semibold">每轮隐藏注入</h3>
+                            <p class="text-xs text-muted-foreground">
+                                → 每轮紧贴最新用户消息前以 user 角色注入 · {{ preview.userInjection.count }} 段拼接
+                            </p>
+                            <div class="bg-muted/50 rounded p-4 text-sm">
+                                <Markdown :content="preview.userInjection.content" mode="static" />
+                            </div>
+                        </div>
+
+                        <!-- 用户触发消息段（列表） -->
+                        <div v-if="preview?.userItems?.length" class="space-y-2">
+                            <h3 class="text-sm font-semibold">用户触发消息</h3>
+                            <p class="text-xs text-muted-foreground">
+                                → UI 触发时模拟用户发送 · {{ preview.userItems.length }} 条
+                            </p>
+                            <div class="space-y-3">
+                                <div
+                                    v-for="item in preview.userItems"
+                                    :key="item.name"
+                                    class="space-y-1"
+                                >
+                                    <div class="font-mono text-xs text-muted-foreground">
+                                        {{ item.title || item.name }}
+                                    </div>
+                                    <div class="bg-muted/50 rounded p-3 text-sm">
+                                        <Markdown :content="item.content" mode="static" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 预设助手消息段（列表，罕用） -->
+                        <div v-if="preview?.assistantItems?.length" class="space-y-2">
+                            <h3 class="text-sm font-semibold">预设助手消息</h3>
+                            <p class="text-xs text-muted-foreground">
+                                → 罕用，预设 AI 回复 · {{ preview.assistantItems.length }} 条
+                            </p>
+                            <div class="space-y-3">
+                                <div
+                                    v-for="item in preview.assistantItems"
+                                    :key="item.name"
+                                    class="space-y-1"
+                                >
+                                    <div class="font-mono text-xs text-muted-foreground">
+                                        {{ item.title || item.name }}
+                                    </div>
+                                    <div class="bg-muted/50 rounded p-3 text-sm">
+                                        <Markdown :content="item.content" mode="static" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </SheetContent>
@@ -175,7 +238,7 @@ import { VueDraggable } from 'vue-draggable-plus'
 import { toast } from 'vue-sonner'
 import { Markdown } from 'vue-stream-markdown'
 import 'vue-stream-markdown/index.css'
-import type { NodePromptRef, PromptType } from '#shared/types/node'
+import type { NodePromptRef, NodePromptsPreview, PromptType } from '#shared/types/node'
 import NodePromptSelector from '~/components/admin/nodes/NodePromptSelector.vue'
 import PromptFormDialog from '~/components/admin/prompts/PromptFormDialog.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
@@ -387,26 +450,33 @@ async function onCreated(newPromptId: number) {
     }
 }
 
-// ==================== 完整 system prompt 预览 Sheet ====================
+// ==================== 完整 prompt 预览 Sheet（4 类分组） ====================
 
 const showPreview = ref(false)
 const previewLoading = ref(false)
-const preview = ref<{ systemPromptPreview: string; promptCount: number } | null>(null)
+const preview = ref<NodePromptsPreview | null>(null)
+
+/** 4 段任意一类有内容即视为有可预览数据；4 类都为 null/空数组 → 显示空态 */
+const hasAnyPreview = computed(() => {
+    const p = preview.value
+    if (!p) return false
+    return Boolean(p.system || p.userInjection || p.userItems?.length || p.assistantItems?.length)
+})
 
 async function openPreview() {
     showPreview.value = true
     previewLoading.value = true
     preview.value = null
     try {
-        let resp: { systemPromptPreview: string; promptCount: number } | null = null
+        let resp: NodePromptsPreview | null = null
         if (props.nodeId > 0) {
-            // 编辑场景：调节点级 preview，由后端从 nodeConfig 拼装
-            resp = await useApiFetch<{ systemPromptPreview: string; promptCount: number }>(
+            // 编辑场景：调节点级 preview，由后端从节点关联表拼装
+            resp = await useApiFetch<NodePromptsPreview>(
                 `/api/v1/admin/nodes/${props.nodeId}/prompts/preview`,
             )
         } else {
             // 新建场景：还没有 nodeId，把本地暂存的 staged prompts 直接交给 preview-bundle 拼装
-            resp = await useApiFetch<{ systemPromptPreview: string; promptCount: number }>(
+            resp = await useApiFetch<NodePromptsPreview>(
                 '/api/v1/admin/prompts/preview-bundle',
                 {
                     method: 'POST',

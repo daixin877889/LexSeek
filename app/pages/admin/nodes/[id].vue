@@ -165,12 +165,12 @@
                         </CardContent>
                     </Card>
 
-                    <!-- 完整 system prompt 预览卡片 -->
+                    <!-- 完整 prompt 预览卡片（4 类分组动态展示） -->
                     <Card>
                         <CardHeader>
-                            <CardTitle>完整 system prompt 预览</CardTitle>
+                            <CardTitle>完整 prompt 预览</CardTitle>
                             <CardDescription>
-                                按 displayOrder 升序拼接 {{ promptPreview?.promptCount ?? 0 }} 段提示词的实际效果（未替换的 <code v-pre class="text-xs">{{xxx}}</code> 字面量保留，便于核对运行时变量）
+                                按提示词类型分组展示装配效果。模板变量（如 <code v-pre class="text-xs">{{xxx}}</code>）用占位值预览。
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -181,12 +181,76 @@
                                 <AlertCircle class="h-8 w-8 text-muted-foreground/50 mb-2" />
                                 <p class="text-muted-foreground text-sm">加载预览失败</p>
                             </div>
-                            <div v-else-if="!promptPreview?.systemPromptPreview" class="flex flex-col items-center justify-center py-8 text-center">
+                            <div v-else-if="!hasAnyPromptPreview" class="flex flex-col items-center justify-center py-8 text-center">
                                 <FileText class="h-8 w-8 text-muted-foreground/50 mb-2" />
-                                <p class="text-muted-foreground text-sm">暂无可预览的 system prompt</p>
+                                <p class="text-muted-foreground text-sm">暂无可预览的提示词</p>
                             </div>
-                            <div v-else class="bg-muted rounded p-4 text-sm">
-                                <Markdown :content="promptPreview.systemPromptPreview" mode="static" />
+                            <div v-else class="space-y-6">
+                                <!-- 系统提示词段 -->
+                                <div v-if="promptPreview?.system" class="space-y-2">
+                                    <h3 class="text-sm font-semibold">系统提示词</h3>
+                                    <p class="text-xs text-muted-foreground">
+                                        → 装配到 system message · {{ promptPreview.system.count }} 段拼接
+                                    </p>
+                                    <div class="bg-muted rounded p-4 text-sm">
+                                        <Markdown :content="promptPreview.system.content" mode="static" />
+                                    </div>
+                                </div>
+
+                                <!-- 每轮隐藏注入段 -->
+                                <div v-if="promptPreview?.userInjection" class="space-y-2">
+                                    <h3 class="text-sm font-semibold">每轮隐藏注入</h3>
+                                    <p class="text-xs text-muted-foreground">
+                                        → 每轮紧贴最新用户消息前以 user 角色注入 · {{ promptPreview.userInjection.count }} 段拼接
+                                    </p>
+                                    <div class="bg-muted rounded p-4 text-sm">
+                                        <Markdown :content="promptPreview.userInjection.content" mode="static" />
+                                    </div>
+                                </div>
+
+                                <!-- 用户触发消息段（列表） -->
+                                <div v-if="promptPreview?.userItems?.length" class="space-y-2">
+                                    <h3 class="text-sm font-semibold">用户触发消息</h3>
+                                    <p class="text-xs text-muted-foreground">
+                                        → UI 触发时模拟用户发送 · {{ promptPreview.userItems.length }} 条
+                                    </p>
+                                    <div class="space-y-3">
+                                        <div
+                                            v-for="item in promptPreview.userItems"
+                                            :key="item.name"
+                                            class="space-y-1"
+                                        >
+                                            <div class="font-mono text-xs text-muted-foreground">
+                                                {{ item.title || item.name }}
+                                            </div>
+                                            <div class="bg-muted rounded p-3 text-sm">
+                                                <Markdown :content="item.content" mode="static" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 预设助手消息段（列表，罕用） -->
+                                <div v-if="promptPreview?.assistantItems?.length" class="space-y-2">
+                                    <h3 class="text-sm font-semibold">预设助手消息</h3>
+                                    <p class="text-xs text-muted-foreground">
+                                        → 罕用，预设 AI 回复 · {{ promptPreview.assistantItems.length }} 条
+                                    </p>
+                                    <div class="space-y-3">
+                                        <div
+                                            v-for="item in promptPreview.assistantItems"
+                                            :key="item.name"
+                                            class="space-y-1"
+                                        >
+                                            <div class="font-mono text-xs text-muted-foreground">
+                                                {{ item.title || item.name }}
+                                            </div>
+                                            <div class="bg-muted rounded p-3 text-sm">
+                                                <Markdown :content="item.content" mode="static" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
@@ -305,7 +369,7 @@ import dayjs from 'dayjs'
 import { Markdown } from 'vue-stream-markdown'
 import 'vue-stream-markdown/index.css'
 import { NodeTypeLabels, NodeTypeVariants } from '#shared/types/node'
-import type { NodePromptRef, NodeSkillRef, NodeToolDetailRef, NodeWithRelations, PromptType } from '#shared/types/node'
+import type { NodePromptRef, NodePromptsPreview, NodeSkillRef, NodeToolDetailRef, NodeWithRelations, PromptType } from '#shared/types/node'
 import AdminNodesNodeFormDialog from '~/components/admin/nodes/NodeFormDialog.vue'
 import { useApi } from '~/composables/useApi'
 import { useApiFetch } from '~/composables/useApiFetch'
@@ -410,15 +474,22 @@ const visiblePromptGroups = computed(() => {
         .filter(g => g.items.length > 0)
 })
 
-// 完整 system prompt 预览（按节点 ID 自动加载，节点切换时自动刷新）
+// 完整 prompt 预览（4 类分组，按节点 ID 自动加载，节点切换时自动刷新）
 const previewUrl = computed(() => `/api/v1/admin/nodes/${nodeId.value}/prompts/preview`)
 const {
     data: promptPreview,
     error: promptPreviewError,
     status: promptPreviewStatus,
-} = await useApi<{ nodeId: number; systemPromptPreview: string; promptCount: number }>(previewUrl, {
+} = await useApi<NodePromptsPreview>(previewUrl, {
     showError: false,
     watch: [nodeId],
+})
+
+/** 4 段任意一类有内容即视为有可预览数据；4 类都为 null/空数组 → 显示空态 */
+const hasAnyPromptPreview = computed(() => {
+    const p = promptPreview.value
+    if (!p) return false
+    return Boolean(p.system || p.userInjection || p.userItems?.length || p.assistantItems?.length)
 })
 
 // 加载节点详情
