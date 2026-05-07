@@ -181,6 +181,9 @@ export const getPromptVersionsService = async (promptId: number) => {
     if (!prompt) {
         throw new Error('提示词不存在')
     }
+    if (prompt.nodeId == null) {
+        throw new Error('提示词未关联节点，无法查询版本历史')
+    }
 
     return await findPromptVersionsDao(
         prompt.nodeId,
@@ -209,6 +212,9 @@ export const updatePromptService = async (
 
     // 如果内容有变化，创建新版本
     if (data.content !== undefined && data.content !== existing.content) {
+        if (existing.nodeId == null) {
+            throw new Error('提示词未关联节点，无法创建新版本')
+        }
         // 获取最新版本号并生成下一个版本
         const latestVersion = await getLatestVersionDao(
             existing.nodeId,
@@ -257,11 +263,16 @@ export const activatePromptService = async (id: number) => {
         return prompt
     }
 
+    if (prompt.nodeId == null) {
+        throw new Error('提示词未关联节点，无法激活')
+    }
+    const targetNodeId = prompt.nodeId
+
     // 使用事务确保原子性
     return await prisma.$transaction(async (tx) => {
         // 先停用同节点、同类型的其他提示词
         await deactivatePromptsByTypeDao(
-            prompt.nodeId,
+            targetNodeId,
             prompt.type as PromptType,
             tx as typeof prisma
         )

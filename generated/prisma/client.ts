@@ -270,6 +270,11 @@ export type prompts = Prisma.promptsModel
  */
 export type levelNodeAccess = Prisma.levelNodeAccessModel
 /**
+ * Model node_prompts
+ * 节点-提示词关联表 - 一段提示词可以被多个节点引用，支持 displayOrder 排序拼接
+ */
+export type node_prompts = Prisma.node_promptsModel
+/**
  * Model orders
  * 订单表
  */

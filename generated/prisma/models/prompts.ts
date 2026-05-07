@@ -234,7 +234,7 @@ export type PromptsGroupByOutputType = {
   version: string
   type: string
   status: number
-  nodeId: number
+  nodeId: number | null
   createdAt: Date
   updatedAt: Date
   deletedAt: Date | null
@@ -272,11 +272,12 @@ export type promptsWhereInput = {
   version?: Prisma.StringFilter<"prompts"> | string
   type?: Prisma.StringFilter<"prompts"> | string
   status?: Prisma.IntFilter<"prompts"> | number
-  nodeId?: Prisma.IntFilter<"prompts"> | number
+  nodeId?: Prisma.IntNullableFilter<"prompts"> | number | null
   createdAt?: Prisma.DateTimeFilter<"prompts"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"prompts"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"prompts"> | Date | string | null
-  node?: Prisma.XOR<Prisma.NodesScalarRelationFilter, Prisma.nodesWhereInput>
+  node?: Prisma.XOR<Prisma.NodesNullableScalarRelationFilter, Prisma.nodesWhereInput> | null
+  nodePrompts?: Prisma.Node_promptsListRelationFilter
 }
 
 export type promptsOrderByWithRelationInput = {
@@ -288,11 +289,12 @@ export type promptsOrderByWithRelationInput = {
   version?: Prisma.SortOrder
   type?: Prisma.SortOrder
   status?: Prisma.SortOrder
-  nodeId?: Prisma.SortOrder
+  nodeId?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   node?: Prisma.nodesOrderByWithRelationInput
+  nodePrompts?: Prisma.node_promptsOrderByRelationAggregateInput
 }
 
 export type promptsWhereUniqueInput = Prisma.AtLeast<{
@@ -307,11 +309,12 @@ export type promptsWhereUniqueInput = Prisma.AtLeast<{
   version?: Prisma.StringFilter<"prompts"> | string
   type?: Prisma.StringFilter<"prompts"> | string
   status?: Prisma.IntFilter<"prompts"> | number
-  nodeId?: Prisma.IntFilter<"prompts"> | number
+  nodeId?: Prisma.IntNullableFilter<"prompts"> | number | null
   createdAt?: Prisma.DateTimeFilter<"prompts"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"prompts"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"prompts"> | Date | string | null
-  node?: Prisma.XOR<Prisma.NodesScalarRelationFilter, Prisma.nodesWhereInput>
+  node?: Prisma.XOR<Prisma.NodesNullableScalarRelationFilter, Prisma.nodesWhereInput> | null
+  nodePrompts?: Prisma.Node_promptsListRelationFilter
 }, "id">
 
 export type promptsOrderByWithAggregationInput = {
@@ -323,7 +326,7 @@ export type promptsOrderByWithAggregationInput = {
   version?: Prisma.SortOrder
   type?: Prisma.SortOrder
   status?: Prisma.SortOrder
-  nodeId?: Prisma.SortOrder
+  nodeId?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -346,7 +349,7 @@ export type promptsScalarWhereWithAggregatesInput = {
   version?: Prisma.StringWithAggregatesFilter<"prompts"> | string
   type?: Prisma.StringWithAggregatesFilter<"prompts"> | string
   status?: Prisma.IntWithAggregatesFilter<"prompts"> | number
-  nodeId?: Prisma.IntWithAggregatesFilter<"prompts"> | number
+  nodeId?: Prisma.IntNullableWithAggregatesFilter<"prompts"> | number | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"prompts"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"prompts"> | Date | string
   deletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"prompts"> | Date | string | null
@@ -363,7 +366,8 @@ export type promptsCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
-  node: Prisma.nodesCreateNestedOneWithoutPromptsInput
+  node?: Prisma.nodesCreateNestedOneWithoutPromptsInput
+  nodePrompts?: Prisma.node_promptsCreateNestedManyWithoutPromptInput
 }
 
 export type promptsUncheckedCreateInput = {
@@ -375,10 +379,11 @@ export type promptsUncheckedCreateInput = {
   version: string
   type: string
   status?: number
-  nodeId: number
+  nodeId?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
+  nodePrompts?: Prisma.node_promptsUncheckedCreateNestedManyWithoutPromptInput
 }
 
 export type promptsUpdateInput = {
@@ -392,7 +397,8 @@ export type promptsUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  node?: Prisma.nodesUpdateOneRequiredWithoutPromptsNestedInput
+  node?: Prisma.nodesUpdateOneWithoutPromptsNestedInput
+  nodePrompts?: Prisma.node_promptsUpdateManyWithoutPromptNestedInput
 }
 
 export type promptsUncheckedUpdateInput = {
@@ -404,10 +410,11 @@ export type promptsUncheckedUpdateInput = {
   version?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.IntFieldUpdateOperationsInput | number
-  nodeId?: Prisma.IntFieldUpdateOperationsInput | number
+  nodeId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  nodePrompts?: Prisma.node_promptsUncheckedUpdateManyWithoutPromptNestedInput
 }
 
 export type promptsCreateManyInput = {
@@ -419,7 +426,7 @@ export type promptsCreateManyInput = {
   version: string
   type: string
   status?: number
-  nodeId: number
+  nodeId?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -447,7 +454,7 @@ export type promptsUncheckedUpdateManyInput = {
   version?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.IntFieldUpdateOperationsInput | number
-  nodeId?: Prisma.IntFieldUpdateOperationsInput | number
+  nodeId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -518,6 +525,11 @@ export type promptsSumOrderByAggregateInput = {
   nodeId?: Prisma.SortOrder
 }
 
+export type PromptsScalarRelationFilter = {
+  is?: Prisma.promptsWhereInput
+  isNot?: Prisma.promptsWhereInput
+}
+
 export type promptsCreateNestedManyWithoutNodeInput = {
   create?: Prisma.XOR<Prisma.promptsCreateWithoutNodeInput, Prisma.promptsUncheckedCreateWithoutNodeInput> | Prisma.promptsCreateWithoutNodeInput[] | Prisma.promptsUncheckedCreateWithoutNodeInput[]
   connectOrCreate?: Prisma.promptsCreateOrConnectWithoutNodeInput | Prisma.promptsCreateOrConnectWithoutNodeInput[]
@@ -560,6 +572,20 @@ export type promptsUncheckedUpdateManyWithoutNodeNestedInput = {
   deleteMany?: Prisma.promptsScalarWhereInput | Prisma.promptsScalarWhereInput[]
 }
 
+export type promptsCreateNestedOneWithoutNodePromptsInput = {
+  create?: Prisma.XOR<Prisma.promptsCreateWithoutNodePromptsInput, Prisma.promptsUncheckedCreateWithoutNodePromptsInput>
+  connectOrCreate?: Prisma.promptsCreateOrConnectWithoutNodePromptsInput
+  connect?: Prisma.promptsWhereUniqueInput
+}
+
+export type promptsUpdateOneRequiredWithoutNodePromptsNestedInput = {
+  create?: Prisma.XOR<Prisma.promptsCreateWithoutNodePromptsInput, Prisma.promptsUncheckedCreateWithoutNodePromptsInput>
+  connectOrCreate?: Prisma.promptsCreateOrConnectWithoutNodePromptsInput
+  upsert?: Prisma.promptsUpsertWithoutNodePromptsInput
+  connect?: Prisma.promptsWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.promptsUpdateToOneWithWhereWithoutNodePromptsInput, Prisma.promptsUpdateWithoutNodePromptsInput>, Prisma.promptsUncheckedUpdateWithoutNodePromptsInput>
+}
+
 export type promptsCreateWithoutNodeInput = {
   name: string
   title?: string | null
@@ -571,6 +597,7 @@ export type promptsCreateWithoutNodeInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
+  nodePrompts?: Prisma.node_promptsCreateNestedManyWithoutPromptInput
 }
 
 export type promptsUncheckedCreateWithoutNodeInput = {
@@ -585,6 +612,7 @@ export type promptsUncheckedCreateWithoutNodeInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
+  nodePrompts?: Prisma.node_promptsUncheckedCreateNestedManyWithoutPromptInput
 }
 
 export type promptsCreateOrConnectWithoutNodeInput = {
@@ -625,10 +653,84 @@ export type promptsScalarWhereInput = {
   version?: Prisma.StringFilter<"prompts"> | string
   type?: Prisma.StringFilter<"prompts"> | string
   status?: Prisma.IntFilter<"prompts"> | number
-  nodeId?: Prisma.IntFilter<"prompts"> | number
+  nodeId?: Prisma.IntNullableFilter<"prompts"> | number | null
   createdAt?: Prisma.DateTimeFilter<"prompts"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"prompts"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"prompts"> | Date | string | null
+}
+
+export type promptsCreateWithoutNodePromptsInput = {
+  name: string
+  title?: string | null
+  content: string
+  variables?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  version: string
+  type: string
+  status?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+  node?: Prisma.nodesCreateNestedOneWithoutPromptsInput
+}
+
+export type promptsUncheckedCreateWithoutNodePromptsInput = {
+  id?: number
+  name: string
+  title?: string | null
+  content: string
+  variables?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  version: string
+  type: string
+  status?: number
+  nodeId?: number | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+}
+
+export type promptsCreateOrConnectWithoutNodePromptsInput = {
+  where: Prisma.promptsWhereUniqueInput
+  create: Prisma.XOR<Prisma.promptsCreateWithoutNodePromptsInput, Prisma.promptsUncheckedCreateWithoutNodePromptsInput>
+}
+
+export type promptsUpsertWithoutNodePromptsInput = {
+  update: Prisma.XOR<Prisma.promptsUpdateWithoutNodePromptsInput, Prisma.promptsUncheckedUpdateWithoutNodePromptsInput>
+  create: Prisma.XOR<Prisma.promptsCreateWithoutNodePromptsInput, Prisma.promptsUncheckedCreateWithoutNodePromptsInput>
+  where?: Prisma.promptsWhereInput
+}
+
+export type promptsUpdateToOneWithWhereWithoutNodePromptsInput = {
+  where?: Prisma.promptsWhereInput
+  data: Prisma.XOR<Prisma.promptsUpdateWithoutNodePromptsInput, Prisma.promptsUncheckedUpdateWithoutNodePromptsInput>
+}
+
+export type promptsUpdateWithoutNodePromptsInput = {
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  content?: Prisma.StringFieldUpdateOperationsInput | string
+  variables?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  version?: Prisma.StringFieldUpdateOperationsInput | string
+  type?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  node?: Prisma.nodesUpdateOneWithoutPromptsNestedInput
+}
+
+export type promptsUncheckedUpdateWithoutNodePromptsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  content?: Prisma.StringFieldUpdateOperationsInput | string
+  variables?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  version?: Prisma.StringFieldUpdateOperationsInput | string
+  type?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  nodeId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type promptsCreateManyNodeInput = {
@@ -656,6 +758,7 @@ export type promptsUpdateWithoutNodeInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  nodePrompts?: Prisma.node_promptsUpdateManyWithoutPromptNestedInput
 }
 
 export type promptsUncheckedUpdateWithoutNodeInput = {
@@ -670,6 +773,7 @@ export type promptsUncheckedUpdateWithoutNodeInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  nodePrompts?: Prisma.node_promptsUncheckedUpdateManyWithoutPromptNestedInput
 }
 
 export type promptsUncheckedUpdateManyWithoutNodeInput = {
@@ -687,6 +791,35 @@ export type promptsUncheckedUpdateManyWithoutNodeInput = {
 }
 
 
+/**
+ * Count Type PromptsCountOutputType
+ */
+
+export type PromptsCountOutputType = {
+  nodePrompts: number
+}
+
+export type PromptsCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  nodePrompts?: boolean | PromptsCountOutputTypeCountNodePromptsArgs
+}
+
+/**
+ * PromptsCountOutputType without action
+ */
+export type PromptsCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the PromptsCountOutputType
+   */
+  select?: Prisma.PromptsCountOutputTypeSelect<ExtArgs> | null
+}
+
+/**
+ * PromptsCountOutputType without action
+ */
+export type PromptsCountOutputTypeCountNodePromptsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.node_promptsWhereInput
+}
+
 
 export type promptsSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -701,7 +834,9 @@ export type promptsSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
-  node?: boolean | Prisma.nodesDefaultArgs<ExtArgs>
+  node?: boolean | Prisma.prompts$nodeArgs<ExtArgs>
+  nodePrompts?: boolean | Prisma.prompts$nodePromptsArgs<ExtArgs>
+  _count?: boolean | Prisma.PromptsCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["prompts"]>
 
 export type promptsSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -717,7 +852,7 @@ export type promptsSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exten
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
-  node?: boolean | Prisma.nodesDefaultArgs<ExtArgs>
+  node?: boolean | Prisma.prompts$nodeArgs<ExtArgs>
 }, ExtArgs["result"]["prompts"]>
 
 export type promptsSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -733,7 +868,7 @@ export type promptsSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exten
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
-  node?: boolean | Prisma.nodesDefaultArgs<ExtArgs>
+  node?: boolean | Prisma.prompts$nodeArgs<ExtArgs>
 }, ExtArgs["result"]["prompts"]>
 
 export type promptsSelectScalar = {
@@ -753,13 +888,15 @@ export type promptsSelectScalar = {
 
 export type promptsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "title" | "content" | "variables" | "version" | "type" | "status" | "nodeId" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["prompts"]>
 export type promptsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  node?: boolean | Prisma.nodesDefaultArgs<ExtArgs>
+  node?: boolean | Prisma.prompts$nodeArgs<ExtArgs>
+  nodePrompts?: boolean | Prisma.prompts$nodePromptsArgs<ExtArgs>
+  _count?: boolean | Prisma.PromptsCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type promptsIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  node?: boolean | Prisma.nodesDefaultArgs<ExtArgs>
+  node?: boolean | Prisma.prompts$nodeArgs<ExtArgs>
 }
 export type promptsIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  node?: boolean | Prisma.nodesDefaultArgs<ExtArgs>
+  node?: boolean | Prisma.prompts$nodeArgs<ExtArgs>
 }
 
 export type $promptsPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -768,7 +905,11 @@ export type $promptsPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
     /**
      * 关联的节点
      */
-    node: Prisma.$nodesPayload<ExtArgs>
+    node: Prisma.$nodesPayload<ExtArgs> | null
+    /**
+     * 多对多反向：被节点引用的关联
+     */
+    nodePrompts: Prisma.$node_promptsPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     /**
@@ -806,7 +947,7 @@ export type $promptsPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
     /**
      * 关联的节点ID
      */
-    nodeId: number
+    nodeId: number | null
     /**
      * 创建时间
      */
@@ -1213,7 +1354,8 @@ readonly fields: promptsFieldRefs;
  */
 export interface Prisma__promptsClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
-  node<T extends Prisma.nodesDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.nodesDefaultArgs<ExtArgs>>): Prisma.Prisma__nodesClient<runtime.Types.Result.GetResult<Prisma.$nodesPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  node<T extends Prisma.prompts$nodeArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.prompts$nodeArgs<ExtArgs>>): Prisma.Prisma__nodesClient<runtime.Types.Result.GetResult<Prisma.$nodesPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  nodePrompts<T extends Prisma.prompts$nodePromptsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.prompts$nodePromptsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$node_promptsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1653,6 +1795,49 @@ export type promptsDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.Inter
    * Limit how many prompts to delete.
    */
   limit?: number
+}
+
+/**
+ * prompts.node
+ */
+export type prompts$nodeArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the nodes
+   */
+  select?: Prisma.nodesSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the nodes
+   */
+  omit?: Prisma.nodesOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.nodesInclude<ExtArgs> | null
+  where?: Prisma.nodesWhereInput
+}
+
+/**
+ * prompts.nodePrompts
+ */
+export type prompts$nodePromptsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the node_prompts
+   */
+  select?: Prisma.node_promptsSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the node_prompts
+   */
+  omit?: Prisma.node_promptsOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.node_promptsInclude<ExtArgs> | null
+  where?: Prisma.node_promptsWhereInput
+  orderBy?: Prisma.node_promptsOrderByWithRelationInput | Prisma.node_promptsOrderByWithRelationInput[]
+  cursor?: Prisma.node_promptsWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.Node_promptsScalarFieldEnum | Prisma.Node_promptsScalarFieldEnum[]
 }
 
 /**

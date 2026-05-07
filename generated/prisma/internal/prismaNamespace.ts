@@ -427,6 +427,7 @@ export const ModelName = {
   nodes: 'nodes',
   prompts: 'prompts',
   levelNodeAccess: 'levelNodeAccess',
+  node_prompts: 'node_prompts',
   orders: 'orders',
   paymentTransactions: 'paymentTransactions',
   membershipUpgradeRecords: 'membershipUpgradeRecords',
@@ -469,7 +470,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "agentRuns" | "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "agentToolAuditLogs" | "campaigns" | "caseTypes" | "cases" | "caseSessions" | "caseMaterials" | "caseAnalyses" | "demoCases" | "caseMaterialEmbeddings" | "caseMemories" | "caseAnalysisEmbeddings" | "contractPlaybooks" | "contractReviews" | "contractReviewLegacyRisksBackup" | "contractReviewVersions" | "contractRisks" | "contractAnnotations" | "documentTemplates" | "documentDrafts" | "documentDraftSnapshots" | "documentDraftVersions" | "ossFiles" | "legalMain" | "legalArticles" | "lawEmbeddings" | "textContentRecords" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "modelProviders" | "modelApiKeys" | "models" | "nodeGroups" | "nodes" | "prompts" | "levelNodeAccess" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "roles" | "roleRouters" | "userRoles" | "docRecognitionRecords" | "imageRecognitionRecords" | "asrTasks" | "asrRecords" | "mineruTokens" | "mineruTasks" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "skills" | "node_skills" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
+    modelProps: "agentRuns" | "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "agentToolAuditLogs" | "campaigns" | "caseTypes" | "cases" | "caseSessions" | "caseMaterials" | "caseAnalyses" | "demoCases" | "caseMaterialEmbeddings" | "caseMemories" | "caseAnalysisEmbeddings" | "contractPlaybooks" | "contractReviews" | "contractReviewLegacyRisksBackup" | "contractReviewVersions" | "contractRisks" | "contractAnnotations" | "documentTemplates" | "documentDrafts" | "documentDraftSnapshots" | "documentDraftVersions" | "ossFiles" | "legalMain" | "legalArticles" | "lawEmbeddings" | "textContentRecords" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "modelProviders" | "modelApiKeys" | "models" | "nodeGroups" | "nodes" | "prompts" | "levelNodeAccess" | "node_prompts" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "roles" | "roleRouters" | "userRoles" | "docRecognitionRecords" | "imageRecognitionRecords" | "asrTasks" | "asrRecords" | "mineruTokens" | "mineruTasks" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "skills" | "node_skills" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -3655,6 +3656,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    node_prompts: {
+      payload: Prisma.$node_promptsPayload<ExtArgs>
+      fields: Prisma.node_promptsFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.node_promptsFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$node_promptsPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.node_promptsFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$node_promptsPayload>
+        }
+        findFirst: {
+          args: Prisma.node_promptsFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$node_promptsPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.node_promptsFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$node_promptsPayload>
+        }
+        findMany: {
+          args: Prisma.node_promptsFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$node_promptsPayload>[]
+        }
+        create: {
+          args: Prisma.node_promptsCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$node_promptsPayload>
+        }
+        createMany: {
+          args: Prisma.node_promptsCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.node_promptsCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$node_promptsPayload>[]
+        }
+        delete: {
+          args: Prisma.node_promptsDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$node_promptsPayload>
+        }
+        update: {
+          args: Prisma.node_promptsUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$node_promptsPayload>
+        }
+        deleteMany: {
+          args: Prisma.node_promptsDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.node_promptsUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.node_promptsUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$node_promptsPayload>[]
+        }
+        upsert: {
+          args: Prisma.node_promptsUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$node_promptsPayload>
+        }
+        aggregate: {
+          args: Prisma.Node_promptsAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateNode_prompts>
+        }
+        groupBy: {
+          args: Prisma.node_promptsGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.Node_promptsGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.node_promptsCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.Node_promptsCountAggregateOutputType> | number
+        }
+      }
+    }
     orders: {
       payload: Prisma.$ordersPayload<ExtArgs>
       fields: Prisma.ordersFieldRefs
@@ -6443,6 +6518,18 @@ export const LevelNodeAccessScalarFieldEnum = {
 export type LevelNodeAccessScalarFieldEnum = (typeof LevelNodeAccessScalarFieldEnum)[keyof typeof LevelNodeAccessScalarFieldEnum]
 
 
+export const Node_promptsScalarFieldEnum = {
+  id: 'id',
+  nodeId: 'nodeId',
+  promptId: 'promptId',
+  displayOrder: 'displayOrder',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type Node_promptsScalarFieldEnum = (typeof Node_promptsScalarFieldEnum)[keyof typeof Node_promptsScalarFieldEnum]
+
+
 export const OrdersScalarFieldEnum = {
   id: 'id',
   orderNo: 'orderNo',
@@ -7225,6 +7312,7 @@ export type GlobalOmitConfig = {
   nodes?: Prisma.nodesOmit
   prompts?: Prisma.promptsOmit
   levelNodeAccess?: Prisma.levelNodeAccessOmit
+  node_prompts?: Prisma.node_promptsOmit
   orders?: Prisma.ordersOmit
   paymentTransactions?: Prisma.paymentTransactionsOmit
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsOmit
