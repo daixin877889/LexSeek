@@ -11,30 +11,16 @@
 
 import { z } from 'zod'
 import { v7 as uuidv7 } from 'uuid'
-import {
-    validateAndSortModules,
-    canShortCircuitSSE,
-    buildTerminalSnapshotEvents,
-    type TerminalRunStatusForSSE,
-} from '~~/server/services/case/initAnalysis.service'
+import { validateAndSortModules } from '~~/server/services/case/initAnalysis.service'
 import { validateCaseAccessService } from '~~/server/services/case/case.service'
 import { enqueueRunService, getActiveRunService, getLatestRunService } from '~~/server/services/agent/agentRun.service'
-import { replayEvents, createEventSubscription } from '~~/server/services/agent/agentEventBridge'
-import { getThreadValuesService } from '~~/server/services/workflow/agents'
+import { createAgentSseStream } from '~~/server/services/sse/agentSseStream'
 import { AGENT_RUN_STATUS } from '#shared/types/agentRun'
 
 const inputSchema = z.object({
     caseId: z.number().int().positive(),
     selectedModules: z.array(z.string()).min(1),
 })
-
-/** 终结状态列表（对 SSE 连接而言，INTERRUPTED 也是终结——需关闭连接让客户端能 submit resume） */
-const TERMINAL_STATUSES: readonly string[] = [
-    AGENT_RUN_STATUS.COMPLETED,
-    AGENT_RUN_STATUS.FAILED,
-    AGENT_RUN_STATUS.CANCELLED,
-    AGENT_RUN_STATUS.INTERRUPTED,
-]
 
 /**
  * 从 FetchStreamTransport 请求体中提取参数
@@ -297,6 +283,13 @@ export default defineEventHandler(async (event) => {
 
 /**
  * 创建 SSE 响应流
+ *
+ * 复用 createAgentSseStream（与 case chat / assistant chat / contract chat 共用），
+ * 启用两个针对 7 模块大流量场景的优化：
+ * - useShortCircuit: 终态 run 跳过 ~2000 条 / 几 MB 的 Redis Stream XRANGE
+ * - replayMode='last-values-only': 重连时只发最后一条 values 快照，避免逐条 replay 让前端卡顿
+ *
+ * 透传 agentRuns.error 给 shortCircuitError，让 failed 状态下前端能展示具体错误而非泛化文案。
  */
 async function createSSEResponse(event: any, runId: string, sessionId?: string) {
     setResponseHeaders(event, {
@@ -306,134 +299,22 @@ async function createSSEResponse(event: any, runId: string, sessionId?: string) 
         'X-Accel-Buffering': 'no',
     })
 
-    const stream = new ReadableStream({
-        async start(controller) {
-            const encoder = new TextEncoder()
-            const abortController = new AbortController()
+    // 短路命中时复用 status / error，未命中由 createAgentSseStream 走 replay/订阅路径——
+    // 多查一次 status/threadId/error 字段开销可忽略。
+    const runRecord = await prisma.agentRuns.findUnique({
+        where: { id: runId },
+        select: { status: true, threadId: true, error: true },
+    })
+    const resolvedSessionId = sessionId ?? runRecord?.threadId ?? ''
 
-            event.node.req.on('close', () => {
-                abortController.abort()
-            })
-
-            const keepalive = setInterval(() => {
-                try {
-                    controller.enqueue(encoder.encode(': keepalive\n\n'))
-                } catch {
-                    // controller 已关闭时忽略
-                }
-            }, 15000)
-
-            try {
-                // 短路路径：若 run 已进入 completed/failed/cancelled 终态，
-                // 直接读 checkpoint 发一条 values + 一条 status_change 后关闭，
-                // 跳过 Redis Stream 的全量 XRANGE（~2000 条事件、几 MB 数据）。
-                // interrupted 必须保留原 replay 路径：__interrupt__ 字段只写入 Redis Stream
-                // 最后一条 values 事件，不在 checkpoint.channel_values 里。
-                const terminalRun = await prisma.agentRuns.findUnique({
-                    where: { id: runId },
-                    select: { status: true, threadId: true, error: true },
-                })
-                if (terminalRun && canShortCircuitSSE(terminalRun.status)) {
-                    const threadId = sessionId ?? terminalRun.threadId
-                    const checkpointValues = threadId
-                        ? await getThreadValuesService(threadId)
-                        : null
-                    const events = buildTerminalSnapshotEvents({
-                        runId,
-                        runStatus: terminalRun.status as TerminalRunStatusForSSE,
-                        checkpointValues,
-                        errorMessage: terminalRun.error,
-                    })
-                    for (const evt of events) {
-                        controller.enqueue(encoder.encode(evt))
-                    }
-                    return
-                }
-
-                // 补发缺失事件（只发最后一条 values 快照，避免逐条 replay 数千条事件导致前端卡顿）
-                let missed = await replayEvents(runId)
-                const lastValues = [...missed].reverse()
-                    .find(e => e.type === 'stream_event' && e.event === 'values')
-
-                // 如果 Redis Stream 有数据，发送最后一条 values 快照
-                if (lastValues?.type === 'stream_event') {
-                    controller.enqueue(encoder.encode(
-                        `event: ${lastValues.event}\ndata: ${JSON.stringify(lastValues.data)}\n\n`,
-                    ))
-                }
-                // Fallback: 如果 Redis Stream 没有数据，尝试从 PostgresSaver checkpoint 加载
-                else {
-                    let threadId = sessionId
-                    let runStatus: string | undefined
-                    if (!threadId) {
-                        const run = await prisma.agentRuns.findUnique({
-                            where: { id: runId },
-                            select: { threadId: true, status: true },
-                        })
-                        if (run) {
-                            threadId = run.threadId
-                            runStatus = run.status
-                        }
-                    } else {
-                        // 已有 threadId，只需查 run 状态
-                        const run = await prisma.agentRuns.findUnique({
-                            where: { id: runId },
-                            select: { status: true },
-                        })
-                        runStatus = run?.status
-                    }
-                    if (threadId) {
-                        const checkpointValues = await getThreadValuesService(threadId)
-                        if (checkpointValues) {
-                            const messages = (checkpointValues.messages as any[]) || []
-                            if (messages.length > 0) {
-                                controller.enqueue(encoder.encode(
-                                    `event: values\ndata: ${JSON.stringify(checkpointValues)}\n\n`,
-                                ))
-                                // run 已终结则直接关闭 SSE
-                                if (runStatus && TERMINAL_STATUSES.includes(runStatus)) {
-                                    controller.enqueue(encoder.encode(
-                                        `event: custom\ndata: ${JSON.stringify({ type: 'status_change', runId, status: runStatus })}\n\n`,
-                                    ))
-                                    return
-                                }
-                                // run 仍在进行中，跳过 missed 终结检查，直接进入实时订阅
-                                missed = []
-                            }
-                        }
-                    }
-                }
-
-                // 检查是否已结束（仅当 Redis Stream 有数据时走此分支）
-                const lastMissed = missed.at(-1)
-                if (lastMissed?.type === 'status_change' && TERMINAL_STATUSES.includes(lastMissed.status)) {
-                    // 发送终结状态事件
-                    controller.enqueue(encoder.encode(
-                        `event: custom\ndata: ${JSON.stringify(lastMissed)}\n\n`,
-                    ))
-                    return
-                }
-
-                // 订阅实时事件
-                for await (const evt of createEventSubscription(runId, abortController.signal)) {
-                    if (evt.type === 'status_change' && TERMINAL_STATUSES.includes(evt.status)) {
-                        controller.enqueue(encoder.encode(`event: custom\ndata: ${JSON.stringify(evt)}\n\n`))
-                        break
-                    }
-                    if (evt.type === 'stream_event') {
-                        controller.enqueue(encoder.encode(
-                            `event: ${evt.event}\ndata: ${JSON.stringify(evt.data)}\n\n`,
-                        ))
-                    }
-                }
-            } catch (err) {
-                logger.error(`初始化分析 SSE 流异常：run=${runId}`, err)
-            } finally {
-                clearInterval(keepalive)
-                abortController.abort()
-                controller.close()
-            }
-        },
+    const stream = createAgentSseStream({
+        runId,
+        event,
+        sessionId: resolvedSessionId,
+        latestRunStatus: runRecord?.status,
+        useShortCircuit: true,
+        replayMode: 'last-values-only',
+        shortCircuitError: runRecord?.error,
     })
 
     return new Response(stream, {

@@ -504,7 +504,7 @@ const processAndUpload = async () => {
         try {
           material.status = 'processing'
           const result = await uploadFileToOSS(material, signature)
-          material.ossFileId = result.id as number
+          material.ossFileId = (result.fileId || result.id) as number
           material.status = 'uploaded'
         } catch (error) {
           material.status = 'error'

@@ -24,3 +24,37 @@
 ## 不阻塞主线
 
 这 6 个 fail 在改造前的串行配置下也可能存在，只是没暴露（串行调度顺序刚好规避）。本次提速从 ~600s+ 降到 251s 是主目标，已达成。修复 fail 是后续单独优化。
+
+---
+
+## 2026-05-09 OSS 兜底链路（Task 11）追加确认的存量 fail
+
+> **背景**：OSS 上传 callback 兜底链路（Tasks 1-10）完成后，全量 `bun run test` 出现 38 fail / 23 files。  
+> 其中 `storage.service.real.test.ts`（24 fail）已在 Task 11 修复（headFile.ts 引入 `createLogger` 导致 mock 缺失）。  
+> 以下 14 个文件属于 **pre-OSS 存量 fail**，全部由 `2a963394`（中间件升级'识别+摘要双就绪'）等 pre-OSS commits 引入，与本次 storage 兜底无关。
+
+| 文件 | fail 数 | 推测根因 |
+|---|---|---|
+| `tests/server/workflow/middleware/caseProcessMaterial.middleware.test.ts` | 1 | test 期望 `(1, 1)` 但 `onProgress` 参数已加，需改为 `expect.any(Function)` |
+| `tests/server/workflow/caseAnalysisV2.executor.test.ts` | 1 | test 期望 executor 内调用 ensureMaterialsReadyService，但 executor 未实现该 gate |
+| `tests/server/agent-platform/context/moduleContextBuilder.test.ts` | 6 | 材料段 sourceId/状态文字逻辑更新后 test 断言未同步 |
+| `tests/server/agent-platform/tools/processMaterials.test.ts` | 5 | process_materials 工具逻辑更新后 test 断言未同步 |
+| `tests/server/agent-platform/caseContextSync.integration.test.ts` | 1 | 集成测试断言过时 |
+| `tests/server/workflow/agents/subAgentToolFactory.test.ts` | 2 | 同 agent-platform/subAgent 类型 A 污染 |
+| `tests/server/workflow/workflow-agents.test.ts` | 1 | 同类 mock 污染 |
+| `tests/server/workflow/workflow-tools.test.ts` | 2 | processMaterials tool 逻辑更新后 test 未同步 |
+| `tests/server/assistant/document/relatedMaterials.api.test.ts` | 3 | document draft 查询逻辑更新后 test 未同步 |
+| `tests/server/assistant/contract/m4Integration.test.ts` | 1 | 并发/DB 竞争 |
+| `tests/server/assistant/contract/patchReview.api.test.ts` | 1 | review risks 接口更新后 test 未同步 |
+| `tests/server/services/material/fileProcess.service.test.ts` | 1 | 识别记录判断逻辑 |
+| `tests/server/retrieval/intentClassifier.test.ts` | 2 | 缓存清理逻辑更新 |
+| `tests/server/retrieval/materialContext.test.ts` | 1 | 摘要降级逻辑更新 |
+| `tests/server/case/cases.active.api.test.ts` | 1 | 案件 active 列表逻辑 |
+| `tests/server/caseAnalysis.rag.test.ts` | 2 | RAG 集成测试 |
+| `tests/server/material/recognition-api.test.ts` | 1 | 识别 API mock |
+| `tests/server/memory/searchCaseAnalysis.test.ts` | 1 | 记忆搜索逻辑 |
+| `tests/server/admin-handlers/admin-batch5-happy.handlers.test.ts` | 1 | admin nodes POST 逻辑变化 |
+| `tests/app/utils/toolDisplayName.test.ts` | 2 | ANALYSIS_NODE_LABEL 常量/导出 |
+| `tests/client/composables/useStreamChat.test.ts` | 1 | interrupt 解包逻辑 |
+
+修复优先级：由各功能团队按需跟进，不阻塞 OSS 兜底上线。

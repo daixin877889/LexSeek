@@ -28,6 +28,7 @@ import {
     createScopeGuardMiddleware,
     pointConsumptionMiddleware,
     safetyTrimMiddleware,
+    userInjectionMiddleware,
     buildMiddlewareStack,
     MIDDLEWARE_PRIORITY,
     MIDDLEWARE_NAMES,
@@ -217,6 +218,17 @@ export async function runDocumentChat(
             }),
             priority: MIDDLEWARE_PRIORITY.SAFETY_TRIM,
             name: MIDDLEWARE_NAMES.SAFETY_TRIM,
+        },
+        // 用户每轮注入(反越狱护栏 / 隐藏注入):节点配置中 type=user_injection && status=1
+        // 的提示词,每轮 LLM 调用前作为隐藏 HumanMessage 插入到最新 HumanMessage 之前;
+        // 不写回 state.messages、不进 checkpoint。节点无该类提示词时 middleware 内部 short-circuit。
+        {
+            middleware: userInjectionMiddleware({
+                prompts: nodeConfig.prompts,
+                context: { caseId: resolvedCaseId ?? undefined },
+            }),
+            priority: MIDDLEWARE_PRIORITY.USER_INJECTION,
+            name: MIDDLEWARE_NAMES.USER_INJECTION,
         },
         // afterAgentMemory 条件挂载:caseId 非空时才挂(铁律)
         ...(resolvedCaseId

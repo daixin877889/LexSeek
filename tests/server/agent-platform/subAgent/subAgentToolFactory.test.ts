@@ -49,6 +49,8 @@ vi.mock('~~/server/services/agent-platform/middleware', () => ({
     createMessageIntegrityMiddleware: vi.fn(() => ({ _mw: 'integrity' })),
     createScopeGuardMiddleware: vi.fn(() => ({ _mw: 'scope' })),
     pointConsumptionMiddleware: vi.fn(() => ({ _mw: 'point' })),
+    // user_injection middleware 工厂：返回带 _mw 标记的 stub，便于测试断言挂载位置
+    userInjectionMiddleware: vi.fn((opts: any) => ({ _mw: 'userInjection', _opts: opts })),
 }))
 vi.mock('~~/server/services/agent-platform/middleware/safetyTrim.middleware', () => ({
     safetyTrimMiddleware: vi.fn(() => ({ _mw: 'trim' })),
@@ -448,6 +450,77 @@ describe('skill middleware 与 skill 工具挂载', () => {
         expect(allToolNames).toEqual(expect.arrayContaining([
             'read_skill_file', 'write_skill_file', 'run_skill_script', 'run_skill_command',
         ]))
+    })
+})
+
+describe('user_injection middleware 挂载', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+        buildSkillsMiddlewareForNodeMock.mockResolvedValue(null)
+    })
+
+    it('挂载 userInjectionMiddleware：传入节点 prompts + ctx={caseId, moduleName}', async () => {
+        const { userInjectionMiddleware } = await import('~~/server/services/agent-platform/middleware')
+        ;(userInjectionMiddleware as any).mockClear()
+        createAgentMock.mockReturnValue({
+            invoke: vi.fn().mockResolvedValue({ messages: [new AIMessage('done')] }),
+        })
+
+        const cfg = makeNodeConfig({
+            name: 'evidence_expert',
+            prompts: [
+                { type: 'user_injection', status: 1, content: '禁止越狱', displayOrder: 10 },
+                { type: 'role_and_flow', status: 1, content: '角色描述', displayOrder: 20 },
+            ],
+        })
+        const tools = await createSubAgentTools([cfg], baseCtx)
+        await tools[0].invoke({ question: 'q' }, { toolCall: { id: 'p' } } as any)
+
+        // 工厂被调用，prompts 和 ctx 透传
+        expect(userInjectionMiddleware).toHaveBeenCalledWith({
+            prompts: cfg.prompts,
+            context: { caseId: baseCtx.caseId, moduleName: 'evidence_expert' },
+        })
+
+        // middleware 数组中能找到 userInjection 实例
+        const opts = createAgentMock.mock.calls[0][0]
+        const markers = (opts.middleware as any[]).map(m => m?._mw ?? null)
+        expect(markers).toContain('userInjection')
+    })
+
+    it('节点无 user_injection 提示词时 middleware 仍挂载（短路在 middleware 内部）', async () => {
+        const { userInjectionMiddleware } = await import('~~/server/services/agent-platform/middleware')
+        ;(userInjectionMiddleware as any).mockClear()
+        createAgentMock.mockReturnValue({
+            invoke: vi.fn().mockResolvedValue({ messages: [new AIMessage('done')] }),
+        })
+
+        // prompts 为空 / 全是其它类型：middleware 仍然被挂上，由 middleware 内部 short-circuit
+        const cfg = makeNodeConfig({ prompts: [] })
+        const tools = await createSubAgentTools([cfg], baseCtx)
+        await tools[0].invoke({ question: 'q' }, { toolCall: { id: 'p' } } as any)
+
+        expect(userInjectionMiddleware).toHaveBeenCalledTimes(1)
+        const opts = createAgentMock.mock.calls[0][0]
+        const markers = (opts.middleware as any[]).map(m => m?._mw ?? null)
+        expect(markers).toContain('userInjection')
+    })
+
+    it('userInjection 位于 safetyTrim 之后、analysisResultPersistence 之前（priority=70 与 runtime 一致）', async () => {
+        createAgentMock.mockReturnValue({
+            invoke: vi.fn().mockResolvedValue({ messages: [new AIMessage('done')] }),
+        })
+
+        const tools = await createSubAgentTools([makeNodeConfig()], baseCtx)
+        await tools[0].invoke({ question: 'q' }, { toolCall: { id: 'p' } } as any)
+
+        const opts = createAgentMock.mock.calls[0][0]
+        const order = (opts.middleware as any[]).map(m => m?._mw ?? null)
+        const trimIdx = order.indexOf('trim')
+        const userInjectionIdx = order.indexOf('userInjection')
+        const persistIdx = order.indexOf('persist')
+        expect(userInjectionIdx).toBeGreaterThan(trimIdx)
+        expect(userInjectionIdx).toBeLessThan(persistIdx)
     })
 })
 

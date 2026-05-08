@@ -31,7 +31,7 @@ vi.mock('~~/server/utils/db', () => ({
     },
 }))
 
-import { messageToFlatDict, getThreadValuesService, loadSubAgentThreads } from '~~/server/services/workflow/agents/threadState'
+import { messageToFlatDict, getThreadValuesService, getPendingInterruptsService, loadSubAgentThreads } from '~~/server/services/workflow/agents/threadState'
 import { getCheckpointer } from '~~/server/services/workflow/checkpointer'
 import { mapStoredMessageToChatMessage } from '@langchain/core/messages'
 import { prisma } from '~~/server/utils/db'
@@ -368,6 +368,95 @@ describe('getThreadValuesService', () => {
         expect(result).not.toBeNull()
         expect(result).not.toHaveProperty('__interrupt__')
         expect((result as any).messages).toHaveLength(1)
+    })
+})
+
+describe('getPendingInterruptsService', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    // 真实 bug 修复（继承自 commit 17510fe0 同款根因）：
+    // agentWorker 用 dummy createAgent + getState() 检测 interrupt 时,
+    // caseMain 等真实 agent 拓扑跟 dummy 不一致 → tasks.interrupts 永远空 →
+    // run 错标 COMPLETED → 刷新页面后 SSE 把 pendingWrites 中残留的 __interrupt__
+    // 当 stale 剥掉 → 模板卡片永久 loading。
+    // 本服务直接读 PostgresSaver pendingWrites,与 graph schema 解耦。
+    it('线程不存在时返回空数组', async () => {
+        const mockCheckpointer = {
+            getTuple: vi.fn().mockResolvedValue(null),
+        }
+        vi.mocked(getCheckpointer).mockResolvedValue(mockCheckpointer as any)
+
+        const result = await getPendingInterruptsService('non-existent-thread')
+        expect(result).toEqual([])
+    })
+
+    it('pendingWrites 含 __interrupt__ → 返回 Interrupt 对象数组', async () => {
+        const interruptValue = {
+            id: 'i-1',
+            value: { type: 'template_select', toolCallId: 'tc-1' },
+        }
+        const mockCheckpointer = {
+            getTuple: vi.fn().mockResolvedValue({
+                checkpoint: { channel_values: { messages: [] } },
+                pendingWrites: [
+                    ['task-1', '__interrupt__', interruptValue],
+                ],
+            }),
+        }
+        vi.mocked(getCheckpointer).mockResolvedValue(mockCheckpointer as any)
+
+        const result = await getPendingInterruptsService('test-thread')
+        expect(result).toHaveLength(1)
+        expect(result[0]).toEqual(interruptValue)
+    })
+
+    it('pendingWrites 无 __interrupt__ → 返回空数组', async () => {
+        const mockCheckpointer = {
+            getTuple: vi.fn().mockResolvedValue({
+                checkpoint: { channel_values: { messages: [] } },
+                pendingWrites: [
+                    ['task-1', '__resume__', { ok: true }],
+                    ['task-2', 'messages', { type: 'ai', content: 'x' }],
+                ],
+            }),
+        }
+        vi.mocked(getCheckpointer).mockResolvedValue(mockCheckpointer as any)
+
+        const result = await getPendingInterruptsService('test-thread')
+        expect(result).toEqual([])
+    })
+
+    // 与 getThreadValuesService 保持同口径：同一 task 已被 __resume__ 抵消的
+    // interrupt 不能再返回（用户已点完模板,graph 跑下一步时刷新的过渡态）
+    it('同 task __interrupt__ 已被 __resume__ 抵消 → 不返回', async () => {
+        const mockCheckpointer = {
+            getTuple: vi.fn().mockResolvedValue({
+                checkpoint: { channel_values: { messages: [] } },
+                pendingWrites: [
+                    ['task-resolved', '__interrupt__', { id: 'i-x', value: { type: 'template_select' } }],
+                    ['task-resolved', '__resume__', { templateId: 1 }],
+                ],
+            }),
+        }
+        vi.mocked(getCheckpointer).mockResolvedValue(mockCheckpointer as any)
+
+        const result = await getPendingInterruptsService('test-thread')
+        expect(result).toEqual([])
+    })
+
+    it('pendingWrites 为空数组时返回空数组', async () => {
+        const mockCheckpointer = {
+            getTuple: vi.fn().mockResolvedValue({
+                checkpoint: { channel_values: { messages: [] } },
+                pendingWrites: [],
+            }),
+        }
+        vi.mocked(getCheckpointer).mockResolvedValue(mockCheckpointer as any)
+
+        const result = await getPendingInterruptsService('test-thread')
+        expect(result).toEqual([])
     })
 })
 

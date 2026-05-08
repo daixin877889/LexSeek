@@ -28,7 +28,7 @@ import { StorageConfigError } from '~~/server/lib/storage/errors'
  * 获取存储适配器
  * 优先使用指定的配置，否则使用默认配置
  */
-async function getAdapter(options: {
+export async function getStorageAdapterService(options: {
     configId?: number
     userId?: number
     type?: StorageProviderType
@@ -66,7 +66,7 @@ export async function uploadFileService(
     }
 ): Promise<UploadResult> {
     const { configId, userId, type, ...uploadOptions } = options || {}
-    const adapter = await getAdapter({ configId, userId, type })
+    const adapter = await getStorageAdapterService({ configId, userId, type })
     return adapter.upload(path, data, uploadOptions)
 }
 
@@ -82,7 +82,7 @@ export async function downloadFileService(
     }
 ): Promise<Buffer> {
     const { configId, userId, type, ...downloadOptions } = options || {}
-    const adapter = await getAdapter({ configId, userId, type })
+    const adapter = await getStorageAdapterService({ configId, userId, type })
     return adapter.download(path, downloadOptions)
 }
 
@@ -98,7 +98,7 @@ export async function downloadFileStreamService(
     }
 ): Promise<Readable> {
     const { configId, userId, type, ...downloadOptions } = options || {}
-    const adapter = await getAdapter({ configId, userId, type })
+    const adapter = await getStorageAdapterService({ configId, userId, type })
     return adapter.downloadStream(path, downloadOptions)
 }
 
@@ -114,7 +114,7 @@ export async function deleteFileService(
     }
 ): Promise<DeleteResult> {
     const { configId, userId, type } = options || {}
-    const adapter = await getAdapter({ configId, userId, type })
+    const adapter = await getStorageAdapterService({ configId, userId, type })
     return adapter.delete(paths)
 }
 
@@ -130,7 +130,7 @@ export async function generateSignedUrlService(
     }
 ): Promise<string> {
     const { configId, userId, type, ...signedUrlOptions } = options || {}
-    const adapter = await getAdapter({ configId, userId, type })
+    const adapter = await getStorageAdapterService({ configId, userId, type })
     return adapter.generateSignedUrl(path, signedUrlOptions)
 }
 
@@ -145,7 +145,7 @@ export async function generatePostSignatureService(
     }
 ): Promise<PostSignatureResult> {
     const { configId, userId, type, ...signatureOptions } = options
-    const adapter = await getAdapter({ configId, userId, type })
+    const adapter = await getStorageAdapterService({ configId, userId, type })
     return adapter.generatePostSignature(signatureOptions)
 }
 
@@ -157,7 +157,7 @@ export async function testStorageConnectionService(options: {
     userId?: number
     type?: StorageProviderType
 }): Promise<boolean> {
-    const adapter = await getAdapter(options)
+    const adapter = await getStorageAdapterService(options)
     return adapter.testConnection()
 }
 

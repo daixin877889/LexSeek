@@ -1,6 +1,9 @@
 /**
  * 提示词 DAO 测试
  *
+ * Phase 6 改造后：prompts.nodeId 字段已删，节点关联通过 node_prompts 表维护；
+ * 版本/激活/停用按 (name, type) 维度判定。
+ *
  * **Feature: node-management**
  * **Validates: Requirements 14.9, 14.10, 14.11, 14.12, 14.13, 14.14**
  */
@@ -80,8 +83,26 @@ const createTestNode = async (modelId: number) => {
     return node
 }
 
+/**
+ * 把 prompt 关联到 node（多对多）。
+ * 阶段 F 改造后，节点关联键由具体 promptId 改为业务身份 (name, type)；
+ * 测试辅助函数接收 prompt 对象，从中读出 name + type 写入关联表。
+ */
+const linkPromptToNode = async (
+    nodeId: number,
+    prompt: { name: string; type: string },
+    displayOrder = 100,
+) => {
+    await testPrisma.node_prompts.create({
+        data: { nodeId, promptName: prompt.name, promptType: prompt.type, displayOrder },
+    })
+}
+
 const cleanupTestData = async () => {
     try {
+        if (testIds.nodeIds.length > 0) {
+            await testPrisma.node_prompts.deleteMany({ where: { nodeId: { in: testIds.nodeIds } } })
+        }
         if (testIds.promptIds.length > 0) {
             await testPrisma.prompts.deleteMany({ where: { id: { in: testIds.promptIds } } })
         }
@@ -90,7 +111,6 @@ const cleanupTestData = async () => {
 
     try {
         if (testIds.nodeIds.length > 0) {
-            await testPrisma.prompts.deleteMany({ where: { nodeId: { in: testIds.nodeIds } } })
             await testPrisma.levelNodeAccess.deleteMany({ where: { nodeId: { in: testIds.nodeIds } } })
             await testPrisma.caseAnalyses.deleteMany({ where: { nodeId: { in: testIds.nodeIds } } })
             await testPrisma.nodes.deleteMany({ where: { id: { in: testIds.nodeIds } } })
@@ -131,7 +151,7 @@ describe('提示词 DAO 测试', () => {
                 select: { id: true },
             })).map(n => n.id)
             if (testNodeIds.length > 0) {
-                await testPrisma.prompts.deleteMany({ where: { nodeId: { in: testNodeIds } } })
+                await testPrisma.node_prompts.deleteMany({ where: { nodeId: { in: testNodeIds } } })
             }
             await testPrisma.nodes.deleteMany({ where: { name: { startsWith: 'test_node_' } } })
             await testPrisma.models.deleteMany({ where: { name: { startsWith: 'test_model_' } } })
@@ -149,35 +169,28 @@ describe('提示词 DAO 测试', () => {
 
     describe('createPromptDao', () => {
         it('应创建提示词', async () => {
-            const model = await createTestModel()
-            const node = await createTestNode(model.id)
-
             const prompt = await createPromptDao({
                 name: `prompt_${generateTestId()}`,
                 title: '测试提示词',
                 content: '你是一个法律助手',
                 type: 'system',
-                nodeId: node.id,
+                nodeId: 0, // ★ Phase 6 已废弃：dao 不再使用此字段
             }, '1.0.0')
             testIds.promptIds.push(prompt.id)
 
             expect(prompt.id).toBeDefined()
             expect(prompt.version).toBe('1.0.0')
             expect(prompt.status).toBe(0) // 默认未生效
-            expect(prompt.node).toBeDefined()
         })
 
         it('应创建带变量的提示词', async () => {
-            const model = await createTestModel()
-            const node = await createTestNode(model.id)
-
             const prompt = await createPromptDao({
                 name: `prompt_${generateTestId()}`,
                 title: '带变量提示词',
                 content: '分析 {{case_name}} 的 {{topic}}',
                 variables: ['case_name', 'topic'],
                 type: 'system',
-                nodeId: node.id,
+                nodeId: 0,
             }, '1.0.0')
             testIds.promptIds.push(prompt.id)
 
@@ -187,14 +200,12 @@ describe('提示词 DAO 测试', () => {
 
     describe('findPromptByIdDao', () => {
         it('应返回存在的提示词', async () => {
-            const model = await createTestModel()
-            const node = await createTestNode(model.id)
             const prompt = await createPromptDao({
                 name: `prompt_${generateTestId()}`,
                 title: '测试',
                 content: '内容',
                 type: 'system',
-                nodeId: node.id,
+                nodeId: 0,
             }, '1.0.0')
             testIds.promptIds.push(prompt.id)
 
@@ -209,14 +220,12 @@ describe('提示词 DAO 测试', () => {
         })
 
         it('已删除的提示词应返回 null', async () => {
-            const model = await createTestModel()
-            const node = await createTestNode(model.id)
             const prompt = await createPromptDao({
                 name: `prompt_${generateTestId()}`,
                 title: '测试',
                 content: '内容',
                 type: 'system',
-                nodeId: node.id,
+                nodeId: 0,
             }, '1.0.0')
             testIds.promptIds.push(prompt.id)
 
@@ -228,25 +237,29 @@ describe('提示词 DAO 测试', () => {
     })
 
     describe('findManyPromptsDao', () => {
-        it('应返回分页的提示词列表', async () => {
+        it('应返回分页的提示词列表（按 nodeId 过滤走 node_prompts）', async () => {
             const model = await createTestModel()
             const node = await createTestNode(model.id)
 
-            await createPromptDao({
+            const p1 = await createPromptDao({
                 name: `prompt_${generateTestId()}`,
                 title: '提示词1',
                 content: '内容1',
                 type: 'system',
-                nodeId: node.id,
-            }, '1.0.0').then(p => testIds.promptIds.push(p.id))
+                nodeId: 0,
+            }, '1.0.0')
+            testIds.promptIds.push(p1.id)
+            await linkPromptToNode(node.id, p1, 100)
 
-            await createPromptDao({
+            const p2 = await createPromptDao({
                 name: `prompt_${generateTestId()}`,
                 title: '提示词2',
                 content: '内容2',
                 type: 'user',
-                nodeId: node.id,
-            }, '1.0.0').then(p => testIds.promptIds.push(p.id))
+                nodeId: 0,
+            }, '1.0.0')
+            testIds.promptIds.push(p2.id)
+            await linkPromptToNode(node.id, p2, 200)
 
             const result = await findManyPromptsDao({ nodeId: node.id })
             expect(result.total).toBe(2)
@@ -254,17 +267,16 @@ describe('提示词 DAO 测试', () => {
         })
 
         it('关键词搜索应正确过滤', async () => {
-            const model = await createTestModel()
-            const node = await createTestNode(model.id)
             const uniqueName = `unique_prompt_${generateTestId()}`
 
-            await createPromptDao({
+            const created = await createPromptDao({
                 name: uniqueName,
                 title: '独特提示词',
                 content: '内容',
                 type: 'system',
-                nodeId: node.id,
-            }, '1.0.0').then(p => testIds.promptIds.push(p.id))
+                nodeId: 0,
+            }, '1.0.0')
+            testIds.promptIds.push(created.id)
 
             const result = await findManyPromptsDao({ keyword: uniqueName })
             expect(result.list.some(p => p.name === uniqueName)).toBe(true)
@@ -274,13 +286,15 @@ describe('提示词 DAO 测试', () => {
             const model = await createTestModel()
             const node = await createTestNode(model.id)
 
-            await createPromptDao({
+            const p = await createPromptDao({
                 name: `prompt_${generateTestId()}`,
                 title: 'system 提示词',
                 content: '内容',
                 type: 'system',
-                nodeId: node.id,
-            }, '1.0.0').then(p => testIds.promptIds.push(p.id))
+                nodeId: 0,
+            }, '1.0.0')
+            testIds.promptIds.push(p.id)
+            await linkPromptToNode(node.id, p)
 
             const result = await findManyPromptsDao({
                 nodeId: node.id,
@@ -298,9 +312,10 @@ describe('提示词 DAO 测试', () => {
                 title: '活跃提示词',
                 content: '内容',
                 type: 'system',
-                nodeId: node.id,
+                nodeId: 0,
             }, '1.0.0')
             testIds.promptIds.push(prompt.id)
+            await linkPromptToNode(node.id, prompt)
 
             await updatePromptStatusDao(prompt.id, 1)
 
@@ -313,25 +328,29 @@ describe('提示词 DAO 测试', () => {
     })
 
     describe('findPromptsByNodeIdDao', () => {
-        it('应返回节点的所有提示词', async () => {
+        it('应返回节点关联的所有提示词（通过 node_prompts join）', async () => {
             const model = await createTestModel()
             const node = await createTestNode(model.id)
 
-            await createPromptDao({
+            const p1 = await createPromptDao({
                 name: `prompt_${generateTestId()}`,
                 title: 'p1',
                 content: 'c1',
                 type: 'system',
-                nodeId: node.id,
-            }, '1.0.0').then(p => testIds.promptIds.push(p.id))
+                nodeId: 0,
+            }, '1.0.0')
+            testIds.promptIds.push(p1.id)
+            await linkPromptToNode(node.id, p1, 100)
 
-            await createPromptDao({
+            const p2 = await createPromptDao({
                 name: `prompt_${generateTestId()}`,
                 title: 'p2',
                 content: 'c2',
                 type: 'user',
-                nodeId: node.id,
-            }, '1.0.0').then(p => testIds.promptIds.push(p.id))
+                nodeId: 0,
+            }, '1.0.0')
+            testIds.promptIds.push(p2.id)
+            await linkPromptToNode(node.id, p2, 200)
 
             const prompts = await findPromptsByNodeIdDao(node.id)
             expect(prompts.length).toBe(2)
@@ -339,7 +358,7 @@ describe('提示词 DAO 测试', () => {
     })
 
     describe('findActivePromptDao', () => {
-        it('应返回生效的提示词', async () => {
+        it('应返回节点关联且生效的提示词', async () => {
             const model = await createTestModel()
             const node = await createTestNode(model.id)
 
@@ -348,9 +367,10 @@ describe('提示词 DAO 测试', () => {
                 title: '活跃提示词',
                 content: '内容',
                 type: 'system',
-                nodeId: node.id,
+                nodeId: 0,
             }, '1.0.0')
             testIds.promptIds.push(prompt.id)
+            await linkPromptToNode(node.id, prompt)
 
             await updatePromptStatusDao(prompt.id, 1)
 
@@ -363,13 +383,15 @@ describe('提示词 DAO 测试', () => {
             const model = await createTestModel()
             const node = await createTestNode(model.id)
 
-            await createPromptDao({
+            const p = await createPromptDao({
                 name: `prompt_${generateTestId()}`,
                 title: '未生效',
                 content: '内容',
                 type: 'system',
-                nodeId: node.id,
-            }, '1.0.0').then(p => testIds.promptIds.push(p.id))
+                nodeId: 0,
+            }, '1.0.0')
+            testIds.promptIds.push(p.id)
+            await linkPromptToNode(node.id, p)
 
             const found = await findActivePromptDao(node.id, 'system')
             expect(found).toBeNull()
@@ -377,68 +399,66 @@ describe('提示词 DAO 测试', () => {
     })
 
     describe('findPromptVersionsDao', () => {
-        it('应返回提示词版本历史（降序）', async () => {
-            const model = await createTestModel()
-            const node = await createTestNode(model.id)
+        it('应返回提示词版本历史（降序，按 name+type 维度）', async () => {
             const promptName = `prompt_${generateTestId()}`
 
-            await createPromptDao({
+            const v1 = await createPromptDao({
                 name: promptName,
                 title: '版本1',
                 content: '内容v1',
                 type: 'system',
-                nodeId: node.id,
-            }, '1.0.0').then(p => testIds.promptIds.push(p.id))
+                nodeId: 0,
+            }, '1.0.0')
+            testIds.promptIds.push(v1.id)
 
-            await createPromptDao({
+            const v2 = await createPromptDao({
                 name: promptName,
                 title: '版本2',
                 content: '内容v2',
                 type: 'system',
-                nodeId: node.id,
-            }, '2.0.0').then(p => testIds.promptIds.push(p.id))
+                nodeId: 0,
+            }, '2.0.0')
+            testIds.promptIds.push(v2.id)
 
-            const versions = await findPromptVersionsDao(node.id, promptName, 'system')
+            const versions = await findPromptVersionsDao(promptName, 'system')
             expect(versions.length).toBe(2)
-            expect(versions[0].version).toBe('2.0.0')
-            expect(versions[1].version).toBe('1.0.0')
+            expect(versions[0]!.version).toBe('2.0.0')
+            expect(versions[1]!.version).toBe('1.0.0')
         })
     })
 
     describe('getLatestVersionDao', () => {
         it('应返回最新版本号', async () => {
-            const model = await createTestModel()
-            const node = await createTestNode(model.id)
             const promptName = `prompt_${generateTestId()}`
 
-            await createPromptDao({
+            const v1 = await createPromptDao({
                 name: promptName,
                 title: 'v1',
                 content: 'c1',
                 type: 'system',
-                nodeId: node.id,
-            }, '1.0.0').then(p => testIds.promptIds.push(p.id))
+                nodeId: 0,
+            }, '1.0.0')
+            testIds.promptIds.push(v1.id)
 
-            await createPromptDao({
+            const v2 = await createPromptDao({
                 name: promptName,
                 title: 'v2',
                 content: 'c2',
                 type: 'system',
-                nodeId: node.id,
-            }, '2.0.0').then(p => testIds.promptIds.push(p.id))
+                nodeId: 0,
+            }, '2.0.0')
+            testIds.promptIds.push(v2.id)
 
-            const version = await getLatestVersionDao(node.id, promptName, 'system')
+            const version = await getLatestVersionDao(promptName, 'system')
             expect(version).toBe('2.0.0')
         })
 
         it('无记录时返回 null', async () => {
-            const version = await getLatestVersionDao(999999, 'nonexistent', 'system')
+            const version = await getLatestVersionDao('nonexistent_' + generateTestId(), 'system')
             expect(version).toBeNull()
         })
 
         it('v\\d+ 版本号需按数字大小取最新（v10 > v9，避免字典序卡死）', async () => {
-            const model = await createTestModel()
-            const node = await createTestNode(model.id)
             const promptName = `prompt_${generateTestId()}`
 
             for (let i = 1; i <= 10; i++) {
@@ -447,15 +467,15 @@ describe('提示词 DAO 测试', () => {
                     title: `版本v${i}`,
                     content: `内容 v${i}`,
                     type: 'system',
-                    nodeId: node.id,
+                    nodeId: 0,
                 }, `v${i}`)
                 testIds.promptIds.push(created.id)
             }
 
-            const latest = await getLatestVersionDao(node.id, promptName, 'system')
+            const latest = await getLatestVersionDao(promptName, 'system')
             expect(latest).toBe('v10')
 
-            const versions = await findPromptVersionsDao(node.id, promptName, 'system')
+            const versions = await findPromptVersionsDao(promptName, 'system')
             expect(versions.map(v => v.version)).toEqual([
                 'v10', 'v9', 'v8', 'v7', 'v6', 'v5', 'v4', 'v3', 'v2', 'v1',
             ])
@@ -464,14 +484,12 @@ describe('提示词 DAO 测试', () => {
 
     describe('updatePromptDao', () => {
         it('应更新提示词内容', async () => {
-            const model = await createTestModel()
-            const node = await createTestNode(model.id)
             const prompt = await createPromptDao({
                 name: `prompt_${generateTestId()}`,
                 title: '旧标题',
                 content: '旧内容',
                 type: 'system',
-                nodeId: node.id,
+                nodeId: 0,
             }, '1.0.0')
             testIds.promptIds.push(prompt.id)
 
@@ -487,14 +505,12 @@ describe('提示词 DAO 测试', () => {
         })
 
         it('部分更新应只修改指定字段', async () => {
-            const model = await createTestModel()
-            const node = await createTestNode(model.id)
             const prompt = await createPromptDao({
                 name: `prompt_${generateTestId()}`,
                 title: '标题',
                 content: '内容',
                 type: 'system',
-                nodeId: node.id,
+                nodeId: 0,
             }, '1.0.0')
             testIds.promptIds.push(prompt.id)
 
@@ -509,14 +525,12 @@ describe('提示词 DAO 测试', () => {
 
     describe('updatePromptStatusDao', () => {
         it('应更新提示词状态', async () => {
-            const model = await createTestModel()
-            const node = await createTestNode(model.id)
             const prompt = await createPromptDao({
                 name: `prompt_${generateTestId()}`,
                 title: '标题',
                 content: '内容',
                 type: 'system',
-                nodeId: node.id,
+                nodeId: 0,
             }, '1.0.0')
             testIds.promptIds.push(prompt.id)
 
@@ -526,47 +540,46 @@ describe('提示词 DAO 测试', () => {
     })
 
     describe('deactivatePromptsByTypeDao', () => {
-        it('应停用指定类型的所有生效提示词', async () => {
-            const model = await createTestModel()
-            const node = await createTestNode(model.id)
+        it('应停用同 (name, type) 下的所有生效提示词版本', async () => {
+            const sharedName = `prompt_${generateTestId()}`
 
             const p1 = await createPromptDao({
-                name: `prompt_${generateTestId()}`,
+                name: sharedName,
                 title: 'p1',
                 content: 'c1',
                 type: 'system',
-                nodeId: node.id,
+                nodeId: 0,
             }, '1.0.0')
             testIds.promptIds.push(p1.id)
             await updatePromptStatusDao(p1.id, 1)
 
             const p2 = await createPromptDao({
-                name: `prompt_${generateTestId()}`,
+                name: sharedName,
                 title: 'p2',
                 content: 'c2',
                 type: 'system',
-                nodeId: node.id,
+                nodeId: 0,
             }, '2.0.0')
             testIds.promptIds.push(p2.id)
             await updatePromptStatusDao(p2.id, 1)
 
-            await deactivatePromptsByTypeDao(node.id, 'system')
+            await deactivatePromptsByTypeDao(sharedName, 'system')
 
-            const active = await findActivePromptDao(node.id, 'system')
-            expect(active).toBeNull()
+            const after1 = await findPromptByIdDao(p1.id)
+            const after2 = await findPromptByIdDao(p2.id)
+            expect(after1?.status).toBe(0)
+            expect(after2?.status).toBe(0)
         })
     })
 
     describe('softDeletePromptDao', () => {
         it('应软删除提示词', async () => {
-            const model = await createTestModel()
-            const node = await createTestNode(model.id)
             const prompt = await createPromptDao({
                 name: `prompt_${generateTestId()}`,
                 title: '标题',
                 content: '内容',
                 type: 'system',
-                nodeId: node.id,
+                nodeId: 0,
             }, '1.0.0')
             testIds.promptIds.push(prompt.id)
 

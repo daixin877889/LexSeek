@@ -30,6 +30,7 @@ import { getCurrentMembershipService } from '../membership/userMembership.servic
 import { InterruptType } from '#shared/types/case'
 import { runAnalysisSubAgent } from '~~/server/agents/case-analysis/runAnalysisSubAgent'
 import { completeAnalysisWithRAG } from '../case/initAnalysis.service'
+import { getLangfuseContext } from '~~/server/lib/langfuse'
 
 
 /**
@@ -242,13 +243,19 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
                 // 子 agent 内部走标准管道：消息完整性 / scopeGuard / toolCallLimit /
                 // summarization / safetyTrim / audit + 节点关联 skill 时自动挂 skillsMw + 4 skill 工具。
                 // 故意不挂 pointConsumption / analysisResultPersistence —— 主图步骤 5d/6 自己处理。
+                // 从 Langfuse ALS 取 agentWorker.executeRun 注入的真 runId
+                // （worker 用 withLangfuseContext 包裹整个 run，AsyncLocalStorage 透传到这里）。
+                // 子 agent 的 caseProcessMaterialMiddleware 用 runId 把材料预处理进度
+                // （PREPARE_MATERIALS 事件）发到 SSE，前端合成"材料处理"卡片；
+                // 缺 runId 会导致前端从点击"开始分析"到首条 AI 输出之间无任何反馈。
+                const runId = getLangfuseContext()?.runId ?? ''
                 const sub = await runAnalysisSubAgent({
                     agentName,
                     moduleTitle,
                     userId: state.userId,
                     caseId: state.caseId,
                     sessionId: state.sessionId,
-                    runId: '',  // V2 主流程未透传 runId，留空（持久化层不依赖此字段）
+                    runId,
                     thinking: state.thinking ?? true,
                 })
                 responseMessages = sub.messages

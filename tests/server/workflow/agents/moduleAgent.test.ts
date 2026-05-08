@@ -96,6 +96,7 @@ vi.mock('../../../../server/services/workflow/middleware', () => ({
     createMessageIntegrityMiddleware: vi.fn(() => ({ __mock: 'integrity' })),
     createScopeGuardMiddleware: vi.fn(() => ({ __mock: 'scopeGuard' })),
     pointConsumptionMiddleware: vi.fn(() => ({ __mock: 'pointConsumption' })),
+    userInjectionMiddleware: vi.fn(() => ({ __mock: 'userInjection' })),
 }))
 
 vi.mock('../../../../server/services/workflow/middleware/safetyTrim.middleware', () => ({

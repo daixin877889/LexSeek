@@ -36,8 +36,6 @@ vi.mock('~~/server/services/case/caseType.service', () => ({
 vi.mock('~~/server/services/case/initAnalysis.service', () => ({
     getInitAnalysisStatusService: vi.fn(),
     validateAndSortModules: vi.fn(),
-    canShortCircuitSSE: vi.fn(),
-    buildTerminalSnapshotEvents: vi.fn(),
 }))
 vi.mock('~~/server/services/case/session.dao', () => ({
     createSessionDAO: vi.fn(),
@@ -134,7 +132,6 @@ vi.mock('~~/server/utils/chat-branch-utils', () => ({
         command: b?.command,
         thinking: b?.input?.thinking,
     })),
-    RESUME_COMMANDS: {},
     MAX_RESUME_COUNT: 5,
 }))
 

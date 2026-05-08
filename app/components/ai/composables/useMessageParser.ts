@@ -367,10 +367,28 @@ export function useMessageParser(
 ) {
   const parsedMessages = computed<ParsedMessage[]>(() => {
     const raw = toValue(messages)
-    if (!raw?.length) return []
+    const extras = toValue(extraToolCallsByMessageId) ?? {}
+
+    // 优先注入 orphan 合成卡片（如材料处理 phase=start 时 LLM token 还没到，
+    // raw 仍是空数组——这里如果直接 return [] 会让卡片"等到 LLM 开始输出才出现"，
+    // 失去保底卡片"立即可见"的意义）。
+    const orphanList = extras['__pre_agent__'] ?? []
+    const orphanMsg: ParsedMessage | null = orphanList.length > 0
+      ? {
+          id: '__pre_agent_synthetic__',
+          type: 'ai' as const,
+          content: '',
+          thinking: undefined,
+          toolCalls: orphanList,
+          raw: null as any,
+        }
+      : null
+
+    if (!raw?.length) {
+      return orphanMsg ? [orphanMsg] : []
+    }
 
     const interrupted = !!toValue(isInterrupted)
-    const extras = toValue(extraToolCallsByMessageId) ?? {}
 
     const baseMessages = coerceRawMessages(raw)
 
@@ -452,21 +470,9 @@ export function useMessageParser(
       })
       .filter(Boolean) as ParsedMessage[]
 
-    // orphan synthetic toolCalls：使用 sentinel parentId='__pre_agent__' 的合成卡片
-    // 独立渲染在消息流头部，不依赖任何 AIMessage（用于材料预处理保底卡片等场景）
-    const orphanList = extras['__pre_agent__'] ?? []
-    if (orphanList.length > 0) {
-      return [
-        {
-          id: '__pre_agent_synthetic__',
-          type: 'ai' as const,
-          content: '',
-          thinking: undefined,
-          toolCalls: orphanList,
-          raw: null as any,
-        },
-        ...result,
-      ]
+    // 把上面构造好的 orphan 合成卡片插到 result 头部（前面已经处理 raw 为空的早返路径）
+    if (orphanMsg) {
+      return [orphanMsg, ...result]
     }
 
     return result

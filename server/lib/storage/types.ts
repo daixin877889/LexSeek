@@ -5,6 +5,10 @@
  */
 
 import type { Readable } from 'stream'
+// re-export 让 StorageAdapter 接口签名能引用，与项目既有 storage→oss 依赖方向一致
+// （参见 server/lib/storage/adapters/aliyun-oss.ts 已有 import from oss）
+import type { HeadObjectResult } from '../oss/headFile'
+export type { HeadObjectResult }
 
 // ============================================================================
 // 存储服务商类型
@@ -266,6 +270,11 @@ export interface AliyunPostSignatureResult extends BasePostSignatureResult {
     callbackVar?: Record<string, string>
     /** STS 安全令牌 */
     securityToken?: string
+    /**
+     * 对应的 ossFiles 表记录 ID
+     * 由 presigned-url handler 写入；前端用于上传后的兜底校验
+     */
+    ossFileId?: number
 }
 
 /**
@@ -364,6 +373,13 @@ export interface StorageAdapter {
      * @returns 连接是否成功
      */
     testConnection(): Promise<boolean>
+
+    /**
+     * 查询对象元数据
+     * @param path 对象路径
+     * @returns 对象存在 → 元数据；不存在 → null；网络/凭证等基建错误 → 抛异常
+     */
+    head(path: string): Promise<HeadObjectResult | null>
 }
 
 // ============================================================================

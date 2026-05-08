@@ -76,6 +76,15 @@ async function runRecognitionAndEmbeddingPipeline(
 
     const failed: MaterialFailedItem[] = [...initialFailed]
 
+    // pipeline 入口立刻 emit 一次快照，让前端"材料处理"卡片立即出现。
+    // 不发这一次的话：阶段 1 识别（PDF MinerU 可异步几十秒）、阶段 3 summary LLM
+    // （5-15s）期间都没 emit 机会，阶段 4 轮询触发的第一次 onProgress 经常已经是
+    // 全部 ready 终态，前端只看到"已完成"卡片，进度过程完全不可见。
+    if (onProgress && materials.length > 0) {
+        const initialSnapshot = await snapshotMaterialReadiness(materials)
+        await onProgress(initialSnapshot)
+    }
+
     // 识别阶段：检查识别状态，对未识别的触发识别
     const recognizedMap = await batchCheckMaterialRecognizedService(materials)
 
@@ -124,6 +133,18 @@ async function runRecognitionAndEmbeddingPipeline(
         }
         newlyProcessed = toEmbed.length - embeddingFailures.length
         failed.push(...embeddingFailures)
+    }
+
+    // 阶段 3 启动前先 emit 一次进度快照，让前端立即看到"材料处理"卡片处于
+    // summarizing 状态。否则下面的 await generateMaterialSummaryService 是 5-15s
+    // LLM 调用，期间无任何 SSE 事件，阶段 4 第一次轮询时材料已全 ready，前端只能
+    // 看到"已完成"终态，整个进度过程完全不可见，卡片失去意义。
+    //
+    // 这条 phase=start 是文本材料场景下唯一的"进行中"信号——文本材料识别已就绪、
+    // embedding < 1s，唯一的"耗时"就是 summary LLM 调用，必须在它启动前 emit。
+    if (onProgress && materials.length > 0) {
+        const preSummarySnapshot = await snapshotMaterialReadiness(materials)
+        await onProgress(preSummarySnapshot)
     }
 
     // 阶段 3：对所有已识别材料并行触发摘要生成

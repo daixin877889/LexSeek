@@ -22,6 +22,7 @@ import {
 } from './ocr.dao'
 import { generateSignedUrlService } from '../storage/storage.service'
 import { getValidNodeConfig, getNodeConfigService, type NodeConfig } from '../node/node.service'
+import { assembleSystemPromptTemplate } from '../agent-platform/nodeConfig/promptRenderer'
 import { embedImageService } from './materialEmbedding.service'
 import { generateOssFileSummaryService } from './material.service'
 import { markdownToHtmlService } from './mineruResult.service'
@@ -108,13 +109,12 @@ export function validateImageType(mimeType: string): boolean {
  * @returns 系统提示词内容
  */
 function getSystemPromptFromConfig(config: NodeConfig): string {
-    // 查找 system 类型的提示词
-    const systemPrompt = config.prompts.find((p) => p.type === 'system')
-    if (!systemPrompt || !systemPrompt.content) {
+    // 拼接所有启用的 system prompt（反越狱护栏 + OCR 业务 prompt 等），按 displayOrder 升序
+    const template = assembleSystemPromptTemplate(config.prompts)
+    if (!template) {
         throw new Error(`OCR 节点 "${config.name}" 未配置系统提示词，请在后台配置`)
     }
-
-    return systemPrompt.content
+    return template
 }
 
 /**

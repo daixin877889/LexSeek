@@ -9,7 +9,9 @@ import type { Prisma } from '~~/generated/prisma/client'
 import type { models } from '~~/generated/prisma/client'
 
 // 定义 Prisma 客户端类型（支持事务）
-type PrismaClient = typeof prisma
+// 用 Prisma.TransactionClient 而非 typeof prisma：与 prisma.$transaction 回调里 tx 参数兼容；
+// 全量 prisma 实例本身也可赋值给 TransactionClient（结构子类型），普通调用不受影响。
+type PrismaClient = Prisma.TransactionClient
 
 /**
  * 创建模型

@@ -11,6 +11,7 @@ import { createChatModel } from '~~/server/services/node/chatModelFactory'
 import { getValidNodeConfig } from '~~/server/services/node/node.service'
 import { logContextOverflow } from '~~/server/services/agent-platform/context/contextErrorLogger'
 import { extractFirstJsonObject, summarizeJsonShape } from '~~/server/services/assistant/contract/utils/llmJson'
+import { assembleSystemPromptTemplate } from '~~/server/services/agent-platform/nodeConfig/promptRenderer'
 import { withLangfuseContext } from '~~/server/lib/langfuse'
 
 export interface InvokeNodeJsonOptions<T> {
@@ -73,7 +74,8 @@ async function invokeNodeJsonInner<T>(opts: InvokeNodeJsonOptions<T>): Promise<T
     const activeKey = config.modelApiKeys.find(k => k.status === 1)
     if (!activeKey) throw new Error(`${nodeName}: 无可用 API 密钥`)
 
-    const template = config.prompts.find(p => p.type === 'system' && p.status === 1)?.content
+    // 拼接所有启用的 system prompt（反越狱护栏 + 业务 prompt 等），调用方 buildPrompt 负责业务变量替换
+    const template = assembleSystemPromptTemplate(config.prompts)
     if (!template) {
         throw new Error(`${nodeName}: DB 未配置 system 类型的启用态提示词`)
     }

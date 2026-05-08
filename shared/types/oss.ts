@@ -117,6 +117,11 @@ export interface PostSignatureResult {
     callbackVarBase64?: string
     /** STS 安全令牌（使用 STS 时） */
     securityToken?: string
+    /**
+     * 对应的 ossFiles 表记录 ID
+     * 由 /api/v1/storage/presigned-url handler 写入；前端在上传后用于兜底校验
+     */
+    ossFileId?: number
 }
 
 /**

@@ -10,6 +10,7 @@
 import { SystemMessage, HumanMessage } from '@langchain/core/messages'
 import { createHash } from 'node:crypto'
 import { getValidNodeConfig } from '../node/node.service'
+import { assembleSystemPromptTemplate } from '../agent-platform/nodeConfig/promptRenderer'
 import { renderContent } from '../node/prompt.service'
 import { createChatModel } from '../node/chatModelFactory'
 import { normalizeQuery, tryExactRegex } from './queryNormalizer'
@@ -145,10 +146,8 @@ async function classifyIntentInner(
             thinking: false
         })
 
-        // 获取 system prompt（从节点 prompts 中取 type='system' 且 status=1 的）
-        const systemTemplate = config.prompts.find(
-            (p: { type: string; status: number; content: string }) => p.type === 'system' && p.status === 1,
-        )?.content
+        // 拼接节点所有启用的 system prompt（反越狱护栏 + 业务 prompt 等）
+        const systemTemplate = assembleSystemPromptTemplate(config.prompts)
         if (!systemTemplate) {
             logger.warn('search_intent_router 节点缺少 system prompt（v2），降级为 semantic', { type })
             return { intent: 'semantic', rewrittenQuery: query }

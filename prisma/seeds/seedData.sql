@@ -468,6 +468,7 @@ INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "descrip
 INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (73, '/api/v1/storage/presigned-url', 'GET', 'GET storage / presigned url', NULL, 'f', NULL, 1, '2025-12-31 12:16:59.333+08', '2025-12-31 12:16:59.333+08', NULL);
 INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (74, '/api/v1/storage/presigned-url', 'POST', 'POST storage / presigned url', NULL, 'f', NULL, 1, '2025-12-31 12:16:59.335+08', '2025-12-31 12:16:59.335+08', NULL);
 INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (75, '/api/v1/storage/presigned-url/config', 'GET', 'GET storage / presigned url / config', NULL, 'f', NULL, 1, '2025-12-31 12:16:59.337+08', '2025-12-31 12:16:59.337+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (1064, '/api/v1/storage/confirm-upload', 'POST', 'POST storage / confirm upload', 'OSS 上传回调失败时的前端兜底校验接口', 'f', NULL, 1, '2026-05-09 10:00:00+08', '2026-05-09 10:00:00+08', NULL);
 INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (76, '/api/v1/users/invitees', 'GET', 'GET users / invitees', NULL, 'f', NULL, 1, '2025-12-31 12:16:59.338+08', '2025-12-31 12:16:59.338+08', NULL);
 INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (77, '/api/v1/users/me', 'GET', 'GET users / me', NULL, 'f', NULL, 1, '2025-12-31 12:16:59.34+08', '2025-12-31 12:16:59.34+08', NULL);
 INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (78, '/api/v1/users/password', 'PUT', 'PUT users / password', NULL, 'f', NULL, 1, '2025-12-31 12:16:59.342+08', '2025-12-31 12:16:59.342+08', NULL);
@@ -1462,7 +1463,7 @@ INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "pri
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at", "use_skills_as_logic", "thinking_enabled") VALUES (26, 'analysisSummary', '案件分析结果摘要', '案件分析模块完成后对 200-400 字摘要写入 caseAnalyses.summary，用于案件分析列表卡片', 'extraction', 105, 1, '[]', NULL, NULL, 1, '2026-04-29 16:45:29.750322+08', '2026-04-29 16:45:29.750322+08', NULL, 'f', 'f');
 
 -- ==================== 提示词种子数据 ====================
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (1, 'caseInfoCheck_system', '案情信息检查-系统提示词', '你是一位专业的法律案件分析助手，专门负责评估案件材料中的案情信息是否充足。
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "created_at", "updated_at", "deleted_at") VALUES (1, 'caseInfoCheck_system', '案情信息检查-系统提示词', '你是一位专业的法律案件分析助手，专门负责评估案件材料中的案情信息是否充足。
 
 ## 你的任务
 
@@ -1498,8 +1499,8 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 # 案件记忆使用规则
 - 分析过程中如发现关键事实（争议焦点、关键时间节点、当事人信息修正），必须 write_case_memory 写入；subject_key 用「主体.字段」格式
 - 引用历史结论时，先 search_case_memory 而非自行推断
-- 同一 subject_key 不重复写入；先 search 再决定 write 或 update', '[]', '1.0.0', 'system', 1, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (2, 'caseInfoCheck_user', '案情信息检查-用户提示词', '请分析以下案件材料，评估其中的案情信息是否充足。
+- 同一 subject_key 不重复写入；先 search 再决定 write 或 update', '[]', '1.0.0', 'system', 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "created_at", "updated_at", "deleted_at") VALUES (2, 'caseInfoCheck_user', '案情信息检查-用户提示词', '请分析以下案件材料，评估其中的案情信息是否充足。
 
 ## 案件材料内容
 
@@ -1510,8 +1511,8 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 
 1. 仔细阅读上述材料内容
 2. 根据系统提示词中的评估标准进行判断
-3. 以 JSON 格式输出评估结果', '["materials", "supplementedInfo"]', '1.0.0', 'user', 1, 1, '2026-01-07 10:00:01+08', '2026-01-07 10:00:00+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (3, 'extractInfo_system', '基本信息提取-系统提示词', '你是一位专业的法律案件分析助手，专门负责从案件材料中提取关键信息。
+3. 以 JSON 格式输出评估结果', '["materials", "supplementedInfo"]', '1.0.0', 'user', 1, '2026-01-07 10:00:01+08', '2026-01-07 10:00:00+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "created_at", "updated_at", "deleted_at") VALUES (3, 'extractInfo_system', '基本信息提取-系统提示词', '你是一位专业的法律案件分析助手，专门负责从案件材料中提取关键信息。
 
 ## 你的任务
 
@@ -1561,8 +1562,8 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 # 案件记忆使用规则
 - 分析过程中如发现关键事实（争议焦点、关键时间节点、当事人信息修正），必须 write_case_memory 写入；subject_key 用「主体.字段」格式
 - 引用历史结论时，先 search_case_memory 而非自行推断
-- 同一 subject_key 不重复写入；先 search 再决定 write 或 update', '[]', '1.0.0', 'system', 1, 2, '2026-01-07 10:00:02+08', '2026-01-07 10:00:00+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (4, 'extractInfo_user', '基本信息提取-用户提示词', '请从以下案件材料中提取基本信息。
+- 同一 subject_key 不重复写入；先 search 再决定 write 或 update', '[]', '1.0.0', 'system', 1, '2026-01-07 10:00:02+08', '2026-01-07 10:00:00+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "created_at", "updated_at", "deleted_at") VALUES (4, 'extractInfo_user', '基本信息提取-用户提示词', '请从以下案件材料中提取基本信息。
 
 ## 案件类型
 
@@ -1577,8 +1578,8 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 1. 仔细阅读上述材料内容
 2. 根据系统提示词中的提取规则进行信息提取
 3. 以 JSON 格式输出提取结果
-4. 确保提取的信息准确、完整', '["materials", "caseTypeName"]', '1.0.0', 'user', 1, 2, '2026-01-07 10:00:03+08', '2026-01-07 10:00:00+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (5, 'extractImageInfo_system', '图片识别-系统提示词', '你是一位专业的图片内容识别助手，专门负责识别和提取图片中的文字和信息内容。
+4. 确保提取的信息准确、完整', '["materials", "caseTypeName"]', '1.0.0', 'user', 1, '2026-01-07 10:00:03+08', '2026-01-07 10:00:00+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "created_at", "updated_at", "deleted_at") VALUES (5, 'extractImageInfo_system', '图片识别-系统提示词', '你是一位专业的图片内容识别助手，专门负责识别和提取图片中的文字和信息内容。
 
 ## 你的任务
 
@@ -1628,8 +1629,8 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 - 如果图片模糊或部分内容无法识别，在对应位置标注 [无法识别]
 - 不要添加原图中没有的内容
 - 保持客观，不做主观推测
-- 敏感信息（如身份证号、银行卡号）正常提取，不做脱敏处理', '[]', '1.0.0', 'system', 1, 3, '2026-01-07 10:00:04+08', '2026-01-07 10:00:00+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (7, 'summary_system', '案件概要-规范版（方法论 anjian-gaiyao skill）', '### 法律案件概要Agent提示词
+- 敏感信息（如身份证号、银行卡号）正常提取，不做脱敏处理', '[]', '1.0.0', 'system', 1, '2026-01-07 10:00:04+08', '2026-01-07 10:00:00+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "created_at", "updated_at", "deleted_at") VALUES (7, 'summary_system', '案件概要-规范版（方法论 anjian-gaiyao skill）', '### 法律案件概要Agent提示词
 
 你是一位经验丰富的中国执业律师，专业领域覆盖民事、商事和劳动法。你的核心任务是根据用户提供的案情信息，整理出一份符合法律行业专业表述和格式的结构化案件概要。
 
@@ -1821,8 +1822,8 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 # 案件记忆使用规则
 - 分析过程中如发现关键事实（争议焦点、关键时间节点、当事人信息修正），必须 write_case_memory 写入；subject_key 用「主体.字段」格式
 - 引用历史结论时，先 search_case_memory 而非自行推断
-- 同一 subject_key 不重复写入；先 search 再决定 write 或 update', '[]', 'v8', 'system', 1, 6, '2026-03-23 11:27:41.069+08', '2026-04-28 00:34:21.846636+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (8, 'chronicle_system', '大事记-规范版（方法论 anjian-dashiji skill）', '# 案件大事记模块提示词
+- 同一 subject_key 不重复写入；先 search 再决定 write 或 update', '[]', 'v8', 'system', 1, '2026-03-23 11:27:41.069+08', '2026-04-28 00:34:21.846636+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "created_at", "updated_at", "deleted_at") VALUES (8, 'chronicle_system', '大事记-规范版（方法论 anjian-dashiji skill）', '# 案件大事记模块提示词
 
 ## 一、系统定位
 
@@ -1967,8 +1968,8 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 # 案件记忆使用规则
 - 分析过程中如发现关键事实（争议焦点、关键时间节点、当事人信息修正），必须 write_case_memory 写入；subject_key 用「主体.字段」格式
 - 引用历史结论时，先 search_case_memory 而非自行推断
-- 同一 subject_key 不重复写入；先 search 再决定 write 或 update', '[]', 'v8', 'system', 1, 7, '2026-03-23 11:28:47.378+08', '2026-04-28 00:34:21.880947+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (9, 'claim_system', '请求权基础-规范版（方法论 qingqiuquan-jichu skill）', '模块一：请求权基础分析提示词（最终版）                                                                                                                 
+- 同一 subject_key 不重复写入；先 search 再决定 write 或 update', '[]', 'v8', 'system', 1, '2026-03-23 11:28:47.378+08', '2026-04-28 00:34:21.880947+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "created_at", "updated_at", "deleted_at") VALUES (9, 'claim_system', '请求权基础-规范版（方法论 qingqiuquan-jichu skill）', '模块一：请求权基础分析提示词（最终版）                                                                                                                 
                                                                                                                                                          
   # 任务：请求权基础分析模块                                                                                                                             
                                                                                                                                                          
@@ -2177,8 +2178,8 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 # 案件记忆使用规则
 - 分析过程中如发现关键事实（争议焦点、关键时间节点、当事人信息修正），必须 write_case_memory 写入；subject_key 用「主体.字段」格式
 - 引用历史结论时，先 search_case_memory 而非自行推断
-- 同一 subject_key 不重复写入；先 search 再决定 write 或 update', '[]', 'v8', 'system', 1, 8, '2026-03-23 11:29:33.105+08', '2026-04-28 00:34:21.882373+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (10, 'trend_system', '判决趋势预测-规范版（方法论 panjue-qushi skill）', '模块四：判决趋势预测提示词（最终版）
+- 同一 subject_key 不重复写入；先 search 再决定 write 或 update', '[]', 'v8', 'system', 1, '2026-03-23 11:29:33.105+08', '2026-04-28 00:34:21.882373+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "created_at", "updated_at", "deleted_at") VALUES (10, 'trend_system', '判决趋势预测-规范版（方法论 panjue-qushi skill）', '模块四：判决趋势预测提示词（最终版）
 
 # 任务：判决趋势预测模块
 
@@ -2431,8 +2432,8 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 # 案件记忆使用规则
 - 分析过程中如发现关键事实（争议焦点、关键时间节点、当事人信息修正），必须 write_case_memory 写入；subject_key 用「主体.字段」格式
 - 引用历史结论时，先 search_case_memory 而非自行推断
-- 同一 subject_key 不重复写入；先 search 再决定 write 或 update', '[]', 'v8', 'system', 1, 9, '2026-03-23 11:30:52.971+08', '2026-04-28 00:34:21.884281+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (11, 'cause_system', '案由选择-规范版（方法论 anyou-xuanze skill）', '案由选择提示词（完整版）                                                                                                                       
+- 同一 subject_key 不重复写入；先 search 再决定 write 或 update', '[]', 'v8', 'system', 1, '2026-03-23 11:30:52.971+08', '2026-04-28 00:34:21.884281+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "created_at", "updated_at", "deleted_at") VALUES (11, 'cause_system', '案由选择-规范版（方法论 anyou-xuanze skill）', '案由选择提示词（完整版）                                                                                                                       
                                                                                                                                                          
   # 任务：案由选择模块                                                                                                                                   
                                                                                                                                                          
@@ -2696,8 +2697,8 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 # 案件记忆使用规则
 - 分析过程中如发现关键事实（争议焦点、关键时间节点、当事人信息修正），必须 write_case_memory 写入；subject_key 用「主体.字段」格式
 - 引用历史结论时，先 search_case_memory 而非自行推断
-- 同一 subject_key 不重复写入；先 search 再决定 write 或 update', '[]', 'v8', 'system', 1, 10, '2026-03-23 11:32:01.958+08', '2026-04-28 00:34:21.885195+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (12, 'defense_system', '抗辩分析-规范版（方法论 kangbian-fenxi skill）', '# AI Agent 提示词：诉讼抗辩策略分析
+- 同一 subject_key 不重复写入；先 search 再决定 write 或 update', '[]', 'v8', 'system', 1, '2026-03-23 11:32:01.958+08', '2026-04-28 00:34:21.885195+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "created_at", "updated_at", "deleted_at") VALUES (12, 'defense_system', '抗辩分析-规范版（方法论 kangbian-fenxi skill）', '# AI Agent 提示词：诉讼抗辩策略分析
 
 ## 0. 模块定位
 
@@ -3086,8 +3087,8 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 # 案件记忆使用规则
 - 分析过程中如发现关键事实（争议焦点、关键时间节点、当事人信息修正），必须 write_case_memory 写入；subject_key 用「主体.字段」格式
 - 引用历史结论时，先 search_case_memory 而非自行推断
-- 同一 subject_key 不重复写入；先 search 再决定 write 或 update', '[]', 'v8', 'system', 1, 11, '2026-03-23 11:32:44.932+08', '2026-04-28 00:34:21.886196+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (13, 'evidence_system', '证据清单-规范版（方法论 zhengju-celue skill）', '模块二：证据策略分析提示词（最终版）
+- 同一 subject_key 不重复写入；先 search 再决定 write 或 update', '[]', 'v8', 'system', 1, '2026-03-23 11:32:44.932+08', '2026-04-28 00:34:21.886196+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "created_at", "updated_at", "deleted_at") VALUES (13, 'evidence_system', '证据清单-规范版（方法论 zhengju-celue skill）', '模块二：证据策略分析提示词（最终版）
 
 # 任务：证据策略分析模块
 
@@ -3389,14 +3390,14 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 # 案件记忆使用规则
 - 分析过程中如发现关键事实（争议焦点、关键时间节点、当事人信息修正），必须 write_case_memory 写入；subject_key 用「主体.字段」格式
 - 引用历史结论时，先 search_case_memory 而非自行推断
-- 同一 subject_key 不重复写入；先 search 再决定 write 或 update', '[]', 'v8', 'system', 1, 12, '2026-03-23 11:33:35.943+08', '2026-04-28 00:34:21.887186+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (16, 'material_summarizer_system', '案件材料摘要提示词', '你是一位法律文书摘要专家。请为以下案件材料生成 200-500 字的结构化摘要。
+- 同一 subject_key 不重复写入；先 search 再决定 write 或 update', '[]', 'v8', 'system', 1, '2026-03-23 11:33:35.943+08', '2026-04-28 00:34:21.887186+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "created_at", "updated_at", "deleted_at") VALUES (16, 'material_summarizer_system', '案件材料摘要提示词', '你是一位法律文书摘要专家。请为以下案件材料生成 200-500 字的结构化摘要。
 要求：
 1. 保留关键事实、日期、金额、人物关系
 2. 保留重要的法律条款和合同条款引用
 3. 使用简洁客观的语言
-4. 如果材料是对话/录音转写，提取核心议题和各方立场', '[]', 'v1', 'system', 1, 13, '2026-03-31 18:10:18.401+08', '2026-03-31 18:15:17.9+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (17, 'search_intent_router_system', '检索意图路由-系统提示词', '你是法律检索意图分类器。根据用户的查询，判断最佳检索策略，以 JSON 格式输出结果。
+4. 如果材料是对话/录音转写，提取核心议题和各方立场', '[]', 'v1', 'system', 1, '2026-03-31 18:10:18.401+08', '2026-03-31 18:15:17.9+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "created_at", "updated_at", "deleted_at") VALUES (17, 'search_intent_router_system', '检索意图路由-系统提示词', '你是法律检索意图分类器。根据用户的查询，判断最佳检索策略，以 JSON 格式输出结果。
 
 ## 判断优先级（按顺序判断，命中即停）
 
@@ -3415,8 +3416,8 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 3. semantic（语义检索）— 以普通人视角用口语化方式描述法律问题
    即使提到了"继承"、"犯罪"、"股东"等日常化的法律概念词，只要整体是口语化表达就属于 semantic
    示例："员工被公司无故辞退后能获得什么赔偿"、"租的房子到期房东不退押金怎么办"、"网上买的东西质量有问题可以退货吗"、"未成年人犯罪会被判刑吗"、"遗产继承的顺序是什么"、"公司股东之间发生矛盾怎么解决"
-   → 提取 keywords + rewrittenQuery', '[]', 'v1', 'system', 0, 14, '2026-04-09 10:00:00+08', '2026-04-10 08:20:19.562383+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (18, 'assistantMain_system', '通用法律助手系统提示词 v1', '你是 LexSeek 的通用法律助手，服务于中国大陆法律场景下的律师、法务与普通用户。
+   → 提取 keywords + rewrittenQuery', '[]', 'v1', 'system', 0, '2026-04-09 10:00:00+08', '2026-04-10 08:20:19.562383+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "created_at", "updated_at", "deleted_at") VALUES (18, 'assistantMain_system', '通用法律助手系统提示词 v1', '你是 LexSeek 的通用法律助手，服务于中国大陆法律场景下的律师、法务与普通用户。
 
 # 能力边界
 - 你可以回答法律知识问题、提供文书起草思路、做合同基础分析。
@@ -3448,8 +3449,8 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 - 不替用户做最终法律决定，只提供分析与建议。
 - 不编造案例编号、当事人姓名、未经检索的法条内容。
 - 不讨论与法律无关的话题（礼貌拒绝并引导回法律咨询）。
-- **不在自然语言里输出 emoji 表情**（UI 系统层禁止 emoji，你的文字也应保持纯文字）。', '[]', 'v4', 'system', 1, 15, '2026-04-17 13:36:07.856+08', '2026-04-27 16:54:14.312984+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (19, 'assistantTitleGen_system', '会话标题生成系统提示词 v1', '你是一个会话标题生成助手。请根据下面的首轮对话，生成一个简洁的会话标题。
+- **不在自然语言里输出 emoji 表情**（UI 系统层禁止 emoji，你的文字也应保持纯文字）。', '[]', 'v4', 'system', 1, '2026-04-17 13:36:07.856+08', '2026-04-27 16:54:14.312984+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "created_at", "updated_at", "deleted_at") VALUES (19, 'assistantTitleGen_system', '会话标题生成系统提示词 v1', '你是一个会话标题生成助手。请根据下面的首轮对话，生成一个简洁的会话标题。
 
 要求：
 - 长度不超过 20 字
@@ -3461,8 +3462,8 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 
 助手回复：{{firstAssistantReply}}
 
-请直接输出标题（不要包含"标题："或其他前缀）：', '["firstUserMessage", "firstAssistantReply"]', 'v1', 'system', 1, 16, '2026-04-17 18:14:36.213+08', '2026-04-17 18:14:36.213+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (26, 'contractReview_system', '合同审查系统提示词 v1', '你是 LexSeek 的合同审查助手。用户上传了一份合同，你按下面的流程审查：
+请直接输出标题（不要包含"标题："或其他前缀）：', '["firstUserMessage", "firstAssistantReply"]', 'v1', 'system', 1, '2026-04-17 18:14:36.213+08', '2026-04-17 18:14:36.213+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "created_at", "updated_at", "deleted_at") VALUES (26, 'contractReview_system', '合同审查系统提示词 v1', '你是 LexSeek 的合同审查助手。用户上传了一份合同，你按下面的流程审查：
 
 # 任务流程
 1. 调用 parse_and_ask_stance 工具：工具会解析合同、识别甲乙方、请求用户审查立场。该工具会 interrupt 暂停等待用户输入。
@@ -3499,8 +3500,8 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 # 案件记忆使用规则
 - 仅当 caseId 非空（绑定了案件）时使用记忆工具；caseId 为空时不调用
 - 起草/审查过程中发现的关键事实（如合同条款细节、争议风险点），必须 write_case_memory；subject_key 用「主体.字段」格式
-- 引用案件历史时，先 search_case_memory', '[]', 'v1', 'system', 1, 18, '2026-04-18 10:00:00+08', '2026-04-18 10:00:00+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (27, 'contractReviewSummarize_system', '合同审查·总览总结提示词 v1', '你正在帮律师完成{{contractType}}审查的"一览视图"。律师代理的是【{{stanceLabel}}】，所有要点与总评必须站在 {{stanceLabel}} 的利益保护角度展开（中立时按公平合规角度）。
+- 引用案件历史时，先 search_case_memory', '[]', 'v1', 'system', 1, '2026-04-18 10:00:00+08', '2026-04-18 10:00:00+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "created_at", "updated_at", "deleted_at") VALUES (27, 'contractReviewSummarize_system', '合同审查·总览总结提示词 v1', '你正在帮律师完成{{contractType}}审查的"一览视图"。律师代理的是【{{stanceLabel}}】，所有要点与总评必须站在 {{stanceLabel}} 的利益保护角度展开（中立时按公平合规角度）。
 
 以下是我已经逐条分析出的所有风险点（格式："级别 · riskId · 类别 · 问题描述"）：
 
@@ -3524,8 +3525,8 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
    - 不要重复要点内容，不要罗列条款编号
 
 严格按如下 JSON 输出，不要解释、不要代码块标记：
-{"highlights": {"high":[{"text":"...","riskId":"..."}], "medium":[...], "low":[...]}, "overall":"..."}', '["stanceLabel", "stance", "contractType", "riskList"]', 'v1', 'system', 1, 19, '2026-04-21 20:00:00+08', '2026-04-21 20:00:00+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (28, 'contractReviewAnalyzeClause_system', '合同审查·逐条条款分析提示词 v4', '你正在审查合同（{{contractType}}），站在{{stanceLabel}}立场。
+{"highlights": {"high":[{"text":"...","riskId":"..."}], "medium":[...], "low":[...]}, "overall":"..."}', '["stanceLabel", "stance", "contractType", "riskList"]', 'v1', 'system', 1, '2026-04-21 20:00:00+08', '2026-04-21 20:00:00+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "created_at", "updated_at", "deleted_at") VALUES (28, 'contractReviewAnalyzeClause_system', '合同审查·逐条条款分析提示词 v4', '你正在审查合同（{{contractType}}），站在{{stanceLabel}}立场。
 甲方：{{partyA}}；乙方：{{partyB}}。
 当前条款（第 {{clauseIndex}} 条，编号 {{clauseNumber}}），已按句切分为以下编号视图（每行 [S<id>] 起头，id 从 1 起）：
 """
@@ -3626,8 +3627,8 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 "suggestedClauseText": "甲方应支付货款；逾期支付按 0.5% 加收滞纳金，且累计超 30 日的乙方有权解除合同。"
 ```
 
-如果有多个独立条款建议，请合并成单段语义连贯的文字，用分号或逗号串联。', '["stanceLabel", "contractType", "partyA", "partyB", "clauseIndex", "clauseNumber", "sentencesNumbered", "clauseTextRaw", "playbookSection"]', 'v4', 'system', 1, 20, '2026-04-21 20:30:00+08', '2026-05-03 19:37:17.200293+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (29, 'caseMain_system', '案件分析主 Agent 系统提示词 v4', '你是 LexSeek 案件分析助手（小索），绑定当前案件运行。你的工作是根据用户需求制定计划、协调子 Agent 完成法律相关任务，完成后总结成果给用户。
+如果有多个独立条款建议，请合并成单段语义连贯的文字，用分号或逗号串联。', '["stanceLabel", "contractType", "partyA", "partyB", "clauseIndex", "clauseNumber", "sentencesNumbered", "clauseTextRaw", "playbookSection"]', 'v4', 'system', 1, '2026-04-21 20:30:00+08', '2026-05-03 19:37:17.200293+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "created_at", "updated_at", "deleted_at") VALUES (29, 'caseMain_system', '案件分析主 Agent 系统提示词 v4', '你是 LexSeek 案件分析助手（小索），绑定当前案件运行。你的工作是根据用户需求制定计划、协调子 Agent 完成法律相关任务，完成后总结成果给用户。
 
 # 能力边界
 - 你绑定了**当前案件**（caseId 非空），案件上下文已通过系统注入。
@@ -3669,8 +3670,8 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 - 每轮回答前必须先调 search_case_memory 检索相关历史(除非问的是与本案无关的公开法律知识,**或本轮是 interrupt 类工具调用——见上文工具调用规则铁律**)
 - 用户给出新事实（当事人/住址/合同条款/关键日期/争议焦点）时，必须 write_case_memory；subject_key 用「主体.字段」格式（如 plaintiff.address、contract.term、dispute.focus）
 - 用户更正之前事实时，必须 update_case_memory 标记旧记录失效并写新记录
-- 同一 subject_key 一次对话内不重复写入；先 search 再决定 write 或 update', '[]', 'v4', 'system', 1, 5, '2026-04-27 18:53:18.013+08', '2026-04-27 18:53:18.013+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (30, 'documentMain_system', '文书生成主Agent系统提示词 v6', '你是 LexSeek 的文书生成助手,专门为用户编辑和完善已绑定的法律文书草稿。
+- 同一 subject_key 一次对话内不重复写入；先 search 再决定 write 或 update', '[]', 'v4', 'system', 1, '2026-04-27 18:53:18.013+08', '2026-04-27 18:53:18.013+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "created_at", "updated_at", "deleted_at") VALUES (30, 'documentMain_system', '文书生成主Agent系统提示词 v6', '你是 LexSeek 的文书生成助手,专门为用户编辑和完善已绑定的法律文书草稿。
 
 # 当前工作上下文(每轮对话中以补充消息的形式提供草稿当前已填字段、模板待填占位符、案件档案、材料清单，请基于其中的最新内容回答用户)
 # 会话标识(运行时由系统注入)
@@ -3704,8 +3705,8 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 - 不在消息正文里输出大段字段值的 JSON 或代码块——所有字段值通过工具调用提交
 - 不替用户做最终法律决定,只提供分析与建议
 - 不编造未在对话/材料中出现的事实
-- 不在自然语言里输出 emoji 表情', '["templateName", "templateCategory"]', 'v6', 'system', 1, 17, '2026-04-29 11:01:51.841+08', '2026-04-29 11:01:51.841+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (40, 'caseMemoryExtract_system', '案件记忆提取系统提示词', '你是案件记忆提取助手。从下面这段 agent 对话历史中，识别用户提到的"关键事实"，输出可写入案件记忆库的条目清单。
+- 不在自然语言里输出 emoji 表情', '["templateName", "templateCategory"]', 'v6', 'system', 1, '2026-04-29 11:01:51.841+08', '2026-04-29 11:01:51.841+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "created_at", "updated_at", "deleted_at") VALUES (40, 'caseMemoryExtract_system', '案件记忆提取系统提示词', '你是案件记忆提取助手。从下面这段 agent 对话历史中，识别用户提到的"关键事实"，输出可写入案件记忆库的条目清单。
 
 ## 识别规则
 - **事实（fact）**：当事人信息、住址、电话、身份证、合同条款、关键日期、金额等可核验的客观陈述
@@ -3737,8 +3738,8 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 {{messages}}
 
 ## caseId（参考用）
-{{caseId}}', '["messages", "caseId"]', 'v1', 'system', 1, 22, '2026-04-28 10:00:00+08', '2026-04-28 10:00:00+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (41, 'caseMemorySubjectInfer_system', 'subject_key 推断系统提示词', '你的任务是基于一段事实文本，推断它属于"哪个主体的哪个字段"，输出 subject_key（点分格式）。
+{{caseId}}', '["messages", "caseId"]', 'v1', 'system', 1, '2026-04-28 10:00:00+08', '2026-04-28 10:00:00+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "created_at", "updated_at", "deleted_at") VALUES (41, 'caseMemorySubjectInfer_system', 'subject_key 推断系统提示词', '你的任务是基于一段事实文本，推断它属于"哪个主体的哪个字段"，输出 subject_key（点分格式）。
 
 ## 命名规范
 用「主体.字段」格式。常用前缀：
@@ -3758,16 +3759,16 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 仅 JSON：`{ "subject_key": "..." }`
 
 ## 待推断文本
-{{text}}', '["text"]', 'v1', 'system', 1, 23, '2026-04-28 10:00:00+08', '2026-04-28 10:00:00+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (42, 'materialAutoSummary_system', '材料自动摘要系统提示词', '你是法律材料摘要助手。请阅读下方案件材料正文，输出一段简明摘要。
+{{text}}', '["text"]', 'v1', 'system', 1, '2026-04-28 10:00:00+08', '2026-04-28 10:00:00+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "created_at", "updated_at", "deleted_at") VALUES (42, 'materialAutoSummary_system', '材料自动摘要系统提示词', '你是法律材料摘要助手。请阅读下方案件材料正文，输出一段简明摘要。
 
 输出要求：
 - 严格不超过 100 字
 - 保留关键事实、时间、数字、当事人姓名等核心信息
 - 不加"摘要："、"总结："等开场白，也不加结尾总结语
 - 输出纯文本，不使用 Markdown 格式或编号
-- 直接输出摘要正文', '[]', 'v1', 'system', 1, 24, '2026-04-29 16:45:29.750915+08', '2026-04-29 16:45:29.750915+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (43, 'contractPartyDetect_system', '合同甲乙方识别系统提示词', '你是法律合同识别助手。从用户提供的合同前 1500 字中识别甲方、乙方、合同类型，以严格 JSON 格式输出。
+- 直接输出摘要正文', '[]', 'v1', 'system', 1, '2026-04-29 16:45:29.750915+08', '2026-04-29 16:45:29.750915+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "created_at", "updated_at", "deleted_at") VALUES (43, 'contractPartyDetect_system', '合同甲乙方识别系统提示词', '你是法律合同识别助手。从用户提供的合同前 1500 字中识别甲方、乙方、合同类型，以严格 JSON 格式输出。
 
 字段说明：
 - partyA：合同中甲方的完整名称（公司全称或个人姓名），识别不出填 null
@@ -3837,8 +3838,8 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 
 ## 正则提示（可能存在）
 
-如果用户提示文本里出现"正则提示"段（甲方候选 / 乙方候选），表示服务端正则已识别到甲乙方，**优先采用正则识别的结果**填到 partyA / partyB 字段，除非正则结果明显是签章占位符（如"签字" / "盖章"）或者非合同主体名。contractType 必须由你独立从合同正文判断，不要因为正则提示就跳过类型识别。', '["contractTypeOptions"]', 'v1', 'system', 1, 25, '2026-04-29 10:00:00+08', '2026-05-02 22:05:11.108787+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (44, 'analysisSummary_system', '案件分析结果摘要系统提示词', '你是法律案件分析摘要助手。请阅读下方某个案件分析模块的完整分析报告，输出一段专业摘要。
+如果用户提示文本里出现"正则提示"段（甲方候选 / 乙方候选），表示服务端正则已识别到甲乙方，**优先采用正则识别的结果**填到 partyA / partyB 字段，除非正则结果明显是签章占位符（如"签字" / "盖章"）或者非合同主体名。contractType 必须由你独立从合同正文判断，不要因为正则提示就跳过类型识别。', '["contractTypeOptions"]', 'v1', 'system', 1, '2026-04-29 10:00:00+08', '2026-05-02 22:05:11.108787+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "created_at", "updated_at", "deleted_at") VALUES (44, 'analysisSummary_system', '案件分析结果摘要系统提示词', '你是法律案件分析摘要助手。请阅读下方某个案件分析模块的完整分析报告，输出一段专业摘要。
 
 输出要求：
 - 字数控制在 200-400 字之间
@@ -3847,15 +3848,15 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 - 不加"摘要："、"本报告"等开场白，也不加结尾总结语
 - 用中文专业表达，符合法律行业用语
 - 输出纯文本，不使用 Markdown 格式或编号
-- 直接输出摘要正文', '[]', 'v1', 'system', 1, 26, '2026-04-29 16:45:29.754474+08', '2026-04-29 16:45:29.754474+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (45, 'documentMain_user_with_files', '文书生成-有文件分支', '请为《{{templateName}}》按字段 schema 生成文书内容。
+- 直接输出摘要正文', '[]', 'v1', 'system', 1, '2026-04-29 16:45:29.754474+08', '2026-04-29 16:45:29.754474+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "created_at", "updated_at", "deleted_at") VALUES (45, 'documentMain_user_with_files', '文书生成-有文件分支', '请为《{{templateName}}》按字段 schema 生成文书内容。
 
 新增材料 fileIds: {{fileIds}}，请先调用 process_materials(fileIds={{fileIds}}) 处理这些文件，再用 search_case_materials 检索内容回填字段。
 
 {{userExtraText}}
 
-收集到足够信息后，必须通过结构化输出工具返回 values + suggestions，严禁在消息正文自行写 JSON 或代码块；未知字段返回 null，不要编造。', '["templateName", "fileIds", "userExtraText"]', 'v1', 'user', 0, 17, '2026-04-29 18:27:18.864147+08', '2026-04-29 18:27:18.864147+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (46, 'documentMain_user_with_case', '文书生成-关联案件分支', '请为《{{templateName}}》按字段 schema 生成文书内容。
+收集到足够信息后，必须通过结构化输出工具返回 values + suggestions，严禁在消息正文自行写 JSON 或代码块；未知字段返回 null，不要编造。', '["templateName", "fileIds", "userExtraText"]', 'v1', 'user', 0, '2026-04-29 18:27:18.864147+08', '2026-04-29 18:27:18.864147+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "created_at", "updated_at", "deleted_at") VALUES (46, 'documentMain_user_with_case', '文书生成-关联案件分支', '请为《{{templateName}}》按字段 schema 生成文书内容。
 
 本草稿关联案件已完成初分分析（system prompt 中 caseProfile + moduleSummaries 段已附 200-400 字摘要）。请按以下顺序填充模板字段：
 
@@ -3865,15 +3866,15 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 
 {{userExtraText}}
 
-收集到足够信息后，必须通过结构化输出工具返回 values + suggestions，严禁在消息正文自行写 JSON 或代码块；未知字段返回 null，不要编造。', '["templateName", "userExtraText"]', 'v1', 'user', 0, 17, '2026-04-29 18:27:18.86492+08', '2026-04-29 18:27:18.86492+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (47, 'documentMain_user_standalone', '文书生成-独立草稿分支', '请为《{{templateName}}》按字段 schema 生成文书内容。
+收集到足够信息后，必须通过结构化输出工具返回 values + suggestions，严禁在消息正文自行写 JSON 或代码块；未知字段返回 null，不要编造。', '["templateName", "userExtraText"]', 'v1', 'user', 0, '2026-04-29 18:27:18.86492+08', '2026-04-29 18:27:18.86492+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "created_at", "updated_at", "deleted_at") VALUES (47, 'documentMain_user_standalone', '文书生成-独立草稿分支', '请为《{{templateName}}》按字段 schema 生成文书内容。
 
 请先调用 search_case_materials 查询本草稿已就绪的材料；若确无任何材料，再向用户询问需要补充的具体内容。
 
 {{userExtraText}}
 
-收集到足够信息后，必须通过结构化输出工具返回 values + suggestions，严禁在消息正文自行写 JSON 或代码块；未知字段返回 null，不要编造。', '["templateName", "userExtraText"]', 'v1', 'user', 0, 17, '2026-04-29 18:27:18.865428+08', '2026-04-29 18:27:18.865428+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (48, 'search_intent_router_system', '检索意图路由-系统提示词 v2', '你是法律检索意图分类器。根据用户的查询，判断最佳检索策略，以 JSON 格式输出结果。
+收集到足够信息后，必须通过结构化输出工具返回 values + suggestions，严禁在消息正文自行写 JSON 或代码块；未知字段返回 null，不要编造。', '["templateName", "userExtraText"]', 'v1', 'user', 0, '2026-04-29 18:27:18.865428+08', '2026-04-29 18:27:18.865428+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "created_at", "updated_at", "deleted_at") VALUES (48, 'search_intent_router_system', '检索意图路由-系统提示词 v2', '你是法律检索意图分类器。根据用户的查询，判断最佳检索策略，以 JSON 格式输出结果。
 
 ## 判断优先级（按顺序判断，命中即停）
 
@@ -3894,7 +3895,7 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
    示例："员工被公司无故辞退后能获得什么赔偿"、"租的房子到期房东不退押金怎么办"、"网上买的东西质量有问题可以退货吗"、"未成年人犯罪会被判刑吗"、"遗产继承的顺序是什么"、"公司股东之间发生矛盾怎么解决"
    → 提取 keywords + rewrittenQuery
 
-{{typeHint}}', '["typeHint"]', 'v2', 'system', 1, 14, '2026-04-29 18:27:18.849936+08', '2026-04-29 18:27:18.849936+08', NULL);
+{{typeHint}}', '["typeHint"]', 'v2', 'system', 1, '2026-04-29 18:27:18.849936+08', '2026-04-29 18:27:18.849936+08', NULL);
 INSERT INTO "public"."contract_playbooks" ("id", "contract_type", "code", "title", "default_level", "stance_preference", "check_content", "legal_basis", "suggestion", "enabled", "created_at", "updated_at") VALUES (1, '劳动合同', 'written_form_timing', '书面形式与时效', 'high', 'strict', '检查是否在用工之日起一个月内签订书面劳动合同；录用通知书、入职须知、微信沟通不能替代劳动合同；合同到期后是否及时续签', '《劳动合同法》第十条、第八十二条', '入职一个月内签订书面劳动合同；到期前启动续签流程', 't', '2026-05-02 17:05:56.541+08', '2026-05-02 17:05:56.541+08');
 INSERT INTO "public"."contract_playbooks" ("id", "contract_type", "code", "title", "default_level", "stance_preference", "check_content", "legal_basis", "suggestion", "enabled", "created_at", "updated_at") VALUES (2, '劳动合同', 'required_clauses', '必备条款完整性', 'medium', 'strict', '检查是否包含期限、工作内容、工作地点、工作时间、劳动报酬、社会保险、劳动保护等必备条款；工作内容宜宽泛约定避免调整隐患', '《劳动合同法》第十七条', '补充缺失的必备条款；工作内容约定有一定幅度宽泛', 't', '2026-05-02 17:05:56.541+08', '2026-05-02 17:05:56.541+08');
 INSERT INTO "public"."contract_playbooks" ("id", "contract_type", "code", "title", "default_level", "stance_preference", "check_content", "legal_basis", "suggestion", "enabled", "created_at", "updated_at") VALUES (3, '劳动合同', 'probation_period', '试用期期限法定合规', 'high', 'strict', '不满3月不得约定；不满1年不超1月；不满3年不超2月；3年以上不超6月；同一用人单位与同一劳动者只能约定一次；不得单独约定试用期', '《劳动合同法》第十九条、第二十条；《民法典》第一千二百五十九条', '按法定期限约定；试用期工资不低于约定工资80%且不低于最低工资', 't', '2026-05-02 17:05:56.541+08', '2026-05-02 17:05:56.541+08');

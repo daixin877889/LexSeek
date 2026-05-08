@@ -7,6 +7,7 @@
 
 import { getValidNodeConfig } from '../node/node.service'
 import { createChatModel } from '../node/chatModelFactory'
+import { assembleSystemPromptTemplate } from '../agent-platform/nodeConfig/promptRenderer'
 import { withLangfuseContext } from '~~/server/lib/langfuse'
 
 /** 摘要生成使用的节点名称 */
@@ -56,10 +57,8 @@ async function generateAndCacheSummariesInner(
             streaming: false,
         })
 
-        // 从节点配置获取系统提示词
-        systemPrompt = nodeConfig.prompts?.find(
-            (p: any) => p.type === 'system' && p.status === 1,
-        )?.content ?? ''
+        // 拼接节点所有启用的 system prompt（反越狱护栏 + 业务 prompt 等）
+        systemPrompt = assembleSystemPromptTemplate(nodeConfig.prompts)
         if (!systemPrompt) {
             logger.warn('material_summarizer 节点未配置系统提示词，跳过摘要生成')
             return summaryMap

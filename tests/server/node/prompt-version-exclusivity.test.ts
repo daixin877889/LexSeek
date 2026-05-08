@@ -4,8 +4,9 @@
  * **Feature: case-analysis, Property 6: 提示词版本互斥性**
  * **Validates: Requirements 14.12**
  *
- * 测试属性：同一节点、同一类型下只能有一个版本处于生效状态，
- * 激活新版本时其他版本应自动设为未生效。
+ * Phase 6 改造：原"同节点 + 同名 + 同类型互斥"放宽为"同名 + 同类型全局互斥"。
+ * 因 prompts 不再绑定 nodeId，一段提示词可被多节点引用，但同 (name, type) 下
+ * 仅允许一条 status=1，激活新版本时其他版本自动设为未生效。
  */
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
@@ -14,11 +15,7 @@ import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '../../../generated/prisma/client'
 import { config } from 'dotenv'
 import { resolve } from 'node:path'
-import {
-    createPromptService,
-    activatePromptService,
-} from '../../../server/services/node/prompt.service'
-import { findActivePromptDao } from '../../../server/services/node/prompt.dao'
+import { activatePromptService } from '../../../server/services/node/prompt.service'
 import type { PromptType } from '#shared/types/node'
 
 // 加载测试环境变量（强制指向 .env.testing，避免误连生产库）
@@ -38,71 +35,14 @@ const testPrisma = createTestPrisma()
 
 // 测试数据 ID 追踪
 const testIds = {
-    nodeIds: [] as number[],
     promptIds: [] as number[],
-    modelIds: [] as number[],
-    providerIds: [] as number[],
 }
 
 // 生成唯一的测试标识
 const generateTestId = () => `test_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 
-// 创建测试模型（节点需要关联模型）
-const createTestModel = async () => {
-    // 查找已有的模型提供商或创建一个
-    let provider = await testPrisma.modelProviders.findFirst({
-        where: { deletedAt: null },
-    })
-
-    if (!provider) {
-        provider = await testPrisma.modelProviders.create({
-            data: {
-                name: `test_provider_${generateTestId()}`,
-                baseUrl: 'https://api.test.com',
-            },
-        })
-        testIds.providerIds.push(provider.id)
-    }
-
-    const model = await testPrisma.models.create({
-        data: {
-            name: `test_model_${generateTestId()}`,
-            displayName: '测试模型',
-            providerId: provider.id,
-            modelType: 'chat',
-            status: 1,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-        },
-    })
-    testIds.modelIds.push(model.id)
-    return model
-}
-
-// 创建测试节点
-const createTestNode = async (modelId: number) => {
-    const testId = generateTestId()
-    const node = await testPrisma.nodes.create({
-        data: {
-            name: `test_node_${testId}`,
-            title: `测试节点_${testId}`,
-            description: '测试用节点',
-            type: 'analysis',
-            priority: 100,
-            modelId,
-            tools: [],
-            status: 1,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-        },
-    })
-    testIds.nodeIds.push(node.id)
-    return node
-}
-
 // 创建测试提示词（直接使用数据库，不通过服务层）
 const createTestPromptDirect = async (
-    nodeId: number,
     name: string,
     type: PromptType,
     version: string,
@@ -117,7 +57,6 @@ const createTestPromptDirect = async (
             version,
             type,
             status,
-            nodeId,
             createdAt: new Date(),
             updatedAt: new Date(),
         },
@@ -127,34 +66,22 @@ const createTestPromptDirect = async (
 }
 
 // 清理测试数据
+// 阶段 F 改造：node_prompts 不再绑定 promptId，按 promptName 反查即可清理本测试创建的链接
 const cleanupTestData = async () => {
-    // 按依赖顺序删除
     if (testIds.promptIds.length > 0) {
+        const promptRows = await testPrisma.prompts.findMany({
+            where: { id: { in: testIds.promptIds } },
+            select: { name: true, type: true },
+        })
+        if (promptRows.length > 0) {
+            await testPrisma.node_prompts.deleteMany({
+                where: { OR: promptRows.map(p => ({ promptName: p.name, promptType: p.type })) },
+            })
+        }
         await testPrisma.prompts.deleteMany({
             where: { id: { in: testIds.promptIds } },
         })
         testIds.promptIds = []
-    }
-    if (testIds.nodeIds.length > 0) {
-        await testPrisma.nodes.deleteMany({
-            where: { id: { in: testIds.nodeIds } },
-        })
-        testIds.nodeIds = []
-    }
-    if (testIds.modelIds.length > 0) {
-        await testPrisma.models.deleteMany({
-            where: { id: { in: testIds.modelIds } },
-        })
-        testIds.modelIds = []
-    }
-    if (testIds.providerIds.length > 0) {
-        await testPrisma.modelApiKeys.deleteMany({
-            where: { providerId: { in: testIds.providerIds } },
-        })
-        await testPrisma.modelProviders.deleteMany({
-            where: { id: { in: testIds.providerIds } },
-        })
-        testIds.providerIds = []
     }
 }
 
@@ -163,9 +90,7 @@ describe('提示词版本互斥性属性测试', () => {
         try {
             await testPrisma.$connect()
             // 重置序列以避免冲突
-            await testPrisma.$executeRaw`SELECT setval('nodes_id_seq', GREATEST((SELECT MAX(id) FROM nodes), 1000))`
             await testPrisma.$executeRaw`SELECT setval('prompts_id_seq', GREATEST((SELECT MAX(id) FROM prompts), 1000))`
-            await testPrisma.$executeRaw`SELECT setval('models_id_seq', GREATEST((SELECT MAX(id) FROM models), 1000))`
         } catch (error) {
             console.warn('数据库连接失败，跳过测试')
         }
@@ -177,36 +102,32 @@ describe('提示词版本互斥性属性测试', () => {
 
     afterAll(async () => {
         // 按前缀做全局清理，覆盖 afterEach 中 testIds 未追踪到的残留数据
+        // 阶段 F 改造：node_prompts 按 (name, type) 关联，先按 name 前缀反查 prompts 拿身份再清 node_prompts
         try {
-            const testNodeIds = (await testPrisma.nodes.findMany({ where: { name: { startsWith: 'test_node_' } }, select: { id: true } })).map(n => n.id)
-            if (testNodeIds.length > 0) {
-                await testPrisma.prompts.deleteMany({ where: { nodeId: { in: testNodeIds } } })
-                await testPrisma.levelNodeAccess.deleteMany({ where: { nodeId: { in: testNodeIds } } })
-                await testPrisma.caseAnalyses.deleteMany({ where: { nodeId: { in: testNodeIds } } })
+            const remainingPrompts = await testPrisma.prompts.findMany({
+                where: { name: { startsWith: 'prompt_' } },
+                select: { id: true, name: true, type: true },
+            })
+            if (remainingPrompts.length > 0) {
+                await testPrisma.node_prompts.deleteMany({
+                    where: { OR: remainingPrompts.map(p => ({ promptName: p.name, promptType: p.type })) },
+                })
+                await testPrisma.prompts.deleteMany({
+                    where: { id: { in: remainingPrompts.map(p => p.id) } },
+                })
             }
-            await testPrisma.nodes.deleteMany({ where: { name: { startsWith: 'test_node_' } } })
-            await testPrisma.nodeGroups.deleteMany({ where: { name: { startsWith: 'group_test_' } } })
-            await testPrisma.models.deleteMany({ where: { name: { startsWith: 'test_model_' } } })
-            const testProviderIds = (await testPrisma.modelProviders.findMany({ where: { name: { startsWith: 'test_provider_' } }, select: { id: true } })).map(p => p.id)
-            if (testProviderIds.length > 0) {
-                await testPrisma.modelApiKeys.deleteMany({ where: { providerId: { in: testProviderIds } } })
-            }
-            await testPrisma.modelProviders.deleteMany({ where: { name: { startsWith: 'test_provider_' } } })
         } catch { /* 最终清理忽略错误 */ }
         await testPrisma.$disconnect()
     })
 
     describe('Property 6: 提示词版本互斥性', () => {
         /**
-         * 属性测试：激活提示词后，同一节点、同一类型下只能有一个版本处于生效状态
+         * 属性测试：激活提示词后，同名 + 同类型下只能有一个版本处于生效状态
          *
          * **Feature: case-analysis, Property 6: 提示词版本互斥性**
          * **Validates: Requirements 14.12**
          */
-        it('属性测试：激活任意提示词后，同节点同类型下只有一个生效版本', async () => {
-            const model = await createTestModel()
-            const node = await createTestNode(model.id)
-
+        it('属性测试：激活任意提示词后，同名同类型下只有一个生效版本', async () => {
             // 提示词类型生成器
             const promptTypeArb = fc.constantFrom<PromptType>('system', 'user', 'assistant')
 
@@ -225,7 +146,6 @@ describe('提示词版本互斥性属性测试', () => {
                         // 创建多个版本的提示词
                         for (let i = 1; i <= versionCount; i++) {
                             const prompt = await createTestPromptDirect(
-                                node.id,
                                 promptName,
                                 promptType,
                                 `v${i}`,
@@ -238,13 +158,12 @@ describe('提示词版本互斥性属性测试', () => {
                         const safeActivateIndex = activateIndex % createdPrompts.length
 
                         // 激活指定版本
-                        const promptToActivate = createdPrompts[safeActivateIndex]
+                        const promptToActivate = createdPrompts[safeActivateIndex]!
                         await activatePromptService(promptToActivate.id)
 
-                        // 验证：查询所有同节点同类型的提示词
+                        // 验证：查询所有同名同类型的提示词
                         const allPrompts = await testPrisma.prompts.findMany({
                             where: {
-                                nodeId: node.id,
                                 name: promptName,
                                 type: promptType,
                                 deletedAt: null,
@@ -258,7 +177,7 @@ describe('提示词版本互斥性属性测试', () => {
                         expect(activePrompts.length).toBe(1)
 
                         // 属性断言：生效的是我们激活的那个
-                        expect(activePrompts[0].id).toBe(promptToActivate.id)
+                        expect(activePrompts[0]!.id).toBe(promptToActivate.id)
 
                         // 属性断言：其他版本都是未生效状态
                         const inactivePrompts = allPrompts.filter(p => p.status === 0)
@@ -273,7 +192,7 @@ describe('提示词版本互斥性属性测试', () => {
                         )
                     }
                 ),
-                { numRuns: 100 }
+                { numRuns: 100, seed: 42 }
             )
         })
 
@@ -284,9 +203,6 @@ describe('提示词版本互斥性属性测试', () => {
          * **Validates: Requirements 14.12**
          */
         it('属性测试：连续激活不同版本，始终保持只有一个生效', async () => {
-            const model = await createTestModel()
-            const node = await createTestNode(model.id)
-
             // 激活序列生成器（随机激活顺序）
             const activationSequenceArb = fc.array(
                 fc.integer({ min: 0, max: 3 }),
@@ -304,7 +220,6 @@ describe('提示词版本互斥性属性测试', () => {
                         // 创建 4 个版本的提示词
                         for (let i = 1; i <= 4; i++) {
                             const prompt = await createTestPromptDirect(
-                                node.id,
                                 promptName,
                                 promptType,
                                 `v${i}`,
@@ -316,12 +231,11 @@ describe('提示词版本互斥性属性测试', () => {
                         // 按序列激活不同版本
                         for (const index of activationSequence) {
                             const safeIndex = index % createdPrompts.length
-                            await activatePromptService(createdPrompts[safeIndex].id)
+                            await activatePromptService(createdPrompts[safeIndex]!.id)
 
-                            // 每次激活后验证只有一个生效
+                            // 每次激活后验证只有一个生效（按 name + type 维度）
                             const allPrompts = await testPrisma.prompts.findMany({
                                 where: {
-                                    nodeId: node.id,
                                     name: promptName,
                                     type: promptType,
                                     deletedAt: null,
@@ -341,7 +255,7 @@ describe('提示词版本互斥性属性测试', () => {
                         )
                     }
                 ),
-                { numRuns: 100 }
+                { numRuns: 100, seed: 42 }
             )
         })
 
@@ -352,9 +266,6 @@ describe('提示词版本互斥性属性测试', () => {
          * **Validates: Requirements 14.12**
          */
         it('属性测试：不同类型的提示词激活互不影响', async () => {
-            const model = await createTestModel()
-            const node = await createTestNode(model.id)
-
             const promptTypes: PromptType[] = ['system', 'user', 'assistant']
 
             await fc.assert(
@@ -369,7 +280,6 @@ describe('提示词版本互斥性属性测试', () => {
                             const prompts: { id: number; version: string }[] = []
                             for (let i = 1; i <= versionsPerType; i++) {
                                 const prompt = await createTestPromptDirect(
-                                    node.id,
                                     promptName,
                                     type,
                                     `v${i}`,
@@ -383,21 +293,26 @@ describe('提示词版本互斥性属性测试', () => {
                         // 激活每种类型的第一个版本
                         for (const type of promptTypes) {
                             const prompts = createdPrompts.get(type)!
-                            await activatePromptService(prompts[0].id)
+                            await activatePromptService(prompts[0]!.id)
                         }
 
-                        // 验证每种类型都有且只有一个生效版本
+                        // 验证每种类型都有且只有一个生效版本（按 name + type 维度）
                         for (const type of promptTypes) {
-                            const activePrompt = await findActivePromptDao(node.id, type)
-                            expect(activePrompt).not.toBeNull()
-                            expect(activePrompt!.type).toBe(type)
-                            expect(activePrompt!.status).toBe(1)
+                            const activePrompts = await testPrisma.prompts.findMany({
+                                where: {
+                                    name: promptName,
+                                    type,
+                                    status: 1,
+                                    deletedAt: null,
+                                },
+                            })
+                            expect(activePrompts.length).toBe(1)
+                            expect(activePrompts[0]!.type).toBe(type)
                         }
 
                         // 验证总共有 3 个生效的提示词（每种类型一个）
                         const allActivePrompts = await testPrisma.prompts.findMany({
                             where: {
-                                nodeId: node.id,
                                 name: promptName,
                                 status: 1,
                                 deletedAt: null,
@@ -413,7 +328,7 @@ describe('提示词版本互斥性属性测试', () => {
                         testIds.promptIds = testIds.promptIds.filter(id => !allIds.includes(id))
                     }
                 ),
-                { numRuns: 100 }
+                { numRuns: 100, seed: 42 }
             )
         })
     })
