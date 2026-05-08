@@ -306,11 +306,14 @@ export class AgentWorker {
             const lastTask = threadState.tasks?.at(-1)
             interrupts = lastTask?.interrupts
           } else {
-            // 对话式聊天：通过 getChatThreadState 获取 thread state
-            const { getChatThreadState } = await import('../workflow/agents')
-            const threadState = await getChatThreadState(run.sessionId) as any
-            const lastTask = threadState.tasks?.at(-1)
-            interrupts = lastTask?.interrupts
+            // 对话式聊天：直接从 PostgresSaver pendingWrites 抽 __interrupt__。
+            // 不能用 dummy createAgent + getState().tasks 那条路径——caseMain 等
+            // 真实 agent 带大量 middleware + tools，dummy 拓扑识别不出 task，
+            // tasks.interrupts 永远空 → run 错标 COMPLETED → 刷新页面后 SSE 把
+            // pendingWrites 中残留的 __interrupt__ 当 stale 剥掉，模板卡片永久 loading。
+            // 详见 commit 17510fe0 + threadState.ts:111-127 的注释。
+            const { getPendingInterruptsService } = await import('../workflow/agents')
+            interrupts = await getPendingInterruptsService(run.sessionId)
           }
 
           if (interrupts?.length) {
