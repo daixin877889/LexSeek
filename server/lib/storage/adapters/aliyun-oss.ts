@@ -241,7 +241,7 @@ export class AliyunOssAdapter extends BaseStorageAdapter {
     /**
      * 查询对象元数据
      */
-    async head(path: string): Promise<HeadObjectResult | null> {
+    override async head(path: string): Promise<HeadObjectResult | null> {
         try {
             return await ossHeadFile(this.toOssConfig(), path)
         } catch (error) {

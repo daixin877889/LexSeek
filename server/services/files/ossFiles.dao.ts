@@ -389,8 +389,8 @@ export async function markOssFileUploadedByVerifyDao(
 
     if (result.count > 0) {
         logger.info(
-            { fileId, source: 'confirm_upload', auditNote: options?.auditNote ?? null },
-            '[ossFiles] PENDING → UPLOADED via head verification'
+            '[ossFiles] PENDING → UPLOADED via head verification',
+            { fileId, source: 'confirm_upload', auditNote: options?.auditNote ?? null }
         )
     }
     return result.count
