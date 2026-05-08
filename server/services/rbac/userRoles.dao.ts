@@ -20,24 +20,6 @@ export const createUserRoleDao = async (userId: number, roleId: number, tx?: Pri
     }
 }
 
-/**
- * 批量创建用户角色关联
- */
-export const createUserRolesDao = async (userId: number, roleIds: number[], tx?: Prisma.TransactionClient): Promise<number> => {
-    if (roleIds.length === 0) return 0
-    try {
-        const now = new Date()
-        const result = await (tx || prisma).userRoles.createMany({
-            data: roleIds.map(roleId => ({ userId, roleId, createdAt: now, updatedAt: now })),
-            skipDuplicates: true,
-        })
-        return result.count
-    } catch (error: any) {
-        logger.error("批量创建用户角色关联失败:", error);
-        throw error;
-    }
-}
-
 
 /**
  * 通过用户ID查询用户角色

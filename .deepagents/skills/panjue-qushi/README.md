@@ -18,16 +18,16 @@
 
 | 方法 | 用途 | 文档 |
 |------|------|------|
-| 法官裁判路径预判法 | 模拟法官八步法审理流程 | [references/法官裁判路径.md](./references/法官裁判路径.md) |
-| 定量核查法 | 分步核查数字、款项、日期计算 | [references/定量核查.md](./references/定量核查.md) |
-| 法律时效审查法 | 动态审查法律知识时效性 | [references/法律时效审查.md](./references/法律时效审查.md) |
-| 诉讼时效审查法 | 特别法优先的时效审查 | [references/诉讼时效审查.md](./references/诉讼时效审查.md) |
-| 新旧法适用法 | 法不溯及既往的适用规则 | [references/新旧法适用.md](./references/新旧法适用.md) |
-| 司法解释适用法 | 解释生效、溯及力、引用规则 | [references/司法解释适用.md](./references/司法解释适用.md) |
-| 法律合理性审查法 | 审查原被告主张、举证分配、抗辩预判 | [references/法律合理性审查.md](./references/法律合理性审查.md) |
-| 涵摄判断法 | 将事实代入要件进行成就判断 | [references/涵摄判断.md](./references/涵摄判断.md) |
-| 证明标准分析法 | 高度盖然性vs排除合理怀疑 | [references/证明标准分析.md](./references/证明标准分析.md) |
-| 趋势预测法 | 基于要件成就状态的定性预测 | [references/趋势预测.md](./references/趋势预测.md) |
+| 法官裁判路径预判法 | 模拟法官八步法审理流程 | [references/faguan-caipan-lujing.md](./references/faguan-caipan-lujing.md) |
+| 定量核查法 | 分步核查数字、款项、日期计算 | [references/dingliang-hecha.md](./references/dingliang-hecha.md) |
+| 法律时效审查法 | 动态审查法律知识时效性 | [references/falv-shixiao.md](./references/falv-shixiao.md) |
+| 诉讼时效审查法 | 特别法优先的时效审查 | [references/susong-shixiao.md](./references/susong-shixiao.md) |
+| 新旧法适用法 | 法不溯及既往的适用规则 | [references/xinjiufa-shiyong.md](./references/xinjiufa-shiyong.md) |
+| 司法解释适用法 | 解释生效、溯及力、引用规则 | [references/sifa-jieshi.md](./references/sifa-jieshi.md) |
+| 法律合理性审查法 | 审查原被告主张、举证分配、抗辩预判 | [references/falv-helixaing.md](./references/falv-helixaing.md) |
+| 涵摄判断法 | 将事实代入要件进行成就判断 | [references/hanshe-panduan.md](./references/hanshe-panduan.md) |
+| 证明标准分析法 | 高度盖然性vs排除合理怀疑 | [references/zhengming-biaozhun.md](./references/zhengming-biaozhun.md) |
+| 趋势预测法 | 基于要件成就状态的定性预测 | [references/qushi-yuce.md](./references/qushi-yuce.md) |
 
 ## 使用场景
 

@@ -24,8 +24,6 @@ import {
     updateAsrRecordsByTaskIdDao,
 } from './asr.dao'
 import { generateSignedUrlService, uploadFileService, deleteFileService } from '../storage/storage.service'
-import { markMaterialsByOssFileIdService, generateOssFileSummaryService } from './material.service'
-import { MaterialStatus } from '#shared/types/material'
 import { v7 as uuidv7 } from 'uuid'
 import dayjs from 'dayjs'
 import { $fetch as ofetch } from 'ofetch'
@@ -877,15 +875,6 @@ export const completeTranscriptionService = async (
         // Requirements: 6.5.2
         triggerAudioEmbeddingAsync(record.id, userId)
 
-        // 6.1 切对应 caseMaterials 状态为 COMPLETED + 异步生成摘要
-        // 历史 bug：之前只更新 asrTasks/asrRecords，case_materials.status 永远停在 PENDING/PROCESSING
-        await markMaterialsByOssFileIdService(ossFileId, MaterialStatus.COMPLETED)
-
-        // 6.2 fire-and-forget 按 OssFile 触发摘要生成
-        // 不依赖 caseMaterials 行存在（小索/法律助手输入框上传场景下还没创建 caseMaterials）
-        // 内部按 ossFileId 自动定位识别记录表写入 summary；防重 + 重试由 service 内部承担
-        generateOssFileSummaryService(ossFileId).catch(() => { /* 已在内部 catch */ })
-
         // 7. 清理临时文件（加密文件解密后上传的临时文件）
         // Requirements: 6.7.3
         if (tempFilePath) {
@@ -964,12 +953,6 @@ export const failTranscriptionService = async (
 
         // 3. 从 taskRawData 中提取必要信息
         const taskRawData = task.taskRawData as Record<string, any> | null
-
-        // 3.1 切对应 caseMaterials 状态为 FAILED（如果有 ossFileId 关联）
-        const failedOssFileId = taskRawData?.ossFileId as number | null
-        if (failedOssFileId) {
-            await markMaterialsByOssFileIdService(failedOssFileId, MaterialStatus.FAILED)
-        }
 
         // 4. 回滚预扣积分
         // Requirements: 3.2.10
@@ -1333,7 +1316,7 @@ export interface AudioEmbeddingResult {
  * @param speakers 说话人信息列表（可选）
  * @returns 格式化后的文本
  */
-export function extractTextFromSimplifiedResult(
+function extractTextFromSimplifiedResult(
     result: SimplifiedAsrResult | Record<string, any>,
     speakers?: Array<{ id: number; name: string }>
 ): string {
@@ -1448,13 +1431,12 @@ export const embedAsrRecordService = async (
             fileName,
         })
 
-        // 8. 更新 ASR 识别记录的向量信息
-        // 注意：summary 字段不在此处写入——已切换语义为"200 字摘要"，由
-        // generateOssFileSummaryService 在识别完成后按 ossFileId 异步生成；
-        // 转录正文由 fetchMaterialContents 等读取方从 result JSON 现拼。
+        // 8. 更新 ASR 识别记录的向量信息 + 摘要文本
+        // summary 字段供 fetchMaterialContents 读取，作为材料上下文注入工作流
         await updateAsrRecordDao(recordId, {
             vectorIds: embeddingResult.ids,
             lastEmbeddingAt: new Date(embeddingResult.lastEmbeddingAt),
+            summary: text,
         }, tx)
 
         logger.info(`音频识别结果向量化完成：recordId=${recordId}, ossFileId=${record.ossFileId}, chunkCount=${embeddingResult.chunkCount}`)
@@ -1474,47 +1456,4 @@ export const embedAsrRecordService = async (
             error: error instanceof Error ? error.message : '向量化失败',
         }
     }
-}
-
-/**
- * 从 ASR result JSON 提取纯文本（兼容多种 result 形态）
- *
- * 与 extractTextFromSimplifiedResult 不同：本函数不带说话人/时间戳，纯文本；
- * 用于摘要 LLM 输入和材料正文读取。
- *
- * 兼容两种格式：
- * - 扁平格式: { sentences: [{ text }] }
- * - SimplifiedAsrResult 嵌套格式: { transcripts: [{ sentences: [{ text }] }] }
- *
- * 放在 asr.service.ts 是为了让 material.service.ts 可以直接 import 而不形成
- * material ↔ pipeline 的循环依赖（pipeline 本身已 import material）。
- */
-export function extractTextFromAsrResult(result: any): string | null {
-    if (!result) return null
-
-    // 扁平格式: { sentences: [...] }
-    if (result.sentences && Array.isArray(result.sentences)) {
-        const text = result.sentences
-            .map((s: any) => s.text || '')
-            .filter(Boolean)
-            .join('\n')
-        if (text) return text
-    }
-
-    // SimplifiedAsrResult 嵌套格式: { transcripts: [{ sentences: [...] }] }
-    if (result.transcripts && Array.isArray(result.transcripts)) {
-        const text = result.transcripts
-            .flatMap((t: any) => t.sentences || [])
-            .map((s: any) => s.text || '')
-            .filter(Boolean)
-            .join('\n')
-        if (text) return text
-    }
-
-    // 兜底：直接取 text 字段
-    if (typeof result.text === 'string' && result.text.trim()) {
-        return result.text
-    }
-
-    return null
 }

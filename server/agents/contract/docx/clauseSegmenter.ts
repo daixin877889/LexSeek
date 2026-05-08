@@ -125,13 +125,10 @@ function extractDiTiaoIndex(number: string): number | null {
     return null
 }
 
-/**
- * 常用条款编号正则（按优先级组合，每组捕获"标号"）
- * `splitSentences` 也复用这三个正则识别行首子项编号作为切句点（spec §5.1）。
- */
-export const RE_DI_TIAO = /(第[一二三四五六七八九十零百千0-9\.]+条)/
-export const RE_NUM_DOT = /^(\d+(?:\.\d+)*\.?)\s/
-export const RE_CN_COMMA = /^([一二三四五六七八九十百千]+、)/
+/** 常用条款编号正则（按优先级组合，每组捕获"标号"） */
+const RE_DI_TIAO = /(第[一二三四五六七八九十零百千0-9\.]+条)/
+const RE_NUM_DOT = /^(\d+(?:\.\d+)*\.?)\s/
+const RE_CN_COMMA = /^([一二三四五六七八九十百千]+、)/
 
 /**
  * 按正则切分合同全文。每个 segment 包括编号及其到下一个编号（或文末）之间的全部文本。
@@ -175,24 +172,12 @@ export function segmentClausesByRegex(fullText: string): SegmentClausesResult {
             continue
         }
 
-        // 编号识别：区分单数字 X.（相对父条款内部计数）vs 多级 X.Y（全局多级编号）
-        //   - 单数字 X.：每个父条款内从 1. 重置（如「第一条」「第二条」内都有自己的「1.」），
-        //     与父级序号无关 → 总是识别为子项
-        //   - 多级 X.Y：整数前缀是父级序号（如「3.1」属「第三条」），需匹配 currentDiTiaoIdx
-        //     才识别（避免「3.1」在「第二条」内被误判为子项）
+        // 「X.X」级编号：若存在「第X条」格式，则要求整数前缀等于当前父级序号
         const m1 = line.match(RE_NUM_DOT)
         if (m1?.[1]) {
-            const numStr = m1[1]
-            const isMultiLevel = /^\d+\.\d/.test(numStr) // 形如「3.1」「1.2.3」
-            if (isMultiLevel) {
-                const intPrefix = parseInt(numStr.split('.')[0]!, 10)
-                if (!hasDiTiao || currentDiTiaoIdx === intPrefix) {
-                    matches.push({ lineIdx: i, number: numStr.replace(/\s+$/, '') })
-                    continue
-                }
-            } else {
-                // 单数字 X. 总识别（hasDiTiao 模式下相对父级；无 hasDiTiao 时是顶级编号）
-                matches.push({ lineIdx: i, number: numStr.replace(/\s+$/, '') })
+            const intPrefix = parseInt(m1[1].split('.')[0]!, 10)
+            if (!hasDiTiao || currentDiTiaoIdx === intPrefix) {
+                matches.push({ lineIdx: i, number: m1[1].replace(/\s+$/, '') })
                 continue
             }
         }
@@ -211,15 +196,7 @@ export function segmentClausesByRegex(fullText: string): SegmentClausesResult {
         // trim() 可能截掉头部空白，offsetStart 需找到 trim 后第一个字符的位置
         const offsetStart = normalizedText.indexOf(text)
         return {
-            segments: [{
-                index: 1,
-                number: null,
-                text,
-                textWithoutNumber: text,
-                offsetStart,
-                offsetEnd: offsetStart + text.length,
-                offsetStartWithoutNumber: offsetStart,
-            }],
+            segments: [{ index: 1, number: null, text, offsetStart, offsetEnd: offsetStart + text.length }],
             normalizedText,
         }
     }
@@ -247,25 +224,12 @@ export function segmentClausesByRegex(fullText: string): SegmentClausesResult {
         // trim() 可能截掉 raw 头部空白，offsetStart 是 raw 内 text 的起始相对位移
         const trimOffset = raw.indexOf(text)
         const offsetStart = rawStart + trimOffset
-
-        // PR10：剥行首编号字符填 textWithoutNumber + offsetStartWithoutNumber
-        const number = matches[i]!.number
-        let textWithoutNumber = text
-        let skippedLen = 0
-        if (number && text.startsWith(number)) {
-            const afterNumber = text.slice(number.length).replace(/^\s+/, '')
-            skippedLen = text.length - afterNumber.length
-            textWithoutNumber = afterNumber
-        }
-
         segments.push({
             index: segments.length + 1,
-            number,
+            number: matches[i]!.number,
             text,
-            textWithoutNumber,
             offsetStart,
             offsetEnd: offsetStart + text.length,
-            offsetStartWithoutNumber: offsetStart + skippedLen,
         })
     }
     return { segments, normalizedText }

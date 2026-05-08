@@ -17,7 +17,7 @@ export const documentAgent = defineDomainAgent({
     scope: SessionScope.DOCUMENT,
     agentType: 'stateGraph',
     nodeName: 'documentMain',
-    description: '文书生成主 Agent（标准 ReAct + skill 加载 + 三入口共享工具）',
+    description: '文书生成主 Agent（动态 responseFormat + draftResultPersistence）',
     runStateGraph: async (ctx) => {
         const { runDocumentChat } = await import(
             '~~/server/services/workflow/agents/documentMainAgent'

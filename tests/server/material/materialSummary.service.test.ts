@@ -84,7 +84,7 @@ describe('材料摘要生成服务', () => {
             expect(result.size).toBe(0)
         })
 
-        it('应成功生成摘要并返回内存结果（caseMaterials.summary 字段已删，DB 持久化由 T3 重写）', async () => {
+        it('应成功生成摘要并写入数据库', async () => {
             const mockModel = {
                 invoke: vi.fn().mockResolvedValue({ content: '这是摘要内容' }),
             }
@@ -96,6 +96,7 @@ describe('材料摘要生成服务', () => {
                 prompts: [{ type: 'system', status: 1, content: '你是一个摘要助手' }],
             } as any)
             vi.mocked(createChatModel).mockReturnValue(mockModel as any)
+            mockPrisma.caseMaterials.update.mockResolvedValue({})
 
             const materials = [{ id: 1, name: '材料1' }]
             const contentMap = new Map([[1, '这是材料内容']])
@@ -104,8 +105,7 @@ describe('材料摘要生成服务', () => {
 
             expect(result.size).toBe(1)
             expect(result.get(1)).toBe('这是摘要内容')
-            // T9 移除了 caseMaterials.summary 写入；T3 会按 type 写到识别记录表
-            expect(mockPrisma.$transaction).not.toHaveBeenCalled()
+            expect(mockPrisma.$transaction).toHaveBeenCalled()
         })
 
         it('材料内容为空时应跳过', async () => {

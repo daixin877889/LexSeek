@@ -57,8 +57,6 @@
                                 <TableHead>Token 值</TableHead>
                                 <TableHead>备注</TableHead>
                                 <TableHead class="w-[80px]">状态</TableHead>
-                                <TableHead class="w-[140px]">到期时间</TableHead>
-                                <TableHead class="w-[160px]">最近使用</TableHead>
                                 <TableHead class="w-[160px]">创建时间</TableHead>
                                 <TableHead class="w-[100px] text-right">操作</TableHead>
                             </TableRow>
@@ -76,18 +74,9 @@
                                     {{ item.remark || '-' }}
                                 </TableCell>
                                 <TableCell>
-                                    <div class="flex flex-col gap-1">
-                                        <Badge :variant="item.status === 1 ? 'default' : 'secondary'">
-                                            {{ item.status === 1 ? '启用' : '禁用' }}
-                                        </Badge>
-                                        <Badge v-if="item.expired" variant="destructive" class="w-fit">已过期</Badge>
-                                    </div>
-                                </TableCell>
-                                <TableCell class="text-muted-foreground">
-                                    {{ item.expiresAt ? formatDate(item.expiresAt) : '永不过期' }}
-                                </TableCell>
-                                <TableCell class="text-muted-foreground">
-                                    {{ item.lastUsedAt ? formatDate(item.lastUsedAt) : '-' }}
+                                    <Badge :variant="item.status === 1 ? 'default' : 'secondary'">
+                                        {{ item.status === 1 ? '启用' : '禁用' }}
+                                    </Badge>
                                 </TableCell>
                                 <TableCell class="text-muted-foreground">
                                     {{ formatDate(item.createdAt) }}
@@ -165,9 +154,6 @@ interface MineruTokenMasked {
     tokenMasked: string
     remark?: string | null
     status: number
-    expiresAt?: Date | string | null
-    lastUsedAt?: Date | string | null
-    expired?: boolean
     createdAt: Date | string
     updatedAt: Date | string
 }

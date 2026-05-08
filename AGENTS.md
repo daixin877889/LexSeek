@@ -39,12 +39,11 @@ LexSeek 是一个全栈法律服务 AI 应用，通过 AI 赋能法律分析。
 | types.md | 全局 |
 | database.md | 全局 |
 | api.md | server/** |
-| ui.md | app/components/**, app/pages/**, app/**/*.vue |
+| ui.md | app/components/**, app/**/*.vue |
 | testing.md | tests/** |
 | fetch.md | app/** |
-| tech-docs.md | server/services/**, server/lib/**, prisma/** |
-| tech-docs-frontend.md | app/components/**, app/composables/**, app/store/**, app/layouts/**, app/pages/** |
-| agent-platform.md | server/services/agent-platform/**, server/agents/**, server/services/memory/** |
+| tech-docs.md | server/services/**, prisma/** |
+| tech-docs-frontend.md | app/components/**, app/composables/**, app/store/** |
 
 ## 技术文档
 
@@ -63,8 +62,7 @@ LexSeek 是一个全栈法律服务 AI 应用，通过 AI 赋能法律分析。
 1. 不许修改客户的需求，例如在遇到问题时使用改变原始需求的回退方案，你可以建议，但必须得到客户的同意才能修改
 2. 设计任何的功能之前，都必须检查项目中是否已有相关实现，**严禁重复造轮子**
 3. **系统 UI 严禁使用 emoji 图标**——所有图标统一使用 `lucide-vue-next` 的 SVG 组件
-4. **用产品经理视角沟通，避免技术黑话**——对话对象默认是产品经理 / 业务方，讨论需求和设计用业务语言（用户动作、界面位置、前后效果对比），不暴露组件名 / 服务类名 / 字段名等技术细节；汇报进展讲"用户能感知到的变化"而非"改了哪个文件"
-5. **管理端与用户端 API 必须物理隔离**——`server/api/v1/admin/**` 与 `server/api/v1/**` 成对实现，不在同一接口里通过 `checkIsSuperAdmin` 开旁路
+4. **管理端与用户端 API 必须物理隔离**——`server/api/v1/admin/**` 与 `server/api/v1/**` 成对实现，不在同一接口里通过 `checkIsSuperAdmin` 开旁路
 
 ## 终极规则
 **无论是在新功能开发还是排查 bug ，你都需要遵守先思考，再编码，再测试的步骤，不允许通过你自身的知识库猜测，必须要通过了解项目代码或者搜索相关文档获取到足够上下文再开始编写代码**

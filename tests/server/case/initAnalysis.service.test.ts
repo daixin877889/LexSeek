@@ -28,7 +28,6 @@ import {
     getInitAnalysisStatusService,
     loadCompletedResultsService,
 } from '../../../server/services/case/initAnalysis.service'
-import { INIT_ANALYSIS_MODULES } from '#shared/types/initAnalysis'
 
 describe('初始化分析服务层', () => {
     let testIds: CaseTestIds
@@ -111,11 +110,10 @@ describe('初始化分析服务层', () => {
     // ==================== getInitAnalysisStatusService ====================
 
     describe('getInitAnalysisStatusService - 获取初始化分析状态', () => {
-        it('未开始时返回 not_started 且 modules 全部为 idle', async () => {
+        it('未开始时返回 not_started', async () => {
             const status = await getInitAnalysisStatusService(testCase.id, testUser.id)
             expect(status.status).toBe('not_started')
-            expect(status.modules).toHaveLength(INIT_ANALYSIS_MODULES.length)
-            expect(status.modules.every(m => m.status === 'idle')).toBe(true)
+            expect(status.modules).toEqual([])
             expect(status.sessionId).toBeUndefined()
         })
 
@@ -197,48 +195,12 @@ describe('初始化分析服务层', () => {
             expect(status.status).toBe('failed')
         })
 
-        it('type=1 普通对话 session 不影响 status 与 sessionId 判断', async () => {
+        it('忽略 type=1 的普通对话 session', async () => {
             const normalSession = await createTestSession({ caseId: testCase.id, type: 1, status: 1 })
             testIds.sessionIds.push(normalSession.sessionId)
 
             const status = await getInitAnalysisStatusService(testCase.id, testUser.id)
             expect(status.status).toBe('not_started')
-            expect(status.sessionId).toBeUndefined()
-            expect(status.modules).toHaveLength(INIT_ANALYSIS_MODULES.length)
-            expect(status.modules.every(m => m.status === 'idle')).toBe(true)
-        })
-
-        it('小索（type=1）写入的 caseAnalyses 应聚合到 modules', async () => {
-            // 小索 sub-agent 通过 analysisResultPersistenceMiddleware 写入分析结果时，
-            // session.type=1 但 caseAnalyses.caseId 仍指向该案件 — 必须按 caseId 而非 sessionId 聚合
-            const xiaosuoSession = await createTestSession({
-                caseId: testCase.id,
-                type: 1,
-                status: 1,
-            })
-            testIds.sessionIds.push(xiaosuoSession.sessionId)
-
-            const node = await createTestNode({ modelId: testModel.id })
-            testIds.nodeIds.push(node.id)
-
-            const analysis = await createTestAnalysis({
-                caseId: testCase.id,
-                sessionId: xiaosuoSession.sessionId,
-                nodeId: node.id,
-                analysisType: 'evidence',
-                analysisResult: '小索沉淀的证据梳理结果',
-                status: 2,
-                isActive: true,
-            })
-            testIds.analysisIds.push(analysis.id)
-
-            const status = await getInitAnalysisStatusService(testCase.id, testUser.id)
-
-            expect(status.status).toBe('completed')
-            const evidenceModule = status.modules.find(m => m.name === 'evidence')
-            expect(evidenceModule?.status).toBe('complete')
-            expect(evidenceModule?.result).toBe('小索沉淀的证据梳理结果')
-            expect(status.result?.evidence).toBe('小索沉淀的证据梳理结果')
         })
     })
 

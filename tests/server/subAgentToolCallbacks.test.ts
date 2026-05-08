@@ -19,9 +19,8 @@ describe('subAgentToolFactory callbacks forward', () => {
     expect(publishCustomEvent).toBeDefined()
   })
 
-  it('AgentStatusEvent { status:"completed" } 由 subAgentToolFactory 在 invoke 完成后显式发出', async () => {
-    // callback handleChainEnd 已删除（LangGraph 多层 chain 包装下提前触发 false-positive）
-    // status_change 改由调用方在 invoke / drainStream 完成后显式调 publishSubAgentStatus
+  it('AgentStatusEvent { status:"completed" } 在 handleChainEnd root 时发出', async () => {
+    // 同上，通过 mock handleChainEnd(_, _, undefined) 触发
     const { publishStatusChange } = await import('../../server/services/agent/agentEventBridge')
     expect(publishStatusChange).toBeDefined()
   })

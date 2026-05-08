@@ -9,7 +9,7 @@ import type { CaseMaterialParam } from '#shared/types/case'
 import { CaseMaterialType } from '#shared/types/case'
 import { MaterialStatus } from '#shared/types/material'
 import { getMaterialTypeFromMime } from '#shared/types/case'
-import { findOssFileByIdsDao } from '../files/ossFiles.dao'
+import { findOssFileByIdDao } from '../files/ossFiles.dao'
 import { batchAddCaseMaterialsDAO, createSingleCaseMaterialDAO } from './caseMaterial.dao'
 import { createTextContentRecordDAO } from '../material/textContentRecords.dao'
 
@@ -33,23 +33,7 @@ export const batchAddCaseMaterialsService = async (
 ): Promise<void> => {
     if (!materials || materials.length === 0) return
 
-    // 提前批量查所有文件材料的 ossFile（避免循环内 N+1）
-    const fileOssIds: number[] = []
-    for (const m of materials) {
-        if (!Object.values(CaseMaterialType).includes(m.type)) {
-            throw new Error(`无效的材料类型: ${m.type}`)
-        }
-        if (m.type !== CaseMaterialType.CASE_CONTENT) {
-            if (!m.ossFileId) throw new Error('文件材料必须提供 OSS 文件 ID')
-            fileOssIds.push(m.ossFileId)
-        }
-    }
-    const ossFileMap = new Map<number, Awaited<ReturnType<typeof findOssFileByIdsDao>>[number]>()
-    if (fileOssIds.length > 0) {
-        const ossFiles = await findOssFileByIdsDao(fileOssIds, tx)
-        for (const f of ossFiles) ossFileMap.set(f.id, f)
-    }
-
+    // 文件材料仍可批量创建（无需返回 ID）
     const fileMaterialDataList: Array<{
         name: string
         type: number
@@ -59,6 +43,10 @@ export const batchAddCaseMaterialsService = async (
     }> = []
 
     for (const material of materials) {
+        if (!Object.values(CaseMaterialType).includes(material.type)) {
+            throw new Error(`无效的材料类型: ${material.type}`)
+        }
+
         if (material.type === CaseMaterialType.CASE_CONTENT) {
             // 文本材料：逐条创建以获取 materialId，然后创建 textContentRecords
             if (!material.content || material.content.trim() === '') {
@@ -78,7 +66,11 @@ export const batchAddCaseMaterialsService = async (
                 htmlContent: material.content,
             }, tx)
         } else {
-            const ossFile = ossFileMap.get(material.ossFileId!)
+            // 文件材料
+            if (!material.ossFileId) {
+                throw new Error('文件材料必须提供 OSS 文件 ID')
+            }
+            const ossFile = await findOssFileByIdDao(material.ossFileId, tx)
             if (!ossFile) throw new Error('OSS 文件不存在')
             if (ossFile.userId !== userId) throw new Error('无权使用该文件，请检查文件权限')
 
@@ -96,6 +88,7 @@ export const batchAddCaseMaterialsService = async (
         }
     }
 
+    // 文件材料批量创建
     if (fileMaterialDataList.length > 0) {
         await batchAddCaseMaterialsDAO(caseId, fileMaterialDataList, tx)
     }

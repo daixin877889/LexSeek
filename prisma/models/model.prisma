@@ -91,8 +91,6 @@ model models {
   status                     Int       @default(1)
   /// 优先级，数字越小优先级越高
   priority                   Int       @default(10)
-  /// 模型是否支持思考切换（true = 节点可配 thinkingEnabled，UI 才显示开关）
-  supportsThinking           Boolean   @default(false) @map("supports_thinking")
   /// 输入成本（每百万tokens）
   inputCostPerMillionTokens  Decimal?  @map("input_cost_per_million_tokens") @db.Decimal(12, 4)
   /// 输出成本（每百万tokens）

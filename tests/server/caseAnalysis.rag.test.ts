@@ -131,6 +131,7 @@ describe('completeAnalysisWithRAG（集成测）', () => {
         await completeAnalysisWithRAG({
             analysisId,
             analysisResult: '风险评估分析全文：本案违约责任明确...',
+            model: { invoke: vi.fn() } as any,
         })
 
         const updated = await prisma.caseAnalyses.findUnique({ where: { id: analysisId } })
@@ -148,6 +149,7 @@ describe('completeAnalysisWithRAG（集成测）', () => {
         await completeAnalysisWithRAG({
             analysisId,
             analysisResult: '分析正文第一段。\n\n分析正文第二段。',
+            model: { invoke: vi.fn() } as any,
         })
 
         expect(addDocumentsToVectorStore).toHaveBeenCalled()

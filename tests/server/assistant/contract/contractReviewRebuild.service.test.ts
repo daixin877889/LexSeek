@@ -106,7 +106,7 @@ function makeDbAnnotation(id: number, overrides: Record<string, any> = {}) {
         deletedAt: null,
         suppressInExport: false,
         wordCommentRef: null,
-        risk: { clauseText: '条款原文', clauseParagraphIndex: 1 },
+        risk: { anchorQuote: '条款原文', anchorParagraphIndex: 1 },
         ...overrides,
     }
 }

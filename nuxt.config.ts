@@ -162,14 +162,16 @@ export default defineNuxtConfig({
     // 生产构建代码混淆（rollup 插件）
     // 通过环境变量 ENABLE_OBFUSCATOR=true 显式开启，默认关闭
     rollupConfig: {
-      plugins: (enableObfuscator && rollupObfuscator ? [
-        rollupObfuscator({
-          global: true,
-          options: {
-            ...obfuscatorConfig,
-          },
-        }),
-      ] : []) as any[],
+      plugins: [
+        ...(enableObfuscator && rollupObfuscator ? [
+          rollupObfuscator({
+            global: true,
+            options: {
+              ...obfuscatorConfig,
+            },
+          }),
+        ] : []),
+      ],
     },
   },
   runtimeConfig: {
@@ -191,22 +193,6 @@ export default defineNuxtConfig({
       mpSecret: '',
       // 授权回调重定向白名单（逗号分隔）
       authRedirectWhitelist: '',
-    },
-    // Langfuse 可观测性配置（自托管）
-    langfuse: {
-      publicKey: process.env.LANGFUSE_PUBLIC_KEY ?? '',
-      secretKey: process.env.LANGFUSE_SECRET_KEY ?? '',
-      baseUrl: process.env.LANGFUSE_BASE_URL ?? '',
-      tracingEnabled: process.env.LANGFUSE_TRACING_ENABLED !== 'false',
-      maskPII: process.env.LANGFUSE_MASK_PII !== 'false',
-      environment: (process.env.LANGFUSE_ENVIRONMENT
-        ?? process.env.NODE_ENV
-        ?? 'development') as 'development' | 'staging' | 'production',
-      gitSha: process.env.GIT_SHA ?? '',
-      // serverless（FC3/Lambda）必须配 'immediate'，否则容器被回收前 batched 队列里 span 不 flush 全丢
-      exportMode: (process.env.LANGFUSE_EXPORT_MODE === 'immediate'
-        ? 'immediate'
-        : 'batched') as 'immediate' | 'batched',
     },
     aliyun: {
       accessKeyId: '',
@@ -267,7 +253,7 @@ export default defineNuxtConfig({
     embedding: {
       apiKey: '',           // NUXT_EMBEDDING_API_KEY
       baseUrl: '',          // NUXT_EMBEDDING_BASE_URL
-      model: 'text-embedding-v4',  // NUXT_EMBEDDING_MODEL
+      model: 'text-embedding-v3',  // NUXT_EMBEDDING_MODEL
       dimensions: 1536,     // NUXT_EMBEDDING_DIMENSIONS
       batchSize: 5,         // NUXT_EMBEDDING_BATCH_SIZE
     },

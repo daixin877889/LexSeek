@@ -202,7 +202,7 @@ async function handlePasteSubmit() {
             </DialogHeader>
 
             <Tabs v-model="activeTab" class="w-full">
-                <TabsList class="grid w-full grid-cols-2">
+                <TabsList class="mx-auto grid grid-cols-2 w-[260px]">
                     <TabsTrigger value="upload">选择文件</TabsTrigger>
                     <TabsTrigger value="paste">粘贴文本</TabsTrigger>
                 </TabsList>

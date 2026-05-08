@@ -26,7 +26,6 @@ const mockUpdate = vi.fn()
 const mockQueryRaw = vi.fn()
 const mockGetActiveRunService = vi.fn()
 const mockCancelRunService = vi.fn()
-const mockFindSessionIdsWithActiveRun = vi.fn()
 
 // Redis mock
 const mockRedis = {
@@ -45,11 +44,6 @@ vi.mock('uuid', () => ({
 vi.mock('~~/server/services/agent/agentRun.service', () => ({
     getActiveRunService: (...args: any[]) => mockGetActiveRunService(...args),
     cancelRunService: (...args: any[]) => mockCancelRunService(...args),
-}))
-
-// agentRun.dao mock —— listSessionsWithActiveRunDAO 用批量版查活跃 run
-vi.mock('~~/server/services/agent/agentRun.dao', () => ({
-    findSessionIdsWithActiveRunDAO: (...args: any[]) => mockFindSessionIdsWithActiveRun(...args),
 }))
 
 // 注入 Nuxt 自动导入的全局变量 mock
@@ -145,7 +139,9 @@ describe('listSessionsWithActiveRunDAO', () => {
         mockFindMany.mockResolvedValue(mockSessions)
 
         // session-1 有活跃 run，session-2 没有
-        mockFindSessionIdsWithActiveRun.mockResolvedValue(new Set(['session-1']))
+        mockGetActiveRunService
+            .mockResolvedValueOnce({ runId: 'run-abc' })
+            .mockResolvedValueOnce(null)
 
         const result = await listSessionsWithActiveRunDAO({
             caseId: 1,

@@ -190,7 +190,7 @@ describe('端点映射（defaultApiEndpoints / resolveApiEndpoints）', () => {
         await flushPromises()
 
         const fetchedUrls = mockApiFetch.mock.calls.map((c: any[]) => c[0])
-        expect(fetchedUrls).toContain('/api/v1/cases/analysis/xiaosuo-sessions?caseId=42')
+        expect(fetchedUrls).toContain('/api/v1/case/analysis/xiaosuo-sessions?caseId=42')
         wrapper.unmount()
     })
 
@@ -205,7 +205,7 @@ describe('端点映射（defaultApiEndpoints / resolveApiEndpoints）', () => {
         await flushPromises()
 
         const urls = mockApiFetch.mock.calls.map((c: any[]) => c[0])
-        expect(urls).toContain('/api/v1/cases/analysis/module-sessions?caseId=7&moduleName=事实梳理')
+        expect(urls).toContain('/api/v1/case/analysis/module-sessions?caseId=7&moduleName=事实梳理')
         wrapper.unmount()
     })
 
@@ -256,7 +256,7 @@ describe('端点映射（defaultApiEndpoints / resolveApiEndpoints）', () => {
         )
         await manager.init()
         await flushPromises()
-        expect(lastStream?.capturedOpts.apiUrl).toBe('/api/v1/cases/init-analysis')
+        expect(lastStream?.capturedOpts.apiUrl).toBe('/api/v1/case/init-analysis')
         wrapper.unmount()
     })
 
@@ -277,7 +277,7 @@ describe('端点映射（defaultApiEndpoints / resolveApiEndpoints）', () => {
         )
         await manager.init()
         await flushPromises()
-        expect(lastStream?.capturedOpts.apiUrl).toBe('/api/v1/cases/analysis/chat')
+        expect(lastStream?.capturedOpts.apiUrl).toBe('/api/v1/case/analysis/chat')
         wrapper.unmount()
     })
 

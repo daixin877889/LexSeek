@@ -87,8 +87,8 @@ export async function runAnnotateAndUpload(reviewId: number): Promise<void> {
         authorName: a.authorName,
         content: a.content,
         parentAnnotationId: a.parentAnnotationId,
-        anchorQuote: a.risk.clauseText,
-        anchorParagraphIndex: a.risk.clauseParagraphIndex!,
+        anchorQuote: a.risk.anchorQuote,
+        anchorParagraphIndex: a.risk.anchorParagraphIndex!,
         wordCommentRef: a.wordCommentRef,
         createdAt: a.createdAt,
     }))

@@ -49,7 +49,7 @@ describe('contractRisk.dao', () => {
             level: 'high',
             stance: 'balanced',
             problem: '超长试用期',
-            clauseText: '试用期 6 个月',
+            anchorQuote: '试用期 6 个月',
         })
         expect(risk.id).toBeGreaterThan(0)
         expect(risk.source).toBe('ai')
@@ -66,7 +66,7 @@ describe('contractRisk.dao', () => {
             level: 'high',
             stance: 'balanced',
             problem: 'x',
-            clauseText: 'x',
+            anchorQuote: 'x',
         })
         const updated = await updateContractRiskDAO(risk.id, { archivedStatus: 'handled' })
         expect(updated.archivedStatus).toBe('handled')
@@ -81,7 +81,7 @@ describe('contractRisk.dao', () => {
             level: 'high',
             stance: 'balanced',
             problem: 'x',
-            clauseText: 'x',
+            anchorQuote: 'x',
         })
         await updateContractRiskDAO(risk.id, { archivedStatus: 'handled' })
         const cleared = await updateContractRiskDAO(risk.id, { archivedStatus: null })
@@ -97,7 +97,7 @@ describe('contractRisk.dao', () => {
             level: 'high',
             stance: 'balanced',
             problem: 'x',
-            clauseText: 'x',
+            anchorQuote: 'x',
         })
         await createContractRiskDAO({
             reviewId,
@@ -106,7 +106,7 @@ describe('contractRisk.dao', () => {
             level: 'medium',
             stance: 'strict',
             problem: 'y',
-            clauseText: 'y',
+            anchorQuote: 'y',
         })
         const list = await listContractRisksDAO(reviewId)
         expect(list.length).toBe(2)
@@ -120,7 +120,7 @@ describe('contractRisk.dao', () => {
             level: 'low',
             stance: 'lenient',
             problem: 'test problem',
-            clauseText: 'test anchor',
+            anchorQuote: 'test anchor',
         })
         const found = await getContractRiskByIdDAO(risk.id)
         expect(found?.id).toBe(risk.id)
@@ -140,7 +140,7 @@ describe('contractRisk.dao', () => {
             level: 'low',
             stance: 'balanced',
             problem: 'x',
-            clauseText: 'x',
+            anchorQuote: 'x',
         })
         // 测试场景的"清 fixtures"用法：直接走 prisma 而非 DAO，
         // 让生产代码无任何物理删入口（决策 11："批注永不物理删"）。

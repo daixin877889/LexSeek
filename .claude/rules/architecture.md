@@ -42,7 +42,7 @@ LexSeek/
 │   │       ├── admin/**        # 管理端 API（RBAC 中间件保护）
 │   │       └── **/             # 用户端 API（owner-only 严格归属过滤）
 │   ├── services/               # 业务 Service + DAO，按领域分目录
-│   │   ├── agent-platform/     # 自研 LangGraph 适配层（middleware/factory/registry/skills/sse/state/subAgent/tools/nodeConfig/context/diagnostics…）
+│   │   ├── agent-platform/     # 自研 LangGraph 适配层（middleware/factory/registry/skills/sse/state/subAgent/tools…）
 │   │   ├── memory/             # 案件记忆系统
 │   │   ├── security/           # 风控（验证码、登录风险）
 │   │   ├── case/, material/, workflow/, retrieval/, legal/                  # 核心业务
@@ -50,8 +50,6 @@ LexSeek/
 │   │   ├── auth/, users/, sms/, rbac/, audit/                               # 身份与权限
 │   │   ├── payment/, membership/, point/, product/, redemption/, campaign/  # 交易
 │   │   ├── model/, node/, sse/, files/, storage/, system/, wechat/          # 平台基础设施
-│   │   ├── ai/                                                              # AI 通用 helper（如 generateSummaryService）
-│   │   ├── dashboard.service.ts                                             # 用户工作台聚合数据接口（顶级文件）
 │   │   └── …
 │   ├── agents/                 # Domain Agent 配置（通过 defineDomainAgent 注册）
 │   │   ├── _shared/            # 跨 vertical 共享上下文/工具
@@ -68,7 +66,7 @@ LexSeek/
 │   ├── types/                  # 业务类型定义（按领域分文件）
 │   └── utils/                  # 共用工具（含 prisma.ts 重导出）
 ├── prisma/                     # 数据库
-│   ├── models/                 # 按领域拆分的 .prisma 文件（28 个）
+│   ├── models/                 # 按领域拆分的 .prisma 文件（27 个）
 │   ├── migrations/             # 迁移文件（强制由 prisma migrate dev 生成）
 │   ├── seeds/                  # seedData.sql（唯一权威）+ 模板/合同样本
 │   ├── seed.ts                 # 运行时基础数据补全

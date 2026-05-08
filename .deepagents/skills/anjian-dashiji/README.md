@@ -14,10 +14,10 @@
 
 | 方法 | 用途 | 文档 |
 |------|------|------|
-| 时间提取法 | 识别和标准化时间表述 | [references/时间提取.md](./references/时间提取.md) |
-| 事件分类法 | 判断事件类型 | [references/事件分类.md](./references/事件分类.md) |
-| 内容提炼法 | 精简事件描述 | [references/内容提炼.md](./references/内容提炼.md) |
-| 排序逻辑法 | 组织时间线 | [references/排序逻辑.md](./references/排序逻辑.md) |
+| 时间提取法 | 识别和标准化时间表述 | [references/shijian-tiqu.md](./references/shijian-tiqu.md) |
+| 事件分类法 | 判断事件类型 | [references/shijian-fenlei.md](./references/shijian-fenlei.md) |
+| 内容提炼法 | 精简事件描述 | [references/neirong-tilian.md](./references/neirong-tilian.md) |
+| 排序逻辑法 | 组织时间线 | [references/paixu-luoji.md](./references/paixu-luoji.md) |
 
 ## 使用场景
 

@@ -6,11 +6,7 @@
  */
 
 import type { mineruTasks, docRecognitionRecords, Prisma } from '~~/generated/prisma/client'
-import {
-    getActiveTokenValueService,
-    getTokenForExistingTaskService,
-    pickTokenForNewTaskService,
-} from './mineruToken.service'
+import { getActiveTokenValueService, hasActiveTokenService } from './mineruToken.service'
 import {
     createMineruTaskService,
     updateMineruTaskService,
@@ -39,7 +35,6 @@ import { getExtensionFromFileName } from '~~/shared/utils/file'
 import { calculateBackoffDelay, DEFAULT_POLLING_CONFIG } from './materialConstants'
 import type { PollingConfig } from './materialConstants'
 import { DocRecognitionStatus, MineruTaskStatus } from '#shared/types/recognition'
-import { generateOssFileSummaryService } from './material.service'
 
 /**
  * MinerU PDF 转换专用轮询配置
@@ -309,13 +304,17 @@ export const submitPdfConversionService = async (
             }
         }
 
-        // 2. LRU 选取一个可用 token（启用 + 未过期），并记录 id 供轮询时复用
+        // 2. 检查是否有可用的 Token
         // Requirements: 3.1.1.6, 3.1.1.7
-        const picked = await pickTokenForNewTaskService()
-        if (!picked) {
+        const hasToken = await hasActiveTokenService()
+        if (!hasToken) {
             return { success: false, error: '没有可用的 MinerU Token' }
         }
-        const { id: mineruTokenId, token } = picked
+
+        const token = await getActiveTokenValueService()
+        if (!token) {
+            return { success: false, error: '获取 MinerU Token 失败' }
+        }
 
         // 3. 获取文件信息（通过 DAO 层）
         const ossFile = await findOssFileByIdDao(ossFileId)
@@ -396,7 +395,6 @@ export const submitPdfConversionService = async (
             taskId,
             ossFileId,
             userId,
-            mineruTokenId,
             status: MineruTaskStatus.PROCESSING,
             taskRawData: {
                 fileUrl,
@@ -581,10 +579,6 @@ export const completeConversionService = async (
             // TODO: 可以考虑创建一个"待支付"记录，让用户充值后补扣积分
         }
 
-        // 6. fire-and-forget 按 OssFile 触发摘要生成
-        // 不依赖 caseMaterials 行存在（小索/法律助手输入框上传场景下还没创建 caseMaterials）
-        generateOssFileSummaryService(task.ossFileId).catch(() => { /* 已在内部 catch */ })
-
         logger.info(`PDF 转换完成：taskId=${taskId}`)
     } catch (error) {
         logger.error('完成转换失败：', error)
@@ -649,10 +643,8 @@ export const pollTaskStatusService = async (taskId: string): Promise<boolean> =>
             return true
         }
 
-        const taskRecord = await getMineruTaskByTaskIdService(taskId)
-        const token = taskRecord
-            ? await getTokenForExistingTaskService(taskRecord)
-            : await getActiveTokenValueService()
+        // 获取 Token
+        const token = await getActiveTokenValueService()
         if (!token) {
             logger.error('轮询任务状态失败：没有可用的 Token')
             return false
@@ -704,7 +696,10 @@ export const pollTaskStatusService = async (taskId: string): Promise<boolean> =>
                 // Requirements: 3.1.11
                 const downloadUrl = data.full_zip_url
                 if (downloadUrl) {
-                    const userId = taskRecord?.userId || 0
+                    // 获取任务信息以获取 userId
+                    const task = await getMineruTaskByTaskIdService(taskId)
+                    const userId = task?.userId || 0
+
                     const result = await processConversionResultService(taskId, downloadUrl, userId)
                     if (result.success && result.markdownContent && result.htmlContent) {
                         await completeConversionService(

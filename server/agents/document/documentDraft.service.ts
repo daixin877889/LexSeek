@@ -33,12 +33,6 @@ export interface CreateDraftParams {
     sourceText?: string
     sourceFileIds?: number[]
     caseId?: number
-    /**
-     * 是否把 documentMain 入队给 agentWorker 异步执行（默认 true）。
-     * 子代理工具应传 false：tool 自己会同步调 runDocumentChat，让 worker
-     * 也跑会形成「同 thread_id 双实例并发」，afterAgent hook 互相覆写 draft.values。
-     */
-    enqueueAgentRun?: boolean
 }
 
 /** 服务层统一错误返回 */
@@ -56,7 +50,7 @@ export interface ServiceError {
 export async function createDraftService(
     params: CreateDraftParams,
 ): Promise<{ draftId: number; sessionId: string } | ServiceError> {
-    const { userId, templateId, sourceText, sourceFileIds, caseId, enqueueAgentRun = true } = params
+    const { userId, templateId, sourceText, sourceFileIds, caseId } = params
 
     const template = await getDocumentTemplateDAO(templateId)
     if (!template) {
@@ -117,7 +111,7 @@ export async function createDraftService(
         )
     }
 
-    if (hasSource && enqueueAgentRun) {
+    if (hasSource) {
         await enqueueRunService({
             sessionId,
             threadId: sessionId,
@@ -154,17 +148,11 @@ export async function getDraftService(
 /**
  * 更新草稿 values。drafting/filling 状态拒绝修改（409）。
  * 仅保留 template.placeholders 中定义的 key，多余 key 忽略，缺失 key 保留原值。
- *
- * 可选 metadata 参数：工具一次写入 values + suggestions 等元数据时使用。
- * metadata 与 draft.metadata 现有键合并（spread），不覆盖未传的旧键。
  */
 export async function patchDraftService(
     userId: number,
     draftId: number,
-    input: {
-        values: Record<string, string | null>
-        metadata?: Record<string, unknown>
-    },
+    input: { values: Record<string, string | null> },
 ): Promise<{ draft: any } | ServiceError> {
     const draft = await getDocumentDraftDAO(draftId)
     if (!draft) {
@@ -194,14 +182,9 @@ export async function patchDraftService(
     const existingValues = (draft.values as Record<string, string | null>) ?? {}
     const mergedValues = { ...existingValues, ...filteredValues }
 
-    // 构造 update 入参，可选写入 metadata（合并 draft.metadata 现有键，不覆盖未传的旧键）
-    const updateData: { values: any; metadata?: any } = { values: mergedValues as any }
-    if (input.metadata !== undefined) {
-        const existingMetadata = (draft.metadata as Record<string, unknown> | null) ?? {}
-        updateData.metadata = { ...existingMetadata, ...input.metadata }
-    }
-
-    const updated = await updateDocumentDraftDAO(draftId, updateData as any)
+    const updated = await updateDocumentDraftDAO(draftId, {
+        values: mergedValues as any,
+    })
 
     return { draft: updated }
 }

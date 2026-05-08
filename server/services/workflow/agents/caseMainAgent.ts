@@ -5,12 +5,8 @@
  * 小索通过 server/agents/case-main/agent.config.ts vertical 走 runtime.ts 标准管道，
  * skillsMw 改由 buildSkillsMiddlewareForNode(nodeConfig.id) 按节点动态构造。
  *
- * 本文件仅保留 getChatThreadState：原 agentWorker 用它检测 interrupt，
- * 但 dummy createAgent 与真实 caseMain 拓扑不一致 → tasks.interrupts 永远空 →
- * run 错标 COMPLETED 引发"刷新页面后模板卡片永久 loading"线上 bug。
- * 现在 agentWorker 已改用 threadState.getPendingInterruptsService（直接读
- * pendingWrites，与 graph schema 解耦），本函数仅用于读 channel_values
- * （如 messages 历史 — channel 不依赖 tasks 拓扑），interrupt 检测不允许复用。
+ * 本文件仅保留 getChatThreadState：agentWorker.ts 在 interrupt 检测路径调用，
+ * 用最小化 dummy agent 读取 LangGraph thread state。
  */
 
 import { createAgent } from 'langchain'

@@ -6,9 +6,10 @@
  */
 
 import { CaseMaterialType, getMaterialTypeFromMime } from '#shared/types/case'
+import { extractTextFromAsrResult } from './materialPipeline.service'
 import { createImageConversionService } from './ocr.service'
 import { convertPdfService, getDocRecognitionByOssFileIdService } from './mineru.service'
-import { transcribeAudioService, extractTextFromAsrResult } from './asr.service'
+import { transcribeAudioService } from './asr.service'
 import type { asrRecords, ossFiles } from '~~/generated/prisma/client'
 
 /** 识别完成状态码（对应 DB 中 status=2） */
@@ -32,6 +33,7 @@ interface RecognitionRecord {
 interface AsrRecord {
     ossFileId: number
     status: number
+    summary: string | null
     result: any
 }
 
@@ -81,7 +83,7 @@ export async function processFileMaterials(
         }),
         prisma.asrRecords.findMany({
             where: { ossFileId: { in: ossFileIds }, deletedAt: null },
-            select: { ossFileId: true, status: true, result: true },
+            select: { ossFileId: true, status: true, summary: true, result: true },
         }),
     ])
 
@@ -181,7 +183,7 @@ function findExistingContent(
             return imgMap.get(ossFileId)?.markdownContent ?? null
         case CaseMaterialType.AUDIO: {
             const r = asrMap.get(ossFileId)
-            return extractTextFromAsrResult(r?.result) ?? null
+            return r?.summary ?? extractTextFromAsrResult(r?.result) ?? null
         }
         default:
             return null
@@ -213,10 +215,10 @@ async function waitForRecognitionComplete(
         } else {
             const record = await prisma.asrRecords.findFirst({
                 where: { ossFileId, status: RECOGNITION_STATUS_COMPLETED, deletedAt: null },
-                select: { result: true },
+                select: { summary: true, result: true },
             })
             if (record) {
-                const content = extractTextFromAsrResult(record.result)
+                const content = record.summary || extractTextFromAsrResult(record.result)
                 if (content) return content
             }
         }
@@ -249,9 +251,9 @@ async function recognizeFile(
             }
             const record = await prisma.asrRecords.findFirst({
                 where: { ossFileId, status: RECOGNITION_STATUS_COMPLETED, deletedAt: null },
-                select: { result: true },
+                select: { summary: true, result: true },
             })
-            const content = extractTextFromAsrResult(record?.result)
+            const content = record?.summary || extractTextFromAsrResult(record?.result)
             if (content) return content
             throw new Error('音频识别结果为空')
         }

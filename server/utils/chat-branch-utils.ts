@@ -6,6 +6,9 @@
 
 import { AGENT_RUN_STATUS } from '#shared/types/agentRun'
 
+/** Resume 命令白名单 */
+export const RESUME_COMMANDS = ['resume', 'continue', 'try_again'] as const
+
 /** Resume 次数上限 */
 export const MAX_RESUME_COUNT = 3
 
@@ -20,18 +23,13 @@ export function shouldRejectMessage(activeRunStatus: string, hasMessage: boolean
 }
 
 /**
- * 验证 resume 命令是否符合 LangGraph SDK 协议
- *
- * LangGraph 的 Command 协议形式为 `{ resume: <payload> }`，payload 可以是：
- * - dict 按 interrupt.id / toolCallId 索引：`{ call_xxx: { templateId: 1 } }`
- * - dict 携带语义动作：`{ action: 'approve' | 'reject' | 'continue', data?: ... }`
- * - 任意 JSON-serializable 值（字符串 / 数字 / null）
- *
- * 仅校验"是不是 LangGraph dict 形式"，不限制 payload 的内部结构——payload 由 interrupt() 的
- * 调用方（具体工具如 recommend_template / stance_select）按自身协议解析。
+ * 验证 resume 命令是否合法
+ * @param command 命令字符串
+ * @returns true 表示命令合法
  */
-export function isValidResumeCommand(command: unknown): boolean {
-  return !!command && typeof command === 'object' && 'resume' in (command as object)
+export function isValidResumeCommand(command: string | undefined): boolean {
+  if (!command) return false
+  return RESUME_COMMANDS.includes(command as typeof RESUME_COMMANDS[number])
 }
 
 /**

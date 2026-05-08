@@ -4,9 +4,6 @@ import { useLocalStorage } from '@vueuse/core'
 import { ChevronLeft, ChevronRight, Pencil, Check, X } from 'lucide-vue-next'
 import type { ContractReviewVersionEntity } from '#shared/types/contract'
 import { VERSION_SYSTEM_LABEL_DISPLAY } from '#shared/types/contract'
-import { useFormatters } from '~/composables/useFormatters'
-
-const { formatDate } = useFormatters()
 
 const props = defineProps<{
     versions: ContractReviewVersionEntity[]
@@ -59,6 +56,10 @@ function cancelEditNote() {
     editingNoteId.value = null
 }
 
+function formatDate(s: string) {
+    const d = new Date(s)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 </script>
 
 <template>
@@ -93,7 +94,7 @@ function cancelEditNote() {
                 <button
                     v-if="collapsed"
                     class="flex flex-col items-center relative"
-                    :title="`v${v.versionNumber} · ${VERSION_SYSTEM_LABEL_DISPLAY[v.systemLabel]} · ${formatDate(v.createdAt, 'YYYY-MM-DD')}`"
+                    :title="`v${v.versionNumber} · ${VERSION_SYSTEM_LABEL_DISPLAY[v.systemLabel]} · ${formatDate(v.createdAt)}`"
                     @click="handleClick(v)"
                 >
                     <div
@@ -124,7 +125,7 @@ function cancelEditNote() {
                         <div class="text-xs font-medium" :class="selectedId === v.id ? 'text-primary' : ''">
                             v{{ v.versionNumber }} · {{ VERSION_SYSTEM_LABEL_DISPLAY[v.systemLabel] }}
                         </div>
-                        <div class="text-[11px] text-muted-foreground">{{ formatDate(v.createdAt, 'YYYY-MM-DD') }}</div>
+                        <div class="text-[11px] text-muted-foreground">{{ formatDate(v.createdAt) }}</div>
 
                         <!-- 律师备注区域 -->
                         <div v-if="editingNoteId !== v.id" class="mt-1 text-[11px] text-muted-foreground">

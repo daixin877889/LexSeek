@@ -15,7 +15,7 @@
 import type { Ref, ShallowRef, ComputedRef } from 'vue'
 import type { AgentRunStatus } from '#shared/types/agentRun'
 import { postCrossTabEvent } from './useCrossTabEvents'
-import { buildAttachmentsPayload, type QueueItem, type QueuePauseReason } from './chatQueueActions'
+import type { QueueItem, QueuePauseReason } from './chatQueueActions'
 import type { WrappedChat } from './agent-platform/types'
 
 // 类型别名：currentChat.value 与工厂内 currentChat 共用同一类型（agent-platform/types.ts）
@@ -124,16 +124,8 @@ export function useQueueDispatcher(deps: QueueDispatcherDeps) {
 
     // sendMessage 在锁释放后执行，避免锁持有期间 nextTick(maybeDispatch) 无法获锁。
     // fetch 建立失败 / 4xx / 5xx 会 reject 进 catch；后端执行失败走 watch(runStatus='failed')。
-    //
-    // 与顶层 useDomainAgentSession.sendMessage 走完全相同的 buildAttachmentsPayload，
-    // 让"立即发"和"队列发"的 sentinel + additional_kwargs.attachments 口径一致，
-    // 避免用户在 loading 中入队的"文本+附件"消息派发时丢失附件元数据。
     try {
-      const { content, additionalKwargs } = buildAttachmentsPayload(popped.text, popped.files)
-      await deps.currentChat.value?.sendMessage(content, {
-        thinking: popped.thinking,
-        additional_kwargs: additionalKwargs,
-      })
+      await deps.currentChat.value?.sendMessage(popped.text, { thinking: popped.thinking })
     }
     catch (err) {
       console.error('[chat-queue] dispatch failed', { sessionId: sid, itemId: popped.id, err })

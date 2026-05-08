@@ -131,12 +131,12 @@ export const createCaseService = async (
 
 ## 完整调用链示例
 
-以 `POST /api/v1/cases/create` 为例：
+以 `POST /api/v1/case/create` 为例：
 
 ### API Handler
 
 ```typescript
-// server/api/v1/cases/create.post.ts
+// server/api/v1/case/create.post.ts
 export default defineEventHandler(async (event) => {
     // 1. 认证
     const user = event.context.auth?.user

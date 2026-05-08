@@ -25,14 +25,6 @@ export interface PromptRenderContext {
     reviewId?: number
     /** 合同类型（AI 识别，可能为空） */
     contractType?: string
-    /** 文书生成 fileIds（如 [1, 2, 3] 字符串形式） */
-    fileIds?: string
-    /** 用户补充说明文本 */
-    userExtraText?: string
-    /** 文书草稿 ID（documentMain 系统 prompt 注入当前 draft 状态用） */
-    draftId?: number
-    /** 草稿当前状态('drafting' / 'filling' / 'ready' / 'exported' / 'failed') */
-    status?: string
 }
 
 /**
@@ -51,8 +43,11 @@ export function renderSystemPrompt(
     nodeConfig: NodeConfig,
     context: PromptRenderContext = {},
 ): string {
-    const systemPrompts = filterAndSortSystemPrompts(nodeConfig.prompts)
-    if (systemPrompts.length === 0) {
+    const raw = nodeConfig.prompts.find(
+        p => p.type === 'system' && p.status === 1,
+    )?.content || ''
+
+    if (!raw) {
         return ''
     }
 
@@ -72,22 +67,8 @@ export function renderSystemPrompt(
     if (context.templateCategory) {
         variables.templateCategory = context.templateCategory
     }
-    if (context.fileIds) {
-        variables.fileIds = context.fileIds
-    }
-    if (context.userExtraText) {
-        variables.userExtraText = context.userExtraText
-    }
-    if (context.draftId != null) {
-        variables.draftId = String(context.draftId)
-    }
-    if (context.status) {
-        variables.status = context.status
-    }
 
-    const rendered = systemPrompts
-        .map(p => renderContent(p.content, variables))
-        .join('\n\n')
+    const rendered = renderContent(raw, variables)
 
     // 检测未替换的模板变量并记录告警
     const unreplaced = rendered.match(/\{\{(\w+)\}\}/g)
@@ -100,35 +81,4 @@ export function renderSystemPrompt(
     }
 
     return rendered
-}
-
-/**
- * 取拼接后的 raw system prompt template（不做变量替换）。
- *
- * 用于"调用方需要拿到拼接的 raw template、自己再做业务变量替换"的场景。
- * 与 renderSystemPrompt 共用 displayOrder 升序拼接逻辑，确保所有路径口径一致：
- *
- *   - renderSystemPrompt(config, ctx)  → 拼接 + 通用 ctx 变量替换（适合直接送 LLM）
- *   - assembleSystemPromptTemplate(config.prompts) → 仅拼接 raw template（适合 invokeNodeJson 等
- *     需要业务侧 buildPrompt 二次渲染 {{contractType}}/{{stanceLabel}} 等专属变量的场景）
- *
- * 修复合同审查"23 条 LLM 未返回 JSON"链路：旧 .find(...) 只取第一个 system prompt，
- * 给所有节点统一挂"反越狱护栏"(displayOrder=10) 后，业务 prompt（displayOrder=100）被
- * 整段丢弃，LLM 只看到安全规则不知道要做合同审查 → 输出自然语言而非 JSON。
- */
-export function assembleSystemPromptTemplate(
-    prompts: NodeConfig['prompts'],
-): string {
-    return filterAndSortSystemPrompts(prompts)
-        .map(p => p.content)
-        .join('\n\n')
-}
-
-function filterAndSortSystemPrompts(
-    prompts: NodeConfig['prompts'],
-): NodeConfig['prompts'] {
-    return prompts
-        .filter(p => p.type === 'system' && p.status === 1)
-        .slice()
-        .sort((a, b) => (a.displayOrder ?? 100) - (b.displayOrder ?? 100))
 }

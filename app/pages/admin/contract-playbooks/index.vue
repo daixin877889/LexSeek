@@ -2,20 +2,15 @@
 /**
  * 合同审查清单管理页
  *
- * 左侧：合同类型 Tab（11 大类 + 41 细分两级结构，徽章为启用数）
- * 右侧：当前细分下的要点列表（按 code 自然序）+ 新增/编辑抽屉
+ * 左侧：合同类型 Tab（6 项 + 各启用数）
+ * 右侧：要点列表（按 code 自然序）+ 新增/编辑抽屉
  *
  * v1 不含拖拽排序和硬删除。
  *
  * **Feature: contract-review-playbook (M7)**
  */
-import {
-    CONTRACT_TYPE_CATEGORIES,
-    CATEGORY_TO_SUBTYPES,
-    STANCE_PREFERENCE_LABEL,
-    RISK_LEVEL_LABEL,
-} from '#shared/types/contract'
-import type { ContractTypeCategory, StancePreference, RiskLevel } from '#shared/types/contract'
+import { CONTRACT_TYPE_OPTIONS, STANCE_PREFERENCE_LABEL, RISK_LEVEL_LABEL } from '#shared/types/contract'
+import type { StancePreference, RiskLevel } from '#shared/types/contract'
 import { toast } from 'vue-sonner'
 import { useApiFetch } from '~/composables/useApiFetch'
 
@@ -39,10 +34,10 @@ interface Playbook {
     updatedAt: string
 }
 
-// 一级大类 + 二级细分
-const CATEGORIES = CONTRACT_TYPE_CATEGORIES
-const activeCategory = ref<ContractTypeCategory>(CATEGORIES[0])
-const activeType = ref<string>(CATEGORY_TO_SUBTYPES[CATEGORIES[0]][0]!)
+// 排除"其他"类型（spec §1.2 不配清单）
+const TYPES = CONTRACT_TYPE_OPTIONS.filter(t => t !== '其他')
+
+const activeType = ref<string>(TYPES[0]!)
 const rawList = ref<Playbook[]>([])
 const loading = ref(false)
 const searchQ = ref('')
@@ -58,12 +53,8 @@ const list = computed(() => {
     })
 })
 
-// 各细分启用数（左侧 Tab 徽章），大类计数由 CATEGORY_TO_SUBTYPES 求和派生
+// 各类型启用数（左侧 Tab 徽章）
 const typeCounts = ref<Record<string, number>>({})
-
-function categoryEnabledCount(cat: ContractTypeCategory): number {
-    return CATEGORY_TO_SUBTYPES[cat].reduce((sum, sub) => sum + (typeCounts.value[sub] ?? 0), 0)
-}
 
 async function loadList() {
     loading.value = true
@@ -144,14 +135,6 @@ async function toggleEnabled(p: Playbook) {
 
 watch(activeType, loadList)
 
-// 切换大类：自动选中该大类下的第一个细分（触发 loadList）
-watch(activeCategory, (cat) => {
-    const subs = CATEGORY_TO_SUBTYPES[cat]
-    if (subs.length && !subs.includes(activeType.value)) {
-        activeType.value = subs[0]!
-    }
-})
-
 onMounted(async () => {
     await Promise.all([loadList(), loadCounts()])
 })
@@ -167,34 +150,18 @@ onMounted(async () => {
 
         <!-- 正文：左右分栏 -->
         <div class="flex flex-1 min-h-0 border rounded-lg overflow-hidden bg-card">
-        <!-- 左侧合同类型 Tab：一级大类 + 二级细分 -->
-        <div class="w-[240px] shrink-0 border-r bg-card overflow-y-auto">
-            <div class="p-2 space-y-0.5">
-                <template v-for="cat in CATEGORIES" :key="cat">
-                    <!-- 一级（大类） -->
-                    <button
-                        class="w-full flex items-center justify-between px-3 py-2 rounded text-sm transition"
-                        :class="activeCategory === cat ? 'bg-muted font-semibold text-foreground' : 'hover:bg-muted/60 text-foreground/80'"
-                        @click="activeCategory = cat"
-                    >
-                        <span>{{ cat }}</span>
-                        <span class="text-xs text-muted-foreground">{{ categoryEnabledCount(cat) }}</span>
-                    </button>
-                    <!-- 二级（细分）：仅展开当前 active 大类 -->
-                    <div v-if="activeCategory === cat" class="ml-3 pl-2 border-l space-y-0.5 py-1">
-                        <button
-                            v-for="sub in CATEGORY_TO_SUBTYPES[cat]"
-                            :key="sub"
-                            class="w-full flex items-center justify-between px-2 py-1.5 rounded text-xs transition"
-                            :class="activeType === sub ? 'bg-accent text-accent-foreground font-semibold' : 'hover:bg-muted text-muted-foreground'"
-                            @click="activeType = sub"
-                        >
-                            <span class="truncate">{{ sub }}</span>
-                            <span class="text-xs shrink-0 ml-2">{{ typeCounts[sub] ?? 0 }}</span>
-                        </button>
-                    </div>
-                </template>
-            </div>
+        <!-- 左侧类型 Tab -->
+        <div class="w-[200px] shrink-0 border-r bg-card p-2 space-y-1">
+            <button
+                v-for="t in TYPES"
+                :key="t"
+                class="w-full flex items-center justify-between px-3 py-2 rounded text-sm transition"
+                :class="activeType === t ? 'bg-accent text-accent-foreground font-semibold' : 'hover:bg-muted'"
+                @click="activeType = t"
+            >
+                <span>{{ t }}</span>
+                <span class="text-xs text-muted-foreground">{{ typeCounts[t] ?? 0 }}</span>
+            </button>
         </div>
 
         <!-- 右侧列表 -->

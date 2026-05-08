@@ -45,26 +45,6 @@ vi.mock('~~/server/services/material/mineru.service', () => ({
 const mockTranscribeAudioService = vi.fn()
 vi.mock('~~/server/services/material/asr.service', () => ({
     transcribeAudioService: (...args: any[]) => mockTranscribeAudioService(...args),
-    // T2：extractTextFromAsrResult 从 materialPipeline.service 迁到 asr.service
-    extractTextFromAsrResult: (result: any) => {
-        if (!result) return null
-        // 扁平格式
-        if (result.sentences && Array.isArray(result.sentences)) {
-            const text = result.sentences.map((s: any) => s.text || '').filter(Boolean).join('\n')
-            if (text) return text
-        }
-        // 嵌套格式
-        if (result.transcripts && Array.isArray(result.transcripts)) {
-            const text = result.transcripts
-                .flatMap((t: any) => t.sentences || [])
-                .map((s: any) => s.text || '')
-                .filter(Boolean)
-                .join('\n')
-            if (text) return text
-        }
-        if (typeof result.text === 'string' && result.text.trim()) return result.text
-        return null
-    },
 }))
 
 // Mock getMaterialTypeFromMime（控制文件类型判断）
@@ -80,6 +60,15 @@ vi.mock('#shared/types/case', async () => {
         }),
     }
 })
+
+// Mock materialPipeline.service（extractTextFromAsrResult）
+vi.mock('~~/server/services/material/materialPipeline.service', () => ({
+    extractTextFromAsrResult: (result: any) => {
+        if (!result) return null
+        if (result.sentences) return result.sentences.map((s: any) => s.text).join('\n')
+        return null
+    },
+}))
 
 import { processFileMaterials } from '~~/server/services/material/fileProcess.service'
 
@@ -123,28 +112,21 @@ describe('文件粒度识别服务', () => {
             expect(results[0].content).toBe('图像OCR内容')
         })
 
-        it('成功处理已有识别记录的音频文件（从 result JSON 现拼）', async () => {
-            // T2：summary 字段已切换语义为 200 字摘要，转录文本从 result JSON 现拼
+        it('成功处理已有识别记录的音频文件（summary 优先）', async () => {
             ;(prisma.ossFiles.findMany as any).mockResolvedValue([
                 { id: 300, fileName: 'audio.mp3', fileType: 'audio/mpeg', filePath: '/path' },
             ])
             ;(prisma.docRecognitionRecords.findMany as any).mockResolvedValue([])
             ;(prisma.imageRecognitionRecords.findMany as any).mockResolvedValue([])
             ;(prisma.asrRecords.findMany as any).mockResolvedValue([
-                {
-                    ossFileId: 300,
-                    status: 2,
-                    result: {
-                        transcripts: [{ sentences: [{ text: '音频转录文本' }] }],
-                    },
-                },
+                { ossFileId: 300, status: 2, summary: '音频摘要', result: null },
             ])
 
             const results = await processFileMaterials([300], 1)
 
             expect(results).toHaveLength(1)
             expect(results[0].recognitionStatus).toBe('success')
-            expect(results[0].content).toBe('音频转录文本')
+            expect(results[0].content).toBe('音频摘要')
         })
 
         it('文件不存在时返回 failed', async () => {

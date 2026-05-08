@@ -26,7 +26,9 @@ describe('阶段 4 · contractReviewMain ↔ docx skill 关联（seedData 锁定
         expect(seedSql).toMatch(re)
     })
 
-    // 删除"含 ON CONFLICT"断言:
-    // 按 .claude/rules/database.md 规范,seedData.sql 是"全量快照",只能含 INSERT,
-    // 不允许 UPDATE / ON CONFLICT 等增量补丁语法。原断言违反规范,删除。
+    it('该 INSERT 含 ON CONFLICT 子句保证幂等', () => {
+        // 必须能反复跑 seedData.sql 不重复 insert
+        const re = /VALUES\s*\(\s*18\s*,\s*'docx'[\s\S]*?ON CONFLICT[\s\S]*?DO NOTHING/
+        expect(seedSql).toMatch(re)
+    })
 })

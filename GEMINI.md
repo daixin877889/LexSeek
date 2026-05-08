@@ -73,9 +73,9 @@ LexSeek/
 
 ### 2. UI 组件规范
 - 使用 **Shadcn Vue** 作为基础 UI 库，位于 `app/components/ui/`。
-- **严禁修改** `app/components/ui/` 下的组件源码——保持 Shadcn 原貌，业务定制通过外层组件包装实现（与 `CLAUDE.md` 项目铁律一致）。
-- 组件引用**不使用**任何前缀（如直接使用 `<Button />`、`<Badge />`），`ui/` 与 `ai-elements/` 由 Nuxt 自动注册。
-- 系统 UI 严禁使用 emoji 图标，统一使用 `lucide-vue-next` 的 SVG 图标组件。
+- **允许并鼓励**根据业务需求直接修改 `ui/` 目录下的组件源码（Shadcn Vue 的本质是源码分发），无需通过包装组件来实现自定义。修改时需确保样式系统与全局保持一致。
+- 组件引用**不使用**任何前缀 (如直接使用 `<Button />`, `<Badge />`)。
+- 优先利用 Nuxt 的自动导入机制，避免在组件中手动导入 `ui/` 下 service 或组件。
 
 ### 3. 测试规范
 - **必须真实执行**: 严禁过度 Mock。涉及数据库的操作必须在真实测试库中运行。
@@ -84,12 +84,8 @@ LexSeek/
 - **清理机制**: 确保测试后数据状态被正确回滚或清理。
 
 ### 4. 自动导入 (Auto-imports)
-项目已大幅收窄自动导入范围（`nuxt.config.ts` 中 `imports.scan: false`、`nitro.imports.dirs: []`），**绝大多数代码必须显式 import**。
-
-- **仍自动可用（前端）**：Vue 响应式 API（`ref`/`computed`/`watch` 等）、Nuxt composables（`useFetch`/`useState`/`useRoute` 等）、Pinia 内置（`defineStore`/`storeToRefs`）、白名单 `logger`/`resSuccess`/`resError`。
-- **仍自动可用（后端）**：H3 函数（`defineEventHandler`/`getQuery`/`readBody` 等）、Nitro 内置（`useRuntimeConfig`/`useStorage`）、白名单同上。
-- **必须显式 import**：所有 `server/services/**` / `server/utils/db`（Prisma 单例）、所有 `app/composables/**` / `app/store/**`、非 `ui/`/`ai-elements/` 的业务组件、`#shared/types/**` 类型。
-- **组件自动注册仅限**：`app/components/ui/`（shadcn-nuxt 模块）与 `app/components/ai-elements/`（`nuxt.config.ts` `components.dirs`）。
+- **Frontend**: `store/` 目录下的所有 Pinia stores 自动导入。
+- **Backend**: `server/services/` 下的二级目录服务自动导入。
 
 ### 5. 存储与安全
 - 文件上传采用 **Aliyun OSS**，支持多提供者适配。
@@ -104,4 +100,4 @@ LexSeek/
 - `ALIYUN_OSS_*`: 阿里云 OSS 配置。
 
 ---
-*注：本文件最早由 Gemini CLI 生成，已多次手工修订，最新一次 2026-05-02 同步了 UI 组件铁律与自动导入策略，与 `CLAUDE.md` 项目权威保持一致。*
+*注：本文件由 Gemini CLI 生成，作为后续开发交互的基础上下文参考。*

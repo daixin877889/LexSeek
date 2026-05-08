@@ -3,14 +3,13 @@
  * GET /api/v1/admin/payments/export
  */
 import { z } from 'zod'
-import { PaymentChannel, PaymentMethod } from '#shared/types/payment'
 import { exportPaymentTransactionsService } from '~~/server/services/payment/paymentTransaction.admin.service'
 
 const querySchema = z.object({
     keyword: z.string().optional(),
     status: z.coerce.number().int().optional(),
-    paymentChannel: z.nativeEnum(PaymentChannel).optional(),
-    paymentMethod: z.nativeEnum(PaymentMethod).optional(),
+    paymentChannel: z.enum(['wechat', 'alipay']).optional(),
+    paymentMethod: z.enum(['mini_program', 'scan_code', 'wap', 'app', 'pc']).optional(),
     startTime: z.string().optional().transform((v) => v ? new Date(v) : undefined),
     endTime: z.string().optional().transform((v) => v ? new Date(v) : undefined),
     limit: z.coerce.number().int().min(1).max(10000).default(10000),

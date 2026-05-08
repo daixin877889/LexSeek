@@ -27,8 +27,6 @@ import {
     updateNodeStatusService,
     deleteNodeService,
     batchUpdateNodeGroupService,
-    resolveThinking,
-    resolveThinkingFromNodeConfig,
 } from '../../../server/services/node/node.service'
 
 config({ path: resolve(__dirname, '../../../.env.testing') })
@@ -616,32 +614,5 @@ describe('节点服务测试', () => {
                 ).rejects.toThrow('关联的分组不存在')
             })
         })
-    })
-})
-
-describe('resolveThinking', () => {
-    it('模型不支持思考时强制返回 false', () => {
-        expect(resolveThinking(false, true, true)).toBe(false)
-        expect(resolveThinking(false, undefined, true)).toBe(false)
-    })
-    it('前端 ctx.thinking 显式时优先', () => {
-        expect(resolveThinking(true, true, false)).toBe(true)
-        expect(resolveThinking(true, false, true)).toBe(false)
-    })
-    it('ctx.thinking undefined 时回落节点配置', () => {
-        expect(resolveThinking(true, undefined, true)).toBe(true)
-        expect(resolveThinking(true, undefined, false)).toBe(false)
-    })
-})
-
-describe('resolveThinkingFromNodeConfig', () => {
-    it('从 NodeConfig 读字段并决议', () => {
-        const cfg = { modelSupportsThinking: true, thinkingEnabled: true } as any
-        expect(resolveThinkingFromNodeConfig(cfg, undefined)).toBe(true)
-        expect(resolveThinkingFromNodeConfig(cfg, false)).toBe(false)
-    })
-    it('模型不支持时即使节点开了也强制 false', () => {
-        const cfg = { modelSupportsThinking: false, thinkingEnabled: true } as any
-        expect(resolveThinkingFromNodeConfig(cfg, true)).toBe(false)
     })
 })

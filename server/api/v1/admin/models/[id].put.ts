@@ -80,8 +80,6 @@ const bodySchema = z.object({
         .positive('输出成本必须是正数')
         .optional()
         .nullable(),
-    supportsThinking: z.boolean()
-        .optional(),
 })
 
 export default defineEventHandler(async (event) => {

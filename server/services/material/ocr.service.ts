@@ -22,12 +22,9 @@ import {
 } from './ocr.dao'
 import { generateSignedUrlService } from '../storage/storage.service'
 import { getValidNodeConfig, getNodeConfigService, type NodeConfig } from '../node/node.service'
-import { assembleSystemPromptTemplate } from '../agent-platform/nodeConfig/promptRenderer'
 import { embedImageService } from './materialEmbedding.service'
-import { generateOssFileSummaryService } from './material.service'
 import { markdownToHtmlService } from './mineruResult.service'
 import { ImageType } from '#shared/types/recognition'
-import { withLangfuseContext } from '~~/server/lib/langfuse'
 
 /** OCR 节点名称 */
 const OCR_NODE_NAME = 'extractImageInfo'
@@ -109,12 +106,13 @@ export function validateImageType(mimeType: string): boolean {
  * @returns 系统提示词内容
  */
 function getSystemPromptFromConfig(config: NodeConfig): string {
-    // 拼接所有启用的 system prompt（反越狱护栏 + OCR 业务 prompt 等），按 displayOrder 升序
-    const template = assembleSystemPromptTemplate(config.prompts)
-    if (!template) {
+    // 查找 system 类型的提示词
+    const systemPrompt = config.prompts.find((p) => p.type === 'system')
+    if (!systemPrompt || !systemPrompt.content) {
         throw new Error(`OCR 节点 "${config.name}" 未配置系统提示词，请在后台配置`)
     }
-    return template
+
+    return systemPrompt.content
 }
 
 /**
@@ -310,17 +308,6 @@ export async function createImageConversionService(
     userId: number,
     tx?: Prisma.TransactionClient
 ): Promise<OcrResult> {
-    return withLangfuseContext(
-        { userId, vertical: 'ocr' },
-        () => createImageConversionInner(ossFileId, userId, tx),
-    )
-}
-
-async function createImageConversionInner(
-    ossFileId: number,
-    userId: number,
-    tx?: Prisma.TransactionClient
-): Promise<OcrResult> {
     try {
         // 1. 验证 OSS 文件是否存在
         const ossFile = await (tx || prisma).ossFiles.findFirst({
@@ -394,10 +381,6 @@ async function createImageConversionInner(
             ossFileId,
             imageType: extractResult.imgType,
         })
-
-        // 8. fire-and-forget 按 OssFile 触发摘要生成
-        // 不依赖 caseMaterials 行存在（小索/法律助手输入框上传场景下还没创建 caseMaterials）
-        generateOssFileSummaryService(ossFileId).catch(() => { /* 已在内部 catch */ })
 
         return {
             record,

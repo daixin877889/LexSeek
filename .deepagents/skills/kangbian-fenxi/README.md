@@ -15,17 +15,17 @@
 
 | 方法 | 用途 | 文档 |
 |------|------|------|
-| 合同效力体系检视 | 三阶段递进检视合同效力（成立→有效→生效） | [references/合同效力检视.md](./references/合同效力检视.md) |
-| 附条件合同分析 | 精细化分析条件与义务关系 | [references/附条件分析.md](./references/附条件分析.md) |
-| 条件不成就→解除条件成就 | 157条vs566条选择（高级技巧） | [references/条件不成就解除.md](./references/条件不成就解除.md) |
-| 批准生效合同分析 | 部分条款独立生效判断 | [references/批准生效合同.md](./references/批准生效合同.md) |
-| 规范目的导向解释 | 管制最小范围原则 | [references/规范目的解释.md](./references/规范目的解释.md) |
-| 反射式迭代检索 | 三周期递进式法律检索 | [references/反射式检索.md](./references/反射式检索.md) |
-| 攻防策略推演 | 构建抗辩与反制策略 | [references/攻防策略.md](./references/攻防策略.md) |
-| 合同解释优先 | 意思表示探究方法 | [references/合同解释优先.md](./references/合同解释优先.md) |
-| 普遍性验证 | 策略普适性检验与论证策略 | [references/普遍性验证.md](./references/普遍性验证.md) |
-| 自定位流程 | 单独调用时的请求权快速定位 | [references/自定位流程.md](./references/自定位流程.md) |
-| 输出格式规范 | 抗辩报告的标准结构 | [references/报告输出格式.md](./references/报告输出格式.md) |
+| 合同效力体系检视 | 三阶段递进检视合同效力（成立→有效→生效） | [references/hetong-xiaoli-jianshi.md](./references/hetong-xiaoli-jianshi.md) |
+| 附条件合同分析 | 精细化分析条件与义务关系 | [references/futiaojian-fenxi.md](./references/futiaojian-fenxi.md) |
+| 条件不成就→解除条件成就 | 157条vs566条选择（高级技巧） | [references/tiaojian-buchengji-jiechu.md](./references/tiaojian-buchengji-jiechu.md) |
+| 批准生效合同分析 | 部分条款独立生效判断 | [references/pizhun-shengheng-hetong.md](./references/pizhun-shengheng-hetong.md) |
+| 规范目的导向解释 | 管制最小范围原则 | [references/guifan-mudi-jieshi.md](./references/guifan-mudi-jieshi.md) |
+| 反射式迭代检索 | 三周期递进式法律检索 | [references/fanshe-jiansuo.md](./references/fanshe-jiansuo.md) |
+| 攻防策略推演 | 构建抗辩与反制策略 | [references/gongfang-celue.md](./references/gongfang-celue.md) |
+| 合同解释优先 | 意思表示探究方法 | [references/hetong-jieshi.md](./references/hetong-jieshi.md) |
+| 普遍性验证 | 策略普适性检验与论证策略 | [references/pubian-yanzheng.md](./references/pubian-yanzheng.md) |
+| 自定位流程 | 单独调用时的请求权快速定位 | [references/zidingwei-liucheng.md](./references/zidingwei-liucheng.md) |
+| 输出格式规范 | 抗辩报告的标准结构 | [references/baogao-shuchu-geshi.md](./references/baogao-shuchu-geshi.md) |
 
 ## 使用场景
 

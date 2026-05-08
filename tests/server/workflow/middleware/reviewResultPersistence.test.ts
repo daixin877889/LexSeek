@@ -24,8 +24,8 @@ vi.mock('~~/server/services/assistant/contract/contractAnnotation.dao', () => ({
         wordCommentRef: 1,
         createdAt: new Date(),
         risk: {
-            clauseText: 'q',
-            clauseParagraphIndex: 0,
+            anchorQuote: 'q',
+            anchorParagraphIndex: 0,
             orphaned: false,
         },
     }]),

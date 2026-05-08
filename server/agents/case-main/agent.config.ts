@@ -8,7 +8,7 @@
  *
  * 业务私有中间件：
  * - caseProcessMaterialMiddleware：Agent 启动前预处理未向量化材料
- * - caseContextSyncMiddleware：每轮注入案件 4 段 HumanMessage（档案 + 模块摘要 + 召回记忆 + 材料清单）+ 双轨 metadata 标记
+ * - caseMaterialContextMiddleware：材料上下文注入（首次全量 / 增量）
  *
  * 子代理工具：
  * - createSubAgentTools：从 analysis / document 类型子节点生成专家工具
@@ -22,7 +22,7 @@ import {
     MIDDLEWARE_PRIORITY,
     MIDDLEWARE_NAMES,
 } from '~~/server/services/agent-platform/middleware/types'
-import { caseContextSyncMiddleware } from '~~/server/agents/_shared/case-context/caseContextSync.middleware'
+import { caseMaterialContextMiddleware } from './middleware/caseMaterialContext.middleware'
 import { caseProcessMaterialMiddleware } from '~~/server/agents/_shared/case-context/caseProcessMaterial.middleware'
 import { afterAgentMemoryMiddleware } from '~~/server/services/agent-platform/middleware/afterAgentMemory.middleware'
 import { createSubAgentTools } from '~~/server/services/agent-platform/subAgent/subAgentToolFactory'
@@ -40,26 +40,21 @@ export const caseMainAgent = defineDomainAgent({
 
     /**
      * 业务私有中间件：
-     * 1. caseProcessMaterial（PROCESS_MATERIAL=10）：材料预处理，优先于上下文注入
-     * 2. caseContext（MODULE_CONTEXT=30）：5 段式上下文注入（档案 + 模块摘要 + 召回记忆 + 材料清单）
+     * 1. caseProcessMaterial（PROCESS_MATERIAL=10）：材料预处理，优先于材料上下文注入
+     * 2. caseMaterialContext（MATERIAL_CONTEXT=30）：注入材料上下文到 system prompt
      *
      * 两者均依赖 caseId，因此 case scope 请求必须携带 caseId。
-     * agentName='caseMain' 让 buildContextSegments 内部 NOT { analysisType: 'caseMain' } 不会
-     * 误过滤任何分析模块（无名为 caseMain 的 analysisType），全部 7 个模块摘要都会注入。
      */
     customMiddlewares: async (ctx) => [
         {
-            middleware: caseProcessMaterialMiddleware(ctx.userId, ctx.caseId!, ctx.runId, ctx.sessionId),
+            middleware: caseProcessMaterialMiddleware(ctx.userId, ctx.caseId!),
             priority: MIDDLEWARE_PRIORITY.PROCESS_MATERIAL,
             name: MIDDLEWARE_NAMES.PROCESS_MATERIAL,
         },
         {
-            middleware: caseContextSyncMiddleware({
-                caseId: ctx.caseId!,
-                agentName: 'caseMain',
-            }),
-            priority: MIDDLEWARE_PRIORITY.MODULE_CONTEXT,
-            name: MIDDLEWARE_NAMES.MODULE_CONTEXT,
+            middleware: caseMaterialContextMiddleware(ctx.userId, ctx.caseId!),
+            priority: MIDDLEWARE_PRIORITY.MATERIAL_CONTEXT,
+            name: MIDDLEWARE_NAMES.MATERIAL_CONTEXT,
         },
         {
             middleware: afterAgentMemoryMiddleware({

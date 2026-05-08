@@ -18,7 +18,6 @@ import { nanoid } from 'nanoid'
 import type { BaseMessage } from '@langchain/core/messages'
 import type { AgentRunStatus } from '#shared/types/agentRun'
 import {
-  buildAttachmentsPayload,
   enqueueAction,
   type QueueItem,
   type QueuePauseReason,
@@ -66,14 +65,6 @@ export interface DomainAgentApiEndpoints {
   createUrl?: string | null
   deleteUrl?: ((sessionId: string) => string) | null
   renameUrl?: ((sessionId: string) => string) | null
-  /**
-   * thread 历史状态 API：返回 subAgentThreads 用于刷新页面后恢复子流 CoT。
-   *
-   * useStream 自带的 loadHistory 只恢复主流 messages（LangGraph checkpoint），
-   * 子代理 subThreadsMap 是前端 reactive，必须额外 GET 此 API 主动灌入。
-   * 不传则刷新后子流 CoT 全部丢失。
-   */
-  historyUrl?: ((sessionId: string) => string) | null
 }
 
 export interface DomainAgentSessionConfig {
@@ -120,7 +111,6 @@ interface ResolvedApiConfig {
   createUrl: string | null
   deleteUrl: ((sessionId: string) => string) | null
   renameUrl: ((sessionId: string) => string) | null
-  historyUrl: ((sessionId: string) => string) | null
 }
 
 /**
@@ -137,15 +127,13 @@ function defaultApiEndpoints(scope: DomainScope): ResolvedApiConfig {
         listUrl: (caseId, moduleName) => {
           if (!caseId) throw new Error('scope=case 时 caseId 必填')
           return moduleName
-            ? `/api/v1/cases/analysis/module-sessions?caseId=${caseId}&moduleName=${moduleName}`
-            : `/api/v1/cases/analysis/xiaosuo-sessions?caseId=${caseId}`
+            ? `/api/v1/case/analysis/module-sessions?caseId=${caseId}&moduleName=${moduleName}`
+            : `/api/v1/case/analysis/xiaosuo-sessions?caseId=${caseId}`
         },
-        createUrl: '/api/v1/cases/analysis/xiaosuo-session',
-        deleteUrl: (sid) => `/api/v1/cases/analysis/xiaosuo-session/${sid}`,
-        renameUrl: (sid) => `/api/v1/cases/analysis/session/rename/${sid}`,
-        chatUrl: '/api/v1/cases/analysis/chat',
-        // case scope 复用案件分析模块的 thread 历史 endpoint：返回 subAgentThreads
-        historyUrl: (sid) => `/api/v1/cases/analysis/thread/${sid}`,
+        createUrl: '/api/v1/case/analysis/xiaosuo-session',
+        deleteUrl: (sid) => `/api/v1/case/analysis/xiaosuo-session/${sid}`,
+        renameUrl: (sid) => `/api/v1/case/analysis/session/rename/${sid}`,
+        chatUrl: '/api/v1/case/analysis/chat',
       }
     case 'legal_assistant':
       return {
@@ -154,7 +142,6 @@ function defaultApiEndpoints(scope: DomainScope): ResolvedApiConfig {
         deleteUrl: (sid) => `/api/v1/assistant/sessions/${sid}`,
         renameUrl: (sid) => `/api/v1/assistant/sessions/${sid}/rename`,
         chatUrl: '/api/v1/assistant/chat',
-        historyUrl: null,  // 法律助手 vertical 暂未实现 thread 历史 endpoint
       }
     case 'document':
       // 单 session 默认：list/create/delete/rename 都 null（业务方按 draftId 单 session 驱动）
@@ -164,7 +151,6 @@ function defaultApiEndpoints(scope: DomainScope): ResolvedApiConfig {
         deleteUrl: null,
         renameUrl: null,
         chatUrl: '/api/v1/assistant/document/chat',
-        historyUrl: null,
       }
     case 'contract':
       // 单 session 默认：list/create/delete/rename 都 null
@@ -174,7 +160,6 @@ function defaultApiEndpoints(scope: DomainScope): ResolvedApiConfig {
         deleteUrl: null,
         renameUrl: null,
         chatUrl: '/api/v1/assistant/contract/chat',
-        historyUrl: null,
       }
     case 'case_analysis_init':
       // 单 session 默认：list/create/delete/rename 都 null（路由 sessionId 驱动）
@@ -183,8 +168,7 @@ function defaultApiEndpoints(scope: DomainScope): ResolvedApiConfig {
         createUrl: null,
         deleteUrl: null,
         renameUrl: null,
-        chatUrl: '/api/v1/cases/init-analysis',
-        historyUrl: null,
+        chatUrl: '/api/v1/case/init-analysis',
       }
     default: {
       const exhaustive: never = scope
@@ -213,7 +197,6 @@ function resolveApiEndpoints(
     createUrl: 'createUrl' in override ? (override.createUrl ?? null) : defaults.createUrl,
     deleteUrl: 'deleteUrl' in override ? (override.deleteUrl ?? null) : defaults.deleteUrl,
     renameUrl: 'renameUrl' in override ? (override.renameUrl ?? null) : defaults.renameUrl,
-    historyUrl: 'historyUrl' in override ? (override.historyUrl ?? null) : defaults.historyUrl,
   }
 }
 
@@ -267,9 +250,6 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
 
   function disposeCurrentChat() {
     if (currentScope) {
-      // 先 abort SSE 连接防止 scope 停止后还有旧 callback 写入已分离的 reactive map，
-      // 导致新 switchSession 创建的子 Agent 分桶收不到实时事件（CoT 不显示的根因之一）。
-      currentChat.value?.stop()
       currentScope.stop()
       currentScope = null
       currentChat.value = null
@@ -362,8 +342,8 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
     // 小索走 xiaosuo-session（type=1）。defaultApiEndpoints 的 createUrl 默认是
     // 后者，moduleName 非空时改路由到前者。
     const createUrl = (scope === 'case' && moduleName
-        && apiConfig.createUrl === '/api/v1/cases/analysis/xiaosuo-session')
-        ? '/api/v1/cases/analysis/module-session'
+        && apiConfig.createUrl === '/api/v1/case/analysis/xiaosuo-session')
+        ? '/api/v1/case/analysis/module-session'
         : apiConfig.createUrl
 
     const result = await useApiFetch<{ sessionId: string; title: string }>(
@@ -392,53 +372,7 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
     disposeCurrentChat()
     currentSessionId.value = sessionId
 
-    // 先拉 thread 历史 endpoint 拿子代理 threads（刷新页面后恢复 CoT 用）。
-    // useStream 自带的 loadHistory 只恢复主流 messages，子流 reactive map 必须显式灌入。
-    let initialSubThreads: Array<{
-      toolCallId: string
-      agentName: string
-      threadId: string
-      messages: Record<string, unknown>[]
-    }> | undefined
-    if (apiConfig.historyUrl) {
-      try {
-        const history = await useApiFetch<{
-          subAgentThreads?: Array<{
-            toolCallId: string
-            agentName: string
-            threadId: string
-            messages: Record<string, unknown>[]
-          }>
-        }>(apiConfig.historyUrl(sessionId), { showError: false })
-        initialSubThreads = history?.subAgentThreads
-      } catch (err) {
-        console.warn('[useDomainAgentSession] 拉 thread 历史失败，跳过子流恢复', err)
-      }
-      // 期间用户切换 session 则丢弃本次结果
-      if (currentSwitch !== switchCounter) return
-    }
-
     const newScope = effectScope()
-    // 子流跑完时拉一次 thread state 从 checkpoint 取最新 messages，覆盖实时累积的版本。
-    // 让"实时输出"和"刷新后加载"两种场景视觉一致（解决得出结论 step 内容差异等）。
-    const hydrateSubBucket = apiConfig.historyUrl
-      ? async (toolCallId: string) => {
-          try {
-            const history = await useApiFetch<{
-              subAgentThreads?: Array<{
-                toolCallId: string
-                messages: Record<string, unknown>[]
-              }>
-            }>(apiConfig.historyUrl!(sessionId), { showError: false })
-            const sub = history?.subAgentThreads?.find(s => s.toolCallId === toolCallId)
-            return sub?.messages?.length ? { messages: sub.messages } : null
-          } catch (err) {
-            console.warn('[useDomainAgentSession] hydrateSubBucket 失败', err)
-            return null
-          }
-        }
-      : undefined
-
     const streamChat = newScope.run(() =>
       useStreamChat({
         apiUrl: apiConfig.chatUrl,
@@ -447,8 +381,6 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
         // 业务自定义事件钩子直接注入：useStreamChat 已先消费 status_change，
         // 剩余 custom_event 透传给业务方按 name 分发
         onCustomEvent: config.onCustomEvent,
-        initialSubThreads,
-        hydrateSubBucket,
       }),
     )!
 
@@ -506,8 +438,8 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
     // 后者，moduleName 非空时改路由到前者（与 createSession 同步）。
     const baseUrl = apiConfig.deleteUrl(sessionId)
     const deleteUrl = (scope === 'case' && moduleName
-        && baseUrl === `/api/v1/cases/analysis/xiaosuo-session/${sessionId}`)
-        ? `/api/v1/cases/analysis/module-session/${sessionId}`
+        && baseUrl === `/api/v1/case/analysis/xiaosuo-session/${sessionId}`)
+        ? `/api/v1/case/analysis/module-session/${sessionId}`
         : baseUrl
 
     await useApiFetch(deleteUrl, { method: 'DELETE' })
@@ -580,16 +512,27 @@ export function useDomainAgentSession(config: DomainAgentSessionConfig) {
 
     lastLocalSendSeq.value++
 
-    // 附件预处理（sentinel + additional_kwargs.attachments 双轨）抽到
-    // chatQueueActions.buildAttachmentsPayload，与 useQueueDispatcher 派发路径口径完全一致。
-    const { content, additionalKwargs } = buildAttachmentsPayload(text ?? '', files)
+    let content = (text ?? '').trim()
+    const additional_kwargs: Record<string, any> = {}
+    if (files && files.length > 0) {
+      const payload = files.map((f: any) => ({
+        id: f.id,
+        fileName: f.fileName,
+        fileType: f.fileType,
+        fileSize: f.fileSize,
+        encrypted: f.encrypted,
+      }))
+      additional_kwargs.attachments = payload
+      const sentinel = `__ATTACHMENTS__\n${JSON.stringify(payload)}`
+      content = content ? `${sentinel}\n\n${content}` : sentinel
+    }
 
     if (!content) return
 
     // 走 wrappedChat 唯一入口（与 dispatcher 同路径）
     await currentChat.value.sendMessage(content, {
       thinking,
-      additional_kwargs: additionalKwargs,
+      additional_kwargs: Object.keys(additional_kwargs).length > 0 ? additional_kwargs : undefined,
     })
   }
 

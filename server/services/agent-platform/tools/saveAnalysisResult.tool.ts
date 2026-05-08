@@ -25,11 +25,7 @@ import type { BaseMessage } from '@langchain/core/messages'
 import { z } from 'zod'
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import type { ToolContext, ToolDefinition } from './types'
-import {
-    saveAndActivateAnalysisService,
-    updateAndActivateAnalysisService,
-} from '~~/server/services/case/analysis.service'
-import { findAnalysisByIdDao } from '~~/server/services/case/analysis.dao'
+import { saveAndActivateAnalysisService } from '~~/server/services/case/analysis.service'
 import { completeAnalysisWithRAG } from '~~/server/services/case/initAnalysis.service'
 import { publishCustomEvent } from '~~/server/services/agent/agentEventBridge'
 import { SSECustomEventType } from '#shared/types/agentEvent'
@@ -78,12 +74,6 @@ type AgentStateShape = {
     messages: BaseMessage[]
     _totalTokensConsumed?: number
     _totalPointsConsumed?: number
-    /**
-     * analysisResultPersistenceMiddleware.beforeAgent 注入的本轮 IN_PROGRESS 记录 id。
-     * 工具读到此字段时直接用它走 completeAnalysisWithRAG（update 同一条记录），
-     * 避免和 middleware 写两条记录冲突。缺失时降级到 saveAndActivateAnalysisService。
-     */
-    _analysisRecordId?: number
     [key: string]: unknown
 }
 
@@ -176,49 +166,16 @@ export function createTool(context: ModuleToolContext) {
                     }
                 }
 
-                // ── 4. 锚定本轮记录（优先走 middleware 预创建的 IN_PROGRESS 记录）──
-                // 与 analysisResultPersistenceMiddleware.beforeAgent 协同：
-                //   - 有 _analysisRecordId：直接用同一条记录，跳过 createAnalysisDao
-                //     避免工具+middleware 双写产生两条 COMPLETED + 版本号错乱
-                //   - 无 _analysisRecordId（中间件未挂载或 beforeAgent 异常退出）：
-                //     降级到 saveAndActivateAnalysisService 创建新版本（保持向后兼容）
-                const recordIdFromState = runtime.state?._analysisRecordId
-                let analysisId: number
-                let version: number
-
-                if (typeof recordIdFromState === 'number' && recordIdFromState > 0) {
-                    const existing = await findAnalysisByIdDao(recordIdFromState)
-                    if (!existing) {
-                        throw new Error(`分析记录不存在: ${recordIdFromState}`)
-                    }
-                    analysisId = existing.id
-                    version = existing.version
-
-                    // 关键：必须先把 DB 写成 COMPLETED + analysisResult + isActive=true，
-                    // 再 emit ANALYSIS_RESULT_SAVED。否则前端 _refreshAnalysis 在 emit 后
-                    // 立即拉 init-analysis-status 拿到的还是 middleware.beforeAgent 留下的
-                    // IN_PROGRESS 记录（result=NULL），allModuleCards 算出 in_progress、
-                    // 卡片卡 loading 直到 completeAnalysisWithRAG 内的 Stage 1 跑完。
-                    // completeAnalysisWithRAG 第 7 步会再 update 一次（叠加 summary），
-                    // 同字段重写无副作用。
-                    await updateAndActivateAnalysisService(analysisId, {
-                        analysisResult: lastAi.text,
-                        tokens,
-                        tokenCount,
-                    })
-                } else {
-                    const created = await saveAndActivateAnalysisService({
-                        caseId: context.caseId,
-                        sessionId: context.sessionId,
-                        nodeId: context.nodeId,
-                        analysisType: context.moduleName,
-                        analysisResult: lastAi.text,
-                        tokenCount,
-                        tokens,
-                    })
-                    analysisId = created.id
-                    version = created.version
-                }
+                // ── 4. 保存 + 激活（事务内）──
+                const analysis = await saveAndActivateAnalysisService({
+                    caseId: context.caseId,
+                    sessionId: context.sessionId,
+                    nodeId: context.nodeId,
+                    analysisType: context.moduleName,
+                    analysisResult: lastAi.text,
+                    tokenCount,
+                    tokens,
+                })
 
                 // ── 5. 通知前端刷新分析结果 ──
                 await publishCustomEvent({
@@ -227,9 +184,9 @@ export function createTool(context: ModuleToolContext) {
                     sessionId: context.sessionId,
                     name: SSECustomEventType.ANALYSIS_RESULT_SAVED,
                     data: {
-                        version,
+                        version: analysis.version,
                         moduleName: context.moduleName,
-                        analysisId,
+                        analysisId: analysis.id,
                         tokens,
                         tokenCount,
                     },
@@ -243,7 +200,7 @@ export function createTool(context: ModuleToolContext) {
                     phase: 'start',
                     toolCallId: summaryToolCallId,
                     parentMessageId: lastAi.messageId,
-                    analysisId,
+                    analysisId: analysis.id,
                 }
                 await publishCustomEvent({
                     type: 'custom_event',
@@ -255,23 +212,19 @@ export function createTool(context: ModuleToolContext) {
 
                 // ── 7. 同步生成摘要 + RAG embedding ──
                 // 这里必须 await：父 run 进入 COMPLETED 时 SSE 流会立即关闭，
-                // fire-and-forget 的 end 事件到不了前端。
-                // 把 tokens/tokenCount 也透传给 completeAnalysisWithRAG：update 分支下
-                // 工具未走 createAnalysisDao，必须由 completeAnalysisWithRAG 把 token 写入；
-                // saveAndActivate 分支下重复写也无副作用（值一致）。
+                // fire-and-forget 的 end 事件到不了前端
                 let endPayload: AnalysisSummaryPayload
                 try {
                     const summary = await completeAnalysisWithRAG({
-                        analysisId,
+                        analysisId: analysis.id,
                         analysisResult: lastAi.text,
-                        tokens,
-                        tokenCount,
+                        model: context.model,
                     })
                     endPayload = {
                         phase: 'end',
                         toolCallId: summaryToolCallId,
                         parentMessageId: lastAi.messageId,
-                        analysisId,
+                        analysisId: analysis.id,
                         success: true,
                         summary,
                     }
@@ -281,7 +234,7 @@ export function createTool(context: ModuleToolContext) {
                         phase: 'end',
                         toolCallId: summaryToolCallId,
                         parentMessageId: lastAi.messageId,
-                        analysisId,
+                        analysisId: analysis.id,
                         success: false,
                         error: e?.message || '生成摘要失败',
                     }
@@ -298,8 +251,8 @@ export function createTool(context: ModuleToolContext) {
                 // ── 8. tool return（save 卡片完成态）──
                 return JSON.stringify({
                     success: true,
-                    version,
-                    message: `分析结果已保存为第${version}版`,
+                    version: analysis.version,
+                    message: `分析结果已保存为第${analysis.version}版`,
                     tokens,
                     tokenCount,
                 })

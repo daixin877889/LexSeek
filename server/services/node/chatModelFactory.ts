@@ -16,7 +16,6 @@ import { ChatAnthropic } from '@langchain/anthropic'
 import type { SdkType } from '#shared/types/model'
 import { SDK_TYPES } from '#shared/types/model'
 import type { CachedPrompt } from '#shared/types/prompt'
-import { wrapWithLangfuse } from '~~/server/lib/langfuse'
 
 // ============================================================================
 // 类型定义
@@ -109,7 +108,7 @@ const modelCreators: Record<SdkType, (config: ChatModelConfig) => BaseChatModel>
             streaming: config.streaming ?? true,
             maxOutputTokens: config.maxTokens ?? DEFAULT_MAX_TOKENS,
             ...(config.thinking && {
-                thinkingConfig: { thinkingBudget: 4096, includeThoughts: true },
+                thinkingConfig: { thinkingBudget: 10_000 },
             }),
         })
     },
@@ -126,15 +125,12 @@ const modelCreators: Record<SdkType, (config: ChatModelConfig) => BaseChatModel>
             anthropicApiUrl: config.baseUrl,
             temperature: config.thinking ? 1 : (config.temperature ?? 0.7),
             streaming: config.streaming ?? true,
-            // thinking=true 时强制 maxTokens >= 8192（budget_tokens 4096 + 输出 4096 余量）
-            maxTokens: config.thinking
-                ? Math.max(config.maxTokens ?? DEFAULT_MAX_TOKENS, 8192)
-                : (config.maxTokens ?? DEFAULT_MAX_TOKENS),
+            maxTokens: config.maxTokens ?? DEFAULT_MAX_TOKENS,
             // 防止 Anthropic SDK 从 ANTHROPIC_AUTH_TOKEN 环境变量读取 Bearer token
             // 并同时发送 X-Api-Key + Authorization: Bearer，导致 DeepSeek 等兼容接口 401
             clientOptions: { authToken: null },
             ...(config.thinking && {
-                thinking: { type: 'enabled' as const, budget_tokens: 4096 },
+                thinking: { type: 'enabled' as const, budget_tokens: 10_000 },
             }),
         })
     },
@@ -236,11 +232,8 @@ export function createChatModel(config: ChatModelConfig): BaseChatModel {
         )
     }
 
-    // 创建模型实例后用 Langfuse ES Proxy 包一层，
-    // 使后续 invoke/stream/batch/streamEvents 自动从 ALS 注入 runName/tags/metadata。
-    // 不注入 callbacks（顶层 chain 通过 buildLangfuseTopLevelConfig 统一注入 langfuseHandler，
-    // 详见 modelProxy.ts 文件头注释）
-    return wrapWithLangfuse(creator(config))
+    // 创建并返回模型实例
+    return creator(config)
 }
 
 /**

@@ -58,18 +58,18 @@ export interface CaseDetailInfo {
 
 export function useCaseDetail(
   caseId: Ref<number> | ComputedRef<number>,
-  options?: { generatingModules?: Ref<string[]> | ComputedRef<string[]> },
+  options?: { generatingModules?: Ref<string[]> },
 ) {
   const id = toRef(caseId)
 
   // 案件基本信息（响应式，用于页面头部标题等）
   const { data: caseInfo, refresh: refreshCase } = useApi<CaseDetailInfo>(
-    () => `/api/v1/cases/${id.value}`,
+    () => `/api/v1/case/${id.value}`,
   )
 
   // 材料列表（响应式）
   const { data: materials, refresh: refreshMaterials } = useApi<CaseDetailMaterialItem[]>(
-    () => `/api/v1/cases/materials/${id.value}`,
+    () => `/api/v1/case/materials/${id.value}`,
   )
 
   // 文书草稿列表（响应式，按 caseId 过滤）
@@ -82,7 +82,7 @@ export function useCaseDetail(
 
   // 分析状态和结果
   const { data: analysisStatus, refresh: refreshAnalysis } = useApi<InitAnalysisStatusResponse>(
-    () => `/api/v1/cases/init-analysis-status/${id.value}`,
+    () => `/api/v1/case/init-analysis-status/${id.value}`,
   )
 
   // 跨标签页同步：其他标签页的 init-analysis 或模块对话完成时自动刷新
@@ -93,19 +93,9 @@ export function useCaseDetail(
     if (data.caseId === id.value) {
       const seq = ++crossTabFetchSeq
       const fresh = await useApiFetch<InitAnalysisStatusResponse>(
-        `/api/v1/cases/init-analysis-status/${id.value}`,
+        `/api/v1/case/init-analysis-status/${id.value}`,
       )
       if (fresh && seq === crossTabFetchSeq) analysisStatus.value = fresh
-    }
-  })
-
-  // 跨标签接收"生成中"模块名列表（来自其他 tab 的 [id].vue 模块对话 / 小索 ask_*_expert）。
-  // 让另一个 [id].vue tab 的模块卡片也能即时进入 in_progress 视觉态，无需等到完成才看到刷新。
-  // 注意只听当前 caseId；本 tab 自己的 generatingModules 不通过此 listener（来自 options 传入）。
-  const remoteGeneratingModules = ref<Set<string>>(new Set())
-  useCrossTabListener('module:generating', (data) => {
-    if (data.caseId === id.value) {
-      remoteGeneratingModules.value = new Set(data.modules)
     }
   })
 
@@ -162,11 +152,7 @@ export function useCaseDetail(
     const moduleMap = new Map<string, ModuleStatusItem>(
       (status?.modules ?? []).map((m: ModuleStatusItem) => [m.name, m]),
     )
-    // 本 tab 的"生成中"（manager + 小索）union 远程 tab 广播来的"生成中"
-    const generating = new Set([
-      ...(options?.generatingModules?.value ?? []),
-      ...remoteGeneratingModules.value,
-    ])
+    const generating = new Set(options?.generatingModules?.value ?? [])
     const locked = lockedModules.value
 
     return INIT_ANALYSIS_MODULES.map(def => {
@@ -236,7 +222,7 @@ export function useCaseDetail(
       }))
 
       const response = await useApiFetch<CaseDetailMaterialItem[]>(
-        `/api/v1/cases/materials/${id.value}`,
+        `/api/v1/case/materials/${id.value}`,
         {
           method: 'POST',
           body: { materials: materialParams },
@@ -320,7 +306,7 @@ export function useCaseDetail(
 
     isDeleting.value = true
     try {
-      await useApiFetch(`/api/v1/cases/materials/delete/${id.value}`, {
+      await useApiFetch(`/api/v1/case/materials/delete/${id.value}`, {
         method: 'DELETE',
         body: { materialIds },
       })

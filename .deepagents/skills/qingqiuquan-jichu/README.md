@@ -15,22 +15,22 @@
 
 | 方法 | 用途 | 文档 |
 |------|------|------|
-| 规范分类法 | 判断法条属性（主要/辅助/防御） | [references/规范分类.md](./references/规范分类.md) |
-| 三层四步法 | 系统检视请求权成立要件 | [references/三层四步.md](./references/三层四步.md) |
-| 预选排序法 | 确定多项请求权检视顺序 | [references/预选排序.md](./references/预选排序.md) |
-| 举证分配法 | 确定要件举证主体 | [references/举证责任分配.md](./references/举证责任分配.md) |
-| 鉴定体裁法 | 规范法律分析写作格式 | [references/鉴定体裁.md](./references/鉴定体裁.md) |
-| 法庭报告技术 | 组织诉讼审理流程 | [references/法庭报告技术.md](./references/法庭报告技术.md) |
-| 竞合处理法 | 处理多项规范同时适用 | [references/竞合处理.md](./references/竞合处理.md) |
+| 规范分类法 | 判断法条属性（主要/辅助/防御） | [references/guifan-fenlei.md](./references/guifan-fenlei.md) |
+| 三层四步法 | 系统检视请求权成立要件 | [references/sanceng-sibu.md](./references/sanceng-sibu.md) |
+| 预选排序法 | 确定多项请求权检视顺序 | [references/yuxuan-paixu.md](./references/yuxuan-paixu.md) |
+| 举证分配法 | 确定要件举证主体 | [references/juzheng-fenpei.md](./references/juzheng-fenpei.md) |
+| 鉴定体裁法 | 规范法律分析写作格式 | [references/jianding-ticai.md](./references/jianding-ticai.md) |
+| 法庭报告技术 | 组织诉讼审理流程 | [references/fating-baogao.md](./references/fating-baogao.md) |
+| 竞合处理法 | 处理多项规范同时适用 | [references/guifan-jinghe.md](./references/guifan-jinghe.md) |
 
 ## 专门应用
 
 | 应用 | 用途 | 文档 |
 |------|------|------|
-| 不作为侵权 | 四要件合并判断的简化检视 | 见 [references/专题应用.md](./references/专题应用.md) |
-| 合同效力 | 有效推定原则 | 见 [references/专题应用.md](./references/专题应用.md) |
-| 法律漏洞 | 类推填补方法 | 见 [references/专题应用.md](./references/专题应用.md) |
-| 体系构建 | 公因式展开方法 | 见 [references/专题应用.md](./references/专题应用.md) |
+| 不作为侵权 | 四要件合并判断的简化检视 | 见 [references/zhuanti-yingyong.md](./references/zhuanti-yingyong.md) |
+| 合同效力 | 有效推定原则 | 见 [references/zhuanti-yingyong.md](./references/zhuanti-yingyong.md) |
+| 法律漏洞 | 类推填补方法 | 见 [references/zhuanti-yingyong.md](./references/zhuanti-yingyong.md) |
+| 体系构建 | 公因式展开方法 | 见 [references/zhuanti-yingyong.md](./references/zhuanti-yingyong.md) |
 
 ## 使用场景
 

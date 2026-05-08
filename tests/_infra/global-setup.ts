@@ -17,9 +17,6 @@ import { config } from 'dotenv'
 import { resolve } from 'node:path'
 import { deriveAdminUrl, getSourceDbName, assertTemplateUsable } from './template-db'
 
-// Langfuse 测试环境强制禁用上报，防止意外上送到生产 Langfuse
-process.env.LANGFUSE_TRACING_ENABLED = 'false'
-
 const ROOT = resolve(__dirname, '../..')
 config({ path: resolve(ROOT, '.env.testing') })
 

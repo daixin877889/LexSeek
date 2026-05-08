@@ -285,7 +285,6 @@ async function loadFiles(append = false) {
     loadingMore.value = true;
   }
 
-  let loaded = false;
   try {
     const query = fileStore.buildFileListQuery(queryParams.value);
     const response = await useApiFetch<{
@@ -313,18 +312,14 @@ async function loadFiles(append = false) {
         allFiles.value = response.list;
       }
       totalFiles.value = response.pagination.total;
-      loaded = true;
+
+      // 等待 DOM 更新后检查是否需要继续加载
+      await nextTick();
+      checkAndLoadMore();
     }
   } finally {
     loading.value = false;
     loadingMore.value = false;
-  }
-
-  // 必须在 loading 标志清理后再触发兜底自动加载——
-  // checkAndLoadMore 内部依赖 !loading 守卫，写在 try 里会被自己的标志挡掉。
-  if (loaded) {
-    await nextTick();
-    checkAndLoadMore();
   }
 }
 

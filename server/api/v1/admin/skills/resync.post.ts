@@ -4,8 +4,8 @@
  * 适用场景：运维更新了 .deepagents/skills/ 下的内容（增/减/改），
  * 不希望重启服务即可让数据库元数据同步。
  *
- * 鉴权：由 server/middleware/03.permission.ts 按 RBAC 权限表细粒度判定
- *      （任意被授予该 API 权限的管理类角色均可访问）。
+ * 鉴权：依赖 server/middleware/03.permission.ts 的 super_admin 拦截
+ *      （非 super_admin 访问 /api/v1/admin/** 直接 403）。
  *
  * 响应：成功返回 ScanResult；失败返回 500 + 错误信息。
  *

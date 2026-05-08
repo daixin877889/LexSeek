@@ -270,16 +270,6 @@ export type prompts = Prisma.promptsModel
  */
 export type levelNodeAccess = Prisma.levelNodeAccessModel
 /**
- * Model node_prompts
- * 节点-提示词关联表 - 节点按"业务身份 (name, type)"关联提示词，激活新版本时零成本即时生效
- * 
- * 阶段 F 架构改造：
- * - 关联键从具体版本号 promptId 改为业务身份 (promptName, promptType)
- * - 激活新版本时（同 name+type 维度的另一条 status=1），节点关联自动跟随，无需"搬运"链接
- * - 不再持有 prisma 反向 1:1 关系（prompts ↔ node_prompts），引用计数走应用层 count
- */
-export type node_prompts = Prisma.node_promptsModel
-/**
  * Model orders
  * 订单表
  */

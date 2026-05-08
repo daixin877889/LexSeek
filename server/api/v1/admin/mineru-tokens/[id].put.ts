@@ -32,11 +32,6 @@ const bodySchema = z.object({
         .min(0, '状态值无效')
         .max(1, '状态值无效')
         .optional(),
-    /** 到期时间 ISO 字符串；undefined=不修改、null=清空（永不过期）、字符串=设置 */
-    expiresAt: z.string()
-        .datetime({ offset: true, message: '到期时间格式无效（需 ISO8601）' })
-        .optional()
-        .nullable(),
 })
 
 export default defineEventHandler(async (event) => {
@@ -53,12 +48,7 @@ export default defineEventHandler(async (event) => {
     }
 
     try {
-        const { expiresAt, ...rest } = bodyResult.data
-        const updateInput = {
-            ...rest,
-            ...(expiresAt === undefined ? {} : { expiresAt: expiresAt === null ? null : new Date(expiresAt) }),
-        }
-        const token = await updateMineruTokenService(paramsResult.data.id, updateInput)
+        const token = await updateMineruTokenService(paramsResult.data.id, bodyResult.data)
         return resSuccess(event, '更新 MinerU Token 成功', token)
     } catch (error: any) {
         // 处理业务逻辑错误

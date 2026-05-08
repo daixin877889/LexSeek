@@ -11,7 +11,6 @@ import {
     PauseCircle,
     XCircle,
 } from 'lucide-vue-next'
-import { useSkillLabels } from '~/composables/useSkillLabels'
 
 /**
  * 读取技能文件工具卡片
@@ -39,23 +38,12 @@ const fileName = computed<string>(() => {
     return segments[segments.length - 1] || p
 })
 
-const { label: skillLabelOf } = useSkillLabels()
-
-// 从路径里提取 skill 英文名作为主标题查表用。
-// 兼容后端注入的 4 种前缀（.deepagents/skills/, ./skills/, skills/, 无前缀），
-// 与 readSkillFile.tool.ts 的 normalize 正则保持一致；_workspace 前缀不属于 skill 范畴。
-const skillSlug = computed<string>(() => {
+// 副标题里的目录路径（不含文件名），无目录时退化为空字符串
+const dirPath = computed<string>(() => {
     const p = filePath.value
-    if (!p || p.startsWith('_workspace/')) return ''
-    const normalized = p.replace(/^(?:\.?\/?)?(?:\.?deepagents\/)?skills\//, '')
-    const segs = normalized.split('/').filter(Boolean)
-    return segs[0] ?? ''
-})
-
-// 主标题：skill 中文展示名（label 未加载或未匹配时退化为原 slug）
-const skillTitle = computed<string>(() => {
-    const slug = skillSlug.value
-    return slug ? skillLabelOf(slug) : ''
+    if (!p) return ''
+    const idx = p.lastIndexOf('/')
+    return idx > 0 ? p.slice(0, idx) : ''
 })
 
 const FileIconComponent = computed(() => {
@@ -86,19 +74,19 @@ const isLoading = computed(() =>
             <component :is="FileIconComponent" v-else class="size-5 text-primary" />
         </div>
 
-        <!-- 主信息：skill 中文名（强调）+ 副标题（"读取技能文件 · 文件名"） -->
+        <!-- 主信息：文件名（强调）+ 副标题（"读取技能文件 · 目录"） -->
         <div class="min-w-0 flex-1">
             <p class="truncate text-sm font-medium text-foreground" :title="filePath">
-                {{ skillTitle || fileName || '读取技能文件' }}
+                {{ fileName || '读取技能文件' }}
             </p>
             <p
                 class="mt-0.5 truncate text-xs"
                 :class="isLoading ? 'text-primary' : 'text-muted-foreground'"
-                :title="filePath"
+                :title="dirPath"
             >
                 <span>读取技能文件</span>
                 <template v-if="isLoading"> · 进行中…</template>
-                <template v-else-if="fileName"> · {{ fileName }}</template>
+                <template v-else-if="dirPath"> · {{ dirPath }}</template>
             </p>
         </div>
 

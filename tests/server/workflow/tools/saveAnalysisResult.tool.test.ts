@@ -32,18 +32,10 @@ vi.stubGlobal('crypto', {
     randomUUID: () => 'summary-tool-call-id-fixed',
 })
 
-// Mock analysis.service 中的 saveAndActivateAnalysisService + updateAndActivateAnalysisService
+// Mock analysis.service 中的 saveAndActivateAnalysisService
 const mockSaveAndActivate = vi.fn()
-const mockUpdateAndActivate = vi.fn()
 vi.mock('~~/server/services/case/analysis.service', () => ({
     saveAndActivateAnalysisService: (...args: any[]) => mockSaveAndActivate(...args),
-    updateAndActivateAnalysisService: (...args: any[]) => mockUpdateAndActivate(...args),
-}))
-
-// Mock analysis.dao 中的 findAnalysisByIdDao（_analysisRecordId 协同路径用）
-const mockFindAnalysisById = vi.fn()
-vi.mock('~~/server/services/case/analysis.dao', () => ({
-    findAnalysisByIdDao: (...args: any[]) => mockFindAnalysisById(...args),
 }))
 
 // Mock initAnalysis.service 中的 completeAnalysisWithRAG
@@ -346,101 +338,6 @@ describe('save_analysis_result 工具', () => {
             expect(result.success).toBe(false)
             expect(result.error).toContain('caseId')
             expect(mockSaveAndActivate).not.toHaveBeenCalled()
-        })
-    })
-
-    describe('与 analysisResultPersistenceMiddleware 协同（_analysisRecordId 路径）', () => {
-        const baseMessages = (): BaseMessage[] => [makeHuman('q'), makeAi('# 报告', 'ai-anchor')]
-
-        it('state._analysisRecordId 存在时跳过 saveAndActivate，直接 update 同一条记录', async () => {
-            // beforeAgent 已建好 IN_PROGRESS 记录 id=88, version=5
-            mockFindAnalysisById.mockResolvedValueOnce({ id: 88, version: 5, status: 1 })
-            mockUpdateAndActivate.mockResolvedValueOnce({ id: 88, version: 5, status: 2 })
-            mockCompleteAnalysisWithRAG.mockResolvedValueOnce('生成的真实摘要')
-            const tool = createTool(createContext())
-
-            const result = JSON.parse(await callTool(tool, {
-                messages: baseMessages(),
-                _analysisRecordId: 88,
-            } as any))
-
-            // 工具不再 createAnalysisDao 新版本
-            expect(mockSaveAndActivate).not.toHaveBeenCalled()
-            expect(mockFindAnalysisById).toHaveBeenCalledWith(88)
-
-            // 关键：必须在 emit ANALYSIS_RESULT_SAVED 之前先 update 同一条记录为 COMPLETED + activate，
-            // 否则前端 _refreshAnalysis 拉到的还是 IN_PROGRESS（卡片卡 loading）
-            expect(mockUpdateAndActivate).toHaveBeenCalledWith(88, expect.objectContaining({
-                analysisResult: '# 报告',
-                tokens: null,
-                tokenCount: null,
-            }))
-            // emit RESULT_SAVED 必须在 update 之后，确保前端拉到 complete 状态
-            const updateCallOrder = mockUpdateAndActivate.mock.invocationCallOrder[0]
-            const publishCallOrder = mockPublishCustomEvent.mock.invocationCallOrder[0]
-            expect(updateCallOrder).toBeLessThan(publishCallOrder)
-
-            // 返回的 version 取自 beforeAgent 锁定的版本号
-            expect(result.success).toBe(true)
-            expect(result.version).toBe(5)
-
-            // completeAnalysisWithRAG 用同一条 analysisId，并把 tokens/tokenCount 透传
-            expect(mockCompleteAnalysisWithRAG).toHaveBeenCalledWith(expect.objectContaining({
-                analysisId: 88,
-                analysisResult: '# 报告',
-                tokens: null,
-                tokenCount: null,
-            }))
-
-            // ANALYSIS_RESULT_SAVED / SUMMARY 事件都用同 analysisId / version
-            const [savedCall, , endCall] = mockPublishCustomEvent.mock.calls
-            expect(savedCall[0].data.analysisId).toBe(88)
-            expect(savedCall[0].data.version).toBe(5)
-            expect(endCall[0].data.analysisId).toBe(88)
-        })
-
-        it('_analysisRecordId 指向不存在的记录时 throw 保护数据一致性', async () => {
-            mockFindAnalysisById.mockResolvedValueOnce(null)
-            const tool = createTool(createContext())
-
-            const result = JSON.parse(await callTool(tool, {
-                messages: baseMessages(),
-                _analysisRecordId: 999,
-            } as any))
-
-            expect(result.success).toBe(false)
-            expect(result.error).toContain('分析记录不存在')
-            // 不会"为了恢复"擅自 saveAndActivate 新建一条（避免双写）
-            expect(mockSaveAndActivate).not.toHaveBeenCalled()
-            expect(mockPublishCustomEvent).not.toHaveBeenCalled()
-            expect(mockCompleteAnalysisWithRAG).not.toHaveBeenCalled()
-        })
-
-        it('_analysisRecordId 缺失时降级到 saveAndActivate（兼容未挂载 middleware 的场景）', async () => {
-            mockSaveAndActivate.mockResolvedValueOnce({ id: 1, version: 1 })
-            mockCompleteAnalysisWithRAG.mockResolvedValueOnce('summary')
-            const tool = createTool(createContext())
-
-            await callTool(tool, { messages: baseMessages() } as any)
-
-            expect(mockFindAnalysisById).not.toHaveBeenCalled()
-            expect(mockSaveAndActivate).toHaveBeenCalledTimes(1)
-        })
-
-        it('_analysisRecordId 为 0 时视为缺失，降级到 saveAndActivate', async () => {
-            // 防御：_analysisRecordId=0 是 langgraph default-int 兜底返回的可能值，
-            // 不应该被当作有效 id 去查库
-            mockSaveAndActivate.mockResolvedValueOnce({ id: 1, version: 1 })
-            mockCompleteAnalysisWithRAG.mockResolvedValueOnce('summary')
-            const tool = createTool(createContext())
-
-            await callTool(tool, {
-                messages: baseMessages(),
-                _analysisRecordId: 0,
-            } as any)
-
-            expect(mockFindAnalysisById).not.toHaveBeenCalled()
-            expect(mockSaveAndActivate).toHaveBeenCalledTimes(1)
         })
     })
 })

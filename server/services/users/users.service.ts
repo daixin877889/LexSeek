@@ -4,7 +4,7 @@
 import type { Prisma } from '#shared/types/prisma'
 import type { users } from '~~/generated/prisma/client'
 import { findRoleByIdsDao } from '~~/server/services/rbac/roles.dao'
-import { createUserRolesDao } from '~~/server/services/rbac/userRoles.dao'
+import { createUserRoleDao } from '~~/server/services/rbac/userRoles.dao'
 import { createUserDao } from '~~/server/services/users/users.dao'
 
 /**
@@ -59,8 +59,11 @@ async function executeCreateUser(
         // 创建用户
         const user = await createUserDao(data, tx)
 
+        // 创建用户角色关联
         if (roleIds.length > 0) {
-            await createUserRolesDao(user.id, roleIds, tx)
+            for (const roleId of roleIds) {
+                await createUserRoleDao(user.id, roleId, tx)
+            }
         }
 
         return user

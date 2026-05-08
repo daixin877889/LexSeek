@@ -100,16 +100,16 @@ function openPreview(att: AttachmentLite) {
 </script>
 
 <template>
-    <!-- 单文件 sm:max-w-[320px] 避免独占两列宽显得太空 -->
+    <!-- 卡片网格：单文件单列、≥2 文件双列；max-w 限定避免单文件铺过宽 -->
     <div
-        class="flex w-full max-w-2xl flex-wrap gap-2"
-        :class="attachments.length === 1 ? 'sm:max-w-[320px]' : ''"
+        class="grid w-fit max-w-2xl gap-2"
+        :class="attachments.length === 1 ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'"
     >
         <button
             v-for="att in attachments"
             :key="att.id"
             type="button"
-            class="group flex min-w-0 flex-1 basis-[200px] items-center gap-3 rounded-xl border border-border/70 bg-card px-3.5 py-3 text-left transition-colors hover:border-border hover:ring-1 hover:ring-foreground/5 sm:basis-[220px] sm:grow-0 sm:max-w-[280px]"
+            class="group flex min-w-[240px] max-w-[320px] items-center gap-3 rounded-xl border border-border/70 bg-card px-3.5 py-3 text-left transition-colors hover:border-border hover:ring-1 hover:ring-foreground/5"
             @click="openPreview(att)"
         >
             <!-- 图标容器：圆角色块 + 类型分色 -->

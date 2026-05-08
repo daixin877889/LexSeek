@@ -21,12 +21,8 @@ LexSeek 是基于 Nuxt 4 全栈架构的法律服务 AI 应用，本文档体系
 | 开发素材处理相关功能 | [backend/material.md](./backend/material.md) |
 | 开发法律法规检索功能 | [backend/legal.md](./backend/legal.md) + [backend/retrieval.md](./backend/retrieval.md) |
 | 开发支付/会员功能 | [backend/payment.md](./backend/payment.md) + [backend/membership.md](./backend/membership.md) |
-| 开发合同审查功能 | [backend/contract.md](./backend/contract.md) |
 | 开发权限管理功能 | [backend/rbac.md](./backend/rbac.md) + [backend/auth-users-sms.md](./backend/auth-users-sms.md) |
 | 开发 Agent 节点功能 | [backend/agent.md](./backend/agent.md) + [backend/node.md](./backend/node.md) |
-| 理解 LangGraph 适配层（业务 vertical 注册 / 中间件栈 / 工具体系） | [backend/agent-platform.md](./backend/agent-platform.md) |
-| 开发 / 配置 Agent Skill | [backend/skills.md](./backend/skills.md) |
-| 排查 LLM trace / token / 反查线上 run | [backend/langfuse.md](./backend/langfuse.md) |
 | 开发前端页面或组件 | [frontend/overview.md](./frontend/overview.md) + [frontend/components.md](./frontend/components.md) |
 | 了解前端状态管理 | [frontend/stores.md](./frontend/stores.md) |
 | 了解前端数据请求 | [frontend/composables.md](./frontend/composables.md) |
@@ -56,10 +52,7 @@ tech-docs/
 │   ├── workflow.md                    # 工作流引擎（LangGraph）
 │   ├── case.md                        # 案件管理
 │   ├── material.md                    # 素材处理（OCR/ASR/MinerU）
-│   ├── agent.md                       # Agent 任务调度（任务队列 + Redis SSE）
-│   ├── agent-platform.md              # LangGraph 适配层（vertical 注册 / 中间件栈 / 工具体系）
-│   ├── skills.md                      # Agent Skills 注册表与运行时挂载
-│   ├── contract.md                    # 合同审查模块（11 大类 / playbook / 多版本）
+│   ├── agent.md                       # Agent 任务调度
 │   ├── retrieval.md                   # 检索服务（混合检索、重排）
 │   ├── legal.md                       # 法律法规管理
 │   ├── model.md                       # 模型管理（多供应商）
@@ -68,8 +61,7 @@ tech-docs/
 │   ├── membership.md                  # 会员与权益
 │   ├── point.md                       # 积分系统
 │   ├── rbac.md                        # 角色权限控制
-│   ├── auth-users-sms.md             # 认证、用户、短信
-│   └── langfuse.md                    # Langfuse 可观测性集成（OTel + ALS + ModelProxy + PII 脱敏）
+│   └── auth-users-sms.md             # 认证、用户、短信
 ├── frontend/                          # 前端模块文档
 │   ├── overview.md                    # 前端架构总览
 │   ├── composables.md                 # Composables 函数

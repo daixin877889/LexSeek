@@ -86,26 +86,13 @@ function isValidCategory(c: string | undefined): c is DocumentCategoryKey {
     return (DOCUMENT_CATEGORY_KEYS as readonly string[]).includes(c)
 }
 
-/** 单模板单关键词的命中分数。
- *
- * name 命中加位置权重：避免中文子串歧义导致评分平局。
- * 例：keyword='起诉' 同时命中"民事起诉状"（idx=2）与"民事答辩状（公民对民事起诉提出答辩用）"（idx=10），
- * 旧版两者都 +10 平局后按 id desc 错把答辩状排在前面。
- * 现在按 name 中 kw 的起始位置打位置奖励，并在 idx=0 时再给 +3 精确意图奖励。
- */
+/** 单模板单关键词的命中分数。 */
 function scoreOneKeyword(tpl: documentTemplates, kw: string): number {
     const name = (tpl.name ?? '').toLowerCase()
     const desc = (tpl.description ?? '').toLowerCase()
     const cat = (tpl.category ?? '').toLowerCase()
     let s = 0
-    const nameIdx = name.indexOf(kw)
-    if (nameIdx >= 0) {
-        s += 10
-        // 位置越靠前奖励越多（最多 +5）；name 极短或 idx=0 时奖励接近上限
-        s += Math.round(5 * (1 - nameIdx / Math.max(name.length, 1)))
-        // name 直接以 kw 开头：精确意图奖励 +3
-        if (nameIdx === 0) s += 3
-    }
+    if (name.includes(kw)) s += 10
     if (desc.includes(kw)) s += 5
     if (cat.includes(kw)) s += 3
     return s

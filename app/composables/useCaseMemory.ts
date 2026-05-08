@@ -55,7 +55,7 @@ export function useCaseMemory(caseId: Ref<number>) {
         loading.value = true
         try {
             const result = await useApiFetch<{ memories: MemoryItem[]; nextCursor?: string }>(
-                `/api/v1/cases/memories/by-case/${caseId.value}`,
+                `/api/v1/case/memories/by-case/${caseId.value}`,
                 { method: 'GET', query: buildQuery() },
             )
             if (result) {
@@ -75,7 +75,7 @@ export function useCaseMemory(caseId: Ref<number>) {
 
     async function add(payload: AddMemoryPayload): Promise<MemoryItem | null> {
         const result = await useApiFetch<MemoryItem>(
-            `/api/v1/cases/memories/by-case/${caseId.value}`,
+            `/api/v1/case/memories/by-case/${caseId.value}`,
             { method: 'POST', body: payload },
         )
         if (result) {
@@ -86,7 +86,7 @@ export function useCaseMemory(caseId: Ref<number>) {
 
     async function remove(memoryId: string): Promise<boolean> {
         const result = await useApiFetch<{ id: string }>(
-            `/api/v1/cases/memories/${memoryId}`,
+            `/api/v1/case/memories/${memoryId}`,
             { method: 'DELETE' },
         )
         if (result) {

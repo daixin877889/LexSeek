@@ -5,10 +5,11 @@ import {
 } from '~~/server/services/workflow/middleware/types'
 
 describe('MIDDLEWARE_NAMES 扩展', () => {
-    it('保留既有中间件名常量', () => {
+    it('保留既有 9 个中间件名常量', () => {
         expect(MIDDLEWARE_NAMES.PROCESS_MATERIAL).toBe('caseProcessMaterial')
         expect(MIDDLEWARE_NAMES.POINT_CONSUMPTION).toBe('pointConsumption')
-        expect(MIDDLEWARE_NAMES.MODULE_CONTEXT).toBe('caseContext')
+        expect(MIDDLEWARE_NAMES.MATERIAL_CONTEXT).toBe('caseMaterialContext')
+        expect(MIDDLEWARE_NAMES.MODULE_CONTEXT).toBe('moduleContext')
         expect(MIDDLEWARE_NAMES.SUMMARIZATION).toBe('summarization')
         expect(MIDDLEWARE_NAMES.SAFETY_TRIM).toBe('safetyTrim')
         expect(MIDDLEWARE_NAMES.SKILLS_DISCOVERY).toBe('skillsDiscovery')

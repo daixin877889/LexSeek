@@ -3,13 +3,12 @@
  * GET /api/v1/admin/orders/export
  */
 import { z } from 'zod'
-import { OrderType } from '#shared/types/payment'
 import { exportOrdersService } from '~~/server/services/payment/order.admin.service'
 
 const querySchema = z.object({
     keyword: z.string().optional(),
     status: z.coerce.number().int().optional(),
-    orderType: z.nativeEnum(OrderType).optional(),
+    orderType: z.enum(['purchase', 'upgrade', 'renew']).optional(),
     productId: z.coerce.number().int().optional(),
     startTime: z.string().optional().transform((v) => v ? new Date(v) : undefined),
     endTime: z.string().optional().transform((v) => v ? new Date(v) : undefined),

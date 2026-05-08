@@ -14,19 +14,19 @@
 
 | 方法 | 用途 | 文档 |
 |------|------|------|
-| 证据三性审查法 | 评估证据可采性（真实性、合法性、关联性） | [references/证据三性.md](./references/证据三性.md) |
-| 证据能力与证明力分离原则 | 两阶段审查：先能力后证明力 | [references/证据能力.md](./references/证据能力.md) |
-| 质证次序规则 | 按法定顺序质证 | [references/质证次序.md](./references/质证次序.md) |
-| 质证意见六类型清单 | 系统发表质证意见 | [references/质证意见.md](./references/质证意见.md) |
-| 证明力评估法 | 判断证据证明价值 | [references/证明力评估.md](./references/证明力评估.md) |
-| 举证分配法 | 确定举证责任主体 | [references/举证责任分配.md](./references/举证责任分配.md) |
-| 证据链构建法 | 组织证据组合论证 | [references/证据链构建.md](./references/证据链构建.md) |
-| 推定运用框架 | 运用法律推定和事实推定 | [references/推定运用.md](./references/推定运用.md) |
-| 自认制度 | 判断自认效力和免证 | [references/自认制度.md](./references/自认制度.md) |
-| 高度盖然性证明标准 | 民事证明标准75%+ | [references/高度盖然性.md](./references/高度盖然性.md) |
-| 情形判断法 | 判断案件材料状况 | [references/情形判断.md](./references/情形判断.md) |
-| 取证指引法 | 指导合规取证 | [references/取证指引.md](./references/取证指引.md) |
-| 诉讼策略法 | 制定诉讼策略 | [references/诉讼策略构建.md](./references/诉讼策略构建.md) |
+| 证据三性审查法 | 评估证据可采性（真实性、合法性、关联性） | [references/zhengju-sanxing.md](./references/zhengju-sanxing.md) |
+| 证据能力与证明力分离原则 | 两阶段审查：先能力后证明力 | [references/zhengju-nengli.md](./references/zhengju-nengli.md) |
+| 质证次序规则 | 按法定顺序质证 | [references/zhizheng-cixu.md](./references/zhizheng-cixu.md) |
+| 质证意见六类型清单 | 系统发表质证意见 | [references/zhizheng-yijian.md](./references/zhizheng-yijian.md) |
+| 证明力评估法 | 判断证据证明价值 | [references/zhengmingli-pinggu.md](./references/zhengmingli-pinggu.md) |
+| 举证分配法 | 确定举证责任主体 | [references/juzheng-fenpei.md](./references/juzheng-fenpei.md) |
+| 证据链构建法 | 组织证据组合论证 | [references/zhengju-lian.md](./references/zhengju-lian.md) |
+| 推定运用框架 | 运用法律推定和事实推定 | [references/tuiding-yunyong.md](./references/tuiding-yunyong.md) |
+| 自认制度 | 判断自认效力和免证 | [references/ziren-zhidu.md](./references/ziren-zhidu.md) |
+| 高度盖然性证明标准 | 民事证明标准75%+ | [references/gaodu-gairanxing.md](./references/gaodu-gairanxing.md) |
+| 情形判断法 | 判断案件材料状况 | [references/qingxing-panduan.md](./references/qingxing-panduan.md) |
+| 取证指引法 | 指导合规取证 | [references/quzheng-zhiyin.md](./references/quzheng-zhiyin.md) |
+| 诉讼策略法 | 制定诉讼策略 | [references/susong-celue.md](./references/susong-celue.md) |
 
 ## 使用场景
 

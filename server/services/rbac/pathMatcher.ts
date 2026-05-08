@@ -38,33 +38,30 @@ export const matchPath = (pattern: string, path: string): boolean => {
 /**
  * 将路径模式转换为正则表达式
  *
- * 收紧 :param 匹配（M5）：仅紧跟在 `/` 后或字符串开头的 `:name` 视为动态参数，
- * `/foo:bar` 这种字面冒号保留为字面字符。
+ * 收紧 :param 匹配（M5）：
+ * - 仅在路径段开头出现的 `:name` 才视为动态参数，避免 `/foo:bar` 这种字面冒号
+ *   被错误解析；
+ * - `:` 不是路径段起始位置时（如 `/foo:bar`）保留字面字符。
  *
- * 缓存动机：每个 API 请求都要在中间件链路里把请求路径与多条 pattern 做匹配，
- * pattern 数量有限（通常 50-500，权限表大小决定上界），缓存编译结果避免每次
- * `new RegExp` 重新构造正则。
+ * 实现：lookbehind 限定 `:name` 必须紧跟在 `/` 后或字符串开头。
  */
-const patternRegexCache = new Map<string, RegExp>()
-
 const patternToRegex = (pattern: string): RegExp => {
-    const cached = patternRegexCache.get(pattern)
-    if (cached) return cached
-
     // 1) 转义正则特殊字符（除了 * 和 :）
     let regexStr = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+
     // 2) ** 占位（匹配任意路径段）
     regexStr = regexStr.replace(/\*\*/g, '<<<DOUBLE_STAR>>>')
+
     // 3) * 占位（匹配单个路径段）
     regexStr = regexStr.replace(/\*/g, '[^/]+')
+
     // 4) 还原 **
     regexStr = regexStr.replace(/<<<DOUBLE_STAR>>>/g, '.*')
+
     // 5) 动态参数 :param（仅紧跟在 / 后或字符串开头才匹配）
     regexStr = regexStr.replace(/(^|\/):[a-zA-Z_][a-zA-Z0-9_]*/g, '$1[^/]+')
 
-    const regex = new RegExp(`^${regexStr}$`)
-    patternRegexCache.set(pattern, regex)
-    return regex
+    return new RegExp(`^${regexStr}$`)
 }
 
 /**

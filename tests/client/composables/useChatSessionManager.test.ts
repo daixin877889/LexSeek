@@ -62,9 +62,9 @@ type SessionItem = { sessionId: string; title: string; createdAt: string; update
 function makeOptions(overrides: Partial<Parameters<typeof useChatSessionManager>[0]> = {}) {
     return {
         caseId: 1,
-        listUrl: (caseId: number) => `/api/v1/cases/${caseId}/sessions`,
-        createUrl: '/api/v1/cases/analysis/session/create',
-        deleteUrl: (sessionId: string) => `/api/v1/cases/analysis/session/${sessionId}`,
+        listUrl: (caseId: number) => `/api/v1/case/${caseId}/sessions`,
+        createUrl: '/api/v1/case/analysis/session/create',
+        deleteUrl: (sessionId: string) => `/api/v1/case/analysis/session/${sessionId}`,
         buildCreateBody: (caseId: number, title?: string) => ({ caseId, title }),
         ...overrides,
     }
@@ -246,7 +246,7 @@ describe.skip('useChatSessionManager（阶段 7 TODO：迁到 useDomainAgentSess
             await manager.renameSession(targetId, '新标题')
 
             const calledUrl: string = mockUseApiFetch.mock.calls[0]![0]
-            expect(calledUrl).toBe(`/api/v1/cases/analysis/session/rename/${targetId}`)
+            expect(calledUrl).toBe(`/api/v1/case/analysis/session/rename/${targetId}`)
         })
 
         it('应使用 PATCH 方法并携带 title body', async () => {

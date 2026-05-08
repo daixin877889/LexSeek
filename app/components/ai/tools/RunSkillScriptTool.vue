@@ -10,7 +10,6 @@ import {
     Terminal,
     XCircle,
 } from 'lucide-vue-next'
-import { useSkillLabels } from '~/composables/useSkillLabels'
 
 /**
  * 运行技能脚本工具卡片
@@ -38,15 +37,6 @@ const skillName = computed<string>(() => {
     return n === '_workspace' ? '会话工作区' : n.trim()
 })
 
-const { label: skillLabelOf } = useSkillLabels()
-
-// 把英文 skill 名替换成中文展示名；若已是 "会话工作区" 或非 kebab-case 英文名就保持原样
-const skillDisplay = computed<string>(() => {
-    const en = skillName.value
-    if (!en || en === '会话工作区') return en
-    return /^[a-z0-9-]+$/.test(en) ? skillLabelOf(en) : en
-})
-
 const action = computed<string>(() => {
     const a = props.input?.action
     return typeof a === 'string' && a.trim() ? a.trim() : ''
@@ -71,7 +61,7 @@ const isError = computed(() =>
 // 副标题文案：根据状态拼接 "运行 <skill> · <action> · 进行中/失败/已拒绝"
 const subtitle = computed<string>(() => {
     const parts: string[] = ['运行技能脚本']
-    if (skillDisplay.value) parts.push(skillDisplay.value)
+    if (skillName.value) parts.push(skillName.value)
     if (action.value) parts.push(action.value)
     if (isRunning.value) parts.push('进行中…')
     else if (props.state === 'output-error') parts.push('失败')

@@ -70,7 +70,7 @@ export const getModelsService = async (options: {
     modelType?: ModelType
     providerId?: number
     status?: number
-    orderBy?: 'id' | 'priority' | 'name' | 'createdAt'
+    orderBy?: 'priority' | 'name' | 'createdAt'
     orderDir?: 'asc' | 'desc'
 } = {}) => {
     return await findManyModelsDao(options)

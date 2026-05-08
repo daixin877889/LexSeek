@@ -14,11 +14,9 @@ vi.stubGlobal('logger', { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: v
 vi.mock('~~/server/services/material/mineruToken.dao', () => ({
     createMineruTokenDao: vi.fn(),
     findMineruTokenByIdDao: vi.fn(),
-    findMineruTokenByIdRawDao: vi.fn(),
     findMineruTokenByNameDao: vi.fn(),
     findManyMineruTokensDao: vi.fn(),
     findActiveTokenDao: vi.fn(),
-    pickLeastRecentlyUsedActiveTokenDao: vi.fn(),
     updateMineruTokenDao: vi.fn(),
     softDeleteMineruTokenDao: vi.fn(),
 }))
@@ -29,8 +27,6 @@ import {
     getMineruTokensService,
     getActiveTokenService,
     getActiveTokenValueService,
-    getTokenByIdService,
-    pickTokenForNewTaskService,
     updateMineruTokenService,
     toggleMineruTokenStatusService,
     deleteMineruTokenService,
@@ -41,11 +37,9 @@ import {
 import {
     createMineruTokenDao,
     findMineruTokenByIdDao,
-    findMineruTokenByIdRawDao,
     findMineruTokenByNameDao,
     findManyMineruTokensDao,
     findActiveTokenDao,
-    pickLeastRecentlyUsedActiveTokenDao,
     updateMineruTokenDao,
     softDeleteMineruTokenDao,
 } from '~~/server/services/material/mineruToken.dao'
@@ -56,8 +50,6 @@ const baseMockToken = {
     token: 'abcd1234efgh5678',
     remark: '测试用 Token',
     status: MineruTokenStatus.ENABLED,
-    expiresAt: null as Date | null,
-    lastUsedAt: null as Date | null,
     createdAt: new Date('2026-01-01'),
     updatedAt: new Date('2026-01-01'),
     deletedAt: null,
@@ -159,95 +151,6 @@ describe('MinerU Token 服务层', () => {
         it('无启用 Token 时应返回 null', async () => {
             vi.mocked(findActiveTokenDao).mockResolvedValue(null)
             expect(await getActiveTokenValueService()).toBeNull()
-        })
-    })
-
-    // ==================== getTokenByIdService ====================
-    describe('getTokenByIdService', () => {
-        it('应返回完整 token 字符串（不过滤启用状态 / 过期）', async () => {
-            const disabledToken = { ...baseMockToken, status: MineruTokenStatus.DISABLED }
-            vi.mocked(findMineruTokenByIdRawDao).mockResolvedValue(disabledToken as any)
-
-            const value = await getTokenByIdService(123)
-            expect(value).toBe('abcd1234efgh5678')
-            expect(findMineruTokenByIdRawDao).toHaveBeenCalledWith(123)
-        })
-
-        it('token 不存在或已物理删除时应返回 null', async () => {
-            vi.mocked(findMineruTokenByIdRawDao).mockResolvedValue(null)
-            expect(await getTokenByIdService(999)).toBeNull()
-        })
-    })
-
-    // ==================== pickTokenForNewTaskService ====================
-    describe('pickTokenForNewTaskService', () => {
-        it('应返回 LRU 选中 token 的 id 与 token 值', async () => {
-            vi.mocked(pickLeastRecentlyUsedActiveTokenDao).mockResolvedValue({
-                ...baseMockToken,
-                id: 7,
-                token: 'sk-picked',
-            } as any)
-
-            const result = await pickTokenForNewTaskService()
-
-            expect(result).toEqual({ id: 7, token: 'sk-picked' })
-            expect(pickLeastRecentlyUsedActiveTokenDao).toHaveBeenCalledTimes(1)
-        })
-
-        it('没有可用 token 时应返回 null', async () => {
-            vi.mocked(pickLeastRecentlyUsedActiveTokenDao).mockResolvedValue(null)
-            expect(await pickTokenForNewTaskService()).toBeNull()
-        })
-    })
-
-    // ==================== getTokenForExistingTaskService ====================
-    describe('getTokenForExistingTaskService', () => {
-        beforeEach(() => {
-            vi.clearAllMocks()
-        })
-
-        it('task 绑定了有效 token 时应返回该 token', async () => {
-            const { getTokenForExistingTaskService } = await import('~~/server/services/material/mineruToken.service')
-            vi.mocked(findMineruTokenByIdRawDao).mockResolvedValue({ ...baseMockToken, id: 42, token: 'sk-bound' } as any)
-
-            const value = await getTokenForExistingTaskService({ id: 1, mineruTokenId: 42 })
-
-            expect(findMineruTokenByIdRawDao).toHaveBeenCalledWith(42)
-            expect(findActiveTokenDao).not.toHaveBeenCalled()
-            expect(value).toBe('sk-bound')
-        })
-
-        it('task 未绑定 token（旧任务）应回退到 active token', async () => {
-            const { getTokenForExistingTaskService } = await import('~~/server/services/material/mineruToken.service')
-            vi.mocked(findActiveTokenDao).mockResolvedValue({ ...baseMockToken, token: 'sk-fallback' } as any)
-
-            const value = await getTokenForExistingTaskService({ id: 1, mineruTokenId: null })
-
-            expect(findMineruTokenByIdRawDao).not.toHaveBeenCalled()
-            expect(findActiveTokenDao).toHaveBeenCalledTimes(1)
-            expect(value).toBe('sk-fallback')
-        })
-
-        it('task 绑定的 token 已被物理删除时应回退到 active token', async () => {
-            const { getTokenForExistingTaskService } = await import('~~/server/services/material/mineruToken.service')
-            vi.mocked(findMineruTokenByIdRawDao).mockResolvedValue(null)
-            vi.mocked(findActiveTokenDao).mockResolvedValue({ ...baseMockToken, token: 'sk-fallback' } as any)
-
-            const value = await getTokenForExistingTaskService({ id: 1, mineruTokenId: 99 })
-
-            expect(findMineruTokenByIdRawDao).toHaveBeenCalledWith(99)
-            expect(findActiveTokenDao).toHaveBeenCalledTimes(1)
-            expect(value).toBe('sk-fallback')
-        })
-
-        it('无任何可用 token 时应返回 null', async () => {
-            const { getTokenForExistingTaskService } = await import('~~/server/services/material/mineruToken.service')
-            vi.mocked(findMineruTokenByIdRawDao).mockResolvedValue(null)
-            vi.mocked(findActiveTokenDao).mockResolvedValue(null)
-
-            const value = await getTokenForExistingTaskService({ id: 1, mineruTokenId: 99 })
-
-            expect(value).toBeNull()
         })
     })
 

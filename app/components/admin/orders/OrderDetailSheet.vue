@@ -128,6 +128,7 @@
 
 <script setup lang="ts">
 import { Loader2, Ban } from 'lucide-vue-next'
+import dayjs from 'dayjs'
 import { toast } from 'vue-sonner'
 import {
     OrderStatusVariant, PaymentStatusVariant,
@@ -140,9 +141,6 @@ import { Textarea } from '~/components/ui/textarea'
 import StatusBadge from '~/components/admin/shared/StatusBadge.vue'
 import OrderAdminRemarkEditor from '~/components/admin/orders/OrderAdminRemarkEditor.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
-import { useFormatters } from '~/composables/useFormatters'
-
-const { formatDate: formatDateRaw } = useFormatters()
 
 const open = ref(false)
 const detail = ref<any | null>(null)
@@ -205,7 +203,7 @@ async function submitCancel() {
 }
 
 function formatDate(d: Date | string | null | undefined) {
-    return formatDateRaw(d ? String(d) : null, 'YYYY-MM-DD HH:mm:ss')
+    return d ? dayjs(d).format('YYYY-MM-DD HH:mm:ss') : '-'
 }
 
 function actionText(action: string) {

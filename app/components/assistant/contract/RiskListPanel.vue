@@ -20,16 +20,8 @@ import {
     SparklesIcon,
 } from 'lucide-vue-next'
 import { useLocalStorage } from '@vueuse/core'
-import type { ContractOverview, Risk, RiskDisplayPhaseB, ContractReviewStatus, PlaybookSnapshot, ContractAnnotationEntity, RiskArchivedStatus, ContractExportMode } from '#shared/types/contract'
+import type { ContractOverview, Risk, RiskDisplayPhaseB, ContractReviewStatus, PlaybookSnapshot, ContractAnnotationEntity, RiskArchivedStatus } from '#shared/types/contract'
 import { RISK_LEVEL_LABEL } from '#shared/types/contract'
-import {
-    DropdownMenu,
-    DropdownMenuTrigger,
-    DropdownMenuContent,
-    DropdownMenuLabel,
-    DropdownMenuRadioGroup,
-    DropdownMenuRadioItem,
-} from '~/components/ui/dropdown-menu'
 // UI-L1：徽章配色集中到 app/utils/contractRiskLevelStyle，与 ContractDocxPreview 共享
 import { RISK_LEVEL_BADGE_CLASS as LEVEL_CLASS } from '~/utils/contractRiskLevelStyle'
 import AssistantContractAnnotationBubble from '~/components/assistant/contract/AnnotationBubble.vue'
@@ -71,7 +63,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-    download: [mode: ContractExportMode]
+    download: []
     editRisks: [risks: Risk[]]
     exportPdf: [includeRisks: boolean]
     focusRisk: [riskId: string]
@@ -192,22 +184,6 @@ function handleExportPdfConfirm(includeRisks: boolean) {
 /** 隐藏已处置开关（持久化到 localStorage） */
 const hideArchived = useLocalStorage('contract-hide-archived-risks', false)
 
-/**
- * PR 4：风险卡布局偏好（持久化到 localStorage）
- * - 'stacked'：Layout A 四段式（默认）
- * - 'inline-diff'：Layout C 行内差异
- *
- * @vueuse/core 的 useLocalStorage **string serializer 是 `String(v)` 不是 `JSON.stringify`**——
- * localStorage 里存的是裸字符串 `inline-diff`（无 JSON 引号）。`as const` 让初值字面量
- * 不被 TS 推断成 `string`，满足联合泛型约束。
- *
- * 复用既有约定：ContractReviewPanel.vue 已有 `useLocalStorage<number>('contract-review-split-...')` 同前缀模式。
- */
-const cardLayout = useLocalStorage<'stacked' | 'inline-diff'>(
-    'contract-review-risk-card-layout',
-    'stacked' as const,
-)
-
 /** 已处置状态文案 */
 const ARCHIVED_STATUS_LABEL: Record<RiskArchivedStatus, string> = {
     handled: '已处理',
@@ -312,40 +288,6 @@ function handleArchive(riskStringId: string, status: RiskArchivedStatus | null) 
     if (props.readOnly) return
     emit('archive', riskStringId, status)
 }
-
-// ===== PR6：导出模式 toggle（批注 / 修订 / 两者并存）=====
-
-/**
- * 模式偏好持久化到 localStorage:contract-review-export-mode。
- * 默认 'comment' 保持向后兼容（旧用户体感不变）。
- */
-const exportMode = useLocalStorage<ContractExportMode>('contract-review-export-mode', 'comment')
-
-function handleSelectMode(value: string | number) {
-    const next = value as ContractExportMode
-    exportMode.value = next
-    emit('download', next)
-}
-
-const exportModeLabel = computed(() => ({
-    comment: '批注模式',
-    redline: '修订模式',
-    both: '两者并存',
-} satisfies Record<ContractExportMode, string>)[exportMode.value])
-
-const downloadButtonLabel = computed(() => {
-    if (props.isDownloading) return '下载中...'
-    if (props.previewVersionNumber !== null && props.previewVersionNumber !== undefined) {
-        return `下载 v${props.previewVersionNumber} 历史版本`
-    }
-    return '下载批注 Word'
-})
-
-const downloadButtonTitle = computed(() => {
-    return props.previewVersionNumber !== null && props.previewVersionNumber !== undefined
-        ? `下载 v${props.previewVersionNumber} 历史版本（${exportModeLabel.value}）`
-        : `下载当前工作区（${exportModeLabel.value}）`
-})
 </script>
 
 <template>
@@ -374,21 +316,6 @@ const downloadButtonTitle = computed(() => {
                         </span>
                     </div>
                 </div>
-
-                <!--
-                    PR 4：布局切换段控（持久化到 localStorage:contract-review-risk-card-layout）
-                    UX 偏差说明：spec § 6.3 写的是 dropdown，本 plan 改用 Tabs 段控——理由：
-                    (a) 项目无 ToggleGroup 组件，shadcn-vue 唯一段控候选是 Tabs；
-                    (b) 复用 NewReviewDialog.vue:204 的 v-model 模式，与既有 UI 风格一致；
-                    (c) 两选项段控视觉负担比 dropdown 低（一眼可见、一键切换）。
-                    如产品要求严格 dropdown，回滚到 <DropdownMenu> + <DropdownMenuRadioGroup>。
-                -->
-                <Tabs v-model="cardLayout" class="w-full" data-testid="risk-card-layout-tabs">
-                    <TabsList class="grid w-full grid-cols-2 h-8">
-                        <TabsTrigger value="stacked" class="text-xs">分段</TabsTrigger>
-                        <TabsTrigger value="inline-diff" class="text-xs">对照</TabsTrigger>
-                    </TabsList>
-                </Tabs>
 
                 <!-- 只读模式提示 -->
                 <div v-if="readOnly" class="text-xs text-center text-muted-foreground py-1">
@@ -434,7 +361,7 @@ const downloadButtonTitle = computed(() => {
                                 </Badge>
                                 <!-- AI 已重审徽章 -->
                                 <Badge
-                                    v-if="r.originalClauseText"
+                                    v-if="r.originalAnchorQuote"
                                     variant="secondary"
                                     class="text-[10px] px-1.5 py-0 shrink-0 flex items-center gap-0.5 bg-primary/10 text-primary"
                                 >
@@ -462,15 +389,7 @@ const downloadButtonTitle = computed(() => {
                             <div class="mt-1 text-xs text-muted-foreground line-clamp-2">{{ r.problem }}</div>
                         </CardHeader>
                         <CardContent v-if="expandedId === r.id" class="py-2 px-3 text-sm space-y-3" @click.stop>
-                            <AssistantContractRiskClauseDiff
-                                :mode="cardLayout"
-                                :clause-text="r.clauseText"
-                                :suggested-clause-text="r.suggestedClauseText"
-                                :problematic-quote="r.problematicQuote ?? null"
-                                :quote-char-start="r.quoteCharStart ?? null"
-                                :quote-char-end="r.quoteCharEnd ?? null"
-                                :clause-paragraph-index="r.clauseParagraphIndex ?? null"
-                            />
+                            <AssistantContractRiskClauseDiff :clause-text="r.clauseText" :suggested-clause-text="r.suggestedClauseText" />
                             <div v-if="r.legalBasis"><div class="text-xs text-muted-foreground">法律依据</div><div>{{ r.legalBasis }}</div></div>
                             <div><div class="text-xs text-muted-foreground">条款分析</div><div class="whitespace-pre-wrap">{{ r.analysis }}</div></div>
                             <div><div class="text-xs text-muted-foreground">法律风险</div><div class="whitespace-pre-wrap">{{ r.risk }}</div></div>
@@ -565,7 +484,6 @@ const downloadButtonTitle = computed(() => {
                     :archived-status="getArchivedStatus(r)"
                     :not-located="hasLocated !== false && notLocatedIds.has(r.id)"
                     :playbook-snapshot="playbookSnapshot ?? null"
-                    :layout="cardLayout"
                     @toggle="toggle"
                     @focus="(id: string) => emit('focusRisk', id)"
                     @archive="(id: string, status: RiskArchivedStatus | null) => emit('archive', id, status)"
@@ -659,38 +577,20 @@ const downloadButtonTitle = computed(() => {
                     <FileTextIcon v-else class="size-4 mr-1" />
                     {{ isExportingPdf ? '生成中...' : '导出评审报告' }}
                 </Button>
-                <DropdownMenu>
-                    <DropdownMenuTrigger as-child>
-                        <Button
-                            class="flex-1"
-                            :disabled="!canDownload || isDownloading"
-                            data-testid="download-trigger"
-                            :title="downloadButtonTitle"
-                        >
-                            <Loader2Icon v-if="isDownloading" class="size-4 mr-1 animate-spin" />
-                            <DownloadIcon v-else class="size-4 mr-1" />
-                            {{ downloadButtonLabel }}
-                            <ChevronDownIcon class="size-3 ml-1 opacity-60" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" class="w-56">
-                        <DropdownMenuLabel>导出模式</DropdownMenuLabel>
-                        <DropdownMenuRadioGroup
-                            :model-value="exportMode"
-                            @update:model-value="handleSelectMode"
-                        >
-                            <DropdownMenuRadioItem value="comment" data-testid="download-mode-comment">
-                                批注模式
-                            </DropdownMenuRadioItem>
-                            <DropdownMenuRadioItem value="redline" data-testid="download-mode-redline">
-                                修订模式（Track Changes）
-                            </DropdownMenuRadioItem>
-                            <DropdownMenuRadioItem value="both" data-testid="download-mode-both">
-                                两者并存
-                            </DropdownMenuRadioItem>
-                        </DropdownMenuRadioGroup>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                <Button
+                    class="flex-1"
+                    :disabled="!canDownload || isDownloading"
+                    :title="previewVersionNumber !== null && previewVersionNumber !== undefined
+                        ? `下载 v${previewVersionNumber} 历史版本的批注 Word`
+                        : '下载当前工作区的批注 Word'"
+                    @click="emit('download')"
+                >
+                    <Loader2Icon v-if="isDownloading" class="size-4 mr-1 animate-spin" />
+                    <DownloadIcon v-else class="size-4 mr-1" />
+                    {{ isDownloading ? '下载中...' : (previewVersionNumber !== null && previewVersionNumber !== undefined
+                        ? `下载 v${previewVersionNumber} 历史版本`
+                        : '下载批注 Word') }}
+                </Button>
             </div>
         </div>
 

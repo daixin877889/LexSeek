@@ -59,9 +59,9 @@ vi.mock('~~/server/agents/contract/docx/wordCommentParser', () => ({
     })),
 }))
 
-// 默认 analyzeSingleClause：返回空数组（无 risk），调用方按"无新风险"处理
+// 默认 analyzeSingleClause：返回 null（无 risk），调用方按"无新风险"处理
 vi.mock('~~/server/agents/contract/analyzeSingleClause', () => ({
-    analyzeSingleClause: vi.fn(async () => []),
+    analyzeSingleClause: vi.fn(async () => null),
 }))
 
 // 默认 contractReviewVersion.service：透传真实实现（不 mock 整个模块）
@@ -139,7 +139,7 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
             annotationRefsByWId: new Map(),
         })
         mockAnalyzeClause.mockReset()
-        mockAnalyzeClause.mockResolvedValue([]) // 默认无新 risk
+        mockAnalyzeClause.mockResolvedValue(null) // 默认无新 risk
 
         userId = await ensureTestUser()
         const review = await prisma.contractReviews.create({
@@ -290,8 +290,8 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                     reviewId, source: 'ai',
                     category: '风险', level: 'medium',
                     problem: '违约金偏高',
-                    clauseText: '第一条 甲方应支付首付款。',
-                    clauseParagraphIndex: 0,
+                    anchorQuote: '第一条 甲方应支付首付款。',
+                    anchorParagraphIndex: 0,
                 },
             })
             const sysAnn = await prisma.contractAnnotations.create({
@@ -342,8 +342,8 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                 data: {
                     reviewId, source: 'ai', category: '风险',
                     level: 'medium', problem: '原始问题',
-                    clauseText: '第一条 甲方应支付首付款。',
-                    clauseParagraphIndex: 0,
+                    anchorQuote: '第一条 甲方应支付首付款。',
+                    anchorParagraphIndex: 0,
                 },
             })
             const sysAnn = await prisma.contractAnnotations.create({
@@ -417,7 +417,7 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                 data: {
                     reviewId, source: 'ai', category: '风险',
                     level: 'medium', problem: 'p',
-                    clauseText: 'q', clauseParagraphIndex: 0,
+                    anchorQuote: 'q', anchorParagraphIndex: 0,
                 },
             })
             await prisma.contractAnnotations.create({
@@ -457,7 +457,7 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                 data: {
                     reviewId, source: 'ai', category: '风险',
                     level: 'medium', problem: 'p',
-                    clauseText: 'q', clauseParagraphIndex: 0,
+                    anchorQuote: 'q', anchorParagraphIndex: 0,
                 },
             })
             const sysAnn = await prisma.contractAnnotations.create({
@@ -524,13 +524,13 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
             ]
             await setupV1Snapshot(oldText, newParas)
 
-            // mock LLM 返回 risk（数组形式）
-            mockAnalyzeClause.mockResolvedValueOnce([{
+            // mock LLM 返回 risk
+            mockAnalyzeClause.mockResolvedValueOnce({
                 id: '', clauseIndex: 0, clauseText: '',
                 level: 'high', category: '违约', problem: '修改后的条款问题',
                 analysis: '分析', risk: '风险', suggestion: '建议',
                 legalBasis: '《合同法》第X条',
-            }])
+            })
 
             const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
             const events = await collectEvents(
@@ -551,9 +551,9 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
             const newParas = ['第一条 改 A。', '第二条 改 B。', '第三条 旧 C。']
             await setupV1Snapshot(oldText, newParas)
 
-            // 第一次抛错，第二次返回空数组
+            // 第一次抛错，第二次返回 null
             mockAnalyzeClause.mockRejectedValueOnce(new Error('LLM down'))
-            mockAnalyzeClause.mockResolvedValueOnce([])
+            mockAnalyzeClause.mockResolvedValueOnce(null)
 
             const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
             const events = await collectEvents(
@@ -569,22 +569,22 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
             const newParas = ['第一条 这是旧条款 A 的全文，超过四十个字符方便后续 oldClauseHead 匹配命中。修改追加。', '第二条 旧 B。']
             await setupV1Snapshot(oldText, newParas)
 
-            // 预置一个 ai risk（clauseText 包含 oldClauseHead）
+            // 预置一个 ai risk（anchorQuote 包含 oldClauseHead）
             const oldHead = oldText.split('\n')[0]!.slice(0, 40)
             const existingRisk = await prisma.contractRisks.create({
                 data: {
                     reviewId, source: 'ai', category: '原',
                     level: 'low', stance: 'balanced',
-                    problem: '原 problem', clauseText: oldHead,
-                    clauseParagraphIndex: 0,
+                    problem: '原 problem', anchorQuote: oldHead,
+                    anchorParagraphIndex: 0,
                 },
             })
 
-            mockAnalyzeClause.mockResolvedValueOnce([{
+            mockAnalyzeClause.mockResolvedValueOnce({
                 id: '', clauseIndex: 0, clauseText: '',
                 level: 'high', category: '新分类', problem: '新 problem',
                 analysis: '', risk: '', suggestion: '',
-            }])
+            })
 
             const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
             await collectEvents(uploadClientVersionService({ review, ossFileId, userId }))
@@ -658,8 +658,8 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                 data: {
                     reviewId, source: 'ai', category: 't',
                     level: 'low', stance: 'balanced',
-                    problem: 'p', clauseText: 'q',
-                    clauseParagraphIndex: 0,
+                    problem: 'p', anchorQuote: 'q',
+                    anchorParagraphIndex: 0,
                 },
             })
             await prisma.contractAnnotations.create({
@@ -744,7 +744,7 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                 data: {
                     reviewId, source: 'ai', category: '风险',
                     level: 'medium', problem: 'p',
-                    clauseText: 'q', clauseParagraphIndex: 0,
+                    anchorQuote: 'q', anchorParagraphIndex: 0,
                 },
             })
             await prisma.contractAnnotations.create({
@@ -770,480 +770,4 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
             expect(labels).toContain('client_return')
         }, 60000)
     })
-})
-
-// ==================== Phase B 双锚点迁移（PR7） ====================
-
-describe('uploadClientVersionService（Phase B 双锚点迁移 spec §9.2）', () => {
-    let userId: number
-    let reviewId: number
-    let ossFileId: number
-    let initialVersionId: number
-
-    const createdOssFileIds: number[] = []
-    const createdReviewIds: number[] = []
-    const createdUserIds: number[] = []
-
-    beforeEach(async () => {
-        // 重置 mock 默认值（避免上轮 describe 块粘性 mockResolvedValueOnce 残留）
-        mockDownload.mockReset()
-        mockDownload.mockResolvedValue(FAKE_DOCX_BUFFER)
-        mockParseDocx.mockReset()
-        mockParseDocx.mockResolvedValue({
-            paragraphs: [
-                '第一条 工资按月支付。',
-                '第二条 乙方逾期支付的，每日按 0.05% 加收滞纳金。',
-            ],
-            rawXml: '<root/>',
-        })
-        mockParseComments.mockReset()
-        mockParseComments.mockResolvedValue({
-            comments: [],
-            annotationRefsByWId: new Map(),
-        })
-        mockAnalyzeClause.mockReset()
-        mockAnalyzeClause.mockResolvedValue([])
-
-        userId = await ensureTestUser()
-        createdUserIds.push(userId)
-
-        const review = await prisma.contractReviews.create({
-            data: {
-                userId,
-                status: 'completed',
-                risks: [],
-                sessionId: `pr7-dual-anchor-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-                originalFileId: 0,
-                maxVersionNo: 1,
-            },
-        })
-        reviewId = review.id
-        createdReviewIds.push(reviewId)
-
-        // 旧版本 snapshot：包含 oldClauses，让 diffClauses 能识别 modified
-        const oldVersion = await prisma.contractReviewVersions.create({
-            data: {
-                reviewId,
-                versionNumber: 1,
-                systemLabel: 'initial_upload',
-                createdById: userId,
-                snapshotData: {
-                    docxText: '第一条 工资按月支付。\n第二条 乙方逾期支付的，每日按 0.05% 加收滞纳金。',
-                    clauses: [
-                        { index: 1, text: '第一条 工资按月支付。', offsetStart: 0, offsetEnd: 11 },
-                        { index: 2, text: '第二条 乙方逾期支付的，每日按 0.05% 加收滞纳金。', offsetStart: 12, offsetEnd: 40 },
-                    ],
-                } as any,
-            },
-        })
-        initialVersionId = oldVersion.id
-        await prisma.contractReviews.update({
-            where: { id: reviewId },
-            data: { currentVersionId: initialVersionId },
-        })
-
-        const oss = await createOssFileDao({
-            userId,
-            bucketName: 'test-bucket',
-            fileName: 'client-return.docx',
-            filePath: `pr7/dual-anchor/${Date.now()}-${Math.random().toString(36).slice(2)}.docx`,
-            fileSize: 1024,
-            fileType: DOCX_MIME,
-            status: 1,
-        })
-        ossFileId = oss.id
-        createdOssFileIds.push(ossFileId)
-    })
-
-    afterEach(async () => {
-        vi.clearAllMocks()
-        // 反向清理：annotations → risks → versions → reviews → ossFiles → users
-        await prisma.contractAnnotations.deleteMany({ where: { reviewId: { in: createdReviewIds } } })
-        await prisma.contractRisks.deleteMany({ where: { reviewId: { in: createdReviewIds } } })
-        await prisma.contractReviewVersions.deleteMany({ where: { reviewId: { in: createdReviewIds } } })
-        await prisma.contractReviews.deleteMany({ where: { id: { in: createdReviewIds } } })
-        if (createdOssFileIds.length > 0) {
-            await prisma.ossFiles.deleteMany({ where: { id: { in: createdOssFileIds } } })
-        }
-        if (createdUserIds.length > 0) {
-            await prisma.users.deleteMany({ where: { id: { in: createdUserIds } } })
-        }
-        createdReviewIds.length = 0
-        createdOssFileIds.length = 0
-        createdUserIds.length = 0
-    })
-
-    it('档 1：quote 命中 → clauseText 升级为新段全文，problematicQuote 重摘，quote_char_offset 重算到新 clauseText 内', async () => {
-        // 旧 risk：clauseText="第二条 乙方逾期支付的，每日按 0.05% 加收滞纳金。"
-        //         problematicQuote="逾期支付的，每日按 0.05% 加收滞纳金"
-        //         quoteCharStart/End 在旧 clauseText 内
-        //         quoteMatchSource='sentence_id'（PR3 路径）
-        const oldClauseText = '第二条 乙方逾期支付的，每日按 0.05% 加收滞纳金。'
-        const oldQuote = '逾期支付的，每日按 0.05% 加收滞纳金'
-        const risk = await prisma.contractRisks.create({
-            data: {
-                reviewId,
-                source: 'ai',
-                level: 'medium',
-                stance: 'balanced',
-                category: '违约金',
-                problem: '违约金过低',
-                clauseIndex: 2,
-                clauseText: oldClauseText,
-                clauseParagraphIndex: 1,
-                clauseCharStart: 12,
-                clauseCharEnd: 40,
-                problematicQuote: oldQuote,
-                quoteCharStart: oldClauseText.indexOf(oldQuote),
-                quoteCharEnd: oldClauseText.indexOf(oldQuote) + oldQuote.length,
-                quoteMatchSource: 'sentence_id',
-            },
-        })
-
-        // 客户回传新 docx：把第二条改写但保留 quote 那一句
-        mockParseDocx.mockResolvedValueOnce({
-            paragraphs: [
-                '第一条 工资按月支付，并应在月底前一个工作日完成。',
-                '第二条 乙方应当及时履行付款义务；逾期支付的，每日按 0.05% 加收滞纳金；累计超 30 日的，甲方有权单方解除。',
-            ],
-            rawXml: '<root/>',
-        })
-
-        const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
-        const events = await collectEvents(uploadClientVersionService({
-            review,
-            ossFileId,
-            userId,
-        }))
-
-        // 没有 error 事件
-        expect(events.find(e => e.type === 'error')).toBeUndefined()
-        expect(events.find(e => e.type === 'complete')).toBeDefined()
-
-        // 验证 risk 行被升级为档 1 命中
-        const updated = await prisma.contractRisks.findUnique({ where: { id: risk.id } })
-        expect(updated).not.toBeNull()
-        expect(updated!.orphaned).toBe(false)
-        // clauseText 升级为新段全文（包含原 quote + 新增前后文）
-        expect(updated!.clauseText).toContain('逾期支付的，每日按 0.05% 加收滞纳金')
-        expect(updated!.clauseText).toContain('累计超 30 日的') // 新增的后文
-        // problematicQuote 重新摘录
-        expect(updated!.problematicQuote).toBe('逾期支付的，每日按 0.05% 加收滞纳金')
-        // quoteCharStart/End 是在新 clauseText 内的相对 offset
-        expect(updated!.quoteCharStart).toBeGreaterThanOrEqual(0)
-        expect(
-            updated!.clauseText.slice(updated!.quoteCharStart!, updated!.quoteCharEnd!),
-        ).toBe('逾期支付的，每日按 0.05% 加收滞纳金')
-        // quoteMatchSource 沿用旧值（迁移不改变首次审查命中来源语义）
-        expect(updated!.quoteMatchSource).toBe('sentence_id')
-        // originalClauseText 已写入（旧 clauseText 备份）
-        expect(updated!.originalClauseText).toBe(oldClauseText)
-    }, 60000)
-
-    it('档 2：客户删除了 quote 那一句但保留了大半条款 → fallback 到 clauseText fuzzy，quote 字段全清空', async () => {
-        // fixture 设计要点：
-        //   - 老 clauseText 必须足够长（≥53 字），让 quote 占比 <40%，删除 quote 后 sim ≥ 0.6
-        //   - 新 clauseText 长度也必须 ≥ 老 75%（minWin=42），否则 migrateAnchor findBestSubstring
-        //     窗口循环空跑直接返回 null（25% 长度容差边界，team-lead Task 1 单测踩过）
-        //   - 新 clauseText 不能含 quote 子串，否则档 1 fuzzy 命中走档 1 不走档 2
-        const oldClauseText = '第二条 甲乙双方约定货款支付义务，乙方应在收货后 7 日内全额结清，逾期支付的，每日按 0.05% 加收滞纳金。'
-        const oldQuote = '逾期支付的，每日按 0.05% 加收滞纳金'
-        const risk = await prisma.contractRisks.create({
-            data: {
-                reviewId,
-                source: 'ai',
-                level: 'medium',
-                stance: 'balanced',
-                category: '违约金',
-                problem: '违约金过低',
-                clauseIndex: 2,
-                clauseText: oldClauseText,
-                clauseParagraphIndex: 1,
-                clauseCharStart: 12,
-                clauseCharEnd: 12 + oldClauseText.length,
-                problematicQuote: oldQuote,
-                quoteCharStart: oldClauseText.indexOf(oldQuote),
-                quoteCharEnd: oldClauseText.indexOf(oldQuote) + oldQuote.length,
-                quoteMatchSource: 'fuzzy',
-            },
-        })
-
-        // 客户回传：保留前半条款，把 quote 那一句改成"协商解决"——档 1 fuzzy miss，档 2 sim≈0.625 命中
-        mockParseDocx.mockResolvedValueOnce({
-            paragraphs: [
-                '第一条 工资按月支付。',
-                '第二条 甲乙双方约定货款支付义务，乙方应在收货后 7 日内全额结清，由双方协商决定付款方式与具体争议处理事项。',
-            ],
-            rawXml: '<root/>',
-        })
-
-        const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
-        const events = await collectEvents(uploadClientVersionService({
-            review,
-            ossFileId,
-            userId,
-        }))
-
-        expect(events.find(e => e.type === 'error')).toBeUndefined()
-
-        const updated = await prisma.contractRisks.findUnique({ where: { id: risk.id } })
-        expect(updated).not.toBeNull()
-        expect(updated!.orphaned).toBe(false)
-        // clauseText 升级为新段（不再含 quote）
-        expect(updated!.clauseText).toContain('由双方协商决定付款方式')
-        expect(updated!.clauseText).not.toContain('0.05%')
-        // quote 字段全清空（档 2 兜底）
-        expect(updated!.problematicQuote).toBeNull()
-        expect(updated!.quoteCharStart).toBeNull()
-        expect(updated!.quoteCharEnd).toBeNull()
-        expect(updated!.quoteMatchSource).toBeNull()
-        // originalClauseText 写入了旧 clauseText
-        expect(updated!.originalClauseText).toBe(oldClauseText)
-    }, 60000)
-
-    it('PR3 之前老 risk 兼容：problematicQuote / quoteCharStart / quoteMatchSource 全为 null → 自动走档 2 不抛错', async () => {
-        // spec §11.2 独立发布约束：PR7 假设 PR2 schema + PR3 sentence_id 已发生产，
-        // 但既有库里仍有 PR3 上线前残留的 risk 行（quote 字段全 null）。本 case 守住前向兼容。
-        const oldClauseText = '第二条 乙方逾期支付的，每日按 0.05% 加收滞纳金。'
-        const risk = await prisma.contractRisks.create({
-            data: {
-                reviewId,
-                source: 'ai',
-                level: 'medium',
-                stance: 'balanced',
-                category: '违约金',
-                problem: '违约金过低',
-                clauseIndex: 2,
-                clauseText: oldClauseText,
-                clauseParagraphIndex: 1,
-                clauseCharStart: 12,
-                clauseCharEnd: 40,
-                // 全 null：PR3 上线前的存量行
-                problematicQuote: null,
-                quoteCharStart: null,
-                quoteCharEnd: null,
-                quoteMatchSource: null,
-                originalClauseText: null,
-            },
-        })
-
-        // 客户回传：第二条被微调
-        mockParseDocx.mockResolvedValueOnce({
-            paragraphs: [
-                '第一条 工资按月支付。',
-                '第二条 乙方逾期支付货款的，每日按 0.05% 加收滞纳金。',
-            ],
-            rawXml: '<root/>',
-        })
-
-        const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
-        const events = await collectEvents(uploadClientVersionService({
-            review,
-            ossFileId,
-            userId,
-        }))
-
-        expect(events.find(e => e.type === 'error')).toBeUndefined()
-
-        const updated = await prisma.contractRisks.findUnique({ where: { id: risk.id } })
-        expect(updated).not.toBeNull()
-        expect(updated!.orphaned).toBe(false)
-        // 老 risk 没 quote → wrapper 自动跳过档 1 → 档 2 命中 → clauseText 升级
-        expect(updated!.clauseText).toContain('乙方逾期支付货款的')
-        // quote 字段保持 null（档 2 不写）
-        expect(updated!.problematicQuote).toBeNull()
-        expect(updated!.quoteMatchSource).toBeNull()
-        // originalClauseText 回填旧 clauseText
-        expect(updated!.originalClauseText).toBe(oldClauseText)
-    }, 60000)
-
-    it('档 3：条款被整段替换 → orphaned=true，旧 clauseText/quote 保留不变（律师工作区"孤立批注区"展示用）', async () => {
-        const oldClauseText = '第二条 乙方逾期支付的，每日按 0.05% 加收滞纳金。'
-        const oldQuote = '每日按 0.05% 加收滞纳金'
-        const risk = await prisma.contractRisks.create({
-            data: {
-                reviewId,
-                source: 'ai',
-                level: 'high',
-                stance: 'balanced',
-                category: '违约金',
-                problem: '违约金过低',
-                clauseIndex: 2,
-                clauseText: oldClauseText,
-                clauseParagraphIndex: 1,
-                clauseCharStart: 12,
-                clauseCharEnd: 40,
-                problematicQuote: oldQuote,
-                quoteCharStart: oldClauseText.indexOf(oldQuote),
-                quoteCharEnd: oldClauseText.indexOf(oldQuote) + oldQuote.length,
-                quoteMatchSource: 'sentence_id',
-            },
-        })
-
-        // 客户回传：把第二条整段替换成完全不相关的内容（无 第X条 编号 → segmentClauses 并入首段成单一 segment）
-        mockParseDocx.mockResolvedValueOnce({
-            paragraphs: [
-                '第一条 工资按月支付。',
-                'XYZXYZXYZ ABCABC DEF GHIJKL MNOPQRSTUVWXYZ啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊',
-            ],
-            rawXml: '<root/>',
-        })
-
-        const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
-        const events = await collectEvents(uploadClientVersionService({
-            review,
-            ossFileId,
-            userId,
-        }))
-
-        expect(events.find(e => e.type === 'error')).toBeUndefined()
-
-        const updated = await prisma.contractRisks.findUnique({ where: { id: risk.id } })
-        expect(updated).not.toBeNull()
-        // 档 3：orphaned=true
-        expect(updated!.orphaned).toBe(true)
-        // 旧字段保留不变（孤立批注区展示原文）
-        expect(updated!.clauseText).toBe(oldClauseText)
-        expect(updated!.problematicQuote).toBe(oldQuote)
-        expect(updated!.quoteMatchSource).toBe('sentence_id')
-        // originalClauseText 写入旧 clauseText（首次孤立时备份）
-        expect(updated!.originalClauseText).toBe(oldClauseText)
-    }, 60000)
-
-    it('originalClauseText 幂等：第二次客户回传时不覆盖第一次的备份', async () => {
-        const oldClauseText = '第二条 乙方逾期支付的，每日按 0.05% 加收滞纳金。'
-        const ALREADY_SAVED_ORIGINAL = '【最初版本的条款原文】'
-        const risk = await prisma.contractRisks.create({
-            data: {
-                reviewId,
-                source: 'ai',
-                level: 'medium',
-                stance: 'balanced',
-                category: '违约金',
-                problem: '违约金过低',
-                clauseIndex: 2,
-                clauseText: oldClauseText,
-                clauseParagraphIndex: 1,
-                problematicQuote: null,
-                originalClauseText: ALREADY_SAVED_ORIGINAL, // 已被前次回传写过
-            },
-        })
-
-        mockParseDocx.mockResolvedValueOnce({
-            paragraphs: [
-                '第一条 工资按月支付。',
-                '第二条 乙方应当按时履行付款义务，否则承担违约责任。',
-            ],
-            rawXml: '<root/>',
-        })
-
-        const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
-        await collectEvents(uploadClientVersionService({
-            review,
-            ossFileId,
-            userId,
-        }))
-
-        const updated = await prisma.contractRisks.findUnique({ where: { id: risk.id } })
-        // originalClauseText 没被新一次的迁移覆盖（无论 wrapper 走档 2 命中还是档 3 orphan，
-        // 都因 !r.originalClauseText 守护跳过回填）
-        expect(updated!.originalClauseText).toBe(ALREADY_SAVED_ORIGINAL)
-    }, 60000)
-
-    it('orphaned 复活：之前 orphaned=true 的 risk 在新 docx 里能再次定位时 orphaned 恢复 false', async () => {
-        const oldClauseText = '第二条 乙方逾期支付的，每日按 0.05% 加收滞纳金。'
-        const oldQuote = '每日按 0.05% 加收滞纳金'
-        const risk = await prisma.contractRisks.create({
-            data: {
-                reviewId,
-                source: 'ai',
-                level: 'high',
-                stance: 'balanced',
-                category: '违约金',
-                problem: '违约金过低',
-                clauseIndex: 2,
-                clauseText: oldClauseText,
-                clauseParagraphIndex: 1,
-                problematicQuote: oldQuote,
-                quoteCharStart: oldClauseText.indexOf(oldQuote),
-                quoteCharEnd: oldClauseText.indexOf(oldQuote) + oldQuote.length,
-                quoteMatchSource: 'sentence_id',
-                orphaned: true, // 上一轮回传时被判孤立
-                originalClauseText: oldClauseText,
-            },
-        })
-
-        // 这次客户又把那一句加回来了
-        mockParseDocx.mockResolvedValueOnce({
-            paragraphs: [
-                '第一条 工资按月支付。',
-                '第二条 乙方应及时付款；每日按 0.05% 加收滞纳金；累计超 30 日的甲方可解除。',
-            ],
-            rawXml: '<root/>',
-        })
-
-        const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
-        await collectEvents(uploadClientVersionService({
-            review,
-            ossFileId,
-            userId,
-        }))
-
-        const updated = await prisma.contractRisks.findUnique({ where: { id: risk.id } })
-        expect(updated!.orphaned).toBe(false)
-        expect(updated!.problematicQuote).toBe('每日按 0.05% 加收滞纳金')
-    }, 60000)
-
-    // PR7 新契约回归保护：unchanged 路径在 PR7 之前根本没有 quote 字段；PR7 改造后这条路径
-    // 必须显式不动 quote 字段（防止后续 refactor 误把 quote 也清空）
-    it('unchanged 路径：clauseText 完全没变 → 只更新 paragraphIndex，不动 quote 字段（PR7 新契约回归保护）', async () => {
-        const clauseText = '第二条 乙方逾期支付的，每日按 0.05% 加收滞纳金。'
-        const quote = '每日按 0.05% 加收滞纳金'
-        const risk = await prisma.contractRisks.create({
-            data: {
-                reviewId,
-                source: 'ai',
-                level: 'medium',
-                stance: 'balanced',
-                category: '违约金',
-                problem: '违约金过低',
-                clauseIndex: 2,
-                clauseText,
-                clauseParagraphIndex: 1,
-                clauseCharStart: 12,
-                clauseCharEnd: 40,
-                problematicQuote: quote,
-                quoteCharStart: clauseText.indexOf(quote),
-                quoteCharEnd: clauseText.indexOf(quote) + quote.length,
-                quoteMatchSource: 'sentence_id',
-            },
-        })
-
-        // 客户只在前面加了一段，没动第二条本身
-        mockParseDocx.mockResolvedValueOnce({
-            paragraphs: [
-                '前言：本合同自双方签字盖章之日起生效。',
-                '第一条 工资按月支付。',
-                '第二条 乙方逾期支付的，每日按 0.05% 加收滞纳金。',
-            ],
-            rawXml: '<root/>',
-        })
-
-        const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
-        await collectEvents(uploadClientVersionService({
-            review,
-            ossFileId,
-            userId,
-        }))
-
-        const updated = await prisma.contractRisks.findUnique({ where: { id: risk.id } })
-        // unchanged 路径：clauseText / quote / quoteMatchSource 全都不动
-        expect(updated!.clauseText).toBe(clauseText)
-        expect(updated!.problematicQuote).toBe(quote)
-        expect(updated!.quoteCharStart).toBe(clauseText.indexOf(quote))
-        expect(updated!.quoteMatchSource).toBe('sentence_id')
-        expect(updated!.orphaned).toBe(false)
-        // 只 paragraphIndex 跟着变（前面新增了一段，第二条段落序号 +1）
-        expect(updated!.clauseParagraphIndex).toBe(2)
-    }, 60000)
 })

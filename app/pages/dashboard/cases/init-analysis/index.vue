@@ -50,7 +50,7 @@ async function createSessionAndNavigate() {
   }, 10000)
 
   try {
-    const result = await useApiFetch<{ sessionId: string }>('/api/v1/cases/analysis/init-session', {
+    const result = await useApiFetch<{ sessionId: string }>('/api/v1/case/analysis/init-session', {
       method: 'POST',
       body: { caseId },
     })

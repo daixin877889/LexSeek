@@ -22,13 +22,6 @@
 
 import { loadOwnedReviewByVersionId } from '~~/server/services/assistant/contract/reviewGuard'
 import { downloadContractReviewVersionService } from '~~/server/services/assistant/contract/contractReviewVersion.service'
-import { z } from 'zod'
-import { CONTRACT_EXPORT_MODES, DEFAULT_CONTRACT_EXPORT_MODE } from '#shared/types/contract'
-import type { ContractExportMode } from '#shared/types/contract'
-
-const ModeQuery = z.object({
-    mode: z.enum(CONTRACT_EXPORT_MODES).optional(),
-})
 
 export default defineEventHandler(async (event) => {
     const guard = await loadOwnedReviewByVersionId(event, { actionLabel: '下载该历史版本' })
@@ -37,13 +30,7 @@ export default defineEventHandler(async (event) => {
 
     const versionId = guard.subId!
 
-    const queryParse = ModeQuery.safeParse(getQuery(event))
-    if (!queryParse.success) {
-        return resError(event, 400, '导出模式参数无效')
-    }
-    const mode: ContractExportMode = queryParse.data.mode ?? DEFAULT_CONTRACT_EXPORT_MODE
-
-    const result = await downloadContractReviewVersionService(review, versionId, { mode })
+    const result = await downloadContractReviewVersionService(review, versionId)
     if ('error' in result) {
         switch (result.error) {
             case 'version_not_found':

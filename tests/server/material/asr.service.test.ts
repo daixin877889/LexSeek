@@ -486,11 +486,6 @@ const mockLogger = {
         findFirst: vi.fn(),
         create: vi.fn().mockResolvedValue({ id: 100 }),
     },
-    caseMaterials: {
-        // markMaterialsByOssFileIdService 调这俩；测试默认空表，不走 summary 触发分支
-        findMany: vi.fn().mockResolvedValue([]),
-        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
-    },
 }
 
 ;(globalThis as any).useRuntimeConfig = vi.fn().mockReturnValue({
@@ -1267,10 +1262,6 @@ describe('ASR 服务 - 服务层函数', () => {
                 vectorIds: expect.any(Array),
                 lastEmbeddingAt: expect.any(Date),
             }), undefined)
-            // T2: 切换语义后，embedAsrRecordService 不再写 summary 字段
-            // （由 generateMaterialSummaryService 异步生成 200 字摘要）
-            const lastCallArgs = vi.mocked(updateAsrRecordDao).mock.calls[0]
-            expect(lastCallArgs?.[1]).not.toHaveProperty('summary')
         })
 
         it('向量化异常时应返回失败但不抛出', async () => {

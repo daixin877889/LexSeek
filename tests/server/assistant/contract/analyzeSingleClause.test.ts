@@ -48,17 +48,17 @@ vi.mock('~~/server/services/node/node.service', () => ({
 }))
 
 describe('analyzeSingleClause', () => {
-    it('命中风险时返回 Risk[] 含一条', async () => {
+    it('命中风险时返回 Risk', async () => {
         const { analyzeSingleClause } = await import('~~/server/agents/contract/analyzeSingleClause')
         const result = await analyzeSingleClause({
             clause: { index: 1, number: '3.2', text: '3.2 首付 40%，尾款 60%' },
             stance: 'partyB', partyA: 'A', partyB: 'B', contractType: '技术服务',
         })
-        expect(result).toHaveLength(1)
-        expect(result[0]?.level).toBe('high')
+        expect(result).not.toBeNull()
+        expect(result?.level).toBe('high')
         // 服务端强制覆盖 id，不使用 LLM 返回的 id（防重复 UUID 联动 bug）
-        expect(result[0]?.id).not.toBe('a0000000-0000-4000-8000-000000000001')
-        expect(result[0]?.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+        expect(result?.id).not.toBe('a0000000-0000-4000-8000-000000000001')
+        expect(result?.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
     })
 
     it('两次连续调用：LLM 返回相同 id 时服务端覆盖为不同 UUID', async () => {
@@ -69,16 +69,16 @@ describe('analyzeSingleClause', () => {
         }
         const a = await analyzeSingleClause(ctx)
         const b = await analyzeSingleClause(ctx)
-        expect(a[0]?.id).toBeTruthy()
-        expect(b[0]?.id).toBeTruthy()
-        expect(a[0]?.id).not.toBe(b[0]?.id)
+        expect(a?.id).toBeTruthy()
+        expect(b?.id).toBeTruthy()
+        expect(a?.id).not.toBe(b?.id)
     })
 
-    it('skip=true 返回空数组', async () => {
+    it('skip=true 返回 null', async () => {
         const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
         ;(createChatModel as any).mockReturnValueOnce({
             invoke: vi.fn().mockResolvedValue({
-                content: JSON.stringify({ risks: [], skip: true }),
+                content: JSON.stringify({ risk: null, skip: true }),
             }),
         })
         const { analyzeSingleClause } = await import('~~/server/agents/contract/analyzeSingleClause')
@@ -86,68 +86,7 @@ describe('analyzeSingleClause', () => {
             clause: { index: 2, number: '3.3', text: '3.3 常规付款条款' },
             stance: 'neutral', partyA: 'A', partyB: 'B', contractType: '技术服务',
         })
-        expect(result).toEqual([])
-    })
-
-    // 兼容旧 LLM 输出格式：preprocess 把 `risk: ...` 单值升级为 `risks: [...]`
-    it('LLM 旧格式 {risk: {...}, skip: false} → preprocess 升级为单元素数组', async () => {
-        const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
-        ;(createChatModel as any).mockReturnValueOnce({
-            invoke: vi.fn().mockResolvedValue({
-                content: JSON.stringify({
-                    risk: {
-                        id: 'old-format-id',
-                        clauseIndex: 1, clauseText: 'x',
-                        level: 'high', category: 'c', problem: 'p',
-                        analysis: 'a', risk: 'r', suggestion: 's',
-                        suggestedClauseText: 't',
-                    },
-                    skip: false,
-                }),
-            }),
-        })
-        const { analyzeSingleClause } = await import('~~/server/agents/contract/analyzeSingleClause')
-        const result = await analyzeSingleClause({
-            clause: { index: 1, number: '1', text: 'x' },
-            stance: 'partyB', partyA: 'A', partyB: 'B', contractType: '技服',
-        })
-        expect(result).toHaveLength(1)
-        expect(result[0]?.level).toBe('high')
-    })
-
-    // 新核心能力：LLM 输出 risks 数组多元素 → 全部透传（服务端各自分配 UUID）
-    it('LLM 新格式 risks 数组多元素 → 全部透传，各自独立 id', async () => {
-        const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
-        ;(createChatModel as any).mockReturnValueOnce({
-            invoke: vi.fn().mockResolvedValue({
-                content: JSON.stringify({
-                    risks: [
-                        {
-                            id: 'aaa', clauseIndex: 1, clauseText: 'x',
-                            level: 'high', category: '试用期', problem: 'p1',
-                            analysis: 'a1', risk: 'r1', suggestion: 's1',
-                            suggestedClauseText: 't1',
-                        },
-                        {
-                            id: 'bbb', clauseIndex: 1, clauseText: 'x',
-                            level: 'high', category: '工资', problem: 'p2',
-                            analysis: 'a2', risk: 'r2', suggestion: 's2',
-                            suggestedClauseText: 't2',
-                        },
-                    ],
-                    skip: false,
-                }),
-            }),
-        })
-        const { analyzeSingleClause } = await import('~~/server/agents/contract/analyzeSingleClause')
-        const result = await analyzeSingleClause({
-            clause: { index: 1, number: '1', text: 'x' },
-            stance: 'partyB', partyA: 'A', partyB: 'B', contractType: '劳动合同',
-        })
-        expect(result).toHaveLength(2)
-        expect(result[0]?.category).toBe('试用期')
-        expect(result[1]?.category).toBe('工资')
-        expect(result[0]?.id).not.toBe(result[1]?.id) // 各自分配 UUID
+        expect(result).toBeNull()
     })
 
     it('LLM 返回非 JSON → 抛错含条款序号', async () => {
@@ -162,7 +101,7 @@ describe('analyzeSingleClause', () => {
         })).rejects.toThrow(/#5/)
     })
 
-    it('LLM 只返回 {"skip": true}（省略 risk/risks 字段）→ 返回空数组不抛错', async () => {
+    it('LLM 只返回 {"skip": true}（省略 risk 字段）→ 返回 null 不抛错', async () => {
         const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
         ;(createChatModel as any).mockReturnValueOnce({
             invoke: vi.fn().mockResolvedValue({ content: '{"skip": true}' }),
@@ -172,7 +111,7 @@ describe('analyzeSingleClause', () => {
             clause: { index: 6, number: '6.1', text: 'xxx' },
             stance: 'partyA', partyA: 'A', partyB: 'B', contractType: '技服',
         })
-        expect(result).toEqual([])
+        expect(result).toBeNull()
     })
 
     it('LLM 输出前有解释文字 + JSON → 平衡括号扫描能正确提取，不被 greedy 匹配吞掉', async () => {
@@ -196,18 +135,16 @@ describe('analyzeSingleClause', () => {
         const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
         ;(createChatModel as any).mockReturnValueOnce({
             invoke: vi.fn().mockResolvedValue({
-                // risks[0].level 是不合法值 → schema 校验挂在 risks.0.level
+                // risk.level 是不合法值 → schema 校验挂在 risk.level
                 content: JSON.stringify({
-                    risks: [
-                        {
-                            id: 'a0000000-0000-4000-8000-000000000001',
-                            clauseIndex: 1, clauseText: 'x',
-                            level: 'VERY_HIGH', // 非法
-                            category: 'c', problem: 'p',
-                            analysis: 'a', risk: 'r', suggestion: 's',
-                            suggestedClauseText: 't',
-                        },
-                    ],
+                    risk: {
+                        id: 'a0000000-0000-4000-8000-000000000001',
+                        clauseIndex: 1, clauseText: 'x',
+                        level: 'VERY_HIGH', // 非法
+                        category: 'c', problem: 'p',
+                        analysis: 'a', risk: 'r', suggestion: 's',
+                        suggestedClauseText: 't',
+                    },
                     skip: false,
                 }),
             }),
@@ -216,7 +153,7 @@ describe('analyzeSingleClause', () => {
         await expect(analyzeSingleClause({
             clause: { index: 8, number: '8.1', text: 'xxx' },
             stance: 'partyA', partyA: 'A', partyB: 'B', contractType: '技服',
-        })).rejects.toThrow(/risks\.0\.level/)
+        })).rejects.toThrow(/risk\.level/)
     })
 })
 
@@ -250,7 +187,7 @@ describe('analyzeSingleClause · playbook', () => {
         expect(capturedPrompt).toContain('立场:strict')
     })
 
-    it('AI 返回合法 matchedPointCode 透传（取首条）', async () => {
+    it('AI 返回合法 matchedPointCode 透传', async () => {
         const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
         ;(createChatModel as any).mockReturnValueOnce({
             invoke: vi.fn().mockResolvedValue({
@@ -273,8 +210,7 @@ describe('analyzeSingleClause · playbook', () => {
             stance: 'partyB', partyA: 'A', partyB: 'B', contractType: '劳动合同',
             playbookSnapshot: SNAPSHOT,
         })
-        expect(result).toHaveLength(1)
-        expect(result[0]?.matchedPointCode).toBe('probation')
+        expect(result?.matchedPointCode).toBe('probation')
     })
 
     it('AI 返回非法 code 降级为清单外 + warn', async () => {
@@ -301,8 +237,7 @@ describe('analyzeSingleClause · playbook', () => {
             stance: 'partyB', partyA: 'A', partyB: 'B', contractType: '劳动合同',
             playbookSnapshot: SNAPSHOT,
         })
-        expect(result).toHaveLength(1)
-        expect(result[0]?.matchedPointCode).toBeUndefined()
+        expect(result?.matchedPointCode).toBeUndefined()
         expect(mockLogger.warn).toHaveBeenCalledWith(
             expect.stringContaining('未知的 matchedPointCode'),
             expect.any(Object),
@@ -332,8 +267,7 @@ describe('analyzeSingleClause · playbook', () => {
             stance: 'partyB', partyA: 'A', partyB: 'B', contractType: '劳动合同',
             playbookSnapshot: SNAPSHOT,
         })
-        expect(result).toHaveLength(1)
-        expect(result[0]?.matchedPointCode).toBeUndefined()
+        expect(result?.matchedPointCode).toBeUndefined()
         expect(mockLogger.warn).not.toHaveBeenCalledWith(
             expect.stringContaining('未知的 matchedPointCode'),
             expect.anything(),
@@ -357,80 +291,5 @@ describe('analyzeSingleClause · playbook', () => {
         })
         expect(capturedPrompt).not.toContain('本合同审查清单')
         expect(capturedPrompt).not.toContain('code=')
-    })
-})
-
-describe('renderPromptTemplate 占位符（PR 3）', () => {
-    it('占位符 {{sentencesNumbered}} 被替换为 [S1] xxx [S2] yyy 形式', async () => {
-        const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
-        const { getValidNodeConfig } = await import('~~/server/services/node/node.service')
-
-        // 覆盖默认 nodeConfig 为本测试需要的 prompt 模板
-        ;(getValidNodeConfig as any).mockResolvedValueOnce({
-            modelApiKeys: [{ apiKey: 'sk-test', status: 1 }],
-            modelSdkType: 'openai',
-            modelName: 'gpt-4',
-            modelProviderBaseUrl: 'https://api.openai.com/v1',
-            prompts: [{
-                type: 'system',
-                status: 1,
-                content: '当前条款：\n{{sentencesNumbered}}\n\n原文（兜底回溯）：{{clauseTextRaw}}',
-            }],
-        })
-
-        // 让 createChatModel 返回一个截获 prompt 的 stub
-        // invoke 收到的是字符串 prompt（invokeNodeJson 传的是 string，非消息数组）
-        let captured: string | null = null
-        ;(createChatModel as any).mockReturnValueOnce({
-            invoke: vi.fn(async (prompt: string) => {
-                captured = prompt
-                return { content: JSON.stringify({ risks: [], skip: true }) }
-            }),
-        })
-
-        const { analyzeSingleClause } = await import('~~/server/agents/contract/analyzeSingleClause')
-        await analyzeSingleClause({
-            clause: { index: 1, number: '第一条', text: '工资按月支付。逾期违约。', offsetStart: 0, offsetEnd: 12 },
-            stance: 'partyA',
-            partyA: '公司A',
-            partyB: '员工B',
-            contractType: '劳动合同',
-        })
-
-        expect(captured).not.toBeNull()
-        expect(captured).toContain('[S1]')
-        expect(captured).toContain('[S2]')
-        expect(captured).toContain('工资按月支付')
-        expect(captured).toContain('逾期违约')
-        expect(captured).toContain('原文（兜底回溯）：工资按月支付。逾期违约。')
-    })
-
-    it('单句条款（如纯标题）也至少产出 [S1]', async () => {
-        const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
-        const { getValidNodeConfig } = await import('~~/server/services/node/node.service')
-
-        ;(getValidNodeConfig as any).mockResolvedValueOnce({
-            modelApiKeys: [{ apiKey: 'sk-test', status: 1 }],
-            modelSdkType: 'openai',
-            modelName: 'gpt-4',
-            modelProviderBaseUrl: 'https://api.openai.com/v1',
-            prompts: [{ type: 'system', status: 1, content: '{{sentencesNumbered}}' }],
-        })
-
-        let captured: string | null = null
-        ;(createChatModel as any).mockReturnValueOnce({
-            invoke: vi.fn(async (prompt: string) => {
-                captured = prompt
-                return { content: JSON.stringify({ risks: [], skip: true }) }
-            }),
-        })
-
-        const { analyzeSingleClause } = await import('~~/server/agents/contract/analyzeSingleClause')
-        await analyzeSingleClause({
-            clause: { index: 1, number: '第一条', text: '合同总则', offsetStart: 0, offsetEnd: 4 },
-            stance: 'neutral', partyA: null, partyB: null, contractType: null,
-        })
-
-        expect(captured).toContain('[S1] 合同总则')
     })
 })

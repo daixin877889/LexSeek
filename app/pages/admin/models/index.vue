@@ -77,7 +77,6 @@
                                 <TableHead class="w-[100px]">类型</TableHead>
                                 <TableHead class="w-[100px]">SDK 类型</TableHead>
                                 <TableHead class="w-[80px]">默认</TableHead>
-                                <TableHead class="w-[80px]">思考</TableHead>
                                 <TableHead class="w-[80px]">状态</TableHead>
                                 <TableHead class="w-[100px] text-right">操作</TableHead>
                             </TableRow>
@@ -100,13 +99,6 @@
                                 </TableCell>
                                 <TableCell>
                                     <Badge v-if="model.isDefault" variant="default">默认</Badge>
-                                    <span v-else class="text-muted-foreground">-</span>
-                                </TableCell>
-                                <TableCell>
-                                    <Badge v-if="model.modelType === 'chat'"
-                                        :variant="model.supportsThinking ? 'default' : 'secondary'">
-                                        {{ model.supportsThinking ? '开启' : '关闭' }}
-                                    </Badge>
                                     <span v-else class="text-muted-foreground">-</span>
                                 </TableCell>
                                 <TableCell>

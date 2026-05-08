@@ -4,8 +4,8 @@
  * **Feature: contract-review-versioning-phase-a Task 3.3.2**
  *
  * 覆盖 AI 已重审徽章逻辑：
- * - originalClauseText 非 null → 显示"AI 已重审"徽章
- * - originalClauseText 为 null/undefined → 不显示徽章
+ * - originalAnchorQuote 非 null → 显示"AI 已重审"徽章
+ * - originalAnchorQuote 为 null/undefined → 不显示徽章
  */
 
 import { describe, it, expect, vi } from 'vitest'
@@ -160,45 +160,45 @@ function mountPanel(risks: unknown[] = []) {
 }
 
 describe('RiskListPanel Task 3.3.2：AI 已重审徽章', () => {
-    it('主风险卡片：originalClauseText 非 null 时显示"AI 已重审"', async () => {
-        const w = mountPanel([makeRisk({ originalClauseText: '原始条款引文' })])
+    it('主风险卡片：originalAnchorQuote 非 null 时显示"AI 已重审"', async () => {
+        const w = mountPanel([makeRisk({ originalAnchorQuote: '原始条款引文' })])
         expect(w.text()).toContain('AI 已重审')
         expect(w.find('[data-icon="SparklesIcon"]').exists()).toBe(true)
     })
 
-    it('主风险卡片：originalClauseText 为 null 时不显示"AI 已重审"', async () => {
-        const w = mountPanel([makeRisk({ originalClauseText: null })])
+    it('主风险卡片：originalAnchorQuote 为 null 时不显示"AI 已重审"', async () => {
+        const w = mountPanel([makeRisk({ originalAnchorQuote: null })])
         expect(w.text()).not.toContain('AI 已重审')
     })
 
-    it('主风险卡片：originalClauseText 为 undefined 时不显示"AI 已重审"', async () => {
+    it('主风险卡片：originalAnchorQuote 为 undefined 时不显示"AI 已重审"', async () => {
         const w = mountPanel([makeRisk()])
         expect(w.text()).not.toContain('AI 已重审')
     })
 
-    it('外部新增风险：originalClauseText 非 null 时也显示"AI 已重审"', async () => {
+    it('外部新增风险：originalAnchorQuote 非 null 时也显示"AI 已重审"', async () => {
         const risk = makeRisk({
             source: 'external_new',
-            originalClauseText: '外部引文',
+            originalAnchorQuote: '外部引文',
         })
         const w = mountPanel([risk])
         expect(w.text()).toContain('AI 已重审')
     })
 
-    it('外部新增风险：originalClauseText 为 null 时不显示徽章', async () => {
+    it('外部新增风险：originalAnchorQuote 为 null 时不显示徽章', async () => {
         const risk = makeRisk({
             source: 'external_new',
-            originalClauseText: null,
+            originalAnchorQuote: null,
         })
         const w = mountPanel([risk])
         expect(w.text()).not.toContain('AI 已重审')
     })
 
-    it('多个风险：只有含 originalClauseText 的卡片显示徽章', async () => {
+    it('多个风险：只有含 originalAnchorQuote 的卡片显示徽章', async () => {
         const risks = [
-            makeRisk({ id: '1', originalClauseText: '引文A' }),
-            makeRisk({ id: '2', originalClauseText: null }),
-            makeRisk({ id: '3', originalClauseText: '引文C' }),
+            makeRisk({ id: '1', originalAnchorQuote: '引文A' }),
+            makeRisk({ id: '2', originalAnchorQuote: null }),
+            makeRisk({ id: '3', originalAnchorQuote: '引文C' }),
         ]
         const w = mountPanel(risks)
         // 2 个徽章

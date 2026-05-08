@@ -415,7 +415,7 @@ export async function sendInterruptEventService(
 
 ```
 1. 前端发起分析请求
-   POST /api/v1/cases/analysis/agents → 创建 agentRuns 记录（status=PENDING）
+   POST /api/v1/case/analysis/agents → 创建 agentRuns 记录（status=PENDING）
    → Redis publish('agent_tasks', runId)
 
 2. Worker 接收任务
@@ -427,7 +427,7 @@ export async function sendInterruptEventService(
    → publishAgentEvent() → Redis Pub/Sub + Stream 双写
 
 4. 前端订阅事件
-   GET /api/v1/cases/analysis/runs/[sessionId] → createEventSubscription(runId)
+   GET /api/v1/case/analysis/runs/[sessionId] → createEventSubscription(runId)
    → Redis subscribe('run:' + runId) → SSE 推送到浏览器
 
 5. 断线重连

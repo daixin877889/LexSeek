@@ -5,7 +5,9 @@
  * **Validates: Requirements 12.3, 12.4**
  *
  * 覆盖：
+ * - moduleContext.middleware - 模块对话上下文中间件
  * - pointConsumption.middleware - 积分扣减中间件（getTokenCount 扩展）
+ * - caseMaterialContext.middleware - 材料上下文注入中间件
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -17,6 +19,31 @@ vi.stubGlobal('logger', {
     error: vi.fn(),
     debug: vi.fn(),
 })
+
+// ==================== 模块上下文中间件 Mock ====================
+
+// Mock 材料服务
+vi.mock('~~/server/services/material/material.service', () => ({
+    getMaterialsByCaseIdService: vi.fn(),
+}))
+
+// Mock 材料管道服务
+vi.mock('~~/server/services/material/materialPipeline.service', () => ({
+    getSourceId: vi.fn((m: any) => m.id),
+    getMaterialContextService: vi.fn(),
+    buildMaterialContextMessage: vi.fn((ctx: any) => `材料上下文: ${ctx.mode}`),
+    buildIncrementalMaterialMessage: vi.fn((ctx: any) => `增量材料: ${ctx.mode}`),
+}))
+
+// Mock 分析结果服务
+vi.mock('~~/server/services/case/initAnalysis.service', () => ({
+    loadCompletedResultsService: vi.fn(),
+}))
+
+// Mock 模块上下文构建器
+vi.mock('~~/server/services/workflow/context/moduleContextBuilder', () => ({
+    getCaseMemory: vi.fn(),
+}))
 
 // Mock langchain
 vi.mock('langchain', () => ({
@@ -48,6 +75,13 @@ vi.mock('~~/server/services/workflow/state/storage', () => ({
     updateSessionState: vi.fn(),
 }))
 
+import { getMaterialsByCaseIdService } from '~~/server/services/material/material.service'
+import {
+    getMaterialContextService,
+} from '~~/server/services/material/materialPipeline.service'
+import { loadCompletedResultsService } from '~~/server/services/case/initAnalysis.service'
+import { getCaseMemory } from '~~/server/services/workflow/context/moduleContextBuilder'
+import { caseMaterialContextMiddleware } from '~~/server/services/workflow/middleware/caseMaterialContext.middleware'
 import { getTokenCount, pointConsumptionMiddleware } from '~~/server/services/workflow/middleware/pointConsumption.middleware'
 import { getCurrentMembershipService } from '~~/server/services/membership/userMembership.service'
 import { checkPointsService, consumePointsService } from '~~/server/services/point/pointConsumption.service'
@@ -57,6 +91,130 @@ import { updateSessionState } from '~~/server/services/workflow/state/storage'
 describe('工作流中间件', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+    })
+
+    // ==================== caseMaterialContext.middleware ====================
+
+    describe('caseMaterialContextMiddleware - 材料上下文注入中间件', () => {
+        const userId = 1
+        const caseId = 200
+
+        const createMiddlewareConfig = () => {
+            return caseMaterialContextMiddleware(userId, caseId) as any
+        }
+
+        const createState = (overrides: Record<string, any> = {}) => ({
+            messages: [
+                { _getType: () => 'system', content: '你是法律 AI' },
+                { _getType: () => 'human', content: '帮我分析案件' },
+            ],
+            _injectedSourceIds: [],
+            ...overrides,
+        })
+
+        it('创建中间件配置对象', () => {
+            const config = createMiddlewareConfig()
+            expect(config.name).toBe('CaseMaterialContextMiddleware')
+            expect(config.beforeAgent).toBeDefined()
+        })
+
+        it('无材料时不注入', async () => {
+            vi.mocked(getMaterialsByCaseIdService).mockResolvedValueOnce([])
+
+            const config = createMiddlewareConfig()
+            const state = createState()
+
+            const result = await config.beforeAgent.hook(state)
+            expect(result).toBeUndefined()
+        })
+
+        it('首次全量注入材料上下文', async () => {
+            vi.mocked(getMaterialsByCaseIdService).mockResolvedValueOnce([
+                { id: 10, name: '合同.pdf' },
+            ] as any)
+            vi.mocked(getMaterialContextService).mockResolvedValueOnce({
+                mode: 'full',
+                totalTokens: 3000,
+                materialList: [],
+            } as any)
+
+            const config = createMiddlewareConfig()
+            const state = createState()
+
+            const result = await config.beforeAgent.hook(state)
+
+            // 注入成功时返回更新后的 sourceIds
+            if (result) {
+                expect(result._injectedSourceIds).toEqual([10])
+            }
+            // getMaterialContextService 被调用
+            expect(getMaterialContextService).toHaveBeenCalled()
+        })
+
+        it('已有材料无新增时不注入', async () => {
+            vi.mocked(getMaterialsByCaseIdService).mockResolvedValueOnce([
+                { id: 10, name: '合同.pdf' },
+            ] as any)
+
+            const config = createMiddlewareConfig()
+            const state = createState({ _injectedSourceIds: [10] })
+
+            const result = await config.beforeAgent.hook(state)
+            expect(result).toBeUndefined()
+        })
+
+        it('增量注入新材料', async () => {
+            vi.mocked(getMaterialsByCaseIdService).mockResolvedValueOnce([
+                { id: 10, name: '合同.pdf' },
+                { id: 11, name: '新证据.pdf' },
+            ] as any)
+            vi.mocked(getMaterialContextService).mockResolvedValueOnce({
+                mode: 'summary',
+                totalTokens: 1000,
+                materialList: [],
+            } as any)
+
+            const config = createMiddlewareConfig()
+            const state = createState({ _injectedSourceIds: [10] })
+
+            const result = await config.beforeAgent.hook(state)
+
+            // 注入成功时返回更新后的 sourceIds
+            if (result) {
+                expect(result._injectedSourceIds).toEqual([10, 11])
+            }
+            // getMaterialContextService 应该被调用（增量注入）
+            expect(getMaterialContextService).toHaveBeenCalled()
+        })
+
+        it('getMaterialContextService 返回 empty 时不注入', async () => {
+            vi.mocked(getMaterialsByCaseIdService).mockResolvedValueOnce([
+                { id: 10, name: '空文件.pdf' },
+            ] as any)
+            vi.mocked(getMaterialContextService).mockResolvedValueOnce({
+                mode: 'empty',
+                totalTokens: 0,
+                materialList: [],
+            } as any)
+
+            const config = createMiddlewareConfig()
+            const state = createState()
+
+            const result = await config.beforeAgent.hook(state)
+            expect(result).toBeUndefined()
+        })
+
+        it('异常不中断执行', async () => {
+            vi.mocked(getMaterialsByCaseIdService).mockRejectedValueOnce(
+                new Error('服务异常')
+            )
+
+            const config = createMiddlewareConfig()
+            const state = createState()
+
+            const result = await config.beforeAgent.hook(state)
+            expect(result).toBeUndefined()
+        })
     })
 
     // ==================== pointConsumption.middleware ====================

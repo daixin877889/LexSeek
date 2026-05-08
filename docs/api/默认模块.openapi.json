@@ -1262,7 +1262,7 @@
         }
       }
     },
-    "/api/v1/cases/create": {
+    "/api/v1/case/create": {
       "post": {
         "summary": "创建案例分析",
         "description": "创建新的案例分析任务",
@@ -1281,7 +1281,7 @@
         }
       }
     },
-    "/api/v1/cases/{caseId}": {
+    "/api/v1/case/{caseId}": {
       "get": {
         "summary": "获取案例详情",
         "description": "获取指定 ID 的案例详情",
@@ -1295,7 +1295,7 @@
         }
       }
     },
-    "/api/v1/cases/analysis/stream/{caseId}": {
+    "/api/v1/case/analysis/stream/{caseId}": {
       "post": {
         "summary": "流式案例分析",
         "description": "发起流式案例分析请求",
@@ -1324,7 +1324,7 @@
         }
       }
     },
-    "/api/v1/cases/state/{sessionId}": {
+    "/api/v1/case/state/{sessionId}": {
       "get": {
         "summary": "获取分析状态",
         "description": "获取案例分析会话状态",
@@ -1338,7 +1338,7 @@
         }
       }
     },
-    "/api/v1/cases/resume/{sessionId}": {
+    "/api/v1/case/resume/{sessionId}": {
       "post": {
         "summary": "恢复分析会话",
         "description": "恢复之前的案例分析会话",

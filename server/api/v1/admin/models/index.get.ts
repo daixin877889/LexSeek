@@ -16,8 +16,8 @@ const querySchema = z.object({
     modelType: z.enum(MODEL_TYPES).optional(),
     providerId: z.coerce.number().int().positive().optional(),
     status: z.coerce.number().int().min(0).max(1).optional(),
-    orderBy: z.enum(['id', 'priority', 'name', 'createdAt']).default('id'),
-    orderDir: z.enum(['asc', 'desc']).default('desc'),
+    orderBy: z.enum(['priority', 'name', 'createdAt']).default('priority'),
+    orderDir: z.enum(['asc', 'desc']).default('asc'),
 })
 
 export default defineEventHandler(async (event) => {

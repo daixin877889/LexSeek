@@ -94,7 +94,6 @@ export const ModelName = {
   nodes: 'nodes',
   prompts: 'prompts',
   levelNodeAccess: 'levelNodeAccess',
-  node_prompts: 'node_prompts',
   orders: 'orders',
   paymentTransactions: 'paymentTransactions',
   membershipUpgradeRecords: 'membershipUpgradeRecords',
@@ -325,7 +324,8 @@ export const CaseMaterialsScalarFieldEnum = {
   status: 'status',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  deletedAt: 'deletedAt'
+  deletedAt: 'deletedAt',
+  summary: 'summary'
 } as const
 
 export type CaseMaterialsScalarFieldEnum = (typeof CaseMaterialsScalarFieldEnum)[keyof typeof CaseMaterialsScalarFieldEnum]
@@ -432,7 +432,6 @@ export const ContractReviewsScalarFieldEnum = {
   risks: 'risks',
   summary: 'summary',
   playbookSnapshot: 'playbookSnapshot',
-  cotMessages: 'cotMessages',
   hasUnsavedDocxChanges: 'hasUnsavedDocxChanges',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
@@ -480,21 +479,15 @@ export const ContractRisksScalarFieldEnum = {
   legalBasis: 'legalBasis',
   analysis: 'analysis',
   suggestion: 'suggestion',
-  suggestedClauseText: 'suggestedClauseText',
   archivedStatus: 'archivedStatus',
   archivedAt: 'archivedAt',
-  clauseIndex: 'clauseIndex',
-  clauseText: 'clauseText',
-  clauseParagraphIndex: 'clauseParagraphIndex',
-  clauseCharStart: 'clauseCharStart',
-  clauseCharEnd: 'clauseCharEnd',
-  problematicQuote: 'problematicQuote',
-  quoteCharStart: 'quoteCharStart',
-  quoteCharEnd: 'quoteCharEnd',
-  quoteMatchSource: 'quoteMatchSource',
-  originalClauseText: 'originalClauseText',
+  anchorQuote: 'anchorQuote',
+  anchorParagraphIndex: 'anchorParagraphIndex',
+  anchorCharStart: 'anchorCharStart',
+  anchorCharEnd: 'anchorCharEnd',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
+  originalAnchorQuote: 'originalAnchorQuote',
   orphaned: 'orphaned'
 } as const
 
@@ -675,7 +668,6 @@ export const TextContentRecordsScalarFieldEnum = {
   materialId: 'materialId',
   content: 'content',
   htmlContent: 'htmlContent',
-  summary: 'summary',
   status: 'status',
   vectorIds: 'vectorIds',
   lastEmbeddingAt: 'lastEmbeddingAt',
@@ -815,7 +807,6 @@ export const ModelsScalarFieldEnum = {
   isDefault: 'isDefault',
   status: 'status',
   priority: 'priority',
-  supportsThinking: 'supportsThinking',
   inputCostPerMillionTokens: 'inputCostPerMillionTokens',
   outputCostPerMillionTokens: 'outputCostPerMillionTokens',
   createdAt: 'createdAt',
@@ -852,7 +843,6 @@ export const NodesScalarFieldEnum = {
   groupId: 'groupId',
   status: 'status',
   useSkillsAsLogic: 'useSkillsAsLogic',
-  thinkingEnabled: 'thinkingEnabled',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'
@@ -870,6 +860,7 @@ export const PromptsScalarFieldEnum = {
   version: 'version',
   type: 'type',
   status: 'status',
+  nodeId: 'nodeId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'
@@ -888,19 +879,6 @@ export const LevelNodeAccessScalarFieldEnum = {
 } as const
 
 export type LevelNodeAccessScalarFieldEnum = (typeof LevelNodeAccessScalarFieldEnum)[keyof typeof LevelNodeAccessScalarFieldEnum]
-
-
-export const Node_promptsScalarFieldEnum = {
-  id: 'id',
-  nodeId: 'nodeId',
-  promptName: 'promptName',
-  promptType: 'promptType',
-  displayOrder: 'displayOrder',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-} as const
-
-export type Node_promptsScalarFieldEnum = (typeof Node_promptsScalarFieldEnum)[keyof typeof Node_promptsScalarFieldEnum]
 
 
 export const OrdersScalarFieldEnum = {
@@ -1185,8 +1163,6 @@ export const MineruTokensScalarFieldEnum = {
   token: 'token',
   remark: 'remark',
   status: 'status',
-  expiresAt: 'expiresAt',
-  lastUsedAt: 'lastUsedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'
@@ -1200,7 +1176,6 @@ export const MineruTasksScalarFieldEnum = {
   taskId: 'taskId',
   ossFileId: 'ossFileId',
   userId: 'userId',
-  mineruTokenId: 'mineruTokenId',
   status: 'status',
   isEncrypted: 'isEncrypted',
   taskRawData: 'taskRawData',
@@ -1288,7 +1263,6 @@ export const SkillsScalarFieldEnum = {
   title: 'title',
   description: 'description',
   version: 'version',
-  customTitle: 'customTitle',
   status: 'status',
   syncedAt: 'syncedAt',
   createdAt: 'createdAt',

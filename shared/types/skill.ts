@@ -25,7 +25,6 @@ export const SKILLS_FS_ROOT = '.deepagents/skills' as const
 /** SKILL.md frontmatter 解析结果（gray-matter / 自实现解析共用类型）*/
 export interface SkillFrontmatter {
     name: string
-    title?: string
     description?: string
     license?: string
     version?: string

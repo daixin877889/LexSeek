@@ -1,7 +1,7 @@
 /**
  * 通用 Agent SSE 流构造器
  *
- * 抽取自 server/api/v1/cases/analysis/chat.post.ts 的内联实现（原 L215-370），
+ * 抽取自 server/api/v1/case/analysis/chat.post.ts 的内联实现（原 L215-370），
  * 用于服务所有订阅 AgentRun 事件流的 SSE 端点（case chat、assistant chat 等）。
  *
  * 行为：
@@ -18,7 +18,6 @@ import { replayEvents, createEventSubscription } from '~~/server/services/agent/
 import { getActiveRunService } from '~~/server/services/agent/agentRun.service'
 import { getThreadValuesService } from '~~/server/services/workflow/agents'
 import { AGENT_RUN_STATUS } from '#shared/types/agentRun'
-import { isInjectorFromContextMiddleware } from '~~/server/services/agent-platform/context/injectorDetection'
 
 /** 终结状态列表（包括 interrupted，重连时 replay 后需关闭流） */
 const TERMINAL_STATUSES: readonly string[] = [
@@ -35,22 +34,18 @@ function isInternalMessage(m: any): boolean {
   const type = m.type ?? m.data?.type
   if (type === 'system') return true
 
+  // HumanMessage 检测 metadata（注入的上下文消息）
   const injector = (m.response_metadata?.injectedBy ?? m.data?.response_metadata?.injectedBy) as string | undefined
-  return isInjectorFromContextMiddleware(injector)
+  if (injector?.startsWith('ModuleContext') || injector?.startsWith('CaseMaterial')) {
+    return true
+  }
+
+  return false
 }
 
 /** 过滤掉上下文注入消息（HumanMessage with metadata.injectedBy） */
 function filterInjectedMessages(messages: any[]): any[] {
   return messages.filter(m => !isInternalMessage(m))
-}
-
-/**
- * status_change 是否代表父 run 自身终结（用于判断是否关流）。
- * 子 Agent 的 handleChainEnd 也发 terminal status，但带 parentToolCallId，
- * 仅代表"该子 Agent 完成"，父 run 还在继续。
- */
-function isParentRunTerminal(evt: { metadata?: { parentToolCallId?: unknown } | null }): boolean {
-  return !evt.metadata?.parentToolCallId
 }
 
 /** 过滤 messages 事件中的内部消息，返回 null 表示整条事件应跳过 */
@@ -63,68 +58,18 @@ function filterMessagesEvent(data: any): any | null {
 }
 
 /**
- * 仅当 run 处于 INTERRUPTED 时才把 `__interrupt__` 透传给前端——这是合法的
- * "等待用户输入"暂停态，interrupt 卡片需要据此渲染。其它任何状态下：
- *   - PENDING / RUNNING：run 正在执行，不应弹 interrupt UI（用户没在等输入）
- *   - COMPLETED / FAILED / CANCELLED：run 已落幕，残留 interrupt 必然是 stale
- *
- * 已知触发：合同审查 vertical 的 resume 分支（runContractReviewChat）完全绕过
- * LangGraph，`parseAndAskStance` 工具写入的 `__interrupt__` 永远不会被
- * `__resume__` 抵消。无论是审查完成后刷新（status=COMPLETED）还是 stance 提交后
- * resume run B 进行中（status=PENDING/RUNNING），`getThreadValuesService` 都会
- * 从 pendingWrites 抽出陈旧 interrupt；前端不剥离就会反复误开 stance Dialog
- * （刷新场景）或在 resume 流期间 modal 遮挡风险卡片点击（流中场景）。
- */
-export function stripStaleInterrupt(
-  values: Record<string, unknown>,
-  runStatus: string | undefined,
-): Record<string, unknown> {
-  if (runStatus === AGENT_RUN_STATUS.INTERRUPTED) return values
-  if (!('__interrupt__' in values)) return values
-  const { __interrupt__: _omit, ...rest } = values
-  return rest
-}
-
-/**
  * 创建 Agent SSE 流所需的入参。
  *
  * - `runId`：初始 run 标识。若启动时检测到当前 session 有更新的活跃 run，内部会覆盖为该 run。
  * - `event`：H3 事件对象，用于监听客户端断开（`event.node.req.on('close')`）。
  * - `sessionId`：LangGraph thread_id，用于查询当前活跃 run 以及 PostgresSaver checkpoint。
  * - `latestRunStatus`：可选，最近一次 run 的状态；若为终结状态则走"仅发 checkpoint"快路径。
- * - `replayMode`：可选，Redis Stream 补发策略。
- *   - `'all'`（默认）：按顺序逐条转发 missed events，适用于一般 chat 类端点
- *   - `'last-values-only'`：只转发最后一条 values 快照，跳过其它历史事件。适用于事件量极大的
- *     vertical（如 init-analysis 7 模块累计 ~2000 条 / 几 MB Redis Stream），避免逐条 replay
- *     让前端卡顿。重连时累积的合成卡片（如材料处理）会丢失，由实时订阅段在下一个事件到达时拉回。
- * - `useShortCircuit`：可选，启用终态短路。当 `latestRunStatus ∈ {completed,failed,cancelled}` 时
- *   跳过 Redis Stream 全量 XRANGE，直接读 PostgresSaver checkpoint 发一次 values + 一次
- *   status_change 后关流。同样为大流量场景设计。
- *   与默认 `isCompletedRun` 路径的差异：短路会**显式发一条 status_change**——前端
- *   `useStreamChat` 依赖该事件把 runStatus 切到终态，仅靠 stream EOF 不会触发。
- * - `shortCircuitError`：可选，短路 + `failed` 状态下附加到 `status_change` 的 error 字段。
- *   由调用方从 `agentRuns.error` 透传，让前端展示具体错误而非泛化文案。
  */
 export interface CreateAgentSseStreamOptions {
   runId: string
   event: H3Event
   sessionId: string
   latestRunStatus?: string
-  replayMode?: 'all' | 'last-values-only'
-  useShortCircuit?: boolean
-  shortCircuitError?: string | null
-}
-
-/** 短路路径支持的终态状态 */
-const SHORT_CIRCUIT_TERMINAL_STATUSES: readonly string[] = [
-  AGENT_RUN_STATUS.COMPLETED,
-  AGENT_RUN_STATUS.FAILED,
-  AGENT_RUN_STATUS.CANCELLED,
-]
-
-/** 判断 run 状态是否可以走 SSE 短路路径（不含 INTERRUPTED——其 __interrupt__ 仅存在于 Redis Stream 末条 values） */
-function isShortCircuitable(status: string | null | undefined): boolean {
-  return status != null && SHORT_CIRCUIT_TERMINAL_STATUSES.includes(status)
 }
 
 /**
@@ -144,17 +89,6 @@ export function createAgentSseStream(
       const encoder = new TextEncoder()
       const abortController = new AbortController()
 
-      const emitInterruptedTerminal = () => {
-        controller.enqueue(encoder.encode(
-          `event: custom\ndata: ${JSON.stringify({
-            type: 'status_change',
-            runId,
-            sessionId,
-            status: AGENT_RUN_STATUS.INTERRUPTED,
-          })}\n\n`,
-        ))
-      }
-
       // 客户端断开时 abort
       event.node.req.on('close', () => {
         abortController.abort()
@@ -171,34 +105,6 @@ export function createAgentSseStream(
       }, 15000)
 
       try {
-        // ====== 终态短路（init-analysis 等大流量场景启用）======
-        // 跳过 Redis Stream XRANGE 与 createEventSubscription，直接发 checkpoint values
-        // + status_change 后关流。前端依赖 status_change 把 runStatus 切到终态。
-        if (opts.useShortCircuit && isShortCircuitable(latestRunStatus)) {
-          const checkpointValues = await getThreadValuesService(sessionId)
-          if (checkpointValues) {
-            const messages = (checkpointValues.messages as any[]) || []
-            if (messages.length > 0) {
-              const filteredMessages = filterInjectedMessages(messages)
-              controller.enqueue(encoder.encode(
-                `event: values\ndata: ${JSON.stringify({ ...checkpointValues, messages: filteredMessages })}\n\n`,
-              ))
-            }
-          }
-          const statusPayload: Record<string, unknown> = {
-            type: 'status_change',
-            runId,
-            status: latestRunStatus,
-          }
-          if (latestRunStatus === AGENT_RUN_STATUS.FAILED && opts.shortCircuitError) {
-            statusPayload.error = opts.shortCircuitError
-          }
-          controller.enqueue(encoder.encode(
-            `event: custom\ndata: ${JSON.stringify(statusPayload)}\n\n`,
-          ))
-          return
-        }
-
         const isCompletedRun = latestRunStatus
           ? TERMINAL_STATUSES.includes(latestRunStatus)
           : false
@@ -211,10 +117,7 @@ export function createAgentSseStream(
           runId = currentActiveRun.id
         }
         else if (isCompletedRun) {
-          const rawCheckpointValues = await getThreadValuesService(sessionId)
-          const checkpointValues = rawCheckpointValues
-            ? stripStaleInterrupt(rawCheckpointValues, latestRunStatus)
-            : null
+          const checkpointValues = await getThreadValuesService(sessionId)
           const messages = (checkpointValues?.messages as any[]) || []
           logger.info(`[SSE] checkpointValues exists=${!!checkpointValues}, messages count=${messages.length}`)
           if (checkpointValues) {
@@ -238,63 +141,11 @@ export function createAgentSseStream(
           logger.warn(`Redis Stream 补发失败: run=${runId}`, err)
         }
 
-        // last-values-only 模式：跳过累积量大的 stream_event（messages/values/updates），
-        // 但**保留** custom_event 与终态 status_change——前者是合成卡片事件
-        // （prepare_materials / analysis_summary / sub_agent_*），phase=start/end 必须配对，
-        // 漏掉 start 则后续 progress/end 在前端找不到 toolCallId 全部废；后者用于关流。
-        //
-        // 时序背景：worker pickup run 的速度通常快于浏览器 SSE 订阅完成（同进程 + 同 Redis），
-        // beforeAgent 中间件发出的 phase=start 在订阅之前就已写入 Redis Stream，pubsub 收不到，
-        // 必须从 missed 里拿。重连场景同理。
-        let lastValuesAlreadyReplayed = false
-        if (opts.replayMode === 'last-values-only' && missed.length > 0) {
-          // 1. 挑最后一条 values 转发，替代逐条 replay 上千条 messages/values/updates
-          const lastValues = [...missed].reverse().find(
-            (e: any) => e.type === 'stream_event' && e.event === 'values',
-          )
-          if (lastValues?.type === 'stream_event') {
-            const data = lastValues.data as { messages?: any[] }
-            const filteredMessages = filterInjectedMessages(data.messages ?? [])
-            controller.enqueue(encoder.encode(
-              `event: values\ndata: ${JSON.stringify({ ...data, messages: filteredMessages })}\n\n`,
-            ))
-            lastValuesAlreadyReplayed = true
-          }
-
-          // 2. 保留所有 custom_event：合成卡片配对事件不可丢
-          for (const evt of missed) {
-            if (evt.type !== 'custom_event') continue
-            controller.enqueue(encoder.encode(
-              `event: custom\ndata: ${JSON.stringify(evt)}\n\n`,
-            ))
-          }
-
-          // 3. 保留终态 status_change（让下方"missed 末条终态 → 关流"逻辑正常触发）。
-          //    非终态 status_change（如 RUNNING）冗余，丢弃；前端通过 stream 自身判断 isLoading。
-          const lastStatus = [...missed].reverse().find(
-            (e: any) =>
-              e.type === 'status_change'
-              && TERMINAL_STATUSES.includes(e.status)
-              && isParentRunTerminal(e),
-          )
-          missed = lastStatus ? [lastStatus] : []
-        }
-
         // 如果 Redis Stream 没有数据，fallback 到 PostgresSaver checkpoint
-        // 注意：必须根据 run.status 决定 fallback 后是否继续订阅
-        //   - PENDING/RUNNING：worker 还没跑 / 正在跑 → 继续订阅实时事件
-        //   - INTERRUPTED：worker 已经停在 interrupt 点，不会再有新事件 →
-        //     必须 emit status_change(INTERRUPTED) + return，否则前端 stream
-        //     一直挂着 loading，UI 永远收不到结束信号 + interrupt 卡片不渲染
-        //     （线上 bug：用户在 template_select interrupt 卡片暂停期间刷新页面，
-        //      Redis Stream 已过期，前端 stream 永久 loading 卡死）
+        // 注意：不能直接 return，因为 PENDING run 还没被 Worker 处理，需要继续订阅实时事件
         let hasFallbackData = false
-        // last-values-only 模式找到了快照就跳过 checkpoint fallback（避免重复发 values）
-        if (missed.length === 0 && !lastValuesAlreadyReplayed) {
-          const rawCheckpointValues = await getThreadValuesService(sessionId)
-          const checkpointValues = rawCheckpointValues
-            ? stripStaleInterrupt(rawCheckpointValues, currentActiveRun?.status)
-            : null
+        if (missed.length === 0) {
+          const checkpointValues = await getThreadValuesService(sessionId)
           if (checkpointValues) {
             const messages = (checkpointValues.messages as any[]) || []
             if (messages.length > 0) {
@@ -303,15 +154,10 @@ export function createAgentSseStream(
                 `event: values\ndata: ${JSON.stringify({ ...checkpointValues, messages: filteredMessages })}\n\n`,
               ))
               hasFallbackData = true
+              // 不 return，继续订阅实时事件以接收新 run 的输出
             }
           }
-
-          // INTERRUPTED：worker 已停在 interrupt 点，不会再有新事件，必须主动收尾
-          if (currentActiveRun?.status === AGENT_RUN_STATUS.INTERRUPTED) {
-            emitInterruptedTerminal()
-            return
-          }
-          // PENDING/RUNNING：不 return，继续订阅实时事件以接收 worker 后续输出
+          // 如果都没有数据，说明是空的 session，直接订阅实时事件即可
         }
 
         // Redis Stream 有数据：发送补发事件
@@ -343,29 +189,26 @@ export function createAgentSseStream(
             controller.enqueue(encoder.encode(sseData))
           }
 
-          // 补发最后一条若为父 run 终结，直接关流
+          // 检查是否已经结束（补发的最后一个事件可能是终结状态）
+          // 关键：仅当 parentToolCallId 为空（父 run 自己的终结）时才视为流结束。
+          // 子 Agent 的 status_change（subAgentToolFactory.handleChainEnd 发出）
+          // 也是 terminal status，但只代表"该子 Agent 完成"，父 run 还在继续。
           const lastMissed = missed.at(-1)
           if (
             lastMissed?.type === 'status_change'
             && TERMINAL_STATUSES.includes(lastMissed.status)
-            && isParentRunTerminal(lastMissed)
+            && !lastMissed.metadata?.parentToolCallId
           ) {
             return
           }
-        }
-
-        // INTERRUPTED 收尾：Redis Stream 截断 / agentWorker 旧版漏发 terminal 时兜底，
-        // 否则前端 stream 永久 loading。PENDING/RUNNING 仍走下面的实时订阅。
-        if (currentActiveRun?.status === AGENT_RUN_STATUS.INTERRUPTED) {
-          emitInterruptedTerminal()
-          return
         }
 
         // 订阅实时事件（活跃 run 或补发后未结束的 run）
         for await (const evt of createEventSubscription(runId, abortController.signal)) {
           if (evt.type === 'status_change' && TERMINAL_STATUSES.includes(evt.status)) {
             controller.enqueue(encoder.encode(`event: custom\ndata: ${JSON.stringify(evt)}\n\n`))
-            if (isParentRunTerminal(evt)) break
+            // 仅父 run 自己的终结才关流（带 parentToolCallId 的是子 Agent 局部信号）
+            if (!evt.metadata?.parentToolCallId) break
             continue
           }
           if (evt.type === 'stream_event') {

@@ -47,8 +47,6 @@ const bodySchema = z.object({
         .max(1, '状态值无效')
         .optional(),
     outputSchema: z.record(z.string(), z.any()).optional().nullable(),
-    thinkingEnabled: z.boolean()
-        .optional(),
 })
 
 export default defineEventHandler(async (event) => {

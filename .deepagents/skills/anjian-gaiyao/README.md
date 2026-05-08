@@ -13,11 +13,11 @@
 
 | 方法 | 用途 | 文档 |
 |------|------|------|
-| 概要结构法 | 确定概要的标准组成部分 | [references/概要结构.md](./references/概要结构.md) |
-| 事实整理法 | 按时间和逻辑梳理案件事实 | [references/事实整理.md](./references/事实整理.md) |
-| 争议焦点提取法 | 系统提取四个方面的争议焦点 | [references/争议焦点.md](./references/争议焦点.md) |
-| 判决书处理法 | 识别判决书并提取法律条款 | [references/判决书处理.md](./references/判决书处理.md) |
-| 概念锁定法 | 处理抽象概念避免滑坡 | [references/概念锁定.md](./references/概念锁定.md) |
+| 概要结构法 | 确定概要的标准组成部分 | [references/gainyao-jiegou.md](./references/gainyao-jiegou.md) |
+| 事实整理法 | 按时间和逻辑梳理案件事实 | [references/shishizhengli.md](./references/shishizhengli.md) |
+| 争议焦点提取法 | 系统提取四个方面的争议焦点 | [references/zhengyi-jiaodian.md](./references/zhengyi-jiaodian.md) |
+| 判决书处理法 | 识别判决书并提取法律条款 | [references/panjueshu-chuli.md](./references/panjueshu-chuli.md) |
+| 概念锁定法 | 处理抽象概念避免滑坡 | [references/gainian-suoding.md](./references/gainian-suoding.md) |
 
 ## 方法依赖关系
 

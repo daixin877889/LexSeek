@@ -7,37 +7,7 @@
  */
 
 import { INIT_ANALYSIS_MODULES } from '#shared/types/initAnalysis'
-import type { ModuleRunState, InitAnalysisStatusResponse } from '#shared/types/initAnalysis'
-
-/**
- * 全局状态快照（与 useInitAnalysisProjection 的 ProjectionDeps 三段对齐）
- * - completedModules：用于 ModuleSelector 禁用已完成项
- * - statusModules：projection 在 localStates 没值时回退依据
- * - resultFromDB：mergedResult 与 projection 拼出 complete 卡片内容的来源
- */
-export interface GlobalStatusSnapshot {
-    completedModules: string[]
-    statusModules: InitAnalysisStatusResponse['modules']
-    resultFromDB: Record<string, string>
-}
-
-/**
- * 把 init-analysis-status 接口返回的 status 拆解为 projection 依赖的三段快照
- *
- * 修复背景：runtime.loadStatus 之前只把 status.modules.complete 提取到 completedModules，
- * 没把 modules / result 推给 page 层的 statusModules / resultFromDB，
- * 导致首次进入页面时 projection 看不到 DB 已完成的模块，错误地全部落到 idle（"未生成"）。
- */
-export function extractGlobalStatusSnapshot(
-    status: InitAnalysisStatusResponse,
-): GlobalStatusSnapshot {
-    const modules = status.modules ?? []
-    return {
-        completedModules: modules.filter(m => m.status === 'complete').map(m => m.name),
-        statusModules: modules,
-        resultFromDB: status.result ?? {},
-    }
-}
+import type { ModuleRunState } from '#shared/types/initAnalysis'
 
 /** 从用户已选模块列表中按 INIT_ANALYSIS_MODULES 排序取第一个 */
 export function pickFirstSelectedModule(

@@ -12,7 +12,7 @@ import {
     findDefaultModelByTypeDao,
 } from './models.dao'
 import { findModelProviderByIdDao } from './modelProviders.dao'
-import { findDefaultModelApiKeyByProviderIdDao, findDefaultModelApiKeysByProviderIdsDao } from './modelApiKeys.dao'
+import { findDefaultModelApiKeyByProviderIdDao } from './modelApiKeys.dao'
 import type { models } from '~~/generated/prisma/client'
 
 /**
@@ -55,13 +55,19 @@ export const getModelConfigsByTypeService = async (
     } = {}
 ): Promise<FullModelConfig[]> => {
     const models = await findModelsByTypeDao(modelType, options)
-    const apiKeyMap = await findDefaultModelApiKeysByProviderIdsDao(models.map(m => m.providerId))
 
-    return models.map(model => ({
-        model,
-        provider: model.modelProvider,
-        apiKey: apiKeyMap.get(model.providerId) ?? null,
-    }))
+    const configs: FullModelConfig[] = []
+    for (const model of models) {
+        const provider = model.modelProvider
+        const apiKey = await findDefaultModelApiKeyByProviderIdDao(model.providerId)
+        configs.push({
+            model,
+            provider,
+            apiKey,
+        })
+    }
+
+    return configs
 }
 
 /**
@@ -73,14 +79,19 @@ export const getModelConfigsByProviderIdService = async (
     providerId: number
 ): Promise<FullModelConfig[]> => {
     const models = await findModelsByProviderIdDao(providerId)
-    // 同一 providerId 下所有 model 共用一个 apiKey，只查一次
-    const apiKey = await findDefaultModelApiKeyByProviderIdDao(providerId)
 
-    return models.map(model => ({
-        model,
-        provider: model.modelProvider,
-        apiKey,
-    }))
+    const configs: FullModelConfig[] = []
+    for (const model of models) {
+        const provider = model.modelProvider
+        const apiKey = await findDefaultModelApiKeyByProviderIdDao(model.providerId)
+        configs.push({
+            model,
+            provider,
+            apiKey,
+        })
+    }
+
+    return configs
 }
 
 /**

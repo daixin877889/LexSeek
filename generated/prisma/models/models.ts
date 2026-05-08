@@ -67,7 +67,6 @@ export type ModelsMinAggregateOutputType = {
   isDefault: boolean | null
   status: number | null
   priority: number | null
-  supportsThinking: boolean | null
   inputCostPerMillionTokens: runtime.Decimal | null
   outputCostPerMillionTokens: runtime.Decimal | null
   createdAt: Date | null
@@ -90,7 +89,6 @@ export type ModelsMaxAggregateOutputType = {
   isDefault: boolean | null
   status: number | null
   priority: number | null
-  supportsThinking: boolean | null
   inputCostPerMillionTokens: runtime.Decimal | null
   outputCostPerMillionTokens: runtime.Decimal | null
   createdAt: Date | null
@@ -113,7 +111,6 @@ export type ModelsCountAggregateOutputType = {
   isDefault: number
   status: number
   priority: number
-  supportsThinking: number
   inputCostPerMillionTokens: number
   outputCostPerMillionTokens: number
   createdAt: number
@@ -164,7 +161,6 @@ export type ModelsMinAggregateInputType = {
   isDefault?: true
   status?: true
   priority?: true
-  supportsThinking?: true
   inputCostPerMillionTokens?: true
   outputCostPerMillionTokens?: true
   createdAt?: true
@@ -187,7 +183,6 @@ export type ModelsMaxAggregateInputType = {
   isDefault?: true
   status?: true
   priority?: true
-  supportsThinking?: true
   inputCostPerMillionTokens?: true
   outputCostPerMillionTokens?: true
   createdAt?: true
@@ -210,7 +205,6 @@ export type ModelsCountAggregateInputType = {
   isDefault?: true
   status?: true
   priority?: true
-  supportsThinking?: true
   inputCostPerMillionTokens?: true
   outputCostPerMillionTokens?: true
   createdAt?: true
@@ -320,7 +314,6 @@ export type ModelsGroupByOutputType = {
   isDefault: boolean
   status: number
   priority: number
-  supportsThinking: boolean
   inputCostPerMillionTokens: runtime.Decimal | null
   outputCostPerMillionTokens: runtime.Decimal | null
   createdAt: Date
@@ -366,7 +359,6 @@ export type modelsWhereInput = {
   isDefault?: Prisma.BoolFilter<"models"> | boolean
   status?: Prisma.IntFilter<"models"> | number
   priority?: Prisma.IntFilter<"models"> | number
-  supportsThinking?: Prisma.BoolFilter<"models"> | boolean
   inputCostPerMillionTokens?: Prisma.DecimalNullableFilter<"models"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   outputCostPerMillionTokens?: Prisma.DecimalNullableFilter<"models"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Prisma.DateTimeFilter<"models"> | Date | string
@@ -391,7 +383,6 @@ export type modelsOrderByWithRelationInput = {
   isDefault?: Prisma.SortOrder
   status?: Prisma.SortOrder
   priority?: Prisma.SortOrder
-  supportsThinking?: Prisma.SortOrder
   inputCostPerMillionTokens?: Prisma.SortOrderInput | Prisma.SortOrder
   outputCostPerMillionTokens?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -420,7 +411,6 @@ export type modelsWhereUniqueInput = Prisma.AtLeast<{
   isDefault?: Prisma.BoolFilter<"models"> | boolean
   status?: Prisma.IntFilter<"models"> | number
   priority?: Prisma.IntFilter<"models"> | number
-  supportsThinking?: Prisma.BoolFilter<"models"> | boolean
   inputCostPerMillionTokens?: Prisma.DecimalNullableFilter<"models"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   outputCostPerMillionTokens?: Prisma.DecimalNullableFilter<"models"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Prisma.DateTimeFilter<"models"> | Date | string
@@ -445,7 +435,6 @@ export type modelsOrderByWithAggregationInput = {
   isDefault?: Prisma.SortOrder
   status?: Prisma.SortOrder
   priority?: Prisma.SortOrder
-  supportsThinking?: Prisma.SortOrder
   inputCostPerMillionTokens?: Prisma.SortOrderInput | Prisma.SortOrder
   outputCostPerMillionTokens?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -476,7 +465,6 @@ export type modelsScalarWhereWithAggregatesInput = {
   isDefault?: Prisma.BoolWithAggregatesFilter<"models"> | boolean
   status?: Prisma.IntWithAggregatesFilter<"models"> | number
   priority?: Prisma.IntWithAggregatesFilter<"models"> | number
-  supportsThinking?: Prisma.BoolWithAggregatesFilter<"models"> | boolean
   inputCostPerMillionTokens?: Prisma.DecimalNullableWithAggregatesFilter<"models"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   outputCostPerMillionTokens?: Prisma.DecimalNullableWithAggregatesFilter<"models"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"models"> | Date | string
@@ -497,7 +485,6 @@ export type modelsCreateInput = {
   isDefault?: boolean
   status?: number
   priority?: number
-  supportsThinking?: boolean
   inputCostPerMillionTokens?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   outputCostPerMillionTokens?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Date | string
@@ -522,7 +509,6 @@ export type modelsUncheckedCreateInput = {
   isDefault?: boolean
   status?: number
   priority?: number
-  supportsThinking?: boolean
   inputCostPerMillionTokens?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   outputCostPerMillionTokens?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Date | string
@@ -544,7 +530,6 @@ export type modelsUpdateInput = {
   isDefault?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
   priority?: Prisma.IntFieldUpdateOperationsInput | number
-  supportsThinking?: Prisma.BoolFieldUpdateOperationsInput | boolean
   inputCostPerMillionTokens?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   outputCostPerMillionTokens?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -569,7 +554,6 @@ export type modelsUncheckedUpdateInput = {
   isDefault?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
   priority?: Prisma.IntFieldUpdateOperationsInput | number
-  supportsThinking?: Prisma.BoolFieldUpdateOperationsInput | boolean
   inputCostPerMillionTokens?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   outputCostPerMillionTokens?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -593,7 +577,6 @@ export type modelsCreateManyInput = {
   isDefault?: boolean
   status?: number
   priority?: number
-  supportsThinking?: boolean
   inputCostPerMillionTokens?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   outputCostPerMillionTokens?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Date | string
@@ -614,7 +597,6 @@ export type modelsUpdateManyMutationInput = {
   isDefault?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
   priority?: Prisma.IntFieldUpdateOperationsInput | number
-  supportsThinking?: Prisma.BoolFieldUpdateOperationsInput | boolean
   inputCostPerMillionTokens?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   outputCostPerMillionTokens?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -637,7 +619,6 @@ export type modelsUncheckedUpdateManyInput = {
   isDefault?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
   priority?: Prisma.IntFieldUpdateOperationsInput | number
-  supportsThinking?: Prisma.BoolFieldUpdateOperationsInput | boolean
   inputCostPerMillionTokens?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   outputCostPerMillionTokens?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -675,7 +656,6 @@ export type modelsCountOrderByAggregateInput = {
   isDefault?: Prisma.SortOrder
   status?: Prisma.SortOrder
   priority?: Prisma.SortOrder
-  supportsThinking?: Prisma.SortOrder
   inputCostPerMillionTokens?: Prisma.SortOrder
   outputCostPerMillionTokens?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -711,7 +691,6 @@ export type modelsMaxOrderByAggregateInput = {
   isDefault?: Prisma.SortOrder
   status?: Prisma.SortOrder
   priority?: Prisma.SortOrder
-  supportsThinking?: Prisma.SortOrder
   inputCostPerMillionTokens?: Prisma.SortOrder
   outputCostPerMillionTokens?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -734,7 +713,6 @@ export type modelsMinOrderByAggregateInput = {
   isDefault?: Prisma.SortOrder
   status?: Prisma.SortOrder
   priority?: Prisma.SortOrder
-  supportsThinking?: Prisma.SortOrder
   inputCostPerMillionTokens?: Prisma.SortOrder
   outputCostPerMillionTokens?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -837,7 +815,6 @@ export type modelsCreateWithoutModelProviderInput = {
   isDefault?: boolean
   status?: number
   priority?: number
-  supportsThinking?: boolean
   inputCostPerMillionTokens?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   outputCostPerMillionTokens?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Date | string
@@ -860,7 +837,6 @@ export type modelsUncheckedCreateWithoutModelProviderInput = {
   isDefault?: boolean
   status?: number
   priority?: number
-  supportsThinking?: boolean
   inputCostPerMillionTokens?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   outputCostPerMillionTokens?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Date | string
@@ -913,7 +889,6 @@ export type modelsScalarWhereInput = {
   isDefault?: Prisma.BoolFilter<"models"> | boolean
   status?: Prisma.IntFilter<"models"> | number
   priority?: Prisma.IntFilter<"models"> | number
-  supportsThinking?: Prisma.BoolFilter<"models"> | boolean
   inputCostPerMillionTokens?: Prisma.DecimalNullableFilter<"models"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   outputCostPerMillionTokens?: Prisma.DecimalNullableFilter<"models"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Prisma.DateTimeFilter<"models"> | Date | string
@@ -934,7 +909,6 @@ export type modelsCreateWithoutNodesInput = {
   isDefault?: boolean
   status?: number
   priority?: number
-  supportsThinking?: boolean
   inputCostPerMillionTokens?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   outputCostPerMillionTokens?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Date | string
@@ -958,7 +932,6 @@ export type modelsUncheckedCreateWithoutNodesInput = {
   isDefault?: boolean
   status?: number
   priority?: number
-  supportsThinking?: boolean
   inputCostPerMillionTokens?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   outputCostPerMillionTokens?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Date | string
@@ -995,7 +968,6 @@ export type modelsUpdateWithoutNodesInput = {
   isDefault?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
   priority?: Prisma.IntFieldUpdateOperationsInput | number
-  supportsThinking?: Prisma.BoolFieldUpdateOperationsInput | boolean
   inputCostPerMillionTokens?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   outputCostPerMillionTokens?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1019,7 +991,6 @@ export type modelsUncheckedUpdateWithoutNodesInput = {
   isDefault?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
   priority?: Prisma.IntFieldUpdateOperationsInput | number
-  supportsThinking?: Prisma.BoolFieldUpdateOperationsInput | boolean
   inputCostPerMillionTokens?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   outputCostPerMillionTokens?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1041,7 +1012,6 @@ export type modelsCreateManyModelProviderInput = {
   isDefault?: boolean
   status?: number
   priority?: number
-  supportsThinking?: boolean
   inputCostPerMillionTokens?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   outputCostPerMillionTokens?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Date | string
@@ -1062,7 +1032,6 @@ export type modelsUpdateWithoutModelProviderInput = {
   isDefault?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
   priority?: Prisma.IntFieldUpdateOperationsInput | number
-  supportsThinking?: Prisma.BoolFieldUpdateOperationsInput | boolean
   inputCostPerMillionTokens?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   outputCostPerMillionTokens?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1085,7 +1054,6 @@ export type modelsUncheckedUpdateWithoutModelProviderInput = {
   isDefault?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
   priority?: Prisma.IntFieldUpdateOperationsInput | number
-  supportsThinking?: Prisma.BoolFieldUpdateOperationsInput | boolean
   inputCostPerMillionTokens?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   outputCostPerMillionTokens?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1108,7 +1076,6 @@ export type modelsUncheckedUpdateManyWithoutModelProviderInput = {
   isDefault?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
   priority?: Prisma.IntFieldUpdateOperationsInput | number
-  supportsThinking?: Prisma.BoolFieldUpdateOperationsInput | boolean
   inputCostPerMillionTokens?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   outputCostPerMillionTokens?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1162,7 +1129,6 @@ export type modelsSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   isDefault?: boolean
   status?: boolean
   priority?: boolean
-  supportsThinking?: boolean
   inputCostPerMillionTokens?: boolean
   outputCostPerMillionTokens?: boolean
   createdAt?: boolean
@@ -1188,7 +1154,6 @@ export type modelsSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extens
   isDefault?: boolean
   status?: boolean
   priority?: boolean
-  supportsThinking?: boolean
   inputCostPerMillionTokens?: boolean
   outputCostPerMillionTokens?: boolean
   createdAt?: boolean
@@ -1212,7 +1177,6 @@ export type modelsSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extens
   isDefault?: boolean
   status?: boolean
   priority?: boolean
-  supportsThinking?: boolean
   inputCostPerMillionTokens?: boolean
   outputCostPerMillionTokens?: boolean
   createdAt?: boolean
@@ -1236,7 +1200,6 @@ export type modelsSelectScalar = {
   isDefault?: boolean
   status?: boolean
   priority?: boolean
-  supportsThinking?: boolean
   inputCostPerMillionTokens?: boolean
   outputCostPerMillionTokens?: boolean
   createdAt?: boolean
@@ -1244,7 +1207,7 @@ export type modelsSelectScalar = {
   deletedAt?: boolean
 }
 
-export type modelsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "providerId" | "name" | "displayName" | "modelType" | "sdkType" | "modelVersion" | "contextWindow" | "maxOutputTokens" | "dimensions" | "batchSize" | "isDefault" | "status" | "priority" | "supportsThinking" | "inputCostPerMillionTokens" | "outputCostPerMillionTokens" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["models"]>
+export type modelsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "providerId" | "name" | "displayName" | "modelType" | "sdkType" | "modelVersion" | "contextWindow" | "maxOutputTokens" | "dimensions" | "batchSize" | "isDefault" | "status" | "priority" | "inputCostPerMillionTokens" | "outputCostPerMillionTokens" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["models"]>
 export type modelsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   modelProvider?: boolean | Prisma.modelProvidersDefaultArgs<ExtArgs>
   nodes?: boolean | Prisma.models$nodesArgs<ExtArgs>
@@ -1326,10 +1289,6 @@ export type $modelsPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
      * 优先级，数字越小优先级越高
      */
     priority: number
-    /**
-     * 模型是否支持思考切换（true = 节点可配 thinkingEnabled，UI 才显示开关）
-     */
-    supportsThinking: boolean
     /**
      * 输入成本（每百万tokens）
      */
@@ -1789,7 +1748,6 @@ export interface modelsFieldRefs {
   readonly isDefault: Prisma.FieldRef<"models", 'Boolean'>
   readonly status: Prisma.FieldRef<"models", 'Int'>
   readonly priority: Prisma.FieldRef<"models", 'Int'>
-  readonly supportsThinking: Prisma.FieldRef<"models", 'Boolean'>
   readonly inputCostPerMillionTokens: Prisma.FieldRef<"models", 'Decimal'>
   readonly outputCostPerMillionTokens: Prisma.FieldRef<"models", 'Decimal'>
   readonly createdAt: Prisma.FieldRef<"models", 'DateTime'>

@@ -269,9 +269,12 @@ export interface ActiveCaseItem {
  *
  * 用于法律助手关联案件 Dialog（CaseLinkerDialog）：
  * - owner-only：仅返回当前用户名下的案件
- * - 排除已软删（deletedAt IS NULL）+ 已归档案件（status != ARCHIVED）
+ * - 排除已软删（deletedAt IS NULL）
+ * - 排除已归档案件（status != ARCHIVED）
  * - 可选 q 关键词模糊匹配 title
- * - 按 updatedAt desc 排序，最多 100 条（参数上限 200）
+ * - 按 updatedAt desc 排序，限制返回 100 条
+ *
+ * 阶段 5：CaseLinkerDialog 调用
  */
 export const getActiveCasesService = async (
     userId: number,
@@ -289,12 +292,14 @@ export const getActiveCasesService = async (
         where.title = { contains: q, mode: 'insensitive' }
     }
 
-    return await prisma.cases.findMany({
+    const rows = await prisma.cases.findMany({
         where,
         select: { id: true, title: true },
         orderBy: { updatedAt: 'desc' },
         take: limit,
     })
+
+    return rows.map(r => ({ id: r.id, title: r.title }))
 }
 
 /**

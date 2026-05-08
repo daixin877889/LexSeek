@@ -13,8 +13,6 @@
 import { trimMessages } from '@langchain/core/messages'
 import { HumanMessage, type BaseMessage, isAIMessage } from '@langchain/core/messages'
 import { countTokensSync } from '~~/server/utils/tokenCounter'
-import { buildLangfuseTopLevelConfig } from '~~/server/lib/langfuse'
-import { collectToolUsesFromContent } from '~~/server/services/workflow/repairOrphanToolUse'
 
 /** 默认上下文窗口（tokens）：主流模型的保守默认，agent 和 compressor 统一使用 */
 export const DEFAULT_CONTEXT_WINDOW = 128000
@@ -198,16 +196,10 @@ export async function compressMessages(
     // 用模型生成中间消息的摘要
     try {
         const summaryPrompt = buildSummaryPrompt(middleMessages)
-        // 裸 model 调用：显式注入 langfuseHandler，并通过 langfuse:nostream tag 让
-        // SpanProcessor 豁免本条 generation 上报（内部上下文压缩调用不进 Langfuse trace）。
-        const lfConfig = buildLangfuseTopLevelConfig()
-        const summaryResponse = await model.invoke(
-            [
-                { role: 'system', content: '你是一个信息压缩助手。请将以下工具调用和对话内容压缩为结构化摘要，保留所有关键发现和数据点。' },
-                new HumanMessage(summaryPrompt),
-            ],
-            { ...lfConfig, tags: [...(lfConfig.tags ?? []), 'langfuse:nostream', 'internal'] },
-        )
+        const summaryResponse = await model.invoke([
+            { role: 'system', content: '你是一个信息压缩助手。请将以下工具调用和对话内容压缩为结构化摘要，保留所有关键发现和数据点。' },
+            new HumanMessage(summaryPrompt),
+        ])
 
         const summaryContent = typeof summaryResponse.content === 'string'
             ? summaryResponse.content
@@ -289,24 +281,9 @@ function buildSummaryPrompt(messages: BaseMessage[]): string {
         const type = msg.getType?.() ?? 'unknown'
         const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
 
-        // 合并 tool_calls 字段 + content 数组里的 tool_use 块(应对 streaming + thinking 模式)
-        const toolNames: string[] = []
-        if (type === 'ai' && isAIMessage(msg)) {
-            const seen = new Set<string>()
-            if (msg.tool_calls?.length) {
-                for (const tc of msg.tool_calls) {
-                    if (tc.id) seen.add(tc.id)
-                    if (tc.name) toolNames.push(tc.name)
-                }
-            }
-            for (const block of collectToolUsesFromContent(msg.content, seen)) {
-                if (block.name) toolNames.push(block.name)
-            }
-        }
-
         let line: string
-        if (toolNames.length > 0) {
-            line = `[AI 调用工具] ${toolNames.join(', ')}`
+        if (type === 'ai' && isAIMessage(msg) && msg.tool_calls?.length) {
+            line = `[AI 调用工具] ${msg.tool_calls.map(tc => tc.name).join(', ')}`
         } else if (type === 'tool') {
             const truncated = content.length > 2000 ? content.slice(0, 2000) + '...(截断)' : content
             line = `[工具返回] ${truncated}`

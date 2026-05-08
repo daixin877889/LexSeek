@@ -29,7 +29,6 @@ const props = defineProps<{
   moduleCards?: AnalysisModuleCard[]
   showBatchButton?: boolean
   hasPendingInterrupt?: boolean
-  isAnalysisRunning?: boolean
   materials: CaseDetailMaterialItem[]
   disabledOssFileIds?: number[]
   isAddingMaterials?: boolean
@@ -52,7 +51,6 @@ const emit = defineEmits<{
   generateModule: [moduleName: string, moduleTitle: string]
   batchGenerate: []
   goToInterrupt: []
-  goToRunningWorkflow: []
   createDocument: []
   refreshDrafts: []
 }>()
@@ -219,11 +217,9 @@ function executeDelete() {
       <CaseAnalysisResults class="h-auto" :results="analysisResults" :module-cards="moduleCards" v-model:view-mode="analysisViewMode"
         v-model:active-module="analysisActiveModule" :show-regenerate="false" :show-copy="false"
         :show-batch-button="showBatchButton" :has-pending-interrupt="hasPendingInterrupt"
-        :is-analysis-running="isAnalysisRunning"
         :show-view-all="true"
         @generate-module="(name, title) => emit('generateModule', name, title)" @batch-generate="emit('batchGenerate')"
-        @go-to-interrupt="emit('goToInterrupt')" @go-to-running-workflow="emit('goToRunningWorkflow')"
-        @view-all="emit('navigateView', 'analysis')" />
+        @go-to-interrupt="emit('goToInterrupt')" @view-all="emit('navigateView', 'analysis')" />
 
       <Separator class="mx-4 opacity-50" />
 

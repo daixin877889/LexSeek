@@ -1,5 +1,5 @@
 /**
- * GET /api/v1/cases/memories/by-case/:caseId 测试
+ * GET /api/v1/case/memories/by-case/:caseId 测试
  *
  * **Feature: case-memory-extension**
  * **Validates: spec §3.3 GET API 权限 / 分页 / 筛选**
@@ -18,7 +18,7 @@ import { ensureTestUser, ensureTestCase, cleanupTestData } from '../../assistant
 
 // 动态 import handler（必须在 globalThis stub 设置之后）
 const { default: handler } = await import(
-    '../../../../server/api/v1/cases/memories/by-case/[caseId].get'
+    '../../../../server/api/v1/case/memories/by-case/[caseId].get'
 )
 
 const makeEvent = (userId: number, caseId: number, query: any = {}) => ({

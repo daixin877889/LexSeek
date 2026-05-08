@@ -160,39 +160,21 @@ export const createUserBenefitDao = async (
 
 /**
  * 批量创建用户权益记录
- * 用 createMany 单次插入替代 N 次 create，再单次 findMany 拿回创建的行
+ * @param dataList 创建数据列表
+ * @param tx 事务客户端（可选）
+ * @returns 创建的用户权益记录列表
  */
 export const createUserBenefitsDao = async (
     dataList: CreateUserBenefitInput[],
     tx?: PrismaClient
 ): Promise<userBenefits[]> => {
-    if (dataList.length === 0) return []
     try {
-        const client = (tx || prisma)
-        const now = new Date()
-        await client.userBenefits.createMany({
-            data: dataList.map(data => ({
-                userId: data.userId,
-                benefitId: data.benefitId,
-                benefitValue: BigInt(data.benefitValue),
-                sourceType: data.sourceType,
-                sourceId: data.sourceId,
-                effectiveAt: data.effectiveAt,
-                expiredAt: data.expiredAt,
-                remark: data.remark,
-                status: UserBenefitStatus.ACTIVE,
-                createdAt: now,
-                updatedAt: now,
-            })),
-        })
-        // 取回刚创建的行；createdAt = now 用作精确时间戳过滤
-        return await client.userBenefits.findMany({
-            where: {
-                createdAt: now,
-                userId: { in: Array.from(new Set(dataList.map(d => d.userId))) },
-            },
-            orderBy: { id: 'asc' },
-        })
+        const results: userBenefits[] = []
+        for (const data of dataList) {
+            const userBenefit = await createUserBenefitDao(data, tx)
+            results.push(userBenefit)
+        }
+        return results
     } catch (error) {
         logger.error('批量创建用户权益记录失败：', error)
         throw error

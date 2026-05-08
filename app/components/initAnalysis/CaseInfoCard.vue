@@ -160,7 +160,7 @@ const plaintiffNames = computed(() => parsePartyNames(caseInfo.value?.plaintiff)
 const defendantNames = computed(() => parsePartyNames(caseInfo.value?.defendant))
 
 async function loadCaseInfo() {
-  const data = await useApiFetch<CaseInfoData>(`/api/v1/cases/${props.caseId}`)
+  const data = await useApiFetch<CaseInfoData>(`/api/v1/case/${props.caseId}`)
   if (data) caseInfo.value = data
 }
 
@@ -212,7 +212,7 @@ async function saveChanges() {
     return
   }
   isSaving.value = true
-  const result = await useApiFetch(`/api/v1/cases/${props.caseId}`, {
+  const result = await useApiFetch(`/api/v1/case/${props.caseId}`, {
     method: 'PUT',
     body: {
       title: editForm.value.title.trim(),

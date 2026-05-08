@@ -1261,7 +1261,7 @@ export type $asrRecordsPayload<ExtArgs extends runtime.Types.Extensions.Internal
      */
     keywords: runtime.JsonValue | null
     /**
-     * 200 字摘要（统一语义：识别完成后由 generateMaterialSummaryService 写入）
+     * 摘要
      */
     summary: string | null
     /**

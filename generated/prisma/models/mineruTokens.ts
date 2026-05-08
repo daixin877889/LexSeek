@@ -42,8 +42,6 @@ export type MineruTokensMinAggregateOutputType = {
   token: string | null
   remark: string | null
   status: number | null
-  expiresAt: Date | null
-  lastUsedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -55,8 +53,6 @@ export type MineruTokensMaxAggregateOutputType = {
   token: string | null
   remark: string | null
   status: number | null
-  expiresAt: Date | null
-  lastUsedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -68,8 +64,6 @@ export type MineruTokensCountAggregateOutputType = {
   token: number
   remark: number
   status: number
-  expiresAt: number
-  lastUsedAt: number
   createdAt: number
   updatedAt: number
   deletedAt: number
@@ -93,8 +87,6 @@ export type MineruTokensMinAggregateInputType = {
   token?: true
   remark?: true
   status?: true
-  expiresAt?: true
-  lastUsedAt?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -106,8 +98,6 @@ export type MineruTokensMaxAggregateInputType = {
   token?: true
   remark?: true
   status?: true
-  expiresAt?: true
-  lastUsedAt?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -119,8 +109,6 @@ export type MineruTokensCountAggregateInputType = {
   token?: true
   remark?: true
   status?: true
-  expiresAt?: true
-  lastUsedAt?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -219,8 +207,6 @@ export type MineruTokensGroupByOutputType = {
   token: string
   remark: string | null
   status: number
-  expiresAt: Date | null
-  lastUsedAt: Date | null
   createdAt: Date
   updatedAt: Date
   deletedAt: Date | null
@@ -255,12 +241,9 @@ export type mineruTokensWhereInput = {
   token?: Prisma.StringFilter<"mineruTokens"> | string
   remark?: Prisma.StringNullableFilter<"mineruTokens"> | string | null
   status?: Prisma.IntFilter<"mineruTokens"> | number
-  expiresAt?: Prisma.DateTimeNullableFilter<"mineruTokens"> | Date | string | null
-  lastUsedAt?: Prisma.DateTimeNullableFilter<"mineruTokens"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"mineruTokens"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"mineruTokens"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"mineruTokens"> | Date | string | null
-  mineruTasks?: Prisma.MineruTasksListRelationFilter
 }
 
 export type mineruTokensOrderByWithRelationInput = {
@@ -269,12 +252,9 @@ export type mineruTokensOrderByWithRelationInput = {
   token?: Prisma.SortOrder
   remark?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
-  expiresAt?: Prisma.SortOrderInput | Prisma.SortOrder
-  lastUsedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
-  mineruTasks?: Prisma.mineruTasksOrderByRelationAggregateInput
 }
 
 export type mineruTokensWhereUniqueInput = Prisma.AtLeast<{
@@ -286,12 +266,9 @@ export type mineruTokensWhereUniqueInput = Prisma.AtLeast<{
   token?: Prisma.StringFilter<"mineruTokens"> | string
   remark?: Prisma.StringNullableFilter<"mineruTokens"> | string | null
   status?: Prisma.IntFilter<"mineruTokens"> | number
-  expiresAt?: Prisma.DateTimeNullableFilter<"mineruTokens"> | Date | string | null
-  lastUsedAt?: Prisma.DateTimeNullableFilter<"mineruTokens"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"mineruTokens"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"mineruTokens"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"mineruTokens"> | Date | string | null
-  mineruTasks?: Prisma.MineruTasksListRelationFilter
 }, "id">
 
 export type mineruTokensOrderByWithAggregationInput = {
@@ -300,8 +277,6 @@ export type mineruTokensOrderByWithAggregationInput = {
   token?: Prisma.SortOrder
   remark?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
-  expiresAt?: Prisma.SortOrderInput | Prisma.SortOrder
-  lastUsedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -321,8 +296,6 @@ export type mineruTokensScalarWhereWithAggregatesInput = {
   token?: Prisma.StringWithAggregatesFilter<"mineruTokens"> | string
   remark?: Prisma.StringNullableWithAggregatesFilter<"mineruTokens"> | string | null
   status?: Prisma.IntWithAggregatesFilter<"mineruTokens"> | number
-  expiresAt?: Prisma.DateTimeNullableWithAggregatesFilter<"mineruTokens"> | Date | string | null
-  lastUsedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"mineruTokens"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"mineruTokens"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"mineruTokens"> | Date | string
   deletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"mineruTokens"> | Date | string | null
@@ -333,12 +306,9 @@ export type mineruTokensCreateInput = {
   token: string
   remark?: string | null
   status?: number
-  expiresAt?: Date | string | null
-  lastUsedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
-  mineruTasks?: Prisma.mineruTasksCreateNestedManyWithoutMineruTokenInput
 }
 
 export type mineruTokensUncheckedCreateInput = {
@@ -347,12 +317,9 @@ export type mineruTokensUncheckedCreateInput = {
   token: string
   remark?: string | null
   status?: number
-  expiresAt?: Date | string | null
-  lastUsedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
-  mineruTasks?: Prisma.mineruTasksUncheckedCreateNestedManyWithoutMineruTokenInput
 }
 
 export type mineruTokensUpdateInput = {
@@ -360,12 +327,9 @@ export type mineruTokensUpdateInput = {
   token?: Prisma.StringFieldUpdateOperationsInput | string
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
-  expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  mineruTasks?: Prisma.mineruTasksUpdateManyWithoutMineruTokenNestedInput
 }
 
 export type mineruTokensUncheckedUpdateInput = {
@@ -374,12 +338,9 @@ export type mineruTokensUncheckedUpdateInput = {
   token?: Prisma.StringFieldUpdateOperationsInput | string
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
-  expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  mineruTasks?: Prisma.mineruTasksUncheckedUpdateManyWithoutMineruTokenNestedInput
 }
 
 export type mineruTokensCreateManyInput = {
@@ -388,8 +349,6 @@ export type mineruTokensCreateManyInput = {
   token: string
   remark?: string | null
   status?: number
-  expiresAt?: Date | string | null
-  lastUsedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -400,8 +359,6 @@ export type mineruTokensUpdateManyMutationInput = {
   token?: Prisma.StringFieldUpdateOperationsInput | string
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
-  expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -413,8 +370,6 @@ export type mineruTokensUncheckedUpdateManyInput = {
   token?: Prisma.StringFieldUpdateOperationsInput | string
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
-  expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -426,8 +381,6 @@ export type mineruTokensCountOrderByAggregateInput = {
   token?: Prisma.SortOrder
   remark?: Prisma.SortOrder
   status?: Prisma.SortOrder
-  expiresAt?: Prisma.SortOrder
-  lastUsedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -444,8 +397,6 @@ export type mineruTokensMaxOrderByAggregateInput = {
   token?: Prisma.SortOrder
   remark?: Prisma.SortOrder
   status?: Prisma.SortOrder
-  expiresAt?: Prisma.SortOrder
-  lastUsedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -457,8 +408,6 @@ export type mineruTokensMinOrderByAggregateInput = {
   token?: Prisma.SortOrder
   remark?: Prisma.SortOrder
   status?: Prisma.SortOrder
-  expiresAt?: Prisma.SortOrder
-  lastUsedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -469,122 +418,6 @@ export type mineruTokensSumOrderByAggregateInput = {
   status?: Prisma.SortOrder
 }
 
-export type MineruTokensNullableScalarRelationFilter = {
-  is?: Prisma.mineruTokensWhereInput | null
-  isNot?: Prisma.mineruTokensWhereInput | null
-}
-
-export type mineruTokensCreateNestedOneWithoutMineruTasksInput = {
-  create?: Prisma.XOR<Prisma.mineruTokensCreateWithoutMineruTasksInput, Prisma.mineruTokensUncheckedCreateWithoutMineruTasksInput>
-  connectOrCreate?: Prisma.mineruTokensCreateOrConnectWithoutMineruTasksInput
-  connect?: Prisma.mineruTokensWhereUniqueInput
-}
-
-export type mineruTokensUpdateOneWithoutMineruTasksNestedInput = {
-  create?: Prisma.XOR<Prisma.mineruTokensCreateWithoutMineruTasksInput, Prisma.mineruTokensUncheckedCreateWithoutMineruTasksInput>
-  connectOrCreate?: Prisma.mineruTokensCreateOrConnectWithoutMineruTasksInput
-  upsert?: Prisma.mineruTokensUpsertWithoutMineruTasksInput
-  disconnect?: Prisma.mineruTokensWhereInput | boolean
-  delete?: Prisma.mineruTokensWhereInput | boolean
-  connect?: Prisma.mineruTokensWhereUniqueInput
-  update?: Prisma.XOR<Prisma.XOR<Prisma.mineruTokensUpdateToOneWithWhereWithoutMineruTasksInput, Prisma.mineruTokensUpdateWithoutMineruTasksInput>, Prisma.mineruTokensUncheckedUpdateWithoutMineruTasksInput>
-}
-
-export type mineruTokensCreateWithoutMineruTasksInput = {
-  name: string
-  token: string
-  remark?: string | null
-  status?: number
-  expiresAt?: Date | string | null
-  lastUsedAt?: Date | string | null
-  createdAt?: Date | string
-  updatedAt?: Date | string
-  deletedAt?: Date | string | null
-}
-
-export type mineruTokensUncheckedCreateWithoutMineruTasksInput = {
-  id?: number
-  name: string
-  token: string
-  remark?: string | null
-  status?: number
-  expiresAt?: Date | string | null
-  lastUsedAt?: Date | string | null
-  createdAt?: Date | string
-  updatedAt?: Date | string
-  deletedAt?: Date | string | null
-}
-
-export type mineruTokensCreateOrConnectWithoutMineruTasksInput = {
-  where: Prisma.mineruTokensWhereUniqueInput
-  create: Prisma.XOR<Prisma.mineruTokensCreateWithoutMineruTasksInput, Prisma.mineruTokensUncheckedCreateWithoutMineruTasksInput>
-}
-
-export type mineruTokensUpsertWithoutMineruTasksInput = {
-  update: Prisma.XOR<Prisma.mineruTokensUpdateWithoutMineruTasksInput, Prisma.mineruTokensUncheckedUpdateWithoutMineruTasksInput>
-  create: Prisma.XOR<Prisma.mineruTokensCreateWithoutMineruTasksInput, Prisma.mineruTokensUncheckedCreateWithoutMineruTasksInput>
-  where?: Prisma.mineruTokensWhereInput
-}
-
-export type mineruTokensUpdateToOneWithWhereWithoutMineruTasksInput = {
-  where?: Prisma.mineruTokensWhereInput
-  data: Prisma.XOR<Prisma.mineruTokensUpdateWithoutMineruTasksInput, Prisma.mineruTokensUncheckedUpdateWithoutMineruTasksInput>
-}
-
-export type mineruTokensUpdateWithoutMineruTasksInput = {
-  name?: Prisma.StringFieldUpdateOperationsInput | string
-  token?: Prisma.StringFieldUpdateOperationsInput | string
-  remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  status?: Prisma.IntFieldUpdateOperationsInput | number
-  expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-}
-
-export type mineruTokensUncheckedUpdateWithoutMineruTasksInput = {
-  id?: Prisma.IntFieldUpdateOperationsInput | number
-  name?: Prisma.StringFieldUpdateOperationsInput | string
-  token?: Prisma.StringFieldUpdateOperationsInput | string
-  remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  status?: Prisma.IntFieldUpdateOperationsInput | number
-  expiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-}
-
-
-/**
- * Count Type MineruTokensCountOutputType
- */
-
-export type MineruTokensCountOutputType = {
-  mineruTasks: number
-}
-
-export type MineruTokensCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  mineruTasks?: boolean | MineruTokensCountOutputTypeCountMineruTasksArgs
-}
-
-/**
- * MineruTokensCountOutputType without action
- */
-export type MineruTokensCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  /**
-   * Select specific fields to fetch from the MineruTokensCountOutputType
-   */
-  select?: Prisma.MineruTokensCountOutputTypeSelect<ExtArgs> | null
-}
-
-/**
- * MineruTokensCountOutputType without action
- */
-export type MineruTokensCountOutputTypeCountMineruTasksArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.mineruTasksWhereInput
-}
 
 
 export type mineruTokensSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -593,13 +426,9 @@ export type mineruTokensSelect<ExtArgs extends runtime.Types.Extensions.Internal
   token?: boolean
   remark?: boolean
   status?: boolean
-  expiresAt?: boolean
-  lastUsedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
-  mineruTasks?: boolean | Prisma.mineruTokens$mineruTasksArgs<ExtArgs>
-  _count?: boolean | Prisma.MineruTokensCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["mineruTokens"]>
 
 export type mineruTokensSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -608,8 +437,6 @@ export type mineruTokensSelectCreateManyAndReturn<ExtArgs extends runtime.Types.
   token?: boolean
   remark?: boolean
   status?: boolean
-  expiresAt?: boolean
-  lastUsedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -621,8 +448,6 @@ export type mineruTokensSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.
   token?: boolean
   remark?: boolean
   status?: boolean
-  expiresAt?: boolean
-  lastUsedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -634,29 +459,16 @@ export type mineruTokensSelectScalar = {
   token?: boolean
   remark?: boolean
   status?: boolean
-  expiresAt?: boolean
-  lastUsedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
 }
 
-export type mineruTokensOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "token" | "remark" | "status" | "expiresAt" | "lastUsedAt" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["mineruTokens"]>
-export type mineruTokensInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  mineruTasks?: boolean | Prisma.mineruTokens$mineruTasksArgs<ExtArgs>
-  _count?: boolean | Prisma.MineruTokensCountOutputTypeDefaultArgs<ExtArgs>
-}
-export type mineruTokensIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
-export type mineruTokensIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
+export type mineruTokensOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "token" | "remark" | "status" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["mineruTokens"]>
 
 export type $mineruTokensPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "mineruTokens"
-  objects: {
-    /**
-     * 关联的 MinerU 任务
-     */
-    mineruTasks: Prisma.$mineruTasksPayload<ExtArgs>[]
-  }
+  objects: {}
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     /**
      * Token ID，主键，自增
@@ -678,14 +490,6 @@ export type $mineruTokensPayload<ExtArgs extends runtime.Types.Extensions.Intern
      * 状态：1-启用，0-禁用
      */
     status: number
-    /**
-     * 到期时间（NULL 表示永不过期；超过该时间后将不再被新任务选用）
-     */
-    expiresAt: Date | null
-    /**
-     * 最近一次被新任务选用的时间（用于 LRU 负载均衡，NULL 视为最久未用）
-     */
-    lastUsedAt: Date | null
     /**
      * 创建时间
      */
@@ -1092,7 +896,6 @@ readonly fields: mineruTokensFieldRefs;
  */
 export interface Prisma__mineruTokensClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
-  mineruTasks<T extends Prisma.mineruTokens$mineruTasksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.mineruTokens$mineruTasksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$mineruTasksPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1127,8 +930,6 @@ export interface mineruTokensFieldRefs {
   readonly token: Prisma.FieldRef<"mineruTokens", 'String'>
   readonly remark: Prisma.FieldRef<"mineruTokens", 'String'>
   readonly status: Prisma.FieldRef<"mineruTokens", 'Int'>
-  readonly expiresAt: Prisma.FieldRef<"mineruTokens", 'DateTime'>
-  readonly lastUsedAt: Prisma.FieldRef<"mineruTokens", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"mineruTokens", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"mineruTokens", 'DateTime'>
   readonly deletedAt: Prisma.FieldRef<"mineruTokens", 'DateTime'>
@@ -1149,10 +950,6 @@ export type mineruTokensFindUniqueArgs<ExtArgs extends runtime.Types.Extensions.
    */
   omit?: Prisma.mineruTokensOmit<ExtArgs> | null
   /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.mineruTokensInclude<ExtArgs> | null
-  /**
    * Filter, which mineruTokens to fetch.
    */
   where: Prisma.mineruTokensWhereUniqueInput
@@ -1171,10 +968,6 @@ export type mineruTokensFindUniqueOrThrowArgs<ExtArgs extends runtime.Types.Exte
    */
   omit?: Prisma.mineruTokensOmit<ExtArgs> | null
   /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.mineruTokensInclude<ExtArgs> | null
-  /**
    * Filter, which mineruTokens to fetch.
    */
   where: Prisma.mineruTokensWhereUniqueInput
@@ -1192,10 +985,6 @@ export type mineruTokensFindFirstArgs<ExtArgs extends runtime.Types.Extensions.I
    * Omit specific fields from the mineruTokens
    */
   omit?: Prisma.mineruTokensOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.mineruTokensInclude<ExtArgs> | null
   /**
    * Filter, which mineruTokens to fetch.
    */
@@ -1245,10 +1034,6 @@ export type mineruTokensFindFirstOrThrowArgs<ExtArgs extends runtime.Types.Exten
    */
   omit?: Prisma.mineruTokensOmit<ExtArgs> | null
   /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.mineruTokensInclude<ExtArgs> | null
-  /**
    * Filter, which mineruTokens to fetch.
    */
   where?: Prisma.mineruTokensWhereInput
@@ -1296,10 +1081,6 @@ export type mineruTokensFindManyArgs<ExtArgs extends runtime.Types.Extensions.In
    * Omit specific fields from the mineruTokens
    */
   omit?: Prisma.mineruTokensOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.mineruTokensInclude<ExtArgs> | null
   /**
    * Filter, which mineruTokens to fetch.
    */
@@ -1349,10 +1130,6 @@ export type mineruTokensCreateArgs<ExtArgs extends runtime.Types.Extensions.Inte
    */
   omit?: Prisma.mineruTokensOmit<ExtArgs> | null
   /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.mineruTokensInclude<ExtArgs> | null
-  /**
    * The data needed to create a mineruTokens.
    */
   data: Prisma.XOR<Prisma.mineruTokensCreateInput, Prisma.mineruTokensUncheckedCreateInput>
@@ -1400,10 +1177,6 @@ export type mineruTokensUpdateArgs<ExtArgs extends runtime.Types.Extensions.Inte
    * Omit specific fields from the mineruTokens
    */
   omit?: Prisma.mineruTokensOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.mineruTokensInclude<ExtArgs> | null
   /**
    * The data needed to update a mineruTokens.
    */
@@ -1471,10 +1244,6 @@ export type mineruTokensUpsertArgs<ExtArgs extends runtime.Types.Extensions.Inte
    */
   omit?: Prisma.mineruTokensOmit<ExtArgs> | null
   /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.mineruTokensInclude<ExtArgs> | null
-  /**
    * The filter to search for the mineruTokens to update in case it exists.
    */
   where: Prisma.mineruTokensWhereUniqueInput
@@ -1501,10 +1270,6 @@ export type mineruTokensDeleteArgs<ExtArgs extends runtime.Types.Extensions.Inte
    */
   omit?: Prisma.mineruTokensOmit<ExtArgs> | null
   /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.mineruTokensInclude<ExtArgs> | null
-  /**
    * Filter which mineruTokens to delete.
    */
   where: Prisma.mineruTokensWhereUniqueInput
@@ -1525,30 +1290,6 @@ export type mineruTokensDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.
 }
 
 /**
- * mineruTokens.mineruTasks
- */
-export type mineruTokens$mineruTasksArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  /**
-   * Select specific fields to fetch from the mineruTasks
-   */
-  select?: Prisma.mineruTasksSelect<ExtArgs> | null
-  /**
-   * Omit specific fields from the mineruTasks
-   */
-  omit?: Prisma.mineruTasksOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.mineruTasksInclude<ExtArgs> | null
-  where?: Prisma.mineruTasksWhereInput
-  orderBy?: Prisma.mineruTasksOrderByWithRelationInput | Prisma.mineruTasksOrderByWithRelationInput[]
-  cursor?: Prisma.mineruTasksWhereUniqueInput
-  take?: number
-  skip?: number
-  distinct?: Prisma.MineruTasksScalarFieldEnum | Prisma.MineruTasksScalarFieldEnum[]
-}
-
-/**
  * mineruTokens without action
  */
 export type mineruTokensDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1560,8 +1301,4 @@ export type mineruTokensDefaultArgs<ExtArgs extends runtime.Types.Extensions.Int
    * Omit specific fields from the mineruTokens
    */
   omit?: Prisma.mineruTokensOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.mineruTokensInclude<ExtArgs> | null
 }

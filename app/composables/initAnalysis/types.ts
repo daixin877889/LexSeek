@@ -40,8 +40,6 @@ export interface RuntimeExposed {
   caseId: Ref<number>
   selectedModules: Ref<string[]>
   completedModules: Ref<string[]>
-  statusModules: Ref<InitAnalysisStatusResponse['modules']>
-  resultFromDB: Ref<Record<string, string>>
   isInitialized: Ref<boolean>
   moduleStates: Ref<Record<string, ModuleRunState>>
   moduleMessagesMap: Ref<Record<string, any[]>>

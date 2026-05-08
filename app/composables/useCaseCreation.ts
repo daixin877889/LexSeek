@@ -104,7 +104,7 @@ export function useCaseCreation(promptInputRef?: Ref<PromptInputController | nul
       const result = await useApiFetch<{
         message: string
         extractedInfo?: ExtractedCaseInfo
-      }>('/api/v1/cases/extract', {
+      }>('/api/v1/case/extract', {
         method: 'POST',
         body: {
           message: text,
@@ -132,7 +132,7 @@ export function useCaseCreation(promptInputRef?: Ref<PromptInputController | nul
   async function createCase(params: CreateCaseParams): Promise<number | null> {
     isSubmitting.value = true
     try {
-      const data = await useApiFetch<{ caseId: number; sessionId: string }>('/api/v1/cases/create', {
+      const data = await useApiFetch<{ caseId: number; sessionId: string }>('/api/v1/case/create', {
         method: 'POST',
         body: params,
       })

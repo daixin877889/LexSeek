@@ -111,35 +111,6 @@ export const findDefaultModelApiKeyByProviderIdDao = async (
 }
 
 /**
- * 批量按提供商 ID 查询默认 API 密钥
- * 一次查多个 providerId，返回 providerId → apiKey 的 Map（同 providerId 可能多个 default，仅取首个）
- */
-export const findDefaultModelApiKeysByProviderIdsDao = async (
-    providerIds: number[],
-    tx?: PrismaClient
-) => {
-    if (providerIds.length === 0) return new Map<number, Awaited<ReturnType<typeof findDefaultModelApiKeyByProviderIdDao>>>()
-    try {
-        const apiKeys = await (tx || prisma).modelApiKeys.findMany({
-            where: {
-                providerId: { in: providerIds },
-                isDefault: true,
-                status: 1,
-                deletedAt: null,
-            },
-        })
-        const map = new Map<number, typeof apiKeys[number]>()
-        for (const k of apiKeys) {
-            if (!map.has(k.providerId)) map.set(k.providerId, k)
-        }
-        return map
-    } catch (error) {
-        logger.error('批量查询默认 API 密钥失败：', error)
-        throw error
-    }
-}
-
-/**
  * 查询所有 API 密钥
  * @param options 查询选项
  * @param tx 事务客户端（可选）

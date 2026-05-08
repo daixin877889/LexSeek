@@ -409,7 +409,7 @@ describe('OCR 服务 - 服务层函数', () => {
                 modelProviderBaseUrl: 'https://api.openai.com/v1',
                 modelSdkType: 'openai',
                 name: 'extractImageInfo',
-                prompts: [{ type: 'system', content: '你是图片识别助手', status: 1 }],
+                prompts: [{ type: 'system', content: '你是图片识别助手' }],
             } as any)
 
             const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
@@ -514,7 +514,7 @@ describe('OCR 服务 - 服务层函数', () => {
                 modelProviderBaseUrl: 'https://api.openai.com/v1',
                 modelSdkType: 'openai',
                 name: 'extractImageInfo',
-                prompts: [{ type: 'system', content: '识别图片', status: 1 }],
+                prompts: [{ type: 'system', content: '识别图片' }],
             } as any)
 
             const { createChatModel } = await import('~~/server/services/node/chatModelFactory')

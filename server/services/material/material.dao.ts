@@ -232,28 +232,6 @@ export const deleteMaterialDao = async (
     }
 }
 
-/**
- * 批量软删除材料
- * @returns 实际更新的行数
- */
-export const deleteMaterialsDao = async (
-    ids: number[],
-    tx?: Prisma.TransactionClient
-): Promise<number> => {
-    if (ids.length === 0) return 0
-    try {
-        const now = new Date()
-        const result = await (tx || prisma).caseMaterials.updateMany({
-            where: { id: { in: ids }, deletedAt: null },
-            data: { deletedAt: now, updatedAt: now },
-        })
-        return result.count
-    } catch (error) {
-        logger.error('批量删除材料失败：', error)
-        throw error
-    }
-}
-
 // ==================== 识别表查询（用于判断材料真实状态） ====================
 
 /** 文档识别记录查询结果 */

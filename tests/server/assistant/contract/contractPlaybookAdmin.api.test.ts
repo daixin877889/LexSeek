@@ -147,12 +147,12 @@ describe('GET /api/v1/admin/contract-playbooks', () => {
             makeEvent({
                 adminUserId,
                 body: {
-                    contractType: '房产租赁合同',
+                    contractType: '租赁合同',
                     code: `lease_${suffix}`,
-                    title: '房产租赁要点',
+                    title: '租赁合同要点',
                     defaultLevel: 'medium',
                     stancePreference: 'balanced',
-                    checkContent: '检查房产租赁合同内容',
+                    checkContent: '检查租赁合同内容',
                 },
             }),
         )

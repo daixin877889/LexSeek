@@ -161,8 +161,8 @@ export interface AdminOrderListItem {
     productName: string
     amount: number
     duration: number
-    durationUnit: DurationUnit
-    orderType: OrderType
+    durationUnit: string
+    orderType: string
     status: OrderStatus
     paidAt: Date | null
     createdAt: Date
@@ -205,8 +205,8 @@ export interface AdminPaymentListItem {
     userId: number
     userPhone: string
     amount: number
-    paymentChannel: PaymentChannel
-    paymentMethod: PaymentMethod
+    paymentChannel: string
+    paymentMethod: string
     status: PaymentTransactionStatus
     outTradeNo: string | null
     paidAt: Date | null

@@ -15659,7 +15659,7 @@
           "api": {
             "id": "402178257",
             "method": "get",
-            "path": "/api/v1/cases/{caseId}",
+            "path": "/api/v1/case/{caseId}",
             "parameters": {
               "path": [
                 {
@@ -15791,7 +15791,7 @@
           "api": {
             "id": "402178256",
             "method": "post",
-            "path": "/api/v1/cases/create",
+            "path": "/api/v1/case/create",
             "parameters": {
               "path": [],
               "query": [],
@@ -15918,7 +15918,7 @@
                   "api": {
                     "id": "402178258",
                     "method": "post",
-                    "path": "/api/v1/cases/analysis/stream/{caseId}",
+                    "path": "/api/v1/case/analysis/stream/{caseId}",
                     "parameters": {
                       "path": [
                         {
@@ -16077,7 +16077,7 @@
               "api": {
                 "id": "402178260",
                 "method": "post",
-                "path": "/api/v1/cases/resume/{sessionId}",
+                "path": "/api/v1/case/resume/{sessionId}",
                 "parameters": {
                   "path": [
                     {
@@ -16217,7 +16217,7 @@
               "api": {
                 "id": "402178259",
                 "method": "get",
-                "path": "/api/v1/cases/state/{sessionId}",
+                "path": "/api/v1/case/state/{sessionId}",
                 "parameters": {
                   "path": [
                     {
@@ -16359,7 +16359,7 @@
               "api": {
                 "id": 85724924692224,
                 "method": "get",
-                "path": "/api/v1/cases/session/{sessionId}",
+                "path": "/api/v1/case/session/{sessionId}",
                 "name": "[sessionId]",
                 "description": "",
                 "type": "http",

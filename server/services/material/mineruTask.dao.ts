@@ -22,7 +22,6 @@ export const createMineruTaskDao = async (
                 taskId: data.taskId,
                 ossFileId: data.ossFileId,
                 userId: data.userId,
-                mineruTokenId: data.mineruTokenId,
                 status: data.status ?? MineruTaskStatus.PENDING,
                 taskRawData: data.taskRawData ?? {},
                 isEncrypted: data.isEncrypted ?? false,

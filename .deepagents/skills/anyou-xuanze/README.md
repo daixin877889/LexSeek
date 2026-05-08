@@ -13,10 +13,10 @@
 
 | 方法 | 用途 | 文档 |
 |------|------|------|
-| 案由检索法 | 构造检索关键词、执行多轮检索 | [references/案由检索.md](./references/案由检索.md) |
-| 版本校验法 | 检查生效日期、判断版本有效性 | [references/版本校验.md](./references/版本校验.md) |
-| 优先级规则 | 专门案由、新增案由、通用案由的选择顺序 | [references/优先级规则.md](./references/优先级规则.md) |
-| 冲突处理法 | 检索结果与过往经验冲突的处理 | [references/冲突处理.md](./references/冲突处理.md) |
+| 案由检索法 | 构造检索关键词、执行多轮检索 | [references/anyou-jiansuo.md](./references/anyou-jiansuo.md) |
+| 版本校验法 | 检查生效日期、判断版本有效性 | [references/banben-yanzheng.md](./references/banben-yanzheng.md) |
+| 优先级规则 | 专门案由、新增案由、通用案由的选择顺序 | [references/youxianji-guize.md](./references/youxianji-guize.md) |
+| 冲突处理法 | 检索结果与过往经验冲突的处理 | [references/chongtu-chuli.md](./references/chongtu-chuli.md) |
 
 ## 方法依赖关系
 

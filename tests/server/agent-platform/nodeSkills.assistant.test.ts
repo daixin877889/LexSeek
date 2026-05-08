@@ -1,14 +1,12 @@
 /**
  * 阶段 5 · 法律助手节点配置防回退测试
  *
- * 锁定 prisma/seeds/seedData.sql 两件事:
- *   1. assistantMain (id=15) 的 tools 数组包含核心工具(2026-05-05 重构后:
- *      search_law / review_contract / recommend_template / save_document_draft / update_document_draft)
- *   2. node_skills 表关联 assistantMain (id=15) 到核心 skill(含 legal-document-writer)
+ * 锁定 prisma/seeds/seedData.sql 三件事：
+ *   1. assistantMain (id=15) 的 tools 数组包含 search_law / draft_document / review_contract
+ *   2. node_skills 表关联 assistantMain (id=15) 到 6 个 skill（一次性 INSERT）
+ *   3. 该 INSERT 含 ON CONFLICT 子句保证幂等
  *
- * 不连 DB(与 stage 4 nodeSkills.contract.test.ts 同口径)。
- *
- * @see docs/superpowers/specs/2026-05-05-document-agent-tool-refactor-design.md
+ * 不连 DB（与 stage 4 nodeSkills.contract.test.ts 同口径）。
  */
 import { describe, it, expect, beforeAll } from 'vitest'
 import { readFile } from 'node:fs/promises'
@@ -23,7 +21,6 @@ const TARGET_SKILLS = [
     'litigation-visualization',
     'minimax-pdf',
     'minimax-xlsx',
-    'legal-document-writer', // 2026-05-05 新增,documentMain 同款 skill
 ] as const
 
 let seedSql: string
@@ -38,18 +35,8 @@ describe('阶段 5 · assistantMain 节点 tools 升级（seedData 锁定）', (
         expect(seedSql).toMatch(re)
     })
 
-    it('assistantMain 的 tools 数组包含 recommend_template', () => {
-        const re = /\(15,\s*'assistantMain'[\s\S]*?"recommend_template"/
-        expect(seedSql).toMatch(re)
-    })
-
-    it('assistantMain 的 tools 数组包含 save_document_draft', () => {
-        const re = /\(15,\s*'assistantMain'[\s\S]*?"save_document_draft"/
-        expect(seedSql).toMatch(re)
-    })
-
-    it('assistantMain 的 tools 数组包含 update_document_draft', () => {
-        const re = /\(15,\s*'assistantMain'[\s\S]*?"update_document_draft"/
+    it('assistantMain 的 tools 数组包含 draft_document', () => {
+        const re = /\(15,\s*'assistantMain'[\s\S]*?"draft_document"/
         expect(seedSql).toMatch(re)
     })
 
@@ -57,14 +44,9 @@ describe('阶段 5 · assistantMain 节点 tools 升级（seedData 锁定）', (
         const re = /\(15,\s*'assistantMain'[\s\S]*?"review_contract"/
         expect(seedSql).toMatch(re)
     })
-
-    it('assistantMain 的 tools 数组不再包含 draft_document(已废弃)', () => {
-        const re = /\(15,\s*'assistantMain'[\s\S]*?"draft_document"[\s\S]*?\)/
-        expect(seedSql).not.toMatch(re)
-    })
 })
 
-describe('阶段 5 · assistantMain ↔ skill 关联（seedData 锁定）', () => {
+describe('阶段 5 · assistantMain ↔ 6 skill 关联（seedData 锁定）', () => {
     for (const skill of TARGET_SKILLS) {
         it(`seedData 含 node_skills INSERT 关联 assistantMain (id=15) 到 ${skill}`, () => {
             // 匹配 (15, '<skill>', ...) 出现在 node_skills INSERT 块内
@@ -74,4 +56,11 @@ describe('阶段 5 · assistantMain ↔ skill 关联（seedData 锁定）', () =
             expect(seedSql).toMatch(re)
         })
     }
+
+    it('阶段 5 节点 ↔ skills 关联段含 ON CONFLICT 子句保证幂等', () => {
+        // 阶段 5 是一次性多行 INSERT 后跟一个 ON CONFLICT；至少要有一处
+        // node_skills INSERT 命中 (15, '<目标 skill>') + 紧随其后的 ON CONFLICT。
+        const re = /\(\s*15\s*,\s*'docx'[\s\S]*?ON CONFLICT[\s\S]*?DO NOTHING/
+        expect(seedSql).toMatch(re)
+    })
 })

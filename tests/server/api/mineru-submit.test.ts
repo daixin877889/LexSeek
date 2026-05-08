@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => {
     return {
         createMineruTaskService: vi.fn(),
         hasActiveTokenService: vi.fn(),
-        pickTokenForNewTaskService: vi.fn(),
+        getActiveTokenValueService: vi.fn(),
         prisma: {
             ossFiles: {
                 findFirst: vi.fn(),
@@ -62,11 +62,11 @@ vi.mock('../../../server/services/material/mineruTask.service', () => ({
 
 vi.mock('~~/server/services/material/mineruToken.service', () => ({
     hasActiveTokenService: mocks.hasActiveTokenService,
-    pickTokenForNewTaskService: mocks.pickTokenForNewTaskService,
+    getActiveTokenValueService: mocks.getActiveTokenValueService,
 }))
 vi.mock('../../../server/services/material/mineruToken.service', () => ({
     hasActiveTokenService: mocks.hasActiveTokenService,
-    pickTokenForNewTaskService: mocks.pickTokenForNewTaskService,
+    getActiveTokenValueService: mocks.getActiveTokenValueService,
 }))
 
 // Mock Prisma
@@ -113,7 +113,7 @@ describe('MinerU 提交 API (Unit)', () => {
 
         // Mock Token service
         mocks.hasActiveTokenService.mockResolvedValue(true)
-        mocks.pickTokenForNewTaskService.mockResolvedValue({ id: 1, token: 'mock-token' })
+        mocks.getActiveTokenValueService.mockResolvedValue('mock-token')
 
         // Mock $fetch for Mineru API
         mocks.fetch.mockResolvedValue({

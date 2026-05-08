@@ -61,22 +61,23 @@ export async function exactSearchService(
     const seenIds = new Set<string>()
 
     for (const { legal, articles } of matched) {
-        // 单次 findMany 合并查询每条命中条文的 ±2 范围（OR 拼接），避免 N 次 round-trip
-        const articlesNoOrder = articles.filter(a => a.order == null)
-        const orQueries = articles
-            .filter((a): a is typeof a & { order: number } => a.order != null)
-            .map(a => ({
-                order: { gte: a.order - 2, lte: a.order + 2 },
-                ...(a.l1 ? { l1: a.l1 } : {}),
-            }))
-        const expanded = orQueries.length > 0
-            ? await prisma.legalArticles.findMany({
-                  where: { legalId: legal.id, deletedAt: null, OR: orQueries },
-                  orderBy: { order: 'asc' },
-              })
-            : []
+        const expandedGroups = await Promise.all(
+            articles.map(article =>
+                article.order == null
+                    ? Promise.resolve([article])
+                    : prisma.legalArticles.findMany({
+                          where: {
+                              legalId: legal.id,
+                              deletedAt: null,
+                              order: { gte: article.order - 2, lte: article.order + 2 },
+                              ...(article.l1 ? { l1: article.l1 } : {}),
+                          },
+                          orderBy: { order: 'asc' },
+                      }),
+            ),
+        )
 
-        for (const article of [...articlesNoOrder, ...expanded]) {
+        for (const article of expandedGroups.flat()) {
             if (seenIds.has(article.id)) continue
             seenIds.add(article.id)
             // 直接命中条文 score=1.0，上下文条文 score=0.95

@@ -14,13 +14,12 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import type { ModuleRunState, InitAnalysisStatusResponse } from '#shared/types/initAnalysis'
+import type { ModuleRunState } from '#shared/types/initAnalysis'
 import { VALID_MODULE_NAMES } from '#shared/types/initAnalysis'
 // 阶段 7 迁移：useInitAnalysis 已删除，纯工具函数搬到 useInitAnalysisModules
 import {
     computeModuleStatesFromSnapshot,
     pickFirstSelectedModule,
-    extractGlobalStatusSnapshot,
 } from '~/composables/initAnalysis/useInitAnalysisModules'
 
 /** initAnalysis.service.ts:14-27 的 validateAndSortModules 排序部分（本地副本） */
@@ -220,92 +219,5 @@ describe('computeModuleStatesFromSnapshot · 正常流程不应有回归', () =>
         const next = computeModuleStatesFromSnapshot(['trend'], {}, {}, {})
         expect(next['trend']?.status).toBe('streaming')
         expect(Object.keys(next)).toEqual(['trend'])
-    })
-})
-
-// ==================== extractGlobalStatusSnapshot（修复：首次加载 status 没推给 projection 的 statusModules / resultFromDB） ====================
-
-describe('extractGlobalStatusSnapshot · 把 InitAnalysisStatusResponse 拆解成 projection 依赖的快照', () => {
-    it('空 modules → 三段快照都是空', () => {
-        const status: InitAnalysisStatusResponse = {
-            status: 'not_started',
-            modules: [],
-            result: {},
-        }
-        const snap = extractGlobalStatusSnapshot(status)
-        expect(snap.completedModules).toEqual([])
-        expect(snap.statusModules).toEqual([])
-        expect(snap.resultFromDB).toEqual({})
-    })
-
-    it('部分 complete + 部分 idle：completedModules 仅含 complete；statusModules 原样返回；resultFromDB 取 status.result', () => {
-        const status: InitAnalysisStatusResponse = {
-            status: 'in_progress',
-            modules: [
-                { name: 'summary', status: 'complete', result: '案件概要内容', version: 1, analyzedAt: '2026-05-01T00:00:00Z' },
-                { name: 'chronicle', status: 'in_progress' },
-                { name: 'claim', status: 'idle' },
-            ],
-            result: { summary: '案件概要内容' },
-        }
-        const snap = extractGlobalStatusSnapshot(status)
-        expect(snap.completedModules).toEqual(['summary'])
-        expect(snap.statusModules).toHaveLength(3)
-        expect(snap.statusModules[0]).toEqual({
-            name: 'summary',
-            status: 'complete',
-            result: '案件概要内容',
-            version: 1,
-            analyzedAt: '2026-05-01T00:00:00Z',
-        })
-        expect(snap.resultFromDB).toEqual({ summary: '案件概要内容' })
-    })
-
-    it('修复点：DB 已 complete 但当前 session 没选中该模块时，statusModules 仍把它带回，避免 projection 落到 idle 显示"未生成"', () => {
-        const status: InitAnalysisStatusResponse = {
-            status: 'in_progress',
-            // 当前 session 只跑了 chronicle；summary 是历史 session 的成品
-            selectedModules: ['chronicle'],
-            modules: [
-                { name: 'summary', status: 'complete', result: '历史成品', version: 2 },
-                { name: 'chronicle', status: 'in_progress' },
-            ],
-            result: { summary: '历史成品' },
-        }
-        const snap = extractGlobalStatusSnapshot(status)
-        // statusModules 必须把 summary 带回，让 projection 能在 localStates 没值的情况下回退到 globalModules → complete
-        const summary = snap.statusModules.find(m => m.name === 'summary')
-        expect(summary?.status).toBe('complete')
-        expect(summary?.result).toBe('历史成品')
-        // resultFromDB 也必须把 summary 带回
-        expect(snap.resultFromDB.summary).toBe('历史成品')
-        // completedModules 用于禁用 ModuleSelector 已完成项
-        expect(snap.completedModules).toEqual(['summary'])
-    })
-
-    it('result 字段缺失时 resultFromDB 兜底为空对象', () => {
-        const status: InitAnalysisStatusResponse = {
-            status: 'completed',
-            modules: [
-                { name: 'summary', status: 'complete', result: '内容' },
-            ],
-            // result 字段缺失
-        }
-        const snap = extractGlobalStatusSnapshot(status)
-        expect(snap.resultFromDB).toEqual({})
-    })
-
-    it('failed 模块不进 completedModules，但保留在 statusModules 让 projection 显示 failed', () => {
-        const status: InitAnalysisStatusResponse = {
-            status: 'in_progress',
-            modules: [
-                { name: 'summary', status: 'complete', result: '内容' },
-                { name: 'chronicle', status: 'failed' },
-            ],
-            result: { summary: '内容' },
-        }
-        const snap = extractGlobalStatusSnapshot(status)
-        expect(snap.completedModules).toEqual(['summary'])
-        expect(snap.statusModules.find(m => m.name === 'chronicle')?.status).toBe('failed')
     })
 })

@@ -903,7 +903,7 @@ export type $imageRecognitionRecordsPayload<ExtArgs extends runtime.Types.Extens
      */
     keywords: runtime.JsonValue | null
     /**
-     * 200 字摘要（统一语义：识别完成后由 generateMaterialSummaryService 写入）
+     * 摘要
      */
     summary: string | null
     /**

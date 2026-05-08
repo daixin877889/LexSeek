@@ -19,7 +19,6 @@ vi.mock('~~/server/services/material/materialPipeline.service', () => ({
   getMaterialListWithSummariesService: vi.fn().mockResolvedValue([
     { name: '合同', type: 2, summary: '约定 6 月前交付' },
   ]),
-  getSourceId: vi.fn((mat: any) => mat?.ossFileId ?? mat?.id ?? null),
 }))
 vi.mock('~~/server/services/memory/memory.service', () => ({
   recallMemoryService: vi.fn().mockResolvedValue([
@@ -37,7 +36,7 @@ describe('buildContextSegments', () => {
       summary: '房屋租赁纠纷', status: 3,
     })
     mockCaseAnalysesFindMany.mockResolvedValue([
-      { analysisType: 'claim_analysis', summary: '原告主张租金+违约金，证据链完整', version: 1, updatedAt: new Date('2026-05-04T14:32:18Z'), analysisResult: null },
+      { analysisType: 'claim_analysis', summary: '原告主张租金+违约金，证据链完整' },
     ])
 
     const { buildContextSegments } = await import('~~/server/services/workflow/context/moduleContextBuilder')
@@ -56,22 +55,17 @@ describe('buildContextSegments', () => {
     expect(segs.dynamicContext).toContain('被告承认逾期')
   })
 
-  it('无 summary 的条目仍渲染（降级或 (暂无内容) 标识）', async () => {
-    // 2026-05-06 行为变更：summary 为 null 不再整条跳过
-    // - analysisResult 非空 → 节选前 500 字 + "（暂无独立摘要，正文节选）"
-    // - 都为 null → "（暂无内容）"
-    // 详见 tests/server/agent-platform/context/moduleContextBuilder.test.ts
+  it('无 summary 的旧版本条目被跳过', async () => {
     mockCasesFindUnique.mockResolvedValue({
       id: 1, title: 'x', courtName: 'y', summary: 'z', status: 1,
       plaintiff: ['a'], defendant: ['b'],
     })
     mockCaseAnalysesFindMany.mockResolvedValue([
-      { analysisType: 'legacy_no_summary', summary: null, version: 1, updatedAt: new Date('2026-05-04T14:32:18Z'), analysisResult: null },
+      { analysisType: 'legacy_no_summary', summary: null },
     ])
     const { buildContextSegments } = await import('~~/server/services/workflow/context/moduleContextBuilder')
     const segs = await buildContextSegments({ caseId: 1, agentName: 'x', userQuery: 'q' })
-    expect(segs.moduleSummaries).toContain('### legacy_no_summary（v1，更新于 2026-05-04')
-    expect(segs.moduleSummaries).toContain('（暂无内容）')
+    expect(segs.moduleSummaries).toBe('')
   })
 
   it('caseProfile JSON 字段字典序稳定', async () => {

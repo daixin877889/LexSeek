@@ -25,7 +25,6 @@ import type { StructuredToolInterface } from '@langchain/core/tools'
 import { getNodeConfigCached } from '~~/server/services/agent-platform/nodeConfig/loader'
 import { renderSystemPrompt } from '~~/server/services/agent-platform/nodeConfig/promptRenderer'
 import { createChatModel } from '~~/server/services/agent-platform/modelFactory'
-import { resolveThinkingFromNodeConfig } from '~~/server/services/node/node.service'
 import { getToolInstancesService } from '~~/server/services/agent-platform/tools/index'
 import { buildSkillsMiddlewareForNode } from '~~/server/services/agent-platform/middleware/skills'
 import { resolveContextWindow } from '~~/server/services/agent-platform/context/messageCompressor'
@@ -40,7 +39,6 @@ import {
     createScopeGuardMiddleware,
     createAuditMiddleware,
     createToolCallLimitMiddlewares,
-    userInjectionMiddleware,
 } from '~~/server/services/agent-platform/middleware/index'
 
 import { createTool as createReadSkillFileTool } from '~~/server/services/agent-platform/tools/readSkillFile.tool'
@@ -49,8 +47,6 @@ import { createTool as createRunSkillScriptTool } from '~~/server/services/agent
 import { createTool as createRunSkillCommandTool } from '~~/server/services/agent-platform/tools/runSkillCommand.tool'
 
 import type { ToolContext } from '~~/server/services/agent-platform/tools/types'
-import { withLangfuseContext } from '~~/server/lib/langfuse'
-import { caseProcessMaterialMiddleware } from '~~/server/agents/_shared/case-context/caseProcessMaterial.middleware'
 
 export interface RunAnalysisSubAgentParams {
     /** 节点名 = analysis_type，如 'trend' */
@@ -78,22 +74,6 @@ export interface RunAnalysisSubAgentResult {
 export async function runAnalysisSubAgent(
     params: RunAnalysisSubAgentParams,
 ): Promise<RunAnalysisSubAgentResult> {
-    return withLangfuseContext(
-        {
-            runId: params.runId,
-            sessionId: params.sessionId,
-            threadId: params.sessionId,
-            userId: params.userId,
-            caseId: params.caseId,
-            vertical: 'case-analysis',
-        },
-        () => runAnalysisSubAgentInner(params),
-    )
-}
-
-async function runAnalysisSubAgentInner(
-    params: RunAnalysisSubAgentParams,
-): Promise<RunAnalysisSubAgentResult> {
     const { agentName, moduleTitle, userId, caseId, sessionId, runId, thinking, signal } = params
 
     const nodeConfig = await getNodeConfigCached(agentName)
@@ -113,7 +93,7 @@ async function runAnalysisSubAgentInner(
         baseUrl: nodeConfig.modelProviderBaseUrl,
         temperature: 0.7,
         streaming: true,
-        thinking: resolveThinkingFromNodeConfig(nodeConfig, thinking),
+        thinking,
         maxTokens: nodeConfig.modelMaxOutputTokens,
     })
 
@@ -161,11 +141,6 @@ async function runAnalysisSubAgentInner(
             name: MIDDLEWARE_NAMES.MESSAGE_INTEGRITY,
         },
         {
-            middleware: caseProcessMaterialMiddleware(userId, caseId, runId, sessionId),
-            priority: MIDDLEWARE_PRIORITY.PROCESS_MATERIAL,
-            name: MIDDLEWARE_NAMES.PROCESS_MATERIAL,
-        },
-        {
             middleware: createScopeGuardMiddleware(),
             priority: MIDDLEWARE_PRIORITY.SCOPE_GUARD,
             name: MIDDLEWARE_NAMES.SCOPE_GUARD,
@@ -189,17 +164,6 @@ async function runAnalysisSubAgentInner(
             }),
             priority: MIDDLEWARE_PRIORITY.SAFETY_TRIM,
             name: MIDDLEWARE_NAMES.SAFETY_TRIM,
-        },
-        // 用户每轮注入（反越狱护栏 / 隐藏注入）：节点配置中 type=user_injection && status=1
-        // 的提示词，每轮 LLM 调用前作为隐藏 HumanMessage 插入到最新 HumanMessage 之前；
-        // 不写回 state.messages、不进 checkpoint。节点无该类提示词时 middleware 内部 short-circuit。
-        {
-            middleware: userInjectionMiddleware({
-                prompts: nodeConfig.prompts,
-                context: { caseId, moduleName: agentName },
-            }),
-            priority: MIDDLEWARE_PRIORITY.USER_INJECTION,
-            name: MIDDLEWARE_NAMES.USER_INJECTION,
         },
         {
             middleware: createAuditMiddleware(),
@@ -227,13 +191,6 @@ async function runAnalysisSubAgentInner(
         skillToolsCount: skillTools.length,
     })
 
-    // 关键：本子 agent 在 caseAnalysisV2 graph 节点内执行，必须让父 graph 通过 ALS 传入的
-    // callbacks（含 LangGraph StreamMessagesHandler 与 chain 顶层挂的 langfuseHandler）继续生效。
-    // 显式传 { callbacks: [...] } 会被 LangChain ensureConfig 视为覆盖 ALS implicit config，
-    // 把 StreamMessagesHandler 挤掉 → handleLLMNewToken 失踪 → 整个 ai message 改走 handleLLMEnd
-    // 一次性 emit，前端表现为"等模块结束才一次性渲染"。
-    // langfuse 上下文已由外层 withLangfuseContext + chain 顶层 buildLangfuseTopLevelConfig 完成；
-    // model 层的 metadata 注入由 modelProxy 兜底。
     const response = await agent.invoke(
         { messages: [new HumanMessage(`现在请开始"${moduleTitle}"分析。`)] },
         { recursionLimit: 1000, signal },

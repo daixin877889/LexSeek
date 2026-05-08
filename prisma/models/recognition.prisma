@@ -14,7 +14,7 @@ model docRecognitionRecords {
   markdownContent String?   @map("markdown_content") @db.Text
   /// 关键词（JSON 数组）
   keywords        Json?     @default("[]")
-  /// 200 字摘要（统一语义：识别完成后由 generateMaterialSummaryService 写入）
+  /// 摘要
   summary         String?   @db.Text
   /// 向量存储 ID 集合（JSON 数组）
   vectorIds       Json?     @default("[]") @map("vector_ids")
@@ -57,7 +57,7 @@ model imageRecognitionRecords {
   markdownContent String?   @map("markdown_content") @db.Text
   /// 关键词（JSON 数组）
   keywords        Json?     @default("[]")
-  /// 200 字摘要（统一语义：识别完成后由 generateMaterialSummaryService 写入）
+  /// 摘要
   summary         String?   @db.Text
   /// 向量存储 ID 集合（JSON 数组）
   vectorIds       Json?     @default("[]") @map("vector_ids")
@@ -139,7 +139,7 @@ model asrRecords {
   speakers        Json?     @default("[]")
   /// 关键词（JSON 数组）
   keywords        Json?     @default("[]")
-  /// 200 字摘要（统一语义：识别完成后由 generateMaterialSummaryService 写入）
+  /// 摘要
   summary         String?   @db.Text
   /// 向量存储 ID 集合（JSON 数组）
   vectorIds       Json?     @default("[]") @map("vector_ids")
@@ -171,79 +171,65 @@ model asrRecords {
 /// MinerU Token 表 - 存储 MinerU API 访问凭证
 model mineruTokens {
   /// Token ID，主键，自增
-  id         Int       @id @default(autoincrement())
+  id        Int       @id @default(autoincrement())
   /// Token 名称
-  name       String    @db.VarChar(100)
+  name      String    @db.VarChar(100)
   /// Token 值（加密存储）
-  token      String    @db.VarChar(500)
+  token     String    @db.VarChar(500)
   /// 备注
-  remark     String?   @db.VarChar(255)
+  remark    String?   @db.VarChar(255)
   /// 状态：1-启用，0-禁用
-  status     Int       @default(1)
-  /// 到期时间（NULL 表示永不过期；超过该时间后将不再被新任务选用）
-  expiresAt  DateTime? @map("expires_at") @db.Timestamptz(6)
-  /// 最近一次被新任务选用的时间（用于 LRU 负载均衡，NULL 视为最久未用）
-  lastUsedAt DateTime? @map("last_used_at") @db.Timestamptz(6)
+  status    Int       @default(1)
   /// 创建时间
-  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   /// 最后更新时间
-  updatedAt  DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedAt DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
   /// 删除时间，为 NULL 表示未删除
-  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(6)
-
-  /// 关联的 MinerU 任务
-  mineruTasks mineruTasks[]
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   @@index([status], map: "idx_mineru_tokens_status")
   @@index([deletedAt], map: "idx_mineru_tokens_deleted_at")
-  @@index([expiresAt], map: "idx_mineru_tokens_expires_at")
-  @@index([lastUsedAt], map: "idx_mineru_tokens_last_used_at")
   @@map("mineru_tokens")
 }
 
 /// MinerU 任务表 - 存储 PDF 转换任务记录
 model mineruTasks {
   /// 任务ID，主键，自增
-  id             Int       @id @default(autoincrement())
+  id          Int       @id @default(autoincrement())
   /// MinerU 服务返回的任务ID
-  taskId         String?   @map("task_id") @db.VarChar(100)
+  taskId      String?   @map("task_id") @db.VarChar(100)
   /// 关联的 OSS 文件ID
-  ossFileId      Int       @map("oss_file_id")
+  ossFileId   Int       @map("oss_file_id")
   /// 关联的用户ID
-  userId         Int       @map("user_id")
-  /// 创建该任务时使用的 MinerU Token ID（用于轮询时复用同一 token；token 删除时置 NULL，调用方走兜底）
-  mineruTokenId  Int?      @map("mineru_token_id")
+  userId      Int       @map("user_id")
   /// 任务状态：0-待处理，1-处理中，2-成功，3-失败
-  status         Int       @default(0)
+  status      Int       @default(0)
   /// 是否为加密文件
-  isEncrypted    Boolean   @default(false) @map("is_encrypted")
+  isEncrypted Boolean   @default(false) @map("is_encrypted")
   /// 任务原始数据（提交参数等）
-  taskRawData    Json?     @default("{}") @map("task_raw_data")
+  taskRawData Json?     @default("{}") @map("task_raw_data")
   /// 转换结果
-  result         Json?     @default("{}")
+  result      Json?     @default("{}")
   /// 错误信息
-  errorMsg       String?   @map("error_msg") @db.Text
+  errorMsg    String?   @map("error_msg") @db.Text
   /// 重试次数
-  retryCount     Int       @default(0) @map("retry_count")
+  retryCount  Int       @default(0) @map("retry_count")
   /// 完成时间
-  completedAt    DateTime? @map("completed_at") @db.Timestamptz(6)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(6)
   /// 创建时间
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   /// 最后更新时间
-  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
   /// 删除时间，为 NULL 表示未删除
-  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   /// 关联的用户
-  user        users         @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  /// 关联的 MinerU Token（创建任务时使用的 token，轮询时复用；token 被删除则置 NULL）
-  mineruToken mineruTokens? @relation(fields: [mineruTokenId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  user users @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([taskId], map: "idx_mineru_tasks_task_id")
   @@index([ossFileId], map: "idx_mineru_tasks_oss_file_id")
   @@index([userId], map: "idx_mineru_tasks_user_id")
   @@index([status], map: "idx_mineru_tasks_status")
   @@index([deletedAt], map: "idx_mineru_tasks_deleted_at")
-  @@index([mineruTokenId], map: "idx_mineru_tasks_mineru_token_id")
   @@map("mineru_tasks")
 }

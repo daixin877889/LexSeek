@@ -20,27 +20,6 @@ export function formatCurrency(num: number | null | undefined, decimals: number 
 }
 
 /**
- * 格式化人民币金额（千分位 + zh-CN 区域格式）
- *
- * 跟 formatCurrency 区别：本函数用 Intl.NumberFormat zh-CN 区域格式，工具页面（计算器）
- * 显示用。formatCurrency 是手拼字符串版本，自定义分隔符场景用。
- *
- * @param value 数字或可被 parseFloat 的字符串
- * @param decimals 强制小数位（不传 = 自然位数；传 2 = 总是显示 2 位）
- */
-export function formatRMB(value: number | string | null | undefined, decimals?: number): string {
-    const num = typeof value === 'string' ? parseFloat(value) : (value ?? NaN)
-    if (!Number.isFinite(num)) return '0'
-    if (decimals !== undefined) {
-        return new Intl.NumberFormat('zh-CN', {
-            minimumFractionDigits: decimals,
-            maximumFractionDigits: decimals,
-        }).format(num)
-    }
-    return new Intl.NumberFormat('zh-CN').format(num)
-}
-
-/**
  * 计算利息
  * @param principal 本金
  * @param rate 年利率(%)

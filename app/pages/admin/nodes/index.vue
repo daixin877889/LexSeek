@@ -81,7 +81,6 @@
                             <TableHead class="w-[100px]">类型</TableHead>
                             <TableHead class="w-[80px]">优先级</TableHead>
                             <TableHead>关联模型</TableHead>
-                            <TableHead class="w-[80px]">思考</TableHead>
                             <TableHead class="w-[80px]">状态</TableHead>
                             <TableHead class="w-[100px] text-right">操作</TableHead>
                         </TableRow>
@@ -99,13 +98,6 @@
                             </TableCell>
                             <TableCell>{{ node.priority }}</TableCell>
                             <TableCell>{{ node.model?.displayName || '-' }}</TableCell>
-                            <TableCell>
-                                <Badge v-if="node.model?.supportsThinking"
-                                    :variant="node.thinkingEnabled ? 'default' : 'secondary'">
-                                    {{ node.thinkingEnabled ? '开启' : '关闭' }}
-                                </Badge>
-                                <span v-else class="text-muted-foreground">-</span>
-                            </TableCell>
                             <TableCell>
                                 <Badge :variant="node.status === 1 ? 'default' : 'secondary'">
                                     {{ node.status === 1 ? '启用' : '禁用' }}

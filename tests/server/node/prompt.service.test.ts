@@ -99,27 +99,10 @@ const createTestNode = async (modelId: number) => {
     return node
 }
 
-/**
- * 把 prompt 关联到 node（多对多）。
- * 阶段 F 改造后，关联键改为业务身份 (name, type)；测试辅助函数接收 prompt 对象。
- */
-const linkPromptToNode = async (
-    nodeId: number,
-    prompt: { name: string; type: string },
-    displayOrder = 100,
-) => {
-    await testPrisma.node_prompts.create({
-        data: { nodeId, promptName: prompt.name, promptType: prompt.type, displayOrder },
-    })
-}
-
 // 清理测试数据（按外键依赖顺序，每个步骤独立处理错误）
-// 阶段 F 改造：node_prompts 不再绑定 promptId，节点 link 通过 nodeId 一并清理
 const cleanupTestData = async () => {
+    // 先删除提示词
     try {
-        if (testIds.nodeIds.length > 0) {
-            await testPrisma.node_prompts.deleteMany({ where: { nodeId: { in: testIds.nodeIds } } })
-        }
         if (testIds.promptIds.length > 0) {
             await testPrisma.prompts.deleteMany({ where: { id: { in: testIds.promptIds } } })
         }
@@ -128,7 +111,6 @@ const cleanupTestData = async () => {
     // 再删除节点（解除 modelId 外键引用）
     try {
         if (testIds.nodeIds.length > 0) {
-            await testPrisma.node_prompts.deleteMany({ where: { nodeId: { in: testIds.nodeIds } } })
             await testPrisma.nodes.deleteMany({ where: { id: { in: testIds.nodeIds } } })
         }
     } catch { /* 忽略节点删除错误 */ }
@@ -326,7 +308,7 @@ describe('提示词服务集成测试', () => {
         try {
             const testNodeIds = (await testPrisma.nodes.findMany({ where: { name: { startsWith: 'test_node_' } }, select: { id: true } })).map(n => n.id)
             if (testNodeIds.length > 0) {
-                await testPrisma.node_prompts.deleteMany({ where: { nodeId: { in: testNodeIds } } })
+                await testPrisma.prompts.deleteMany({ where: { nodeId: { in: testNodeIds } } })
                 await testPrisma.levelNodeAccess.deleteMany({ where: { nodeId: { in: testNodeIds } } })
                 await testPrisma.caseAnalyses.deleteMany({ where: { nodeId: { in: testNodeIds } } })
             }
@@ -344,11 +326,14 @@ describe('提示词服务集成测试', () => {
 
     describe('createPromptService', () => {
         it('创建提示词时应正确生成版本号', async () => {
+            const model = await createTestModel()
+            const node = await createTestNode(model.id)
+
             const prompt = await createPromptService({
                 name: `prompt_${generateTestId()}`,
                 content: 'Hello {{name}}',
                 type: 'system',
-                nodeId: 0, // ★ Phase 6 已废弃：service 不再使用此字段
+                nodeId: node.id,
             })
 
             testIds.promptIds.push(prompt.id)
@@ -357,16 +342,30 @@ describe('提示词服务集成测试', () => {
         })
 
         it('创建提示词时应自动提取变量', async () => {
+            const model = await createTestModel()
+            const node = await createTestNode(model.id)
+
             const prompt = await createPromptService({
                 name: `prompt_${generateTestId()}`,
                 content: 'Hello {{name}}, your age is {{age}}',
                 type: 'system',
-                nodeId: 0,
+                nodeId: node.id,
             })
 
             testIds.promptIds.push(prompt.id)
             expect(prompt.variables).toContain('name')
             expect(prompt.variables).toContain('age')
+        })
+
+        it('关联节点不存在时应抛出错误', async () => {
+            await expect(
+                createPromptService({
+                    name: `prompt_${generateTestId()}`,
+                    content: 'Hello',
+                    type: 'system',
+                    nodeId: 999999,
+                })
+            ).rejects.toThrow('关联的节点不存在')
         })
     })
 
@@ -379,7 +378,7 @@ describe('提示词服务集成测试', () => {
                 name: `prompt_${generateTestId()}`,
                 content: 'Test content',
                 type: 'user',
-                nodeId: 0,
+                nodeId: node.id,
             })
             testIds.promptIds.push(created.id)
 
@@ -405,7 +404,7 @@ describe('提示词服务集成测试', () => {
                     name: `prompt_${generateTestId()}`,
                     content: `Content ${i}`,
                     type: 'system',
-                    nodeId: 0,
+                    nodeId: node.id,
                 })
                 testIds.promptIds.push(prompt.id)
             }
@@ -425,7 +424,7 @@ describe('提示词服务集成测试', () => {
                 name: `prompt_${generateTestId()}`,
                 content: 'Original content',
                 type: 'system',
-                nodeId: 0,
+                nodeId: node.id,
             })
             testIds.promptIds.push(prompt.id)
 
@@ -447,7 +446,7 @@ describe('提示词服务集成测试', () => {
                 content: 'Content',
                 title: 'Original Title',
                 type: 'system',
-                nodeId: 0,
+                nodeId: node.id,
             })
             testIds.promptIds.push(prompt.id)
 
@@ -473,7 +472,7 @@ describe('提示词服务集成测试', () => {
                 name: `prompt_${generateTestId()}`,
                 content: 'Test',
                 type: 'system',
-                nodeId: 0,
+                nodeId: node.id,
             })
             testIds.promptIds.push(prompt.id)
 
@@ -489,7 +488,7 @@ describe('提示词服务集成测试', () => {
                 name: `prompt_${generateTestId()}`,
                 content: 'Test',
                 type: 'system',
-                nodeId: 0,
+                nodeId: node.id,
             })
             testIds.promptIds.push(prompt.id)
 
@@ -512,7 +511,7 @@ describe('提示词服务集成测试', () => {
                 name: `prompt_${generateTestId()}`,
                 content: 'Test',
                 type: 'system',
-                nodeId: 0,
+                nodeId: node.id,
             })
             testIds.promptIds.push(prompt.id)
 
@@ -531,7 +530,7 @@ describe('提示词服务集成测试', () => {
                 name: `prompt_${generateTestId()}`,
                 content: 'Test',
                 type: 'system',
-                nodeId: 0,
+                nodeId: node.id,
             })
             testIds.promptIds.push(prompt.id)
 
@@ -550,7 +549,7 @@ describe('提示词服务集成测试', () => {
                 name: `prompt_${generateTestId()}`,
                 content: 'Hello {{name}}, today is {{date}}',
                 type: 'system',
-                nodeId: 0,
+                nodeId: node.id,
             })
             testIds.promptIds.push(prompt.id)
 
@@ -594,7 +593,7 @@ describe('提示词服务集成测试', () => {
                 name: `system_${testId}`,
                 content: 'System prompt',
                 type: 'system',
-                nodeId: 0,
+                nodeId: node.id,
             })
             testIds.promptIds.push(systemPrompt.id)
 
@@ -602,17 +601,12 @@ describe('提示词服务集成测试', () => {
                 name: `user_${testId}`,
                 content: 'User prompt',
                 type: 'user',
-                nodeId: 0,
+                nodeId: node.id,
             })
             testIds.promptIds.push(userPrompt.id)
 
             await activatePromptService(systemPrompt.id)
             await activatePromptService(userPrompt.id)
-
-            // ★ Phase 6：节点维度查询通过 node_prompts 关联表 join，
-            // 必须显式建立关联，否则 findActivePromptDao(nodeId, type) 返回 null。
-            await linkPromptToNode(node.id, systemPrompt, 100)
-            await linkPromptToNode(node.id, userPrompt, 200)
 
             const result = await getActivePromptsForNodeService(node.id)
             expect(result.system).not.toBeNull()

@@ -93,7 +93,7 @@ r?.recognized  // 正确
 
 ```typescript
 const stream = useStreamChat<MyState>({
-    apiUrl: '/api/v1/cases/init-analysis',
+    apiUrl: '/api/v1/case/init-analysis',
     threadId: 'xxx',
     messagesKey: 'messages',
     onCustomEvent: (data) => { /* 自定义事件 */ },

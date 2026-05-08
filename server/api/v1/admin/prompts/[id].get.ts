@@ -21,25 +21,11 @@ export default defineEventHandler(async (event) => {
     }
 
     try {
-        const prompt = await getPromptByIdService(paramsResult.data.id) as any
+        const prompt = await getPromptByIdService(paramsResult.data.id)
         if (!prompt) {
             return resError(event, 404, '提示词不存在')
         }
-
-        // ★ Phase 4：把 nodePrompts 关联表展开为 referencedByNodes 列表，隐藏内部字段
-        const { nodePrompts, ...rest } = prompt
-        const referencedByNodes = (nodePrompts ?? []).map((np: any) => ({
-            id: np.node.id,
-            name: np.node.name,
-            title: np.node.title ?? null,
-            displayOrder: np.displayOrder,
-        }))
-
-        return resSuccess(event, '获取提示词详情成功', {
-            ...rest,
-            referencedByCount: referencedByNodes.length,
-            referencedByNodes,
-        })
+        return resSuccess(event, '获取提示词详情成功', prompt)
     } catch (error) {
         logger.error('获取提示词详情失败：', error)
         return resError(event, 500, '获取提示词详情失败')

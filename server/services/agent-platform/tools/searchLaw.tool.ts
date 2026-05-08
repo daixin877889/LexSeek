@@ -12,8 +12,7 @@ import { createSimpleTool, type ToolDefinition } from './types'
 
 const schema = z.object({
     query: z.string().optional().describe('搜索关键词，用于语义搜索法律条文内容'),
-    // LLM 偶尔会把数字当字符串回传，coerce 自动转 number 增强鲁棒性
-    k: z.coerce.number().max(20).optional().default(5).describe('返回结果数量，最多 20 条'),
+    k: z.number().max(20).optional().default(5).describe('返回结果数量，最多 20 条'),
     legalType: z.enum(['law', 'regulation', 'judicial_interp', 'guideline']).optional().describe('法律类型：law（法律）、regulation（法规）、judicial_interp（司法解释）、guideline（指导性文件）'),
     legalName: z.string().optional().describe('法律名称，用于筛选特定法律的所有条文'),
     isEffective: z.boolean().optional().describe('是否有效，true 表示只返回有效条文，false 表示只返回无效条文'),

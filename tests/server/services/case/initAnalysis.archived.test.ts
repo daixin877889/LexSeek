@@ -95,16 +95,13 @@ describe('initAnalysisService ARCHIVED 守卫', () => {
             })
         })
 
-        // 函数签名为 Promise<string>，summary 节点未配置时返回 ''（initial value）
-        // 旧测试断言 toBeUndefined 是基于 implicit return undefined 的 pre-existing bug；
-        // Langfuse 集成时实施者把 inner 函数补成 explicit `return summary`，与签名对齐
         await expect(
             completeAnalysisWithRAG({
                 analysisId: 100,
                 analysisResult: '分析正文',
                 model: {} as any,
             }),
-        ).resolves.toBe('')
+        ).resolves.toBeUndefined()
 
         expect(mockTransaction).toHaveBeenCalled()
     })

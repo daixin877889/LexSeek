@@ -43,8 +43,7 @@ export function buildUpsertSkillOp(input: UpsertSkillInput) {
             title: input.title ?? null,
             description: input.description ?? null,
             version: input.version ?? null,
-            // status 不写：保留管理员手动设置（启用开关 bug fix）
-            // customTitle 不写：后台编辑专属，扫描永不覆盖
+            status: SkillStatus.ENABLED,
             syncedAt: now,
         },
     })
@@ -52,7 +51,7 @@ export function buildUpsertSkillOp(input: UpsertSkillInput) {
 
 /**
  * upsert 单条 skill 记录（即时执行版本）。
- * 同名记录已存在则更新元数据 + 更新 syncedAt；status 与 customTitle 保留管理员手动设置（不被扫描覆盖）。
+ * 同名记录已存在则更新元数据 + 把 status 置为 ENABLED + 更新 syncedAt。
  */
 export async function upsertSkillDAO(input: UpsertSkillInput) {
     return buildUpsertSkillOp(input)
@@ -121,35 +120,4 @@ export async function updateSkillStatusDAO(name: string, status: SkillStatus) {
 /** 删除单条 skill（仅测试用，业务侧无 admin 删除接口）*/
 export async function deleteSkillDAO(name: string) {
     await prisma.skills.delete({ where: { name } })
-}
-
-/**
- * 更新单条 skill 的 customTitle（管理员后台编辑入口）。
- *
- * @param name skill 主键
- * @param customTitle 新值；null 表示恢复代码默认（DB 列设为 NULL）
- * @returns 更新后的 skill 行
- * @throws Prisma P2025 当 name 不存在
- */
-export async function updateSkillCustomTitleDAO(name: string, customTitle: string | null) {
-    return prisma.skills.update({
-        where: { name },
-        data: { customTitle },
-    })
-}
-
-/**
- * 列出所有启用 skill 的 name → label 映射（用户端工具卡片消费）。
- * label 优先级：customTitle > title > name。
- */
-export async function listEnabledSkillLabelsDAO(): Promise<Array<{ name: string; label: string }>> {
-    const rows = await prisma.skills.findMany({
-        where: { status: SkillStatus.ENABLED },
-        select: { name: true, title: true, customTitle: true },
-        orderBy: { name: 'asc' },
-    })
-    return rows.map(r => ({
-        name: r.name,
-        label: r.customTitle ?? r.title ?? r.name,
-    }))
 }

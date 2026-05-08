@@ -171,9 +171,9 @@ describe('exactSearchService', () => {
             const results = await exactSearchService(intent)
 
             expect(results).toHaveLength(5)
-            // 验证上下文扩展查询合并到单次 findMany，OR 内含 ±2 范围
+            // 验证上下文扩展查询传入了正确的 order 范围
             const expandCall = mockLegalArticlesFindMany.mock.calls[1][0]
-            expect(expandCall.where.OR[0].order).toEqual({ gte: 8, lte: 12 })
+            expect(expandCall.where.order).toEqual({ gte: 8, lte: 12 })
         })
 
         it('上下文扩展时传入同 l1 层级约束', async () => {
@@ -193,7 +193,7 @@ describe('exactSearchService', () => {
             await exactSearchService(intent)
 
             const expandCall = mockLegalArticlesFindMany.mock.calls[1][0]
-            expect(expandCall.where.OR[0].l1).toBe('第一编')
+            expect(expandCall.where.l1).toBe('第一编')
         })
     })
 
@@ -309,10 +309,14 @@ describe('exactSearchService', () => {
             const legal = makeLegal()
             const hitArticle1 = makeArticle({ id: 'article-010', order: 10 })
             const hitArticle2 = makeArticle({ id: 'article-012', order: 12 })
-            // 合并查询：两条 hit 的 ±2 范围 OR 起来后，DB 一次返回 8..14 共 7 条（去重内置在 SQL/数据层）
-            const mergedContext = [
+            const context1 = [
                 makeArticle({ id: 'article-008', order: 8 }),
                 makeArticle({ id: 'article-009', order: 9 }),
+                makeArticle({ id: 'article-010', order: 10 }),
+                makeArticle({ id: 'article-011', order: 11 }),
+                makeArticle({ id: 'article-012', order: 12 }),
+            ]
+            const context2 = [
                 makeArticle({ id: 'article-010', order: 10 }),
                 makeArticle({ id: 'article-011', order: 11 }),
                 makeArticle({ id: 'article-012', order: 12 }),
@@ -322,7 +326,8 @@ describe('exactSearchService', () => {
 
             mockLegalMainFindMany.mockResolvedValueOnce([legal])
             mockLegalArticlesFindMany.mockResolvedValueOnce([hitArticle1, hitArticle2])
-            mockLegalArticlesFindMany.mockResolvedValueOnce(mergedContext)
+            mockLegalArticlesFindMany.mockResolvedValueOnce(context1)
+            mockLegalArticlesFindMany.mockResolvedValueOnce(context2)
 
             const intent: IntentClassification = {
                 intent: 'exact',

@@ -32,32 +32,18 @@ describe('chat.post.ts - 纯函数测试', () => {
   })
 
   describe('isValidResumeCommand', () => {
-    // LangGraph SDK Command 协议：{ resume: <payload> }
-    // payload 可以是任何 JSON-serializable 值（按 interrupt id / toolCallId 索引的 dict、动作 dict、字符串、数字等）
-    // 之前实现把 command 当字符串白名单，与所有前端调用方（useDomainAgentSession / [sessionId].vue / useInitAnalysisRuntime）的 LangGraph dict 协议不匹配
     it.each([
-      // ✅ LangGraph dict 协议 — 都应通过
-      [{ resume: { action: 'continue' } }, true],
-      [{ resume: { action: 'approve', data: { foo: 1 } } }, true],
-      [{ resume: { action: 'reject' } }, true],
-      [{ resume: { call_00_xyz: { templateId: 1 } } }, true],  // template_select 场景（按 toolCallId 索引）
-      [{ resume: 'plain-string-payload' }, true],
-      [{ resume: 42 }, true],
-      [{ resume: null }, true],
-
-      // ❌ 不是 LangGraph 协议 — 拒绝
+      ['resume', true],
+      ['continue', true],
+      ['try_again', true],
       [undefined, false],
-      [null, false],
-      ['resume', false],     // 旧字符串白名单
-      ['continue', false],
-      ['try_again', false],
       ['', false],
-      [{}, false],            // 缺 resume 字段
-      [{ goto: 'node' }, false],
-      [{ Resume: {} }, false], // 大小写敏感
-      [42, false],
+      ['delete_case', false],
+      ['RESET', false],
+      ['resume ', false],
+      ['Resume', false],
     ] as const)('command=%s → %s', (cmd, expected) => {
-      expect(isValidResumeCommand(cmd as any)).toBe(expected)
+      expect(isValidResumeCommand(cmd)).toBe(expected)
     })
   })
 

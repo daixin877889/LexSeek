@@ -17,132 +17,22 @@ export type ContractReviewStatus =
     | 'failed'
 
 /**
- * 合同类型大类（11 种）。
+ * 合同类型候选集。
  *
- * 用途：管理页左侧一级 Tab 与 UI 归类。
- * DB 不存大类（contract_playbooks.contractType 存的是细分），大类通过 SUBTYPE_TO_CATEGORY 推导。
- */
-export const CONTRACT_TYPE_CATEGORIES = [
-    '劳动用工',
-    '保密协议',
-    '买卖合同',
-    '租赁合同',
-    '服务承揽委托',
-    '仓储物流',
-    '担保借贷',
-    '婚姻家庭继承',
-    '知识产权',
-    '软件与创作',
-    '互联网平台',
-] as const
-
-export type ContractTypeCategory = typeof CONTRACT_TYPE_CATEGORIES[number]
-
-/**
- * 合同类型细分候选集（41 种 + "其他" 兜底）。
- *
- * 用途：
- *  - LLM partyDetector 的候选集（"从这些里选一个或返回其它"）
- *  - 管理页右侧二级列表（按大类归类，参见 CATEGORY_TO_SUBTYPES）
- *  - contract_playbooks.contractType 字段值域
- *
- * DB 存储为 varchar(50) 不加约束，允许 LLM 在必要时输出新类型；管理端 z.enum 校验仍以本数组为准。
+ * 仅作为 LLM prompt 的提示词使用（"从这些里选一个或返回其它"）；
+ * DB 存储为 varchar(50) 不加约束，允许 LLM 在必要时输出新类型。
+ * 所有引用这个列表的代码（如 partyDetector 的 prompt 模板）都应从这里导入，
+ * 避免枚举硬编码在多处形成偏差。
  */
 export const CONTRACT_TYPE_OPTIONS = [
-    // 劳动用工
     '劳动合同',
-    '劳务派遣协议',
-    '业务外包合同',
-    '退休返聘合同',
-    '学生实习协议',
-    '非全日制劳动合同',
-    '竞业限制协议',
-    '培训服务期协议',
-    '个人劳务承包合同',
-    // 保密
+    '租赁合同',
+    '买卖合同',
+    '服务合同',
+    '借款合同',
     '保密协议',
-    // 买卖
-    '动产买卖合同',
-    '二手房买卖合同',
-    '经销买卖合同',
-    // 租赁
-    '房产租赁合同',
-    '建筑设备租赁合同',
-    // 服务承揽委托
-    '服务类合同',
-    '承揽合同',
-    '委托合同',
-    '中介合同',
-    '消费者服务合同',
-    // 仓储物流
-    '保管合同',
-    '仓储合同',
-    '运输合同',
-    // 担保借贷
-    '保证合同',
-    '抵押/质押合同',
-    '民间借款合同',
-    '赠与合同',
-    // 婚姻家庭继承
-    '夫妻财产约定',
-    '离婚协议',
-    '遗赠扶养协议',
-    '遗嘱',
-    // 知识产权
-    '知识产权转让合同',
-    '知识产权许可合同',
-    '商标转让合同',
-    '商标许可合同',
-    // 软件与创作
-    '软件委托开发合同',
-    '软件许可合同（分发许可模式）',
-    '软件许可合同（自用许可模式）',
-    '委托创作合同',
-    // 互联网平台
-    '隐私政策（用户协议）',
-    '订单协议（电商平台）',
-    // LLM 兜底
     '其他',
 ] as const
-
-/** 大类 → 该大类下的细分清单（管理页二级展开使用，顺序与 UI 渲染一致） */
-export const CATEGORY_TO_SUBTYPES: Record<ContractTypeCategory, string[]> = {
-    劳动用工: [
-        '劳动合同',
-        '劳务派遣协议',
-        '业务外包合同',
-        '退休返聘合同',
-        '学生实习协议',
-        '非全日制劳动合同',
-        '竞业限制协议',
-        '培训服务期协议',
-        '个人劳务承包合同',
-    ],
-    保密协议: ['保密协议'],
-    买卖合同: ['动产买卖合同', '二手房买卖合同', '经销买卖合同'],
-    租赁合同: ['房产租赁合同', '建筑设备租赁合同'],
-    服务承揽委托: ['服务类合同', '承揽合同', '委托合同', '中介合同', '消费者服务合同'],
-    仓储物流: ['保管合同', '仓储合同', '运输合同'],
-    担保借贷: ['保证合同', '抵押/质押合同', '民间借款合同', '赠与合同'],
-    婚姻家庭继承: ['夫妻财产约定', '离婚协议', '遗赠扶养协议', '遗嘱'],
-    知识产权: ['知识产权转让合同', '知识产权许可合同', '商标转让合同', '商标许可合同'],
-    软件与创作: [
-        '软件委托开发合同',
-        '软件许可合同（分发许可模式）',
-        '软件许可合同（自用许可模式）',
-        '委托创作合同',
-    ],
-    互联网平台: ['隐私政策（用户协议）', '订单协议（电商平台）'],
-}
-
-/** 细分 → 大类反查映射（不含 "其他"，由 CATEGORY_TO_SUBTYPES 自动派生，保持单一数据源） */
-export const SUBTYPE_TO_CATEGORY: Readonly<Record<string, ContractTypeCategory>> = Object.freeze(
-    Object.fromEntries(
-        (Object.entries(CATEGORY_TO_SUBTYPES) as [ContractTypeCategory, string[]][]).flatMap(
-            ([cat, subs]) => subs.map(sub => [sub, cat] as [string, ContractTypeCategory]),
-        ),
-    ),
-)
 
 /** 单条风险（存 contractReviews.risks JSON 字段；schema 层 refine 强制 high/medium 必含 suggestedClauseText） */
 export interface Risk {
@@ -159,20 +49,12 @@ export interface Risk {
     suggestedClauseText?: string
     /** 命中的要点 code；清单外风险留空（M7 Playbook） */
     matchedPointCode?: string
-
-    // 路线 2 精准锚点（PR 3）—— LLM 输出，service 解析后写 contractRisks.problematic_quote
-    /** LLM 选择的"产生风险的句子 ID"（1-based，对应 prompt 里的 [Sn] 编号）。default []。 */
-    problemSentenceIds?: number[]
-    /** LLM 从 sentence 里逐字摘录的问题片段（fuzzy fallback 用）。 */
-    problematicQuote?: string
-
     /**
      * "非空段落序号"（与后端 server/agents/contract/utils/clauseToParagraph.ts
      * 的 buildClauseToParagraphMap 输出同口径），仅在前端渲染时由 RiskDisplay
-     * 透传，用于 clauseLocator 的优先级 0 直定位。后端落库不读不写此字段（DB
-     * 用 contractRisks.clauseParagraphIndex 列）。
+     * 透传，用于 clauseLocator 的优先级 0 直定位。后端落库不读不写此字段。
      */
-    clauseParagraphIndex?: number | null
+    anchorParagraphIndex?: number | null
 }
 
 /**
@@ -187,15 +69,13 @@ export type RiskDisplay = Risk & {
 
 /**
  * Phase B：RiskListPanel / RiskCard 共享的扩展显示类型。
- * source/orphaned/originalClauseText 字段从 contractRisks 表透传（首次审查后由后端补齐），
+ * source/orphaned/originalAnchorQuote 字段从 contractRisks 表透传（首次审查后由后端补齐），
  * 前端依据这些字段做"外部新增分组""孤立批注区"等分组渲染。
  */
 export type RiskDisplayPhaseB = RiskDisplay & {
     source?: RiskSource
     orphaned?: boolean
-    originalClauseText?: string | null
-    quoteCharStart?: number | null
-    quoteCharEnd?: number | null
+    originalAnchorQuote?: string | null
 }
 
 export interface CreateReviewRequest {
@@ -360,21 +240,12 @@ export interface ClauseSegment {
     index: number
     /** 条款编号文本，如 "3.2"、"第五条"、null（无标号散段） */
     number: string | null
-    /** 条款正文（含编号字符；保持向后兼容，prompt 模板从此字段取 clauseTextRaw） */
+    /** 条款正文 */
     text: string
-    /**
-     * PR10 新增：条款正文（不含编号字符；anchor 锚定专用）。
-     * 用途：redlineInjector / commentInjector 在 OOXML <w:p> 上做严格行级匹配时，
-     * OOXML textContent 永远不含 numbering 前缀（Word 渲染时动态生成），
-     * 必须用此字段而非 text 才能严格等值匹配。
-     */
-    textWithoutNumber: string
     /** Phase B：该条款在 docxText 中的起始字符偏移（闭区间） */
     offsetStart: number
     /** Phase B：该条款在 docxText 中的结束字符偏移（开区间，即 offsetStart + text.length） */
     offsetEnd: number
-    /** PR10 新增：textWithoutNumber 在 docxText 中的起始字符偏移（= offsetStart + 编号字符长度） */
-    offsetStartWithoutNumber: number
 }
 
 /**
@@ -462,16 +333,8 @@ export interface PlaybookSnapshot {
 export interface ClauseSnapshotItem {
     index: number
     text: string
-    /**
-     * PR10 新增（optional）：与 ClauseSegment.textWithoutNumber 同源。
-     * 历史 snapshot 数据无此字段；使用方应 fallback 到 text（含编号）。
-     * Phase A 兜底重切（uploadClientVersion.service.ts:215-219）会填值。
-     */
-    textWithoutNumber?: string
     offsetStart: number
     offsetEnd: number
-    /** PR10 新增（optional）：理由同上 */
-    offsetStartWithoutNumber?: number
 }
 
 // ===== 多版本：枚举 =====
@@ -513,34 +376,17 @@ export interface ContractRiskEntity {
     legalBasis: string | null
     analysis: string | null
     suggestion: string | null
-    /** AI 生成的完整改写后条款（high/medium 必有；low 可空） */
-    suggestedClauseText: string | null
     archivedStatus: RiskArchivedStatus | null
     archivedAt: string | null
-
-    // 双锚点 · 层 1 完整条款
-    /** 条款序号（segmentClauses 产出）；source='global_review' 时为 null。PR 2 全为 null，PR 3 起填值 */
-    clauseIndex: number | null
-    /** 完整条款原文（NOT NULL） */
-    clauseText: string
-    /** 非空段落序号（commentInjector 期望空间） */
-    clauseParagraphIndex: number | null
-    /** clause 在文档全文 normalizedText 里的 offset */
-    clauseCharStart: number | null
-    clauseCharEnd: number | null
-
-    // 双锚点 · 层 2 精确问题片段（PR 2 全为 null，PR 3 主路径填值）
-    problematicQuote: string | null
-    quoteCharStart: number | null
-    quoteCharEnd: number | null
-    quoteMatchSource: 'sentence_id' | 'fuzzy' | 'fallback' | null
-
-    // Phase B 锚点迁移痕迹
-    originalClauseText: string | null
-    orphaned: boolean
-
+    anchorQuote: string
+    anchorParagraphIndex: number | null
+    anchorCharStart: number | null
+    anchorCharEnd: number | null
     createdAt: string
     updatedAt: string
+    // Phase B
+    originalAnchorQuote: string | null
+    orphaned: boolean
 }
 
 export interface ContractAnnotationEntity {
@@ -623,22 +469,3 @@ export interface UploadVersionErrorData {
     code: string
     message: string
 }
-
-// ===== PR6: 导出模式（仅前端 RiskListPanel + composable 用，shared 合理）=====
-
-/** 合同审查 docx 导出模式 */
-export const CONTRACT_EXPORT_MODES = ['comment', 'redline', 'both'] as const
-export type ContractExportMode = typeof CONTRACT_EXPORT_MODES[number]
-
-/** 默认模式：保持现状向后兼容（未传 mode 时走批注） */
-export const DEFAULT_CONTRACT_EXPORT_MODE: ContractExportMode = 'comment'
-
-export const CONTRACT_EXPORT_MODE_LABEL: Record<ContractExportMode, string> = {
-    comment: '批注模式',
-    redline: '修订模式（Track Changes）',
-    both: '两者并存',
-}
-
-// 注意：RedlineWrapTarget 类型只在 server/agents/contract/docx/{commentInjector,redlineInjector}.ts
-// 之间流转，前端永不消费。按 .claude/rules/types.md 决策树「服务端专用 → 放 server 模块内」，
-// 该类型定义在 server/agents/contract/docx/redlineInjector.ts 内 export，不放 shared。

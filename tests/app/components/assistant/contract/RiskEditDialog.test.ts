@@ -220,28 +220,6 @@ describe('RiskEditDialog', () => {
         expect((w.emitted('confirm')![0][0] as Risk).id).toBe('existing-id-xyz')
     })
 
-    it('确认（编辑）：保留 LLM 字段（problematicQuote / problemSentenceIds / matchedPointCode）', async () => {
-        // PR4 回归保护：手动编辑 problem 字段不应清空 PR3 引入的 quote 锚点字段
-        const original = baseRisk({
-            id: 'risk-with-anchors',
-            problematicQuote: '甲方应在 7 日内付款',
-            problemSentenceIds: [1, 2],
-            matchedPointCode: 'PMT-001',
-        })
-        const w = mountDialog({ risk: original })
-        await nextTick()
-        // 模拟用户改 problem 字段（problem 在 textareas 第 1 项，索引 1）
-        await w.findAll('textarea')[1]!.setValue('修改后的问题概述')
-        await nextTick()
-        await confirmBtn(w).trigger('click')
-
-        const payload = w.emitted('confirm')![0][0] as Risk
-        expect(payload.problem).toBe('修改后的问题概述')
-        expect(payload.problematicQuote).toBe('甲方应在 7 日内付款')
-        expect(payload.problemSentenceIds).toEqual([1, 2])
-        expect(payload.matchedPointCode).toBe('PMT-001')
-    })
-
     it('legalBasis / suggestedClauseText 空白字符串：payload 为 undefined', async () => {
         const w = mountDialog({ risk: null })
         await fillValidForm(w)

@@ -13,8 +13,19 @@ vi.mock('~~/server/lib/redis', () => ({
 vi.mock('~~/server/services/workflow/checkpointer', () => ({
   getCheckpointer: vi.fn(),
 }))
-vi.mock('~~/server/services/memory/memoryExtraction.service', () => ({
-  runMemoryExtractionService: vi.fn().mockResolvedValue(undefined),
+vi.mock('~~/server/services/node/chatModelFactory', () => ({
+  createChatModel: vi.fn(),
+}))
+vi.mock('~~/server/services/node/node.service', () => ({
+  getValidNodeConfig: vi.fn().mockResolvedValue({
+    modelSdkType: 'anthropic',
+    modelName: 'deepseek-chat',
+    modelProviderBaseUrl: 'https://api.deepseek.com',
+    modelApiKeys: [{ apiKey: 'test-key' }],
+  }),
+}))
+vi.mock('~~/server/services/memory/memory.service', () => ({
+  writeMemoryService: vi.fn().mockResolvedValue(undefined),
 }))
 
 describe('consolidator · schedule + drain', () => {
@@ -71,20 +82,20 @@ describe('consolidateSession', () => {
     vi.unstubAllGlobals()
   })
 
-  it('session 不存在时提前返回，不触发记忆抽取', async () => {
-    const { runMemoryExtractionService } = await import('~~/server/services/memory/memoryExtraction.service')
+  it('session 不存在时提前返回，不调用 AI 模型', async () => {
+    const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
     const { getCheckpointer } = await import('~~/server/services/workflow/checkpointer')
     prismaMock.caseSessions.findUnique.mockResolvedValue(null)
 
     const { consolidateSession } = await import('~~/server/services/memory/consolidator.service')
     await consolidateSession('sess-no-exist')
 
-    expect(runMemoryExtractionService).not.toHaveBeenCalled()
+    expect(createChatModel).not.toHaveBeenCalled()
     expect(getCheckpointer).not.toHaveBeenCalled()
   })
 
-  it('消息列表为空时提前返回，不触发记忆抽取', async () => {
-    const { runMemoryExtractionService } = await import('~~/server/services/memory/memoryExtraction.service')
+  it('消息列表为空时提前返回，不调用 AI 模型', async () => {
+    const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
     const { getCheckpointer } = await import('~~/server/services/workflow/checkpointer')
     prismaMock.caseSessions.findUnique.mockResolvedValue({ caseId: 42 })
     ;(getCheckpointer as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -94,12 +105,46 @@ describe('consolidateSession', () => {
     const { consolidateSession } = await import('~~/server/services/memory/consolidator.service')
     await consolidateSession('sess-empty')
 
-    expect(runMemoryExtractionService).not.toHaveBeenCalled()
+    expect(createChatModel).not.toHaveBeenCalled()
   })
 
-  it('LangChain 序列化格式消息（真实 checkpoint 场景）可被正确解析后转交 memoryExtraction', async () => {
-    const { runMemoryExtractionService } = await import('~~/server/services/memory/memoryExtraction.service')
+  it('置信度 < 0.6 的 fact/preference 被过滤，不写入记忆', async () => {
+    const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
     const { getCheckpointer } = await import('~~/server/services/workflow/checkpointer')
+    const { writeMemoryService } = await import('~~/server/services/memory/memory.service')
+    prismaMock.caseSessions.findUnique.mockResolvedValue({ caseId: 42 })
+    ;(getCheckpointer as ReturnType<typeof vi.fn>).mockResolvedValue({
+      getTuple: vi.fn().mockResolvedValue({
+        checkpoint: {
+          channel_values: {
+            messages: [
+              { getType: () => 'human', content: '你好' },
+              { getType: () => 'ai', content: '我是AI' },
+            ],
+          },
+        },
+      }),
+    })
+    ;(createChatModel as ReturnType<typeof vi.fn>).mockReturnValue({
+      withStructuredOutput: () => ({
+        invoke: vi.fn().mockResolvedValue({
+          facts: [{ subjectKey: 'k', text: '低置信事实', confidence: 0.3 }],
+          preferences: [{ text: '低置信偏好', confidence: 0.4 }],
+          dialogueNotes: [],
+        }),
+      }),
+    })
+
+    const { consolidateSession } = await import('~~/server/services/memory/consolidator.service')
+    await consolidateSession('sess-low-conf')
+
+    expect(writeMemoryService).not.toHaveBeenCalled()
+  })
+
+  it('LangChain 序列化格式消息（真实 checkpoint 场景）可被正确解析', async () => {
+    const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
+    const { getCheckpointer } = await import('~~/server/services/workflow/checkpointer')
+    const { writeMemoryService } = await import('~~/server/services/memory/memory.service')
     prismaMock.caseSessions.findUnique.mockResolvedValue({ caseId: 77 })
     ;(getCheckpointer as ReturnType<typeof vi.fn>).mockResolvedValue({
       getTuple: vi.fn().mockResolvedValue({
@@ -113,23 +158,27 @@ describe('consolidateSession', () => {
         },
       }),
     })
+    ;(createChatModel as ReturnType<typeof vi.fn>).mockReturnValue({
+      withStructuredOutput: () => ({
+        invoke: vi.fn().mockResolvedValue({
+          facts: [{ subjectKey: 'plaintiff.name', text: '原告叫张三', confidence: 0.95 }],
+          preferences: [],
+          dialogueNotes: [],
+        }),
+      }),
+    })
 
     const { consolidateSession } = await import('~~/server/services/memory/consolidator.service')
     await consolidateSession('sess-serialized')
 
-    expect(runMemoryExtractionService).toHaveBeenCalledTimes(1)
-    const callArg = vi.mocked(runMemoryExtractionService).mock.calls[0][0]
-    expect(callArg.caseId).toBe(77)
-    expect(callArg.sessionId).toBe('sess-serialized')
-    expect(callArg.messages).toEqual([
-      { role: 'human', content: '原告叫张三' },
-      { role: 'ai', content: '已记录，原告为张三' },
-    ])
+    expect(writeMemoryService).toHaveBeenCalledTimes(1)
+    expect(writeMemoryService).toHaveBeenCalledWith(expect.objectContaining({ kind: 'fact', caseId: 77, source: 'consolidator' }))
   })
 
-  it('正常路径：调用 runMemoryExtractionService 并透传解析后的对话', async () => {
-    const { runMemoryExtractionService } = await import('~~/server/services/memory/memoryExtraction.service')
+  it('正常路径：facts/preferences/dialogueNotes 都写入记忆', async () => {
+    const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
     const { getCheckpointer } = await import('~~/server/services/workflow/checkpointer')
+    const { writeMemoryService } = await import('~~/server/services/memory/memory.service')
     prismaMock.caseSessions.findUnique.mockResolvedValue({ caseId: 99 })
     ;(getCheckpointer as ReturnType<typeof vi.fn>).mockResolvedValue({
       getTuple: vi.fn().mockResolvedValue({
@@ -143,17 +192,22 @@ describe('consolidateSession', () => {
         },
       }),
     })
+    ;(createChatModel as ReturnType<typeof vi.fn>).mockReturnValue({
+      withStructuredOutput: () => ({
+        invoke: vi.fn().mockResolvedValue({
+          facts: [{ subjectKey: 'plaintiff.address', text: '原告住在北京', confidence: 0.9 }],
+          preferences: [{ text: '简洁输出', confidence: 0.8 }],
+          dialogueNotes: [{ text: '关注地址信息' }],
+        }),
+      }),
+    })
 
     const { consolidateSession } = await import('~~/server/services/memory/consolidator.service')
     await consolidateSession('sess-normal')
 
-    expect(runMemoryExtractionService).toHaveBeenCalledTimes(1)
-    const callArg = vi.mocked(runMemoryExtractionService).mock.calls[0][0]
-    expect(callArg.caseId).toBe(99)
-    expect(callArg.sessionId).toBe('sess-normal')
-    expect(callArg.messages).toEqual([
-      { role: 'human', content: '原告住在北京' },
-      { role: 'ai', content: '已记录' },
-    ])
+    expect(writeMemoryService).toHaveBeenCalledTimes(3)
+    expect(writeMemoryService).toHaveBeenCalledWith(expect.objectContaining({ kind: 'fact', caseId: 99 }))
+    expect(writeMemoryService).toHaveBeenCalledWith(expect.objectContaining({ kind: 'preference', caseId: 99 }))
+    expect(writeMemoryService).toHaveBeenCalledWith(expect.objectContaining({ kind: 'dialogue_note', caseId: 99 }))
   })
 })

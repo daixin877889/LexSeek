@@ -37,13 +37,6 @@ import {
     atomicSetRebuildingDAO,
     rollbackRebuildDAO,
 } from '~~/server/services/assistant/contract/contractReview.dao'
-import { z } from 'zod'
-import { CONTRACT_EXPORT_MODES, DEFAULT_CONTRACT_EXPORT_MODE } from '#shared/types/contract'
-import type { ContractExportMode } from '#shared/types/contract'
-
-const ModeQuery = z.object({
-    mode: z.enum(CONTRACT_EXPORT_MODES).optional(),
-})
 
 export default defineEventHandler(async (event) => {
     const guard = await loadOwnedReview(event, { actionLabel: '访问该合同审查' })
@@ -54,12 +47,6 @@ export default defineEventHandler(async (event) => {
         return resError(event, 400, '审查尚未完成，暂无可下载文件')
     }
 
-    const queryParse = ModeQuery.safeParse(getQuery(event))
-    if (!queryParse.success) {
-        return resError(event, 400, '导出模式参数无效')
-    }
-    const mode: ContractExportMode = queryParse.data.mode ?? DEFAULT_CONTRACT_EXPORT_MODE
-
     // 原子锁：completed → rebuilding；抢不到说明正有并发 rebuild 在进行
     const claimed = await atomicSetRebuildingDAO(review.id)
     if (!claimed) {
@@ -67,7 +54,7 @@ export default defineEventHandler(async (event) => {
     }
 
     try {
-        const result = await rebuildDocxService(review, { mode })
+        const result = await rebuildDocxService(review)
         return resSuccess(event, '获取下载地址成功', {
             downloadUrl: result.downloadUrl,
             filename: result.filename,
@@ -79,7 +66,6 @@ export default defineEventHandler(async (event) => {
         await rollbackRebuildDAO(review.id).catch(() => {})
         logger.error('[contract download] 每次下载重新生成失败', {
             reviewId: review.id,
-            mode,
             err: err instanceof Error ? err.message : String(err),
         })
         return resError(event, 500, '生成批注 docx 失败，请稍后重试')

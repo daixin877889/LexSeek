@@ -21,11 +21,9 @@ import type {
     ListAssistantSessionsInput,
 } from './types'
 import { getValidNodeConfig } from '../node/node.service'
-import { assembleSystemPromptTemplate } from '../agent-platform/nodeConfig/promptRenderer'
 import { createChatModel } from '../node/chatModelFactory'
 import { renderContent } from '../node/prompt.service'
 import { logContextOverflow } from '../workflow/context/contextErrorLogger'
-import { withLangfuseContext } from '~~/server/lib/langfuse'
 
 /**
  * 标题生成节点名称。
@@ -129,18 +127,6 @@ export async function generateSessionTitleAsync(
     firstUserMessage: string,
     firstAssistantReply: string,
 ): Promise<void> {
-    return withLangfuseContext(
-        { sessionId, threadId: sessionId, userId, vertical: 'legal-assistant' },
-        () => generateSessionTitleInner(sessionId, userId, firstUserMessage, firstAssistantReply),
-    )
-}
-
-async function generateSessionTitleInner(
-    sessionId: string,
-    userId: number,
-    firstUserMessage: string,
-    firstAssistantReply: string,
-): Promise<void> {
     try {
         // 1. 校验 session 存在且归属当前用户
         const session = await getAssistantSessionDAO(sessionId, userId)
@@ -190,8 +176,10 @@ async function generateSessionTitleInner(
             streaming: false,
         })
 
-        // 5. 从 nodeConfig 取 system 提示词（多段拼接）并渲染变量
-        const systemPromptRaw = assembleSystemPromptTemplate(nodeConfig.prompts)
+        // 5. 从 nodeConfig 取 system 提示词并渲染变量
+        const systemPromptRaw = nodeConfig.prompts.find(
+            p => p.type === 'system' && p.status === 1,
+        )?.content ?? ''
         if (!systemPromptRaw.trim()) {
             logger.warn('生成标题跳过：节点缺少启用的 system 提示词', {
                 sessionId,

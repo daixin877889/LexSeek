@@ -1,7 +1,7 @@
 /**
  * subject_key 推断服务
  *
- * POST /api/v1/cases/memories/by-case/:caseId 用：
+ * POST /api/v1/case/memories/by-case/:caseId 用：
  * 用户填了 text 但没填 subjectKey 时，调本服务让 LLM 推断"主体.字段"格式。
  *
  * 失败 fallback null（POST 写入空 subjectKey，不参与版本链）。

@@ -1,6 +1,5 @@
 ---
 name: qingqiuquan-jichu
-title: 预分析案件请求权
 description: |
   民事请求权基础分析方法论。当用户需要系统分析民事案件中的请求权是否成立、寻找请求权基础规范、确定检视顺序、分配举证责任时使用。
   典型场景：律师分析案件诉讼路径、法官审查请求权、法律工作者撰写法律分析。
@@ -22,7 +21,7 @@ description: |
 ## 关键要点
 
 ### 一、规范分类
-详见 [references/规范分类.md](./references/规范分类.md)
+详见 [references/guifan-fenlei.md](./references/guifan-fenlei.md)
 
 - 主要规范：产生请求权的规范，法律效果为"有权请求..."
 - 辅助规范：说明主要规范的构成要件或法律效果
@@ -30,27 +29,27 @@ description: |
 - 参引规范：具有请求权基础外观但实质指向其他规范
 
 ### 二、检视结构
-详见 [references/三层四步.md](./references/三层四步.md)
+详见 [references/sanceng-sibu.md](./references/sanceng-sibu.md)
 
 - 第一层：请求权已产生（步骤1积极要件+步骤2未发生抗辩）
 - 第二层：请求权未消灭（步骤3消灭抗辩）
 - 第三层：请求权可行使（步骤4行使抗辩）
 
 ### 三、预选排序
-详见 [references/预选排序.md](./references/预选排序.md)
+详见 [references/yuxuan-paixu.md](./references/yuxuan-paixu.md)
 
 - 标准顺序：合同→类似合同→无因管理→物法→不当得利/侵权
 - 排序原则：越特别越在先，构成要件越少越在先
 
 ### 四、举证分配
-详见 [references/举证责任分配.md](./references/举证分配.md)
+详见 [references/juzheng-fenpei.md](./references/juzheng-fenpei.md)
 
 - 步骤1积极要件 → 原告举证
 - 步骤2/3/4抗辩 → 被告举证
 - 反抗辩 → 原告举证
 
 ### 五、写作体裁
-详见 [references/鉴定体裁.md](./references/鉴定体裁.md)
+详见 [references/jianding-ticai.md](./references/jianding-ticai.md)
 
 - 假设：提出"甲得否依第X条向乙请求Y"
 - 大前提：列出请求权基础的构成要件
@@ -58,7 +57,7 @@ description: |
 - 结论：回答假设问题
 
 ### 六、诉讼框架
-详见 [references/法庭报告技术.md](./references/法庭报告技术.md)
+详见 [references/fating-baogao.md](./references/fating-baogao.md)
 
 - 程序阶段：审查程序要件
 - 原告阶段：纯法律审查（假设原告诉述为真）
@@ -67,18 +66,18 @@ description: |
 - 裁判阶段：形成裁判建议
 
 ### 七、竞合处理
-详见 [references/竞合处理.md](./references/竞合处理.md)
+详见 [references/guifan-jinghe.md](./references/guifan-jinghe.md)
 
 - 规范排斥竞合：逻辑互斥，适用特别规范
 - 请求权规范竞合：一项请求权有多重规范依据
 
 ### 八、专门应用
-详见 [references/专题应用.md](./references/专题应用.md)
+详见 [references/zhuanti-yingyong.md](./references/zhuanti-yingyong.md)
 
-- 不作为侵权：四要件合并判断（详见references/不作为侵权检视.md）
-- 合同效力：有效推定原则（详见references/有效推定.md）
-- 法律漏洞：类推填补（详见references/漏洞类推.md）
-- 体系构建：公因式展开（详见references/公因式展开.md）
+- 不作为侵权：四要件合并判断（详见references/buzuowei-qinquan.md）
+- 合同效力：有效推定原则（详见references/youxiao-tuiding.md）
+- 法律漏洞：类推填补（详见references/loudong-leitui.md）
+- 体系构建：公因式展开（详见references/gongyingshi-zhankai.md）
 
 ## 工具调用规范
 

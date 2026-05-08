@@ -26,7 +26,6 @@ vi.stubGlobal('prisma', {
     },
     legalArticles: {
         update: vi.fn(),
-        updateMany: vi.fn(),
     },
 })
 
@@ -178,14 +177,14 @@ describe('法律条文向量嵌入服务 - 异步函数', () => {
                 ],
             }
             ;(prisma.legalMain.findUnique as any).mockResolvedValue(legal)
-            ;(prisma.legalArticles.updateMany as any).mockResolvedValue({ count: 1 })
+            ;(prisma.legalArticles.update as any).mockResolvedValue({})
             ;(prisma.legalMain.update as any).mockResolvedValue({})
             // checkArticleNeedsEmbedding: lastEmbeddingAt 为 null → 需要嵌入
             // embedLawArticle 会成功
 
             await updateLegalEmbeddings('legal-1')
 
-            expect(prisma.legalArticles.updateMany).toHaveBeenCalled()
+            expect(prisma.legalArticles.update).toHaveBeenCalled()
             expect(prisma.legalMain.update).toHaveBeenCalled()
         })
 

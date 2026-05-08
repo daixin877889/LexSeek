@@ -37,24 +37,14 @@ const props = defineProps<{
     isPinned?: boolean
     isHovered?: boolean
     isJustAdded?: boolean
-    /** 孤立分支：去掉处置/编辑/删除按钮，加 originalClauseText 提示与"查看原始语境" */
+    /** 孤立分支：去掉处置/编辑/删除按钮，加 originalAnchorQuote 提示与"查看原始语境" */
     isOrphaned?: boolean
     archivedStatus?: RiskArchivedStatus | null
     /** 未定位徽章 */
     notLocated?: boolean
     /** playbook 快照：用于显示匹配的合规检查项 tooltip */
     playbookSnapshot?: PlaybookSnapshot | null
-    /**
-     * PR 4：风险卡布局（可选，默认 'stacked'）
-     * - 'stacked'：Layout A 四段式（条款标题 / 完整原文 + quote 高亮 / 问题片段 / 建议改写）
-     * - 'inline-diff'：Layout C 行内差异（dmp diff 单栏）
-     * orphaned 形态不消费此 prop（无 clause anchor）；调用方可不传走默认值。
-     */
-    layout?: 'stacked' | 'inline-diff'
 }>()
-
-/** PR 4：layout 默认值（pass-through 给 RiskClauseDiff 的 mode） */
-const layoutMode = computed<'stacked' | 'inline-diff'>(() => props.layout ?? 'stacked')
 
 const emit = defineEmits<{
     toggle: [riskId: string]
@@ -114,9 +104,9 @@ function handleArchive(status: RiskArchivedStatus | null) {
         @click="onCardClick"
     >
         <CardHeader class="py-2 px-3">
-            <div class="flex items-center gap-2 min-w-0">
+            <div class="flex items-center gap-2">
                 <span class="inline-block px-2 py-0.5 rounded text-xs shrink-0" :class="LEVEL_CLASS[risk.level]">{{ RISK_LEVEL_LABEL[risk.level] }}</span>
-                <span class="text-sm font-medium truncate flex-1 min-w-0">{{ risk.category }}</span>
+                <span class="text-sm font-medium truncate">{{ risk.category }}</span>
                 <Badge variant="secondary" class="text-[10px] px-1.5 py-0 shrink-0 flex items-center gap-0.5 text-amber-700 dark:text-amber-400">
                     <TriangleAlert class="size-2.5" />
                     原文已修改
@@ -127,12 +117,12 @@ function handleArchive(status: RiskArchivedStatus | null) {
         </CardHeader>
         <CardContent v-if="expanded" class="py-2 px-3 text-sm space-y-3" @click.stop>
             <!-- 原锚点提示 -->
-            <div v-if="risk.originalClauseText" class="rounded-md bg-muted p-2 text-xs text-muted-foreground space-y-1">
+            <div v-if="risk.originalAnchorQuote" class="rounded-md bg-muted p-2 text-xs text-muted-foreground space-y-1">
                 <div class="font-medium flex items-center gap-1">
                     <TriangleAlert class="size-3 text-amber-500" />
                     原锚点引文
                 </div>
-                <div class="italic line-clamp-3">{{ risk.originalClauseText }}</div>
+                <div class="italic line-clamp-3">{{ risk.originalAnchorQuote }}</div>
             </div>
 
             <div><div class="text-xs text-muted-foreground">条款分析</div><div class="whitespace-pre-wrap">{{ risk.analysis }}</div></div>
@@ -182,9 +172,9 @@ function handleArchive(status: RiskArchivedStatus | null) {
             class="absolute top-1 left-1 bg-yellow-200 dark:bg-yellow-800 text-yellow-900 dark:text-yellow-100 text-[10px] px-1.5 py-0 shrink-0"
         >刚刚</Badge>
         <CardHeader class="py-2 px-3">
-            <div class="flex items-center gap-2 min-w-0">
+            <div class="flex items-center gap-2">
                 <span class="inline-block px-2 py-0.5 rounded text-xs shrink-0" :class="LEVEL_CLASS[risk.level]">{{ RISK_LEVEL_LABEL[risk.level] }}</span>
-                <span class="text-sm font-medium truncate flex-1 min-w-0">{{ risk.category }}</span>
+                <span class="text-sm font-medium truncate">{{ risk.category }}</span>
                 <!-- 已处置徽章 -->
                 <Badge
                     v-if="archivedStatus"
@@ -196,7 +186,7 @@ function handleArchive(status: RiskArchivedStatus | null) {
                 </Badge>
                 <!-- AI 已重审徽章：经历过锚点迁移的风险条目 -->
                 <Badge
-                    v-if="risk.originalClauseText"
+                    v-if="risk.originalAnchorQuote"
                     variant="secondary"
                     class="text-[10px] px-1.5 py-0 shrink-0 flex items-center gap-0.5 bg-primary/10 text-primary"
                 >
@@ -250,15 +240,7 @@ function handleArchive(status: RiskArchivedStatus | null) {
             <div class="mt-1 text-xs text-muted-foreground line-clamp-2">{{ risk.problem }}</div>
         </CardHeader>
         <CardContent v-if="expanded" class="py-2 px-3 text-sm space-y-3" @click.stop>
-            <AssistantContractRiskClauseDiff
-                :mode="layoutMode"
-                :clause-text="risk.clauseText"
-                :suggested-clause-text="risk.suggestedClauseText"
-                :problematic-quote="risk.problematicQuote ?? null"
-                :quote-char-start="risk.quoteCharStart ?? null"
-                :quote-char-end="risk.quoteCharEnd ?? null"
-                :clause-paragraph-index="risk.clauseParagraphIndex ?? null"
-            />
+            <AssistantContractRiskClauseDiff :clause-text="risk.clauseText" :suggested-clause-text="risk.suggestedClauseText" />
             <div v-if="risk.legalBasis"><div class="text-xs text-muted-foreground">法律依据</div><div>{{ risk.legalBasis }}</div></div>
             <div><div class="text-xs text-muted-foreground">条款分析</div><div class="whitespace-pre-wrap">{{ risk.analysis }}</div></div>
             <div><div class="text-xs text-muted-foreground">法律风险</div><div class="whitespace-pre-wrap">{{ risk.risk }}</div></div>

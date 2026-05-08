@@ -284,31 +284,3 @@
   0%, 100% { translate: 0 0; }
   50% { translate: 0 -6px; }
 }
-
-/* ===== 合同审查 · quote 字符级高亮（spec § 7.6 三态矩阵 + § 7.5 1 秒衰减） =====
- * 用 CSS Custom Highlight API（baseline 2025/06）；不支持的浏览器静默退化为段落级。
- * 注册侧见 app/utils/quoteHighlight.ts 的 decorateQuoteRanges。
- * 必须放全局 CSS——Vue scoped [data-v-xxx] 让 ::highlight() 命中失效。
- * 与 RISK_LEVEL_DOCX_BG_CLASS 的 dark 变体并存：浅色态 60/85/70%；深色态降到 35/55/45%。
- */
-::highlight(quote-default) {
-    background-color: rgb(252 211 77 / 0.6);
-}
-::highlight(quote-focused) {
-    background-color: rgb(245 158 11 / 0.85);
-}
-::highlight(quote-pinned) {
-    background-color: rgb(217 119 6 / 0.7);
-}
-
-@media (prefers-color-scheme: dark) {
-    ::highlight(quote-default) {
-        background-color: rgb(252 211 77 / 0.35);
-    }
-    ::highlight(quote-focused) {
-        background-color: rgb(245 158 11 / 0.55);
-    }
-    ::highlight(quote-pinned) {
-        background-color: rgb(217 119 6 / 0.45);
-    }
-}
