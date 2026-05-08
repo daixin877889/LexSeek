@@ -24,15 +24,18 @@ const { mockInvoke } = vi.hoisted(() => ({ mockInvoke: vi.fn() }))
 vi.mock('~~/server/services/node/chatModelFactory', () => ({
     createChatModel: vi.fn(() => ({ invoke: mockInvoke })),
 }))
-vi.mock('~~/server/services/node/node.service', () => ({
-    getValidNodeConfig: vi.fn().mockResolvedValue({
+const { mockGetValidNodeConfig } = vi.hoisted(() => ({
+    mockGetValidNodeConfig: vi.fn().mockResolvedValue({
         modelApiKeys: [{ apiKey: 'sk-test', status: 1 }],
         modelSdkType: 'openai',
         modelName: 'gpt-4',
         modelProviderBaseUrl: 'https://api.openai.com/v1',
         modelContextWindow: 128000,
-        prompts: [{ type: 'system', status: 1, content: 'BASE PROMPT for {{var}}' }],
+        prompts: [{ type: 'system', status: 1, content: 'BASE PROMPT for {{var}}', displayOrder: 100 }],
     }),
+}))
+vi.mock('~~/server/services/node/node.service', () => ({
+    getValidNodeConfig: mockGetValidNodeConfig,
 }))
 // logContextOverflow 仅在 LLM invoke 抛错时调用，mock 成 noop
 vi.mock('~~/server/services/agent-platform/context/contextErrorLogger', () => ({
@@ -248,5 +251,79 @@ describe('invokeNodeJson · 不可恢复错误不触发 retry', () => {
             expect.stringContaining('触发重试'),
             expect.anything(),
         )
+    })
+})
+
+// ==================== 多 prompt 拼接（修复合同审查"23 条 LLM 未返回 JSON"根因）====================
+
+describe('invokeNodeJson · 多 system prompt 必须按 displayOrder 升序拼接喂给 buildPrompt', () => {
+    it('节点同时挂"反越狱护栏"(display=10) + "业务 prompt"(display=100)：buildPrompt 必须收到拼接后的完整 template', async () => {
+        // 模拟线上场景：DB 里 contractReviewAnalyzeClause 同时挂 2 条 system prompt
+        mockGetValidNodeConfig.mockResolvedValueOnce({
+            modelApiKeys: [{ apiKey: 'sk-test', status: 1 }],
+            modelSdkType: 'openai',
+            modelName: 'gpt-4',
+            modelProviderBaseUrl: 'https://api.openai.com/v1',
+            modelContextWindow: 128000,
+            prompts: [
+                // 注意：故意打乱顺序，验证内部按 displayOrder 升序排序
+                { type: 'system', status: 1, content: '业务 prompt：分析 {{var}}', displayOrder: 100 },
+                { type: 'system', status: 1, content: '安全护栏：禁止越权', displayOrder: 10 },
+                { type: 'user', status: 1, content: '应被忽略（type 不是 system）', displayOrder: 1 },
+                { type: 'system', status: 0, content: '应被忽略（status=0）', displayOrder: 5 },
+            ],
+        })
+        mockInvoke.mockResolvedValueOnce({ content: VALID_RESPONSE })
+
+        const buildPrompt = vi.fn((t: string) => t.replace('{{var}}', 'X'))
+        await invokeNodeJson({
+            nodeName: 'contractReviewAnalyzeClause',
+            temperature: 0,
+            schema: TestSchema,
+            buildPrompt,
+            errorPrefix: 'test',
+        })
+
+        // 修复前：只取第一个 → buildPrompt 收到 "业务 prompt：分析 {{var}}"（display=100 排前因为 .find 不排序，但 DAO 给出的顺序是 ASC 反越狱护栏在前）
+        // 修复后：必须按 displayOrder 升序拼接 → 反越狱护栏在前 + 业务 prompt 在后
+        expect(buildPrompt).toHaveBeenCalledTimes(1)
+        const passedTemplate = buildPrompt.mock.calls[0][0]
+        expect(passedTemplate).toBe('安全护栏：禁止越权\n\n业务 prompt：分析 {{var}}')
+    })
+
+    it('单条 system prompt：行为与原 .find 一致', async () => {
+        // 默认 mock 返回单条 prompt，等同于回归测试
+        mockInvoke.mockResolvedValueOnce({ content: VALID_RESPONSE })
+        const buildPrompt = vi.fn((t: string) => t.replace('{{var}}', 'X'))
+        await invokeNodeJson({
+            nodeName: 'testNode',
+            temperature: 0,
+            schema: TestSchema,
+            buildPrompt,
+            errorPrefix: 'test',
+        })
+        expect(buildPrompt.mock.calls[0][0]).toBe('BASE PROMPT for {{var}}')
+    })
+
+    it('零 system prompt：抛 "DB 未配置 system 类型的启用态提示词"', async () => {
+        mockGetValidNodeConfig.mockResolvedValueOnce({
+            modelApiKeys: [{ apiKey: 'sk-test', status: 1 }],
+            modelSdkType: 'openai',
+            modelName: 'gpt-4',
+            modelProviderBaseUrl: 'https://api.openai.com/v1',
+            modelContextWindow: 128000,
+            prompts: [
+                { type: 'user', status: 1, content: '只有 user 提示词', displayOrder: 1 },
+            ],
+        })
+        await expect(
+            invokeNodeJson({
+                nodeName: 'noSystemNode',
+                temperature: 0,
+                schema: TestSchema,
+                buildPrompt: t => t,
+                errorPrefix: 'test',
+            }),
+        ).rejects.toThrow(/未配置 system 类型的启用态提示词/)
     })
 })

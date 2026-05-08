@@ -12,6 +12,7 @@ import { generateSummaryService } from '../ai/summaryService'
 import { addDocumentsToVectorStore } from '../legal/vectorStore.service'
 import { getValidNodeConfig } from '../node/node.service'
 import { createChatModel } from '../node/chatModelFactory'
+import { assembleSystemPromptTemplate } from '../agent-platform/nodeConfig/promptRenderer'
 import { withLangfuseContext } from '~~/server/lib/langfuse'
 
 /**
@@ -293,7 +294,7 @@ async function completeAnalysisWithRAGInner(input: CompleteAnalysisWithRAGInput)
     try {
         const summaryConfig = await getValidNodeConfig('analysisSummary', '案件分析结果摘要')
         const apiKey = summaryConfig.modelApiKeys.find(k => k.status === 1)?.apiKey
-        const systemPrompt = summaryConfig.prompts.find(p => p.type === 'system' && p.status === 1)?.content
+        const systemPrompt = assembleSystemPromptTemplate(summaryConfig.prompts)
         if (apiKey && systemPrompt) {
             const summaryModel = createChatModel({
                 sdkType: summaryConfig.modelSdkType,

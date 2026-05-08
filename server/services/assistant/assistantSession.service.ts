@@ -21,6 +21,7 @@ import type {
     ListAssistantSessionsInput,
 } from './types'
 import { getValidNodeConfig } from '../node/node.service'
+import { assembleSystemPromptTemplate } from '../agent-platform/nodeConfig/promptRenderer'
 import { createChatModel } from '../node/chatModelFactory'
 import { renderContent } from '../node/prompt.service'
 import { logContextOverflow } from '../workflow/context/contextErrorLogger'
@@ -189,10 +190,8 @@ async function generateSessionTitleInner(
             streaming: false,
         })
 
-        // 5. 从 nodeConfig 取 system 提示词并渲染变量
-        const systemPromptRaw = nodeConfig.prompts.find(
-            p => p.type === 'system' && p.status === 1,
-        )?.content ?? ''
+        // 5. 从 nodeConfig 取 system 提示词（多段拼接）并渲染变量
+        const systemPromptRaw = assembleSystemPromptTemplate(nodeConfig.prompts)
         if (!systemPromptRaw.trim()) {
             logger.warn('生成标题跳过：节点缺少启用的 system 提示词', {
                 sessionId,

@@ -47,6 +47,7 @@ import { downloadFileService } from '~~/server/services/storage/storage.service'
 import { renderContent } from '~~/server/services/node/prompt.service'
 import { createChatModel } from '~~/server/services/node/chatModelFactory'
 import { getValidNodeConfig } from '~~/server/services/node/node.service'
+import { assembleSystemPromptTemplate } from '~~/server/services/agent-platform/nodeConfig/promptRenderer'
 import { DOCX_MIME } from '#shared/utils/mime'
 import pLimit from 'p-limit'
 
@@ -620,7 +621,7 @@ export async function* uploadClientVersionService(params: {
         const globalConfig = await getValidNodeConfig('contractReviewGlobalReview')
         const globalActiveKey = globalConfig.modelApiKeys.find((k) => k.status === 1)
         if (globalActiveKey) {
-            const globalTemplate = globalConfig.prompts.find((p) => p.type === 'system' && p.status === 1)?.content
+            const globalTemplate = assembleSystemPromptTemplate(globalConfig.prompts)
             if (globalTemplate) {
                 const globalModel = createChatModel({
                     sdkType: globalConfig.modelSdkType,

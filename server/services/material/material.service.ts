@@ -26,6 +26,7 @@ import { MaterialStatus } from '#shared/types/material'
 import { CaseMaterialType } from '#shared/types/case'
 import { createChatModel } from '../node/chatModelFactory'
 import { getValidNodeConfig } from '../node/node.service'
+import { assembleSystemPromptTemplate } from '../agent-platform/nodeConfig/promptRenderer'
 import { generateSummaryService } from '../ai/summaryService'
 import { findDocRecognitionByOssFileIdDao, updateDocRecognitionRecordDao } from './mineru.dao'
 import { findImageRecognitionByOssFileIdDao, updateImageRecognitionRecordDao } from './ocr.dao'
@@ -702,7 +703,7 @@ async function callSummaryLlm(
         logger.warn('materialAutoSummary 节点无可用 API Key', identifier)
         return null
     }
-    const systemPrompt = config.prompts.find(p => p.type === 'system' && p.status === 1)?.content
+    const systemPrompt = assembleSystemPromptTemplate(config.prompts)
     if (!systemPrompt) {
         logger.warn('materialAutoSummary 节点无 system prompt', identifier)
         return null
