@@ -329,6 +329,8 @@ describe('POST /api/v1/storage/presigned-url', () => {
             },
         }) as any)
         expectSuccess(res, d => expect(d).toHaveLength(2))
+        expect((res as any).data?.[0]?.ossFileId).toBeTypeOf('number')
+        expect((res as any).data?.[0]?.ossFileId).toBeGreaterThan(0)
     })
 
     it('配额不足 → 400', async () => {
