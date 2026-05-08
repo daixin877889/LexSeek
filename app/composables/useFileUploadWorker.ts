@@ -99,7 +99,7 @@ export const useFileUploadWorker = () => {
 
         case 'success': {
           const data = response.data || {}
-          const callbackOk = (data as any)?.success !== false
+          const callbackOk = data?.success !== false
 
           if (callbackOk) {
             task.callbacks.onSuccess?.(data)

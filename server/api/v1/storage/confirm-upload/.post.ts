@@ -4,7 +4,7 @@
  * 当 OSS 直传成功但 LexSeek callback 处理失败时，前端调用本接口由后端 head OSS
  * 直接核对实际状态。详见 docs/superpowers/specs/2026-05-08-oss-callback-fallback-design.md
  */
-import { z } from 'zod'
+import { z } from '#shared/utils/zod'
 import { createLogger } from '#shared/utils/logger'
 import { verifyAndFixOssFileService } from '~~/server/services/files/ossFileVerify.service'
 

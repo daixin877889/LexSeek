@@ -8,7 +8,6 @@ import { OssFileStatus } from '#shared/types/file'
 import { createLogger } from '#shared/utils/logger'
 import { StorageProviderType } from '~~/server/lib/storage/types'
 import { getStorageAdapterService } from '~~/server/services/storage/storage.service'
-import { prisma } from '~~/server/utils/db'
 import {
     findOssFileByIdDao,
     markOssFileUploadedByVerifyDao,
@@ -67,11 +66,8 @@ export async function verifyAndFixOssFileService(
     })
 
     if (updated === 0) {
-        // 并发：被回调或其他兜底先改了；fresh-read 判断
-        const fresh = await prisma.ossFiles.findFirst({
-            where: { id: fileId },
-            select: { status: true },
-        })
+        // 并发：被回调或其他兜底先改了；fresh-read 判断（复用 DAO 自带 deletedAt:null 过滤）
+        const fresh = await findOssFileByIdDao(fileId)
         if (fresh && fresh.status === OssFileStatus.UPLOADED) {
             return { ok: true, status: 'uploaded' }
         }
