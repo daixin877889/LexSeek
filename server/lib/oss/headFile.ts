@@ -10,6 +10,8 @@ import type { OssConfig } from '~~/shared/types/oss'
 import { createOssClient } from './client'
 import { createLogger } from '#shared/utils/logger'
 
+const log = createLogger('oss:head')
+
 /**
  * head 操作结果（对象元数据） — 单一定义源
  */
@@ -32,7 +34,6 @@ export async function headFile(
     config: OssConfig,
     objectKey: string
 ): Promise<HeadObjectResult | null> {
-    const log = createLogger('oss:head')
     const { client } = await createOssClient(config)
 
     try {
@@ -43,7 +44,9 @@ export async function headFile(
             size: Number(headers['content-length'] ?? 0),
             etag: String(headers.etag ?? '').replace(/"/g, ''),
             contentType: String(headers['content-type'] ?? ''),
-            lastModified: new Date(String(headers['last-modified'] ?? Date.now())),
+            lastModified: headers['last-modified']
+                ? new Date(headers['last-modified'])
+                : new Date(),
         }
     } catch (error: unknown) {
         const e = error as { code?: string; status?: number }

@@ -47,6 +47,7 @@ describe('headFile (server/lib/oss)', () => {
         expect(result!.etag).toBe('abc123')
         expect(result!.contentType).toBe('application/pdf')
         expect(result!.lastModified).toBeInstanceOf(Date)
+        expect(result!.lastModified.getTime()).not.toBeNaN()
     })
 
     it('NoSuchKey 返回 null（不抛错）', async () => {
