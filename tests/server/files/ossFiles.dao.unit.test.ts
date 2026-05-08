@@ -6,7 +6,7 @@
  * **Feature: oss-files-dao-coverage**
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll, afterEach } from 'vitest'
 
 // Mock Nuxt 自动导入的全局变量
 vi.stubGlobal('logger', {
@@ -62,7 +62,16 @@ import {
     ossUsageDao,
     updateOssFileDao,
     findOssFilesByUserIdDao,
+    markOssFileUploadedByVerifyDao,
 } from '~~/server/services/files/ossFiles.dao'
+import { OssFileStatus } from '#shared/types/file'
+import {
+    getTestPrisma,
+    createTestUser,
+    createTestOssFile,
+    cleanupTestData,
+    createEmptyTestIds,
+} from './test-db-helper'
 
 describe('OSS 文件 DAO 单元测试', () => {
     beforeEach(() => {
@@ -361,5 +370,81 @@ describe('OSS 文件 DAO 单元测试', () => {
                 findOssFilesByUserIdDao(1, { page: 1, pageSize: 10 })
             ).rejects.toThrow('查询失败')
         })
+    })
+})
+
+// ──────────────────────────────────────────────────────────────────────────────
+// 集成测试：markOssFileUploadedByVerifyDao（使用真实 worker DB）
+// ──────────────────────────────────────────────────────────────────────────────
+describe('markOssFileUploadedByVerifyDao', () => {
+    const testIds = createEmptyTestIds()
+    let userId: number
+
+    beforeAll(async () => {
+        // 将全局 prisma 还原为真实的 worker DB，覆盖上方 mock-only 测试的 stub
+        vi.stubGlobal('prisma', getTestPrisma())
+        const user = await createTestUser()
+        userId = user.id
+        testIds.userIds.push(user.id)
+    })
+
+    afterEach(async () => {
+        if (testIds.ossFileIds.length) {
+            await getTestPrisma().ossFiles.deleteMany({
+                where: { id: { in: testIds.ossFileIds } },
+            })
+            testIds.ossFileIds = []
+        }
+    })
+
+    afterAll(async () => {
+        await cleanupTestData(testIds)
+    })
+
+    async function makeRow(status: number, deletedAt: Date | null = null) {
+        const file = await createTestOssFile(userId, { status })
+        testIds.ossFileIds.push(file.id)
+        if (deletedAt) {
+            await getTestPrisma().ossFiles.update({
+                where: { id: file.id },
+                data: { deletedAt },
+            })
+        }
+        return file
+    }
+
+    it('PENDING 时改成 UPLOADED 且 count=1', async () => {
+        const row = await makeRow(OssFileStatus.PENDING)
+        const count = await markOssFileUploadedByVerifyDao(row.id)
+        expect(count).toBe(1)
+        const fresh = await getTestPrisma().ossFiles.findUnique({ where: { id: row.id } })
+        expect(fresh!.status).toBe(OssFileStatus.UPLOADED)
+    })
+
+    it('已 UPLOADED 不改 且 count=0', async () => {
+        const row = await makeRow(OssFileStatus.UPLOADED)
+        const count = await markOssFileUploadedByVerifyDao(row.id)
+        expect(count).toBe(0)
+    })
+
+    it('FAILED 不改 且 count=0', async () => {
+        const row = await makeRow(OssFileStatus.FAILED)
+        const count = await markOssFileUploadedByVerifyDao(row.id)
+        expect(count).toBe(0)
+    })
+
+    it('deletedAt 非 null 不改 且 count=0', async () => {
+        const row = await makeRow(OssFileStatus.PENDING, new Date())
+        const count = await markOssFileUploadedByVerifyDao(row.id)
+        expect(count).toBe(0)
+    })
+
+    it('并发两次：只有一次 count=1', async () => {
+        const row = await makeRow(OssFileStatus.PENDING)
+        const [a, b] = await Promise.all([
+            markOssFileUploadedByVerifyDao(row.id),
+            markOssFileUploadedByVerifyDao(row.id),
+        ])
+        expect(a + b).toBe(1)
     })
 })
