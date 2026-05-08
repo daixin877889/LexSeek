@@ -33,9 +33,11 @@ import {
     uploadFile as ossUploadFile,
     downloadFile as ossDownloadFile,
     downloadFileStream as ossDownloadFileStream,
-    deleteFile as ossDeleteFile
+    deleteFile as ossDeleteFile,
+    headFile as ossHeadFile
 } from '~~/server/lib/oss'
 import type { OssConfig } from '~~/shared/types/oss'
+import type { HeadObjectResult } from '../types'
 
 /**
  * 阿里云 OSS 存储适配器
@@ -233,6 +235,19 @@ export class AliyunOssAdapter extends BaseStorageAdapter {
                 throw new StorageNotFoundError(path, error instanceof Error ? error : undefined)
             }
             throw convertAliyunError(error, this.wrapDownloadError(error).constructor as any)
+        }
+    }
+
+    /**
+     * 查询对象元数据
+     */
+    async head(path: string): Promise<HeadObjectResult | null> {
+        try {
+            return await ossHeadFile(this.toOssConfig(), path)
+        } catch (error) {
+            // 底层 headFile 内部已把 NoSuchKey 转 null，此处兜底对齐其他方法的错误识别风格
+            if (this.isNotFoundError(error)) return null
+            throw error
         }
     }
 
