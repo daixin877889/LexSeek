@@ -42,6 +42,8 @@ export const MIDDLEWARE_PRIORITY = {
     SAFETY_TRIM: 50,
     /** Skills 发现和加载（wrapModelCall 注入 prompt） */
     SKILLS_DISCOVERY: 60,
+    /** 用户每轮注入（user_injection 类型 prompt → wrapModelCall 临时插入 HumanMessage） */
+    USER_INJECTION: 70,
     /** 待办列表中间件 */
     TODO_LIST: 80,
     /** 分析结果持久化（必须最后执行） */
@@ -61,6 +63,7 @@ export const MIDDLEWARE_NAMES = {
     SUMMARIZATION: 'summarization',
     SAFETY_TRIM: 'safetyTrim',
     SKILLS_DISCOVERY: 'skillsDiscovery',
+    USER_INJECTION: 'userInjection',
     TODO_LIST: 'todoList',
     RESULT_PERSISTENCE: 'analysisResultPersistence',
     /** 合同审查结果持久化（与 RESULT_PERSISTENCE 语义对等，独立 agent 使用） */

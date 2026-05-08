@@ -7,6 +7,9 @@
  * - 通过替换全局 prisma 为 Proxy 注入故障，命中每个 DAO 的 catch 分支
  * - 同时覆盖正常路径的 tx 参数透传
  *
+ * Phase 6 改造：prompts.nodeId 字段已删，节点维度查询通过 node_prompts 表 join；
+ * 版本/激活/停用按 (name, type) 维度判定。
+ *
  * **Feature: node-management**
  * **Validates: Requirements 14.9, 14.10, 14.11, 14.12, 14.13, 14.14**
  */
@@ -98,6 +101,20 @@ const createTestNode = async (modelId: number) => {
     return node
 }
 
+/**
+ * 把 prompt 关联到 node（多对多）。
+ * 阶段 F 改造后，关联键改为业务身份 (name, type)。
+ */
+const linkPromptToNode = async (
+    nodeId: number,
+    prompt: { name: string; type: string },
+    displayOrder = 100,
+) => {
+    await testPrisma.node_prompts.create({
+        data: { nodeId, promptName: prompt.name, promptType: prompt.type, displayOrder },
+    })
+}
+
 const withFaultInjection = async (
     run: () => Promise<void>,
     faultMessage = 'injected-fault'
@@ -125,15 +142,18 @@ describe('提示词 DAO 覆盖率补齐（gap）', () => {
 
     afterAll(async () => {
         try {
+            // 阶段 F 改造：node_prompts 不再绑定 promptId，按 nodeId 清理
+            if (testIds.nodeIds.length > 0) {
+                await testPrisma.node_prompts.deleteMany({
+                    where: { nodeId: { in: testIds.nodeIds } },
+                })
+            }
             if (testIds.promptIds.length > 0) {
                 await testPrisma.prompts.deleteMany({
                     where: { id: { in: testIds.promptIds } },
                 })
             }
             if (testIds.nodeIds.length > 0) {
-                await testPrisma.prompts.deleteMany({
-                    where: { nodeId: { in: testIds.nodeIds } },
-                })
                 await testPrisma.nodes.deleteMany({
                     where: { id: { in: testIds.nodeIds } },
                 })
@@ -167,7 +187,7 @@ describe('提示词 DAO 覆盖率补齐（gap）', () => {
                             title: 't',
                             content: 'c',
                             type: 'system',
-                            nodeId: 1,
+                            nodeId: 0,
                         },
                         '1.0.0'
                     )
@@ -210,7 +230,7 @@ describe('提示词 DAO 覆盖率补齐（gap）', () => {
         it('findPromptVersionsDao 异常应抛出', async () => {
             await withFaultInjection(async () => {
                 await expect(
-                    findPromptVersionsDao(1, 'x', 'system')
+                    findPromptVersionsDao('x', 'system')
                 ).rejects.toThrow('injected-fault')
             })
         })
@@ -218,7 +238,7 @@ describe('提示词 DAO 覆盖率补齐（gap）', () => {
         it('getLatestVersionDao 异常应抛出', async () => {
             await withFaultInjection(async () => {
                 await expect(
-                    getLatestVersionDao(1, 'x', 'system')
+                    getLatestVersionDao('x', 'system')
                 ).rejects.toThrow('injected-fault')
             })
         })
@@ -242,7 +262,7 @@ describe('提示词 DAO 覆盖率补齐（gap）', () => {
         it('deactivatePromptsByTypeDao 异常应抛出', async () => {
             await withFaultInjection(async () => {
                 await expect(
-                    deactivatePromptsByTypeDao(1, 'system')
+                    deactivatePromptsByTypeDao('x', 'system')
                 ).rejects.toThrow('injected-fault')
             })
         })
@@ -258,9 +278,6 @@ describe('提示词 DAO 覆盖率补齐（gap）', () => {
 
     describe('正常路径 - tx 事务参数透传 & 边界', () => {
         it('createPromptDao 使用 tx 参数创建提示词', async () => {
-            const model = await createTestModel()
-            const node = await createTestNode(model.id)
-
             const prompt = await testPrisma.$transaction(async (tx) => {
                 return createPromptDao(
                     {
@@ -268,7 +285,7 @@ describe('提示词 DAO 覆盖率补齐（gap）', () => {
                         title: '事务提示词',
                         content: '内容',
                         type: 'system',
-                        nodeId: node.id,
+                        nodeId: 0,
                     },
                     '1.0.0',
                     tx as any
@@ -280,15 +297,13 @@ describe('提示词 DAO 覆盖率补齐（gap）', () => {
         })
 
         it('findPromptByIdDao 使用 tx 参数查询', async () => {
-            const model = await createTestModel()
-            const node = await createTestNode(model.id)
             const prompt = await createPromptDao(
                 {
                     name: `prompt_${generateTestId()}`,
                     title: 't',
                     content: 'c',
                     type: 'system',
-                    nodeId: node.id,
+                    nodeId: 0,
                 },
                 '1.0.0'
             )
@@ -308,11 +323,12 @@ describe('提示词 DAO 覆盖率补齐（gap）', () => {
                     title: `独特提示词_${generateTestId()}`,
                     content: 'c',
                     type: 'user',
-                    nodeId: node.id,
+                    nodeId: 0,
                 },
                 '1.0.0'
             )
             testIds.promptIds.push(p.id)
+            await linkPromptToNode(node.id, p)
             await updatePromptStatusDao(p.id, 1)
 
             const result = await testPrisma.$transaction(async (tx) => {
@@ -342,11 +358,13 @@ describe('提示词 DAO 覆盖率补齐（gap）', () => {
                     title: 't',
                     content: 'c',
                     type: 'system',
-                    nodeId: node.id,
+                    nodeId: 0,
                 },
                 '1.0.0'
             )
             testIds.promptIds.push(p.id)
+            await linkPromptToNode(node.id, p)
+
             const prompts = await testPrisma.$transaction(async (tx) => {
                 return findPromptsByNodeIdDao(node.id, tx as any)
             })
@@ -362,11 +380,12 @@ describe('提示词 DAO 覆盖率补齐（gap）', () => {
                     title: 't',
                     content: 'c',
                     type: 'system',
-                    nodeId: node.id,
+                    nodeId: 0,
                 },
                 '1.0.0'
             )
             testIds.promptIds.push(p.id)
+            await linkPromptToNode(node.id, p)
             await updatePromptStatusDao(p.id, 1)
 
             const found = await testPrisma.$transaction(async (tx) => {
@@ -376,8 +395,6 @@ describe('提示词 DAO 覆盖率补齐（gap）', () => {
         })
 
         it('findPromptVersionsDao 使用 tx 参数', async () => {
-            const model = await createTestModel()
-            const node = await createTestNode(model.id)
             const name = `prompt_${generateTestId()}`
             const p1 = await createPromptDao(
                 {
@@ -385,7 +402,7 @@ describe('提示词 DAO 覆盖率补齐（gap）', () => {
                     title: 't1',
                     content: 'c1',
                     type: 'system',
-                    nodeId: node.id,
+                    nodeId: 0,
                 },
                 '1.0.0'
             )
@@ -395,21 +412,20 @@ describe('提示词 DAO 覆盖率补齐（gap）', () => {
                     title: 't2',
                     content: 'c2',
                     type: 'system',
-                    nodeId: node.id,
+                    nodeId: 0,
                 },
                 '2.0.0'
             )
             testIds.promptIds.push(p1.id, p2.id)
 
             const versions = await testPrisma.$transaction(async (tx) => {
-                return findPromptVersionsDao(node.id, name, 'system', tx as any)
+                return findPromptVersionsDao(name, 'system', tx as any)
             })
             expect(versions.length).toBe(2)
         })
 
         it('getLatestVersionDao 无记录时返回 null（空记录路径）', async () => {
             const version = await getLatestVersionDao(
-                999_999_123,
                 `nonexistent_${generateTestId()}`,
                 'system'
             )
@@ -417,8 +433,6 @@ describe('提示词 DAO 覆盖率补齐（gap）', () => {
         })
 
         it('getLatestVersionDao 使用 tx 参数返回最新版本', async () => {
-            const model = await createTestModel()
-            const node = await createTestNode(model.id)
             const name = `prompt_${generateTestId()}`
             const p1 = await createPromptDao(
                 {
@@ -426,7 +440,7 @@ describe('提示词 DAO 覆盖率补齐（gap）', () => {
                     title: 't1',
                     content: 'c1',
                     type: 'system',
-                    nodeId: node.id,
+                    nodeId: 0,
                 },
                 '1.0.0'
             )
@@ -436,28 +450,26 @@ describe('提示词 DAO 覆盖率补齐（gap）', () => {
                     title: 't2',
                     content: 'c2',
                     type: 'system',
-                    nodeId: node.id,
+                    nodeId: 0,
                 },
                 '2.0.0'
             )
             testIds.promptIds.push(p1.id, p2.id)
 
             const version = await testPrisma.$transaction(async (tx) => {
-                return getLatestVersionDao(node.id, name, 'system', tx as any)
+                return getLatestVersionDao(name, 'system', tx as any)
             })
             expect(version).toBe('2.0.0')
         })
 
         it('updatePromptDao 使用 tx 参数并只传 content/variables', async () => {
-            const model = await createTestModel()
-            const node = await createTestNode(model.id)
             const prompt = await createPromptDao(
                 {
                     name: `prompt_${generateTestId()}`,
                     title: 't',
                     content: 'old',
                     type: 'system',
-                    nodeId: node.id,
+                    nodeId: 0,
                 },
                 '1.0.0'
             )
@@ -475,15 +487,13 @@ describe('提示词 DAO 覆盖率补齐（gap）', () => {
         })
 
         it('updatePromptStatusDao 使用 tx 参数', async () => {
-            const model = await createTestModel()
-            const node = await createTestNode(model.id)
             const prompt = await createPromptDao(
                 {
                     name: `prompt_${generateTestId()}`,
                     title: 't',
                     content: 'c',
                     type: 'system',
-                    nodeId: node.id,
+                    nodeId: 0,
                 },
                 '1.0.0'
             )
@@ -494,38 +504,35 @@ describe('提示词 DAO 覆盖率补齐（gap）', () => {
             expect(updated.status).toBe(1)
         })
 
-        it('deactivatePromptsByTypeDao 使用 tx 参数', async () => {
-            const model = await createTestModel()
-            const node = await createTestNode(model.id)
+        it('deactivatePromptsByTypeDao 使用 tx 参数（按 name+type 范围）', async () => {
+            const sharedName = `prompt_${generateTestId()}`
             const p1 = await createPromptDao(
                 {
-                    name: `prompt_${generateTestId()}`,
+                    name: sharedName,
                     title: 't',
                     content: 'c',
                     type: 'system',
-                    nodeId: node.id,
+                    nodeId: 0,
                 },
                 '1.0.0'
             )
             testIds.promptIds.push(p1.id)
             await updatePromptStatusDao(p1.id, 1)
             await testPrisma.$transaction(async (tx) => {
-                await deactivatePromptsByTypeDao(node.id, 'system', tx as any)
+                await deactivatePromptsByTypeDao(sharedName, 'system', tx as any)
             })
-            const active = await findActivePromptDao(node.id, 'system')
-            expect(active).toBeNull()
+            const after = await findPromptByIdDao(p1.id)
+            expect(after?.status).toBe(0)
         })
 
         it('softDeletePromptDao 使用 tx 参数', async () => {
-            const model = await createTestModel()
-            const node = await createTestNode(model.id)
             const prompt = await createPromptDao(
                 {
                     name: `prompt_${generateTestId()}`,
                     title: 't',
                     content: 'c',
                     type: 'system',
-                    nodeId: node.id,
+                    nodeId: 0,
                 },
                 '1.0.0'
             )

@@ -53,7 +53,6 @@ vi.mock('~~/server/utils/chat-branch-utils', () => ({
         command: b?.command,
         thinking: b?.input?.thinking,
     })),
-    RESUME_COMMANDS: { ACCEPT: 'accept' },
     MAX_RESUME_COUNT: 5,
 }))
 vi.mock('~~/server/services/node/node.service', () => ({

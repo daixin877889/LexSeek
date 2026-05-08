@@ -40,6 +40,7 @@ import {
     createScopeGuardMiddleware,
     createAuditMiddleware,
     createToolCallLimitMiddlewares,
+    userInjectionMiddleware,
 } from '~~/server/services/agent-platform/middleware/index'
 
 import { createTool as createReadSkillFileTool } from '~~/server/services/agent-platform/tools/readSkillFile.tool'
@@ -188,6 +189,17 @@ async function runAnalysisSubAgentInner(
             }),
             priority: MIDDLEWARE_PRIORITY.SAFETY_TRIM,
             name: MIDDLEWARE_NAMES.SAFETY_TRIM,
+        },
+        // 用户每轮注入（反越狱护栏 / 隐藏注入）：节点配置中 type=user_injection && status=1
+        // 的提示词，每轮 LLM 调用前作为隐藏 HumanMessage 插入到最新 HumanMessage 之前；
+        // 不写回 state.messages、不进 checkpoint。节点无该类提示词时 middleware 内部 short-circuit。
+        {
+            middleware: userInjectionMiddleware({
+                prompts: nodeConfig.prompts,
+                context: { caseId, moduleName: agentName },
+            }),
+            priority: MIDDLEWARE_PRIORITY.USER_INJECTION,
+            name: MIDDLEWARE_NAMES.USER_INJECTION,
         },
         {
             middleware: createAuditMiddleware(),

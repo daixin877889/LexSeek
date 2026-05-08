@@ -109,7 +109,7 @@ export async function getThreadValuesService(
 }
 
 /**
- * 读取当前 head checkpoint 的 pending __interrupt__ writes。
+ * 读取当前 head checkpoint 的 pending __interrupt__ writes（不读 DB，纯函数）。
  *
  * 不依赖 graph.getState().tasks（旧实现）—— 那条路径用 dummy createAgent
  * + getState() 还原 tasks，但 LangGraph 的 _prepareSingleTask 算法依赖 graph
@@ -125,7 +125,7 @@ export async function getThreadValuesService(
  *
  * 出错或无 interrupt 时返回空数组（不阻塞页面加载）。
  */
-function extractPendingInterrupts(pendingWrites: unknown): unknown[] {
+export function extractPendingInterrupts(pendingWrites: unknown): unknown[] {
     if (!Array.isArray(pendingWrites) || pendingWrites.length === 0) return []
     // pendingWrites: Array<[task_id, channel, value]>
     // LangGraph constants.INTERRUPT === '__interrupt__'，RESUME === '__resume__'
@@ -153,6 +153,32 @@ function extractPendingInterrupts(pendingWrites: unknown): unknown[] {
         }
     }
     return interrupts
+}
+
+/**
+ * 读取指定 thread 的 pending __interrupt__ 列表。
+ *
+ * agentWorker 在 stream 跑完后用本函数判定是否进入 INTERRUPTED 状态。
+ * 不能复用 caseMainAgent.getChatThreadState ↔ tasks.interrupts 路径——
+ * 那条路径下 dummy createAgent 与真实 caseMain 拓扑不一致，识别不出 task，
+ * tasks.interrupts 几乎总是空 → run 错标 COMPLETED → 刷新页面后 SSE 把
+ * pendingWrites 中残留的 __interrupt__ 当 stale 剥掉，模板卡片永久 loading。
+ *
+ * 与 getThreadValuesService 共用 extractPendingInterrupts 纯函数，保持两端
+ * 对 __interrupt__ / __resume__ 的解析口径一致（同一 task 已 resume 的不返回）。
+ *
+ * 返回值：每项是 LangGraph Interrupt 对象 `{ id, value }`，顶层数组顺序与
+ * pendingWrites 一致；空数组表示当前没有暂停态等待用户输入。
+ */
+export async function getPendingInterruptsService(
+    threadId: string,
+): Promise<unknown[]> {
+    const checkpointer = await getCheckpointer()
+    const tuple = await checkpointer.getTuple({
+        configurable: { thread_id: threadId },
+    })
+    if (!tuple) return []
+    return extractPendingInterrupts(tuple.pendingWrites)
 }
 
 /** 子代理 thread 消息记录 */

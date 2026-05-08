@@ -32,9 +32,25 @@ export const caseProcessMaterialMiddleware = (
                     ? createCustomEventEmitter({ runId, sessionId })
                     : null
 
+                // 首次调用全 ready 时整轮抑制 emit。典型场景：用户在已分析过的案件
+                // 二次触发分析、刷新页面重连、模块对话再开等——所有材料 summary/识别/嵌入
+                // 早就在数据库里，中间件本就秒级放行，卡片瞬间显示"已完成"是纯噪音。
+                // 抑制后 phase=start/progress/end 一条都不发，前端不会合成卡片。
+                let suppressed = false
+
                 const onProgress = async (snapshot: MaterialReadinessSnapshot[]) => {
                     lastSnapshot = snapshot  // 累积，end 阶段直接用
                     if (!emit) return  // 无 runId 不推送（兼容旧调用方）
+
+                    if (!started && !suppressed) {
+                        // failed 仍要发卡片让用户看到失败提示，仅"全 ready"才抑制
+                        if (snapshot.length > 0 && snapshot.every(s => s.status === 'ready')) {
+                            suppressed = true
+                            return
+                        }
+                    }
+                    if (suppressed) return
+
                     const items: PrepareMaterialItem[] = snapshot.map(s => ({
                         id: s.materialId,
                         name: s.name,

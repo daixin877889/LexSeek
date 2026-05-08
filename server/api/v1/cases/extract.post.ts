@@ -18,6 +18,7 @@
 import type { H3Event } from 'h3'
 import { z } from 'zod'
 import { getValidNodeConfig } from '~~/server/services/node/node.service'
+import { renderSystemPrompt } from '~~/server/services/agent-platform/nodeConfig/promptRenderer'
 import { createChatModel } from '~~/server/services/node/chatModelFactory'
 import { generateSummaryService } from '~~/server/services/ai/summaryService'
 import { HumanMessage, SystemMessage } from '@langchain/core/messages'
@@ -84,10 +85,9 @@ async function extractHandler(event: H3Event) {
         ? Math.floor(nodeConfig.modelContextWindow * 0.7)
         : 32000
 
-    const systemPromptConfig = nodeConfig.prompts?.find(
-        (p: { type: string; status: number }) => p.type === 'system' && p.status === 1,
-    )
-    const systemPrompt = systemPromptConfig?.content ?? ''
+    // 装配多段 system 提示词：按 displayOrder 升序拼接所有启用的 system prompt
+    // （阶段 B-2 装配链统一入口，避免与 promptRenderer 重复实现）
+    const systemPrompt = renderSystemPrompt(nodeConfig)
 
     // 案件类型 + 文件识别独立无依赖，并发执行
     const ossFileIds = materials?.length ? materials.map(m => m.ossFileId) : []
@@ -223,7 +223,8 @@ async function loadSummarizerContext(): Promise<SummarizerContext | null> {
     try {
         const config = await getValidNodeConfig('material_summarizer', '材料摘要')
         const apiKey = config.modelApiKeys.find(k => k.status === 1)?.apiKey
-        const systemPrompt = config.prompts.find(p => p.type === 'system' && p.status === 1)?.content
+        // 装配多段 system 提示词（同主路径），保持与 promptRenderer 行为一致
+        const systemPrompt = renderSystemPrompt(config)
         if (!apiKey || !systemPrompt) return null
         const model = createChatModel({
             sdkType: config.modelSdkType,

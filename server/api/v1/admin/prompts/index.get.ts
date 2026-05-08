@@ -42,8 +42,18 @@ export default defineEventHandler(async (event) => {
             orderBy,
             orderDir,
         })
+
+        // ★ Phase 4：将 _count.nodePrompts 暴露为 referencedByCount，隐藏内部 _count
+        const items = data.list.map((p: any) => {
+            const { _count, ...rest } = p
+            return {
+                ...rest,
+                referencedByCount: _count?.nodePrompts ?? 0,
+            }
+        })
+
         return resSuccess(event, '获取提示词列表成功', {
-            items: data.list,
+            items,
             total: data.total,
             totalPages: Math.ceil(data.total / pageSize),
         })

@@ -94,6 +94,7 @@ export const ModelName = {
   nodes: 'nodes',
   prompts: 'prompts',
   levelNodeAccess: 'levelNodeAccess',
+  node_prompts: 'node_prompts',
   orders: 'orders',
   paymentTransactions: 'paymentTransactions',
   membershipUpgradeRecords: 'membershipUpgradeRecords',
@@ -869,7 +870,6 @@ export const PromptsScalarFieldEnum = {
   version: 'version',
   type: 'type',
   status: 'status',
-  nodeId: 'nodeId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'
@@ -888,6 +888,19 @@ export const LevelNodeAccessScalarFieldEnum = {
 } as const
 
 export type LevelNodeAccessScalarFieldEnum = (typeof LevelNodeAccessScalarFieldEnum)[keyof typeof LevelNodeAccessScalarFieldEnum]
+
+
+export const Node_promptsScalarFieldEnum = {
+  id: 'id',
+  nodeId: 'nodeId',
+  promptName: 'promptName',
+  promptType: 'promptType',
+  displayOrder: 'displayOrder',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type Node_promptsScalarFieldEnum = (typeof Node_promptsScalarFieldEnum)[keyof typeof Node_promptsScalarFieldEnum]
 
 
 export const OrdersScalarFieldEnum = {

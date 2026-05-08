@@ -25,8 +25,6 @@ import {
   shouldRejectResume,
   getResumeCount,
   extractChatParams,
-  RESUME_COMMANDS,
-  MAX_RESUME_COUNT,
 } from '~~/server/utils/chat-branch-utils'
 
 /** 提示词防火墙黑名单 */

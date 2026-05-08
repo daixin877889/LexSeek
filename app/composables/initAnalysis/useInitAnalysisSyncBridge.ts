@@ -9,7 +9,6 @@ export interface SyncBridgeDeps {
   syncSummary: ComputedRef<SyncSummary>
   isLoading: Ref<boolean>
   refreshGlobalStatus: (status: InitAnalysisStatusResponse) => void
-  refreshGlobalResult: (result: Record<string, string>) => void
   onExternalGenerating: (modules: string[]) => void
 }
 
@@ -20,7 +19,6 @@ export function useInitAnalysisSyncBridge(deps: SyncBridgeDeps) {
     syncSummary,
     isLoading,
     refreshGlobalStatus,
-    refreshGlobalResult,
     onExternalGenerating,
   } = deps
 
@@ -52,11 +50,14 @@ export function useInitAnalysisSyncBridge(deps: SyncBridgeDeps) {
     maybeBroadcast()
   })
 
-  watch(() => isLoading.value, (loading, wasLoading) => {
-    if (wasLoading && !loading && caseId.value > 0) {
-      lastBroadcastSignature = ''
-      postCrossTabEvent('analysis:updated', { caseId: caseId.value })
-    }
+  // isLoading 任意方向变化都立即广播 analysis:updated：
+  // - false → true（startAnalysis / retryModule / resumeWorkflow / 重连）：让其他 tab 立刻进入"分析中"状态，
+  //   不必等 stream 第一帧到达 syncSummary 变化才广播
+  // - true → false（分析结束 / 失败）：让其他 tab 立刻拉最新 status
+  watch(() => isLoading.value, () => {
+    if (caseId.value <= 0) return
+    lastBroadcastSignature = ''
+    postCrossTabEvent('analysis:updated', { caseId: caseId.value })
   })
 
   useCrossTabListener('module:generating', (data) => {
@@ -75,7 +76,6 @@ export function useInitAnalysisSyncBridge(deps: SyncBridgeDeps) {
       )
       if (status && seq === crossTabFetchSeq) {
         refreshGlobalStatus(status)
-        refreshGlobalResult(status.result ?? {})
       }
     }
   })

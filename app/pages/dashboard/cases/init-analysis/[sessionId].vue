@@ -6,6 +6,7 @@
     :loading="isLoading && phase !== 'complete'"
     :show-prompt="false"
     :show-task-queue="false"
+    :extra-tool-calls="syntheticToolCalls"
     class="h-full" style="height: calc(100vh - 48px)"
     @back="goBack"
   >
@@ -193,7 +194,6 @@ import CaseAnalysisDocPreviewDialog from '~/components/caseAnalysis/DocPreviewDi
 import CaseDetailOverview from '~/components/caseDetail/CaseDetailOverview.vue'
 import InitAnalysisModuleSelector from '~/components/initAnalysis/ModuleSelector.vue'
 import InitAnalysisPipelineProgress from '~/components/initAnalysis/PipelineProgress.vue'
-import type { InitAnalysisStatusResponse } from '#shared/types/initAnalysis'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useInitAnalysisRuntime } from '~/composables/initAnalysis/useInitAnalysisRuntime'
 import { useInitAnalysisProjection } from '~/composables/initAnalysis/useInitAnalysisProjection'
@@ -263,17 +263,18 @@ const panelMode = ref<'left' | 'right' | 'both'>('left')
 // 直接在页面组装 runtime + projection + bridge（旧 useInitAnalysis 已删）
 const runtime = useInitAnalysisRuntime(sessionId)
 
-// projection 依赖：DB 结果 / status modules / 跨标签生成中模块
-const resultFromDB = ref<Record<string, string>>({})
-const statusModules = ref<InitAnalysisStatusResponse['modules']>([])
+// 跨标签页正在生成中的模块（仅本页面级状态）
 const externalGenerating = ref<string[]>([])
 
+// projection 的 statusModules / resultFromDB 直接复用 runtime 暴露的 ref
+// 旧实现把这两个 ref 留在页面里，但 runtime.loadStatus 不会回填它们 →
+// 首次进入页面时 projection 看不到 DB 已 complete 的模块，错显"未生成"。
 const projection = useInitAnalysisProjection({
   moduleStates: runtime.moduleStates,
   values: runtime.values,
   streamMessages: runtime.stream.messages,
-  statusModules,
-  resultFromDB,
+  statusModules: runtime.statusModules,
+  resultFromDB: runtime.resultFromDB,
   externalGenerating,
 })
 
@@ -284,10 +285,6 @@ const syncBridge = useInitAnalysisSyncBridge({
   isLoading: runtime.isLoading,
   refreshGlobalStatus(status) {
     runtime.refreshGlobalStatus(status)
-    statusModules.value = status.modules ?? []
-  },
-  refreshGlobalResult(result) {
-    resultFromDB.value = result
   },
   onExternalGenerating(modules) {
     externalGenerating.value = modules
@@ -324,6 +321,11 @@ const runError = runtime.runError
 const interruptData = runtime.interruptData
 const mergedResult = projection.mergedResult
 const streamMessages = projection.streamMessages
+// useStreamChat 暴露的合成工具卡片字典（reactive），用于"材料处理"等保底卡片渲染：
+// 中间件经 SSE 推 prepare_materials 事件后，由 useStreamChat 内部填到
+// __pre_agent__ 桶；AiChat 的 extra-tool-calls prop 接收后由 useMessageParser
+// 拼到消息列表头部。不传 → 即使 SSE 事件到达卡片也不会出现。
+const syntheticToolCalls = runtime.stream.syntheticToolCalls
 const loadStatus = runtime.loadStatus
 const activeIndex = runtime.activeIndex
 

@@ -27,6 +27,7 @@ import {
     createMessageIntegrityMiddleware,
     createScopeGuardMiddleware,
     pointConsumptionMiddleware,
+    userInjectionMiddleware,
 } from '../middleware'
 import { buildSystemPromptForAgent } from '../context/moduleContextBuilder'
 import { safetyTrimMiddleware } from '../middleware/safetyTrim.middleware'
@@ -198,6 +199,13 @@ async function runModuleChatInner(
                 maxOutputTokens,
             }),
             ...(skillsMw ? [skillsMw] : []),
+            // 用户每轮注入（反越狱护栏 / 隐藏注入）：节点配置中 type=user_injection && status=1
+            // 的提示词，每轮 LLM 调用前作为隐藏 HumanMessage 插入到最新 HumanMessage 之前；
+            // 不写回 state.messages、不进 checkpoint。节点无该类提示词时 middleware 内部 short-circuit。
+            userInjectionMiddleware({
+                prompts: nodeConfig.prompts,
+                context: { caseId, moduleName },
+            }),
             afterAgentMemoryMiddleware({ caseId, sessionId, userId }),
             createAuditMiddleware(),
             // 末位兜底：beforeAgent 创建 IN_PROGRESS + 注入 _analysisRecordId；
