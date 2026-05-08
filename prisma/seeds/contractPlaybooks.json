@@ -1,0 +1,1532 @@
+[
+  {
+    "contractType": "劳动合同",
+    "code": "written_form_timing",
+    "title": "书面形式与时效",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "检查是否在用工之日起一个月内签订书面劳动合同；录用通知书、入职须知、微信沟通不能替代劳动合同；合同到期后是否及时续签",
+    "legalBasis": "《劳动合同法》第十条、第八十二条",
+    "suggestion": "入职一个月内签订书面劳动合同；到期前启动续签流程"
+  },
+  {
+    "contractType": "劳动合同",
+    "code": "required_clauses",
+    "title": "必备条款完整性",
+    "defaultLevel": "medium",
+    "stancePreference": "strict",
+    "checkContent": "检查是否包含期限、工作内容、工作地点、工作时间、劳动报酬、社会保险、劳动保护等必备条款；工作内容宜宽泛约定避免调整隐患",
+    "legalBasis": "《劳动合同法》第十七条",
+    "suggestion": "补充缺失的必备条款；工作内容约定有一定幅度宽泛"
+  },
+  {
+    "contractType": "劳动合同",
+    "code": "probation_period",
+    "title": "试用期期限法定合规",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "不满3月不得约定；不满1年不超1月；不满3年不超2月；3年以上不超6月；同一用人单位与同一劳动者只能约定一次；不得单独约定试用期",
+    "legalBasis": "《劳动合同法》第十九条、第二十条；《民法典》第一千二百五十九条",
+    "suggestion": "按法定期限约定；试用期工资不低于约定工资80%且不低于最低工资"
+  },
+  {
+    "contractType": "劳动合同",
+    "code": "probation_wage_floor",
+    "title": "试用期工资底线",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "试用期工资不低于约定工资80%；不低于同岗位最低档工资80%；不低于最低工资标准",
+    "legalBasis": "《劳动合同法》第二十条",
+    "suggestion": "试用期工资不低于约定工资80%且不低于最低工资"
+  },
+  {
+    "contractType": "劳动合同",
+    "code": "wage_amount",
+    "title": "薪酬约定数额合规",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "约定低实际高可行（以实际为准），约定高实际低有问题（构成拖欠劳动报酬）",
+    "legalBasis": "《劳动合同法》第三十条",
+    "suggestion": "薪酬约定可低于实际发放，但不得高于实际发放"
+  },
+  {
+    "contractType": "劳动合同",
+    "code": "clause_validity",
+    "title": "条款效力判断",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "约定不按劳动关系无效；低于最低工资无效；放弃加班费无效；不缴社保无效；竞业限制/培训服务期外违约金约定无效；劳动者提供担保无效",
+    "legalBasis": "《劳动合同法》第二十六条",
+    "suggestion": "删除违反劳动法强制性规定的条款"
+  },
+  {
+    "contractType": "劳动合同",
+    "code": "auto_extension_risk",
+    "title": "自动顺延条款风险",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "可能导致连续两次固定期限劳动合同，触发无固定期限劳动合同条件",
+    "legalBasis": "《劳动合同法》第十四条",
+    "suggestion": "建立到期续签预警机制，权衡双倍工资风险与无固定期限风险"
+  },
+  {
+    "contractType": "劳务派遣协议",
+    "code": "dispatcher_license",
+    "title": "派遣单位资质审查",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "检查劳务派遣单位是否取得劳务派遣经营许可证；无资质经营面临没收违法所得、罚款处罚",
+    "legalBasis": "《劳动合同法》第五十七条",
+    "suggestion": "核实派遣单位资质证书，无资质不得签订"
+  },
+  {
+    "contractType": "劳务派遣协议",
+    "code": "three_natures_post",
+    "title": "岗位三性要求",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "检查派遣岗位是否符合临时性、辅助性、替代性要求",
+    "legalBasis": "《劳务派遣暂行规定》第三条",
+    "suggestion": "核实岗位符合三性要求"
+  },
+  {
+    "contractType": "劳务派遣协议",
+    "code": "dispatch_quota",
+    "title": "派遣用工比例限制",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "核实派遣用工数量是否超过用工总量10%",
+    "legalBasis": "《劳务派遣暂行规定》第四条",
+    "suggestion": "超标部分需调整为直接用工或业务外包"
+  },
+  {
+    "contractType": "劳务派遣协议",
+    "code": "required_clauses",
+    "title": "协议必备条款",
+    "defaultLevel": "medium",
+    "stancePreference": "strict",
+    "checkContent": "检查是否包含派遣岗位、人数、期限、派遣地点、劳动报酬、社保缴纳、责任划分",
+    "legalBasis": "《劳动合同法》第五十九条",
+    "suggestion": "补充必备条款明确责任划分"
+  },
+  {
+    "contractType": "劳务派遣协议",
+    "code": "worker_term",
+    "title": "派遣员工劳动合同期限",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "派遣单位需与派遣员工签订两年以上固定期限劳动合同；不得约定试用期",
+    "legalBasis": "《劳动合同法》第五十八条",
+    "suggestion": "派遣单位与员工签两年以上劳动合同"
+  },
+  {
+    "contractType": "业务外包合同",
+    "code": "outsource_dispatch",
+    "title": "外包与派遣辨析",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "检查是否包含假外包真派遣特征条款——外包员工遵守发包方规章制度、接受发包方日常管理、发包方违纪处罚权",
+    "legalBasis": "《劳务派遣暂行规定》及相关司法解释",
+    "suggestion": "删除发包方管理权条款"
+  },
+  {
+    "contractType": "业务外包合同",
+    "code": "settlement_method",
+    "title": "结算方式辨析",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "检查是否按人头而非业务结果结算服务费",
+    "legalBasis": "《劳务派遣暂行规定》及相关司法解释",
+    "suggestion": "结算按业务成果而非人头"
+  },
+  {
+    "contractType": "业务外包合同",
+    "code": "contractor_license",
+    "title": "承包方资质审查",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "检查承包方是否为合法经营主体；建议公司或个体工商户而非个人承包",
+    "legalBasis": "无",
+    "suggestion": "选择公司而非个人作为承包方"
+  },
+  {
+    "contractType": "业务外包合同",
+    "code": "injury_liability",
+    "title": "工伤雇主责任约定",
+    "defaultLevel": "high",
+    "stancePreference": "balanced",
+    "checkContent": "约定工伤责任承担方式；个人承包方雇佣人员受伤时发包方可能承担工伤责任",
+    "legalBasis": "《最高人民法院关于审理工伤保险行政案件若干问题的规定》",
+    "suggestion": "购买商业保险转移风险"
+  },
+  {
+    "contractType": "退休返聘合同",
+    "code": "legal_nature",
+    "title": "法律性质判断",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "检查退休返聘人员是否已依法享受养老保险待遇或领取退休金；已享受的属劳务关系",
+    "legalBasis": "《劳动合同法》及相关司法解释",
+    "suggestion": "已享受养老保险待遇的签劳务合同"
+  },
+  {
+    "contractType": "退休返聘合同",
+    "code": "employer_liability",
+    "title": "雇主责任约定",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "退休返聘人员不适用工伤保险，建议购买商业意外险",
+    "legalBasis": "无",
+    "suggestion": "购买商业意外险转移雇主责任"
+  },
+  {
+    "contractType": "退休返聘合同",
+    "code": "contract_relation",
+    "title": "合同性质明确",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "明确劳务关系性质；避免劳动关系特征条款（社保、带薪假期等）",
+    "legalBasis": "无",
+    "suggestion": "明确劳务关系性质避免劳动关系条款"
+  },
+  {
+    "contractType": "学生实习协议",
+    "code": "internship_nature",
+    "title": "实习性质明确",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "检查是否明确不是劳动关系；学生实习期间因在校生身份不构成劳动关系",
+    "legalBasis": "无",
+    "suggestion": "明确实习性质不是劳动关系"
+  },
+  {
+    "contractType": "学生实习协议",
+    "code": "safety_duty",
+    "title": "安全管理责任",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "实习期间安全管理责任约定",
+    "legalBasis": "无",
+    "suggestion": "约定安全管理责任"
+  },
+  {
+    "contractType": "学生实习协议",
+    "code": "graduation_risk",
+    "title": "毕业衔接风险",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "毕业后需及时签订劳动合同否则建立事实劳动关系，产生双倍工资风险",
+    "legalBasis": "《劳动合同法》第八十二条",
+    "suggestion": "毕业前提前准备劳动合同签订"
+  },
+  {
+    "contractType": "非全日制劳动合同",
+    "code": "working_hours",
+    "title": "工作时间限制",
+    "defaultLevel": "medium",
+    "stancePreference": "strict",
+    "checkContent": "每日工作时间不超过4小时、每周累计不超过24小时；超标可能被认定为全日制用工",
+    "legalBasis": "《劳动合同法》第六十八条",
+    "suggestion": "工作时间每日不超4小时、每周不超24小时"
+  },
+  {
+    "contractType": "非全日制劳动合同",
+    "code": "prohibited_clauses",
+    "title": "禁止条款",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "不得约定试用期；不得约定带薪假期、病假等全日制用工福利",
+    "legalBasis": "《劳动合同法》第六十九条、第七十条",
+    "suggestion": "不约定试用期"
+  },
+  {
+    "contractType": "非全日制劳动合同",
+    "code": "payment_cycle",
+    "title": "报酬结算周期",
+    "defaultLevel": "medium",
+    "stancePreference": "strict",
+    "checkContent": "劳动报酬结算周期不得超过15日",
+    "legalBasis": "《劳动合同法》第七十二条",
+    "suggestion": "报酬结算周期不超15日"
+  },
+  {
+    "contractType": "非全日制劳动合同",
+    "code": "social_insurance",
+    "title": "社保缴纳",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "非全日制用工只需缴纳工伤保险；其他社保由劳动者自行缴纳",
+    "legalBasis": "无",
+    "suggestion": "只缴工伤保险"
+  },
+  {
+    "contractType": "竞业限制协议",
+    "code": "subject_scope",
+    "title": "主体范围限制",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "检查竞业限制对象是否为高级管理人员、高级技术人员或其他负有保密义务的人员；普通员工不适用",
+    "legalBasis": "《劳动合同法》第二十四条",
+    "suggestion": "主体限于高管、高技、保密人员"
+  },
+  {
+    "contractType": "竞业限制协议",
+    "code": "compensation",
+    "title": "补偿金约定",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "检查是否约定竞业限制补偿金；无补偿约定竞业限制条款无效",
+    "legalBasis": "《劳动合同法》第二十三条",
+    "suggestion": "约定补偿金不低于法定标准"
+  },
+  {
+    "contractType": "竞业限制协议",
+    "code": "duration_limit",
+    "title": "期限限制",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "竞业限制期限不得超过两年；超过部分无效",
+    "legalBasis": "《劳动合同法》第二十四条",
+    "suggestion": "期限不超两年"
+  },
+  {
+    "contractType": "竞业限制协议",
+    "code": "scope_reasonable",
+    "title": "范围合理性",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "检查竞业限制范围是否过宽（地域、行业）；过宽可能被调整",
+    "legalBasis": "无",
+    "suggestion": "范围约定合理适度"
+  },
+  {
+    "contractType": "培训服务期协议",
+    "code": "training_condition",
+    "title": "培训条件",
+    "defaultLevel": "medium",
+    "stancePreference": "strict",
+    "checkContent": "检查是否为专业技术培训而非普通入职培训；培训需有费用支出凭证",
+    "legalBasis": "《劳动合同法》第二十二条",
+    "suggestion": "确认专业技术培训性质"
+  },
+  {
+    "contractType": "培训服务期协议",
+    "code": "liquidated_damages",
+    "title": "违约金数额限制",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "违约金数额不得超过培训费用；按服务期未履行部分比例分摊",
+    "legalBasis": "《劳动合同法》第二十二条",
+    "suggestion": "违约金不超过培训费用按比例分摊"
+  },
+  {
+    "contractType": "保密协议",
+    "code": "confidential_scope",
+    "title": "保密范围",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "检查保密信息范围是否明确界定；不宜过宽避免执行困难",
+    "legalBasis": "《劳动合同法》第二十三条；《反不正当竞争法》第九条",
+    "suggestion": "明确保密信息范围"
+  },
+  {
+    "contractType": "保密协议",
+    "code": "confidential_term",
+    "title": "保密期限",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "可约定在职期间及离职后保密义务；离职后保密期限需合理",
+    "legalBasis": "无",
+    "suggestion": "约定合理的离职后保密期限"
+  },
+  {
+    "contractType": "保密协议",
+    "code": "breach_liability",
+    "title": "违约责任",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "约定泄密的违约责任或损害赔偿计算方式",
+    "legalBasis": "无",
+    "suggestion": "违约责任约定具体可执行"
+  },
+  {
+    "contractType": "动产买卖合同",
+    "code": "contract_type_id",
+    "title": "类型定性准确性",
+    "defaultLevel": "high",
+    "stancePreference": "balanced",
+    "checkContent": "标准化种类物采购为买卖；需方提供原料定制为承揽；供方自备原料定制为选择型关系；选择后在标题、主体称呼、权利义务表述上保持一致性",
+    "legalBasis": "《民法典》第五百九十五条、第七百七十条",
+    "suggestion": "类型定性准确且一致"
+  },
+  {
+    "contractType": "动产买卖合同",
+    "code": "subject_completeness",
+    "title": "标的条款完整性",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "检查是否明确货物基本情况、配套材料、配套服务、质量标准",
+    "legalBasis": "无",
+    "suggestion": "标的条款四部分完整"
+  },
+  {
+    "contractType": "动产买卖合同",
+    "code": "payment_risk",
+    "title": "付款方式风险控制",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "金额不大、对方信誉良好可一次性付款；其他情况建议分次付款；分期付款解除需未付款达总价五分之一",
+    "legalBasis": "《民法典》第六百三十四条",
+    "suggestion": "大额交易分次付款"
+  },
+  {
+    "contractType": "动产买卖合同",
+    "code": "standard_notice",
+    "title": "格式条款提示义务",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "面向消费者合同可能构成格式条款；重要条款需合理提示",
+    "legalBasis": "《民法典》第四百九十六条、第四百九十七条",
+    "suggestion": "格式条款重要条款提示"
+  },
+  {
+    "contractType": "动产买卖合同",
+    "code": "special_chattel",
+    "title": "特殊动产交易",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "船舶、航空器、机动车交易应与登记权利人进行",
+    "legalBasis": "《民法典》第二百二十五条",
+    "suggestion": "特殊动产核实登记权利人"
+  },
+  {
+    "contractType": "动产买卖合同",
+    "code": "three_guarantees",
+    "title": "三包规定底线",
+    "defaultLevel": "medium",
+    "stancePreference": "strict",
+    "checkContent": "不低于三包规定底线；约定低于三包标准无效",
+    "legalBasis": "《消费者权益保护法》相关条款",
+    "suggestion": "不低于三包底线"
+  },
+  {
+    "contractType": "二手房买卖合同",
+    "code": "written_form",
+    "title": "书面形式",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "二手房买卖必须采用书面合同形式",
+    "legalBasis": "《城市房地产管理法》第四十条",
+    "suggestion": "书面合同形式"
+  },
+  {
+    "contractType": "二手房买卖合同",
+    "code": "seller_qualification",
+    "title": "出卖人主体审查",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "检查出卖人是否为产权登记人；已婚人士名下房产建议夫妻共同签署",
+    "legalBasis": "无",
+    "suggestion": "已婚人士房产夫妻签署"
+  },
+  {
+    "contractType": "二手房买卖合同",
+    "code": "title_check",
+    "title": "产权状况核实",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "检查是否存在抵押、查封、限制交易情形",
+    "legalBasis": "无",
+    "suggestion": "核实产权状况无抵押查封"
+  },
+  {
+    "contractType": "二手房买卖合同",
+    "code": "multiple_sales",
+    "title": "一房数卖风险防范",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "建议尽快办理网签备案防止一房二卖",
+    "legalBasis": "《民法典》第二百零九条",
+    "suggestion": "尽快网签备案"
+  },
+  {
+    "contractType": "二手房买卖合同",
+    "code": "affordable_house",
+    "title": "经济适用房交易限制",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "经济适用房不满5年不得上市交易",
+    "legalBasis": "相关规定",
+    "suggestion": "注意交易限制"
+  },
+  {
+    "contractType": "二手房买卖合同",
+    "code": "homestead_limit",
+    "title": "宅基地房屋交易限制",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "宅基地房屋只能在本集体经济组织成员之间买卖",
+    "legalBasis": "《土地管理法》相关规定",
+    "suggestion": "注意交易限制"
+  },
+  {
+    "contractType": "二手房买卖合同",
+    "code": "mortgaged_property",
+    "title": "已抵押房产处理",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "抵押财产可转让但需通知抵押权人",
+    "legalBasis": "《民法典》第四百零六条",
+    "suggestion": "约定抵押权处理方式"
+  },
+  {
+    "contractType": "经销买卖合同",
+    "code": "legal_nature",
+    "title": "法律性质明确",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "经销买卖不是代理关系，经销商无权代表供应商；合同标题避免使用代理经销合同、代理合同",
+    "legalBasis": "《民法典》相关规定",
+    "suggestion": "明确买卖性质非代理关系"
+  },
+  {
+    "contractType": "经销买卖合同",
+    "code": "antitrust",
+    "title": "反垄断合规",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "检查是否直接限定对外销售价格或转售价格（违法）；采用非强制性建议零售价",
+    "legalBasis": "《反垄断法》第十四条",
+    "suggestion": "采用建议零售价而非强制定价"
+  },
+  {
+    "contractType": "房产租赁合同",
+    "code": "lease_term_cap",
+    "title": "租赁期限上限",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "租赁期限不得超过20年；超过部分无效",
+    "legalBasis": "《民法典》第七百零五条",
+    "suggestion": "租赁期限不超20年"
+  },
+  {
+    "contractType": "房产租赁合同",
+    "code": "sublease_consent",
+    "title": "转租需经同意",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "检查是否约定转租需经出租人同意",
+    "legalBasis": "《民法典》第七百一十六条",
+    "suggestion": "约定转租需同意"
+  },
+  {
+    "contractType": "房产租赁合同",
+    "code": "sale_breaks_lease",
+    "title": "买卖不破租赁",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "租赁期间所有权变动不影响租赁合同效力",
+    "legalBasis": "《民法典》第七百二十五条",
+    "suggestion": "核实房屋合法性"
+  },
+  {
+    "contractType": "房产租赁合同",
+    "code": "preemption_right",
+    "title": "优先购买权",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "房屋出售时承租人有优先购买权",
+    "legalBasis": "《民法典》第七百二十六条",
+    "suggestion": "出售时通知承租人优先购买权"
+  },
+  {
+    "contractType": "房产租赁合同",
+    "code": "illegal_building",
+    "title": "违法建筑租赁效力",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "未取得建设工程规划许可证的房屋租赁合同无效",
+    "legalBasis": "相关司法解释",
+    "suggestion": "核实房屋合法性"
+  },
+  {
+    "contractType": "建筑设备租赁合同",
+    "code": "leased_item",
+    "title": "租赁物明确",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "明确设备名称、型号、数量、技术参数；明确设备所有权归属",
+    "legalBasis": "《民法典》第七百零三条",
+    "suggestion": "明确设备参数与权属"
+  },
+  {
+    "contractType": "建筑设备租赁合同",
+    "code": "rent_payment",
+    "title": "租金与支付约定",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "明确租金数额、支付周期、支付方式；约定押金数额及退还条件",
+    "legalBasis": "无",
+    "suggestion": "租金支付约定具体"
+  },
+  {
+    "contractType": "建筑设备租赁合同",
+    "code": "use_maintenance",
+    "title": "使用与维护责任",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "明确设备使用范围限制；约定日常维护责任方；约定维修费用承担",
+    "legalBasis": "无",
+    "suggestion": "维护责任明确"
+  },
+  {
+    "contractType": "服务类合同",
+    "code": "type_analysis",
+    "title": "类型辨析",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "检查是否有实物成果交付——有实物成果为承揽，无实物成果为一般服务；进一步判断具体类型（委托、中介、保管仓储、运输等）",
+    "legalBasis": "《民法典》相关规定",
+    "suggestion": "正确判断合同类型"
+  },
+  {
+    "contractType": "服务类合同",
+    "code": "arbitrary_terminate",
+    "title": "任意解除权识别",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "委托合同、承揽合同有任意解除权；需在条款层面应对",
+    "legalBasis": "《民法典》第七百八十七条、第九百三十三条",
+    "suggestion": "应对任意解除权风险"
+  },
+  {
+    "contractType": "服务类合同",
+    "code": "service_fee",
+    "title": "服务报酬条款",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "明确服务报酬数额、支付方式、支付时间",
+    "legalBasis": "无",
+    "suggestion": "明确报酬与退费机制"
+  },
+  {
+    "contractType": "服务类合同",
+    "code": "subcontract_limit",
+    "title": "转包转委托限制",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "约定是否允许转包、转委托；未经同意转包可能承担违约责任",
+    "legalBasis": "无",
+    "suggestion": "约定转包转委托限制"
+  },
+  {
+    "contractType": "承揽合同",
+    "code": "type_id",
+    "title": "类型定性",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "检查是否为提供有形实物成果为主的承揽",
+    "legalBasis": "《民法典》第七百七十条",
+    "suggestion": "确认承揽合同性质"
+  },
+  {
+    "contractType": "承揽合同",
+    "code": "arbitrary_terminate",
+    "title": "任意解除权应对",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "定作人在承揽人完成工作前可随时解除合同；承揽人需在条款中应对",
+    "legalBasis": "《民法典》第七百八十七条",
+    "suggestion": "约定赔偿金额应对任意解除权"
+  },
+  {
+    "contractType": "承揽合同",
+    "code": "acceptance",
+    "title": "质量验收",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "约定质量标准、验收流程、验收期限",
+    "legalBasis": "无",
+    "suggestion": "约定质量验收标准与流程"
+  },
+  {
+    "contractType": "委托合同",
+    "code": "entrust_level",
+    "title": "委托合同层次",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "区分一般委托合同、特殊委托合同（行纪、中介）",
+    "legalBasis": "《民法典》相关规定",
+    "suggestion": "明确委托事务与权限"
+  },
+  {
+    "contractType": "委托合同",
+    "code": "arbitrary_terminate",
+    "title": "任意解除权",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "委托合同当事人可随时解除合同；解除方需赔偿对方因此遭受的直接损失",
+    "legalBasis": "《民法典》第九百三十三条",
+    "suggestion": "应对任意解除权风险"
+  },
+  {
+    "contractType": "委托合同",
+    "code": "agency_scope",
+    "title": "代理权限明确",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "明确委托事务范围；明确代理权限边界",
+    "legalBasis": "无",
+    "suggestion": "约定责任承担边界"
+  },
+  {
+    "contractType": "委托合同",
+    "code": "liability_boundary",
+    "title": "责任承担边界",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "受托人在委托范围内行为的后果由委托人承担；受托人越权或过错行为需承担责任",
+    "legalBasis": "无",
+    "suggestion": "约定责任承担边界"
+  },
+  {
+    "contractType": "中介合同",
+    "code": "success_standard",
+    "title": "居间成功标准",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "检查居间成功的定义（以签约为准）",
+    "legalBasis": "《民法典》第九百六十一条",
+    "suggestion": "明确居间成功标准"
+  },
+  {
+    "contractType": "中介合同",
+    "code": "anti_skip_clause",
+    "title": "防跳单条款",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "约定跳单仍需支付报酬",
+    "legalBasis": "《民法典》第九百六十五条",
+    "suggestion": "约定防跳单条款"
+  },
+  {
+    "contractType": "中介合同",
+    "code": "tender_risk",
+    "title": "招投标中介风险",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "招投标领域居间合同存在违法无效风险；保证中标、泄露标底约定违法",
+    "legalBasis": "《招标投标法》相关规定",
+    "suggestion": "招投标中介避免违法约定"
+  },
+  {
+    "contractType": "保管合同",
+    "code": "kept_item",
+    "title": "保管物明确",
+    "defaultLevel": "low",
+    "stancePreference": "balanced",
+    "checkContent": "明确保管物名称、数量、特征；明确保管物价值",
+    "legalBasis": "《民法典》第八百八十八条",
+    "suggestion": "保管物描述具体"
+  },
+  {
+    "contractType": "保管合同",
+    "code": "storage_place",
+    "title": "保管场所与环境",
+    "defaultLevel": "low",
+    "stancePreference": "balanced",
+    "checkContent": "明确保管场所要求；约定保管环境条件",
+    "legalBasis": "无",
+    "suggestion": "保管环境要求明确"
+  },
+  {
+    "contractType": "保管合同",
+    "code": "damage_liability",
+    "title": "保管物损坏赔偿",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "约定保管物损坏、灭失的赔偿责任",
+    "legalBasis": "《民法典》第八百九十七条",
+    "suggestion": "赔偿责任约定清晰"
+  },
+  {
+    "contractType": "仓储合同",
+    "code": "stored_goods",
+    "title": "仓储物明确",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "明确仓储物名称、种类、数量、包装；检查是否为危险品需特殊约定",
+    "legalBasis": "《民法典》第九百零四条",
+    "suggestion": "仓储物描述详细"
+  },
+  {
+    "contractType": "仓储合同",
+    "code": "inbound_check",
+    "title": "入库验收",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "约定入库验收流程；约定验收不合格的处理",
+    "legalBasis": "无",
+    "suggestion": "入库验收流程"
+  },
+  {
+    "contractType": "仓储合同",
+    "code": "damage_liability",
+    "title": "仓储物损坏赔偿",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "约定仓储物损坏、灭失的赔偿责任",
+    "legalBasis": "《民法典》第九百一十七条",
+    "suggestion": "赔偿责任约定"
+  },
+  {
+    "contractType": "运输合同",
+    "code": "cargo_id",
+    "title": "运输货物明确",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "明确货物名称、数量、重量、包装；检查是否为危险品需特殊约定",
+    "legalBasis": "《民法典》第八百零九条",
+    "suggestion": "货物描述具体"
+  },
+  {
+    "contractType": "运输合同",
+    "code": "damage_liability",
+    "title": "货物损坏赔偿",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "约定货物损坏、灭失的赔偿责任；约定赔偿限额",
+    "legalBasis": "《民法典》第八百三十二条、第八百三十三条",
+    "suggestion": "赔偿限额约定需提示"
+  },
+  {
+    "contractType": "运输合同",
+    "code": "dangerous_goods",
+    "title": "危险货物特殊约定",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "危险货物需明确告知承运人；约定特殊包装、运输要求",
+    "legalBasis": "《民法典》第八百二十八条",
+    "suggestion": "危险货物特别约定"
+  },
+  {
+    "contractType": "保证合同",
+    "code": "guarantee_type",
+    "title": "保证方式明确",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "必须明确使用连带责任保证或一般保证表述；模糊表述默认认定为一般保证",
+    "legalBasis": "《民法典》第六百八十六条",
+    "suggestion": "明确约定连带责任保证"
+  },
+  {
+    "contractType": "保证合同",
+    "code": "guarantee_scope",
+    "title": "保证范围",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "明确保证范围（主债权、利息、违约金、损害赔偿金、实现债权费用）",
+    "legalBasis": "《民法典》第六百九十一条",
+    "suggestion": "明确保证范围"
+  },
+  {
+    "contractType": "保证合同",
+    "code": "guarantee_period",
+    "title": "保证期间",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "明确保证期间长度；未约定保证期间为主债务履行期限届满之日起六个月",
+    "legalBasis": "《民法典》第六百九十二条",
+    "suggestion": "明确保证期间"
+  },
+  {
+    "contractType": "抵押/质押合同",
+    "code": "effect_lien_creation",
+    "title": "合同生效与物权设立",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "抵押合同签订即生效，抵押权登记时设立；质押合同交付质押物时设立",
+    "legalBasis": "《民法典》第二百一十五条、第四百零三条、第四百二十五条",
+    "suggestion": "提示担保人合同生效责任"
+  },
+  {
+    "contractType": "抵押/质押合同",
+    "code": "collateral_scope",
+    "title": "抵押财产范围",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "明确抵押财产范围、权属状况；不动产抵押需登记",
+    "legalBasis": "《民法典》第四百零二条",
+    "suggestion": "不动产抵押及时登记"
+  },
+  {
+    "contractType": "抵押/质押合同",
+    "code": "transfer_prohibit",
+    "title": "禁止转让约定",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "约定禁止抵押财产转让并登记的，受让人不能取得物权",
+    "legalBasis": "《民法典》第四百零六条",
+    "suggestion": "约定禁止转让需登记"
+  },
+  {
+    "contractType": "消费者服务合同",
+    "code": "standard_clause_id",
+    "title": "格式条款识别",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "预先拟定、反复使用、未与对方协商构成格式条款",
+    "legalBasis": "《民法典》第四百九十六条",
+    "suggestion": "重要条款合理提示"
+  },
+  {
+    "contractType": "消费者服务合同",
+    "code": "key_notice_duty",
+    "title": "重要条款提示义务",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "对免责条款、责任限制条款、质量条款、解除退费条款以合理方式提示",
+    "legalBasis": "《民法典》第四百九十六条、第四百九十七条",
+    "suggestion": "重要条款合理提示"
+  },
+  {
+    "contractType": "消费者服务合同",
+    "code": "illegal_clause_drop",
+    "title": "违法条款删除",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "过期不退、解释权归本店、最低消费等条款违法",
+    "legalBasis": "《消费者权益保护法》相关条款",
+    "suggestion": "删除违法条款"
+  },
+  {
+    "contractType": "消费者服务合同",
+    "code": "terminate_refund",
+    "title": "解除退费机制",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "消费者提前解除通常会得到支持；约定合理的解除条件和退费计算方法",
+    "legalBasis": "无",
+    "suggestion": "约定解除退费机制"
+  },
+  {
+    "contractType": "消费者服务合同",
+    "code": "three_guarantees",
+    "title": "三包规定底线",
+    "defaultLevel": "medium",
+    "stancePreference": "strict",
+    "checkContent": "不低于三包规定底线；约定低于三包标准无效",
+    "legalBasis": "《消费者权益保护法》相关条款",
+    "suggestion": "不低于三包底线"
+  },
+  {
+    "contractType": "夫妻财产约定",
+    "code": "agreement_nature",
+    "title": "协议性质明确",
+    "defaultLevel": "medium",
+    "stancePreference": "strict",
+    "checkContent": "夫妻财产约定是独立于离婚协议的财产安排，不以离婚为前提",
+    "legalBasis": "《民法典》第一千零六十五条",
+    "suggestion": "书面形式明确性质"
+  },
+  {
+    "contractType": "夫妻财产约定",
+    "code": "no_divorce_premise",
+    "title": "避免离婚前提表述",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "避免使用如果离婚就按此协议表述，否则性质变为离婚协议",
+    "legalBasis": "相关司法解释",
+    "suggestion": "避免离婚前提表述"
+  },
+  {
+    "contractType": "夫妻财产约定",
+    "code": "nothing_left_clause",
+    "title": "净身出户条款风险",
+    "defaultLevel": "medium",
+    "stancePreference": "strict",
+    "checkContent": "净身出户条款可能被认定无效或调整",
+    "legalBasis": "相关司法解释",
+    "suggestion": "净身出户条款风险提示"
+  },
+  {
+    "contractType": "夫妻财产约定",
+    "code": "property_register",
+    "title": "房产约定与登记",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "约定房产归一方但登记在另一方名下存在风险；建议尽快登记在约定方名下",
+    "legalBasis": "《民法典》第二百零九条",
+    "suggestion": "房产约定尽快登记"
+  },
+  {
+    "contractType": "离婚协议",
+    "code": "effect_condition",
+    "title": "协议生效条件",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "离婚协议以离婚为生效条件；协议离婚未成则协议不生效",
+    "legalBasis": "《民法典》婚姻家庭编",
+    "suggestion": "注意协议生效需离婚登记或判决"
+  },
+  {
+    "contractType": "离婚协议",
+    "code": "property_division",
+    "title": "财产分割明确",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "明确财产分割方案；房产分割约定办理过户时间",
+    "legalBasis": "无",
+    "suggestion": "明确财产分割方案"
+  },
+  {
+    "contractType": "离婚协议",
+    "code": "child_custody",
+    "title": "子女抚养约定",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "明确抚养权归属；约定抚养费数额、支付方式、支付期限",
+    "legalBasis": "无",
+    "suggestion": "子女抚养约定具体"
+  },
+  {
+    "contractType": "离婚协议",
+    "code": "debt_allocation",
+    "title": "债务分担",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "明确共同债务分担；注意夫妻共同债务连带责任",
+    "legalBasis": "无",
+    "suggestion": "债务分担明确"
+  },
+  {
+    "contractType": "遗赠扶养协议",
+    "code": "support_content",
+    "title": "扶养内容明确",
+    "defaultLevel": "medium",
+    "stancePreference": "strict",
+    "checkContent": "明确扶养内容（生活照料、医疗护理、丧葬安排）；明确扶养标准",
+    "legalBasis": "《民法典》第一千一百五十八条",
+    "suggestion": "扶养内容标准明确"
+  },
+  {
+    "contractType": "遗赠扶养协议",
+    "code": "bequest_scope",
+    "title": "遗赠财产范围",
+    "defaultLevel": "medium",
+    "stancePreference": "strict",
+    "checkContent": "明确遗赠财产范围、价值；检查遗赠财产是否为遗赠人所有",
+    "legalBasis": "无",
+    "suggestion": "遗赠财产范围明确"
+  },
+  {
+    "contractType": "遗赠扶养协议",
+    "code": "priority_effect",
+    "title": "协议效力优先",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "遗赠扶养协议签订即生效；优于遗嘱继承和法定继承",
+    "legalBasis": "《民法典》第一千一百五十八条",
+    "suggestion": "注意协议效力优先"
+  },
+  {
+    "contractType": "遗嘱",
+    "code": "will_form",
+    "title": "遗嘱形式合规",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "检查遗嘱形式是否符合法定要求——自书遗嘱需遗嘱人亲笔书写签名注明年月日；代书遗嘱需两个以上见证人在场见证",
+    "legalBasis": "《民法典》第一千一百三十四条至第一千一百三十九条",
+    "suggestion": "遗嘱形式符合法定要求"
+  },
+  {
+    "contractType": "遗嘱",
+    "code": "testator_capacity",
+    "title": "遗嘱人能力",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "遗嘱人需为完全民事行为能力人",
+    "legalBasis": "《民法典》第一千一百四十三条",
+    "suggestion": "遗嘱人具有完全民事行为能力"
+  },
+  {
+    "contractType": "遗嘱",
+    "code": "witness_qualify",
+    "title": "见证人资格",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "见证人不能是继承人、受遗赠人或其近亲属",
+    "legalBasis": "《民法典》第一千一百四十条",
+    "suggestion": "见证人符合资格要求"
+  },
+  {
+    "contractType": "遗嘱",
+    "code": "will_content",
+    "title": "遗嘱内容明确",
+    "defaultLevel": "medium",
+    "stancePreference": "strict",
+    "checkContent": "明确遗产范围、分配方案；检查遗嘱人是否有权处分遗产",
+    "legalBasis": "无",
+    "suggestion": "遗产范围明确遗嘱人有权处分"
+  },
+  {
+    "contractType": "民间借款合同",
+    "code": "borrower_eligible",
+    "title": "借款主体适格",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "检查出借人是否为职业放贷人；职业放贷人借款合同可能无效",
+    "legalBasis": "《最高人民法院关于审理民间借贷案件适用法律若干问题的规定》",
+    "suggestion": "借款主体适格"
+  },
+  {
+    "contractType": "民间借款合同",
+    "code": "interest_cap",
+    "title": "利率上限",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "利率不得超过合同成立时一年期LPR四倍；超过部分无效",
+    "legalBasis": "《最高人民法院关于审理民间借贷案件适用法律若干问题的规定》",
+    "suggestion": "利率不超过LPR四倍"
+  },
+  {
+    "contractType": "民间借款合同",
+    "code": "natural_lend_effect",
+    "title": "自然人借贷生效条件",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "自然人之间借贷需实际交付借款才生效",
+    "legalBasis": "《民法典》第六百七十九条",
+    "suggestion": "自然人借贷需实际交付"
+  },
+  {
+    "contractType": "赠与合同",
+    "code": "gift_object",
+    "title": "赠与物明确",
+    "defaultLevel": "low",
+    "stancePreference": "balanced",
+    "checkContent": "明确赠与物名称、数量、状况",
+    "legalBasis": "《民法典》第六百五十七条",
+    "suggestion": "赠与物明确"
+  },
+  {
+    "contractType": "赠与合同",
+    "code": "gift_type",
+    "title": "赠与性质区分",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "区分一般赠与与具有道德义务性质的赠与；一般赠与赠与人交付前可撤销",
+    "legalBasis": "《民法典》第六百五十八条、第六百六十条",
+    "suggestion": "区分一般赠与与道德义务赠与"
+  },
+  {
+    "contractType": "赠与合同",
+    "code": "notarized_irrevoc",
+    "title": "公证赠与不可撤销",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "经过公证的赠与合同不得撤销",
+    "legalBasis": "《民法典》第六百五十八条",
+    "suggestion": "公证赠与不可撤销"
+  },
+  {
+    "contractType": "个人劳务承包合同",
+    "code": "contractor_risk",
+    "title": "承包主体风险",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "检查承包方是否为个人而非公司或个体工商户；个人承包存在发包方工伤责任风险",
+    "legalBasis": "《最高人民法院关于审理工伤保险行政案件若干问题的规定》",
+    "suggestion": "建议公司或个体工商户承包避免个人承包"
+  },
+  {
+    "contractType": "个人劳务承包合同",
+    "code": "injury_liability",
+    "title": "工伤雇主责任约定",
+    "defaultLevel": "high",
+    "stancePreference": "balanced",
+    "checkContent": "约定工伤责任承担方式；建议购买商业保险转移风险",
+    "legalBasis": "《最高人民法院关于审理工伤保险行政案件若干问题的规定》",
+    "suggestion": "购买商业保险"
+  },
+  {
+    "contractType": "个人劳务承包合同",
+    "code": "principal_authority",
+    "title": "发包方管理权限制",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "发包方尽量避免直接管理承包方人员；避免承包方人员遵守发包方规章制度条款",
+    "legalBasis": "无",
+    "suggestion": "避免直接管理承包方人员"
+  },
+  {
+    "contractType": "知识产权转让合同",
+    "code": "right_check",
+    "title": "权利状况核实",
+    "defaultLevel": "medium",
+    "stancePreference": "strict",
+    "checkContent": "检查知识产权权属是否清晰；是否存在许可、质押等权利负担",
+    "legalBasis": "相关知识产权法律规定",
+    "suggestion": "核实权属无权利负担"
+  },
+  {
+    "contractType": "知识产权转让合同",
+    "code": "registration",
+    "title": "登记程序",
+    "defaultLevel": "medium",
+    "stancePreference": "strict",
+    "checkContent": "商标转让需向商标局登记；专利转让需向专利局登记",
+    "legalBasis": "《商标法》第四十二条；《专利法》第十条",
+    "suggestion": "及时办理登记手续"
+  },
+  {
+    "contractType": "知识产权转让合同",
+    "code": "multiple_transfer",
+    "title": "多重转让冲突处理",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "商标权、专利权可能存在在先许可与在后转让冲突",
+    "legalBasis": "相关司法解释",
+    "suggestion": "约定权利冲突处理"
+  },
+  {
+    "contractType": "知识产权许可合同",
+    "code": "license_type",
+    "title": "许可类型明确",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "明确许可类型（独占许可、排他许可、普通许可）",
+    "legalBasis": "《民法典》及相关知识产权法律规定",
+    "suggestion": "许可范围明确"
+  },
+  {
+    "contractType": "知识产权许可合同",
+    "code": "license_scope",
+    "title": "许可范围明确",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "明确许可使用的地域范围；明确许可期限",
+    "legalBasis": "无",
+    "suggestion": "许可范围明确"
+  },
+  {
+    "contractType": "知识产权许可合同",
+    "code": "sublicense_limit",
+    "title": "再许可限制",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "约定是否允许被许可方再许可；未经同意不得再许可",
+    "legalBasis": "无",
+    "suggestion": "约定再许可限制"
+  },
+  {
+    "contractType": "软件委托开发合同",
+    "code": "dev_content",
+    "title": "开发内容明确",
+    "defaultLevel": "medium",
+    "stancePreference": "strict",
+    "checkContent": "明确软件功能需求、技术参数；明确开发里程碑与交付节点",
+    "legalBasis": "《民法典》第八百五十一条",
+    "suggestion": "功能需求明确具体"
+  },
+  {
+    "contractType": "软件委托开发合同",
+    "code": "ip_ownership",
+    "title": "知识产权归属",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "明确开发成果著作权归属；未明确约定著作权归属开发方；明确源代码交付与归属",
+    "legalBasis": "《著作权法》第十七条",
+    "suggestion": "知识产权归属明确约定"
+  },
+  {
+    "contractType": "软件委托开发合同",
+    "code": "acceptance_delivery",
+    "title": "验收与交付",
+    "defaultLevel": "medium",
+    "stancePreference": "strict",
+    "checkContent": "约定验收流程、验收标准；约定交付内容包括源代码、文档",
+    "legalBasis": "无",
+    "suggestion": "验收标准明确"
+  },
+  {
+    "contractType": "软件委托开发合同",
+    "code": "confidentiality",
+    "title": "保密条款",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "约定开发过程中保密信息范围；约定保密期限",
+    "legalBasis": "无",
+    "suggestion": "保密条款约定"
+  },
+  {
+    "contractType": "软件许可合同（分发许可模式）",
+    "code": "license_type_scope",
+    "title": "许可类型范围明确",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "明确许可类型（独占、排他、普通）；明确许可范围",
+    "legalBasis": "《著作权法》相关规定",
+    "suggestion": "许可范围明确"
+  },
+  {
+    "contractType": "软件许可合同（分发许可模式）",
+    "code": "eula_terms",
+    "title": "用户许可条款",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "明确终端用户获得的许可范围；限制用户再分发、修改、反向工程",
+    "legalBasis": "无",
+    "suggestion": "用户限制条款"
+  },
+  {
+    "contractType": "软件许可合同（分发许可模式）",
+    "code": "ip_protection",
+    "title": "知识产权保护",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "约定软件知识产权归属（许可方）；约定侵权责任承担",
+    "legalBasis": "《著作权法》相关规定",
+    "suggestion": "知识产权归属明确"
+  },
+  {
+    "contractType": "软件许可合同（自用许可模式）",
+    "code": "license_scope",
+    "title": "许可范围限制",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "明确被许可方使用范围（内部使用）；明确使用人数限制；禁止再许可",
+    "legalBasis": "《著作权法》相关规定",
+    "suggestion": "使用范围限制明确"
+  },
+  {
+    "contractType": "软件许可合同（自用许可模式）",
+    "code": "data_security",
+    "title": "数据与安全",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "明确数据存储位置；约定数据安全责任",
+    "legalBasis": "无",
+    "suggestion": "数据安全责任约定"
+  },
+  {
+    "contractType": "软件许可合同（自用许可模式）",
+    "code": "maintenance_upgrade",
+    "title": "维护升级",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "约定维护支持范围、期限；约定版本升级政策",
+    "legalBasis": "无",
+    "suggestion": "维护升级政策明确"
+  },
+  {
+    "contractType": "商标转让合同",
+    "code": "mark_check",
+    "title": "商标权状况核实",
+    "defaultLevel": "medium",
+    "stancePreference": "strict",
+    "checkContent": "核实商标注册号、注册人、注册类别；检查商标是否有效",
+    "legalBasis": "《商标法》第四十二条",
+    "suggestion": "核实商标权属无权利负担"
+  },
+  {
+    "contractType": "商标转让合同",
+    "code": "approval_register",
+    "title": "核准登记",
+    "defaultLevel": "medium",
+    "stancePreference": "strict",
+    "checkContent": "商标转让需向商标局申请核准登记；登记是对抗要件",
+    "legalBasis": "《商标法》第四十二条",
+    "suggestion": "向商标局申请登记"
+  },
+  {
+    "contractType": "商标转让合同",
+    "code": "right_warranty",
+    "title": "权利担保",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "约定转让方权利担保义务；约定权利瑕疵违约责任",
+    "legalBasis": "无",
+    "suggestion": "约定权利担保"
+  },
+  {
+    "contractType": "商标许可合同",
+    "code": "license_type_scope",
+    "title": "许可类型范围明确",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "明确许可类型（独占许可、排他许可、普通许可）；明确许可地域范围",
+    "legalBasis": "《商标法》第四十三条",
+    "suggestion": "许可类型范围明确"
+  },
+  {
+    "contractType": "商标许可合同",
+    "code": "quality_control",
+    "title": "质量控制",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "约定被许可方商品质量标准；约定许可方监督权利",
+    "legalBasis": "《商标法》第四十三条",
+    "suggestion": "质量控制约定"
+  },
+  {
+    "contractType": "商标许可合同",
+    "code": "mark_usage_norm",
+    "title": "商标使用规范",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "约定商标使用方式；约定不得改变商标标识",
+    "legalBasis": "无",
+    "suggestion": "商标使用规范"
+  },
+  {
+    "contractType": "商标许可合同",
+    "code": "recordal",
+    "title": "登记备案",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "商标许可可向商标局备案；备案是对抗要件",
+    "legalBasis": "《商标法》第四十三条",
+    "suggestion": "备案登记约定"
+  },
+  {
+    "contractType": "委托创作合同",
+    "code": "creation_content",
+    "title": "创作内容明确",
+    "defaultLevel": "medium",
+    "stancePreference": "strict",
+    "checkContent": "明确创作作品类型、内容要求；明确创作期限",
+    "legalBasis": "无",
+    "suggestion": "创作内容明确"
+  },
+  {
+    "contractType": "委托创作合同",
+    "code": "copyright_ownership",
+    "title": "著作权归属",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "明确创作成果著作权归属；未明确约定著作权归属创作方",
+    "legalBasis": "《著作权法》第十七条",
+    "suggestion": "著作权归属明确约定"
+  },
+  {
+    "contractType": "委托创作合同",
+    "code": "acceptance_delivery",
+    "title": "验收与交付",
+    "defaultLevel": "medium",
+    "stancePreference": "strict",
+    "checkContent": "约定验收标准；约定交付内容",
+    "legalBasis": "无",
+    "suggestion": "验收标准明确"
+  },
+  {
+    "contractType": "委托创作合同",
+    "code": "infringe_warranty",
+    "title": "侵权担保",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "约定创作方保证作品不侵犯他人权利；约定侵权责任承担",
+    "legalBasis": "无",
+    "suggestion": "侵权担保约定"
+  },
+  {
+    "contractType": "隐私政策（用户协议）",
+    "code": "pi_collection_scope",
+    "title": "个人信息收集范围",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "明确收集的个人信息类型、范围；检查是否超范围收集",
+    "legalBasis": "《个人信息保护法》第五条至第七十二条",
+    "suggestion": "收集范围明确合理"
+  },
+  {
+    "contractType": "隐私政策（用户协议）",
+    "code": "notice_consent",
+    "title": "告知与同意",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "明确告知收集目的、方式、范围；约定用户同意方式",
+    "legalBasis": "《个人信息保护法》相关条款",
+    "suggestion": "告知同意方式有效"
+  },
+  {
+    "contractType": "隐私政策（用户协议）",
+    "code": "usage_limit",
+    "title": "信息使用限制",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "明确信息使用范围；禁止超范围使用",
+    "legalBasis": "《个人信息保护法》相关条款",
+    "suggestion": "信息使用范围明确"
+  },
+  {
+    "contractType": "隐私政策（用户协议）",
+    "code": "storage_security",
+    "title": "信息存储与安全",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "明确信息存储地点、期限；约定信息安全保护措施",
+    "legalBasis": "《网络安全法》第四十条至第四十四条",
+    "suggestion": "信息安全措施"
+  },
+  {
+    "contractType": "隐私政策（用户协议）",
+    "code": "user_rights",
+    "title": "用户权利保障",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "明确用户查询、更正、删除信息的权利",
+    "legalBasis": "《个人信息保护法》相关条款",
+    "suggestion": "用户权利保障"
+  },
+  {
+    "contractType": "隐私政策（用户协议）",
+    "code": "minor_protection",
+    "title": "未成年人保护",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "未成年人信息收集需监护人同意；14岁以下儿童信息需特别保护",
+    "legalBasis": "《未成年人保护法》相关规定",
+    "suggestion": "未成年人特殊保护"
+  },
+  {
+    "contractType": "订单协议（电商平台）",
+    "code": "order_content",
+    "title": "订单内容明确",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "明确商品名称、规格、数量、价格；明确配送方式、配送时间",
+    "legalBasis": "《电子商务法》第四十九条至第五十五条",
+    "suggestion": "订单内容明确"
+  },
+  {
+    "contractType": "订单协议（电商平台）",
+    "code": "formation_timing",
+    "title": "合同成立时间",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "订单提交即合同成立；约定发货时间",
+    "legalBasis": "《电子商务法》第四十九条",
+    "suggestion": "发货时间约定"
+  },
+  {
+    "contractType": "订单协议（电商平台）",
+    "code": "return_policy",
+    "title": "退换货政策",
+    "defaultLevel": "medium",
+    "stancePreference": "balanced",
+    "checkContent": "明确退换货条件、期限；七天无理由退货需明确",
+    "legalBasis": "《消费者权益保护法》第二十五条",
+    "suggestion": "退换货政策清晰"
+  },
+  {
+    "contractType": "订单协议（电商平台）",
+    "code": "standard_validity",
+    "title": "格式条款效力",
+    "defaultLevel": "high",
+    "stancePreference": "strict",
+    "checkContent": "订单协议构成格式条款；重要条款需合理提示",
+    "legalBasis": "《民法典》第四百九十六条",
+    "suggestion": "格式条款提示"
+  }
+]

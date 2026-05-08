@@ -7,7 +7,7 @@
  *
  * 0. paragraphIndex 直定位（"非空段落序号"空间，与后端
  *    server/agents/contract/utils/clauseToParagraph.ts 同口径）
- *    —— 解决 reviewed docx 注入批注后段落 textContent 与原 anchor_quote 因
+ *    —— 解决 reviewed docx 注入批注后段落 textContent 与原 clause_text 因
  *    全角/半角/特殊空格等微差异致文本匹配失败的问题
  * 1. 精确子串匹配（按块级元素，归一化空白；逐行尝试前 3 行）
  * 2. 模糊匹配：取首行前 20 字 + 去标点空白，作子串/前缀匹配
@@ -60,14 +60,16 @@ function splitClauseLines(clauseText: string): string[] {
  * "非空段落序号"空间双重计数），用 PARA_BLOCK_SELECTOR 与 docx 原生 w:p 对齐。
  */
 const BLOCK_SELECTOR = 'p, li, h1, h2, h3, h4, h5, h6, td'
-const PARA_BLOCK_SELECTOR = 'p, li, h1, h2, h3, h4, h5, h6'
+/** 与后端 `clauseToParagraph.ts` 同口径的"非空段落"块级元素选择器（PR 5 复用） */
+export const PARA_BLOCK_SELECTOR = 'p, li, h1, h2, h3, h4, h5, h6'
 
 /**
- * 取容器内第 N 个非空块级元素，对齐后端"非空段落序号"空间
- * （server/agents/contract/docx/parser.ts 的 paragraphs[] 与
- *  utils/clauseToParagraph.ts 的 buildClauseToParagraphMap 输出）。
+ * 取容器内第 N 个非空块级元素（PARA_BLOCK_SELECTOR 范围）。
+ * 与后端 `server/agents/contract/utils/clauseToParagraph.ts` 的"非空段落序号"同算法。
+ *
+ * PR 5 `app/utils/quoteHighlight.ts` 复用本函数。
  */
-function findByParagraphIndex(container: Element, paragraphIndex: number): Element | null {
+export function findByParagraphIndex(container: Element, paragraphIndex: number): Element | null {
     const blocks = container.querySelectorAll(PARA_BLOCK_SELECTOR)
     let count = 0
     for (const el of blocks) {

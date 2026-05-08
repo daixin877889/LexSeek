@@ -15,7 +15,8 @@ const schema = z.object({
     modules: z.array(z.string()).describe(
         '需要预扣积分的分析模块标识列表，如 ["analysis_summary", "analysis_defense"]'
     ),
-    sourceId: z.number().optional().describe('关联的案件分析记录 ID'),
+    // LLM 偶尔会把数字 ID 当字符串回传，coerce 自动转 number 增强鲁棒性
+    sourceId: z.coerce.number().optional().describe('关联的案件分析记录 ID'),
 })
 
 export const toolDefinition: ToolDefinition<typeof schema> = {

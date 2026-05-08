@@ -175,7 +175,7 @@ describe('uploadClientVersionService（B1 骨架）', () => {
                 category: '测试分类',
                 level: 'medium',
                 problem: '测试风险',
-                anchorQuote: '第一条',
+                clauseText: '第一条',
             },
         })
 
@@ -307,7 +307,7 @@ describe('uploadClientVersionService（customXml 映射识别）', () => {
                 category: '合同风险',
                 level: 'medium',
                 problem: '违约金偏高',
-                anchorQuote: '第一条',
+                clauseText: '第一条',
             },
         })
         const ann = await prisma.contractAnnotations.create({

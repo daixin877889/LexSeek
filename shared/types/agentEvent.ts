@@ -8,7 +8,7 @@
  * @see docs/superpowers/specs/2026-04-26-ai-infrastructure-unification-design.md §3.4 §A.B
  */
 
-import type { ContractReviewEvent } from './contract'
+import type { ContractReviewEvent, RiskLevel } from './contract'
 
 /**
  * 会话域：caseSessions.scope 的取值。
@@ -45,6 +45,13 @@ export enum SessionType {
 export enum SSECustomEventType {
     // ── 子代理工具相关（subAgentToolFactory 发布）──
     SUB_AGENT_TOKEN = 'sub_agent_token',
+    /**
+     * 子代理思考 token 流。LangChain handleLLMNewToken 的 token 参数对 Anthropic
+     * thinking 块和 DeepSeek/OpenAI o1 的 reasoning_content 都不暴露 — 必须从第 6
+     * 参数 fields.chunk 解析。前端累到 AIMessage.additional_kwargs.reasoning_content，
+     * extractThinking 走格式 3 直接渲染"思考"step。
+     */
+    SUB_AGENT_THINKING_TOKEN = 'sub_agent_thinking_token',
     SUB_AGENT_TOOL_START = 'sub_agent_tool_start',
     SUB_AGENT_TOOL_END = 'sub_agent_tool_end',
     SUB_AGENT_STATUS = 'sub_agent_status',
@@ -62,6 +69,7 @@ export enum SSECustomEventType {
     ANALYSIS_SUMMARY = 'analysis_summary',
     /** 阶段 5：文书草稿落库通知 */
     DRAFT_SAVED = 'draft_saved',
+    DRAFT_UPDATED = 'draft_updated',
     /** 阶段 5：合同审查结果落库通知 */
     CONTRACT_REVIEW_SAVED = 'contract_review_saved',
 
@@ -75,6 +83,16 @@ export enum SSECustomEventType {
     CONTRACT_STAGE = 'contract_stage',
     CONTRACT_RISK = 'contract_risk',
     CONTRACT_PROGRESS = 'contract_progress',
+
+    /**
+     * 材料就绪保底进度事件（中间件等待期间发出）。
+     *
+     * 由 caseProcessMaterialMiddleware 在等待识别+200 字摘要双就绪期间发出
+     * phase:'start'/'progress'/'end'。前端 useStreamChat 拦截后合成
+     * process_materials 同款 toolCall（toolCallId='prepare-${runId}'），
+     * 复用 MaterialProcessTool.vue 渲染。
+     */
+    PREPARE_MATERIALS = 'prepare_materials',
 
     /** 阶段 5/6：主代理调起子代理时通知前端 */
     CHILD_AGENT_INVOKED = 'child_agent_invoked',
@@ -161,10 +179,17 @@ export interface DraftSavedPayload {
     href: string
 }
 
+/** DRAFT_UPDATED event payload(update_document_draft 工具发) */
+export interface DraftUpdatedPayload {
+    draftId: number
+    changedFields: string[]
+    summary: string
+}
+
 export interface ContractReviewSavedPayload {
     reviewId: number
     riskCount: number
-    topRisks: Array<{ title?: string; level?: 'high' | 'medium' | 'low' }>
+    topRisks: Array<{ title?: string; level?: RiskLevel }>
     href: string
 }
 
@@ -177,9 +202,10 @@ export interface ContractStagePayload {
 export interface ContractRiskPayload {
     riskId: number
     code?: string
-    level: string
+    level: RiskLevel
     source: string
-    anchorQuote?: string
+    /** SSE 推送增量风险卡时携带的完整条款原文（前端展示用，等价于 contractRisks.clauseText） */
+    clauseText?: string
 }
 
 export interface ContractProgressPayload {
@@ -194,24 +220,50 @@ export interface ChildAgentInvokedPayload {
     toolName: string
 }
 
+/** 材料项状态（保底进度卡片用） */
+export type PrepareMaterialStatus = 'pending' | 'recognizing' | 'summarizing' | 'ready' | 'failed'
+
+/**
+ * 单条材料状态（不携带 type 字段——前端渲染只用 name + status）
+ *
+ * 注：`material.ts` 已有 `MaterialItem`（前端上传态，含 file/content/needServerProcess）
+ * 与 `MaterialProcessTool.vue` 局部 `MaterialItem`（卡片渲染用）。三者语义不同，
+ * 此处加 `Prepare` 前缀强调专属 PrepareMaterials SSE 事件。
+ */
+export interface PrepareMaterialItem {
+    id: number
+    name: string
+    status: PrepareMaterialStatus
+}
+
+/** PREPARE_MATERIALS payload */
+export type PrepareMaterialsPayload =
+    | { phase: 'start';    toolCallId: string; materials: PrepareMaterialItem[] }
+    | { phase: 'progress'; toolCallId: string; materials: PrepareMaterialItem[] }
+    | { phase: 'end';      toolCallId: string; materials: PrepareMaterialItem[]; failedCount: number }
+
 /**
  * SSE 自定义事件类型 → payload 类型映射。
  * publishCustomEvent<T> 用此映射做编译期类型校验。
  */
 export interface SSECustomEventMap {
     [SSECustomEventType.SUB_AGENT_TOKEN]: SubAgentTokenPayload
+    /** 复用 SubAgentTokenPayload 形状，metadata 含 messageId/delta（同 SUB_AGENT_TOKEN） */
+    [SSECustomEventType.SUB_AGENT_THINKING_TOKEN]: SubAgentTokenPayload
     [SSECustomEventType.SUB_AGENT_TOOL_START]: SubAgentToolStartPayload
     [SSECustomEventType.SUB_AGENT_TOOL_END]: SubAgentToolEndPayload
     [SSECustomEventType.SUB_AGENT_STATUS]: SubAgentStatusPayload
     [SSECustomEventType.ANALYSIS_RESULT_SAVED]: AnalysisResultSavedPayload
     [SSECustomEventType.ANALYSIS_SUMMARY]: AnalysisSummaryPayload
     [SSECustomEventType.DRAFT_SAVED]: DraftSavedPayload
+    [SSECustomEventType.DRAFT_UPDATED]: DraftUpdatedPayload
     [SSECustomEventType.CONTRACT_REVIEW_SAVED]: ContractReviewSavedPayload
     [SSECustomEventType.CONTRACT_REVIEW]: ContractReviewEvent
     [SSECustomEventType.CONTRACT_STAGE]: ContractStagePayload
     [SSECustomEventType.CONTRACT_RISK]: ContractRiskPayload
     [SSECustomEventType.CONTRACT_PROGRESS]: ContractProgressPayload
     [SSECustomEventType.CHILD_AGENT_INVOKED]: ChildAgentInvokedPayload
+    [SSECustomEventType.PREPARE_MATERIALS]: PrepareMaterialsPayload
 }
 
 /**

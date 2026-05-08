@@ -36,7 +36,7 @@ describe('案件创建 API - materials 参数验证', () => {
     })
 
     it('应该成功创建带有文本材料的案件', async () => {
-        const response = await helper.getClient().post('/api/v1/case/create', {
+        const response = await helper.getClient().post('/api/v1/cases/create', {
             title: '测试案件 - 文本材料',
             content: '测试案件内容',
             caseTypeId: testCaseTypeId,
@@ -78,7 +78,7 @@ describe('案件创建 API - materials 参数验证', () => {
     })
 
     it('应该成功创建带有多个文本材料的案件', async () => {
-        const response = await helper.getClient().post('/api/v1/case/create', {
+        const response = await helper.getClient().post('/api/v1/cases/create', {
             title: '测试案件 - 多个文本材料',
             content: '测试案件内容',
             caseTypeId: testCaseTypeId,
@@ -123,7 +123,7 @@ describe('案件创建 API - materials 参数验证', () => {
     })
 
     it('应该拒绝无效的材料类型', async () => {
-        const response = await helper.getClient().post('/api/v1/case/create', {
+        const response = await helper.getClient().post('/api/v1/cases/create', {
             title: '测试案件 - 无效材料类型',
             content: '测试案件内容',
             caseTypeId: testCaseTypeId,
@@ -141,7 +141,7 @@ describe('案件创建 API - materials 参数验证', () => {
     })
 
     it('应该拒绝文本材料缺少 content 字段', async () => {
-        const response = await helper.getClient().post('/api/v1/case/create', {
+        const response = await helper.getClient().post('/api/v1/cases/create', {
             title: '测试案件 - 缺少 content',
             content: '测试案件内容',
             caseTypeId: testCaseTypeId,
@@ -159,7 +159,7 @@ describe('案件创建 API - materials 参数验证', () => {
     })
 
     it('应该拒绝文本材料的 content 为空字符串', async () => {
-        const response = await helper.getClient().post('/api/v1/case/create', {
+        const response = await helper.getClient().post('/api/v1/cases/create', {
             title: '测试案件 - 空 content',
             content: '测试案件内容',
             caseTypeId: testCaseTypeId,
@@ -177,7 +177,7 @@ describe('案件创建 API - materials 参数验证', () => {
     })
 
     it('应该拒绝文件材料缺少 ossFileId 字段', async () => {
-        const response = await helper.getClient().post('/api/v1/case/create', {
+        const response = await helper.getClient().post('/api/v1/cases/create', {
             title: '测试案件 - 缺少 ossFileId',
             content: '测试案件内容',
             caseTypeId: testCaseTypeId,
@@ -195,7 +195,7 @@ describe('案件创建 API - materials 参数验证', () => {
     })
 
     it('应该拒绝 ossFileId 不是数字', async () => {
-        const response = await helper.getClient().post('/api/v1/case/create', {
+        const response = await helper.getClient().post('/api/v1/cases/create', {
             title: '测试案件 - ossFileId 类型错误',
             content: '测试案件内容',
             caseTypeId: testCaseTypeId,
@@ -214,7 +214,7 @@ describe('案件创建 API - materials 参数验证', () => {
     })
 
     it('应该成功创建不带材料的案件', async () => {
-        const response = await helper.getClient().post('/api/v1/case/create', {
+        const response = await helper.getClient().post('/api/v1/cases/create', {
             title: '测试案件 - 无材料',
             content: '测试案件内容',
             caseTypeId: testCaseTypeId,
@@ -243,7 +243,7 @@ describe('案件创建 API - materials 参数验证', () => {
     })
 
     it('应该成功创建 materials 为空数组的案件', async () => {
-        const response = await helper.getClient().post('/api/v1/case/create', {
+        const response = await helper.getClient().post('/api/v1/cases/create', {
             title: '测试案件 - 空材料数组',
             content: '测试案件内容',
             caseTypeId: testCaseTypeId,
@@ -272,7 +272,7 @@ describe('案件创建 API - materials 参数验证', () => {
     })
 
     it('应该拒绝既没有 content 也没有 materials 的案件', async () => {
-        const response = await helper.getClient().post('/api/v1/case/create', {
+        const response = await helper.getClient().post('/api/v1/cases/create', {
             title: '测试案件 - 无内容无材料',
             caseTypeId: testCaseTypeId,
             // 既不传 content 也不传 materials
@@ -283,7 +283,7 @@ describe('案件创建 API - materials 参数验证', () => {
     })
 
     it('应该拒绝 content 为空字符串且没有 materials 的案件', async () => {
-        const response = await helper.getClient().post('/api/v1/case/create', {
+        const response = await helper.getClient().post('/api/v1/cases/create', {
             title: '测试案件 - 空内容无材料',
             content: '   ', // 只有空格
             caseTypeId: testCaseTypeId,
@@ -294,7 +294,7 @@ describe('案件创建 API - materials 参数验证', () => {
     })
 
     it('应该拒绝 content 为空且 materials 为空数组的案件', async () => {
-        const response = await helper.getClient().post('/api/v1/case/create', {
+        const response = await helper.getClient().post('/api/v1/cases/create', {
             title: '测试案件 - 空内容空材料',
             content: '',
             materials: [],

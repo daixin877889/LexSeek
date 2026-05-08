@@ -22,6 +22,7 @@ import type { CaseDetailMaterialItem } from '~/composables/useCaseDetail'
 import { CaseMaterialType } from '#shared/types/case'
 import AiChat from '~/components/ai/AiChat.vue'
 import AiChatQueueChips from '~/components/ai/AiChatQueueChips.vue'
+import { PANEL_TOOL_MAP } from '~/components/agents/panelToolMap'
 import AssistantDocumentAllMaterialsSheet from '~/components/assistant/document/AllMaterialsSheet.vue'
 import AssistantDocumentDraftTitleInput from '~/components/assistant/document/DocumentDraftTitleInput.vue'
 import AssistantDocumentFieldForm from '~/components/assistant/document/DocumentFieldForm.vue'
@@ -37,6 +38,7 @@ import CaseAnalysisMaterialSelector from '~/components/caseAnalysis/materialSele
 import type { documentDrafts as DocumentDraftRow } from '~~/generated/prisma/client'
 import type { ExportDraftResponse } from '#shared/types/document'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { usePageSourceBar } from '~/composables/usePageSourceBar'
 import { useCaseLinker } from '~/composables/useCaseLinker'
 import { useDocumentAgent } from '~/composables/agents'
 import { useDocumentDraftFields } from '~/composables/document/useDocumentDraftFields'
@@ -237,8 +239,7 @@ onMounted(async () => {
         if (!draft.value) {
             loadError.value = '草稿不存在或已被删除'
         } else {
-            await loadRelatedMaterials()
-            await refreshCaseTitle()
+            await Promise.all([loadRelatedMaterials(), refreshCaseTitle()])
         }
     } catch (e) {
         loadError.value = e instanceof Error ? e.message : '加载草稿失败'
@@ -265,36 +266,9 @@ const exportDisabled = computed(
 
 const caseId = computed(() => (draft.value as documentDrafts | null)?.caseId ?? null)
 
-// ========== 阶段 5 Task 12：顶部「来源条」 ==========
-// 入口协议：?from=assistant&sessionId=xxx 由法律助手跳进来
-// 仅当 from='assistant' / 'xiaosuo'（阶段 6 接入）时显示来源条；
-// 同时在原工具栏隐藏"返回"按钮（避免双返回按钮歧义，按 team-lead §6 决策）。
-const fromSource = computed(() => {
-    const f = route.query.from
-    if (typeof f !== 'string') return ''
-    if (f === 'assistant' || f === 'xiaosuo') return f
-    return ''
-})
-const sourceSessionId = computed(() => {
-    const sid = route.query.sessionId
-    return typeof sid === 'string' ? sid : null
-})
-const showSourceBar = computed(() => fromSource.value !== '')
-
-// 已关联案件标题：用 active cases 列表查找；找不到时 SourceBar 内部 fallback 到"案件 #id"
-const caseTitle = ref<string | null>(null)
-async function refreshCaseTitle() {
-    if (caseId.value == null) {
-        caseTitle.value = null
-        return
-    }
-    const data = await useApiFetch<{ items: Array<{ id: number; title: string }> }>(
-        '/api/v1/cases/active',
-        { query: { limit: 200 }, showError: false } as any,
-    )
-    caseTitle.value = data?.items?.find(c => c.id === caseId.value)?.title ?? null
-}
-watch(caseId, () => { void refreshCaseTitle() }, { immediate: false })
+// 来源条：?from=assistant&sessionId=xxx 跳入时显示「返回助手 + 关联案件」，
+// 同时隐藏原工具栏「返回」按钮避免双返回按钮歧义
+const { fromSource, sourceSessionId, showSourceBar, caseTitle, refreshCaseTitle } = usePageSourceBar({ caseId })
 
 // 关联案件：useCaseLinker 封装了 PATCH + toast；onLinked 回调里重新 mountDraft 拿最新 caseId
 const {
@@ -315,30 +289,30 @@ const effectiveValues = computed<Record<string, string | null>>(() =>
     (previewValues.value ?? currentValues.value) as Record<string, string | null>,
 )
 
-// ========== 模板 Buffer 加载（用于 docx-preview 实时预览）==========
-// watch 按 template.id 触发：mountDraft/applySnapshot/restoreVersion 可能刷新 template
-// 引用（对象新实例）但 id 未变，不必重下；fetchSeq 处理并发覆盖。
+// 模板 Buffer 加载（docx-preview 实时预览）：watch 按 template.id 触发，
+// 切版本时 abort 上一个 fetch 避免大文件并发下载堆积内存
 const templateBuffer = ref<ArrayBuffer | null>(null)
-let fetchSeq = 0
+let templateFetchAbort: AbortController | undefined
 
 watch(() => template.value?.id ?? null, async (tplId) => {
+    templateFetchAbort?.abort()
     if (!tplId) {
         templateBuffer.value = null
         return
     }
-    const seq = ++fetchSeq
+    const ctrl = new AbortController()
+    templateFetchAbort = ctrl
     try {
         const result = await useApiFetch<{ downloadUrl: string }>(
             `/api/v1/assistant/document/templates/download-url/${tplId}`,
-            { showError: false } as any,
+            { showError: false },
         )
-        if (seq !== fetchSeq || !result?.downloadUrl) return
-        const resp = await fetch(result.downloadUrl)
-        if (seq !== fetchSeq) return
+        if (ctrl.signal.aborted || !result?.downloadUrl) return
+        const resp = await fetch(result.downloadUrl, { signal: ctrl.signal })
         if (!resp.ok) throw new Error(`下载模板文件失败：${resp.status}`)
         templateBuffer.value = await resp.arrayBuffer()
     } catch (err) {
-        if (seq !== fetchSeq) return
+        if (ctrl.signal.aborted) return
         console.warn('加载模板 buffer 失败', err)
     }
 })
@@ -375,8 +349,6 @@ async function handleExport() {
         isExporting.value = false
     }
 }
-
-// ========== Task 10：悬浮 Agent 窗 + 队列 / 中断 ==========
 
 // ========== 历史面板 / 保存版本 Dialog ==========
 const historyOpen = ref(false)
@@ -677,7 +649,7 @@ function handlePanelResize(sizes: number[]) {
 
 <template>
     <div class="p-4 md:p-6 flex flex-col gap-4" style="height: calc(100vh - 48px)">
-        <!-- 阶段 5 Task 12：顶部来源条（仅当从法律助手 / 小索 跳入时显示） -->
+        <!-- 顶部来源条仅当从法律助手 / 小索跳入时显示 -->
         <AgentsDocumentDraftSourceBar
             v-if="showSourceBar"
             :from="fromSource"
@@ -801,6 +773,7 @@ function handlePanelResize(sizes: number[]) {
             <AiChat ref="aiChatRef" :messages="chatMessages" :loading="chatLoading" :is-interrupted="isInterrupted"
                 :enable-file-upload="true" :queue-length="queueLen" :queue-full="queueFull" :is-stopping="isStopping"
                 prompt-placeholder="告诉 AI 你想怎么填..." :show-header="false" panel-mode="left"
+                :tool-map="PANEL_TOOL_MAP"
                 :on-file-button-click="openMaterialSelector" @submit="handleChatSubmit" @stop="handleStop">
                 <template #prompt-actions>
                     <div v-if="showRetryButton && currentQueue.length === 0" class="flex items-center gap-2 px-4 py-2">
@@ -816,7 +789,7 @@ function handlePanelResize(sizes: number[]) {
             </AiChat>
         </CaseChatWindowShell>
 
-        <!-- 中断确认弹窗：阶段 7 改用 InterruptDispatcher -->
+        <!-- 中断确认弹窗：InterruptDispatcher 按 type 分发到对应卡片 -->
         <Dialog :open="!!interruptData" @update:open="() => { }">
             <DialogContent class="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0 z-70" overlay-class="z-[70]"
                 :show-close-button="false" @pointer-down-outside.prevent @escape-key-down.prevent
@@ -832,7 +805,7 @@ function handlePanelResize(sizes: number[]) {
             </DialogContent>
         </Dialog>
 
-        <!-- 阶段 5 Task 12：关联案件 Dialog（来源条触发） -->
+        <!-- 关联案件 Dialog（来源条触发） -->
         <CasesCaseLinkerDialog
             v-model:open="caseLinkerOpen"
             :current-case-id="caseId"

@@ -53,12 +53,12 @@ const threadHistory = await useApiFetch<{
     threadId: string;
     messages: Record<string, unknown>[];
   }>;
-}>(`/api/v1/case/analysis/thread/${sessionId.value}`, {
+}>(`/api/v1/cases/analysis/thread/${sessionId.value}`, {
   showError: false,
 });
 
 const stream = useStreamChat({
-  apiUrl: "/api/v1/case/analysis/chat",
+  apiUrl: "/api/v1/cases/analysis/chat",
   threadId: sessionId.value,
   initialValues: threadHistory?.values ?? undefined,
   initialSubThreads: threadHistory?.subAgentThreads ?? undefined,
@@ -202,7 +202,7 @@ const goBack = () => {
 onMounted(async () => {
   try {
     const activeRun = await useApiFetch<{ run: { id: string; status: string } | null }>(
-      `/api/v1/case/analysis/runs/current/${sessionId.value}`,
+      `/api/v1/cases/analysis/runs/current/${sessionId.value}`,
       { showError: false },
     )
     if (

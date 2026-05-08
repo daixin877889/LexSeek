@@ -262,32 +262,33 @@ export async function updateLegalEmbeddings(legalId: string): Promise<void> {
         throw new Error(`法律 ID ${legalId} 不存在`)
     }
 
-    // 检查每个条文是否需要更新嵌入
+    // 检查每个条文是否需要更新嵌入（embedLawArticle 调 LLM，保持顺序避免触发 rate limit）
+    const embeddedArticleIds: string[] = []
     for (const article of legal.legalArticles) {
         const needsUpdate = await checkArticleNeedsEmbedding(article)
 
         if (needsUpdate) {
-            // 删除旧的嵌入记录
             await deleteEmbeddingsByArticleId(article.id)
-
-            // 创建新的嵌入
             const embeddingTime = await embedLawArticle(legal, article)
 
             if (embeddingTime) {
-                // 更新条文的最后嵌入时间
-                await prisma.legalArticles.update({
-                    where: { id: article.id },
-                    data: { lastEmbeddingAt: new Date() },
-                })
+                embeddedArticleIds.push(article.id)
                 logger.info(`已更新法条嵌入: ${article.id}`)
             }
         }
     }
 
-    // 更新法律的最后嵌入时间
+    // 批量更新条文嵌入时间 + 法律嵌入时间
+    const now = new Date()
+    if (embeddedArticleIds.length > 0) {
+        await prisma.legalArticles.updateMany({
+            where: { id: { in: embeddedArticleIds } },
+            data: { lastEmbeddingAt: now },
+        })
+    }
     await prisma.legalMain.update({
         where: { id: legalId },
-        data: { lastEmbeddingAt: new Date() },
+        data: { lastEmbeddingAt: now },
     })
 
     logger.info(`完成法律嵌入更新: ${legal.name}`)

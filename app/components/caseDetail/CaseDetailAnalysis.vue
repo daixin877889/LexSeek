@@ -9,6 +9,7 @@ const props = defineProps<{
   moduleCards?: AnalysisModuleCard[]
   showBatchButton?: boolean
   hasPendingInterrupt?: boolean
+  isAnalysisRunning?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -17,6 +18,7 @@ const emit = defineEmits<{
   generateModule: [moduleName: string, moduleTitle: string]
   batchGenerate: []
   goToInterrupt: []
+  goToRunningWorkflow: []
 }>()
 
 const activeModule = defineModel<string | null>('activeModule', { default: null })
@@ -36,12 +38,14 @@ const viewMode = defineModel<'dashboard' | 'detail'>('viewMode', { default: 'das
       :show-versions="true"
       :show-batch-button="showBatchButton"
       :has-pending-interrupt="hasPendingInterrupt"
+      :is-analysis-running="isAnalysisRunning"
       class="h-full"
       @version-changed="emit('versionChanged')"
       @regenerate="(result) => emit('regenerate', result)"
       @generate-module="(name, title) => emit('generateModule', name, title)"
       @batch-generate="emit('batchGenerate')"
       @go-to-interrupt="emit('goToInterrupt')"
+      @go-to-running-workflow="emit('goToRunningWorkflow')"
     />
   </div>
 </template>

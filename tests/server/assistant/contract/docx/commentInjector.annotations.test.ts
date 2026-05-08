@@ -317,3 +317,69 @@ describe('injectAnnotations', () => {
     })
 
 })
+
+describe('injectAnnotations idStart 协调（PR6 §8.3.1）', () => {
+    it('未传 idStart 时 wId 从 0 开始（向后兼容）', async () => {
+        const original = await readFile(SAMPLE)
+        const { paragraphs } = await parseContractDocx(original)
+        const annotations: ContractAnnotationForExport[] = [
+            makeAnnotation({ id: 1, anchorParagraphIndex: Math.min(0, paragraphs.length - 1) }),
+            makeAnnotation({ id: 2, anchorParagraphIndex: Math.min(1, paragraphs.length - 1) }),
+        ]
+        const { buffer, nextIdAfter } = await injectAnnotations(original, annotations, 999)
+        const zip = await loadDocxZip(buffer)
+        const commentsXml = await readTextFromZip(zip, 'word/comments.xml')
+        expect(commentsXml).toContain('w:id="0"')
+        expect(commentsXml).toContain('w:id="1"')
+        expect(commentsXml).not.toContain('w:id="2"')
+        expect(nextIdAfter).toBe(2)
+    })
+
+    it('传 idStart=10 时 wId 从 10 开始 + nextIdAfter=12', async () => {
+        const original = await readFile(SAMPLE)
+        const { paragraphs } = await parseContractDocx(original)
+        const annotations: ContractAnnotationForExport[] = [
+            makeAnnotation({ id: 1, anchorParagraphIndex: Math.min(0, paragraphs.length - 1) }),
+            makeAnnotation({ id: 2, anchorParagraphIndex: Math.min(1, paragraphs.length - 1) }),
+        ]
+        const { buffer, nextIdAfter } = await injectAnnotations(original, annotations, 999, { idStart: 10 })
+        const zip = await loadDocxZip(buffer)
+        const commentsXml = await readTextFromZip(zip, 'word/comments.xml')
+        expect(commentsXml).toContain('w:id="10"')
+        expect(commentsXml).toContain('w:id="11"')
+        expect(commentsXml).not.toContain('w:id="12"')
+        expect(nextIdAfter).toBe(12)
+    })
+
+    it('空 annotations + idStart=5 → nextIdAfter=5（不消耗 ID）', async () => {
+        const original = await readFile(SAMPLE)
+        const { nextIdAfter } = await injectAnnotations(original, [], 999, { idStart: 5 })
+        expect(nextIdAfter).toBe(5)
+    })
+
+    it('parentAnnotationId 引用按新 idStart 偏移后的 wId', async () => {
+        const original = await readFile(SAMPLE)
+        const { paragraphs } = await parseContractDocx(original)
+        const idx = Math.min(1, paragraphs.length - 1)
+        const annotations: ContractAnnotationForExport[] = [
+            makeAnnotation({ id: 1, authorName: 'AI', anchorParagraphIndex: idx }),
+            makeAnnotation({ id: 2, authorName: '张律师', parentAnnotationId: 1, anchorParagraphIndex: idx }),
+        ]
+        const { buffer } = await injectAnnotations(original, annotations, 999, { idStart: 100 })
+        const zip = await loadDocxZip(buffer)
+        const commentsXml = await readTextFromZip(zip, 'word/comments.xml')
+        // id=2 的 annotation 对应 w:id="101"，其父 id=1 对应 w:id="100"
+        expect(commentsXml).toMatch(/w:parentId="100"/)
+    })
+
+    it('未传 wrapTargetByRiskId → 维持现有段落级行为（commentRangeStart w:id 从 idStart 起始）', async () => {
+        const original = await readFile(SAMPLE)
+        const { paragraphs } = await parseContractDocx(original)
+        const ann = makeAnnotation({ id: 1, anchorParagraphIndex: Math.min(0, paragraphs.length - 1) })
+        const { buffer } = await injectAnnotations(original, [ann], 999) // 不传 opts
+        const zip = await loadDocxZip(buffer)
+        const docXml = await readTextFromZip(zip, 'word/document.xml')
+        // 仍按既有逻辑：commentRangeStart 在段首
+        expect(docXml).toMatch(/<w:commentRangeStart\s+w:id="0"/)
+    })
+})

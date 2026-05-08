@@ -6,6 +6,9 @@
  */
 
 import { describe, it, expect, afterEach, vi } from 'vitest'
+import { mkdir, writeFile, rm } from 'node:fs/promises'
+import { resolve } from 'node:path'
+import { tmpdir } from 'node:os'
 import { upsertSkillDAO, deleteSkillDAO } from '~~/server/services/agent-platform/skills/skillSync.dao'
 import { SkillSource, SkillStatus } from '#shared/types/skill'
 
@@ -28,12 +31,17 @@ function mockEvent(params: Record<string, string>, body: any) {
 
 describe('PATCH /api/v1/admin/skills/status/:name（skill 启停）', () => {
     const testNames: string[] = []
+    const tempDirs: string[] = []
 
     afterEach(async () => {
         if (testNames.length > 0) {
             await prisma.skills.deleteMany({ where: { name: { in: testNames } } })
             testNames.length = 0
         }
+        for (const dir of tempDirs) {
+            await rm(dir, { recursive: true, force: true }).catch(() => {})
+        }
+        tempDirs.length = 0
     })
 
     it('handler 模块可加载且 default export 是函数', async () => {
@@ -58,7 +66,15 @@ describe('PATCH /api/v1/admin/skills/status/:name（skill 启停）', () => {
     it('status=1 将 skill 置为 ENABLED', async () => {
         const name = `test_patch_enable_${Date.now()}`
         testNames.push(name)
-        await upsertSkillDAO({ name, path: `path/${name}`, source: SkillSource.FILESYSTEM })
+
+        // setSkillStatusService 在 ENABLE 时会校验 path 对应目录 + SKILL.md 存在；
+        // 用真实临时目录满足校验，否则会抛 SkillFsMissingError 返回失败
+        const tempDir = resolve(tmpdir(), `skill-${name}`)
+        await mkdir(tempDir, { recursive: true })
+        await writeFile(resolve(tempDir, 'SKILL.md'), `---\nname: ${name}\n---\n# t\n`)
+        tempDirs.push(tempDir)
+
+        await upsertSkillDAO({ name, path: tempDir, source: SkillSource.FILESYSTEM })
         // 先 disable
         await prisma.skills.update({ where: { name }, data: { status: SkillStatus.DISABLED } })
 

@@ -16,7 +16,11 @@ import { Prisma } from '~~/generated/prisma/client'
 import type { nodes } from '~~/generated/prisma/client'
 
 // 定义 Prisma 客户端类型（支持事务）
-type PrismaClient = typeof prisma
+// 用 Prisma.TransactionClient 而非 typeof prisma：前者是事务回调里 tx 参数的精确类型，
+// 而后者带有 $transaction / $extends 等顶层方法，会与 $transaction 回调里的 tx 不兼容
+// （Omit<PrismaClient, ...> 与全量 PrismaClient 的 GlobalOmitConfig 也对不上）。
+// 全量 prisma 实例本身可赋值给 TransactionClient（结构子类型），普通调用不受影响。
+type PrismaClient = Prisma.TransactionClient
 
 // ==================== 节点分组 DAO ====================
 
@@ -224,6 +228,7 @@ export const createNodeDao = async (
                 outputSchema: data.outputSchema
                     ? (data.outputSchema as Prisma.InputJsonValue)
                     : Prisma.DbNull,
+                ...(data.thinkingEnabled !== undefined && { thinkingEnabled: data.thinkingEnabled }),
             },
             include: {
                 group: true,
@@ -265,10 +270,8 @@ export const findNodeByIdDao = async (
                         displayName: true,
                     },
                 },
-                prompts: {
-                    where: { deletedAt: null },
-                    orderBy: [{ type: 'asc' }, { version: 'desc' }],
-                },
+                // ★ Phase 6 改造：prompts 反向单值字段已删，这里不再 include；
+                // 节点详情接口（GET /api/v1/admin/nodes/:id）单独查询 node_prompts 关联表后映射 NodePromptRef[]。
             },
         })
         return node
@@ -384,6 +387,8 @@ export const findManyNodesDao = async (
                             id: true,
                             name: true,
                             displayName: true,
+                            modelType: true,
+                            supportsThinking: true,
                         },
                     },
                 },
@@ -503,6 +508,7 @@ export const updateNodeDao = async (
                         ? Prisma.DbNull
                         : (data.outputSchema as Prisma.InputJsonValue),
                 }),
+                ...(data.thinkingEnabled !== undefined && { thinkingEnabled: data.thinkingEnabled }),
                 updatedAt: new Date(),
             },
             include: {
@@ -599,6 +605,79 @@ export const batchUpdateNodeGroupDao = async (
 }
 
 /**
+ * 节点配置返回类型：node + nodePrompts（每条带 displayOrder + 当前激活版本的 prompt 字段）
+ *
+ * 阶段 F 改造：node_prompts 现在按 (promptName, promptType) 业务身份关联，没有 prisma 反向关系。
+ * dao 内做两步查询：先查节点本身 + 关联表，再按 (name, type) 一次性拉取所有激活的 prompts，
+ * 最后用 (name, type) 作 key 把 prompt 挂回 link，返回结构与改造前保持一致：
+ *   `{ ...node, nodePrompts: [{ prompt, displayOrder }, ...] }`
+ */
+async function loadNodeWithActivePrompts(
+    where: { id?: number; name?: string },
+    db: PrismaClient,
+) {
+    const node = await db.nodes.findFirst({
+        where: {
+            ...(where.id !== undefined && { id: where.id }),
+            ...(where.name !== undefined && { name: where.name }),
+            deletedAt: null,
+            status: 1,
+        },
+        include: {
+            group: true,
+            model: {
+                include: {
+                    modelProvider: {
+                        include: {
+                            modelApiKeys: {
+                                where: {
+                                    deletedAt: null,
+                                    status: 1,
+                                    isDefault: true,
+                                },
+                                take: 1,
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    })
+    if (!node) return null
+
+    // 节点 ↔ 提示词业务身份关联（阶段 F 改造后）
+    const links = await db.node_prompts.findMany({
+        where: { nodeId: node.id },
+        orderBy: { displayOrder: 'asc' },
+    })
+
+    if (links.length === 0) {
+        return { ...node, nodePrompts: [] as Array<{ prompt: any; displayOrder: number }> }
+    }
+
+    // 按 (name, type) 一次性拉取所有激活的 prompts（同节点内可能挂多个不同身份的 prompt）
+    const identities = links.map(l => ({ name: l.promptName, type: l.promptType }))
+    const activePrompts = await db.prompts.findMany({
+        where: {
+            OR: identities,
+            status: 1,
+            deletedAt: null,
+        },
+    })
+    const promptByKey = new Map(activePrompts.map(p => [`${p.name}::${p.type}`, p]))
+
+    // 按 link 顺序映射回 prompts；身份不存在激活版本的链接被过滤掉（保持与原 where { prompt: { status: 1 } } 一致语义）
+    const nodePrompts: Array<{ prompt: typeof activePrompts[number]; displayOrder: number }> = []
+    for (const link of links) {
+        const prompt = promptByKey.get(`${link.promptName}::${link.promptType}`)
+        if (!prompt) continue
+        nodePrompts.push({ prompt, displayOrder: link.displayOrder })
+    }
+
+    return { ...node, nodePrompts }
+}
+
+/**
  * 获取节点完整配置（包括模型、提供商、API 密钥和生效的提示词）
  * @param name 节点名称
  * @param tx 事务客户端（可选）
@@ -609,36 +688,7 @@ export const getNodeConfigDao = async (
     tx?: PrismaClient
 ) => {
     try {
-        const node = await (tx || prisma).nodes.findFirst({
-            where: { name, deletedAt: null, status: 1 },
-            include: {
-                group: true,
-                model: {
-                    include: {
-                        modelProvider: {
-                            include: {
-                                modelApiKeys: {
-                                    where: {
-                                        deletedAt: null,
-                                        status: 1,
-                                        isDefault: true,
-                                    },
-                                    take: 1,
-                                },
-                            },
-                        },
-                    },
-                },
-                prompts: {
-                    where: {
-                        status: 1,
-                        deletedAt: null,
-                    },
-                    orderBy: [{ type: 'asc' }, { version: 'desc' }],
-                },
-            },
-        })
-        return node
+        return await loadNodeWithActivePrompts({ name }, tx || prisma)
     } catch (error) {
         logger.error('获取节点完整配置失败：', error)
         throw error
@@ -656,36 +706,7 @@ export const getNodeConfigByIdDao = async (
     tx?: PrismaClient
 ) => {
     try {
-        const node = await (tx || prisma).nodes.findFirst({
-            where: { id, deletedAt: null, status: 1 },
-            include: {
-                group: true,
-                model: {
-                    include: {
-                        modelProvider: {
-                            include: {
-                                modelApiKeys: {
-                                    where: {
-                                        deletedAt: null,
-                                        status: 1,
-                                        isDefault: true,
-                                    },
-                                    take: 1,
-                                },
-                            },
-                        },
-                    },
-                },
-                prompts: {
-                    where: {
-                        status: 1,
-                        deletedAt: null,
-                    },
-                    orderBy: [{ type: 'asc' }, { version: 'desc' }],
-                },
-            },
-        })
-        return node
+        return await loadNodeWithActivePrompts({ id }, tx || prisma)
     } catch (error) {
         logger.error('通过 ID 获取节点完整配置失败：', error)
         throw error

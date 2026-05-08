@@ -81,9 +81,9 @@ type SessionItem = { sessionId: string; title: string; createdAt: string; update
 function makeOptions() {
   return {
     caseId: 1,
-    listUrl: (caseId: number) => `/api/v1/case/${caseId}/sessions`,
-    createUrl: '/api/v1/case/analysis/session/create',
-    deleteUrl: (sessionId: string) => `/api/v1/case/analysis/session/${sessionId}`,
+    listUrl: (caseId: number) => `/api/v1/cases/${caseId}/sessions`,
+    createUrl: '/api/v1/cases/analysis/session/create',
+    deleteUrl: (sessionId: string) => `/api/v1/cases/analysis/session/${sessionId}`,
     buildCreateBody: (caseId: number, title?: string) => ({ caseId, title }),
   }
 }

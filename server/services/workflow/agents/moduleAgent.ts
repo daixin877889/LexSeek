@@ -8,7 +8,10 @@
  * - pointConsumptionMiddleware: 按 token 计费
  * - 上下文注入: 通过 buildContextSegments 一次性构建 5 段式 system prompt（命中 prompt cache）
  * - summarizationMiddleware: 长对话摘要
- * - 注意：不挂载 analysisResultPersistenceMiddleware（与 save_analysis_result 工具冲突）
+ * - analysisResultPersistenceMiddleware: 末位兜底，与 save_analysis_result 工具通过
+ *   state._analysisRecordId 协同——beforeAgent 先建 IN_PROGRESS 记录并把 id 注入 state；
+ *   工具读到 id 时直接 update 同一条记录（避免双写）；afterAgent 检查 status，
+ *   COMPLETED 跳过、IN_PROGRESS 兜底，保障"分析结果一定保存"的不变量。
  */
 
 import { createAgent, summarizationMiddleware, type ReactAgent } from 'langchain'
@@ -16,7 +19,7 @@ import { HumanMessage } from '@langchain/core/messages'
 import type { StructuredToolInterface } from '@langchain/core/tools'
 import { Command } from '@langchain/langgraph'
 import { getCheckpointer, getStore } from '../checkpointer'
-import { getValidNodeConfig } from '../../node/node.service'
+import { getValidNodeConfig, resolveThinkingFromNodeConfig } from '../../node/node.service'
 import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
 import {
@@ -24,13 +27,18 @@ import {
     createMessageIntegrityMiddleware,
     createScopeGuardMiddleware,
     pointConsumptionMiddleware,
+    userInjectionMiddleware,
 } from '../middleware'
 import { buildSystemPromptForAgent } from '../context/moduleContextBuilder'
 import { safetyTrimMiddleware } from '../middleware/safetyTrim.middleware'
 import { createTool as createSaveAnalysisResultTool } from '../tools/saveAnalysisResult.tool'
+import { buildLangfuseTopLevelConfig, withLangfuseContext } from '~~/server/lib/langfuse'
 import { renderSystemPrompt } from '../utils/promptRenderer'
 import { buildSkillsMiddlewareForNode } from '~~/server/services/agent-platform/middleware/skills'
 import { afterAgentMemoryMiddleware } from '~~/server/services/agent-platform/middleware/afterAgentMemory.middleware'
+import { analysisResultPersistenceMiddleware } from '~~/server/agents/case-module/middleware/analysisResultPersistence.middleware'
+import { caseProcessMaterialMiddleware } from '~~/server/agents/_shared/case-context/caseProcessMaterial.middleware'
+import { caseContextSyncMiddleware } from '~~/server/agents/_shared/case-context/caseContextSync.middleware'
 import { createTool as createReadSkillFileTool } from '../tools/readSkillFile.tool'
 import { createTool as createWriteSkillFileTool } from '../tools/writeSkillFile.tool'
 import { createTool as createRunSkillScriptTool } from '../tools/runSkillScript.tool'
@@ -65,6 +73,24 @@ export async function runModuleChat(
     message: string | undefined,
     options: ModuleAgentOptions,
 ): Promise<ReadableStream<Uint8Array>> {
+    return withLangfuseContext(
+        {
+            runId: options.runId,
+            sessionId,
+            threadId: sessionId,
+            userId: options.userId,
+            caseId: options.caseId,
+            vertical: 'case-module',
+        },
+        () => runModuleChatInner(sessionId, message, options),
+    )
+}
+
+async function runModuleChatInner(
+    sessionId: string,
+    message: string | undefined,
+    options: ModuleAgentOptions,
+): Promise<ReadableStream<Uint8Array>> {
     const { userId, caseId, moduleName, nodeId, command, runId } = options
 
     // 并发加载基础设施和节点配置
@@ -86,7 +112,7 @@ export async function runModuleChat(
         baseUrl: nodeConfig.modelProviderBaseUrl,
         temperature: 0.7,
         streaming: true,
-        thinking: options.thinking,
+        thinking: resolveThinkingFromNodeConfig(nodeConfig, options.thinking),
         maxTokens: nodeConfig.modelMaxOutputTokens,
     })
 
@@ -130,17 +156,16 @@ export async function runModuleChat(
     }
     const allTools = Array.from(toolsByName.values())
 
-    // 构建 5 段式上下文 prompt（roleAndFlow 段含 save_analysis_result 提醒，命中 1h cache）
-    // 关键差异：agentName 用 moduleName，让 buildContextSegments 内部 caseAnalyses.findMany
-    // { NOT: { analysisType: agentName } } 能正确排除当前模块自身的旧结果
-    const roleAndFlowTemplate = [
+    // SystemMessage 仅含 roleAndFlow（4 段案件上下文交给 caseContextSyncMiddleware 注入 HumanMessage）
+    // 复用 buildSystemPromptForAgent 退化路径：caseId=null 时仅返单段 roleAndFlow + 按 SDK 分流
+    const roleAndFlowText = [
         renderSystemPrompt(nodeConfig, { caseId, moduleName }),
         '当你完成该模块的分析后，请按以下顺序操作：1) 先以纯文本形式输出完整的分析报告（Markdown 格式）；2) 然后调用 save_analysis_result 工具（无需任何参数）。工具会自动从你刚输出的报告中读取内容保存。请勿在工具参数中重复正文。',
     ].filter(Boolean).join('\n\n')
 
     const { systemMessage, plainText: plainTextPrompt } = await buildSystemPromptForAgent(
         nodeConfig.modelSdkType,
-        { caseId, agentName: moduleName, userQuery: message ?? '', roleAndFlowTemplate },
+        { caseId: null, agentName: moduleName, userQuery: '', roleAndFlowTemplate: roleAndFlowText },
     )
 
     const { triggerTokens, maxTokens, maxOutputTokens } = resolveContextWindow(
@@ -155,6 +180,9 @@ export async function runModuleChat(
         store,
         tools: allTools,
         middleware: [
+            // 业务私有：每轮自动补做未处理材料 + 实时拉案件上下文（plain array 顺序执行）
+            caseProcessMaterialMiddleware(userId, caseId, runId, sessionId),
+            caseContextSyncMiddleware({ caseId, agentName: moduleName }),
             // 消息完整性兜底必须最先：防止 orphan tool_use 引发 Provider 400
             createMessageIntegrityMiddleware(),
             createScopeGuardMiddleware(),
@@ -171,8 +199,24 @@ export async function runModuleChat(
                 maxOutputTokens,
             }),
             ...(skillsMw ? [skillsMw] : []),
+            // 用户每轮注入（反越狱护栏 / 隐藏注入）：节点配置中 type=user_injection && status=1
+            // 的提示词，每轮 LLM 调用前作为隐藏 HumanMessage 插入到最新 HumanMessage 之前；
+            // 不写回 state.messages、不进 checkpoint。节点无该类提示词时 middleware 内部 short-circuit。
+            userInjectionMiddleware({
+                prompts: nodeConfig.prompts,
+                context: { caseId, moduleName },
+            }),
             afterAgentMemoryMiddleware({ caseId, sessionId, userId }),
             createAuditMiddleware(),
+            // 末位兜底：beforeAgent 创建 IN_PROGRESS + 注入 _analysisRecordId；
+            // afterAgent 看 record.status：工具改过 → 跳过，没改 → 兜底落库。
+            analysisResultPersistenceMiddleware({
+                agentName: moduleName,
+                caseId,
+                sessionId,
+                model,
+                runId,
+            }),
         ],
     })
 
@@ -184,12 +228,13 @@ export async function runModuleChat(
             : { messages: [] }
 
     // 返回 SSE 流
-    return agent.stream(input, {
+    return agent.stream(input as any, {
         configurable: { thread_id: sessionId },
         streamMode: ['values', 'messages', 'updates'],
         subgraphs: true,
         encoding: 'text/event-stream',
         recursionLimit: 1000,
         signal: options.signal,
+        ...buildLangfuseTopLevelConfig(),
     })
 }

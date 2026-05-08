@@ -15,21 +15,49 @@ model contractRisks {
   legalBasis String? @map("legal_basis") @db.Text
   analysis   String? @db.Text
   suggestion String? @db.Text
+  /// AI 生成的完整改写后条款（high/medium 必有；low 可空）；
+  /// 前端 RiskClauseDiff 据此做字符级 diff 着色
+  suggestedClauseText String? @map("suggested_clause_text") @db.Text
 
   /// 处置状态：Phase A 仅 handled / ignored；Phase B 扩展 client_removed
   archivedStatus String?   @map("archived_status") @db.VarChar(20)
   archivedAt     DateTime? @map("archived_at")
 
-  /// 当前锚点原文
-  anchorQuote          String  @map("anchor_quote") @db.Text
-  anchorParagraphIndex Int?    @map("anchor_paragraph_index")
-  anchorCharStart      Int?    @map("anchor_char_start")
-  anchorCharEnd        Int?    @map("anchor_char_end")
+  // ===== 双锚点：层 1 完整条款（粗）=====
+  /// 条款序号（segmentClauses 产出，1-based）；source='global_review' 时为 null。
+  /// PR 2 落库全为 null（行为兼容旧逻辑），PR 3 主路径开始填值。
+  clauseIndex          Int?   @map("clause_index")
+  /// 完整条款原文（NOT NULL）：
+  /// - source='ai'（首次审查）→ segment.text
+  /// - source='external_new'（Phase B 客户外部新增批注）→ 客户回传 docx 里批注所在段落原文
+  /// - source='global_review'（全局复核）→ review.summary 摘录或 LLM representativeQuote
+  ///
+  /// `@default("")` 不是业务约束、只是给 prisma migrate dev 一个 escape hatch——dev
+  /// 库里若开发者本地有遗留 review 行（未走 dev 库手工清场），prisma 自动 ADD COLUMN NOT NULL
+  /// 默认填空串通过；service 层（contractRisk.service.ts persistAiRisksAsContractRows）
+  /// 始终显式写 segment.text / clause.text 等真值，不依赖此 default。
+  clauseText           String @default("") @map("clause_text") @db.Text
+  /// 非空段落序号（commentInjector 期望空间）
+  clauseParagraphIndex Int?   @map("clause_paragraph_index")
+  /// clause 在文档全文 normalizedText 里的 offset（首次审查可空，Phase B 锚点迁移可填）
+  clauseCharStart      Int?   @map("clause_char_start")
+  clauseCharEnd        Int?   @map("clause_char_end")
+
+  // ===== 双锚点：层 2 精确问题片段（细）=====
+  /// 路线 2 产物；NULL = 解析全失败降级，UI 退回到 clauseText 显示。
+  /// PR 2 全为 null，PR 3 主路径开始填值。
+  problematicQuote     String?  @map("problematic_quote") @db.Text
+  /// 在 clauseText 内的相对 offset（不是文档全文！）
+  quoteCharStart       Int?     @map("quote_char_start")
+  quoteCharEnd         Int?     @map("quote_char_end")
+  /// 命中来源：sentence_id / fuzzy / fallback；运维监控匹配率
+  quoteMatchSource     String?  @map("quote_match_source") @db.VarChar(20)
+
+  // ===== Phase B 锚点迁移痕迹（旧 originalAnchorQuote 改名）=====
+  originalClauseText String?  @map("original_clause_text") @db.Text
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-  /// Phase B：锚点首次迁移前的原文（UI "原文已修改" Tooltip 展示）
-  originalAnchorQuote String?  @map("original_anchor_quote") @db.Text
   /// Phase B：当前版本无法定位锚点（孤立批注区）
   orphaned            Boolean  @default(false) @map("orphaned")
 

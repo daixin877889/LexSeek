@@ -10,8 +10,9 @@
  * 视为 mammoth 漏段，改用 AST 直读 body 内全部 w:p（含 w:tbl 内嵌套）。
  */
 import mammoth from 'mammoth'
-import { loadDocxZip, readTextFromZip } from './zipRewriter'
+import { loadDocxZip, readTextFromZip, type DocxZip } from './zipRewriter'
 import { parseOoxml, findFirst, walk, tagOf, paragraphText, hasRunChild, splitParagraphs, type NodeArray } from './xmlAst'
+import { buildNumberingPrefixMap, type NumberingPrefixMap } from './numbering'
 
 export interface ParsedContract {
     paragraphs: string[]
@@ -39,23 +40,49 @@ function paragraphsFromAst(rawXml: string): string[] {
     }
 }
 
-export async function parseContractDocx(buffer: Buffer): Promise<ParsedContract> {
-    const { value: rawText } = await mammoth.extractRawText({ buffer })
-    // DOCX-R2：用 xmlAst.splitParagraphs 替代本地 split + trim + filter，统一段落口径
-    let paragraphs = splitParagraphs(rawText)
+async function readNumberingXmlOrNull(zip: DocxZip): Promise<string | null> {
+    const file = zip.file('word/numbering.xml')
+    if (!file) return null
+    return file.async('string')
+}
 
+function applyPrefixMap(paragraphs: string[], prefixMap: NumberingPrefixMap): string[] {
+    return paragraphs.map((p, i) => {
+        const prefix = prefixMap.get(i)
+        return prefix ? prefix + p : p
+    })
+}
+
+export async function parseContractDocx(buffer: Buffer): Promise<ParsedContract> {
     const zip = await loadDocxZip(buffer)
     const rawXml = await readTextFromZip(zip, 'word/document.xml')
+    const numberingXml = await readNumberingXmlOrNull(zip)
 
-    // DOCX-H4 fallback：若 mammoth 段落数远小于 AST 中的 w:p 总数，
-    // 说明含表格被跳过；改用 AST 完整提取（含表格内段落）。
+    // prefixMap 与 paragraphsFromAst 同口径（深度优先遍历 <w:p>，含表格内段落）
+    const prefixMap = buildNumberingPrefixMap(rawXml, numberingXml)
+
+    // mammoth 快速路径
+    const { value: rawText } = await mammoth.extractRawText({ buffer })
+    let paragraphs = splitParagraphs(rawText)
     const astParagraphs = paragraphsFromAst(rawXml)
-    if (
-        astParagraphs.length > paragraphs.length
-        && (astParagraphs.length === 0
-            || paragraphs.length / astParagraphs.length < TABLE_FALLBACK_RATIO)
-    ) {
-        paragraphs = astParagraphs
+
+    // 表格索引修复（PR10 维度 5 E3）：
+    // mammoth.extractRawText 跳过 <w:tbl> 单元格段落，buildNumberingPrefixMap 走全树。
+    // 当合同含表格但 mammoth 段数 ≥ 60% AST 时（DOCX-H4 fallback 不触发），
+    // 直接 applyPrefixMap(mammoth 段落) 会把前缀错位拼到非 list 段落 → 必须强制走 AST。
+    if (prefixMap.size > 0) {
+        // 含 numbering 的合同必须走 AST，保证段落索引与 prefixMap 同源
+        paragraphs = applyPrefixMap(astParagraphs, prefixMap)
+    }
+    else {
+        // 无 numbering（普通粘贴 docx）走原有 DOCX-H4 fallback 逻辑
+        if (
+            astParagraphs.length > paragraphs.length
+            && (astParagraphs.length === 0
+                || paragraphs.length / astParagraphs.length < TABLE_FALLBACK_RATIO)
+        ) {
+            paragraphs = astParagraphs
+        }
     }
 
     return { paragraphs, rawXml }

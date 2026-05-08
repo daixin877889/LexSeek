@@ -45,14 +45,14 @@ const uploadedFiles = ref<OssFileItem[]>([])      // 上传的材料文件
 
 1. **AI 提取阶段**（step = 'ai'）
    - 用户输入案件描述文字或/和上传材料文件
-   - 调用 `extractCaseInfo(message, files)` -> `POST /api/v1/case/extract`
+   - 调用 `extractCaseInfo(message, files)` -> `POST /api/v1/cases/extract`
    - AI 从输入中提取：案件标题、案件类型、原告、被告、案件摘要
    - 提取成功后自动跳转 `step = 'confirm'`
 
 2. **确认修改阶段**（step = 'confirm'）
    - 显示 `ManualForm`，预填 AI 提取的信息
    - 用户可修改任何字段
-   - 提交调用 `createCase(params)` -> `POST /api/v1/case/create`
+   - 提交调用 `createCase(params)` -> `POST /api/v1/cases/create`
    - 成功后自动导航到初始分析页面：`/dashboard/cases/init-analysis/{sessionId}`
 
 ## 二、初始分析（initAnalysis）
@@ -113,7 +113,7 @@ idle -> streaming -> complete
 
 ```typescript
 const stream = useStreamChat<InitAnalysisState>({
-    apiUrl: '/api/v1/case/init-analysis',
+    apiUrl: '/api/v1/cases/init-analysis',
     threadId: sessionId.value,
     messagesKey: 'messages',
 })
@@ -200,9 +200,9 @@ app/components/caseDetail/
 管理案件详情页的所有数据：
 
 ```typescript
-const { data: caseInfo } = useApi<CaseDetailInfo>(() => `/api/v1/case/${id.value}`)
-const { data: materials } = useApi<CaseDetailMaterialItem[]>(() => `/api/v1/case/${id.value}/materials`)
-const { data: analysisStatus } = useApi<InitAnalysisStatusResponse>(() => `/api/v1/case/init-analysis-status/${id.value}`)
+const { data: caseInfo } = useApi<CaseDetailInfo>(() => `/api/v1/cases/${id.value}`)
+const { data: materials } = useApi<CaseDetailMaterialItem[]>(() => `/api/v1/cases/${id.value}/materials`)
+const { data: analysisStatus } = useApi<InitAnalysisStatusResponse>(() => `/api/v1/cases/init-analysis-status/${id.value}`)
 ```
 
 派生状态：
@@ -258,7 +258,7 @@ type ModuleChatInstance = SessionManager & {
 
 ```typescript
 const stream = useStreamChat({
-    apiUrl: '/api/v1/case/analysis/chat',
+    apiUrl: '/api/v1/cases/analysis/chat',
     threadId: options.sessionId,
     messagesKey: 'messages',
     onCustomEvent: options.onCustomEvent,
@@ -278,9 +278,9 @@ const stream = useStreamChat({
 
 ```typescript
 return useChatSessionManager({
-    listUrl: (id) => `/api/v1/case/analysis/xiaosuo-sessions?caseId=${id}`,
-    createUrl: '/api/v1/case/analysis/xiaosuo-session',
-    deleteUrl: (sid) => `/api/v1/case/analysis/xiaosuo-session/${sid}`,
+    listUrl: (id) => `/api/v1/cases/analysis/xiaosuo-sessions?caseId=${id}`,
+    createUrl: '/api/v1/cases/analysis/xiaosuo-session',
+    deleteUrl: (sid) => `/api/v1/cases/analysis/xiaosuo-session/${sid}`,
 })
 ```
 

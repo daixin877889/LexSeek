@@ -16,13 +16,14 @@
 </template>
 
 <script setup lang="ts">
-import dayjs from 'dayjs'
 import { OrderStatusVariant, OrderStatusText } from '#shared/types/payment'
 import StatusBadge from '~/components/admin/shared/StatusBadge.vue'
 import { Card, CardContent } from '~/components/ui/card'
+import { useFormatters } from '~/composables/useFormatters'
 
 defineProps<{ orders: any[] }>()
 const emit = defineEmits<{ open: [order: any] }>()
 
-function formatDate(d: Date | string) { return dayjs(d).format('MM-DD HH:mm') }
+const { formatDate: formatDateRaw } = useFormatters()
+function formatDate(d: Date | string) { return formatDateRaw(String(d), 'MM-DD HH:mm') }
 </script>

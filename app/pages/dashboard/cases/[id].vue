@@ -75,6 +75,24 @@ const moduleChatManager = useCaseModuleAgent(caseId, {
   },
 })
 
+// 小索浮窗：与 moduleChatManager 同样依赖 _refreshAnalysis（晚于 useCaseDetail 才赋值），
+// 但因 xiaosuoChat.generatingModules 要在 useCaseDetail 时合并到本 tab UI 状态里，
+// 必须提前到 useCaseDetail 之前声明。回调内通过 _refreshAnalysis?.() 兜底未赋值情况。
+const xiaosuoChat = useCaseMainAgent(caseId, {
+  onAnalysisSaved: () => {
+    _refreshAnalysis?.()
+    postCrossTabEvent('analysis:updated', { caseId: caseId.value })
+  },
+})
+
+// 模块对话 + 小索两路"生成中"模块名合并（去重）。
+// 小索调起 ask_*_expert 时模块名出现在 subThreadsMap 中（status='running' bucket）。
+const allGeneratingModules = computed(() => {
+  const fromManager = moduleChatManager.generatingModules.value ?? []
+  const fromXiaosuo = xiaosuoChat.generatingModules.value ?? []
+  return Array.from(new Set([...fromManager, ...fromXiaosuo]))
+})
+
 const {
   caseInfo,
   materials,
@@ -101,7 +119,7 @@ const {
   refreshDrafts,
   toggleMaterialSelection,
 } = useCaseDetail(caseId, {
-  generatingModules: moduleChatManager.generatingModules,
+  generatingModules: allGeneratingModules,
 })
 _refreshAnalysis = refreshAnalysis
 
@@ -159,9 +177,6 @@ function navigateToAnalysis(moduleName: string) {
   activeView.value = 'analysis'
 }
 
-// --- 小索对话管理 ---
-const xiaosuoChat = useCaseMainAgent(caseId)
-
 async function handleModuleRegenerate(result: AnalysisResult) {
   const instance = moduleChatManager.getOrCreateInstance(result.moduleName, result.moduleTitle)
   // 工厂池化模式：getOrCreateInstance 同步返回 factory，需手动 init() 拉取 sessions
@@ -214,6 +229,14 @@ function handleGoToInterrupt() {
   }
 }
 
+// --- 查看正在运行的工作流详情 ---
+function handleGoToRunningWorkflow() {
+  const sessionId = analysisStatus.value?.sessionId
+  if (sessionId) {
+    navigateTo(`/dashboard/cases/init-analysis/${sessionId}`)
+  }
+}
+
 // idle 模块直达详情模式时自动降级为 dashboard
 watch([analysisModule, analysisMode, allModuleCards], ([mod, mode, cards]) => {
   if (mode === 'detail' && mod) {
@@ -230,10 +253,10 @@ const expandedChatInstance = computed(() => {
   return name ? moduleChatManager.instances[name] : undefined
 })
 
-// 模块对话生成状态变化时广播给其他标签页（init-analysis 页面同步显示）
-watch(moduleChatManager.generatingModules, (modules) => {
+// 合并后的"生成中"模块名跨标签广播（init-analysis 页面、另一个案件详情 tab 同步）
+watch(allGeneratingModules, (modules) => {
   if (caseId.value > 0) {
-    postCrossTabEvent('module:generating', { caseId: caseId.value, modules: [...modules] })
+    postCrossTabEvent('module:generating', { caseId: caseId.value, modules })
   }
 })
 
@@ -336,6 +359,7 @@ function handleXiaosuoFocusQuery() {
             :module-cards="allModuleCards"
             :show-batch-button="showBatchButton"
             :has-pending-interrupt="hasPendingInterrupt"
+            :is-analysis-running="isInitAnalysisRunning"
             :materials="materials ?? []"
             :disabled-oss-file-ids="disabledOssFileIds"
             :is-adding-materials="isAddingMaterials"
@@ -351,6 +375,7 @@ function handleXiaosuoFocusQuery() {
             @generate-module="handleGenerateModule"
             @batch-generate="handleBatchGenerate"
             @go-to-interrupt="handleGoToInterrupt"
+            @go-to-running-workflow="handleGoToRunningWorkflow"
             @create-document="handleCreateDocument"
             @refresh-drafts="refreshDrafts" />
           <CaseDetailMaterials v-else-if="activeView === 'materials'" :key="'materials'" :materials="materials ?? []"
@@ -371,12 +396,14 @@ function handleXiaosuoFocusQuery() {
             :module-cards="allModuleCards"
             :show-batch-button="showBatchButton"
             :has-pending-interrupt="hasPendingInterrupt"
+            :is-analysis-running="isInitAnalysisRunning"
             v-model:active-module="analysisModule" v-model:view-mode="analysisMode"
             @version-changed="refreshAnalysis"
             @regenerate="handleModuleRegenerate"
             @generate-module="handleGenerateModule"
             @batch-generate="handleBatchGenerate"
-            @go-to-interrupt="handleGoToInterrupt" />
+            @go-to-interrupt="handleGoToInterrupt"
+            @go-to-running-workflow="handleGoToRunningWorkflow" />
           <CaseDetailDocuments
             v-else-if="activeView === 'documents'"
             :key="'documents'"
@@ -420,8 +447,14 @@ function handleXiaosuoFocusQuery() {
     </ClientOnly>
 
     <!-- 小索助手 - 提升到此层级以覆盖 header -->
+    <!-- on-attach-files-to-case：把小索输入框上传的附件入"案件材料"，
+         让 caseProcessMaterialMiddleware 能扫到并喂给 AI；同时立即刷新材料列表 -->
     <ClientOnly>
-      <CaseDetailXiaosuo v-model="xiaosuoOpen" :xiaosuo-chat="xiaosuoChat" />
+      <CaseDetailXiaosuo
+        v-model="xiaosuoOpen"
+        :xiaosuo-chat="xiaosuoChat"
+        :on-attach-files-to-case="addMaterials"
+      />
     </ClientOnly>
   </div>
 

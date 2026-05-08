@@ -16,6 +16,7 @@ vi.mock('~~/server/services/case/analysis.dao', () => ({
     updateAnalysisDao: vi.fn(),
     getNextVersionDao: vi.fn(),
     findAnalysisBySessionAndNodeDao: vi.fn(),
+    findAnalysisByIdDao: vi.fn(),
     AnalysisStatus: {
         IN_PROGRESS: 1,
         COMPLETED: 2,
@@ -47,7 +48,7 @@ import {
     extractLastAIMessageContent,
     markAnalysisFailedById,
 } from '~~/server/services/workflow/middleware/analysisResultPersistence.middleware'
-import { createAnalysisDao, updateAnalysisDao, getNextVersionDao, findAnalysisBySessionAndNodeDao, AnalysisStatus } from '~~/server/services/case/analysis.dao'
+import { createAnalysisDao, updateAnalysisDao, getNextVersionDao, findAnalysisBySessionAndNodeDao, findAnalysisByIdDao, AnalysisStatus } from '~~/server/services/case/analysis.dao'
 import { failAnalysisService } from '~~/server/services/case/analysis.service'
 import { getNodeByNameService } from '~~/server/services/node/node.service'
 import { completeAnalysisWithRAG } from '~~/server/services/case/initAnalysis.service'
@@ -229,7 +230,8 @@ describe('analysisResultPersistenceMiddleware afterAgent', () => {
         expect(completeAnalysisWithRAG).toHaveBeenCalledWith({
             analysisId: 42,
             analysisResult: '法律分析结果文本',
-            model: options.model,
+            tokens: null,
+            tokenCount: null,
         })
     })
 
@@ -255,7 +257,54 @@ describe('analysisResultPersistenceMiddleware afterAgent', () => {
         expect(completeAnalysisWithRAG).toHaveBeenCalledWith({
             analysisId: 42,
             analysisResult: '结论一结论二',
-            model: options.model,
+            tokens: null,
+            tokenCount: null,
+        })
+    })
+
+    it('优先从 AIMessage.usage_metadata.total_tokens 累加 token 写入 caseAnalyses', async () => {
+        // 主路径：LangChain SDK 直接填 usage_metadata，不经 middleware reducer 最稳。
+        // 子代理多轮 LLM 调用累加（800 + 1500 = 2300）。
+        vi.mocked(completeAnalysisWithRAG).mockResolvedValue('mock-summary')
+
+        const hook = getAfterAgentHook()
+        const state = {
+            _analysisRecordId: 42,
+            messages: [
+                { _getType: () => 'ai', content: '中间步骤', usage_metadata: { total_tokens: 800 } },
+                { _getType: () => 'ai', content: '完整分析报告', usage_metadata: { total_tokens: 1500 } },
+            ],
+        }
+
+        await hook(state)
+
+        expect(completeAnalysisWithRAG).toHaveBeenCalledWith({
+            analysisId: 42,
+            analysisResult: '完整分析报告',
+            tokens: 2300,         // 实际 token 总数（800 + 1500）
+            tokenCount: 3,         // ceil(2300/1000)
+        })
+    })
+
+    it('messages 无 usage_metadata 时 fallback 到 state._totalTokensConsumed', async () => {
+        // 兜底路径：当 provider 没填 usage_metadata（例如某些自托管模型）时
+        // 退回到 pointConsumptionMiddleware 累计的共享 state 字段
+        vi.mocked(completeAnalysisWithRAG).mockResolvedValue('mock-summary')
+
+        const hook = getAfterAgentHook()
+        const state = {
+            _analysisRecordId: 42,
+            _totalTokensConsumed: 2350,
+            messages: [{ _getType: () => 'ai', content: '完整分析报告' }],
+        }
+
+        await hook(state)
+
+        expect(completeAnalysisWithRAG).toHaveBeenCalledWith({
+            analysisId: 42,
+            analysisResult: '完整分析报告',
+            tokens: 2350,
+            tokenCount: 3,
         })
     })
 
@@ -291,6 +340,67 @@ describe('analysisResultPersistenceMiddleware afterAgent', () => {
             _analysisRecordId: 42,
             messages: [{ _getType: () => 'ai', content: '内容' }],
         })).resolves.toBeUndefined()
+    })
+
+    // ────────────────────────────────────────────────────────────
+    // A 方案幂等检查：与 save_analysis_result 工具协同时
+    // afterAgent 必须根据记录当前 status 决定是否兜底落库。
+    // ────────────────────────────────────────────────────────────
+    describe('与工具协同的幂等检查', () => {
+        it('记录已 COMPLETED 时跳过 completeAnalysisWithRAG（工具已经成功 update 过）', async () => {
+            // 重入场景：工具内已把 IN_PROGRESS → COMPLETED + 跑完 RAG，
+            // afterAgent 重复跑会让 summary 重新生成、embedding 重复切块写入。
+            vi.mocked(findAnalysisByIdDao).mockResolvedValueOnce({
+                id: 42,
+                status: AnalysisStatus.COMPLETED,
+            } as any)
+
+            const hook = getAfterAgentHook()
+            const state = {
+                _analysisRecordId: 42,
+                messages: [{ _getType: () => 'ai', content: '完整分析报告' }],
+            }
+            await hook(state)
+
+            expect(findAnalysisByIdDao).toHaveBeenCalledWith(42)
+            expect(completeAnalysisWithRAG).not.toHaveBeenCalled()
+        })
+
+        it('记录仍 IN_PROGRESS 时走兜底落库（LLM 没调工具的失败保险）', async () => {
+            vi.mocked(findAnalysisByIdDao).mockResolvedValueOnce({
+                id: 42,
+                status: AnalysisStatus.IN_PROGRESS,
+            } as any)
+            vi.mocked(completeAnalysisWithRAG).mockResolvedValue('mock-summary')
+
+            const hook = getAfterAgentHook()
+            const state = {
+                _analysisRecordId: 42,
+                messages: [{ _getType: () => 'ai', content: '兜底内容' }],
+            }
+            await hook(state)
+
+            expect(completeAnalysisWithRAG).toHaveBeenCalledWith(expect.objectContaining({
+                analysisId: 42,
+                analysisResult: '兜底内容',
+            }))
+        })
+
+        it('findAnalysisByIdDao 返回 null（记录被外部删除）时按 IN_PROGRESS 处理走兜底', async () => {
+            // 防御：beforeAgent 创建后被外部清理，afterAgent 拿不到记录但仍尝试兜底
+            // 让 completeAnalysisWithRAG 自己抛 not-found 错（catch 后只 warn 不抛出）
+            vi.mocked(findAnalysisByIdDao).mockResolvedValueOnce(null)
+            vi.mocked(completeAnalysisWithRAG).mockRejectedValue(new Error(`caseAnalyses #42 not found`))
+
+            const hook = getAfterAgentHook()
+            const state = {
+                _analysisRecordId: 42,
+                messages: [{ _getType: () => 'ai', content: '内容' }],
+            }
+            // 整体仍然不抛异常（catch 兜底）
+            await expect(hook(state)).resolves.toBeUndefined()
+            expect(completeAnalysisWithRAG).toHaveBeenCalled()
+        })
     })
 })
 

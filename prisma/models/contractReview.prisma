@@ -29,6 +29,9 @@ model contractReviews {
   /// 审查清单快照（M7 Playbook）：审查提交时写入，永久冻结
   /// 结构见 #shared/types/contract 的 PlaybookSnapshot；null 表示"其他"类型或无启用要点
   playbookSnapshot      Json?     @map("playbook_snapshot") @db.JsonB
+  /// CoT 跑中累积的事件序列（BaseMessage flatDict 数组，与 loadSubAgentThreads 返回格式一致）
+  /// review_contract skipStanceInterrupt 路径不写 LangGraph checkpoint，靠此字段实现刷新历史恢复
+  cotMessages           Json?     @map("cot_messages") @db.JsonB
   /// 本次 session 是否编辑过 risks 且尚未重新生成 docx
   /// PATCH /reviews/:id → true；POST /rebuild-docx 成功 → false
   hasUnsavedDocxChanges Boolean   @default(false) @map("has_unsaved_docx_changes")

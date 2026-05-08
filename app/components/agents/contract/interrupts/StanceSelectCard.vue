@@ -31,14 +31,18 @@ interface StanceInterrupt {
 
 interface StanceResolveValue {
     stance: Stance
-    partyA: string
-    partyB: string
+    partyA?: string
+    partyB?: string
 }
 
 const props = defineProps<{
     interrupt: StanceInterrupt
-    onResolve: (value: StanceResolveValue | null) => Promise<void> | void
+    onResolve?: (value: StanceResolveValue | null) => Promise<void> | void
+    /** snapshot 模式：传入用户之前 resolve 的值；undefined = active 模式 */
+    resumeValue?: StanceResolveValue | null
 }>()
+
+const isSnapshot = computed(() => props.resumeValue !== undefined)
 
 const STANCE_OPTIONS: Array<{ value: Stance; label: string; desc: string }> = [
     { value: 'partyA', label: '甲方', desc: '保护甲方利益' },
@@ -53,13 +57,28 @@ const partyB = ref<string>(props.interrupt.partyBHint ?? '')
 const submitting = ref(false)
 const confirmed = ref(false)
 
+// snapshot 模式：mount 时即视为 confirmed，立场初始化为 resumeValue
+if (isSnapshot.value && props.resumeValue) {
+    if (props.resumeValue.stance) stance.value = props.resumeValue.stance
+    if (props.resumeValue.partyA !== undefined) partyA.value = props.resumeValue.partyA ?? ''
+    if (props.resumeValue.partyB !== undefined) partyB.value = props.resumeValue.partyB ?? ''
+    confirmed.value = true
+}
+if (isSnapshot.value && props.resumeValue === null) {
+    confirmed.value = true
+}
+
 const fileName = computed(() => props.interrupt.fileName?.trim() || '')
+
+const stanceLabel = computed(
+    () => STANCE_OPTIONS.find(o => o.value === stance.value)?.label ?? '',
+)
 
 async function handleSubmit() {
     if (submitting.value || confirmed.value) return
     submitting.value = true
     try {
-        await props.onResolve({
+        await props.onResolve?.({
             stance: stance.value,
             partyA: partyA.value.trim(),
             partyB: partyB.value.trim(),
@@ -77,7 +96,7 @@ async function handleCancel() {
     if (submitting.value || confirmed.value) return
     submitting.value = true
     try {
-        await props.onResolve(null)
+        await props.onResolve?.(null)
         confirmed.value = true
     } catch (err) {
         const msg = err instanceof Error ? err.message : '取消失败'
@@ -86,10 +105,27 @@ async function handleCancel() {
         submitting.value = false
     }
 }
+
+// active 模式首次 mount 滚到视口（snapshot 不滚——用户已在历史里）
+const cardRef = ref<HTMLElement | null>(null)
+onMounted(() => {
+    if (isSnapshot.value) return
+    nextTick(() => {
+        cardRef.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+})
 </script>
 
 <template>
-    <div class="not-prose my-2 w-full max-w-md rounded-lg border border-amber-300/60 bg-amber-50/60 p-4 shadow-sm dark:border-amber-700/60 dark:bg-amber-950/30">
+    <div
+        ref="cardRef"
+        :class="[
+            'not-prose my-2 w-full max-w-md rounded-lg border p-4 shadow-sm',
+            isSnapshot
+                ? 'border-muted bg-muted/20 opacity-70 dark:border-muted dark:bg-muted/10'
+                : 'border-amber-300/60 bg-amber-50/60 dark:border-amber-700/60 dark:bg-amber-950/30',
+        ]"
+    >
         <!-- 标题 -->
         <div class="mb-3 flex items-center gap-2">
             <Pause class="size-4 text-amber-600 dark:text-amber-400" />
@@ -172,7 +208,7 @@ async function handleCancel() {
             </Button>
             <p v-else class="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
                 <CheckCircle2 class="size-3.5" />
-                已确认，开始审查
+                {{ isSnapshot && resumeValue === null ? '已取消' : (isSnapshot ? `已选立场：${stanceLabel}` : '已确认，开始审查') }}
             </p>
         </div>
     </div>

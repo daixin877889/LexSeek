@@ -571,7 +571,8 @@ export const cleanupAllTestData = async (): Promise<void> => {
         }
 
         if (nodeIds.length > 0) {
-            await prisma.prompts.deleteMany({ where: { nodeId: { in: nodeIds } } })
+            // ★ Phase 6 改造：prompts.nodeId 字段已删，节点关联通过 node_prompts 表维护。
+            await prisma.node_prompts.deleteMany({ where: { nodeId: { in: nodeIds } } })
             await prisma.levelNodeAccess.deleteMany({ where: { nodeId: { in: nodeIds } } })
             await prisma.caseAnalyses.deleteMany({ where: { nodeId: { in: nodeIds } } })
             await prisma.nodes.deleteMany({ where: { id: { in: nodeIds } } })

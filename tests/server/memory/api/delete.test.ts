@@ -1,5 +1,5 @@
 /**
- * DELETE /api/v1/case/memories/:memoryId 测试
+ * DELETE /api/v1/cases/memories/:memoryId 测试
  *
  * **Feature: case-memory-extension**
  * **Validates: spec §3.3 DELETE 严格限制 source=manual_user + 案件 owner**
@@ -17,7 +17,7 @@ import { ensureTestUser, ensureTestCase, cleanupTestData } from '../../assistant
 
 // 动态 import handler（必须在 globalThis stub 设置之后）
 const { default: handler } = await import(
-    '../../../../server/api/v1/case/memories/[memoryId].delete'
+    '../../../../server/api/v1/cases/memories/[memoryId].delete'
 )
 
 const makeEvent = (userId: number, memoryId: string) => ({

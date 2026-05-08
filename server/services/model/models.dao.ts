@@ -9,7 +9,9 @@ import type { Prisma } from '~~/generated/prisma/client'
 import type { models } from '~~/generated/prisma/client'
 
 // 定义 Prisma 客户端类型（支持事务）
-type PrismaClient = typeof prisma
+// 用 Prisma.TransactionClient 而非 typeof prisma：与 prisma.$transaction 回调里 tx 参数兼容；
+// 全量 prisma 实例本身也可赋值给 TransactionClient（结构子类型），普通调用不受影响。
+type PrismaClient = Prisma.TransactionClient
 
 /**
  * 创建模型
@@ -40,6 +42,7 @@ export const createModelDao = async (
                 priority: data.priority ?? 10,
                 inputCostPerMillionTokens: data.inputCostPerMillionTokens,
                 outputCostPerMillionTokens: data.outputCostPerMillionTokens,
+                ...(data.supportsThinking !== undefined && { supportsThinking: data.supportsThinking }),
             },
         })
         return model
@@ -171,7 +174,7 @@ export const findManyModelsDao = async (
         modelType?: ModelType
         providerId?: number
         status?: number
-        orderBy?: 'priority' | 'name' | 'createdAt'
+        orderBy?: 'id' | 'priority' | 'name' | 'createdAt'
         orderDir?: 'asc' | 'desc'
     } = {},
     tx?: PrismaClient
@@ -183,8 +186,8 @@ export const findManyModelsDao = async (
             modelType,
             providerId,
             status,
-            orderBy = 'priority',
-            orderDir = 'asc',
+            orderBy = 'id',
+            orderDir = 'desc',
         } = options
         const skip = (page - 1) * pageSize
 
@@ -250,6 +253,7 @@ export const updateModelDao = async (
                 ...(data.outputCostPerMillionTokens !== undefined && {
                     outputCostPerMillionTokens: data.outputCostPerMillionTokens,
                 }),
+                ...(data.supportsThinking !== undefined && { supportsThinking: data.supportsThinking }),
             },
         })
         return model

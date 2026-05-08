@@ -1,77 +1,55 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { createChatModel } from '~~/server/services/node/chatModelFactory'
-import { getValidNodeConfig } from '~~/server/services/node/node.service'
+import { invokeNodeJson } from '~~/server/services/agent-platform/tools/invokeNodeJson'
 import { detectParties } from '~~/server/agents/contract/docx/partyDetector'
 import { parseContractDocx } from '~~/server/agents/contract/docx/parser'
 
 const SAMPLES = ['labor', 'lease', 'sale', 'service', 'loan'] as const
 const SAMPLE_DIR = join(__dirname, '../../../../../prisma/seeds/contract-samples')
 
-vi.mock('~~/server/services/node/chatModelFactory', () => ({
-    createChatModel: vi.fn(),
+vi.mock('~~/server/services/agent-platform/tools/invokeNodeJson', () => ({
+    invokeNodeJson: vi.fn(),
 }))
-vi.mock('~~/server/services/node/node.service', () => ({
-    getValidNodeConfig: vi.fn(),
-}))
-
-/**
- * mock 对象形状与真实 NodeConfig 接口一致：
- * - prompts: NodePromptConfig[]（非 prompt）
- * - modelSdkType: SdkType
- * - modelApiKeys: NodeApiKeyConfig[]
- */
-function mockContractReviewNodeConfig() {
-    vi.mocked(getValidNodeConfig).mockResolvedValue({
-        id: 1,
-        name: 'contractReviewMain',
-        title: '合同审查主节点',
-        description: '',
-        type: 'main',
-        prompts: [],
-        modelId: 1,
-        modelName: 'deepseek-chat',
-        modelType: 'chat',
-        modelStatus: 1,
-        modelSdkType: 'openai',
-        modelProviderId: 1,
-        modelProviderName: 'DeepSeek',
-        modelProviderBaseUrl: 'https://api.deepseek.com/v1',
-        modelProviderDescription: '',
-        modelApiKeys: [{ id: 1, apiKey: 'sk-xxx', status: 1 }],
-        tools: [],
-        outputSchema: null,
-    } as Awaited<ReturnType<typeof getValidNodeConfig>>)
-}
 
 beforeEach(() => {
     vi.clearAllMocks()
 })
 
-describe('detectParties (regex path)', () => {
-    it.each(SAMPLES)('%s.docx 正则直接命中甲乙方（不调 LLM）', async (name) => {
+describe('detectParties (regex hint with mocked llm)', () => {
+    it.each(SAMPLES)('%s.docx 正则识别甲乙方 + LLM 推 contractType', async (name) => {
+        vi.mocked(invokeNodeJson).mockResolvedValueOnce({
+            partyA: null, partyB: null, contractType: '劳动合同',
+        })
         const buf = await readFile(join(SAMPLE_DIR, `${name}.docx`))
         const { paragraphs } = await parseContractDocx(buf)
         const result = await detectParties(paragraphs)
         expect(result.partyA).not.toBeNull()
         expect(result.partyB).not.toBeNull()
-        expect(result.source).toBe('regex')
-        expect(createChatModel).not.toHaveBeenCalled()
+        expect(result.source).toBe('llm')
+        expect(invokeNodeJson).toHaveBeenCalledTimes(1)
     })
 
-    it('5 份样本正则命中率 ≥ 80%（spec §12.1 硬要求）', async () => {
+    it('5 份样本正则命中率 ≥ 80%（spec §12.1 硬要求；正则识别甲乙方算命中）', async () => {
+        for (const _ of SAMPLES) {
+            vi.mocked(invokeNodeJson).mockResolvedValueOnce({
+                partyA: null, partyB: null, contractType: '劳动合同',
+            })
+        }
         let hit = 0
         for (const name of SAMPLES) {
             const buf = await readFile(join(SAMPLE_DIR, `${name}.docx`))
             const { paragraphs } = await parseContractDocx(buf)
             const result = await detectParties(paragraphs)
-            if (result.source === 'regex' && result.partyA && result.partyB) hit++
+            if (result.source === 'llm' && result.partyA && result.partyB) hit++
         }
         expect(hit / SAMPLES.length).toBeGreaterThanOrEqual(0.8)
     })
 
     it('括号包围写法「出租方（甲方）：」应识别为正则命中', async () => {
+        vi.mocked(invokeNodeJson).mockResolvedValueOnce({
+            partyA: null, partyB: null, contractType: '劳动合同',
+        })
         const paragraphs = [
             '房屋租赁合同',
             '出租方（甲方）：王小明（身份证号：110101198501011234）',
@@ -79,12 +57,15 @@ describe('detectParties (regex path)', () => {
             '一、租赁房屋：上海市徐汇区。',
         ]
         const result = await detectParties(paragraphs)
-        expect(result.source).toBe('regex')
+        expect(result.source).toBe('llm')
         expect(result.partyA).toContain('王小明')
         expect(result.partyB).toContain('李四')
     })
 
     it('正文识别到甲乙方时，应忽略签章行「甲方：（签字）」', async () => {
+        vi.mocked(invokeNodeJson).mockResolvedValueOnce({
+            partyA: null, partyB: null, contractType: '劳动合同',
+        })
         const paragraphs = [
             '劳动合同',
             '甲方（用人单位）：上海诺达科技有限公司',
@@ -93,12 +74,13 @@ describe('detectParties (regex path)', () => {
             '甲方：（签章）  乙方：（签名）',
         ]
         const result = await detectParties(paragraphs)
-        expect(result.source).toBe('regex')
+        expect(result.source).toBe('llm')
         expect(result.partyA).toContain('上海诺达科技有限公司')
         expect(result.partyB).toContain('张三')
     })
 
     it('仅存在签章行时，正则不应返回签章占位符', async () => {
+        vi.mocked(invokeNodeJson).mockRejectedValueOnce(new Error('llm error'))
         const paragraphs = [
             '协议',
             '正文略',
@@ -112,25 +94,23 @@ describe('detectParties (regex path)', () => {
 
 describe('detectParties (LLM fallback path)', () => {
     it('正则未命中时调 model，返回合法 JSON', async () => {
-        mockContractReviewNodeConfig()
-        const mockInvoke = vi.fn().mockResolvedValue({
-            content: '{"partyA":"某科技公司","partyB":"张三","contractType":"咨询合同"}',
+        vi.mocked(invokeNodeJson).mockResolvedValueOnce({
+            partyA: '某科技公司',
+            partyB: '张三',
+            contractType: '咨询合同',
         })
-        vi.mocked(createChatModel).mockReturnValue({ invoke: mockInvoke } as any)
         const paragraphs = ['合同正文', '约定双方合作事宜', '本合同一式两份。']
         const result = await detectParties(paragraphs)
         expect(result.partyA).toBe('某科技公司')
         expect(result.partyB).toBe('张三')
         expect(result.contractType).toBe('咨询合同')
         expect(result.source).toBe('llm')
-        expect(mockInvoke).toHaveBeenCalled()
+        expect(invokeNodeJson).toHaveBeenCalledTimes(1)
     })
 
     it('LLM 返回非法 JSON 时 partyA/partyB/contractType 置 null', async () => {
-        mockContractReviewNodeConfig()
-        vi.mocked(createChatModel).mockReturnValue({
-            invoke: vi.fn().mockResolvedValue({ content: '抱歉我不能识别' }),
-        } as any)
+        // invokeNodeJson 内部 zod 解析失败会 throw —— 外部表现为 reject
+        vi.mocked(invokeNodeJson).mockRejectedValueOnce(new Error('zod parse failed'))
         const result = await detectParties(['无甲乙方字样', '正文'])
         expect(result.partyA).toBeNull()
         expect(result.partyB).toBeNull()
@@ -139,10 +119,7 @@ describe('detectParties (LLM fallback path)', () => {
     })
 
     it('LLM 抛错时 partyA/partyB/contractType 置 null（不阻塞整体流程，spec §13 R3）', async () => {
-        mockContractReviewNodeConfig()
-        vi.mocked(createChatModel).mockReturnValue({
-            invoke: vi.fn().mockRejectedValue(new Error('network error')),
-        } as any)
+        vi.mocked(invokeNodeJson).mockRejectedValueOnce(new Error('network error'))
         const result = await detectParties(['无甲乙方字样', '正文'])
         expect(result.partyA).toBeNull()
         expect(result.partyB).toBeNull()
@@ -150,50 +127,83 @@ describe('detectParties (LLM fallback path)', () => {
         expect(result.source).toBe('none')
     })
 
-    it('无可用 API 密钥（status!==1）→ 捕获后降级 none', async () => {
-        vi.mocked(getValidNodeConfig).mockResolvedValue({
-            id: 1,
-            name: 'contractReviewMain',
-            title: '合同审查主节点',
-            description: '',
-            type: 'main',
-            prompts: [],
-            modelId: 1,
-            modelName: 'deepseek-chat',
-            modelType: 'chat',
-            modelStatus: 1,
-            modelSdkType: 'openai',
-            modelProviderId: 1,
-            modelProviderName: 'DeepSeek',
-            modelProviderBaseUrl: 'https://api.deepseek.com/v1',
-            modelProviderDescription: '',
-            modelApiKeys: [{ id: 1, apiKey: 'sk-xxx', status: 0 }],
-            tools: [],
-            outputSchema: null,
-        } as Awaited<ReturnType<typeof getValidNodeConfig>>)
+    it('无可用 API 密钥（节点配置不可用）→ 捕获后降级 none', async () => {
+        // 节点配置不可用属于 invokeNodeJson 内部错误，外部表现为 reject
+        vi.mocked(invokeNodeJson).mockRejectedValueOnce(new Error('no valid api key'))
         const result = await detectParties(['无甲乙方字样'])
         expect(result.source).toBe('none')
-        expect(createChatModel).not.toHaveBeenCalled()
+        expect(invokeNodeJson).toHaveBeenCalledTimes(1)
     })
 
     it('LLM 返回非字符串 content → 降级 none', async () => {
-        mockContractReviewNodeConfig()
-        vi.mocked(createChatModel).mockReturnValue({
-            invoke: vi.fn().mockResolvedValue({ content: [{ type: 'text', text: '不是字符串' }] }),
-        } as any)
+        // 非字符串响应导致 invokeNodeJson 内部解析失败 → throw
+        vi.mocked(invokeNodeJson).mockRejectedValueOnce(new Error('non-string content'))
         const result = await detectParties(['无甲乙方字样'])
         expect(result.source).toBe('none')
     })
 
     it('LLM 返回 JSON 但字段缺失 → partyA/partyB/contractType 各自 ?? null 回填', async () => {
-        mockContractReviewNodeConfig()
-        vi.mocked(createChatModel).mockReturnValue({
-            invoke: vi.fn().mockResolvedValue({ content: '{}' }),
-        } as any)
+        vi.mocked(invokeNodeJson).mockResolvedValueOnce({
+            partyA: null,
+            partyB: null,
+            contractType: null,
+        })
         const result = await detectParties(['无甲乙方字样'])
         expect(result.partyA).toBeNull()
         expect(result.partyB).toBeNull()
         expect(result.contractType).toBeNull()
+        expect(result.source).toBe('llm')
+    })
+})
+
+describe('detectParties (regex hint → llm path)', () => {
+    it('正则命中甲乙方 → 仍调 LLM 推 contractType；source=llm', async () => {
+        vi.mocked(invokeNodeJson).mockResolvedValueOnce({
+            partyA: '上海坑人科技有限公司',
+            partyB: '杨白劳',
+            contractType: '劳动合同',
+        })
+        const paragraphs = [
+            '劳动合同',
+            '甲方：上海坑人科技有限公司',
+            '乙方：杨白劳',
+            '一、工作内容：员工岗位为软件工程师。',
+        ]
+        const result = await detectParties(paragraphs)
+        expect(result.partyA).toBe('上海坑人科技有限公司')
+        expect(result.partyB).toBe('杨白劳')
+        expect(result.contractType).toBe('劳动合同') // 关键：不再为 null
+        expect(result.source).toBe('llm')
+        expect(invokeNodeJson).toHaveBeenCalledTimes(1)
+    })
+
+    it('正则命中甲乙方 + LLM 失败 → 降级到 regex 路径（contractType=null，向后兼容）', async () => {
+        vi.mocked(invokeNodeJson).mockRejectedValueOnce(new Error('network error'))
+        const paragraphs = [
+            '劳动合同',
+            '甲方：上海坑人科技有限公司',
+            '乙方：杨白劳',
+        ]
+        const result = await detectParties(paragraphs)
+        expect(result.partyA).toBe('上海坑人科技有限公司')
+        expect(result.partyB).toBe('杨白劳')
+        expect(result.contractType).toBeNull()
+        expect(result.source).toBe('regex')
+    })
+
+    it('正则命中甲乙方 + LLM 覆盖了 partyA → 采用 LLM 输出（LLM 可纠正正则误识别）', async () => {
+        vi.mocked(invokeNodeJson).mockResolvedValueOnce({
+            partyA: '某科技股份有限公司',
+            partyB: '杨白劳',
+            contractType: '劳动合同',
+        })
+        const paragraphs = [
+            '劳动合同',
+            '甲方：误识别的占位文字',
+            '乙方：杨白劳',
+        ]
+        const result = await detectParties(paragraphs)
+        expect(result.partyA).toBe('某科技股份有限公司')
         expect(result.source).toBe('llm')
     })
 })

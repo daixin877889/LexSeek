@@ -15,10 +15,7 @@ import { $fetch } from 'ofetch'
 import {
     createMineruTaskService,
 } from '~~/server/services/material/mineruTask.service'
-import {
-    getActiveTokenValueService,
-    hasActiveTokenService,
-} from '~~/server/services/material/mineruToken.service'
+import { pickTokenForNewTaskService } from '~~/server/services/material/mineruToken.service'
 import { DocRecognitionStatus, MineruTaskStatus } from '#shared/types/recognition'
 import type { ossFiles } from '~~/generated/prisma/client'
 import { createDocRecognitionRecordDao, findDocRecognitionByOssFileIdDao, updateDocRecognitionRecordDao } from '~~/server/services/material/mineru.dao'
@@ -104,16 +101,12 @@ export default defineEventHandler(async (event) => {
     const { files, modelVersion, enableOcr, enableFormula, enableTable } = bodyResult.data
 
     try {
-        // 1. 检查是否有可用的 MinerU Token
-        const hasToken = await hasActiveTokenService()
-        if (!hasToken) {
+        // 1. LRU 选取一个可用 token（启用 + 未过期），并记录 id 供轮询时复用
+        const picked = await pickTokenForNewTaskService()
+        if (!picked) {
             return resError(event, 500, '没有可用的 MinerU Token，请联系管理员配置')
         }
-
-        const token = await getActiveTokenValueService()
-        if (!token) {
-            return resError(event, 500, '获取 MinerU Token 失败')
-        }
+        const { id: mineruTokenId, token } = picked
 
         // 2. 验证所有 OSS 文件存在
         const ossFileIds = files.map(f => f.ossFileId)
@@ -193,6 +186,7 @@ export default defineEventHandler(async (event) => {
             await createMineruTaskService({
                 ossFileId: file.ossFileId,
                 userId: user.id,
+                mineruTokenId,
                 status: MineruTaskStatus.PROCESSING,
                 taskRawData: {
                     batchId,

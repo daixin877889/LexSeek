@@ -19,6 +19,7 @@ import {
     estimateTokens,
     getSourceId,
     TOKEN_THRESHOLD,
+    snapshotMaterialReadiness,
 } from '~~/server/services/material/materialPipeline.service'
 import { countTokensSync } from '~~/server/utils/tokenCounter'
 
@@ -35,7 +36,8 @@ const TOOL_PAYLOAD_HARD_CAP = 25000
 const INDEX_MODE_HINT = '[内容已压缩，请使用 search_case_materials 工具按材料名或关键字检索完整内容]'
 
 const schema = z.object({
-    fileIds: z.array(z.number().int().positive()).optional().describe('可选：仅处理这些 OSS 文件 ID（不传则处理当前上下文下的全部材料）'),
+    // LLM 偶尔会把数字 ID 当字符串回传，coerce 自动转 number 增强鲁棒性
+    fileIds: z.array(z.coerce.number().int().positive()).optional().describe('可选：仅处理这些 OSS 文件 ID（不传则处理当前上下文下的全部材料）'),
 })
 
 export const toolDefinition: ToolDefinition<typeof schema> = {
@@ -76,6 +78,10 @@ export function createTool(context: ToolContext) {
                 // 2. 获取材料上下文（自动判断 full/summary 模式）
                 const materialContext = await getMaterialContextService(materials)
 
+                // 2.1 获取材料就绪状态快照（供前端五态指示）
+                const snapshot = await snapshotMaterialReadiness(materials)
+                const statusMap = new Map(snapshot.map(s => [s.materialId, s.status]))
+
                 // 3. 在 context.materialList 基础上补充 tool 特有字段
                 const materialList = materialContext.materialList.map(m => {
                     // 反向映射 sourceId→materialId 以查找 embeddedMap
@@ -89,6 +95,7 @@ export function createTool(context: ToolContext) {
                         id: material?.id,
                         tokenCount: payloadText ? estimateTokens(payloadText) : 0,
                         embedded: material ? (embeddedMap.get(material.id) ?? false) : false,
+                        status: material ? (statusMap.get(material.id) ?? 'pending') : 'pending',
                     }
                 })
 

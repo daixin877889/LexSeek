@@ -1,5 +1,5 @@
 /**
- * POST /api/v1/case/memories/by-case/:caseId 测试
+ * POST /api/v1/cases/memories/by-case/:caseId 测试
  *
  * **Feature: case-memory-extension**
  * **Validates: spec §3.3 POST 用户添加（subjectKey 推断 / 校验 / 写入）**
@@ -24,7 +24,7 @@ import { inferSubjectKeyService } from '~~/server/services/memory/memorySubjectI
 
 // 动态 import handler（必须在 globalThis stub 和 vi.mock 设置之后）
 const { default: handler } = await import(
-    '../../../../server/api/v1/case/memories/by-case/[caseId].post'
+    '../../../../server/api/v1/cases/memories/by-case/[caseId].post'
 )
 
 const makeEvent = (userId: number, caseId: number, body: any) => ({

@@ -1,11 +1,8 @@
 /**
- * 中间件优先级排序和互斥校验
+ * 中间件优先级排序
  *
  * 解决问题：中间件顺序为隐性约定，当前无运行时保障，全靠开发者手动排列。
- *
- * 通过 buildMiddlewareStack 提供：
- * 1. 声明式优先级排序（priority 越小越先执行）
- * 2. 互斥校验（如 caseMaterialContext 和 moduleContext 不能同时挂载）
+ * 通过 buildMiddlewareStack 提供声明式优先级排序（priority 越小越先执行）。
  */
 
 import type { AgentMiddleware } from 'langchain'
@@ -33,13 +30,11 @@ export const MIDDLEWARE_PRIORITY = {
     SCOPE_GUARD: 5,
     /** Agent 安全：工具调用次数熔断（spread 多实例） */
     TOOL_CALL_LIMIT: 7,
-    /** 案件材料预处理（需在材料上下文之前完成） */
+    /** 案件材料预处理（需在上下文注入之前完成） */
     PROCESS_MATERIAL: 10,
     /** 积分消耗（需在实际推理之前扣点） */
     POINT_CONSUMPTION: 20,
-    /** 案件材料上下文注入（与 MODULE_CONTEXT 互斥） */
-    MATERIAL_CONTEXT: 30,
-    /** 模块上下文注入（与 MATERIAL_CONTEXT 互斥） */
+    /** 案件上下文注入（5 段式：档案 + 模块摘要 + 召回记忆 + 材料清单） */
     MODULE_CONTEXT: 30,
     /** 摘要压缩（在上下文注入之后、安全截断之前） */
     SUMMARIZATION: 40,
@@ -47,6 +42,8 @@ export const MIDDLEWARE_PRIORITY = {
     SAFETY_TRIM: 50,
     /** Skills 发现和加载（wrapModelCall 注入 prompt） */
     SKILLS_DISCOVERY: 60,
+    /** 用户每轮注入（user_injection 类型 prompt → wrapModelCall 临时插入 HumanMessage） */
+    USER_INJECTION: 70,
     /** 待办列表中间件 */
     TODO_LIST: 80,
     /** 分析结果持久化（必须最后执行） */
@@ -62,11 +59,11 @@ export const MIDDLEWARE_NAMES = {
     TOOL_CALL_LIMIT: 'toolCallLimit',
     PROCESS_MATERIAL: 'caseProcessMaterial',
     POINT_CONSUMPTION: 'pointConsumption',
-    MATERIAL_CONTEXT: 'caseMaterialContext',
-    MODULE_CONTEXT: 'moduleContext',
+    MODULE_CONTEXT: 'caseContext',
     SUMMARIZATION: 'summarization',
     SAFETY_TRIM: 'safetyTrim',
     SKILLS_DISCOVERY: 'skillsDiscovery',
+    USER_INJECTION: 'userInjection',
     TODO_LIST: 'todoList',
     RESULT_PERSISTENCE: 'analysisResultPersistence',
     /** 合同审查结果持久化（与 RESULT_PERSISTENCE 语义对等，独立 agent 使用） */
@@ -77,23 +74,12 @@ export const MIDDLEWARE_NAMES = {
 /**
  * 构建中间件执行栈
  *
- * 根据 priority 升序排列中间件，并校验互斥规则。
+ * 根据 priority 升序排列中间件。
  *
  * @param items - 带优先级的中间件列表
  * @returns 排序后的中间件数组，可直接传入 createAgent({ middleware })
- * @throws 互斥中间件同时挂载时抛出错误
  */
 export function buildMiddlewareStack(items: MiddlewareWithPriority[]): AgentMiddleware[] {
-    // 互斥校验：caseMaterialContext 和 moduleContext 不能同时挂载
-    const hasMaterial = items.some(i => i.name === MIDDLEWARE_NAMES.MATERIAL_CONTEXT)
-    const hasModule = items.some(i => i.name === MIDDLEWARE_NAMES.MODULE_CONTEXT)
-    if (hasMaterial && hasModule) {
-        throw new Error(
-            `${MIDDLEWARE_NAMES.MATERIAL_CONTEXT} 和 ${MIDDLEWARE_NAMES.MODULE_CONTEXT} 不能同时挂载，`
-            + '它们提供互斥的上下文注入策略',
-        )
-    }
-
     // 按 priority 升序排列（相同优先级保持注册顺序）
     const sorted = [...items].sort((a, b) => a.priority - b.priority)
 

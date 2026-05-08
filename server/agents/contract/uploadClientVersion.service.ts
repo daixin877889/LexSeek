@@ -28,7 +28,7 @@ import { parseContractDocx } from './docx'
 import { saveContractReviewVersionService } from './contractReviewVersion.service'
 import { analyzeSingleClause } from './analyzeSingleClause'
 import { diffClauses } from './utils/clauseDiff'
-import { migrateAnchor } from './utils/anchorMigrate'
+import { migrateRiskWithDualAnchor } from './utils/anchorMigrate'
 import { parseWordComments, type ParsedWordComment, type AnnotationRefEntry } from './docx/wordCommentParser'
 import { parseCommentRef, generateWordCommentRef, stripAuthorRef } from './utils/wordCommentRef'
 import { buildClauseToParagraphMap } from './utils/clauseToParagraph'
@@ -47,6 +47,7 @@ import { downloadFileService } from '~~/server/services/storage/storage.service'
 import { renderContent } from '~~/server/services/node/prompt.service'
 import { createChatModel } from '~~/server/services/node/chatModelFactory'
 import { getValidNodeConfig } from '~~/server/services/node/node.service'
+import { assembleSystemPromptTemplate } from '~~/server/services/agent-platform/nodeConfig/promptRenderer'
 import { DOCX_MIME } from '#shared/utils/mime'
 import pLimit from 'p-limit'
 
@@ -174,8 +175,10 @@ export async function* uploadClientVersionService(params: {
             newClauses = segments.map((s) => ({
                 index: s.index,
                 text: s.text,
+                textWithoutNumber: s.textWithoutNumber,
                 offsetStart: s.offsetStart,
                 offsetEnd: s.offsetEnd,
+                offsetStartWithoutNumber: s.offsetStartWithoutNumber,
             }))
 
             // bug #9：parseWordComments 失败不再静默降级为空批注，
@@ -214,8 +217,12 @@ export async function* uploadClientVersionService(params: {
             try {
                 const { segments } = await segmentClauses(oldDocxText)
                 oldClauses = segments.map(s => ({
-                    index: s.index, text: s.text,
-                    offsetStart: s.offsetStart, offsetEnd: s.offsetEnd,
+                    index: s.index,
+                    text: s.text,
+                    textWithoutNumber: s.textWithoutNumber,
+                    offsetStart: s.offsetStart,
+                    offsetEnd: s.offsetEnd,
+                    offsetStartWithoutNumber: s.offsetStartWithoutNumber,
                 }))
                 logger.info('[uploadClientVersion] 对 Phase A 存量 snapshot 重切 clauses', {
                     reviewId: review.id,
@@ -468,7 +475,7 @@ export async function* uploadClientVersionService(params: {
     const step4CreatedRiskIds: number[] = []
     const step4CreatedAnnIds: number[] = []
 
-    // DOCX-C1/C2：anchorParagraphIndex 必须用"非空段落序号"（commentInjector 期望的空间），
+    // DOCX-C1/C2：clauseParagraphIndex 必须用"非空段落序号"（commentInjector 期望的空间），
     // 不能用 newClauses 数组下标（条款序号空间）。这里建 newClauses → newParagraphs 映射，
     // 写入新 risk 时把 newClauses[m.newIndex].index 转换成非空段落序号。
     const newClauseIdxToParaIdx = buildClauseToParagraphMap(newClauses, newParagraphs)
@@ -496,11 +503,17 @@ export async function* uploadClientVersionService(params: {
                 index: item.index,
                 number: null,
                 text: item.text,
+                // PR10：从 ClauseSnapshotItem（optional 字段，旧 snapshot 可能无）兜底到 text
+                textWithoutNumber: item.textWithoutNumber ?? item.text,
                 offsetStart: item.offsetStart,
                 offsetEnd: item.offsetEnd,
+                offsetStartWithoutNumber: item.offsetStartWithoutNumber ?? item.offsetStart,
             }
             try {
-                const risk = await analyzeSingleClause({
+                // analyzeSingleClause 现返回 Risk[]；Phase B 增量审查的旧 vs 新 多对多
+                // 配对 v1 暂不重写，取首条与历史行为一致（多 risk 拆分为单条款多卡片是
+                // Phase A 主路径的改进；Phase B 配对逻辑留 backlog）
+                const segRisks = await analyzeSingleClause({
                     clause,
                     stance: (review.stance ?? 'balanced') as Stance,
                     partyA: review.partyA,
@@ -508,6 +521,7 @@ export async function* uploadClientVersionService(params: {
                     contractType: review.contractType,
                     playbookSnapshot: review.playbookSnapshot as PlaybookSnapshot | null,
                 })
+                const risk = segRisks[0] ?? null
                 return { ok: true, i, m, clause, risk } as LlmResult
             } catch (err) {
                 return { ok: false, i, m, clause, err } as LlmResult
@@ -528,9 +542,9 @@ export async function* uploadClientVersionService(params: {
         const risk = result.risk
         if (risk) {
             // DOCX-H2 + C2：同条款可能有多条未处置 AI 风险。
-            // 原比较 `r.anchorParagraphIndex === m.oldIndex` 把 DB 里"段落序号空间"
-            // 的 anchorParagraphIndex 与 oldClauses 数组下标错配，永不命中；改用
-            // anchorQuote 文本 prefix 匹配 oldClauses[m.oldIndex].text 来识别"老条款下的旧 risk"，
+            // 原比较 `r.clauseParagraphIndex === m.oldIndex` 把 DB 里"段落序号空间"
+            // 的 clauseParagraphIndex 与 oldClauses 数组下标错配，永不命中；改用
+            // clauseText 文本 prefix 匹配 oldClauses[m.oldIndex].text 来识别"老条款下的旧 risk"，
             // 跨"历史 clauseIndex / 现段落 paragraphIndex"两种空间都能识别。
             const oldClauseHead = (oldClauses[m.oldIndex]?.text ?? '').slice(0, 40)
             const existingRisks = oldClauseHead.length >= 4
@@ -538,10 +552,10 @@ export async function* uploadClientVersionService(params: {
                     (r) =>
                         r.source === 'ai'
                         && r.archivedStatus === null
-                        && (r.anchorQuote ?? '').includes(oldClauseHead),
+                        && (r.clauseText ?? '').includes(oldClauseHead),
                 )
                 : []
-            // DOCX-C1：写入端 anchorParagraphIndex 用非空段落序号（commentInjector 期望空间）
+            // DOCX-C1：写入端 clauseParagraphIndex 用非空段落序号（commentInjector 期望空间）
             const newParaIdx = newClauseArrayIdxToParaIdx(m.newIndex)
             if (existingRisks.length > 0) {
                 for (const existing of existingRisks) {
@@ -554,23 +568,26 @@ export async function* uploadClientVersionService(params: {
                             legalBasis: risk.legalBasis ?? null,
                             analysis: risk.analysis ?? null,
                             suggestion: risk.suggestion ?? null,
-                            anchorQuote: clause.text,
+                            // PR10 方案 D：用不含编号字符的文本作 anchor，规避 redlineInjector 严格匹配失败
+                            // ?? clause.text 是 ClauseSnapshotItem.textWithoutNumber 的 optional 字段 fallback
+                            clauseText: clause.textWithoutNumber ?? clause.text,
                             // 锚点迁移到新条款对应的段落序号，避免 Step 5 再扫一次
-                            anchorParagraphIndex: newParaIdx,
-                            ...(existing.originalAnchorQuote ? {} : { originalAnchorQuote: existing.anchorQuote }),
+                            clauseParagraphIndex: newParaIdx,
+                            ...(existing.originalClauseText ? {} : { originalClauseText: existing.clauseText }),
                         },
                     })
                 }
             } else {
                 // CORE-R2：与 Phase A 主路径共用 persistAiRisksAsContractRows，
-                // 字段映射收口到 contractRisk.service。anchorQuote 显式传 clause.text，
+                // 字段映射收口到 contractRisk.service。clauseText 显式传 clause.text，
                 // 与 Phase A 原始 AI risk 一致存条款全文，不再截断（bug #11）。
                 const [newRisk] = await persistAiRisksAsContractRows({
                     reviewId: review.id,
                     rows: [{
                         risk,
-                        anchorQuote: clause.text,
-                        anchorParagraphIndex: newParaIdx,
+                        // PR10 方案 D：理由同上
+                        clauseText: clause.textWithoutNumber ?? clause.text,
+                        clauseParagraphIndex: newParaIdx,
                     }],
                     stance: ((review.stance ?? DEFAULT_AI_RISK_STANCE) as unknown) as StancePreference,
                 })
@@ -604,7 +621,7 @@ export async function* uploadClientVersionService(params: {
         const globalConfig = await getValidNodeConfig('contractReviewGlobalReview')
         const globalActiveKey = globalConfig.modelApiKeys.find((k) => k.status === 1)
         if (globalActiveKey) {
-            const globalTemplate = globalConfig.prompts.find((p) => p.type === 'system' && p.status === 1)?.content
+            const globalTemplate = assembleSystemPromptTemplate(globalConfig.prompts)
             if (globalTemplate) {
                 const globalModel = createChatModel({
                     sdkType: globalConfig.modelSdkType,
@@ -632,8 +649,8 @@ export async function* uploadClientVersionService(params: {
                         suggestion?: string
                     }>
                     // DOCX-C3：global_review 是整篇合同的"条款平衡性/连锁风险"（spec §9.2），
-                    // 不对应任何具体段落。anchorParagraphIndex=null 后 rebuildDocxService 会
-                    // 过滤、不导出 Word 批注；anchorQuote 存完整 problem 便于前端展示。
+                    // 不对应任何具体段落。clauseParagraphIndex=null 后 rebuildDocxService 会
+                    // 过滤、不导出 Word 批注；clauseText 存完整 problem 便于前端展示。
                     // CORE-R2：与 Phase A/B 主路径共用 persistAiRisksAsContractRows，
                     // global_review 在 Risk 类型上无 id/clauseIndex/clauseText/risk 概念，
                     // service 也不会写入这些字段，仅做类型占位。
@@ -659,8 +676,8 @@ export async function* uploadClientVersionService(params: {
                             return {
                                 risk: placeholder,
                                 source: 'global_review',
-                                anchorQuote: r.problem ?? '（全局复核）',
-                                anchorParagraphIndex: null,
+                                clauseText: r.problem ?? '（全局复核）',
+                                clauseParagraphIndex: null,
                             }
                         }),
                     })
@@ -748,13 +765,13 @@ export async function* uploadClientVersionService(params: {
                 // DOCX-C4：锚点是"非空段落序号"（parseWordComments 返回的 anchorParagraphIndex
                 // 和 commentInjector scanNonEmptyParagraphs 同口径）。越界校验必须用
                 // newParagraphs.length（非空段落总数）而不是 newClauses.length（条款总数，
-                // 通常远小于段落数）；anchorQuote 用段落原文（不是条款文本），与 parseWordComments
+                // 通常远小于段落数）；clauseText 用段落原文（不是条款文本），与 parseWordComments
                 // 语义对齐，后续 rebuildDocxService 注入时 findParagraphIndexByQuote 能
                 // 字符串匹配兜底定位。
                 const paraIdx = c.anchorParagraphIndex
                 const validPara = paraIdx !== null && paraIdx >= 0 && paraIdx < newParagraphs.length
-                const anchorParagraphIndex = validPara ? paraIdx : null
-                const anchorQuote = validPara
+                const clauseParagraphIndex = validPara ? paraIdx : null
+                const clauseText = validPara
                     ? (newParagraphs[paraIdx!] ?? c.content.slice(0, 50))
                     : c.content.slice(0, 50)
                 const risk = await tx.contractRisks.create({
@@ -765,8 +782,8 @@ export async function* uploadClientVersionService(params: {
                         stance: 'balanced',
                         category: '外部批注',
                         problem: c.content.slice(0, 100),
-                        anchorQuote,
-                        anchorParagraphIndex,
+                        clauseText,
+                        clauseParagraphIndex,
                     },
                 })
                 const newAnn = await tx.contractAnnotations.create({
@@ -784,13 +801,13 @@ export async function* uploadClientVersionService(params: {
                 })
             }
 
-            // DOCX-C3：锚点迁移路径里 r.anchorParagraphIndex 是"非空段落序号"空间，
+            // DOCX-C3：锚点迁移路径里 r.clauseParagraphIndex 是"非空段落序号"空间，
             // clauseDiffResult.modified/removed/unchanged 里的 oldIndex/newIndex 是
             // oldClauses/newClauses 的"数组下标"空间——两个空间不能直接 ===。
-            // 改成基于 anchorQuote 推断"老条款数组下标"：拿 r.anchorQuote 的 head
+            // 改成基于 clauseText 推断"老条款数组下标"：拿 r.clauseText 的 head
             // 在 oldClauses 里 find 第一个 startsWith / includes 命中的条款下标。
             // - 找到 → 用 modified/removed/unchanged 决定路径
-            // - 找不到（anchorQuote 与 oldClauses 都对不上）→ migrate 走全局漂移搜索
+            // - 找不到（clauseText 与 oldClauses 都对不上）→ migrate 走全局漂移搜索
             const oldHeadToArrayIdx = new Map<string, number>()
             for (let oi = 0; oi < oldClauses.length; oi++) {
                 const head = (oldClauses[oi]?.text ?? '').slice(0, 40)
@@ -807,8 +824,8 @@ export async function* uploadClientVersionService(params: {
             }
 
             for (const r of dbRisks) {
-                if (r.anchorParagraphIndex == null) continue
-                const oldArrayIdx = findOldClauseArrayIdxByAnchor(r.anchorQuote ?? '')
+                if (r.clauseParagraphIndex == null) continue
+                const oldArrayIdx = findOldClauseArrayIdxByAnchor(r.clauseText ?? '')
                 const isModified = oldArrayIdx !== null
                     && clauseDiffResult.modified.some((m) => m.oldIndex === oldArrayIdx)
                 const isRemoved = oldArrayIdx !== null && clauseDiffResult.removed.includes(oldArrayIdx)
@@ -817,47 +834,78 @@ export async function* uploadClientVersionService(params: {
                     : null
 
                 if (isModified || isRemoved || oldArrayIdx === null) {
-                    // modified / removed / 完全找不到对应旧条款 → 都走全局漂移迁移
+                    // modified / removed / 完全找不到对应旧条款 → 走双锚点迁移（spec §9.2）
                     const preferredNew = isModified
                         ? (clauseDiffResult.modified.find((m) => m.oldIndex === oldArrayIdx)?.newIndex ?? null)
                         : null
-                    const result = migrateAnchor({
-                        oldAnchorQuote: r.anchorQuote ?? '',
+                    const result = migrateRiskWithDualAnchor({
+                        oldClauseText: r.clauseText ?? '',
+                        oldProblematicQuote: r.problematicQuote,
                         preferredNewClauseArrayIdx: preferredNew,
                         newClauses,
+                        newDocxText,
                     })
                     if (result) {
-                        // newClauses[result.newClauseIndex] 是数组下标 → 转段落序号
-                        const newParaIdx = newClauseArrayIdxToParaIdx(result.newClauseIndex)
+                        const newParaIdx = newClauseArrayIdxToParaIdx(result.newClauseArrayIdx)
+                        // spec §9.3：clauseText 实际变化 + 旧值非空 + 未备份过时才回填 originalClauseText
+                        // 旧值非空守护：PR2 schema 给 clauseText `@default("")`，存量行可能是空串，
+                        // 备份空串无业务意义反而污染"原文已修改"UI 提示
+                        const oldClauseTextStr = r.clauseText ?? ''
+                        const clauseTextChanged = oldClauseTextStr.length > 0 && oldClauseTextStr !== result.newClauseText
+                        const originalUpdate = clauseTextChanged && !r.originalClauseText
+                            ? { originalClauseText: oldClauseTextStr }
+                            : {}
+                        // 档 1 (matchType=quote)：写双锚点全字段；保留原 quoteMatchSource
+                        // 档 2 (matchType=clause)：写 clause 字段 + 清空 quote 字段（含 quoteMatchSource）
+                        const quoteUpdate = result.matchType === 'quote'
+                            ? {
+                                problematicQuote: result.newProblematicQuote,
+                                quoteCharStart: result.newQuoteCharStart,
+                                quoteCharEnd: result.newQuoteCharEnd,
+                                // quoteMatchSource 沿用旧值（迁移不改变首次审查时的命中来源语义）
+                            }
+                            : {
+                                problematicQuote: null,
+                                quoteCharStart: null,
+                                quoteCharEnd: null,
+                                quoteMatchSource: null,
+                            }
                         await tx.contractRisks.update({
                             where: { id: r.id },
                             data: {
-                                anchorParagraphIndex: newParaIdx,
-                                anchorCharStart: result.newCharStart,
-                                anchorCharEnd: result.newCharEnd,
-                                anchorQuote: newClauses[result.newClauseIndex]!.text.slice(
-                                    result.newCharStart,
-                                    result.newCharEnd,
-                                ),
-                                ...(r.originalAnchorQuote ? {} : { originalAnchorQuote: r.anchorQuote }),
+                                clauseIndex: newClauses[result.newClauseArrayIdx]!.index,
+                                clauseParagraphIndex: newParaIdx,
+                                clauseText: result.newClauseText,
+                                clauseCharStart: result.newClauseCharStart,
+                                clauseCharEnd: result.newClauseCharEnd,
+                                orphaned: false, // 之前 orphaned=true 的 risk 重传后又能定位时复活
+                                ...quoteUpdate,
+                                ...originalUpdate,
                             },
                         })
                     } else {
+                        // 档 3：两档都失败 → orphaned，保留旧 clauseText / problematicQuote 不动
+                        // originalClauseText 仅在旧值非空 + 未备份过时回填（与档 1/2 同口径）
+                        const oldClauseTextStr = r.clauseText ?? ''
+                        const orphanedOriginalUpdate = oldClauseTextStr.length > 0 && !r.originalClauseText
+                            ? { originalClauseText: oldClauseTextStr }
+                            : {}
                         await tx.contractRisks.update({
                             where: { id: r.id },
                             data: {
                                 orphaned: true,
-                                ...(r.originalAnchorQuote ? {} : { originalAnchorQuote: r.anchorQuote }),
+                                ...orphanedOriginalUpdate,
                             },
                         })
                     }
                 } else if (unchangedMapping) {
-                    // unchanged clause：位置可能变化，更新 anchorParagraphIndex 到新段落序号
+                    // unchanged clause：位置可能变化，更新 clauseParagraphIndex 到新段落序号
+                    // （quote 字段无需动——clauseText 没变，相对 offset 仍然有效）
                     const newParaIdx = newClauseArrayIdxToParaIdx(unchangedMapping.newIndex)
-                    if (newParaIdx !== r.anchorParagraphIndex) {
+                    if (newParaIdx !== r.clauseParagraphIndex) {
                         await tx.contractRisks.update({
                             where: { id: r.id },
-                            data: { anchorParagraphIndex: newParaIdx },
+                            data: { clauseParagraphIndex: newParaIdx },
                         })
                     }
                 }
@@ -957,12 +1005,12 @@ async function syncReviewRisksJsonb(
     // DOCX-H3：可选传入 tx 让事务里复用同一连接；事务外调用回退到全局 prisma。
     const rows = await tx.contractRisks.findMany({
         where: { reviewId },
-        orderBy: [{ anchorParagraphIndex: 'asc' }, { id: 'asc' }],
+        orderBy: [{ clauseParagraphIndex: 'asc' }, { id: 'asc' }],
     })
     const risksJson: Risk[] = rows.map((r) => ({
         id: String(r.id),
-        clauseIndex: r.anchorParagraphIndex ?? 0,
-        clauseText: r.anchorQuote ?? '',
+        clauseIndex: r.clauseParagraphIndex ?? 0,
+        clauseText: r.clauseText ?? '',
         level: r.level as RiskLevel,
         category: r.category,
         problem: r.problem,

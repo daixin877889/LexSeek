@@ -65,7 +65,7 @@ onBeforeUnmount(() => {
     <Tool>
         <ToolHeader title="法律检索" type="tool-search_law" :state="state">
             <template v-if="state === 'output-available' && results.length" #extra>
-                <span class="text-xs text-muted-foreground">找到 {{ results.length }} 条结果</span>
+                <span class="text-xs text-muted-foreground">{{ results.length }} 条结果</span>
             </template>
         </ToolHeader>
         <ToolContent v-if="input || output != null">

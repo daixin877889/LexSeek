@@ -92,7 +92,7 @@ describe('contractReviewMigrate.service', () => {
         expect(risks).toHaveLength(3)
         expect(risks[0].category).toBe('试用期')
         expect(risks[0].level).toBe('high')
-        expect(risks[0].anchorQuote).toBe('试用期条款')
+        expect(risks[0].clauseText).toBe('试用期条款')
         expect(risks[0].source).toBe('ai')
 
         // 检查 ContractAnnotation 行（每条 risk 各一条 authorType=ai）

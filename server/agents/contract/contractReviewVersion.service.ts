@@ -17,8 +17,19 @@ import type {
 } from '#shared/types/contract'
 import { getContractReviewVersionByIdDAO } from './contractReviewVersion.dao'
 import { isAnnotationExportable } from './contractAnnotation.service'
-import { injectAnnotations } from './docx'
-import type { ContractAnnotationForExport } from './docx'
+import {
+    injectAnnotations,
+    injectRedlineMarks,
+    findMaxSharedId,
+    loadDocxZip,
+    readTextFromZip,
+} from './docx'
+import { parseOoxml } from './docx/xmlAst'
+import type {
+    ContractAnnotationForExport,
+    RedlineRisk,
+} from './docx'
+import type { ContractExportMode } from '#shared/types/contract'
 import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
 import {
     downloadFileService,
@@ -219,13 +230,16 @@ export type DownloadVersionResult =
  *
  * 基底文件优先级：version.docxFileId（客户回传原件）→ review.originalFileId。
  * 过滤：
- *   - annotation 关联的 risk.anchorParagraphIndex 为 null → 跳过（孤立批注无法注入）
+ *   - annotation 关联的 risk.clauseParagraphIndex 为 null → 跳过（孤立批注无法注入）
  *   - risk.orphaned === true → 跳过（原文已变更，批注无意义）
  */
 export async function downloadContractReviewVersionService(
     review: contractReviews,
     versionId: number,
+    opts: { mode?: ContractExportMode } = {},
 ): Promise<DownloadVersionResult> {
+    const mode: ContractExportMode = opts.mode ?? 'comment'
+
     const version = await getContractReviewVersionByIdDAO(versionId)
     if (!version) return { error: 'version_not_found' as const }
 
@@ -276,7 +290,7 @@ export async function downloadContractReviewVersionService(
     for (const a of snapshot.annotations) {
         const risk = riskById.get(a.riskId)
         // VER-R3：共享 isAnnotationExportable 谓词（含 deletedAt / suppressInExport /
-        // anchorParagraphIndex / orphaned 四条规则），与 rebuild service / middleware 同口径。
+        // clauseParagraphIndex / orphaned 四条规则），与 rebuild service / middleware 同口径。
         if (!isAnnotationExportable(a, risk)) continue
         if (!risk) continue // 类型守卫：上面已 guard，这里仅缩窄类型
         exportable.push({
@@ -286,9 +300,9 @@ export async function downloadContractReviewVersionService(
             authorName: a.authorName,
             content: a.content,
             parentAnnotationId: a.parentAnnotationId,
-            anchorQuote: risk.anchorQuote,
-            // isAnnotationExportable 已 guard anchorParagraphIndex !== null
-            anchorParagraphIndex: risk.anchorParagraphIndex!,
+            anchorQuote: risk.clauseText,                       // commentInjector 入参字段名保留
+            // isAnnotationExportable 已 guard clauseParagraphIndex !== null
+            anchorParagraphIndex: risk.clauseParagraphIndex!,   // commentInjector 入参字段名保留
             // 优先 snapshot 冻结值；null 时回退到 DB 当前值；仍 null → injectAnnotations
             // 当场生成新的（单次下载内所有 ref 依然一致，只是跨下载会变）
             wordCommentRef: a.wordCommentRef ?? dbRefByAnnId.get(a.id) ?? null,
@@ -298,12 +312,56 @@ export async function downloadContractReviewVersionService(
 
     let injectedBuffer: Buffer
     try {
-        const result = await injectAnnotations(baseBuffer, exportable, review.id)
-        injectedBuffer = Buffer.isBuffer(result.buffer) ? result.buffer : Buffer.from(result.buffer)
+        if (mode === 'comment') {
+            const result = await injectAnnotations(baseBuffer, exportable, review.id)
+            injectedBuffer = Buffer.isBuffer(result.buffer) ? result.buffer : Buffer.from(result.buffer)
+        }
+        else {
+            // PR6 §8.2 历史版本下载也支持 redline / both 三模式
+            const docAst = parseOoxml(await readTextFromZip(await loadDocxZip(baseBuffer), 'word/document.xml'))
+            const idStart = findMaxSharedId(docAst) + 1
+
+            // snapshot 里的 risks 已含 PR2/PR3 的 quote 字段
+            const redlineRisks: RedlineRisk[] = snapshot.risks.map(r => ({
+                id: r.id,
+                clauseText: r.clauseText,
+                clauseParagraphIndex: r.clauseParagraphIndex ?? null,
+                problematicQuote: r.problematicQuote ?? null,
+                quoteCharStart: r.quoteCharStart ?? null,
+                quoteCharEnd: r.quoteCharEnd ?? null,
+                suggestedClauseText: r.suggestedClauseText ?? null,
+            }))
+            const redlineResult = await injectRedlineMarks(baseBuffer, redlineRisks, {
+                reviewId: review.id, idStart,
+            })
+
+            if (mode === 'redline') {
+                const skippedSet = new Set(redlineResult.skippedRiskIds)
+                const fallback = exportable.filter(a => skippedSet.has(a.riskId))
+                if (fallback.length > 0) {
+                    const cr = await injectAnnotations(redlineResult.buffer, fallback, review.id, {
+                        idStart: redlineResult.nextIdAfter,
+                    })
+                    injectedBuffer = Buffer.isBuffer(cr.buffer) ? cr.buffer : Buffer.from(cr.buffer)
+                }
+                else {
+                    injectedBuffer = Buffer.isBuffer(redlineResult.buffer) ? redlineResult.buffer : Buffer.from(redlineResult.buffer)
+                }
+            }
+            else {
+                // both
+                const cr = await injectAnnotations(redlineResult.buffer, exportable, review.id, {
+                    idStart: redlineResult.nextIdAfter,
+                    wrapTargetByRiskId: redlineResult.spansByRiskId,
+                })
+                injectedBuffer = Buffer.isBuffer(cr.buffer) ? cr.buffer : Buffer.from(cr.buffer)
+            }
+        }
     } catch (err) {
         logger.error('[downloadContractReviewVersion] 注入批注失败', {
             reviewId: review.id,
             versionId,
+            mode,
             err,
         })
         return { error: 'inject_failed' as const }

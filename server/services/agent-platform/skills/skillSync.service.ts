@@ -7,18 +7,21 @@
  * @see docs/superpowers/specs/2026-04-26-ai-infrastructure-unification-design.md §3.5
  */
 
-import { readdir, readFile, stat } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { readdir, readFile, stat, access } from 'node:fs/promises'
+import { resolve, isAbsolute } from 'node:path'
 import matter from 'gray-matter'
 
 import {
     buildUpsertSkillOp,
     listAllSkillsDAO,
     markSkillsDisabledByNamesDAO,
+    updateSkillCustomTitleDAO,
+    updateSkillStatusDAO,
+    listEnabledSkillLabelsDAO,
     type UpsertSkillInput,
 } from './skillSync.dao'
 import { prisma } from '~~/server/utils/db'
-import { SkillSource, SKILLS_FS_ROOT, type SkillFrontmatter } from '#shared/types/skill'
+import { SkillSource, SKILLS_FS_ROOT, SkillStatus, type SkillFrontmatter } from '#shared/types/skill'
 import { invalidateNodeConfigCache } from '~~/server/services/agent-platform/nodeConfig/loader'
 import { invalidateBackendCache } from '~~/server/services/agent-platform/skills/filesystemBackendCache'
 
@@ -47,6 +50,7 @@ export function parseSkillFrontmatterFromMarkdown(content: string): SkillFrontma
         if (typeof data.name !== 'string' || data.name.trim() === '') return null
         return {
             name: String(data.name),
+            title: typeof data.title === 'string' ? data.title : undefined,
             description: typeof data.description === 'string' ? data.description : undefined,
             license: typeof data.license === 'string' ? data.license : undefined,
             version: typeof data.version === 'string' ? data.version : (data.version != null ? String(data.version) : undefined),
@@ -92,6 +96,8 @@ export async function scanAndSyncSkillsService(skillsRoot?: string): Promise<Sca
     )
 
     // 3. 第一遍：遍历每个子目录、读 SKILL.md、解析 frontmatter，收集合法 upsert 输入
+    //    顺带维护"盘上是目录的 entry"集合，第 5 步用作停用判定基准（避免再次 stat）。
+    const dirEntries = new Set<string>()
     const validated: Array<{ input: UpsertSkillInput; isNew: boolean }> = []
     for (const entry of entries) {
         if (entry.startsWith('.')) continue
@@ -102,6 +108,7 @@ export async function scanAndSyncSkillsService(skillsRoot?: string): Promise<Sca
         } catch {
             continue
         }
+        dirEntries.add(entry)
 
         const skillMdPath = resolve(subDir, 'SKILL.md')
         let mdContent: string
@@ -132,7 +139,7 @@ export async function scanAndSyncSkillsService(skillsRoot?: string): Promise<Sca
                 name: fm.name,
                 path: `${SKILLS_FS_ROOT}/${entry}`,
                 source: SkillSource.FILESYSTEM,
-                title: fm.name,
+                title: fm.title?.trim() || fm.name,
                 description: fm.description ?? null,
                 version: fm.version ?? null,
             },
@@ -158,9 +165,10 @@ export async function scanAndSyncSkillsService(skillsRoot?: string): Promise<Sca
         }
     }
 
-    // 5. 清理文件系统已删除但数据库还在的（限 source=filesystem）
-    const stillSeen = new Set(result.scanned)
-    const toDisable = Array.from(existingFilesystemSkills).filter(n => !stillSeen.has(n))
+    // 5. 清理盘上已删除但数据库还在的（限 source=filesystem）
+    //    判定基准是"盘上目录是否仍在"——SKILL.md/frontmatter 临时损坏 / bulk upsert tx 失败时
+    //    目录仍在盘上，不应被误标 disabled。目录名 === skill name 是入库不变量（fm.name === entry）。
+    const toDisable = Array.from(existingFilesystemSkills).filter(name => !dirEntries.has(name))
     if (toDisable.length > 0) {
         await markSkillsDisabledByNamesDAO(toDisable)
         result.disabled.push(...toDisable)
@@ -171,4 +179,83 @@ export async function scanAndSyncSkillsService(skillsRoot?: string): Promise<Sca
     invalidateBackendCache()
 
     return result
+}
+
+/**
+ * 编辑 skill 的中文名（后台覆盖层）。
+ *
+ * @param name skill 主键
+ * @param raw 用户输入；trim 后空字符串等价 null（恢复代码默认）
+ * @throws Prisma P2025 当 name 不存在
+ *
+ * 注：不调用 invalidateNodeConfigCache / invalidateBackendCache。
+ * customTitle 仅服务于"用户端 /skills/labels 映射表 + 后台显示"，
+ * 与 NodeConfig（节点+模型+提示词）和 deepagents FilesystemBackend（按 skill 父目录加载 SKILL.md）
+ * 完全无关——这两个缓存内容里都不含 customTitle 字段。
+ */
+export async function updateSkillCustomTitleService(name: string, raw: string | null) {
+    const customTitle = raw?.trim() || null
+    return await updateSkillCustomTitleDAO(name, customTitle)
+}
+
+/**
+ * 列出启用 skill 的 name → label 映射（直接转发 DAO）。
+ */
+export async function listEnabledSkillLabelsService() {
+    return listEnabledSkillLabelsDAO()
+}
+
+/**
+ * 错误：skill 的文件系统目录或 SKILL.md 已不存在，无法启用。
+ * handler 捕获后返回 400 + 中文 message。
+ */
+export class SkillFsMissingError extends Error {
+    constructor(public readonly skillName: string, public readonly missingPath: string) {
+        super(`skill "${skillName}" 的文件已不在 ${missingPath}，无法启用。请确认 .deepagents/skills/<name> 目录与 SKILL.md 完整后再试。`)
+        this.name = 'SkillFsMissingError'
+    }
+}
+
+/**
+ * 启用/禁用 skill。启用前校验 path 对应目录 + SKILL.md 存在。
+ * 禁用永远允许（哪怕文件已被删，仍要支持显式停用）。
+ *
+ * skill.path 入库时一般是相对项目根的相对路径（如 .deepagents/skills/foo），
+ * 但测试 / 上传 skill 等场景也允许绝对路径，这里 isAbsolute 兜底。
+ *
+ * @throws Prisma P2025 当 skill name 不存在
+ * @throws SkillFsMissingError 启用时目录或 SKILL.md 缺失
+ */
+export async function setSkillStatusService(name: string, status: SkillStatus) {
+    if (status === SkillStatus.ENABLED) {
+        const skill = await prisma.skills.findUnique({
+            where: { name },
+            select: { path: true },
+        })
+        if (!skill) {
+            const err: any = new Error('Skill not found')
+            err.code = 'P2025'
+            throw err
+        }
+        const absDir = isAbsolute(skill.path) ? skill.path : resolve(process.cwd(), skill.path)
+        let dirOk = false
+        try {
+            const st = await stat(absDir)
+            dirOk = st.isDirectory()
+        } catch {
+            // ENOENT 等：目录不存在
+        }
+        if (!dirOk) {
+            throw new SkillFsMissingError(name, skill.path)
+        }
+        try {
+            await access(resolve(absDir, 'SKILL.md'))
+        } catch {
+            throw new SkillFsMissingError(name, `${skill.path}/SKILL.md`)
+        }
+    }
+    const updated = await updateSkillStatusDAO(name, status)
+    invalidateNodeConfigCache()
+    invalidateBackendCache()
+    return updated
 }

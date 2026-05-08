@@ -58,47 +58,51 @@ export default defineEventHandler(async (event) => {
         const now = new Date()
         const summary: UserBenefitSummary[] = []
 
-        for (const benefit of benefits) {
-            // 计算用户该权益的总值
-            const userBenefits = await prisma.userBenefits.findMany({
-                where: {
-                    userId,
-                    benefitId: benefit.id,
-                    status: 1,
-                    effectiveAt: { lte: now },
-                    expiredAt: { gte: now },
-                    deletedAt: null,
-                },
-                select: { benefitValue: true },
+        // 一次查出该用户全部生效中的权益记录，按 benefitId 分组（避免循环 N+1）
+        const allActiveBenefits = await prisma.userBenefits.findMany({
+            where: {
+                userId,
+                benefitId: { in: benefits.map(b => b.id) },
+                status: 1,
+                effectiveAt: { lte: now },
+                expiredAt: { gte: now },
+                deletedAt: null,
+            },
+            select: { benefitId: true, benefitValue: true },
+        })
+        const activeByBenefit = new Map<number, bigint[]>()
+        for (const ub of allActiveBenefits) {
+            const arr = activeByBenefit.get(ub.benefitId) ?? []
+            arr.push(ub.benefitValue)
+            activeByBenefit.set(ub.benefitId, arr)
+        }
+
+        // 云盘空间用量（与 benefit 无关，预先取一次，仅 storage_space 需要时使用）
+        const needsStorageUsage = benefits.some(b => b.code === 'storage_space')
+        let storageUsedValue = 0
+        if (needsStorageUsage) {
+            const usage = await prisma.ossFiles.aggregate({
+                where: { userId, deletedAt: null },
+                _sum: { fileSize: true },
             })
+            storageUsedValue = decimalToNumberUtils(usage._sum?.fileSize)
+        }
+
+        for (const benefit of benefits) {
+            const values = activeByBenefit.get(benefit.id) ?? []
 
             let totalValue = BigInt(0)
-            if (benefit.consumptionMode === 'max') {
-                for (const ub of userBenefits) {
-                    if (ub.benefitValue > totalValue) {
-                        totalValue = ub.benefitValue
-                    }
+            if (values.length === 0) {
+                totalValue = benefit.defaultValue
+            } else if (benefit.consumptionMode === 'max') {
+                for (const v of values) {
+                    if (v > totalValue) totalValue = v
                 }
             } else {
-                for (const ub of userBenefits) {
-                    totalValue += ub.benefitValue
-                }
+                for (const v of values) totalValue += v
             }
 
-            // 如果没有权益记录，使用默认值
-            if (userBenefits.length === 0) {
-                totalValue = benefit.defaultValue
-            }
-
-            // 计算已使用量（仅云盘空间）
-            let usedValue = 0
-            if (benefit.code === 'storage_space') {
-                const usage = await prisma.ossFiles.aggregate({
-                    where: { userId, deletedAt: null },
-                    _sum: { fileSize: true },
-                })
-                usedValue = decimalToNumberUtils(usage._sum?.fileSize)
-            }
+            const usedValue = benefit.code === 'storage_space' ? storageUsedValue : 0
 
             const totalNum = Number(totalValue)
             const remainingValue = Math.max(0, totalNum - usedValue)

@@ -16,6 +16,7 @@ import {
     getPool,
     type VectorStoreConfig,
 } from '~~/server/services/legal/vectorStore.service'
+import { extractTextFromSimplifiedResult } from './asr.service'
 
 
 /** 材料向量存储配置 */
@@ -92,7 +93,7 @@ function createTextSplitter(config: TextSplitterConfig = defaultSplitterConfig):
 export async function deleteMaterialEmbeddings(materialId: number): Promise<number> {
     const pool = getPool()
     const query = `
-        DELETE FROM ${caseMaterialVectorConfig.tableName} 
+        DELETE FROM ${caseMaterialVectorConfig.tableName}
         WHERE metadata->>'materialId' = $1
         RETURNING id
     `
@@ -103,6 +104,25 @@ export async function deleteMaterialEmbeddings(materialId: number): Promise<numb
         logger.info(`已删除材料 ${materialId} 的 ${count} 条向量记录`)
     }
 
+    return count
+}
+
+/**
+ * 批量删除多个材料的向量数据（单次 DELETE 替代 N 次 round-trip）
+ */
+export async function deleteMaterialsEmbeddings(materialIds: number[]): Promise<number> {
+    if (materialIds.length === 0) return 0
+    const pool = getPool()
+    const query = `
+        DELETE FROM ${caseMaterialVectorConfig.tableName}
+        WHERE metadata->>'materialId' = ANY($1::text[])
+        RETURNING id
+    `
+    const result = await pool.query(query, [materialIds.map(String)])
+    const count = result.rowCount || 0
+    if (count > 0) {
+        logger.info(`已批量删除 ${materialIds.length} 个材料的 ${count} 条向量记录`)
+    }
     return count
 }
 
@@ -1196,14 +1216,19 @@ export async function embedMaterialUnifiedService(
             }
             const asrRecord = await prisma.asrRecords.findFirst({
                 where: { ossFileId: material.ossFileId, deletedAt: null },
-                select: { summary: true },
+                select: { result: true, speakers: true },
                 orderBy: { createdAt: 'desc' },
             })
-            if (!asrRecord?.summary) {
+            if (!asrRecord?.result) {
+                return { success: false, error: '音频识别记录内容为空' }
+            }
+            const speakers = asrRecord.speakers as Array<{ id: number; name: string }> | null
+            const text = extractTextFromSimplifiedResult(asrRecord.result as any, speakers || undefined)
+            if (!text) {
                 return { success: false, error: '音频识别记录内容为空' }
             }
             const audioResult = await embedAudioService({
-                content: asrRecord.summary,
+                content: text,
                 userId,
                 ossFileId: material.ossFileId,
                 fileName: material.name,

@@ -176,7 +176,8 @@ describe('权限 DAO 测试', () => {
         try {
             const testNodeIds = (await testPrisma.nodes.findMany({ where: { name: { startsWith: 'test_node_' } }, select: { id: true } })).map(n => n.id)
             if (testNodeIds.length > 0) {
-                await testPrisma.prompts.deleteMany({ where: { nodeId: { in: testNodeIds } } })
+                // ★ Phase 6 改造：prompts.nodeId 字段已删，节点关联通过 node_prompts 表维护。
+                await testPrisma.node_prompts.deleteMany({ where: { nodeId: { in: testNodeIds } } })
                 await testPrisma.levelNodeAccess.deleteMany({ where: { nodeId: { in: testNodeIds } } })
                 await testPrisma.caseAnalyses.deleteMany({ where: { nodeId: { in: testNodeIds } } })
             }

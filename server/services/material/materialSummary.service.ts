@@ -7,6 +7,8 @@
 
 import { getValidNodeConfig } from '../node/node.service'
 import { createChatModel } from '../node/chatModelFactory'
+import { assembleSystemPromptTemplate } from '../agent-platform/nodeConfig/promptRenderer'
+import { withLangfuseContext } from '~~/server/lib/langfuse'
 
 /** 摘要生成使用的节点名称 */
 const SUMMARIZER_NODE_NAME = 'material_summarizer'
@@ -19,6 +21,16 @@ const SUMMARIZER_NODE_NAME = 'material_summarizer'
  * @returns 材料 ID → 生成的摘要映射
  */
 export async function generateAndCacheSummaries(
+    materials: Array<{ id: number; name: string }>,
+    contentMap: Map<number, string>,
+): Promise<Map<number, string>> {
+    return withLangfuseContext(
+        { vertical: 'material-summary' },
+        () => generateAndCacheSummariesInner(materials, contentMap),
+    )
+}
+
+async function generateAndCacheSummariesInner(
     materials: Array<{ id: number; name: string }>,
     contentMap: Map<number, string>,
 ): Promise<Map<number, string>> {
@@ -45,10 +57,8 @@ export async function generateAndCacheSummaries(
             streaming: false,
         })
 
-        // 从节点配置获取系统提示词
-        systemPrompt = nodeConfig.prompts?.find(
-            (p: any) => p.type === 'system' && p.status === 1,
-        )?.content ?? ''
+        // 拼接节点所有启用的 system prompt（反越狱护栏 + 业务 prompt 等）
+        systemPrompt = assembleSystemPromptTemplate(nodeConfig.prompts)
         if (!systemPrompt) {
             logger.warn('material_summarizer 节点未配置系统提示词，跳过摘要生成')
             return summaryMap
@@ -78,15 +88,10 @@ export async function generateAndCacheSummaries(
         await Promise.all(tasks)
     }
 
-    // 批量写入 DB（事务）
-    if (summaryMap.size > 0) {
-        const updates = [...summaryMap.entries()].map(([id, summary]) =>
-            prisma.caseMaterials.update({ where: { id }, data: { summary } }),
-        )
-        await prisma.$transaction(updates)
-    }
-
-    logger.info('材料摘要生成完成', {
+    // 注意：caseMaterials.summary 字段已删（迁到识别记录表）；本服务的 DB 持久化已撤销。
+    // Task 3 会把"按 type 分发写入 4 张识别记录表"的逻辑统一到 generateMaterialSummaryService；
+    // 调用方仍可使用 summaryMap 拿到本次生成的内存结果。
+    logger.info('材料摘要生成完成（仅返回内存结果，不写库）', {
         total: materials.length,
         generated: summaryMap.size,
     })

@@ -15,10 +15,7 @@ import { $fetch } from 'ofetch'
 import {
     createMineruTaskService,
 } from '~~/server/services/material/mineruTask.service'
-import {
-    getActiveTokenValueService,
-    hasActiveTokenService,
-} from '~~/server/services/material/mineruToken.service'
+import { pickTokenForNewTaskService } from '~~/server/services/material/mineruToken.service'
 import { MineruTaskStatus } from '#shared/types/recognition'
 
 /** 请求体验证 Schema */
@@ -106,16 +103,12 @@ export default defineEventHandler(async (event) => {
             return resError(event, 404, '文件不存在')
         }
 
-        // 2. 检查是否有可用的 MinerU Token
-        const hasToken = await hasActiveTokenService()
-        if (!hasToken) {
+        // 2. LRU 选取一个可用 token（启用 + 未过期），并记录 id 供轮询时复用
+        const picked = await pickTokenForNewTaskService()
+        if (!picked) {
             return resError(event, 500, '没有可用的 MinerU Token，请联系管理员配置')
         }
-
-        const token = await getActiveTokenValueService()
-        if (!token) {
-            return resError(event, 500, '获取 MinerU Token 失败')
-        }
+        const { id: mineruTokenId, token } = picked
 
         // 3. 生成 seed 用于回调签名验证
         const seed = generateSeed()
@@ -169,6 +162,7 @@ export default defineEventHandler(async (event) => {
         const task = await createMineruTaskService({
             ossFileId,
             userId: user.id,
+            mineruTokenId,
             status: MineruTaskStatus.PROCESSING,
             isEncrypted: encrypted,
             taskRawData: {

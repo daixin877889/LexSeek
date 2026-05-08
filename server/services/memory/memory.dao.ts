@@ -38,6 +38,32 @@ export async function findActiveMemoryBySubjectDAO(
     return rows[0] as MemoryRow
 }
 
+/**
+ * 批量查询：给定 subjectKeys 列表，返回每个 key 对应的最近 active memory（map by subjectKey）
+ * 单次 SQL 替代 N 次 findActiveMemoryBySubjectDAO
+ */
+export async function findActiveMemoriesBySubjectKeysDAO(
+    caseId: number,
+    subjectKeys: string[],
+): Promise<Map<string, MemoryRow>> {
+    const map = new Map<string, MemoryRow>()
+    if (subjectKeys.length === 0) return map
+    const rows = await prisma.$queryRawUnsafe<Array<{ id: string; text: string; metadata: any }>>(
+        `SELECT id, text, metadata FROM case_memories
+         WHERE metadata->>'caseId' = $1
+           AND metadata->>'subjectKey' = ANY($2::text[])
+           AND (metadata->>'invalidatedAt' IS NULL)
+         ORDER BY metadata->>'createdAt' DESC`,
+        String(caseId),
+        subjectKeys,
+    )
+    for (const r of rows) {
+        const sk = r.metadata?.subjectKey as string | undefined
+        if (sk && !map.has(sk)) map.set(sk, r as MemoryRow)
+    }
+    return map
+}
+
 export interface ListMemoriesOptions {
     source?: MemorySource
     includeInvalidated?: boolean

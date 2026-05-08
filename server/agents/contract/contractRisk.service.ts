@@ -10,6 +10,8 @@ import type { Prisma, contractRisks } from '~~/generated/prisma/client'
 import type { Risk, RiskArchivedStatus, RiskLevel, RiskSource, StancePreference } from '#shared/types/contract'
 import { DEFAULT_AI_RISK_STANCE } from '#shared/types/contract'
 import { updateContractRiskDAO } from './contractRisk.dao'
+import { splitSentences } from './utils/splitSentences'
+import { resolveQuoteAnchor } from './utils/resolveQuoteAnchor'
 
 /**
  * 更新风险处置状态。
@@ -27,7 +29,7 @@ export async function archiveContractRiskService(params: {
  * AI 风险 → contractRisks 落库的输入行（CORE-R2）。
  *
  * 调用方负责把 segmentClauses 的 clauseIndex 通过 buildClauseToParagraphMap
- * 转换好后传入 anchorParagraphIndex；本服务不做转换。
+ * 转换好后传入 clauseParagraphIndex；本服务不做转换。
  */
 export interface PersistAiRiskRow {
     /** AI 产出的 Risk（来自 #shared/types/contract，注意 risk.id 是前端 string，不写 DB） */
@@ -35,16 +37,16 @@ export interface PersistAiRiskRow {
     /** 默认 'ai'；调用方需要 'global_review' / 'external_new' 时显式传入 */
     source?: RiskSource
     /**
-     * 显式覆盖 anchorQuote。
+     * 显式覆盖 clauseText（NOT NULL，必有值）。
      * - 首次审查（contractReviewMainAgent）：不传，使用 risk.clauseText
      * - 增量审查（uploadClientVersion Step 4a）：传入新条款原文（clause.text），
      *   避免 LLM 自填的 clauseText 与新条款字面差异导致后续 diff/锚点匹配失真
      */
-    anchorQuote?: string
+    clauseText?: string
     /** 已转换好的非空段落序号（commentInjector 期望空间）；null 表示无锚点 */
-    anchorParagraphIndex?: number | null
+    clauseParagraphIndex?: number | null
     /** Phase B：锚点首次迁移前的原文 */
-    originalAnchorQuote?: string | null
+    originalClauseText?: string | null
     /** Phase B：当前版本无法定位锚点（孤立批注区） */
     orphaned?: boolean
 }
@@ -62,9 +64,11 @@ export interface PersistAiRiskRow {
  * - category / level / problem：直接取 risk 对应字段
  * - legalBasis / analysis / suggestion：?? null，DB 列允许 null
  * - stance：参数 stance ?? DEFAULT_AI_RISK_STANCE
- * - anchorQuote：row.anchorQuote ?? risk.clauseText
- * - anchorParagraphIndex：row.anchorParagraphIndex ?? null
- * - originalAnchorQuote / orphaned：仅在 row 显式提供时写入
+ * - clauseText：row.clauseText ?? risk.clauseText（NOT NULL）
+ * - clauseParagraphIndex：row.clauseParagraphIndex ?? null
+ * - originalClauseText / orphaned：仅在 row 显式提供时写入
+ * - clauseIndex / problematicQuote / quoteCharStart / quoteCharEnd / quoteMatchSource：
+ *   PR 3 主路径接入 splitSentences + resolveQuoteAnchor，按三档 fallback 解析后落库
  *
  * 说明：
  * - risk.id 是前端字符串 UUID，contractRisks.id 是 DB 自增主键，两者不互写
@@ -87,6 +91,28 @@ export async function persistAiRisksAsContractRows(input: {
 
     const data: Prisma.contractRisksUncheckedCreateInput[] = rows.map((row) => {
         const r = row.risk
+        /**
+         * 双锚点 · 层 1：完整条款。优先 row.clauseText（增量审查传新条款原文），
+         * 否则用 r.clauseText（首次审查 LLM 自填）。
+         */
+        const clauseText = row.clauseText ?? r.clauseText
+
+        /**
+         * 双锚点 · 层 2：精准 quote 解析（spec §5.5）。
+         * - 切句标 [Sn] ID（与 LLM prompt 视图对齐）
+         * - resolveQuoteAnchor 三档 fallback：sentence_id → fuzzy → fallback
+         * - 调用方零改动；anchor 解析逻辑收敛在 service 内部
+         */
+        const sentences = splitSentences(clauseText)
+        const anchor = resolveQuoteAnchor({
+            clauseText,
+            sentences,
+            aiOutput: {
+                problemSentenceIds: r.problemSentenceIds,
+                problematicQuote: r.problematicQuote,
+            },
+        })
+
         const item: Prisma.contractRisksUncheckedCreateInput = {
             reviewId,
             source: row.source ?? 'ai',
@@ -98,10 +124,19 @@ export async function persistAiRisksAsContractRows(input: {
             legalBasis: r.legalBasis ?? null,
             analysis: r.analysis ?? null,
             suggestion: r.suggestion ?? null,
-            anchorQuote: row.anchorQuote ?? r.clauseText,
-            anchorParagraphIndex: row.anchorParagraphIndex ?? null,
+            suggestedClauseText: r.suggestedClauseText ?? null,
+            // 双锚点 · 层 1
+            clauseText,
+            clauseParagraphIndex: row.clauseParagraphIndex ?? null,
+            // clauseIndex 由 PR 3 起填值；clauseCharStart/End 由 Phase B 锚点迁移路径填，首次审查不显式列出 = 数据库 NULL
+            clauseIndex: r.clauseIndex,
+            // 双锚点 · 层 2（PR 3 主路径填值）
+            problematicQuote: anchor.problematicQuote,
+            quoteCharStart: anchor.charStart,
+            quoteCharEnd: anchor.charEnd,
+            quoteMatchSource: anchor.matchSource,
         }
-        if (row.originalAnchorQuote !== undefined) item.originalAnchorQuote = row.originalAnchorQuote
+        if (row.originalClauseText !== undefined) item.originalClauseText = row.originalClauseText
         if (row.orphaned !== undefined) item.orphaned = row.orphaned
         return item
     })

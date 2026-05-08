@@ -25,11 +25,13 @@
 
 <script setup lang="ts">
 import { Pencil, Loader2 } from 'lucide-vue-next'
-import dayjs from 'dayjs'
 import { toast } from 'vue-sonner'
 import { Button } from '~/components/ui/button'
 import { Textarea } from '~/components/ui/textarea'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { useFormatters } from '~/composables/useFormatters'
+
+const { formatDate: formatDateRaw } = useFormatters()
 
 const props = defineProps<{
     apiUrl: string
@@ -63,5 +65,5 @@ async function save() {
     }
 }
 
-function formatDate(d: Date | string) { return dayjs(d).format('YYYY-MM-DD HH:mm') }
+function formatDate(d: Date | string) { return formatDateRaw(String(d)) }
 </script>

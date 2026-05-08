@@ -4,7 +4,7 @@
  * 对照 caseMainAgent 的 assistant 版：
  * - 系统提示词不假设 case 上下文
  * - 工具集不含 case 相关工具（由 nodes 表中 assistantMain 节点的 tools 字段控制）
- * - 中间件不注入 caseMaterialContext / caseProcessMaterial / moduleContext
+ * - 中间件不注入 caseContext / caseProcessMaterial（无案件上下文）
  * - 积分计费键为 assistant_token（与 case_analysis_token 独立）
  *
  * 参见 spec §5.3 与 plan §1279-1414。
@@ -14,10 +14,11 @@ import { createAgent, summarizationMiddleware, type ReactAgent } from 'langchain
 import { HumanMessage } from '@langchain/core/messages'
 import { Command } from '@langchain/langgraph'
 import { getCheckpointer, getStore } from '../checkpointer'
-import { getValidNodeConfig } from '../../node/node.service'
+import { getValidNodeConfig, resolveThinkingFromNodeConfig } from '../../node/node.service'
 import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
 import { renderSystemPrompt } from '../utils/promptRenderer'
+import { buildLangfuseTopLevelConfig } from '~~/server/lib/langfuse'
 import { buildSystemPromptForAgent } from '../context/moduleContextBuilder'
 import {
     createAuditMiddleware,
@@ -81,7 +82,7 @@ export async function runAssistantChat(
         baseUrl: mainConfig.modelProviderBaseUrl,
         temperature: 0.7,
         streaming: true,
-        thinking,
+        thinking: resolveThinkingFromNodeConfig(mainConfig, thinking),
         maxTokens: mainConfig.modelMaxOutputTokens,
     })
 
@@ -151,7 +152,7 @@ export async function runAssistantChat(
 
     // 8. 流式执行，返回 SSE 格式的 ReadableStream
     return agent.stream(
-        input,
+        input as any,
         {
             configurable: {
                 thread_id: sessionId,
@@ -161,6 +162,7 @@ export async function runAssistantChat(
             encoding: 'text/event-stream',
             recursionLimit: 1000,
             signal,
+            ...buildLangfuseTopLevelConfig({ vertical: 'legal-assistant' }),
         },
     )
 }

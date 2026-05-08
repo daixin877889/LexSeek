@@ -3,6 +3,8 @@
     <Dialog v-model:open="open">
         <DialogContent
             class="w-full! h-full! max-w-none! max-h-none! md:w-[80vw]! md:max-h-[90vh]! flex flex-col rounded-non!e md:rounded-lg!"
+            :class="contentClass"
+            :overlay-class="overlayClass"
             @interactOutside="(e) => e.preventDefault()">
             <DialogHeader class="shrink-0">
                 <DialogTitle>{{ isEdit ? '编辑提示词' : '新增提示词' }}</DialogTitle>
@@ -24,34 +26,21 @@
                     <Input v-model="form.title" placeholder="如：案件概要系统提示词" />
                 </div>
 
-                <!-- 关联节点和类型 -->
-                <div class="grid grid-cols-2 gap-4">
-                    <div v-if="!isEdit" class="space-y-2">
-                        <Label>关联节点 <span class="text-destructive">*</span></Label>
-                        <Select v-model="form.nodeId">
-                            <SelectTrigger class="w-full">
-                                <SelectValue placeholder="选择节点" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem v-for="n in nodes" :key="n.id" :value="String(n.id)">
-                                    {{ n.title || n.name }}
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div v-if="!isEdit" class="space-y-2">
-                        <Label>提示词类型 <span class="text-destructive">*</span></Label>
-                        <Select v-model="form.type">
-                            <SelectTrigger class="w-full">
-                                <SelectValue placeholder="选择类型" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="system">系统提示词</SelectItem>
-                                <SelectItem value="user">用户提示词</SelectItem>
-                                <SelectItem value="assistant">助手提示词</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
+                <!-- 提示词类型（仅创建时） -->
+                <div v-if="!isEdit" class="space-y-2">
+                    <Label>提示词类型 <span class="text-destructive">*</span></Label>
+                    <Select v-model="form.type">
+                        <SelectTrigger class="w-full">
+                            <SelectValue placeholder="选择类型" />
+                        </SelectTrigger>
+                        <SelectContent :class="innerOverlayClass">
+                            <SelectItem value="system">系统提示词 (system) — 拼接到 system message</SelectItem>
+                            <SelectItem value="user_injection">每轮隐藏注入 (user_injection) — 每轮紧贴最新用户消息前注入</SelectItem>
+                            <SelectItem value="user">用户触发消息 (user) — UI 触发时模拟用户发送</SelectItem>
+                            <SelectItem value="assistant">预设助手消息 (assistant) — 罕用，预设 AI 回复</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <p class="text-xs text-muted-foreground">类型决定 LLM 调用时这段提示词放在 messages 数组的什么位置</p>
                 </div>
 
                 <!-- 提示词内容 -->
@@ -92,7 +81,7 @@
 
     <!-- 插入变量对话框 -->
     <Dialog v-model:open="variableDialogOpen">
-        <DialogContent class="max-w-sm">
+        <DialogContent class="max-w-sm" :class="innerContentClass" :overlay-class="innerOverlayClass">
             <DialogHeader>
                 <DialogTitle>插入变量</DialogTitle>
                 <DialogDescription>输入变量名称，将自动插入到提示词内容中</DialogDescription>
@@ -123,19 +112,22 @@
 <script setup lang="ts">
 import { Loader2, Plus } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
-import type { Node, PromptWithRelations } from '#shared/types/node'
+import type { PromptWithRelations } from '#shared/types/node'
 import GeneralRichTextEditor from '~/components/general/RichTextEditor.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
-import type { nodes } from '~~/generated/prisma/client'
 
 // 定义 props
+// nestedZIndex：嵌套打开（如从 NodeFormDialog 内部打开）时传入更高 z-index，
+// 默认沿用 shadcn Dialog 的 z-50。Phase 8 节点弹框新增提示词 tab 场景下传入 200+。
 const props = defineProps<{
-    nodes?: Node[]
+    nestedZIndex?: number
 }>()
 
 // 定义事件
 const emit = defineEmits<{
     success: []
+    /** 新建/保存成功后回传新 prompt id（Phase 8 嵌套场景用于自动选中） */
+    created: [id: number]
 }>()
 
 // 对话框状态
@@ -144,8 +136,23 @@ const isEdit = ref(false)
 const submitting = ref(false)
 const selectedPrompt = ref<PromptWithRelations | null>(null)
 
-// 节点列表
-const nodes = ref<Node[]>([])
+// 嵌套 z-index 计算：内层 SelectContent / 二级 Dialog 再 +10 压过本层
+const overlayClass = computed(() => (props.nestedZIndex ? `z-[${props.nestedZIndex - 1}]` : ''))
+const contentClass = computed(() => (props.nestedZIndex ? `z-[${props.nestedZIndex}]` : ''))
+const innerContentClass = computed(() => (props.nestedZIndex ? `z-[${props.nestedZIndex + 10}]` : ''))
+const innerOverlayClass = computed(() => (props.nestedZIndex ? `z-[${props.nestedZIndex + 9}]` : ''))
+
+/**
+ * Tailwind v4 JIT 安全清单锚点：
+ * 上面的 `z-[xxx]` 是运行时拼接，JIT 扫不到字面量；这里把所有可能用到的 z-index 类
+ * 以静态字符串形式列出，让 JIT 在源码扫描时生成对应 CSS。如新增其它 nestedZIndex
+ * 取值，必须同步在此处补上对应静态串。
+ *
+ * 当前支持：nestedZIndex = 200
+ *   外层 Dialog: z-[200] / z-[199]
+ *   嵌套 Select / 内层 Dialog: z-[210] / z-[209]
+ */
+// safelist: z-[199] z-[200] z-[209] z-[210]
 
 // 变量插入对话框
 const variableDialogOpen = ref(false)
@@ -162,7 +169,6 @@ function getDefaultForm() {
         title: '',
         content: '',
         type: '',
-        nodeId: '',
     }
 }
 
@@ -190,18 +196,6 @@ const resetForm = () => {
     form.value = getDefaultForm()
 }
 
-// 加载节点列表
-const loadNodes = async () => {
-    if (props.nodes) {
-        nodes.value = props.nodes
-        return
-    }
-    const data = await useApiFetch<{ items: Node[] }>('/api/v1/admin/nodes', {
-        query: { pageSize: 100, status: 1 }
-    })
-    if (data) nodes.value = data.items
-}
-
 // 插入变量
 const insertVariable = () => {
     newVariable.value = ''
@@ -219,14 +213,10 @@ const confirmInsertVariable = () => {
 }
 
 // 打开创建对话框
-const openCreate = (defaultNodeId?: string) => {
+const openCreate = () => {
     isEdit.value = false
     selectedPrompt.value = null
     resetForm()
-    if (defaultNodeId) {
-        form.value.nodeId = defaultNodeId
-    }
-    loadNodes()
     open.value = true
 }
 
@@ -239,9 +229,7 @@ const openEdit = (prompt: PromptWithRelations) => {
         title: prompt.title || '',
         content: prompt.content,
         type: prompt.type,
-        nodeId: String(prompt.nodeId),
     }
-    loadNodes()
     open.value = true
 }
 
@@ -251,10 +239,6 @@ const handleSubmit = async () => {
     if (!isEdit.value) {
         if (!form.value.name) {
             toast.error('请输入提示词名称')
-            return
-        }
-        if (!form.value.nodeId) {
-            toast.error('请选择关联节点')
             return
         }
         if (!form.value.type) {
@@ -269,31 +253,36 @@ const handleSubmit = async () => {
 
     submitting.value = true
     try {
-        let result
+        let result: { id: number } | null = null
         if (isEdit.value && selectedPrompt.value) {
-            // 编辑模式：创建新版本
-            result = await useApiFetch('/api/v1/admin/prompts', {
+            // 编辑模式：创建新版本（节点关联通过 node_prompts 表 PATCH 维护，本接口不再传 nodeId）
+            // version 在已有版本号末尾追加时间戳，避免与现有同名版本冲突
+            const oldVersion = selectedPrompt.value.version || 'v1'
+            const nextVersion = `${oldVersion}-${Date.now()}`
+            result = await useApiFetch<{ id: number }>('/api/v1/admin/prompts', {
                 method: 'POST',
                 body: {
                     name: selectedPrompt.value.name,
                     title: form.value.title || null,
                     content: form.value.content,
                     type: selectedPrompt.value.type,
-                    nodeId: selectedPrompt.value.nodeId,
                     variables: extractedVariables.value,
+                    version: nextVersion,
+                    status: 1,
                 },
             })
         } else {
-            // 创建模式
-            result = await useApiFetch('/api/v1/admin/prompts', {
+            // 创建模式（节点关联通过 node_prompts 表 PATCH 维护，本接口不再传 nodeId）
+            result = await useApiFetch<{ id: number }>('/api/v1/admin/prompts', {
                 method: 'POST',
                 body: {
                     name: form.value.name,
                     title: form.value.title || null,
                     content: form.value.content,
                     type: form.value.type,
-                    nodeId: parseInt(form.value.nodeId),
                     variables: extractedVariables.value,
+                    version: 'v1',
+                    status: 1,
                 },
             })
         }
@@ -302,6 +291,9 @@ const handleSubmit = async () => {
             toast.success(isEdit.value ? '新版本创建成功' : '创建成功')
             open.value = false
             emit('success')
+            if (typeof result.id === 'number') {
+                emit('created', result.id)
+            }
         }
     } finally {
         submitting.value = false

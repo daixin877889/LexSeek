@@ -11,6 +11,7 @@ import {
     PauseCircle,
     XCircle,
 } from 'lucide-vue-next'
+import { useSkillLabels } from '~/composables/useSkillLabels'
 
 /**
  * 写入技能文件工具卡片
@@ -67,6 +68,19 @@ const contentSize = computed<string>(() => {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
 })
+
+const { label: skillLabelOf } = useSkillLabels()
+
+// 把 dirPath 里 ".deepagents/skills/<英文 skill 名>" 段替换为中文展示名；
+// 路径其它段保持原样。原始英文路径仍作鼠标悬停 :title，不丢可追溯性。
+const dirDisplay = computed<string>(() => {
+    const dir = dirPath.value
+    if (!dir) return ''
+    const m = dir.match(/^(\.deepagents\/skills)\/([^/]+)(\/.*)?$/)
+    if (!m) return dir
+    const [, prefix = '', sName = '', rest = ''] = m
+    return `${prefix}/${skillLabelOf(sName)}${rest}`
+})
 </script>
 
 <template>
@@ -95,6 +109,7 @@ const contentSize = computed<string>(() => {
                 <span>写入技能文件</span>
                 <template v-if="contentSize"> · {{ contentSize }}</template>
                 <template v-if="isWriting"> · 进行中…</template>
+                <template v-else-if="dirDisplay"> · {{ dirDisplay }}</template>
             </p>
         </div>
 

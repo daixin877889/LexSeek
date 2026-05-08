@@ -42,6 +42,7 @@ body (可选)
 - `invitation` - 邀请系统
 - `analysis` - 法律分析
 - `contract` - 合同审查
+- `observability` - 可观测性 / Langfuse / OTel
 
 ## 示例
 

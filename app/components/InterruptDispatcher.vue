@@ -25,6 +25,8 @@ const props = defineProps<{
     /** 中断数据，必含 type 字段；type 用于查注册表 */
     interrupt: { type?: string;[key: string]: unknown } | null
     isSubmitting?: boolean
+    /** snapshot 模式专用；undefined = active；中断卡（isToolCard=false）忽略此 prop */
+    resumeValue?: unknown
 }>()
 
 const emit = defineEmits<{
@@ -77,6 +79,7 @@ function handleCancel() {
         v-else-if="isToolCard"
         :interrupt="interrupt"
         :on-resolve="handleResolve"
+        :resume-value="resumeValue"
     />
     <component
         :is="HandlerComponent"

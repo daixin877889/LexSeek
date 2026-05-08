@@ -21,7 +21,9 @@ import type { StructuredToolInterface } from '@langchain/core/tools'
 
 import { getNodeConfigCached } from '~~/server/services/agent-platform/nodeConfig/loader'
 import { renderSystemPrompt } from '~~/server/services/agent-platform/nodeConfig/promptRenderer'
+import { buildSystemPromptForAgent } from '~~/server/services/agent-platform/context/moduleContextBuilder'
 import { createChatModel } from '~~/server/services/agent-platform/modelFactory'
+import { resolveThinkingFromNodeConfig } from '~~/server/services/node/node.service'
 import { getCheckpointer, getStore } from '~~/server/services/agent-platform/checkpointer'
 import { getToolInstancesService } from '~~/server/services/agent-platform/tools/index'
 import { buildSkillsMiddlewareForNode } from '~~/server/services/agent-platform/middleware/skills'
@@ -37,6 +39,7 @@ import {
     createAuditMiddleware,
     createToolCallLimitMiddlewares,
     createMessageIntegrityMiddleware,
+    userInjectionMiddleware,
 } from '~~/server/services/agent-platform/middleware/index'
 
 import { createTool as createReadSkillFileTool } from '~~/server/services/agent-platform/tools/readSkillFile.tool'
@@ -46,10 +49,28 @@ import { createTool as createRunSkillCommandTool } from '~~/server/services/agen
 
 import { createCustomEventEmitter } from '~~/server/services/agent-platform/sse/customEventEmitter'
 
+import { buildLangfuseTopLevelConfig, withLangfuseContext } from '~~/server/lib/langfuse'
+import type { LangfuseVertical } from '~~/server/lib/langfuse'
+
 import { SessionScope } from '#shared/types/agentEvent'
 import type { DomainAgentDefinition, StateGraphAgentContext } from './types'
 import type { AgentRunnerContext } from '~~/server/services/agent-platform/registry/types'
 import type { ToolContext } from '~~/server/services/agent-platform/tools/types'
+
+/**
+ * SessionScope → 默认 LangfuseVertical 映射。
+ * 业务子节点（case-analysis / case-module / init-analysis 等）由更内层的
+ * withLangfuseContext 覆盖（merge 语义：内层补字段 + 覆盖 vertical）。
+ */
+function deriveDefaultVertical(scope: SessionScope): LangfuseVertical {
+    switch (scope) {
+        case SessionScope.CASE: return 'case-main'
+        case SessionScope.ASSISTANT: return 'legal-assistant'
+        case SessionScope.DOCUMENT: return 'document'
+        case SessionScope.CONTRACT: return 'contract'
+        default: return 'case-main'
+    }
+}
 
 // -----------------------------------------------------------------------
 // 工具函数
@@ -93,6 +114,23 @@ export async function runDomainAgent(
     def: DomainAgentDefinition,
     ctx: AgentRunnerContext,
 ): Promise<ReadableStream> {
+    return withLangfuseContext(
+        {
+            runId: ctx.runId,
+            sessionId: ctx.sessionId,
+            threadId: ctx.sessionId,
+            userId: ctx.userId,
+            caseId: ctx.caseId ?? undefined,
+            vertical: deriveDefaultVertical(def.scope),
+        },
+        () => runDomainAgentInner(def, ctx),
+    )
+}
+
+async function runDomainAgentInner(
+    def: DomainAgentDefinition,
+    ctx: AgentRunnerContext,
+): Promise<ReadableStream> {
     // 1. 解析节点名称（支持动态函数形式）
     const resolvedNodeName = typeof def.nodeName === 'function' ? def.nodeName(ctx) : def.nodeName
 
@@ -116,14 +154,26 @@ export async function runDomainAgent(
         baseUrl: nodeConfig.modelProviderBaseUrl,
         temperature: 0.7,
         streaming: true,
-        thinking: ctx.thinking ?? false,
+        thinking: resolveThinkingFromNodeConfig(nodeConfig, ctx.thinking),
         maxTokens: nodeConfig.modelMaxOutputTokens,
     })
 
-    // 4. 渲染 system prompt（plain text）
-    const systemPrompt = renderSystemPrompt(nodeConfig, {
+    // 4. 渲染 system prompt：仅 roleAndFlow 段；4 段案件上下文交给 caseContextSyncMiddleware
+    //    注入 HumanMessage（业务私有中间件由 vertical 通过 customMiddlewares 挂载）
+    //    构造方式与 assistantAgent 同款：buildSystemPromptForAgent 在 caseId=null 时退化为
+    //    "仅 roleAndFlow + 按 SDK 分流（Anthropic 1h cache_control / 其他 plain text）"
+    const systemPromptText = renderSystemPrompt(nodeConfig, {
         caseId: ctx.caseId ?? undefined,
     })
+    const { systemMessage: systemPrompt, plainText: systemPromptPlainText } = await buildSystemPromptForAgent(
+        nodeConfig.modelSdkType,
+        {
+            caseId: null,
+            agentName: resolvedNodeName,
+            userQuery: '',
+            roleAndFlowTemplate: systemPromptText,
+        },
+    )
 
     // 5. 解析上下文窗口参数
     const { triggerTokens, maxTokens, maxOutputTokens } = resolveContextWindow(
@@ -177,7 +227,7 @@ export async function runDomainAgent(
             middleware: safetyTrimMiddleware({
                 model,
                 maxTokens,
-                systemPrompt,
+                systemPrompt: systemPromptPlainText,
                 maxOutputTokens,
             }),
             priority: MIDDLEWARE_PRIORITY.SAFETY_TRIM,
@@ -196,6 +246,24 @@ export async function runDomainAgent(
             middleware: skillsMw,
             priority: MIDDLEWARE_PRIORITY.SKILLS_DISCOVERY,
             name: MIDDLEWARE_NAMES.SKILLS_DISCOVERY,
+        })
+    }
+
+    // user_injection 中间件：节点配置中如有 type=user_injection 的激活提示词，
+    // 会在每轮 LLM 调用前作为隐藏 HumanMessage 注入到 messages 末尾的最新 HumanMessage 之前——
+    // 但**不写回 state.messages / 不进 checkpoint**。下一轮调用时再重新注入。
+    // 节点没有 user_injection 提示词时，middleware 内部 short-circuit，零开销。
+    const hasUserInjection = nodeConfig.prompts.some(
+        (p) => p.type === 'user_injection' && p.status === 1,
+    )
+    if (hasUserInjection) {
+        middlewareItems.push({
+            middleware: userInjectionMiddleware({
+                prompts: nodeConfig.prompts,
+                context: { caseId: ctx.caseId ?? undefined },
+            }),
+            priority: MIDDLEWARE_PRIORITY.USER_INJECTION,
+            name: MIDDLEWARE_NAMES.USER_INJECTION,
         })
     }
 
@@ -262,8 +330,10 @@ export async function runDomainAgent(
     await def.hooks?.beforeRun?.(ctx)
 
     // 13. 流式执行，返回 ReadableStream
+    // Langfuse 4 件套（callbacks/runName/tags/metadata.langfuseUserId/SessionId）
+    // 由 buildLangfuseTopLevelConfig 从 ALS 上下文（外层 withLangfuseContext 已包）注入
     const stream = await agent.stream(
-        input,
+        input as any,
         {
             configurable: {
                 thread_id: ctx.sessionId,
@@ -273,6 +343,7 @@ export async function runDomainAgent(
             encoding: 'text/event-stream',
             recursionLimit: 1000,
             signal: ctx.signal,
+            ...buildLangfuseTopLevelConfig(),
         },
     )
 
@@ -360,6 +431,23 @@ export async function runStateGraphAgent(
         )
     }
 
+    return withLangfuseContext(
+        {
+            runId: ctx.runId,
+            sessionId: ctx.sessionId,
+            threadId: ctx.sessionId,
+            userId: ctx.userId,
+            caseId: ctx.caseId ?? undefined,
+            vertical: deriveDefaultVertical(def.scope),
+        },
+        () => runStateGraphAgentInner(def, ctx),
+    )
+}
+
+async function runStateGraphAgentInner(
+    def: DomainAgentDefinition,
+    ctx: AgentRunnerContext,
+): Promise<ReadableStream> {
     // 1. 解析节点名称（支持动态函数形式）
     const resolvedNodeName = typeof def.nodeName === 'function' ? def.nodeName(ctx) : def.nodeName
 
@@ -393,7 +481,8 @@ export async function runStateGraphAgent(
     //    这里只 logger.error + afterRun(false) + rethrow，避免重复发事件。
     let stream: ReadableStream
     try {
-        stream = await def.runStateGraph(enhancedCtx)
+        // wrapper 函数已校验 def.runStateGraph 非空，inner 函数无法继承 narrow，加 ! 断言
+        stream = await def.runStateGraph!(enhancedCtx)
     } catch (err) {
         logger.error('[runStateGraphAgent] business throw', {
             scope: def.scope,

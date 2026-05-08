@@ -8,7 +8,7 @@
 import type { mineruTasks, Prisma } from '~~/generated/prisma/client'
 import type { MineruTaskStatus as MineruTaskStatusType } from '#shared/types/recognition'
 import { $fetch } from 'ofetch'
-import { getActiveTokenValueService } from './mineruToken.service'
+import { getTokenForExistingTaskService } from './mineruToken.service'
 import {
     createMineruTaskDao,
     findMineruTaskByIdDao,
@@ -63,6 +63,8 @@ export interface CreateMineruTaskInput {
     ossFileId: number
     /** 关联的用户ID */
     userId: number
+    /** 创建该任务时使用的 MinerU Token ID（用于轮询时复用同一 token） */
+    mineruTokenId?: number
     /** 任务状态 */
     status?: number
     /** 任务原始数据（提交参数等） */
@@ -244,8 +246,7 @@ export const queryMineruTaskStatusService = async (
         throw new Error('任务尚未提交到 MinerU 服务')
     }
 
-    // 获取当前启用的 Token
-    const token = await getActiveTokenValueService()
+    const token = await getTokenForExistingTaskService(task)
     if (!token) {
         throw new Error('没有可用的 MinerU Token')
     }

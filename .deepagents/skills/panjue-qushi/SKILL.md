@@ -1,5 +1,6 @@
 ---
 name: panjue-qushi
+title: 判决趋势预测
 description: |
   判决趋势预测分析方法论。当用户需要基于当事人陈述进行法律合理性分析、预测判决趋势、进行定量核查、审查诉讼时效、判断新旧法适用时使用。
   典型场景：律师预测案件走向、法官模拟裁判思路、法律工作者分析诉讼策略。
@@ -22,42 +23,42 @@ description: |
 ## 关键要点
 
 ### 一、法官裁判路径预判
-详见 [references/faguan-caipan-lujing.md](./references/faguan-caipan-lujing.md)
+详见 [references/法官裁判路径.md](./references/法官裁判路径.md)
 
 - 八步法审理流程：生活事实→法律关系→诉讼标的→案由→核心法条→要件事实→举证责任→涵摄裁判
 - 模拟法官审理视角，预判裁判路径
 - 每一步出错都可能导致预测方向错误
 
 ### 二、定量分析核查
-详见 [references/dingliang-hecha.md](./references/dingliang-hecha.md)
+详见 [references/定量核查.md](./references/定量核查.md)
 
 - 要素提取与公式陈列
 - 计算过程展示
 - 实质性判断原则
 
 ### 三、法律时效性审查
-详见 [references/falv-shixiao.md](./references/falv-shixiao.md)
+详见 [references/法律时效审查.md](./references/法律时效审查.md)
 
 - 锚定法律事实发生日
 - 基础框架检索
 - 增量更新检索
 
 ### 四、诉讼时效审查
-详见 [references/susong-shixiao.md](./references/susong-shixiao.md)
+详见 [references/诉讼时效审查.md](./references/诉讼时效审查.md)
 
 - 触发条件判断
 - 特别法优先检索
 - 一般法后备适用
 
 ### 五、新旧法适用
-详见 [references/xinjiufa-shiyong.md](./references/xinjiufa-shiyong.md)
+详见 [references/新旧法适用.md](./references/新旧法适用.md)
 
 - 法不溯及既往原则
 - 新旧法对比表格
 - 公司法特别处理
 
 ### 六、司法解释适用
-详见 [references/sifa-jieshi.md](./references/sifa-jieshi.md)
+详见 [references/司法解释适用.md](./references/司法解释适用.md)
 
 - 生效时间规则
 - 溯及力规则
@@ -65,7 +66,7 @@ description: |
 - 引用规则
 
 ### 七、法律合理性审查
-详见 [references/falv-helixaing.md](./references/falv-helixaing.md)
+详见 [references/法律合理性审查.md](./references/法律合理性审查.md)
 
 - 原告主张审查
 - 被告抗辩预判（动态叠加）
@@ -73,7 +74,7 @@ description: |
 - 审查结论标准
 
 ### 八、涵摄判断
-详见 [references/hanshe-panduan.md](./references/hanshe-panduan.md)
+详见 [references/涵摄判断.md](./references/涵摄判断.md)
 
 - 目光往返原则：规范↔事实
 - 逐项涵摄检验
@@ -81,14 +82,14 @@ description: |
 - 成就矩阵输出
 
 ### 九、证明标准分析
-详见 [references/zhengming-biaozhun.md](./references/zhengming-biaozhun.md)
+详见 [references/证明标准分析.md](./references/证明标准分析.md)
 
 - 高度盖然性（一般事项，约75%）
 - 排除合理怀疑（特殊事项：欺诈、胁迫、口头遗嘱等）
 - 举证风险评估
 
 ### 十、判决趋势预测方法
-详见 [references/qushi-yuce.md](./references/qushi-yuce.md)
+详见 [references/趋势预测.md](./references/趋势预测.md)
 
 - 要件成就分析框架
 - 关键变量分析法

@@ -73,16 +73,24 @@
                                 <p class="font-mono">{{ prompt.version }}</p>
                             </div>
                             <div class="space-y-1">
-                                <Label class="text-muted-foreground">关联节点</Label>
-                                <NuxtLink v-if="prompt.node" :to="`/admin/nodes/${prompt.nodeId}`"
-                                    class="text-primary hover:underline">
-                                    {{ prompt.node.title || prompt.node.name }}
-                                </NuxtLink>
-                                <p v-else>-</p>
-                            </div>
-                            <div class="space-y-1">
                                 <Label class="text-muted-foreground">更新时间</Label>
                                 <p>{{ formatDate(prompt.updatedAt) }}</p>
+                            </div>
+                            <div class="col-span-full space-y-2">
+                                <Label class="text-muted-foreground">
+                                    被引用：{{ prompt.referencedByCount ?? 0 }} 个节点
+                                </Label>
+                                <ul v-if="referencedNodes.length"
+                                    class="flex flex-wrap gap-2">
+                                    <li v-for="n in referencedNodes" :key="n.id">
+                                        <NuxtLink :to="`/admin/nodes/${n.id}`"
+                                            class="inline-flex items-center rounded-md border bg-muted/30 px-2 py-1 text-sm text-primary hover:bg-muted hover:underline">
+                                            {{ n.title || n.name }}
+                                            <span class="ml-2 text-xs text-muted-foreground">序号 {{ n.displayOrder }}</span>
+                                        </NuxtLink>
+                                    </li>
+                                </ul>
+                                <p v-else class="text-muted-foreground text-sm">暂无节点引用此提示词</p>
                             </div>
                             <div class="col-span-full space-y-1">
                                 <Label class="text-muted-foreground">变量列表</Label>
@@ -110,8 +118,8 @@
                         <CardDescription>编辑内容将创建新版本，不会覆盖当前版本</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div class="rounded-md border bg-muted/50 p-4">
-                            <pre class="whitespace-pre-wrap text-sm font-mono">{{ prompt.content }}</pre>
+                        <div class="rounded-md border bg-muted/50 p-4 text-sm">
+                            <Markdown :content="prompt.content" mode="static" />
                         </div>
                     </CardContent>
                 </Card>
@@ -149,8 +157,8 @@
                         <!-- 预览结果 -->
                         <div v-if="previewResult" class="space-y-2">
                             <Label class="text-muted-foreground">渲染结果</Label>
-                            <div class="rounded-md border bg-background p-4">
-                                <pre class="whitespace-pre-wrap text-sm font-mono">{{ previewResult }}</pre>
+                            <div class="rounded-md border bg-background p-4 text-sm">
+                                <Markdown :content="previewResult" mode="static" />
                             </div>
                         </div>
                     </CardContent>
@@ -188,6 +196,8 @@
 import { ArrowLeft, Loader2, AlertCircle, Pencil, Trash2, History, CheckCircle, Eye } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import dayjs from 'dayjs'
+import { Markdown } from 'vue-stream-markdown'
+import 'vue-stream-markdown/index.css'
 import type { PromptWithRelations } from '#shared/types/node'
 import AdminPromptsPromptFormDialog from '~/components/admin/prompts/PromptFormDialog.vue'
 import AdminPromptsVersionHistoryDialog from '~/components/admin/prompts/VersionHistoryDialog.vue'
@@ -217,6 +227,12 @@ const promptVariables = computed(() => {
     return prompt.value.variables.filter((v): v is string => typeof v === 'string')
 })
 
+// 计算属性：节点引用列表（按 displayOrder 升序）
+const referencedNodes = computed(() => {
+    const list = prompt.value?.referencedByNodes ?? []
+    return [...list].sort((a, b) => a.displayOrder - b.displayOrder)
+})
+
 // 格式化日期
 const formatDate = (date: string | Date | null | undefined) => {
     if (!date) return '-'
@@ -238,6 +254,7 @@ const getTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
         system: '系统提示词',
         user: '用户提示词',
+        user_injection: '用户每轮注入',
         assistant: '助手提示词',
     }
     return labels[type] || type
@@ -248,6 +265,7 @@ const getTypeVariant = (type: string) => {
     const variants: Record<string, 'default' | 'secondary' | 'outline'> = {
         system: 'default',
         user: 'secondary',
+        user_injection: 'secondary',
         assistant: 'outline',
     }
     return variants[type] || 'default'
