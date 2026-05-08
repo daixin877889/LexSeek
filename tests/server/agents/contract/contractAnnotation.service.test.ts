@@ -7,7 +7,7 @@
  * - createLawyerAnnotationService：risk 不存在 / risk 跨 review / parent 跨 review / parent 已软删 / happy path
  * - updateAnnotationContentService：not_found / not_own（authorType 错） / not_own（userId 错） / happy path
  * - softDeleteAnnotationService：not_found / not_own / happy path
- * - isAnnotationExportable：deletedAt / suppressInExport / risk null / anchorParagraphIndex null / orphaned / happy path
+ * - isAnnotationExportable：deletedAt / suppressInExport / risk null / clauseParagraphIndex null / orphaned / happy path
  * - filterExportableDbAnnotations：过滤 + warn 日志
  * - restoreAnnotationPushService：not_found / not_removed / 幂等 / happy path
  *
@@ -55,8 +55,8 @@ describe('contractAnnotation.service', () => {
             level: 'high',
             stance: 'balanced',
             problem: '超长试用期',
-            anchorQuote: '试用期 6 个月',
-            anchorParagraphIndex: 0,
+            clauseText: '试用期 6 个月',
+            clauseParagraphIndex: 0,
         })
         riskId = risk.id
     })
@@ -99,7 +99,7 @@ describe('contractAnnotation.service', () => {
                 level: 'low',
                 stance: 'balanced',
                 problem: '其他',
-                anchorQuote: '其他',
+                clauseText: '其他',
             })
             const r = await createLawyerAnnotationService({
                 reviewId, // 当前 review
@@ -152,7 +152,7 @@ describe('contractAnnotation.service', () => {
             otherReviewIds.push(otherReview.id)
             const otherRisk = await createContractRiskDAO({
                 reviewId: otherReview.id, source: 'ai', category: 'x', level: 'low',
-                stance: 'balanced', problem: 'x', anchorQuote: 'x',
+                stance: 'balanced', problem: 'x', clauseText: 'x',
             })
             const otherParent = await createContractAnnotationDAO({
                 reviewId: otherReview.id, riskId: otherRisk.id,
@@ -348,7 +348,7 @@ describe('contractAnnotation.service', () => {
     })
 
     describe('isAnnotationExportable', () => {
-        const baseRisk = { anchorParagraphIndex: 0, orphaned: false }
+        const baseRisk = { clauseParagraphIndex: 0, orphaned: false }
         const baseAnn = { deletedAt: null, suppressInExport: false }
 
         it('正常路径返回 true', () => {
@@ -369,11 +369,11 @@ describe('contractAnnotation.service', () => {
             expect(isAnnotationExportable(baseAnn, undefined)).toBe(false)
         })
 
-        it('anchorParagraphIndex null → false', () => {
-            expect(isAnnotationExportable(baseAnn, { ...baseRisk, anchorParagraphIndex: null })).toBe(false)
+        it('clauseParagraphIndex null → false', () => {
+            expect(isAnnotationExportable(baseAnn, { ...baseRisk, clauseParagraphIndex: null })).toBe(false)
         })
 
-        it('anchorParagraphIndex undefined → false', () => {
+        it('clauseParagraphIndex undefined → false', () => {
             expect(isAnnotationExportable(baseAnn, { orphaned: false })).toBe(false)
         })
 
@@ -382,8 +382,8 @@ describe('contractAnnotation.service', () => {
         })
 
         it('orphaned=null/undefined 不影响（仅严格 true 才过滤）', () => {
-            expect(isAnnotationExportable(baseAnn, { anchorParagraphIndex: 0, orphaned: null })).toBe(true)
-            expect(isAnnotationExportable(baseAnn, { anchorParagraphIndex: 0 })).toBe(true)
+            expect(isAnnotationExportable(baseAnn, { clauseParagraphIndex: 0, orphaned: null })).toBe(true)
+            expect(isAnnotationExportable(baseAnn, { clauseParagraphIndex: 0 })).toBe(true)
         })
     })
 
@@ -393,22 +393,22 @@ describe('contractAnnotation.service', () => {
                 {
                     id: 1, riskId: 10,
                     deletedAt: null, suppressInExport: false,
-                    risk: { anchorParagraphIndex: 0, orphaned: false },
+                    risk: { clauseParagraphIndex: 0, orphaned: false },
                 },
                 {
                     id: 2, riskId: 11,
                     deletedAt: null, suppressInExport: true, // suppressed
-                    risk: { anchorParagraphIndex: 0, orphaned: false },
+                    risk: { clauseParagraphIndex: 0, orphaned: false },
                 },
                 {
                     id: 3, riskId: 12,
                     deletedAt: null, suppressInExport: false,
-                    risk: { anchorParagraphIndex: null, orphaned: false }, // 锚点空
+                    risk: { clauseParagraphIndex: null, orphaned: false }, // 锚点空
                 },
                 {
                     id: 4, riskId: 13,
                     deletedAt: null, suppressInExport: false,
-                    risk: { anchorParagraphIndex: 5, orphaned: true }, // 孤立
+                    risk: { clauseParagraphIndex: 5, orphaned: true }, // 孤立
                 },
             ]
             const result = filterExportableDbAnnotations(annotations, 100)
@@ -420,12 +420,12 @@ describe('contractAnnotation.service', () => {
                 {
                     id: 1, riskId: 10,
                     deletedAt: null, suppressInExport: false,
-                    risk: { anchorParagraphIndex: 0, orphaned: false },
+                    risk: { clauseParagraphIndex: 0, orphaned: false },
                 },
                 {
                     id: 2, riskId: 11,
                     deletedAt: null, suppressInExport: false,
-                    risk: { anchorParagraphIndex: 1, orphaned: false },
+                    risk: { clauseParagraphIndex: 1, orphaned: false },
                 },
             ]
             const result = filterExportableDbAnnotations(annotations, 100)
@@ -437,7 +437,7 @@ describe('contractAnnotation.service', () => {
                 {
                     id: 1, riskId: 10,
                     deletedAt: new Date(), suppressInExport: false,
-                    risk: { anchorParagraphIndex: 0, orphaned: false },
+                    risk: { clauseParagraphIndex: 0, orphaned: false },
                 },
             ]
             const result = filterExportableDbAnnotations(annotations, 100)

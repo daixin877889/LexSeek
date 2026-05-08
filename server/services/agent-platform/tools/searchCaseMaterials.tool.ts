@@ -17,9 +17,10 @@ const MAX_K = 10
 /** 参数 schema（唯一数据源） */
 const schema = z.object({
     query: z.string().optional().describe('语义查询内容，用于搜索相关的材料片段'),
-    sourceId: z.number().optional().describe('材料 sourceId，精确检索或限定语义搜索范围到指定材料'),
-    draftId: z.number().optional().describe('文书 draft ID（文书生成场景传入）'),
-    k: z.number().optional().default(5).describe(`返回结果数量，默认为 5，最多 ${MAX_K} 条（超过 ${MAX_K} 按 ${MAX_K} 处理）`),
+    // LLM 偶尔会把数字字段当字符串回传，coerce 自动转 number 增强鲁棒性
+    sourceId: z.coerce.number().optional().describe('材料 sourceId，精确检索或限定语义搜索范围到指定材料'),
+    draftId: z.coerce.number().optional().describe('文书 draft ID（文书生成场景传入）'),
+    k: z.coerce.number().optional().default(5).describe(`返回结果数量，默认为 5，最多 ${MAX_K} 条（超过 ${MAX_K} 按 ${MAX_K} 处理）`),
 })
 
 /** 工具定义（单一数据源） */

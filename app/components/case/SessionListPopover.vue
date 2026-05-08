@@ -91,7 +91,7 @@ const currentTitle = computed(() => {
   <Popover v-model:open="open">
     <PopoverTrigger as-child>
       <button
-        class="flex items-center gap-1 min-w-0 font-medium hover:text-primary transition-colors outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0"
+        class="flex items-center gap-1 min-w-0 text-sm font-medium hover:text-primary transition-colors outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0"
         :disabled="loading"
       >
         <span class="truncate">{{ currentTitle }}</span>

@@ -151,12 +151,58 @@ function messageClass(m: SerializedMessage): string {
     return Array.isArray(id) && id.length > 0 ? id[id.length - 1]! : ''
 }
 
+/**
+ * 从 content 数组里收集 {type:'tool_use'} 块。
+ *
+ * @langchain/anthropic 1.x streaming + thinking 模式下 AIMessageChunk reduce
+ * 会把 tool_use 块只塞进 content 数组,顶层 tool_calls 字段可能为空。
+ * Anthropic 兼容协议按 content[*].type 校验 tool_use/tool_result 配对,
+ * 所以必须把 content 里的 tool_use 块也认作工具调用。
+ *
+ * 调用方传入共享 `seen` Set,与"标准路径"读到的 tool_calls 跨路径去重。
+ *
+ * 跨模块复用：除本文件的 orphan 检测外,countToolCalls / loadSubAgentThreads /
+ * buildSummaryPrompt 等任何"判断/枚举 AI 消息工具调用"的地方都应同时用
+ * tool_calls 字段 + 本 helper 兜底,否则在 streaming + thinking 模式下漏检。
+ */
+export function collectToolUsesFromContent(
+    content: unknown,
+    seen: Set<string>,
+): Array<{ id: string, name?: string }> {
+    if (!Array.isArray(content)) return []
+    const out: Array<{ id: string, name?: string }> = []
+    for (const rawBlock of content) {
+        if (!rawBlock || typeof rawBlock !== 'object') continue
+        const block = rawBlock as unknown as { type?: unknown, id?: unknown, name?: unknown }
+        if (block.type !== 'tool_use') continue
+        const id = block.id
+        if (typeof id !== 'string' || seen.has(id)) continue
+        seen.add(id)
+        out.push({
+            id,
+            name: typeof block.name === 'string' ? block.name : undefined,
+        })
+    }
+    return out
+}
+
 function getToolCalls(m: SerializedMessage): SerializedToolCall[] {
+    const result: SerializedToolCall[] = []
+    const seen = new Set<string>()
+
     const raw = m.kwargs?.tool_calls
-    if (!Array.isArray(raw)) return []
-    return raw.filter((tc): tc is SerializedToolCall =>
-        !!tc && typeof tc === 'object' && typeof (tc as { id?: unknown }).id === 'string',
-    )
+    if (Array.isArray(raw)) {
+        for (const tc of raw) {
+            if (!tc || typeof tc !== 'object') continue
+            const id = (tc as { id?: unknown }).id
+            if (typeof id !== 'string' || seen.has(id)) continue
+            seen.add(id)
+            result.push(tc as SerializedToolCall)
+        }
+    }
+
+    result.push(...collectToolUsesFromContent(m.kwargs?.content, seen))
+    return result
 }
 
 function createSyntheticToolMessage(
@@ -192,15 +238,21 @@ interface RuntimeToolCall {
 
 function getRuntimeToolCalls(m: BaseMessage): RuntimeToolCall[] {
     if (!(m instanceof AIMessage) && !(m instanceof AIMessageChunk)) return []
-    const raw = (m as AIMessage | AIMessageChunk).tool_calls
-    if (!Array.isArray(raw)) return []
     const result: RuntimeToolCall[] = []
-    for (const tc of raw) {
-        if (!tc || typeof tc !== 'object') continue
-        const id = (tc as { id?: unknown }).id
-        if (typeof id !== 'string') continue
-        result.push({ id, name: (tc as { name?: string }).name })
+    const seen = new Set<string>()
+
+    const raw = (m as AIMessage | AIMessageChunk).tool_calls
+    if (Array.isArray(raw)) {
+        for (const tc of raw) {
+            if (!tc || typeof tc !== 'object') continue
+            const id = (tc as { id?: unknown }).id
+            if (typeof id !== 'string' || seen.has(id)) continue
+            seen.add(id)
+            result.push({ id, name: (tc as { name?: string }).name })
+        }
     }
+
+    result.push(...collectToolUsesFromContent((m as AIMessage | AIMessageChunk).content, seen))
     return result
 }
 
@@ -328,30 +380,22 @@ export async function repairOrphanToolUseCheckpoint(
     sessionId: string,
     errorMessage: string,
 ): Promise<RepairResult> {
-    // 1. 枚举该 session 的所有相关 thread_id
+    // 一次性枚举该 session 全部相关 (thread_id, checkpoint_ns) scope，避免按 thread 二次循环查询
     const subPattern = `${sessionId}_sub_%`
-    const threads = await prisma.$queryRaw<{ thread_id: string }[]>`
-        SELECT DISTINCT thread_id
-        FROM checkpoints
+    const scopes = await prisma.$queryRaw<{ thread_id: string; checkpoint_ns: string }[]>`
+        SELECT DISTINCT thread_id, checkpoint_ns
+        FROM langgraph.checkpoints
         WHERE thread_id = ${sessionId}
            OR thread_id LIKE ${subPattern}
     `
-    if (threads.length === 0) return { fixed: 0, parseFailures: 0 }
+    if (scopes.length === 0) return { fixed: 0, parseFailures: 0 }
 
     let fixed = 0
     let parseFailures = 0
-    for (const { thread_id } of threads) {
-        // 2. 枚举该 thread 下所有 checkpoint_ns
-        const namespaces = await prisma.$queryRaw<{ checkpoint_ns: string }[]>`
-            SELECT DISTINCT checkpoint_ns
-            FROM checkpoints
-            WHERE thread_id = ${thread_id}
-        `
-        for (const { checkpoint_ns } of namespaces) {
-            const r = await repairSingleScope(thread_id, checkpoint_ns, errorMessage)
-            fixed += r.fixed
-            if (r.parseFailed) parseFailures += 1
-        }
+    for (const { thread_id, checkpoint_ns } of scopes) {
+        const r = await repairSingleScope(thread_id, checkpoint_ns, errorMessage)
+        fixed += r.fixed
+        if (r.parseFailed) parseFailures += 1
     }
     return { fixed, parseFailures }
 }
@@ -372,7 +416,7 @@ async function repairSingleScope(
     // 1. 查最新 checkpoint 获取 messages 的 version
     const checkpoints = await prisma.$queryRaw<CheckpointRow[]>`
         SELECT checkpoint
-        FROM checkpoints
+        FROM langgraph.checkpoints
         WHERE thread_id = ${threadId}
           AND checkpoint_ns = ${checkpointNs}
         ORDER BY checkpoint_id DESC
@@ -388,7 +432,7 @@ async function repairSingleScope(
     // 2. 查 messages blob
     const blobs = await prisma.$queryRaw<BlobRow[]>`
         SELECT blob, type
-        FROM checkpoint_blobs
+        FROM langgraph.checkpoint_blobs
         WHERE thread_id = ${threadId}
           AND checkpoint_ns = ${checkpointNs}
           AND channel = 'messages'
@@ -422,7 +466,7 @@ async function repairSingleScope(
     // 4. 写回同一 version 的 blob
     const patchedBuffer = Buffer.from(JSON.stringify(patched), 'utf8')
     await prisma.$executeRaw`
-        UPDATE checkpoint_blobs
+        UPDATE langgraph.checkpoint_blobs
         SET blob = ${patchedBuffer}
         WHERE thread_id = ${threadId}
           AND checkpoint_ns = ${checkpointNs}

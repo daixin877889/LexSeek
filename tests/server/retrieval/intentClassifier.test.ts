@@ -49,7 +49,7 @@ function makeNodeConfig(overrides: Record<string, unknown> = {}) {
         name: 'search_intent_router',
         title: '意图分类节点',
         type: 'llm',
-        prompts: [{ type: 'system', content: '你是意图分类器' }],
+        prompts: [{ type: 'system', status: 1, content: '你是意图分类器{{typeHint}}' }],
         modelName: 'gpt-4o-mini',
         modelSdkType: 'openai',
         modelProviderBaseUrl: 'https://api.openai.com/v1',
@@ -192,7 +192,7 @@ describe('classifyIntentService', () => {
     it('使用节点配置中的 system prompt — 优先使用节点 prompts 中 type=system 的内容', async () => {
         const customSystemPrompt = '自定义意图分类 system prompt'
         const config = makeNodeConfig({
-            prompts: [{ type: 'system', content: customSystemPrompt }],
+            prompts: [{ type: 'system', status: 1, content: customSystemPrompt }],
         })
         const llmResult = { intent: 'semantic', rewrittenQuery: '查询' }
         const { model, mockInvoke } = makeMockModel(llmResult)

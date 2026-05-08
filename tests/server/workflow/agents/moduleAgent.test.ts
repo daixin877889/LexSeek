@@ -27,6 +27,7 @@ vi.mock('../../../../server/services/workflow/checkpointer', () => ({
 const mockGetValidNodeConfig = vi.fn()
 vi.mock('../../../../server/services/node/node.service', () => ({
     getValidNodeConfig: (...args: unknown[]) => mockGetValidNodeConfig(...args),
+    resolveThinkingFromNodeConfig: vi.fn(() => false),
 }))
 
 // mock chatModelFactory
@@ -95,6 +96,7 @@ vi.mock('../../../../server/services/workflow/middleware', () => ({
     createMessageIntegrityMiddleware: vi.fn(() => ({ __mock: 'integrity' })),
     createScopeGuardMiddleware: vi.fn(() => ({ __mock: 'scopeGuard' })),
     pointConsumptionMiddleware: vi.fn(() => ({ __mock: 'pointConsumption' })),
+    userInjectionMiddleware: vi.fn(() => ({ __mock: 'userInjection' })),
 }))
 
 vi.mock('../../../../server/services/workflow/middleware/safetyTrim.middleware', () => ({
@@ -134,6 +136,11 @@ vi.mock('deepagents', () => ({
 // mock state/storage
 vi.mock('../../../../server/services/workflow/state/storage', () => ({
     getSessionState: vi.fn(async () => ({})),
+}))
+
+// mock analysisResultPersistence middleware (A 方案末位兜底)
+vi.mock('../../../../server/agents/case-module/middleware/analysisResultPersistence.middleware', () => ({
+    analysisResultPersistenceMiddleware: vi.fn(() => ({ __mock: 'analysisResultPersistence' })),
 }))
 
 // mock promptRenderer
@@ -243,10 +250,13 @@ describe('runModuleChat 模块对话 Agent', () => {
 
         expect(mockBuildContextSegments).toHaveBeenCalledTimes(1)
         const args = mockBuildContextSegments.mock.calls[0][0]
+        // 2026-05-05 改造后：4 段案件上下文交给 caseContextSyncMiddleware 注入 HumanMessage，
+        // SystemMessage 仅含 roleAndFlow，buildSystemPromptForAgent 走 caseId=null 退化路径
+        // （与 assistantAgent / runtime.ts 同款）；agentName 仍为 moduleName。
         expect(args).toMatchObject({
-            caseId: 100,
+            caseId: null,
             agentName: 'summary',
-            userQuery: '请分析摘要',
+            userQuery: '',
         })
         // roleAndFlowTemplate 应包含 renderSystemPrompt 渲染结果 + save_analysis_result 提醒
         expect(args.roleAndFlowTemplate).toContain('你是案件摘要专家')
@@ -315,6 +325,40 @@ describe('runModuleChat 模块对话 Agent', () => {
         const call = vi.mocked(createAgent).mock.calls.at(-1)![0] as any
         const labels = (call.middleware as Array<{ __mock?: string }>).map(m => m.__mock)
         expect(labels).not.toContain('moduleContext')
+    })
+
+    it('middleware 链末位挂载 analysisResultPersistenceMiddleware（A 方案兜底）', async () => {
+        const { createAgent } = await import('langchain')
+        const { analysisResultPersistenceMiddleware } = await import(
+            '../../../../server/agents/case-module/middleware/analysisResultPersistence.middleware'
+        )
+        const { runModuleChat } = await import(
+            '../../../../server/services/workflow/agents/moduleAgent'
+        )
+
+        await runModuleChat('session-arp', '分析', {
+            userId: 7,
+            caseId: 1064,
+            moduleName: 'defense',
+            nodeId: 11,
+            runId: 'run-arp',
+        })
+
+        const call = vi.mocked(createAgent).mock.calls.at(-1)![0] as any
+        const mwList = call.middleware as Array<{ __mock?: string }>
+
+        // 1) 工厂被调用且入参带 agentName/caseId/sessionId/runId/model
+        expect(analysisResultPersistenceMiddleware).toHaveBeenCalledWith(
+            expect.objectContaining({
+                agentName: 'defense',
+                caseId: 1064,
+                sessionId: 'session-arp',
+                runId: 'run-arp',
+            }),
+        )
+
+        // 2) 数组末位（afterAgent 最后执行，所有其他 middleware 改完 messages 再读）
+        expect(mwList[mwList.length - 1]).toEqual({ __mock: 'analysisResultPersistence' })
     })
 
     it('safetyTrim 收到的 systemPrompt 是 plain text（非 SystemMessage）', async () => {

@@ -16,7 +16,7 @@ export interface CaseTypeOption {
 }
 
 /**
- * 案件列表项（用户端 /api/v1/case 列表返回的单条结构）。
+ * 案件列表项（用户端 /api/v1/cases 列表返回的单条结构）。
  *
  * cases 列表页 + 三种视图（grid/table/mobile）共用此类型，避免每个 view
  * 各自定义同构 interface 引发漂移。
@@ -487,16 +487,6 @@ export interface CaseListParams {
     orderBy?: 'id' | 'title' | 'createdAt' | 'updatedAt'
     /** 排序方向 */
     orderDir?: 'asc' | 'desc'
-}
-
-/** 会话类型枚举 */
-export enum SessionType {
-    /** 普通对话 */
-    NORMAL = 1,
-    /** 初始化分析 */
-    INIT_ANALYSIS = 2,
-    /** 模块对话 */
-    MODULE_CHAT = 3,
 }
 
 /** 创建会话输入 */

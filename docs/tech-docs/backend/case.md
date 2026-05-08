@@ -21,7 +21,7 @@ server/services/case/
 ├── demoCase.service.ts      # 演示案件管理
 └── demoCase.dao.ts          # 演示案件数据访问层
 
-server/api/v1/case/
+server/api/v1/cases/
 ├── create.post.ts                     # 创建案件
 ├── extract.post.ts                    # AI 信息提取
 ├── [caseId].get.ts                    # 获取案件详情
@@ -63,7 +63,7 @@ server/api/v1/case/
 ### 1. 创建案件
 
 ```
-POST /api/v1/case/create
+POST /api/v1/cases/create
 ```
 
 `createCaseService` (`case.service.ts`) 在单个事务内完成：
@@ -82,7 +82,7 @@ POST /api/v1/case/create
 ### 2. 材料上传
 
 ```
-POST /api/v1/case/materials/[caseId]
+POST /api/v1/cases/materials/[caseId]
 ```
 
 `batchAddCaseMaterialsService` (`caseMaterial.service.ts`)：
@@ -93,7 +93,7 @@ POST /api/v1/case/materials/[caseId]
 ### 3. AI 信息提取
 
 ```
-POST /api/v1/case/extract
+POST /api/v1/cases/extract
 ```
 
 `saveCaseInfoService` (`caseExtraction.service.ts`) 三层存储：
@@ -106,9 +106,9 @@ POST /api/v1/case/extract
 ### 4. 初始分析
 
 ```
-POST /api/v1/case/analysis/init-session  # 创建 type=2 会话
-POST /api/v1/case/analysis/agents        # 提交分析任务
-GET  /api/v1/case/init-analysis-status/[caseId]  # 查询状态
+POST /api/v1/cases/analysis/init-session  # 创建 type=2 会话
+POST /api/v1/cases/analysis/agents        # 提交分析任务
+GET  /api/v1/cases/init-analysis-status/[caseId]  # 查询状态
 ```
 
 **流程**：
@@ -127,8 +127,8 @@ GET  /api/v1/case/init-analysis-status/[caseId]  # 查询状态
 ### 5. 模块对话（深度分析）
 
 ```
-POST /api/v1/case/analysis/module-session   # 创建 type=3 会话
-POST /api/v1/case/analysis/agents           # 提交对话任务
+POST /api/v1/cases/analysis/module-session   # 创建 type=3 会话
+POST /api/v1/cases/analysis/agents           # 提交对话任务
 ```
 
 创建 type=3 会话（metadata 包含 moduleName 和 nodeId），Worker 路由到 `moduleAgent.ts`。

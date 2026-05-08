@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { defineComponent, h, nextTick } from 'vue'
+import { defineComponent, h, inject, nextTick, provide } from 'vue'
 import RiskListPanel from '~/components/assistant/contract/RiskListPanel.vue'
 import type { ContractOverview, Risk, ContractReviewStatus, PlaybookSnapshot, ContractAnnotationEntity } from '#shared/types/contract'
 
@@ -65,6 +65,9 @@ const RiskClauseDiffStub = defineComponent({
     props: {
         clauseText: { type: String, default: '' },
         suggestedClauseText: { type: String, default: '' },
+        // PR 4：mode 由 RiskCard 透传（来自 RiskListPanel 的 cardLayout），
+        // 把它落到 data-mode 上让"布局切换"链路在 stub 层可断言
+        mode: { type: String, default: '' },
     },
     setup(props) {
         return () =>
@@ -72,6 +75,7 @@ const RiskClauseDiffStub = defineComponent({
                 'data-stub': 'RiskClauseDiff',
                 'data-clause-text': props.clauseText,
                 'data-suggested-clause-text': props.suggestedClauseText,
+                'data-mode': props.mode,
             })
     },
 })
@@ -157,6 +161,24 @@ const stubs = {
     AlertDialogFooter: passthrough('AlertDialogFooter'),
     AlertDialogAction: alertBtn('AlertDialogAction'),
     AlertDialogCancel: alertBtn('AlertDialogCancel'),
+    // PR 4：布局 Tabs 段控相关 stub
+    Tabs: defineComponent({
+        name: 'Tabs',
+        props: { modelValue: String },
+        emits: ['update:modelValue'],
+        setup(_, { slots }) {
+            return () => h('div', { 'data-stub': 'Tabs' }, slots.default?.())
+        },
+    }),
+    TabsList: passthrough('TabsList'),
+    TabsTrigger: defineComponent({
+        name: 'TabsTrigger',
+        props: { value: String },
+        setup(props, { slots, attrs }) {
+            return () =>
+                h('button', { 'data-stub': 'TabsTrigger', 'data-value': props.value, ...attrs }, slots.default?.())
+        },
+    }),
 }
 
 function makeRisk(over: Partial<Risk> = {}): Risk {
@@ -362,14 +384,13 @@ describe('RiskListPanel', () => {
         expect((btn.element as HTMLButtonElement).disabled).toBe(true)
     })
 
-    it('status=completed 且 reviewedFileId 有值时下载按钮 enable，点击 emit download', async () => {
+    it('status=completed 且 reviewedFileId 有值时下载按钮 enable', () => {
+        // PR6：下载入口改为 DropdownMenu，点击 trigger 仅打开菜单不直接 emit；
+        // emit('download', mode) 在选中 RadioItem 时触发，断言移到下方
+        // "RiskListPanel 下载模式 toggle" describe 块。
         const w = mountPanel({ status: 'completed', reviewedFileId: 123 })
         const btn = findDownloadButton(w)
         expect((btn.element as HTMLButtonElement).disabled).toBe(false)
-
-        await btn.trigger('click')
-        expect(w.emitted('download')).toBeTruthy()
-        expect(w.emitted('download')!.length).toBe(1)
     })
 })
 
@@ -747,7 +768,7 @@ type RiskDisplayPhaseB = Risk & {
     entityId?: number
     source?: 'ai' | 'external_new' | 'global_review'
     orphaned?: boolean
-    originalAnchorQuote?: string | null
+    originalClauseText?: string | null
 }
 
 function makeAnnotation(over: Partial<ContractAnnotationEntity> = {}): ContractAnnotationEntity {
@@ -851,11 +872,11 @@ describe('RiskListPanel · Phase B 孤立批注区', () => {
         expect(w.text()).not.toContain('无法定位（')
     })
 
-    it('孤立风险卡片展开后显示 originalAnchorQuote 原锚点', async () => {
+    it('孤立风险卡片展开后显示 originalClauseText 原锚点', async () => {
         const orphanRisk: RiskDisplayPhaseB = {
             ...makeRisk({ id: 'o-1' }),
             orphaned: true,
-            originalAnchorQuote: '此处为原合同第三条款内容',
+            originalClauseText: '此处为原合同第三条款内容',
         }
         const w = mountPanelPhaseB({ risks: [orphanRisk] })
         await w.find('[data-risk-id="o-1"]').trigger('click')
@@ -866,7 +887,7 @@ describe('RiskListPanel · Phase B 孤立批注区', () => {
         const orphanRisk: RiskDisplayPhaseB = {
             ...makeRisk({ id: 'o-1' }),
             orphaned: true,
-            originalAnchorQuote: '原文片段',
+            originalClauseText: '原文片段',
         }
         const w = mountPanelPhaseB({ risks: [orphanRisk] })
         await w.find('[data-risk-id="o-1"]').trigger('click')
@@ -953,5 +974,146 @@ describe('RiskListPanel · Phase B 渲染顺序', () => {
         const aiCardIdx = html.indexOf('data-risk-id="ai-1"')
         const orphanSectionIdx = html.indexOf('无法定位')
         expect(aiCardIdx).toBeLessThan(orphanSectionIdx)
+    })
+})
+
+describe('RiskListPanel · 布局切换（PR 4）', () => {
+    // 兜底清理：测试串行共享 jsdom，前一个 it 异常退出会残留偏好
+    afterEach(() => {
+        localStorage.removeItem('contract-review-risk-card-layout')
+    })
+
+    it('渲染顶部布局 Tabs 段控（分段 / 对照 两选项）', () => {
+        const w = mountPanel({ risks: [] })
+        const tabs = w.find('[data-testid="risk-card-layout-tabs"]')
+        expect(tabs.exists()).toBe(true)
+        const triggers = w.findAll('[data-stub="TabsTrigger"]')
+        expect(triggers.length).toBe(2)
+        expect(triggers[0]?.attributes('data-value')).toBe('stacked')
+        expect(triggers[1]?.attributes('data-value')).toBe('inline-diff')
+        expect(triggers[0]?.text()).toBe('分段')
+        expect(triggers[1]?.text()).toBe('对照')
+    })
+
+    it('cardLayout 默认 stacked → 链路最终把 mode="stacked" 透传到 RiskClauseDiff', async () => {
+        // 清理 localStorage 避免前序用例残留污染
+        localStorage.removeItem('contract-review-risk-card-layout')
+        const w = mountPanel({
+            risks: [makeRisk({ id: 'r1' })],
+        })
+        // RiskListPanel.cardLayout → RiskCard.layout → RiskClauseDiff.mode 链路
+        // 展开第一张卡让 RiskClauseDiff 进入 DOM
+        await w.find('[data-risk-id="r1"]').trigger('click')
+        const diff = w.find('[data-stub="RiskClauseDiff"]')
+        expect(diff.exists()).toBe(true)
+        expect(diff.attributes('data-mode')).toBe('stacked')
+    })
+
+    it('localStorage 已存 inline-diff → 链路最终把 mode="inline-diff" 透传到 RiskClauseDiff', async () => {
+        // @vueuse/core useLocalStorage 对 string 类型走 String(v) serializer，
+        // localStorage 里的值是裸字符串 'inline-diff'（**不带 JSON 引号**）。
+        // 源码确认：node_modules/@vueuse/core/dist/index.js StorageSerializers.string.write = (v) => String(v)
+        localStorage.setItem('contract-review-risk-card-layout', 'inline-diff')
+        const w = mountPanel({
+            risks: [makeRisk({ id: 'r1' })],
+        })
+        await nextTick()
+        await w.find('[data-risk-id="r1"]').trigger('click')
+        const diff = w.find('[data-stub="RiskClauseDiff"]')
+        expect(diff.exists()).toBe(true)
+        expect(diff.attributes('data-mode')).toBe('inline-diff')
+    })
+})
+
+describe('RiskListPanel 下载模式 toggle（PR6 §8.1）', () => {
+    /**
+     * shadcn DropdownMenuContent 内部用 reka-ui Portal 渲染（默认 target=document.body），
+     * happy-dom 下 wrapper.find('[data-testid=...]') 找不到 portal 内节点。
+     * 参考 tests/app/components/assistant/contract/StanceSelectionDialog.test.ts:42-67 的
+     * provide/inject 模式：RadioItem 通过 inject 拿到 RadioGroup 的 emit 回调，
+     * 这样 click → inject callback → RadioGroup stub emit 'update:modelValue' →
+     * RiskListPanel 模板上的 @update:model-value="handleSelectMode" 拿到 → emit('download', mode)。
+     *
+     * 不能用 `$parent.$emit` —— slot 渲染时 $parent 指向 slot owner（RiskListPanel）
+     * 而不是 stub 的 RadioGroup，会让事件发到错地方导致测试 fail。
+     */
+    const RADIO_GROUP_KEY = Symbol('radio-group-update')
+
+    const dropdownStubs = {
+        DropdownMenu: { template: '<div><slot/></div>' },
+        DropdownMenuTrigger: { template: '<div><slot/></div>' },
+        DropdownMenuContent: { template: '<div><slot/></div>' },
+        DropdownMenuLabel: { template: '<div><slot/></div>' },
+        DropdownMenuRadioGroup: defineComponent({
+            name: 'DropdownMenuRadioGroup',
+            props: { modelValue: { type: String, default: '' } },
+            emits: ['update:modelValue'],
+            setup(_, { slots, emit }) {
+                provide(RADIO_GROUP_KEY, (v: string) => emit('update:modelValue', v))
+                return () => h('div', slots.default?.())
+            },
+        }),
+        DropdownMenuRadioItem: defineComponent({
+            name: 'DropdownMenuRadioItem',
+            props: { value: { type: String, required: true } },
+            setup(props, { slots }) {
+                const onUpdate = inject<(v: string) => void>(RADIO_GROUP_KEY)
+                return () => h('div', {
+                    'data-testid': `download-mode-${props.value}`,
+                    onClick: () => onUpdate?.(props.value),
+                }, slots.default?.())
+            },
+        }),
+    }
+
+    // 合并已有 stubs：保留 ScrollArea / Card / Button / Tabs / RiskEditDialog / AlertDialog 等基础 stub，
+    // 再叠加新增的 DropdownMenu 系列；mountPanel 默认只用 stubs，这里需要 mount 时手动并入。
+    const mergedStubs = { ...stubs, ...dropdownStubs }
+
+    function mountWithMode(props: Partial<Parameters<typeof mountPanel>[0]> = {}) {
+        return mount(RiskListPanel, {
+            props: {
+                risks: [],
+                status: 'completed' as ContractReviewStatus,
+                reviewedFileId: 123,
+                summary: null,
+                focusedRiskId: null,
+                hoveredRiskId: null,
+                pinnedRiskIds: new Set<string>(),
+                notLocatedIds: new Set<string>(),
+                ...props,
+            },
+            global: { stubs: mergedStubs },
+        })
+    }
+
+    afterEach(() => {
+        localStorage.removeItem('contract-review-export-mode')
+    })
+
+    it('三种模式 RadioItem 都渲染', () => {
+        const w = mountWithMode()
+        const items = w.findAll('[data-testid^="download-mode-"]')
+        expect(items.map(i => i.attributes('data-testid'))).toEqual([
+            'download-mode-comment',
+            'download-mode-redline',
+            'download-mode-both',
+        ])
+    })
+
+    it('选中 redline → emit download(redline)', async () => {
+        const w = mountWithMode()
+        await w.find('[data-testid="download-mode-redline"]').trigger('click')
+        const emitted = w.emitted('download') ?? []
+        expect(emitted.length).toBeGreaterThan(0)
+        expect(emitted[emitted.length - 1]).toEqual(['redline'])
+    })
+
+    it('localStorage 持久化模式偏好', async () => {
+        localStorage.setItem('contract-review-export-mode', 'both')
+        const w = mountWithMode()
+        // 通过 modelValue prop 验证持久化生效（不依赖 data-state，因为 Portal stub 后无 radix 状态）
+        const radioGroup = w.findComponent(dropdownStubs.DropdownMenuRadioGroup as any)
+        expect(radioGroup.props('modelValue')).toBe('both')
     })
 })

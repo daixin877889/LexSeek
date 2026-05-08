@@ -168,7 +168,7 @@ describe('runAnnotateAndUpload', () => {
             {
                 id: 1, riskId: 11, authorType: 'ai', authorName: 'AI', content: 'c',
                 parentAnnotationId: null, wordCommentRef: 'LEXSEEK-1-abcd1234', createdAt: new Date(),
-                risk: { anchorQuote: 'q', anchorParagraphIndex: 0 },
+                risk: { clauseText: 'q', clauseParagraphIndex: 0 },
             },
         ])
         mockInject.mockResolvedValue({
@@ -197,7 +197,7 @@ describe('runAnnotateAndUpload', () => {
             {
                 id: 1, riskId: 11, authorType: 'ai', authorName: 'AI', content: 'c',
                 parentAnnotationId: null, wordCommentRef: null, createdAt: new Date(),
-                risk: { anchorQuote: 'q', anchorParagraphIndex: 0 },
+                risk: { clauseText: 'q', clauseParagraphIndex: 0 },
             },
         ])
         mockInject.mockResolvedValue({
@@ -225,7 +225,7 @@ describe('runAnnotateAndUpload', () => {
             {
                 id: 1, riskId: 11, authorType: 'ai', authorName: 'AI', content: 'c',
                 parentAnnotationId: null, wordCommentRef: 'LEXSEEK-1-abcd1234', createdAt: new Date(),
-                risk: { anchorQuote: 'q', anchorParagraphIndex: 0 },
+                risk: { clauseText: 'q', clauseParagraphIndex: 0 },
             },
         ])
         mockInject.mockResolvedValue({
@@ -251,7 +251,7 @@ describe('runAnnotateAndUpload', () => {
             {
                 id: 1, riskId: 11, authorType: 'ai', authorName: 'AI', content: 'c',
                 parentAnnotationId: null, wordCommentRef: 'LEXSEEK-1-abcd1234', createdAt: new Date(),
-                risk: { anchorQuote: 'q', anchorParagraphIndex: 0 },
+                risk: { clauseText: 'q', clauseParagraphIndex: 0 },
             },
         ])
         mockInject.mockResolvedValue({
@@ -413,7 +413,7 @@ describe('reviewResultPersistenceMiddleware', () => {
             {
                 id: 1, riskId: 11, authorType: 'ai', authorName: 'AI', content: 'c',
                 parentAnnotationId: null, wordCommentRef: 'LEXSEEK-1-abcd1234', createdAt: new Date(),
-                risk: { anchorQuote: 'q', anchorParagraphIndex: 0 },
+                risk: { clauseText: 'q', clauseParagraphIndex: 0 },
             },
         ])
         mockInject.mockResolvedValue({

@@ -87,7 +87,7 @@ const cleanupTestData = async () => {
         if (testIds.nodeIds.length > 0) {
             await testPrisma.levelNodeAccess.deleteMany({ where: { nodeId: { in: testIds.nodeIds } } })
             await testPrisma.caseAnalyses.deleteMany({ where: { nodeId: { in: testIds.nodeIds } } })
-            await testPrisma.prompts.deleteMany({ where: { nodeId: { in: testIds.nodeIds } } })
+            await testPrisma.node_prompts.deleteMany({ where: { nodeId: { in: testIds.nodeIds } } })
             await testPrisma.nodes.deleteMany({ where: { id: { in: testIds.nodeIds } } })
         }
     } catch { /* 忽略 */ }
@@ -125,7 +125,7 @@ describe('节点 DAO - 覆盖率补充', () => {
                 select: { id: true },
             })).map(n => n.id)
             if (testNodeIds.length > 0) {
-                await testPrisma.prompts.deleteMany({ where: { nodeId: { in: testNodeIds } } })
+                await testPrisma.node_prompts.deleteMany({ where: { nodeId: { in: testNodeIds } } })
                 await testPrisma.levelNodeAccess.deleteMany({ where: { nodeId: { in: testNodeIds } } })
                 await testPrisma.caseAnalyses.deleteMany({ where: { nodeId: { in: testNodeIds } } })
             }
@@ -306,20 +306,23 @@ describe('节点 DAO - 覆盖率补充', () => {
             })
             testIds.nodeIds.push(node.id)
 
-            // 创建生效的提示词
+            // 创建生效的提示词，并通过 node_prompts 按业务身份 (name, type) 关联到节点（阶段 F 改造）
+            const promptName = `prompt_${generateTestId()}`
             const prompt = await testPrisma.prompts.create({
                 data: {
-                    name: `prompt_${generateTestId()}`,
+                    name: promptName,
                     title: '系统提示词',
                     content: '你是一个法律助手',
                     variables: [],
                     version: '1.0.0',
                     type: 'system',
                     status: 1,
-                    nodeId: node.id,
                 },
             })
             testIds.promptIds.push(prompt.id)
+            await testPrisma.node_prompts.create({
+                data: { nodeId: node.id, promptName, promptType: 'system', displayOrder: 100 },
+            })
 
             const config = await getNodeConfigDao(nodeName)
 
@@ -327,8 +330,9 @@ describe('节点 DAO - 覆盖率补充', () => {
             expect(config!.model).not.toBeNull()
             expect(config!.model!.modelProvider).toBeDefined()
             expect(config!.model!.modelProvider.modelApiKeys.length).toBeGreaterThanOrEqual(1)
-            expect(config!.prompts.length).toBeGreaterThanOrEqual(1)
-            expect(config!.prompts[0]!.status).toBe(1)
+            // 阶段 F 改造：dao 返回的提示词在 nodePrompts 多对多字段（每条带 prompt + displayOrder）
+            expect(config!.nodePrompts.length).toBeGreaterThanOrEqual(1)
+            expect(config!.nodePrompts[0]!.prompt.status).toBe(1)
         })
 
         it('不存在的节点名称应返回 null', async () => {

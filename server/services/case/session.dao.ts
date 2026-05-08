@@ -7,6 +7,7 @@
 import { getRedisClient } from '~~/server/lib/redis'
 import { v4 as uuidv4 } from 'uuid'
 import { cancelRunService, getActiveRunService } from '~~/server/services/agent/agentRun.service'
+import { findSessionIdsWithActiveRunDAO } from '~~/server/services/agent/agentRun.dao'
 
 export interface SessionListItem {
     sessionId: string
@@ -80,19 +81,16 @@ export async function listSessionsWithActiveRunDAO(
         orderBy: params.orderBy ?? { updatedAt: 'desc' },
     })
 
-    return Promise.all(
-        sessions.map(async (session) => {
-            const activeRun = await getActiveRunService(session.sessionId)
-            return {
-                sessionId: session.sessionId,
-                type: session.type,
-                metadata: session.metadata as Record<string, any>,
-                hasActiveRun: !!activeRun,
-                createdAt: session.createdAt,
-                updatedAt: session.updatedAt,
-            }
-        }),
-    )
+    const activeRunSet = await findSessionIdsWithActiveRunDAO(sessions.map(s => s.sessionId))
+
+    return sessions.map(session => ({
+        sessionId: session.sessionId,
+        type: session.type,
+        metadata: session.metadata as Record<string, any>,
+        hasActiveRun: activeRunSet.has(session.sessionId),
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt,
+    }))
 }
 
 /**

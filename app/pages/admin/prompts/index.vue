@@ -6,7 +6,7 @@
                     <h1 class="text-2xl md:text-3xl font-bold mb-1">提示词管理</h1>
                     <p class="text-muted-foreground text-sm">管理节点的提示词配置和版本</p>
                 </div>
-                <Button @click="formDialogRef?.openCreate(nodeFilter !== 'all' ? nodeFilter : undefined)">
+                <Button @click="formDialogRef?.openCreate()">
                     <Plus class="h-4 w-4 mr-2" />
                     新增提示词
                 </Button>
@@ -14,17 +14,6 @@
 
             <!-- 筛选 -->
             <div class="flex flex-col md:flex-row gap-4">
-                <Select v-model="nodeFilter">
-                    <SelectTrigger class="w-full md:w-56">
-                        <SelectValue placeholder="选择节点" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">全部节点</SelectItem>
-                        <SelectItem v-for="n in nodes" :key="n.id" :value="String(n.id)">
-                            {{ n.title || n.name }}
-                        </SelectItem>
-                    </SelectContent>
-                </Select>
                 <Select v-model="typeFilter">
                     <SelectTrigger class="w-full md:w-40">
                         <SelectValue placeholder="提示词类型" />
@@ -77,7 +66,7 @@
                                 <TableHead class="w-[60px]">ID</TableHead>
                                 <TableHead>名称</TableHead>
                                 <TableHead>标题</TableHead>
-                                <TableHead>关联节点</TableHead>
+                                <TableHead class="w-[120px]">被引用次数</TableHead>
                                 <TableHead class="w-[100px]">类型</TableHead>
                                 <TableHead class="w-[80px]">版本</TableHead>
                                 <TableHead class="w-[80px]">状态</TableHead>
@@ -90,7 +79,7 @@
                                 <TableCell class="font-medium">{{ prompt.id }}</TableCell>
                                 <TableCell class="font-mono text-sm">{{ prompt.name }}</TableCell>
                                 <TableCell>{{ prompt.title || '-' }}</TableCell>
-                                <TableCell>{{ prompt.node?.title || prompt.node?.name || '-' }}</TableCell>
+                                <TableCell>{{ prompt.referencedByCount ?? 0 }} 个节点</TableCell>
                                 <TableCell>
                                     <Badge :variant="getTypeVariant(prompt.type)">
                                         {{ getTypeLabel(prompt.type) }}
@@ -144,7 +133,7 @@
         </div>
 
         <!-- 创建/编辑对话框 -->
-        <AdminPromptsPromptFormDialog ref="formDialogRef" :nodes="nodes" @success="loadPrompts" />
+        <AdminPromptsPromptFormDialog ref="formDialogRef" @success="loadPrompts" />
 
         <!-- 版本历史对话框 -->
         <AdminPromptsVersionHistoryDialog ref="versionDialogRef" @activate="handleActivateVersion" />
@@ -173,12 +162,11 @@
 import { Plus, Loader2, FileText, Search, MoreHorizontal, Eye, Trash2, History, CheckCircle } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import dayjs from 'dayjs'
-import type { PromptWithRelations, Node } from '#shared/types/node'
+import type { PromptWithRelations } from '#shared/types/node'
 import AdminPromptsPromptFormDialog from '~/components/admin/prompts/PromptFormDialog.vue'
 import AdminPromptsVersionHistoryDialog from '~/components/admin/prompts/VersionHistoryDialog.vue'
 import GeneralPagination from '~/components/general/pagination.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
-import type { nodes, prompts } from '~~/generated/prisma/client'
 
 definePageMeta({ layout: 'admin-layout', title: '提示词管理' })
 
@@ -190,9 +178,7 @@ const versionDialogRef = ref<InstanceType<typeof import('~/components/admin/prom
 const loading = ref(false)
 const deleting = ref(false)
 const prompts = ref<PromptWithRelations[]>([])
-const nodes = ref<Node[]>([])
 const pagination = ref({ page: 1, pageSize: 20, total: 0 })
-const nodeFilter = ref('all')
 const typeFilter = ref('all')
 const statusFilter = ref('all')
 const keyword = ref('')
@@ -212,6 +198,7 @@ const getTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
         system: '系统提示词',
         user: '用户提示词',
+        user_injection: '用户每轮注入',
         assistant: '助手提示词',
     }
     return labels[type] || type
@@ -222,17 +209,10 @@ const getTypeVariant = (type: string) => {
     const variants: Record<string, 'default' | 'secondary' | 'outline'> = {
         system: 'default',
         user: 'secondary',
+        user_injection: 'secondary',
         assistant: 'outline',
     }
     return variants[type] || 'default'
-}
-
-// 加载节点列表
-const loadNodes = async () => {
-    const data = await useApiFetch<{ items: Node[] }>('/api/v1/admin/nodes', {
-        query: { pageSize: 100, status: 1 }
-    })
-    if (data) nodes.value = data.items
 }
 
 // 加载提示词列表
@@ -243,7 +223,6 @@ const loadPrompts = async () => {
             page: pagination.value.page,
             pageSize: pagination.value.pageSize,
         }
-        if (nodeFilter.value !== 'all') params.nodeId = parseInt(nodeFilter.value)
         if (typeFilter.value !== 'all') params.type = typeFilter.value
         if (statusFilter.value !== 'all') params.status = parseInt(statusFilter.value)
         if (keyword.value) params.keyword = keyword.value
@@ -314,13 +293,7 @@ const confirmDelete = async () => {
     }
 }
 
-// 从 URL 查询参数初始化筛选条件
-const route = useRoute()
 onMounted(() => {
-    if (route.query.nodeId) {
-        nodeFilter.value = String(route.query.nodeId)
-    }
-    loadNodes()
     loadPrompts()
 })
 </script>

@@ -109,8 +109,10 @@ describe('embedMaterialUnifiedService', () => {
         mockPrisma.caseMaterials.findFirst.mockResolvedValue({
             id: 4, type: 4, name: '录音.mp3', ossFileId: 300,
         })
+        // T2：从 asrRecords.result JSON 现拼转录文本，summary 字段已切换为 200 字摘要
         mockPrisma.asrRecords.findFirst.mockResolvedValue({
-            summary: '音频转写内容',
+            result: { transcripts: [{ sentences: [{ text: '音频转写内容', begin_time: 0, end_time: 1000, speaker_id: 0 }] }] },
+            speakers: null,
         })
         mockPrisma.asrRecords.updateMany.mockResolvedValue({ count: 1 })
 

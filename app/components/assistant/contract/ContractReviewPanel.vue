@@ -13,7 +13,7 @@
 import { Loader2Icon, SaveIcon, HistoryIcon, UploadIcon, TrendingUpIcon, XIcon } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useMediaQuery, useLocalStorage } from '@vueuse/core'
-import type { Risk, RiskDisplay, ContractReviewStatus, StanceRequest, PlaybookSnapshot, RiskArchivedStatus, ReviewWithParsedRisks } from '#shared/types/contract'
+import type { Risk, RiskDisplay, RiskDisplayPhaseB, ContractReviewStatus, StanceRequest, PlaybookSnapshot, RiskArchivedStatus, ReviewWithParsedRisks, ContractExportMode } from '#shared/types/contract'
 import InterruptDispatcher from '~/components/InterruptDispatcher.vue'
 import AssistantContractDocxPreview from '~/components/assistant/contract/ContractDocxPreview.vue'
 import AssistantContractSaveVersionDialog from '~/components/assistant/contract/ContractSaveVersionDialog.vue'
@@ -24,6 +24,7 @@ import AssistantContractRiskListPanel from '~/components/assistant/contract/Risk
 import AssistantContractStanceSelectionDialog from '~/components/assistant/contract/StanceSelectionDialog.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useContractAgent } from '~/composables/agents'
+import { usePanelMessageStreamContext } from '~/composables/agent-platform/usePanelMessageStreamContext'
 import { useContractReviewStages } from '~/composables/contract/useContractReviewStages'
 import { useContractReviewRisksEditing } from '~/composables/contract/useContractReviewRisksEditing'
 import { useContractReviewLifecycle } from '~/composables/contract/useContractReviewLifecycle'
@@ -86,6 +87,18 @@ const contractAgent = useContractAgent(sessionIdRef, {
 
 const isLoading = contractAgent.isLoading
 const interruptData = contractAgent.interruptData
+
+const { resolveInterrupt, isCurrentInterruptToolCard } = usePanelMessageStreamContext({
+    interruptData,
+    resumeInterrupt: (value) => contractAgent.resumeInterrupt(value),
+    sessionRef: () => props.reviewId,
+})
+
+// 立场选择走专属 StanceSelectionDialog；isToolCard=true 工具卡走消息流内联，
+// 其余非工具卡 interrupt（如 insufficient_points）才用 InterruptDispatcher Dialog
+const shouldShowInterruptDialog = computed(() =>
+    !!interruptData.value && !awaitingStance.value && !isCurrentInterruptToolCard.value,
+)
 
 // === awaitingStance / runStatus 派生（旧 useContractReview 行为）===
 type AwaitingStancePayload = { partyA?: string; partyB?: string; contractType?: string }
@@ -249,17 +262,23 @@ function handleUpdateVersionNote(versionId: number, note: string | null) {
  * - 有 workspace.risks（已迁移）时，把 entity 转成 RiskDisplay 结构，entity.id（number）stringified 作为 Risk.id
  * - 否则 fallback 用 review.risks（旧 JSON 字段）
  */
-const effectiveRisks = computed<RiskDisplay[]>(() => {
+const effectiveRisks = computed<RiskDisplayPhaseB[]>(() => {
     const entities = versioning.currentView.value.risks
-    if (entities.length > 0) {
-        return entities.map<RiskDisplay>(e => ({
+    /**
+     * 把 entity row 映射成 RiskDisplay。两条产生 entity 数据的路径：
+     * - versioning.workspace（Phase A 后的工作区数据）→ entities 数组
+     * - review.value.risks（GET /reviews/:id 的 entity 转换数组，在 currentVersionId 不为空时返回）
+     * 两边 shape 一致，统一用本函数映射，不能直接 spread——否则 entity 字段名（clauseText / problem / id:number）
+     * 跟 RiskDisplay 期望（clauseText / risk / id:string）错位，导致 RiskClauseDiff 收到 clauseText=undefined
+     * 触发 dmp.diff_main(undefined) Throw 让整个 Vue 渲染崩溃 + 风险卡无法点击。
+     */
+    function mapEntityToDisplay(e: any): RiskDisplayPhaseB {
+        return {
             id: String(e.id),
-            entityId: e.id,
-            clauseIndex: e.anchorParagraphIndex ?? 0,
-            clauseText: e.anchorQuote,
-            // 独立透传 anchorParagraphIndex：clauseIndex 在 entity 缺失时回落 0，
-            // 而 clauseLocator 优先级 0 必须能区分"未知"与"第 0 段"
-            anchorParagraphIndex: e.anchorParagraphIndex,
+            entityId: typeof e.id === 'number' ? e.id : undefined,
+            clauseIndex: e.clauseParagraphIndex ?? 0,
+            clauseText: e.clauseText,
+            clauseParagraphIndex: e.clauseParagraphIndex,
             level: e.level,
             category: e.category,
             problem: e.problem,
@@ -267,10 +286,29 @@ const effectiveRisks = computed<RiskDisplay[]>(() => {
             analysis: e.analysis ?? '',
             risk: e.problem,
             suggestion: e.suggestion ?? '',
+            suggestedClauseText: e.suggestedClauseText ?? undefined,
+            // Playbook 命中：entity 字段名是 code（contract_risks.code），
+            // 前端 useContractPlaybookMatch / RiskCard 读 matchedPointCode；漏映射会让"清单对照"
+            // 永远 0/N 命中（即便 LLM 实际写了 code）
+            matchedPointCode: e.code ?? undefined,
             archivedStatus: e.archivedStatus,
-        }))
+            problematicQuote: e.problematicQuote ?? undefined,
+            quoteCharStart: e.quoteCharStart ?? null,
+            quoteCharEnd: e.quoteCharEnd ?? null,
+        }
     }
-    return (review.value?.risks ?? []).map<RiskDisplay>(r => ({ ...r }))
+
+    if (entities.length > 0) {
+        return entities.map<RiskDisplayPhaseB>(mapEntityToDisplay)
+    }
+
+    // fallback：review.value.risks 同样可能是 entity-shape（GET endpoint 在 currentVersionId
+    // 非空时直接返回 contractRisks 表的 row spread）；用 typeof id === 'number' 探测 entity
+    // 走映射，旧 JSON shape（id 是 string）保留 spread 行为
+    return (review.value?.risks ?? []).map<RiskDisplayPhaseB>((r: any) => {
+        if (typeof r?.id === 'number') return mapEntityToDisplay(r)
+        return { ...r }
+    })
 })
 
 const versionedAnnotations = computed(() => versioning.currentView.value.annotations)
@@ -415,17 +453,18 @@ const previewVersionNumber = computed<number | null>(() => {
  */
 const isDownloading = ref(false)
 
-async function handleDownload() {
+async function handleDownload(mode: ContractExportMode = 'comment') {
     if (isDownloading.value) return
     isDownloading.value = true
     try {
         const previewVid = versioning.previewVersionId.value
         if (previewVid === null) {
-            await onDownload()
+            await onDownload(mode)
             return
         }
+        const url = `/api/v1/assistant/contract/reviews/versions/download/${previewVid}?mode=${mode}`
         const resp = await useApiFetch<{ downloadUrl: string; filename: string }>(
-            `/api/v1/assistant/contract/reviews/versions/download/${previewVid}`,
+            url,
             { showError: false } as any,
         )
         if (!resp?.downloadUrl) {
@@ -519,8 +558,7 @@ function handleContainerClick(e: MouseEvent) {
             @update:open="handleDialogOpenChange"
         />
 
-        <!-- 阶段 7：其他类型 interrupt（如 insufficient_points）走 InterruptDispatcher -->
-        <Dialog v-if="interruptData && !awaitingStance" :open="true" @update:open="() => {}">
+        <Dialog v-if="shouldShowInterruptDialog" :open="true" @update:open="() => {}">
             <DialogContent
                 class="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0 z-[70]"
                 overlay-class="z-[70]"
@@ -536,8 +574,8 @@ function handleContainerClick(e: MouseEvent) {
                 <div class="p-6">
                     <InterruptDispatcher
                         :interrupt="interruptData as any"
-                        @submit="(v) => contractAgent.resumeInterrupt(v)"
-                        @cancel="() => contractAgent.resumeInterrupt(null)"
+                        @submit="resolveInterrupt"
+                        @cancel="() => resolveInterrupt(null)"
                     />
                 </div>
             </DialogContent>
@@ -628,7 +666,7 @@ function handleContainerClick(e: MouseEvent) {
                 />
 
                 <!-- 右侧内容区 -->
-                <div class="flex-1 min-h-0 flex flex-col">
+                <div class="flex-1 min-h-0 min-w-0 flex flex-col">
                     <!-- 分栏（>=1024px）：对齐文书编辑器工作区。右侧风险面板比例 = 文书编辑器左侧表单比例 -->
                     <ResizablePanelGroup
                         v-if="isSplit"
@@ -645,7 +683,7 @@ function handleContainerClick(e: MouseEvent) {
                                     :risks="effectiveRisks"
                                     :focused-risk-id="focusedRiskId"
                                     :hovered-risk-id="hoveredRiskId"
-                                    :highlighted-risk-ids="highlightedRiskIds"
+                                    :pinned-risk-ids="pinnedRiskIds"
                                     @focus-risk="focusRisk"
                                     @hover-clause="setHoveredRisk"
                                     @locate-result="markLocated"
@@ -710,7 +748,7 @@ function handleContainerClick(e: MouseEvent) {
                                 :risks="effectiveRisks"
                                 :focused-risk-id="focusedRiskId"
                                 :hovered-risk-id="hoveredRiskId"
-                                :highlighted-risk-ids="highlightedRiskIds"
+                                :pinned-risk-ids="pinnedRiskIds"
                                 @focus-risk="focusRisk"
                                 @hover-clause="setHoveredRisk"
                                 @locate-result="markLocated"

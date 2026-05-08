@@ -16,6 +16,7 @@ import {
   findRunsBySessionIdDAO,
 } from './agentRun.dao'
 import { getRedisClient } from '~~/server/lib/redis'
+import { withLangfuseContext } from '~~/server/lib/langfuse'
 
 interface EnqueueRunParams {
   sessionId: string
@@ -40,6 +41,21 @@ interface EnqueueRunOptions {
  * 3. 创建新 run 并通知 Worker
  */
 export async function enqueueRunService(
+  params: EnqueueRunParams,
+  options?: EnqueueRunOptions,
+): Promise<{ runId: string; isNew: boolean } | { error: string }> {
+  return withLangfuseContext(
+    {
+      sessionId: params.sessionId,
+      threadId: params.threadId,
+      userId: params.userId,
+      caseId: params.caseId ?? undefined,
+    },
+    () => enqueueRunInner(params, options),
+  )
+}
+
+async function enqueueRunInner(
   params: EnqueueRunParams,
   options?: EnqueueRunOptions,
 ): Promise<{ runId: string; isNew: boolean } | { error: string }> {

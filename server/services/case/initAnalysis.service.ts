@@ -5,12 +5,15 @@
  */
 
 import crypto from 'node:crypto'
-import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import { VALID_MODULE_NAMES, INIT_ANALYSIS_MODULES } from '#shared/types/initAnalysis'
 import type { InitAnalysisStatusResponse } from '#shared/types/initAnalysis'
 import { isCaseReadOnly } from '#shared/types/case'
 import { generateSummaryService } from '../ai/summaryService'
 import { addDocumentsToVectorStore } from '../legal/vectorStore.service'
+import { getValidNodeConfig } from '../node/node.service'
+import { createChatModel } from '../node/chatModelFactory'
+import { assembleSystemPromptTemplate } from '../agent-platform/nodeConfig/promptRenderer'
+import { withLangfuseContext } from '~~/server/lib/langfuse'
 
 /**
  * 验证并排序选中的模块
@@ -52,23 +55,18 @@ export const getInitAnalysisStatusService = async (
         throw new Error('案件不存在')
     }
 
-    // 获取 type=2（初始分析）和 type=3（模块对话）的会话
-    const sessions = await prisma.caseSessions.findMany({
-        where: { caseId, type: { in: [2, 3] }, deletedAt: null },
-        orderBy: { createdAt: 'desc' },
-    })
-
-    if (sessions.length === 0) {
-        return { status: 'not_started', modules: [] }
-    }
-
-    const sessionIds = sessions.map(s => s.sessionId)
-
-    // 获取所有会话的分析结果（跨 session 全局聚合）
-    const analyses = await prisma.caseAnalyses.findMany({
-        where: { sessionId: { in: sessionIds }, deletedAt: null },
-        orderBy: { createdAt: 'asc' },
-    })
+    // sessions 仅参与 status / primarySession 判断（限 type=2/3）；
+    // analyses 按 caseId 聚合，覆盖小索（type=1 sub-agent）/ init-analysis（type=2）/ 模块对话（type=3）所有渠道写入的结果
+    const [sessions, analyses] = await Promise.all([
+        prisma.caseSessions.findMany({
+            where: { caseId, type: { in: [2, 3] }, deletedAt: null },
+            orderBy: { createdAt: 'desc' },
+        }),
+        prisma.caseAnalyses.findMany({
+            where: { caseId, deletedAt: null },
+            orderBy: { createdAt: 'asc' },
+        }),
+    ])
 
     const modules = INIT_ANALYSIS_MODULES.map(m => {
         // 优先使用 isActive 版本（来自任意会话）
@@ -232,79 +230,20 @@ export const loadCompletedResultsService = async (
     return results
 }
 
-/** SSE 重连短路路径支持的终态 run 状态 */
-export type TerminalRunStatusForSSE = 'completed' | 'failed' | 'cancelled'
-
-/**
- * 判断 run 状态是否可以走 SSE 短路路径（跳过 Redis Stream 全量 replay）
- *
- * 可短路：completed/failed/cancelled —— 这些 run 已终结，不会再有新事件，
- *   checkpoint 里已包含最终 state，直接发一条 values + 一条 status_change 即可。
- *
- * 不可短路：
- * - interrupted：`__interrupt__` 字段只存在于 Redis Stream 最后一条 values 事件中
- *   （LangGraph 的 `mapOutputValues` 不会写进 checkpoint.channel_values），
- *   短路会丢失恢复对话所需的 interrupt 信息。
- * - running/pending：需继续订阅 pubsub 接收后续实时事件，不能立即关闭 SSE。
- * - 未知/缺失状态：保守拒绝短路，走原 replay 路径。
- */
-export function canShortCircuitSSE(
-    runStatus: string | null | undefined,
-): boolean {
-    return runStatus === 'completed'
-        || runStatus === 'failed'
-        || runStatus === 'cancelled'
-}
-
-/**
- * 构造短路路径要发送的 SSE 事件字符串
- *
- * 输出顺序与当前 createSSEResponse fallback 分支完全一致：
- * 1. （可选）一条 `event: values` —— 仅当 checkpoint 有 messages 时
- * 2. 一条 `event: custom` status_change —— 必发
- *
- * 前端 useStreamChat 的 onCustomEvent 只关心 type/status/error，
- * 发出的报文结构与原 Redis Stream replay 路径兼容。
- *
- * 仅 `failed` 状态在有 errorMessage 时附加 `error` 字段（修复历史 bug：
- * 原 fallback 分支始终不带 error，导致前端展示泛化的"执行失败"文案）。
- */
-export function buildTerminalSnapshotEvents(params: {
-    runId: string
-    runStatus: TerminalRunStatusForSSE
-    checkpointValues: Record<string, unknown> | null
-    errorMessage?: string | null
-}): string[] {
-    const events: string[] = []
-
-    const messages = params.checkpointValues
-        ? (params.checkpointValues.messages as unknown[] | undefined)
-        : undefined
-    if (params.checkpointValues && Array.isArray(messages) && messages.length > 0) {
-        events.push(
-            `event: values\ndata: ${JSON.stringify(params.checkpointValues)}\n\n`,
-        )
-    }
-
-    const statusPayload: Record<string, unknown> = {
-        type: 'status_change',
-        runId: params.runId,
-        status: params.runStatus,
-    }
-    if (params.runStatus === 'failed' && params.errorMessage) {
-        statusPayload.error = params.errorMessage
-    }
-    events.push(`event: custom\ndata: ${JSON.stringify(statusPayload)}\n\n`)
-
-    return events
-}
+// 历史导出的 SSE 短路 helper（canShortCircuitSSE / buildTerminalSnapshotEvents /
+// TerminalRunStatusForSSE）已并入 server/services/sse/agentSseStream.ts 的
+// useShortCircuit 选项，不再外暴露。如需短路 SSE，调 createAgentSseStream({
+// useShortCircuit: true, latestRunStatus, shortCircuitError, ... })。
 
 // ==================== M4: RAG 落库入口 ====================
 
 export interface CompleteAnalysisWithRAGInput {
     analysisId: number
     analysisResult: string
-    model: BaseChatModel
+    /** 实际 token 总数（_totalTokensConsumed） */
+    tokens?: number | null
+    /** 千 token 数（积分扣减单位 = ceil(tokens/1000)） */
+    tokenCount?: number | null
 }
 
 /**
@@ -318,7 +257,7 @@ export interface CompleteAnalysisWithRAGInput {
  *          ANALYSIS_SUMMARY end 事件携带给前端展示
  */
 export async function completeAnalysisWithRAG(input: CompleteAnalysisWithRAGInput): Promise<string> {
-    const { analysisId, analysisResult, model } = input
+    const { analysisId, analysisResult } = input
 
     // 事务外先查 existing（只读），不占用事务连接
     const existing = await prisma.caseAnalyses.findUnique({
@@ -339,11 +278,43 @@ export async function completeAnalysisWithRAG(input: CompleteAnalysisWithRAGInpu
         throw new Error('案件已归档，不可启动分析')
     }
 
+    // 注入 Langfuse 上下文：caseId + vertical='init-analysis'，覆盖后续 summary LLM 调用
+    return withLangfuseContext(
+        { caseId: existing.caseId, vertical: 'init-analysis' },
+        () => completeAnalysisWithRAGInner(input),
+    )
+}
+
+async function completeAnalysisWithRAGInner(input: CompleteAnalysisWithRAGInput): Promise<string> {
+    const { analysisId, analysisResult } = input
+
     // LLM 调用在事务外：网络 IO 不受事务超时约束，LLM 慢不会拖垮主分析落库
-    const summary = await generateSummaryService(model, analysisResult, {
-        maxChars: 400,
-        systemPrompt: '你是法律助手。对下方分析报告正文生成 200-400 字的中文专业摘要，保留关键事实、结论、依据，不加开场白总结语。',
-    })
+    // 摘要生成走 analysisSummary 节点（模型 + system prompt 均来自节点配置），失败不阻塞主流程
+    let summary = ''
+    try {
+        const summaryConfig = await getValidNodeConfig('analysisSummary', '案件分析结果摘要')
+        const apiKey = summaryConfig.modelApiKeys.find(k => k.status === 1)?.apiKey
+        const systemPrompt = assembleSystemPromptTemplate(summaryConfig.prompts)
+        if (apiKey && systemPrompt) {
+            const summaryModel = createChatModel({
+                sdkType: summaryConfig.modelSdkType,
+                modelName: summaryConfig.modelName,
+                apiKey,
+                baseUrl: summaryConfig.modelProviderBaseUrl,
+                temperature: 0,
+                streaming: false,
+            })
+            // 截断 8000 字防上下文溢出
+            const truncated = analysisResult.length > 8000
+                ? analysisResult.slice(0, 8000) + '\n\n[内容过长已截断]'
+                : analysisResult
+            summary = await generateSummaryService(summaryModel, truncated, { maxChars: 400, systemPrompt })
+        } else {
+            logger.warn('analysisSummary 节点未配置完整，跳过摘要生成', { analysisId })
+        }
+    } catch (err) {
+        logger.warn('analysisSummary 调用失败（不阻塞主流程）', { analysisId, err })
+    }
 
     // Stage 1: 主分析 + summary（事务内；只做 DB 写入，无网络 IO）
     const analysis = await prisma.$transaction(async (tx) => {
@@ -354,6 +325,8 @@ export async function completeAnalysisWithRAG(input: CompleteAnalysisWithRAGInpu
                 analysisResult,
                 summary,
                 isActive: true,
+                tokens: input.tokens ?? null,
+                tokenCount: input.tokenCount ?? null,
             },
         })
 

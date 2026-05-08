@@ -18,13 +18,25 @@ import InterruptDispatcher from '~/components/InterruptDispatcher.vue'
 import CaseChatWindowShell from '~/components/case/ChatWindowShell.vue'
 import CaseSessionListPopover from '~/components/case/SessionListPopover.vue'
 import CaseAnalysisMaterialSelector from '~/components/caseAnalysis/materialSelector.vue'
-import AgentsDocumentDraftDocumentCard from '~/components/agents/document/tools/DraftDocumentCard.vue'
-import AgentsContractReviewContractCard from '~/components/agents/contract/tools/ReviewContractCard.vue'
+import { PANEL_TOOL_MAP } from '~/components/agents/panelToolMap'
 import IconXiaosuoIcon from '~/components/icon/XiaosuoIcon.vue'
 import { useInterruptToast } from '~/composables/useInterruptToast'
+import { usePanelMessageStreamContext } from '~/composables/agent-platform/usePanelMessageStreamContext'
 
 const props = defineProps<{
   xiaosuoChat: ReturnType<typeof useCaseMainAgent>
+  /**
+   * 用户在小索输入框上传附件并发送时，外部页面把这些文件同步入"案件材料"
+   * 列表的回调。父页一般传 useCaseDetail 的 addMaterials；不传则跳过同步。
+   *
+   * 接受 OssFileItem[]，内部决定是否调用 POST /api/v1/cases/materials/:caseId
+   * 并刷新材料列表。本组件 await 该回调以保证：
+   *   1. 附件成为 case_materials 一员，caseProcessMaterialMiddleware 才能扫到，
+   *      AI 调 process_materials 工具时不会再"看不到刚上传的文件"。
+   *   2. 父页材料列表与小索新加附件实时同步，符合"小索上传后入案件材料列表"
+   *      产品诉求。
+   */
+  onAttachFilesToCase?: (files: OssFileItem[]) => Promise<void>
 }>()
 
 const isOpen = defineModel<boolean>({ default: false })
@@ -73,7 +85,6 @@ const aiChatRef = ref<{
   selectedFileIds: number[]
 } | null>(null)
 
-// 阶段 6：MaterialSelector 上传支持（参照 AssistantChatPanel 模式）
 const materialSelectorRef = ref<{ openDialog: () => void } | null>(null)
 const selectedFileIds = computed(() => aiChatRef.value?.selectedFileIds ?? [])
 
@@ -85,23 +96,11 @@ function handleFilesFromSelector(files: OssFileItem[]) {
   aiChatRef.value?.addFiles(files)
 }
 
-// 阶段 6：toolMap — 子代理工具结果卡片（与法律助手对齐）
-const toolMap = {
-  draft_document: AgentsDocumentDraftDocumentCard,
-  review_contract: AgentsContractReviewContractCard,
-}
-
-// 阶段 7：resolveInterrupt 包 toolCallId 路由
-// LangGraph createAgent 路径下，sub-agent 工具的 interrupt 必须按 toolCallId 路由，
-// 否则 interrupt() 返回 undefined，工具误以为用户取消。
-async function resolveInterrupt(value: unknown) {
-  const tcId = (interruptData.value as { toolCallId?: unknown } | null)?.toolCallId
-  if (typeof tcId === 'string' && tcId.length > 0) {
-    props.xiaosuoChat.resumeInterrupt({ [tcId]: value })
-  } else {
-    props.xiaosuoChat.resumeInterrupt(value)
-  }
-}
+const { resolveInterrupt, isCurrentInterruptToolCard } = usePanelMessageStreamContext({
+  interruptData,
+  resumeInterrupt: (value) => props.xiaosuoChat.resumeInterrupt(value),
+  sessionRef: () => props.xiaosuoChat.currentSessionId.value,
+})
 
 watch(runStatus, (status) => {
   if (status === 'failed') {
@@ -122,8 +121,19 @@ function onRetry() {
   if (content) props.xiaosuoChat.sendMessage(content, { thinking: thinking.value })
 }
 
-function handleSubmit(data: { text: string; files?: any[] }) {
+async function handleSubmit(data: { text: string; files?: any[] }) {
   if (!data.text.trim() && !data.files?.length) return
+
+  // 必须 await：caseProcessMaterialMiddleware 在 SSE 流里同步扫 case_materials，
+  // 附件没入库时 AI 调 process_materials 看不到刚上传的文件。
+  // 同步失败 addMaterials 已弹 toast，这里吞错继续发避免双 toast。
+  if (data.files?.length && props.onAttachFilesToCase) {
+    try {
+      await props.onAttachFilesToCase(data.files as OssFileItem[])
+    } catch (err) {
+      console.warn('[xiaosuo] sync materials failed', err)
+    }
+  }
 
   // 暂停态强制入队 + loading 期间入队（spec §5.3）
   const shouldEnqueue =
@@ -133,13 +143,14 @@ function handleSubmit(data: { text: string; files?: any[] }) {
     const ok = props.xiaosuoChat.enqueueMessage(data.text, data.files, thinking.value)
     if (!ok) {
       toast.warning(`队列已满（最多 ${QUEUE_MAX_SIZE} 条），请等待当前对话结束或清空队列`)
-    } else {
-      aiChatRef.value?.resetPrompt()
+      return
     }
   } else {
-    // 阶段 6：透传 files，sendMessage 内部做双轨承载（sentinel + additional_kwargs）
     props.xiaosuoChat.sendMessage(data.text, { thinking: thinking.value, files: data.files })
   }
+
+  // 旧实现仅入队成功路径 reset，直接发送路径会让附件 chip 残留导致重复发送。
+  aiChatRef.value?.resetPrompt()
 }
 
 async function handleStop() {
@@ -177,10 +188,8 @@ async function handleStop() {
 // 中断出现时 toast 提示，工具卡片从"运行中"切到"已暂停"（:is-interrupted 透传）
 useInterruptToast(interruptData)
 
-// 首次打开时初始化；关闭时重置全屏
-// immediate: true 兼容 父组件 mount 时已经把 isOpen=true 的场景
-// （Task 18：?focus=xiaosuo 在 onMounted 把 xiaosuoOpen=true，子组件 setup 时 isOpen 已经是 true，
-// 普通 watch 会错过这次"变化"导致 init 不触发，sendMessage 静默失败）
+// immediate: true 处理父组件 onMounted 把 isOpen=true 的场景（如 ?focus=xiaosuo
+// 直接打开），普通 watch 会错过这次"变化"导致 init 不触发、sendMessage 静默失败
 watch(isOpen, (open) => {
   if (open) props.xiaosuoChat.init()
 }, { immediate: true })
@@ -192,8 +201,8 @@ watch(isOpen, (open) => {
     v-model:open="isOpen"
     v-model:fullscreen="isFullscreen"
     title="小索"
-    :initial-width="380"
-    :initial-height="500"
+    :initial-width="450"
+    :initial-height="550"
   >
     <!-- 标题栏图标 -->
     <template #titlebar-icon>
@@ -225,7 +234,7 @@ watch(isOpen, (open) => {
       :queue-length="queueLen"
       :queue-full="queueFull"
       :is-stopping="isStopping"
-      :tool-map="toolMap"
+      :tool-map="PANEL_TOOL_MAP"
       :on-file-button-click="openMaterialSelector"
       prompt-placeholder="问我任何关于案件的问题..."
       @submit="handleSubmit"
@@ -263,10 +272,10 @@ watch(isOpen, (open) => {
     />
   </div>
 
-  <!-- 中断处理弹窗
-       阶段 7：改用 InterruptDispatcher 按注册表分发（template_select / stance_select / case_info_check 等）
+  <!-- isToolCard=false 的中断走 Dialog（InterruptDispatcher 按注册表分发）；
+       isToolCard=true 的工具卡走消息流内联（AiToolRenderer 渲染）。
        z-[200] 确保完整遮盖浮窗（ChatWindowShell z-[60]）。 -->
-  <Dialog :open="!!interruptData" @update:open="() => {}">
+  <Dialog :open="!!interruptData && !isCurrentInterruptToolCard" @update:open="() => {}">
     <DialogContent class="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0 z-[200]" overlay-class="z-[200]" :show-close-button="false"
       @pointer-down-outside.prevent @escape-key-down.prevent @open-auto-focus.prevent>
       <DialogHeader class="sr-only">
@@ -283,7 +292,6 @@ watch(isOpen, (open) => {
     </DialogContent>
   </Dialog>
 
-  <!-- 阶段 6：上传材料弹框（参照 AssistantChatPanel 复用） -->
   <CaseAnalysisMaterialSelector
     ref="materialSelectorRef"
     :disabled-file-ids="selectedFileIds"

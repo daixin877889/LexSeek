@@ -282,7 +282,7 @@ describe('材料向量化服务 - 补充覆盖率', () => {
     })
 
     describe('embedMaterialUnifiedService - 音频成功嵌入', () => {
-        it('音频材料有 summary 时成功嵌入', async () => {
+        it('音频材料有 result 时成功嵌入（T2：从 result JSON 现拼）', async () => {
             ;(prisma.caseMaterials.findFirst as any).mockResolvedValue({
                 id: 1,
                 type: 4,
@@ -290,7 +290,8 @@ describe('材料向量化服务 - 补充覆盖率', () => {
                 name: '录音.mp3',
             })
             ;(prisma.asrRecords.findFirst as any).mockResolvedValue({
-                summary: '音频转录内容摘要',
+                result: { transcripts: [{ sentences: [{ text: '音频转录文本', begin_time: 0, end_time: 1000, speaker_id: 0 }] }] },
+                speakers: null,
             })
             ;(prisma.asrRecords.updateMany as any).mockResolvedValue({ count: 1 })
             mockPoolQuery.mockResolvedValue({ rowCount: 0 })

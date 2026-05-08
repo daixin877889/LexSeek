@@ -228,3 +228,149 @@ describe('repairRuntimeMessages 运行时 BaseMessage 修复', () => {
         expect(patched).toEqual([])
     })
 })
+
+// ────────────────────────────────────────────────────────────────
+// thinking + tool_use 混合 content 场景（@langchain/anthropic 1.x streaming bug）
+// 现象：AIMessageChunk 顶层 tool_calls=[] 但 content 数组里有 {type:'tool_use'} 块
+// 不修就会让 anthropic 兼容协议报 messages.N: tool_use without tool_result
+// ────────────────────────────────────────────────────────────────
+
+function aiMsgWithContentToolUse(
+    blocks: Array<{ type: 'thinking', thinking: string } | { type: 'tool_use', id: string, name?: string, input?: unknown }>,
+    cls: 'AIMessage' | 'AIMessageChunk' = 'AIMessageChunk',
+    extraToolCalls: Array<{ id: string; name?: string }> = [],
+): SerializedMessage {
+    return {
+        lc: 1,
+        type: 'constructor',
+        id: ['langchain_core', 'messages', cls],
+        kwargs: {
+            content: blocks,
+            tool_calls: extraToolCalls.map(tc => ({ id: tc.id, name: tc.name ?? 'test_tool', args: {}, type: 'tool_call' })),
+        },
+    }
+}
+
+describe('repairSerializedMessages 兼容 content 数组里的 tool_use 块', () => {
+    it('AIMessageChunk content 含 tool_use 但 tool_calls=[] 时仍检测为 orphan', () => {
+        const messages: SerializedMessage[] = [
+            humanMsg('起草起诉状'),
+            aiMsgWithContentToolUse(
+                [
+                    { type: 'thinking', thinking: '思考中...' },
+                    { type: 'tool_use', id: 'call_00_chunk', name: 'save_document_draft', input: { templateId: 1 } },
+                ],
+                'AIMessageChunk',
+                [], // 顶层 tool_calls 缺失，模拟 @langchain/anthropic streaming reduce 漏同步
+            ),
+            humanMsg('卡住了？'),
+        ]
+        const { patched, count } = repairSerializedMessages(messages, '上一轮工具调用未产生 tool_result')
+        expect(count).toBe(1)
+        expect(patched).toHaveLength(4)
+        expect(patched[2]!.id[2]).toBe('ToolMessage')
+        expect(patched[2]!.kwargs.tool_call_id).toBe('call_00_chunk')
+        expect(patched[2]!.kwargs.name).toBe('save_document_draft')
+        expect(patched[2]!.kwargs.status).toBe('error')
+    })
+
+    it('content 同时存在 thinking + tool_use + text 块时仅 tool_use 被认作 orphan', () => {
+        const messages: SerializedMessage[] = [
+            aiMsgWithContentToolUse(
+                [
+                    { type: 'thinking', thinking: '...' },
+                    { type: 'tool_use', id: 'call_a', name: 'tool_a' },
+                ],
+                'AIMessageChunk',
+            ),
+            humanMsg('继续'),
+        ]
+        const { patched, count } = repairSerializedMessages(messages, '中断')
+        expect(count).toBe(1)
+        expect(patched[1]!.id[2]).toBe('ToolMessage')
+        expect(patched[1]!.kwargs.tool_call_id).toBe('call_a')
+    })
+
+    it('top-level tool_calls 与 content tool_use 都存在时按 id 去重不重复补', () => {
+        // tool_calls 字段有 call_x，content 数组也有同 id 的 tool_use → 视为同一调用
+        const messages: SerializedMessage[] = [
+            aiMsgWithContentToolUse(
+                [{ type: 'tool_use', id: 'call_x', name: 'tool_x' }],
+                'AIMessageChunk',
+                [{ id: 'call_x', name: 'tool_x' }],
+            ),
+            humanMsg('继续'),
+        ]
+        const { patched, count } = repairSerializedMessages(messages, '中断')
+        expect(count).toBe(1) // 仅一条 orphan，不重复
+        // 末尾插入位置在 AIMessageChunk(idx=0) 后、HumanMessage(idx=1) 前
+        expect(patched[1]!.id[2]).toBe('ToolMessage')
+        expect(patched[1]!.kwargs.tool_call_id).toBe('call_x')
+    })
+
+    it('content 中多条 tool_use 块全部 orphan 时全部补齐', () => {
+        const messages: SerializedMessage[] = [
+            aiMsgWithContentToolUse(
+                [
+                    { type: 'tool_use', id: 'call_p', name: 'tool_p' },
+                    { type: 'tool_use', id: 'call_q', name: 'tool_q' },
+                ],
+                'AIMessageChunk',
+            ),
+            humanMsg('继续'),
+        ]
+        const { patched, count } = repairSerializedMessages(messages, '中断')
+        expect(count).toBe(2)
+        const ids = new Set([patched[1]!.kwargs.tool_call_id, patched[2]!.kwargs.tool_call_id])
+        expect(ids).toEqual(new Set(['call_p', 'call_q']))
+    })
+})
+
+describe('repairRuntimeMessages 兼容 content 数组里的 tool_use 块', () => {
+    it('AIMessageChunk content 含 tool_use 但 tool_calls=[] 时仍检测为 orphan', () => {
+        const ai = new AIMessageChunk({
+            content: [
+                { type: 'thinking', thinking: '思考中...' } as any,
+                { type: 'tool_use', id: 'call_00_runtime', name: 'save_document_draft', input: { templateId: 1 } } as any,
+            ],
+            tool_calls: [],
+        })
+        const messages = [
+            new HumanMessage('起草起诉状'),
+            ai,
+            new HumanMessage('卡住了？'),
+        ]
+        const { patched, fixed } = repairRuntimeMessages(messages, '上一轮工具调用未产生 tool_result')
+        expect(fixed).toBe(1)
+        expect(patched).toHaveLength(4)
+        const injected = patched[2] as ToolMessage
+        expect(injected).toBeInstanceOf(ToolMessage)
+        expect(injected.tool_call_id).toBe('call_00_runtime')
+        expect(injected.name).toBe('save_document_draft')
+        expect(String(injected.content)).toContain('工具执行被中断')
+    })
+
+    it('AIMessage 同样支持 content tool_use 块兜底', () => {
+        const ai = new AIMessage({
+            content: [
+                { type: 'tool_use', id: 'call_msg', name: 'foo', input: {} } as any,
+            ],
+            tool_calls: [],
+        })
+        const { fixed } = repairRuntimeMessages([ai, new HumanMessage('继续')], '中断')
+        expect(fixed).toBe(1)
+    })
+
+    it('top-level tool_calls 与 content tool_use 同 id 时去重不重复补', () => {
+        const ai = new AIMessageChunk({
+            content: [
+                { type: 'tool_use', id: 'call_dup', name: 'tool_d', input: {} } as any,
+            ],
+            tool_calls: [{ id: 'call_dup', name: 'tool_d', args: {} }],
+        })
+        const { patched, fixed } = repairRuntimeMessages([ai, new HumanMessage('继续')], '中断')
+        expect(fixed).toBe(1)
+        expect(patched).toHaveLength(3)
+        expect((patched[1] as ToolMessage).tool_call_id).toBe('call_dup')
+    })
+})

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  buildAttachmentsPayload,
   enqueueAction,
   removeAction,
   clearAction,
@@ -82,6 +83,75 @@ describe('chatQueueActions / clearAction', () => {
     const next = clearAction(before, 'sess-a')
     expect(next.get('sess-a')).toEqual([])
     expect(next.get('sess-b')).toHaveLength(1)
+  })
+})
+
+describe('chatQueueActions / buildAttachmentsPayload', () => {
+  function makeFile(over: Partial<{ id: number; fileName: string; fileType: string; fileSize: number; encrypted: boolean }> = {}) {
+    return {
+      id: 101,
+      fileName: 'a.pdf',
+      fileType: 'application/pdf',
+      fileSize: 1024,
+      encrypted: false,
+      source: 1,
+      sourceName: '案件分析',
+      status: 1,
+      statusName: '正常',
+      createdAt: '2026-04-01T00:00:00Z',
+      ...over,
+    }
+  }
+
+  it('无 files 时返回原始 trim 文本，无 additionalKwargs', () => {
+    const result = buildAttachmentsPayload('  你好  ', undefined)
+    expect(result.content).toBe('你好')
+    expect(result.additionalKwargs).toBeUndefined()
+  })
+
+  it('files 为空数组也视作无附件', () => {
+    const result = buildAttachmentsPayload('hi', [])
+    expect(result.content).toBe('hi')
+    expect(result.additionalKwargs).toBeUndefined()
+  })
+
+  it('附件 + 文本：sentinel 在前文本在后', () => {
+    const result = buildAttachmentsPayload('请分析', [makeFile() as any])
+    expect(result.content.startsWith('__ATTACHMENTS__\n')).toBe(true)
+    expect(result.content.endsWith('请分析')).toBe(true)
+    expect(result.additionalKwargs?.attachments).toHaveLength(1)
+    expect(result.additionalKwargs?.attachments?.[0]).toMatchObject({
+      id: 101,
+      fileName: 'a.pdf',
+      fileType: 'application/pdf',
+      fileSize: 1024,
+      encrypted: false,
+    })
+  })
+
+  it('附件 + 空文本：sentinel 单独构成 content', () => {
+    const result = buildAttachmentsPayload('', [makeFile() as any])
+    expect(result.content.startsWith('__ATTACHMENTS__\n')).toBe(true)
+    expect(result.content).not.toMatch(/\n\n.+$/)
+  })
+
+  it('多附件 attachments 数组保序', () => {
+    const files = [
+      makeFile({ id: 1, fileName: 'a.pdf' }),
+      makeFile({ id: 2, fileName: 'b.png' }),
+      makeFile({ id: 3, fileName: 'c.mp3' }),
+    ] as any[]
+    const result = buildAttachmentsPayload('多文件', files)
+    expect(result.additionalKwargs?.attachments).toHaveLength(3)
+    expect(result.additionalKwargs?.attachments?.map((f: any) => f.id)).toEqual([1, 2, 3])
+  })
+
+  it('attachments payload 仅保留 5 个轻量字段，不携带 OssFileItem 其他字段', () => {
+    const result = buildAttachmentsPayload('', [makeFile({ id: 99 }) as any])
+    const att = result.additionalKwargs?.attachments?.[0]
+    expect(Object.keys(att ?? {}).sort()).toEqual(
+      ['encrypted', 'fileName', 'fileSize', 'fileType', 'id'].sort(),
+    )
   })
 })
 

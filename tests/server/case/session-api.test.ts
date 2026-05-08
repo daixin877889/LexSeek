@@ -54,14 +54,14 @@ function makeEvent(auth?: { user: { id: number } }) {
 // ============================================================
 // 1. GET xiaosuo-sessions
 // ============================================================
-describe('GET /api/v1/case/analysis/xiaosuo-sessions', () => {
+describe('GET /api/v1/cases/analysis/xiaosuo-sessions', () => {
     let handler: Function
 
     beforeEach(async () => {
         vi.resetAllMocks()
         vi.stubGlobal('resSuccess', vi.fn((event: any, message: string, data: any) => ({ success: true, message, data })))
         vi.stubGlobal('resError', vi.fn((event: any, code: number, message: string) => ({ success: false, code, message })))
-        handler = (await import('../../../server/api/v1/case/analysis/xiaosuo-sessions.get')).default
+        handler = (await import('../../../server/api/v1/cases/analysis/xiaosuo-sessions.get')).default
     })
 
     it('未登录时应返回 401', async () => {
@@ -154,14 +154,14 @@ describe('GET /api/v1/case/analysis/xiaosuo-sessions', () => {
 // ============================================================
 // 2. GET module-sessions
 // ============================================================
-describe('GET /api/v1/case/analysis/module-sessions', () => {
+describe('GET /api/v1/cases/analysis/module-sessions', () => {
     let handler: Function
 
     beforeEach(async () => {
         vi.resetAllMocks()
         vi.stubGlobal('resSuccess', vi.fn((event: any, message: string, data: any) => ({ success: true, message, data })))
         vi.stubGlobal('resError', vi.fn((event: any, code: number, message: string) => ({ success: false, code, message })))
-        handler = (await import('../../../server/api/v1/case/analysis/module-sessions.get')).default
+        handler = (await import('../../../server/api/v1/cases/analysis/module-sessions.get')).default
     })
 
     it('未登录时应返回 401', async () => {
@@ -254,14 +254,14 @@ describe('GET /api/v1/case/analysis/module-sessions', () => {
 // ============================================================
 // 3. POST xiaosuo-session
 // ============================================================
-describe('POST /api/v1/case/analysis/xiaosuo-session', () => {
+describe('POST /api/v1/cases/analysis/xiaosuo-session', () => {
     let handler: Function
 
     beforeEach(async () => {
         vi.resetAllMocks()
         vi.stubGlobal('resSuccess', vi.fn((event: any, message: string, data: any) => ({ success: true, message, data })))
         vi.stubGlobal('resError', vi.fn((event: any, code: number, message: string) => ({ success: false, code, message })))
-        handler = (await import('../../../server/api/v1/case/analysis/xiaosuo-session.post')).default
+        handler = (await import('../../../server/api/v1/cases/analysis/xiaosuo-session.post')).default
     })
 
     it('未登录时应返回 401', async () => {
@@ -341,7 +341,7 @@ describe('POST /api/v1/case/analysis/xiaosuo-session', () => {
 // ============================================================
 // 4. POST module-session
 // ============================================================
-describe('POST /api/v1/case/analysis/module-session', () => {
+describe('POST /api/v1/cases/analysis/module-session', () => {
     let handler: Function
 
     beforeEach(async () => {
@@ -350,7 +350,7 @@ describe('POST /api/v1/case/analysis/module-session', () => {
         vi.stubGlobal('resError', vi.fn((event: any, code: number, message: string) => ({ success: false, code, message })))
         // 设置 getNodeByNameService 全局 mock
         ;(global as any).getNodeByNameService = vi.fn()
-        handler = (await import('../../../server/api/v1/case/analysis/module-session.post')).default
+        handler = (await import('../../../server/api/v1/cases/analysis/module-session.post')).default
     })
 
     it('未登录时应返回 401', async () => {
@@ -449,14 +449,14 @@ describe('POST /api/v1/case/analysis/module-session', () => {
 // ============================================================
 // 5. DELETE module-session/[sessionId]
 // ============================================================
-describe('DELETE /api/v1/case/analysis/module-session/[sessionId]', () => {
+describe('DELETE /api/v1/cases/analysis/module-session/[sessionId]', () => {
     let handler: Function
 
     beforeEach(async () => {
         vi.resetAllMocks()
         vi.stubGlobal('resSuccess', vi.fn((event: any, message: string, data: any) => ({ success: true, message, data })))
         vi.stubGlobal('resError', vi.fn((event: any, code: number, message: string) => ({ success: false, code, message })))
-        handler = (await import('../../../server/api/v1/case/analysis/module-session/[sessionId].delete')).default
+        handler = (await import('../../../server/api/v1/cases/analysis/module-session/[sessionId].delete')).default
     })
 
     it('未登录时应返回 401', async () => {
@@ -530,14 +530,14 @@ describe('DELETE /api/v1/case/analysis/module-session/[sessionId]', () => {
 // ============================================================
 // 6. PATCH session/rename/[sessionId]
 // ============================================================
-describe('PATCH /api/v1/case/analysis/session/rename/[sessionId]', () => {
+describe('PATCH /api/v1/cases/analysis/session/rename/[sessionId]', () => {
     let handler: Function
 
     beforeEach(async () => {
         vi.resetAllMocks()
         vi.stubGlobal('resSuccess', vi.fn((event: any, message: string, data: any) => ({ success: true, message, data })))
         vi.stubGlobal('resError', vi.fn((event: any, code: number, message: string) => ({ success: false, code, message })))
-        handler = (await import('../../../server/api/v1/case/analysis/session/rename/[sessionId].patch')).default
+        handler = (await import('../../../server/api/v1/cases/analysis/session/rename/[sessionId].patch')).default
     })
 
     it('未登录时应返回 401', async () => {

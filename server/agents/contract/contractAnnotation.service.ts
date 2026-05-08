@@ -93,7 +93,7 @@ export async function softDeleteAnnotationService(params: {
  *  - annotation 未软删（deletedAt 为 null）
  *  - annotation 未被客户标记 suppressInExport=true（spec §12.6）
  *  - 关联 risk 必须存在
- *  - risk.anchorParagraphIndex 必须有值（孤立批注无法注入）
+ *  - risk.clauseParagraphIndex 必须有值（孤立批注无法注入）
  *  - risk.orphaned 不能为 true（客户改稿后锚点已失效）
  *
  * 调用方：rebuild service / reviewResultPersistence middleware /
@@ -104,7 +104,7 @@ export interface ExportableAnnotationLike {
     suppressInExport?: boolean
 }
 export interface ExportableRiskLike {
-    anchorParagraphIndex?: number | null
+    clauseParagraphIndex?: number | null
     orphaned?: boolean | null
 }
 export function isAnnotationExportable(
@@ -114,7 +114,7 @@ export function isAnnotationExportable(
     if (annotation.deletedAt) return false
     if (annotation.suppressInExport) return false
     if (!risk) return false
-    if (risk.anchorParagraphIndex === null || risk.anchorParagraphIndex === undefined) return false
+    if (risk.clauseParagraphIndex === null || risk.clauseParagraphIndex === undefined) return false
     if (risk.orphaned === true) return false
     return true
 }
@@ -129,7 +129,7 @@ export function filterExportableDbAnnotations<
     T extends ExportableAnnotationLike & {
         id: number
         riskId: number
-        risk: ExportableRiskLike & { anchorParagraphIndex?: number | null; orphaned?: boolean | null }
+        risk: ExportableRiskLike & { clauseParagraphIndex?: number | null; orphaned?: boolean | null }
     },
 >(annotations: T[], reviewId: number): T[] {
     return annotations.filter(a => {
@@ -137,7 +137,7 @@ export function filterExportableDbAnnotations<
         if (!ok) {
             logger.warn('[contract export] 跳过不可导出的批注（孤立 / suppressed / 软删）', {
                 reviewId, annotationId: a.id, riskId: a.riskId,
-                anchorParagraphIndex: a.risk.anchorParagraphIndex,
+                clauseParagraphIndex: a.risk.clauseParagraphIndex,
                 orphaned: a.risk.orphaned,
             })
         }

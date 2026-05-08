@@ -1,6 +1,6 @@
 import { toast } from 'vue-sonner'
 import type { Ref } from 'vue'
-import type { DownloadResponse } from '#shared/types/contract'
+import type { ContractExportMode, DownloadResponse } from '#shared/types/contract'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { triggerBrowserDownloadBlob, triggerBrowserDownloadUrl } from '~/utils/browserDownload'
 
@@ -55,13 +55,11 @@ export function useContractReviewExport(reviewId: Ref<number | null>) {
      * "{合同名}_v{N}_{日期}.docx"）。走 Blob 后文件名由前端 `<a download>`
      * 强绑定，100% 对齐 spec。fetch 失败再回退到 URL 直链。
      */
-    async function onDownload() {
+    async function onDownload(mode: ContractExportMode = 'comment') {
         if (!reviewId.value) return
 
-        const result = await useApiFetch<DownloadResponse>(
-            `/api/v1/assistant/contract/reviews/download/${reviewId.value}`,
-            { showError: false },
-        )
+        const url = `/api/v1/assistant/contract/reviews/download/${reviewId.value}?mode=${mode}`
+        const result = await useApiFetch<DownloadResponse>(url, { showError: false })
         if (!result?.downloadUrl) {
             toast.error('下载失败，请稍后重试')
             return

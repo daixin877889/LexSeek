@@ -1,5 +1,6 @@
 ---
 name: anjian-gaiyao
+title: 生成案件概要
 description: |
   法律案件概要整理方法。当用户需要将案情材料整理为结构化案件概要时使用。
   典型场景：律师整理案件材料、法官梳理案情、法律工作者撰写案情摘要。
@@ -21,7 +22,7 @@ description: |
 ## 关键要点
 
 ### 一、概要结构
-详见 [references/gainyao-jiegou.md](./references/gainyao-jiegou.md)
+详见 [references/概要结构.md](./references/概要结构.md)
 
 标准概要包含以下部分（按需呈现）：
 - 案件基本信息
@@ -32,7 +33,7 @@ description: |
 - 法律条款（仅判决书）
 
 ### 二、事实整理
-详见 [references/shishizhengli.md](./references/shishizhengli.md)
+详见 [references/事实整理.md](./references/事实整理.md)
 
 采用简要叙述格式，而非详细时间线（详细时间线由大事记模块处理）：
 - 以一段话简要叙述案件事实
@@ -40,7 +41,7 @@ description: |
 - 篇幅控制在200-400字
 
 ### 三、判决书处理
-详见 [references/panjueshu-chuli.md](./references/panjueshu-chuli.md)
+详见 [references/判决书处理.md](./references/判决书处理.md)
 
 识别判决书的方法：
 - 文书名称判断
@@ -54,7 +55,7 @@ description: |
 - 不调用法条检索工具（全文检索由请求权基础模块负责）
 
 ### 四、争议焦点提取
-详见 [references/zhengyi-jiaodian.md](./references/zhengyi-jiaodian.md)
+详见 [references/争议焦点.md](./references/争议焦点.md)
 
 争议焦点的四个方面：
 - 证据方面：证据资格、非法证据、举证责任
@@ -71,7 +72,7 @@ description: |
 - 检验是否超出审理范围
 
 ### 五、概念锁定
-详见 [references/gainian-suoding.md](./references/gainian-suoding.md)
+详见 [references/概念锁定.md](./references/概念锁定.md)
 
 处理抽象概念的核心规则：
 - 保持概念原貌

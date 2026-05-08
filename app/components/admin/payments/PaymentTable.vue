@@ -34,16 +34,17 @@
 </template>
 
 <script setup lang="ts">
-import dayjs from 'dayjs'
 import {
     PaymentStatusVariant, PaymentStatusText,
     PaymentChannelText, PaymentMethodText,
 } from '#shared/types/payment'
 import StatusBadge from '~/components/admin/shared/StatusBadge.vue'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '~/components/ui/table'
+import { useFormatters } from '~/composables/useFormatters'
 
 defineProps<{ payments: any[] }>()
 const emit = defineEmits<{ open: [payment: any] }>()
 
-function formatDate(d: Date | string) { return dayjs(d).format('YYYY-MM-DD HH:mm') }
+const { formatDate: formatDateRaw } = useFormatters()
+function formatDate(d: Date | string) { return formatDateRaw(String(d)) }
 </script>

@@ -97,7 +97,6 @@
 
 <script setup lang="ts">
 import { Loader2, ArrowUpRight } from 'lucide-vue-next'
-import dayjs from 'dayjs'
 import {
     PaymentStatusVariant, PaymentStatusText,
     PaymentChannelText, PaymentMethodText,
@@ -106,6 +105,12 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '
 import StatusBadge from '~/components/admin/shared/StatusBadge.vue'
 import OrderAdminRemarkEditor from '~/components/admin/orders/OrderAdminRemarkEditor.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { useFormatters } from '~/composables/useFormatters'
+
+const { formatDate: formatDateRaw } = useFormatters()
+function formatDate(d: Date | string | null | undefined) {
+    return formatDateRaw(d ? String(d) : null, 'YYYY-MM-DD HH:mm:ss')
+}
 
 const open = ref(false)
 const detail = ref<any | null>(null)
@@ -130,10 +135,6 @@ async function loadDetail(id?: number) {
     if (!paymentId) return
     const data = await useApiFetch<any>(`/api/v1/admin/payments/${paymentId}`)
     if (data) detail.value = data
-}
-
-function formatDate(d: Date | string | null | undefined) {
-    return d ? dayjs(d).format('YYYY-MM-DD HH:mm:ss') : '-'
 }
 
 function actionText(action: string) { return ACTION_TEXT[action] ?? action }

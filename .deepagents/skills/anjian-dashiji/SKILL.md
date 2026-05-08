@@ -1,5 +1,6 @@
 ---
 name: anjian-dashiji
+title: 提取案件大事记
 description: |
   案件大事记整理方法论。当用户需要从案情材料中提取时间线、整理事件脉络、生成案件大事记时使用。
   典型场景：律师梳理案件事实、法官整理案件经过、法律工作者制作案件时间线。
@@ -21,7 +22,7 @@ description: |
 ## 关键要点
 
 ### 一、时间提取
-详见 [references/shijian-tiqu.md](./references/shijian-tiqu.md)
+详见 [references/时间提取.md](./references/时间提取.md)
 
 - 明确时间：提取具体日期，统一格式
 - 模糊时间：识别时间段、相对时间表述
@@ -29,7 +30,7 @@ description: |
 - 时间缺失：标注"时间未知"
 
 ### 二、事件分类
-详见 [references/shijian-fenlei.md](./references/shijian-fenlei.md)
+详见 [references/事件分类.md](./references/事件分类.md)
 
 - 法律行为：签约、履约、违约等
 - 法律事件：不可抗力、意外事故等
@@ -37,21 +38,21 @@ description: |
 - 沟通事件：通知、催告、协商等
 
 ### 三、内容提炼
-详见 [references/neirong-tilian.md](./references/neirong-tilian.md)
+详见 [references/内容提炼.md](./references/内容提炼.md)
 
 - 要素提取：主体、行为、对象、结果
 - 长度控制：精简扼要，突出关键
 - 表述规范：保持原文措辞，不做演绎
 
 ### 四、排序逻辑
-详见 [references/paixu-luoji.md](./references/paixu-luoji.md)
+详见 [references/排序逻辑.md](./references/排序逻辑.md)
 
 - 时间排序：从早到晚
 - 同日处理：按时序或重要性
 - 时间未知：置于末尾
 
 ### 五、完整性检查
-详见 [references/shijian-tiqu.md](./references/shijian-tiqu.md) 中的"时间节点类型清单"
+详见 [references/时间提取.md](./references/时间提取.md) 中的"时间节点类型清单"
 
 - 类型遍历：按合同类/侵权类/物权类/程序类逐一检查
 - 因果验证：检查因果链各环节是否都有时间

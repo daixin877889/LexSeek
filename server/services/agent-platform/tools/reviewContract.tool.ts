@@ -33,8 +33,13 @@ import { randomUUID } from 'node:crypto'
 import type { ToolContext, ToolDefinition } from './types'
 import type { Stance } from '#shared/types/contract'
 import { SSECustomEventType } from '#shared/types/agentEvent'
+import type { ContractReviewEvent } from '#shared/types/contract'
 import { publishCustomEvent } from '~~/server/services/agent/agentEventBridge'
+import type { CustomEventEmitter } from '~~/server/services/agent-platform/sse/customEventEmitter'
 import { runAndDrainStream } from '~~/server/services/agent-platform/subAgent/runAndDrain'
+import { buildSubAgentCallbacks } from '~~/server/services/agent-platform/subAgent/buildSubAgentCallbacks'
+import { publishSubAgentStatus } from '~~/server/services/agent-platform/subAgent/publishSubAgentStatus'
+import type { Prisma } from '~~/generated/prisma/client'
 
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
@@ -64,6 +69,141 @@ interface StanceSelectResumeValue {
     stance: Stance
     partyA?: string
     partyB?: string
+}
+
+/**
+ * stage 名 -> 用户可读的中文工具名（CoT 卡显示用）。
+ */
+const STAGE_TOOL_NAMES: Record<string, string> = {
+    segment: '切分合同条款',
+    detect: '识别甲乙方',
+    stance: '确认审查立场',
+    analyze: '逐条分析',
+    summarize: '生成审查摘要',
+}
+
+/**
+ * 构造 stage->CoT 适配器：把 contractReviewMain 发出的 ContractReviewEvent
+ * 转换为 SUB_AGENT_TOOL_* / SUB_AGENT_TOKEN 协议事件。
+ */
+function makeStageToCoTAdapter(opts: {
+    mainRunId: string
+    sessionId: string
+    parentToolCallId: string
+    subThreadId: string
+}, cotAccumulator: Record<string, unknown>[]): CustomEventEmitter {
+    const { mainRunId, sessionId, parentToolCallId, subThreadId } = opts
+    const meta = { agentName: 'contractReviewMain', threadId: subThreadId, parentToolCallId }
+    const PROGRESS_MSG_ID = 'cr-analyze-progress'
+    const stageId = (stage: string) => `cr-${stage}`
+
+    return async (envelope) => {
+        // 仅处理 contract_review 事件
+        if (envelope.name !== SSECustomEventType.CONTRACT_REVIEW) return
+        const evt = envelope.data as ContractReviewEvent
+
+        if (evt.type === 'stage') {
+            const innerToolCallId = stageId(evt.stage)
+            if (evt.status === 'running') {
+                // Task 12: 累积到 cotAccumulator
+                cotAccumulator.push({
+                    type: 'ai',
+                    id: innerToolCallId,
+                    content: '',
+                    tool_calls: [{ id: innerToolCallId, name: STAGE_TOOL_NAMES[evt.stage] ?? evt.stage, args: {} }],
+                })
+                await publishCustomEvent({
+                    type: 'custom_event',
+                    runId: mainRunId,
+                    sessionId,
+                    name: SSECustomEventType.SUB_AGENT_TOOL_START,
+                    data: {
+                        innerToolCallId,
+                        input: '',
+                        cbRunId: innerToolCallId,
+                        toolName: STAGE_TOOL_NAMES[evt.stage] ?? evt.stage,
+                    },
+                    metadata: meta,
+                }).catch((e: unknown) => {
+                    if (typeof logger !== 'undefined') logger.warn('stage->CoT publish START failed', { e })
+                })
+            } else {
+                // status === 'done'
+                const output: Record<string, unknown> = {}
+                if ('totalClauses' in evt && evt.totalClauses !== undefined) output.totalClauses = evt.totalClauses
+                if ('partyA' in evt && evt.partyA !== undefined) output.partyA = evt.partyA
+                if ('partyB' in evt && evt.partyB !== undefined) output.partyB = evt.partyB
+                if ('contractType' in evt && evt.contractType !== undefined) output.contractType = evt.contractType
+                if ('warnings' in evt && evt.warnings) output.warnings = evt.warnings
+                // Task 12: 累积到 cotAccumulator
+                cotAccumulator.push({
+                    type: 'tool',
+                    tool_call_id: innerToolCallId,
+                    content: JSON.stringify(output),
+                })
+                await publishCustomEvent({
+                    type: 'custom_event',
+                    runId: mainRunId,
+                    sessionId,
+                    name: SSECustomEventType.SUB_AGENT_TOOL_END,
+                    data: {
+                        cbRunId: innerToolCallId,
+                        output: JSON.stringify(output),
+                    },
+                    metadata: meta,
+                }).catch((e: unknown) => {
+                    if (typeof logger !== 'undefined') logger.warn('stage->CoT publish END failed', { e })
+                })
+            }
+        } else if (evt.type === 'progress') {
+            const note = evt.error ? ` 失败: ${evt.error}` : ''
+            // Task 12: 累积到 cotAccumulator
+            const existingProgressAI = cotAccumulator.find(m => (m as any).id === PROGRESS_MSG_ID && (m as any).type === 'ai')
+            let progressAI: any
+            if (existingProgressAI) {
+                progressAI = existingProgressAI
+            } else {
+                progressAI = { type: 'ai', id: PROGRESS_MSG_ID, content: '', tool_calls: [] }
+                cotAccumulator.push(progressAI)
+            }
+            progressAI.content += `[${evt.current}/${evt.total}]${note} `
+            await publishCustomEvent({
+                type: 'custom_event',
+                runId: mainRunId,
+                sessionId,
+                name: SSECustomEventType.SUB_AGENT_TOKEN,
+                data: undefined,
+                metadata: { ...meta, messageId: PROGRESS_MSG_ID, delta: `[${evt.current}/${evt.total}]${note} ` },
+            }).catch((e: unknown) => {
+                if (typeof logger !== 'undefined') logger.warn('stage->CoT publish progress failed', { e })
+            })
+        } else if (evt.type === 'risk') {
+            const r = evt.risk
+            const lvl = r.level ?? 'medium'
+            const desc = r.problem ?? r.category ?? '风险'
+            // Task 12: 累积到 cotAccumulator
+            const existingProgressAI = cotAccumulator.find(m => (m as any).id === PROGRESS_MSG_ID && (m as any).type === 'ai')
+            let progressAI: any
+            if (existingProgressAI) {
+                progressAI = existingProgressAI
+            } else {
+                progressAI = { type: 'ai', id: PROGRESS_MSG_ID, content: '', tool_calls: [] }
+                cotAccumulator.push(progressAI)
+            }
+            progressAI.content += `\n发现 ${lvl} 风险：${desc}`
+            await publishCustomEvent({
+                type: 'custom_event',
+                runId: mainRunId,
+                sessionId,
+                name: SSECustomEventType.SUB_AGENT_TOKEN,
+                data: undefined,
+                metadata: { ...meta, messageId: PROGRESS_MSG_ID, delta: `\n发现 ${lvl} 风险：${desc}` },
+            }).catch((e: unknown) => {
+                if (typeof logger !== 'undefined') logger.warn('stage->CoT publish risk failed', { e })
+            })
+        }
+        // overview / 其他类型：不转发
+    }
 }
 
 export function createTool(context: ToolContext) {
@@ -190,81 +330,129 @@ export function createTool(context: ToolContext) {
             const { runContractReviewChat } = await import(
                 '~~/server/services/workflow/agents/contractReviewMainAgent'
             )
+            const callbacks = buildSubAgentCallbacks({
+                mainRunId: runId,
+                sessionId,
+                parentToolCallId: toolCallId,
+                agentName: 'contractReviewMain',
+                subThreadId: subSessionId,
+            })
+            // Task 12: cotMessages 累积器
+            const cotAccumulator: Record<string, unknown>[] = []
+            const stageEmitter = makeStageToCoTAdapter({
+                mainRunId: runId,
+                sessionId,
+                parentToolCallId: toolCallId,
+                subThreadId: subSessionId,
+            }, cotAccumulator)
             const stream = await runContractReviewChat(subSessionId, {
                 userId,
-                runId, // 用主 runId，让 stage/risk 事件流到主 SSE 通道（前端 ReviewContractCard 可订阅）
+                runId,
                 skipStanceInterrupt: true,
+                callbacks,
+                platformEmitCustomEvent: stageEmitter,
             })
-            const drainResult = await runAndDrainStream(stream)
-            if (!drainResult.success) {
-                throw new Error(`review_contract: 合同 Agent 执行失败 - ${drainResult.error ?? '未知错误'}`)
+
+            // Task 12: 用 try/finally 兜底写 cotMessages（drain 成功后累积器已有数据）
+            const subAgentMeta = {
+                agentName: 'contractReviewMain',
+                threadId: subSessionId,
+                parentToolCallId: toolCallId,
             }
-
-            // 7. 取 Top 3 风险 + 等级统计
-            const { listContractRisksDAO } = await import(
-                '~~/server/agents/contract/contractRisk.dao'
-            )
-            const risks = await listContractRisksDAO(review.id)
-            const levelCount: Record<string, number> = { high: 0, medium: 0, low: 0 }
-            for (const r of risks) {
-                const lvl = (r.level ?? 'low').toLowerCase()
-                if (lvl in levelCount) levelCount[lvl] = (levelCount[lvl] ?? 0) + 1
-            }
-
-            // 等级排序：high > medium > low；同等级按 createdAt asc
-            const levelOrder: Record<string, number> = { high: 0, medium: 1, low: 2 }
-            const sortedRisks = [...risks].sort((a, b) => {
-                const la = levelOrder[(a.level ?? 'low').toLowerCase()] ?? 9
-                const lb = levelOrder[(b.level ?? 'low').toLowerCase()] ?? 9
-                if (la !== lb) return la - lb
-                return new Date(a.createdAt as any).getTime() - new Date(b.createdAt as any).getTime()
-            })
-            // 给前端 ReviewContractCard 渲染的"Top 3 风险"摘要：
-            // title 优先用 problem（结论性短句），否则回落到 category（分类标签）
-            const topRisks = sortedRisks.slice(0, 3).map(r => ({
-                title: r.problem || r.category || '风险',
-                level: (r.level ?? 'low') as 'high' | 'medium' | 'low',
-            }))
-
-            // from 参数：caseId 非空 = 小索路径（caseMain），caseId 为空 = 法律助手路径（assistantMain）
-            // 来源条按此分支决定返回入口与右侧关联状态显示（决策 D2/D3，参见 plan 阶段 6）
-            const fromParam = caseId ? 'xiaosuo' : 'assistant'
-            const href = `/dashboard/contract/${review.id}`
-                + `?from=${fromParam}&sessionId=${encodeURIComponent(sessionId)}`
-                + (caseId ? `&caseId=${caseId}` : '')
-
-            // 8. publishCustomEvent CONTRACT_REVIEW_SAVED
             try {
-                await publishCustomEvent({
-                    type: 'custom_event',
+                const drainResult = await runAndDrainStream(stream)
+                if (!drainResult.success) {
+                    await publishSubAgentStatus({
+                        runId,
+                        sessionId,
+                        status: 'failed',
+                        error: drainResult.error,
+                        ...subAgentMeta,
+                    })
+                    throw new Error(`review_contract: 合同 Agent 执行失败 - ${drainResult.error ?? '未知错误'}`)
+                }
+                await publishSubAgentStatus({
                     runId,
                     sessionId,
-                    name: SSECustomEventType.CONTRACT_REVIEW_SAVED,
-                    data: {
-                        reviewId: review.id,
-                        riskCount: risks.length,
-                        topRisks,
-                        href,
-                    },
+                    status: 'completed',
+                    ...subAgentMeta,
                 })
-            } catch (err) {
-                logger.warn('review_contract: publishCustomEvent(CONTRACT_REVIEW_SAVED) 失败，仍返回结果', { err })
-            }
 
-            // 9. 返回 LLM
-            return JSON.stringify({
-                success: true,
-                reviewId: review.id,
-                fileName: ossFile.fileName,
-                stance,
-                partyA: finalPartyA,
-                partyB: finalPartyB,
-                contractType: contractType ?? null,
-                riskCount: risks.length,
-                levelCount,
-                topRisks,
-                href,
-            })
+                // 7. 取 Top 3 风险 + 等级统计
+                const { listContractRisksDAO } = await import(
+                    '~~/server/agents/contract/contractRisk.dao'
+                )
+                const risks = await listContractRisksDAO(review.id)
+                const levelCount: Record<string, number> = { high: 0, medium: 0, low: 0 }
+                for (const r of risks) {
+                    const lvl = (r.level ?? 'low').toLowerCase()
+                    if (lvl in levelCount) levelCount[lvl] = (levelCount[lvl] ?? 0) + 1
+                }
+
+                // 等级排序：high > medium > low；同等级按 createdAt asc
+                const levelOrder: Record<string, number> = { high: 0, medium: 1, low: 2 }
+                const sortedRisks = [...risks].sort((a, b) => {
+                    const la = levelOrder[(a.level ?? 'low').toLowerCase()] ?? 9
+                    const lb = levelOrder[(b.level ?? 'low').toLowerCase()] ?? 9
+                    if (la !== lb) return la - lb
+                    return new Date(a.createdAt as any).getTime() - new Date(b.createdAt as any).getTime()
+                })
+                // 给前端 ReviewContractCard 渲染的"Top 3 风险"摘要：
+                // title 优先用 problem（结论性短句），否则回落到 category（分类标签）
+                const topRisks = sortedRisks.slice(0, 3).map(r => ({
+                    title: r.problem || r.category || '风险',
+                    level: (r.level ?? 'low') as 'high' | 'medium' | 'low',
+                }))
+
+                // from 参数：caseId 非空 = 小索路径（caseMain），caseId 为空 = 法律助手路径（assistantMain）
+                // 来源条按此分支决定返回入口与右侧关联状态显示（决策 D2/D3，参见 plan 阶段 6）
+                const fromParam = caseId ? 'xiaosuo' : 'assistant'
+                const href = `/dashboard/contract/${review.id}`
+                    + `?from=${fromParam}&sessionId=${encodeURIComponent(sessionId)}`
+                    + (caseId ? `&caseId=${caseId}` : '')
+
+                // 8. publishCustomEvent CONTRACT_REVIEW_SAVED
+                try {
+                    await publishCustomEvent({
+                        type: 'custom_event',
+                        runId,
+                        sessionId,
+                        name: SSECustomEventType.CONTRACT_REVIEW_SAVED,
+                        data: {
+                            reviewId: review.id,
+                            riskCount: risks.length,
+                            topRisks,
+                            href,
+                        },
+                    })
+                } catch (err) {
+                    logger.warn('review_contract: publishCustomEvent(CONTRACT_REVIEW_SAVED) 失败，仍返回结果', { err })
+                }
+
+                // 9. 返回 LLM
+                return JSON.stringify({
+                    success: true,
+                    reviewId: review.id,
+                    fileName: ossFile.fileName,
+                    stance,
+                    partyA: finalPartyA,
+                    partyB: finalPartyB,
+                    contractType: contractType ?? null,
+                    riskCount: risks.length,
+                    levelCount,
+                    topRisks,
+                    href,
+                    subSessionId,  // contractReviewMain 子 thread_id（Task 7 loadSubAgentThreads 历史恢复用）
+                })
+            } finally {
+                if (cotAccumulator.length > 0) {
+                    await updateContractReviewDAO(review.id, {
+                        cotMessages: cotAccumulator as Prisma.InputJsonValue,
+                    }).catch((err: unknown) => {
+                        logger.warn('write cotMessages failed (best-effort)', { reviewId: review.id, err })
+                    })
+                }
+            }
         },
         {
             name: toolDefinition.name,

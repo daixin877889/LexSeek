@@ -82,11 +82,11 @@ import type { CaseStatus } from '#shared/types/case'
 
 ```
 # 正确：参数在末尾
-server/api/v1/case/analysis/runs/cancel/[runId].post.ts
-→ POST /api/v1/case/analysis/runs/cancel/:runId
+server/api/v1/cases/analysis/runs/cancel/[runId].post.ts
+→ POST /api/v1/cases/analysis/runs/cancel/:runId
 
 # 错误：参数在中间
-server/api/v1/case/analysis/runs/[runId]/cancel.post.ts
+server/api/v1/cases/analysis/runs/[runId]/cancel.post.ts
 → 不要这样写
 ```
 

@@ -46,7 +46,7 @@ export const NodeStatusLabels: Record<NodeStatus, string> = {
 }
 
 /** 提示词类型枚举值数组（单一来源） */
-export const PROMPT_TYPES = ['system', 'user', 'assistant'] as const
+export const PROMPT_TYPES = ['system', 'user', 'user_injection', 'assistant'] as const
 
 /** 提示词类型 */
 export type PromptType = typeof PROMPT_TYPES[number]
@@ -55,6 +55,7 @@ export type PromptType = typeof PROMPT_TYPES[number]
 export const PromptTypeLabels: Record<PromptType, string> = {
     system: '系统提示词',
     user: '用户提示词',
+    user_injection: '用户每轮注入',
     assistant: '助手提示词',
 }
 
@@ -100,6 +101,8 @@ export interface CreateNodeInput {
     groupId?: number | null
     status?: number
     outputSchema?: Record<string, unknown> | null
+    /** 是否启用思考模式 */
+    thinkingEnabled?: boolean
 }
 
 /** 更新节点输入类型 */
@@ -146,8 +149,85 @@ export interface NodeWithRelations extends Node {
         id: number
         name: string
         displayName: string
+        modelType?: string
+        supportsThinking?: boolean
     }
     prompts?: Prompt[]
+}
+
+/**
+ * 节点关联的提示词引用（多对多扁平视图）
+ *
+ * 用途：节点详情接口（GET /api/v1/admin/nodes/:id）返回的 `prompts` 字段元素类型；
+ * 也用于前端节点弹框 "提示词" tab 与提示词选择器组件之间的数据交换。
+ *
+ * 字段语义：
+ * - `displayOrder`：来自 `node_prompts.displayOrder`（同节点内拼接顺序，升序）
+ * - `referencedByCount`：来自 `_count.nodePrompts`（该 prompt 被多少个节点引用）
+ */
+export interface NodePromptRef {
+    id: number
+    name: string
+    title: string | null
+    type: string
+    status: number
+    version: string
+    displayOrder: number
+    referencedByCount: number
+}
+
+/**
+ * 节点关联的 Skill 引用（多对多扁平视图）
+ *
+ * 用途：节点详情接口（GET /api/v1/admin/nodes/:id）返回的 `skills` 字段元素类型，
+ * 用于详情页只读展示该节点挂载的 Skills（按 priority 升序）。
+ *
+ * 字段语义：
+ * - `name`：来自 `skills.name`（主键，文件系统 Skill 目录名）
+ * - `title` / `customTitle`：管理员可在后台为 Skill 自定义中文展示名
+ * - `description`：SKILL.md frontmatter 中的描述（触发场景）
+ * - `status`：1 启用 / 0 停用
+ * - `priority`：来自 `node_skills.priority`（同节点内 Skill 排序）
+ */
+export interface NodeSkillRef {
+    name: string
+    title: string | null
+    customTitle: string | null
+    description: string | null
+    status: number
+    priority: number
+}
+
+/**
+ * 节点配置中工具列表项的元信息
+ *
+ * 用途：节点详情接口（GET /api/v1/admin/nodes/:id）返回的 `toolDetails` 字段元素类型，
+ * 用于详情页显示每个挂载工具的名称 + 描述（升级前只有 name 一个 badge）。
+ *
+ * 字段语义：
+ * - `name`：工具唯一标识（与 `nodes.tools` JSON 列里存的字符串一致）
+ * - `description`：工具元信息中的描述；若工具已从注册表移除则为 null（仅返回 name）
+ */
+export interface NodeToolDetailRef {
+    name: string
+    description: string | null
+}
+
+/**
+ * GET /api/v1/admin/nodes/:id 返回体类型
+ *
+ * 基于 `NodeWithRelations`，把 `prompts` 字段替换为多对多扁平视图（`NodePromptRef[]`），
+ * 并补充 `skills` / `toolDetails` 两个只读视图字段（详情页用）：
+ *   - `skills`：节点挂载的 Skills（按 priority 升序）
+ *   - `toolDetails`：节点 `tools` JSON 列对应的工具元信息（含 description）
+ *
+ * 历史 `NodeWithRelations.prompts?: Prompt[]` 是直接从 `prompts.nodeId` 单值关系下取的快照，
+ * Phase 6 改造后不再使用；该接口由 `node_prompts` 关联表提供，每条带 `displayOrder` + 引用计数。
+ */
+export type NodeWithPromptsResponse = Omit<NodeWithRelations, 'prompts'> & {
+    prompts: NodePromptRef[]
+    skills: NodeSkillRef[]
+    toolDetails: NodeToolDetailRef[]
 }
 
 /** 节点分组详情（包含节点数量） */
@@ -205,13 +285,24 @@ export interface PromptListParams {
     orderDir?: 'asc' | 'desc'
 }
 
-/** 提示词详情（包含关联数据） */
+/**
+ * 提示词列表 / 详情返回体类型
+ *
+ * Phase 6 起 `prompts.nodeId` 字段已删，节点关联走 `node_prompts` 多对多表。
+ * - 列表接口（GET /api/v1/admin/prompts）：每条带 `referencedByCount`（被多少个节点引用）。
+ * - 详情接口（GET /api/v1/admin/prompts/:id）：额外带 `referencedByNodes`（节点引用列表，含
+ *   `displayOrder` 用于按节点装配顺序展示）。
+ */
 export interface PromptWithRelations extends Prompt {
-    node?: {
+    /** 被多少个节点引用（来自 _count.nodePrompts） */
+    referencedByCount?: number
+    /** 节点引用列表（仅详情接口返回） */
+    referencedByNodes?: Array<{
         id: number
         name: string
         title: string | null
-    }
+        displayOrder: number
+    }>
 }
 
 /** 变量渲染输入类型 */
@@ -228,4 +319,38 @@ export interface PreviewPromptInput {
     content: string
     /** 变量值映射 */
     variables: Record<string, string>
+}
+
+// ==================== 完整 prompt 预览相关类型 ====================
+
+/**
+ * 节点完整 prompt 预览中单条 user / assistant 消息项
+ *
+ * 用于「用户触发消息」「预设助手消息」两类列表式展示，
+ * 每条独立卡片，不做拼接（与 system / user_injection 多段拼接行为不同）。
+ */
+export interface NodePromptsPreviewItem {
+    /** 提示词唯一名称（数据库 prompts.name） */
+    name: string
+    /** 提示词显示标题（管理员自定义，可空） */
+    title: string | null
+    /** 已完成模板变量占位渲染的内容 */
+    content: string
+}
+
+/**
+ * 节点完整 prompt 预览返回结构（4 类分组动态展示）
+ *
+ * 后端按 type 分桶：
+ * - `system` / `userInjection`：多段按 displayOrder 升序 `'\n\n'` join，给出拼接结果 + 段数
+ * - `userItems` / `assistantItems`：列表式输出，按 displayOrder 升序，每项独立卡片
+ *
+ * 任意一类为空（无生效 prompt）时返回 null（system / userInjection）或 null（userItems / assistantItems），
+ * 前端按 v-if 动态渲染对应分段，不渲染空段。
+ */
+export interface NodePromptsPreview {
+    system: { content: string; count: number } | null
+    userInjection: { content: string; count: number } | null
+    userItems: NodePromptsPreviewItem[] | null
+    assistantItems: NodePromptsPreviewItem[] | null
 }

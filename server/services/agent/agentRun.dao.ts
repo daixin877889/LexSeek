@@ -55,6 +55,24 @@ export async function findActiveRunBySessionIdDAO(
 }
 
 /**
+ * 批量查询：哪些 sessionIds 当前有活跃 run（pending/running/interrupted）。
+ * 单次 SQL 替代列表场景下的 N 次 findFirst。
+ */
+export async function findSessionIdsWithActiveRunDAO(
+  sessionIds: string[]
+): Promise<Set<string>> {
+  if (sessionIds.length === 0) return new Set()
+  const runs = await prisma.agentRuns.findMany({
+    where: {
+      sessionId: { in: sessionIds },
+      status: { in: [AGENT_RUN_STATUS.PENDING, AGENT_RUN_STATUS.RUNNING, AGENT_RUN_STATUS.INTERRUPTED] },
+    },
+    select: { sessionId: true },
+  })
+  return new Set(runs.map(r => r.sessionId))
+}
+
+/**
  * 查找 session 的最新 run（不限状态，用于历史重放）
  */
 export async function findLatestRunBySessionIdDAO(

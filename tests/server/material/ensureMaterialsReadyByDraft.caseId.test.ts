@@ -17,15 +17,37 @@ import {
 import { v7 as uuidv7 } from 'uuid'
 
 // 同 Task 2：mock 识别流水线避免真跑
+// T7：waitMaterialsTerminalAndSummary 改为跨表查 summary 双就绪判定（无硬超时），
+// 不能让真实 wait 跑（会无限轮询）。下面 mock material.service 的
+// getMaterialSummariesByMaterials 让它认为所有材料都已有 summary → wait 立即退出
 vi.mock('~~/server/services/material/materialProcess.service', async (orig) => {
     const actual = await orig<any>()
     return {
         ...actual,
         processMaterialService: vi.fn(async (id: number) => {
             const prisma = getTestPrisma()
-            await prisma.caseMaterials.update({ where: { id }, data: { status: 3 } })
+            await prisma.caseMaterials.update({
+                where: { id },
+                data: { status: 3 },
+            })
         }),
         batchCheckMaterialRecognizedService: vi.fn(async () => new Map()),
+    }
+})
+
+// T7：mock material.service 的两个关键函数（generateMaterialSummary no-op + summaries 全 ready）
+vi.mock('~~/server/services/material/material.service', async (orig) => {
+    const actual = await orig<any>()
+    return {
+        ...actual,
+        // 跳过真实 LLM 调用
+        generateMaterialSummaryService: vi.fn(async () => undefined),
+        // 让 snapshot 看到 summary 已存在 → 状态 ready → wait 立即退出
+        getMaterialSummariesByMaterials: vi.fn(async (inputs: any[]) => {
+            const map = new Map<number, string>()
+            for (const m of inputs) map.set(m.id, 'mock-summary')
+            return map
+        }),
     }
 })
 

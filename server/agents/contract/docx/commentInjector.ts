@@ -39,9 +39,11 @@ import {
     appendChildToFirst,
     paragraphText,
     hasRunChild,
+    collectNonEmptyParagraphs,
     type Node,
     type NodeArray,
 } from './xmlAst'
+import type { RedlineWrapTarget } from './redlineInjector'
 
 const LEVEL_LABEL: Record<RiskLevel, string> = {
     high: '高风险',
@@ -134,36 +136,27 @@ function findParagraphIndexByQuote(
 }
 
 /**
- * 取 w:body 下的直接子 <w:p> 列表，过滤出"非空段落"。
- *
- * 注意：只看 body 的直接子段落，不递归进 w:tbl 里的单元格段落——这是历史
- * 行为，保持不变以免改变 anchorParagraphIndex 的语义。
- */
-function collectNonEmptyParagraphs(documentAst: NodeArray): Node[] {
-    const body = findFirst(documentAst, 'w:body')
-    if (!body) return []
-    const result: Node[] = []
-    for (const kid of childrenOf(body)) {
-        if (tagOf(kid) !== 'w:p') continue
-        if (!hasRunChild(kid)) continue
-        result.push(kid)
-    }
-    return result
-}
-
-/**
  * 在给定段落节点内插入 commentRangeStart/End/Reference。
  *
  * 同一段落可能承载多条 annotation（AI + 律师答复 + 客户评论），按原顺序
  * 把全部 rangeStart 塞在段首、全部 rangeEnd+reference 塞在段尾——一次性
  * 完成插入，避免"同段多次字符串替换互相覆盖"。
+ *
+ * PR6 §8.3.6：opts.wrapTarget 命中时，commentRangeStart 精确插到 w:del 之前，
+ * commentRangeEnd + commentReference 插到 w:ins 之后（或 w:del 之后，无 ins 时）。
+ * 这样律师悬停修订段就直接弹出气泡，而不是悬停整段。
  */
-function injectMarkersIntoParagraph(paraNode: Node, wIds: number[]): void {
+function injectMarkersIntoParagraph(
+    paraNode: Node,
+    wIds: number[],
+    opts?: { wrapTarget?: { delId: number, insId: number | null } },
+): void {
     const tag = tagOf(paraNode)
     if (!tag || tag !== 'w:p') return
     const kids = paraNode[tag] as NodeArray
     if (!Array.isArray(kids)) return
 
+    const wrapTarget = opts?.wrapTarget
     const starts = wIds.map(id => makeLeaf('w:commentRangeStart', { 'w:id': String(id) }))
     const ends = wIds.flatMap(id => [
         makeLeaf('w:commentRangeEnd', { 'w:id': String(id) }),
@@ -171,6 +164,23 @@ function injectMarkersIntoParagraph(paraNode: Node, wIds: number[]): void {
             makeLeaf('w:commentReference', { 'w:id': String(id) }),
         ]),
     ])
+
+    if (wrapTarget) {
+        // 精确包裹：找 w:del[w:id=delId] 节点位置插 commentRangeStart；找 w:ins[w:id=insId]
+        // （或 delId 节点本身，如 insId==null）位置后插 commentRangeEnd + commentReference run
+        const delIdx = kids.findIndex(k => tagOf(k) === 'w:del' && getAttr(k, 'w:id') === String(wrapTarget.delId))
+        if (delIdx >= 0) {
+            const insIdx = wrapTarget.insId !== null
+                ? kids.findIndex(k => tagOf(k) === 'w:ins' && getAttr(k, 'w:id') === String(wrapTarget.insId))
+                : delIdx
+            if (insIdx >= delIdx) {
+                kids.splice(insIdx + 1, 0, ...ends)
+                kids.splice(delIdx, 0, ...starts)
+                return
+            }
+        }
+        // 未找到目标节点 → 降级到段落级（不应发生但兜底防止 commentRange 丢失）
+    }
 
     // 在段落属性节点（pPr）之后、第一个内容节点之前插入 rangeStart；
     // 若没有 pPr，就插到开头。
@@ -306,6 +316,27 @@ export interface InjectAnnotationsResult {
     buffer: Buffer
     /** 每条 annotation 最终使用的 wordCommentRef（供调用方回写 DB） */
     refsByAnnotationId: Map<number, string>
+    /**
+     * 本次注入分配的 wId 末位 + 1（即"下一个可用 wId"）。
+     * 供 both 模式下 redlineInjector 协调时接力 commentInjector 共享 ID 池。
+     */
+    nextIdAfter: number
+}
+
+/**
+ * injectAnnotations 选项（PR6 §8.3.1 / §8.3.6）。
+ */
+export interface InjectAnnotationsOptions {
+    /** 起始 w:id；与 redlineInjector 共享 ID 池时由 nextIdAfter 接力 */
+    idStart?: number
+    /**
+     * spec §8.3.6：both 模式下按 riskId 把 commentRange 精确包到 redline 的
+     * <w:del>+<w:ins> 周围，让律师悬停修订段直接弹气泡。
+     * key=riskId（contractRisks.id），value=redlineInjector 返回的段落坐标。
+     * - 命中：在第一段 del 之前插 commentRangeStart，在最后段 ins（或 del）之后插 commentRangeEnd + commentReference run
+     * - 未命中：维持现状按 anchorParagraphIndex 在段落首/尾插 commentRange
+     */
+    wrapTargetByRiskId?: Map<number, RedlineWrapTarget>
 }
 
 /**
@@ -329,7 +360,11 @@ export async function injectAnnotations(
     docxBuffer: Buffer,
     annotations: ContractAnnotationForExport[],
     reviewId: number,
+    opts?: InjectAnnotationsOptions,
 ): Promise<InjectAnnotationsResult> {
+    const idStart = opts?.idStart ?? 0
+    const wrapTargetByRiskId = opts?.wrapTargetByRiskId ?? new Map<number, RedlineWrapTarget>()
+    const nextIdAfter = idStart + annotations.length
     const refsByAnnotationId = new Map<number, string>()
 
     if (annotations.length === 0) {
@@ -341,7 +376,7 @@ export async function injectAnnotations(
         zip.remove('word/customXml/_rels/annotationRefs.xml.rels')
         await ensureContentTypesRegistered(zip, { comments: false, customXml: false })
         await ensureDocumentRelsRegistered(zip, { comments: false, customXml: false })
-        return { buffer: await zipToBuffer(zip), refsByAnnotationId }
+        return { buffer: await zipToBuffer(zip), refsByAnnotationId, nextIdAfter }
     }
 
     for (const a of annotations) {
@@ -355,9 +390,9 @@ export async function injectAnnotations(
     // 段落归一化结果一次算清，下面"精确优先"和 fuzzy 都复用，省 N×M 次 normalize。
     const normalizedParas = nonEmpty.map(p => normalizeForMatch(paragraphText(p)))
 
-    // 按原顺序分配 Word 本地 w:id（0,1,2...）
+    // 按原顺序分配 Word 本地 w:id，从 idStart 起始
     const wordIdByAnnotationId = new Map<number, number>()
-    annotations.forEach((a, idx) => wordIdByAnnotationId.set(a.id, idx))
+    annotations.forEach((a, idx) => wordIdByAnnotationId.set(a.id, idStart + idx))
 
     // 解析每条 annotation 的最终段落索引（bug #20 修复后的顺序）：
     //   1. anchorParagraphIndex 合法 + 该段落本身包含 quote 片段 → 直接锁定（精确优先）
@@ -412,7 +447,7 @@ export async function injectAnnotations(
     }
 
     if (validAnnotations.length === 0) {
-        return { buffer: Buffer.from(docxBuffer), refsByAnnotationId }
+        return { buffer: Buffer.from(docxBuffer), refsByAnnotationId, nextIdAfter }
     }
 
     // 按段落分组注入 range markers
@@ -423,7 +458,25 @@ export async function injectAnnotations(
         const ids = byParaIdx.get(paraIdx)
         if (ids) ids.push(wId); else byParaIdx.set(paraIdx, [wId])
     }
+    // PR6 §8.3.6：预构反向索引 wId → annotation，O(1) 查 wrapTarget
+    const annByWId = new Map<number, ContractAnnotationForExport>(
+        validAnnotations.map(a => [wordIdByAnnotationId.get(a.id)!, a] as const),
+    )
     for (const [paraIdx, wIds] of byParaIdx) {
+        // v1 简化：单 wId + 命中 wrapTarget → 精确包裹；多 wId / 未命中 → 段落级兜底。
+        // 同段多 risk 的概率极低（每条 risk 各占一段为常态），简化分支不影响 spec §8.3.6
+        // 对常见场景的核心 UX。
+        if (wIds.length === 1) {
+            const onlyWId = wIds[0]!
+            const ann = annByWId.get(onlyWId)
+            const span = ann ? wrapTargetByRiskId.get(ann.riskId) : undefined
+            const segHere = span?.paragraphSpans.find(s => s.paraIdx === paraIdx)
+            if (segHere) {
+                injectMarkersIntoParagraph(nonEmpty[paraIdx]!, [onlyWId], { wrapTarget: segHere })
+                continue
+            }
+        }
+        // 段落级兜底：与现有 commentInjector 行为一致
         injectMarkersIntoParagraph(nonEmpty[paraIdx]!, wIds)
     }
     writeTextToZip(zip, 'word/document.xml', stringifyOoxml(documentAst))
@@ -447,7 +500,7 @@ export async function injectAnnotations(
     // 产物一致性自检（同段落多 comment 孤儿、AST round-trip 意外丢节点都会被抓到）
     await assertCommentIntegrity(zip, validAnnotations.length, annotations.length)
 
-    return { buffer: await zipToBuffer(zip), refsByAnnotationId }
+    return { buffer: await zipToBuffer(zip), refsByAnnotationId, nextIdAfter }
 }
 
 /**

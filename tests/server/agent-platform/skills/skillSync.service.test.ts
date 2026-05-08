@@ -1,11 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdir, writeFile, rm } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { resolve, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import {
     scanAndSyncSkillsService,
     parseSkillFrontmatterFromMarkdown,
 } from '~~/server/services/agent-platform/skills/skillSync.service'
+import { prisma } from '~~/server/utils/db'
 import { SkillSource, SkillStatus } from '#shared/types/skill'
 
 describe('parseSkillFrontmatterFromMarkdown', () => {
@@ -22,6 +24,36 @@ describe('parseSkillFrontmatterFromMarkdown', () => {
 
     it('完全无 frontmatter 时返回 null', () => {
         expect(parseSkillFrontmatterFromMarkdown('# Just markdown')).toBeNull()
+    })
+})
+
+describe('parseSkillFrontmatterFromMarkdown - title 字段', () => {
+    it('解析合法 string title', () => {
+        const md = `---\nname: foo\ntitle: 案件证据辩护\n---\n\n# body`
+        const fm = parseSkillFrontmatterFromMarkdown(md)
+        expect(fm).not.toBeNull()
+        expect(fm!.title).toBe('案件证据辩护')
+    })
+
+    it('title 为数字时返回 undefined（类型守卫）', () => {
+        const md = `---\nname: foo\ntitle: 123\n---\n\n# body`
+        const fm = parseSkillFrontmatterFromMarkdown(md)
+        expect(fm).not.toBeNull()
+        expect(fm!.title).toBeUndefined()
+    })
+
+    it('title 为数组时返回 undefined（类型守卫）', () => {
+        const md = `---\nname: foo\ntitle:\n  - a\n  - b\n---\n\n# body`
+        const fm = parseSkillFrontmatterFromMarkdown(md)
+        expect(fm).not.toBeNull()
+        expect(fm!.title).toBeUndefined()
+    })
+
+    it('frontmatter 没写 title 时为 undefined', () => {
+        const md = `---\nname: foo\n---\n\n# body`
+        const fm = parseSkillFrontmatterFromMarkdown(md)
+        expect(fm).not.toBeNull()
+        expect(fm!.title).toBeUndefined()
     })
 })
 
@@ -197,5 +229,112 @@ describe('scanAndSyncSkillsService', () => {
         const result = await scanAndSyncSkillsService(tempRoot)
         // stat 失败被吞，scanned 不含该项
         expect(result.scanned).not.toContain('broken_link')
+    })
+
+    it('skill 目录还在盘上但 SKILL.md 临时缺失时，不应被标记 DISABLED', async () => {
+        const skillName = `test_md_missing_${Date.now()}`
+        cleanupNames.push(skillName)
+
+        const skillDir = resolve(tempRoot, skillName)
+        await mkdir(skillDir, { recursive: true })
+        const skillMd = resolve(skillDir, 'SKILL.md')
+        await writeFile(skillMd, `---\nname: ${skillName}\n---\n\n# body\n`)
+
+        // 第一次扫描入库 ENABLED
+        await scanAndSyncSkillsService(tempRoot)
+
+        // 模拟"目录在、SKILL.md 临时丢失"
+        await rm(skillMd)
+
+        const result = await scanAndSyncSkillsService(tempRoot)
+        expect(result.scanned).not.toContain(skillName)
+        expect(result.disabled).not.toContain(skillName)
+
+        const found = await prisma.skills.findUnique({ where: { name: skillName } })
+        expect(found?.status).toBe(SkillStatus.ENABLED)
+    })
+
+    it('skill 目录还在盘上但 frontmatter 临时损坏时，不应被标记 DISABLED', async () => {
+        const skillName = `test_fm_broken_${Date.now()}`
+        cleanupNames.push(skillName)
+
+        const skillDir = resolve(tempRoot, skillName)
+        await mkdir(skillDir, { recursive: true })
+        const skillMd = resolve(skillDir, 'SKILL.md')
+        await writeFile(skillMd, `---\nname: ${skillName}\n---\n\n# body\n`)
+
+        // 第一次扫描入库 ENABLED
+        await scanAndSyncSkillsService(tempRoot)
+
+        // 模拟 frontmatter 临时损坏（缺 name）
+        await writeFile(skillMd, `---\ndescription: 临时坏掉\n---\n\nbody\n`)
+
+        const result = await scanAndSyncSkillsService(tempRoot)
+        expect(result.errors.some(e => e.name === skillName)).toBe(true)
+        expect(result.disabled).not.toContain(skillName)
+
+        const found = await prisma.skills.findUnique({ where: { name: skillName } })
+        expect(found?.status).toBe(SkillStatus.ENABLED)
+    })
+})
+
+describe('scanAndSyncSkillsService - title 兜底', () => {
+    let tmpRoot: string
+    const createdNames: string[] = []
+
+    afterEach(async () => {
+        if (tmpRoot) rmSync(tmpRoot, { recursive: true, force: true })
+        if (createdNames.length > 0) {
+            await prisma.skills.deleteMany({ where: { name: { in: createdNames } } })
+            createdNames.length = 0
+        }
+    })
+
+    it('SKILL.md 有 title 字段时入库 title=frontmatter.title', async () => {
+        tmpRoot = mkdtempSync(join(tmpdir(), 'skills-test-'))
+        const skillName = `t_skill_${Date.now()}_a`
+        createdNames.push(skillName)
+        const dir = join(tmpRoot, skillName)
+        mkdirSync(dir)
+        writeFileSync(
+            join(dir, 'SKILL.md'),
+            `---\nname: ${skillName}\ntitle: 中文名 A\n---\n\nbody`,
+        )
+
+        await scanAndSyncSkillsService(tmpRoot)
+
+        const row = await prisma.skills.findUnique({ where: { name: skillName } })
+        expect(row?.title).toBe('中文名 A')
+    })
+
+    it('SKILL.md 没 title 字段时入库 title=name（兜底）', async () => {
+        tmpRoot = mkdtempSync(join(tmpdir(), 'skills-test-'))
+        const skillName = `t_skill_${Date.now()}_b`
+        createdNames.push(skillName)
+        const dir = join(tmpRoot, skillName)
+        mkdirSync(dir)
+        writeFileSync(join(dir, 'SKILL.md'), `---\nname: ${skillName}\n---\n\nbody`)
+
+        await scanAndSyncSkillsService(tmpRoot)
+
+        const row = await prisma.skills.findUnique({ where: { name: skillName } })
+        expect(row?.title).toBe(skillName)
+    })
+
+    it('SKILL.md title 是空白字符串时入库 title=name（兜底）', async () => {
+        tmpRoot = mkdtempSync(join(tmpdir(), 'skills-test-'))
+        const skillName = `t_skill_${Date.now()}_c`
+        createdNames.push(skillName)
+        const dir = join(tmpRoot, skillName)
+        mkdirSync(dir)
+        writeFileSync(
+            join(dir, 'SKILL.md'),
+            `---\nname: ${skillName}\ntitle: "   "\n---\n\nbody`,
+        )
+
+        await scanAndSyncSkillsService(tmpRoot)
+
+        const row = await prisma.skills.findUnique({ where: { name: skillName } })
+        expect(row?.title).toBe(skillName)
     })
 })

@@ -33,6 +33,7 @@ vi.mock('../../../../server/services/workflow/checkpointer', () => ({
 const mockGetValidNodeConfig = vi.fn()
 vi.mock('../../../../server/services/node/node.service', () => ({
     getValidNodeConfig: (...args: unknown[]) => mockGetValidNodeConfig(...args),
+    resolveThinkingFromNodeConfig: vi.fn(() => false),
 }))
 
 // mock chatModelFactory（保留 cachedPromptTo* 真实实现以便快照对照）

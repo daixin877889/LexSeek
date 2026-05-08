@@ -5,6 +5,7 @@
  */
 
 import { getCaseAnalysisWorkflow } from './caseAnalysisV2.workflow'
+import { buildLangfuseTopLevelConfig } from '~~/server/lib/langfuse'
 
 export interface CaseAnalysisV2Params {
     sessionId: string
@@ -24,6 +25,7 @@ export async function startCaseAnalysisV2(params: CaseAnalysisV2Params): Promise
         streamMode: ['values', 'messages', 'updates'] as ['values', 'messages', 'updates'],
         encoding: 'text/event-stream' as const,
         signal: params.signal,
+        ...buildLangfuseTopLevelConfig({ vertical: 'case-analysis' }),
     }
 
     if (params.command) {

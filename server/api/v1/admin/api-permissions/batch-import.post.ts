@@ -9,7 +9,7 @@
  * 4) 写完后必须刷新公共权限缓存 + 全量清用户缓存（H2）。
  */
 import { z } from 'zod'
-import { createApiPermissionDao, findApiPermissionsDao } from '~~/server/services/rbac/apiPermission.dao'
+import { createManyApiPermissionsDao, findApiPermissionsDao } from '~~/server/services/rbac/apiPermission.dao'
 import { createAuditLogDao } from '~~/server/services/rbac/auditLog.dao'
 import { clearAllUserPermissionCache } from '~~/server/services/rbac/cache.service'
 import {
@@ -31,7 +31,6 @@ const bodySchema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
-    // 1. 仅超管
     const guard = await requireSuperAdminGuard(event)
     if (!guard.ok) return guard.response
     const operatorId = guard.userId
@@ -42,7 +41,6 @@ export default defineEventHandler(async (event) => {
         return resError(event, 400, result.error.issues[0]?.message || '参数错误')
     }
 
-    // 2. 入参规范化 + 校验
     let normalizedItems: { path: string; method: string; name: string }[]
     try {
         normalizedItems = result.data.items.map(item => {
@@ -61,7 +59,7 @@ export default defineEventHandler(async (event) => {
         return resError(event, 400, error?.message || '路径或方法格式错误')
     }
 
-    // 3. 一次性拿全部已存在权限（H3 修复，不再 1000 条分页）
+    // H3 修复：一次性拿全部已存在权限，不再受 1000 条分页限制
     const existing = await findApiPermissionsDao({}, { all: true })
     const existingSet = new Set(
         existing.items.map(p => `${p.method}:${p.path}`),
@@ -76,42 +74,37 @@ export default defineEventHandler(async (event) => {
     }
 
     let importedCount = 0
-    const importedIds: number[] = []
     const failedItems: Array<{ method: string; path: string; reason: string }> = []
 
-    for (const item of newItems) {
-        try {
-            const permission = await createApiPermissionDao({
+    try {
+        const result = await createManyApiPermissionsDao(
+            newItems.map(item => ({
                 path: item.path,
                 method: item.method,
                 name: item.name,
                 isPublic: false,
                 status: 1,
-            })
-            importedCount++
-            importedIds.push(permission.id)
-        } catch (error: any) {
-            failedItems.push({
-                method: item.method,
-                path: item.path,
-                reason: error?.message || '未知错误',
-            })
-            logger.error('[RBAC] 导入 API 权限失败', {
-                method: item.method,
-                path: item.path,
-                error: error?.message,
-            })
+            })),
+        )
+        importedCount = result.count
+    } catch (error: any) {
+        // 整批失败时把所有候选标为失败（path 格式已在前面校验通过，这里通常是 DB 层异常）
+        const reason = error?.message || '未知错误'
+        for (const item of newItems) {
+            failedItems.push({ method: item.method, path: item.path, reason })
         }
+        logger.error('[RBAC] 批量导入 API 权限失败', { count: newItems.length, error: reason })
     }
 
     if (importedCount > 0) {
+        const importedKeys = newItems.map(i => `${i.method}:${i.path}`)
         await createAuditLogDao({
             action: 'api_permission_batch_import',
             targetType: 'api_permission',
-            targetId: importedIds[0] || 0,
+            targetId: 0, // 批量操作无单一 target
             operatorId,
             oldValue: null,
-            newValue: { count: importedCount, ids: importedIds },
+            newValue: { count: importedCount, items: importedKeys },
             ip: getRequestIP(event, { xForwardedFor: true }) || null,
         })
 

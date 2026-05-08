@@ -63,8 +63,8 @@ describe('shared/types/node - 节点状态', () => {
 })
 
 describe('shared/types/node - 提示词类型 / 状态', () => {
-    it('PROMPT_TYPES 支持 system/user/assistant', () => {
-        expect(PROMPT_TYPES).toEqual(['system', 'user', 'assistant'])
+    it('PROMPT_TYPES 支持 system/user/user_injection/assistant', () => {
+        expect(PROMPT_TYPES).toEqual(['system', 'user', 'user_injection', 'assistant'])
     })
 
     it('PromptTypeLabels 每个类型都有标签', () => {
@@ -72,6 +72,7 @@ describe('shared/types/node - 提示词类型 / 状态', () => {
             expect(PromptTypeLabels[type]).toBeTruthy()
         }
         expect(PromptTypeLabels.system).toBe('系统提示词')
+        expect(PromptTypeLabels.user_injection).toBe('用户每轮注入')
     })
 
     it('PromptStatus 与 PromptStatusLabels 对应', () => {

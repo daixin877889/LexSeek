@@ -87,17 +87,24 @@ interface BrowseResponse {
 
 const props = defineProps<{
     interrupt: TemplateInterrupt
-    onResolve: (value: ResolveValue | null) => Promise<void> | void
+    onResolve?: (value: ResolveValue | null) => Promise<void> | void
+    /** snapshot 模式：传入用户之前 resolve 的值；undefined = active 模式 */
+    resumeValue?: ResolveValue | null
 }>()
+
+const isSnapshot = computed(() => props.resumeValue !== undefined)
 
 const recommendations = computed<RecommendedTemplate[]>(
     () => props.interrupt.recommendations ?? [],
 )
 const totalAll = computed<number>(() => props.interrupt.total ?? 0)
-const intentText = computed(() => props.interrupt.intent?.trim() || '')
 
-// 默认选中：第一个推荐
-const selectedId = ref<number | null>(recommendations.value[0]?.id ?? null)
+// 默认选中：snapshot 模式回填 resumeValue.templateId，否则第一个推荐
+const selectedId = ref<number | null>(
+    isSnapshot.value && props.resumeValue?.templateId !== undefined
+        ? props.resumeValue.templateId
+        : recommendations.value[0]?.id ?? null,
+)
 
 // 零召回兜底 → 直接进入展开状态
 const expanded = ref<boolean>(recommendations.value.length === 0)
@@ -217,7 +224,7 @@ async function handleSubmit() {
     }
     submitting.value = true
     try {
-        await props.onResolve({ templateId: selectedId.value })
+        await props.onResolve?.({ templateId: selectedId.value })
         confirmed.value = true
     } catch (err) {
         const msg = err instanceof Error ? err.message : '提交失败，请重试'
@@ -231,7 +238,7 @@ async function handleCancel() {
     if (submitting.value || confirmed.value) return
     submitting.value = true
     try {
-        await props.onResolve(null)
+        await props.onResolve?.(null)
         confirmed.value = true
     } catch (err) {
         const msg = err instanceof Error ? err.message : '取消失败'
@@ -240,22 +247,41 @@ async function handleCancel() {
         submitting.value = false
     }
 }
+
+// snapshot 模式：mount 时即视为 confirmed（复用现有 confirmed 视觉）
+if (isSnapshot.value) {
+    confirmed.value = true
+}
+
+// active 模式首次 mount 滚到视口（snapshot 不滚——用户已在历史里）
+const cardRef = ref<HTMLElement | null>(null)
+onMounted(() => {
+    if (isSnapshot.value) return
+    nextTick(() => {
+        cardRef.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+})
 </script>
 
 <template>
-    <div class="not-prose my-2 w-full max-w-lg rounded-lg border border-amber-300/60 bg-amber-50/60 p-4 shadow-sm dark:border-amber-700/60 dark:bg-amber-950/30">
+    <div
+        ref="cardRef"
+        :class="[
+            'not-prose my-2 w-full max-w-lg rounded-lg border p-4 shadow-sm',
+            isSnapshot
+                ? 'border-muted bg-muted/20 opacity-70 dark:border-muted dark:bg-muted/10'
+                : 'border-amber-300/60 bg-amber-50/60 dark:border-amber-700/60 dark:bg-amber-950/30',
+        ]"
+    >
         <!-- 标题 -->
         <div class="mb-3 flex items-center gap-2">
             <Pause class="size-4 text-amber-600 dark:text-amber-400" />
             <p class="text-sm font-medium text-foreground">请选择文书模板</p>
         </div>
-        <p v-if="intentText" class="mb-3 text-xs text-muted-foreground">
-            根据「{{ intentText }}」为您推荐：
-        </p>
 
         <!-- 推荐区（默认展示；展开态下可折叠） -->
         <div v-if="recommendations.length" class="mb-3">
-            <div v-if="expanded" class="mb-2 flex items-center justify-between text-xs text-muted-foreground">
+            <div v-if="expanded && !isSnapshot" class="mb-2 flex items-center justify-between text-xs text-muted-foreground">
                 <span>── 推荐 ──</span>
                 <button
                     type="button"
@@ -308,7 +334,7 @@ async function handleCancel() {
 
         <!-- "浏览全部" 切换按钮 -->
         <button
-            v-if="!expanded"
+            v-if="!expanded && !isSnapshot"
             type="button"
             class="mb-3 inline-flex w-full items-center justify-center gap-1 rounded-md border border-dashed border-muted-foreground/40 bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
             :disabled="submitting || confirmed"
@@ -320,7 +346,7 @@ async function handleCancel() {
         </button>
 
         <!-- 展开状态：搜索 + 分类 + 全库列表 -->
-        <div v-if="expanded" class="space-y-3">
+        <div v-if="expanded && !isSnapshot" class="space-y-3">
             <div class="flex flex-wrap items-center gap-2">
                 <!-- 搜索框 -->
                 <div class="relative min-w-[140px] flex-1">
@@ -458,7 +484,7 @@ async function handleCancel() {
         <div class="mt-4 flex items-center justify-between">
             <p v-if="confirmed" class="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
                 <CheckCircle2 class="size-3.5" />
-                已选模板：{{ selectedTemplateName || '已确认' }}
+                {{ isSnapshot && resumeValue === null ? '已取消' : `已选模板：${selectedTemplateName || '已确认'}` }}
             </p>
             <p v-else-if="selectedTemplateName" class="truncate text-xs text-muted-foreground">
                 已选：<span class="text-foreground">{{ selectedTemplateName }}</span>

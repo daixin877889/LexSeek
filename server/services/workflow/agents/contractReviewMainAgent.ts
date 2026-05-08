@@ -41,6 +41,7 @@ import {
     type ReactAgent,
 } from 'langchain'
 import { HumanMessage } from '@langchain/core/messages'
+import { buildLangfuseTopLevelConfig } from '~~/server/lib/langfuse'
 import pLimit from 'p-limit'
 import { getCheckpointer, getStore } from '../checkpointer'
 import { getValidNodeConfig, type NodeConfig } from '../../node/node.service'
@@ -55,6 +56,7 @@ import {
     createMessageIntegrityMiddleware,
     createScopeGuardMiddleware,
     createAuditMiddleware,
+    userInjectionMiddleware,
     buildMiddlewareStack,
     MIDDLEWARE_PRIORITY,
     MIDDLEWARE_NAMES,
@@ -79,6 +81,7 @@ import { persistAiRisksAsContractRows, type PersistAiRiskRow } from '../../assis
 import { createContractAnnotationDAO } from '../../assistant/contract/contractAnnotation.dao'
 import { saveContractReviewVersionService } from '../../assistant/contract/contractReviewVersion.service'
 import { buildClauseToParagraphMap } from '../../assistant/contract/utils/clauseToParagraph'
+import type { CallbackHandlerMethods } from '@langchain/core/callbacks/base'
 import type { Prisma } from '~~/generated/prisma/client'
 import type { Risk, Stance, ClauseSegment, ClauseSnapshotItem, PlaybookSnapshot } from '#shared/types/contract'
 import { resolveContextWindow } from '../context/messageCompressor'
@@ -110,18 +113,23 @@ async function persistRisksAndCreateV1Snapshot(
         return
     }
 
-    // Bug 修复：clauseIndex（segmentClauses 产出的"条款序号"）≠ anchorParagraphIndex
+    // Bug 修复：clauseIndex（segmentClauses 产出的"条款序号"）≠ clauseParagraphIndex
     // （commentInjector / parseWordComments 使用的"非空段落序号"）。
     // 先构造 clauseIndex → 非空段落序号 的映射：segment.offsetStart 落在哪一段，
     // 该条款就归属哪一段。docxText 是 paragraphs.join('\n')，所以累加段落长度
     // + 1 (for '\n') 就能找到对应段落序号。
     const clauseIndexToParagraphIndex = buildClauseToParagraphMap(segments, paragraphs)
 
+    // PR10：用 segment.textWithoutNumber 作 anchor 字段（覆盖 LLM 自填的含编号 clauseText）
+    const segmentByIndex = new Map(segments.map(s => [s.index, s]))
+
     // 写 ContractRisk + ContractAnnotation（每条 AI 风险各一条）
     // CORE-R2：风险落库收口到 persistAiRisksAsContractRows，annotation 由调用方按需创建
     const riskRows: PersistAiRiskRow[] = risks.map(aiRisk => ({
         risk: aiRisk,
-        anchorParagraphIndex: clauseIndexToParagraphIndex.get(aiRisk.clauseIndex) ?? null,
+        // PR10 方案 D：注入 segment.textWithoutNumber，规避 redlineInjector 严格行级匹配失败
+        clauseText: segmentByIndex.get(aiRisk.clauseIndex)?.textWithoutNumber ?? aiRisk.clauseText,
+        clauseParagraphIndex: clauseIndexToParagraphIndex.get(aiRisk.clauseIndex) ?? null,
     }))
     const createdRisks = await persistAiRisksAsContractRows({ reviewId, rows: riskRows })
     for (let i = 0; i < createdRisks.length; i++) {
@@ -188,6 +196,17 @@ export interface ContractReviewAgentOptions {
      * default false：合同 vertical 自身页面 + `/stance` 端点走原 command 路径，向后兼容。
      */
     skipStanceInterrupt?: boolean
+    /**
+     * 子流事件转发到主流的 callbacks（首轮 agent.stream 路径生效）。
+     *
+     * 法律助手 reviewContract.tool 调用本函数时走 skipStanceInterrupt=true 路径，
+     * 该路径不调 agent.stream → callbacks **不会触发**（设计上可接受）。
+     * 跑中反馈通过现有 stage 事件（segment / detect / stance / analyze progress / summarize）
+     * + 前端 ReviewContractCard 实现。
+     *
+     * 首轮 stance interrupt 路径（合同 vertical 自身 /stance 端点）能正确触发 callbacks。
+     */
+    callbacks?: CallbackHandlerMethods[]
 }
 
 /** analyze loop 上下文 */
@@ -232,7 +251,8 @@ export async function runAnalyzeLoop(ctx: AnalyzeLoopContext): Promise<{ risks: 
     const limit = pLimit(ANALYZE_CONCURRENCY)
     await Promise.all(ctx.segments.map(seg => limit(async () => {
         try {
-            const risk = await analyzeSingleClause({
+            // analyzeSingleClause 现返回 Risk[]：同一条款多违法点出独立 risks（提升 playbook 命中率）
+            const segRisks = await analyzeSingleClause({
                 clause: seg,
                 stance: ctx.stance,
                 partyA: ctx.partyA,
@@ -243,7 +263,7 @@ export async function runAnalyzeLoop(ctx: AnalyzeLoopContext): Promise<{ risks: 
             await emitContractReviewEvent(ctx.emitterCtx, {
                 type: 'progress', current: seg.index, total,
             })
-            if (risk) {
+            for (const risk of segRisks) {
                 risks.push(risk)
                 await emitContractReviewEvent(ctx.emitterCtx, { type: 'risk', risk })
             }
@@ -396,6 +416,20 @@ export async function runContractReviewChat(
             }),
             priority: MIDDLEWARE_PRIORITY.SAFETY_TRIM,
             name: MIDDLEWARE_NAMES.SAFETY_TRIM,
+        },
+        // 用户每轮注入（反越狱护栏 / 隐藏注入）：节点配置中 type=user_injection && status=1
+        // 的提示词，每轮 LLM 调用前作为隐藏 HumanMessage 插入到最新 HumanMessage 之前；
+        // 不写回 state.messages、不进 checkpoint。节点无该类提示词时 middleware 内部 short-circuit。
+        {
+            middleware: userInjectionMiddleware({
+                prompts: nodeConfig.prompts,
+                context: {
+                    caseId: review.caseId ?? undefined,
+                    contractType: review.contractType ?? undefined,
+                },
+            }),
+            priority: MIDDLEWARE_PRIORITY.USER_INJECTION,
+            name: MIDDLEWARE_NAMES.USER_INJECTION,
         },
         {
             middleware: reviewResultPersistenceMiddleware({
@@ -667,5 +701,6 @@ export async function runContractReviewChat(
         encoding: 'text/event-stream',
         recursionLimit: 1000,
         signal,
+        ...buildLangfuseTopLevelConfig({ additionalCallbacks: options.callbacks }),
     })
 }

@@ -1,5 +1,6 @@
 ---
 name: kangbian-fenxi
+title: 抗辩分析及应对策略预测
 description: |
   诉讼抗辩策略分析方法论。当用户需要针对已确认的请求权基础进行抗辩分析、挖掘事实风险点、推演攻防策略时使用。
   典型场景：律师制定诉讼抗辩方案、法官预判攻防焦点、法律工作者撰写抗辩意见。
@@ -80,7 +81,7 @@ description: |
 ## 关键要点
 
 ### 一、合同效力体系检视
-详见 [references/hetong-xiaoli-jianshi.md](./references/hetong-xiaoli-jianshi.md)
+详见 [references/合同效力检视.md](./references/合同效力检视.md)
 
 **核心区分**：
 - **成立**：事实判断（有没有），产生形式拘束力（不得擅自变更解除）
@@ -93,7 +94,7 @@ description: |
 - 生效阶段：检验条件/期限/批准限制，条件限制特定义务而非整体
 
 ### 二、附条件合同分析
-详见 [references/futiaojian-fenxi.md](./references/futiaojian-fenxi.md)
+详见 [references/附条件分析.md](./references/附条件分析.md)
 
 - 识别合同的全部义务
 - 判断哪个义务附了条件
@@ -101,7 +102,7 @@ description: |
 - 核心：条件限制的是"特定义务的履行效力"，非"整个合同"
 
 ### 三、条件不成就→解除条件成就路径
-详见 [references/tiaojian-buchengji-jiechu.md](./references/tiaojian-buchengji-jiechu.md)
+详见 [references/条件不成就解除.md](./references/条件不成就解除.md)
 
 **高级技巧**：生效条件不成就，可解释为解除条件成就
 - 157条（无效后果）：缔约过失责任
@@ -109,7 +110,7 @@ description: |
 - 关键：从交易背景解释"条件不成就则合同消灭"的效果意思
 
 ### 四、批准生效合同分析
-详见 [references/pizhun-shengheng-hetong.md](./references/pizhun-shengheng-hetong.md)
+详见 [references/批准生效合同.md](./references/批准生效合同.md)
 
 **核心规则**：批准生效≠整个合同不生效
 - 只有权利变动条款需批准
@@ -117,7 +118,7 @@ description: |
 - 违反独立生效条款构成违约（而非缔约过失）
 
 ### 五、规范目的导向解释
-详见 [references/guifan-mudi-jieshi.md](./references/guifan-mudi-jieshi.md)
+详见 [references/规范目的解释.md](./references/规范目的解释.md)
 
 **核心原则**：以规范目的为导向判断管制范围
 - 识别批准规范的规范目的
@@ -125,28 +126,34 @@ description: |
 - 最小范围原则：将管制限制在最小范围
 
 ### 六、反射式迭代检索
-详见 [references/fanshe-jiansuo.md](./references/fanshe-jiansuo.md)
+详见 [references/反射式检索.md](./references/反射式检索.md)
 
 - 周期一：宽泛检索，识别核心主体与争议标的
 - 周期二：二次扫描，提炼专业关键词
 - 周期三：精准定位，关联司法解释
 
-### 七、攻防策略推演
-详见 [references/gongfang-celue.md](./references/gongfang-celue.md)
+### 七、攻防策略推演（三分法分类）
+详见 [references/攻防策略.md](./references/攻防策略.md)
 
+按请求权检视阶段将抗辩分为三类，逐类检视：
+- **权利妨碍抗辩**：请求权根本没有产生（如无行为能力、意思表示瑕疵、合同未成立）
+- **权利消灭抗辩**：请求权已产生但已消灭（如清偿、免除、抵销、合同已解除）
+- **权利限制抗辩**：请求权存在但暂不能行使（如时效抗辩、同时履行抗辩权、先履行抗辩权）
+
+推演结构：
 - 被告视角：事实风险 + 法律依据 = 抗辩理由
 - 原告视角：针对抗辩的反制策略
 - 普遍性验证：策略是否具有普适性
 
 ### 八、合同解释优先
-详见 [references/hetong-jieshi.md](./references/hetong-jieshi.md)
+详见 [references/合同解释优先.md](./references/合同解释优先.md)
 
 - 探究当事人真实意思表示
 - 条款含义解释优先于法律评价
 - 交易目的作为解释辅助
 
 ### 九、普遍性验证
-详见 [references/pubian-yanzheng.md](./references/pubian-yanzheng.md)
+详见 [references/普遍性验证.md](./references/普遍性验证.md)
 
 **核心论证原则**：方案必须有普适性，强调"本案特殊"不会被接受
 
@@ -156,7 +163,7 @@ description: |
 - 极端问题验证：将问题推到极端，验证规则是否仍成立
 
 ### 十、自定位流程（单独调用时执行）
-详见 [references/zidingwei-liucheng.md](./references/zidingwei-liucheng.md)
+详见 [references/自定位流程.md](./references/自定位流程.md)
 
 **触发条件**：用户单独调用抗辩模块（未先运行请求权基础和案由模块）
 
@@ -168,7 +175,7 @@ description: |
 3. 案由初步确定 → 根据请求权类型确定案由
 
 ### 十一、输出格式规范
-详见 [references/baogao-shuchu-geshi.md](./references/baogao-shuchu-geshi.md)
+详见 [references/报告输出格式.md](./references/报告输出格式.md)
 
 **报告结构**：
 - 报告开头（标注分析模式）
@@ -200,7 +207,7 @@ description: |
 - 案件争议焦点（如"合同解除""股东责任"）
 - 具体法条需求（如"民法典相关条文""公司法相关条文"）
 
-详见 [references/fanshe-jiansuo.md](./references/fanshe-jiansuo.md)
+详见 [references/反射式检索.md](./references/反射式检索.md)
 
 ## 使用流程
 

@@ -489,7 +489,7 @@ if (run && TERMINAL_STATUSES.includes(run.status)) {
 
 ### 相关文件
 
-- `server/api/v1/case/init-analysis.post.ts:329-374`（`createSSEResponse` fallback 路径）
+- `server/api/v1/cases/init-analysis.post.ts:329-374`（`createSSEResponse` fallback 路径）
 - `server/services/workflow/agents/threadState.ts`（`getThreadValuesService`）
 
 ## 十九、vue-stream-markdown 表格底部 loading 图标不消失
@@ -597,3 +597,25 @@ function getReasoningText(message: any): string {
 - 前端修复：`app/components/ai/composables/useMessageParser.ts`、`app/components/initAnalysis/ModuleResult.vue`
 - 错误提交（反例，勿回退）：`9e3340d fix(ui): 优化检索工具的消息展示`
 
+
+
+## 嵌套 Dialog z-index 标准层级表
+
+项目历史多次踩 shadcn-vue Dialog/Sheet/Popover 嵌套 z-index 错位坑。本表是**项目内统一标准**，新模块涉及嵌套对话框时**必须遵守**。
+
+| 元素 | z-index | 备注 |
+|---|---|---|
+| 默认 Dialog overlay/content | `z-50` | shadcn-vue 默认 |
+| Sheet overlay/content | `z-[70]` | 项目自定义 |
+| Popover / HoverCard / Tooltip / Dropdown / Select | `z-50` | 默认（已踩 3 次坑） |
+| Toast | `z-100` | shadcn-vue 默认 |
+| **嵌套 Dialog（外层 Dialog 内打开的内层 Dialog）** | **`z-[200]`** | overlay + content 都要设 |
+| **嵌套 Dialog 内的 Popover / Select / Tooltip** | **`z-[210]`** | 嵌套层级 +10 |
+| 嵌套场景下的 Toast | **`z-[300]+`** | 否则会被嵌套 Dialog 盖住 |
+
+**实施约定**：
+- Dialog 组件统一加可选 `nestedZIndex?: number` prop，外部传入时覆盖默认值
+- 嵌套触发链上的所有 portal 元素（Select / Popover / Tooltip）都要透传该 z-index + 10
+- plan 阶段必须执行项目记忆里的"嵌套 Dialog 8 项测试清单"
+
+**参考实现**：`app/components/admin/prompts/PromptFormDialog.vue`（含 nestedZIndex prop 的样板代码）

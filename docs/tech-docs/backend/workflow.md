@@ -7,8 +7,8 @@
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                    API Layer                             │
-│  /api/v1/case/analysis/agents.post.ts                   │
-│  /api/v1/case/analysis/chat.post.ts                     │
+│  /api/v1/cases/analysis/agents.post.ts                   │
+│  /api/v1/cases/analysis/chat.post.ts                     │
 └──────────────┬──────────────────────────────┬────────────┘
                │                              │
                ▼                              ▼

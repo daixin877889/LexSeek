@@ -3,7 +3,7 @@
  *
  * 覆盖：
  * - `workflow/middleware/types.ts` 的 buildMiddlewareStack：
- *   排序、互斥校验、相同优先级保持注册顺序
+ *   排序、相同优先级保持注册顺序
  * - `workflow/middleware/safetyTrim.middleware.ts` 的 safetyTrimMiddleware：
  *   不超预算时直接返回、超预算时走 compressMessages → safetyTrimMessages 两道防线、
  *   compressMessages 抛异常时降级、splice 原地修改 state.messages
@@ -16,7 +16,6 @@ import { HumanMessage } from '@langchain/core/messages'
 import type { BaseMessage } from '@langchain/core/messages'
 import {
     buildMiddlewareStack,
-    MIDDLEWARE_NAMES,
     MIDDLEWARE_PRIORITY,
     type MiddlewareWithPriority,
 } from '../../../../server/services/workflow/middleware/types'
@@ -57,38 +56,6 @@ describe('buildMiddlewareStack - 中间件优先级栈', () => {
         expect(stack.map(m => (m as unknown as { name: string }).name)).toEqual(['first', 'second', 'third'])
     })
 
-    it('caseMaterialContext 和 moduleContext 同时挂载时抛错', () => {
-        const items: MiddlewareWithPriority[] = [
-            {
-                name: MIDDLEWARE_NAMES.MATERIAL_CONTEXT,
-                priority: MIDDLEWARE_PRIORITY.MATERIAL_CONTEXT,
-                middleware: fake('mc'),
-            },
-            {
-                name: MIDDLEWARE_NAMES.MODULE_CONTEXT,
-                priority: MIDDLEWARE_PRIORITY.MODULE_CONTEXT,
-                middleware: fake('modc'),
-            },
-        ]
-        expect(() => buildMiddlewareStack(items)).toThrow(/不能同时挂载/)
-    })
-
-    it('只挂载一个上下文中间件时不抛错', () => {
-        const itemsMaterial: MiddlewareWithPriority[] = [{
-            name: MIDDLEWARE_NAMES.MATERIAL_CONTEXT,
-            priority: MIDDLEWARE_PRIORITY.MATERIAL_CONTEXT,
-            middleware: fake('mc'),
-        }]
-        expect(() => buildMiddlewareStack(itemsMaterial)).not.toThrow()
-
-        const itemsModule: MiddlewareWithPriority[] = [{
-            name: MIDDLEWARE_NAMES.MODULE_CONTEXT,
-            priority: MIDDLEWARE_PRIORITY.MODULE_CONTEXT,
-            middleware: fake('modc'),
-        }]
-        expect(() => buildMiddlewareStack(itemsModule)).not.toThrow()
-    })
-
     it('空列表返回空数组', () => {
         expect(buildMiddlewareStack([])).toEqual([])
     })
@@ -105,8 +72,6 @@ describe('buildMiddlewareStack - 中间件优先级栈', () => {
                 expect(v % 10).toBe(0)
             }
         }
-        // MATERIAL_CONTEXT 与 MODULE_CONTEXT 相同（互斥设计的直接后果）
-        expect(MIDDLEWARE_PRIORITY.MATERIAL_CONTEXT).toBe(MIDDLEWARE_PRIORITY.MODULE_CONTEXT)
     })
 })
 

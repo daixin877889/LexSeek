@@ -71,6 +71,7 @@ function selectMore(id: ActiveView) {
       <SheetContent side="bottom" class="pb-[env(safe-area-inset-bottom)]">
         <SheetHeader class="text-left">
           <SheetTitle>更多功能</SheetTitle>
+          <SheetDescription class="sr-only">从更多入口选择要查看的视图</SheetDescription>
         </SheetHeader>
         <div class="grid gap-1 py-2">
           <button

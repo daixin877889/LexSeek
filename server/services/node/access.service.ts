@@ -270,9 +270,13 @@ export const batchUpdateAccessService = async (
         // 计算需要新增的权限（新列表有但当前没有）
         const toAdd = nodeIds.filter((id) => !currentNodeIds.has(id))
 
-        // 删除不再需要的权限
-        for (const access of toDelete) {
-            await softDeleteAccessDao(access.id, tx as any)
+        // 删除不再需要的权限（单次 updateMany 替代循环逐条）
+        if (toDelete.length > 0) {
+            await softDeleteAccessByLevelAndNodesDao(
+                levelId,
+                toDelete.map(a => a.nodeId),
+                tx as any,
+            )
         }
 
         // 添加新的权限

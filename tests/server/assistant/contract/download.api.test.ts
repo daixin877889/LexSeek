@@ -38,6 +38,7 @@ const resSuccess = (_event: any, message: string, data: any) => ({
 ;(globalThis as any).resSuccess = resSuccess
 ;(globalThis as any).defineEventHandler = (h: any) => h
 ;(globalThis as any).getRouterParam = (event: any, key: string) => event.__params?.[key]
+;(globalThis as any).getQuery = (event: any) => event.__query ?? {}
 ;(globalThis as any).logger = { error: vi.fn(), warn: vi.fn(), info: vi.fn() }
 
 // ==================== Mock DAO / Service 层 ====================
@@ -75,15 +76,18 @@ const { default: downloadHandler } = await import(
 interface MockEvent {
     context: { auth?: { user: { id: number } } }
     __params?: Record<string, string>
+    __query?: Record<string, string>
 }
 
 function makeEvent(opts: {
     userId?: number
     params?: Record<string, string>
+    query?: Record<string, string>
 }): MockEvent {
     return {
         context: opts.userId ? { auth: { user: { id: opts.userId } } } : {},
         __params: opts.params,
+        __query: opts.query,
     }
 }
 
@@ -225,5 +229,49 @@ describe('GET /api/v1/assistant/contract/reviews/:id/download', () => {
         expect(mockAtomicClaim).toHaveBeenCalledWith(42)
         expect(mockRebuildDocx).toHaveBeenCalledTimes(1)
         expect(mockRollback).not.toHaveBeenCalled()
+    })
+})
+
+describe('download API mode query（PR6 §8.2）', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+        mockRollback.mockResolvedValue(undefined)
+    })
+
+    it('未传 mode → 默认 comment', async () => {
+        mockGetReview.mockResolvedValue(completedReview())
+        mockAtomicClaim.mockResolvedValue(true)
+        mockRebuildDocx.mockResolvedValue(rebuildResult())
+        await downloadHandler(makeEvent({ userId: USER_A, params: { id: '42' } }) as any)
+        expect(mockRebuildDocx).toHaveBeenCalledWith(expect.anything(), { mode: 'comment' })
+    })
+
+    it('mode=redline 透传到 rebuildDocxService', async () => {
+        mockGetReview.mockResolvedValue(completedReview())
+        mockAtomicClaim.mockResolvedValue(true)
+        mockRebuildDocx.mockResolvedValue(rebuildResult())
+        await downloadHandler(
+            makeEvent({ userId: USER_A, params: { id: '42' }, query: { mode: 'redline' } }) as any,
+        )
+        expect(mockRebuildDocx).toHaveBeenCalledWith(expect.anything(), { mode: 'redline' })
+    })
+
+    it('mode=both 透传到 rebuildDocxService', async () => {
+        mockGetReview.mockResolvedValue(completedReview())
+        mockAtomicClaim.mockResolvedValue(true)
+        mockRebuildDocx.mockResolvedValue(rebuildResult())
+        await downloadHandler(
+            makeEvent({ userId: USER_A, params: { id: '42' }, query: { mode: 'both' } }) as any,
+        )
+        expect(mockRebuildDocx).toHaveBeenCalledWith(expect.anything(), { mode: 'both' })
+    })
+
+    it('mode=invalid → 400', async () => {
+        mockGetReview.mockResolvedValue(completedReview())
+        const res: any = await downloadHandler(
+            makeEvent({ userId: USER_A, params: { id: '42' }, query: { mode: 'invalid' } }) as any,
+        )
+        expect(res.code).toBe(400)
+        expect(mockRebuildDocx).not.toHaveBeenCalled()
     })
 })

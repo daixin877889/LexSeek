@@ -5,12 +5,6 @@
  * 与 case 域共用 case_sessions 表但 scope='assistant'，参见 spec §4.10, §5.1, §5.6.1-3。
  */
 
-/** 会话归属域 */
-export enum SessionScope {
-    CASE = 'case',
-    ASSISTANT = 'assistant',
-}
-
 /** 助手会话（前端列表展示用） */
 export interface AssistantSession {
     sessionId: string

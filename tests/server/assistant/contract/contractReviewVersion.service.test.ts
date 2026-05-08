@@ -68,7 +68,7 @@ describe('contractReviewVersion.service', () => {
             level: 'high',
             stance: 'balanced',
             problem: 'x',
-            anchorQuote: 'x',
+            clauseText: 'x',
         })
         await createContractAnnotationDAO({
             reviewId,
@@ -97,7 +97,7 @@ describe('contractReviewVersion.service', () => {
             level: 'high',
             stance: 'balanced',
             problem: 'x',
-            anchorQuote: 'x',
+            clauseText: 'x',
         })
         const ann = await createContractAnnotationDAO({
             reviewId,

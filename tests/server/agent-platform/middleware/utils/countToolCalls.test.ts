@@ -40,4 +40,44 @@ describe('countToolCalls', () => {
         ] as any
         expect(countToolCalls(messages, ['write_case_memory'])).toBe(1)
     })
+
+    // @langchain/anthropic 1.x streaming + thinking 模式下 AIMessageChunk reduce
+    // 把 tool_use 块只塞进 content 数组,顶层 tool_calls 字段为空——必须从 content
+    // 数组里也读取 tool_use 块,否则会少计数 → afterAgentMemory 误判低于阈值多跑一次提取
+    it('content 数组含 tool_use 块但顶层 tool_calls=[] 时仍能计数', () => {
+        const messages = [
+            new AIMessage({
+                content: [
+                    { type: 'thinking', thinking: '...' } as any,
+                    { type: 'tool_use', id: 'call_w1', name: 'write_case_memory', input: {} } as any,
+                ],
+                tool_calls: [],
+            }),
+        ]
+        expect(countToolCalls(messages, ['write_case_memory'])).toBe(1)
+    })
+
+    it('plain object content 数组兜底同样支持', () => {
+        const messages = [
+            {
+                content: [
+                    { type: 'tool_use', id: 'call_p1', name: 'update_case_memory' },
+                ],
+                tool_calls: [],
+            },
+        ] as any
+        expect(countToolCalls(messages, ['update_case_memory'])).toBe(1)
+    })
+
+    it('顶层 tool_calls 与 content tool_use 同 id 时按 id 去重不重复计数', () => {
+        const messages = [
+            new AIMessage({
+                content: [
+                    { type: 'tool_use', id: 'call_dup', name: 'write_case_memory', input: {} } as any,
+                ],
+                tool_calls: [{ id: 'call_dup', name: 'write_case_memory', args: {} }],
+            }),
+        ]
+        expect(countToolCalls(messages, ['write_case_memory'])).toBe(1)
+    })
 })

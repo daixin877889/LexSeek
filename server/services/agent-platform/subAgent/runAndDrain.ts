@@ -98,6 +98,29 @@ function parseSSEAccumulator(text: string): {
 }
 
 /**
+ * 把 LangGraph error 帧 data 序列化为可读字符串。
+ *
+ * LangGraph 的 `_serializeError`（pregel/stream.js）通常返回
+ *   `{ error: 'GraphRecursionError', message: 'recursion limit reached' }`。
+ * 也可能直接是字符串、null 或其他形态——本函数提取尽量多的诊断信息。
+ */
+function serializeErrorPayload(data: unknown): string {
+    if (typeof data === 'string') return `子流 error 帧：${data}`
+    if (data && typeof data === 'object') {
+        const d = data as Record<string, unknown>
+        const errName = typeof d.error === 'string' ? d.error : ''
+        const errMsg = typeof d.message === 'string' ? d.message : ''
+        if (errName || errMsg) return `子流 error 帧：${errName || 'error'}${errMsg ? ` - ${errMsg}` : ''}`
+        try {
+            return `子流 error 帧：${JSON.stringify(data)}`
+        } catch {
+            return '子流 error 帧（无法序列化的 data）'
+        }
+    }
+    return '子流 error 帧'
+}
+
+/**
  * 从 LangGraph values.__interrupt__ 数组中提取首条 interrupt 的结构化信息。
  *
  * LangGraph 的 interrupt() 抛出的对象形态：
@@ -136,9 +159,16 @@ export async function runAndDrainStream(
     let onAbort: (() => void) | null = null
     let buffer = ''
 
-    /** 处理一批已解析事件，命中 interrupt 即返回结果。 */
+    /** 处理一批已解析事件，命中 interrupt 或 error 即返回结果。 */
     function consumeEvents(events: Array<{ event: string; data: unknown }>): RunAndDrainResult | null {
         for (const evt of events) {
+            // LangGraph 的 toEventStream 在 graph 抛错时会 emit `event: error` 帧再 controller.close()
+            // （pregel/stream.js:262-267）。若我们只看 values 事件，error 帧会被静默忽略 → 子流 done
+            // → 调用方误以为成功。必须显式识别该帧并把 error 透传出去。
+            if (evt.event === 'error') {
+                const message = serializeErrorPayload(evt.data)
+                return { success: false, finalState, error: message }
+            }
             if (evt.event !== 'values') continue
             if (evt.data && typeof evt.data === 'object') {
                 finalState = evt.data as FinalValuesState

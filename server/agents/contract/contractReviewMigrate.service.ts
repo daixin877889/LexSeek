@@ -56,9 +56,9 @@ export async function migrateLegacyRisksService(
             legalBasis: (lr.legalBasis as string | undefined) ?? null,
             analysis: ((lr.analysis ?? lr.risk) as string | undefined) ?? null,
             suggestion: (lr.suggestion as string | undefined) ?? null,
-            // 存量 Risk 的锚点原文：优先 clauseText，fallback risk 本身的 quote 字段
-            anchorQuote: ((lr.clauseText ?? lr.quote) as string | undefined) ?? '',
-            anchorParagraphIndex: (lr.clauseIndex as number | undefined) ?? null,
+            // 存量 Risk 的完整条款原文：优先 clauseText，fallback risk 本身的 quote 字段
+            clauseText: ((lr.clauseText ?? lr.quote) as string | undefined) ?? '',
+            clauseParagraphIndex: (lr.clauseIndex as number | undefined) ?? null,
         })
         await createContractAnnotationDAO({
             reviewId,

@@ -50,6 +50,7 @@ export type TextContentRecordsMinAggregateOutputType = {
   materialId: number | null
   content: string | null
   htmlContent: string | null
+  summary: string | null
   status: number | null
   lastEmbeddingAt: Date | null
   createdAt: Date | null
@@ -64,6 +65,7 @@ export type TextContentRecordsMaxAggregateOutputType = {
   materialId: number | null
   content: string | null
   htmlContent: string | null
+  summary: string | null
   status: number | null
   lastEmbeddingAt: Date | null
   createdAt: Date | null
@@ -78,6 +80,7 @@ export type TextContentRecordsCountAggregateOutputType = {
   materialId: number
   content: number
   htmlContent: number
+  summary: number
   status: number
   vectorIds: number
   lastEmbeddingAt: number
@@ -111,6 +114,7 @@ export type TextContentRecordsMinAggregateInputType = {
   materialId?: true
   content?: true
   htmlContent?: true
+  summary?: true
   status?: true
   lastEmbeddingAt?: true
   createdAt?: true
@@ -125,6 +129,7 @@ export type TextContentRecordsMaxAggregateInputType = {
   materialId?: true
   content?: true
   htmlContent?: true
+  summary?: true
   status?: true
   lastEmbeddingAt?: true
   createdAt?: true
@@ -139,6 +144,7 @@ export type TextContentRecordsCountAggregateInputType = {
   materialId?: true
   content?: true
   htmlContent?: true
+  summary?: true
   status?: true
   vectorIds?: true
   lastEmbeddingAt?: true
@@ -241,6 +247,7 @@ export type TextContentRecordsGroupByOutputType = {
   materialId: number | null
   content: string | null
   htmlContent: string | null
+  summary: string | null
   status: number
   vectorIds: runtime.JsonValue | null
   lastEmbeddingAt: Date | null
@@ -279,6 +286,7 @@ export type textContentRecordsWhereInput = {
   materialId?: Prisma.IntNullableFilter<"textContentRecords"> | number | null
   content?: Prisma.StringNullableFilter<"textContentRecords"> | string | null
   htmlContent?: Prisma.StringNullableFilter<"textContentRecords"> | string | null
+  summary?: Prisma.StringNullableFilter<"textContentRecords"> | string | null
   status?: Prisma.IntFilter<"textContentRecords"> | number
   vectorIds?: Prisma.JsonNullableFilter<"textContentRecords">
   lastEmbeddingAt?: Prisma.DateTimeNullableFilter<"textContentRecords"> | Date | string | null
@@ -294,6 +302,7 @@ export type textContentRecordsOrderByWithRelationInput = {
   materialId?: Prisma.SortOrderInput | Prisma.SortOrder
   content?: Prisma.SortOrderInput | Prisma.SortOrder
   htmlContent?: Prisma.SortOrderInput | Prisma.SortOrder
+  summary?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   vectorIds?: Prisma.SortOrderInput | Prisma.SortOrder
   lastEmbeddingAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -312,6 +321,7 @@ export type textContentRecordsWhereUniqueInput = Prisma.AtLeast<{
   materialId?: Prisma.IntNullableFilter<"textContentRecords"> | number | null
   content?: Prisma.StringNullableFilter<"textContentRecords"> | string | null
   htmlContent?: Prisma.StringNullableFilter<"textContentRecords"> | string | null
+  summary?: Prisma.StringNullableFilter<"textContentRecords"> | string | null
   status?: Prisma.IntFilter<"textContentRecords"> | number
   vectorIds?: Prisma.JsonNullableFilter<"textContentRecords">
   lastEmbeddingAt?: Prisma.DateTimeNullableFilter<"textContentRecords"> | Date | string | null
@@ -327,6 +337,7 @@ export type textContentRecordsOrderByWithAggregationInput = {
   materialId?: Prisma.SortOrderInput | Prisma.SortOrder
   content?: Prisma.SortOrderInput | Prisma.SortOrder
   htmlContent?: Prisma.SortOrderInput | Prisma.SortOrder
+  summary?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   vectorIds?: Prisma.SortOrderInput | Prisma.SortOrder
   lastEmbeddingAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -350,6 +361,7 @@ export type textContentRecordsScalarWhereWithAggregatesInput = {
   materialId?: Prisma.IntNullableWithAggregatesFilter<"textContentRecords"> | number | null
   content?: Prisma.StringNullableWithAggregatesFilter<"textContentRecords"> | string | null
   htmlContent?: Prisma.StringNullableWithAggregatesFilter<"textContentRecords"> | string | null
+  summary?: Prisma.StringNullableWithAggregatesFilter<"textContentRecords"> | string | null
   status?: Prisma.IntWithAggregatesFilter<"textContentRecords"> | number
   vectorIds?: Prisma.JsonNullableWithAggregatesFilter<"textContentRecords">
   lastEmbeddingAt?: Prisma.DateTimeNullableWithAggregatesFilter<"textContentRecords"> | Date | string | null
@@ -364,6 +376,7 @@ export type textContentRecordsCreateInput = {
   materialId?: number | null
   content?: string | null
   htmlContent?: string | null
+  summary?: string | null
   status?: number
   vectorIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   lastEmbeddingAt?: Date | string | null
@@ -379,6 +392,7 @@ export type textContentRecordsUncheckedCreateInput = {
   materialId?: number | null
   content?: string | null
   htmlContent?: string | null
+  summary?: string | null
   status?: number
   vectorIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   lastEmbeddingAt?: Date | string | null
@@ -393,6 +407,7 @@ export type textContentRecordsUpdateInput = {
   materialId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   htmlContent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   vectorIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   lastEmbeddingAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -408,6 +423,7 @@ export type textContentRecordsUncheckedUpdateInput = {
   materialId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   htmlContent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   vectorIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   lastEmbeddingAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -423,6 +439,7 @@ export type textContentRecordsCreateManyInput = {
   materialId?: number | null
   content?: string | null
   htmlContent?: string | null
+  summary?: string | null
   status?: number
   vectorIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   lastEmbeddingAt?: Date | string | null
@@ -437,6 +454,7 @@ export type textContentRecordsUpdateManyMutationInput = {
   materialId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   htmlContent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   vectorIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   lastEmbeddingAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -452,6 +470,7 @@ export type textContentRecordsUncheckedUpdateManyInput = {
   materialId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   htmlContent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   vectorIds?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   lastEmbeddingAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -467,6 +486,7 @@ export type textContentRecordsCountOrderByAggregateInput = {
   materialId?: Prisma.SortOrder
   content?: Prisma.SortOrder
   htmlContent?: Prisma.SortOrder
+  summary?: Prisma.SortOrder
   status?: Prisma.SortOrder
   vectorIds?: Prisma.SortOrder
   lastEmbeddingAt?: Prisma.SortOrder
@@ -490,6 +510,7 @@ export type textContentRecordsMaxOrderByAggregateInput = {
   materialId?: Prisma.SortOrder
   content?: Prisma.SortOrder
   htmlContent?: Prisma.SortOrder
+  summary?: Prisma.SortOrder
   status?: Prisma.SortOrder
   lastEmbeddingAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -504,6 +525,7 @@ export type textContentRecordsMinOrderByAggregateInput = {
   materialId?: Prisma.SortOrder
   content?: Prisma.SortOrder
   htmlContent?: Prisma.SortOrder
+  summary?: Prisma.SortOrder
   status?: Prisma.SortOrder
   lastEmbeddingAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -528,6 +550,7 @@ export type textContentRecordsSelect<ExtArgs extends runtime.Types.Extensions.In
   materialId?: boolean
   content?: boolean
   htmlContent?: boolean
+  summary?: boolean
   status?: boolean
   vectorIds?: boolean
   lastEmbeddingAt?: boolean
@@ -543,6 +566,7 @@ export type textContentRecordsSelectCreateManyAndReturn<ExtArgs extends runtime.
   materialId?: boolean
   content?: boolean
   htmlContent?: boolean
+  summary?: boolean
   status?: boolean
   vectorIds?: boolean
   lastEmbeddingAt?: boolean
@@ -558,6 +582,7 @@ export type textContentRecordsSelectUpdateManyAndReturn<ExtArgs extends runtime.
   materialId?: boolean
   content?: boolean
   htmlContent?: boolean
+  summary?: boolean
   status?: boolean
   vectorIds?: boolean
   lastEmbeddingAt?: boolean
@@ -573,6 +598,7 @@ export type textContentRecordsSelectScalar = {
   materialId?: boolean
   content?: boolean
   htmlContent?: boolean
+  summary?: boolean
   status?: boolean
   vectorIds?: boolean
   lastEmbeddingAt?: boolean
@@ -581,7 +607,7 @@ export type textContentRecordsSelectScalar = {
   deletedAt?: boolean
 }
 
-export type textContentRecordsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "caseId" | "materialId" | "content" | "htmlContent" | "status" | "vectorIds" | "lastEmbeddingAt" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["textContentRecords"]>
+export type textContentRecordsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "caseId" | "materialId" | "content" | "htmlContent" | "summary" | "status" | "vectorIds" | "lastEmbeddingAt" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["textContentRecords"]>
 
 export type $textContentRecordsPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "textContentRecords"
@@ -611,6 +637,10 @@ export type $textContentRecordsPayload<ExtArgs extends runtime.Types.Extensions.
      * HTML格式内容
      */
     htmlContent: string | null
+    /**
+     * 200 字摘要（统一语义：识别完成后由 generateMaterialSummaryService 写入）
+     */
+    summary: string | null
     /**
      * 处理状态：0-待处理 1-处理中 2-成功 3-失败
      */
@@ -1064,6 +1094,7 @@ export interface textContentRecordsFieldRefs {
   readonly materialId: Prisma.FieldRef<"textContentRecords", 'Int'>
   readonly content: Prisma.FieldRef<"textContentRecords", 'String'>
   readonly htmlContent: Prisma.FieldRef<"textContentRecords", 'String'>
+  readonly summary: Prisma.FieldRef<"textContentRecords", 'String'>
   readonly status: Prisma.FieldRef<"textContentRecords", 'Int'>
   readonly vectorIds: Prisma.FieldRef<"textContentRecords", 'Json'>
   readonly lastEmbeddingAt: Prisma.FieldRef<"textContentRecords", 'DateTime'>

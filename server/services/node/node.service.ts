@@ -50,6 +50,8 @@ export interface NodePromptConfig {
     version: string
     type: string
     status: number
+    /** 同节点内多 prompt 的拼接顺序，越小越靠前；默认 100 */
+    displayOrder?: number
 }
 
 /** 节点配置中的 API 密钥信息 */
@@ -101,6 +103,10 @@ export interface NodeConfig {
     modelContextWindow?: number
     /** 模型单次调用最大输出 tokens（模型物理上限） */
     modelMaxOutputTokens?: number
+    /** 节点是否启用思考模式 */
+    thinkingEnabled: boolean
+    /** 关联模型是否支持思考切换 */
+    modelSupportsThinking: boolean
 }
 
 // ==================== 节点分组服务 ====================
@@ -188,24 +194,28 @@ export const deleteNodeGroupService = async (id: number) => {
  * 创建节点
  * Requirements: 14.2
  * @param data 节点创建数据
+ * @param tx 事务客户端（可选） — 调用方需要把节点创建与其他变更（如关联提示词）放进同一个事务时传入
  * @returns 创建的节点
  */
-export const createNodeService = async (data: CreateNodeInput) => {
+export const createNodeService = async (
+    data: CreateNodeInput,
+    tx?: Parameters<typeof createNodeDao>[1],
+) => {
     // 检查节点名称是否已存在
-    const existingNode = await findNodeByNameDao(data.name)
+    const existingNode = await findNodeByNameDao(data.name, tx)
     if (existingNode) {
         throw new Error('节点名称已存在')
     }
 
     // 检查模型是否存在
-    const model = await findModelByIdDao(data.modelId)
+    const model = await findModelByIdDao(data.modelId, tx)
     if (!model) {
         throw new Error('关联的模型不存在')
     }
 
     // 如果指定了分组，检查分组是否存在
     if (data.groupId) {
-        const group = await findNodeGroupByIdDao(data.groupId)
+        const group = await findNodeGroupByIdDao(data.groupId, tx)
         if (!group) {
             throw new Error('关联的分组不存在')
         }
@@ -216,7 +226,7 @@ export const createNodeService = async (data: CreateNodeInput) => {
     const cleanedData = (!SCHEMA_TYPES.includes(data.type) && data.outputSchema)
         ? { ...data, outputSchema: null }
         : data
-    return await createNodeDao(cleanedData)
+    return await createNodeDao(cleanedData, tx)
 }
 
 /**
@@ -405,13 +415,14 @@ export const getNodeConfigService = async (name: string): Promise<NodeConfig | n
             title: nodeConfig.title || nodeConfig.name,
             description: nodeConfig.description || '',
             type: nodeConfig.type,
-            prompts: nodeConfig.prompts.map((prompt) => ({
-                id: prompt.id,
-                name: prompt.name,
-                content: prompt.content,
-                version: prompt.version,
-                type: prompt.type,
-                status: prompt.status,
+            prompts: nodeConfig.nodePrompts.map((np) => ({
+                id: np.prompt.id,
+                name: np.prompt.name,
+                content: np.prompt.content,
+                version: np.prompt.version,
+                type: np.prompt.type,
+                status: np.prompt.status,
+                displayOrder: np.displayOrder,
             })),
             modelId: nodeConfig.modelId,
             modelName: nodeConfig.model.name,
@@ -432,6 +443,8 @@ export const getNodeConfigService = async (name: string): Promise<NodeConfig | n
             outputSchema: (nodeConfig.outputSchema as Record<string, unknown>) ?? null,
             modelContextWindow: nodeConfig.model.contextWindow ?? undefined,
             modelMaxOutputTokens: nodeConfig.model.maxOutputTokens ?? undefined,
+            thinkingEnabled: nodeConfig.thinkingEnabled ?? false,
+            modelSupportsThinking: nodeConfig.model.supportsThinking ?? false,
         }
 
         return config
@@ -505,13 +518,14 @@ export const getNodeConfigByIdService = async (id: number): Promise<NodeConfig |
             title: nodeConfig.title || nodeConfig.name,
             description: nodeConfig.description || '',
             type: nodeConfig.type,
-            prompts: nodeConfig.prompts.map((prompt) => ({
-                id: prompt.id,
-                name: prompt.name,
-                content: prompt.content,
-                version: prompt.version,
-                type: prompt.type,
-                status: prompt.status,
+            prompts: nodeConfig.nodePrompts.map((np) => ({
+                id: np.prompt.id,
+                name: np.prompt.name,
+                content: np.prompt.content,
+                version: np.prompt.version,
+                type: np.prompt.type,
+                status: np.prompt.status,
+                displayOrder: np.displayOrder,
             })),
             modelId: nodeConfig.modelId,
             modelName: nodeConfig.model.name,
@@ -532,6 +546,8 @@ export const getNodeConfigByIdService = async (id: number): Promise<NodeConfig |
             outputSchema: (nodeConfig.outputSchema as Record<string, unknown>) ?? null,
             modelContextWindow: nodeConfig.model.contextWindow ?? undefined,
             modelMaxOutputTokens: nodeConfig.model.maxOutputTokens ?? undefined,
+            thinkingEnabled: nodeConfig.thinkingEnabled ?? false,
+            modelSupportsThinking: nodeConfig.model.supportsThinking ?? false,
         }
 
         return config
@@ -550,6 +566,9 @@ export const getNodeConfigByIdService = async (id: number): Promise<NodeConfig |
  *
  * 查询指定类型的节点，按 priority 升序排序
  * 用于工作流模块加载、子代理列表等场景
+ *
+ * 阶段 F 改造：node_prompts 现按 (promptName, promptType) 业务身份关联，无 prisma 反向关系。
+ * 这里采用三步查询：节点 + 各节点的 link 列表 + 一次性按 (name, type) 拉取激活 prompts。
  *
  * @param types - 节点类型列表，如 ['analysis'] 或 ['analysis', 'document']
  * @returns NodeConfig 列表，按 priority 升序排序
@@ -580,49 +599,124 @@ export const getNodeConfigsByTypes = async (
                     },
                 },
             },
-            prompts: {
-                where: {
-                    status: 1,
-                    deletedAt: null,
-                },
-            },
         },
         orderBy: { priority: 'asc' },
     })
 
+    if (nodes.length === 0) return []
+
+    const nodeIds = nodes.map(n => n.id)
+    const links = await prisma.node_prompts.findMany({
+        where: { nodeId: { in: nodeIds } },
+        orderBy: { displayOrder: 'asc' },
+    })
+
+    // 收集所有需要查询的 (name, type) 业务身份（用 OR 数组一次拉激活版本）
+    const uniqueIdentities = new Map<string, { name: string; type: string }>()
+    for (const link of links) {
+        const key = `${link.promptName}::${link.promptType}`
+        if (!uniqueIdentities.has(key)) {
+            uniqueIdentities.set(key, { name: link.promptName, type: link.promptType })
+        }
+    }
+    const activePrompts = uniqueIdentities.size === 0
+        ? []
+        : await prisma.prompts.findMany({
+            where: {
+                OR: Array.from(uniqueIdentities.values()),
+                status: 1,
+                deletedAt: null,
+            },
+        })
+    const promptByKey = new Map(activePrompts.map(p => [`${p.name}::${p.type}`, p]))
+
+    // 按 nodeId 分组 links，已是 displayOrder 升序
+    const linksByNode = new Map<number, typeof links>()
+    for (const link of links) {
+        const arr = linksByNode.get(link.nodeId)
+        if (arr) arr.push(link)
+        else linksByNode.set(link.nodeId, [link])
+    }
+
     return nodes
         .filter(node => node.model && node.model.modelProvider)
-        .map(node => ({
-            id: node.id,
-            name: node.name,
-            title: node.title || node.name,
-            description: node.description || '',
-            type: node.type,
-            prompts: node.prompts.map(prompt => ({
-                id: prompt.id,
-                name: prompt.name,
-                content: prompt.content,
-                version: prompt.version,
-                type: prompt.type,
-                status: prompt.status,
-            })),
-            modelId: node.modelId,
-            modelName: node.model!.name,
-            modelType: node.model!.modelType,
-            modelStatus: node.model!.status ?? 0,
-            modelSdkType: (node.model!.sdkType as SdkType) || DEFAULT_SDK_TYPE,
-            modelProviderId: node.model!.modelProvider!.id,
-            modelProviderName: node.model!.modelProvider!.name,
-            modelProviderBaseUrl: node.model!.modelProvider!.baseUrl,
-            modelProviderDescription: node.model!.modelProvider!.description || '',
-            modelApiKeys: node.model!.modelProvider!.modelApiKeys.map(apiKey => ({
-                id: apiKey.id,
-                apiKey: apiKey.apiKey,
-                status: apiKey.status ?? 0,
-            })),
-            tools: (node.tools as string[]) || [],
-            outputSchema: (node.outputSchema as Record<string, unknown>) ?? null,
-            modelContextWindow: node.model!.contextWindow ?? undefined,
-            modelMaxOutputTokens: node.model!.maxOutputTokens ?? undefined,
-        }))
+        .map(node => {
+            const nodeLinks = linksByNode.get(node.id) ?? []
+            const prompts = nodeLinks
+                .map(link => {
+                    const prompt = promptByKey.get(`${link.promptName}::${link.promptType}`)
+                    return prompt
+                        ? {
+                            id: prompt.id,
+                            name: prompt.name,
+                            content: prompt.content,
+                            version: prompt.version,
+                            type: prompt.type,
+                            status: prompt.status,
+                        }
+                        : null
+                })
+                .filter(Boolean) as NodePromptConfig[]
+            return {
+                id: node.id,
+                name: node.name,
+                title: node.title || node.name,
+                description: node.description || '',
+                type: node.type,
+                prompts,
+                modelId: node.modelId,
+                modelName: node.model!.name,
+                modelType: node.model!.modelType,
+                modelStatus: node.model!.status ?? 0,
+                modelSdkType: (node.model!.sdkType as SdkType) || DEFAULT_SDK_TYPE,
+                modelProviderId: node.model!.modelProvider!.id,
+                modelProviderName: node.model!.modelProvider!.name,
+                modelProviderBaseUrl: node.model!.modelProvider!.baseUrl,
+                modelProviderDescription: node.model!.modelProvider!.description || '',
+                modelApiKeys: node.model!.modelProvider!.modelApiKeys.map(apiKey => ({
+                    id: apiKey.id,
+                    apiKey: apiKey.apiKey,
+                    status: apiKey.status ?? 0,
+                })),
+                tools: (node.tools as string[]) || [],
+                outputSchema: (node.outputSchema as Record<string, unknown>) ?? null,
+                modelContextWindow: node.model!.contextWindow ?? undefined,
+                modelMaxOutputTokens: node.model!.maxOutputTokens ?? undefined,
+                thinkingEnabled: node.thinkingEnabled ?? false,
+                modelSupportsThinking: node.model!.supportsThinking ?? false,
+            }
+        })
+}
+
+/**
+ * 决议某次 LLM 调用最终是否启用思考模式。
+ *
+ * 优先级：
+ * 1. 模型层硬门禁：modelSupportsThinking=false → 强制 false
+ * 2. 前端用户显式：ctxThinking !== undefined → 用 ctxThinking
+ * 3. 节点配置默认：fallback nodeThinkingEnabled
+ */
+export function resolveThinking(
+    modelSupportsThinking: boolean,
+    ctxThinking: boolean | undefined,
+    nodeThinkingEnabled: boolean,
+): boolean {
+    if (!modelSupportsThinking) return false
+    if (ctxThinking !== undefined) return ctxThinking
+    return nodeThinkingEnabled
+}
+
+/**
+ * 调用方便捷封装：直接从 NodeConfig + ctx.thinking 决议，避免 7 处调用点
+ * 重复写 `resolveThinking(nodeConfig.modelSupportsThinking, ..., nodeConfig.thinkingEnabled)`。
+ */
+export function resolveThinkingFromNodeConfig(
+    nodeConfig: NodeConfig,
+    ctxThinking: boolean | undefined,
+): boolean {
+    return resolveThinking(
+        nodeConfig.modelSupportsThinking,
+        ctxThinking,
+        nodeConfig.thinkingEnabled,
+    )
 }

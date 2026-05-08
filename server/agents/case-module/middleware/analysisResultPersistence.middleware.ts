@@ -15,11 +15,14 @@ import {
     updateAnalysisDao,
     getNextVersionDao,
     findAnalysisBySessionAndNodeDao,
+    findAnalysisByIdDao,
     AnalysisStatus,
 } from '~~/server/services/case/analysis.dao'
 import { failAnalysisService } from '~~/server/services/case/analysis.service'
 import { completeAnalysisWithRAG } from '~~/server/services/case/initAnalysis.service'
 import { getNodeByNameService } from '~~/server/services/node/node.service'
+import { publishCustomEvent } from '~~/server/services/agent/agentEventBridge'
+import { SSECustomEventType } from '#shared/types/agentEvent'
 
 /** 中间件参数 */
 interface AnalysisResultPersistenceOptions {
@@ -27,10 +30,16 @@ interface AnalysisResultPersistenceOptions {
     agentName: string
     /** 案件 ID */
     caseId: number
-    /** 会话 ID */
+    /** 会话 ID（子代理也用主流 sessionId 让前端能收到事件） */
     sessionId: string
     /** 用于生成 summary 的模型实例 */
     model: BaseChatModel
+    /**
+     * 主 Agent run id（agentRuns.id）。
+     * 子代理跑完后用这个 runId publish ANALYSIS_RESULT_SAVED 事件让前端列表刷新。
+     * 不传则跳过事件发送（向后兼容，不阻塞历史调用）。
+     */
+    runId?: string
 }
 
 /**
@@ -61,7 +70,7 @@ export function extractLastAIMessageContent(messages: any[]): string | null {
 export const analysisResultPersistenceMiddleware = (
     options: AnalysisResultPersistenceOptions
 ) => {
-    const { agentName, caseId, sessionId, model } = options
+    const { agentName, caseId, sessionId, model, runId } = options
 
     return createMiddleware({
         name: 'AnalysisResultPersistenceMiddleware',
@@ -140,23 +149,89 @@ export const analysisResultPersistenceMiddleware = (
                 if (!analysisRecordId) return
 
                 try {
+                    // ────────────────────────────────────────────────────────────
+                    // 幂等检查：save_analysis_result 工具已用 _analysisRecordId 走过
+                    // completeAnalysisWithRAG 把记录改成 COMPLETED 时，afterAgent
+                    // 必须跳过——否则 RAG 切块会重复写一份、summary 也会被重算覆盖。
+                    // 仅当记录仍是 IN_PROGRESS 时（LLM 没调工具 / 工具异常退出）
+                    // afterAgent 才走兜底落库，保障"分析结果一定保存"的不变量。
+                    // ────────────────────────────────────────────────────────────
+                    const existing = await findAnalysisByIdDao(analysisRecordId)
+                    if (existing && existing.status === AnalysisStatus.COMPLETED) {
+                        logger.info('分析持久化：工具已完成保存，afterAgent 跳过', {
+                            analysisRecordId,
+                            agentName,
+                        })
+                        return
+                    }
+
                     const resultText = extractLastAIMessageContent(state.messages ?? [])
                     if (!resultText) {
                         logger.warn('分析持久化：未找到 AIMessage 内容，跳过落库', { analysisRecordId, agentName })
                         return
                     }
 
+                    // 提取 token 用量。两条路双保险：
+                    //   1) 优先遍历 state.messages 累加 AIMessage.usage_metadata.total_tokens
+                    //      —— 这是 LangChain SDK 直接填的 provider 响应字段，**不经任何 middleware
+                    //      reducer**，最稳。pointConsumption 内部 getTokenCount 也是先读这个字段。
+                    //   2) 兜底：state._totalTokensConsumed（pointConsumptionMiddleware 累计），
+                    //      仅当上一条路完全没拿到时使用。
+                    let tokensFromMessages = 0
+                    for (const m of (state.messages ?? []) as any[]) {
+                        const t = m?._getType?.() ?? m?.type
+                        if (t !== 'ai') continue
+                        const used = m?.usage_metadata?.total_tokens
+                        if (typeof used === 'number' && used > 0) tokensFromMessages += used
+                    }
+                    const tokensFromState = (state._totalTokensConsumed as number | undefined) ?? 0
+                    const totalTokens = tokensFromMessages > 0 ? tokensFromMessages : tokensFromState
+                    const tokens = totalTokens > 0 ? totalTokens : null
+                    const tokenCount = totalTokens > 0 ? Math.ceil(totalTokens / 1000) : null
+
+                    logger.info('分析持久化：token 提取', {
+                        analysisRecordId,
+                        agentName,
+                        tokensFromMessages,
+                        tokensFromState,
+                        finalTokens: tokens,
+                        finalTokenCount: tokenCount,
+                    })
+
                     await completeAnalysisWithRAG({
                         analysisId: analysisRecordId,
                         analysisResult: resultText,
-                        model,
+                        tokens,
+                        tokenCount,
                     })
 
                     logger.info('分析持久化：完成分析记录', {
                         analysisId: analysisRecordId,
                         agentName,
                         resultLength: resultText.length,
+                        tokens,
+                        tokenCount,
                     })
+
+                    // 发 ANALYSIS_RESULT_SAVED 事件让前端分析模块列表刷新（caseMain 主流子代理同款体验）
+                    if (runId) {
+                        try {
+                            await publishCustomEvent({
+                                type: 'custom_event',
+                                runId,
+                                sessionId,
+                                name: SSECustomEventType.ANALYSIS_RESULT_SAVED,
+                                data: {
+                                    moduleName: agentName,
+                                    analysisId: analysisRecordId,
+                                    tokens,
+                                    tokenCount,
+                                },
+                            })
+                        } catch (err) {
+                            logger.warn('publishCustomEvent(ANALYSIS_RESULT_SAVED) 失败', { analysisRecordId, err })
+                        }
+                    }
                 } catch (error) {
                     logger.error('分析持久化 afterAgent 异常', {
                         analysisRecordId,

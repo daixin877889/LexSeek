@@ -11,25 +11,36 @@
 import { renderAsync } from 'docx-preview'
 import { toast } from 'vue-sonner'
 import { locateClauseElement } from '#shared/utils/clauseLocator'
-import type { Risk, RiskLevel } from '#shared/types/contract'
+import type { Risk, RiskDisplayPhaseB, RiskLevel } from '#shared/types/contract'
 // UI-L1：从 app/utils/contractRiskLevelStyle.ts 单一数据源 import，
 // 与 RiskListPanel 的徽章配色统一维护。
 import { RISK_LEVEL_DOCX_BG_CLASS as LEVEL_BG } from '~/utils/contractRiskLevelStyle'
 import { useApiFetch } from '~/composables/useApiFetch'
+import {
+    decorateQuoteRanges,
+    clearAllQuoteHighlights,
+} from '~/utils/quoteHighlight'
 
 const props = withDefaults(defineProps<{
     reviewedFileId: number | null
     originalFileId: number | null
-    risks?: Risk[]
+    /**
+     * PR 5：升级到 RiskDisplayPhaseB[]，新增 problematicQuote / quoteCharStart /
+     * quoteCharEnd 用于 quote 字符级高亮（CSS Custom Highlight API）。
+     */
+    risks?: RiskDisplayPhaseB[]
     focusedRiskId?: string | null
     hoveredRiskId?: string | null
-    /** pinned + focused，不含 hovered */
-    highlightedRiskIds?: Set<string>
+    /**
+     * PR 5：从 useContractRiskHighlight.pinnedRiskIds 直接传入（不含 focused）。
+     * 替代旧 highlightedRiskIds（pinned ∪ focused 合集）的内部反推。
+     */
+    pinnedRiskIds?: Set<string>
 }>(), {
     risks: () => [],
     focusedRiskId: null,
     hoveredRiskId: null,
-    highlightedRiskIds: () => new Set<string>(),
+    pinnedRiskIds: () => new Set<string>(),
 })
 
 const emit = defineEmits<{
@@ -56,10 +67,10 @@ function runDecorateOnce(): Set<string> {
     if (!containerRef.value) return new Set(props.risks.map(r => r.id))
     const notLocatedIds = new Set<string>()
     for (const risk of props.risks) {
-        // 优先级 0：anchorParagraphIndex 直定位（与后端"非空段落序号"空间一致），
-        // 解决 reviewed docx 注入批注后 textContent 与原 anchor_quote 微差异（全角空格、
+        // 优先级 0：clauseParagraphIndex 直定位（与后端"非空段落序号"空间一致），
+        // 解决 reviewed docx 注入批注后 textContent 与原 clause_text 微差异（全角空格、
         // 标点变体）导致的"未定位"误报。详见 shared/utils/clauseLocator.ts。
-        const el = locateClauseElement(containerRef.value, risk.clauseText, risk.anchorParagraphIndex)
+        const el = locateClauseElement(containerRef.value, risk.clauseText, risk.clauseParagraphIndex)
         if (!el || !(el instanceof HTMLElement)) {
             notLocatedIds.add(risk.id)
             continue
@@ -103,23 +114,58 @@ function nextFrame(ms = 0): Promise<void> {
  */
 async function decorateRisks(): Promise<void> {
     if (!containerRef.value || props.risks.length === 0) {
+        paintQuoteHighlights()
         emit('locateResult', runDecorateOnce())
         return
     }
     let notLocated = runDecorateOnce()
-    // 首次就全命中或部分命中 → 认为 DOM 已稳定，直接 emit
     if (notLocated.size < props.risks.length) {
+        paintQuoteHighlights()
         emit('locateResult', notLocated)
         return
     }
-    // 全未命中 → 可能 DOM 还在异步渲染，重试最多 3 次
     for (let attempt = 1; attempt <= 3; attempt++) {
-        await nextFrame(attempt * 80) // 80 / 160 / 240ms 渐进等待
+        await nextFrame(attempt * 80)
         notLocated = runDecorateOnce()
         if (notLocated.size < props.risks.length) break
     }
+    paintQuoteHighlights()
     emit('locateResult', notLocated)
 }
+
+/**
+ * PR 5 · § 7.5 焦点 1 秒衰减窗口。
+ * focusedRiskId 变化时由 watch 置 true + 启动 1 秒 setTimeout 关闭；
+ * pickHighlightState 在窗口关闭后把 quote-focused 衰减为 quote-default。
+ */
+const flashWindowActive = ref(false)
+let flashWindowTimer: ReturnType<typeof setTimeout> | null = null
+
+function paintQuoteHighlights(): void {
+    if (!containerRef.value) return
+    decorateQuoteRanges(props.risks, containerRef.value, {
+        focusedRiskId: props.focusedRiskId ?? null,
+        pinnedRiskIds: props.pinnedRiskIds,
+        flashWindowActive: flashWindowActive.value,
+    })
+}
+
+function startFlashWindow(): void {
+    flashWindowActive.value = true
+    if (flashWindowTimer) clearTimeout(flashWindowTimer)
+    flashWindowTimer = setTimeout(() => {
+        flashWindowActive.value = false
+        flashWindowTimer = null
+        paintQuoteHighlights()
+    }, 1000)
+}
+
+onBeforeUnmount(() => {
+    if (flashWindowTimer) {
+        clearTimeout(flashWindowTimer)
+        flashWindowTimer = null
+    }
+})
 
 async function loadDocx(fileId: number) {
     const seq = ++fetchSeq
@@ -139,6 +185,9 @@ async function loadDocx(fileId: number) {
         // renderAsync 可能耗时几百 ms，期间若用户切换到新文件必须整体放弃。
         // 用本地 target 捕获当前 containerRef，避免渲染到过期的 DOM 节点。
         const target = containerRef.value
+        // PR 5：renderAsync 替换 target.innerHTML 后，CSS.highlights 持有的 Range
+        // 引用旧 text node 失效；必须先清空全部命名 Highlight（spec § 7.4 重渲染保护）
+        clearAllQuoteHighlights()
         target.innerHTML = ''
         await renderAsync(buffer, target, undefined, { inWrapper: true })
         if (seq !== fetchSeq) {
@@ -171,41 +220,47 @@ watch(
 // decorateRisks 跑在新文档渲染前，DOM 为空，所有风险被误报为"未定位"。
 watch(() => props.risks, () => { if (!loading.value) decorateRisks() }, { deep: false })
 
-// 聚焦/钉/悬停态样式切换（spec §7.1 视觉基线）
+// 聚焦/钉/悬停态样式切换（spec §7.1 段落视觉基线 + § 7.5 1 秒衰减 + § 7.6 quote 三态矩阵）
 watch(
-    [() => props.focusedRiskId, () => props.highlightedRiskIds, () => props.hoveredRiskId, () => props.risks],
-    () => {
+    [() => props.focusedRiskId, () => props.pinnedRiskIds, () => props.hoveredRiskId, () => props.risks],
+    (newVals, oldVals) => {
         if (!containerRef.value) return
         containerRef.value.querySelectorAll('[data-risk-id]').forEach(el => {
             const id = (el as HTMLElement).dataset.riskId
             if (!id) return
             const isActive = id === props.focusedRiskId
-            const isPinned = props.highlightedRiskIds.has(id) && !isActive
+            const isPinned = props.pinnedRiskIds.has(id) && !isActive
             const isHovered = id === props.hoveredRiskId && !isActive && !isPinned
 
-            // 幂等清理所有聚焦/钉/悬停样式
             el.classList.remove(
                 'bg-yellow-200', 'border-l-[5px]', 'border-red-700',
                 '[box-shadow:0_0_0_1px_#b91c1c]',
                 'bg-yellow-50',
             )
-            // active + pinned 同视觉（spec §7.1）
             if (isActive || isPinned) {
                 el.classList.add(
                     'bg-yellow-200', 'border-l-[5px]', 'border-red-700',
                     '[box-shadow:0_0_0_1px_#b91c1c]',
                 )
             }
-            // hovered：淡黄底短暂提示，不加边框/光晕
             if (isHovered) {
                 el.classList.add('bg-yellow-50')
             }
         })
-        // 聚焦时滚到可视区（hover 不滚，避免鼠标划过文档时文档自己乱跳）
         if (props.focusedRiskId) {
             const el = containerRef.value.querySelector(`[data-risk-id="${props.focusedRiskId}"]`)
             el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
         }
+
+        // PR 5：focused 切到新 risk → 启动 1 秒衰减窗口（spec § 7.5）
+        const prevFocused = (oldVals?.[0] ?? null) as string | null
+        const newFocused = (newVals[0] ?? null) as string | null
+        if (newFocused && newFocused !== prevFocused) {
+            startFlashWindow()
+        }
+
+        // PR 5：派系字符级 quote 高亮三态（spec § 7.6 矩阵）
+        paintQuoteHighlights()
     },
 )
 </script>

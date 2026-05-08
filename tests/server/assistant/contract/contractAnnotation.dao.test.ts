@@ -42,7 +42,7 @@ describe('contractAnnotation.dao', () => {
             level: 'high',
             stance: 'balanced',
             problem: '超长试用期',
-            anchorQuote: '试用期 6 个月',
+            clauseText: '试用期 6 个月',
         })
         riskId = risk.id
     })

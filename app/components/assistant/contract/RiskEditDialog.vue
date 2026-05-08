@@ -66,6 +66,7 @@ function handleConfirm() {
     if (!canSubmit.value) return
     const f = form.value
     emit('confirm', {
+        ...(props.risk ?? {}),
         id: props.risk?.id ?? crypto.randomUUID(),
         clauseIndex: typeof f.clauseIndex === 'number' ? f.clauseIndex : Number(f.clauseIndex),
         clauseText: f.clauseText,

@@ -283,6 +283,28 @@ describe('compressMessages', () => {
         const promptText = model.invoke.mock.calls[0][0][1].content
         expect(promptText).toContain('[AI 回复]')
     })
+
+    // @langchain/anthropic 1.x streaming + thinking 模式下 AIMessageChunk reduce 把
+    // tool_use 块只塞进 content 数组、顶层 tool_calls=[]——摘要必须从 content 里
+    // 也读 tool_use 块,否则误进 [AI 回复] 分支,把 thinking 文本写到摘要影响质量
+    it('buildSummaryPrompt: content 数组含 tool_use 但 tool_calls=[] 时仍走 [AI 调用工具] 分支', async () => {
+        const msgs: any[] = [new SystemMessage('s')]
+        for (let i = 0; i < 12; i++) msgs.push(new HumanMessage(`h${i}`))
+        // 在 middle 段插入一条"thinking + content tool_use"的 AI 消息
+        msgs.splice(2, 0, new AIMessage({
+            content: [
+                { type: 'thinking', thinking: 'AI 内部思考过程，不应出现在摘要里' } as any,
+                { type: 'tool_use', id: 'tu-1', name: 'search_law', input: { q: 'x' } } as any,
+            ],
+            tool_calls: [],
+        }))
+        const model = { invoke: vi.fn().mockResolvedValue({ content: 'ok' }) }
+        await compressMessages(msgs, 8000, model)
+        const promptText = model.invoke.mock.calls[0][0][1].content
+        expect(promptText).toContain('[AI 调用工具] search_law')
+        // thinking 文本不应被泄露到摘要 prompt
+        expect(promptText).not.toContain('AI 内部思考过程')
+    })
 })
 
 describe('safetyTrimMessages', () => {

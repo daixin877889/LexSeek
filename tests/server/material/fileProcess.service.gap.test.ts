@@ -45,6 +45,24 @@ vi.mock('~~/server/services/material/mineru.service', () => ({
 const mockTranscribeAudioService = vi.fn()
 vi.mock('~~/server/services/material/asr.service', () => ({
     transcribeAudioService: (...args: any[]) => mockTranscribeAudioService(...args),
+    // T2：extractTextFromAsrResult 已从 materialPipeline.service 迁到 asr.service
+    extractTextFromAsrResult: (result: any) => {
+        if (!result) return null
+        if (result.sentences && Array.isArray(result.sentences)) {
+            const text = result.sentences.map((s: any) => s.text || '').filter(Boolean).join('\n')
+            if (text) return text
+        }
+        if (result.transcripts && Array.isArray(result.transcripts)) {
+            const text = result.transcripts
+                .flatMap((t: any) => t.sentences || [])
+                .map((s: any) => s.text || '')
+                .filter(Boolean)
+                .join('\n')
+            if (text) return text
+        }
+        if (typeof result.text === 'string' && result.text.trim()) return result.text
+        return null
+    },
 }))
 
 // 控制 materialType 判断
@@ -61,16 +79,6 @@ vi.mock('#shared/types/case', async () => {
     }
 })
 
-// 保持 extractTextFromAsrResult 的真实解析行为用于测试
-vi.mock('~~/server/services/material/materialPipeline.service', () => ({
-    extractTextFromAsrResult: (result: any) => {
-        if (!result) return null
-        if (result.sentences) return result.sentences.map((s: any) => s.text).join('\n')
-        if (result.text) return result.text
-        return null
-    },
-}))
-
 import { processFileMaterials } from '~~/server/services/material/fileProcess.service'
 
 describe('文件粒度识别服务 - 补充覆盖', () => {
@@ -85,7 +93,7 @@ describe('文件粒度识别服务 - 补充覆盖', () => {
     })
 
     describe('recognizeFile AUDIO 异步路径', () => {
-        it('提交后需要轮询：应等到 asrRecords 出现 summary 后返回', async () => {
+        it('提交后需要轮询：应等到 asrRecords 出现 result 后返回（T2：转录文本从 result JSON 现拼）', async () => {
             ;(prisma.ossFiles.findMany as any).mockResolvedValue([
                 { id: 300, fileName: 'audio.mp3', fileType: 'audio/mpeg', filePath: '/path' },
             ])
@@ -101,7 +109,9 @@ describe('文件粒度识别服务 - 补充覆盖', () => {
             // 第一次 findFirst 返回 null（继续轮询），第二次返回成功记录
             ;(prisma.asrRecords.findFirst as any)
                 .mockResolvedValueOnce(null)
-                .mockResolvedValueOnce({ summary: '音频最终结果', result: null })
+                .mockResolvedValueOnce({
+                    result: { sentences: [{ text: '音频最终结果' }] },
+                })
 
             const results = await processFileMaterials([300], 1)
 
@@ -200,8 +210,8 @@ describe('文件粒度识别服务 - 补充覆盖', () => {
 
             mockTranscribeAudioService.mockResolvedValue({ success: true, task: null })
             ;(prisma.asrRecords.findFirst as any).mockResolvedValue({
-                summary: '同步返回',
-                result: null,
+                // T2：summary 字段不再用于转录文本，从 result JSON 现拼
+                result: { sentences: [{ text: '同步返回' }] },
             })
 
             const results = await processFileMaterials([305], 1)

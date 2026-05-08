@@ -19,6 +19,7 @@ import { createEventStream } from 'h3'
 import { loadOwnedReview } from '~~/server/services/assistant/contract/reviewGuard'
 import { uploadClientVersionService } from '~~/server/services/assistant/contract/uploadClientVersion.service'
 import { CONTRACT_UPLOAD_VERSION_SSE_EVENT } from '#shared/types/contract'
+import { withLangfuseContext } from '~~/server/lib/langfuse'
 
 const bodySchema = z.object({
     ossFileId: z.number().int().positive(),
@@ -45,7 +46,14 @@ export default defineEventHandler(async (event) => {
 
     const eventStream = createEventStream(event)
 
-    void (async () => {
+    void withLangfuseContext(
+        {
+            reviewId: String(review.id),
+            caseId: review.caseId ?? undefined,
+            userId: user.id,
+            vertical: 'contract',
+        },
+        async () => {
         try {
             for await (const evt of uploadClientVersionService({
                 review,
@@ -70,7 +78,8 @@ export default defineEventHandler(async (event) => {
         } finally {
             await eventStream.close()
         }
-    })()
+        },
+    )
 
     return eventStream.send()
 })

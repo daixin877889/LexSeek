@@ -68,8 +68,9 @@ export default defineEventHandler(async (event) => {
         let response: UnifiedRecognitionStatusResponse
 
         if (mineruTask) {
-            // MinerU 任务记录（处理中或失败）
-            const isRecognized = mineruTask.status === MineruTaskStatus.SUCCESS
+            // mineruTask 表无 summary 字段；mineruTask 命中通常说明 docRecord 还未创建
+            // 或摘要未生成 → recognized=false 让前端继续轮询
+            const isRecognized = false
             const statusMap: Record<number, number> = {
                 [MineruTaskStatus.PENDING]: 0,
                 [MineruTaskStatus.PROCESSING]: 1,
@@ -83,7 +84,7 @@ export default defineEventHandler(async (event) => {
             }
         } else if (docRecord) {
             // 文档识别记录
-            const isRecognized = docRecord.status === DocRecognitionStatus.SUCCESS
+            const isRecognized = docRecord.status === DocRecognitionStatus.SUCCESS && !!docRecord.summary
             response = {
                 recognized: isRecognized,
                 status: docRecord.status,
@@ -91,7 +92,7 @@ export default defineEventHandler(async (event) => {
             }
         } else if (imageRecord) {
             // 图像识别记录
-            const isRecognized = imageRecord.status === ImageRecognitionStatus.COMPLETED
+            const isRecognized = imageRecord.status === ImageRecognitionStatus.COMPLETED && !!imageRecord.summary
             response = {
                 recognized: isRecognized,
                 status: imageRecord.status,
@@ -99,7 +100,7 @@ export default defineEventHandler(async (event) => {
             }
         } else if (asrRecord) {
             // 音频识别记录
-            const isRecognized = asrRecord.status === AsrRecordStatus.SUCCESS
+            const isRecognized = asrRecord.status === AsrRecordStatus.SUCCESS && !!asrRecord.summary
             response = {
                 recognized: isRecognized,
                 status: asrRecord.status,

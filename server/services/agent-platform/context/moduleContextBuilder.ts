@@ -1,8 +1,39 @@
 import { SystemMessage } from '@langchain/core/messages'
+import dayjs from 'dayjs'
+import { CaseMaterialTypeText, type CaseMaterialType } from '#shared/types/case'
+import { MaterialStatus } from '#shared/types/material'
 import type { CachedPrompt } from '#shared/types/prompt'
-import { getMaterialListWithSummariesService } from '~~/server/services/material/materialPipeline.service'
+import { getMaterialListWithSummariesService, getSourceId } from '~~/server/services/material/materialPipeline.service'
 import { recallMemoryService } from '~~/server/services/memory/memory.service'
 import { cachedPromptToAnthropicContent, cachedPromptToPlainText } from '~~/server/services/node/chatModelFactory'
+
+/**
+ * LLM 提示词专用状态文案，与 shared/types/material.ts 的 MaterialStatusText 区分：
+ * UI 用"处理中/已完成/处理失败"，LLM 提示词用"识别中/已识别/识别失败"贴合
+ * OCR/ASR 业务概念，让 LLM 一眼看出"哪些材料还查不了全文"。
+ */
+const STATUS_LABEL_MAP: Record<MaterialStatus, string> = {
+  [MaterialStatus.PENDING]: '待识别',
+  [MaterialStatus.PROCESSING]: '识别中',
+  [MaterialStatus.COMPLETED]: '已识别',
+  [MaterialStatus.FAILED]: '识别失败',
+}
+
+/**
+ * 按材料 status 与 summary 渲染材料行尾的描述文字。
+ * - COMPLETED + summary 非空：直接返回 summary
+ * - COMPLETED + summary 空：返回"（摘要生成中）"
+ * - PROCESSING / PENDING / FAILED：返回对应状态提示，告诉 LLM 暂不可查全文
+ */
+function renderMaterialSummary(status: MaterialStatus, summary: string | null): string {
+  if (summary) return summary
+  switch (status) {
+    case MaterialStatus.COMPLETED: return '（摘要生成中）'
+    case MaterialStatus.PROCESSING: return '（识别中，待识别完成后可查全文）'
+    case MaterialStatus.PENDING: return '（待识别，上传中或排队中）'
+    case MaterialStatus.FAILED: return '（识别失败，可联系客服重新处理）'
+  }
+}
 
 export interface ContextSegments {
   /** 角色 + 流程规范（来自 NodeConfig） */
@@ -61,7 +92,13 @@ export async function buildContextSegments(params: Params): Promise<ContextSegme
     }),
     prisma.caseAnalyses.findMany({
       where: { caseId, isActive: true, deletedAt: null, NOT: { analysisType: agentName } },
-      select: { analysisType: true, summary: true },
+      select: {
+        analysisType: true,
+        summary: true,
+        version: true,
+        updatedAt: true,
+        analysisResult: true,
+      },
       orderBy: { analysisType: 'asc' },
     }),
     getMaterialListWithSummariesService(caseId).catch(() => []),
@@ -92,13 +129,27 @@ export async function buildContextSegments(params: Params): Promise<ContextSegme
   }
   const caseProfile = `## 案件档案\n\`\`\`json\n${JSON.stringify(profile, Object.keys(profile).sort(), 2)}\n\`\`\``
 
-  // ④ 已完成模块摘要（只塞 summary，不塞全文；全文由 search_case_analysis 工具按需召回）
+  // ④ 已分析模块（当前激活版本）
+  // - 不再因 summary 缺失整条跳过；summary 为 null 时降级用 analysisResult 前 500 字 + 标识
+  // - 段头加 search_case_analysis 工具查询条件提示，让 LLM 知道工具参数怎么填
   let moduleSummaries = ''
   if (activeAnalyses.length > 0) {
-    const lines = ['## 已完成分析模块（全文请调用 search_case_analysis 工具）']
+    const lines = ['## 已分析模块（当前激活版本，全文请调用 search_case_analysis 工具，参数 analysis_type 填模块名 + query 填问题关键词）']
     for (const a of activeAnalyses) {
-      if (!a.summary) continue // 无摘要的旧版本跳过（Q4.3 B 旧数据不补）
-      lines.push(`### ${a.analysisType}\n${a.summary}`)
+      const updatedAtStr = dayjs(a.updatedAt).format('YYYY-MM-DD HH:mm:ss')
+      const header = `### ${a.analysisType}（v${a.version}，更新于 ${updatedAtStr}）`
+
+      if (a.summary) {
+        lines.push(`${header}\n${a.summary}`)
+      }
+      else if (a.analysisResult) {
+        const excerpt = a.analysisResult.slice(0, 500)
+        const tail = a.analysisResult.length > 500 ? '...' : ''
+        lines.push(`${header}\n（暂无独立摘要，正文节选）\n${excerpt}${tail}`)
+      }
+      else {
+        lines.push(`${header}\n（暂无内容）`)
+      }
     }
     moduleSummaries = lines.length > 1 ? lines.join('\n\n') : ''
   }
@@ -110,10 +161,13 @@ export async function buildContextSegments(params: Params): Promise<ContextSegme
     for (const m of memoryHits) dynLines.push(`- ${m.text}`)
   }
   if (materials.length > 0) {
-    dynLines.push('\n## 案件材料清单（全文请调用 search_case_materials 工具）')
+    dynLines.push('\n## 案件材料清单（全文请调用 search_case_materials 工具，参数 sourceId 填下面括号中的值精确取该材料；或参数 query 填关键词跨材料搜索）')
     for (const mat of materials) {
-      const typeLabel = ({ 1: '文本', 2: '文档', 3: '图片', 4: '音频' } as const)[mat.type as 1|2|3|4] ?? '其它'
-      dynLines.push(`- **${mat.name}**（${typeLabel}）— ${mat.summary ?? '（摘要生成中）'}`)
+      const typeLabel = CaseMaterialTypeText[mat.type as CaseMaterialType]
+      const statusLabel = STATUS_LABEL_MAP[mat.status as MaterialStatus]
+      const sourceId = getSourceId(mat)
+      const summaryText = renderMaterialSummary(mat.status as MaterialStatus, mat.summary)
+      dynLines.push(`- **${mat.name}**（${typeLabel}，sourceId=${sourceId ?? '未生成'}）— ${statusLabel} — ${summaryText}`)
     }
   }
   const dynamicContext = dynLines.join('\n')
@@ -143,11 +197,21 @@ export interface BuiltSystemPrompt {
 }
 
 /**
- * 一站式构建 agent 的 SystemMessage：
- * buildContextSegments → toCachedPrompt → 按 sdkType 分流（anthropic content blocks / plain text） → SystemMessage。
+ * 主 Agent caseMain（runtime.ts）/ caseModule（moduleAgent）/ documentMain
+ * （documentMainAgent）已于 2026-05-05 改造为 SystemMessage 仅含 roleAndFlow
+ * + caseContextSyncMiddleware 注入 4+2 段 HumanMessage 模式。三者通过 caseId=null
+ * 退化路径仅复用本函数的"按 SDK 分流构造 SystemMessage（Anthropic 自动加 1h
+ * cache_control）"能力。
  *
- * 6 个主代理 / 子代理之前各自重复这段 7-10 行样板，统一抽出后调用点缩成 1 行。
- * 后续若 cache 协议变更（Anthropic 加新断点 / OpenAI 支持 cache 字段），只改本函数。
+ * 当前使用本函数完整 5 段式拼装的调用方：
+ * - subAgentToolFactory（ask_*_expert 子 Agent）
+ * - runAnalysisSubAgent（案件分析子 Agent）
+ * - contractReviewMainAgent（合同审查主 Agent，本次改造非目标范围 spec §2.2）
+ * - assistantAgent（法律助手主 Agent，caseId 永远 null，本次改造非目标）
+ *
+ * 一站式构建 agent 的 SystemMessage：
+ * buildContextSegments → toCachedPrompt → 按 sdkType 分流（anthropic content blocks
+ * / plain text） → SystemMessage。
  */
 export async function buildSystemPromptForAgent(
   modelSdkType: string,

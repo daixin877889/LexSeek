@@ -313,4 +313,68 @@ describe('recommendDocumentTemplatesService（真打 DB）', () => {
         expect(r.items.some(i => i.name === '启用模板')).toBe(true)
         expect(r.items.some(i => i.name === '禁用模板')).toBe(false)
     })
+
+    // Bug A 复现 + 修复回归：keyword='起诉' 在多个模板 name 中都命中（子串），
+    // 位置加权应让"起诉"出现在更靠前位置的"民事起诉状"得分高于"民事答辩状（公民对民事起诉提出答辩用）"
+    // 避免 score 平局后按 id desc 错误地把答辩状排在前面（线上真实复现路径）
+    it('8. 子串歧义：keyword 在多个模板 name 命中时，位置越靠前得分越高', async () => {
+        const user = await createTestUser()
+        testIds.userIds.push(user.id)
+
+        const litComplaint = await createTpl({
+            name: '民事起诉状（公民提起民事诉讼用）',
+            category: 'litigation',
+            description: null,
+            priority: 100,
+        })
+        const litResponse = await createTpl({
+            name: '民事答辩状（公民对民事起诉提出答辩用）',
+            category: 'litigation',
+            description: null,
+            priority: 100,
+        })
+
+        const result = await recommendDocumentTemplatesService({
+            userId: user.id,
+            intent: '帮我起草起诉状',
+            keywords: ['起诉'],
+            categoryHint: 'litigation',
+            limit: 10,
+        })
+
+        const ids = result.items.map(i => i.id)
+        const idxComplaint = ids.indexOf(litComplaint.id)
+        const idxResponse = ids.indexOf(litResponse.id)
+        expect(idxComplaint).toBeGreaterThanOrEqual(0)
+        expect(idxResponse).toBeGreaterThanOrEqual(0)
+        // 起诉状必须排在答辩状前面
+        expect(idxComplaint).toBeLessThan(idxResponse)
+
+        const scoreComplaint = result.items.find(i => i.id === litComplaint.id)!.score
+        const scoreResponse = result.items.find(i => i.id === litResponse.id)!.score
+        // 起诉状的 "起诉" 在 name 第 3 字符（idx=2），答辩状的 "起诉" 在 name 第 11 字符附近
+        // 位置加权后，起诉状必须严格高于答辩状
+        expect(scoreComplaint).toBeGreaterThan(scoreResponse)
+    })
+
+    // 进一步验证：name 以 keyword 开头时额外奖励（最关键的精确意图）
+    it('9. name 以 keyword 开头额外加分（精确意图）', async () => {
+        const user = await createTestUser()
+        testIds.userIds.push(user.id)
+
+        const startsWith = await createTpl({ name: '起诉状-民事通用', category: 'litigation' })
+        const middle = await createTpl({ name: '民事起诉状（公民提起民事诉讼用）', category: 'litigation' })
+
+        const r = await recommendDocumentTemplatesService({
+            userId: user.id,
+            intent: '起诉状',
+            keywords: ['起诉状'],
+            categoryHint: 'litigation',
+        })
+
+        const sStart = r.items.find(i => i.id === startsWith.id)!.score
+        const sMid = r.items.find(i => i.id === middle.id)!.score
+        // name 以 "起诉状" 开头的应严格高于 name 中部含的
+        expect(sStart).toBeGreaterThan(sMid)
+    })
 })

@@ -1,5 +1,6 @@
 ---
 name: minimax-pdf
+title: PDF 编辑
 description: >
   当 PDF 需要考虑视觉效果和品牌设计时使用此技能。
   创建（从零开始生成）："生成一份 PDF"、"生成一份报告"、"写一份提案"、

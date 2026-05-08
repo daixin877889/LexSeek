@@ -27,8 +27,8 @@
    - 确认每次队列操作后 reactive Map 正确更新
 
 2. **Network 面板**
-   - 筛选 XHR/Fetch，观察 `/api/v1/case/analysis/chat` 请求
-   - 观察 `/api/v1/case/analysis/stop` 请求（停止去抖验证场景用）
+   - 筛选 XHR/Fetch，观察 `/api/v1/cases/analysis/chat` 请求
+   - 观察 `/api/v1/cases/analysis/stop` 请求（停止去抖验证场景用）
    - 确认停止后队列恢复时是否正确发起新的 chat 请求
 
 3. **Console 面板**
@@ -347,7 +347,7 @@ document.querySelector('[data-testid="queue-brain-icon"]')
 
 **预期结果**：
 
-- [ ] Network 面板：`/api/v1/case/analysis/stop`（或 `/cancel`）请求**只出现 1 次**（去抖生效）
+- [ ] Network 面板：`/api/v1/cases/analysis/stop`（或 `/cancel`）请求**只出现 1 次**（去抖生效）
 - [ ] 第 1 次点击后停止按钮立即变为禁用态（灰色，不可再点）
 - [ ] 约 3 秒内（runStatus 切换为终止态或超时）停止按钮恢复正常（`isStopping` 重置）
 - [ ] Console 无 `[chat-stop] stopGeneration failed` 日志
