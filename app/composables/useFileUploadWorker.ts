@@ -8,6 +8,7 @@
  */
 
 import type { PostSignatureResult } from '~~/shared/types/oss'
+import { useApiFetch } from '~/composables/useApiFetch'
 
 // Worker 响应类型
 interface WorkerResponse {
@@ -29,6 +30,7 @@ interface UploadCallbacks {
 interface UploadTask {
   id: string
   callbacks: UploadCallbacks
+  ossFileId?: number  // 用于回调失败时的兜底校验
 }
 
 // Worker 实例管理
@@ -84,7 +86,7 @@ export const useFileUploadWorker = () => {
     currentInstance.refCount++
 
     // 仅在首次初始化时添加监听器
-    currentInstance.worker.addEventListener('message', (event: MessageEvent<WorkerResponse>) => {
+    currentInstance.worker.addEventListener('message', async (event: MessageEvent<WorkerResponse>) => {
       const response = event.data
       const task = tasks.get(response.id)
 
@@ -94,10 +96,42 @@ export const useFileUploadWorker = () => {
         case 'progress':
           task.callbacks.onProgress?.(response.progress || 0)
           break
-        case 'success':
-          task.callbacks.onSuccess?.(response.data || {})
-          tasks.delete(response.id)
+
+        case 'success': {
+          const data = response.data || {}
+          const callbackOk = data?.success !== false
+
+          if (callbackOk) {
+            task.callbacks.onSuccess?.(data)
+            tasks.delete(response.id)
+            break
+          }
+
+          // 回调失败：用 ossFileId 兜底校验
+          if (!task.ossFileId) {
+            task.callbacks.onError?.(new Error('上传回调失败且无法兜底校验'))
+            tasks.delete(response.id)
+            break
+          }
+
+          try {
+            const result = await useApiFetch<{ status: string }>(
+              '/api/v1/storage/confirm-upload',
+              { method: 'POST', body: { fileId: task.ossFileId } }
+            )
+            if (result?.status === 'uploaded') {
+              task.callbacks.onSuccess?.({ recovered: true, fileId: task.ossFileId })
+            } else {
+              task.callbacks.onError?.(new Error('上传校验失败，请重新上传'))
+            }
+          } catch (err) {
+            task.callbacks.onError?.(err instanceof Error ? err : new Error('上传校验异常'))
+          } finally {
+            tasks.delete(response.id)
+          }
           break
+        }
+
         case 'error':
           task.callbacks.onError?.(new Error(response.error || '未知错误'))
           tasks.delete(response.id)
@@ -119,7 +153,7 @@ export const useFileUploadWorker = () => {
     const w = initWorker()
     const id = `upload_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
 
-    tasks.set(id, { id, callbacks })
+    tasks.set(id, { id, callbacks, ossFileId: signature.ossFileId })
 
     const callbackVar: Record<string, string> = {}
     if (signature.callbackVar) {

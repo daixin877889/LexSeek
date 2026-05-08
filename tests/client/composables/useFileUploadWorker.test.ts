@@ -7,7 +7,7 @@
  * **Validates: Requirements 3.3, 3.4**
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { PostSignatureResult } from '../../../shared/types/oss'
 
 // 模拟 onUnmounted
@@ -301,5 +301,113 @@ describe('Worker 消息格式测试', () => {
 
         expect(message.type).toBe('cancel')
         expect(message.id).toBe('test-id')
+    })
+})
+
+// 新增 mock：useApiFetch 用于兜底接口调用
+// 用 vi.hoisted 避免 vi.mock 工厂执行时 const 还在 TDZ
+const { useApiFetchMock } = vi.hoisted(() => ({ useApiFetchMock: vi.fn() }))
+vi.mock('~/composables/useApiFetch', () => ({
+    useApiFetch: useApiFetchMock,
+}))
+
+import { useFileUploadWorker } from '~/composables/useFileUploadWorker'
+
+describe('useFileUploadWorker — callback 失败兜底', () => {
+    let mockWorker: MockWorker
+    // 记录每个测试创建的 composable，afterEach 统一 destroy 清理 workerInstanceMap 单例
+    let destroyFn: (() => void) | null = null
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+        // 恢复所有全局 stub（包括 URL），避免 "URL is not a constructor" 错误
+        vi.unstubAllGlobals()
+        mockWorker = new MockWorker()
+        // 使用 regular function（非 arrow），才能被 new Worker() 正确调用
+        const ref = { current: mockWorker }
+        vi.stubGlobal('Worker', function MockWorkerCtor() { return ref.current } as any)
+        vi.stubGlobal('onUnmounted', vi.fn())
+        useApiFetchMock.mockReset()
+    })
+
+    afterEach(() => {
+        // 清理 workerInstanceMap 单例，避免下一个测试复用旧 worker
+        destroyFn?.()
+        destroyFn = null
+    })
+
+    function makeSig(ossFileId?: number): PostSignatureResult {
+        return {
+            host: 'https://b.oss-cn-hangzhou.aliyuncs.com',
+            policy: 'p',
+            signatureVersion: 'v',
+            credential: 'c',
+            date: 'd',
+            signature: 's',
+            key: 'u/x.pdf',
+            dir: 'u/',
+            ossFileId,
+        } as any
+    }
+
+    it('callback 成功 → 走正常 onSuccess（不调兜底）', async () => {
+        const { upload, destroy } = useFileUploadWorker()
+        destroyFn = destroy
+        const onSuccess = vi.fn()
+        const id = upload(new File(['x'], 'x.pdf'), makeSig(123), { onSuccess })
+        mockWorker.simulateResponse({ type: 'success', id, data: { fileId: 123, filename: 'x.pdf', success: true } })
+        await new Promise((r) => setTimeout(r, 0))
+        expect(onSuccess).toHaveBeenCalledWith(expect.objectContaining({ fileId: 123 }))
+        expect(useApiFetchMock).not.toHaveBeenCalled()
+    })
+
+    it('callback 失败 + ossFileId 缺失 → onError，不调兜底', async () => {
+        const { upload, destroy } = useFileUploadWorker()
+        destroyFn = destroy
+        const onError = vi.fn()
+        const id = upload(new File(['x'], 'x.pdf'), makeSig(undefined), { onError })
+        mockWorker.simulateResponse({ type: 'success', id, data: { success: false, error: 'callback processing failed' } })
+        await new Promise((r) => setTimeout(r, 0))
+        expect(onError).toHaveBeenCalled()
+        expect(useApiFetchMock).not.toHaveBeenCalled()
+    })
+
+    it('callback 失败 + 兜底接口返 status=uploaded → onSuccess({recovered, fileId})', async () => {
+        useApiFetchMock.mockResolvedValueOnce({ status: 'uploaded' })
+        const { upload, destroy } = useFileUploadWorker()
+        destroyFn = destroy
+        const onSuccess = vi.fn()
+        const id = upload(new File(['x'], 'x.pdf'), makeSig(123), { onSuccess })
+        mockWorker.simulateResponse({ type: 'success', id, data: { success: false } })
+        await new Promise((r) => setTimeout(r, 0))
+        expect(useApiFetchMock).toHaveBeenCalledWith(
+            '/api/v1/storage/confirm-upload',
+            expect.objectContaining({ method: 'POST', body: { fileId: 123 } })
+        )
+        expect(onSuccess).toHaveBeenCalledWith({ recovered: true, fileId: 123 })
+    })
+
+    it('callback 失败 + 兜底接口返 null（业务失败）→ onError', async () => {
+        useApiFetchMock.mockResolvedValueOnce(null)
+        const { upload, destroy } = useFileUploadWorker()
+        destroyFn = destroy
+        const onError = vi.fn()
+        const id = upload(new File(['x'], 'x.pdf'), makeSig(123), { onError })
+        mockWorker.simulateResponse({ type: 'success', id, data: { success: false } })
+        await new Promise((r) => setTimeout(r, 0))
+        expect(onError).toHaveBeenCalled()
+    })
+
+    it('callback 失败 + 兜底接口抛网络错误 → onError 携带原异常', async () => {
+        useApiFetchMock.mockRejectedValueOnce(new Error('网络错误'))
+        const { upload, destroy } = useFileUploadWorker()
+        destroyFn = destroy
+        const onError = vi.fn()
+        const id = upload(new File(['x'], 'x.pdf'), makeSig(123), { onError })
+        mockWorker.simulateResponse({ type: 'success', id, data: { success: false } })
+        await new Promise((r) => setTimeout(r, 0))
+        expect(onError).toHaveBeenCalledWith(expect.any(Error))
+        const err = onError.mock.calls[0][0] as Error
+        expect(err.message).toContain('网络错误')
     })
 })

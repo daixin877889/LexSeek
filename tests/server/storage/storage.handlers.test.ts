@@ -25,6 +25,9 @@ vi.mock('~~/server/services/storage/storageConfig.dao', () => ({
 vi.mock('~~/server/services/membership/userBenefit.service', () => ({
     checkStorageQuotaService: vi.fn(),
 }))
+vi.mock('~~/server/services/files/ossFileVerify.service', () => ({
+    verifyAndFixOssFileService: vi.fn(),
+}))
 
 ;(globalThis as any).prisma = {
     $transaction: vi.fn(async (fn: any) => fn({})),
@@ -40,6 +43,7 @@ import {
     isConfigNameExistsDao,
 } from '~~/server/services/storage/storageConfig.dao'
 import { checkStorageQuotaService } from '~~/server/services/membership/userBenefit.service'
+import { verifyAndFixOssFileService } from '~~/server/services/files/ossFileVerify.service'
 
 const mCreateOss = vi.mocked(createOssFileDao)
 const mCreateOssBatch = vi.mocked(createOssFilesDao)
@@ -53,6 +57,7 @@ const mDeleteConfig = vi.mocked(deleteStorageConfigDao)
 const mUpdateConfig = vi.mocked(updateStorageConfigDao)
 const mIsNameExist = vi.mocked(isConfigNameExistsDao)
 const mCheckQuota = vi.mocked(checkStorageQuotaService)
+const mVerify = vi.mocked(verifyAndFixOssFileService)
 
 const { default: callbackHandler } = await import('../../../server/api/v1/storage/callback/.post')
 const { default: configsListHandler } = await import('../../../server/api/v1/storage/config/.get')
@@ -63,6 +68,7 @@ const { default: configTestHandler } = await import('../../../server/api/v1/stor
 const { default: presignedGetHandler } = await import('../../../server/api/v1/storage/presigned-url/.get')
 const { default: presignedPostHandler } = await import('../../../server/api/v1/storage/presigned-url/.post')
 const { default: presignedConfigHandler } = await import('../../../server/api/v1/storage/presigned-url/config.get')
+const { default: confirmUploadHandler } = await import('../../../server/api/v1/storage/confirm-upload/.post')
 
 describe('POST /api/v1/storage/callback', () => {
     beforeEach(() => vi.clearAllMocks())
@@ -329,6 +335,8 @@ describe('POST /api/v1/storage/presigned-url', () => {
             },
         }) as any)
         expectSuccess(res, d => expect(d).toHaveLength(2))
+        expect((res as any).data?.[0]?.ossFileId).toBeTypeOf('number')
+        expect((res as any).data?.[0]?.ossFileId).toBeGreaterThan(0)
     })
 
     it('配额不足 → 400', async () => {
@@ -371,5 +379,57 @@ describe('GET /api/v1/storage/presigned-url/config', () => {
     it('不传 source → 全量', async () => {
         const res: any = await presignedConfigHandler(makeEvent({ query: {} }) as any)
         expectSuccess(res)
+    })
+})
+
+describe('POST /api/v1/storage/confirm-upload', () => {
+    beforeEach(() => vi.clearAllMocks())
+
+    it('未登录 → 401', async () => {
+        const res: any = await confirmUploadHandler(makeEvent({ body: { fileId: 1 } }) as any)
+        expectError(res, 401, '请先登录')
+    })
+
+    it('参数错误（缺 fileId）→ 400', async () => {
+        const res: any = await confirmUploadHandler(makeEvent({ userId: 100, body: {} }) as any)
+        expectError(res, 400)
+    })
+
+    it('verify 返回 ok=true → 200 + status=uploaded', async () => {
+        mVerify.mockResolvedValueOnce({ ok: true, status: 'uploaded' })
+        const res: any = await confirmUploadHandler(makeEvent({ userId: 100, body: { fileId: 1 } }) as any)
+        const data = expectSuccess(res)
+        expect(data).toEqual({ status: 'uploaded' })
+        expect(mVerify).toHaveBeenCalledWith(1, 100)
+    })
+
+    it('verify forbidden → 403', async () => {
+        mVerify.mockResolvedValueOnce({ ok: false, reason: 'forbidden' })
+        const res: any = await confirmUploadHandler(makeEvent({ userId: 100, body: { fileId: 1 } }) as any)
+        expectError(res, 403)
+    })
+
+    it('verify not_found → 404', async () => {
+        mVerify.mockResolvedValueOnce({ ok: false, reason: 'not_found' })
+        const res: any = await confirmUploadHandler(makeEvent({ userId: 100, body: { fileId: 1 } }) as any)
+        expectError(res, 404)
+    })
+
+    it('verify already_failed → 409', async () => {
+        mVerify.mockResolvedValueOnce({ ok: false, reason: 'already_failed' })
+        const res: any = await confirmUploadHandler(makeEvent({ userId: 100, body: { fileId: 1 } }) as any)
+        expectError(res, 409)
+    })
+
+    it('verify invalid → 400', async () => {
+        mVerify.mockResolvedValueOnce({ ok: false, reason: 'invalid' })
+        const res: any = await confirmUploadHandler(makeEvent({ userId: 100, body: { fileId: 1 } }) as any)
+        expectError(res, 400)
+    })
+
+    it('verify 抛错 → 503', async () => {
+        mVerify.mockRejectedValueOnce(new Error('OSS dead'))
+        const res: any = await confirmUploadHandler(makeEvent({ userId: 100, body: { fileId: 1 } }) as any)
+        expectError(res, 503)
     })
 })

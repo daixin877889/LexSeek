@@ -15,7 +15,8 @@ import type {
     DeleteResult,
     SignedUrlOptions,
     PostSignatureOptions,
-    PostSignatureResult
+    PostSignatureResult,
+    HeadObjectResult
 } from './types'
 import {
     StorageError,
@@ -93,6 +94,14 @@ export abstract class BaseStorageAdapter implements StorageAdapter {
      * 测试连接
      */
     abstract testConnection(): Promise<boolean>
+
+    /**
+     * 查询对象元数据
+     * 子类（如 AliyunOssAdapter）应重写此方法以支持实际 head 操作
+     */
+    async head(_path: string): Promise<HeadObjectResult | null> {
+        throw new Error(`${this.type} adapter does not implement head()`)
+    }
 
     // ============================================================================
     // 错误转换辅助方法

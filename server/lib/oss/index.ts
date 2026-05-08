@@ -47,3 +47,6 @@ export {
     decodeBase64,
     getOssHost
 } from './utils'
+
+export { headFile } from './headFile'
+export type { HeadObjectResult } from './headFile'
