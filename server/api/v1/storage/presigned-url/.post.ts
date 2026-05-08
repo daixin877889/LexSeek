@@ -196,7 +196,10 @@ export default defineEventHandler(async (event) => {
                     type: StorageProviderType.ALIYUN_OSS
                 })
 
-                results.push(signature as PostSignatureResult)
+                results.push({
+                    ...(signature as PostSignatureResult),
+                    ossFileId: ossFile.id,
+                } as PostSignatureResult)
             }
 
             return results

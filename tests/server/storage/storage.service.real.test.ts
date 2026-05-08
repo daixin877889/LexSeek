@@ -38,14 +38,13 @@ import { StorageConfigError } from '../../../server/lib/storage/errors'
 // ============================================================================
 
 // Mock logger（自动导入）
-vi.mock('#shared/utils/logger', () => ({
-    logger: {
-        debug: vi.fn(),
-        info: vi.fn(),
-        warn: vi.fn(),
-        error: vi.fn(),
-    },
-}))
+vi.mock('#shared/utils/logger', () => {
+    const instance = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }
+    return {
+        logger: instance,
+        createLogger: vi.fn(() => instance),
+    }
+})
 
 // 提供 runtimeConfig 用于 DAO 的加密密钥获取
 vi.mock('#imports', () => ({

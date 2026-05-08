@@ -363,3 +363,35 @@ export async function findOssFilesByUserIdDao(userId: number, options: {
         throw error
     }
 }
+
+/**
+ * 仅在 status=PENDING 时把记录标记为 UPLOADED（条件更新，原子幂等）
+ *
+ * 用于回调失败兜底场景：head OSS 命中后由本函数收敛 status；
+ * 调用方根据返回的 count 区分"我改的（count=1）" / "已被回调或别人改过（count=0）"。
+ *
+ * @returns 实际改动行数
+ */
+export async function markOssFileUploadedByVerifyDao(
+    fileId: number,
+    options?: { auditNote?: string }
+): Promise<number> {
+    const result = await prisma.ossFiles.updateMany({
+        where: {
+            id: fileId,
+            status: OssFileStatus.PENDING,
+            deletedAt: null,
+        },
+        data: {
+            status: OssFileStatus.UPLOADED,
+        },
+    })
+
+    if (result.count > 0) {
+        logger.info(
+            '[ossFiles] PENDING → UPLOADED via head verification',
+            { fileId, source: 'confirm_upload', auditNote: options?.auditNote ?? null }
+        )
+    }
+    return result.count
+}
