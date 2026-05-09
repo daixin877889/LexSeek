@@ -93,10 +93,12 @@ async function invokeNodeJsonInner<T>(opts: InvokeNodeJsonOptions<T>): Promise<T
         streaming: false,
     })
 
+    // basePrompt 在所有 attempt 中相同（buildPrompt 是纯函数 + template 不变），
+    // 提到循环外只调用一次，避免 retry 时重复渲染大模板。
+    const basePrompt = buildPrompt(template)
     let lastFirstIssue = ''
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-        const basePrompt = buildPrompt(template)
         const currentPrompt = attempt === 1
             ? basePrompt
             : `${basePrompt}\n\n## 上次输出违反 schema：\n${lastFirstIssue}\n请重新生成符合 schema 的 JSON。`

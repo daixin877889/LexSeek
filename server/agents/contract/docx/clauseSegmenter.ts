@@ -184,15 +184,13 @@ export function segmentClausesByRegex(fullText: string): SegmentClausesResult {
         if (m1?.[1]) {
             const numStr = m1[1]
             const isMultiLevel = /^\d+\.\d/.test(numStr) // 形如「3.1」「1.2.3」
-            if (isMultiLevel) {
-                const intPrefix = parseInt(numStr.split('.')[0]!, 10)
-                if (!hasDiTiao || currentDiTiaoIdx === intPrefix) {
-                    matches.push({ lineIdx: i, number: numStr.replace(/\s+$/, '') })
-                    continue
-                }
-            } else {
-                // 单数字 X. 总识别（hasDiTiao 模式下相对父级；无 hasDiTiao 时是顶级编号）
-                matches.push({ lineIdx: i, number: numStr.replace(/\s+$/, '') })
+            // 单数字 X.（hasDiTiao 模式下相对父级；无 hasDiTiao 时是顶级编号）总是识别；
+            // 多级 X.Y 还要求整数前缀匹配 currentDiTiaoIdx，避免「3.1」在「第二条」内被误判
+            const matchesParent = !isMultiLevel
+                || !hasDiTiao
+                || currentDiTiaoIdx === parseInt(numStr.split('.')[0]!, 10)
+            if (matchesParent) {
+                matches.push({ lineIdx: i, number: numStr.trimEnd() })
                 continue
             }
         }

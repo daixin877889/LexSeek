@@ -13,6 +13,10 @@ import type { ToolContext, ToolDefinition } from './types'
 import { createSimpleTool } from './types'
 import { SSECustomEventType } from '#shared/types/agentEvent'
 import { publishCustomEvent } from '~~/server/services/agent/agentEventBridge'
+import {
+    patchDraftService,
+    applyAITitleIfAllowedService,
+} from '~~/server/agents/document/documentDraft.service'
 
 const schema = z.object({
     // documentMain 在 system prompt 里把草稿 ID 渲染成"草稿 ID:90"文本注入，LLM 偶尔会原样
@@ -46,9 +50,6 @@ export const createTool = createSimpleTool(
         }
 
         // 1. 复用 patchDraftService(行 158-196)字段过滤+merge+落库
-        const { patchDraftService, applyAITitleIfAllowedService } = await import(
-            '~~/server/agents/document/documentDraft.service'
-        )
         const patchResult = await patchDraftService(userId, input.draftId, {
             values: input.fieldUpdates,
             metadata: input.suggestions ? { suggestions: input.suggestions } : undefined,
@@ -63,6 +64,7 @@ export const createTool = createSimpleTool(
         // 2. 计算实际生效的字段(过滤掉模板范围外的 key)
         const newValues = (updatedDraft.values ?? {}) as Record<string, unknown>
         const changedFields = Object.keys(input.fieldUpdates).filter(k => k in newValues)
+        const summary = `已更新 ${changedFields.length} 个字段:${changedFields.join('、')}`
 
         // 3. 应用 AI 标题(若有)
         if (input.aiTitle) {
@@ -81,11 +83,7 @@ export const createTool = createSimpleTool(
                 runId,
                 sessionId,
                 name: SSECustomEventType.DRAFT_UPDATED,
-                data: {
-                    draftId: input.draftId,
-                    changedFields,
-                    summary: `已更新 ${changedFields.length} 个字段:${changedFields.join('、')}`,
-                },
+                data: { draftId: input.draftId, changedFields, summary },
             })
         }
         catch (err) {
@@ -98,7 +96,7 @@ export const createTool = createSimpleTool(
             success: true,
             draftId: input.draftId,
             changedFields,
-            summary: `已更新 ${changedFields.length} 个字段:${changedFields.join('、')}`,
+            summary,
         }
     },
     { errorLabel: '更新文书草稿' },

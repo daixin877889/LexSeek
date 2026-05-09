@@ -122,10 +122,7 @@ export default defineEventHandler(async (event) => {
                 displayOrder: link.displayOrder,
             })
         }
-        // links 已按 displayOrder asc 取出，但 4 类分桶后再保险排一次
-        for (const t of Object.keys(buckets) as PromptType[]) {
-            buckets[t].sort((a, b) => a.displayOrder - b.displayOrder)
-        }
+        // links 已按 displayOrder asc 取出，分桶时保序追加，无需二次排序
 
         const systemList = buckets.system
         const injectionList = buckets.user_injection

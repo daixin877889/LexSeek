@@ -28,6 +28,7 @@ import { getCheckpointer, getStore } from '~~/server/services/agent-platform/che
 import { renderSystemPrompt } from '~~/server/services/workflow/utils/promptRenderer'
 import { resolveContextWindow } from '~~/server/services/agent-platform/context/messageCompressor'
 import { buildSystemPromptForAgent } from '~~/server/services/agent-platform/context/moduleContextBuilder'
+import { mergeToolsByName } from '~~/server/services/agent-platform/factory/runtime'
 import type { NodeConfig } from '~~/server/services/node/node.service'
 import { buildSubAgentCallbacks } from './buildSubAgentCallbacks'
 import { publishSubAgentStatus } from './publishSubAgentStatus'
@@ -179,10 +180,7 @@ export async function createSubAgentTools(
                         ]
                         : []
 
-                    // name 去重避免 LangChain AgentNode 检测到「同名不同实例」抛错（同名时后者 skill 工具胜出，与 runtime.ts mergeToolsByName 一致）
-                    const subToolsByName = new Map<string, StructuredToolInterface>()
-                    for (const t of [...nodeTools, ...skillTools]) subToolsByName.set(t.name, t)
-                    const subTools = Array.from(subToolsByName.values())
+                    const subTools = mergeToolsByName([...nodeTools, ...skillTools])
 
                     logger.info('[subAgentTool] 创建子代理', {
                         agentName,

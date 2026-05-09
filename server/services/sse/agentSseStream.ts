@@ -115,14 +115,13 @@ export interface CreateAgentSseStreamOptions {
   shortCircuitError?: string | null
 }
 
-/** 短路路径支持的终态状态 */
-const SHORT_CIRCUIT_TERMINAL_STATUSES: readonly string[] = [
-  AGENT_RUN_STATUS.COMPLETED,
-  AGENT_RUN_STATUS.FAILED,
-  AGENT_RUN_STATUS.CANCELLED,
-]
+/** 短路路径支持的终态状态：从 TERMINAL_STATUSES 派生 */
+// INTERRUPTED 不能短路：其 __interrupt__ 仅存在于 Redis Stream 末条 values，不在 checkpoint
+const SHORT_CIRCUIT_TERMINAL_STATUSES: readonly string[] = TERMINAL_STATUSES.filter(
+  (s) => s !== AGENT_RUN_STATUS.INTERRUPTED,
+)
 
-/** 判断 run 状态是否可以走 SSE 短路路径（不含 INTERRUPTED——其 __interrupt__ 仅存在于 Redis Stream 末条 values） */
+/** 判断 run 状态是否可以走 SSE 短路路径 */
 function isShortCircuitable(status: string | null | undefined): boolean {
   return status != null && SHORT_CIRCUIT_TERMINAL_STATUSES.includes(status)
 }
@@ -248,10 +247,27 @@ export function createAgentSseStream(
         // 必须从 missed 里拿。重连场景同理。
         let lastValuesAlreadyReplayed = false
         if (opts.replayMode === 'last-values-only' && missed.length > 0) {
+          // 单次倒序扫描同时找最后一条 values 与最后一条终态 status_change，
+          // 避免 [...missed].reverse() 两次拷贝（init-analysis 累计 ~2000 条事件时显著）
+          let lastValues: typeof missed[number] | undefined
+          let lastStatus: typeof missed[number] | undefined
+          for (let i = missed.length - 1; i >= 0; i--) {
+            const evt = missed[i]!
+            if (!lastValues && evt.type === 'stream_event' && evt.event === 'values') {
+              lastValues = evt
+            }
+            if (
+              !lastStatus
+              && evt.type === 'status_change'
+              && TERMINAL_STATUSES.includes(evt.status)
+              && isParentRunTerminal(evt)
+            ) {
+              lastStatus = evt
+            }
+            if (lastValues && lastStatus) break
+          }
+
           // 1. 挑最后一条 values 转发，替代逐条 replay 上千条 messages/values/updates
-          const lastValues = [...missed].reverse().find(
-            (e: any) => e.type === 'stream_event' && e.event === 'values',
-          )
           if (lastValues?.type === 'stream_event') {
             const data = lastValues.data as { messages?: any[] }
             const filteredMessages = filterInjectedMessages(data.messages ?? [])
@@ -262,6 +278,8 @@ export function createAgentSseStream(
           }
 
           // 2. 保留所有 custom_event：合成卡片配对事件不可丢
+          //    （prepare_materials / analysis_summary / sub_agent_*），phase=start/end 必须配对，
+          //    漏掉 start 则后续 progress/end 在前端找不到 toolCallId 全部废
           for (const evt of missed) {
             if (evt.type !== 'custom_event') continue
             controller.enqueue(encoder.encode(
@@ -271,12 +289,6 @@ export function createAgentSseStream(
 
           // 3. 保留终态 status_change（让下方"missed 末条终态 → 关流"逻辑正常触发）。
           //    非终态 status_change（如 RUNNING）冗余，丢弃；前端通过 stream 自身判断 isLoading。
-          const lastStatus = [...missed].reverse().find(
-            (e: any) =>
-              e.type === 'status_change'
-              && TERMINAL_STATUSES.includes(e.status)
-              && isParentRunTerminal(e),
-          )
           missed = lastStatus ? [lastStatus] : []
         }
 

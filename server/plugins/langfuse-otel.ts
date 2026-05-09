@@ -29,7 +29,7 @@ export default defineNitroPlugin((nitroApp) => {
   }
 
   // prod 强制开启 maskPII；其它环境按 env 决定
-  const enableMask = cfg.environment === 'production' ? true : cfg.maskPII
+  const enableMask = cfg.environment === 'production' || cfg.maskPII
 
   const spanProcessor = new LangfuseSpanProcessor({
     publicKey: cfg.publicKey,

@@ -94,7 +94,7 @@ function toPointItemKey(scope: SessionScope, nodeName: string): string {
  * 按 name 去重工具列表（后者胜出），避免 LangChain AgentNode
  * 检测到"同名不同实例"而抛错。
  */
-function mergeToolsByName(tools: StructuredToolInterface[]): StructuredToolInterface[] {
+export function mergeToolsByName(tools: StructuredToolInterface[]): StructuredToolInterface[] {
     const byName = new Map<string, StructuredToolInterface>()
     for (const t of tools) {
         byName.set(t.name, t)
