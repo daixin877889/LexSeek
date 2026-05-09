@@ -103,12 +103,12 @@ describe('useStreamChat', () => {
             expect(chat.interruptData.value).toEqual(interruptValue)
         })
 
-        it('__interrupt__ 有多个元素时应返回整个数组', () => {
+        it('__interrupt__ 有多个元素时返回最后一项的 value（取活跃中断）', () => {
             const items = [{ value: 'a' }, { value: 'b' }]
             mockValuesRef.value = { __interrupt__: items }
             const chat = buildChat()
-            // raw.length !== 1 → resolved = raw（数组本身），无 .value → resolved 直接返回
-            expect(chat.interruptData.value).toEqual(items)
+            // 业务实现：始终取数组最后一项的 .value（LangGraph 中 __interrupt__ 累计 pending；最后一项总是当前活跃中断）
+            expect(chat.interruptData.value).toBe('b')
         })
 
         it('单项 __interrupt__ 无 .value 时应返回整个 item', () => {

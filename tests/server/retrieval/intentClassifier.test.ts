@@ -30,6 +30,8 @@ vi.mock('../../../server/lib/redis', () => ({
         get: vi.fn().mockResolvedValue(null),
         set: vi.fn().mockResolvedValue('OK'),
         keys: vi.fn().mockResolvedValue([]),
+        // invalidateIntentCacheService 用 SCAN 增量遍历，替代 KEYS（避免 Redis 阻塞）
+        scan: vi.fn().mockResolvedValue(['0', []]),
         del: vi.fn().mockResolvedValue(0),
     }),
 }))
@@ -295,16 +297,17 @@ describe('invalidateIntentCacheService', () => {
 
     it('不传 type 时清所有 intent:* 缓存', async () => {
         const redis = getRedisClient()
-        vi.mocked(redis.keys).mockResolvedValueOnce([
+        // SCAN 单批返回全部 3 个 key 即结束（cursor 回到 '0'）
+        vi.mocked(redis.scan).mockResolvedValueOnce(['0', [
             'intent:law:abc123',
             'intent:case_material:def456',
             'intent:case_memory:ghi789',
-        ])
+        ]])
         vi.mocked(redis.del).mockResolvedValueOnce(3)
 
         const cleared = await invalidateIntentCacheService()
         expect(cleared).toBe(3)
-        expect(redis.keys).toHaveBeenCalledWith('intent:*')
+        expect(redis.scan).toHaveBeenCalledWith('0', 'MATCH', 'intent:*', 'COUNT', 100)
         expect(redis.del).toHaveBeenCalledWith(
             'intent:law:abc123',
             'intent:case_material:def456',
@@ -314,17 +317,18 @@ describe('invalidateIntentCacheService', () => {
 
     it('传 type 时只清匹配的子集', async () => {
         const redis = getRedisClient()
-        vi.mocked(redis.keys).mockResolvedValueOnce(['intent:law:abc', 'intent:law:def'])
+        vi.mocked(redis.scan).mockResolvedValueOnce(['0', ['intent:law:abc', 'intent:law:def']])
         vi.mocked(redis.del).mockResolvedValueOnce(2)
 
         const cleared = await invalidateIntentCacheService('law')
         expect(cleared).toBe(2)
-        expect(redis.keys).toHaveBeenCalledWith('intent:law:*')
+        expect(redis.scan).toHaveBeenCalledWith('0', 'MATCH', 'intent:law:*', 'COUNT', 100)
     })
 
     it('keys 返回空数组时不调 del 直接返回 0', async () => {
         const redis = getRedisClient()
-        vi.mocked(redis.keys).mockResolvedValueOnce([])
+        // SCAN 直接返回空 batch + cursor='0'：业务不应再调 del
+        vi.mocked(redis.scan).mockResolvedValueOnce(['0', []])
 
         const cleared = await invalidateIntentCacheService('case_analysis')
         expect(cleared).toBe(0)

@@ -109,6 +109,21 @@ vi.mock('langchain', () => ({
     createMiddleware: (cfg: any) => cfg,
 }))
 
+// langfuse helper 在测试态返回 { callbacks: [...extraCallbacks] }，不前置 langfuse handler。
+// 这样 invoke opts.callbacks[0] 就是 buildSubAgentCallbacks 返回的回调对象，便于断言。
+vi.mock('~~/server/lib/langfuse', () => ({
+    buildLangfuseTopLevelConfig: (override?: { additionalCallbacks?: any[] }) => ({
+        callbacks: Array.isArray(override?.additionalCallbacks)
+            ? override!.additionalCallbacks
+            : override?.additionalCallbacks
+                ? [override.additionalCallbacks]
+                : [],
+    }),
+    withLangfuseContext: <T>(_ctx: unknown, fn: () => Promise<T> | T) => fn(),
+    getLangfuseContext: () => undefined,
+    buildLangfuseTraceMetadata: () => ({}),
+}))
+
 import { createSubAgentTools, sanitizeName } from '~~/server/services/agent-platform/subAgent/subAgentToolFactory'
 import { AIMessage, HumanMessage } from '@langchain/core/messages'
 

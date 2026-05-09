@@ -24,9 +24,29 @@ const cleanup = {
   analysisIds: [] as number[],
   materialIds: [] as number[],
   sessionIds: [] as number[], // caseSessions.id (FK 父表)
+  textRecordIds: [] as number[],
+  docRecordIds: [] as number[],
+  imgRecordIds: [] as number[],
+  asrRecordIds: [] as number[],
 }
 
 afterEach(async () => {
+  if (cleanup.textRecordIds.length) {
+    await prisma.textContentRecords.deleteMany({ where: { id: { in: cleanup.textRecordIds } } })
+    cleanup.textRecordIds = []
+  }
+  if (cleanup.docRecordIds.length) {
+    await prisma.docRecognitionRecords.deleteMany({ where: { id: { in: cleanup.docRecordIds } } })
+    cleanup.docRecordIds = []
+  }
+  if (cleanup.imgRecordIds.length) {
+    await prisma.imageRecognitionRecords.deleteMany({ where: { id: { in: cleanup.imgRecordIds } } })
+    cleanup.imgRecordIds = []
+  }
+  if (cleanup.asrRecordIds.length) {
+    await prisma.asrRecords.deleteMany({ where: { id: { in: cleanup.asrRecordIds } } })
+    cleanup.asrRecordIds = []
+  }
   if (cleanup.materialIds.length) {
     await prisma.caseMaterials.deleteMany({ where: { id: { in: cleanup.materialIds } } })
     cleanup.materialIds = []
@@ -171,10 +191,39 @@ async function seedMaterial(caseId: number, fields: { name: string; type: CaseMa
       type: fields.type,
       status: fields.status,
       ossFileId: fields.ossFileId ?? null,
-      summary: fields.summary ?? null,
     },
   })
   cleanup.materialIds.push(m.id)
+
+  // summary 已在 2026-05-06 从 caseMaterials 迁移到识别记录表，按 type 分发到对应表
+  if (fields.summary !== undefined && fields.summary !== null) {
+    const caseRow = await prisma.cases.findUnique({ where: { id: caseId }, select: { userId: true } })
+    if (!caseRow) throw new Error('seedMaterial: case not found')
+    const userId = caseRow.userId
+    if (fields.type === CaseMaterialType.CASE_CONTENT) {
+      const r = await prisma.textContentRecords.create({
+        data: { userId, caseId, materialId: m.id, content: '', summary: fields.summary, status: 2 },
+      })
+      cleanup.textRecordIds.push(r.id)
+    } else if (fields.ossFileId != null) {
+      if (fields.type === CaseMaterialType.DOCUMENT) {
+        const r = await prisma.docRecognitionRecords.create({
+          data: { userId, ossFileId: fields.ossFileId, summary: fields.summary, status: 2 },
+        })
+        cleanup.docRecordIds.push(r.id)
+      } else if (fields.type === CaseMaterialType.IMAGE) {
+        const r = await prisma.imageRecognitionRecords.create({
+          data: { userId, ossFileId: fields.ossFileId, summary: fields.summary, status: 2 },
+        })
+        cleanup.imgRecordIds.push(r.id)
+      } else if (fields.type === CaseMaterialType.AUDIO) {
+        const r = await prisma.asrRecords.create({
+          data: { userId, ossFileId: fields.ossFileId, summary: fields.summary, status: 2 },
+        })
+        cleanup.asrRecordIds.push(r.id)
+      }
+    }
+  }
   return m
 }
 

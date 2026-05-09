@@ -187,7 +187,8 @@ describe('统一识别入口 API', () => {
 
             // Assert
             expect(result.success).toBe(true)
-            expect(result.data.results[0].status).toBe('processing')
+            // 图片 OCR 现已改为同步：createImageConversionService 内部 await OCR API 后才返回，详见 start.post.ts:96-100 注释
+            expect(result.data.results[0].status).toBe('completed')
             expect(mocks.createImageConversionService).toHaveBeenCalledWith(123, 1)
         })
 

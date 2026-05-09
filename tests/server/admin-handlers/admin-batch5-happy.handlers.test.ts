@@ -638,7 +638,9 @@ describe('admin/nodes deep happy', () => {
     })
     it('POST happy', async () => {
         ;(createNodeService as any).mockResolvedValue({ id: 1 })
+        // index.post.ts 加了登录守卫（auth?.user?.id），makeEvent 必须传 userId 才能进 handler 主路径
         expectSuccess(await nCreateHandler(makeEvent({
+            userId: 100,
             body: { name: 'N', title: 'T', type: 'analysis', modelId: 1 },
         }) as any))
     })
