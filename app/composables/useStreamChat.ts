@@ -492,10 +492,19 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
 
     // isLoading 兜底：SDK 在 submit 失败的 finally 一定置 false
     // （submit-coordinator.js:286），重连等待期间业务方需读到 true 才不闪 loading。
-    const coverIsLoading = computed<boolean>(() => {
-        const sdk = (s.isLoading as { value?: boolean }).value ?? false
-        return sdk || reconnectState.isRetrying
-    })
+    // 注意：用 shallowRef 而非 computed，保持对外类型与 SDK 原 isLoading 一致（ShallowRef<boolean>），
+    // 避免 vue-tsc 在 template prop 上对 ComputedRef 解包不严的回归（已踩 dashboard/analysis 页）。
+    const coverIsLoading = shallowRef<boolean>(false)
+    watch(
+        [
+            () => ((s.isLoading as { value?: boolean }).value ?? false),
+            () => reconnectState.isRetrying,
+        ],
+        ([sdk, retry]) => {
+            coverIsLoading.value = sdk || retry
+        },
+        { immediate: true },
+    )
 
     // 主动唤醒：online / visibilitychange 事件下立刻取消等待并发起重连
     function wakeup() {
@@ -548,7 +557,7 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
             return current ?? []
         }),
         values: computed(() => s.values as T | undefined),
-        isLoading: coverIsLoading,   // shallowRef → computed<boolean>，业务方原 .value 调用方式不变
+        isLoading: coverIsLoading,   // ShallowRef<boolean>，保持与 SDK 原 isLoading 类型一致
         error: s.error,           // shallowRef，直接透传
         hasHistoryLoaded,
         runStatus,
