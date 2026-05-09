@@ -153,9 +153,17 @@ export interface StorageAdapter {
     delete(paths: string | string[]): Promise<DeleteResult>
     generateSignedUrl(path: string, options?: SignedUrlOptions): Promise<string>
     generatePostSignature(options: PostSignatureOptions): Promise<PostSignatureResult>
+    /**
+     * 查询对象元数据（2026-05-08 OSS 上传回调失败兜底链路引入）
+     * 对象存在 → HeadObjectResult；NoSuchKey/404 → null；网络/凭证错误 → throw
+     * 详见 infra/storage-oss.md §5.4
+     */
+    head(path: string): Promise<HeadObjectResult | null>
     testConnection(): Promise<boolean>
 }
 ```
+
+> `BaseStorageAdapter.head` 提供 throw NotImplemented 默认实现，目前仅 `AliyunOssAdapter` 实现；七牛 / 腾讯 COS 接入兜底链路时只需重写本方法，无需改 service / handler。
 
 ### 三种适配器
 

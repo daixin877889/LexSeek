@@ -106,12 +106,14 @@ data: {...}
 
 ### Interrupt 处理
 
-LangGraph 的 `values` 流会过滤 `__interrupt__`，Worker 需要额外检查：
+LangGraph 的 `values` 流会过滤 `__interrupt__`，Worker 在 stream 结束后按 session 类型分两路检测，发布合并 `__interrupt__` 的最终 `values` 事件并标记 `INTERRUPTED`：
 
-1. Stream 结束后获取 thread state
-2. 检查 `tasks[-1].interrupts` 是否存在
-3. 如果有 interrupt，发布合并了 `__interrupt__` 的最终 `values` 事件
-4. 更新状态为 `INTERRUPTED`
+| session.type | 检测方式 | 路径 |
+|---|---|---|
+| `2` 初始化分析（StateGraph） | `getWorkflowThreadState(sessionId)` → `tasks[-1].interrupts` | `workflow/caseAnalysisV2.executor` |
+| 其他（对话式 / createAgent） | `getPendingInterruptsService(sessionId)` 直接读 PostgresSaver `pendingWrites` 中的 `__interrupt__` | `workflow/agents/threadState.ts` |
+
+> **历史教训**（commit 8a87a8c1 / 17510fe0）：早期 caseMain / 文档 / 合同等 createAgent 路径用 dummy `createAgent` + `getState().tasks` 检测——**dummy 拓扑识别不出真实 agent 的 middleware + tools 节点**，`tasks.interrupts` 永远空 → run 错标 `COMPLETED` → 刷新后 SSE 把 pendingWrites 中残留的 `__interrupt__` 当 stale 剥掉 → 模板卡片永久 loading。修复方案是 type=2 走 thread state（StateGraph 拓扑明确）、其余走 pendingWrites（绕开 dummy 重建）。
 
 ### 心跳维持
 

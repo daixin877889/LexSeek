@@ -1,6 +1,15 @@
 # Pinia Store 参考
 
-LexSeek 前端共 9 个 Pinia store，位于 `app/store/`，全部自动导入。
+LexSeek 前端 Pinia store 位于 `app/store/`。
+
+> ⚠️ **store 必须显式 `import`**（自动扫描已关闭，仅 Pinia 的 `defineStore` / `storeToRefs` 保留自动导入）：
+>
+> ```typescript
+> import { useAuthStore } from '~/store/auth'
+> import { useAlertDialogStore } from '~/store/alertDialog'
+> ```
+>
+> 详见 [architecture/auto-imports.md](../architecture/auto-imports.md)。
 
 ## 概览
 
