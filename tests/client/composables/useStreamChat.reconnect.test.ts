@@ -149,3 +149,45 @@ describe('useStreamChat reconnect - retry scheduling', () => {
         }
     })
 })
+
+describe('useStreamChat reconnect - success reset & loading cover', () => {
+    it('resets reconnectState when stream values arrive after retry', async () => {
+        mountChat()
+        await nextTick()
+        captured.options!.onError!(new Error('Failed to stream: 500'))
+        await nextTick()
+
+        const chat = (globalThis as any).__chat
+        expect(chat.reconnectState.attempts).toBe(1)
+        expect(chat.reconnectState.isRetrying).toBe(true)
+
+        // 模拟首帧 SSE 到达：触发 mockValuesRef 让 watch(() => s.values) 响应
+        mockValuesRef.value = { messages: [{ id: '1', type: 'ai', content: 'hi' }] }
+        await nextTick()
+
+        expect(chat.reconnectState.attempts).toBe(0)
+        expect(chat.reconnectState.isRetrying).toBe(false)
+    })
+
+    it('coverIsLoading remains true while waiting between retries', async () => {
+        mountChat()
+        await nextTick()
+
+        // SDK 失败后 isLoading 会回到 false（SDK finally 行为）
+        mockIsLoading.value = false
+        captured.options!.onError!(new Error('boom'))
+        await nextTick()
+
+        const chat = (globalThis as any).__chat
+        // 业务方读到的 isLoading 必须仍为 true（重连等待期）
+        expect(chat.isLoading.value).toBe(true)
+        expect(chat.reconnectState.isRetrying).toBe(true)
+    })
+
+    it('coverIsLoading falls back to false when neither SDK loading nor retrying', async () => {
+        mountChat()
+        await nextTick()
+        const chat = (globalThis as any).__chat
+        expect(chat.isLoading.value).toBe(false)
+    })
+})

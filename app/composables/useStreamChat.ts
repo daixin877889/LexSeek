@@ -477,6 +477,25 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
     // （WithClassMessages 将部分方法包装为 Ref，泛型上下文下 TS 无法准确区分）
     const s = useStream<T>(streamOptions as any) as any
 
+    // 重连成功：任意一帧 SSE 数据到达即复位计数
+    watch(() => s.values, (v: unknown) => {
+        if (v != null && reconnectState.isRetrying) {
+            reconnectState.attempts = 0
+            reconnectState.isRetrying = false
+            if (currentRetryTimer) {
+                clearTimeout(currentRetryTimer)
+                currentRetryTimer = null
+            }
+        }
+    })
+
+    // isLoading 兜底：SDK 在 submit 失败的 finally 一定置 false
+    // （submit-coordinator.js:286），重连等待期间业务方需读到 true 才不闪 loading。
+    const coverIsLoading = computed<boolean>(() => {
+        const sdk = (s.isLoading as { value?: boolean }).value ?? false
+        return sdk || reconnectState.isRetrying
+    })
+
     // 标记历史消息是否已加载
     const hasHistoryLoaded = ref(false)
     watch(() => s.values, (values: unknown) => {
@@ -512,7 +531,7 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
             return current ?? []
         }),
         values: computed(() => s.values as T | undefined),
-        isLoading: s.isLoading,   // shallowRef，直接透传
+        isLoading: coverIsLoading,   // shallowRef → computed<boolean>，业务方原 .value 调用方式不变
         error: s.error,           // shallowRef，直接透传
         hasHistoryLoaded,
         runStatus,
