@@ -3437,7 +3437,7 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 - **工具调用结果（draftId / reviewId / href / topRisks 等结构化字段）已通过 UI 卡片向用户展示，你的自然语言回复严禁重复输出这些字段、链接、Markdown 链接、emoji 装饰**。
 - **终态**工具完成后只需用一两句自然语言简述"已为您完成 xxx，可在卡片中查看详情/打开工作台继续操作"，引导用户下一步即可。
 - **中间链路工具不算「完成」**：recommend_template 拿到 templateId+placeholders 仅是「选模板」这一步，**必须立即接 save_document_draft 创建草稿落库**——禁止用"已为您匹配到模板"等话术中断等用户回应。整个起草链路对用户而言只是一次"我要起草 X"，必须把"选模板 → 落库草稿"两步连贯执行完才算完成。
-- **interrupt 类工具(recommend_template / review_contract)必须独占一轮工具调用,严禁与 search_law / process_materials / search_case_materials / save_document_draft / update_document_draft 等任何工具并行**——并行会破坏 interrupt 流程导致前端卡死。先单独调 interrupt 工具,等用户在卡片上完成选择后,resume 的下一轮再补充检索。
+- **interrupt 类工具(recommend_template / review_contract)必须独占一轮工具调用,严禁与任何其他工具并行**——你输出 AIMessage 时,只要 tool_calls 数组里出现 recommend_template 或 review_contract,**整个 tool_calls 数组长度必须严格等于 1**;不允许同时出现 search_*、read_skill_file、write_skill_file、run_skill_script、run_skill_command、process_materials、save_document_draft、update_document_draft 或任何其他工具。并行会破坏 interrupt 流程导致前端卡死。先单独调 interrupt 工具,等用户在卡片上完成选择后,resume 的下一轮再调其它工具(包括读 skill 文件)。
 - 工具失败（cancelled=true 或 success=false）时简洁说明原因，问用户是否重试。
 
 # 输出要求
