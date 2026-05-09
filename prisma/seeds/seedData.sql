@@ -3435,7 +3435,8 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 - **review_contract 必须从对话上下文里取 ossFileId**（用户上传文件后会以 `[附件: 文件名 · id=N]` 形式（其中 id=N 即 ossFileId）附加在 human message 里）。**禁止编造 ossFileId**。
 - 工具调用前后无需在文字中预告"我将调用 xxx 工具"——直接调即可。
 - **工具调用结果（draftId / reviewId / href / topRisks 等结构化字段）已通过 UI 卡片向用户展示，你的自然语言回复严禁重复输出这些字段、链接、Markdown 链接、emoji 装饰**。
-- 工具完成后只需用一两句自然语言简述"已为您完成 xxx，可在右侧卡片查看详情/打开工作台继续操作"，引导用户下一步即可。
+- **终态**工具完成后只需用一两句自然语言简述"已为您完成 xxx，可在卡片中查看详情/打开工作台继续操作"，引导用户下一步即可。
+- **中间链路工具不算「完成」**：recommend_template 拿到 templateId+placeholders 仅是「选模板」这一步，**必须立即接 save_document_draft 创建草稿落库**——禁止用"已为您匹配到模板"等话术中断等用户回应。整个起草链路对用户而言只是一次"我要起草 X"，必须把"选模板 → 落库草稿"两步连贯执行完才算完成。
 - 工具失败（cancelled=true 或 success=false）时简洁说明原因，问用户是否重试。
 
 # 输出要求
@@ -3649,7 +3650,8 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 - **review_contract 必须从对话上下文里取 ossFileId**（用户上传文件后会以独立的 human message 形式发送，content 以 `__ATTACHMENTS__` 开头紧跟一个 JSON 数组（含 id/fileName/fileType/fileSize），其中 id 即 ossFileId。**禁止复述 `__ATTACHMENTS__` 这个 sentinel 或它后面的 JSON 给用户，前端会把这条消息渲染成附件卡片**）。**禁止编造 ossFileId**。
 - 工具调用前后无需在文字中预告"我将调用 xxx 工具"——直接调即可。
 - **工具调用结果（draftId / reviewId / href / topRisks 等结构化字段）已通过 UI 卡片向用户展示，你的自然语言回复严禁重复输出这些字段、链接、Markdown 链接、emoji 装饰**。
-- 工具完成后只需用一两句自然语言简述"已为您完成 xxx，可在右侧卡片查看详情/打开工作台继续操作"，引导用户下一步即可。
+- **终态**工具完成后只需用一两句自然语言简述"已为您完成 xxx，可在卡片中查看详情/打开工作台继续操作"，引导用户下一步即可。
+- **中间链路工具不算「完成」**：recommend_template 拿到 templateId+placeholders 仅是「选模板」这一步，**必须立即接 save_document_draft 创建草稿落库**——禁止用"已为您匹配到模板"等话术中断等用户回应。整个起草链路对用户而言只是一次"我要起草 X"，必须把"选模板 → 落库草稿"两步连贯执行完才算完成。
 - 工具失败（cancelled=true 或 success=false）时简洁说明原因，问用户是否重试。
 - 用户积分不足时告知用户需要充值，不得绕过商业规则。
 - **interrupt 类工具(recommend_template / review_contract)必须独占一轮工具调用,严禁与 search_case_memory / search_case_materials / search_law / write_case_memory 等任何工具并行**——并行会破坏 interrupt 流程导致前端卡死。先单独调 interrupt 工具,等用户在卡片上完成选择后,resume 的下一轮再补充检索。
