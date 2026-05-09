@@ -15,6 +15,7 @@
 
 import { useStream, FetchStreamTransport } from '@langchain/vue'
 import type { UseStreamCustomOptions } from '@langchain/vue'
+import { useEventListener, useDocumentVisibility } from '@vueuse/core'
 import { AIMessage, ToolMessage } from '@langchain/core/messages'
 import type { BaseMessage } from '@langchain/core/messages'
 import type { AgentRunStatus, AgentEvent, AgentCustomEvent, AgentStatusEvent } from '#shared/types/agentRun'
@@ -495,6 +496,22 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
         const sdk = (s.isLoading as { value?: boolean }).value ?? false
         return sdk || reconnectState.isRetrying
     })
+
+    // 主动唤醒：online / visibilitychange 事件下立刻取消等待并发起重连
+    function wakeup() {
+        if (!reconnectState.isRetrying) return
+        if (currentRetryTimer) {
+            clearTimeout(currentRetryTimer)
+            currentRetryTimer = null
+        }
+        triggerReconnect()
+    }
+
+    // VueUse 自动满足 SSR 守卫与 onScopeDispose 清理
+    // （SSR 下 globalThis.window === undefined，useEventListener 跳过注册）
+    useEventListener(globalThis.window, 'online', wakeup)
+    const visibility = useDocumentVisibility()
+    watch(visibility, (v) => { if (v === 'visible') wakeup() })
 
     // 标记历史消息是否已加载
     const hasHistoryLoaded = ref(false)

@@ -7,7 +7,11 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { shallowRef, defineComponent, h, nextTick } from 'vue'
-import { mount } from '@vue/test-utils'
+import { mount, enableAutoUnmount } from '@vue/test-utils'
+
+// 关键：每个 it 结束后自动 unmount，避免 useEventListener 注册的 window 监听器
+// 在多个 it 之间累积污染（典型表现：online 事件被多个旧 wakeup 同时响应，断言 toHaveBeenCalledOnce 失败）
+enableAutoUnmount(afterEach)
 
 // ── mock @langchain/vue ──────────────────────────────────────────────
 // 对齐项目内 useStreamChat.test.ts：useStreamCustom 返回的 values/messages 是 ES6 getter，
@@ -233,6 +237,53 @@ describe('useStreamChat reconnect - exhaustion & reset', () => {
         // 推进所有 timer，submit 不应被调用（timer 已清）
         mockSubmit.mockClear()
         vi.advanceTimersByTime(60_000)
+        await nextTick()
+        expect(mockSubmit).not.toHaveBeenCalled()
+    })
+})
+
+describe('useStreamChat reconnect - active wakeup', () => {
+    it('online event cancels pending retry timer and reconnects immediately', async () => {
+        vi.spyOn(Math, 'random').mockReturnValue(0.5) // jitter=0
+        mountChat()
+        await nextTick()
+        captured.options!.onError!(new Error('boom'))
+        await nextTick()
+
+        mockSubmit.mockClear()
+        // 还没到 1000ms，正常状态下 submit 不会被调
+        vi.advanceTimersByTime(500)
+        await nextTick()
+        expect(mockSubmit).not.toHaveBeenCalled()
+
+        // 派发 online 事件
+        window.dispatchEvent(new Event('online'))
+        await nextTick()
+
+        expect(mockSubmit).toHaveBeenCalledOnce()
+        expect(mockSubmit).toHaveBeenCalledWith(undefined)
+    })
+
+    it('does NOT wakeup if not currently retrying', async () => {
+        mountChat()
+        await nextTick()
+        mockSubmit.mockClear()
+
+        window.dispatchEvent(new Event('online'))
+        await nextTick()
+        expect(mockSubmit).not.toHaveBeenCalled()
+    })
+
+    it('cleans up listeners on component unmount', async () => {
+        const w = mountChat()
+        await nextTick()
+        captured.options!.onError!(new Error('boom'))
+        await nextTick()
+
+        w.unmount()
+        mockSubmit.mockClear()
+
+        window.dispatchEvent(new Event('online'))
         await nextTick()
         expect(mockSubmit).not.toHaveBeenCalled()
     })
