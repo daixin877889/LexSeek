@@ -72,6 +72,21 @@ function deriveDefaultVertical(scope: SessionScope): LangfuseVertical {
     }
 }
 
+/**
+ * 从 AgentRunnerContext + scope 构造 ALS 上下文。
+ * runDomainAgent / runStateGraphAgent 顶层包 withLangfuseContext 时复用。
+ */
+function buildAgentLangfuseContext(ctx: AgentRunnerContext, scope: SessionScope) {
+    return {
+        runId: ctx.runId,
+        sessionId: ctx.sessionId,
+        threadId: ctx.sessionId,
+        userId: ctx.userId,
+        caseId: ctx.caseId ?? undefined,
+        vertical: deriveDefaultVertical(scope),
+    }
+}
+
 // -----------------------------------------------------------------------
 // 工具函数
 // -----------------------------------------------------------------------
@@ -115,14 +130,7 @@ export async function runDomainAgent(
     ctx: AgentRunnerContext,
 ): Promise<ReadableStream> {
     return withLangfuseContext(
-        {
-            runId: ctx.runId,
-            sessionId: ctx.sessionId,
-            threadId: ctx.sessionId,
-            userId: ctx.userId,
-            caseId: ctx.caseId ?? undefined,
-            vertical: deriveDefaultVertical(def.scope),
-        },
+        buildAgentLangfuseContext(ctx, def.scope),
         () => runDomainAgentInner(def, ctx),
     )
 }
@@ -432,14 +440,7 @@ export async function runStateGraphAgent(
     }
 
     return withLangfuseContext(
-        {
-            runId: ctx.runId,
-            sessionId: ctx.sessionId,
-            threadId: ctx.sessionId,
-            userId: ctx.userId,
-            caseId: ctx.caseId ?? undefined,
-            vertical: deriveDefaultVertical(def.scope),
-        },
+        buildAgentLangfuseContext(ctx, def.scope),
         () => runStateGraphAgentInner(def, ctx),
     )
 }
