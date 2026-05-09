@@ -191,3 +191,49 @@ describe('useStreamChat reconnect - success reset & loading cover', () => {
         expect(chat.isLoading.value).toBe(false)
     })
 })
+
+describe('useStreamChat reconnect - exhaustion & reset', () => {
+    it('after 5 failures sets runStatus=failed with friendly Chinese message', async () => {
+        vi.spyOn(Math, 'random').mockReturnValue(0.5) // 固定 jitter
+        mountChat()
+        await nextTick()
+
+        for (let i = 0; i < 5; i++) {
+            captured.options!.onError!(new Error('boom'))
+            await nextTick()
+            // 推过本轮退避间隔触发 submit
+            vi.advanceTimersByTime(1000 * Math.pow(2, i))
+            await nextTick()
+        }
+        // 第 6 次 onError 应该判定为耗尽
+        captured.options!.onError!(new Error('boom'))
+        await nextTick()
+
+        const chat = (globalThis as any).__chat
+        expect(chat.runStatus.value).toBe('failed')
+        expect(chat.runError.value).toBe('网络连接异常，请检查网络后重试')
+        expect(chat.reconnectState.isRetrying).toBe(false)
+    })
+
+    it('reset() clears reconnectState and pending timer', async () => {
+        mountChat()
+        await nextTick()
+        captured.options!.onError!(new Error('boom'))
+        await nextTick()
+
+        const chat = (globalThis as any).__chat
+        expect(chat.reconnectState.isRetrying).toBe(true)
+
+        chat.reset()
+        expect(chat.reconnectState.attempts).toBe(0)
+        expect(chat.reconnectState.isRetrying).toBe(false)
+        expect(chat.runStatus.value).toBe('idle')
+        expect(chat.runError.value).toBe('')
+
+        // 推进所有 timer，submit 不应被调用（timer 已清）
+        mockSubmit.mockClear()
+        vi.advanceTimersByTime(60_000)
+        await nextTick()
+        expect(mockSubmit).not.toHaveBeenCalled()
+    })
+})

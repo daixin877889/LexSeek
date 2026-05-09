@@ -253,9 +253,9 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
 
     function scheduleRetry() {
         if (reconnectState.attempts >= RETRY_MAX_ATTEMPTS) {
-            // 耗尽：进入失败终态，由 Task 3 完善文案；此处先维持现状文案
             reconnectState.isRetrying = false
             runStatus.value = 'failed'
+            runError.value = '网络连接异常，请检查网络后重试'
             return
         }
         reconnectState.attempts += 1
@@ -572,6 +572,12 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
         reset: () => {
             runStatus.value = 'idle'
             runError.value = ''
+            reconnectState.attempts = 0
+            reconnectState.isRetrying = false
+            if (currentRetryTimer) {
+                clearTimeout(currentRetryTimer)
+                currentRetryTimer = null
+            }
         },
         // stop 关闭 SSE 流，同时本地立即将 runStatus 设为 'cancelled'：
         // 因为 SSE 流已关闭，后端发送的 cancelled 事件将收不到，需本地同步状态
