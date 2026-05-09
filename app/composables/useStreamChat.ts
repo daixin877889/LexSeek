@@ -211,6 +211,59 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
     const runStatus = ref<AgentRunStatus | 'idle'>('idle')
     const runError = ref<string>('')
 
+    // ===== 自动重连：内部 state（@internal，仅供单测断言）=====
+    const RETRY_MAX_ATTEMPTS = 5
+    const RETRY_BASE_MS = 1000
+    const RETRY_FACTOR = 2
+    const RETRY_JITTER = 0.2
+
+    /** @internal */
+    const reconnectState = reactive({
+        attempts: 0,
+        isRetrying: false,
+    })
+
+    let currentRetryTimer: ReturnType<typeof setTimeout> | null = null
+
+    function shouldRetry(error: unknown): boolean {
+        if (!error || typeof error !== 'object') return false
+        const err = error as { name?: string; message?: string }
+        // 用户主动 stop / unmount 引发的 abort，不重连
+        if (err.name === 'AbortError') return false
+        if (typeof err.message === 'string' && err.message.toLowerCase().includes('aborted')) return false
+        return true
+    }
+
+    function computeRetryDelay(attempt: number): number {
+        const base = RETRY_BASE_MS * Math.pow(RETRY_FACTOR, attempt - 1)
+        // jitter ∈ [-RETRY_JITTER, +RETRY_JITTER]
+        const jitter = (Math.random() * 2 - 1) * RETRY_JITTER
+        return Math.round(base * (1 + jitter))
+    }
+
+    function triggerReconnect() {
+        if (currentRetryTimer) {
+            clearTimeout(currentRetryTimer)
+            currentRetryTimer = null
+        }
+        // submit(undefined) 让 SDK 拉 thread 历史并重新订阅
+        // 错误会再次进入 onError，由调度器决定下一步
+        s.submit(undefined).catch(() => { /* swallowed: onError handles */ })
+    }
+
+    function scheduleRetry() {
+        if (reconnectState.attempts >= RETRY_MAX_ATTEMPTS) {
+            // 耗尽：进入失败终态，由 Task 3 完善文案；此处先维持现状文案
+            reconnectState.isRetrying = false
+            runStatus.value = 'failed'
+            return
+        }
+        reconnectState.attempts += 1
+        reconnectState.isRetrying = true
+        const delay = computeRetryDelay(reconnectState.attempts)
+        currentRetryTimer = setTimeout(triggerReconnect, delay)
+    }
+
     // 子 Agent 分桶：按 parentToolCallId 归集子 Agent 事件
     const subThreadsMap = reactive<Record<string, SubThreadState>>({})
     // 同一 toolCallId 只 hydrate 一次：兜底 publishStatusChange 与 callback handleChainEnd
@@ -407,9 +460,12 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
         initialValues: options.initialValues as T | undefined,
         onError: (error: any) => {
             console.error('[useStreamChat] 流错误:', error)
-            // spec §8.1 #1 P0 follow-up：前端 fetch 错误（网络/4xx/5xx）
-            // 应本地将 runStatus 置为 'failed'，让 dispatcher 的 watch 触发暂停分支、
-            // UI 层展示失败状态，避免队列卡死 + 用户无感知。
+            // 自动重连：传输层错误（含被 SDK 包成 Error 的 HTTP 非 2xx）走退避重试，
+            // AbortError 与含 aborted 字样的错误（用户 stop / unmount）走失败终态。
+            if (shouldRetry(error)) {
+                scheduleRetry()
+                return
+            }
             runStatus.value = 'failed'
             runError.value = typeof error === 'string'
                 ? error
@@ -529,5 +585,8 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
         // 合成工具卡片（按 parentMessageId 索引）
         // 业务方传给 useMessageParser 的第三参 / AiChat 的 extraToolCalls prop
         syntheticToolCalls,
+
+        /** @internal 自动重连状态，仅供单测断言；业务方禁止使用 */
+        reconnectState,
     }
 }
