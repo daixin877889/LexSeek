@@ -3476,6 +3476,9 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
    - paragraphs：完整段落数组（带 index）
 3. 按 stance / stanceFocus 逐段审查合同，按响应格式（response schema）输出结构化结果（risks + summary）。
 
+# 工具调用规则（**铁律**）
+- **interrupt 类工具(parse_and_ask_stance)必须独占首轮工具调用,严禁与 search_law / search_case_memory / write_case_memory / update_case_memory 等任何工具并行**——并行会破坏 interrupt 流程并浪费首轮 token(resume 路径会丢弃这些并行结果)。先单独调 parse_and_ask_stance 等用户选立场,resume 后再视需要调其它工具。
+
 # 审查要求
 - 逐段审查所有对当前立场方不利 / 权利义务不对等 / 存在法律风险的条款
 - 每处问题输出一条 Risk，字段见 response schema 中的 description
