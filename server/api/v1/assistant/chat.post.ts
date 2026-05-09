@@ -24,7 +24,13 @@ import { enqueueRunService } from '~~/server/services/agent/agentRun.service'
 import { getAssistantSessionService } from '~~/server/services/assistant/assistantSession.service'
 import { checkPointsService } from '~~/server/services/point/pointConsumption.service'
 import { createAgentSseStream } from '~~/server/services/sse/agentSseStream'
-import { extractChatParams, shouldRejectMessage } from '~~/server/utils/chat-branch-utils'
+import {
+    extractChatParams,
+    shouldRejectMessage,
+    isValidResumeCommand,
+    getResumeCount,
+    shouldRejectResume,
+} from '~~/server/utils/chat-branch-utils'
 import { AGENT_RUN_STATUS } from '#shared/types/agentRun'
 
 /** 提示词防火墙黑名单（与 case chat.post 对齐） */
@@ -79,12 +85,23 @@ export default defineEventHandler(async (event) => {
     let runId: string
     let latestRunStatus: string | undefined
 
-    if (activeRun && message && activeRun.status === AGENT_RUN_STATUS.INTERRUPTED) {
-        // 分支 1：INTERRUPTED + 新消息 → resume 路径
+    if (activeRun && command && activeRun.status === AGENT_RUN_STATUS.INTERRUPTED) {
+        // 分支 1：INTERRUPTED + LangGraph resume command → resume 路径
+        // 触发条件看 command（如选完模板回传 templateId / 选完立场回传 stance），message 与否无关。
+        // 历史 bug：本判断曾误用 message 做触发条件，导致用户选模板（仅 command 无 message）落到分支 3
+        // 复用旧 runId，server 不消费 command，对话直接断流。修复对齐 case/analysis/chat.post.ts。
+        if (!isValidResumeCommand(command)) {
+            return resError(event, 400, '无效的 resume 命令')
+        }
+        const resumeCount = getResumeCount(activeRun.metadata)
+        if (shouldRejectResume(resumeCount)) {
+            return resError(event, 429, 'Resume 次数已达上限，请开启新会话')
+        }
         // 先把旧 run 标完成以释放 (sessionId, status IN pending/running) partial unique index，
         // 否则 enqueueRunService 内的 findActiveRunBySessionIdDAO 会拦截返回旧 runId 吞掉 resume。
         await updateRunStatusDAO(activeRun.id, AGENT_RUN_STATUS.COMPLETED, {
             completedAt: new Date(),
+            metadata: { ...((activeRun.metadata as any) || {}), resumeCount: resumeCount + 1 },
         })
         const result = await enqueueRunService({
             sessionId,

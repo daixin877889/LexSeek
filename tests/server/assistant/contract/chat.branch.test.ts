@@ -194,19 +194,22 @@ describe('POST /api/v1/assistant/contract/chat', () => {
         expect(mockFindLatestRun).not.toHaveBeenCalled()
     })
 
-    it('INTERRUPTED + 新消息：旧 run 置 COMPLETED 后入队 caseId=null', async () => {
+    it('INTERRUPTED + LangGraph resume command：旧 run 置 COMPLETED 后入队 caseId=null', async () => {
         // contract vs document 的核心 delta：入队时 caseId 必须是 null（独立页，无案件绑定）
+        // Resume 触发条件是 command（如选立场回传 stance），不是 message——历史 bug 修复后强制看 command。
         mockFindReviewBySession.mockResolvedValue(contractReview())
         mockFindActiveRun.mockResolvedValue({
             id: 'run-old',
             status: AGENT_RUN_STATUS.INTERRUPTED,
+            metadata: null,
         })
         mockEnqueueRun.mockResolvedValue({ runId: 'run-new' })
 
+        const resumeCommand = { resume: { call_xxx: { stance: 'partyA' } } }
         const res: any = await chatHandler(
             makeEvent({
                 userId: USER_A,
-                body: { sessionId: 'sess-contract-uuid', message: '继续审查' },
+                body: { sessionId: 'sess-contract-uuid', command: resumeCommand },
             }) as any,
         )
 
@@ -229,7 +232,7 @@ describe('POST /api/v1/assistant/contract/chat', () => {
                 threadId: 'sess-contract-uuid',
                 userId: USER_A,
                 caseId: null,
-                input: expect.objectContaining({ message: '继续审查' }),
+                input: expect.objectContaining({ command: resumeCommand }),
             }),
         )
     })
