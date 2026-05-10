@@ -38,9 +38,17 @@ export default defineEventHandler(async (event) => {
     if (status !== undefined) {
         where.status = status
     }
+    // 必须同时过滤：1) userRoles 软删；2) 关联 role 已禁用 / 软删
+    // 与 findUserRolesByUserIdDao（token 实际生效角色）的过滤标准保持一致，
+    // 否则会出现"页面显示用户有 admin 角色，但 token 里没有"的撕裂。
+    const activeUserRoleFilter = {
+        deletedAt: null,
+        role: { status: 1, deletedAt: null },
+    }
+
     if (roleId !== undefined) {
         where.userRoles = {
-            some: { roleId },
+            some: { roleId, ...activeUserRoleFilter },
         }
     }
 
@@ -58,6 +66,7 @@ export default defineEventHandler(async (event) => {
                 status: true,
                 createdAt: true,
                 userRoles: {
+                    where: activeUserRoleFilter,
                     include: {
                         role: {
                             select: { id: true, name: true, code: true },
