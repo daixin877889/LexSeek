@@ -110,26 +110,29 @@ export const createTool = createSimpleTool(
             }
         }
 
-        // 5. 计算 summary
+        // 5. 取模板 placeholders 总数 + 名称（template 字段总数是模板维度，不能用 fieldValues.length——
+        // LLM 漏传任意字段都会让分母塌缩，例如 17 个占位符 LLM 只填了 16 个，会算出"16/16"误导用户已全部填完）
+        let templateName: string | null = null
+        let templatePlaceholdersCount = 0
+        try {
+            const template = await getDocumentTemplateDAO(input.templateId)
+            templateName = template?.name ?? null
+            templatePlaceholdersCount = Array.isArray(template?.placeholders) ? template.placeholders.length : 0
+        }
+        catch { /* 拿不到模板不影响主流程,totalFields 走兜底 */ }
+
+        // 6. 计算 summary——分母用模板 placeholders 总数（来自 DB），分子是本次 fieldValues 里非空的数量
         const filledFieldCount = Object.values(input.fieldValues).filter(v => typeof v === 'string' && v.trim()).length
-        const totalFields = Object.keys(input.fieldValues).length
+        const totalFields = templatePlaceholdersCount || Object.keys(input.fieldValues).length
         const summary = filledFieldCount > 0
             ? `已自动填写 ${filledFieldCount}/${totalFields} 个字段`
             : '已建好空白草稿,等待用户补充信息'
 
-        // 6. 跳转链接
+        // 7. 跳转链接
         const fromParam = caseId ? 'xiaosuo' : 'assistant'
         const href = `/dashboard/document/drafts/${draftId}`
             + `?from=${fromParam}&sessionId=${encodeURIComponent(sessionId)}`
             + (caseId ? `&caseId=${caseId}` : '')
-
-        // 7. 取模板名称用于 summary
-        let templateName: string | null = null
-        try {
-            const template = await getDocumentTemplateDAO(input.templateId)
-            templateName = template?.name ?? null
-        }
-        catch { /* 拿不到名字不影响主流程 */ }
 
         const title = input.aiTitle ?? templateName ?? '未命名文书'
 

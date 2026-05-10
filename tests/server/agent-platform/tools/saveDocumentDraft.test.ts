@@ -18,11 +18,15 @@ vi.mock('~~/server/services/material/materialPipeline.service', () => ({
 vi.mock('~~/server/services/agent/agentEventBridge', () => ({
     publishCustomEvent: vi.fn(),
 }))
+vi.mock('~~/server/agents/document/documentTemplate.dao', () => ({
+    getDocumentTemplateDAO: vi.fn(),
+}))
 
 import { createTool, toolDefinition } from '~~/server/services/agent-platform/tools/saveDocumentDraft.tool'
 import { createDraftService, applyAITitleIfAllowedService } from '~~/server/agents/document/documentDraft.service'
 import { updateDocumentDraftDAO } from '~~/server/agents/document/documentDraft.dao'
 import { publishCustomEvent } from '~~/server/services/agent/agentEventBridge'
+import { getDocumentTemplateDAO } from '~~/server/agents/document/documentTemplate.dao'
 
 describe('save_document_draft tool', () => {
     beforeEach(() => {
@@ -117,6 +121,60 @@ describe('save_document_draft tool', () => {
             templateId: 1,
             sourceFileIds: [7, 8],
         }))
+    })
+
+    // 回归：summary 的分母必须是模板 placeholders 总数，不能用 LLM 输入的 fieldValues.length。
+    // 历史 bug：LLM 第一次只填 16/17 字段时分母被算成 16 → 显示"16/16"误导用户已全部填完。
+    it('summary 分母用模板 placeholders 总数，而非 fieldValues 长度', async () => {
+        ;(createDraftService as any).mockResolvedValue({ draftId: 100, sessionId: 'session-100' })
+        ;(updateDocumentDraftDAO as any).mockResolvedValue({ id: 100 })
+        // 模板有 17 个占位符
+        ;(getDocumentTemplateDAO as any).mockResolvedValue({
+            id: 1,
+            name: '民事起诉状（公民提起民事诉讼用）',
+            placeholders: [
+                '原告', '被告', '法院名称', '诉讼请求', '事实和理由', '证据和证据来源',
+                '证人姓名和住所', '住址', '性别', '民族', '出生年月日', '联系电话',
+                '工作单位和职务职业', '委托诉讼代理人', '附件数量', '起诉人姓名', '落款日期',
+            ],
+        })
+
+        const tool = createTool({ userId: 1, sessionId: 'sess-x', runId: 'run-x' })
+        // LLM 只传了 16 个字段（漏了"落款日期"）；其中 1 个是空值
+        const result = await tool.invoke({
+            templateId: 1,
+            fieldValues: {
+                原告: '张三', 被告: '李四', 法院名称: '北京市朝阳区人民法院',
+                诉讼请求: '继续履行合同', 事实和理由: '...', 证据和证据来源: '租赁合同',
+                证人姓名和住所: null, 住址: '北京', 性别: '男', 民族: '汉', 出生年月日: '1990-01-01',
+                联系电话: '13800000000', 工作单位和职务职业: '...', 委托诉讼代理人: '',
+                附件数量: '3', 起诉人姓名: '张三',
+            },
+        })
+
+        const parsed = JSON.parse(result as string)
+        expect(parsed.success).toBe(true)
+        // 14 个非空字段（去掉 null 和 ''）/ 17 个模板字段
+        expect(parsed.totalFields).toBe(17)
+        expect(parsed.filledFieldCount).toBe(14)
+        expect(parsed.summary).toBe('已自动填写 14/17 个字段')
+    })
+
+    it('取模板失败时 totalFields 兜底用 fieldValues.length', async () => {
+        ;(createDraftService as any).mockResolvedValue({ draftId: 100, sessionId: 'session-100' })
+        ;(updateDocumentDraftDAO as any).mockResolvedValue({ id: 100 })
+        ;(getDocumentTemplateDAO as any).mockRejectedValue(new Error('DB connection lost'))
+
+        const tool = createTool({ userId: 1, sessionId: 'sess-x', runId: 'run-x' })
+        const result = await tool.invoke({
+            templateId: 1,
+            fieldValues: { 原告: '张三', 被告: '李四' },
+        })
+
+        const parsed = JSON.parse(result as string)
+        expect(parsed.success).toBe(true)
+        expect(parsed.totalFields).toBe(2)
+        expect(parsed.filledFieldCount).toBe(2)
     })
 
     it('SSE event 必须 await(检查 mock 调用是 await 后才返回)', async () => {
