@@ -93,6 +93,69 @@ describe('update_document_draft tool', () => {
         expect(applyAITitleIfAllowedService).toHaveBeenCalledWith(100, '新标题')
     })
 
+    // 回归：截图 bug 同源——LLM 在 update 时也会回传"【待补充：xxx】"占位字符串。
+    // 兜底逻辑：cleanAIFieldUpdates 直接丢弃占位符 key,保持原值不变(避免误清空)。
+    it('LLM 占位字符串被丢弃,只 patch 真值,不进 changedFields', async () => {
+        ;(patchDraftService as any).mockResolvedValue({
+            draft: { id: 100, values: { 被告: '李四', 被告住址: '原住址不动' } },
+        })
+
+        const tool = createTool({ userId: 1, sessionId: 'sess-x', runId: 'run-x' })
+        const result = await tool.invoke({
+            draftId: 100,
+            fieldUpdates: {
+                被告: '李四',                       // 真值,要 patch
+                被告住址: '【待补充：被告住址】',     // 占位,跳过
+                法院名称: '【未提供】',              // 占位,跳过
+            },
+        })
+
+        const parsed = JSON.parse(result as string)
+        expect(parsed.success).toBe(true)
+        expect(parsed.changedFields).toEqual(['被告'])
+
+        // patchDraftService 只收到非占位字段
+        expect(patchDraftService).toHaveBeenCalledWith(1, 100, expect.objectContaining({
+            values: { 被告: '李四' },
+        }))
+    })
+
+    it('LLM 全部回传占位字符串时,patchDraftService 收到空对象,changedFields 为空', async () => {
+        ;(patchDraftService as any).mockResolvedValue({ draft: { id: 100, values: {} } })
+
+        const tool = createTool({ userId: 1, sessionId: 'sess-x' })
+        const result = await tool.invoke({
+            draftId: 100,
+            fieldUpdates: {
+                被告住址: '【待补充：被告住址】',
+                法院名称: '【未提供】',
+            },
+        })
+
+        const parsed = JSON.parse(result as string)
+        expect(parsed.success).toBe(true)
+        expect(parsed.changedFields).toEqual([])
+        expect(patchDraftService).toHaveBeenCalledWith(1, 100, expect.objectContaining({
+            values: {},
+        }))
+    })
+
+    it('返回值含跳转 href：caseId 存在 → from=xiaosuo&caseId=...，否则 from=assistant', async () => {
+        ;(patchDraftService as any).mockResolvedValue({
+            draft: { id: 100, values: { 被告: '李四' } },
+        })
+
+        // case 1: 法律助手场景，无 caseId
+        const tool1 = createTool({ userId: 1, sessionId: 'sess-x', runId: 'run-x' })
+        const out1 = JSON.parse(await tool1.invoke({ draftId: 100, fieldUpdates: { 被告: '李四' } }) as string)
+        expect(out1.href).toBe('/dashboard/document/drafts/100?from=assistant&sessionId=sess-x')
+
+        // case 2: 小索场景，带 caseId
+        const tool2 = createTool({ userId: 1, sessionId: 'sess-y', runId: 'run-y', caseId: 42 })
+        const out2 = JSON.parse(await tool2.invoke({ draftId: 100, fieldUpdates: { 被告: '李四' } }) as string)
+        expect(out2.href).toBe('/dashboard/document/drafts/100?from=xiaosuo&sessionId=sess-y&caseId=42')
+    })
+
     // 回归：documentMain system prompt 里把 draftId 渲染成"草稿 ID:90"，LLM 偶尔会原样把 "90"
     // 字符串当成 draftId 回传，导致 zod 抛 "expected number, received string"。
     // schema 应当 coerce 字符串 → number，对齐 reviewContract.tool 的同类修复。

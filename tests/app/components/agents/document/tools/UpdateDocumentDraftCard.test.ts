@@ -16,6 +16,7 @@ const stubs = {
       CheckCircle2: true,
       XCircle: true,
       FilePenLine: true,
+      FileEdit: true,
     },
   },
 }
@@ -122,5 +123,40 @@ describe('UpdateDocumentDraftCard', () => {
       ...stubs,
     })
     expect(w.text()).toContain('更新失败')
+  })
+
+  it('output 含 href 时显示"在文书页继续编辑"按钮，无 href 时不显示', () => {
+    const withHref = mount(UpdateDocumentDraftCard, {
+      props: {
+        toolName: 'update_document_draft',
+        input: {},
+        output: {
+          success: true,
+          draftId: 7,
+          changedFields: ['address'],
+          summary: '已更新 1 个字段:address',
+          href: '/dashboard/document/drafts/7?from=assistant&sessionId=sess-x',
+        },
+        state: 'output-available',
+      },
+      ...stubs,
+    })
+    expect(withHref.text()).toContain('在文书页继续编辑')
+
+    const withoutHref = mount(UpdateDocumentDraftCard, {
+      props: {
+        toolName: 'update_document_draft',
+        input: {},
+        output: {
+          success: true,
+          draftId: 7,
+          changedFields: ['address'],
+          summary: '已更新 1 个字段:address',
+        },
+        state: 'output-available',
+      },
+      ...stubs,
+    })
+    expect(withoutHref.text()).not.toContain('在文书页继续编辑')
   })
 })

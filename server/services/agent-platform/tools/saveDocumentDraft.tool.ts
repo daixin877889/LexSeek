@@ -21,13 +21,16 @@ import {
 import { updateDocumentDraftDAO } from '~~/server/agents/document/documentDraft.dao'
 import { createSnapshotService } from '~~/server/agents/document/documentDraftSnapshot.service'
 import { getDocumentTemplateDAO } from '~~/server/agents/document/documentTemplate.dao'
+import { normalizeAIInitialFieldValues } from '~~/server/agents/document/aiFieldValueNormalize'
 
 // LLM 偶尔会把数字 ID 当字符串回传（templateId / fileIds 可能从 prompt 上下文或工具返回值取），
 // 用 z.coerce.number() 自动转换增强鲁棒性（与 reviewContract.tool / updateDocumentDraft.tool 对齐）。
 const schema = z.object({
     templateId: z.coerce.number().int().positive().describe('模板 ID,从 recommend_template 工具的返回值取'),
     fieldValues: z.record(z.string(), z.string().nullable()).describe(
-        '占位符名 → 值的映射;不知道的字段填 null,不要编造。至少一个字段非 null。',
+        '占位符名 → 值的映射;**不知道的字段必须传 null**(后端会过滤),'
+        + '严禁回传"【待补充:xxx】"/"【未提供】"/"【暂无】"等占位字符串(会被自动转 null)。'
+        + '至少一个字段非 null,否则视为没提取到任何信息、应继续向用户提问。',
     ),
     suggestions: z.record(z.string(), z.string()).optional().describe(
         '建议用户补充的内容(占位符名 → 一句问句),会写入 metadata.suggestions',
@@ -58,8 +61,12 @@ export const createTool = createSimpleTool(
             throw new Error('save_document_draft: ToolContext 缺少 userId/sessionId')
         }
 
-        // 校验:fieldValues 至少一个非 null
-        const hasAnyValue = Object.values(input.fieldValues).some(v => v !== null && v !== '')
+        // 0. 兜底过滤 LLM 输出的占位字符串(「【待补充:xxx】」「【未提供】」等):
+        //    转 null 后再走后续流程,避免占位串被当成"已填"算进字段统计、避免渲染到文书正文
+        const fieldValues = normalizeAIInitialFieldValues(input.fieldValues)
+
+        // 校验:normalize 后至少一个非 null(占位符已转 null,真值才算)
+        const hasAnyValue = Object.values(fieldValues).some(v => v !== null && v !== '')
         if (!hasAnyValue) {
             return {
                 success: false,
@@ -84,7 +91,7 @@ export const createTool = createSimpleTool(
 
         // 2. 立刻写 values + status='ready'(同步事务式)
         await updateDocumentDraftDAO(draftId, {
-            values: input.fieldValues as any,
+            values: fieldValues as any,
             metadata: input.suggestions ? { suggestions: input.suggestions } as any : undefined,
             status: 'ready',
         })
@@ -92,7 +99,7 @@ export const createTool = createSimpleTool(
         // 3. 创建 'ai-extract' 快照
         try {
             await createSnapshotService(draftId, 'ai-extract', {
-                values: input.fieldValues,
+                values: fieldValues,
                 aiTitle: input.aiTitle ?? null,
             })
         }
@@ -122,8 +129,8 @@ export const createTool = createSimpleTool(
         catch { /* 拿不到模板不影响主流程,totalFields 走兜底 */ }
 
         // 6. 计算 summary——分母用模板 placeholders 总数（来自 DB），分子是本次 fieldValues 里非空的数量
-        const filledFieldCount = Object.values(input.fieldValues).filter(v => typeof v === 'string' && v.trim()).length
-        const totalFields = templatePlaceholdersCount || Object.keys(input.fieldValues).length
+        const filledFieldCount = Object.values(fieldValues).filter(v => typeof v === 'string' && v.trim()).length
+        const totalFields = templatePlaceholdersCount || Object.keys(fieldValues).length
         const summary = filledFieldCount > 0
             ? `已自动填写 ${filledFieldCount}/${totalFields} 个字段`
             : '已建好空白草稿,等待用户补充信息'

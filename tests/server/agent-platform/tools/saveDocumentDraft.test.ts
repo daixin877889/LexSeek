@@ -177,6 +177,64 @@ describe('save_document_draft tool', () => {
         expect(parsed.filledFieldCount).toBe(2)
     })
 
+    // 回归：截图 bug——LLM 把"【待补充：xxx】"占位字符串当 fieldValue 传入,
+    // 后端原样落库,前端显示"15/15 已填"假象 + 文档正文出现占位串。
+    // 兜底逻辑：normalizeAIInitialFieldValues 把占位符转 null,统计自然变准。
+    it('LLM 占位字符串「【待补充:xxx】」被转 null,不算入 filledFieldCount,不写入 values', async () => {
+        ;(createDraftService as any).mockResolvedValue({ draftId: 100, sessionId: 'session-100' })
+        ;(updateDocumentDraftDAO as any).mockResolvedValue({ id: 100 })
+        ;(getDocumentTemplateDAO as any).mockResolvedValue({
+            id: 1,
+            name: '民事答辩状',
+            placeholders: ['法院名称', '案件号', '原告', '被告', '答辩理由'],
+        })
+
+        const tool = createTool({ userId: 1, sessionId: 'sess-x', runId: 'run-x' })
+        const result = await tool.invoke({
+            templateId: 1,
+            fieldValues: {
+                法院名称: '【待补充：法院名称】', // 占位 → null
+                案件号: '【未提供】',                // 占位 → null
+                原告: '葛某飞',                     // 真值
+                被告: '某传媒公司',                  // 真值
+                答辩理由: '【暂无】',                // 占位 → null
+            },
+        })
+
+        const parsed = JSON.parse(result as string)
+        expect(parsed.success).toBe(true)
+        // 5 个模板字段；只有 2 个被真填(原告/被告)
+        expect(parsed.totalFields).toBe(5)
+        expect(parsed.filledFieldCount).toBe(2)
+        expect(parsed.summary).toBe('已自动填写 2/5 个字段')
+
+        // values 写库时占位符应已变 null,不会带"【待补充：xxx】"字符串
+        expect(updateDocumentDraftDAO).toHaveBeenCalledWith(100, expect.objectContaining({
+            values: {
+                法院名称: null,
+                案件号: null,
+                原告: '葛某飞',
+                被告: '某传媒公司',
+                答辩理由: null,
+            },
+        }))
+    })
+
+    it('LLM 全部回传占位字符串时,等同 null 全空,拒绝创建', async () => {
+        const tool = createTool({ userId: 1, sessionId: 'sess-x' })
+        const result = await tool.invoke({
+            templateId: 1,
+            fieldValues: {
+                原告: '【待补充：原告】',
+                被告: '【未提供】',
+            },
+        })
+
+        const parsed = JSON.parse(result as string)
+        expect(parsed.success).toBe(false)
+        expect(parsed.error).toContain('至少一个非 null')
+    })
+
     it('SSE event 必须 await(检查 mock 调用是 await 后才返回)', async () => {
         let publishResolved = false
         ;(createDraftService as any).mockResolvedValue({ draftId: 100, sessionId: 'session-100' })
