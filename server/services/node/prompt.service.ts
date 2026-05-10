@@ -39,21 +39,24 @@ import { findNodeByIdDao } from './node.dao'
 
 /**
  * 生成下一个版本号
- * 版本号格式：v1, v2, v3...
- * @param currentVersion 当前版本号
+ *
+ * 输出格式统一为 v{N+1}。从 currentVersion 中提取首个数字 token 作为基底，能兼容：
+ *  - 标准格式：'v8' → 'v9'
+ *  - 历史 SemVer：'1.0.0' → 'v2'
+ *  - 历史污染版本号：'v4-1778422666004' → 'v5'（一旦库里曾出现过时间戳后缀，下次也能继续顺延）
+ * 完全无数字时回退为 'v1'。
+ *
+ * @param currentVersion 当前最新版本号（来自 getLatestVersionDao）
  * @returns 下一个版本号
  */
 export const generateNextVersion = (currentVersion: string | null): string => {
     if (!currentVersion) {
         return 'v1'
     }
-
-    // 解析版本号
-    const match = currentVersion.match(/^v(\d+)$/)
+    const match = currentVersion.match(/(\d+)/)
     if (!match) {
         return 'v1'
     }
-
     const versionNum = parseInt(match[1]!, 10)
     return `v${versionNum + 1}`
 }

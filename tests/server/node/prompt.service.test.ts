@@ -170,10 +170,21 @@ describe('generateNextVersion 工具函数', () => {
         expect(generateNextVersion('v99')).toBe('v100')
     })
 
-    it('无效格式应返回 v1', () => {
-        expect(generateNextVersion('version1')).toBe('v1')
-        expect(generateNextVersion('1.0')).toBe('v1')
+    it('完全无数字时回退到 v1', () => {
         expect(generateNextVersion('v')).toBe('v1')
+        expect(generateNextVersion('foo-bar')).toBe('v1')
+        expect(generateNextVersion('___')).toBe('v1')
+    })
+
+    it('兼容历史 SemVer 格式：取首数字 token 顺延', () => {
+        expect(generateNextVersion('1.0')).toBe('v2')
+        expect(generateNextVersion('1.0.0')).toBe('v2')
+        expect(generateNextVersion('version1')).toBe('v2')
+    })
+
+    it('污染版本号（v4-时间戳）也能正确顺延，防止 service 回退到 v1 二次破坏序列', () => {
+        expect(generateNextVersion('v4-1778422666004')).toBe('v5')
+        expect(generateNextVersion('v8-1234567890')).toBe('v9')
     })
 
     it('属性测试：任意版本号递增正确', () => {

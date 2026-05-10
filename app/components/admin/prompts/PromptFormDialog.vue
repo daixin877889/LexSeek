@@ -253,47 +253,40 @@ const handleSubmit = async () => {
 
     submitting.value = true
     try {
-        let result: { id: number } | null = null
-        if (isEdit.value && selectedPrompt.value) {
-            // 编辑模式：创建新版本（节点关联通过 node_prompts 表 PATCH 维护，本接口不再传 nodeId）
-            // version 在已有版本号末尾追加时间戳，避免与现有同名版本冲突
-            const oldVersion = selectedPrompt.value.version || 'v1'
-            const nextVersion = `${oldVersion}-${Date.now()}`
-            result = await useApiFetch<{ id: number }>('/api/v1/admin/prompts', {
-                method: 'POST',
-                body: {
-                    name: selectedPrompt.value.name,
-                    title: form.value.title || null,
-                    content: form.value.content,
-                    type: selectedPrompt.value.type,
-                    variables: extractedVariables.value,
-                    version: nextVersion,
-                    status: 1,
-                },
-            })
-        } else {
-            // 创建模式（节点关联通过 node_prompts 表 PATCH 维护，本接口不再传 nodeId）
-            result = await useApiFetch<{ id: number }>('/api/v1/admin/prompts', {
-                method: 'POST',
-                body: {
-                    name: form.value.name,
-                    title: form.value.title || null,
-                    content: form.value.content,
-                    type: form.value.type,
-                    variables: extractedVariables.value,
-                    version: 'v1',
-                    status: 1,
-                },
-            })
+        // Step 1：创建新版本——后端按 (name, type) 自动顺延版本号，status 恒为 0
+        // name / type 在编辑模式下沿用原 prompt（不可改），创建模式从 form 取
+        const source = isEdit.value && selectedPrompt.value ? selectedPrompt.value : form.value
+        const created = await useApiFetch<{ id: number }>('/api/v1/admin/prompts', {
+            method: 'POST',
+            body: {
+                name: source.name,
+                title: form.value.title || null,
+                content: form.value.content,
+                type: source.type,
+                variables: extractedVariables.value,
+            },
+        })
+        if (!created) {
+            return // 创建失败 toast 已自动弹出
         }
 
-        if (result) {
+        // Step 2：激活新版本——同 (name, type) 互斥事务保证唯一 active
+        const activated = await useApiFetch(`/api/v1/admin/prompts/activate/${created.id}`, {
+            method: 'PUT',
+            showError: false,
+        })
+        if (activated) {
             toast.success(isEdit.value ? '新版本创建成功' : '创建成功')
-            open.value = false
-            emit('success')
-            if (typeof result.id === 'number') {
-                emit('created', result.id)
-            }
+        } else {
+            toast.warning(isEdit.value
+                ? '新版本已创建，但激活失败，可在版本历史中手动激活'
+                : '提示词已创建，但激活失败，可在列表中手动激活')
+        }
+
+        open.value = false
+        emit('success')
+        if (typeof created.id === 'number') {
+            emit('created', created.id)
         }
     } finally {
         submitting.value = false
