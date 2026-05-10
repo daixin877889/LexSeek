@@ -38,8 +38,38 @@ interface VerificationFailureRecord {
 /**
  * 内存存储验证失败记录
  * key 格式: `${phone}:${type}`
+ *
+ * 清理策略：
+ * - 锁定过期的记录在被读取时即时清理（isVerificationLockedService）
+ * - 验证成功时主动清理（resetVerificationFailuresService）
+ * - 此外定期扫描清理"未达锁定阈值但 24h 内未更新"的僵尸记录，防止攻击者用随机
+ *   手机号轮询导致 Map 无界增长
  */
 const verificationFailures = new Map<string, VerificationFailureRecord>()
+
+const STALE_FAILURE_TTL_MS = 24 * 60 * 60 * 1000
+const CLEANUP_INTERVAL_MS = 60 * 60 * 1000
+
+function pruneStaleFailures(): void {
+    const now = Date.now()
+    for (const [key, record] of verificationFailures.entries()) {
+        if (record.lockedUntil && record.lockedUntil.getTime() <= now) {
+            verificationFailures.delete(key)
+            continue
+        }
+        if (!record.lockedUntil && now - record.firstFailureAt.getTime() > STALE_FAILURE_TTL_MS) {
+            verificationFailures.delete(key)
+        }
+    }
+}
+
+// 仅 Node 运行时启用（vitest setup 用 globalThis 挂载内嵌 fake env，避免重复定时器干扰测试）
+if (typeof setInterval === 'function' && !(globalThis as any).__sms_failure_cleanup__) {
+    ;(globalThis as any).__sms_failure_cleanup__ = setInterval(pruneStaleFailures, CLEANUP_INTERVAL_MS)
+    if (typeof (globalThis as any).__sms_failure_cleanup__?.unref === 'function') {
+        ;(globalThis as any).__sms_failure_cleanup__.unref()
+    }
+}
 
 /**
  * 生成失败记录的 key

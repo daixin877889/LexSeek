@@ -81,23 +81,53 @@ LexSeek/
 │   ├── lib/                      # 工具函数 (cn, utils)
 │   └── assets/                   # 静态资源 (CSS/图片)
 ├── server/                       # 服务端 (Nitro)
-│   ├── api/v1/                   # REST API 路由 (24 个模块)
-│   │   ├── admin/               # 管理接口 (权限/角色/用户/产品/法规等)
-│   │   ├── case/                # 案件分析 (分析运行/会话)
+│   ├── api/v1/                   # REST API 路由 (25 个模块)
+│   │   ├── admin/               # 管理接口 (权限/角色/用户/产品/法规/合同/文书/节点/skills 等)
+│   │   ├── assistant/           # 法律助手 / 文书 / 合同 用户端接口
 │   │   ├── auth/                # 认证 (登录/注册/密码)
+│   │   ├── callback/            # 第三方异步回调（含 MinerU）
+│   │   ├── cases/               # 案件分析 (分析运行 / 会话 / init-analysis)
+│   │   ├── case-types/          # 案件类型
+│   │   ├── dashboard/           # 用户仪表板聚合数据
+│   │   ├── demo-cases/          # 演示案件
+│   │   ├── files/               # 文件元数据
+│   │   ├── legal/               # 法律法规
 │   │   ├── material/            # 素材 (上传/搜索/处理)
-│   │   ├── storage/             # 存储 (预签名/回调)
-│   │   ├── users/               # 用户 (个人信息/权限/权益)
+│   │   ├── memberships/         # 会员
+│   │   ├── oss/                 # 旧版 OSS 直传相关
 │   │   ├── payments/            # 支付 (订单/回调)
-│   │   └── */                   # 其他业务接口
+│   │   ├── points/              # 积分
+│   │   ├── products/            # 商品
+│   │   ├── proxy/               # 透传代理（OSS 文件 / 临时签名 URL）
+│   │   ├── recognition/         # OCR / ASR / 文档识别（部分用户端入口）
+│   │   ├── redemption-codes/    # 兑换码
+│   │   ├── skills/              # Skill 列表 / labels（用户端）
+│   │   ├── sms/                 # 短信验证码
+│   │   ├── storage/             # 存储 (预签名 / 回调 / confirm-upload 兜底)
+│   │   ├── users/               # 用户 (个人信息/权限/权益)
+│   │   ├── wechat/              # 微信公众号 OAuth
+│   │   └── campaigns/           # 营销活动
+│   ├── agents/                    # Domain Agent vertical 配置 (7 个目录)
+│   │   ├── _shared/              # 跨 vertical 共享中间件 / 工具（如 caseContext）
+│   │   ├── case-analysis/        # 案件初分（StateGraph：7 节点串行）
+│   │   ├── case-main/            # 案件主对话（CASE 域默认入口）
+│   │   ├── case-module/          # 案件子模块"小索"（StateGraph，moduleName 路由）
+│   │   ├── contract/             # 合同审查（StateGraph，含 stance interrupt）
+│   │   ├── document/             # 文书起草（StateGraph）
+│   │   └── legal-assistant/      # 全局法律助手（无 caseId，跨案件）
 │   ├── middleware/                # 三层中间件链 (requestId → auth → permission)
-│   ├── services/                  # 业务逻辑层 (24 个模块)
+│   ├── services/                  # 业务逻辑层 (29 个子目录 + dashboard.service.ts 顶级文件)
+│   │   ├── agent-platform/       # 自研 LangGraph 适配层（factory/registry/middleware/skills/tools/sse/state/subAgent/context/diagnostics/nodeConfig/threadState/checkpointer）
+│   │   ├── memory/               # 案件记忆系统（自动提取 + 用户记录）
+│   │   ├── security/             # 风控（验证码、登录风险）
+│   │   ├── ai/                   # AI 通用 helper（如 generateSummaryService）
 │   │   ├── */module.service.ts  # Service 层 (业务编排，方法 XXXService 后缀)
 │   │   └── */module.dao.ts      # DAO 层 (数据访问，方法 XXXDao/XXXDAO 后缀)
 │   ├── lib/                       # 基础设施库
 │   │   ├── payment/              # 支付适配器 (工厂模式，微信支付)
 │   │   ├── storage/              # 存储适配器 (工厂模式，OSS/七牛/腾讯COS)
-│   │   ├── oss/                  # 阿里云 OSS 底层操作
+│   │   ├── oss/                  # 阿里云 OSS 底层操作（含 head / postSignature 等）
+│   │   ├── langfuse/             # Langfuse OTel 桥接 + ModelProxy + PII 脱敏
 │   │   ├── redis.ts              # Redis 客户端 (ioredis)
 │   │   └── aliSms.ts             # 阿里云短信
 │   ├── utils/                     # 工具函数
@@ -105,17 +135,22 @@ LexSeek/
 │   │   ├── jwt.ts                # JWT 工具 (生成/验证/解析)
 │   │   ├── serialization.ts      # 序列化工具
 │   │   └── */                    # 其他工具 (密码/图片压缩/音频等)
-│   └── scripts/                   # 脚本 (数据库初始化等)
+│   ├── plugins/                   # Nitro 插件（skill-sync / agent-worker / agents-load 等）
+│   └── scripts/                   # 脚本 (数据库初始化 / 重建嵌入)
 ├── shared/                        # 前后端共享
-│   ├── types/                     # 类型定义 (31 个文件，按业务域组织)
+│   ├── types/                     # 类型定义 (按业务域组织)
 │   └── utils/                     # 共享工具 (apiResponse/logger/uuid 等)
 ├── prisma/                        # 数据库
 │   ├── schema.prisma             # 主 schema (仅 generator + datasource)
-│   └── models/                    # 模块化模型 (22 个 .prisma 文件)
+│   └── models/                    # 模块化模型 (28 个 .prisma 文件)
 └── tests/                         # 测试用例
+    ├── _infra/                    # global-setup / worker-prisma / template-db
     ├── server/                    # 服务端测试
     ├── client/                    # 客户端测试
-    └── shared/                    # 共享代码测试
+    ├── shared/                    # 共享代码测试
+    ├── integration/               # 集成测试
+    ├── e2e/                       # 端到端
+    └── eval/                      # 评测（context-governance 等）
 ```
 
 ## 请求生命周期
@@ -259,28 +294,36 @@ server/lib/
 
 | 模块 | 路径 | 职责 |
 |------|------|------|
+| agent | services/agent/ | Agent 任务队列 + Redis SSE 事件桥（agentRuns 表 + agentWorker） |
+| agent-platform | services/agent-platform/ | 自研 LangGraph 适配层（middleware/factory/registry/skills/sse/state/subAgent/tools/nodeConfig/context/diagnostics 等） |
+| ai | services/ai/ | AI 通用 helper（如 `generateSummaryService`） |
+| assistant | services/assistant/ | 法律助手 / 文书 / 合同 用户端业务 |
+| audit | services/audit/ | 审计日志（订单 / 支付 / 权限变更） |
 | auth | services/auth/ | JWT 认证、Cookie 管理 |
-| rbac | services/rbac/ | 角色权限、路径匹配、权限缓存 |
-| users | services/users/ | 用户 CRUD |
-| case | services/case/ | 案件管理、案件材料、案件会话 |
-| workflow | services/workflow/ | LangGraph 工作流编排 |
-| node | services/node/ | AI 节点（prompt/模型/访问控制） |
-| retrieval | services/retrieval/ | 检索服务（语义/全文/混合搜索 + rerank） |
-| model | services/model/ | 模型配置、Provider 管理、API Key |
+| campaign | services/campaign/ | 营销活动 |
+| case | services/case/ | 案件管理、案件材料、案件会话、init-analysis |
+| dashboard.service.ts | services/dashboard.service.ts | 用户工作台聚合数据接口（顶级文件） |
+| files | services/files/ | 文件元数据管理（含 ossFileVerify 兜底校验） |
 | legal | services/legal/ | 法律条文、法律文章、向量存储 |
 | material | services/material/ | 材料处理（OCR/Mineru/ASR/嵌入） |
-| payment | services/payment/ | 订单、支付事务、微信支付 |
 | membership | services/membership/ | 会员等级、权益 |
-| storage | services/storage/ | 统一存储适配器（OSS/七牛/腾讯 COS） |
-| files | services/files/ | 文件元数据管理 |
-| sms | services/sms/ | 短信发送、验证码 |
-| sse | services/sse/ | SSE 连接管理、心跳 |
-| campaign | services/campaign/ | 营销活动 |
+| memory | services/memory/ | 案件记忆系统（自动提取 + 用户记录） |
+| model | services/model/ | 模型配置、Provider 管理、API Key |
+| node | services/node/ | AI 节点（prompt 4 类 / 模型 / 访问控制） |
+| payment | services/payment/ | 订单、支付事务、微信支付 |
 | point | services/point/ | 积分系统 |
 | product | services/product/ | 产品管理 |
+| rbac | services/rbac/ | 角色权限、路径匹配、权限缓存 |
 | redemption | services/redemption/ | 兑换码 |
+| retrieval | services/retrieval/ | 检索服务（语义/全文/混合搜索 + rerank） |
+| security | services/security/ | 风控（验证码、登录风险） |
+| sms | services/sms/ | 短信发送、验证码 |
+| sse | services/sse/ | SSE 连接管理、心跳 |
+| storage | services/storage/ | 统一存储适配器（OSS/七牛/腾讯 COS）+ getStorageAdapterService |
 | system | services/system/ | 系统配置 |
-| wechat | services/wechat/ | 微信公众号 |
+| users | services/users/ | 用户 CRUD |
+| wechat | services/wechat/ | 微信公众号 OAuth |
+| workflow | services/workflow/ | LangGraph 工作流编排（caseAnalysisV2 入口、moduleAgent 等） |
 
 ## 模块依赖关系
 
@@ -347,7 +390,7 @@ server/lib/
 
 ## 数据库设计要点
 
-- **模块化 Schema**：`prisma/models/` 下 22 个独立 `.prisma` 文件，按业务域拆分（user/case/payment/rbac/legal/material/model/node 等）
+- **模块化 Schema**：`prisma/models/` 下 28 个独立 `.prisma` 文件，按业务域拆分（user / case / materials / file / membership / order / product / point / rbac / apiPermission / router / node / model / recognition / storage / campaign / redemption / sms / system / legal / agentRun / contractReview / contractPlaybook / contractReviewVersion / contractRiskAndAnnotation / contractReviewLegacyBackup / document / skill）
 - **主 schema**：`prisma/schema.prisma` 仅包含 generator 和 datasource 声明，模型通过 Prisma 的多文件 schema 功能自动合并
 - **生成路径**：Prisma Client 生成到 `generated/prisma/client`，类型导入使用 `~~/generated/prisma/client`
 - **时区处理**：Prisma 连接设置 `TimeZone=UTC`（通过 `@prisma/adapter-pg` 的 connection options），避免 Date 值双偏移 bug

@@ -57,6 +57,7 @@ export interface RuntimeExposed {
   getModuleMessages: (name: string) => any[]
   loadStatus: () => Promise<void>
   startAnalysis: () => void
+  restartAnalysis: () => Promise<void>
   resumeWorkflow: () => void
   retryModule: (moduleName: string) => void
   refreshGlobalStatus: (status: InitAnalysisStatusResponse) => void

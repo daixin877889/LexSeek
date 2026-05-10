@@ -89,6 +89,9 @@ export async function persistAiRisksAsContractRows(input: {
     const stance = input.stance ?? DEFAULT_AI_RISK_STANCE
     const client: Prisma.TransactionClient | typeof prisma = tx ?? prisma
 
+    // 同一条款多 risk（PR 207 后单 clause 可命中 2-5 条 risk）共享 splitSentences 结果，
+    // 避免重复字符级状态机扫描（典型 500-2000 字条款单次 2-5ms × N risks）。
+    const sentencesCache = new Map<string, ReturnType<typeof splitSentences>>()
     const data: Prisma.contractRisksUncheckedCreateInput[] = rows.map((row) => {
         const r = row.risk
         /**
@@ -103,7 +106,11 @@ export async function persistAiRisksAsContractRows(input: {
          * - resolveQuoteAnchor 三档 fallback：sentence_id → fuzzy → fallback
          * - 调用方零改动；anchor 解析逻辑收敛在 service 内部
          */
-        const sentences = splitSentences(clauseText)
+        let sentences = sentencesCache.get(clauseText)
+        if (!sentences) {
+            sentences = splitSentences(clauseText)
+            sentencesCache.set(clauseText, sentences)
+        }
         const anchor = resolveQuoteAnchor({
             clauseText,
             sentences,

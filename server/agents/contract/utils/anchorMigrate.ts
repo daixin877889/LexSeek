@@ -28,6 +28,37 @@ interface MigrateAnchorParams {
 }
 
 /**
+ * 在 [startLo, startHi] 区间内，用 [minWin, maxWin] 不同窗长扫一遍 clauseText，
+ * 返回与 anchor 相似度最高的子串。窗口超出 clauseText 长度时 break。
+ */
+function scanWindowRange(
+    clauseText: string,
+    anchor: string,
+    startLo: number,
+    startHi: number,
+    minWin: number,
+    maxWin: number,
+): { charStart: number; charEnd: number; similarity: number } | null {
+    let bestSim = -1
+    let bestStart = 0
+    let bestEnd = 0
+    for (let winLen = minWin; winLen <= maxWin; winLen++) {
+        for (let i = startLo; i <= startHi; i++) {
+            if (i + winLen > clauseText.length) break
+            const window = clauseText.slice(i, i + winLen)
+            const sim = calcSimilarity(anchor, window)
+            if (sim > bestSim) {
+                bestSim = sim
+                bestStart = i
+                bestEnd = i + winLen
+            }
+        }
+    }
+    if (bestSim < 0) return null
+    return { charStart: bestStart, charEnd: bestEnd, similarity: bestSim }
+}
+
+/**
  * 在单条 clause 文本中查找与 anchor 最相似的子串。
  *
  * DOCX-H1 性能优化：旧实现是双层循环 winLen × i 全扫，对长 clauseText（>2000 字）
@@ -57,47 +88,16 @@ function findBestSubstring(
         : null
     const matchLoc = located?.start ?? -1
 
-    let bestSim = -1
-    let bestStart = 0
-    let bestEnd = 0
-
     if (matchLoc >= 0) {
-        // 在 matchLoc ± 100 字符的小窗内精扫
         const windowMargin = 100
         const startLo = Math.max(0, matchLoc - windowMargin)
         const startHi = Math.min(clauseText.length - minWin, matchLoc + windowMargin)
-        for (let winLen = minWin; winLen <= maxWin; winLen++) {
-            for (let i = startLo; i <= startHi; i++) {
-                if (i + winLen > clauseText.length) break
-                const window = clauseText.slice(i, i + winLen)
-                const sim = calcSimilarity(anchor, window)
-                if (sim > bestSim) {
-                    bestSim = sim
-                    bestStart = i
-                    bestEnd = i + winLen
-                }
-            }
-        }
-        if (bestSim >= 0) {
-            return { charStart: bestStart, charEnd: bestEnd, similarity: bestSim }
-        }
+        const fast = scanWindowRange(clauseText, anchor, startLo, startHi, minWin, maxWin)
+        if (fast) return fast
     }
 
     // fallback：fuzzyLocateInText 失败或精扫窗口为空，全文扫描兜底
-    for (let winLen = minWin; winLen <= maxWin; winLen++) {
-        for (let i = 0; i <= clauseText.length - winLen; i++) {
-            const window = clauseText.slice(i, i + winLen)
-            const sim = calcSimilarity(anchor, window)
-            if (sim > bestSim) {
-                bestSim = sim
-                bestStart = i
-                bestEnd = i + winLen
-            }
-        }
-    }
-
-    if (bestSim < 0) return null
-    return { charStart: bestStart, charEnd: bestEnd, similarity: bestSim }
+    return scanWindowRange(clauseText, anchor, 0, clauseText.length - minWin, minWin, maxWin)
 }
 
 export function migrateAnchor(params: MigrateAnchorParams): AnchorMigrateResult | null {

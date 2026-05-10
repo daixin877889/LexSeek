@@ -11,7 +11,7 @@ LexSeek 使用 PostgreSQL 数据库 + Prisma ORM，采用模块化 schema 拆分
 ```
 prisma/
 ├── schema.prisma          # 主配置（generator + datasource）
-├── models/                # 模块化模型（22 个 .prisma 文件）
+├── models/                # 模块化模型（28 个 .prisma 文件）
 │   ├── user.prisma
 │   ├── case.prisma
 │   ├── membership.prisma

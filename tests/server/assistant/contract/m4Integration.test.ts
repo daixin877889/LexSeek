@@ -20,6 +20,7 @@ import { describe, it, expect, beforeAll, afterEach, afterAll, vi } from 'vitest
 ;(globalThis as any).resSuccess = (_e: any, message: string, data: any) => ({ code: 0, success: true, message, data })
 ;(globalThis as any).defineEventHandler = (h: any) => h
 ;(globalThis as any).getRouterParam = (e: any, k: string) => e.__params?.[k]
+;(globalThis as any).getQuery = (e: any) => e.__query ?? {}
 ;(globalThis as any).logger = { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() }
 
 // 仅 mock storage 出口（对真实 OSS 有依赖），其余走真实 DAO

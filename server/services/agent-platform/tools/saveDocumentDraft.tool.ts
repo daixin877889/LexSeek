@@ -14,13 +14,23 @@ import type { ToolContext, ToolDefinition } from './types'
 import { createSimpleTool } from './types'
 import { SSECustomEventType } from '#shared/types/agentEvent'
 import { publishCustomEvent } from '~~/server/services/agent/agentEventBridge'
+import {
+    createDraftService,
+    applyAITitleIfAllowedService,
+} from '~~/server/agents/document/documentDraft.service'
+import { updateDocumentDraftDAO } from '~~/server/agents/document/documentDraft.dao'
+import { createSnapshotService } from '~~/server/agents/document/documentDraftSnapshot.service'
+import { getDocumentTemplateDAO } from '~~/server/agents/document/documentTemplate.dao'
+import { normalizeAIInitialFieldValues } from '~~/server/agents/document/aiFieldValueNormalize'
 
 // LLM 偶尔会把数字 ID 当字符串回传（templateId / fileIds 可能从 prompt 上下文或工具返回值取），
 // 用 z.coerce.number() 自动转换增强鲁棒性（与 reviewContract.tool / updateDocumentDraft.tool 对齐）。
 const schema = z.object({
     templateId: z.coerce.number().int().positive().describe('模板 ID,从 recommend_template 工具的返回值取'),
     fieldValues: z.record(z.string(), z.string().nullable()).describe(
-        '占位符名 → 值的映射;不知道的字段填 null,不要编造。至少一个字段非 null。',
+        '占位符名 → 值的映射;**不知道的字段必须传 null**(后端会过滤),'
+        + '严禁回传"【待补充:xxx】"/"【未提供】"/"【暂无】"等占位字符串(会被自动转 null)。'
+        + '至少一个字段非 null,否则视为没提取到任何信息、应继续向用户提问。',
     ),
     suggestions: z.record(z.string(), z.string()).optional().describe(
         '建议用户补充的内容(占位符名 → 一句问句),会写入 metadata.suggestions',
@@ -51,8 +61,12 @@ export const createTool = createSimpleTool(
             throw new Error('save_document_draft: ToolContext 缺少 userId/sessionId')
         }
 
-        // 校验:fieldValues 至少一个非 null
-        const hasAnyValue = Object.values(input.fieldValues).some(v => v !== null && v !== '')
+        // 0. 兜底过滤 LLM 输出的占位字符串(「【待补充:xxx】」「【未提供】」等):
+        //    转 null 后再走后续流程,避免占位串被当成"已填"算进字段统计、避免渲染到文书正文
+        const fieldValues = normalizeAIInitialFieldValues(input.fieldValues)
+
+        // 校验:normalize 后至少一个非 null(占位符已转 null,真值才算)
+        const hasAnyValue = Object.values(fieldValues).some(v => v !== null && v !== '')
         if (!hasAnyValue) {
             return {
                 success: false,
@@ -61,8 +75,7 @@ export const createTool = createSimpleTool(
             }
         }
 
-        // 1. 创建 draft 记录(enqueueAgentRun: false 表示工具自己写,不入 worker 队列)
-        const { createDraftService } = await import('~~/server/agents/document/documentDraft.service')
+        // 1. 创建 draft 记录（createDraftService 已处理 sourceFileIds 关联材料；enqueueAgentRun:false 表示工具自己写,不入 worker 队列）
         const created = await createDraftService({
             userId,
             templateId: input.templateId,
@@ -77,18 +90,16 @@ export const createTool = createSimpleTool(
         const { draftId, sessionId: subSessionId } = created
 
         // 2. 立刻写 values + status='ready'(同步事务式)
-        const { updateDocumentDraftDAO } = await import('~~/server/agents/document/documentDraft.dao')
         await updateDocumentDraftDAO(draftId, {
-            values: input.fieldValues as any,
+            values: fieldValues as any,
             metadata: input.suggestions ? { suggestions: input.suggestions } as any : undefined,
             status: 'ready',
         })
 
         // 3. 创建 'ai-extract' 快照
         try {
-            const { createSnapshotService } = await import('~~/server/agents/document/documentDraftSnapshot.service')
             await createSnapshotService(draftId, 'ai-extract', {
-                values: input.fieldValues,
+                values: fieldValues,
                 aiTitle: input.aiTitle ?? null,
             })
         }
@@ -96,13 +107,9 @@ export const createTool = createSimpleTool(
             logger.warn('save_document_draft: 写 ai-extract 快照失败(不阻塞)', { draftId, err })
         }
 
-        // 4. 关联材料(若有 fileIds)
-        // 注意:createDraftService 已经处理了 sourceFileIds,这里无需重复
-
-        // 5. 应用 AI 标题(若有 + titleOverridden=false)
+        // 4. 应用 AI 标题(若有 + titleOverridden=false)
         if (input.aiTitle) {
             try {
-                const { applyAITitleIfAllowedService } = await import('~~/server/agents/document/documentDraft.service')
                 await applyAITitleIfAllowedService(draftId, input.aiTitle)
             }
             catch (err) {
@@ -110,9 +117,20 @@ export const createTool = createSimpleTool(
             }
         }
 
-        // 6. 计算 summary
-        const filledFieldCount = Object.values(input.fieldValues).filter(v => typeof v === 'string' && v.trim()).length
-        const totalFields = Object.keys(input.fieldValues).length
+        // 5. 取模板 placeholders 总数 + 名称（template 字段总数是模板维度，不能用 fieldValues.length——
+        // LLM 漏传任意字段都会让分母塌缩，例如 17 个占位符 LLM 只填了 16 个，会算出"16/16"误导用户已全部填完）
+        let templateName: string | null = null
+        let templatePlaceholdersCount = 0
+        try {
+            const template = await getDocumentTemplateDAO(input.templateId)
+            templateName = template?.name ?? null
+            templatePlaceholdersCount = Array.isArray(template?.placeholders) ? template.placeholders.length : 0
+        }
+        catch { /* 拿不到模板不影响主流程,totalFields 走兜底 */ }
+
+        // 6. 计算 summary——分母用模板 placeholders 总数（来自 DB），分子是本次 fieldValues 里非空的数量
+        const filledFieldCount = Object.values(fieldValues).filter(v => typeof v === 'string' && v.trim()).length
+        const totalFields = templatePlaceholdersCount || Object.keys(fieldValues).length
         const summary = filledFieldCount > 0
             ? `已自动填写 ${filledFieldCount}/${totalFields} 个字段`
             : '已建好空白草稿,等待用户补充信息'
@@ -123,18 +141,9 @@ export const createTool = createSimpleTool(
             + `?from=${fromParam}&sessionId=${encodeURIComponent(sessionId)}`
             + (caseId ? `&caseId=${caseId}` : '')
 
-        // 8. 取模板名称用于 summary
-        let templateName: string | null = null
-        try {
-            const { getDocumentTemplateDAO } = await import('~~/server/agents/document/documentTemplate.dao')
-            const template = await getDocumentTemplateDAO(input.templateId)
-            templateName = template?.name ?? null
-        }
-        catch { /* 拿不到名字不影响主流程 */ }
-
         const title = input.aiTitle ?? templateName ?? '未命名文书'
 
-        // 9. await SSE event(agent-platform.md 铁律)
+        // 8. await SSE event(agent-platform.md 铁律)
         try {
             await publishCustomEvent({
                 type: 'custom_event',
@@ -148,7 +157,7 @@ export const createTool = createSimpleTool(
             logger.warn('save_document_draft: publishCustomEvent(DRAFT_SAVED) 失败(不阻塞)', { draftId, err })
         }
 
-        // 10. 返回 JSON 给 LLM(title 字段对齐旧 draft_document 工具卡片渲染)
+        // 9. 返回 JSON 给 LLM(title 字段对齐旧 draft_document 工具卡片渲染)
         return {
             success: true,
             draftId,

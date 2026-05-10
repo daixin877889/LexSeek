@@ -39,6 +39,7 @@ vi.mock('~~/server/services/agent-platform/middleware', () => ({
     createMessageIntegrityMiddleware: vi.fn(() => ({})),
     createScopeGuardMiddleware: vi.fn(() => ({})),
     pointConsumptionMiddleware: vi.fn(() => ({})),
+    userInjectionMiddleware: vi.fn(() => ({})),
 }))
 
 vi.mock('~~/server/services/agent-platform/middleware/safetyTrim.middleware', () => ({
@@ -47,6 +48,42 @@ vi.mock('~~/server/services/agent-platform/middleware/safetyTrim.middleware', ()
 
 vi.mock('~~/server/services/workflow/middleware/analysisResultPersistence.middleware', () => ({
     analysisResultPersistenceMiddleware: vi.fn(() => ({})),
+}))
+
+// 业务在 invoke 时调 buildLangfuseTopLevelConfig 注入 callbacks；测试态下让它直接透传 additionalCallbacks
+vi.mock('~~/server/lib/langfuse', () => ({
+    buildLangfuseTopLevelConfig: (override?: { additionalCallbacks?: any[] }) => ({
+        callbacks: Array.isArray(override?.additionalCallbacks)
+            ? override!.additionalCallbacks
+            : override?.additionalCallbacks
+                ? [override.additionalCallbacks]
+                : [],
+    }),
+    withLangfuseContext: <T>(_ctx: unknown, fn: () => Promise<T> | T) => fn(),
+    getLangfuseContext: () => undefined,
+    buildLangfuseTraceMetadata: () => ({}),
+}))
+
+// afterAgentMemoryMiddleware：测试不验证记忆持久化，stub 即可
+vi.mock('~~/server/services/agent-platform/middleware/afterAgentMemory.middleware', () => ({
+    afterAgentMemoryMiddleware: vi.fn(() => ({})),
+}))
+
+// 4 个 skill 工具 + skills 中间件：默认无 skill，stub 全空
+vi.mock('~~/server/services/agent-platform/middleware/skills', () => ({
+    buildSkillsMiddlewareForNode: vi.fn().mockResolvedValue(null),
+}))
+vi.mock('~~/server/services/agent-platform/tools/readSkillFile.tool', () => ({
+    createTool: vi.fn(() => ({ name: 'read_skill_file' })),
+}))
+vi.mock('~~/server/services/agent-platform/tools/writeSkillFile.tool', () => ({
+    createTool: vi.fn(() => ({ name: 'write_skill_file' })),
+}))
+vi.mock('~~/server/services/agent-platform/tools/runSkillScript.tool', () => ({
+    createTool: vi.fn(() => ({ name: 'run_skill_script' })),
+}))
+vi.mock('~~/server/services/agent-platform/tools/runSkillCommand.tool', () => ({
+    createTool: vi.fn(() => ({ name: 'run_skill_command' })),
 }))
 
 vi.mock('~~/server/services/agent-platform/checkpointer', () => ({
@@ -299,7 +336,7 @@ describe('createSubAgentTools 子代理工具创建', () => {
             )
         })
 
-        it('createAgent 不再使用 systemPrompt 参数（改由 SystemMessage 注入）', async () => {
+        it('createAgent 接收 SystemMessage 实例作为 systemPrompt（而非纯字符串拼接进 messages）', async () => {
             const { createAgent } = await import('langchain')
 
             const configs = [
@@ -310,8 +347,10 @@ describe('createSubAgentTools 子代理工具创建', () => {
             await tools[0].invoke({ question: '生成概要' })
 
             expect(createAgent).toHaveBeenCalled()
-            const agentConfig = vi.mocked(createAgent).mock.calls[0][0] as { systemPrompt?: string }
-            expect(agentConfig.systemPrompt).toBeUndefined()
+            const agentConfig = vi.mocked(createAgent).mock.calls[0][0] as { systemPrompt?: { content: unknown } }
+            // 详见 subAgentToolFactory.ts:221 注释："systemPrompt 走 createAgent 参数（不塞 messages 数组）"
+            expect(agentConfig.systemPrompt).toBeDefined()
+            expect(agentConfig.systemPrompt!.content).toBeDefined()
         })
     })
 })

@@ -395,7 +395,10 @@ describe('POST /api/v1/assistant/chat', () => {
             expect(runs).toHaveLength(1)
         })
 
-        it('分支 1: 活跃 INTERRUPTED + 新消息 → 旧 run 标 completed + 新 run 入队（含 message）', async () => {
+        it('分支 1: 活跃 INTERRUPTED + LangGraph resume command → 旧 run 标 completed + 新 run 入队（含 command）', async () => {
+            // Resume 触发条件是 command（如选完模板回传 templateId），不是 message。
+            // 历史 bug：曾误用 message 做触发条件，前端选模板（仅 command 无 message）落到分支 3
+            // 复用旧 runId，server 不消费 command，对话直接断流。修复后强制看 command。
             const user = await createTestUser()
             testIds.userIds.push(user.id)
             const s = await createAssistantSessionDAO({ userId: user.id })
@@ -414,10 +417,11 @@ describe('POST /api/v1/assistant/chat', () => {
             })
             runIdsToCleanup.push(interrupted.id)
 
+            const resumeCommand = { resume: { call_xxx: { templateId: 1 } } }
             const res: any = await chatHandler(
                 makeEvent({
                     userId: user.id,
-                    body: { sessionId: s.sessionId, message: '继续' },
+                    body: { sessionId: s.sessionId, command: resumeCommand },
                 }) as any,
             )
             expect(res).toBeInstanceOf(Response)
@@ -431,7 +435,7 @@ describe('POST /api/v1/assistant/chat', () => {
             expect(runs[0].status).toBe('completed')
             expect(runs[0].completedAt).not.toBeNull()
             expect(runs[1].status).toBe('pending')
-            expect((runs[1].input as any).message).toBe('继续')
+            expect((runs[1].input as any).command).toEqual(resumeCommand)
             runIdsToCleanup.push(runs[1].id)
 
             const arg = (createAgentSseStream as any).mock.calls[0][0]

@@ -86,9 +86,13 @@ export async function analyzeSingleClause(ctx: AnalyzeClauseContext): Promise<Ri
     return data.risks.map((rawRisk) => {
         let matchedPointCode: string | undefined = (rawRisk.matchedPointCode?.trim() || undefined)
 
-        // 白名单校验：AI 返回的 code 必须在快照里存在；否则降级为清单外（警告）
-        if (matchedPointCode && validCodes) {
-            if (!validCodes.has(matchedPointCode)) {
+        if (matchedPointCode) {
+            if (!validCodes) {
+                // snapshot 不存在时，AI 不应返回 matchedPointCode；如果返了，静默忽略（不 warn）
+                matchedPointCode = undefined
+            }
+            else if (!validCodes.has(matchedPointCode)) {
+                // 白名单校验失败：降级为清单外，warn 让运维排查 prompt/playbook 漂移
                 logger.warn('analyzeSingleClause: AI 返回未知的 matchedPointCode，降级为清单外', {
                     clauseIndex: ctx.clause.index,
                     returnedCode: matchedPointCode,
@@ -96,10 +100,6 @@ export async function analyzeSingleClause(ctx: AnalyzeClauseContext): Promise<Ri
                 })
                 matchedPointCode = undefined
             }
-        }
-        // snapshot 不存在时，AI 不应返回 matchedPointCode；如果返了，静默忽略（不 warn）
-        if (matchedPointCode && !ctx.playbookSnapshot) {
-            matchedPointCode = undefined
         }
 
         // 服务端强制覆盖 id：LLM 偶发对多条 risk 返回相同 UUID，导致前端 data-risk-id

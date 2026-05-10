@@ -8,9 +8,9 @@
 
 - [ ] 在 `prisma/models/` 下创建 `<module>.prisma` 文件
 - [ ] 定义表结构（包含 `createdAt`、`updatedAt`、`deletedAt` 标准字段）
-- [ ] 运行 `bun run prisma:push` 同步到开发数据库
-- [ ] 运行 `bun run prisma:generate` 生成 Prisma Client 类型
-- [ ] 同步测试数据库：`DATABASE_URL='postgresql://daixin:daixin88@localhost:5432/ls_new_testing' bun run prisma:push --accept-data-loss`
+- [ ] **正式变更必须**走 `bun run prisma:migrate --name <描述>`（=`prisma migrate dev`），自动生成迁移文件并随 git 提交
+- [ ] **禁止**：手写 `prisma/migrations/<xxx>/migration.sql`、用 `prisma db push` 当作正式变更、跳开 schema 直接 `psql` 改表结构（详见 [.claude/rules/database.md](../../../.claude/rules/database.md)）
+- [ ] 测试数据库会在每次跑 `bun run test` 时由 `tests/_infra/global-setup.ts` 用 `ls_new_testing` 模板复制出 worker DB；如需手动同步，跑 `DATABASE_URL='postgresql://daixin:daixin88@localhost:5432/ls_new_testing' bun run prisma:migrate deploy`
 
 ### 2. 创建共享类型
 
@@ -88,10 +88,13 @@ export default defineEventHandler(async (event) => {
 })
 ```
 
-### 6. 配置公开 API（如需要）
+### 6. 配置公开 API / 注册管理端权限
 
-- [ ] 在数据库 `api_permissions` 表中添加记录，标记为公开 API
-- [ ] 或在管理后台的 API 权限管理页面配置
+- [ ] **不要**手写 SQL 到 `seedData.sql` 或 migration 文件添加 `api_permissions` 记录
+- [ ] `bun dev` 启动后进管理后台 → "API 权限" → 点 **扫描** → 命中新接口（路径已自动 `[id] → :id`、method 大写）
+- [ ] "路由" 页同样有 **扫描** 按钮，挂菜单项
+- [ ] "角色" 页给目标角色（admin / editor / operator）勾选权限；如属公开 API（无需登录）→ 在 API 权限编辑里勾"公开"
+- [ ] 用户端 API（`/api/v1/<module>/**`）严格 owner-only / viewer 过滤；管理端（`/api/v1/admin/<module>/**`）由中间件保护，handler 内无需重复鉴权（详见 [.claude/rules/api.md](../../../.claude/rules/api.md)）
 
 ## 前端开发清单
 
@@ -130,10 +133,11 @@ export default defineEventHandler(async (event) => {
 
 ### RBAC 权限
 
-- [ ] 在数据库 `api_permissions` 表中注册新模块的 API 路径和方法
-- [ ] 配置角色-API 权限关联（`role_api_permissions` 表）
-- [ ] 标记公开 API（无需认证的接口）
-- [ ] 权限中间件（`03.permission.ts`）会自动检查
+- [ ] **不要写 seed / migration**：通过管理后台 "API 权限" → 扫描 → 角色授权流程注册新接口（详见上一节"6. 配置公开 API / 注册管理端权限"）
+- [ ] 用户端接口（`/api/v1/<module>/**`）：handler 内必须做 owner-only / viewer 维度过滤；不允许 `checkIsSuperAdmin` 旁路
+- [ ] 管理端接口（`/api/v1/admin/<module>/**`）：靠 `server/middleware/03.permission.ts` 拦截；handler 内不再做归属过滤
+- [ ] 同一资源两端都要操作时**必须分别实现两套接口**，前端按身份调用对应那一套
+- [ ] `pathMatcher` 已在 `02.auth` / `03.permission` 自动用于公开 API 与权限路径匹配（支持 `:param` / `*` / `**`）
 
 ### RBAC 相关服务
 
@@ -142,13 +146,14 @@ export default defineEventHandler(async (event) => {
 | 文件 | 职责 |
 |------|------|
 | `permission.service.ts` | 权限检查业务逻辑 |
-| `cache.service.ts` | 权限缓存管理 |
-| `apiPermission.dao.ts` | API 权限数据访问 |
+| `guard.service.ts` | 用户端业务守卫（业务身份匹配 / owner 检查） |
+| `cache.service.ts` | 权限缓存管理（5 分钟 TTL，角色变更自动失效） |
+| `apiPermission.dao.ts` | API 权限数据访问（含 publicApi 列表） |
 | `roleApiPermission.dao.ts` | 角色-API 关联 |
 | `roles.dao.ts` | 角色数据访问 |
 | `userRoles.dao.ts` | 用户-角色关联 |
-| `auditLog.service.ts` / `auditLog.dao.ts` | 审计日志 |
-| `pathMatcher.ts` | 路径匹配工具 |
+| `auditLog.service.ts` / `auditLog.dao.ts` | 权限变更 / 关键操作审计日志 |
+| `pathMatcher.ts` | 路径匹配工具（`:param` / `*` / `**`） |
 
 ## 测试开发清单
 

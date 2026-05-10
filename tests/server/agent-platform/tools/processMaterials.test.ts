@@ -33,6 +33,7 @@ vi.mock('~~/server/services/material/materialPipeline.service', () => ({
     estimateTokens: (text: string) => (text ? text.length * estimateMultiplier : 0),
     getSourceId: (m: any) => m.ossFileId ?? m.id,
     TOKEN_THRESHOLD: 15000,
+    snapshotMaterialReadiness: vi.fn(async () => []),
 }))
 
 // Mock tokenCounter，把 countTokensSync 简化为字符长度

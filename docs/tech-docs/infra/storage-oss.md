@@ -228,6 +228,73 @@ interface CallbackData {
 - 使用阿里云 RSA 公钥验证签名
 - 公钥通过 `x-oss-pub-key-url` 头获取（带缓存）
 
+### 5.4 回调失败的前端兜底链路（2026-05-08）
+
+OSS 直传成功后，OSS 服务器回调 LexSeek 的 `/api/v1/storage/callback` 写 `ossFiles.status = UPLOADED`。当回调因网络 / LexSeek 临时不可用而失败时，OSS 文件实际已存在，但 DB 行卡在 `status=PENDING`，前端会展示"上传失败"——与真实情况不符。
+
+**兜底链路**通过让前端在收到 callback 失败响应时调一个用户端接口，由后端 head OSS 直接核对真实状态并修复：
+
+```
+前端 (useFileUploadWorker)
+   │
+   │ ① 收到 worker 回报：{ success: false }
+   │   (callback 失败但 OSS 已成功)
+   ▼
+POST /api/v1/storage/confirm-upload  { fileId }
+   │
+   ▼
+verifyAndFixOssFileService(fileId, userId)
+   ├── 查 ossFiles by id
+   │     ├── 不存在/userId 不匹配 → invalid / forbidden
+   │     ├── 已 UPLOADED → ok（直接返）
+   │     ├── 已 FAILED → already_failed
+   │     └── PENDING → 继续
+   │
+   ├── adapter.head(filePath)
+   │     ├── null（OSS 也没有）→ not_found
+   │     └── 命中 → markOssFileUploadedByVerifyDao
+   │           （updateMany where status=PENDING，原子条件更新，幂等并发安全）
+   │
+   ▼
+前端：onSuccess({ recovered: true, fileId }) 或 onError
+```
+
+**关键约束**：
+
+- 前端兜底需要 `ossFileId`，由 `POST /api/v1/storage/presigned-url` 在签名结果里透出（`PostSignatureResult.ossFileId`）
+- 后端 `markOssFileUploadedByVerifyDao` 用 Prisma `updateMany` + 条件 `status=PENDING and deletedAt=null`，count=1 表示我改的、count=0 表示已被回调或并发兜底改过——天然幂等
+- adapter 抛错（OSS 5xx / 网络）由 handler 转 503，前端 onError；NoSuchKey / 404 在底层 `headFile` 里转成 null，不抛错
+
+**涉及文件**：
+
+| 文件 | 角色 |
+|------|------|
+| `server/lib/oss/headFile.ts` | OSS 底层 `getObjectMeta` 封装；返回 `HeadObjectResult \| null` |
+| `server/lib/storage/types.ts` | `StorageAdapter.head(path)` 抽象方法；`AliyunPostSignatureResult.ossFileId` 透出 |
+| `server/lib/storage/base.ts` | `BaseStorageAdapter.head` 默认实现（throw NotImplemented） |
+| `server/lib/storage/adapters/aliyun-oss.ts` | `AliyunOssAdapter.head` 调底层 `headFile` |
+| `server/services/files/ossFiles.dao.ts` | `markOssFileUploadedByVerifyDao(fileId)` 原子条件更新 |
+| `server/services/files/ossFileVerify.service.ts` | `verifyAndFixOssFileService(fileId, userId)` 全状态机 |
+| `server/services/storage/storage.service.ts` | `getStorageAdapterService` 导出（外部 service 层共用） |
+| `server/api/v1/storage/confirm-upload/.post.ts` | 用户端 handler（401/400/403/404/409/503 全分支） |
+| `server/api/v1/storage/presigned-url/.post.ts` | 在 `results.push` 时拼上 `ossFileId: ossFile.id` |
+| `app/composables/useFileUploadWorker.ts` | success 分支检测 `data.success===false` → 调兜底接口 |
+
+**响应码语义**：
+
+| 场景 | HTTP | 前端处理 |
+|------|------|---------|
+| `ok=true` | 200 + `{ status: 'uploaded' }` | onSuccess({ recovered: true, fileId }) |
+| `forbidden` | 403 | onError 文件归属异常 |
+| `not_found` | 404 | onError 提示用户重新上传 |
+| `already_failed` | 409 | onError 文件已标记失败 |
+| `invalid` | 400 | onError 文件记录异常 |
+| adapter 抛错 | 503 | onError 提示 OSS 暂不可达 |
+
+**未来扩展**：兜底服务通过 `getStorageAdapterService({ type: ALIYUN_OSS })` 拿适配器，所以接入七牛 / 腾讯 COS 时只需各自适配器实现 `head()` 方法、`StorageProviderType` 路由扩展即可，service / handler 不动。
+
+详见 [docs/superpowers/specs/2026-05-08-oss-callback-fallback-design.md](../../superpowers/specs/2026-05-08-oss-callback-fallback-design.md)。
+
 ---
 
 ## 6. 服务层
@@ -237,6 +304,9 @@ interface CallbackData {
 封装适配器调用，提供统一的存储操作接口：
 
 ```typescript
+// 获取适配器（外部 service 直接拿 head 等底层能力时调用）
+getStorageAdapterService(options)
+
 // 上传文件
 uploadFileService(path, data, options?)
 

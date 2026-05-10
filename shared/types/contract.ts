@@ -252,6 +252,25 @@ export type ReviewWithParsedRisks = Omit<contractReviews, 'risks' | 'summary'> &
  */
 export const REVIEW_EDITABLE_STATUSES: readonly ContractReviewStatus[] = ['completed'] as const
 
+/**
+ * 合同审查"忙状态"白名单：HTTP 层快速失败（DELETE / 重新上传等）+ service 层
+ * 原子锁互斥保护。任何 status 在此集合内表示"有作业正在跑、不能并发改写"。
+ *
+ * 历史教训：之前 3 处独立定义（uploadClientVersion / reviews/[id].delete /
+ * upload-version/[id].post），保持同步靠注释提醒，易漂移。
+ */
+export const CONTRACT_BUSY_STATUSES: readonly ContractReviewStatus[] = [
+    'pending', 'reviewing', 'awaiting_stance', 'rebuilding',
+] as const
+
+/**
+ * type guard：判断给定 status（通常来自 Prisma 的 string 字段）是否在忙状态白名单内。
+ * 收拢「readonly ContractReviewStatus[] vs string」的类型 cast，调用方零 cast。
+ */
+export function isContractBusyStatus(status: string): boolean {
+    return (CONTRACT_BUSY_STATUSES as readonly string[]).includes(status)
+}
+
 export const REVIEW_STATUS_LABEL: Record<ContractReviewStatus, string> = {
     pending: '待处理',
     reviewing: '审查中',

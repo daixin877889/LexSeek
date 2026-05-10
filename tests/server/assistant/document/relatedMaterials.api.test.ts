@@ -39,13 +39,16 @@ vi.mock('~~/server/agents/document/documentDraft.dao', () => ({
 
 vi.mock('~~/server/services/material/material.service', () => ({
     getMaterialsByCaseOrDraftIdWithStatusService: vi.fn(),
+    // handler 已切到跨表查 summary（commit 392acc9f），mock 必须同步暴露
+    getMaterialSummariesByMaterials: vi.fn(async () => new Map()),
 }))
 
 import { getDocumentDraftDAO } from '~~/server/agents/document/documentDraft.dao'
-import { getMaterialsByCaseOrDraftIdWithStatusService } from '~~/server/services/material/material.service'
+import { getMaterialsByCaseOrDraftIdWithStatusService, getMaterialSummariesByMaterials } from '~~/server/services/material/material.service'
 
 const mockGetDraft = getDocumentDraftDAO as ReturnType<typeof vi.fn>
 const mockGetMaterials = getMaterialsByCaseOrDraftIdWithStatusService as ReturnType<typeof vi.fn>
+const mockGetSummaries = getMaterialSummariesByMaterials as ReturnType<typeof vi.fn>
 
 // ==================== 动态 import handler（必须在 mock 之后）====================
 
@@ -127,13 +130,14 @@ describe('GET /api/v1/assistant/document/drafts/:id/related-materials', () => {
                 ossFileId: 50,
                 isEncrypted: false,
                 realStatus: 3,
-                summary: '摘要',
                 createdAt: new Date('2026-04-20T00:00:00.000Z'),
                 fileName: 'a.pdf',
                 fileSize: 1024,
                 fileType: 'application/pdf',
             },
         ])
+        // summary 已迁出 caseMaterials，handler 通过 getMaterialSummariesByMaterials 跨表拿
+        mockGetSummaries.mockResolvedValueOnce(new Map([[100, '摘要']]))
         const res: any = await handler(
             makeEvent({ userId: USER_A, params: { id: '10' } }) as any,
         )

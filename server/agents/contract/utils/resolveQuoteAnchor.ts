@@ -40,8 +40,13 @@ export function resolveQuoteAnchor(input: ResolveQuoteAnchorInput): QuoteAnchorR
     if (ids && ids.length > 0) {
         const validIds = ids.filter(id => id >= 1 && id <= input.sentences.length)
         if (validIds.length > 0) {
-            const minId = Math.min(...validIds)
-            const maxId = Math.max(...validIds)
+            // 单次遍历同时拿 min/max，避免两次 spread + Math.min/max
+            let minId = validIds[0]!
+            let maxId = validIds[0]!
+            for (const id of validIds) {
+                if (id < minId) minId = id
+                if (id > maxId) maxId = id
+            }
             const startSentence = input.sentences[minId - 1]!
             const endSentence = input.sentences[maxId - 1]!
             const charStart = startSentence.charStart

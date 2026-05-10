@@ -118,7 +118,18 @@ interface NodeConfig {
 
 **版本号规则**：`v1` → `v2` → `v3`，由 `generateNextVersion` 自动递增。
 
-**Prompt 类型**：`system`、`user`、`assistant`，同节点同类型只能有一个版本处于 status=1。
+**Prompt 类型**（`shared/types/node.ts` 的 `PROMPT_TYPES`）：
+
+| type | 装配位置 | 说明 |
+|------|---------|------|
+| `system` | system prompt（多段拼接） | 角色 / 任务 / 输出契约。同节点支持多段，按 `displayOrder` 升序拼接 |
+| `user_injection` | 每轮 user 消息之前（隐藏） | 由 `userInjectionMiddleware` 在 wrapModelCall 内注入的 ephemeral HumanMessage，不写回 `state.messages` / 不进 checkpoint。多段按 `displayOrder` 拼接。常用于反越狱守卫 / 案件元数据 / 实时上下文 |
+| `user` | 首轮 user 消息 | 主用户输入模板（带 `{{variables}}`），由调用方在创建首条对话时主动渲染 |
+| `assistant` | 历史 assistant 消息 | 引导风格的 few-shot 历史（少用）|
+
+同节点同 (name, type) 维度只能有一个版本处于 `status=1`；激活新版本时同维度其它版本自动 `status=0`（事务保证）。多个 prompt 通过 `node_prompts` 关联表挂到节点上，激活新版本零成本即时生效（关联跟随 `(name, type)` 而非具体版本 id）。
+
+> `user_injection` 是 2026-05 「prompts 多节点 + 反越狱」改造引入的新类型，详见 [agent-platform.md §3](./agent-platform.md) 中 `userInjectionMiddleware` 的位置和 [docs/superpowers/specs/2026-05-06-prompts-multi-node-and-anti-jailbreak-design.md](../../superpowers/specs/2026-05-06-prompts-multi-node-and-anti-jailbreak-design.md)。
 
 ## 3. 访问控制
 

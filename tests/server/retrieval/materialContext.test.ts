@@ -23,6 +23,16 @@ vi.mock('../../../server/services/material/materialSummary.service', () => ({
     generateAndCacheSummaries: vi.fn().mockResolvedValue(new Map()),
 }))
 
+// summary 已迁出 caseMaterials.summary，由 getMaterialSummariesByMaterials 跨表查；测试 mock 让它直接返回 Map
+const summaryByIdMock = vi.fn(async () => new Map<number, string>())
+vi.mock('../../../server/services/material/material.service', async (orig) => {
+    const actual = await (orig as any)()
+    return {
+        ...actual,
+        getMaterialSummariesByMaterials: (...args: any[]) => summaryByIdMock(...args),
+    }
+})
+
 // 在 stub 设置后导入被测模块
 import {
     getMaterialContextService,
@@ -232,19 +242,20 @@ describe('getMaterialContextService — 分级注入逻辑', () => {
         expect(item.summary).toContain('暂无内容')
     })
 
-    it('材料已有 summary 字段时，超出预算降级为摘要时优先使用已有 summary', async () => {
+    it('材料 summary 缓存命中（getMaterialSummariesByMaterials 返回非空）时，超出预算降级为摘要时优先使用 summary 而非截断 content', async () => {
         const longContent = '己'.repeat(500) // ~250 tokens，超出预算
         const materials = [
-            makeMaterial({ id: 1, type: 1, name: '有摘要的文档', summary: '这是已有的摘要' }),
+            makeMaterial({ id: 1, type: 1, name: '有摘要的文档' }),
         ]
         mockTextContents(new Map([[1, longContent]]))
+        // summary 已迁到识别记录表，业务通过 getMaterialSummariesByMaterials 跨表 union 查
+        summaryByIdMock.mockResolvedValueOnce(new Map([[1, '这是已有的摘要']]))
 
-        // 预算 50，内容超出 → 摘要模式，使用已有 summary
+        // 预算 50，内容超出 → 摘要模式
         const result = await getMaterialContextService(materials, 50)
 
         const item = result.materialList[0]!
         expect(item.mode).toBe('summary')
-        // 已有 summary 直接使用，不截断
         expect(item.summary).toBe('这是已有的摘要')
     })
 })

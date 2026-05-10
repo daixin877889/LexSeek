@@ -47,13 +47,22 @@ const INTERCEPTED = new Set(['invoke', 'stream', 'batch', 'streamEvents'])
 type ProxyConfig = Partial<RunnableConfig> & Record<string, unknown>
 
 export function wrapWithLangfuse<M extends BaseChatModel>(model: M): M {
+  // 缓存非拦截方法的 bound 版本：保留引用相等性（proxy.foo === proxy.foo），
+  // 避免每次属性访问都新建 bound function 增加 GC 压力。
+  const boundCache = new Map<string | symbol, Function>()
   return new Proxy(model, {
     get(target, prop, receiver) {
       const original = Reflect.get(target, prop, receiver)
       if (typeof original !== 'function') return original
       // constructor 必须保持原引用，否则 .bind() 会让 model.constructor.name 变成 'bound ChatOpenAI'
       if (prop === 'constructor') return original
-      if (!INTERCEPTED.has(String(prop))) return original.bind(target)
+      if (!INTERCEPTED.has(String(prop))) {
+        const cached = boundCache.get(prop)
+        if (cached) return cached
+        const bound = original.bind(target)
+        boundCache.set(prop, bound)
+        return bound
+      }
 
       return function (this: unknown, input: unknown, config?: ProxyConfig, ...rest: unknown[]) {
         const cfg = getLangfuseRuntimeConfig()

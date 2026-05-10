@@ -11,11 +11,14 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { CaseStatus } from '#shared/types/case'
 import { getActiveCasesService } from '~~/server/services/case/case.service'
+import { createTestUser, createTestCaseType } from './test-db-helper'
 
-// 测试用户 ID（与项目内其他案件测试保持一致）
-const TEST_USER_ID = 1
-const OTHER_USER_ID = 2
-const TEST_CASE_TYPE_ID = 1
+// 测试用户 / 案件类型 id 在 worker DB 中并非固定 1/2/1，运行前动态创建（对齐其他 case 测试）
+let TEST_USER_ID: number
+let OTHER_USER_ID: number
+let TEST_CASE_TYPE_ID: number
+const createdUserIds: number[] = []
+const createdCaseTypeIds: number[] = []
 
 interface CleanupRow { id: number }
 
@@ -50,6 +53,17 @@ describe('GET /api/v1/cases/active · 进行中案件列表（service 层）', (
     let otherUserCaseId: number
 
     beforeAll(async () => {
+        // 动态创建用户/案件类型，避免硬编码 id（worker DB 自增）
+        const me = await createTestUser()
+        const other = await createTestUser()
+        TEST_USER_ID = me.id
+        OTHER_USER_ID = other.id
+        createdUserIds.push(me.id, other.id)
+
+        const ct = await createTestCaseType()
+        TEST_CASE_TYPE_ID = ct.id
+        createdCaseTypeIds.push(ct.id)
+
         // 当前用户名下：2 个进行中（咨询 + 一审）
         activeId1 = await createCase(TEST_USER_ID, 'Stage5活跃_合同纠纷_咨询', CaseStatus.CONSULTING)
         activeId2 = await createCase(TEST_USER_ID, 'Stage5活跃_劳动争议_一审', CaseStatus.FIRST_TRIAL)
@@ -71,6 +85,12 @@ describe('GET /api/v1/cases/active · 进行中案件列表（service 层）', (
             await prisma.cases.deleteMany({
                 where: { id: { in: created.map(r => r.id) } },
             })
+        }
+        if (createdCaseTypeIds.length > 0) {
+            await prisma.caseTypes.deleteMany({ where: { id: { in: createdCaseTypeIds } } })
+        }
+        if (createdUserIds.length > 0) {
+            await prisma.users.deleteMany({ where: { id: { in: createdUserIds } } })
         }
     })
 

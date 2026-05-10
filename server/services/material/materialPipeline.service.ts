@@ -189,27 +189,40 @@ export interface MaterialReadinessSnapshot {
  * - status=FAILED 视为终态（不卡用户）
  * - status=COMPLETED 且 summary 非 null 视为终态
  *
- * 不设硬超时（自动重试 3 次由 generateMaterialSummaryService 内部承担；
- * 重试穷尽会标记 status=FAILED）。
+ * 自动重试 3 次由 generateMaterialSummaryService 内部承担；MAX_WAIT_MS 是兜底硬超时，
+ * 防止内部重试穷尽前异常退出导致此处永久阻塞（hot path 上不可接受）。
  *
- * onProgress 回调每次轮询拿到当前快照后调一次，用于中间件推送 SSE 进度。
+ * onProgress 回调仅在 snapshot 状态发生变化时触发，避免向 SSE 重复推送相同卡片。
  */
 async function waitMaterialsTerminalAndSummary(
     materials: MaterialWithFile[],
     onProgress?: (snapshot: MaterialReadinessSnapshot[]) => void | Promise<void>,
 ): Promise<void> {
-    const POLL_MS = 2000  // 5check 优化：2 秒一次
+    const POLL_MS = 2000
+    // 5 分钟硬超时：覆盖 PDF MinerU（30s-2min）+ ASR（1-3min）+ 摘要 LLM 重试（最多 ~30s）
+    const MAX_WAIT_MS = 5 * 60 * 1000
+    const startedAt = Date.now()
+    let lastSignature = ''
 
-    while (true) {
+    while (Date.now() - startedAt < MAX_WAIT_MS) {
         const snapshot = await snapshotMaterialReadiness(materials)
-        if (onProgress) {
+
+        // 状态没变化时不重复推送，避免触发 SSE 卡片无效重渲染
+        const signature = snapshot.map(s => `${s.materialId}:${s.status}`).join('|')
+        if (onProgress && signature !== lastSignature) {
+            lastSignature = signature
             try { await onProgress(snapshot) } catch { /* 推送失败不阻塞 */ }
         }
+
         const allTerminal = snapshot.every(s => s.status === 'ready' || s.status === 'failed')
         if (allTerminal) return
 
         await new Promise(r => setTimeout(r, POLL_MS))
     }
+
+    logger.warn('[materialPipeline] 等待材料就绪超时（5min），让上游以当前状态继续', {
+        materialIds: materials.map(m => m.id),
+    })
 }
 
 /**
@@ -249,13 +262,18 @@ export async function snapshotMaterialReadiness(
         const rawStatus = freshStatus.get(m.id) ?? m.status
         const recognized = recognizedMap.get(m.id) ?? false
         const hasSummary = summaryMap.has(m.id)
-        let s: PrepareMaterialStatus
-        if (rawStatus === MaterialStatus.FAILED) s = 'failed'
-        else if (recognized) s = hasSummary ? 'ready' : 'summarizing'
-        else if (rawStatus === MaterialStatus.PROCESSING) s = 'recognizing'
-        else if (rawStatus === MaterialStatus.COMPLETED) s = hasSummary ? 'ready' : 'summarizing'
-        else s = 'pending'
-        return { materialId: m.id, name: m.name, status: s }
+        // 识别记录表权威：避免 case_materials.status 落后于真实识别状态时的死锁
+        if (recognized && rawStatus !== MaterialStatus.FAILED) {
+            return { materialId: m.id, name: m.name, status: hasSummary ? 'ready' : 'summarizing' as PrepareMaterialStatus }
+        }
+        let status: PrepareMaterialStatus
+        switch (rawStatus) {
+            case MaterialStatus.FAILED: status = 'failed'; break
+            case MaterialStatus.PROCESSING: status = 'recognizing'; break
+            case MaterialStatus.COMPLETED: status = hasSummary ? 'ready' : 'summarizing'; break
+            default: status = 'pending'
+        }
+        return { materialId: m.id, name: m.name, status }
     })
 }
 

@@ -39,6 +39,7 @@ const createdIds = {
     materials: [] as number[],     // 新增（Task 4）
     analyses: [] as number[],       // 新增（Task 4）
     sessions: [] as number[],       // 新增（Task 4，caseAnalyses.sessionId FK 父表 caseSessions.id）
+    textRecords: [] as number[],    // textContentRecords（caseMaterials.summary 已迁过来）
 }
 
 let sharedUserId: number
@@ -93,6 +94,10 @@ describe('caseContextSyncMiddleware 集成测试（穿透真实 DB）', () => {
     // 每个 it 跑完后反向清理（叶表 caseAnalyses → caseMaterials → documentDrafts →
     // caseSessions → cases）。类型 C 防 FK 残留 + 类型 B 防 unique 冲突，对齐 testing.md 套路。
     afterEach(async () => {
+        if (createdIds.textRecords.length) {
+            await prisma.textContentRecords.deleteMany({ where: { id: { in: createdIds.textRecords } } })
+            createdIds.textRecords = []
+        }
         if (createdIds.analyses.length) {
             await prisma.caseAnalyses.deleteMany({ where: { id: { in: createdIds.analyses } } })
             createdIds.analyses = []
@@ -231,11 +236,11 @@ describe('caseContextSyncMiddleware 集成测试（穿透真实 DB）', () => {
     })
 
     it('混合 status + summary 缺失场景：注入消息含所有 4 种材料状态 + 模块降级显示 result 截断', async () => {
-        const { caseId } = await seedCaseFixture()
+        const { caseId, userId } = await seedCaseFixture()
 
         // 4 种 status 的材料（用 MaterialStatus / CaseMaterialType 枚举，与 Task 1/3 同款风格）
         const m1 = await prisma.caseMaterials.create({
-            data: { caseId, name: '已识别材料', type: CaseMaterialType.CASE_CONTENT, status: MaterialStatus.COMPLETED, summary: 'sum' },
+            data: { caseId, name: '已识别材料', type: CaseMaterialType.CASE_CONTENT, status: MaterialStatus.COMPLETED },
         })
         const m2 = await prisma.caseMaterials.create({
             data: { caseId, name: '识别中材料', type: CaseMaterialType.DOCUMENT, status: MaterialStatus.PROCESSING, ossFileId: 50001 },
@@ -247,6 +252,12 @@ describe('caseContextSyncMiddleware 集成测试（穿透真实 DB）', () => {
             data: { caseId, name: '识别失败材料', type: CaseMaterialType.AUDIO, status: MaterialStatus.FAILED, ossFileId: 50003 },
         })
         createdIds.materials.push(m1.id, m2.id, m3.id, m4.id)
+
+        // summary 已迁出 caseMaterials 到识别记录表（commit 392acc9f）；CASE_CONTENT 走 textContentRecords
+        const m1Text = await prisma.textContentRecords.create({
+            data: { userId, caseId, materialId: m1.id, content: '', summary: 'sum', status: 2 },
+        })
+        createdIds.textRecords.push(m1Text.id)
 
         // caseAnalyses.sessionId → caseSessions.sessionId（FK），必须先建会话
         // nodeId → nodes.id（FK），从已有种子节点取

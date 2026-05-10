@@ -23,9 +23,10 @@ describe('search_case_analysis tool', () => {
     const { createTool } = await import('~~/server/services/workflow/tools/search_case_analysis.tool')
     const { retrieveWithReranking } = await import('~~/server/services/memory/retrieveWithReranking')
     const t = createTool({ caseId: 42, userId: 1, sessionId: 's' })
-    await t.invoke({ query: 'x', analysis_type: 'risk_assessment', top_k: 3 })
+    // analysis_type 现在用 z.enum 限定为 INIT_ANALYSIS_MODULES.name（claim/evidence/defense/...），不再放任意字符串
+    await t.invoke({ query: 'x', analysis_type: 'claim', top_k: 3 })
     const call = (retrieveWithReranking as any).mock.calls[0][0]
-    expect(call.metadataFilter.analysisType).toBe('risk_assessment')
+    expect(call.metadataFilter.analysisType).toBe('claim')
   })
 
   it('include_all_versions=true 去掉 isActive 过滤', async () => {

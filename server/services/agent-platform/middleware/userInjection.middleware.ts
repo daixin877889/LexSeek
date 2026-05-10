@@ -63,43 +63,28 @@ export function userInjectionMiddleware(options: UserInjectionMiddlewareOptions)
     const allPrompts = options.prompts ?? []
     const variables = flattenContext(options.context)
 
-    // 预筛选 + 排序，启动时一次完成；status 0 / 非 user_injection 的 prompt 不参与每轮渲染
-    const injectionPrompts = allPrompts
+    // variables 是 closure 捕获的工厂入参，wrapModelCall 之间不变；
+    // 预筛选 + 排序 + 渲染都提到工厂层做一次，避免每轮 LLM 调用重复 renderContent。
+    const injectionContent = allPrompts
         .filter((p) => p.type === 'user_injection' && p.status === 1)
-        .slice()
         .sort((a, b) => (a.displayOrder ?? 100) - (b.displayOrder ?? 100))
+        .map((p) => renderContent(p.content, variables))
+        .join('\n\n')
+        .trim()
 
     return createMiddleware({
         name: 'userInjectionMiddleware',
         wrapModelCall: async (request, handler) => {
-            // 没有 user_injection 提示词时直接放行，避免任何 messages 复制开销
-            if (injectionPrompts.length === 0) {
-                return handler(request)
-            }
-
-            // 渲染所有 user_injection 段，段间空行分隔
-            const injectionContent = injectionPrompts
-                .map((p) => renderContent(p.content, variables))
-                .join('\n\n')
-                .trim()
-
             if (!injectionContent) {
                 return handler(request)
             }
 
             // 复制 messages 数组（注入不应改动原数组 / state）
-            const original = request.messages
-            const enhanced: BaseMessage[] = original.slice()
+            const enhanced: BaseMessage[] = request.messages.slice()
             const injectionMsg = new HumanMessage(injectionContent)
 
             // 在末尾的 HumanMessage 之前插入；找不到 HumanMessage 时直接 push 末尾
-            let lastHumanIdx = -1
-            for (let i = enhanced.length - 1; i >= 0; i--) {
-                if (enhanced[i]!.getType() === 'human') {
-                    lastHumanIdx = i
-                    break
-                }
-            }
+            const lastHumanIdx = enhanced.findLastIndex((m) => m.getType() === 'human')
             if (lastHumanIdx >= 0) {
                 enhanced.splice(lastHumanIdx, 0, injectionMsg)
             } else {

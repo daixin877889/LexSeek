@@ -59,7 +59,8 @@ describe('caseProcessMaterialMiddleware 测试', () => {
 
             await middleware.beforeAgent.hook(state)
 
-            expect(ensureMaterialsReadyService).toHaveBeenCalledWith(1, 1)
+            // 中间件第三个参数为 onProgress 回调（用于 SSE 进度上报），断言形状即可
+            expect(ensureMaterialsReadyService).toHaveBeenCalledWith(1, 1, expect.any(Function))
         })
 
         it('部分材料处理失败时不应抛出错误', async () => {

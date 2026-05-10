@@ -103,12 +103,12 @@ describe('useStreamChat', () => {
             expect(chat.interruptData.value).toEqual(interruptValue)
         })
 
-        it('__interrupt__ 有多个元素时应返回整个数组', () => {
+        it('__interrupt__ 有多个元素时返回最后一项的 value（取活跃中断）', () => {
             const items = [{ value: 'a' }, { value: 'b' }]
             mockValuesRef.value = { __interrupt__: items }
             const chat = buildChat()
-            // raw.length !== 1 → resolved = raw（数组本身），无 .value → resolved 直接返回
-            expect(chat.interruptData.value).toEqual(items)
+            // 业务实现：始终取数组最后一项的 .value（LangGraph 中 __interrupt__ 累计 pending；最后一项总是当前活跃中断）
+            expect(chat.interruptData.value).toBe('b')
         })
 
         it('单项 __interrupt__ 无 .value 时应返回整个 item', () => {
@@ -174,7 +174,7 @@ describe('useStreamChat', () => {
     // ── reconnect ────────────────────────────────────────────────────────────
 
     describe('reconnect', () => {
-        it('应重置 hasHistoryLoaded 为 false 并调用 submit(undefined)', async () => {
+        it('应重置 hasHistoryLoaded 为 false 并调用 submit(undefined) + 默认 optimisticValues', async () => {
             const chat = buildChat()
 
             // 先让 hasHistoryLoaded = true
@@ -185,14 +185,18 @@ describe('useStreamChat', () => {
             chat.reconnect()
 
             expect(chat.hasHistoryLoaded.value).toBe(false)
-            expect(mockSubmit).toHaveBeenCalledWith(undefined)
+            // submit wrapper 默认注入 optimisticValues 防止 SDK 重置 streamValues 时消息列表瞬间清空
+            expect(mockSubmit).toHaveBeenCalledWith(
+                undefined,
+                expect.objectContaining({ optimisticValues: expect.anything() }),
+            )
         })
     })
 
     // ── loadHistory ──────────────────────────────────────────────────────────
 
     describe('loadHistory', () => {
-        it('应重置 hasHistoryLoaded 为 false 并调用 submit(undefined)', async () => {
+        it('应重置 hasHistoryLoaded 为 false 并调用 submit(undefined) + 默认 optimisticValues', async () => {
             const chat = buildChat()
 
             // 先让 hasHistoryLoaded = true
@@ -203,18 +207,55 @@ describe('useStreamChat', () => {
             chat.loadHistory()
 
             expect(chat.hasHistoryLoaded.value).toBe(false)
-            expect(mockSubmit).toHaveBeenCalledWith(undefined)
+            expect(mockSubmit).toHaveBeenCalledWith(
+                undefined,
+                expect.objectContaining({ optimisticValues: expect.anything() }),
+            )
         })
     })
 
     // ── submit / stop 透传 ───────────────────────────────────────────────────
 
     describe('submit 和 stop 透传', () => {
-        it('submit 应调用底层 s.submit', () => {
+        it('submit 默认注入 optimisticValues 调用底层 s.submit（s.values 有值时）', () => {
             const chat = buildChat()
+            // 模拟 SDK 已有 streamValues（loadHistory 完成后状态）
+            mockValuesRef.value = { messages: [{ id: 'existing', type: 'human', content: '历史' }] }
             const input = { messages: [{ type: 'human', content: 'test' }] }
             chat.submit(input)
+            // 调用方未传 config 时，wrapper 自动注入 optimisticValues 防消息列表闪烁
+            expect(mockSubmit).toHaveBeenCalledWith(
+                input,
+                expect.objectContaining({ optimisticValues: mockValuesRef.value }),
+            )
+        })
+
+        it('s.values 为 undefined（首次加载）时不注入 optimisticValues，避免 SDK 把 undefined 当 reset 信号', () => {
+            const chat = buildChat()
+            mockValuesRef.value = undefined
+            const input = { messages: [{ type: 'human', content: 'first' }] }
+            chat.submit(input)
             expect(mockSubmit).toHaveBeenCalledWith(input, undefined)
+        })
+
+        it('调用方显式传 optimisticValues 则尊重调用方意图，不被默认值覆盖', () => {
+            const chat = buildChat()
+            const input = { messages: [{ type: 'human', content: 'test' }] }
+            const customOptimistic = { messages: [{ id: 'kept' }] }
+            chat.submit(input, { optimisticValues: customOptimistic })
+            expect(mockSubmit).toHaveBeenCalledWith(
+                input,
+                expect.objectContaining({ optimisticValues: customOptimistic }),
+            )
+        })
+
+        it('调用方显式传 optimisticValues=undefined 也尊重，不回退默认值', () => {
+            const chat = buildChat()
+            chat.submit(undefined, { optimisticValues: undefined, command: { resume: 'x' } })
+            expect(mockSubmit).toHaveBeenCalledWith(
+                undefined,
+                { optimisticValues: undefined, command: { resume: 'x' } },
+            )
         })
 
         it('stop 应调用底层 s.stop', () => {

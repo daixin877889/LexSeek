@@ -1,6 +1,8 @@
 # Composables 参考
 
-LexSeek 前端共 34 个 composable，位于 `app/composables/`，全部自动导入无需手动 import。
+LexSeek 前端 composable 位于 `app/composables/`。
+
+> ⚠️ **自动导入已大幅收窄**（`imports.scan: false`、`imports.dirs: []`）：composables **必须显式 `import`**，仅 Vue / Nuxt / Vue Router / Pinia 内置和白名单（`logger` / `resSuccess` / `resError`）保留自动导入。详见 [architecture/auto-imports.md](../architecture/auto-imports.md)。
 
 ## 一、数据请求
 
@@ -230,7 +232,7 @@ Web Worker 后台上传，避免阻塞主线程。
 const worker = useFileUploadWorker()
 const taskId = worker.upload(file, signature, {
     onProgress: (p) => {},
-    onSuccess: (data) => {},
+    onSuccess: (data) => {},  // 含 OSS 回调成功 + 兜底接口确认 两种来源
     onError: (err) => {},
 })
 worker.cancel(taskId)
@@ -240,6 +242,7 @@ worker.cancel(taskId)
 - 引用计数管理 Worker 生命周期
 - 多组件共享同一个 Worker 实例
 - 组件卸载时自动释放引用
+- **OSS 回调失败兜底**（2026-05-08）：worker 回报 `success: false` 时，自动调 `POST /api/v1/storage/confirm-upload`，由后端 head OSS 校验并修复 `ossFiles.status`；成功时调用方收到 `onSuccess({ recovered: true, fileId })`。`signature` 必须带 `ossFileId`（由 `/storage/presigned-url` 透出），缺失时回调失败直接 onError。详见 [infra/storage-oss.md §5.4](../infra/storage-oss.md)
 
 ### useFileRecognition
 

@@ -129,6 +129,5 @@ function filterAndSortSystemPrompts(
 ): NodeConfig['prompts'] {
     return prompts
         .filter(p => p.type === 'system' && p.status === 1)
-        .slice()
         .sort((a, b) => (a.displayOrder ?? 100) - (b.displayOrder ?? 100))
 }

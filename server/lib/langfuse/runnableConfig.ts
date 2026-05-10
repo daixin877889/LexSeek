@@ -53,7 +53,7 @@ import type { Callbacks } from '@langchain/core/callbacks/manager'
 import type { RunnableConfig } from '@langchain/core/runnables'
 import { buildEntityMetadata, buildEnvTags } from './_metadata'
 import { getLangfuseHandler, getLangfuseRuntimeConfig } from './client'
-import { getLangfuseContext } from './context'
+import { getLangfuseContext, stripUndefined } from './context'
 import type { LangfuseVertical } from './types'
 
 export type LangfuseConfigOverride = {
@@ -87,23 +87,20 @@ export function buildLangfuseTopLevelConfig(
   const vertical = override?.vertical ?? ctx?.vertical
   const tags = buildEnvTags(vertical, cfg)
 
-  const metadata: Record<string, unknown> = {
-    // 官方文档约定 camelCase；LangChain CallbackHandler 在 handleChainStart 识别这两个字段，
-    // 写到 trace 顶层 user_id / session_id（仅顶层 chain 路径生效）
+  // 官方文档约定 camelCase；LangChain CallbackHandler 在 handleChainStart 识别 langfuseUserId/SessionId，
+  // 写到 trace 顶层 user_id / session_id（仅顶层 chain 路径生效）
+  const metadata = stripUndefined({
     langfuseUserId: ctx?.userId !== undefined ? String(ctx.userId) : undefined,
     langfuseSessionId: ctx?.sessionId,
     ...buildEntityMetadata(ctx, cfg, vertical),
-  }
-  for (const k of Object.keys(metadata)) {
-    if (metadata[k] === undefined) delete metadata[k]
-  }
+  } as Record<string, unknown>)
 
   const extraCallbacks = override?.additionalCallbacks
-  const callbacks: Callbacks = Array.isArray(extraCallbacks)
-    ? [handler, ...extraCallbacks]
-    : extraCallbacks
-      ? [handler, extraCallbacks]
-      : [handler]
+  const callbacks: Callbacks = !extraCallbacks
+    ? [handler]
+    : Array.isArray(extraCallbacks)
+      ? [handler, ...extraCallbacks]
+      : [handler, extraCallbacks]
 
   return {
     callbacks,

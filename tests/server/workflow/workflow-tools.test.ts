@@ -34,10 +34,19 @@ vi.mock('~~/server/services/point/pointConsumption.service', () => ({
 // Mock 材料相关服务
 vi.mock('~~/server/services/material/materialPipeline.service', () => ({
     ensureMaterialsReadyService: vi.fn(),
+    ensureMaterialsReadyByDraftService: vi.fn(),
     getMaterialContextService: vi.fn(),
     estimateTokens: vi.fn((content: string) => Math.ceil(content.length / 2)),
     getSourceId: vi.fn((m: any) => m.id),
     TOKEN_THRESHOLD: 50000,
+    snapshotMaterialReadiness: vi.fn(async () => []),
+}))
+
+// process_materials.tool 用 countTokensSync 做 payload 硬封顶；测试用 mock 简化为字符长度
+vi.mock('~~/server/utils/tokenCounter', () => ({
+    countTokensSync: (text: string) => (text ? text.length : 0),
+    // toolResultTruncator 在模块加载时会调 countTokens('').catch(...)，必须返回 Promise
+    countTokens: vi.fn(async (text: string) => (text ? text.length : 0)),
 }))
 
 // Mock 法律检索服务

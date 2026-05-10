@@ -73,6 +73,7 @@ agent-platform 平台职责
 | 70 | `summarizationMiddleware`（LangChain 内置） | 长对话自动摘要（按 contextWindow 触发） |
 | 60 | `safetyTrimMiddleware` | 摘要后兜底裁剪超长消息，保 LLM 不爆 token |
 | 50 | `createToolCallLimitMiddlewares` | 限制单轮 / 单流工具调用次数防失控 |
+| 45 | `userInjectionMiddleware` | 把节点关联的 `type=user_injection` 提示词在每轮 wrapModelCall 内作为隐藏 HumanMessage 注入到最新 HumanMessage 之前——不写回 state、不进 checkpoint。常用于反越狱守卫 / 实时案件上下文。stateGraph 路径需在 vertical 内显式挂载（`caseModule` / `contract` / `document` / `caseAnalysis` 4 个 vertical 已接入；createAgent 路径默认挂） |
 | 40 | `skillsMiddleware`（动态） | 由 `buildSkillsMiddlewareForNode(nodeId)` 构造，无关联 skill 时返回 null 跳过 |
 | 30 | `afterAgentMemory.middleware` | Agent 跑完后异步抽取记忆写入 `caseMemory` |
 | 20 | `createAuditMiddleware` | 落 audit 日志（输入消息、输出消息、token 用量） |
