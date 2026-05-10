@@ -242,6 +242,30 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
         return Math.round(base * (1 + jitter))
     }
 
+    /**
+     * 默认注入 optimisticValues 的 submit 包装。
+     *
+     * 历史 bug：LangGraph SDK 在 submit 开始时会把 streamValues 重置为空 historyValues({}),
+     * 此时 s.messages = []，前端消息列表 v-for 立即清空 → unmount → 等 history 拉回后再 mount,
+     * 视觉表现"整个消息列表重新渲染一遍"。通过传 optimisticValues 在过渡期保留当前 values,
+     * 让 messages 不会瞬间塌空。
+     *
+     * 注入策略：
+     * - 调用方显式传了 optimisticValues（含 undefined）→ 尊重调用方意图,不覆盖
+     * - s.values 当前为空（loadHistory 首次加载等场景）→ 也不注入,避免传 undefined 反而被 SDK 当 reset 信号
+     * - 其它情况 → 注入 s.values 作为过渡兜底
+     */
+    function submitWithDefault(input?: any, config?: any) {
+        if (config && 'optimisticValues' in config) {
+            return s.submit(input, config)
+        }
+        const currentValues = s.values
+        if (currentValues == null) {
+            return s.submit(input, config)
+        }
+        return s.submit(input, { ...config, optimisticValues: currentValues })
+    }
+
     function triggerReconnect() {
         if (currentRetryTimer) {
             clearTimeout(currentRetryTimer)
@@ -249,7 +273,7 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
         }
         // submit(undefined) 让 SDK 拉 thread 历史并重新订阅
         // 错误会再次进入 onError，由调度器决定下一步
-        s.submit(undefined).catch(() => { /* swallowed: onError handles */ })
+        submitWithDefault(undefined).catch(() => { /* swallowed: onError handles */ })
     }
 
     function scheduleRetry() {
@@ -589,7 +613,7 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
         }),
 
         // 操作
-        submit: (input?: any, config?: any) => s.submit(input, config) as Promise<void>,
+        submit: (input?: any, config?: any) => submitWithDefault(input, config) as Promise<void>,
         /**
          * 把 runStatus 复位到 'idle'，常用于"立场提交后想重新触发 watch(runStatus)
          * completed/failed 分支"等场景，对外提供 public API 取代之前直接写
@@ -614,17 +638,11 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
         },
         reconnect: () => {
             hasHistoryLoaded.value = false
-            console.log('[useStreamChat] reconnect called, submitting undefined...')
-            const result = s.submit(undefined)
-            console.log('[useStreamChat] submit returned:', typeof result)
-            return result
+            return submitWithDefault(undefined)
         },
         loadHistory: () => {
             hasHistoryLoaded.value = false
-            console.log('[useStreamChat] loadHistory called, submitting undefined...')
-            const result = s.submit(undefined)
-            console.log('[useStreamChat] submit returned:', typeof result)
-            return result
+            return submitWithDefault(undefined)
         },
         getMessagesMetadata: (msg: any, idx?: number) =>
             s.getMessagesMetadata(msg, idx),

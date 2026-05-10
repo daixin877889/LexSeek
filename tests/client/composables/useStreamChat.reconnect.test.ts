@@ -100,7 +100,8 @@ describe('useStreamChat reconnect - retry scheduling', () => {
         // 推进到第 1 次重试间隔（Math.random 默认未 mock，区间 [800, 1200]）
         vi.advanceTimersByTime(1200)
         await nextTick()
-        expect(mockSubmit).toHaveBeenCalledWith(undefined)
+        // submit wrapper 在 s.values=null 时不注入 optimisticValues，第二个参数为 undefined
+        expect(mockSubmit).toHaveBeenCalledWith(undefined, undefined)
 
         w.unmount()
     })
@@ -261,7 +262,8 @@ describe('useStreamChat reconnect - active wakeup', () => {
         await nextTick()
 
         expect(mockSubmit).toHaveBeenCalledOnce()
-        expect(mockSubmit).toHaveBeenCalledWith(undefined)
+        // submit wrapper 在 s.values=null 时不注入 optimisticValues，第二个参数为 undefined
+        expect(mockSubmit).toHaveBeenCalledWith(undefined, undefined)
     })
 
     it('does NOT wakeup if not currently retrying', async () => {
