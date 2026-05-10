@@ -5,13 +5,7 @@
       <div class="max-w-[1280px] mx-auto px-4 py-4 flex items-center justify-between">
         <div class="flex items-center gap-6">
           <NuxtLink to="/" class="flex items-center gap-2">
-            <!-- Logo 根据主题切换，使用 ClientOnly 避免 SSR 水合不匹配 -->
-            <ClientOnly>
-              <img :src="resolvedMode === 'dark' ? '/logo-white.svg' : '/logo.svg'" class="h-6" />
-              <template #fallback>
-                <img src="/logo.svg" class="h-6" />
-              </template>
-            </ClientOnly>
+            <BrandLogo size="md" />
             <h1 class="text-xl font-bold">LexSeek｜法索 AI</h1>
           </NuxtLink>
 
@@ -201,14 +195,11 @@
 import { ScaleIcon, MenuIcon, XIcon, UserIcon } from "lucide-vue-next";
 import { maskTel } from '#shared/utils/phone'
 import toast from '#shared/utils/toast'
+import BrandLogo from '~/components/general/BrandLogo.vue'
 import GeneralThemeToggle from '~/components/general/ThemeToggle.vue'
-import { useColorMode } from '~/composables/useColorMode'
 import { useAuthStore } from '~/store/auth'
 import { useUserStore } from '~/store/user'
 import { resetAllStore } from '~/utils/resetStore'
-
-// 颜色模式
-const { resolvedMode } = useColorMode();
 
 // 用户菜单状态
 const userMenuOpen = ref(false);
