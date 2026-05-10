@@ -103,13 +103,16 @@ export function useCaseModuleAgent(
         expandedModule.value = null
     }
 
-    // 与旧 useModuleChatManager.activeModules 一致：返回 ModuleAgentInstance[]
-    // 过滤条件：未隐藏 + 正在 loading 或已有 session
+    // 与旧 useModuleChatManager.activeModules 对齐：未隐藏即显示。
+    //
+    // 历史回归：02c21ad6 重构期间额外加了 `(isLoading || (sessions.length>0 && currentSessionId))`
+    // 条件，意图过滤"未真正发起分析的模块",但 instances 字典本身已经保证"仅用户交互过的模块入池"
+    //（getOrCreateInstance 才插入,业务调用方都是用户操作触发）。新条件反而引入 race:
+    // 用户点开对话框后,init() / sendMessage 是异步的,SDK isLoading / sessions 在某些时序下
+    // 仍是初始态(false / 空数组),用户此时关闭对话框,标签会被 filter 掉,失去"分析中可点回打开"
+    // 入口。回到旧的 `!isHidden` 单条件,与用户期望一致。
     const activeModules = computed<ModuleAgentInstance[]>(() =>
-        Object.values(instances).filter(i =>
-            !i.isHidden.value
-            && (i.isLoading.value || (i.sessions.value.length > 0 && i.currentSessionId.value)),
-        ),
+        Object.values(instances).filter(i => !i.isHidden.value),
     )
 
     return {
