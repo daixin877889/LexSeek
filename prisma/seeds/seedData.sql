@@ -4086,6 +4086,7 @@ INSERT INTO "public"."node_skills" ("node_id", "skill_name", "priority", "create
 
 -- 重置所有序列，确保新插入的记录不会与种子数据冲突
 -- Reset all sequences to avoid ID conflicts with seed data
+
 DO $$
 DECLARE
     row record;
@@ -4093,8 +4094,9 @@ BEGIN
     FOR row IN 
         SELECT 'SELECT SETVAL(' ||
                quote_literal(quote_ident(n.nspname) || '.' || quote_ident(s.relname)) ||
-               ', COALESCE(MAX(' || quote_ident(a.attname) || '), 1) ) FROM ' ||
-               quote_ident(n.nspname) || '.' || quote_ident(t.relname) || ';' AS reset_sql
+               ', COALESCE(MAX(' || quote_ident(a.attname) || '), 1), ' ||
+               'CASE WHEN MAX(' || quote_ident(a.attname) || ') IS NULL THEN false ELSE true END' ||
+               ') FROM ' || quote_ident(n.nspname) || '.' || quote_ident(t.relname) || ';' AS reset_sql
         FROM pg_class s
         JOIN pg_depend d ON d.objid = s.oid
         JOIN pg_class t ON d.refobjid = t.oid
@@ -4109,6 +4111,30 @@ BEGIN
     END LOOP;
 END;
 $$;
+
+-- DO $$
+-- DECLARE
+--     row record;
+-- BEGIN
+--     FOR row IN 
+--         SELECT 'SELECT SETVAL(' ||
+--                quote_literal(quote_ident(n.nspname) || '.' || quote_ident(s.relname)) ||
+--                ', COALESCE(MAX(' || quote_ident(a.attname) || '), 1) ) FROM ' ||
+--                quote_ident(n.nspname) || '.' || quote_ident(t.relname) || ';' AS reset_sql
+--         FROM pg_class s
+--         JOIN pg_depend d ON d.objid = s.oid
+--         JOIN pg_class t ON d.refobjid = t.oid
+--         JOIN pg_attribute a ON (d.refobjid, d.refobjsubid) = (a.attrelid, a.attnum)
+--         JOIN pg_namespace n ON n.oid = s.relnamespace
+--         WHERE s.relkind = 'S'
+--           AND n.nspname = 'public'
+--         GROUP BY s.relname, n.nspname, t.relname, a.attname
+--         ORDER BY s.relname
+--     LOOP
+--         EXECUTE row.reset_sql;
+--     END LOOP;
+-- END;
+-- $$;
 
 -- SELECT setval('users_id_seq', (SELECT COALESCE(MAX(id), 0) FROM users) + 1, false);
 -- SELECT setval('roles_id_seq', (SELECT COALESCE(MAX(id), 0) FROM roles) + 1, false);
