@@ -18,15 +18,12 @@ import { z } from 'zod'
 import { createEventStream } from 'h3'
 import { loadOwnedReview } from '~~/server/services/assistant/contract/reviewGuard'
 import { uploadClientVersionService } from '~~/server/services/assistant/contract/uploadClientVersion.service'
-import { CONTRACT_UPLOAD_VERSION_SSE_EVENT } from '#shared/types/contract'
+import { CONTRACT_UPLOAD_VERSION_SSE_EVENT, isContractBusyStatus } from '#shared/types/contract'
 import { withLangfuseContext } from '~~/server/lib/langfuse'
 
 const bodySchema = z.object({
     ossFileId: z.number().int().positive(),
 })
-
-/** 这些状态下正在执行任务，不允许上传新版本 */
-const BUSY_STATUSES = ['pending', 'reviewing', 'awaiting_stance', 'rebuilding'] as const
 
 export default defineEventHandler(async (event) => {
     const guard = await loadOwnedReview(event, { actionLabel: '上传新版本' })
@@ -34,7 +31,7 @@ export default defineEventHandler(async (event) => {
     const { user, review } = guard
 
     // busy 状态拦截
-    if ((BUSY_STATUSES as readonly string[]).includes(review.status)) {
+    if (isContractBusyStatus(review.status)) {
         return resError(event, 409, '审查进行中，请等待完成再上传新版本')
     }
 
