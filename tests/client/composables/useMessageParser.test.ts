@@ -172,6 +172,80 @@ describe('useMessageParser 增量缓存', () => {
     expect(r2).not.toBe(r1)
   })
 
+  // 回归：用户报告 "选完模板生成文书时偶尔出现失败卡片再变成功"。后端 messageIntegrity
+  // 抢救 LLM malformed args 时,会追加合成 tool_call + 错误 ToolMessage,前端如果照常渲染
+  // 就是一张"起草失败"卡片,而下一轮 LLM 重新调成功又渲染一张"已完成"卡片,用户看到的就是
+  // 失败 → 成功的尴尬序列。修复:matchToolCalls 看到 __recoveredFromInvalidArgs metadata
+  // 标记就 filter 掉合成 tool_call,整张假失败卡片不渲染。
+  it('AI 消息 additional_kwargs 标记的合成 tool_call_id 被 filter 掉,不进 toolCalls', () => {
+    // 模拟后端 reviveInvalidToolCalls 输出的合成 AIMessage + ToolMessage
+    const fixedAI = new AIMessage({
+      id: 'ai-revived',
+      content: '我来生成文书',
+      tool_calls: [
+        { name: 'save_document_draft', args: {}, id: 'call_recovered_a', type: 'tool_call' },
+        { name: 'search_law', args: { query: '社保' }, id: 'call_legit_b', type: 'tool_call' },
+      ],
+      additional_kwargs: { __recoveredFromInvalidArgs: ['call_recovered_a'] },
+    })
+    const errorTool = new ToolMessage({
+      tool_call_id: 'call_recovered_a',
+      content: 'Error: 工具 save_document_draft 参数 JSON 解析失败...',
+      status: 'error',
+    })
+    const legitTool = new ToolMessage({ tool_call_id: 'call_legit_b', content: '{}' })
+
+    const messages = ref<any[]>([fixedAI, errorTool, legitTool])
+    const { parsedMessages } = useMessageParser(messages)
+
+    const ai = parsedMessages.value.find(m => m.id === 'ai-revived')
+    expect(ai).toBeDefined()
+    // 合成的 call_recovered_a 应被过滤掉,只剩合法 call_legit_b
+    expect(ai?.toolCalls).toHaveLength(1)
+    expect(ai?.toolCalls?.[0]?.id).toBe('call_legit_b')
+  })
+
+  it('ToolMessage 自身 additional_kwargs 标记也能触发 filter(双轨兜底)', () => {
+    // 模拟 SDK 序列化保留了 ToolMessage.additional_kwargs 但丢了 AIMessage 的(冗余兜底场景)
+    const fixedAI = new AIMessage({
+      id: 'ai-tm-only',
+      content: '',
+      tool_calls: [
+        { name: 'save_document_draft', args: {}, id: 'call_x', type: 'tool_call' },
+      ],
+      // 注意: 这里故意不设 additional_kwargs.__recoveredFromInvalidArgs,只有 ToolMessage 带标记
+    })
+    const errorTool = new ToolMessage({
+      tool_call_id: 'call_x',
+      content: 'Error: ...',
+      status: 'error',
+      additional_kwargs: { __recoveredFromInvalidArgs: true },
+    })
+
+    const messages = ref<any[]>([fixedAI, errorTool])
+    const { parsedMessages } = useMessageParser(messages)
+
+    // toolCalls 全部被过滤后, AIMessage 只剩空 content + 无 toolCalls + 无 thinking → 整条被丢弃
+    expect(parsedMessages.value).toHaveLength(0)
+  })
+
+  it('AI 消息全部 tool_call 都是合成被 filter 后,整条 AIMessage 被丢弃(不留空气泡)', () => {
+    const fixedAI = new AIMessage({
+      id: 'ai-allrecovered',
+      content: '',
+      tool_calls: [
+        { name: 'save_document_draft', args: {}, id: 'r1', type: 'tool_call' },
+      ],
+      additional_kwargs: { __recoveredFromInvalidArgs: ['r1'] },
+    })
+    const errorTool = new ToolMessage({ tool_call_id: 'r1', content: 'Error' })
+
+    const messages = ref<any[]>([fixedAI, errorTool])
+    const { parsedMessages } = useMessageParser(messages)
+
+    expect(parsedMessages.value).toHaveLength(0)
+  })
+
   it('混合场景：流式中最后一条 AI 重算，前面所有历史消息引用稳定', () => {
     const human = new HumanMessage({ id: 'h-1', content: '问题' })
     const aiHistory = new AIMessage({ id: 'ai-history', content: '历史回答' })

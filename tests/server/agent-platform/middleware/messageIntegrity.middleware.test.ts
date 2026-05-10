@@ -92,6 +92,26 @@ describe('afterModel: 抢救 invalid_tool_calls', () => {
         expect((errorTool as ToolMessage).content).toContain('禁用半角双引号')
     })
 
+    // 回归：用户报告 "选完模板生成文书时偶尔出现失败卡片再变成功" —— 根因是 LLM 第一次 args malformed,
+    // messageIntegrity 抢救后追加的合成 ToolMessage 在前端被 DraftDocumentCard 渲染成"起草失败"。
+    // 修复:抢救出的 fixedAI / errorTool 都打 __recoveredFromInvalidArgs metadata,前端 useMessageParser
+    // 看到这个 marker 就 filter 掉对应 tool_call,整张"假失败"卡片不渲染。
+    it('抢救生成的 fixedAI 与 errorTool 都带 __recoveredFromInvalidArgs metadata 标记给前端识别', async () => {
+        const invalidMsg = makeInvalidToolCallMessage('save_document_draft', 'call_marker_test')
+        const state = { messages: [new HumanMessage('q'), invalidMsg] }
+
+        await runAfterModel(state)
+
+        const fixedAI = state.messages[1] as AIMessage
+        // AIMessage.additional_kwargs.__recoveredFromInvalidArgs = string[](合成 tool_call_id 列表)
+        expect((fixedAI.additional_kwargs as any)?.__recoveredFromInvalidArgs)
+            .toEqual(['call_marker_test'])
+
+        const errorTool = state.messages[2] as ToolMessage
+        // ToolMessage.additional_kwargs.__recoveredFromInvalidArgs = true(双轨兜底)
+        expect((errorTool.additional_kwargs as any)?.__recoveredFromInvalidArgs).toBe(true)
+    })
+
     it('lastMessage 已有合法 tool_calls 时不抢救', async () => {
         const validMsg = new AIMessage({
             content: '',

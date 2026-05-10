@@ -57,6 +57,19 @@ interface MessageIntegrityState {
 }
 
 /**
+ * 给被抢救的合成 AIMessage / ToolMessage 打的 metadata 标记。
+ *
+ * 前端 useMessageParser.matchToolCalls 检测到此标记后,会把对应的合成 tool_call
+ * 从 ParsedMessage.toolCalls 里 filter 掉,整张"假失败"工具卡片不渲染。
+ *
+ * 用户感知:LLM hallucinated 出 malformed args 触发 messageIntegrity 抢救 + 自动
+ * retry,中间产生的"参数 JSON 解析失败"占位消息对用户没有任何 actionable 价值,
+ * 不应让用户看到"起草失败"卡片(下一轮 LLM 会重新调,新 tool_call_id 会渲染新的
+ * "正在起草" → "已完成"卡片)。
+ */
+const RECOVERED_KWARGS_MARKER = '__recoveredFromInvalidArgs'
+
+/**
  * 把 LLM 输出的 invalid_tool_calls 转成合成 tool_calls + 错误 ToolMessage。
  * 调用方负责把 fixedAI 替换 lastMessage 并把 errorToolMessages 追加到序列尾。
  *
@@ -66,6 +79,7 @@ interface MessageIntegrityState {
  *   (因为接下来会 jumpTo='model')
  * - 错误 ToolMessage 用同 tool_call_id,让 router 看到 pendingToolCalls=[]
  * - 错误描述里专门提到 LLM 最常犯的错(中文嵌入半角双引号),帮 LLM 下一轮 retry
+ * - fixedAI / errorToolMessages 都打 RECOVERED_KWARGS_MARKER 标记给前端识别隐藏
  */
 function reviveInvalidToolCalls(lastMessage: AIMessage): {
     fixedAI: AIMessage
@@ -89,6 +103,7 @@ function reviveInvalidToolCalls(lastMessage: AIMessage): {
     }))
 
     // 合成 ToolMessage(用同 id,让 router 视为已处理→不会再去 ToolNode)
+    // additional_kwargs 打标记,前端看到就跳过渲染(避免"假失败"卡片)
     const errorToolMessages = invalidCalls.map((c, i) => new ToolMessage({
         tool_call_id: syntheticToolCalls[i]!.id,
         content: `Error: 工具 ${c.name ?? 'unknown'} 参数 JSON 解析失败(${c.error ?? 'Malformed args'})。`
@@ -96,14 +111,20 @@ function reviveInvalidToolCalls(lastMessage: AIMessage): {
             + `请重新生成完整的工具调用,所有字符串字段值里需要"引用"时一律改用全角「」或单引号 ',`
             + `禁用半角双引号(会破坏 args JSON 解析)。`,
         status: 'error',
+        additional_kwargs: { [RECOVERED_KWARGS_MARKER]: true },
     }))
 
+    // fixedAI 也带一份冗余标记(前端双轨兜底:有时 ToolMessage 序列化丢 additional_kwargs,
+    // 但同 AIMessage 的 additional_kwargs 通常稳定,前端拿合成 tool_call_id 列表去 filter)
     const fixedAI = new AIMessage({
         id: (lastMessage as any).id,
         content: lastMessage.content,
         tool_calls: syntheticToolCalls,
         invalid_tool_calls: [],
-        additional_kwargs: lastMessage.additional_kwargs,
+        additional_kwargs: {
+            ...lastMessage.additional_kwargs,
+            [RECOVERED_KWARGS_MARKER]: syntheticToolCalls.map(tc => tc.id),
+        },
         response_metadata: lastMessage.response_metadata,
     })
 

@@ -228,7 +228,18 @@ export function extractThinking(message: AIMessage, lastOnly: boolean = false): 
 /**
  * 匹配 AIMessage 的 tool_calls 与对应的 ToolMessage 结果。
  * 工具错误状态从 ToolMessage.content 中检测 { error: true } 或 { success: false }。
+ *
+ * 同时过滤掉后端 messageIntegrity 中间件抢救出的"合成 tool_call"(LLM hallucinated
+ * malformed args 时的占位):它们对用户没有 actionable 价值,LLM 会在下一轮自动 retry
+ * 用新 tool_call_id 重新调,显示"假失败"卡片只会让用户困惑。
+ *
+ * 标记字段(与后端 server/services/agent-platform/middleware/messageIntegrity.middleware.ts
+ * 的 RECOVERED_KWARGS_MARKER 对齐):
+ *  - AIMessage.additional_kwargs.__recoveredFromInvalidArgs = string[](合成 id 列表)
+ *  - ToolMessage.additional_kwargs.__recoveredFromInvalidArgs = true
  */
+const RECOVERED_KWARGS_MARKER = '__recoveredFromInvalidArgs'
+
 function matchToolCalls(
   aiMessage: AIMessage,
   toolResultsMap: Map<string, ToolMessage>,
@@ -236,36 +247,51 @@ function matchToolCalls(
   const toolCalls = (aiMessage as any).tool_calls ?? []
   if (!toolCalls.length) return []
 
-  return toolCalls.map((tc: any) => {
-    const toolMsg = toolResultsMap.get(tc.id ?? '')
-    // ToolMessage.content 才是实际的工具返回数据
-    const content = toolMsg?.content
-    // 错误判断：从 content 中检测 { error: true } 或 { success: false }
-    // content 可能是 string / object / ContentBlock[]
-    const hasError = (() => {
-      if (content == null) return false
-      // string content，尝试解析后判断
-      if (typeof content === 'string') {
-        try {
-          const parsed = JSON.parse(content)
-          return parsed.error === true || parsed.success === false
-        } catch { return false }
-      }
-      // object content（排除 ContentBlock[]）
-      if (typeof content === 'object' && !Array.isArray(content)) {
-        return (content as any).error === true || (content as any).success === false
-      }
-      return false
-    })()
+  // 双轨兜底:从 AIMessage.additional_kwargs 拿合成 id 列表,同时检查 ToolMessage 自带标记
+  const recoveredIds = new Set<string>(
+    Array.isArray(aiMessage.additional_kwargs?.[RECOVERED_KWARGS_MARKER])
+      ? (aiMessage.additional_kwargs![RECOVERED_KWARGS_MARKER] as string[])
+      : [],
+  )
 
-    return {
-      id: tc.id ?? '',
-      name: tc.name,
-      args: tc.args ?? {},
-      result: content,
-      state: hasError ? 'output-error' : content !== undefined ? 'output-available' : 'input-available',
-    } satisfies ToolCallWithResult
-  })
+  return toolCalls
+    .filter((tc: any) => {
+      const id = tc.id ?? ''
+      if (recoveredIds.has(id)) return false
+      const tm = toolResultsMap.get(id)
+      if ((tm?.additional_kwargs as any)?.[RECOVERED_KWARGS_MARKER]) return false
+      return true
+    })
+    .map((tc: any) => {
+      const toolMsg = toolResultsMap.get(tc.id ?? '')
+      // ToolMessage.content 才是实际的工具返回数据
+      const content = toolMsg?.content
+      // 错误判断：从 content 中检测 { error: true } 或 { success: false }
+      // content 可能是 string / object / ContentBlock[]
+      const hasError = (() => {
+        if (content == null) return false
+        // string content，尝试解析后判断
+        if (typeof content === 'string') {
+          try {
+            const parsed = JSON.parse(content)
+            return parsed.error === true || parsed.success === false
+          } catch { return false }
+        }
+        // object content（排除 ContentBlock[]）
+        if (typeof content === 'object' && !Array.isArray(content)) {
+          return (content as any).error === true || (content as any).success === false
+        }
+        return false
+      })()
+
+      return {
+        id: tc.id ?? '',
+        name: tc.name,
+        args: tc.args ?? {},
+        result: content,
+        state: hasError ? 'output-error' : content !== undefined ? 'output-available' : 'input-available',
+      } satisfies ToolCallWithResult
+    })
 }
 
 /**
