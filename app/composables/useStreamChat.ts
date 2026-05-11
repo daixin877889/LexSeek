@@ -15,6 +15,7 @@
 
 import { useStream, FetchStreamTransport } from '@langchain/vue'
 import type { UseStreamCustomOptions } from '@langchain/vue'
+import { useEventListener, useDocumentVisibility } from '@vueuse/core'
 import { AIMessage, ToolMessage } from '@langchain/core/messages'
 import type { BaseMessage } from '@langchain/core/messages'
 import type { AgentRunStatus, AgentEvent, AgentCustomEvent, AgentStatusEvent } from '#shared/types/agentRun'
@@ -210,6 +211,83 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
     // 代理 agent run 状态，用于 UI 失败反馈
     const runStatus = ref<AgentRunStatus | 'idle'>('idle')
     const runError = ref<string>('')
+
+    // ===== 自动重连：内部 state（@internal，仅供单测断言）=====
+    const RETRY_MAX_ATTEMPTS = 5
+    const RETRY_BASE_MS = 1000
+    const RETRY_FACTOR = 2
+    const RETRY_JITTER = 0.2
+
+    /** @internal */
+    const reconnectState = reactive({
+        attempts: 0,
+        isRetrying: false,
+    })
+
+    let currentRetryTimer: ReturnType<typeof setTimeout> | null = null
+
+    function shouldRetry(error: unknown): boolean {
+        if (!error || typeof error !== 'object') return false
+        const err = error as { name?: string; message?: string }
+        // 用户主动 stop / unmount 引发的 abort，不重连
+        if (err.name === 'AbortError') return false
+        if (typeof err.message === 'string' && err.message.toLowerCase().includes('aborted')) return false
+        return true
+    }
+
+    function computeRetryDelay(attempt: number): number {
+        const base = RETRY_BASE_MS * Math.pow(RETRY_FACTOR, attempt - 1)
+        // jitter ∈ [-RETRY_JITTER, +RETRY_JITTER]
+        const jitter = (Math.random() * 2 - 1) * RETRY_JITTER
+        return Math.round(base * (1 + jitter))
+    }
+
+    /**
+     * 默认注入 optimisticValues 的 submit 包装。
+     *
+     * 历史 bug：LangGraph SDK 在 submit 开始时会把 streamValues 重置为空 historyValues({}),
+     * 此时 s.messages = []，前端消息列表 v-for 立即清空 → unmount → 等 history 拉回后再 mount,
+     * 视觉表现"整个消息列表重新渲染一遍"。通过传 optimisticValues 在过渡期保留当前 values,
+     * 让 messages 不会瞬间塌空。
+     *
+     * 注入策略：
+     * - 调用方显式传了 optimisticValues（含 undefined）→ 尊重调用方意图,不覆盖
+     * - s.values 当前为空（loadHistory 首次加载等场景）→ 也不注入,避免传 undefined 反而被 SDK 当 reset 信号
+     * - 其它情况 → 注入 s.values 作为过渡兜底
+     */
+    function submitWithDefault(input?: any, config?: any) {
+        if (config && 'optimisticValues' in config) {
+            return s.submit(input, config)
+        }
+        const currentValues = s.values
+        if (currentValues == null) {
+            return s.submit(input, config)
+        }
+        return s.submit(input, { ...config, optimisticValues: currentValues })
+    }
+
+    function triggerReconnect() {
+        if (currentRetryTimer) {
+            clearTimeout(currentRetryTimer)
+            currentRetryTimer = null
+        }
+        // submit(undefined) 让 SDK 拉 thread 历史并重新订阅
+        // 错误会再次进入 onError，由调度器决定下一步
+        submitWithDefault(undefined).catch(() => { /* swallowed: onError handles */ })
+    }
+
+    function scheduleRetry() {
+        if (reconnectState.attempts >= RETRY_MAX_ATTEMPTS) {
+            reconnectState.isRetrying = false
+            runStatus.value = 'failed'
+            runError.value = '网络连接异常，请检查网络后重试'
+            return
+        }
+        reconnectState.attempts += 1
+        reconnectState.isRetrying = true
+        const delay = computeRetryDelay(reconnectState.attempts)
+        currentRetryTimer = setTimeout(triggerReconnect, delay)
+    }
 
     // 子 Agent 分桶：按 parentToolCallId 归集子 Agent 事件
     const subThreadsMap = reactive<Record<string, SubThreadState>>({})
@@ -407,9 +485,12 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
         initialValues: options.initialValues as T | undefined,
         onError: (error: any) => {
             console.error('[useStreamChat] 流错误:', error)
-            // spec §8.1 #1 P0 follow-up：前端 fetch 错误（网络/4xx/5xx）
-            // 应本地将 runStatus 置为 'failed'，让 dispatcher 的 watch 触发暂停分支、
-            // UI 层展示失败状态，避免队列卡死 + 用户无感知。
+            // 自动重连：传输层错误（含被 SDK 包成 Error 的 HTTP 非 2xx）走退避重试，
+            // AbortError 与含 aborted 字样的错误（用户 stop / unmount）走失败终态。
+            if (shouldRetry(error)) {
+                scheduleRetry()
+                return
+            }
             runStatus.value = 'failed'
             runError.value = typeof error === 'string'
                 ? error
@@ -420,6 +501,50 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
     // 使用 any 断言访问底层 stream，避免泛型推断导致的类型错误
     // （WithClassMessages 将部分方法包装为 Ref，泛型上下文下 TS 无法准确区分）
     const s = useStream<T>(streamOptions as any) as any
+
+    // 重连成功：任意一帧 SSE 数据到达即复位计数
+    watch(() => s.values, (v: unknown) => {
+        if (v != null && reconnectState.isRetrying) {
+            reconnectState.attempts = 0
+            reconnectState.isRetrying = false
+            if (currentRetryTimer) {
+                clearTimeout(currentRetryTimer)
+                currentRetryTimer = null
+            }
+        }
+    })
+
+    // isLoading 兜底：SDK 在 submit 失败的 finally 一定置 false
+    // （submit-coordinator.js:286），重连等待期间业务方需读到 true 才不闪 loading。
+    // 注意：用 shallowRef 而非 computed，保持对外类型与 SDK 原 isLoading 一致（ShallowRef<boolean>），
+    // 避免 vue-tsc 在 template prop 上对 ComputedRef 解包不严的回归（已踩 dashboard/analysis 页）。
+    const coverIsLoading = shallowRef<boolean>(false)
+    watch(
+        [
+            () => ((s.isLoading as { value?: boolean }).value ?? false),
+            () => reconnectState.isRetrying,
+        ],
+        ([sdk, retry]) => {
+            coverIsLoading.value = sdk || retry
+        },
+        { immediate: true },
+    )
+
+    // 主动唤醒：online / visibilitychange 事件下立刻取消等待并发起重连
+    function wakeup() {
+        if (!reconnectState.isRetrying) return
+        if (currentRetryTimer) {
+            clearTimeout(currentRetryTimer)
+            currentRetryTimer = null
+        }
+        triggerReconnect()
+    }
+
+    // VueUse 自动满足 SSR 守卫与 onScopeDispose 清理
+    // （SSR 下 globalThis.window === undefined，useEventListener 跳过注册）
+    useEventListener(globalThis.window, 'online', wakeup)
+    const visibility = useDocumentVisibility()
+    watch(visibility, (v) => { if (v === 'visible') wakeup() })
 
     // 标记历史消息是否已加载
     const hasHistoryLoaded = ref(false)
@@ -456,7 +581,7 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
             return current ?? []
         }),
         values: computed(() => s.values as T | undefined),
-        isLoading: s.isLoading,   // shallowRef，直接透传
+        isLoading: coverIsLoading,   // ShallowRef<boolean>，保持与 SDK 原 isLoading 类型一致
         error: s.error,           // shallowRef，直接透传
         hasHistoryLoaded,
         runStatus,
@@ -488,7 +613,7 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
         }),
 
         // 操作
-        submit: (input?: any, config?: any) => s.submit(input, config) as Promise<void>,
+        submit: (input?: any, config?: any) => submitWithDefault(input, config) as Promise<void>,
         /**
          * 把 runStatus 复位到 'idle'，常用于"立场提交后想重新触发 watch(runStatus)
          * completed/failed 分支"等场景，对外提供 public API 取代之前直接写
@@ -497,6 +622,12 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
         reset: () => {
             runStatus.value = 'idle'
             runError.value = ''
+            reconnectState.attempts = 0
+            reconnectState.isRetrying = false
+            if (currentRetryTimer) {
+                clearTimeout(currentRetryTimer)
+                currentRetryTimer = null
+            }
         },
         // stop 关闭 SSE 流，同时本地立即将 runStatus 设为 'cancelled'：
         // 因为 SSE 流已关闭，后端发送的 cancelled 事件将收不到，需本地同步状态
@@ -507,17 +638,11 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
         },
         reconnect: () => {
             hasHistoryLoaded.value = false
-            console.log('[useStreamChat] reconnect called, submitting undefined...')
-            const result = s.submit(undefined)
-            console.log('[useStreamChat] submit returned:', typeof result)
-            return result
+            return submitWithDefault(undefined)
         },
         loadHistory: () => {
             hasHistoryLoaded.value = false
-            console.log('[useStreamChat] loadHistory called, submitting undefined...')
-            const result = s.submit(undefined)
-            console.log('[useStreamChat] submit returned:', typeof result)
-            return result
+            return submitWithDefault(undefined)
         },
         getMessagesMetadata: (msg: any, idx?: number) =>
             s.getMessagesMetadata(msg, idx),
@@ -529,5 +654,8 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
         // 合成工具卡片（按 parentMessageId 索引）
         // 业务方传给 useMessageParser 的第三参 / AiChat 的 extraToolCalls prop
         syntheticToolCalls,
+
+        /** @internal 自动重连状态，仅供单测断言；业务方禁止使用 */
+        reconnectState,
     }
 }

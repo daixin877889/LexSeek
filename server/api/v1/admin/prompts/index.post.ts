@@ -3,17 +3,18 @@
  *
  * POST /api/v1/admin/prompts
  *
- * Phase 4 改造：
- * - 提示词与节点解耦（多对多关联表 node_prompts），创建时不再要求 nodeId
- * - 接入审计日志 logPromptCreate
+ * 设计约束（防误用）：
+ * - 版本号由 service 内部按 (name, type) 维度自动顺延（见 generateNextVersion），
+ *   外部**不允许**传 version；前端误传任何值都会被忽略。
+ * - 新建提示词 status 恒为 0（未生效）；如需"创建即激活"由调用方再调一次
+ *   PUT /api/v1/admin/prompts/activate/:id（同 (name, type) 互斥事务确保唯一 active）。
  */
 
 import { z } from 'zod'
 import { PROMPT_TYPES } from '#shared/types/node'
+import { createPromptService } from '~~/server/services/node/prompt.service'
 import { logPromptCreate } from '~~/server/services/rbac/auditLog.service'
-import { prisma } from '~~/server/utils/db'
 
-/** 请求体验证 */
 const bodySchema = z.object({
     name: z.string({ message: '提示词名称不能为空' })
         .min(1, '提示词名称不能为空')
@@ -28,26 +29,7 @@ const bodySchema = z.object({
     type: z.enum(PROMPT_TYPES, {
         message: `提示词类型必须是 ${PROMPT_TYPES.join('、')}`,
     }),
-    version: z.string({ message: '版本号不能为空' })
-        .min(1, '版本号不能为空')
-        .max(100, '版本号不能超过100个字符'),
-    status: z.number().int().min(0).max(1).default(0),
 })
-
-/**
- * 从内容中提取 {{varName}} 形式的变量名
- */
-const extractVariables = (content: string): string[] => {
-    const regex = /\{\{(\w+)\}\}/g
-    const variables: string[] = []
-    let match
-    while ((match = regex.exec(content)) !== null) {
-        if (!variables.includes(match[1]!)) {
-            variables.push(match[1]!)
-        }
-    }
-    return variables
-}
 
 export default defineEventHandler(async (event) => {
     const operatorId = event.context.auth?.user?.id
@@ -55,7 +37,6 @@ export default defineEventHandler(async (event) => {
         return resError(event, 401, '请先登录')
     }
 
-    // 项目惯例：readValidatedBody 用箭头函数包装 zod 调用
     const result = await readValidatedBody(event, (payload) => bodySchema.safeParse(payload))
     if (!result.success) {
         return resError(event, 400, '参数错误：' + result.error.issues[0]!.message)
@@ -63,18 +44,13 @@ export default defineEventHandler(async (event) => {
     const body = result.data
 
     try {
-        const variables = body.variables ?? extractVariables(body.content)
-        const created = await prisma.prompts.create({
-            data: {
-                name: body.name,
-                title: body.title ?? null,
-                content: body.content,
-                variables,
-                version: body.version,
-                type: body.type,
-                status: body.status,
-                // ★ 不传 nodeId（schema 已 nullable，节点关联走 node_prompts 表）
-            },
+        const created = await createPromptService({
+            name: body.name,
+            title: body.title ?? null,
+            content: body.content,
+            variables: body.variables,
+            type: body.type,
+            nodeId: 0, // CreatePromptInput 类型签名遗留字段，service / DAO 内部已不再写入 DB
         })
 
         await logPromptCreate(event, operatorId, created.id, {

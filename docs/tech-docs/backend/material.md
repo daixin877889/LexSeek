@@ -454,6 +454,7 @@ interface ContentEmbeddingMetadata {
 6. **异常时状态回退**：处理异常时材料状态回退为 PENDING，允许重试
 7. **MinerU 任务不可后台重试**：文件通过签名 URL 访问，URL 过期后无法重新提交
 8. **ASR 使用预扣积分模式**：提交时预扣，完成时结算，失败时回滚
+9. **OSS 回调失败兜底（2026-05-08）**：OSS 直传成功但 LexSeek `/storage/callback` 写入失败时，`useFileUploadWorker` 自动调 `POST /api/v1/storage/confirm-upload`，由后端 `verifyAndFixOssFileService` head OSS 校对真实状态并修复 `ossFiles.status`。前端不会再报"上传失败"。详见 [infra/storage-oss.md §5.4](../infra/storage-oss.md)
 
 ## 相关文档
 

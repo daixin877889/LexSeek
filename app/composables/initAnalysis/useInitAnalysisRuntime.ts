@@ -244,6 +244,27 @@ export function useInitAnalysisRuntime(sessionId: Ref<string>) {
     )
   }
 
+  async function restartAnalysis() {
+    // 1. 复位 stream 错误态，让 watch(runStatus) 重新工作
+    stream.reset()
+
+    // 2. 查后端最新状态决定续跑还是重起
+    const status = await useApiFetch<InitAnalysisStatusResponse>(
+      `/api/v1/cases/init-analysis-status/${caseId.value}`,
+      { query: { sessionId: sessionId.value } },
+    )
+
+    // 3. 决策续跑还是重起；不调 cancel API（保留 Worker 已有成果）
+    if (status?.status === 'in_progress' || status?.status === 'completed') {
+      phase.value = status.status === 'completed' ? 'complete' : 'running'
+      refreshGlobalStatus(status)
+      stream.submit(undefined)
+      return
+    }
+    // not_started 或拿不到状态：退化为完整重启
+    startAnalysis()
+  }
+
   function retryModule(moduleName: string) {
     updateModuleState(moduleName, { status: 'idle', content: '', error: undefined })
     stream.submit({
@@ -286,6 +307,7 @@ export function useInitAnalysisRuntime(sessionId: Ref<string>) {
     getModuleMessages,
     loadStatus,
     startAnalysis,
+    restartAnalysis,
     resumeWorkflow,
     retryModule,
     refreshGlobalStatus,

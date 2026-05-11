@@ -237,41 +237,53 @@ definePageMeta({
 
 ## 自动导入
 
-前端代码无需手动 import 以下内容（Nuxt 自动导入）：
+> ⚠️ 项目已大幅收窄自动导入范围（`imports.scan: false`、`imports.dirs: []`），**绝大多数代码必须显式 `import`**。详见 [architecture/auto-imports.md](../architecture/auto-imports.md)。
+
+仍然自动导入（无需 import）：
 
 | 类别 | 示例 |
 |------|------|
-| Vue 响应式 API | `ref`, `reactive`, `computed`, `watch`, `onMounted` |
-| Nuxt composables | `useFetch`, `useState`, `useRuntimeConfig`, `navigateTo` |
-| 路由 | `useRoute`, `useRouter` |
-| Pinia stores | `useAuthStore`, `useUserStore` 等 |
-| 自定义 composables | `useApi`, `useApiFetch`, `useTheme` 等 |
-| 组件 | `app/components/` 下的所有组件 |
+| Vue 响应式 API | `ref`, `reactive`, `computed`, `watch`, `onMounted`, `nextTick` |
+| Nuxt composables | `useFetch`, `useState`, `useRuntimeConfig`, `useCookie`, `useHead` |
+| Vue Router | `useRoute`, `useRouter`, `navigateTo`, `definePageMeta` |
+| Pinia 内置 | `defineStore`, `storeToRefs` |
+| 白名单工具 | `logger`, `resSuccess`, `resError` |
+| 组件（仅这两类） | `app/components/ui/` (shadcn-nuxt 注册) + `app/components/ai-elements/` (`components.dirs` 注册) |
 
-类型需要手动导入：
+必须显式 `import`：
 
 ```typescript
-import type { CaseDetailInfo } from '#shared/types/case'
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useApi } from '~/composables/useApi'
+import { useAuthStore } from '~/store/auth'                   // 所有 Pinia stores
+import CaseDetailOverview from '~/components/caseDetail/CaseDetailOverview.vue'  // 业务组件
+import type { CaseDetailInfo } from '#shared/types/case'      // 所有类型
 ```
 
 ## 组件命名约定
 
-组件按文件路径驼峰拼接命名使用：
+`ui/` 与 `ai-elements/` 自动注册可直接使用：
 
 ```
 app/components/
-├── general/
-│   └── ThemeToggle.vue          -> <GeneralThemeToggle />
-├── dashboard/
-│   ├── NavMain.vue              -> <DashboardNavMain />
-│   └── LogoBox.vue              -> <DashboardLogoBox />
-├── caseDetail/
-│   └── CaseDetailOverview.vue   -> <CaseDetailCaseDetailOverview /> 或短路径
-└── ui/                          -> shadcn-vue 组件，禁止修改
-    ├── button/
-    │   └── Button.vue           -> <Button />
-    └── sidebar/
-        └── Sidebar.vue          -> <Sidebar />
+├── ui/                          -> shadcn-vue 组件，禁止修改
+│   ├── button/
+│   │   └── Button.vue           -> <Button />
+│   └── sidebar/
+│       └── Sidebar.vue          -> <Sidebar />
+└── ai-elements/                 -> AI 对话 / 流式输出
+    └── message/
+        └── MessageResponse.vue  -> <MessageResponse />
 ```
 
-shadcn-vue 组件是特例，直接使用组件名（无目录前缀）。
+其它业务目录（`general/` / `dashboard/` / `caseDetail/` 等）下的组件**必须显式 import**：
+
+```vue
+<script setup lang="ts">
+import GeneralThemeToggle from '~/components/general/ThemeToggle.vue'
+import DashboardNavMain from '~/components/dashboard/NavMain.vue'
+import CaseDetailOverview from '~/components/caseDetail/CaseDetailOverview.vue'
+</script>
+```
+
+shadcn-vue 组件直接使用组件名（无目录前缀）。

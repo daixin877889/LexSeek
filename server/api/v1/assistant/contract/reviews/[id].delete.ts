@@ -14,15 +14,14 @@
  */
 import { loadOwnedReview } from '~~/server/services/assistant/contract/reviewGuard'
 import { softDeleteContractReviewDAO } from '~~/server/services/assistant/contract/contractReview.dao'
-
-const BUSY_STATUSES = new Set(['pending', 'reviewing', 'awaiting_stance', 'rebuilding'])
+import { isContractBusyStatus } from '#shared/types/contract'
 
 export default defineEventHandler(async (event) => {
     const guard = await loadOwnedReview(event, { actionLabel: '删除合同审查' })
     if (!guard.ok) return resError(event, guard.status, guard.message)
 
     const { user, review } = guard
-    if (BUSY_STATUSES.has(review.status)) {
+    if (isContractBusyStatus(review.status)) {
         return resError(event, 409, `审查当前为"${review.status}"状态，请等待完成后再删除`)
     }
 

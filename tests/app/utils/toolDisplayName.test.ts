@@ -9,8 +9,9 @@ describe('toolDisplayName', () => {
     })
 
     it('ask_*_expert 走 ANALYSIS_NODE_LABEL', () => {
-        expect(toolDisplayName('ask_claim_expert')).toBe('请求权分析')
-        expect(toolDisplayName('ask_evidence_expert')).toBe('证据清单')
+        // ANALYSIS_NODE_LABEL 现统一从 INIT_ANALYSIS_MODULES 自动派生（详见 toolDisplayName.ts）
+        expect(toolDisplayName('ask_claim_expert')).toBe('预分析案件请求权')
+        expect(toolDisplayName('ask_evidence_expert')).toBe('证据清单预梳理')
     })
 
     it('未知 expert 模块名时降级为 "咨询X专家"', () => {
@@ -39,6 +40,6 @@ describe('toolDisplayName', () => {
 
     it('TOOL_NAME_MAP / ANALYSIS_NODE_LABEL 公开导出便于复用', () => {
         expect(TOOL_NAME_MAP.search_law).toBe('法律检索')
-        expect(ANALYSIS_NODE_LABEL.claim).toBe('请求权分析')
+        expect(ANALYSIS_NODE_LABEL.claim).toBe('预分析案件请求权')
     })
 })

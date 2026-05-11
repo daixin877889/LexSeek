@@ -57,12 +57,12 @@ afterEach(async () => {
 describe('POST /api/v1/admin/prompts (Phase 4)', () => {
     it('未登录 → 401', async () => {
         const r = await postHandler(makeEvent({
-            body: { name: 'p_' + uniqueSuffix(), content: 'c', type: 'system', version: 'v1' },
+            body: { name: 'p_' + uniqueSuffix(), content: 'c', type: 'system' },
         }) as any)
         expect(r.code).toBe(401)
     })
 
-    it('body 不带 nodeId 也能成功创建（多余 nodeId 字段被忽略）', async () => {
+    it('body 不带 nodeId 也能成功创建（多余 nodeId 字段被忽略），版本号由 service 自动生成 v1', async () => {
         // 隔离审计副作用：FK 依赖 users 表种子数据，本用例只关心 prompts 写入结果
         vi.spyOn(auditLogService, 'logPromptCreate').mockResolvedValue(undefined as any)
 
@@ -74,30 +74,60 @@ describe('POST /api/v1/admin/prompts (Phase 4)', () => {
                 name,
                 content: 'hello {{caseId}}',
                 type: 'system',
-                version: 'v1',
                 nodeId: 99999, // 多余字段：zod 默认 strip，不会落到 prisma.create
             },
         }) as any)
         const data = expectSuccess(r)
         createdPromptIds.push(data.id)
         expect(data.id).toBeGreaterThan(0)
+        expect(data.version).toBe('v1')   // 首次创建该 (name, type)，service 顺延算出 v1
+        expect(data.status).toBe(0)       // 创建恒为未生效
 
-        // ★ Phase 6 改造：prompts.nodeId 字段已彻底删除，无需断言；
-        // zod strip + dao 不再写入 nodeId 已由"创建成功"间接验证
         const row = await prisma.prompts.findUnique({ where: { id: data.id } })
         expect(row).not.toBeNull()
-        // 自动提取的变量
         expect(row?.variables).toEqual(['caseId'])
     })
 
-    it('调用 logPromptCreate 审计', async () => {
+    it('外部传入 version / status 字段被忽略：版本号由 service 自动顺延，status 恒为 0', async () => {
+        vi.spyOn(auditLogService, 'logPromptCreate').mockResolvedValue(undefined as any)
+
+        const name = 'p_' + uniqueSuffix()
+
+        // 先建一条 v1
+        const first = await postHandler(makeEvent({
+            userId: 1,
+            body: { name, content: 'first', type: 'system' },
+        }) as any)
+        const firstData = expectSuccess(first)
+        createdPromptIds.push(firstData.id)
+        expect(firstData.version).toBe('v1')
+
+        // 再建一条，外部恶意/误传 version='v999-1778422666004' + status=1
+        const second = await postHandler(makeEvent({
+            userId: 1,
+            body: {
+                name,
+                content: 'second',
+                type: 'system',
+                version: 'v999-1778422666004', // 应被 zod strip 忽略
+                status: 1,                      // 应被 zod strip 忽略
+            },
+        }) as any)
+        const secondData = expectSuccess(second)
+        createdPromptIds.push(secondData.id)
+
+        expect(secondData.version).toBe('v2')   // service 按 (name, type) 顺延算出 v2，不是 v999-时间戳
+        expect(secondData.status).toBe(0)       // 即使外部传 1 也强制为 0
+    })
+
+    it('调用 logPromptCreate 审计，version 字段为 service 自动生成的版本号', async () => {
         const spy = vi.spyOn(auditLogService, 'logPromptCreate')
             .mockResolvedValue(undefined as any)
 
         const name = 'p_' + uniqueSuffix()
         const r = await postHandler(makeEvent({
             userId: 42,
-            body: { name, content: 'c', type: 'system', version: 'v1' },
+            body: { name, content: 'c', type: 'system' },
         }) as any)
         const data = expectSuccess(r)
         createdPromptIds.push(data.id)
@@ -109,10 +139,18 @@ describe('POST /api/v1/admin/prompts (Phase 4)', () => {
         expect(call[3]).toMatchObject({ name, type: 'system', version: 'v1' })
     })
 
-    it('缺 version 字段 → 400', async () => {
+    it('缺 name 字段 → 400', async () => {
         const r = await postHandler(makeEvent({
             userId: 1,
-            body: { name: 'p_' + uniqueSuffix(), content: 'c', type: 'system' },
+            body: { content: 'c', type: 'system' },
+        }) as any)
+        expect(r.code).toBe(400)
+    })
+
+    it('缺 type 字段 → 400', async () => {
+        const r = await postHandler(makeEvent({
+            userId: 1,
+            body: { name: 'p_' + uniqueSuffix(), content: 'c' },
         }) as any)
         expect(r.code).toBe(400)
     })

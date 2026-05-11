@@ -21,7 +21,13 @@ import {
 import { enqueueRunService } from '~~/server/services/agent/agentRun.service'
 import { findDraftBySessionIdDAO } from '~~/server/services/assistant/document/documentDraft.dao'
 import { createAgentSseStream } from '~~/server/services/sse/agentSseStream'
-import { extractChatParams, shouldRejectMessage } from '~~/server/utils/chat-branch-utils'
+import {
+    extractChatParams,
+    shouldRejectMessage,
+    isValidResumeCommand,
+    getResumeCount,
+    shouldRejectResume,
+} from '~~/server/utils/chat-branch-utils'
 import { AGENT_RUN_STATUS } from '#shared/types/agentRun'
 
 export default defineEventHandler(async (event) => {
@@ -56,11 +62,21 @@ export default defineEventHandler(async (event) => {
     let runId: string
     let latestRunStatus: string | undefined
 
-    if (activeRun && message && activeRun.status === AGENT_RUN_STATUS.INTERRUPTED) {
-        // 分支 1：INTERRUPTED + 新消息 → resume 路径
+    if (activeRun && command && activeRun.status === AGENT_RUN_STATUS.INTERRUPTED) {
+        // 分支 1：INTERRUPTED + LangGraph resume command → resume 路径
+        // 触发条件看 command（如选模板回传 templateId），不能依赖 message。历史 bug：曾误用 message 触发
+        // 导致前端选模板/立场后落到分支 3 复用旧 runId 不消费 command，对话直接断流。对齐 cases/analysis/chat.post。
+        if (!isValidResumeCommand(command)) {
+            return resError(event, 400, '无效的 resume 命令')
+        }
+        const resumeCount = getResumeCount(activeRun.metadata)
+        if (shouldRejectResume(resumeCount)) {
+            return resError(event, 429, 'Resume 次数已达上限，请开启新会话')
+        }
         // 先把旧 run 标完成以释放 (sessionId, status IN pending/running) partial unique index
         await updateRunStatusDAO(activeRun.id, AGENT_RUN_STATUS.COMPLETED, {
             completedAt: new Date(),
+            metadata: { ...((activeRun.metadata as any) || {}), resumeCount: resumeCount + 1 },
         })
         const result = await enqueueRunService({
             sessionId,

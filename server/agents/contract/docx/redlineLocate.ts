@@ -65,6 +65,8 @@ interface RunHit {
 function findRunOffsetInParagraph(paraNode: Node, charOffset: number, bias: 'start' | 'end'): RunHit | null {
     const kids = childrenOf(paraNode)
     let consumed = 0
+    let lastRunIdx = -1
+    let lastRunLen = 0
     for (let runIdx = 0; runIdx < kids.length; runIdx++) {
         const kid = kids[runIdx]!
         if (tagOf(kid) !== 'w:r') continue
@@ -75,15 +77,13 @@ function findRunOffsetInParagraph(paraNode: Node, charOffset: number, bias: 'sta
         if (matches) {
             return { runIdx, runOffset: charOffset - consumed }
         }
+        lastRunIdx = runIdx
+        lastRunLen = runLen
         consumed += runLen
     }
-    if (charOffset === consumed) {
-        // 指向段末（exclusive 结束位置允许落到最后一个 run 的 runLen）
-        for (let runIdx = kids.length - 1; runIdx >= 0; runIdx--) {
-            if (tagOf(kids[runIdx]!) === 'w:r') {
-                return { runIdx, runOffset: computeRunLength(kids[runIdx]!) }
-            }
-        }
+    // 指向段末（exclusive 结束位置允许落到最后一个 run 的 runLen）；主循环已记录 lastRunIdx
+    if (charOffset === consumed && lastRunIdx !== -1) {
+        return { runIdx: lastRunIdx, runOffset: lastRunLen }
     }
     return null
 }

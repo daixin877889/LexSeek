@@ -15,13 +15,29 @@
 
 import { z } from 'zod'
 import { tool } from '@langchain/core/tools'
-import { interrupt } from '@langchain/langgraph'
+import { interrupt, isGraphBubbleUp } from '@langchain/langgraph'
 import type { ToolContext, ToolDefinition } from './types'
 import { DOCUMENT_CATEGORY_KEYS, type DocumentCategoryKey } from '#shared/types/document'
+import { recommendDocumentTemplatesService } from '~~/server/agents/document/templateRecommend.service'
+import { getDocumentTemplateDAO } from '~~/server/agents/document/documentTemplate.dao'
 
 interface TemplateSelectResumeValue {
     templateId: number
     sourceText?: string
+}
+
+/**
+ * 解开 LangGraph interrupt resume 的双层包装：
+ *   { resume: { [toolCallId]: realValue } } → realValue
+ * 与 draftDocument.tool.ts / reviewContract.tool.ts 同款机制。
+ */
+function unpackInterruptResume(resumed: unknown, toolCallId: string): TemplateSelectResumeValue | null {
+    if (!resumed || typeof resumed !== 'object') return null
+    const layer1 = (resumed as { resume?: unknown }).resume ?? resumed
+    if (layer1 && typeof layer1 === 'object' && toolCallId in (layer1 as Record<string, unknown>)) {
+        return (layer1 as Record<string, unknown>)[toolCallId] as TemplateSelectResumeValue | null
+    }
+    return layer1 as TemplateSelectResumeValue | null
 }
 
 const schema = z.object({
@@ -60,9 +76,6 @@ export function createTool(context: ToolContext) {
                 }
 
                 // 1. 模板推荐
-                const { recommendDocumentTemplatesService } = await import(
-                    '~~/server/agents/document/templateRecommend.service'
-                )
                 const reco = await recommendDocumentTemplatesService({
                     userId,
                     intent: input.intent,
@@ -81,17 +94,8 @@ export function createTool(context: ToolContext) {
                     fallbackToRecency: reco.fallbackToRecency,
                 }) as unknown
 
-                // 3. 双层包装解包:{ resume: { [toolCallId]: realValue } } → realValue
-                //    抄 draftDocument.tool.ts:99-112 + reviewContract.tool.ts 同款机制
-                //    (原 spike C3 已合并到本注释,实施时可对照原文件确认仍是项目标准)
-                const unpacked = ((): TemplateSelectResumeValue | null => {
-                    if (!resumed || typeof resumed !== 'object') return null
-                    const layer1 = (resumed as { resume?: unknown }).resume ?? resumed
-                    if (layer1 && typeof layer1 === 'object' && toolCallId in (layer1 as Record<string, unknown>)) {
-                        return (layer1 as Record<string, unknown>)[toolCallId] as TemplateSelectResumeValue | null
-                    }
-                    return layer1 as TemplateSelectResumeValue | null
-                })()
+                // 3. 双层包装解包(同 draftDocument.tool.ts / reviewContract.tool.ts)
+                const unpacked = unpackInterruptResume(resumed, toolCallId)
 
                 // 4. 用户取消(resume 为 null 或缺 templateId):返回 cancelled
                 if (!unpacked || typeof unpacked.templateId !== 'number') {
@@ -103,9 +107,6 @@ export function createTool(context: ToolContext) {
                 }
 
                 // 5. 拉模板的 placeholders 列表回给 LLM
-                const { getDocumentTemplateDAO } = await import(
-                    '~~/server/agents/document/documentTemplate.dao'
-                )
                 const template = await getDocumentTemplateDAO(unpacked.templateId)
                 if (!template) {
                     return JSON.stringify({
@@ -125,11 +126,10 @@ export function createTool(context: ToolContext) {
             }
             catch (err) {
                 // 关键:LangGraph 的 interrupt() 通过抛 GraphInterrupt 暂停 graph 执行;
-                // ParentCommand / 其他 bubble-up 错误也必须重抛让调度器接住。
-                // 用 GraphBubbleUp 基类的 is_bubble_up getter 检测,覆盖所有子类。
-                // 参考 @langchain/langgraph/dist/errors.d.ts 的 isGraphBubbleUp 实现。
-                if (err && typeof err === 'object' && 'is_bubble_up' in err
-                    && (err as { is_bubble_up?: boolean }).is_bubble_up === true) {
+                // ParentCommand / 其他 bubble-up 错误必须重抛让调度器接住。
+                // 用 LangGraph 官方导出的 isGraphBubbleUp 覆盖 GraphInterrupt / NodeInterrupt
+                // / ParentCommand 全部子类。
+                if (isGraphBubbleUp(err)) {
                     throw err
                 }
                 logger.error('recommend_template 执行失败', { err, input, sessionId: context.sessionId })

@@ -28,6 +28,37 @@ vi.mock('~~/server/services/ai/summaryService', () => ({
     generateSummaryService: vi.fn().mockResolvedValue('风险等级：中高。依据：违约条款明确，证据链完整。'),
 }))
 
+// completeAnalysisWithRAG 内部走 analysisSummary 节点取 apiKey + systemPrompt；测试 DB 里
+// 该节点的 modelApiKeys 通常为空，会走"跳过摘要生成"分支让 summary 落空。
+// Mock getValidNodeConfig 让它返回有效配置，进入 generateSummaryService（已被 mock）路径。
+vi.mock('~~/server/services/node/node.service', async (orig) => {
+    const actual: any = await (orig as any)()
+    return {
+        ...actual,
+        getValidNodeConfig: vi.fn().mockResolvedValue({
+            id: 999,
+            name: 'analysisSummary',
+            title: '案件分析结果摘要',
+            type: 'extraction',
+            modelName: 'gpt-4o-mini',
+            modelSdkType: 'openai',
+            modelProviderBaseUrl: 'https://api.openai.com/v1',
+            modelApiKeys: [{ id: 1, apiKey: 'sk-test-fake', status: 1 }],
+            prompts: [{ id: 1, type: 'system', status: 1, content: '你是分析摘要助手' }],
+            outputSchema: null,
+        }),
+    }
+})
+
+// createChatModel 真实跑会去构造 SDK；mock 成 stub，generateSummaryService 已被 mock 不会真用它
+vi.mock('~~/server/services/node/chatModelFactory', async (orig) => {
+    const actual: any = await (orig as any)()
+    return {
+        ...actual,
+        createChatModel: vi.fn(() => ({ _model: 'stub' })),
+    }
+})
+
 // Mock addDocumentsToVectorStore 避免真实写入向量库
 vi.mock('~~/server/services/legal/vectorStore.service', async (orig) => {
     const actual: any = await (orig as any)()

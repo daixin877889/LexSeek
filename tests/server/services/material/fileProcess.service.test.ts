@@ -27,9 +27,12 @@ vi.mock('~~/server/services/material/mineru.service', () => ({
 
 vi.mock('../../../../server/services/material/asr.service', () => ({
     transcribeAudioService: mocks.transcribeAudioService,
+    // fileProcess.service 现在直接 import { extractTextFromAsrResult } from './asr.service'
+    extractTextFromAsrResult: mocks.extractTextFromAsrResult,
 }))
 vi.mock('~~/server/services/material/asr.service', () => ({
     transcribeAudioService: mocks.transcribeAudioService,
+    extractTextFromAsrResult: mocks.extractTextFromAsrResult,
 }))
 
 vi.mock('../../../../server/services/material/materialPipeline.service', () => ({
@@ -114,7 +117,7 @@ describe('processFileMaterials', () => {
         expect(result[0].content).toBe('图片识别内容')
     })
 
-    it('音频文件已有识别记录时应直接返回内容', async () => {
+    it('音频文件已有识别记录时应直接返回 result.text 内容', async () => {
         mocks.extractTextFromAsrResult.mockReturnValue('音频转写内容')
         mockPrisma.ossFiles.findMany.mockResolvedValue([
             { id: 3, fileName: 'test.mp3', fileType: 'audio/mpeg', filePath: '/path', deletedAt: null },
@@ -122,13 +125,13 @@ describe('processFileMaterials', () => {
         mockPrisma.docRecognitionRecords.findMany.mockResolvedValue([])
         mockPrisma.imageRecognitionRecords.findMany.mockResolvedValue([])
         mockPrisma.asrRecords.findMany.mockResolvedValue([
-            { ossFileId: 3, status: 2, summary: '音频摘要', result: { text: '音频转写内容' }, deletedAt: null },
+            { ossFileId: 3, status: 2, result: { text: '音频转写内容' }, deletedAt: null },
         ])
 
         const result = await processFileMaterials([3], 1)
         expect(result[0].recognitionStatus).toBe('success')
-        // summary 优先
-        expect(result[0].content).toBe('音频摘要')
+        // 业务现走 extractTextFromAsrResult(r.result)，不再读 ASR.summary（详见 fileProcess.service.ts:184）
+        expect(result[0].content).toBe('音频转写内容')
     })
 
     it('图片识别成功时应返回识别内容', async () => {

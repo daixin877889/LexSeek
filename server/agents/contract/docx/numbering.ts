@@ -169,9 +169,8 @@ export function buildNumberingPrefixMap(
 
         // counter ++ 或首次取 start
         const counterKey = `${numId}:${ilvl}`
-        const currentCount = counters.has(counterKey)
-            ? counters.get(counterKey)! + 1
-            : lvl.start
+        const prev = counters.get(counterKey)
+        const currentCount = prev !== undefined ? prev + 1 : lvl.start
         counters.set(counterKey, currentCount)
 
         // 子层级 reset 子层 counter（OOXML 规则：父级 ++ 时子级归零）

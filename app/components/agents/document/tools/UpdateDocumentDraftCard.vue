@@ -16,10 +16,12 @@
  */
 import {
     CheckCircle2,
+    FileEdit,
     FilePenLine,
     Loader2,
     XCircle,
 } from 'lucide-vue-next'
+import { Button } from '~/components/ui/button'
 import type { ExtendedToolState } from '~/components/ai-elements/types'
 import { useToolResultState } from '~/composables/useToolResultState'
 
@@ -34,6 +36,7 @@ interface UpdateDocumentDraftOutput {
     draftId?: number
     changedFields?: string[]
     summary?: string
+    href?: string
 }
 
 const props = defineProps<{
@@ -57,6 +60,12 @@ const fieldListText = computed(() => {
     if (!changedFields.value.length) return ''
     return changedFields.value.join('、')
 })
+
+function handleOpen() {
+    const href = result.value?.href
+    if (!href) return
+    navigateTo(href)
+}
 </script>
 
 <template>
@@ -92,16 +101,29 @@ const fieldListText = computed(() => {
         </div>
 
         <!-- 已完成 -->
-        <div v-else-if="isCompleted" class="flex items-start gap-3">
-            <div class="flex size-10 shrink-0 items-center justify-center rounded-md bg-emerald-100 dark:bg-emerald-900/30">
-                <CheckCircle2 class="size-5 text-emerald-600 dark:text-emerald-400" />
+        <div v-else-if="isCompleted" class="space-y-3">
+            <div class="flex items-start gap-3">
+                <div class="flex size-10 shrink-0 items-center justify-center rounded-md bg-emerald-100 dark:bg-emerald-900/30">
+                    <CheckCircle2 class="size-5 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div class="min-w-0 flex-1">
+                    <p class="truncate text-sm font-medium text-foreground">{{ completedTitle }}</p>
+                    <p v-if="fieldListText" class="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                        {{ fieldListText }}
+                    </p>
+                </div>
             </div>
-            <div class="min-w-0 flex-1">
-                <p class="truncate text-sm font-medium text-foreground">{{ completedTitle }}</p>
-                <p v-if="fieldListText" class="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-                    {{ fieldListText }}
-                </p>
-            </div>
+
+            <Button
+                v-if="result?.href"
+                size="sm"
+                variant="outline"
+                class="w-full"
+                @click="handleOpen"
+            >
+                <FileEdit class="mr-1.5 size-3.5" />
+                在文书页继续编辑
+            </Button>
         </div>
 
         <!-- 兜底 -->

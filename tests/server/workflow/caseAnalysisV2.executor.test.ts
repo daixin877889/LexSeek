@@ -38,8 +38,8 @@ beforeEach(() => {
     mocks.getCaseAnalysisWorkflow.mockResolvedValue({ stream: mocks.streamFn })
 })
 
-describe('startCaseAnalysisV2 - 材料就绪 gate', () => {
-    it('首次启动（无 command）时先 await ensureMaterialsReadyService 再启动 stream', async () => {
+describe('startCaseAnalysisV2 - 启动行为', () => {
+    it('首次启动（无 command）调用 workflow.stream 启动新分析；材料 gate 已下沉到子 agent 的 caseProcessMaterialMiddleware', async () => {
         const { startCaseAnalysisV2 } = await import('~~/server/services/workflow/caseAnalysisV2.executor')
 
         await startCaseAnalysisV2({
@@ -49,15 +49,19 @@ describe('startCaseAnalysisV2 - 材料就绪 gate', () => {
             selectedModules: ['summary'],
         })
 
-        expect(mocks.ensureMaterialsReadyService).toHaveBeenCalledTimes(1)
-        expect(mocks.ensureMaterialsReadyService).toHaveBeenCalledWith(100, 1)
-        // gate 应在 stream 之前
-        const ensureOrder = mocks.ensureMaterialsReadyService.mock.invocationCallOrder[0]!
-        const streamOrder = mocks.streamFn.mock.invocationCallOrder[0]!
-        expect(ensureOrder).toBeLessThan(streamOrder)
+        // executor 不再直接持有材料 gate（caseAnalysisV2.workflow.ts 把 gate 挂在子 agent 中间件）
+        expect(mocks.ensureMaterialsReadyService).not.toHaveBeenCalled()
+        // stream 仍按原计划启动
+        expect(mocks.streamFn).toHaveBeenCalledTimes(1)
+        expect(mocks.streamFn.mock.calls[0]![0]).toMatchObject({
+            sessionId: 'sess-1',
+            userId: 1,
+            caseId: 100,
+            selectedModules: ['summary'],
+        })
     })
 
-    it('resume 路径（带 command）跳过 gate（材料早就 ready）', async () => {
+    it('resume 路径（带 command）走 Command.resume 而非首次启动 payload', async () => {
         const { startCaseAnalysisV2 } = await import('~~/server/services/workflow/caseAnalysisV2.executor')
 
         await startCaseAnalysisV2({
@@ -69,5 +73,6 @@ describe('startCaseAnalysisV2 - 材料就绪 gate', () => {
         })
 
         expect(mocks.ensureMaterialsReadyService).not.toHaveBeenCalled()
+        expect(mocks.streamFn).toHaveBeenCalledTimes(1)
     })
 })

@@ -19,7 +19,7 @@ import type {
     RiskLevel,
     StancePreference,
 } from '#shared/types/contract'
-import { DEFAULT_AI_RISK_STANCE } from '#shared/types/contract'
+import { DEFAULT_AI_RISK_STANCE, CONTRACT_BUSY_STATUSES } from '#shared/types/contract'
 import { logger } from '#shared/utils/logger'
 import type { ClauseSegment, PlaybookSnapshot, Stance } from '#shared/types/contract'
 import { persistAiRisksAsContractRows } from './contractRisk.service'
@@ -53,13 +53,6 @@ import pLimit from 'p-limit'
 
 /** Step 4a 增量审查的 LLM 并发上限：与主路径 ANALYZE_CONCURRENCY 同级。 */
 const STEP4A_CONCURRENCY = 8
-
-/**
- * upload-version 视为"忙任务"的状态集合。
- * 与 server/api/v1/assistant/contract/reviews/upload-version/[id].post.ts
- * 的 BUSY_STATUSES 保持同步，由 HTTP 层快速失败 + service 层原子锁双重保护。
- */
-const UPLOAD_BUSY_STATUSES = ['pending', 'reviewing', 'awaiting_stance', 'rebuilding'] as const
 
 /** ZIP 文件头（PK\x03\x04），docx 本质是 zip，用于二进制层快速校验。 */
 function isValidDocxBuffer(buf: Buffer): boolean {
@@ -114,7 +107,7 @@ export async function* uploadClientVersionService(params: {
     const claim = await prisma.contractReviews.updateMany({
         where: {
             id: review.id,
-            status: { notIn: UPLOAD_BUSY_STATUSES as unknown as string[] },
+            status: { notIn: [...CONTRACT_BUSY_STATUSES] },
         },
         data: { status: 'rebuilding' },
     })

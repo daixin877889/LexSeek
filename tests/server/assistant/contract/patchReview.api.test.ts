@@ -354,6 +354,8 @@ describe('PATCH /api/v1/assistant/contract/reviews/:id', () => {
         expect(res.success).toBe(true)
         expect(res.data).toEqual({ reviewId: 42 })
         expect(mockPatchRisks).toHaveBeenCalledTimes(1)
-        expect(mockPatchRisks).toHaveBeenCalledWith(42, newRisks)
+        // RISK_SHAPE schema 给 problemSentenceIds 加了 default([])，handler 落库前会补字段
+        const expectedRisks = newRisks.map(r => ({ ...r, problemSentenceIds: [] }))
+        expect(mockPatchRisks).toHaveBeenCalledWith(42, expectedRisks)
     })
 })

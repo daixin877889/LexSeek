@@ -306,6 +306,15 @@ function resumeWorkflow() {
   runtime.resumeWorkflow()
 }
 
+// 续跑优先：runtime.restartAnalysis 内部会先查 init-analysis-status，
+// 命中 in_progress / completed → stream.submit(undefined) 续订；
+// 命中 not_started → 退化为 startAnalysis。
+// 此处与其他 wrapper 一致，先 resetSignature 让 cross-tab 重新派发状态。
+function restartAnalysis() {
+  syncBridge.resetSignature()
+  runtime.restartAnalysis()
+}
+
 // 在模板中要用的字段透传
 const phase = runtime.phase
 const caseId = runtime.caseId
@@ -349,8 +358,9 @@ watch(runStatus, (status) => {
 
 function onRestartAnalysis() {
   showGlobalRetry.value = false
-  // 使用 startAnalysis 完整重启（不用 resumeWorkflow——那是 interrupt 恢复，不适用 FAILED）
-  startAnalysis()
+  // 续跑优先：先查后端状态，有活跃 run 续跑、否则完整重启
+  // （内部不调 cancel API，避免丢弃已扣积分跑出的步骤）
+  restartAnalysis()
 }
 
 // 案件标题

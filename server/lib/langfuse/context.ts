@@ -43,7 +43,7 @@ function mergeContext(
   }
 }
 
-function stripUndefined<T extends object>(obj: T): Partial<T> {
+export function stripUndefined<T extends object>(obj: T): Partial<T> {
   const out = {} as Partial<T>
   for (const [k, v] of Object.entries(obj) as Array<[keyof T, T[keyof T]]>) {
     if (v !== undefined) out[k] = v

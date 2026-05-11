@@ -18,6 +18,8 @@ const { errorSpy, infoSpy } = vi.hoisted(() => ({
 }))
 vi.mock('#shared/utils/logger', () => ({
     logger: { error: errorSpy, info: infoSpy, warn: vi.fn(), debug: vi.fn() },
+    // server/lib/oss/headFile.ts 用 createLogger('oss:head') 拿子 logger（commit 391b/storage 兜底链路）
+    createLogger: () => ({ error: errorSpy, info: infoSpy, warn: vi.fn(), debug: vi.fn() }),
 }))
 ;(globalThis as any).logger = { error: errorSpy, info: infoSpy, warn: vi.fn(), debug: vi.fn() }
 

@@ -46,9 +46,10 @@ export const caseContextSyncMiddleware = (options: CaseContextSyncOptions) =>
                 const messages: any[] = state.messages ?? []
 
                 try {
-                    const lastHuman = [...messages].reverse().find(
-                        m => m._getType?.() === 'human' || m.constructor?.name === 'HumanMessage',
+                    const lastHumanIdx = messages.findLastIndex(
+                        (m: any) => m._getType?.() === 'human' || m.constructor?.name === 'HumanMessage',
                     )
+                    const lastHuman = lastHumanIdx >= 0 ? messages[lastHumanIdx] : undefined
                     const userQuery = typeof lastHuman?.content === 'string' ? lastHuman.content : ''
 
                     const lines: string[] = []
@@ -93,10 +94,7 @@ export const caseContextSyncMiddleware = (options: CaseContextSyncOptions) =>
                         additional_kwargs: { injectedBy: 'CaseContextSyncMiddleware' },
                     })
 
-                    // splice 原地插入：找到末尾 HumanMessage 的位置，插到它之前
-                    const lastHumanIdx = messages.findLastIndex(
-                        (m: any) => m._getType?.() === 'human' || m.constructor?.name === 'HumanMessage',
-                    )
+                    // splice 原地插入：插到末尾 HumanMessage 之前（lastHumanIdx 在上面已计算）
                     const insertIdx = lastHumanIdx >= 0 ? lastHumanIdx : messages.length
                     messages.splice(insertIdx, 0, contextMsg)
                 } catch (err) {

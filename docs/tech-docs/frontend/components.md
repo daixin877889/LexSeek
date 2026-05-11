@@ -282,7 +282,13 @@ definePageMeta({
 
 ## Composables
 
-组件常用的组合式函数位于 `app/composables/`，均通过 Nuxt 自动导入，无需手动 import：
+组件常用的组合式函数位于 `app/composables/`，**必须显式 `import`**（自动扫描已关闭，详见 [architecture/auto-imports.md](../architecture/auto-imports.md)）：
+
+```typescript
+import { useApiFetch } from '~/composables/useApiFetch'
+import { useCaseChat } from '~/composables/useCaseChat'
+```
+
 
 | Composable | 用途 |
 |-----------|------|

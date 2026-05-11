@@ -10,6 +10,8 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest'
+import '../_helpers/handler-test'
+import { makeEvent, expectSuccess } from '../_helpers/handler-test'
 import {
     testPrisma,
     createTestUser,
@@ -299,6 +301,109 @@ describe('用户角色分配属性测试', () => {
             result2 = await validateUserApiPermission(user2.id, path, 'GET')
             expect(result1.allowed).toBe(true)
             expect(result2.allowed).toBe(true)
+        })
+
+        it('admin 用户列表不显示已软删的 userRoles 关联（回归 #soft-deleted-roles-leaked）', async () => {
+            // 复现 bug：admin/users index.get 漏过滤 deletedAt，
+            // 导致已被撤销的角色仍出现在用户行的 roles 列表里。
+            const user = await createTestUser()
+            createdUserIds.push(user.id)
+            const roleKept = await createTestRole('保留角色', `KEPT_${generateUniqueId()}`)
+            const roleRevoked = await createTestRole('撤销角色', `REV_${generateUniqueId()}`)
+
+            const ur1 = await testPrisma.userRoles.create({
+                data: { userId: user.id, roleId: roleKept.id },
+            })
+            const ur2 = await testPrisma.userRoles.create({
+                data: { userId: user.id, roleId: roleRevoked.id },
+            })
+            createdUserRoleIds.push(ur1.id, ur2.id)
+
+            // 撤销其中一个角色（软删）
+            await testPrisma.userRoles.updateMany({
+                where: { id: ur2.id },
+                data: { deletedAt: new Date() },
+            })
+
+            const { default: handler } = await import('../../../server/api/v1/admin/users/index.get')
+            const data = expectSuccess(
+                await handler(makeEvent({
+                    userId: 100,
+                    query: { keyword: user.phone, pageSize: '50' },
+                }) as any),
+            )
+
+            const row = data.items.find((it: any) => it.id === user.id)
+            expect(row).toBeDefined()
+            const roleIds = row.roles.map((r: any) => r.id).sort()
+            expect(roleIds).toEqual([roleKept.id])
+        })
+
+        it('admin 用户列表按 roleId 筛选时不应命中已撤销该角色的用户（回归 #role-filter-soft-delete）', async () => {
+            const user = await createTestUser()
+            createdUserIds.push(user.id)
+            const role = await createTestRole()
+
+            const ur = await testPrisma.userRoles.create({
+                data: { userId: user.id, roleId: role.id },
+            })
+            createdUserRoleIds.push(ur.id)
+
+            // 撤销该用户的这个角色
+            await testPrisma.userRoles.updateMany({
+                where: { id: ur.id },
+                data: { deletedAt: new Date() },
+            })
+
+            const { default: handler } = await import('../../../server/api/v1/admin/users/index.get')
+            const data = expectSuccess(
+                await handler(makeEvent({
+                    userId: 100,
+                    query: { roleId: String(role.id), pageSize: '50' },
+                }) as any),
+            )
+
+            // 应只命中那些"当前仍然拥有该角色"的用户——不能包含已撤销的 user
+            const hit = data.items.find((it: any) => it.id === user.id)
+            expect(hit).toBeUndefined()
+        })
+
+        it('软删后再次授予相同角色不会撞唯一约束（回归 #unique-soft-delete）', async () => {
+            // 复现 bug：userRoles 表有 @@unique([userId, roleId]) 不带 deletedAt，
+            // 旧实现先 updateMany 软删 + createMany 重插，会撞 PG 唯一约束。
+            // 修复后改为 upsert 复用旧行（清掉 deletedAt），不再插新行。
+            const user = await createTestUser()
+            createdUserIds.push(user.id)
+            const role = await createTestRole()
+
+            // 1. 首次分配：插一行 (userId, roleId)
+            const first = await testPrisma.userRoles.create({
+                data: { userId: user.id, roleId: role.id },
+            })
+            createdUserRoleIds.push(first.id)
+
+            // 2. 模拟"撤销"——软删
+            await testPrisma.userRoles.updateMany({
+                where: { userId: user.id, deletedAt: null },
+                data: { deletedAt: new Date(), updatedAt: new Date() },
+            })
+
+            // 3. 再次授予相同角色：用修复后的 upsert 模式
+            const upserted = await testPrisma.userRoles.upsert({
+                where: { idx_user_role_unique: { userId: user.id, roleId: role.id } },
+                create: { userId: user.id, roleId: role.id },
+                update: { deletedAt: null, updatedAt: new Date() },
+            })
+
+            // 4. 表里应只有一行 (userId, roleId)，且 deletedAt 已被清掉
+            expect(upserted.id).toBe(first.id)
+            expect(upserted.deletedAt).toBeNull()
+
+            const all = await testPrisma.userRoles.findMany({
+                where: { userId: user.id, roleId: role.id },
+            })
+            expect(all.length).toBe(1)
+            expect(all[0].deletedAt).toBeNull()
         })
 
         it('getUserPermissions 应返回用户的完整权限', async () => {

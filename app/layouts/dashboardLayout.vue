@@ -26,7 +26,7 @@
             <!-- logo -->
             <div class="flex items-center gap-2 md:hidden">
               <NuxtLink to="/dashboard" class="flex items-center gap-2">
-                <img src="/logo.svg" class="h-6 dark:invert" />
+                <BrandLogo size="md" />
                 <h1 class="text-xl font-bold">LexSeek｜法索 AI</h1>
               </NuxtLink>
             </div>
@@ -105,6 +105,7 @@ import DashboardNavMain from '~/components/dashboard/navMain.vue'
 import DashboardNavUser from '~/components/dashboard/navUser.vue'
 import DashboardNavUserRight from '~/components/dashboard/navUserRight.vue'
 import GeneralThemeToggle from '~/components/general/ThemeToggle.vue'
+import BrandLogo from '~/components/general/BrandLogo.vue'
 
 const sidebarTriggerRef = ref<InstanceType<typeof import("@/components/ui/sidebar").SidebarTrigger> | null>(null);
 

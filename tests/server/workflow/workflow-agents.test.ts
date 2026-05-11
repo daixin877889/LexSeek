@@ -392,7 +392,8 @@ describe('工作流 Agents', () => {
             expect(result).toHaveLength(1)
             expect(result[0].toolCallId).toBe('call-sub-1')
             expect(result[0].agentName).toBe('legal_analysis')
-            expect(result[0].threadId).toBe('session-004_sub_legal_analysis')
+            // threadId 后缀加 toolCallId，避免同 expert 多次调用复用 checkpoint（详见 threadState.ts:248-254 注释）
+            expect(result[0].threadId).toBe('session-004_sub_legal_analysis_call-sub-1')
             expect(result[0].messages).toHaveLength(2)
         })
 
