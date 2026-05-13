@@ -1,11 +1,11 @@
 <template>
   <AiChat title="案件分析" v-model:panel-mode="panelMode" v-model:thinking="thinkingEnabled" :messages="displayMessages"
-    :loading="stream.isLoading" :show-prompt="true" :show-task-queue="true" :todos="todos" :show-tool-interrupt="true"
+    :loading="streamLoading" :show-prompt="true" :show-task-queue="true" :todos="todos" :show-tool-interrupt="true"
     :prompt-disabled="isComplete" prompt-placeholder="输入补充信息或问题..." class="h-full" style="height: calc(100vh - 48px)"
     @submit="handlePromptSubmit" @tool-confirm="handleToolConfirm" @tool-reject="handleToolReject" @back="goBack">
     <template #right-panel>
       <CaseAnalysisResults :results="analysisResults" v-model:active-index="activeResultIndex" :show-regenerate="true"
-        :show-copy="true" :is-analyzing="stream.isLoading" @regenerate="handleRegenerate" />
+        :show-copy="true" :is-analyzing="streamLoading" @regenerate="handleRegenerate" />
     </template>
     <template #empty>
       <CaseAnalysisWelcome />
@@ -63,6 +63,9 @@ const stream = useStreamChat({
   initialValues: threadHistory?.values ?? undefined,
   initialSubThreads: threadHistory?.subAgentThreads ?? undefined,
 });
+
+// 顶层提取 ref：template 不会自动解包对象字段上的 ref（vue-tsc 局限）
+const streamLoading = stream.isLoading
 
 // 向子组件注入子 Agent 数据访问（供 AiToolRenderer 渲染 ask_*_expert 工具）
 provide('subAgentAccess', { subThreadsMap: stream.subThreadsMap })
