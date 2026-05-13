@@ -552,61 +552,70 @@ EOF
  * 验证：把全局文书模板等"系统资源"标记为 userId=NULL 后，
  * - ossUsageDao(任意 userId) 不再把它计入配额
  * - findOssFilesByUserIdDao(任意 userId) 不在列表中返回
+ * - findOrphanOssFilesDAO 不会把仍被 documentTemplates 引用的 NULL 文件当作孤儿误清理
  *
  * **Feature: system-files-decouple-from-cloud**
  * **Validates: spec §八 测试 2/3**
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
+import {
+    createTestUser,
+    createTestOssFile,
+    cleanupTestData,
+    createEmptyTestIds,
+    type TestIds,
+} from './test-db-helper'
 import { prisma } from '~~/server/utils/db'
-import { ossUsageDao, findOssFilesByUserIdDao, createOssFileDao } from '~~/server/services/files/ossFiles.dao'
+import {
+    ossUsageDao,
+    findOssFilesByUserIdDao,
+    findOrphanOssFilesDAO,
+} from '~~/server/services/files/ossFiles.dao'
 import { FileSource, OssFileStatus } from '#shared/types/file'
 
 describe('ossUsageDao / findOssFilesByUserIdDao 对系统级文件（userId=NULL）的处理', () => {
-    const createdOssFileIds: number[] = []
-    const createdUserIds: number[] = []
+    const testIds: TestIds = createEmptyTestIds()
+    const extraTemplateIds: number[] = []
 
     afterEach(async () => {
-        if (createdOssFileIds.length > 0) {
-            await prisma.ossFiles.deleteMany({ where: { id: { in: createdOssFileIds } } })
-            createdOssFileIds.length = 0
+        if (extraTemplateIds.length > 0) {
+            await prisma.documentTemplates.deleteMany({ where: { id: { in: extraTemplateIds } } })
+            extraTemplateIds.length = 0
         }
-        if (createdUserIds.length > 0) {
-            await prisma.users.deleteMany({ where: { id: { in: createdUserIds } } })
-            createdUserIds.length = 0
-        }
+        await cleanupTestData(testIds)
+        testIds.userIds.length = 0
+        testIds.ossFileIds.length = 0
     })
 
-    async function createTestUser() {
-        const phone = `199${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 100).toString().padStart(2, '0')}`
-        const u = await prisma.users.create({ data: { phone, password: 'test_pwd_hash', nickname: `测试用户_${phone}` } })
-        createdUserIds.push(u.id)
-        return u
-    }
-
-    async function makeOssFile(userId: number | null, size: number, fileName: string) {
-        const row = await createOssFileDao({
-            userId,
-            bucketName: 'test-bucket',
-            fileName,
-            filePath: `test/${Date.now()}_${fileName}`,
-            fileSize: size,
-            fileType: 'application/octet-stream',
-            source: FileSource.DOCUMENT_TEMPLATE,
-            status: OssFileStatus.UPLOADED,
-            encrypted: false,
+    /** helper 当前不支持 userId=null，所以系统级文件用 prisma 直写 */
+    async function makeSystemOssFile(size: number, fileName: string) {
+        const row = await prisma.ossFiles.create({
+            data: {
+                userId: null,
+                bucketName: 'test-bucket',
+                fileName,
+                filePath: `test/${Date.now()}_${Math.random()}_${fileName}`,
+                fileSize: size,
+                fileType: 'application/octet-stream',
+                source: FileSource.DOCUMENT_TEMPLATE,
+                status: OssFileStatus.UPLOADED,
+                encrypted: false,
+            },
         })
-        createdOssFileIds.push(row.id)
+        testIds.ossFileIds.push(row.id)
         return row
     }
 
     it('userId=NULL 的文件不计入任何用户配额', async () => {
         const user = await createTestUser()
+        testIds.userIds.push(user.id)
 
         // 用户自己的私有文件 200 字节
-        await makeOssFile(user.id, 200, `private_${Date.now()}.bin`)
+        const privateFile = await createTestOssFile(user.id, { fileSize: 200 })
+        testIds.ossFileIds.push(privateFile.id)
         // 系统级文件 1000 字节
-        await makeOssFile(null, 1000, `global_${Date.now()}.bin`)
+        await makeSystemOssFile(1000, `global_${Date.now()}.bin`)
 
         const usage = await ossUsageDao(user.id)
 
@@ -616,9 +625,11 @@ describe('ossUsageDao / findOssFilesByUserIdDao 对系统级文件（userId=NULL
 
     it('userId=NULL 的文件不出现在任何用户的云盘列表里', async () => {
         const user = await createTestUser()
+        testIds.userIds.push(user.id)
 
-        const privateFile = await makeOssFile(user.id, 100, `private_${Date.now()}.bin`)
-        await makeOssFile(null, 100, `global_${Date.now()}.bin`)
+        const privateFile = await createTestOssFile(user.id, { fileSize: 100 })
+        testIds.ossFileIds.push(privateFile.id)
+        await makeSystemOssFile(100, `global_${Date.now()}.bin`)
 
         const { files, total } = await findOssFilesByUserIdDao(user.id, { page: 1, pageSize: 50 })
 
@@ -627,15 +638,40 @@ describe('ossUsageDao / findOssFilesByUserIdDao 对系统级文件（userId=NULL
         expect(files[0]!.id).toBe(privateFile.id)
     })
 
-    it('同 user_id 下多个 userId=NULL 的文件不会触发复合唯一索引冲突（PG 默认 NULL DISTINCT）', async () => {
+    it('多个 userId=NULL 的文件不会触发复合唯一索引冲突（PG 17 默认 NULLS DISTINCT 假设）', async () => {
         // 关键回归：原索引 @@unique([userId, bucketName, filePath])，userId 改 nullable 后两条 NULL 行可以并存
-        const r1 = await makeOssFile(null, 100, `dup_${Date.now()}_1.bin`)
-        const r2 = await makeOssFile(null, 100, `dup_${Date.now()}_2.bin`)
+        // 若未来有人在迁移里给索引加 NULLS NOT DISTINCT，此用例将立即报错，提醒回滚
+        const r1 = await makeSystemOssFile(100, `dup_${Date.now()}_1.bin`)
+        const r2 = await makeSystemOssFile(100, `dup_${Date.now()}_2.bin`)
 
         expect(r1.id).not.toBe(r2.id)
     })
+
+    it('findOrphanOssFilesDAO 不会把"仍被 documentTemplates 引用的 NULL 归属文件"误判为孤儿', async () => {
+        // 业务场景：管理员上传的全局模板，ossFile.userId=NULL 但仍被 documentTemplates.ossFileId 引用
+        // 期望：孤儿扫描跳过这种文件
+        const ossFile = await makeSystemOssFile(100, `tpl_${Date.now()}.docx`)
+        const tpl = await prisma.documentTemplates.create({
+            data: {
+                name: `回归_${Date.now()}_${Math.random()}`,
+                category: 'litigation',
+                scope: 'global',
+                userId: null,
+                ossFileId: ossFile.id,
+                placeholders: [],
+                priority: 100,
+            },
+        })
+        extraTemplateIds.push(tpl.id)
+
+        const orphanIds = await findOrphanOssFilesDAO(500)
+
+        expect(orphanIds).not.toContain(ossFile.id)
+    })
 })
 ```
+
+> 关键复用：`createTestUser` / `createTestOssFile` / `cleanupTestData` / `createEmptyTestIds` 来自项目现有 `tests/server/files/test-db-helper.ts`（含 phone 并发安全、级联清理），不再自写。helper 不支持 `userId=null`（签名是 `userId: number`），所以系统级文件用 `prisma.ossFiles.create` 直写。
 
 - [ ] **Step 2: 跑测试**
 
@@ -644,7 +680,7 @@ describe('ossUsageDao / findOssFilesByUserIdDao 对系统级文件（userId=NULL
 npx vitest run tests/server/files/ossUsageDao.systemFiles.test.ts --reporter=verbose
 ```
 
-Expected：3 用例全 PASS。如果第三个 FAIL（unique 冲突），说明 PostgreSQL 版本启用了 `NULLS NOT DISTINCT`——需要立即停下来通知 reviewer，因为本设计依赖 PG 默认 `NULLS DISTINCT` 行为。
+Expected：4 用例全 PASS。如果第三个 FAIL（unique 冲突），说明 PostgreSQL 版本启用了 `NULLS NOT DISTINCT`——需要立即停下来通知 reviewer，因为本设计依赖 PG 默认 `NULLS DISTINCT` 行为。第四个 FAIL 说明 `findOrphanOssFilesDAO` 的 NOT EXISTS 引用扫描被改坏。
 
 - [ ] **Step 3: Commit**
 
@@ -680,6 +716,11 @@ EOF
  *   AND ossFile.userId IS NOT NULL（同时承担幂等保护：已置空的记录不会再被命中）
  *
  * 不限定 deletedAt：软删除记录虽然不影响显示和配额，但顺手搬掉保持数据一致。
+ *
+ * 为什么走 server/scripts/ 而不是 prisma/seeds/seedData.sql：
+ *   seedData.sql 是"新环境初始化的全量种子快照"，按项目数据库规则只允许 INSERT INTO，
+ *   且不包含 ossFiles 这类用户运行时数据。本次是**已上线环境**的存量数据一次性修正，
+ *   属于维护脚本范畴（与 migrateFillingDrafts.ts / rebuildLawEmbeddings.ts 同模式）。
  *
  * 用法：`npx tsx server/scripts/migrateGlobalTemplateOwnership.ts`
  */
@@ -797,10 +838,16 @@ EOF
 
 import { describe, it, expect, afterEach } from 'vitest'
 import { prisma } from '~~/server/utils/db'
-import { createOssFileDao } from '~~/server/services/files/ossFiles.dao'
+import {
+    createTestUser,
+    createTestOssFile,
+    cleanupTestData,
+    createEmptyTestIds,
+    type TestIds,
+} from '../files/test-db-helper'
 import { FileSource, OssFileStatus } from '#shared/types/file'
 
-// 不直接 import 脚本（脚本带 process.exit）；改成 export 出来的纯函数会更可测，
+// 不直接 import 脚本（脚本带 process.exit）；改成纯函数会更可测，
 // 这里取折中：把脚本核心逻辑提到本测试文件内重新实现，但与脚本保持 1:1 对应。
 async function runMigration() {
     const globalTemplates = await prisma.documentTemplates.findMany({
@@ -827,45 +874,56 @@ async function runMigration() {
 }
 
 describe('migrateGlobalTemplateOwnership', () => {
-    const ossFileIds: number[] = []
+    const testIds: TestIds = createEmptyTestIds()
     const templateIds: number[] = []
-    const userIds: number[] = []
 
     afterEach(async () => {
-        await prisma.documentTemplates.deleteMany({ where: { id: { in: templateIds } } })
-        await prisma.ossFiles.deleteMany({ where: { id: { in: ossFileIds } } })
-        await prisma.users.deleteMany({ where: { id: { in: userIds } } })
-        ossFileIds.length = 0
-        templateIds.length = 0
-        userIds.length = 0
+        if (templateIds.length > 0) {
+            await prisma.documentTemplates.deleteMany({ where: { id: { in: templateIds } } })
+            templateIds.length = 0
+        }
+        await cleanupTestData(testIds)
+        testIds.userIds.length = 0
+        testIds.ossFileIds.length = 0
     })
 
-    async function seedAdmin() {
-        const phone = `199${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 100).toString().padStart(2, '0')}`
-        const u = await prisma.users.create({ data: { phone, password: 'x', nickname: `管理员_${phone}` } })
-        userIds.push(u.id)
-        return u
-    }
-
-    async function seedTemplate(opts: { scope: 'global' | 'user'; ossUserId: number | null; templateUserId: number | null }) {
-        const oss = await createOssFileDao({
-            userId: opts.ossUserId,
-            bucketName: 'b',
-            fileName: `t_${Date.now()}_${Math.random()}.docx`,
-            filePath: `path/${Date.now()}_${Math.random()}.docx`,
-            fileSize: 100,
-            fileType: 'application/x-docx',
+    /** 造一个全局模板（含 ossFile）—— scope='global' + ossFile.userId=管理员，模拟改造前的存量脏数据 */
+    async function seedGlobalTemplateAttachedToAdmin(adminId: number) {
+        const oss = await createTestOssFile(adminId, {
+            fileName: `tpl_${Date.now()}_${Math.random()}.docx`,
             source: FileSource.DOCUMENT_TEMPLATE,
             status: OssFileStatus.UPLOADED,
-            encrypted: false,
         })
-        ossFileIds.push(oss.id)
+        testIds.ossFileIds.push(oss.id)
         const tpl = await prisma.documentTemplates.create({
             data: {
                 name: `tpl_${Date.now()}_${Math.random()}`,
                 category: 'litigation',
-                scope: opts.scope,
-                userId: opts.templateUserId,
+                scope: 'global',
+                userId: null,
+                ossFileId: oss.id,
+                placeholders: [],
+                priority: 100,
+            },
+        })
+        templateIds.push(tpl.id)
+        return { template: tpl, ossFile: oss }
+    }
+
+    /** 造一个个人模板（不应被迁移触达） */
+    async function seedPersonalTemplate(ownerId: number) {
+        const oss = await createTestOssFile(ownerId, {
+            fileName: `tpl_${Date.now()}_${Math.random()}.docx`,
+            source: FileSource.DOCUMENT_TEMPLATE,
+            status: OssFileStatus.UPLOADED,
+        })
+        testIds.ossFileIds.push(oss.id)
+        const tpl = await prisma.documentTemplates.create({
+            data: {
+                name: `tpl_${Date.now()}_${Math.random()}`,
+                category: 'litigation',
+                scope: 'user',
+                userId: ownerId,
                 ossFileId: oss.id,
                 placeholders: [],
                 priority: 100,
@@ -876,8 +934,9 @@ describe('migrateGlobalTemplateOwnership', () => {
     }
 
     it('全局模板对应 ossFile.userId 被置 NULL', async () => {
-        const admin = await seedAdmin()
-        const { ossFile } = await seedTemplate({ scope: 'global', ossUserId: admin.id, templateUserId: null })
+        const admin = await createTestUser()
+        testIds.userIds.push(admin.id)
+        const { ossFile } = await seedGlobalTemplateAttachedToAdmin(admin.id)
 
         const r = await runMigration()
 
@@ -887,8 +946,9 @@ describe('migrateGlobalTemplateOwnership', () => {
     })
 
     it('用户个人模板对应 ossFile.userId 保持不变', async () => {
-        const user = await seedAdmin() // 复用造用户
-        const { ossFile } = await seedTemplate({ scope: 'user', ossUserId: user.id, templateUserId: user.id })
+        const user = await createTestUser()
+        testIds.userIds.push(user.id)
+        const { ossFile } = await seedPersonalTemplate(user.id)
 
         await runMigration()
 
@@ -897,8 +957,9 @@ describe('migrateGlobalTemplateOwnership', () => {
     })
 
     it('重复执行幂等，第二次不改任何行', async () => {
-        const admin = await seedAdmin()
-        await seedTemplate({ scope: 'global', ossUserId: admin.id, templateUserId: null })
+        const admin = await createTestUser()
+        testIds.userIds.push(admin.id)
+        await seedGlobalTemplateAttachedToAdmin(admin.id)
 
         const first = await runMigration()
         const second = await runMigration()
@@ -908,6 +969,8 @@ describe('migrateGlobalTemplateOwnership', () => {
     })
 })
 ```
+
+> 关键复用：跨目录 `import` 同一个 `tests/server/files/test-db-helper.ts` — 不同测试目录共用一份 user/ossFile 工厂，符合 DRY。
 
 > 测试不直接 import 脚本（脚本含 `process.exit`），而是把脚本核心 SQL 1:1 重写为函数后跑——这是项目内 `tests/server/agent-platform/scripts/*` 的常见模式。
 
@@ -946,13 +1009,13 @@ EOF
 
 ```markdown
 
-## 系统级文件落库约定
+## 系统级文件落库（如有此类场景时参考）
 
-"管理员后台上传的、面向全体用户的系统资源"（如全局文书模板）在 `ossFiles` 表落库时：
+`ossFiles.userId` 已设计为可空。当一份文件是"面向全体用户的系统资源"（如全局文书模板）而非任何用户的私有云盘文件时：
 
-- `userId` 必须写 `NULL`（表示"系统所有，不属于任何个人云盘"）
+- 落库时 `userId` 写 `NULL`，表示"系统所有，不属于任何个人云盘"
 - 用户云盘列表 `findOssFilesByUserIdDao` 与配额计算 `ossUsageDao` 按 `WHERE userId = me` 过滤，NULL 行天然被排除
-- 决策必须在 API handler 层显式表态（管理端 handler 传 `null`，用户端 handler 传 `user.id`），**不允许**在 service 内部用 `isAdmin` 分支判定
+- 决策在 API handler 层显式表态（管理端 handler 传 `null`，用户端 handler 传 `user.id`），与"管理端 / 用户端 API 物理隔离"铁律一致
 
 参考实现：`server/api/v1/admin/document-templates/index.post.ts` + `server/agents/document/documentTemplate.service.ts`。
 ```
@@ -1002,27 +1065,35 @@ npx vitest run tests/server/assistant/document/documentTemplate.service.test.ts 
 
 Expected：本次新增 / 修改的测试全部 PASS。
 
-- [ ] **Step 4: 端到端验证（浏览器）— 管理员账号视角**
+- [ ] **Step 4: 端到端验证（浏览器）— 双视角**
 
 启动 dev：
 ```bash
 bun dev
 ```
 
-在浏览器执行以下步骤：
+**A. 管理员视角（验证不再污染管理员云盘）**：
 1. 用超管账号登录
-2. 进入 `/admin/document-templates`，上传一份新的全局模板
+2. 进入 `/admin/document-templates`，上传一份新的全局模板（记下文件大小）
 3. 同账号进入 `/dashboard/files`（自己的云盘）
 4. **核心断言**：刚上传的全局模板**不应**出现在云盘列表里
 5. **核心断言**：右上角/侧栏的配额数字**不应**包含这个模板的大小
 
-如果两个断言任一失败：回到 Task 2/3 排查 handler 调用参数是否真的传了 `ownerUserId: null`，并检查 ossFiles 行 `SELECT user_id FROM oss_files WHERE id = <新文件 id>` 是否为 NULL。
+**B. 普通用户视角（回归确认普通用户依然看不到全局模板）**：
+6. 切换到任意普通用户账号登录
+7. 进入 `/dashboard/files`
+8. **核心断言**：列表里不出现任何全局模板的文件
+9. 进入 `/dashboard/document` 选择文书模板 — **依然能看到全局模板**作为可选项（业务功能未受影响）
 
-> 受测试条件限制无法启动浏览器时，可用 SQL 直接验证：
-> ```sql
-> SELECT id, user_id, file_name, source FROM oss_files WHERE source = 'documentTemplate' ORDER BY id DESC LIMIT 5;
-> ```
-> 期望最近一条管理端上传的全局模板 `user_id` 为 NULL。
+任何一条断言失败：
+- 回到 Task 2/3/4 检查 handler 调用参数是否真传了正确的 `ownerUserId`
+- 用 SQL 直接验证：
+  ```sql
+  SELECT id, user_id, file_name, source FROM oss_files 
+  WHERE source = 'documentTemplate' AND user_id IS NULL 
+  ORDER BY id DESC LIMIT 5;
+  ```
+  期望本次管理端新上传的全局模板 `user_id` 为 NULL。
 
 - [ ] **Step 5: 最终 commit（可选 — 若 typecheck/test 没有产生新 diff，跳过）**
 
