@@ -35,6 +35,29 @@ let isInitialized = false
 let isInitializing = false
 
 /**
+ * 共享 setup 串行化锁
+ *
+ * PostgresSaver 与 PostgresStore 内部 setup 都会执行 `CREATE SCHEMA IF NOT EXISTS langgraph`。
+ * PG 该语句不是原子的（TOCTOU race），并发执行时后到的连接会撞 23505
+ * (`pg_namespace_nspname_index`) 唯一约束。
+ *
+ * 业务侧（如 contractReviewMainAgent.runContractReviewChat）经常用
+ * `Promise.all([getCheckpointer(), getStore()])` 并发拉起两者，触发该竞争。
+ *
+ * 这里用一个共享 mutex 把两者的 setup 串行化：第一个完整跑完（包括 schema 创建）后，
+ * 第二个的 `CREATE SCHEMA IF NOT EXISTS` 进入 NOOP 路径，不再触发 TOCTOU。
+ *
+ * mutex 用 `.catch(() => undefined)` 兜底，避免某次 setup 失败把后续调用全部毒化。
+ */
+let setupMutex: Promise<unknown> = Promise.resolve()
+
+function serializeSetup<T>(fn: () => Promise<T>): Promise<T> {
+    const next = setupMutex.catch(() => undefined).then(fn)
+    setupMutex = next
+    return next
+}
+
+/**
  * 获取数据库连接字符串
  * @returns 数据库连接字符串
  * @throws 如果 DATABASE_URL 未配置
@@ -90,7 +113,8 @@ export async function getCheckpointer(): Promise<PostgresSaver> {
 
         // 首次使用时初始化数据库表结构
         // setup() 会创建必要的检查点表（如果不存在）
-        await checkpointerInstance.setup()
+        // 走共享 mutex 与 PostgresStore.setup 串行化，避免并发 CREATE SCHEMA TOCTOU 竞争
+        await serializeSetup(() => checkpointerInstance!.setup())
 
         isInitialized = true
         logger.info('LangGraph PostgresSaver 检查点器初始化完成')
@@ -169,7 +193,8 @@ export async function getStore(): Promise<PostgresStore> {
         isStoreInitializing = true
         const databaseUrl = getDatabaseUrl()
         storeInstance = PostgresStore.fromConnString(databaseUrl, { schema: 'langgraph' })
-        await storeInstance.setup()
+        // 走共享 mutex 与 PostgresSaver.setup 串行化，避免并发 CREATE SCHEMA TOCTOU 竞争
+        await serializeSetup(() => storeInstance!.setup())
         isStoreInitialized = true
         logger.info('LangGraph PostgresStore 初始化完成')
         return storeInstance
