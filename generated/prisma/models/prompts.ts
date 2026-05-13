@@ -282,6 +282,7 @@ export type promptsOrderByWithRelationInput = {
 
 export type promptsWhereUniqueInput = Prisma.AtLeast<{
   id?: number
+  name_type_version?: Prisma.promptsNameTypeVersionCompoundUniqueInput
   AND?: Prisma.promptsWhereInput | Prisma.promptsWhereInput[]
   OR?: Prisma.promptsWhereInput[]
   NOT?: Prisma.promptsWhereInput | Prisma.promptsWhereInput[]
@@ -295,7 +296,7 @@ export type promptsWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"prompts"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"prompts"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"prompts"> | Date | string | null
-}, "id">
+}, "id" | "name_type_version">
 
 export type promptsOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -426,6 +427,12 @@ export type promptsUncheckedUpdateManyInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+}
+
+export type promptsNameTypeVersionCompoundUniqueInput = {
+  name: string
+  type: string
+  version: string
 }
 
 export type promptsCountOrderByAggregateInput = {

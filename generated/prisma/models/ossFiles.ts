@@ -253,7 +253,7 @@ export type ossFilesGroupByArgs<ExtArgs extends runtime.Types.Extensions.Interna
 
 export type OssFilesGroupByOutputType = {
   id: number
-  userId: number
+  userId: number | null
   bucketName: string
   fileName: string
   filePath: string | null
@@ -294,7 +294,7 @@ export type ossFilesWhereInput = {
   OR?: Prisma.ossFilesWhereInput[]
   NOT?: Prisma.ossFilesWhereInput | Prisma.ossFilesWhereInput[]
   id?: Prisma.IntFilter<"ossFiles"> | number
-  userId?: Prisma.IntFilter<"ossFiles"> | number
+  userId?: Prisma.IntNullableFilter<"ossFiles"> | number | null
   bucketName?: Prisma.StringFilter<"ossFiles"> | string
   fileName?: Prisma.StringFilter<"ossFiles"> | string
   filePath?: Prisma.StringNullableFilter<"ossFiles"> | string | null
@@ -312,7 +312,7 @@ export type ossFilesWhereInput = {
 
 export type ossFilesOrderByWithRelationInput = {
   id?: Prisma.SortOrder
-  userId?: Prisma.SortOrder
+  userId?: Prisma.SortOrderInput | Prisma.SortOrder
   bucketName?: Prisma.SortOrder
   fileName?: Prisma.SortOrder
   filePath?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -334,7 +334,7 @@ export type ossFilesWhereUniqueInput = Prisma.AtLeast<{
   AND?: Prisma.ossFilesWhereInput | Prisma.ossFilesWhereInput[]
   OR?: Prisma.ossFilesWhereInput[]
   NOT?: Prisma.ossFilesWhereInput | Prisma.ossFilesWhereInput[]
-  userId?: Prisma.IntFilter<"ossFiles"> | number
+  userId?: Prisma.IntNullableFilter<"ossFiles"> | number | null
   bucketName?: Prisma.StringFilter<"ossFiles"> | string
   fileName?: Prisma.StringFilter<"ossFiles"> | string
   filePath?: Prisma.StringNullableFilter<"ossFiles"> | string | null
@@ -352,7 +352,7 @@ export type ossFilesWhereUniqueInput = Prisma.AtLeast<{
 
 export type ossFilesOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
-  userId?: Prisma.SortOrder
+  userId?: Prisma.SortOrderInput | Prisma.SortOrder
   bucketName?: Prisma.SortOrder
   fileName?: Prisma.SortOrder
   filePath?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -378,7 +378,7 @@ export type ossFilesScalarWhereWithAggregatesInput = {
   OR?: Prisma.ossFilesScalarWhereWithAggregatesInput[]
   NOT?: Prisma.ossFilesScalarWhereWithAggregatesInput | Prisma.ossFilesScalarWhereWithAggregatesInput[]
   id?: Prisma.IntWithAggregatesFilter<"ossFiles"> | number
-  userId?: Prisma.IntWithAggregatesFilter<"ossFiles"> | number
+  userId?: Prisma.IntNullableWithAggregatesFilter<"ossFiles"> | number | null
   bucketName?: Prisma.StringWithAggregatesFilter<"ossFiles"> | string
   fileName?: Prisma.StringWithAggregatesFilter<"ossFiles"> | string
   filePath?: Prisma.StringNullableWithAggregatesFilter<"ossFiles"> | string | null
@@ -395,7 +395,7 @@ export type ossFilesScalarWhereWithAggregatesInput = {
 }
 
 export type ossFilesCreateInput = {
-  userId: number
+  userId?: number | null
   bucketName: string
   fileName: string
   filePath?: string | null
@@ -413,7 +413,7 @@ export type ossFilesCreateInput = {
 
 export type ossFilesUncheckedCreateInput = {
   id?: number
-  userId: number
+  userId?: number | null
   bucketName: string
   fileName: string
   filePath?: string | null
@@ -430,7 +430,7 @@ export type ossFilesUncheckedCreateInput = {
 }
 
 export type ossFilesUpdateInput = {
-  userId?: Prisma.IntFieldUpdateOperationsInput | number
+  userId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   bucketName?: Prisma.StringFieldUpdateOperationsInput | string
   fileName?: Prisma.StringFieldUpdateOperationsInput | string
   filePath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -448,7 +448,7 @@ export type ossFilesUpdateInput = {
 
 export type ossFilesUncheckedUpdateInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
-  userId?: Prisma.IntFieldUpdateOperationsInput | number
+  userId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   bucketName?: Prisma.StringFieldUpdateOperationsInput | string
   fileName?: Prisma.StringFieldUpdateOperationsInput | string
   filePath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -466,7 +466,7 @@ export type ossFilesUncheckedUpdateInput = {
 
 export type ossFilesCreateManyInput = {
   id?: number
-  userId: number
+  userId?: number | null
   bucketName: string
   fileName: string
   filePath?: string | null
@@ -483,7 +483,7 @@ export type ossFilesCreateManyInput = {
 }
 
 export type ossFilesUpdateManyMutationInput = {
-  userId?: Prisma.IntFieldUpdateOperationsInput | number
+  userId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   bucketName?: Prisma.StringFieldUpdateOperationsInput | string
   fileName?: Prisma.StringFieldUpdateOperationsInput | string
   filePath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -501,7 +501,7 @@ export type ossFilesUpdateManyMutationInput = {
 
 export type ossFilesUncheckedUpdateManyInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
-  userId?: Prisma.IntFieldUpdateOperationsInput | number
+  userId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   bucketName?: Prisma.StringFieldUpdateOperationsInput | string
   fileName?: Prisma.StringFieldUpdateOperationsInput | string
   filePath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -684,9 +684,9 @@ export type $ossFilesPayload<ExtArgs extends runtime.Types.Extensions.InternalAr
      */
     id: number
     /**
-     * 关联的用户ID，外键关联用户表
+     * 文件归属人：NULL = 系统所有（不属于任何个人云盘，如全局文书模板）；非空 = 该用户的私有云盘文件
      */
-    userId: number
+    userId: number | null
     /**
      * 存储桶名称 
      */
