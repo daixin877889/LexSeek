@@ -160,3 +160,13 @@ DELETE /api/v1/admin/<module>/:id
 ### 参考实现
 
 `server/api/v1/assistant/document/templates*`（用户端）与 `server/api/v1/admin/document-templates/**`（管理端）即按此规则实现，可直接对照。
+
+## 系统级文件落库（如有此类场景时参考）
+
+`ossFiles.userId` 已设计为可空。当一份文件是"面向全体用户的系统资源"（如全局文书模板）而非任何用户的私有云盘文件时：
+
+- 落库时 `userId` 写 `NULL`，表示"系统所有，不属于任何个人云盘"
+- 用户云盘列表 `findOssFilesByUserIdDao` 与配额计算 `ossUsageDao` 按 `WHERE userId = me` 过滤，NULL 行天然被排除
+- 决策在 API handler 层显式表态（管理端 handler 传 `null`，用户端 handler 传 `user.id`），与"管理端 / 用户端 API 物理隔离"铁律一致
+
+参考实现：`server/api/v1/admin/document-templates/index.post.ts` + `server/agents/document/documentTemplate.service.ts`。
