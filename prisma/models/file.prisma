@@ -2,8 +2,8 @@
 model ossFiles {
   /// ID，主键，自增
   id               Int       @id @default(autoincrement())
-  /// 关联的用户ID，外键关联用户表
-  userId           Int       @map("user_id")
+  /// 文件归属人：NULL = 系统所有（不属于任何个人云盘，如全局文书模板）；非空 = 该用户的私有云盘文件
+  userId           Int?      @map("user_id")
   /// 存储桶名称 
   bucketName       String    @map("bucket_name") @db.VarChar(100)
   /// 文件名称
