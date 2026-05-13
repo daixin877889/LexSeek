@@ -19,7 +19,7 @@
 
     <!-- 欢迎语 -->
     <div class="mb-8">
-      <h1 class="text-3xl font-bold mb-2 text-foreground">欢迎回来，{{ userStore.userInfo?.name || '戴鑫' }}</h1>
+      <h1 class="text-3xl font-bold mb-2 text-foreground">欢迎回来，{{ userStore.userInfo?.name || '' }}</h1>
       <p class="text-muted-foreground">查看您的案件分析概览和最近活动</p>
     </div>
 
