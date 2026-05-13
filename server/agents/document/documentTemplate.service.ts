@@ -29,8 +29,10 @@ const MAX_FILE_SIZE = 20 * 1024 * 1024
 // ==================== 类型 ====================
 
 export interface CreateDocumentTemplateParams {
-    userId: number
-    isAdmin: boolean
+    /** 归属决策：'global' = 系统所有（不占配额、不入云盘）；'user' = 用户私有（占配额、入云盘） */
+    scope: 'global' | 'user'
+    /** 归属人 ID。scope='global' 时必须为 null；scope='user' 时必须为正整数 */
+    ownerUserId: number | null
     file: Buffer
     fileName: string
     fileSize: number
@@ -52,6 +54,15 @@ type ServiceResult = { templateId: number } | { error: string; code: number }
 export async function createDocumentTemplateService(
     params: CreateDocumentTemplateParams,
 ): Promise<ServiceResult> {
+    // ---- 内部不变量自卫：scope 与 ownerUserId 来自 handler，理论上一定一致；
+    //      若出现矛盾说明是 handler bug（unreachable），抛 Error 让上层 500，不走业务错误码
+    if (params.scope === 'global' && params.ownerUserId !== null) {
+        throw new Error('[createDocumentTemplateService] invariant: scope=global 时 ownerUserId 必须为 null')
+    }
+    if (params.scope === 'user' && params.ownerUserId == null) {
+        throw new Error('[createDocumentTemplateService] invariant: scope=user 时 ownerUserId 不能为空')
+    }
+
     if (params.fileSize > MAX_FILE_SIZE) {
         return { error: '文件不能超过 20MB', code: 413 }
     }
@@ -72,18 +83,18 @@ export async function createDocumentTemplateService(
         return { error: `模板占位符不合法：${compileError}。请确认所有占位符都使用双花括号 {{name}} 格式。`, code: 400 }
     }
 
-    if (params.isAdmin) {
-        return uploadAndCreate({ params, scope: 'global', userId: null, placeholders })
+    if (params.scope === 'global') {
+        return uploadAndCreate({ params, placeholders })
     }
 
-    // 配额校验与写入在事务内串行，防止并发超额
+    // scope='user'：配额校验与写入在事务内串行，防止并发超额
     return prisma.$transaction(async (tx) => {
-        const count = await countUserTemplatesDAO(params.userId, tx)
+        const count = await countUserTemplatesDAO(params.ownerUserId!, tx)
         if (count >= MAX_PRIVATE_TEMPLATES) {
             return { error: `私人模板已达上限 ${MAX_PRIVATE_TEMPLATES} 个`, code: 403 }
         }
 
-        return uploadAndCreate({ params, scope: 'user', userId: params.userId, placeholders, tx })
+        return uploadAndCreate({ params, placeholders, tx })
     })
 }
 
@@ -91,21 +102,19 @@ export async function createDocumentTemplateService(
 
 async function uploadAndCreate(opts: {
     params: CreateDocumentTemplateParams
-    scope: 'user' | 'global'
-    userId: number | null
     placeholders: Placeholder[]
     tx?: Prisma.TransactionClient
 }): Promise<ServiceResult> {
-    const { params, scope, userId, placeholders, tx } = opts
+    const { params, placeholders, tx } = opts
 
     const timestamp = Date.now()
     const ossPath =
-        scope === 'user'
-            ? `users/${params.userId}/templates/${timestamp}_${params.fileName}`
+        params.scope === 'user'
+            ? `users/${params.ownerUserId}/templates/${timestamp}_${params.fileName}`
             : `global-templates/${timestamp}_${params.fileName}`
 
-    // userId=null 时（admin global 上传）走系统默认存储配置
-    const userIdForStorage = userId ?? undefined
+    // ownerUserId=null（scope='global'）走系统默认存储配置
+    const userIdForStorage = params.ownerUserId ?? undefined
 
     const [uploadResult, storageConfig] = await Promise.all([
         uploadFileService(ossPath, params.file, {
@@ -117,10 +126,10 @@ async function uploadAndCreate(opts: {
 
     const bucketName = storageConfig?.bucket ?? ''
 
-    // ossFiles.userId 是 NOT NULL 约束，admin 上传时使用其自身 userId（与 documentTemplate.userId=null 区分）
+    // scope='global' 时 ossFile.userId=null（系统级文件，不入云盘列表）
     const ossFile = await createOssFileDao(
         {
-            userId: params.userId,
+            userId: params.ownerUserId,
             bucketName,
             fileName: params.fileName,
             filePath: uploadResult.name,
@@ -138,8 +147,8 @@ async function uploadAndCreate(opts: {
         {
             name: params.name,
             category: params.category,
-            scope,
-            userId,
+            scope: params.scope,
+            userId: params.ownerUserId,
             ossFileId: ossFile.id,
             placeholders,
             description: params.description,
