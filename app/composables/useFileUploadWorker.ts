@@ -99,7 +99,10 @@ export const useFileUploadWorker = () => {
 
         case 'success': {
           const data = response.data || {}
-          const callbackOk = data?.success !== false
+          // 触发兜底的两种信号：
+          //   data.success === false  → callback 收到但业务异常
+          //   data.__callbackFailed   → worker 翻译的 OSS HTTP 203（callback 未送达）
+          const callbackOk = data?.success !== false && data?.__callbackFailed !== true
 
           if (callbackOk) {
             task.callbacks.onSuccess?.(data)

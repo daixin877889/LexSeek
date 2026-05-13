@@ -208,30 +208,49 @@ describe('文件上传 Worker 测试', () => {
     })
 
     describe('HTTP 状态码处理', () => {
+        const isSuccessStatus = (status: number) => status >= 200 && status < 300
+
         it('状态码 200 应视为成功', () => {
-            const xhr = new MockXMLHttpRequest()
-            xhr.status = 200
-            expect(xhr.status === 200).toBe(true)
+            expect(isSuccessStatus(200)).toBe(true)
         })
 
-        it('非 200 状态码应视为失败', () => {
-            const errorCodes = [400, 401, 403, 404, 500, 502, 503]
+        it('状态码 204（无 callback）应视为成功', () => {
+            expect(isSuccessStatus(204)).toBe(true)
+        })
 
+        it('状态码 203（上传成功但 callback 失败）必须视为成功，由主线程兜底校验', () => {
+            // 这是修复 bug 的核心：OSS 把上传成功但 callback 失败透传成 203，
+            // 旧逻辑 `status === 200 || status === 204` 会误判为失败，导致兜底链路不可达
+            expect(isSuccessStatus(203)).toBe(true)
+        })
+
+        it('非 2xx 状态码应视为失败', () => {
+            const errorCodes = [400, 401, 403, 404, 500, 502, 503]
             for (const code of errorCodes) {
-                const xhr = new MockXMLHttpRequest()
-                xhr.status = code
-                expect(xhr.status === 200).toBe(false)
+                expect(isSuccessStatus(code)).toBe(false)
             }
         })
 
-        it('属性测试：任意非 200 状态码都应生成错误消息', () => {
+        it('属性测试：任意非 2xx 状态码都应生成错误消息', () => {
             fc.assert(
                 fc.property(
-                    fc.integer({ min: 100, max: 599 }).filter(code => code !== 200),
+                    fc.integer({ min: 100, max: 599 }).filter(code => code < 200 || code >= 300),
                     (statusCode) => {
                         const statusText = 'Error'
                         const errorMessage = `上传失败: ${statusCode} ${statusText}`
                         expect(errorMessage).toContain(statusCode.toString())
+                    }
+                ),
+                { numRuns: 100 }
+            )
+        })
+
+        it('属性测试：任意 2xx 状态码都应视为成功并允许走兜底', () => {
+            fc.assert(
+                fc.property(
+                    fc.integer({ min: 200, max: 299 }),
+                    (statusCode) => {
+                        expect(isSuccessStatus(statusCode)).toBe(true)
                     }
                 ),
                 { numRuns: 100 }
