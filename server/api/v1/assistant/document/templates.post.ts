@@ -55,8 +55,8 @@ export default defineEventHandler(async (event) => {
     const mimeType = fileItem.type ?? 'application/octet-stream'
 
     const result = await createDocumentTemplateService({
-        userId: user.id,
-        isAdmin: false, // 用户端接口：一律按 user scope 处理
+        scope: 'user',
+        ownerUserId: user.id, // 用户端：模板归属当前用户，受配额限制
         file: fileItem.data,
         fileName,
         fileSize,
