@@ -7,10 +7,15 @@ interface PendingEvent {
   event: AgentEvent
   timestamp: number
 }
-const config = useRuntimeConfig()
 const pendingEvents: PendingEvent[] = []
-const PENDING_QUEUE_MAX = config.agent.pendingQueueMax
-const PENDING_QUEUE_TTL_MS = config.agent.pendingQueueTtlMs
+// 动态从 runtimeConfig 读取队列上限：避免模块顶层求值后被 freeze，
+// 让测试可以通过 vi.stubGlobal('useRuntimeConfig', ...) 注入测试值。
+function getPendingQueueMax(): number {
+  return useRuntimeConfig().agent.pendingQueueMax
+}
+function getPendingQueueTtlMs(): number {
+  return useRuntimeConfig().agent.pendingQueueTtlMs
+}
 
 function isRedisReady(): boolean {
   try {
@@ -24,7 +29,7 @@ function isRedisReady(): boolean {
 
 function enqueuePending(event: AgentEvent): void {
   // 超限时只保留 status_change 类型
-  if (pendingEvents.length >= PENDING_QUEUE_MAX) {
+  if (pendingEvents.length >= getPendingQueueMax()) {
     if (event.type !== 'status_change') return
     // 移除最早的非 status_change 事件腾出空间
     const idx = pendingEvents.findIndex(e => e.event.type !== 'status_change')
@@ -37,7 +42,8 @@ function enqueuePending(event: AgentEvent): void {
 function drainExpired(): void {
   const now = Date.now()
   let removed = 0
-  while (pendingEvents.length > 0 && now - pendingEvents[0]!.timestamp > PENDING_QUEUE_TTL_MS) {
+  const ttlMs = getPendingQueueTtlMs()
+  while (pendingEvents.length > 0 && now - pendingEvents[0]!.timestamp > ttlMs) {
     pendingEvents.shift()
     removed++
   }

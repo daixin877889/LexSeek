@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { AgentStreamEvent, AgentStatusEvent } from '#shared/types/agentRun'
 
+// 队列上限通过 .env.testing 中 NUXT_AGENT_PENDING_QUEUE_MAX=1000 注入；
+// 不要用 vi.stubGlobal('useRuntimeConfig', ...) —— bridge 模块的 useRuntimeConfig
+// 来自 #imports 虚拟模块，不会被 globalThis stub 替换。
+
 // Mock redis.ts
 const mockPublish = vi.fn().mockResolvedValue(1)
 const mockXadd = vi.fn().mockResolvedValue('1-0')
