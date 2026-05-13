@@ -388,7 +388,7 @@ describe('文书模板 CRUD API', () => {
             expect(res.data.templateId).toBe(101)
         })
 
-        it('普通用户上传时 isAdmin=false 传给 service', async () => {
+        it('普通用户上传时 scope=user / ownerUserId=user.id 传给 service', async () => {
             const user = await createTestUser()
             userIds.push(user.id)
 
@@ -399,11 +399,11 @@ describe('文书模板 CRUD API', () => {
                 }) as any,
             )
             expect(mockCreateService).toHaveBeenCalledWith(
-                expect.objectContaining({ isAdmin: false }),
+                expect.objectContaining({ scope: 'user', ownerUserId: user.id }),
             )
         })
 
-        it('用户端接口：super_admin 上传也强制 isAdmin=false（改走 admin 接口才能建全局模板）', async () => {
+        it('用户端接口：super_admin 上传也强制 scope=user / ownerUserId=user.id（改走 admin 接口才能建全局模板）', async () => {
             const user = await createTestUser()
             userIds.push(user.id)
 
@@ -417,7 +417,7 @@ describe('文书模板 CRUD API', () => {
                 }) as any,
             )
             expect(mockCreateService).toHaveBeenCalledWith(
-                expect.objectContaining({ isAdmin: false }),
+                expect.objectContaining({ scope: 'user', ownerUserId: user.id }),
             )
         })
 
@@ -838,7 +838,7 @@ describe('文书模板 CRUD API', () => {
             expect(res.code).toBe(401)
         })
 
-        it('强制 isAdmin=true 传给 service（创建全局模板）', async () => {
+        it('强制 scope=global / ownerUserId=null 传给 service（创建全局模板，不入云盘）', async () => {
             const admin = await createTestUser()
             userIds.push(admin.id)
 
@@ -849,7 +849,7 @@ describe('文书模板 CRUD API', () => {
                 }) as any,
             )
             expect(mockCreateService).toHaveBeenCalledWith(
-                expect.objectContaining({ isAdmin: true }),
+                expect.objectContaining({ scope: 'global', ownerUserId: null }),
             )
         })
     })
