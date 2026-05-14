@@ -52,3 +52,87 @@ export async function fetchLPRFromChinamoneyService(opts: {
     }
     return response.records
 }
+
+import {
+    createLPRSyncLogDAO,
+    updateLPRSyncLogDAO,
+    findLatestLPRSyncLogDAO,
+} from '~~/server/services/rates/lprSyncLog.dao'
+import { createLPRRateService } from '~~/server/services/rates/rates.service'
+import { prisma } from '~~/server/utils/db'
+
+export interface SyncLPRResult {
+    fetched: number
+    inserted: number
+    logId: number
+}
+
+/**
+ * 同步 chinamoney LPR 数据到 lpr_rates 表
+ *
+ * 流程：1) 写 running log → 2) fetch → 3) 逐条去重后 createLPRRateService → 4) 标记成功
+ * 任何步骤失败：catch + 写 failure log + 透传原错误
+ *
+ * @param opts.triggeredBy 触发方式，cron 任务传 'auto'，管理后台按钮传 'manual'
+ * @param opts.operatorId 手动触发时记录 admin user id
+ */
+export async function syncLPRRatesService(opts: {
+    triggeredBy: 'auto' | 'manual'
+    operatorId?: number
+}): Promise<SyncLPRResult> {
+    const startedAt = new Date()
+    const rangeEnd = new Date()
+    const rangeStart = new Date(Date.now() - 30 * 86400_000)
+
+    const log = await createLPRSyncLogDAO({
+        startedAt,
+        status: 'running',
+        triggeredBy: opts.triggeredBy,
+        operatorId: opts.operatorId ?? null,
+        rangeStart,
+        rangeEnd,
+    })
+
+    try {
+        const records = await fetchLPRFromChinamoneyService({ rangeStart, rangeEnd })
+
+        let inserted = 0
+        for (const r of records) {
+            const effectDate = new Date(r.showDateCN)
+            const exists = await prisma.lprRates.findUnique({ where: { effectDate } })
+            if (exists) continue
+
+            await createLPRRateService({
+                effectDate: r.showDateCN,
+                oneYear: parseFloat(r['1Y']),
+                fiveYear: parseFloat(r['5Y']),
+                remark: '自动同步自 chinamoney',
+            })
+            inserted++
+        }
+
+        await updateLPRSyncLogDAO(log.id, {
+            finishedAt: new Date(),
+            status: 'success',
+            fetchedCount: records.length,
+            insertedCount: inserted,
+        })
+
+        logger.info(`[lpr-sync] 完成：拉到 ${records.length} 条，新增 ${inserted} 条`)
+        return { fetched: records.length, inserted, logId: log.id }
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        await updateLPRSyncLogDAO(log.id, {
+            finishedAt: new Date(),
+            status: 'failure',
+            errorMessage: msg,
+        })
+        logger.error(`[lpr-sync] 失败：${msg}`)
+        throw err
+    }
+}
+
+/** 查询最近一次 LPR 同步状态（管理后台卡片用） */
+export async function getLatestLPRSyncStatusService() {
+    return findLatestLPRSyncLogDAO()
+}
