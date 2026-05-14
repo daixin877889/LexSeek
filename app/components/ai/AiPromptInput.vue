@@ -99,7 +99,10 @@
           </PromptInputHeader>
           <!-- 中间部分 -->
           <PromptInputBody>
-            <PromptInputTextarea :placeholder="placeholder" :min-rows="minRows" :max-rows="maxRows"
+            <PromptInputTextarea
+              :placeholder="props.isInterrupted ? '请先回应上方的请求' : placeholder"
+              :disabled="props.disabled || props.isInterrupted"
+              :min-rows="minRows" :max-rows="maxRows"
               :class="['px-4 @max-[500px]:px-3', selectedFiles.length > 0 ? 'pt-0' : 'pt-6 @max-[500px]:pt-4']" />
           </PromptInputBody>
           <!-- 底部 -->
@@ -146,9 +149,10 @@
                 <span v-if="submitLabel" class="ml-1">{{ submitLabel }}</span>
               </PromptInputSubmit>
 
-              <!-- loading 态：独立的停止 + 加入队列双按钮 -->
+              <!-- loading && !isInterrupted：停止 + 加入队列双按钮 -->
               <!-- 原 @stop="emit('stop')" 是死代码（PromptInputSubmit 未声明 stop emit），此处用独立 Button 替代 -->
-              <div v-else class="flex items-center gap-1.5 @max-[500px]:gap-1">
+              <!-- loading && isInterrupted：不显示任何按钮（中断态由卡片自带操作）-->
+              <div v-else-if="!props.isInterrupted" class="flex items-center gap-1.5 @max-[500px]:gap-1">
                 <!-- 停止按钮：destructive 变体（红色突出）+ icon-sm 方形图标按钮
                      让用户一眼识别危险/中止操作；isStopping=true 时禁用防止重复点击 -->
                 <Button
@@ -251,10 +255,18 @@ const props = withDefaults(defineProps<{
   queueFull?: boolean
   /** 停止中状态，true 时停止按钮置灰禁用（防止重复点击） */
   isStopping?: boolean
+  /** 中断态（AI 在等用户回应中断卡片）。true 时:
+   *  - 输入框 disabled
+   *  - 不显示停止按钮 + 加入队列按钮
+   *  - placeholder 切换为 "请先回应上方的请求"
+   *  spec §5.3 / §7.3
+   */
+  isInterrupted?: boolean
 }>(), {
   placeholder: '输入消息...',
   loading: false,
   disabled: false,
+  isInterrupted: false,
   enableFileUpload: true,
   showThinkingToggle: true,
   minRows: 1,
