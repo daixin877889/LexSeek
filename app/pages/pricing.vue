@@ -776,11 +776,47 @@
 import PurchaseFlow from '~/components/purchase/PurchaseFlow.vue'
 import { usePurchaseFlow } from '~/composables/usePurchaseFlow'
 import { useWxSupportStore } from '~/store/wxSupport'
+import { useSiteSeo } from '~/composables/useSiteSeo'
+import { breadcrumbLd, faqLd } from '#shared/utils/seo/jsonLd'
+import { CheckIcon, XIcon, CoinsIcon, ShieldX, UserRoundCheck } from "lucide-vue-next";
+
+const { siteUrl } = useRuntimeConfig().public.seo
+useSiteSeo({
+  title: '价格方案 - 律师 AI 会员订阅',
+  description: 'LexSeek 法索 AI 提供新手旗舰¥9.9/月、基础版¥365/年、专业版¥680/年、旗舰版¥1280/年四档会员，覆盖案件分析、合同审查、办案工具全功能；注册即享 7 天免费试用。',
+  path: '/pricing',
+  keywords: ['LexSeek会员', '法律AI订阅', '律师AI价格', '案件分析订阅', '法律科技会员'],
+  ogImage: '/og/pricing.png',
+  jsonLd: [
+    breadcrumbLd([
+      { name: '首页', path: '/' },
+      { name: '价格方案', path: '/pricing' },
+    ], siteUrl),
+    {
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      name: 'LexSeek 法索 AI 会员订阅',
+      description: '律师 AI 工作台会员订阅，提供案件分析、合同审查、办案工具全功能',
+      brand: { '@type': 'Brand', name: 'LexSeek 法索 AI' },
+      offers: {
+        '@type': 'AggregateOffer',
+        priceCurrency: 'CNY',
+        lowPrice: '9.9',
+        highPrice: '1280',
+        offerCount: 4,
+      },
+    },
+    faqLd([
+      { q: '有免费试用吗？', a: '是的，新用户注册后可获得 7 天免费试用，可体验旗舰版的全部功能。' },
+      { q: '可以随时更换订阅方案吗？', a: '您可以随时升级您的订阅方案，但降级需要等待当前会员有效期结束后进行续订。' },
+    ]),
+  ],
+})
+
 definePageMeta({
   layout: "base-layout",
   title: "价格方案",
 });
-import { CheckIcon, XIcon, CoinsIcon, ShieldX, UserRoundCheck } from "lucide-vue-next";
 
 // 使用微信客服 store（Nuxt 自动导入）
 const wxSupportStore = useWxSupportStore();
