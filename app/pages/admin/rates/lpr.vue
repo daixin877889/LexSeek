@@ -36,7 +36,7 @@
                         <TableHead>1 年期 (%)</TableHead>
                         <TableHead>5 年期以上 (%)</TableHead>
                         <TableHead>备注</TableHead>
-                        <TableHead class="text-center">操作</TableHead>
+                        <TableHead class="w-[80px] text-right">操作</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -45,10 +45,24 @@
                         <TableCell>{{ row.oneYear.toFixed(2) }}</TableCell>
                         <TableCell>{{ row.fiveYear.toFixed(2) }}</TableCell>
                         <TableCell class="text-muted-foreground">{{ row.remark || '—' }}</TableCell>
-                        <TableCell class="text-center space-x-2">
-                            <Button variant="ghost" size="sm" @click="openEdit(row)">编辑</Button>
-                            <Button variant="ghost" size="sm" class="text-destructive"
-                                @click="confirmDelete(row)">删除</Button>
+                        <TableCell class="text-right">
+                            <DropdownMenu>
+                                <DropdownMenuTrigger as-child>
+                                    <Button variant="ghost" size="icon">
+                                        <MoreHorizontal class="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem @click="openEdit(row)">
+                                        <Pencil class="h-4 w-4 mr-2" />
+                                        编辑
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem class="text-destructive" @click="confirmDelete(row)">
+                                        <Trash2 class="h-4 w-4 mr-2" />
+                                        删除
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </TableCell>
                     </TableRow>
                     <TableRow v-if="rows.length === 0">
@@ -66,7 +80,7 @@
 import { Button } from '~/components/ui/button'
 import { Alert, AlertTitle, AlertDescription } from '~/components/ui/alert'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '~/components/ui/table'
-import { Plus, RefreshCw, CheckCircle2, XCircle, X } from 'lucide-vue-next'
+import { Plus, RefreshCw, CheckCircle2, XCircle, X, MoreHorizontal, Pencil, Trash2 } from 'lucide-vue-next'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useAlertDialogStore } from '~/store/alertDialog'
 import LPRFormDialog from '~/components/admin/rates/LPRFormDialog.vue'
