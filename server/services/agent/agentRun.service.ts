@@ -118,7 +118,8 @@ export async function getLatestRunService(
  *
  * 语义：**幂等**。对任何状态的 run，cancel 的期望结果都是"run 不再运行"。
  * - PENDING / RUNNING：真正发起取消并更新状态（RUNNING 同时发 Redis 信号让 Worker abort）
- * - COMPLETED / CANCELLED / FAILED / INTERRUPTED：已 terminal，直接返回成功（符合幂等）
+ * - INTERRUPTED：从暂停态主动取消，改 status=CANCELLED + 修复 orphan tool_use checkpoint
+ * - COMPLETED / CANCELLED / FAILED：已 terminal，直接返回成功（符合幂等）
  * - Run 不存在：返回失败
  *
  * 幂等是前端 UX 的前提：用户点停止时 run 可能刚好 completed，返回 error 会
