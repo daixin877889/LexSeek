@@ -3,8 +3,10 @@
  *
  * **Feature: 2026-05-14-case-features / Task B4**
  *
- * 验证 saveChanges 把 title / courtName / firstInstanceCaseNo / stance /
- * status / content 等可编辑字段全部 PUT 出去。
+ * 验证：
+ *  - saveChanges 把 title / courtName / firstInstance* / stance / status 等可编辑字段 PUT 出去
+ *  - 案件描述（content）和案件类型（caseType）不在编辑表单内，不会被 PUT 覆盖
+ *  - 编辑态下不渲染"类型"字段（案件创建后不允许改）
  */
 import { describe, it, expect, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
@@ -29,14 +31,14 @@ vi.mock('~/composables/useApiFetch', () => ({
       firstInstanceJudge: '',
       secondInstanceCaseNo: '',
       secondInstanceJudge: '',
-      content: '',
+      content: '原始描述',
       status: 1,
     }
   }),
 }))
 
 describe('CaseInfoCard 编辑态 - 全字段编辑', () => {
-  it('saveChanges 把所有可编辑字段 PUT 出去', async () => {
+  it('saveChanges 把所有可编辑字段 PUT 出去（不含 content）', async () => {
     apiCalls.length = 0
     const wrapper = mount(CaseInfoCard, { props: { caseId: 1, editable: true } })
     await flushPromises()
@@ -48,7 +50,6 @@ describe('CaseInfoCard 编辑态 - 全字段编辑', () => {
     vm.editForm.firstInstanceCaseNo = '(2024)京01民初1号'
     vm.editForm.stance = CaseStance.DEFENDANT
     vm.editForm.status = 3
-    vm.editForm.content = '新描述'
     await vm.saveChanges()
     expect(apiCalls).toHaveLength(1)
     expect(apiCalls[0].body).toMatchObject({
@@ -57,7 +58,20 @@ describe('CaseInfoCard 编辑态 - 全字段编辑', () => {
       firstInstanceCaseNo: '(2024)京01民初1号',
       stance: CaseStance.DEFENDANT,
       status: 3,
-      content: '新描述',
     })
+    // content 不在请求体内 —— 案件描述不允许在「编辑信息」表单里改
+    expect(apiCalls[0].body).not.toHaveProperty('content')
+  })
+
+  it('编辑态下不渲染"类型"字段', async () => {
+    const wrapper = mount(CaseInfoCard, { props: { caseId: 1, editable: true } })
+    await flushPromises()
+    const vm = wrapper.vm as any
+    // 展示态：能看到「类型」标签
+    expect(wrapper.text()).toContain('类型')
+    vm.startEditing()
+    await flushPromises()
+    // 编辑态：不再渲染"类型"行（label 消失）
+    expect(wrapper.text()).not.toContain('类型')
   })
 })

@@ -23,9 +23,8 @@
           <span v-else class="font-bold text-foreground flex-1 min-w-0">{{ caseInfo.title }}</span>
         </div>
 
-        <!-- 紧凑字段：类型 / 状态 / 立场（展示态在同一行，编辑态各自独占） -->
-        <!-- gap 在编辑态切到 gap-4 与其他独占字段对齐；展示态用 gap-3 紧凑挨着 -->
-        <div v-if="caseInfo.caseType" class="flex items-baseline" :class="isEditing ? 'basis-full gap-4' : 'gap-3'">
+        <!-- 类型（仅展示态显示，案件创建后不允许改） -->
+        <div v-if="!isEditing && caseInfo.caseType" class="flex gap-3 items-baseline">
           <span class="w-16 shrink-0 text-muted-foreground">类型</span>
           <span class="text-foreground">{{ caseInfo.caseType.name }}</span>
         </div>
@@ -188,13 +187,7 @@
         </div>
       </div>
 
-      <!-- 案件描述（编辑态） -->
-      <div v-if="isEditing" class="space-y-1 pt-2 border-t border-border/50">
-        <label class="text-xs text-muted-foreground">案件描述</label>
-        <Textarea v-model="editForm.content" :rows="4" />
-      </div>
-
-      <!-- 案件描述（折叠） -->
+      <!-- 案件描述（折叠，仅展示态） -->
       <div v-if="!isEditing && caseInfo.content" class="space-y-1 pt-2 border-t border-border/50">
         <div class="flex items-center justify-between">
           <span class="text-xs text-muted-foreground">案件描述</span>
@@ -220,7 +213,6 @@ import { useApiFetch } from '~/composables/useApiFetch'
 import { CaseStatus, CaseStatusText, CaseStance, CaseStanceText } from '#shared/types/case'
 import StanceToggleGroup from '~/components/caseCreation/StanceToggleGroup.vue'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
-import { Textarea } from '~/components/ui/textarea'
 
 export interface ExtraField {
   name: string
@@ -378,7 +370,6 @@ async function saveChanges() {
       firstInstanceJudge: editForm.value.firstInstanceJudge.trim() || undefined,
       secondInstanceCaseNo: editForm.value.secondInstanceCaseNo.trim() || undefined,
       secondInstanceJudge: editForm.value.secondInstanceJudge.trim() || undefined,
-      content: editForm.value.content,
     },
   })
   isSaving.value = false
