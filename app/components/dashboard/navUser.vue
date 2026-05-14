@@ -50,9 +50,6 @@ import UserMenuList from '~/components/dashboard/UserMenuList.vue'
 import { useUserNavigation } from '~/composables/useUserNavigation'
 import { useUserMenu } from '~/composables/useUserMenu'
 
-// 用户卡片信息
 const { displayName, maskedPhone } = useUserNavigation()
-
-// 菜单数据（共享给两端）
 const { items } = useUserMenu()
 </script>
