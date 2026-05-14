@@ -417,6 +417,14 @@ async function handleStanceCancel() {
     }
 }
 
+async function handleCancel() {
+    try {
+        await resolveInterrupt(null)
+    } catch (err) {
+        console.error('[contract-review] interrupt cancel failed', err)
+    }
+}
+
 function handleDialogOpenChange(open: boolean) {
     if (!open && !isConfirming.value) handleStanceCancel()
 }
@@ -575,7 +583,7 @@ function handleContainerClick(e: MouseEvent) {
                     <InterruptDispatcher
                         :interrupt="interruptData as any"
                         @submit="resolveInterrupt"
-                        @cancel="() => resolveInterrupt(null)"
+                        @cancel="handleCancel"
                     />
                 </div>
             </DialogContent>

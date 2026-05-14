@@ -185,6 +185,14 @@ async function handleStop() {
   }
 }
 
+async function handleCancel() {
+  try {
+    await resolveInterrupt(null)
+  } catch (err) {
+    console.error('[xiaosuo] interrupt cancel failed', err)
+  }
+}
+
 // 中断出现时 toast 提示，工具卡片从"运行中"切到"已暂停"（:is-interrupted 透传）
 useInterruptToast(interruptData)
 
@@ -286,7 +294,7 @@ watch(isOpen, (open) => {
         <InterruptDispatcher
           :interrupt="interruptData as any"
           @submit="resolveInterrupt"
-          @cancel="() => {}"
+          @cancel="handleCancel"
         />
       </div>
     </DialogContent>

@@ -21,6 +21,7 @@ import InterruptDispatcher from '~/components/InterruptDispatcher.vue'
 import CaseChatWindowShell from '~/components/case/ChatWindowShell.vue'
 import CaseSessionListPopover from '~/components/case/SessionListPopover.vue'
 import { useInterruptToast } from '~/composables/useInterruptToast'
+import { usePanelMessageStreamContext } from '~/composables/agent-platform/usePanelMessageStreamContext'
 
 const props = defineProps<{
     caseId: number
@@ -151,6 +152,20 @@ function handleResumeInterrupt(data: unknown) {
     props.chatInstance.resumeInterrupt(data)
 }
 
+const { resolveInterrupt } = usePanelMessageStreamContext({
+    interruptData,
+    resumeInterrupt: (value) => props.chatInstance.resumeInterrupt(value),
+    sessionRef: () => props.chatInstance.currentSessionId.value,
+})
+
+async function handleCancel() {
+    try {
+        await resolveInterrupt(null)
+    } catch (err) {
+        console.error('[analysis-module] interrupt cancel failed', err)
+    }
+}
+
 // 中断出现时 toast 提示，工具卡片从"运行中"切到"已暂停"（:is-interrupted 透传）
 useInterruptToast(interruptData)
 </script>
@@ -235,7 +250,7 @@ useInterruptToast(interruptData)
         <InterruptDispatcher
           :interrupt="interruptData as any"
           @submit="handleResumeInterrupt"
-          @cancel="() => {}"
+          @cancel="handleCancel"
         />
       </div>
     </DialogContent>

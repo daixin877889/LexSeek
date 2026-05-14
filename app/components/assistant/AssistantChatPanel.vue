@@ -141,6 +141,14 @@ const { resolveInterrupt, isCurrentInterruptToolCard } = usePanelMessageStreamCo
   sessionRef: () => props.sessionId,
 })
 
+async function handleCancel() {
+  try {
+    await resolveInterrupt(null)
+  } catch (err) {
+    console.error('[assistant-chat] interrupt cancel failed', err)
+  }
+}
+
 // 初次挂载后调用工厂 init()：单 session 模式下会 switchSession 到固定 id，
 // 内部自动调 reconnect()/loadHistory() 触发 SSE checkpointer 回放
 onMounted(async () => {
@@ -181,7 +189,7 @@ onMounted(async () => {
           <InterruptDispatcher
             :interrupt="interruptData as any"
             @submit="resolveInterrupt"
-            @cancel="() => { }"
+            @cancel="handleCancel"
           />
         </div>
       </DialogContent>

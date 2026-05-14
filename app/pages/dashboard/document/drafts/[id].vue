@@ -46,6 +46,7 @@ import { useDocumentDraftVersions } from '~/composables/document/useDocumentDraf
 import { useDocumentDraftSnapshots } from '~/composables/document/useDocumentDraftSnapshots'
 import { useDocumentDraftPreview } from '~/composables/document/useDocumentDraftPreview'
 import { useInterruptToast } from '~/composables/useInterruptToast'
+import { usePanelMessageStreamContext } from '~/composables/agent-platform/usePanelMessageStreamContext'
 import { useAlertDialogStore } from '~/store/alertDialog'
 import { triggerBrowserDownloadUrl } from '~/utils/browserDownload'
 
@@ -606,6 +607,20 @@ function handleResumeInterrupt(data: unknown) {
     resumeInterrupt(data)
 }
 
+const { resolveInterrupt } = usePanelMessageStreamContext({
+    interruptData,
+    resumeInterrupt,
+    sessionRef: sessionIdRef,
+})
+
+async function handleCancel() {
+    try {
+        await resolveInterrupt(null)
+    } catch (err) {
+        console.error('[document-draft] interrupt cancel failed', err)
+    }
+}
+
 // 失败时显示重试按钮（useDocumentDraft 暴露 runStatus: failed）
 watch(runStatus, (status) => {
     if (status === 'failed') {
@@ -800,7 +815,7 @@ function handlePanelResize(sizes: number[]) {
                 </DialogHeader>
                 <div v-if="interruptData" class="p-6">
                     <InterruptDispatcher :interrupt="interruptData as any" @submit="handleResumeInterrupt"
-                        @cancel="() => { }" />
+                        @cancel="handleCancel" />
                 </div>
             </DialogContent>
         </Dialog>
