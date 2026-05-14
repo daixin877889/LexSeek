@@ -11,6 +11,7 @@ import { tool } from '@langchain/core/tools'
 import { interrupt } from '@langchain/langgraph'
 import { consola as logger } from 'consola'
 import { InterruptType } from '#shared/types/case'
+import type { AdjustmentMethod } from '#shared/types/tools'
 import type { ToolContext, ToolDefinition } from '#shared/types/agentTools'
 import {
     calculateLPRInterest,
@@ -94,7 +95,7 @@ export function createTool(ctx: ToolContext) {
                     merged.startDate as string,
                     merged.endDate as string,
                     (merged.lprPeriod as number) ?? 1,
-                    (merged.adjustmentMethod as string) ?? '无',
+                    ((merged.adjustmentMethod as AdjustmentMethod) ?? '无') as AdjustmentMethod,
                     (merged.adjustmentValue as number) ?? 0,
                 ) as unknown as Record<string, unknown>
             } else if (merged.mode === 'pboc') {
@@ -103,7 +104,7 @@ export function createTool(ctx: ToolContext) {
                     merged.startDate as string,
                     merged.endDate as string,
                     (merged.pbocPeriod as number) ?? 2,
-                    (merged.adjustmentMethod as string) ?? '无',
+                    ((merged.adjustmentMethod as AdjustmentMethod) ?? '无') as AdjustmentMethod,
                     (merged.adjustmentValue as number) ?? 0,
                 ) as unknown as Record<string, unknown>
             } else {

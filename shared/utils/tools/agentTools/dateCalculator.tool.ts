@@ -145,7 +145,7 @@ export function createTool(ctx: ToolContext) {
                     calculation: {
                         tool: 'calculate_date',
                         input: merged,
-                        output: result,
+                        output: result as Record<string, unknown>,
                         calculatedAt: new Date().toISOString(),
                     },
                 },

@@ -30,6 +30,15 @@ import * as recommendTemplateTool from './recommendTemplate.tool'
 import * as saveDocumentDraftTool from './saveDocumentDraft.tool'
 import * as updateDocumentDraftTool from './updateDocumentDraft.tool'
 import * as compensationCalculatorTool from '#shared/utils/tools/agentTools/compensationCalculator.tool'
+import * as interestCalculatorTool from '#shared/utils/tools/agentTools/interestCalculator.tool'
+import * as delayInterestCalculatorTool from '#shared/utils/tools/agentTools/delayInterestCalculator.tool'
+import * as courtFeeCalculatorTool from '#shared/utils/tools/agentTools/courtFeeCalculator.tool'
+import * as lawyerFeeCalculatorTool from '#shared/utils/tools/agentTools/lawyerFeeCalculator.tool'
+import * as overtimePayCalculatorTool from '#shared/utils/tools/agentTools/overtimePayCalculator.tool'
+import * as socialInsuranceCalculatorTool from '#shared/utils/tools/agentTools/socialInsuranceCalculator.tool'
+import * as divorcePropertyCalculatorTool from '#shared/utils/tools/agentTools/divorcePropertyCalculator.tool'
+import * as dateCalculatorTool from '#shared/utils/tools/agentTools/dateCalculator.tool'
+import * as bankRateQueryTool from '#shared/utils/tools/agentTools/bankRateQuery.tool'
 
 /** 通用工具模块映射 */
 const toolModules: Record<string, ToolModule> = {
@@ -55,6 +64,15 @@ const toolModules: Record<string, ToolModule> = {
     review_contract: reviewContractTool,
     // 办案计算器工具
     calculate_compensation: compensationCalculatorTool,
+    calculate_interest: interestCalculatorTool,
+    calculate_delay_interest: delayInterestCalculatorTool,
+    calculate_court_fee: courtFeeCalculatorTool,
+    calculate_lawyer_fee: lawyerFeeCalculatorTool,
+    calculate_overtime_pay: overtimePayCalculatorTool,
+    calculate_social_insurance_backpay: socialInsuranceCalculatorTool,
+    calculate_divorce_property: divorcePropertyCalculatorTool,
+    calculate_date: dateCalculatorTool,
+    query_bank_rate: bankRateQueryTool,
 }
 
 /**

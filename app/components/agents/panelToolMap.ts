@@ -23,4 +23,13 @@ export const PANEL_TOOL_MAP: Record<string, Component> = {
     update_document_draft: AgentsDocumentUpdateDocumentDraftCard,
     review_contract: AgentsContractReviewContractCard,
     calculate_compensation: AiToolsCalculatorResultCard,
+    calculate_interest: AiToolsCalculatorResultCard,
+    calculate_delay_interest: AiToolsCalculatorResultCard,
+    calculate_court_fee: AiToolsCalculatorResultCard,
+    calculate_lawyer_fee: AiToolsCalculatorResultCard,
+    calculate_overtime_pay: AiToolsCalculatorResultCard,
+    calculate_social_insurance_backpay: AiToolsCalculatorResultCard,
+    calculate_divorce_property: AiToolsCalculatorResultCard,
+    calculate_date: AiToolsCalculatorResultCard,
+    query_bank_rate: AiToolsCalculatorResultCard,
 }
