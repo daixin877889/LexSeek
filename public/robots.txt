@@ -1,2 +1,22 @@
+# robots.txt for LexSeek 法索 AI
+
 User-Agent: *
-Disallow:
+Allow: /
+
+# 私密区域（前缀匹配，统一加尾 / 明确语义，避免误屏 /dashboardabc 等假想路径）
+Disallow: /dashboard/
+Disallow: /admin/
+Disallow: /api/
+Disallow: /landing/
+# 公开但敏感的单一页面（已页面级 noindex 兜底，robots 是双保险）
+# 注意：以下 4 条是前缀匹配，未来若新增 /login-help、/register-pro 等公开 SEO 着陆页需重审本规则
+Disallow: /login
+Disallow: /register
+Disallow: /reset-password
+Disallow: /403
+
+# 用户上传的私密资源
+Disallow: /oss/
+
+# 站点地图
+Sitemap: https://lexseek.cn/sitemap.xml
