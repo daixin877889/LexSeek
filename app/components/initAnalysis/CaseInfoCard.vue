@@ -76,6 +76,52 @@
           </div>
         </template>
 
+        <!-- 案件状态（展示态） -->
+        <template v-if="!isEditing && caseInfo.status">
+          <span class="text-muted-foreground shrink-0">状态</span>
+          <Badge variant="outline" class="font-normal px-2 py-0 h-5 text-[11px] w-fit">
+            {{ CaseStatusText[caseInfo.status as CaseStatus] ?? '未知' }}
+          </Badge>
+        </template>
+
+        <!-- 分析立场（展示态） -->
+        <template v-if="!isEditing && caseInfo.stance">
+          <span class="text-muted-foreground shrink-0">分析立场</span>
+          <Badge variant="outline" class="font-normal px-2 py-0 h-5 text-[11px] w-fit border-purple-300 text-purple-700 dark:border-purple-700 dark:text-purple-400">
+            {{ CaseStanceText[caseInfo.stance] }}
+          </Badge>
+        </template>
+
+        <!-- 法院名称（展示态） -->
+        <template v-if="!isEditing && caseInfo.courtName">
+          <span class="text-muted-foreground shrink-0">法院</span>
+          <span class="text-foreground">{{ caseInfo.courtName }}</span>
+        </template>
+
+        <!-- 一审案号 -->
+        <template v-if="!isEditing && caseInfo.firstInstanceCaseNo">
+          <span class="text-muted-foreground shrink-0">一审案号</span>
+          <span class="text-foreground">{{ caseInfo.firstInstanceCaseNo }}</span>
+        </template>
+
+        <!-- 一审法官 -->
+        <template v-if="!isEditing && caseInfo.firstInstanceJudge">
+          <span class="text-muted-foreground shrink-0">一审法官</span>
+          <span class="text-foreground">{{ caseInfo.firstInstanceJudge }}</span>
+        </template>
+
+        <!-- 二审案号 -->
+        <template v-if="!isEditing && caseInfo.secondInstanceCaseNo">
+          <span class="text-muted-foreground shrink-0">二审案号</span>
+          <span class="text-foreground">{{ caseInfo.secondInstanceCaseNo }}</span>
+        </template>
+
+        <!-- 二审法官 -->
+        <template v-if="!isEditing && caseInfo.secondInstanceJudge">
+          <span class="text-muted-foreground shrink-0">二审法官</span>
+          <span class="text-foreground">{{ caseInfo.secondInstanceJudge }}</span>
+        </template>
+
         <!-- 额外字段 -->
         <template v-for="field in caseInfo.extraFields" :key="field.name">
           <span class="text-muted-foreground shrink-0">{{ field.title }}</span>
@@ -88,6 +134,22 @@
           <span class="text-foreground leading-relaxed line-clamp-3 font-bold">{{ caseInfo.summary }}</span>
         </template>
       </div>
+
+      <!-- 案件描述（折叠） -->
+      <div v-if="!isEditing && caseInfo.content" class="space-y-1 pt-2 border-t border-border/50">
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-muted-foreground">案件描述</span>
+          <button class="text-xs text-primary hover:underline" @click="contentExpanded = !contentExpanded">
+            {{ contentExpanded ? '收起' : '展开' }}
+          </button>
+        </div>
+        <p
+          class="text-sm text-foreground whitespace-pre-wrap"
+          :class="{ 'line-clamp-3': !contentExpanded }"
+        >
+          {{ caseInfo.content }}
+        </p>
+      </div>
     </div>
   </div>
 </template>
@@ -96,6 +158,7 @@
 import { InfoIcon, PencilIcon, XIcon, PlusIcon, Loader2Icon } from 'lucide-vue-next'
 import toast from '#shared/utils/toast'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { CaseStatus, CaseStatusText, CaseStance, CaseStanceText } from '#shared/types/case'
 
 export interface ExtraField {
   name: string
@@ -110,6 +173,15 @@ export interface CaseInfoData {
   defendant?: string[] | Array<{ name: string }>
   summary?: string
   extraFields?: ExtraField[]
+  // 基础信息补全（spec §3.2 / Task B3）
+  status?: number
+  content?: string
+  courtName?: string
+  firstInstanceCaseNo?: string
+  firstInstanceJudge?: string
+  secondInstanceCaseNo?: string
+  secondInstanceJudge?: string
+  stance?: CaseStance
 }
 
 const props = withDefaults(defineProps<{
@@ -133,6 +205,9 @@ defineExpose({
 })
 
 const caseInfo = ref<CaseInfoData | null>(null)
+
+// 案件描述展开/收起
+const contentExpanded = ref(false)
 
 // 编辑状态
 const isEditing = ref(false)
