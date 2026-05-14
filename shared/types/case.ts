@@ -225,6 +225,8 @@ export enum InterruptType {
     INSUFFICIENT_POINTS = 'insufficient_points',
     /** 中断点5：合同审查立场选择 */
     AWAITING_STANCE = 'awaiting_stance',
+    /** 中断点6：办案计算器需要用户补全参数 */
+    CALCULATOR_INPUT = 'calculator_input',
 }
 
 // ==================== 案件基本信息接口 ====================
@@ -372,12 +374,24 @@ export interface InsufficientPointsInterruptData extends InterruptData {
     }
 }
 
+/** 办案计算器参数补全中断数据接口（中断点6） */
+export interface CalculatorInputInterruptData {
+    type: InterruptType.CALCULATOR_INPUT
+    /** 工具名称，如 'calculate_compensation' */
+    toolName: string
+    /** L1+L2 合并后的预填参数 */
+    prefilled: Record<string, unknown>
+    /** 缺失必填字段名列表 */
+    missing: string[]
+}
+
 /** 联合类型：所有中断数据类型 */
 export type TypedInterruptData =
     | CaseInfoCheckInterruptData
     | BasicInfoConfirmInterruptData
     | ModuleSelectInterruptData
     | InsufficientPointsInterruptData
+    | CalculatorInputInterruptData
 
 // ==================== 分析模块接口 ====================
 
