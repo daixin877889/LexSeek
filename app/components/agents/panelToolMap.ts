@@ -15,10 +15,12 @@ import AgentsDocumentDraftDocumentCard from '~/components/agents/document/tools/
 import AgentsDocumentRecommendTemplateCard from '~/components/agents/document/tools/RecommendTemplateCard.vue'
 import AgentsDocumentUpdateDocumentDraftCard from '~/components/agents/document/tools/UpdateDocumentDraftCard.vue'
 import AgentsContractReviewContractCard from '~/components/agents/contract/tools/ReviewContractCard.vue'
+import AiToolsCalculatorResultCard from '~/components/ai/tools/CalculatorResultCard.vue'
 
 export const PANEL_TOOL_MAP: Record<string, Component> = {
     recommend_template: AgentsDocumentRecommendTemplateCard,
     save_document_draft: AgentsDocumentDraftDocumentCard,
     update_document_draft: AgentsDocumentUpdateDocumentDraftCard,
     review_contract: AgentsContractReviewContractCard,
+    calculate_compensation: AiToolsCalculatorResultCard,
 }
