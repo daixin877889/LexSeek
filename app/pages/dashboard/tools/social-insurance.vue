@@ -1,50 +1,31 @@
 <template>
   <div class="p-4">
-    <div class="flex items-center justify-between mb-2">
-      <h1 class="text-[22px] font-bold truncate">社保追缴计算</h1>
-      <div class="relative">
-        <Button variant="ghost" size="icon" @click="isHelpOpen = !isHelpOpen" class="rounded-full">
-          <HelpCircle class="h-5 w-5" />
-          <span class="sr-only">帮助</span>
-        </Button>
-        <div v-if="isHelpOpen" class="absolute right-0 z-50 w-80 mt-2 p-4 bg-card rounded-lg border shadow-lg">
-          <div class="flex justify-between items-center mb-3">
-            <h3 class="font-semibold text-base">社保追缴计算指引</h3>
-            <Button variant="ghost" size="icon" @click="isHelpOpen = false" class="h-6 w-6">
-              <X class="h-5 w-5" />
-              <span class="sr-only">关闭</span>
-            </Button>
-          </div>
-
-          <div class="text-sm space-y-3 max-h-96 overflow-y-auto">
-            <div>
-              <h4 class="font-semibold mb-1">如何查询原缴纳基数？</h4>
-              <ul class="list-disc list-inside space-y-1">
-                <li>登录当地社保官网，查看"缴费基数"</li>
-                <li>支付宝/微信搜"社保查询"，绑定后查看</li>
-                <li>查看工资条或联系企业HR</li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 class="font-semibold mb-1">费率说明（以下为参考值）：</h4>
-              <ul class="list-disc list-inside space-y-1">
-                <li>养老保险：单位16%，个人8%</li>
-                <li>医疗保险：单位8%，个人2%</li>
-                <li>失业保险：单位1.5%，个人0.5%</li>
-                <li>工伤保险：单位0.5%，个人0%</li>
-                <li>生育保险：单位1%，个人0%</li>
-                <li>住房公积金：单位7%，个人7%</li>
-              </ul>
-            </div>
-
-            <div class="bg-muted/30 p-2 rounded">
-              <p><strong>提示：</strong>企业有义务提供缴费记录（依据《社会保险法》第74条）。该工具仅供参考，实际费率请以当地政策为准。</p>
-            </div>
-          </div>
+    <ToolsCalculatorPageHeader title="社保追缴计算" help-title="社保追缴计算指引">
+      <template #help>
+        <div>
+          <h4 class="font-semibold mb-1">如何查询原缴纳基数？</h4>
+          <ul class="list-disc list-inside space-y-1">
+            <li>登录当地社保官网，查看"缴费基数"</li>
+            <li>支付宝/微信搜"社保查询"，绑定后查看</li>
+            <li>查看工资条或联系企业HR</li>
+          </ul>
         </div>
-      </div>
-    </div>
+        <div>
+          <h4 class="font-semibold mb-1">费率说明（以下为参考值）：</h4>
+          <ul class="list-disc list-inside space-y-1">
+            <li>养老保险：单位16%，个人8%</li>
+            <li>医疗保险：单位8%，个人2%</li>
+            <li>失业保险：单位1.5%，个人0.5%</li>
+            <li>工伤保险：单位0.5%，个人0%</li>
+            <li>生育保险：单位1%，个人0%</li>
+            <li>住房公积金：单位7%，个人7%</li>
+          </ul>
+        </div>
+        <div class="bg-muted/30 p-2 rounded">
+          <p><strong>提示：</strong>企业有义务提供缴费记录（依据《社会保险法》第74条）。该工具仅供参考，实际费率请以当地政策为准。</p>
+        </div>
+      </template>
+    </ToolsCalculatorPageHeader>
     <div class="flex flex-col lg:flex-row gap-6">
       <!-- 左侧：信息输入区 -->
       <div class="w-full lg:w-5/12">
@@ -451,7 +432,6 @@ const monthlySalary = ref(5000);
 const months = ref(12);
 const includeEmployerPart = ref(true);
 const calculatedWithEmployerPart = ref(true); // 存储计算时的开关状态
-const isHelpOpen = ref(false); // 帮助指引的显示状态
 const rates = reactive({
   pension: { employee: 8, employer: 16 },
   medical: { employee: 2, employer: 8 },
@@ -529,8 +509,6 @@ function validateInput() {
 function formatCurrency(value) {
   return new Intl.NumberFormat("zh-CN").format(value);
 }
-
-import { X, HelpCircle } from "lucide-vue-next";
 </script>
 
 <style scoped>
@@ -539,47 +517,5 @@ import { X, HelpCircle } from "lucide-vue-next";
   position: relative;
   width: 20px;
   height: 20px;
-}
-
-.custom-checkbox input {
-  position: absolute;
-  opacity: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 2;
-  cursor: pointer;
-}
-
-.checkbox-indicator {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: transparent;
-  border: 2px solid #ccc;
-  border-radius: 4px;
-  transition: all 0.2s ease;
-}
-
-.custom-checkbox input:checked+.checkbox-indicator {
-  background-color: hsl(var(--primary));
-  border-color: hsl(var(--primary));
-}
-
-.custom-checkbox input:checked+.checkbox-indicator::after {
-  content: "";
-  position: absolute;
-  left: 6px;
-  top: 2px;
-  width: 6px;
-  height: 10px;
-  border: solid white;
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
-}
-
-.custom-checkbox input:focus+.checkbox-indicator {
-  box-shadow: 0 0 0 2px hsla(var(--primary), 0.2);
 }
 </style>
