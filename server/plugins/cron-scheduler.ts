@@ -15,6 +15,7 @@ import { cleanupStaleAnalysesService } from '~~/server/services/case/analysis.se
 import { pollPendingAsrTasksService } from '~~/server/services/material/asr.service'
 import { pollPendingTasksService } from '~~/server/services/material/mineru.service'
 import { handleExpiredPaymentTransactionsService } from '~~/server/services/payment/payment.service'
+import { syncLPRRatesService } from '~~/server/services/rates/lprSync.service'
 
 export default defineNitroPlugin((nitroApp) => {
   const { redis: redisConfig } = useRuntimeConfig()
@@ -102,6 +103,15 @@ export default defineNitroPlugin((nitroApp) => {
         consolidateSession(sessionId).catch(() => {})
       }
     },
+  })
+
+  // LPR 利率每日自动同步（每 24h，拉取过去 30 天滚动窗口）
+  scheduler.register({
+    name: 'lpr-daily-sync',
+    intervalMs: 24 * 60 * 60 * 1000,
+    lockTtlSeconds: 60,
+    fn: () => syncLPRRatesService({ triggeredBy: 'auto' }),
+    runImmediately: false,
   })
 
   scheduler.start()
