@@ -84,9 +84,10 @@ export async function syncLPRRatesService(opts: {
 }): Promise<SyncLPRResult> {
     const startedAt = new Date()
     const rangeEnd = new Date()
-    // 拉取窗口 365 天：兼容首次部署 / seed 数据不全场景，确保任何环境都能补齐过去 1 年所有 LPR。
+    // 拉取窗口 364 天：兼容首次部署 / seed 数据不全场景，确保任何环境都能补齐过去 1 年所有 LPR。
+    // chinamoney 接口硬限制 "只提供一年历史数据查询"：=365 天会返回空 records，必须 <365。
     // chinamoney 1 年最多 12 条记录，重复条目走 findUnique 跳过，开销可忽略。
-    const rangeStart = new Date(Date.now() - 365 * 86400_000)
+    const rangeStart = new Date(Date.now() - 364 * 86400_000)
 
     const log = await createLPRSyncLogDAO({
         startedAt,
