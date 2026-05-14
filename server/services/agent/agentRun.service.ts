@@ -17,6 +17,7 @@ import {
 } from './agentRun.dao'
 import { getRedisClient } from '~~/server/lib/redis'
 import { withLangfuseContext } from '~~/server/lib/langfuse'
+import { repairOrphanToolUseCheckpoint } from '~~/server/services/workflow/repairOrphanToolUse'
 
 interface EnqueueRunParams {
   sessionId: string
@@ -154,7 +155,35 @@ export async function cancelRunService(
     return { success: true }
   }
 
-  // 已是 terminal 状态（COMPLETED / CANCELLED / FAILED / INTERRUPTED）：
+  // INTERRUPTED：用户从暂停态主动取消
+  //
+  // 治本要点（spec §6.2）：
+  // 1. 改 status=CANCELLED 释放 findActiveRunBySessionIdDAO 活跃锁,
+  //    否则后续消息会被分支判定为"还有进行中的任务"卡死。
+  // 2. 调 repairOrphanToolUseCheckpoint 释放 LangGraph 工具调用半成品,
+  //    避免下一轮 invoke 时 Anthropic API 因 orphan tool_use 报 400。
+  if (run.status === AGENT_RUN_STATUS.INTERRUPTED) {
+    await updateRunStatusDAO(runId, AGENT_RUN_STATUS.CANCELLED, {
+      completedAt: new Date(),
+    })
+    try {
+      const repair = await repairOrphanToolUseCheckpoint(
+        run.sessionId,
+        '用户从暂停态取消',
+      )
+      if (repair.parseFailures > 0) {
+        logger.error(
+          `[cancel] session=${run.sessionId} 有 ${repair.parseFailures} 个 scope 的 checkpoint 解析失败`,
+        )
+      }
+    }
+    catch (err) {
+      logger.warn(`[cancel] repairOrphanToolUseCheckpoint 失败 run=${runId}:`, err)
+    }
+    return { success: true }
+  }
+
+  // 已是 terminal 状态（COMPLETED / CANCELLED / FAILED）：
   // 幂等成功，调用方无需区分"真的取消了" vs "早已完成"
   return { success: true }
 }
