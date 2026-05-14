@@ -1,48 +1,29 @@
 <template>
   <div class="p-4">
-    <div class="flex items-center justify-between mb-2">
-      <h1 class="text-[22px] font-bold truncate">财产分割计算器</h1>
-      <div class="relative">
-        <Button variant="ghost" size="icon" @click="isHelpOpen = !isHelpOpen" class="rounded-full">
-          <HelpCircle class="h-5 w-5" />
-          <span class="sr-only">帮助</span>
-        </Button>
-        <div v-if="isHelpOpen" class="absolute right-0 z-50 w-80 mt-2 p-4 bg-card rounded-lg border shadow-lg">
-          <div class="flex justify-between items-center mb-3">
-            <h3 class="font-semibold text-base">适用情况说明</h3>
-            <Button variant="ghost" size="icon" @click="isHelpOpen = false" class="h-6 w-6">
-              <X class="h-5 w-5" />
-              <span class="sr-only">关闭</span>
-            </Button>
-          </div>
-
-          <div class="text-sm space-y-3 max-h-96 overflow-y-auto">
-            <div>
-              <h4 class="font-semibold mb-1">基础分配规则：</h4>
-              <ul class="list-disc list-inside space-y-1">
-                <li>夫妻共同财产原则上平均分配</li>
-                <li>共同债务由双方共同承担</li>
-                <li>分割时先扣除债务后再分配净资产</li>
-                <li>负债超过资产时按债务比例分担</li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 class="font-semibold mb-1">调整因素及影响（依据《民法典》）：</h4>
-              <ul class="list-disc list-inside space-y-1">
-                <li>转移/隐匿财产：对方可多分20%-30%</li>
-                <li>家暴/出轨等过错：无过错方可多分10%-20%</li>
-                <li>子女抚养：抚养方可多分5%-10%</li>
-              </ul>
-            </div>
-
-            <div class="bg-destructive/10 p-2 rounded text-destructive">
-              <p><strong>声明：</strong>本计算器结果仅供参考，实际分割需由法院根据案件具体情况判定，或由双方协商一致确定。</p>
-            </div>
-          </div>
+    <ToolsCalculatorPageHeader title="财产分割计算器" help-title="适用情况说明">
+      <template #help>
+        <div>
+          <h4 class="font-semibold mb-1">基础分配规则：</h4>
+          <ul class="list-disc list-inside space-y-1">
+            <li>夫妻共同财产原则上平均分配</li>
+            <li>共同债务由双方共同承担</li>
+            <li>分割时先扣除债务后再分配净资产</li>
+            <li>负债超过资产时按债务比例分担</li>
+          </ul>
         </div>
-      </div>
-    </div>
+        <div>
+          <h4 class="font-semibold mb-1">调整因素及影响（依据《民法典》）：</h4>
+          <ul class="list-disc list-inside space-y-1">
+            <li>转移/隐匿财产：对方可多分20%-30%</li>
+            <li>家暴/出轨等过错：无过错方可多分10%-20%</li>
+            <li>子女抚养：抚养方可多分5%-10%</li>
+          </ul>
+        </div>
+        <div class="bg-destructive/10 p-2 rounded text-destructive">
+          <p><strong>声明：</strong>本计算器结果仅供参考，实际分割需由法院根据案件具体情况判定，或由双方协商一致确定。</p>
+        </div>
+      </template>
+    </ToolsCalculatorPageHeader>
 
     <div class="flex flex-col lg:flex-row gap-6">
       <!-- 左侧：信息输入区 -->
@@ -383,7 +364,6 @@ definePageMeta({
 import { calculateDivorceProperty } from "#shared/utils/tools/divorcePropertyService";
 
 // 状态管理
-const isHelpOpen = ref(false);
 const assets = ref({
   total: 1000000,
   house: 0,
@@ -487,6 +467,4 @@ function calculate() {
 function formatCurrency(value) {
   return new Intl.NumberFormat("zh-CN").format(value);
 }
-
-import { X, HelpCircle } from "lucide-vue-next";
 </script>
