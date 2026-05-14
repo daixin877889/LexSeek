@@ -22,6 +22,7 @@ import type { CaseDetailMaterialItem } from '~/composables/useCaseDetail'
 import { CaseMaterialType } from '#shared/types/case'
 import AiChat from '~/components/ai/AiChat.vue'
 import AiChatQueueChips from '~/components/ai/AiChatQueueChips.vue'
+import QueuePausedBanner from '~/components/ai/QueuePausedBanner.vue'
 import { PANEL_TOOL_MAP } from '~/components/agents/panelToolMap'
 import AssistantDocumentAllMaterialsSheet from '~/components/assistant/document/AllMaterialsSheet.vue'
 import AssistantDocumentDraftTitleInput from '~/components/assistant/document/DocumentDraftTitleInput.vue'
@@ -785,6 +786,13 @@ function handlePanelResize(sizes: number[]) {
 
         <!-- 悬浮 Agent 窗 -->
         <CaseChatWindowShell v-model:open="agentOpen" title="文书生成助手" :initial-width="420" :initial-height="560">
+            <!-- 队列残留提示条：停止/放弃中断后队列有未发送消息时显示 -->
+            <QueuePausedBanner
+                v-if="queueLen > 0 && isQueuePaused"
+                :queue-length="queueLen"
+                @resume="() => resumeQueue()"
+                @clear="() => clearQueue()"
+            />
             <AiChat ref="aiChatRef" :messages="chatMessages" :loading="chatLoading" :is-interrupted="isInterrupted"
                 :enable-file-upload="true" :queue-length="queueLen" :queue-full="queueFull" :is-stopping="isStopping"
                 prompt-placeholder="告诉 AI 你想怎么填..." :show-header="false" panel-mode="left"

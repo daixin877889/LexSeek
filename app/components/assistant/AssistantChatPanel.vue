@@ -11,6 +11,7 @@ import { toast } from 'vue-sonner'
 import type { AiPromptSubmitData } from '~/components/ai/AiPromptInput.vue'
 import type { OssFileItem } from '~/store/file'
 import AiChat from '~/components/ai/AiChat.vue'
+import QueuePausedBanner from '~/components/ai/QueuePausedBanner.vue'
 import InterruptDispatcher from '~/components/InterruptDispatcher.vue'
 import CaseAnalysisMaterialSelector from '~/components/caseAnalysis/materialSelector.vue'
 import { PANEL_TOOL_MAP } from '~/components/agents/panelToolMap'
@@ -43,6 +44,10 @@ const {
   resumeInterrupt,
   stopGeneration,
   init,
+  currentQueueLen,
+  isQueuePaused,
+  resumeQueue,
+  clearQueue,
 } = useLegalAssistantAgent(sessionIdRef)
 
 // 旧版 useAssistantChat 提供的 isInterrupted 在工厂下需调用方自建
@@ -162,6 +167,12 @@ onMounted(async () => {
 
 <template>
   <div class="flex flex-col h-full min-h-0">
+    <QueuePausedBanner
+      v-if="currentQueueLen > 0 && isQueuePaused"
+      :queue-length="currentQueueLen"
+      @resume="resumeQueue"
+      @clear="clearQueue"
+    />
     <AiChat ref="aiChatRef" :messages="messages" :loading="isLoading" :is-interrupted="isInterrupted"
       v-model:thinking="thinking" panel-mode="left" :show-header="false" :enable-file-upload="true"
       :is-stopping="isStopping" prompt-placeholder="输入你的法律问题..." class="flex-1 min-h-0" :tool-map="PANEL_TOOL_MAP"

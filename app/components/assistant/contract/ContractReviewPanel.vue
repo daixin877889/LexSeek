@@ -15,6 +15,7 @@ import { toast } from 'vue-sonner'
 import { useMediaQuery, useLocalStorage } from '@vueuse/core'
 import type { Risk, RiskDisplay, RiskDisplayPhaseB, ContractReviewStatus, StanceRequest, PlaybookSnapshot, RiskArchivedStatus, ReviewWithParsedRisks, ContractExportMode } from '#shared/types/contract'
 import InterruptDispatcher from '~/components/InterruptDispatcher.vue'
+import QueuePausedBanner from '~/components/ai/QueuePausedBanner.vue'
 import AssistantContractDocxPreview from '~/components/assistant/contract/ContractDocxPreview.vue'
 import AssistantContractSaveVersionDialog from '~/components/assistant/contract/ContractSaveVersionDialog.vue'
 import AssistantContractUploadNewVersionDialog from '~/components/assistant/contract/ContractUploadNewVersionDialog.vue'
@@ -87,6 +88,10 @@ const contractAgent = useContractAgent(sessionIdRef, {
 
 const isLoading = contractAgent.isLoading
 const interruptData = contractAgent.interruptData
+const currentQueueLen = contractAgent.currentQueueLen
+const isQueuePaused = contractAgent.isQueuePaused
+const resumeQueue = contractAgent.resumeQueue
+const clearQueue = contractAgent.clearQueue
 
 const { resolveInterrupt, isCurrentInterruptToolCard } = usePanelMessageStreamContext({
     interruptData,
@@ -588,6 +593,14 @@ function handleContainerClick(e: MouseEvent) {
                 </div>
             </DialogContent>
         </Dialog>
+
+        <!-- 队列残留提示条：停止/放弃中断后队列有未发送消息时显示 -->
+        <QueuePausedBanner
+            v-if="currentQueueLen > 0 && isQueuePaused"
+            :queue-length="currentQueueLen"
+            @resume="() => resumeQueue()"
+            @clear="() => clearQueue()"
+        />
 
         <!-- Step 2 结果屏 -->
         <div v-if="review" class="flex-1 min-h-0 flex flex-col">

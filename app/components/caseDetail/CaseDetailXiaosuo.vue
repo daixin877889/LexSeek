@@ -14,6 +14,7 @@ import { RefreshCw as RefreshCwIcon } from 'lucide-vue-next'
 import { QUEUE_MAX_SIZE } from '~/composables/chatQueueActions'
 import AiChat from '~/components/ai/AiChat.vue'
 import AiChatQueueChips from '~/components/ai/AiChatQueueChips.vue'
+import QueuePausedBanner from '~/components/ai/QueuePausedBanner.vue'
 import InterruptDispatcher from '~/components/InterruptDispatcher.vue'
 import CaseChatWindowShell from '~/components/case/ChatWindowShell.vue'
 import CaseSessionListPopover from '~/components/case/SessionListPopover.vue'
@@ -229,6 +230,13 @@ watch(isOpen, (open) => {
       />
     </template>
 
+    <!-- 队列残留提示条：停止/放弃中断后队列有未发送消息时显示 -->
+    <QueuePausedBanner
+      v-if="queueLen > 0 && isQueuePaused"
+      :queue-length="queueLen"
+      @resume="() => props.xiaosuoChat.resumeQueue()"
+      @clear="() => props.xiaosuoChat.clearQueue()"
+    />
     <!-- 对话内容 -->
     <AiChat
       ref="aiChatRef"
