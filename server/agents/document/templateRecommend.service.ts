@@ -48,6 +48,8 @@ export interface TemplateRecommendItem {
     priority: number
     /** 评分（用于调试 / 透传到前端做次序解释） */
     score: number
+    /** 当前查看用户最近 30 天内是否用过该模板（rerank 阶段会读） */
+    recentlyUsed: boolean
 }
 
 export interface TemplateRecommendResult {
@@ -152,7 +154,7 @@ export async function recommendDocumentTemplatesService(
     input: TemplateRecommendInput,
 ): Promise<TemplateRecommendResult> {
     const { userId, keywords, categoryHint } = input
-    const limit = Math.max(1, Math.min(20, input.limit ?? 5))
+    const limit = Math.max(1, Math.min(50, input.limit ?? 5))
 
     const cleanedKeywords = normalizeKeywords(keywords)
     const validCategoryHint = isValidCategory(categoryHint) ? categoryHint : undefined
@@ -232,6 +234,7 @@ export async function recommendDocumentTemplatesService(
         description: tpl.description ?? null,
         priority: tpl.priority,
         score,
+        recentlyUsed: recentTemplateIds.has(tpl.id),
     }))
 
     return {

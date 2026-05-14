@@ -377,4 +377,25 @@ describe('recommendDocumentTemplatesService（真打 DB）', () => {
         // name 以 "起诉状" 开头的应严格高于 name 中部含的
         expect(sStart).toBeGreaterThan(sMid)
     })
+
+    it('10. items 中的 recentlyUsed 标记最近 30 天用过的模板', async () => {
+        const user = await createTestUser()
+        testIds.userIds.push(user.id)
+
+        const used = await createTpl({ name: '近期合同', category: 'general' })
+        const unused = await createTpl({ name: '其他合同', category: 'general' })
+        await createDraftWithTemplate(user.id, used.id, 5)
+
+        const r = await recommendDocumentTemplatesService({
+            userId: user.id,
+            intent: '合同',
+            keywords: ['合同'],
+            limit: 20,
+        })
+
+        const usedItem = r.items.find(i => i.id === used.id)
+        const unusedItem = r.items.find(i => i.id === unused.id)
+        expect(usedItem!.recentlyUsed).toBe(true)
+        expect(unusedItem!.recentlyUsed).toBe(false)
+    })
 })
