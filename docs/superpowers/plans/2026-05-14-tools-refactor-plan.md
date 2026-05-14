@@ -345,6 +345,8 @@ INSERT INTO "public"."pboc_loan_rates" ("effect_date", "six_months", "one_year",
   ('2011-04-06', 6.31, 6.40, 6.65, 6.80);
 ```
 
+> **执行期修正：** 项目其他 model 的 `@updatedAt` 字段在 DB 层是 `NOT NULL` 无 DEFAULT，raw SQL INSERT 必须显式带 `created_at`、`updated_at` 列（参考 seedData.sql 中 users 的 INSERT）。落库前在每段 INSERT 列声明末尾加 `"created_at", "updated_at"`，VALUES 每行末尾加 `, NOW(), NOW()`。最终落库验证 lpr=72 / deposit=10 / loan=10 全 OK（commit `8d5321fd`）。
+
 - [ ] **Step 2: 导入 seedData.sql 到 dev 库验证 SQL 语法**
 
 Run:
