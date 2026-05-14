@@ -44,15 +44,16 @@ function handleChange(val: unknown) {
   <ToggleGroup
     type="single"
     variant="outline"
+    size="sm"
     :model-value="props.modelValue"
-    class="w-full grid grid-cols-3 gap-2"
+    class="inline-flex gap-1 w-fit"
     @update:model-value="handleChange"
   >
     <ToggleGroupItem
       v-for="s in stances"
       :key="s"
       :value="s"
-      class="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+      class="h-7 px-3 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
     >
       {{ CaseStanceText[s] }}
     </ToggleGroupItem>

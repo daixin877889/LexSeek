@@ -8,11 +8,11 @@
           <PencilIcon class="size-3" />
         </Button>
       </h3>
-      <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm items-baseline">
-        <!-- 标题 -->
+      <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm items-baseline lg:grid-cols-[auto_1fr_auto_1fr] lg:gap-x-6">
+        <!-- 标题（跨列） -->
         <span class="text-muted-foreground shrink-0">标题</span>
-        <Input v-if="isEditing" v-model="editForm.title" class="h-7 text-sm" />
-        <span v-else class="font-bold text-foreground">{{ caseInfo.title }}</span>
+        <Input v-if="isEditing" v-model="editForm.title" class="h-7 text-sm lg:col-span-3" />
+        <span v-else class="font-bold text-foreground lg:col-span-3">{{ caseInfo.title }}</span>
 
         <!-- 类型 -->
         <template v-if="caseInfo.caseType">
@@ -20,10 +20,10 @@
           <span class="text-foreground">{{ caseInfo.caseType.name }}</span>
         </template>
 
-        <!-- 原告 -->
+        <!-- 原告（跨列） -->
         <template v-if="isEditing || plaintiffNames.length > 0">
           <span class="text-muted-foreground shrink-0">原告</span>
-          <div v-if="isEditing" class="flex flex-wrap gap-1.5 items-center">
+          <div v-if="isEditing" class="flex flex-wrap gap-1.5 items-center lg:col-span-3">
             <Badge v-for="(name, i) in editForm.plaintiff" :key="name" variant="outline"
               class="font-normal px-2 py-0 h-5 text-[11px] border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-400 gap-1">
               {{ name }}
@@ -40,7 +40,7 @@
               <PlusIcon class="size-3" /> 添加
             </button>
           </div>
-          <div v-else class="flex flex-wrap gap-1.5">
+          <div v-else class="flex flex-wrap gap-1.5 lg:col-span-3">
             <Badge v-for="name in plaintiffNames" :key="name" variant="outline"
               class="font-normal px-2 py-0 h-5 text-[11px] border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-400">
               {{ name }}
@@ -48,10 +48,10 @@
           </div>
         </template>
 
-        <!-- 被告 -->
+        <!-- 被告（跨列） -->
         <template v-if="isEditing || defendantNames.length > 0">
           <span class="text-muted-foreground shrink-0">被告</span>
-          <div v-if="isEditing" class="flex flex-wrap gap-1.5 items-center">
+          <div v-if="isEditing" class="flex flex-wrap gap-1.5 items-center lg:col-span-3">
             <Badge v-for="(name, i) in editForm.defendant" :key="name" variant="outline"
               class="font-normal px-2 py-0 h-5 text-[11px] border-orange-300 text-orange-700 dark:border-orange-700 dark:text-orange-400 gap-1">
               {{ name }}
@@ -68,7 +68,7 @@
               <PlusIcon class="size-3" /> 添加
             </button>
           </div>
-          <div v-else class="flex flex-wrap gap-1.5">
+          <div v-else class="flex flex-wrap gap-1.5 lg:col-span-3">
             <Badge v-for="name in defendantNames" :key="name" variant="outline"
               class="font-normal px-2 py-0 h-5 text-[11px] border-orange-300 text-orange-700 dark:border-orange-700 dark:text-orange-400">
               {{ name }}
@@ -103,7 +103,7 @@
         <!-- 法院（编辑态） -->
         <template v-if="isEditing">
           <span class="text-muted-foreground shrink-0">法院</span>
-          <Input v-model="editForm.courtName" class="h-7 text-sm" placeholder="如：北京市朝阳区人民法院" />
+          <Input v-model="editForm.courtName" class="h-7 text-sm lg:col-span-3" placeholder="如：北京市朝阳区人民法院" />
         </template>
 
         <!-- 一审案号（编辑态） -->
@@ -129,6 +129,7 @@
           <span class="text-muted-foreground shrink-0">二审法官</span>
           <Input v-model="editForm.secondInstanceJudge" class="h-7 text-sm" />
         </template>
+
 
         <!-- 案件状态（展示态） -->
         <template v-if="!isEditing && caseInfo.status">
@@ -180,12 +181,6 @@
         <template v-for="field in caseInfo.extraFields" :key="field.name">
           <span class="text-muted-foreground shrink-0">{{ field.title }}</span>
           <span class="font-bold text-foreground">{{ field.value }}</span>
-        </template>
-
-        <!-- 概述 -->
-        <template v-if="caseInfo.summary">
-          <span class="text-muted-foreground shrink-0 self-start mt-0.5">概述</span>
-          <span class="text-foreground leading-relaxed line-clamp-3 font-bold">{{ caseInfo.summary }}</span>
         </template>
       </div>
 
