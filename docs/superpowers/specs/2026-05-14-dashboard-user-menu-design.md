@@ -15,9 +15,10 @@
 | 管理粒度 | 混合：路由 meta 自描述 + 运行时 RBAC 过滤（不走后端表） |
 | 菜单排版 | 扁平 + 灰色分组小标题，PC 与移动端使用同一排版 |
 | 声明位置 | 中央骨架（分组顺序 + 动作项） + page 的 `definePageMeta.userMenu`（路由项） |
-| 图标载体 | page meta 写 lucide 字符串名；中央配置文件维护白名单 map → Component |
+| 图标载体 | page meta 写 lucide 字符串名；**复用** `~/utils/lucideIcons` + `getAdminIcon()` 动态解析（与 admin 菜单同源） |
 | 动作绑定 | meta 写 `handler: 'logout'` 字符串字面量；composable 内 handlerMap 绑函数 |
 | 角色匹配 | 按 `roles.code` 字段（实施 step 1 确认；若该字段不存在改用 `name`） |
+| 类型扩展 | 用 `declare module 'vue-router'` + `declare module '#app'` 给 `RouteMeta` / `PageMeta` 加 `userMenu` 字段（官方推荐做法），消除 composable 里的 inline cast |
 | 渲染层 | 抽 `UserMenuList.vue` 共享子组件，两端组件保留各自触发器和用户卡片 header |
 
 ## 菜单内容范围
@@ -37,15 +38,15 @@
 app/config/userMenu.ts                 ─┐
   groups   : home, membership, settings │
   actions  : logout                     │
-  iconMap  : lucide 白名单              │
                                         │
 Nuxt 路由表  useRouter().getRoutes()    ├─► useUserMenu()  ──►  UserMenuRenderNode[]
   meta.userMenu = { group, title, icon, │     1. 扫路由收集                ▲
-                    order, roles, hidden}│    2. 按 group 归并 + 排序     │
+                    order, roles }       │    2. 按 group 归并 + 排序     │
                                         │     3. 末尾插 separator + action│
 useRoleStore.userRoles                  │     4. RBAC 过滤                │
-useUserNavigation.handleLogout         ─┘     5. 隐藏空分组                │
-                                                                          │
+useUserNavigation.handleLogout          │     5. 隐藏空分组                │
+~/utils/lucideIcons + getAdminIcon()    │     6. 取图标（复用现有）       │
+                                       ─┘                                 │
             ┌─────────────────────────────────────────────────────────────┘
             ▼
   <UserMenuList :items="items" />（共享渲染组件）
@@ -58,14 +59,18 @@ useUserNavigation.handleLogout         ─┘     5. 隐藏空分组            
 
 **响应式**：`useUserMenu()` 返回 `computed`，依赖 `useRoleStore.userRoles` 和 `useRouter().getRoutes()`。角色切换或路由表变化时自动重算。
 
+**SSR 水合**：`roleStore.initUserRoles()` 已在 `app/app.vue:41` 的 setup 阶段通过 `Promise.all` await 完成 — 路由表和角色 store 在首屏渲染时都已就绪，**没有"角色未水合"窗口期**，菜单首次渲染即为最终态。
+
 ## 数据结构
 
 ### `shared/types/userMenu.ts`
 
 ```ts
 import type { Component } from 'vue'
+import type lucideIcons from '~/utils/lucideIcons'
 
-export type LucideIconName = string
+/** 受 lucide-vue-next 实际导出约束的图标名（编译期类型安全 — 拼错会报错） */
+export type LucideIconName = keyof typeof lucideIcons
 
 export interface UserMenuRouteMeta {
   group: string
@@ -73,7 +78,6 @@ export interface UserMenuRouteMeta {
   icon: LucideIconName
   order: number
   roles?: string[]
-  hidden?: boolean
 }
 
 export interface UserMenuGroup {
@@ -99,31 +103,43 @@ export type UserMenuRenderNode =
   | { kind: 'route'; path: string; title: string; icon: Component }
   | { kind: 'separator'; id: string }
   | { kind: 'action'; id: string; title: string; icon: Component; danger: boolean; onClick: () => void | Promise<void> }
+
+/** 给 vue-router 的 RouteMeta 扩展 userMenu 字段 — composable 内可直接 r.meta.userMenu，无需 cast */
+declare module 'vue-router' {
+  interface RouteMeta {
+    userMenu?: UserMenuRouteMeta
+  }
+}
+
+/** 给 Nuxt PageMeta 扩展同名字段 — page 文件里 definePageMeta({ userMenu: {...} }) 有补全 */
+declare module '#app' {
+  interface PageMeta {
+    userMenu?: UserMenuRouteMeta
+  }
+}
+
+export {}
 ```
 
 ### `app/config/userMenu.ts`
 
 ```ts
-import type { Component } from 'vue'
-import { Crown, Gift, Coins, UserPlus, ListChecks, User, Lock, Home, LogOut } from 'lucide-vue-next'
-import type { UserMenuGroup, UserMenuActionItem, LucideIconName } from '#shared/types/userMenu'
+import type { UserMenuGroup, UserMenuActionItem } from '#shared/types/userMenu'
 
+/** 分组骨架 — 决定分组顺序与标题 */
 export const userMenuGroups: UserMenuGroup[] = [
   { id: 'home',       order: 0  },
   { id: 'membership', title: '会员中心', order: 10 },
   { id: 'settings',   title: '账户设置', order: 20 },
 ]
 
+/** 动作项 — 在分隔线下方 */
 export const userMenuActions: UserMenuActionItem[] = [
   { id: 'logout', title: '退出登录', icon: 'LogOut', danger: true, order: 100, handler: 'logout' },
 ]
-
-export const userMenuIconMap: Record<LucideIconName, Component> = {
-  Home, Crown, Gift, Coins, UserPlus, ListChecks, User, Lock, LogOut,
-}
 ```
 
-> 图标白名单 = page meta 用字符串引用 + 编译期类型检查兜底。新增图标 = map 加一行。
+> 不再自造 icon 白名单 map：图标按字符串名走项目已有的 `getAdminIcon(name)` 函数（位于 `app/composables/useAdminMenu.ts`），它内部查 `~/utils/lucideIcons`（即 `import * as LucideIcons from 'lucide-vue-next'` 的整包导出）。`LucideIconName` 类型用 `keyof typeof lucideIcons` 约束，拼错图标名会被 TypeScript 直接报错。
 
 ### page meta 标记表
 
@@ -143,12 +159,12 @@ export const userMenuIconMap: Record<LucideIconName, Component> = {
 ### `app/composables/useUserMenu.ts`
 
 ```ts
-import { computed, type ComputedRef } from 'vue'
-import { useRouter } from 'vue-router'
+import type { ComputedRef } from 'vue'
 import type { UserMenuRenderNode, UserMenuRouteMeta } from '#shared/types/userMenu'
-import { userMenuGroups, userMenuActions, userMenuIconMap } from '~/config/userMenu'
+import { userMenuGroups, userMenuActions } from '~/config/userMenu'
 import { useRoleStore } from '~/store/role'
 import { useUserNavigation } from '~/composables/useUserNavigation'
+import { getAdminIcon } from '~/composables/useAdminMenu'
 
 export function useUserMenu(): { items: ComputedRef<UserMenuRenderNode[]> } {
   const router = useRouter()
@@ -168,14 +184,17 @@ export function useUserMenu(): { items: ComputedRef<UserMenuRenderNode[]> } {
     const allowed = (roles?: string[]) =>
       !roles || roles.length === 0 || roles.some((c) => myRoleCodes.has(c))
 
-    // 1. 扫路由
+    // 1. 扫路由 — 依赖 vue-router 的 RouteMeta module augmentation，无需 cast
     type Collected = UserMenuRouteMeta & { path: string; fallbackTitle?: string }
     const collected: Collected[] = []
     for (const r of router.getRoutes()) {
-      const meta = (r.meta as { userMenu?: UserMenuRouteMeta; title?: string } | undefined)
-      if (!meta?.userMenu || meta.userMenu.hidden) continue
-      if (!allowed(meta.userMenu.roles)) continue
-      collected.push({ ...meta.userMenu, path: r.path, fallbackTitle: meta.title })
+      if (!r.meta.userMenu) continue
+      if (!allowed(r.meta.userMenu.roles)) continue
+      collected.push({
+        ...r.meta.userMenu,
+        path: r.path,
+        fallbackTitle: r.meta.title as string | undefined,
+      })
     }
 
     // 2. 按 group 归并 + 排序
@@ -194,12 +213,15 @@ export function useUserMenu(): { items: ComputedRef<UserMenuRenderNode[]> } {
       if (arr.length === 0) continue
       if (g.title) nodes.push({ kind: 'group-header', id: g.id, title: g.title })
       for (const c of arr) {
-        const icon = userMenuIconMap[c.icon]
-        if (!icon) continue
+        const icon = getAdminIcon(c.icon)
+        if (!icon) {
+          logger.warn(`[useUserMenu] 未知 icon: ${c.icon}（路由 ${c.path}），跳过`)
+          continue
+        }
         nodes.push({
           kind: 'route',
           path: c.path,
-          title: c.title || c.fallbackTitle || c.path,
+          title: c.title || c.fallbackTitle || '',
           icon,
         })
       }
@@ -212,9 +234,13 @@ export function useUserMenu(): { items: ComputedRef<UserMenuRenderNode[]> } {
     if (visibleActions.length > 0) {
       nodes.push({ kind: 'separator', id: 'actions' })
       for (const a of visibleActions) {
-        const icon = userMenuIconMap[a.icon]
+        const icon = getAdminIcon(a.icon)
         const onClick = handlerMap[a.handler]
-        if (!icon || !onClick) continue
+        if (!icon) {
+          logger.warn(`[useUserMenu] 未知 action icon: ${a.icon}，跳过`)
+          continue
+        }
+        if (!onClick) continue
         nodes.push({
           kind: 'action',
           id: a.id,
@@ -233,6 +259,12 @@ export function useUserMenu(): { items: ComputedRef<UserMenuRenderNode[]> } {
 }
 ```
 
+说明：
+- `computed` / `useRouter` 走 Nuxt 自动导入，无需 import（见 `.claude/rules/main.md`）。
+- `getAdminIcon` 来自 `~/composables/useAdminMenu.ts:40`，已是项目通用的"图标名 → 组件"解析函数，与 admin 菜单同源。
+- `r.meta.userMenu` 类型来自 `shared/types/userMenu.ts` 末尾的 `declare module 'vue-router'`，**无 inline cast**。
+- `fallbackTitle` 仅 fallback 到 `meta.title`；不再 fallback 到 `path`（path 暴露技术细节）。
+
 ## 共享渲染组件
 
 ### `app/components/dashboard/UserMenuList.vue`
@@ -246,12 +278,17 @@ export function useUserMenu(): { items: ComputedRef<UserMenuRenderNode[]> } {
       {{ node.title }}
     </DropdownMenuLabel>
 
-    <NuxtLink v-else-if="node.kind === 'route'" :to="node.path" class="block">
-      <DropdownMenuItem class="cursor-pointer">
+    <!-- 路由项：as-child 把 menuitem 语义 + data-highlighted 行为传给底下的 NuxtLink -->
+    <DropdownMenuItem v-else-if="node.kind === 'route'" as-child class="cursor-pointer">
+      <NuxtLink
+        :to="node.path"
+        active-class="bg-accent text-accent-foreground"
+        exact-active-class="bg-accent text-accent-foreground font-medium"
+      >
         <component :is="node.icon" class="mr-2 h-4 w-4" />
         {{ node.title }}
-      </DropdownMenuItem>
-    </NuxtLink>
+      </NuxtLink>
+    </DropdownMenuItem>
 
     <DropdownMenuSeparator v-else-if="node.kind === 'separator'" />
 
@@ -270,12 +307,16 @@ export function useUserMenu(): { items: ComputedRef<UserMenuRenderNode[]> } {
 </template>
 
 <script setup lang="ts">
-import { DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '~/components/ui/dropdown-menu'
 import type { UserMenuRenderNode } from '#shared/types/userMenu'
 
 defineProps<{ items: UserMenuRenderNode[] }>()
 </script>
 ```
+
+说明：
+- `DropdownMenuItem` / `DropdownMenuLabel` / `DropdownMenuSeparator` 走 shadcn-nuxt 自动注册，无需显式 import（见 `.claude/rules/ui.md`）。
+- 关键 a11y 修正：用 `as-child` 让 `DropdownMenuItem` 把 `menuitem` 角色、键盘聚焦、`data-highlighted` 高亮、点击后自动关闭弹层等行为透传到 NuxtLink — 这是 Radix / shadcn-vue 对"组件作为链接"的官方推荐写法。原方案"NuxtLink 包在 DropdownMenuItem 外面"会让 menuitem 角色留在内层、外层只是普通 anchor，屏幕阅读器读到的是 link 而非 menuitem，且高亮 / 关闭弹层行为会错乱。
+- active 态：当用户处在某个菜单项对应的页面时，NuxtLink 会自动加 `router-link-active` / `router-link-exact-active` 类（这里映射成 `bg-accent text-accent-foreground` 高亮 + 精确匹配时加粗），与截图里"我的会员"的红色高亮态一致的视觉反馈。
 
 ## 组件改造
 
@@ -288,7 +329,7 @@ defineProps<{ items: UserMenuRenderNode[] }>()
 
 ### `app/components/dashboard/navUserRight.vue`（移动端右上角）
 
-- 触发器保持原样：`<button>` + `<User class="h-6 w-6" />`
+- 触发器：`<button>` + `<User class="h-6 w-6" />`，**同时把当前硬编码的 `hover:bg-gray-100` 改为 `hover:bg-muted`**（兼容深色模式，与 dashboardLayout 顶部其他按钮一致）
 - `DropdownMenuContent`：`side="bottom"` `align="end"`，保留用户卡片 header
 - 同样替换为 `<UserMenuList :items="items" />`
 - 移除组件内部所有 TODO 注释
@@ -297,13 +338,14 @@ defineProps<{ items: UserMenuRenderNode[] }>()
 
 ## RBAC 过滤策略
 
-- **角色来源**：`useRoleStore.userRoles`（已在登录后初始化，SSR 水合兼容）
-- **匹配字段**：`roles.code` 优先，fallback `name`；实施 step 1 用 `npx tsx -e` 或读 `prisma/models/rbac.prisma` 确认实际字段
+- **角色来源**：`useRoleStore.userRoles`，**已在 `app/app.vue:41` 的 setup 阶段通过 `Promise.all` await 完成**，首屏渲染时就绪。
+- **匹配字段**：`roles.code` 优先，fallback `name`；实施 step 1 读 `prisma/models/rbac.prisma` 确认实际字段，确认后删除 fallback 分支。
 - **规则**：
   - `meta.userMenu.roles` / `action.roles` 未写或空数组 = 所有登录用户可见
   - 写了 = 任一当前角色 code 命中即通过
-- **未登录态**：dashboard layout 已有登录中间件保护，菜单 composable 不处理
-- **角色未水合时**：当成"无角色"处理（仅显示无 roles 限制的项），水合完成 computed 自动重算
+- **未登录态**：dashboard layout 已有登录中间件保护，菜单 composable 不处理。
+- **当前菜单实际不使用 roles 字段**：spec 列的 8 项均为所有登录用户的个人入口，`roles` 字段保留为 opt-in 预留接口，符合用户头脑风暴中确认的"混合方案"。
+- **为什么不复用 `usePermissionStore.hasRoutePermission()`**：那是路由路径访问权限判断（依赖后端权限表），与本设计的"按角色 code 显式标注 opt-in 限制"是两个维度；当前菜单也不需要按"用户能否访问该 URL"过滤。
 
 ## 测试策略
 
@@ -314,12 +356,11 @@ defineProps<{ items: UserMenuRenderNode[] }>()
 | 路由表为空 | 返回空数组 |
 | 单一 home 项（group 无 title） | 一个 route 节点，无 group-header |
 | 多 group 多项 | 按 group.order → item.order 排序 |
-| `meta.hidden = true` | 该项被过滤 |
 | `meta.roles` 不命中当前角色 | 该项被过滤 |
 | 某分组下所有项被过滤 | 该 group-header 不出现 |
 | 末尾 separator + action 节点正确插入 | action 按 order 排序 |
 | action.roles 不命中 | 该动作被过滤 |
-| `meta.icon` 名未登记 | 跳过该项，不抛错 |
+| `meta.icon` 名 `getAdminIcon` 返回 null | 跳过该项 + `logger.warn`，不抛错 |
 | 用户多角色 | 任一命中即通过 |
 
 mock 策略：
@@ -334,23 +375,25 @@ mock 策略：
 完成实施后，用 chrome-devtools MCP 启动 dev 并依次验证：
 
 1. PC 宽窗 → 左下角触发，菜单结构与"扁平 + 分组标题" mockup 一致
-2. 窄窗（<md）→ 右上角 User 图标触发，菜单内容完全一致
+2. 窄窗（<md）→ 右上角 User 图标触发（深色模式下背景 `hover:bg-muted` 不再发白），菜单内容完全一致
 3. 深色模式切换 → 分组标题（muted-foreground）和危险动作（红色）正常
-4. 点击任意路由项 → 正确跳转 + 弹层关闭
-5. 点击"退出登录" → 调用现有 logout 流程
+4. 点击任意路由项 → 正确跳转 + 弹层关闭 + 再次打开时**该项处于 active 态**（背景 `bg-accent`），其它项不亮
+5. 处在 `/dashboard/membership/redeem` 子页时，"兑换会员"项亮 active 而"我的会员"不亮（NuxtLink 的 router-link-active 行为）
+6. 点击"退出登录" → 调用现有 logout 流程
+7. 键盘上下方向键能在弹层内 menuitem 之间循环聚焦（验证 `as-child` 把 menuitem 角色正确透传给 NuxtLink）
 
 ## 边界处理
 
 | 场景 | 处理 |
 |---|---|
 | 路由无 `meta.userMenu` | 不进用户菜单（侧边栏入口的默认情况） |
-| `meta.userMenu.icon` 未登记 | 跳过该项 + `logger.warn`（防御，不抛错） |
+| `meta.userMenu.icon` 在 `lucideIcons` 中找不到 | 跳过该项 + `logger.warn`（防御，不抛错；类型层面 `LucideIconName = keyof typeof lucideIcons` 已挡住编译期拼错） |
 | 中央骨架登记的 group 无任何项 | 空分组隐藏 |
-| `meta.userMenu.title` 未填 | fallback 到 `meta.title`，再 fallback 到 `path` |
-| SSR 阶段角色未水合 | 仅显示无 roles 限制的项，水合后 computed 自动重算 |
+| `meta.userMenu.title` 未填 | fallback 到 `meta.title`（不再回退到 `path`，避免暴露技术细节） |
+| SSR 阶段角色状态 | `app.vue` setup 已 await `initUserRoles`，**首屏渲染时即就绪**，无未水合窗口 |
 | 用户多角色 | 任一命中即通过 |
 | 弹层超出视口 | shadcn `DropdownMenuContent` 自带滚动 |
-| 无障碍 | `DropdownMenuLabel` / `DropdownMenuItem` 自带语义，无需额外 sr-only |
+| 无障碍 | `as-child` 让 NuxtLink 继承 `menuitem` 角色 / 键盘聚焦 / 弹层关闭行为；`DropdownMenuLabel` 提供分组语义，无需额外 sr-only |
 
 ## 实施清单（文件影响范围）
 
@@ -387,5 +430,4 @@ mock 策略：
 
 ## 未决细节（实施时确认）
 
-1. `roles` 表的角色 code 字段名（`code` vs `name`）— 看 `prisma/models/rbac.prisma`
-2. 移动端右上角的 `hover:bg-gray-100` 当前是写死的，dark 模式不友好 — 顺手改成 `hover:bg-muted`（已在段 3 草稿里改了）
+1. `roles` 表的角色 code 字段名（`code` vs `name`）— 看 `prisma/models/rbac.prisma`。确认后删除 composable 里的 `?? r.name` fallback 分支。
