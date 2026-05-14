@@ -53,7 +53,7 @@ function handleChange(val: unknown) {
       v-for="s in stances"
       :key="s"
       :value="s"
-      class="h-7 px-3 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+      class="h-6 min-w-0 px-2.5 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
     >
       {{ CaseStanceText[s] }}
     </ToggleGroupItem>

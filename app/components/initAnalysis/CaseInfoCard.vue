@@ -24,7 +24,8 @@
         </div>
 
         <!-- 紧凑字段：类型 / 状态 / 立场（展示态在同一行，编辑态各自独占） -->
-        <div v-if="caseInfo.caseType" class="flex gap-3 items-baseline" :class="{ 'basis-full': isEditing }">
+        <!-- gap 在编辑态切到 gap-4 与其他独占字段对齐；展示态用 gap-3 紧凑挨着 -->
+        <div v-if="caseInfo.caseType" class="flex items-baseline" :class="isEditing ? 'basis-full gap-4' : 'gap-3'">
           <span class="w-16 shrink-0 text-muted-foreground">类型</span>
           <span class="text-foreground">{{ caseInfo.caseType.name }}</span>
         </div>
