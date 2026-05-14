@@ -1,50 +1,31 @@
 <template>
   <div class="p-4">
-    <div class="flex items-center justify-between mb-2">
-      <h1 class="text-[22px] font-bold truncate">经济补偿金/赔偿金计算</h1>
-      <div class="relative">
-        <Button variant="ghost" size="icon" @click="isHelpOpen = !isHelpOpen" class="rounded-full">
-          <HelpCircle class="h-5 w-5" />
-          <span class="sr-only">帮助</span>
-        </Button>
-        <div v-if="isHelpOpen" class="absolute right-0 z-50 w-80 mt-2 p-4 bg-card rounded-lg border shadow-lg">
-          <div class="flex justify-between items-center mb-3">
-            <h3 class="font-semibold text-base">功能说明</h3>
-            <Button variant="ghost" size="icon" @click="isHelpOpen = false" class="h-6 w-6">
-              <X class="h-5 w-5" />
-              <span class="sr-only">关闭</span>
-            </Button>
-          </div>
-
-          <div class="text-sm space-y-3 max-h-96 overflow-y-auto">
-            <div>
-              <h4 class="font-semibold mb-1">经济补偿金(N)适用情形：</h4>
-              <ul class="list-disc list-inside space-y-1">
-                <li>协商一致解除劳动合同</li>
-                <li>用人单位提出解除并与劳动者协商一致</li>
-                <li>经济性裁员</li>
-                <li>劳动合同到期，单位不续签</li>
-                <li>企业破产、吊销营业执照等</li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 class="font-semibold mb-1">经济赔偿金(2N)适用情形：</h4>
-              <ul class="list-disc list-inside space-y-1">
-                <li>用人单位违法解除劳动合同</li>
-                <li>未经法定程序解除合同</li>
-                <li>强制解除劳动合同</li>
-                <li>特殊时期违法解除（如孕期、工伤期）</li>
-              </ul>
-            </div>
-
-            <div class="bg-destructive/10 p-2 rounded text-destructive">
-              <p><strong>注意：</strong>两种赔偿不可同时主张，若属违法解除，可选择赔偿金(2N)或要求继续履行合同。该工具仅供参考。</p>
-            </div>
-          </div>
+    <ToolsCalculatorPageHeader title="经济补偿金/赔偿金计算" help-title="功能说明">
+      <template #help>
+        <div>
+          <h4 class="font-semibold mb-1">经济补偿金(N)适用情形：</h4>
+          <ul class="list-disc list-inside space-y-1">
+            <li>协商一致解除劳动合同</li>
+            <li>用人单位提出解除并与劳动者协商一致</li>
+            <li>经济性裁员</li>
+            <li>劳动合同到期，单位不续签</li>
+            <li>企业破产、吊销营业执照等</li>
+          </ul>
         </div>
-      </div>
-    </div>
+        <div>
+          <h4 class="font-semibold mb-1">经济赔偿金(2N)适用情形：</h4>
+          <ul class="list-disc list-inside space-y-1">
+            <li>用人单位违法解除劳动合同</li>
+            <li>未经法定程序解除合同</li>
+            <li>强制解除劳动合同</li>
+            <li>特殊时期违法解除（如孕期、工伤期）</li>
+          </ul>
+        </div>
+        <div class="bg-destructive/10 p-2 rounded text-destructive">
+          <p><strong>注意：</strong>两种赔偿不可同时主张，若属违法解除，可选择赔偿金(2N)或要求继续履行合同。该工具仅供参考。</p>
+        </div>
+      </template>
+    </ToolsCalculatorPageHeader>
 
     <div class="flex flex-col lg:flex-row gap-6">
       <!-- 左侧：信息输入区 -->
@@ -113,27 +94,8 @@
               </div>
 
               <!-- 起始时间和结束时间 -->
-              <div>
-                <label class="text-sm font-medium leading-none">入职日期</label>
-                <div class="relative mt-1.5">
-                  <div class="date-input-wrapper">
-                    <CalendarIcon
-                      class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                    <Input type="date" v-model="startDate" class="w-full pl-10" />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label class="text-sm font-medium leading-none">离职日期</label>
-                <div class="relative mt-1.5">
-                  <div class="date-input-wrapper">
-                    <CalendarIcon
-                      class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                    <Input type="date" v-model="endDate" class="w-full pl-10" />
-                  </div>
-                </div>
-              </div>
+              <ToolsDateInput v-model="startDate" label="入职日期" />
+              <ToolsDateInput v-model="endDate" label="离职日期" />
 
               <!-- 是否属于特定情形 - 仅在经济补偿金时显示 -->
               <div v-if="isCompensation">
@@ -288,12 +250,11 @@ definePageMeta({
 });
 
 import { exportCompensationToExcel } from "#shared/utils/tools/utils/excelExport";
-import { CalendarIcon, X, HelpCircle } from "lucide-vue-next";
+import { HelpCircle } from "lucide-vue-next";
 
 const alertDialogStore = useAlertDialogStore();
 
 // 状态管理
-const isHelpOpen = ref(false);
 const showResult = ref(false);
 const socialAverageWage = ref("13193"); // 设置参考值
 const isWageExceed = ref(false);
@@ -317,10 +278,6 @@ const isCompensation = computed(() => {
 });
 
 // 方法
-function toggleHelp() {
-  isHelpOpen.value = !isHelpOpen.value;
-}
-
 function onWageExceedChange() {
   monthlyWage.value = "";
   socialAverageWage.value = "13193";
@@ -484,27 +441,3 @@ function formatCurrency(value) {
 }
 </script>
 
-<style scoped>
-/* 日期选择器样式 */
-.date-input-wrapper {
-  position: relative;
-  cursor: pointer;
-}
-
-.date-input-wrapper input {
-  cursor: pointer;
-}
-
-/* 隐藏原生日期输入框的日历图标（Chrome） */
-input[type="date"]::-webkit-calendar-picker-indicator {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  cursor: pointer;
-}
-</style>
