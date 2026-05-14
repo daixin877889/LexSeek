@@ -9,6 +9,7 @@
 import { z } from 'zod'
 import { tool } from '@langchain/core/tools'
 import { interrupt } from '@langchain/langgraph'
+import { consola as logger } from 'consola'
 import { InterruptType } from '#shared/types/case'
 import type { ToolContext, ToolDefinition } from '#shared/types/agentTools'
 import {
