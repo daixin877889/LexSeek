@@ -64,9 +64,11 @@ LLM 拿到 tool result（结果 / cancelled）继续对话
 
 | 层 | 来源 | 时机 | 实现 |
 |---|---|---|---|
-| **L1** LLM 自动抽取 | 4 段案件上下文（caseContextSync 中间件注入到 prompt） | LLM 调工具时 | 已有，免费 |
-| **L2** 工具兜底查询 | `case_memory` 里 type='calculation' 同 toolName 历史 | 工具内部 step ① | 新增 |
+| **L1** LLM 自动抽取 | 4 段案件上下文（基础信息 + 材料 + 分析 + 记忆，由 caseContextSync 中间件注入到 prompt） | LLM 调工具时通过 tool call 参数间接传递 | 已有，免费 |
+| **L2** 工具兜底查询 | `case_memories` 里 kind='calculation' + subjectKey='calculation:{tool}' 的最近一条 | 工具内部 step ① | 新增 |
 | **L3** 用户手填 | inline 卡片输入态 | 路径 B | 新增 |
+
+> **L1 说明**：项目已有的 `caseContextSyncMiddleware`（`server/agents/_shared/case-context/caseContextSync.middleware.ts`）会在每轮对话开始时把"基础信息 / 材料摘要 / 分析结果 / 召回记忆"4 段拼成 HumanMessage 注入到 prompt，LLM 看到上下文后会**主动从中抽取相关字段填入 tool call 参数**（如月工资、争议金额）。这是"间接传递"而非"前端直接读 4 段数据渲染表单"，但效果等价 — 用户原始需求里的"预填来自 4 段案件上下文"由 L1 完成；L2 只是兜底（防 LLM 漏抽，且复用上次手填值减少重复劳动）。
 
 合并优先级：**L3 > L2 > L1**（后者覆盖前者）。
 
@@ -88,57 +90,102 @@ export enum InterruptType {
 }
 ```
 
-### 4.2 case_memory 表 type 字段增量
-
-不需要 prisma schema 改动 — 现有 `caseMemories.type` 是 `String @db.VarChar(32)`（非枚举），追加新值即可。
-
-文件：`shared/types/memory.ts`（新增枚举值）
+同文件末尾的 `TypedInterruptData` 联合类型同步加入新成员（与现有 5 种 InterruptType 联合类型保持一致风格）：
 
 ```typescript
-export enum CaseMemoryType {
-    EXTRACTED = 'extracted',
-    USER_NOTE = 'user_note',
-    ANALYSIS = 'analysis',
-    /** 新增：计算器历史 */
-    CALCULATION = 'calculation',
+export interface CalculatorInputInterruptData {
+    type: InterruptType.CALCULATOR_INPUT
+    toolName: string                          // 如 'calculate_compensation'
+    prefilled: Record<string, unknown>        // L1 + L2 合并后的预填值
+    missing: string[]                         // 缺失必填字段名列表
+}
+
+export type TypedInterruptData =
+    | CaseInfoCheckInterruptData
+    | BasicInfoConfirmInterruptData
+    | ModuleSelectInterruptData
+    | InsufficientPointsInterruptData
+    | AwaitingStanceInterruptData
+    | CalculatorInputInterruptData            // ← 新增
+```
+
+### 4.2 案件记忆 schema 扩展（不动 prisma，扩展类型 + service）
+
+**关键事实**：`prisma/models/case.prisma` 中 `caseMemories` 表是 LangChain PGVectorStore 专用表，只有 `id / text / metadata / embedding / tsv` 五列，**不允许新增列**（注释明确禁止）。所有业务字段必须通过 `metadata` JSONB 字段承载。
+
+#### 4.2.1 MemoryKind 加新值
+
+文件：`shared/types/memory.ts`
+
+```typescript
+// 在现有 6 种 kind 基础上追加 'calculation'
+export type MemoryKind = 'fact' | 'preference' | 'dialogue_note' | 'event' | 'decision' | 'note' | 'calculation'
+```
+
+#### 4.2.2 CaseMemoryMetadata 加可选字段
+
+```typescript
+export interface CaseMemoryMetadata {
+    id: string
+    caseId: number
+    kind: MemoryKind
+    subjectKey?: string         // 计算器场景用 `calculation:${tool}` 实现版本链
+    confidence?: number
+    source?: MemorySource
+    supersedes?: string
+    /** 新增：计算器历史详情，仅当 kind='calculation' 时填入 */
+    calculation?: {
+        tool: string                            // 工具名 'calculate_compensation'
+        input: Record<string, unknown>          // 用户/LLM 合并后的最终入参
+        output: Record<string, unknown>         // service 返回结果
+        calculatedAt: string                    // ISO 时间
+    }
 }
 ```
 
-`caseMemories.content` 字段（JSON）存储格式：
+#### 4.2.3 writeMemoryService 透传 extra metadata
+
+`server/services/memory/memory.service.ts` 中 `MemoryWriteInput` 增加可选字段：
 
 ```typescript
-{
-    tool: 'calculate_compensation',      // 工具名
-    input: { type: 'workInjury', salary: 12000, disabilityLevel: 8, ... },
-    output: { totalCompensation: 132000, disabilityCompensation: 96000, ... },
-    calculatedAt: '2026-05-14T19:30:00+08:00'
+export interface MemoryWriteInput {
+    caseId: number
+    kind: MemoryKind
+    text: string
+    subjectKey?: string
+    confidence?: number
+    source?: MemorySource
+    /** 新增：透传到 PGVectorStore.metadata 的额外字段（如 calculation 详情） */
+    extraMetadata?: Partial<Pick<CaseMemoryMetadata, 'calculation'>>
 }
 ```
+
+实现：把 `input.extraMetadata` 浅合并到内部构造的 `metadata` 对象上（不影响现有字段）。
 
 ## 5. 文件结构
 
 ### 5.1 新建文件
 
 ```
-shared/types/agentInterrupt.ts                                 # CalculatorInputInterruptPayload 类型（CALCULATOR_INPUT 携带的数据）
 shared/utils/tools/agentTools/_fieldMetadata.ts                # 10 工具的字段元数据（前端表单渲染用）
-server/services/memory/caseCalculation.service.ts              # case_memory 计算历史的读/写 service
-app/components/ai/tools/CalculatorTool.vue                     # 通用计算器卡片（输入态 + 结果态）
+app/components/ai/tools/CalculatorTool.vue                     # 通用计算器卡片（输入态 + 结果态 + 取消态）
 app/components/ai/tools/CalculatorFormFields.vue               # 动态表单（按 toolName + 分支切换字段集）
-app/components/ai/tools/CalculatorResultSummary.vue            # 结果摘要 row 渲染（按 toolName 切换字段）
-app/components/ai/tools/CalculatorResultDetails.vue            # 复杂结果展示（分段表格 / 多 Accordion）
-tests/server/services/memory/caseCalculation.service.test.ts
+app/components/ai/tools/CalculatorResult.vue                   # 结果展示（合并原 Summary+Details，含摘要 row + 分段表格 + 多 Accordion）
 tests/server/agents/legal-assistant/calculator-tools.e2e.test.ts
 ```
+
+> 不新建 `caseCalculation.service.ts`：复用现有 `writeMemoryService`（仅扩 `extraMetadata` 字段）+ 一个轻量 helper 函数 `findLastCalculationByCase(caseId, tool)` 直接放进 `server/services/memory/memory.service.ts` 同文件（用 raw SQL 查 metadata JSONB）。
 
 ### 5.2 修改文件
 
 ```
-shared/types/case.ts                                           # 加 InterruptType.CALCULATOR_INPUT
-shared/types/memory.ts                                         # 加 CaseMemoryType.CALCULATION
-shared/utils/tools/agentTools/*.tool.ts (10 个)                # 每个工具加 interrupt + 必填校验 + 写记忆
+shared/types/case.ts                                           # 加 InterruptType.CALCULATOR_INPUT + TypedInterruptData 联合
+shared/types/memory.ts                                         # MemoryKind 加 'calculation'，CaseMemoryMetadata 加 calculation 可选字段
+server/services/memory/memory.service.ts                       # MemoryWriteInput 加 extraMetadata，新增 findLastCalculationByCase 函数
+shared/utils/tools/agentTools/*.tool.ts (10 个)                # 每个工具加 interrupt + 必填校验 + 调 writeMemoryService 写记忆
 server/services/agent-platform/tools/index.ts                  # toolModules 注册 10 个 calculate_*
 app/components/ai/AiToolRenderer.vue                           # INTERNAL_TOOL_MAP 映射 10 个 calculate_* → CalculatorTool
+app/components/case/interrupt/index.ts                         # globalInterruptRegistry.register('calculator_input', CalculatorTool, { isToolCard: true })
 prisma/seeds/seedData.sql                                      # nodes.assistantMain.tools 字段追加 10 个工具名
 ```
 
@@ -159,9 +206,9 @@ import {
     calculateDeathCompensation,
 } from '#shared/utils/tools/compensationService'
 import {
-    fetchCaseCalculationContextService,
-    writeCaseCalculationService,
-} from '~~/server/services/memory/caseCalculation.service'
+    writeMemoryService,
+    findLastCalculationByCase,
+} from '~~/server/services/memory/memory.service'
 
 // schema 取消 .default()，必填字段改 .optional() 让工具内部主动校验
 const schema = z.object({
@@ -187,11 +234,11 @@ export const compensationCalculatorTool: ToolModule = {
     },
     createTool: (ctx: ToolContext) =>
         tool(async (input) => {
-            // ① 兜底查 case_memory
+            // ① L2 兜底查 case_memory 里同 tool 的最近一次计算
             const memoryPrefill = ctx.caseId
-                ? await fetchCaseCalculationContextService(ctx.caseId, 'calculate_compensation')
+                ? (await findLastCalculationByCase(ctx.caseId, 'calculate_compensation'))?.input ?? {}
                 : {}
-            let merged = { ...memoryPrefill, ...input }
+            let merged = { ...memoryPrefill, ...input } as Record<string, any>
 
             // ② 必填校验
             const required = REQUIRED_FIELDS[merged.type] ?? []
@@ -199,46 +246,59 @@ export const compensationCalculatorTool: ToolModule = {
                 (f) => merged[f] === undefined || merged[f] === null || merged[f] === '',
             )
 
-            // ③ 信息不足 → interrupt
+            // ③ 信息不足 → interrupt（项目惯用模式：as unknown + 防御性校验，对齐 parseAndAskStance）
             if (missing.length > 0) {
-                const userInput = interrupt({
+                const resumed = interrupt({
                     type: InterruptType.CALCULATOR_INPUT,
                     toolName: 'calculate_compensation',
                     prefilled: merged,
                     missing,
-                })
-                // 用户取消
-                if (userInput?.cancelled) {
-                    return JSON.stringify({ cancelled: true, reason: '用户取消了本次计算' })
+                }) as unknown
+
+                if (!resumed || typeof resumed !== 'object') {
+                    throw new Error(`calculate_compensation: resume payload 非法 (${typeof resumed})`)
                 }
-                merged = { ...merged, ...userInput }
+                const payload = resumed as { cancelled?: boolean; reason?: string; [k: string]: unknown }
+                if (payload.cancelled) {
+                    return JSON.stringify({ cancelled: true, reason: payload.reason ?? '用户取消了本次计算' })
+                }
+                merged = { ...merged, ...payload }
             }
 
             // ④ 调 service 算结果
-            let result: unknown
+            let result: Record<string, unknown>
             if (merged.type === 'workInjury') {
                 result = calculateWorkInjuryCompensation(
                     merged.salary, merged.disabilityLevel, merged.medicalExpenses ?? 0,
                     merged.nursingExpenses ?? 0, merged.nutritionExpenses ?? 0,
                 )
             } else if (merged.type === 'trafficAccident') {
-                result = calculateTrafficAccidentCompensation(...)
+                result = calculateTrafficAccidentCompensation(/* ... */)
             } else {
-                result = calculateDeathCompensation(...)
+                result = calculateDeathCompensation(/* ... */)
             }
 
-            // ⑤ 写入 case_memory
+            // ⑤ 写入 case_memory（复用 writeMemoryService + extraMetadata 透传）
             if (ctx.caseId) {
-                await writeCaseCalculationService({
+                await writeMemoryService({
                     caseId: ctx.caseId,
-                    tool: 'calculate_compensation',
-                    input: merged,
-                    output: result,
+                    kind: 'calculation',
+                    text: `[计算] 赔偿金 · ${merged.type} · 总额 ${result.totalCompensation ?? '-'} 元`,
+                    subjectKey: `calculation:calculate_compensation`,  // 同案件同工具用版本链覆盖
+                    source: 'manual',
+                    extraMetadata: {
+                        calculation: {
+                            tool: 'calculate_compensation',
+                            input: merged,
+                            output: result,
+                            calculatedAt: new Date().toISOString(),
+                        },
+                    },
                 })
             }
 
             return JSON.stringify(result)
-        }, { name: 'calculate_compensation', description: '...', schema }),
+        }, { name: 'calculate_compensation', description: '...', schema }) as any,
 }
 ```
 
@@ -287,26 +347,35 @@ export const compensationCalculatorTool: ToolModule = {
     <!-- 结果态：参考各工具页面完整明细 -->
     <ConfirmationAccepted v-else-if="output && !cancelled">
       <div class="space-y-3">
-        <h3 class="font-semibold">✅ {{ toolDisplayName }}结果</h3>
+        <h3 class="font-semibold flex items-center gap-2">
+          <CheckCircle2 class="w-5 h-5 text-emerald-600" />
+          {{ toolDisplayName }}结果
+        </h3>
 
-        <!-- 摘要 row：所有 service 返回字段 -->
-        <CalculatorResultSummary :tool-name="toolName" :input="input" :output="output" />
+        <!-- 完整结果（合并 Summary+Details）：摘要 row + 分段表格 + 多 Accordion -->
+        <CalculatorResult :tool-name="toolName" :input="input" :output="output" />
 
-        <!-- 复杂结果：分段表格 / 多 Accordion -->
-        <CalculatorResultDetails :tool-name="toolName" :output="output" />
-
-        <Alert variant="success">
-          ✓ 已自动保存到案件记忆，下次再算时会自动预填这些字段
+        <Alert variant="success" class="block">
+          <Check class="w-4 h-4 mr-2" />
+          已自动保存到案件记忆，下次再算时会自动预填这些字段
         </Alert>
       </div>
     </ConfirmationAccepted>
 
     <!-- 取消态：保留卡片置灰 -->
     <ConfirmationRejected v-else>
-      <p class="text-muted-foreground">⊘ 用户取消了本次计算输入</p>
+      <p class="text-muted-foreground flex items-center gap-2">
+        <Ban class="w-4 h-4" />
+        用户取消了本次计算输入
+      </p>
     </ConfirmationRejected>
   </Confirmation>
 </template>
+
+<script setup lang="ts">
+import { CheckCircle2, Check, Ban } from 'lucide-vue-next'
+// ... 其余 import 略
+</script>
 ```
 
 ### 8.2 _fieldMetadata.ts 字段元数据
@@ -384,50 +453,90 @@ const INTERNAL_TOOL_MAP: Record<string, Component> = {
 
 10 个工具复用同一个 CalculatorTool 组件，按 toolName 查 `CALCULATOR_TOOL_META` 动态渲染。
 
-## 9. 案件记忆联动
+### 8.4 globalInterruptRegistry 注册（关键！）
 
-### 9.1 写入
-
-工具计算完成后立即写：
+文件：`app/components/case/interrupt/index.ts` 末尾追加（参考现有 `template_select` / `stance_select` 工具卡注册模式）：
 
 ```typescript
-await writeCaseCalculationService({
-    caseId: ctx.caseId,
-    tool: 'calculate_compensation',
-    input: { type: 'workInjury', salary: 12000, disabilityLevel: 8 },
-    output: { totalCompensation: 132000, ... },
-})
-// 内部转为：
-// prisma.caseMemories.create({ data: {
-//     caseId, type: 'calculation', source: 'calculator_tool',
-//     content: { tool, input, output, calculatedAt: new Date().toISOString() }
-// }})
+import CalculatorTool from '~/components/ai/tools/CalculatorTool.vue'
+
+globalInterruptRegistry.register('calculator_input', CalculatorTool, { isToolCard: true })
 ```
+
+> 注：`AiToolRenderer.vue:116-131` 通过 `globalInterruptRegistry.isToolCard('calculator_input')` 判断是否走 inline 卡片渲染。**漏注册则路径 B 弹卡片功能完全失效**。
+
+### 8.5 结果字段对照表（CalculatorResult.vue 实现参考）
+
+`CalculatorResult.vue` 按 toolName 切换不同的结果布局。每个工具的结果展示**严格对照现有 dashboard 工具页面的结果区**：
+
+| 工具 | 参考页面 | 结果展示要素 |
+|---|---|---|
+| `calculate_compensation` | [tools/compensation.vue](app/pages/dashboard/tools/compensation.vue) | 总赔偿额（大数字）+ 摘要 row（伤残补助 / 医疗 / 护理 / 营养）+ details 折叠 |
+| `calculate_interest` | [tools/interest.vue](app/pages/dashboard/tools/interest.vue) | 本息合计 + 计息时间 / 天数 + 跨 LPR 分段表格（多 Accordion）|
+| `calculate_delay_interest` | [tools/delay-interest.vue](app/pages/dashboard/tools/delay-interest.vue) | 本息合计 + 计息时间 / 天数 + 计息明细表格 |
+| `calculate_court_fee` | [tools/court-fee.vue](app/pages/dashboard/tools/court-fee.vue) | 应缴费用（大数字）+ 争议金额 + 计算明细 details |
+| `calculate_lawyer_fee` | [tools/lawyer-fee.vue](app/pages/dashboard/tools/lawyer-fee.vue) | 律师费总额 + 计算明细 |
+| `calculate_overtime_pay` | [tools/overtime.vue](app/pages/dashboard/tools/overtime.vue) | 总加班费 + 工作日/休息日/节假日分项 + 调休时间 |
+| `calculate_social_insurance` | [tools/social-insurance.vue](app/pages/dashboard/tools/social-insurance.vue) | 追缴总额 + 个人 / 单位缴纳两个 Accordion 子项 + 计算明细 |
+| `calculate_divorce_property` | [tools/divorce-property.vue](app/pages/dashboard/tools/divorce-property.vue) | 财产概览 + 分割结果（夫/妻分得）+ 子女抚养 + 详细说明 4 个 Accordion |
+| `calculate_date` | [tools/date-calculator.vue](app/pages/dashboard/tools/date-calculator.vue) | 起止日期 + 总说明 + 结果日期 / 工作日天数（无 Accordion）|
+| `bank_rate_query` | [tools/bank-rate.vue](app/pages/dashboard/tools/bank-rate.vue) | 利率表 Tab + 表格行（特殊：纯查询无"计算结果"） |
+
+实现要点：直接 import 各工具页面已有的 `ToolsResultCard` 组件结构（PR4-T4 共用组件），或在 `CalculatorResult.vue` 内部按 toolName 走 v-if 分支渲染各自的子组件。
+
+## 9. 案件记忆联动
+
+### 9.1 写入（复用 writeMemoryService）
+
+工具计算完成后立即写（详见 §6 工具改造模板的 step ⑤）：
+
+```typescript
+await writeMemoryService({
+    caseId: ctx.caseId,
+    kind: 'calculation',
+    text: `[计算] 赔偿金 · workInjury · 总额 132000 元`,   // 给向量化的可读文本（让 search_case_memory 能召回）
+    subjectKey: `calculation:${tool}`,                    // 同案件同工具自动版本链覆盖旧记录
+    source: 'manual',
+    extraMetadata: {
+        calculation: {
+            tool: 'calculate_compensation',
+            input: { type: 'workInjury', salary: 12000, disabilityLevel: 8 },
+            output: { totalCompensation: 132000, /* ... */ },
+            calculatedAt: '2026-05-14T19:30:00+08:00',
+        },
+    },
+})
+```
+
+实际落库：通过 LangChain PGVectorStore 写入 `case_memories(text, metadata, embedding)` 三列，业务字段全在 `metadata` JSONB 里。
 
 ### 9.2 读取（兜底预填）
 
-工具开始时查最近一次同 toolName 的记录：
+新加 helper 放进 `server/services/memory/memory.service.ts`：
 
 ```typescript
-async function fetchCaseCalculationContextService(
+/** 查最近一次同案件同工具的计算输入（用于 L2 兜底预填） */
+export async function findLastCalculationByCase(
     caseId: number,
     tool: string,
-): Promise<Record<string, unknown>> {
-    const memory = await prisma.caseMemories.findFirst({
-        where: {
-            caseId,
-            type: 'calculation',
-            content: { path: ['tool'], equals: tool },  // Postgres JSONB 查询
-        },
-        orderBy: { createdAt: 'desc' },
-    })
-    return (memory?.content as any)?.input ?? {}
+): Promise<CaseMemoryMetadata['calculation'] | null> {
+    // 通过 Prisma raw SQL 查 metadata JSONB（subjectKey 严格匹配，避免误命中其他 kind）
+    const rows = await prisma.$queryRaw<Array<{ metadata: CaseMemoryMetadata }>>`
+        SELECT metadata FROM case_memories
+        WHERE (metadata->>'caseId')::int = ${caseId}
+          AND metadata->>'kind' = 'calculation'
+          AND metadata->>'subjectKey' = ${`calculation:${tool}`}
+          AND (metadata->>'invalidatedAt') IS NULL
+        ORDER BY (metadata->'calculation'->>'calculatedAt') DESC NULLS LAST
+        LIMIT 1
+    `
+    return rows[0]?.metadata?.calculation ?? null
 }
 ```
 
 ### 9.3 LLM 通过 search_case_memory 自然引用
 
-`search_case_memory` 工具已存在。新增的 `type='calculation'` 记录会被它的语义搜索自然检索到，LLM 可以引用"案件之前算过 3 次利息"。
+`search_case_memory` 工具已存在，对 `case_memories.text` 做向量召回。新增的 kind='calculation' 记录其 text 形如 `[计算] 赔偿金 · workInjury · 总额 132000 元`，会被自然检索到，LLM 可引用"案件之前算过 3 次利息"。
 
 ## 10. 错误处理与边界
 
@@ -446,12 +555,12 @@ async function fetchCaseCalculationContextService(
 
 ### 11.1 单元测试
 
-- `caseCalculation.service.test.ts` — 写入 / 查最近一次的正确性
+- `memory.service.test.ts` — `findLastCalculationByCase` 查最近一次 + writeMemoryService `extraMetadata` 透传
 - 10 个 `*.tool.test.ts` 改造，覆盖：
-  - 信息充足直算（mock case_memory 返回完整 prefill）
+  - 信息充足直算（mock `findLastCalculationByCase` 返回完整 prefill）
   - 信息不足 interrupt（assert 抛出 GraphInterrupt）
-  - 取消处理（mock userInput = {cancelled:true}，assert 返回 cancelled）
-  - 写入 case_memory（assert 调用 writeCaseCalculationService）
+  - 取消处理（mock resumed = {cancelled:true}，assert 返回 cancelled）
+  - 写入 case_memory（assert 调用 `writeMemoryService` 带 kind='calculation' 和 extraMetadata.calculation）
 
 ### 11.2 E2E 测试
 
