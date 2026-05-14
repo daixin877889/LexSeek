@@ -69,6 +69,7 @@ describe('rerankTemplatesService', () => {
             modelMaxOutputTokens: 4096,
             modelApiKeys: [{ status: 1, apiKey: 'sk-test' }],
             modelProviderBaseUrl: 'https://api.example.com',
+            prompts: [{ id: 49, name: 'documentTemplateRerank_system', type: 'system', content: '测试 system prompt', version: '1', status: 1 }],
         })
         ;(buildContextSegments as any).mockResolvedValue({
             roleAndFlow: '',
@@ -121,6 +122,7 @@ describe('rerankTemplatesService', () => {
             modelMaxOutputTokens: 4096,
             modelApiKeys: [{ status: 1, apiKey: 'sk-test' }],
             modelProviderBaseUrl: 'https://api.example.com',
+            prompts: [{ id: 49, name: 'documentTemplateRerank_system', type: 'system', content: '测试 system prompt', version: '1', status: 1 }],
         })
         ;(buildContextSegments as any).mockResolvedValue({
             roleAndFlow: '', caseProfile: '', moduleSummaries: '', dynamicContext: '',
@@ -166,6 +168,7 @@ describe('rerankTemplatesService', () => {
             modelSdkType: 'openai', modelName: 'gpt-4o-mini', modelMaxOutputTokens: 4096,
             modelApiKeys: [{ status: 1, apiKey: 'sk-test' }],
             modelProviderBaseUrl: 'https://api.example.com',
+            prompts: [{ id: 49, name: 'documentTemplateRerank_system', type: 'system', content: '测试 system prompt', version: '1', status: 1 }],
         })
         ;(buildContextSegments as any).mockResolvedValue({
             roleAndFlow: '', caseProfile: '', moduleSummaries: '', dynamicContext: '',
@@ -200,6 +203,7 @@ describe('rerankTemplatesService', () => {
             modelSdkType: 'openai', modelName: 'gpt-4o-mini', modelMaxOutputTokens: 4096,
             modelApiKeys: [{ status: 1, apiKey: 'sk-test' }],
             modelProviderBaseUrl: 'https://api.example.com',
+            prompts: [{ id: 49, name: 'documentTemplateRerank_system', type: 'system', content: '测试 system prompt', version: '1', status: 1 }],
         })
         ;(buildContextSegments as any).mockResolvedValue({
             roleAndFlow: '', caseProfile: '', moduleSummaries: '', dynamicContext: '',
@@ -228,6 +232,7 @@ describe('rerankTemplatesService', () => {
             modelSdkType: 'openai', modelName: 'gpt-4o-mini', modelMaxOutputTokens: 4096,
             modelApiKeys: [{ status: 1, apiKey: 'sk-test' }],
             modelProviderBaseUrl: 'https://api.example.com',
+            prompts: [{ id: 49, name: 'documentTemplateRerank_system', type: 'system', content: '测试 system prompt', version: '1', status: 1 }],
         })
         ;(buildContextSegments as any).mockResolvedValue({
             roleAndFlow: '', caseProfile: '', moduleSummaries: '', dynamicContext: '',
@@ -263,6 +268,7 @@ describe('rerankTemplatesService', () => {
             modelSdkType: 'openai', modelName: 'gpt-4o-mini', modelMaxOutputTokens: 4096,
             modelApiKeys: [{ status: 1, apiKey: 'sk-test' }],
             modelProviderBaseUrl: 'https://api.example.com',
+            prompts: [{ id: 49, name: 'documentTemplateRerank_system', type: 'system', content: '测试 system prompt', version: '1', status: 1 }],
         })
         ;(buildContextSegments as any).mockResolvedValue({
             roleAndFlow: '', caseProfile: '', moduleSummaries: '', dynamicContext: '',
@@ -291,6 +297,7 @@ describe('rerankTemplatesService', () => {
             modelSdkType: 'openai', modelName: 'gpt-4o-mini', modelMaxOutputTokens: 4096,
             modelApiKeys: [{ status: 1, apiKey: 'sk-test' }],
             modelProviderBaseUrl: 'https://api.example.com',
+            prompts: [{ id: 49, name: 'documentTemplateRerank_system', type: 'system', content: '测试 system prompt', version: '1', status: 1 }],
         })
         ;(buildContextSegments as any).mockResolvedValue({
             roleAndFlow: '', caseProfile: '', moduleSummaries: '', dynamicContext: '',
@@ -320,6 +327,7 @@ describe('rerankTemplatesService', () => {
             modelSdkType: 'openai', modelName: 'gpt-4o-mini', modelMaxOutputTokens: 4096,
             modelApiKeys: [{ status: 1, apiKey: 'sk-test' }],
             modelProviderBaseUrl: 'https://api.example.com',
+            prompts: [{ id: 49, name: 'documentTemplateRerank_system', type: 'system', content: '测试 system prompt', version: '1', status: 1 }],
         })
         const buildCtxSpy = buildContextSegments as any
         const invokeMock = vi.fn().mockResolvedValue({
@@ -347,6 +355,7 @@ describe('rerankTemplatesService', () => {
             modelSdkType: 'openai', modelName: 'gpt-4o-mini', modelMaxOutputTokens: 4096,
             modelApiKeys: [{ status: 0, apiKey: 'sk-disabled' }], // 全部禁用
             modelProviderBaseUrl: 'https://api.example.com',
+            prompts: [{ id: 49, name: 'documentTemplateRerank_system', type: 'system', content: '测试 system prompt', version: '1', status: 1 }],
         })
         ;(buildContextSegments as any).mockResolvedValue({
             roleAndFlow: '', caseProfile: '', moduleSummaries: '', dynamicContext: '',
@@ -372,6 +381,7 @@ describe('rerankTemplatesService', () => {
             modelSdkType: 'openai', modelName: 'gpt-4o-mini', modelMaxOutputTokens: 4096,
             modelApiKeys: [{ status: 1, apiKey: 'sk-test' }],
             modelProviderBaseUrl: 'https://api.example.com',
+            prompts: [{ id: 49, name: 'documentTemplateRerank_system', type: 'system', content: '测试 system prompt', version: '1', status: 1 }],
         })
         ;(buildContextSegments as any).mockRejectedValue(new Error('案件查询失败'))
         const invokeMock = vi.fn().mockResolvedValue({
@@ -400,6 +410,7 @@ describe('rerankTemplatesService', () => {
             modelSdkType: 'openai', modelName: 'gpt-4o-mini', modelMaxOutputTokens: 4096,
             modelApiKeys: [{ status: 1, apiKey: 'sk-test' }],
             modelProviderBaseUrl: 'https://api.example.com',
+            prompts: [{ id: 49, name: 'documentTemplateRerank_system', type: 'system', content: '测试 system prompt', version: '1', status: 1 }],
         })
         ;(buildContextSegments as any).mockResolvedValue({
             roleAndFlow: '', caseProfile: '', moduleSummaries: '', dynamicContext: '',
@@ -430,6 +441,7 @@ describe('rerankTemplatesService', () => {
             // 故意不传 modelMaxOutputTokens → 走 `?? 2000` 右边
             modelApiKeys: [{ status: 1, apiKey: 'sk-test' }],
             modelProviderBaseUrl: 'https://api.example.com',
+            prompts: [{ id: 49, name: 'documentTemplateRerank_system', type: 'system', content: '测试 system prompt', version: '1', status: 1 }],
         })
         ;(buildContextSegments as any).mockResolvedValue({
             roleAndFlow: '', caseProfile: '', moduleSummaries: '', dynamicContext: '',
@@ -465,6 +477,7 @@ describe('rerankTemplatesService', () => {
             modelSdkType: 'openai', modelName: 'gpt-4o-mini', modelMaxOutputTokens: 4096,
             modelApiKeys: [{ status: 1, apiKey: 'sk-test' }],
             modelProviderBaseUrl: 'https://api.example.com',
+            prompts: [{ id: 49, name: 'documentTemplateRerank_system', type: 'system', content: '测试 system prompt', version: '1', status: 1 }],
         })
         ;(buildContextSegments as any).mockResolvedValue({
             roleAndFlow: '', caseProfile: '', moduleSummaries: '', dynamicContext: '',
@@ -483,5 +496,88 @@ describe('rerankTemplatesService', () => {
         })
         expect(r.fallback).toBe(true)
         expect(r.fallbackReason).toBe('timeout')
+    })
+
+    it('DB prompt 优先：nodeConfig.prompts 含 system 时 SystemMessage 用 DB content', async () => {
+        const { getValidNodeConfig } = await import('~~/server/services/node/node.service')
+        const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
+        const { buildContextSegments } = await import('~~/server/services/agent-platform/context/moduleContextBuilder')
+
+        const DB_SPECIFIC_PROMPT = '【来自 DB 的特殊 prompt——绝不会出现在 FALLBACK 常量里的标记字符串_XYZ123】'
+        ;(getValidNodeConfig as any).mockResolvedValue({
+            modelSdkType: 'openai',
+            modelName: 'gpt-4o-mini',
+            modelMaxOutputTokens: 4096,
+            modelApiKeys: [{ status: 1, apiKey: 'sk-test' }],
+            modelProviderBaseUrl: 'https://api.example.com',
+            prompts: [{ id: 49, name: 'documentTemplateRerank_system', type: 'system', content: DB_SPECIFIC_PROMPT, version: '1', status: 1 }],
+        })
+        ;(buildContextSegments as any).mockResolvedValue({
+            roleAndFlow: '', caseProfile: '', moduleSummaries: '', dynamicContext: '',
+        })
+
+        const invokeMock = vi.fn().mockResolvedValue({
+            picks: [{ templateId: 10 }, { templateId: 11 }, { templateId: 12 }],
+        })
+        ;(createChatModel as any).mockReturnValue({
+            withStructuredOutput: vi.fn().mockReturnValue({ invoke: invokeMock }),
+        })
+
+        await rerankTemplatesService({
+            userId: 1, sessionId: 's1', userQuery: 'x', intent: 'x',
+            candidates: [makeCandidate(10), makeCandidate(11), makeCandidate(12), makeCandidate(13), makeCandidate(14), makeCandidate(15)],
+            topN: 5,
+        })
+
+        expect(invokeMock).toHaveBeenCalledOnce()
+        // 严格断言：SystemMessage.content 必须是 DB 提供的特殊字符串
+        // 改前 service 用硬编码 SYSTEM_PROMPT 常量，不含 XYZ123 → fail
+        // 改后 service 读 nodeConfig.prompts[0].content → contain XYZ123 → pass
+        const messagesArg = invokeMock.mock.calls[0]![0] as Array<{ content: string; constructor: { name: string } }>
+        const systemMsg = messagesArg.find(m => m.constructor.name === 'SystemMessage')
+        expect(systemMsg).toBeDefined()
+        expect(systemMsg!.content).toBe(DB_SPECIFIC_PROMPT)
+    })
+
+    it('DB prompt 缺失（nodeConfig.prompts=[]）时走 FALLBACK_SYSTEM_PROMPT', async () => {
+        const { getValidNodeConfig } = await import('~~/server/services/node/node.service')
+        const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
+        const { buildContextSegments } = await import('~~/server/services/agent-platform/context/moduleContextBuilder')
+
+        // 节点配置正常，但 prompts 数组为空 → service 应回退到代码里的 FALLBACK_SYSTEM_PROMPT
+        ;(getValidNodeConfig as any).mockResolvedValue({
+            modelSdkType: 'openai',
+            modelName: 'gpt-4o-mini',
+            modelMaxOutputTokens: 4096,
+            modelApiKeys: [{ status: 1, apiKey: 'sk-test' }],
+            modelProviderBaseUrl: 'https://api.example.com',
+            prompts: [],  // 关键：DB 没挂 prompt
+        })
+        ;(buildContextSegments as any).mockResolvedValue({
+            roleAndFlow: '', caseProfile: '', moduleSummaries: '', dynamicContext: '',
+        })
+
+        const invokeMock = vi.fn().mockResolvedValue({
+            picks: [{ templateId: 10 }, { templateId: 11 }, { templateId: 12 }],
+        })
+        ;(createChatModel as any).mockReturnValue({
+            withStructuredOutput: vi.fn().mockReturnValue({ invoke: invokeMock }),
+        })
+
+        const r = await rerankTemplatesService({
+            userId: 1, sessionId: 's1', userQuery: 'x', intent: 'x',
+            candidates: [makeCandidate(10), makeCandidate(11), makeCandidate(12), makeCandidate(13), makeCandidate(14), makeCandidate(15)],
+            topN: 5,
+        })
+
+        // 调用应成功（不走 fallback 分支）
+        expect(r.fallback).toBe(false)
+        expect(invokeMock).toHaveBeenCalledOnce()
+
+        // 验证传给 LLM 的 SystemMessage 内容是 FALLBACK_SYSTEM_PROMPT（含项目特有关键字）
+        const messagesArg = invokeMock.mock.calls[0]![0] as Array<{ content: string; constructor: { name: string } }>
+        const systemMsg = messagesArg.find(m => m.constructor.name === 'SystemMessage')
+        expect(systemMsg).toBeDefined()
+        expect(systemMsg!.content).toContain('你是法律文书模板推荐专家')
     })
 })

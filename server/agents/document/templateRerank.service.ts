@@ -65,7 +65,8 @@ export interface RerankResult {
 
 // ==================== LLM 调用主路径 ====================
 
-const DOCUMENT_MAIN_NODE_NAME = 'documentMain'
+const RERANK_NODE_NAME = 'documentTemplateRerank'
+const DOCUMENT_MAIN_NODE_NAME = 'documentMain'  // 仍用作 buildContextSegments 的 agentName
 
 const RerankOutputSchema = z.object({
     picks: z.array(z.object({
@@ -74,7 +75,7 @@ const RerankOutputSchema = z.object({
     })).max(10),
 })
 
-const SYSTEM_PROMPT = `你是法律文书模板推荐专家。用户正在律师文书生成助手中起草法律文书，
+const FALLBACK_SYSTEM_PROMPT = `你是法律文书模板推荐专家。用户正在律师文书生成助手中起草法律文书，
 你需要根据【案件上下文】和【用户最新一句话】，从给定的候选模板中选出最合适的若干个模板。
 
 判断维度（重要性递减）：
@@ -108,10 +109,10 @@ function buildUserMessage(input: RerankInput, caseContext: string): string {
 }
 
 async function callRerankLLM(input: RerankInput, caseContext: string): Promise<{ templateId: number; reason?: string }[]> {
-    const nodeConfig = await getValidNodeConfig(DOCUMENT_MAIN_NODE_NAME, '文书生成主Agent')
+    const nodeConfig = await getValidNodeConfig(RERANK_NODE_NAME, '文书模板 Rerank')
     const activeApiKey = nodeConfig.modelApiKeys.find((k: any) => k.status === 1)
     if (!activeApiKey) {
-        throw new Error(`${DOCUMENT_MAIN_NODE_NAME} 节点没有可用的 API 密钥`)
+        throw new Error(`${RERANK_NODE_NAME} 节点没有可用的 API 密钥`)
     }
     const model = createChatModel({
         sdkType: nodeConfig.modelSdkType,
@@ -123,9 +124,13 @@ async function callRerankLLM(input: RerankInput, caseContext: string): Promise<{
         maxTokens: Math.min(2000, nodeConfig.modelMaxOutputTokens ?? 2000),
     })
 
+    // nodeConfig.prompts: NodePromptConfig[]（server/services/node/node.service.ts:46）
+    const systemPrompt = nodeConfig.prompts.find(p => p.type === 'system')?.content
+        ?? FALLBACK_SYSTEM_PROMPT
+
     const structured = (model as any).withStructuredOutput(RerankOutputSchema, { name: 'rerank_picks' })
     const messages = [
-        new SystemMessage(SYSTEM_PROMPT),
+        new SystemMessage(systemPrompt),
         new HumanMessage(buildUserMessage(input, caseContext)),
     ]
 
