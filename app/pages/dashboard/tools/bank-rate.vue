@@ -1,38 +1,20 @@
 <template>
   <div class="p-4">
-    <div class="flex items-center justify-between mb-2">
-      <h1 class="text-[22px] font-bold truncate">银行利率查询</h1>
-      <div class="relative">
-        <Button variant="ghost" size="icon" @click="isHelpOpen = !isHelpOpen" class="rounded-full">
-          <HelpCircle class="h-5 w-5" />
-          <span class="sr-only">帮助</span>
-        </Button>
-        <div v-if="isHelpOpen" class="absolute right-0 z-50 w-80 mt-2 p-4 bg-card rounded-lg border shadow-lg">
-          <div class="flex justify-between items-center mb-3">
-            <h3 class="font-semibold text-base">功能说明</h3>
-            <Button variant="ghost" size="icon" @click="isHelpOpen = false" class="h-6 w-6">
-              <X class="h-5 w-5" />
-              <span class="sr-only">关闭</span>
-            </Button>
-          </div>
-
-          <div class="text-sm space-y-3 max-h-96 overflow-y-auto">
-            <div>
-              <h4 class="font-semibold mb-1">利率说明：</h4>
-              <ul class="list-disc list-inside space-y-1">
-                <li><strong>LPR利率</strong>：贷款市场报价利率，2019年8月20日起实施</li>
-                <li><strong>贷款基准利率</strong>：中国人民银行公布的贷款基准利率</li>
-                <li><strong>存款基准利率</strong>：中国人民银行公布的存款基准利率</li>
-              </ul>
-            </div>
-
-            <div class="bg-muted/50 p-2 rounded">
-              <p><strong>注意：</strong>本数据仅供参考，最后更新时间：2025-04-20</p>
-            </div>
-          </div>
+    <ToolsCalculatorPageHeader title="银行利率查询" help-title="功能说明">
+      <template #help>
+        <div>
+          <h4 class="font-semibold mb-1">利率说明：</h4>
+          <ul class="list-disc list-inside space-y-1">
+            <li><strong>LPR利率</strong>：贷款市场报价利率，2019年8月20日起实施</li>
+            <li><strong>贷款基准利率</strong>：中国人民银行公布的贷款基准利率</li>
+            <li><strong>存款基准利率</strong>：中国人民银行公布的存款基准利率</li>
+          </ul>
         </div>
-      </div>
-    </div>
+        <div class="bg-muted/50 p-2 rounded">
+          <p><strong>注意：</strong>本数据仅供参考，最后更新时间：2025-04-20</p>
+        </div>
+      </template>
+    </ToolsCalculatorPageHeader>
 
     <Tabs defaultValue="lpr" class="w-full">
       <TabsList class="mb-4">
@@ -160,7 +142,6 @@ definePageMeta({
 import { getLPRHistory, getLoanRateHistory, getDepositRateHistory } from "#shared/utils/tools/bankRateService";
 
 // 状态管理
-const isHelpOpen = ref(false);
 const lprHistory = ref([]);
 const loanHistory = ref([]);
 const depositHistory = ref([]);
@@ -176,8 +157,6 @@ function loadRateData() {
 onMounted(() => {
   loadRateData();
 });
-
-import { X, HelpCircle } from "lucide-vue-next";
 </script>
 
 <style scoped>
