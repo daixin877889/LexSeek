@@ -41,9 +41,28 @@ export default defineNuxtConfig({
   app: {
     head: {
       htmlAttrs: {
+        lang: 'zh-CN',
         // 服务端默认渲染 light 主题，客户端脚本会立即修正
         class: ''
       },
+      titleTemplate: '%s | LexSeek 法索 AI',
+      title: 'LexSeek 法索 AI - 法律人专属 AI 案件分析与诉讼辅助平台',
+      meta: [
+        { charset: 'utf-8' },
+        { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
+        { name: 'description', content: '法索 AI（LexSeek）是专为律师、法务打造的多模态 AI 案件分析平台，提供案情概要、大事记、请求权分析、合同审查、文书生成、办案工具等一站式法律 AI 工作台。' },
+        { name: 'keywords', content: '法律AI,律师助手,案件分析,诉讼辅助,合同审查AI,法律文书,法律科技,AI律师,办案工具,LexSeek,法索AI' },
+        { name: 'theme-color', content: '#171717' },
+        { name: 'format-detection', content: 'telephone=no' },
+        // OG / Twitter 默认值（页面层 useSiteSeo 会覆盖）
+        { property: 'og:site_name', content: 'LexSeek 法索 AI' },
+        { property: 'og:type', content: 'website' },
+        { property: 'og:locale', content: 'zh_CN' },
+        { property: 'og:image', content: 'https://lexseek.cn/og/default.png' },
+        { property: 'og:image:width', content: '1200' },
+        { property: 'og:image:height', content: '630' },
+        { name: 'twitter:card', content: 'summary_large_image' },
+      ],
       // 内联样式：在任何 CSS 加载前隐藏页面，防止主题闪烁
       style: [
         {
@@ -52,7 +71,9 @@ export default defineNuxtConfig({
         }
       ],
       link: [
-        { rel: 'icon', type: 'image/x-icon', href: '/logo.svg' }
+        { rel: 'icon', type: 'image/svg+xml', href: '/logo.svg' },
+        { rel: 'apple-touch-icon', href: '/pwa-192x192.png' },
+        { rel: 'manifest', href: '/site.webmanifest' },
       ],
       // 内联脚本：在页面渲染前应用颜色模式，避免闪烁
       script: [
@@ -184,6 +205,15 @@ export default defineNuxtConfig({
       wechatAppId: '',
       // 微信授权回调地址（通用回调，支持多环境）
       wechatAuthCallbackUrl: '',
+      // SEO 站长验证与站点 URL（线上由环境变量灌入，开发本地留空）
+      seo: {
+        siteUrl: 'https://lexseek.cn',
+        baiduVerify: '',
+        googleVerify: '',
+        bingVerify: '',
+        sogouVerify: '',
+        so360Verify: '',
+      },
     },
     // 微信公众号配置（服务端私密配置）
     wechat: {
