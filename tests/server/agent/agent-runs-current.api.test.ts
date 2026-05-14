@@ -80,6 +80,19 @@ describe('GET /api/v1/agent/runs/current/:sessionId', () => {
         expect(res.code).toBe(401)
     })
 
+    it('session 不存在返回 404', async () => {
+        const user = await createTestUser()
+        testIds.userIds.push(user.id)
+
+        const res: any = await currentHandler(
+            makeEvent({
+                userId: user.id,
+                params: { sessionId: '00000000-0000-0000-0000-000000000000' },
+            }) as any,
+        )
+        expect(res.code).toBe(404)
+    })
+
     it('sessionId 缺失返回 400', async () => {
         const user = await createTestUser()
         testIds.userIds.push(user.id)
