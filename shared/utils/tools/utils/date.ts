@@ -33,6 +33,7 @@ export function formatDate(date: Date | string | null | undefined): string {
         const day = String(dateObj.getDate()).padStart(2, '0')
 
         return `${year}-${month}-${day}`
+        /* istanbul ignore next -- 上方已校验 isNaN(getTime())；try 内仅纯算术，不会抛错；防御性兜底 */
     } catch (error) {
         console.error('formatDate: 日期格式化失败', error)
         return ''
@@ -80,6 +81,7 @@ export function parseDate(dateStr: string | null | undefined): Date | null {
         date.setHours(0, 0, 0, 0)
 
         return date
+        /* istanbul ignore next -- 上方已做正则+有效性校验；try 内 new Date(年,月,日) 不会抛错；防御性兜底 */
     } catch (error) {
         console.error('parseDate: 日期解析失败', error)
         return null
@@ -115,6 +117,7 @@ export function daysBetween(startDate: string | Date, endDate: string | Date): n
         const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
 
         return diffDays
+        /* istanbul ignore next -- start/end 已分别校验为 Date 或 null（null 已早返回）；try 内仅纯算术；防御性兜底 */
     } catch (error) {
         console.error('daysBetween: 计算天数失败', error)
         return 0
