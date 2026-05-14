@@ -281,9 +281,10 @@ async function handleTemplateSelect(templateId: number) {
   // activeView 当前值作为 returnTab（documents 或 overview）
   const returnTab = activeView.value === 'overview' ? 'overview' : 'documents'
   // 先跳转再关 Sheet：页面卸载时 Sheet 自然销毁，避免关闭动画与路由切换并发闪烁
+  // autoAi=1：通知文书页 onMounted 时自动唤起 AI 浮窗并发起生成指令（spec §3.3）
   await navigateTo(
     `/dashboard/document/drafts/${result.draftId}`
-    + `?from=case&caseId=${caseId.value}&returnTab=${returnTab}`,
+    + `?from=case&caseId=${caseId.value}&returnTab=${returnTab}&autoAi=1`,
   )
   documentSheetOpen.value = false
 }
