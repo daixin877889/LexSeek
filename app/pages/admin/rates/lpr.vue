@@ -28,7 +28,7 @@
             </button>
         </Alert>
 
-        <Card>
+        <div class="rounded-md border">
             <Table>
                 <TableHeader>
                     <TableRow>
@@ -36,7 +36,7 @@
                         <TableHead>1 年期 (%)</TableHead>
                         <TableHead>5 年期以上 (%)</TableHead>
                         <TableHead>备注</TableHead>
-                        <TableHead class="text-right">操作</TableHead>
+                        <TableHead class="text-center">操作</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -45,7 +45,7 @@
                         <TableCell>{{ row.oneYear.toFixed(2) }}</TableCell>
                         <TableCell>{{ row.fiveYear.toFixed(2) }}</TableCell>
                         <TableCell class="text-muted-foreground">{{ row.remark || '—' }}</TableCell>
-                        <TableCell class="text-right space-x-2">
+                        <TableCell class="text-center space-x-2">
                             <Button variant="ghost" size="sm" @click="openEdit(row)">编辑</Button>
                             <Button variant="ghost" size="sm" class="text-destructive"
                                 @click="confirmDelete(row)">删除</Button>
@@ -56,14 +56,13 @@
                     </TableRow>
                 </TableBody>
             </Table>
-        </Card>
+        </div>
 
         <LPRFormDialog v-model:open="dialogOpen" :model="editing" @saved="loadList" />
     </div>
 </template>
 
 <script setup lang="ts">
-import { Card } from '~/components/ui/card'
 import { Button } from '~/components/ui/button'
 import { Alert, AlertTitle, AlertDescription } from '~/components/ui/alert'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '~/components/ui/table'

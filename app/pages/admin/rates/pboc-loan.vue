@@ -2,7 +2,7 @@
     <div class="space-y-4">
         <div class="flex items-center justify-between">
             <div>
-                <h1 class="text-2xl font-semibold">PBOC 贷款基准利率</h1>
+                <h1 class="text-2xl font-semibold">央行贷款基准利率</h1>
                 <p class="text-muted-foreground text-sm">人民银行公布的贷款基准利率，办案利息计算工具引用此表数据</p>
             </div>
             <Button @click="openCreate">
@@ -10,7 +10,7 @@
             </Button>
         </div>
 
-        <Card>
+        <div class="rounded-md border">
             <Table>
                 <TableHeader>
                     <TableRow>
@@ -20,7 +20,7 @@
                         <TableHead>一至五年 (%)</TableHead>
                         <TableHead>五年以上 (%)</TableHead>
                         <TableHead>备注</TableHead>
-                        <TableHead class="text-right">操作</TableHead>
+                        <TableHead class="text-center">操作</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -31,7 +31,7 @@
                         <TableCell>{{ row.oneToFiveYear.toFixed(2) }}</TableCell>
                         <TableCell>{{ row.fiveYear.toFixed(2) }}</TableCell>
                         <TableCell class="text-muted-foreground">{{ row.remark || '—' }}</TableCell>
-                        <TableCell class="text-right space-x-2">
+                        <TableCell class="text-center space-x-2">
                             <Button variant="ghost" size="sm" @click="openEdit(row)">编辑</Button>
                             <Button variant="ghost" size="sm" class="text-destructive"
                                 @click="confirmDelete(row)">删除</Button>
@@ -42,14 +42,13 @@
                     </TableRow>
                 </TableBody>
             </Table>
-        </Card>
+        </div>
 
         <PbocLoanFormDialog v-model:open="dialogOpen" :model="editing" @saved="loadList" />
     </div>
 </template>
 
 <script setup lang="ts">
-import { Card } from '~/components/ui/card'
 import { Button } from '~/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '~/components/ui/table'
 import { Plus } from 'lucide-vue-next'
@@ -85,7 +84,7 @@ function openEdit(row: Row) {
 function confirmDelete(row: Row) {
     alertDialog.showErrorDialog({
         title: '删除贷款利率记录',
-        message: `确认删除 ${row.date} 的 PBOC 贷款基准利率数据（1Y=${row.oneYear}%）？`,
+        message: `确认删除 ${row.date} 的 央行贷款基准利率（1Y=${row.oneYear}%）？`,
         confirmText: '确认删除',
         onConfirm: async () => {
             await useApiFetch(`/api/v1/admin/rates/pboc-loan/${row.id}`, { method: 'DELETE' })
