@@ -57,6 +57,7 @@ definePageMeta({
 })
 
 const route = useRoute()
+const router = useRouter()
 const draftId = computed(() => Number(route.params.id))
 
 // 草稿 ID Ref（mountDraft 之后写入；sub-composable 内部 read）
@@ -247,6 +248,35 @@ onMounted(async () => {
         loadError.value = e instanceof Error ? e.message : '加载草稿失败'
     } finally {
         loading.value = false
+    }
+
+    // 自动启动 AI 生成（来自案件详情页跳转，由 cases/[id].vue handleTemplateSelect 加 autoAi=1）
+    //
+    // 设计要点（与 spec §3.3 / Task D2 一致）：
+    //  - 检查放在 onMounted 内（不放 watch(route.query)）：避免后面 router.replace 清除
+    //    autoAi 时产生多余触发；本副作用仅需要触发一次。
+    //  - 但 onMounted 里草稿可能还在异步加载，所以再嵌一个 watch 监听 draft 就绪信号；
+    //    它不监听 route.query，被 router.replace 不会触发。
+    //  - flush: 'post' 让回调在 DOM 渲染后跑，保证 openAgent() 后浮窗组件已挂载，
+    //    nextTick + handleChatSubmit 能拿到真实的 chat 输入引用。
+    //  - 用 stopWatch() 显式停掉，防止后续草稿字段变化再次触发（开发模式 HMR 也安全）。
+    if (route.query.autoAi === '1') {
+        const stopWatch = watch(
+            () => draft.value,
+            (d) => {
+                if (!d) return
+                const tplName = (d as { templateName?: string | null }).templateName ?? '本文书'
+                openAgent()
+                nextTick(() => {
+                    handleChatSubmit({ text: `请根据当前案件信息生成《${tplName}》` })
+                    // 清除 autoAi query 防止刷新重复触发；其他 query 字段保留
+                    const { autoAi: _autoAi, ...rest } = route.query
+                    router.replace({ query: { ...rest } })
+                })
+                stopWatch()
+            },
+            { immediate: true, flush: 'post' },
+        )
     }
 })
 
