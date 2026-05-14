@@ -76,6 +76,60 @@
           </div>
         </template>
 
+        <!-- 案件状态（编辑态） -->
+        <template v-if="isEditing">
+          <span class="text-muted-foreground shrink-0">状态</span>
+          <Select
+            :model-value="String(editForm.status)"
+            @update:model-value="(v: any) => editForm.status = Number(v)"
+          >
+            <SelectTrigger class="h-7 text-sm w-32"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1">咨询阶段</SelectItem>
+              <SelectItem value="2">准备阶段</SelectItem>
+              <SelectItem value="3">一审阶段</SelectItem>
+              <SelectItem value="4">二审阶段</SelectItem>
+              <SelectItem value="99">结案</SelectItem>
+            </SelectContent>
+          </Select>
+        </template>
+
+        <!-- 分析立场（编辑态） -->
+        <template v-if="isEditing">
+          <span class="text-muted-foreground shrink-0">分析立场</span>
+          <StanceToggleGroup v-model="editForm.stance" />
+        </template>
+
+        <!-- 法院（编辑态） -->
+        <template v-if="isEditing">
+          <span class="text-muted-foreground shrink-0">法院</span>
+          <Input v-model="editForm.courtName" class="h-7 text-sm" placeholder="如：北京市朝阳区人民法院" />
+        </template>
+
+        <!-- 一审案号（编辑态） -->
+        <template v-if="isEditing">
+          <span class="text-muted-foreground shrink-0">一审案号</span>
+          <Input v-model="editForm.firstInstanceCaseNo" class="h-7 text-sm" />
+        </template>
+
+        <!-- 一审法官（编辑态） -->
+        <template v-if="isEditing">
+          <span class="text-muted-foreground shrink-0">一审法官</span>
+          <Input v-model="editForm.firstInstanceJudge" class="h-7 text-sm" />
+        </template>
+
+        <!-- 二审案号（编辑态） -->
+        <template v-if="isEditing">
+          <span class="text-muted-foreground shrink-0">二审案号</span>
+          <Input v-model="editForm.secondInstanceCaseNo" class="h-7 text-sm" />
+        </template>
+
+        <!-- 二审法官（编辑态） -->
+        <template v-if="isEditing">
+          <span class="text-muted-foreground shrink-0">二审法官</span>
+          <Input v-model="editForm.secondInstanceJudge" class="h-7 text-sm" />
+        </template>
+
         <!-- 案件状态（展示态） -->
         <template v-if="!isEditing && caseInfo.status">
           <span class="text-muted-foreground shrink-0">状态</span>
@@ -135,6 +189,12 @@
         </template>
       </div>
 
+      <!-- 案件描述（编辑态） -->
+      <div v-if="isEditing" class="space-y-1 pt-2 border-t border-border/50">
+        <label class="text-xs text-muted-foreground">案件描述</label>
+        <Textarea v-model="editForm.content" :rows="4" />
+      </div>
+
       <!-- 案件描述（折叠） -->
       <div v-if="!isEditing && caseInfo.content" class="space-y-1 pt-2 border-t border-border/50">
         <div class="flex items-center justify-between">
@@ -159,6 +219,9 @@ import { InfoIcon, PencilIcon, XIcon, PlusIcon, Loader2Icon } from 'lucide-vue-n
 import toast from '#shared/utils/toast'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { CaseStatus, CaseStatusText, CaseStance, CaseStanceText } from '#shared/types/case'
+import StanceToggleGroup from '~/components/caseCreation/StanceToggleGroup.vue'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
+import { Textarea } from '~/components/ui/textarea'
 
 export interface ExtraField {
   name: string
@@ -220,6 +283,14 @@ const editForm = ref({
   title: '',
   plaintiff: [] as string[],
   defendant: [] as string[],
+  status: 1,
+  stance: CaseStance.PLAINTIFF,
+  courtName: '',
+  firstInstanceCaseNo: '',
+  firstInstanceJudge: '',
+  secondInstanceCaseNo: '',
+  secondInstanceJudge: '',
+  content: '',
 })
 const partyInput = ref<Record<'plaintiff' | 'defendant', { show: boolean, value: string }>>({
   plaintiff: { show: false, value: '' },
@@ -250,6 +321,14 @@ function startEditing() {
     title: caseInfo.value?.title ?? '',
     plaintiff: [...plaintiffNames.value],
     defendant: [...defendantNames.value],
+    status: caseInfo.value?.status ?? 1,
+    stance: (caseInfo.value?.stance as CaseStance) ?? CaseStance.PLAINTIFF,
+    courtName: caseInfo.value?.courtName ?? '',
+    firstInstanceCaseNo: caseInfo.value?.firstInstanceCaseNo ?? '',
+    firstInstanceJudge: caseInfo.value?.firstInstanceJudge ?? '',
+    secondInstanceCaseNo: caseInfo.value?.secondInstanceCaseNo ?? '',
+    secondInstanceJudge: caseInfo.value?.secondInstanceJudge ?? '',
+    content: caseInfo.value?.content ?? '',
   }
   isEditing.value = true
 }
@@ -293,6 +372,14 @@ async function saveChanges() {
       title: editForm.value.title.trim(),
       plaintiff: editForm.value.plaintiff,
       defendant: editForm.value.defendant,
+      status: editForm.value.status,
+      stance: editForm.value.stance,
+      courtName: editForm.value.courtName.trim() || undefined,
+      firstInstanceCaseNo: editForm.value.firstInstanceCaseNo.trim() || undefined,
+      firstInstanceJudge: editForm.value.firstInstanceJudge.trim() || undefined,
+      secondInstanceCaseNo: editForm.value.secondInstanceCaseNo.trim() || undefined,
+      secondInstanceJudge: editForm.value.secondInstanceJudge.trim() || undefined,
+      content: editForm.value.content,
     },
   })
   isSaving.value = false
@@ -301,7 +388,7 @@ async function saveChanges() {
     if (caseInfo.value) {
       caseInfo.value = {
         ...caseInfo.value,
-        title: editForm.value.title.trim(),
+        ...editForm.value,
         plaintiff: [...editForm.value.plaintiff],
         defendant: [...editForm.value.defendant],
       }
