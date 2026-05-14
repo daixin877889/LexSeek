@@ -16,6 +16,9 @@ const PUBLIC_ROUTES = [
     '/login',
     '/register',
     '/reset-password',
+    '/features',
+    '/pricing',
+    '/about',
     '/403',
     '/404',
 ]

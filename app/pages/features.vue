@@ -291,12 +291,40 @@
 </template>
 
 <script setup lang="ts">
+import { FileTextIcon, CalendarIcon, ClipboardListIcon, ShieldIcon, HistoryIcon, CheckIcon, CpuIcon, DatabaseIcon, KeyIcon, BuildingIcon, Building2Icon, UserIcon, LayersIcon, UsersIcon } from "lucide-vue-next";
+import { GavelIcon } from "@/components/icons/GavelIcon";
+import { useSiteSeo } from '~/composables/useSiteSeo'
+import { breadcrumbLd, itemListLd } from '#shared/utils/seo/jsonLd'
+
+const { siteUrl } = useRuntimeConfig().public.seo
+useSiteSeo({
+  title: '产品功能 - AI 案件分析、合同审查、法律文书生成',
+  description: 'LexSeek 法索 AI 全功能介绍：AI 案情概要、案件大事记、请求权分析、对方抗辩预测、证据清单、合同审查 AI、起诉状/答辩状一键生成，深度赋能律师办案全流程。',
+  path: '/features',
+  keywords: ['AI案件分析', '案情概要', '案件大事记', '请求权分析', '抗辩预测', '证据清单', '合同审查AI', '起诉状生成', '答辩状生成', '法律文书AI'],
+  ogImage: '/og/features.png',
+  jsonLd: [
+    breadcrumbLd([
+      { name: '首页', path: '/' },
+      { name: '产品功能', path: '/features' },
+    ], siteUrl),
+    itemListLd([
+      { name: '案情概要生成', description: 'AI 自动分析案件材料，提取关键信息并生成简洁明了的案情概要' },
+      { name: '案件大事记', description: '自动整理案件中的重要时间点和事件，按时间顺序呈现关键事件' },
+      { name: '案由确认', description: '智能识别案件类型和案由，提供法律依据和典型案件参考' },
+      { name: '请求权生成与分析', description: '根据案情自动生成可能的请求权，并提供详细分析和法律依据' },
+      { name: '对方抗辩预测', description: '预测对方可能的抗辩理由和策略，帮助提前准备应对方案' },
+      { name: '证据清单', description: '分析并整理案件所需证据清单建议' },
+      { name: '法律合理性审查和判决趋势预测', description: '案件法律合理性审查、预测判决趋势' },
+      { name: '分析历史记录', description: '保存所有分析结果，随时查阅和比较' },
+    ]),
+  ],
+})
+
 definePageMeta({
   layout: "base-layout",
   title: "产品功能",
 });
-import { FileTextIcon, CalendarIcon, ClipboardListIcon, ShieldIcon, HistoryIcon, CheckIcon, CpuIcon, DatabaseIcon, KeyIcon, BuildingIcon, Building2Icon, UserIcon, LayersIcon, UsersIcon } from "lucide-vue-next";
-import { GavelIcon } from "@/components/icons/GavelIcon";
 
 onMounted(() => {
   window.scrollTo(0, 0);
