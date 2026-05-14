@@ -148,4 +148,134 @@ describe('recommend_template tool', () => {
         const parsed = JSON.parse(typeof raw === 'string' ? raw : raw.content)
         expect(parsed.templateId).toBe(5)
     })
+
+    it('interrupt 单层包装：resume value 直接是 { templateId } 不带 toolCallId 嵌套', async () => {
+        ;(recommendDocumentTemplatesService as any).mockResolvedValue({
+            items: [
+                { id: 7, name: '上诉状', category: 'litigation', scope: 'global', description: null, priority: 100, score: 8, recentlyUsed: false },
+            ],
+            total: 1, usedKeywords: [], fallbackToRecency: false,
+        })
+        ;(rerankTemplatesService as any).mockResolvedValue({
+            picks: [{ templateId: 7 }],
+            fallback: false,
+        })
+        // 单层包装：interrupt 直接返回 { templateId } 不带 resume 嵌套，layer1 就是结果本身
+        interruptMock.mockReturnValue({ templateId: 7, sourceText: '附加说明' })
+        ;(getDocumentTemplateDAO as any).mockResolvedValue({ id: 7, name: '上诉状', placeholders: [] })
+
+        const tool = createTool({ userId: 1, sessionId: 'sess-x' })
+        const raw: any = await tool.invoke(
+            { intent: '上诉' },
+            { configurable: {}, toolCall: { id: 'no-match-id' } } as any,
+        )
+        const parsed = JSON.parse(typeof raw === 'string' ? raw : raw.content)
+        expect(parsed.success).toBe(true)
+        expect(parsed.templateId).toBe(7)
+        expect(parsed.sourceText).toBe('附加说明')
+    })
+
+    it('ToolContext 缺 sessionId → 工具返回 error JSON（不抛冒泡）', async () => {
+        const tool = createTool({ userId: 1, sessionId: '' as any })
+        const raw: any = await tool.invoke(
+            { intent: 'x' },
+            { configurable: {}, toolCall: { id: 'tc' } } as any,
+        )
+        const parsed = JSON.parse(typeof raw === 'string' ? raw : raw.content)
+        expect(parsed.success).toBe(false)
+        expect(parsed.error).toContain('缺少 sessionId/userId')
+    })
+
+    it('ToolContext sessionId 存在但 userId 缺失 → 同样返回 error JSON', async () => {
+        const tool = createTool({ userId: 0 as any, sessionId: 'sess-x' })
+        const raw: any = await tool.invoke(
+            { intent: 'x' },
+            { configurable: {}, toolCall: { id: 'tc' } } as any,
+        )
+        const parsed = JSON.parse(typeof raw === 'string' ? raw : raw.content)
+        expect(parsed.success).toBe(false)
+        expect(parsed.error).toContain('缺少 sessionId/userId')
+    })
+
+    it('toolCall.id 缺失 → unpackInterruptResume 仍能识别单层包装', async () => {
+        ;(recommendDocumentTemplatesService as any).mockResolvedValue({
+            items: [
+                { id: 8, name: '其它状', category: 'litigation', scope: 'global', description: null, priority: 100, score: 5, recentlyUsed: false },
+            ],
+            total: 1, usedKeywords: [], fallbackToRecency: false,
+        })
+        ;(rerankTemplatesService as any).mockResolvedValue({
+            picks: [{ templateId: 8 }], fallback: false,
+        })
+        // resumed 是 null（resume 缺失）→ unpackInterruptResume 命中 `!resumed` 短路返回 null → cancelled
+        interruptMock.mockReturnValue(null)
+
+        const tool = createTool({ userId: 1, sessionId: 'sess-x' })
+        const raw: any = await tool.invoke(
+            { intent: 'x' },
+            { configurable: {}, toolCall: { id: 'tc' } } as any,
+        )
+        const parsed = JSON.parse(typeof raw === 'string' ? raw : raw.content)
+        expect(parsed.cancelled).toBe(true)
+    })
+
+    it('getDocumentTemplateDAO 返回 null → success=false 提示模板不存在', async () => {
+        ;(recommendDocumentTemplatesService as any).mockResolvedValue({
+            items: [
+                { id: 9, name: '某状', category: 'litigation', scope: 'global', description: null, priority: 100, score: 10, recentlyUsed: false },
+            ],
+            total: 1, usedKeywords: [], fallbackToRecency: false,
+        })
+        ;(rerankTemplatesService as any).mockResolvedValue({
+            picks: [{ templateId: 9 }], fallback: false,
+        })
+        interruptMock.mockReturnValue({ resume: { 'tc-9': { templateId: 9 } } })
+        ;(getDocumentTemplateDAO as any).mockResolvedValue(null)  // 模板被软删
+
+        const tool = createTool({ userId: 1, sessionId: 'sess-x' })
+        const raw: any = await tool.invoke(
+            { intent: 'x' },
+            { configurable: {}, toolCall: { id: 'tc-9' } } as any,
+        )
+        const parsed = JSON.parse(typeof raw === 'string' ? raw : raw.content)
+        expect(parsed.success).toBe(false)
+        expect(parsed.error).toContain('不存在或已删除')
+    })
+
+    it('粗筛 service 抛错（非 GraphInterrupt）→ catch 返回 error JSON', async () => {
+        ;(recommendDocumentTemplatesService as any).mockRejectedValue(new Error('数据库连接失败'))
+
+        const tool = createTool({ userId: 1, sessionId: 'sess-x' })
+        const raw: any = await tool.invoke(
+            { intent: 'x' },
+            { configurable: {}, toolCall: { id: 'tc' } } as any,
+        )
+        const parsed = JSON.parse(typeof raw === 'string' ? raw : raw.content)
+        expect(parsed.success).toBe(false)
+        expect(parsed.error).toBe('数据库连接失败')
+    })
+
+    it('粗筛 service 抛非 Error 类型异常 → catch 返回兜底文案', async () => {
+        ;(recommendDocumentTemplatesService as any).mockRejectedValue('字符串异常')
+
+        const tool = createTool({ userId: 1, sessionId: 'sess-x' })
+        const raw: any = await tool.invoke(
+            { intent: 'x' },
+            { configurable: {}, toolCall: { id: 'tc' } } as any,
+        )
+        const parsed = JSON.parse(typeof raw === 'string' ? raw : raw.content)
+        expect(parsed.success).toBe(false)
+        expect(parsed.error).toBe('推荐模板失败')
+    })
+
+    it('粗筛 service 抛 GraphInterrupt-like 错误 → 工具重抛不吞掉', async () => {
+        // 用 __BUBBLE__ 前缀，让 mock 中的 isGraphBubbleUp 识别为冒泡错误
+        ;(recommendDocumentTemplatesService as any).mockRejectedValue(new Error('__BUBBLE__ParentCommand'))
+
+        const tool = createTool({ userId: 1, sessionId: 'sess-x' })
+        await expect(tool.invoke(
+            { intent: 'x' },
+            { configurable: {}, toolCall: { id: 'tc' } } as any,
+        )).rejects.toThrow('__BUBBLE__ParentCommand')
+    })
 })
