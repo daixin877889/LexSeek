@@ -132,6 +132,7 @@ export function queryLPRRate(date?: string): LPRRate | null {
     // 查找小于等于查询日期的最近一条记录
     for (let i = 0; i < bankRates.lpr.length; i++) {
         const rate = bankRates.lpr[i]
+        /* istanbul ignore next -- bankRates.lpr 是模块内常量数组，遍历元素必然存在；防御性兜底 */
         if (!rate) continue
         const rateTimestamp = new Date(rate.date).getTime()
         if (queryTimestamp >= rateTimestamp) {
@@ -160,6 +161,7 @@ export function queryDepositRate(date?: string): DepositRate | null {
     // 查找小于等于查询日期的最近一条记录
     for (let i = 0; i < bankRates.benchmark.length; i++) {
         const rate = bankRates.benchmark[i]
+        /* istanbul ignore next -- bankRates.benchmark 是模块内常量数组，遍历元素必然存在；防御性兜底 */
         if (!rate) continue
         const rateTimestamp = new Date(rate.date).getTime()
         if (queryTimestamp >= rateTimestamp) {
@@ -188,6 +190,7 @@ export function queryLoanRate(date?: string): LoanRate | null {
     // 查找小于等于查询日期的最近一条记录
     for (let i = 0; i < bankRates.loan.length; i++) {
         const rate = bankRates.loan[i]
+        /* istanbul ignore next -- bankRates.loan 是模块内常量数组，遍历元素必然存在；防御性兜底 */
         if (!rate) continue
         const rateTimestamp = new Date(rate.date).getTime()
         if (queryTimestamp >= rateTimestamp) {
