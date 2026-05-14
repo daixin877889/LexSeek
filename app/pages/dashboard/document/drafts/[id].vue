@@ -255,28 +255,39 @@ onMounted(async () => {
     // 设计要点（与 spec §3.3 / Task D2 一致）：
     //  - 检查放在 onMounted 内（不放 watch(route.query)）：避免后面 router.replace 清除
     //    autoAi 时产生多余触发；本副作用仅需要触发一次。
-    //  - 但 onMounted 里草稿可能还在异步加载，所以再嵌一个 watch 监听 draft 就绪信号；
-    //    它不监听 route.query，被 router.replace 不会触发。
-    //  - flush: 'post' 让回调在 DOM 渲染后跑，保证 openAgent() 后浮窗组件已挂载，
-    //    nextTick + handleChatSubmit 能拿到真实的 chat 输入引用。
-    //  - 用 stopWatch() 显式停掉，防止后续草稿字段变化再次触发（开发模式 HMR 也安全）。
+    //  - 草稿可能已加载（走 if 直接 fire），也可能还在异步加载（用 watch 等就绪信号）；
+    //    watch 不监听 route.query，被 router.replace 不会触发。
+    //  - openAgent + nextTick + handleChatSubmit 让浮窗先挂载、再发起对话指令。
+    //
+    // 注意：不要用 `const stopWatch = watch(..., { immediate: true })` 然后在回调里调
+    // `stopWatch()`——immediate 会在 const 赋值前就触发回调，造成 TDZ ReferenceError。
     if (route.query.autoAi === '1') {
-        const stopWatch = watch(
-            () => draft.value,
-            (d) => {
-                if (!d) return
-                const tplName = (d as { templateName?: string | null }).templateName ?? '本文书'
-                openAgent()
-                nextTick(() => {
-                    handleChatSubmit({ text: `请根据当前案件信息生成《${tplName}》` })
-                    // 清除 autoAi query 防止刷新重复触发；其他 query 字段保留
-                    const { autoAi: _autoAi, ...rest } = route.query
-                    router.replace({ query: { ...rest } })
-                })
-                stopWatch()
-            },
-            { immediate: true, flush: 'post' },
-        )
+        const fireAutoAi = (d: { templateName?: string | null }) => {
+            const tplName = d.templateName ?? '本文书'
+            openAgent()
+            nextTick(() => {
+                handleChatSubmit({ text: `请根据当前案件信息生成《${tplName}》` })
+                // 清除 autoAi query 防止刷新重复触发；其他 query 字段保留
+                const { autoAi: _autoAi, ...rest } = route.query
+                router.replace({ query: { ...rest } })
+            })
+        }
+        if (draft.value) {
+            // 草稿已就绪：下一帧立即触发
+            nextTick(() => fireAutoAi(draft.value as { templateName?: string | null }))
+        }
+        else {
+            // 草稿尚在加载：watch 等就绪后单次触发；stop 在 watch 返回后才被调用，无 TDZ
+            const stop = watch(
+                () => draft.value,
+                (d) => {
+                    if (!d) return
+                    stop()
+                    fireAutoAi(d as { templateName?: string | null })
+                },
+                { flush: 'post' },
+            )
+        }
     }
 })
 
