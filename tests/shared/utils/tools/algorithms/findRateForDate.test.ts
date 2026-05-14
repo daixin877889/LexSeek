@@ -33,4 +33,14 @@ describe('findRateForDate', () => {
         const result = findRateForDate(rates, '2025-01-01')
         expect(result).toEqual({ date: '2024-06-01', rate: 3.5 })
     })
+
+    it('target 传 Date 对象同样工作', () => {
+        const result = findRateForDate(rates, new Date('2024-03-15'))
+        expect(result).toEqual({ date: '2024-01-01', rate: 4.0 })
+    })
+
+    it('rates 为空数组时返回 null', () => {
+        const result = findRateForDate<RateEntry>([], '2024-01-01')
+        expect(result).toBeNull()
+    })
 })
