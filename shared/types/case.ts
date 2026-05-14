@@ -116,6 +116,20 @@ export interface PromptSubmitData {
     materials: CaseMaterialParam[]
 }
 
+/** 案件分析立场 */
+export enum CaseStance {
+  PLAINTIFF = 'plaintiff',
+  DEFENDANT = 'defendant',
+  NEUTRAL = 'neutral',
+}
+
+/** 立场中文文本字典 */
+export const CaseStanceText: Record<CaseStance, string> = {
+  [CaseStance.PLAINTIFF]: '原告',
+  [CaseStance.DEFENDANT]: '被告',
+  [CaseStance.NEUTRAL]: '中立',
+}
+
 /** 案件状态文本映射 */
 export const CaseStatusText: Record<CaseStatus, string> = {
   [CaseStatus.CONSULTING]:   '咨询阶段',
