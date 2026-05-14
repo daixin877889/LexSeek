@@ -6,42 +6,42 @@
                 <DialogDescription>人民银行公布的存款基准利率，% 单位（如 0.35 表示 0.35%）</DialogDescription>
             </DialogHeader>
 
-            <div class="space-y-3">
-                <div>
-                    <Label>生效日</Label>
+            <div class="space-y-4">
+                <div class="space-y-1.5">
+                    <Label>生效日 <span class="text-destructive">*</span></Label>
                     <DatePicker v-model="form.effectDate" placeholder="选择生效日" />
                 </div>
                 <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <Label>活期 (%)</Label>
+                    <div class="space-y-1.5">
+                        <Label>活期 (%) <span class="text-destructive">*</span></Label>
                         <Input v-model.number="form.demand" type="number" step="0.01" />
                     </div>
-                    <div>
-                        <Label>三月 (%)</Label>
+                    <div class="space-y-1.5">
+                        <Label>三月 (%) <span class="text-destructive">*</span></Label>
                         <Input v-model.number="form.threeMonths" type="number" step="0.01" />
                     </div>
-                    <div>
-                        <Label>六月 (%)</Label>
+                    <div class="space-y-1.5">
+                        <Label>六月 (%) <span class="text-destructive">*</span></Label>
                         <Input v-model.number="form.sixMonths" type="number" step="0.01" />
                     </div>
-                    <div>
-                        <Label>一年 (%)</Label>
+                    <div class="space-y-1.5">
+                        <Label>一年 (%) <span class="text-destructive">*</span></Label>
                         <Input v-model.number="form.oneYear" type="number" step="0.01" />
                     </div>
-                    <div>
-                        <Label>二年 (%)</Label>
+                    <div class="space-y-1.5">
+                        <Label>二年 (%) <span class="text-destructive">*</span></Label>
                         <Input v-model.number="form.twoYear" type="number" step="0.01" />
                     </div>
-                    <div>
-                        <Label>三年 (%)</Label>
+                    <div class="space-y-1.5">
+                        <Label>三年 (%) <span class="text-destructive">*</span></Label>
                         <Input v-model.number="form.threeYear" type="number" step="0.01" />
                     </div>
-                    <div>
-                        <Label>五年 (%)</Label>
+                    <div class="space-y-1.5">
+                        <Label>五年 (%) <span class="text-destructive">*</span></Label>
                         <Input v-model.number="form.fiveYear" type="number" step="0.01" />
                     </div>
                 </div>
-                <div>
+                <div class="space-y-1.5">
                     <Label>备注（可选）</Label>
                     <Input v-model="form.remark" placeholder="" />
                 </div>

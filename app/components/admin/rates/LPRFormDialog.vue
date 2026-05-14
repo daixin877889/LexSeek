@@ -6,22 +6,22 @@
                 <DialogDescription>央行公布日 1Y / 5Y 利率，% 单位（如 3.50 表示 3.5%）</DialogDescription>
             </DialogHeader>
 
-            <div class="space-y-3">
-                <div>
-                    <Label>生效日</Label>
+            <div class="space-y-4">
+                <div class="space-y-1.5">
+                    <Label>生效日 <span class="text-destructive">*</span></Label>
                     <DatePicker v-model="form.effectDate" placeholder="选择生效日" />
                 </div>
                 <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <Label>1 年期 (%)</Label>
+                    <div class="space-y-1.5">
+                        <Label>1 年期 (%) <span class="text-destructive">*</span></Label>
                         <Input v-model.number="form.oneYear" type="number" step="0.01" />
                     </div>
-                    <div>
-                        <Label>5 年期以上 (%)</Label>
+                    <div class="space-y-1.5">
+                        <Label>5 年期以上 (%) <span class="text-destructive">*</span></Label>
                         <Input v-model.number="form.fiveYear" type="number" step="0.01" />
                     </div>
                 </div>
-                <div>
+                <div class="space-y-1.5">
                     <Label>备注（可选）</Label>
                     <Input v-model="form.remark" placeholder="" />
                 </div>
