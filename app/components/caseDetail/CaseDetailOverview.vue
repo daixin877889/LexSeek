@@ -147,7 +147,7 @@ function executeDelete() {
     </div>
     <InitAnalysisCaseInfoCard ref="infoCardRef" :case-id="caseId" :editable="!readonly" hide-header
       v-model:is-editing="isEditingCaseInfo" @updated="emit('updated')" />
-    <Separator class="mx-4 opacity-50" />
+    <div class="px-4"><Separator class="opacity-50" /></div>
 
     <!-- 案件材料 -->
     <div class="p-4 flex items-center justify-between pb-0">
@@ -213,7 +213,7 @@ function executeDelete() {
     </div>
 
     <template v-if="!readonly">
-      <Separator class="mx-4 opacity-50" />
+      <div class="px-4"><Separator class="opacity-50" /></div>
 
       <!-- 分析结果（AnalysisResults 内部 header 统一管理按钮：批量分析 + 查看全部 + 视图切换） -->
       <!-- 传 h-auto 覆盖组件自带的 h-full，避免在 overview 纵向流式布局中撑满高度把后续板块挤出视口 -->
@@ -227,7 +227,7 @@ function executeDelete() {
         @go-to-interrupt="emit('goToInterrupt')" @go-to-running-workflow="emit('goToRunningWorkflow')"
         @view-all="emit('navigateView', 'analysis')" />
 
-      <Separator class="mx-4 opacity-50" />
+      <div class="px-4"><Separator class="opacity-50" /></div>
 
       <!-- 案件文书 -->
       <div class="p-4 flex items-center justify-between pb-0">
