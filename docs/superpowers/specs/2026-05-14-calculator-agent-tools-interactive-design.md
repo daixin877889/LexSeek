@@ -572,19 +572,26 @@ export async function findLastCalculationByCase(
 
 ### 11.3 浏览器手动测试
 
-走查路径 A/B/C 各一遍，特别验证：
+走查路径 A/B/C 各一遍 + search_case_memory 召回验证：
 - 切换分支时同名字段保留
 - 必填项灰按钮 → 填齐后激活
 - 结果卡片显示完整 + 「已保存案件记忆」提示
+- 路径 A/B 完成后新开对话问"我之前算过哪些"，LLM 应通过 search_case_memory 召回到刚算的"[计算] xxx"text（验证 §12 第 7 项）
+- court_fee 切换 feeTypeLevel1='caseFee' 时下方出现 nonPropertyType Radio 子分支
 
 ## 12. 完成判定
 
-- [ ] `server/services/agent-platform/tools/index.ts` 注册了 10 个 `calculate_*` 工具
-- [ ] DB `nodes.assistantMain.tools` 字段含这 10 个工具名（seedData.sql 同步）
+- [ ] 5check 审查全部 Critical / Important / 漏项已修复，spec 与 plan 文档命名与字段一致
+- [ ] `server/services/agent-platform/tools/index.ts` `toolModules` 注册了 10 个 `calculate_*` 工具（namespace 形态，无 `as any`）
+- [ ] `app/components/agents/panelToolMap.ts` `PANEL_TOOL_MAP` 注册 10 个 `calculate_*` 映射到 `CalculatorResultCard`
+- [ ] `app/components/case/interrupt/index.ts` `globalInterruptRegistry` 注册了 `calculator_input` 映射到 `CalculatorInputCard`（`isToolCard: true`）
+- [ ] DB `nodes.assistantMain.tools` 字段含这 10 个工具名（seedData.sql 同步修改 INSERT VALUES，不可用 UPDATE）
 - [ ] RBAC：用户访问 assistant 接口时能正常调用工具（依赖现有 ASSISTANT scope 权限）
-- [ ] 在浏览器法律助手里走通 3 条路径
-- [ ] `tests/server/agents/legal-assistant/calculator-tools.e2e.test.ts` 全绿
-- [ ] case_memory 真有 type='calculation' 记录生成
+- [ ] 在浏览器法律助手里走通 3 条路径（A/B/C），且每个工具的输入卡 / 结果卡都能正常渲染
+- [ ] `tests/server/agents/legal-assistant/calculator-tools.integration.test.ts` 全绿
+- [ ] `case_memories` 表里能查到 kind='calculation' + subjectKey='calculation:{tool}' 的 metadata 记录
+- [ ] LLM 通过 `search_case_memory` 工具能召回到刚算的计算历史 text（语义检索验证）
+- [ ] `court_fee` 嵌套 nonPropertyType 子分支在 UI 上正确展示为 Radio
 - [ ] LLM 通过 search_case_memory 能搜到历史计算
 
 ## 13. 不实施清单（YAGNI）

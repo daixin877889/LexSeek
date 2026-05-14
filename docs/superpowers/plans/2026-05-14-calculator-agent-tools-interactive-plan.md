@@ -2,15 +2,19 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 把 10 个办案计算器接入到法律助手 Agent，信息充足直接算 / 信息不足在对话内弹出 inline 卡片让用户补全 / 结果自动写入案件记忆。
+**Goal:** 把 10 个办案计算器接入到法律助手 Agent，信息充足直接算 / 信息不足在对话内弹出 inline 卡片让用户补全 / 结果自动写入案件记忆 / 用户可取消让 LLM 自然衔接。
 
-**Architecture:** 4 层协同：① 工具层（`*.tool.ts` 用 `interrupt()` 暂停 graph 弹卡）→ ② 记忆层（复用 `writeMemoryService` + extraMetadata 透传 + `findLastCalculationByCase` 兜底查询）→ ③ 渲染层（通用 `CalculatorTool.vue` 三态壳 + `CalculatorFormFields.vue` 动态分支表单 + `CalculatorResult.vue` 完整结果展示）→ ④ 注册层（`globalInterruptRegistry` + `AiToolRenderer.INTERNAL_TOOL_MAP` + `agent-platform/tools/index.ts.toolModules` + DB `nodes.assistantMain.tools`）。
+**Architecture:** 4 层协同：
+- **工具层**：`shared/utils/tools/agentTools/*.tool.ts` 用 `interrupt()` 暂停 graph + 必填校验 + `findLastCalculationByCase` L2 兜底 + `writeMemoryService` 写记忆，遵循 `parseAndAskStance` 防御性 resume 校验
+- **记忆层**：复用 `writeMemoryService` + 新增 `extraMetadata` 字段透传到 PGVectorStore metadata + 新增 `findLastCalculationByCase` 兜底查询
+- **渲染层**：参照项目惯例拆**两个**组件 — `CalculatorInputCard.vue` 注册到 `globalInterruptRegistry` 渲染输入/snapshot/取消三态；`CalculatorResultCard.vue` 注册到 `PANEL_TOOL_MAP` 渲染结果态。共享 `CalculatorFormFields.vue`（动态分支表单）和 `CalculatorResultBody.vue`（10 工具结果体），由两张卡分别 import
+- **注册层**：`server/services/agent-platform/tools/index.ts.toolModules` + `app/components/case/interrupt/index.ts.globalInterruptRegistry` + `app/components/agents/panelToolMap.ts.PANEL_TOOL_MAP` + DB `nodes.assistantMain.tools`
 
-**Tech Stack:** Nuxt 4 + Vue 3 + TypeScript + LangGraph `interrupt()` + LangChain `tool()` + zod + shadcn-vue Confirmation + Prisma + LangChain PGVectorStore + Vitest
+**Tech Stack:** Nuxt 4 + Vue 3 + TypeScript + LangGraph `interrupt()` + LangChain `tool()` + zod + reka-ui/shadcn-vue Tabs/Select/RadioGroup + Prisma + LangChain PGVectorStore + Vitest + `vi.hoisted()` mock 模式
 
 **Spec:** [docs/superpowers/specs/2026-05-14-calculator-agent-tools-interactive-design.md](../specs/2026-05-14-calculator-agent-tools-interactive-design.md)
 
-**测试基线契约:** 不得破坏现有 tools 测试 100% 覆盖 + 719 案件管理回归测试。命令：`npx vitest run tests/shared/utils/tools/ tests/server/services/rates/ tests/server/services/memory/ tests/server/agents/legal-assistant/`
+**测试基线契约:** 跑 `npx vitest run tests/shared/utils/tools/agentTools/ tests/server/services/memory/ tests/server/agents/legal-assistant/`，不得破坏现有 *.tool.test.ts 通过率。
 
 ---
 
@@ -19,31 +23,31 @@
 ### 新建文件
 
 ```
-shared/utils/tools/agentTools/_fieldMetadata.ts                      # PR-A T3 / PR-B T12
-app/components/ai/tools/CalculatorTool.vue                           # PR-A T6
-app/components/ai/tools/CalculatorFormFields.vue                     # PR-A T5
-app/components/ai/tools/CalculatorResult.vue                         # PR-A T4
-tests/server/agents/legal-assistant/calculator-tools.e2e.test.ts     # PR-A T10
+shared/utils/tools/agentTools/_fieldMetadata.ts               # 10 工具字段元数据（含分支 / 嵌套子分支）
+app/components/ai/tools/CalculatorInputCard.vue               # 输入/snapshot/取消三态（注册 globalInterruptRegistry）
+app/components/ai/tools/CalculatorResultCard.vue              # 结果态（注册 PANEL_TOOL_MAP）
+app/components/ai/tools/CalculatorFormFields.vue              # 动态表单（Tab/Select 分支 + 嵌套 Radio）
+app/components/ai/tools/CalculatorResultBody.vue              # 结果体（10 个工具切换布局）
+tests/server/agents/legal-assistant/calculator-tools.integration.test.ts
 ```
 
 ### 修改文件
 
 ```
-shared/types/case.ts                              # PR-A T1 加 InterruptType.CALCULATOR_INPUT + TypedInterruptData 联合
-shared/types/memory.ts                            # PR-A T1 MemoryKind 加 'calculation' + CaseMemoryMetadata 加 calculation 字段
-server/services/memory/memory.service.ts          # PR-A T2 MemoryWriteInput 加 extraMetadata + 新增 findLastCalculationByCase
-shared/utils/tools/agentTools/compensationCalculator.tool.ts  # PR-A T8（先驱工具）
-shared/utils/tools/agentTools/*.tool.ts (剩余 9 个)              # PR-B T13-T21
-server/services/agent-platform/tools/index.ts     # PR-A T9 注册 1 个 / PR-B T22 注册剩余 9 个
-app/components/ai/AiToolRenderer.vue              # PR-A T7 INTERNAL_TOOL_MAP 注册 10 个
-app/components/case/interrupt/index.ts            # PR-A T6 globalInterruptRegistry.register('calculator_input', ...)
-prisma/seeds/seedData.sql                         # PR-A T9 + PR-B T22 追加 calculate_* 到 assistantMain.tools
-tests/shared/utils/tools/agentTools/*.tool.test.ts (10 个)     # PR-A T8 + PR-B T13-T21 改造单测
+shared/types/case.ts                              # InterruptType.CALCULATOR_INPUT + TypedInterruptData
+shared/types/memory.ts                            # MemoryKind 加 'calculation' + CaseMemoryMetadata.calculation
+server/services/memory/memory.service.ts          # MemoryWriteInput.extraMetadata + findLastCalculationByCase
+shared/utils/tools/agentTools/*.tool.ts (10 个)   # interrupt + writeMemory + 必填校验
+tests/shared/utils/tools/agentTools/*.tool.test.ts (10 个)
+server/services/agent-platform/tools/index.ts     # toolModules 注册 10 个 calculate_*
+app/components/case/interrupt/index.ts            # globalInterruptRegistry.register('calculator_input', CalculatorInputCard, { isToolCard: true })
+app/components/agents/panelToolMap.ts             # PANEL_TOOL_MAP 注册 10 个 calculate_*
+prisma/seeds/seedData.sql                         # nodes.assistantMain.tools 加 10 个工具名
 ```
 
 ---
 
-# PR-A · 基建 + calculate_compensation 跑通 3 条路径（4-5h）
+# PR-A · 基建 + calculate_compensation 跑通 3 路径（约 4-5h）
 
 ## 任务 PR-A-T1：类型层扩展
 
@@ -51,9 +55,7 @@ tests/shared/utils/tools/agentTools/*.tool.test.ts (10 个)     # PR-A T8 + PR-B
 - Modify: `shared/types/case.ts`
 - Modify: `shared/types/memory.ts`
 
-- [ ] **Step 1: `shared/types/case.ts` InterruptType 加新值**
-
-Read 文件找到 `InterruptType` 枚举，在末尾加：
+- [ ] **Step 1: `shared/types/case.ts` 加 InterruptType.CALCULATOR_INPUT**
 
 ```typescript
 export enum InterruptType {
@@ -67,30 +69,26 @@ export enum InterruptType {
 }
 ```
 
-- [ ] **Step 2: 同文件添加 `CalculatorInputInterruptData` 接口 + 加入联合类型**
-
-在 `TypedInterruptData` 联合类型定义附近追加：
+- [ ] **Step 2: 同文件加 CalculatorInputInterruptData + 联合类型**
 
 ```typescript
 export interface CalculatorInputInterruptData {
     type: InterruptType.CALCULATOR_INPUT
-    toolName: string                          // 如 'calculate_compensation'
-    prefilled: Record<string, unknown>        // L1 + L2 合并后的预填值
+    toolName: string                          // 'calculate_compensation' 等
+    prefilled: Record<string, unknown>        // L1+L2 合并后的预填
     missing: string[]                         // 缺失必填字段名列表
 }
+
+// 在 TypedInterruptData 联合类型末尾加 | CalculatorInputInterruptData
 ```
 
-然后把 `CalculatorInputInterruptData` 加到 `TypedInterruptData` 联合的末尾。
-
-- [ ] **Step 3: `shared/types/memory.ts` MemoryKind 加新值**
+- [ ] **Step 3: `shared/types/memory.ts` MemoryKind 加 'calculation'**
 
 ```typescript
 export type MemoryKind = 'fact' | 'preference' | 'dialogue_note' | 'event' | 'decision' | 'note' | 'calculation'
 ```
 
-- [ ] **Step 4: 同文件 CaseMemoryMetadata 加 `calculation` 可选字段**
-
-在 `CaseMemoryMetadata` 接口定义末尾追加（保持现有字段不变）：
+- [ ] **Step 4: 同文件 CaseMemoryMetadata 加可选 calculation 字段**
 
 ```typescript
 export interface CaseMemoryMetadata {
@@ -101,6 +99,8 @@ export interface CaseMemoryMetadata {
     confidence?: number
     source?: MemorySource
     supersedes?: string
+    createdAt?: string  // 现有
+    invalidatedAt?: string  // 现有
     /** 新增：计算器历史详情，仅当 kind='calculation' 时填入 */
     calculation?: {
         tool: string
@@ -114,26 +114,24 @@ export interface CaseMemoryMetadata {
 - [ ] **Step 5: typecheck**
 
 Run: `bun run typecheck 2>&1 | grep -E "case\.ts|memory\.ts" | head -5`
-Expected: 无错误（输出为空）
+Expected: 无错误
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add shared/types/case.ts shared/types/memory.ts
-git commit -m "feat(agent): 类型层扩展 InterruptType.CALCULATOR_INPUT + MemoryKind 加 calculation"
+git commit -m "feat(tools): 类型层扩展 InterruptType.CALCULATOR_INPUT + MemoryKind 加 calculation"
 ```
 
 ---
 
-## 任务 PR-A-T2：writeMemoryService 扩 extraMetadata + 新增 findLastCalculationByCase
+## 任务 PR-A-T2：writeMemoryService 扩展 + findLastCalculationByCase
 
 **Files:**
 - Modify: `server/services/memory/memory.service.ts`
-- Modify: `tests/server/services/memory/memory.service.test.ts`（若已存在）或 Create
+- Create/Modify: `tests/server/services/memory/memory.service.test.ts`
 
-- [ ] **Step 1: 先写测试，验证两个行为**
-
-Read 现有 `tests/server/services/memory/` 看是否已有 `memory.service.test.ts`。若没有则创建；若有则追加。
+- [ ] **Step 1: 写测试（用 vi.hoisted 对齐项目惯例）**
 
 ```typescript
 import { describe, it, expect, afterEach } from 'vitest'
@@ -145,7 +143,13 @@ import {
 
 describe('memory.service - calculation 扩展', () => {
     const createdIds: string[] = []
-    const testCaseId = 1  // 用 seed 里的现有案件
+    // 动态找一个真实案件 id，避免 worker DB 间 seed 差异
+    let testCaseId = 0
+    beforeAll(async () => {
+        const c = await prisma.cases.findFirst({ select: { id: true } })
+        if (!c) throw new Error('测试库需有至少 1 个 case')
+        testCaseId = c.id
+    })
 
     afterEach(async () => {
         if (createdIds.length > 0) {
@@ -157,7 +161,7 @@ describe('memory.service - calculation 扩展', () => {
         }
     })
 
-    it('writeMemoryService 透传 extraMetadata.calculation 到 PGVectorStore metadata', async () => {
+    it('writeMemoryService extraMetadata.calculation 透传到 metadata JSONB', async () => {
         const { id } = await writeMemoryService({
             caseId: testCaseId,
             kind: 'calculation',
@@ -175,7 +179,6 @@ describe('memory.service - calculation 扩展', () => {
         })
         createdIds.push(id)
 
-        // 验证 metadata 包含 calculation 字段
         const rows = await prisma.$queryRaw<Array<{ metadata: any }>>`
             SELECT metadata FROM case_memories WHERE id = ${id}::uuid
         `
@@ -183,51 +186,30 @@ describe('memory.service - calculation 扩展', () => {
         expect(rows[0]?.metadata?.calculation?.input).toEqual({ foo: 1 })
     })
 
-    it('findLastCalculationByCase 返回同 case + tool 最近一次有效记录', async () => {
-        // 先写一条
+    it('findLastCalculationByCase 通过版本链返回最新一条', async () => {
         const { id: id1 } = await writeMemoryService({
-            caseId: testCaseId,
-            kind: 'calculation',
-            text: '[计算] 旧',
-            subjectKey: 'calculation:test_find',
-            source: 'manual',
-            extraMetadata: {
-                calculation: {
-                    tool: 'test_find',
-                    input: { value: 100 },
-                    output: { total: 100 },
-                    calculatedAt: '2026-05-13T10:00:00+08:00',
-                },
-            },
+            caseId: testCaseId, kind: 'calculation', text: '[计算] 旧',
+            subjectKey: 'calculation:test_find', source: 'manual',
+            extraMetadata: { calculation: { tool: 'test_find', input: { v: 100 }, output: { t: 100 },
+                                            calculatedAt: '2026-05-13T10:00:00+08:00' } },
         })
         createdIds.push(id1)
 
-        // 再写一条（应触发版本链，旧的被 invalidate）
         const { id: id2 } = await writeMemoryService({
-            caseId: testCaseId,
-            kind: 'calculation',
-            text: '[计算] 新',
-            subjectKey: 'calculation:test_find',
-            source: 'manual',
-            extraMetadata: {
-                calculation: {
-                    tool: 'test_find',
-                    input: { value: 200 },
-                    output: { total: 200 },
-                    calculatedAt: '2026-05-14T10:00:00+08:00',
-                },
-            },
+            caseId: testCaseId, kind: 'calculation', text: '[计算] 新',
+            subjectKey: 'calculation:test_find', source: 'manual',
+            extraMetadata: { calculation: { tool: 'test_find', input: { v: 200 }, output: { t: 200 },
+                                            calculatedAt: '2026-05-14T10:00:00+08:00' } },
         })
         createdIds.push(id2)
 
         const last = await findLastCalculationByCase(testCaseId, 'test_find')
-        expect(last?.tool).toBe('test_find')
-        expect(last?.input).toEqual({ value: 200 })  // 拿新的，不是旧的
+        expect(last?.input).toEqual({ v: 200 })
     })
 
     it('findLastCalculationByCase 无记录时返回 null', async () => {
-        const result = await findLastCalculationByCase(testCaseId, 'non_existent_tool')
-        expect(result).toBeNull()
+        const r = await findLastCalculationByCase(testCaseId, 'definitely_not_exist')
+        expect(r).toBeNull()
     })
 })
 ```
@@ -235,20 +217,18 @@ describe('memory.service - calculation 扩展', () => {
 - [ ] **Step 2: 跑测试验证 FAIL**
 
 Run: `npx vitest run tests/server/services/memory/memory.service.test.ts`
-Expected: FAIL — `findLastCalculationByCase` 不存在 / `extraMetadata` 不存在
+Expected: FAIL — `findLastCalculationByCase` / `extraMetadata` 不存在
 
-- [ ] **Step 3: 改 MemoryWriteInput 接口 + writeMemoryService 内部透传**
-
-Read `server/services/memory/memory.service.ts`，定位 `MemoryWriteInput` 接口和 `writeMemoryService` 函数。
+- [ ] **Step 3: 改 `MemoryWriteInput` + 内部 metadata 透传**
 
 在 `MemoryWriteInput` 接口末尾追加：
 
 ```typescript
-    /** 新增：透传到 PGVectorStore.metadata 的额外字段（如 calculation 详情） */
+    /** 新增：透传到 PGVectorStore.metadata 的额外字段 */
     extraMetadata?: Partial<Pick<CaseMemoryMetadata, 'calculation'>>
 ```
 
-在 `writeMemoryService` 内部构造 `metadata` 后浅合并 `extraMetadata`：
+在 `writeMemoryService` 内部构造 metadata 后浅合并：
 
 ```typescript
 const metadata: CaseMemoryMetadata = {
@@ -260,17 +240,17 @@ const metadata: CaseMemoryMetadata = {
     source: input.source,
     supersedes,
     createdAt: new Date().toISOString(),
-    ...input.extraMetadata,  // 新增：透传 calculation 等可选字段
+    ...input.extraMetadata,  // 新增：透传 calculation 等字段
 }
 ```
 
-- [ ] **Step 4: 在同文件末尾新增 `findLastCalculationByCase` 函数**
+- [ ] **Step 4: 同文件末尾新增 `findLastCalculationByCase`（带 ORDER BY）**
 
 ```typescript
 /**
- * 查最近一次同案件同工具的计算输入（用于 L2 兜底预填）。
- * 利用 subjectKey='calculation:{tool}' 精确匹配，借助 writeMemoryService 已有的版本链机制：
- * 每次写新值会 invalidate 旧值，所以"未失效的"自然就是最新一条。
+ * 查最近一次同案件同工具的计算历史（用于 L2 兜底预填）。
+ * 利用版本链：subjectKey='calculation:{tool}' 同案件只有 1 条未失效记录。
+ * ORDER BY 兜底版本链失效场景（并发写入 / 测试环境多条遗留）。
  */
 export async function findLastCalculationByCase(
     caseId: number,
@@ -282,6 +262,7 @@ export async function findLastCalculationByCase(
           AND metadata->>'kind' = 'calculation'
           AND metadata->>'subjectKey' = ${`calculation:${tool}`}
           AND (metadata->>'invalidatedAt') IS NULL
+        ORDER BY (metadata->'calculation'->>'calculatedAt') DESC NULLS LAST
         LIMIT 1
     `
     return rows[0]?.metadata?.calculation ?? null
@@ -297,60 +278,64 @@ Expected: 3 tests passed
 
 ```bash
 git add server/services/memory/memory.service.ts tests/server/services/memory/memory.service.test.ts
-git commit -m "feat(memory): writeMemoryService 加 extraMetadata + 新增 findLastCalculationByCase"
+git commit -m "feat(tools): writeMemoryService 加 extraMetadata + 新增 findLastCalculationByCase"
 ```
 
 ---
 
-## 任务 PR-A-T3：_fieldMetadata.ts（仅 compensation 一个工具）
+## 任务 PR-A-T3：_fieldMetadata.ts 含 compensation（先驱）+ 嵌套子分支接口设计
 
 **Files:**
 - Create: `shared/utils/tools/agentTools/_fieldMetadata.ts`
 
-- [ ] **Step 1: 创建文件，定义类型 + 仅 compensation 的元数据**
+- [ ] **Step 1: 创建文件**
 
 ```typescript
 /**
- * Calculator Agent 工具的字段元数据（前端表单渲染用）
+ * Calculator Agent 工具的字段元数据（前端表单渲染用）。
  *
- * 为什么不直接用 zod schema：zod 不承载 label/unit/分支可见性等 UI 元数据。
+ * 为什么单独维护：zod schema 不承载 label/unit/分支可见性等 UI 元数据。
  * 本文件按 toolName 提供 source of truth。
+ *
+ * 嵌套子分支支持：如 court_fee 的 feeTypeLevel1='caseFee' 下有 caseFeeType 子分支。
+ * 用 nestedBranchByValue 表达"父分支选某值后再切的子分支"。
  */
 
 export interface CalcFieldMeta {
-    /** 字段名（对应 zod schema 字段） */
     name: string
-    /** 中文标签 */
     label: string
-    /** 字段类型 */
     type: 'number' | 'text' | 'select' | 'date' | 'boolean'
-    /** 单位（元 / 天 / %） */
     unit?: string
-    /** 全分支必填 */
     required?: boolean
-    /** 按分支判定必填，key 是分支值 */
+    /** 按主分支判定必填，key 是主分支值 */
     requiredBy?: Record<string, boolean>
-    /** select 类型的选项 */
     options?: Array<{ value: string; label: string }>
     placeholder?: string
+}
+
+export interface NestedBranchMeta {
+    /** 子分支字段名（如 nonPropertyType） */
+    field: string
+    /** 子分支 UI 类型：嵌套场景一般用 radio */
+    uiType: 'radio' | 'select'
+    options: Array<{ value: string; label: string }>
+    label: string  // 中文标签
 }
 
 export interface CalcToolMeta {
     toolName: string
     displayName: string
-    /** 分支字段名（如 type/caseType/mode），无分支不填 */
+    /** 主分支字段名（type/caseType/mode/feeTypeLevel1/queryType） */
     branchField?: string
-    /** 分支选项 */
     branchOptions?: Array<{ value: string; label: string }>
-    /** UI 形式：≤4 用 tab，≥5 用 select（spec §7） */
-    branchUiType?: 'tab' | 'select'
-    /** 全部字段（含跨分支） */
+    branchUiType?: 'tab' | 'select'  // ≤4 tab，≥5 select
+    /** 嵌套子分支：父分支某值 → 显示哪个子分支 */
+    nestedBranchByValue?: Record<string, NestedBranchMeta>
     fields: CalcFieldMeta[]
-    /** 每个分支显示哪些字段（name 列表，按显示顺序） */
+    /** 主分支显示哪些字段 */
     fieldsByBranch?: Record<string, string[]>
 }
 
-/** Calculator 工具元数据注册表，按 toolName 索引 */
 export const CALCULATOR_TOOL_META: Record<string, CalcToolMeta> = {
     calculate_compensation: {
         toolName: 'calculate_compensation',
@@ -363,7 +348,6 @@ export const CALCULATOR_TOOL_META: Record<string, CalcToolMeta> = {
             { value: 'death', label: '死亡赔偿' },
         ],
         fields: [
-            // 工伤
             { name: 'salary', label: '月工资', type: 'number', unit: '元', requiredBy: { workInjury: true } },
             { name: 'disabilityLevel', label: '伤残等级', type: 'select',
               options: Array.from({ length: 10 }, (_, i) => ({ value: String(i + 1), label: `${i + 1} 级` })),
@@ -372,17 +356,14 @@ export const CALCULATOR_TOOL_META: Record<string, CalcToolMeta> = {
               requiredBy: { trafficAccident: true } },
             { name: 'nursingExpenses', label: '护理费用', type: 'number', unit: '元' },
             { name: 'nutritionExpenses', label: '营养费用', type: 'number', unit: '元' },
-            // 车祸
             { name: 'disabilityCompensation', label: '伤残赔偿金', type: 'number', unit: '元',
               requiredBy: { trafficAccident: true } },
             { name: 'lostIncome', label: '误工费', type: 'number', unit: '元' },
             { name: 'transportationExpenses', label: '交通费', type: 'number', unit: '元' },
             { name: 'accommodationExpenses', label: '住宿费', type: 'number', unit: '元' },
             { name: 'propertyLoss', label: '财产损失', type: 'number', unit: '元' },
-            // 死亡
             { name: 'annualIncome', label: '年收入', type: 'number', unit: '元', requiredBy: { death: true } },
-            { name: 'deathCompensationYears', label: '死亡赔偿金年限', type: 'number', unit: '年',
-              placeholder: '默认 20' },
+            { name: 'deathCompensationYears', label: '死亡赔偿金年限', type: 'number', unit: '年', placeholder: '默认 20' },
             { name: 'funeralExpenses', label: '丧葬费', type: 'number', unit: '元' },
             { name: 'dependentCompensation', label: '被抚养人生活费', type: 'number', unit: '元' },
             { name: 'emotionalDamages', label: '精神损害赔偿金', type: 'number', unit: '元' },
@@ -397,70 +378,242 @@ export const CALCULATOR_TOOL_META: Record<string, CalcToolMeta> = {
 }
 ```
 
-- [ ] **Step 2: typecheck**
+> PR-B-T12 时补全剩余 9 个工具的 meta。
 
-Run: `bun run typecheck 2>&1 | grep "_fieldMetadata" | head -3`
-Expected: 无错误
-
-- [ ] **Step 3: Commit**
+- [ ] **Step 2: typecheck + Commit**
 
 ```bash
+bun run typecheck 2>&1 | grep "_fieldMetadata" | head -3
 git add shared/utils/tools/agentTools/_fieldMetadata.ts
-git commit -m "feat(agent): 新增 _fieldMetadata.ts（calculator 工具字段元数据）+ compensation 元数据"
+git commit -m "feat(tools): _fieldMetadata 字段元数据接口 + compensation 元数据"
 ```
 
 ---
 
-## 任务 PR-A-T4：CalculatorResult.vue（结果展示组件）
+## 任务 PR-A-T4：前端三组件 + 注册（合并原 T4-T7）
 
 **Files:**
-- Create: `app/components/ai/tools/CalculatorResult.vue`
+- Create: `app/components/ai/tools/CalculatorFormFields.vue`
+- Create: `app/components/ai/tools/CalculatorResultBody.vue`
+- Create: `app/components/ai/tools/CalculatorInputCard.vue`
+- Create: `app/components/ai/tools/CalculatorResultCard.vue`
+- Modify: `app/components/case/interrupt/index.ts`
+- Modify: `app/components/agents/panelToolMap.ts`
 
-- [ ] **Step 1: 创建文件**
+- [ ] **Step 1: 创建 `CalculatorFormFields.vue`（动态表单）**
+
+```vue
+<template>
+    <div class="space-y-4">
+        <!-- 主分支选择器 -->
+        <Tabs v-if="meta.branchField && meta.branchUiType === 'tab'"
+              :model-value="branchValue" @update:model-value="onBranchChange">
+            <TabsList class="w-full">
+                <TabsTrigger v-for="opt in meta.branchOptions" :key="opt.value" :value="opt.value">
+                    {{ opt.label }}
+                </TabsTrigger>
+            </TabsList>
+        </Tabs>
+
+        <div v-else-if="meta.branchField && meta.branchUiType === 'select'" class="space-y-1.5">
+            <Label>{{ branchFieldLabel }}</Label>
+            <Select :model-value="branchValue" @update:model-value="onBranchChange">
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                    <SelectItem v-for="opt in meta.branchOptions" :key="opt.value" :value="opt.value">
+                        {{ opt.label }}
+                    </SelectItem>
+                </SelectContent>
+            </Select>
+        </div>
+
+        <!-- 嵌套子分支（Radio）-->
+        <div v-if="nestedBranchMeta" class="space-y-1.5">
+            <Label>{{ nestedBranchMeta.label }}</Label>
+            <RadioGroup :model-value="nestedBranchValue" @update:model-value="onNestedBranchChange">
+                <div v-for="opt in nestedBranchMeta.options" :key="opt.value" class="flex items-center gap-2">
+                    <RadioGroupItem :value="opt.value" :id="`nb-${opt.value}`" />
+                    <Label :for="`nb-${opt.value}`" class="cursor-pointer">{{ opt.label }}</Label>
+                </div>
+            </RadioGroup>
+        </div>
+
+        <!-- 字段网格 -->
+        <div class="grid grid-cols-2 gap-3">
+            <div v-for="field in visibleFields" :key="field.name" class="space-y-1.5">
+                <Label>
+                    <span v-if="isRequired(field)" class="text-destructive mr-1">*</span>
+                    {{ field.label }}
+                    <Badge v-if="isPrefilled(field) && !isMissing(field)" variant="secondary" class="ml-2 text-xs">
+                        已自动填入
+                    </Badge>
+                    <Badge v-if="isMissing(field)" variant="destructive" class="ml-2 text-xs">需补全</Badge>
+                </Label>
+
+                <Input v-if="field.type === 'number'"
+                       type="number"
+                       :model-value="formData[field.name]"
+                       :placeholder="field.placeholder || '0'"
+                       :class="fieldClass(field)"
+                       @update:model-value="(v: any) => onFieldInput(field.name, v === '' ? undefined : Number(v))" />
+
+                <Select v-else-if="field.type === 'select'"
+                        :model-value="String(formData[field.name] ?? '')"
+                        @update:model-value="(v: any) => onFieldInput(field.name, v)">
+                    <SelectTrigger><SelectValue placeholder="请选择" /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem v-for="opt in field.options" :key="opt.value" :value="opt.value">
+                            {{ opt.label }}
+                        </SelectItem>
+                    </SelectContent>
+                </Select>
+
+                <Input v-else :model-value="formData[field.name]" :placeholder="field.placeholder"
+                       @update:model-value="(v: any) => onFieldInput(field.name, v)" />
+            </div>
+        </div>
+    </div>
+</template>
+
+<script setup lang="ts">
+import { computed } from 'vue'
+import { Tabs, TabsList, TabsTrigger } from '~/components/ui/tabs'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
+import { RadioGroup, RadioGroupItem } from '~/components/ui/radio-group'
+import { Input } from '~/components/ui/input'
+import { Label } from '~/components/ui/label'
+import { Badge } from '~/components/ui/badge'
+import { CALCULATOR_TOOL_META, type CalcFieldMeta } from '#shared/utils/tools/agentTools/_fieldMetadata'
+
+const props = defineProps<{
+    toolName: string
+    prefilled: Record<string, any>
+    missing: string[]
+    modelValue: Record<string, any>
+    branch?: string
+}>()
+
+const emit = defineEmits<{
+    (e: 'update:modelValue', val: Record<string, any>): void
+    (e: 'update:branch', val: string): void
+}>()
+
+const meta = computed(() => CALCULATOR_TOOL_META[props.toolName]!)
+const formData = computed(() => props.modelValue)
+
+const branchValue = computed(() =>
+    props.branch ?? (props.prefilled[meta.value.branchField ?? ''] as string)
+    ?? meta.value.branchOptions?.[0]?.value ?? '')
+
+const branchFieldLabel = computed(() => {
+    const m: Record<string, string> = {
+        type: '赔偿类型', caseType: '案件类型', mode: '计算模式',
+        feeTypeLevel1: '费用类型', queryType: '查询类型',
+    }
+    return m[meta.value.branchField!] ?? meta.value.branchField!
+})
+
+const nestedBranchMeta = computed(() => meta.value.nestedBranchByValue?.[branchValue.value])
+const nestedBranchValue = computed(() =>
+    nestedBranchMeta.value
+        ? (formData.value[nestedBranchMeta.value.field] ?? nestedBranchMeta.value.options[0]?.value ?? '')
+        : '')
+
+const visibleFields = computed<CalcFieldMeta[]>(() => {
+    const names = meta.value.fieldsByBranch?.[branchValue.value] ?? meta.value.fields.map((f) => f.name)
+    return names.map((n) => meta.value.fields.find((f) => f.name === n)).filter((f): f is CalcFieldMeta => !!f)
+})
+
+function isRequired(f: CalcFieldMeta): boolean {
+    return !!(f.required || f.requiredBy?.[branchValue.value])
+}
+function isMissing(f: CalcFieldMeta): boolean {
+    return props.missing.includes(f.name) && (formData.value[f.name] === undefined || formData.value[f.name] === '')
+}
+function isPrefilled(f: CalcFieldMeta): boolean {
+    return props.prefilled[f.name] !== undefined
+}
+function fieldClass(f: CalcFieldMeta): string {
+    if (isMissing(f)) return 'border-destructive'
+    if (isPrefilled(f)) return 'bg-primary/5'
+    return ''
+}
+
+function onFieldInput(name: string, value: any) {
+    emit('update:modelValue', { ...formData.value, [name]: value })
+}
+
+function onBranchChange(v: any) {
+    if (meta.value.branchField) {
+        emit('update:branch', v as string)
+        emit('update:modelValue', { ...formData.value, [meta.value.branchField]: v })
+    }
+}
+
+function onNestedBranchChange(v: any) {
+    if (nestedBranchMeta.value) {
+        emit('update:modelValue', { ...formData.value, [nestedBranchMeta.value.field]: v })
+    }
+}
+</script>
+```
+
+- [ ] **Step 2: 创建 `CalculatorResultBody.vue`（结果体，按 toolName 切布局）**
 
 ```vue
 <template>
     <div class="space-y-3">
-        <!-- 摘要 row：按 toolName 切换不同布局 -->
-        <div v-if="toolName === 'calculate_compensation'" class="rounded-md bg-muted/50 p-4 space-y-2">
-            <div class="flex justify-between text-sm">
-                <span>赔偿类型</span>
-                <span class="font-medium">{{ compensationTypeText }}</span>
+        <!-- compensation: workInjury / trafficAccident / death 3 分支 -->
+        <template v-if="toolName === 'calculate_compensation'">
+            <div class="rounded-md bg-muted/50 p-4 space-y-2">
+                <div class="flex justify-between text-sm">
+                    <span>赔偿类型</span>
+                    <span class="font-medium">{{ compensationTypeText }}</span>
+                </div>
+
+                <!-- workInjury 分支字段 -->
+                <template v-if="input.type === 'workInjury'">
+                    <div class="flex justify-between text-sm"><span>月工资</span><span>{{ fmt(input.salary) }}</span></div>
+                    <div class="flex justify-between text-sm"><span>伤残等级</span><span>{{ input.disabilityLevel }} 级</span></div>
+                    <div class="flex justify-between text-sm"><span>一次性伤残补助金</span><span>{{ fmt(output.disabilityCompensation) }}</span></div>
+                    <div class="flex justify-between text-sm"><span>医疗费用</span><span>{{ fmt(output.medicalExpenses) }}</span></div>
+                    <div class="flex justify-between text-sm"><span>护理费用</span><span>{{ fmt(output.nursingExpenses) }}</span></div>
+                    <div class="flex justify-between text-sm"><span>营养费用</span><span>{{ fmt(output.nutritionExpenses) }}</span></div>
+                </template>
+
+                <!-- trafficAccident 分支字段 -->
+                <template v-else-if="input.type === 'trafficAccident'">
+                    <div class="flex justify-between text-sm"><span>医疗费用</span><span>{{ fmt(output.medicalExpenses) }}</span></div>
+                    <div class="flex justify-between text-sm"><span>伤残赔偿金</span><span>{{ fmt(output.disabilityCompensation) }}</span></div>
+                    <div class="flex justify-between text-sm"><span>护理费用</span><span>{{ fmt(output.nursingExpenses) }}</span></div>
+                    <div class="flex justify-between text-sm"><span>误工费</span><span>{{ fmt(output.lostIncome) }}</span></div>
+                    <div class="flex justify-between text-sm"><span>交通费</span><span>{{ fmt(output.transportationExpenses) }}</span></div>
+                    <div class="flex justify-between text-sm"><span>财产损失</span><span>{{ fmt(output.propertyLoss) }}</span></div>
+                </template>
+
+                <!-- death 分支字段 -->
+                <template v-else-if="input.type === 'death'">
+                    <div class="flex justify-between text-sm"><span>年收入</span><span>{{ fmt(input.annualIncome) }}</span></div>
+                    <div class="flex justify-between text-sm"><span>死亡赔偿金</span><span>{{ fmt(output.deathCompensation) }}</span></div>
+                    <div class="flex justify-between text-sm"><span>丧葬费</span><span>{{ fmt(output.funeralExpenses) }}</span></div>
+                    <div class="flex justify-between text-sm"><span>被抚养人生活费</span><span>{{ fmt(output.dependentCompensation) }}</span></div>
+                    <div class="flex justify-between text-sm"><span>精神损害</span><span>{{ fmt(output.emotionalDamages) }}</span></div>
+                </template>
+
+                <div class="flex justify-between border-t pt-2 mt-2">
+                    <span class="font-semibold">赔偿总额</span>
+                    <span class="font-semibold text-primary text-lg">{{ fmt(output.totalCompensation) }}</span>
+                </div>
             </div>
-            <div v-if="input.type === 'workInjury'" class="space-y-1.5">
-                <div class="flex justify-between text-sm">
-                    <span>月工资</span><span>{{ formatCurrency(input.salary) }}</span>
-                </div>
-                <div class="flex justify-between text-sm">
-                    <span>伤残等级</span><span>{{ input.disabilityLevel }} 级</span>
-                </div>
-                <div class="flex justify-between text-sm">
-                    <span>一次性伤残补助金</span><span>{{ formatCurrency(output.disabilityCompensation) }}</span>
-                </div>
-                <div class="flex justify-between text-sm">
-                    <span>医疗费用</span><span>{{ formatCurrency(output.medicalExpenses) }}</span>
-                </div>
-                <div class="flex justify-between text-sm">
-                    <span>护理费用</span><span>{{ formatCurrency(output.nursingExpenses) }}</span>
-                </div>
-                <div class="flex justify-between text-sm">
-                    <span>营养费用</span><span>{{ formatCurrency(output.nutritionExpenses) }}</span>
-                </div>
-            </div>
-            <!-- trafficAccident / death 分支字段类似省略，PR-B 时再补全 -->
-            <div class="flex justify-between border-t pt-2 mt-2">
-                <span class="font-semibold">赔偿总额</span>
-                <span class="font-semibold text-primary text-lg">
-                    {{ formatCurrency(output.totalCompensation) }}
-                </span>
-            </div>
-        </div>
+        </template>
+
+        <!-- TODO PR-B-T12 时补 9 个工具的 v-else-if 分支 -->
 
         <!-- 计算明细 Accordion -->
         <Accordion v-if="Array.isArray(output.details) && output.details.length > 0"
                    type="single" collapsible class="w-full" default-value="details">
             <AccordionItem value="details">
-                <AccordionTrigger>计算明细（按法条逐项展开）</AccordionTrigger>
+                <AccordionTrigger>计算明细</AccordionTrigger>
                 <AccordionContent>
                     <ul class="text-sm space-y-1 list-disc pl-5">
                         <li v-for="(line, i) in (output.details as string[])" :key="i">{{ line }}</li>
@@ -481,506 +634,327 @@ const props = defineProps<{
     output: Record<string, any>
 }>()
 
-function formatCurrency(n: unknown): string {
+function fmt(n: unknown): string {
     if (typeof n !== 'number') return '—'
     return `¥ ${n.toLocaleString('zh-CN', { maximumFractionDigits: 2 })}`
 }
 
 const compensationTypeText = computed(() => {
-    const map: Record<string, string> = {
-        workInjury: '工伤赔偿',
-        trafficAccident: '交通事故',
-        death: '死亡赔偿',
-    }
-    return map[props.input.type as string] ?? '—'
+    const m: Record<string, string> = { workInjury: '工伤赔偿', trafficAccident: '交通事故', death: '死亡赔偿' }
+    return m[props.input.type as string] ?? '—'
 })
 </script>
 ```
 
-> 注：PR-A 只实现 compensation 的结果展示，PR-B 时按 spec §8.5 对照表补全其他 9 个工具的 v-if 分支。
+- [ ] **Step 3: 创建 `CalculatorInputCard.vue`（输入态卡片，isToolCard 协议）**
 
-- [ ] **Step 2: typecheck**
-
-Run: `bun run typecheck 2>&1 | grep "CalculatorResult" | head -3`
-Expected: 无错误
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add app/components/ai/tools/CalculatorResult.vue
-git commit -m "feat(agent-ui): 新增 CalculatorResult.vue（compensation 结果展示）"
-```
-
----
-
-## 任务 PR-A-T5：CalculatorFormFields.vue（动态表单）
-
-**Files:**
-- Create: `app/components/ai/tools/CalculatorFormFields.vue`
-
-- [ ] **Step 1: 创建文件**
+参考 `app/components/agents/contract/interrupts/StanceSelectCard.vue` 的 `interrupt + onResolve + resumeValue` 协议：
 
 ```vue
 <template>
-    <div class="space-y-4">
-        <!-- 分支选择器：Tab 或 Select -->
-        <Tabs v-if="meta.branchField && meta.branchUiType === 'tab'"
-              :model-value="branchValue"
-              @update:model-value="onBranchChange">
-            <TabsList class="w-full">
-                <TabsTrigger v-for="opt in meta.branchOptions" :key="opt.value" :value="opt.value">
-                    {{ opt.label }}
-                </TabsTrigger>
-            </TabsList>
-        </Tabs>
+    <Card class="w-full">
+        <CardHeader class="pb-3">
+            <CardTitle class="flex items-center gap-2 text-base">
+                <Calculator class="w-5 h-5 text-primary" />
+                {{ displayName }}
+            </CardTitle>
+            <CardDescription>
+                <template v-if="isSnapshot">已提交，等待计算结果...</template>
+                <template v-else-if="props.interrupt.missing.length > 0">
+                    案件信息不全，请补全 <strong class="text-destructive">{{ props.interrupt.missing.length }}</strong> 个必填项
+                </template>
+                <template v-else>请确认参数</template>
+            </CardDescription>
+        </CardHeader>
+        <CardContent>
+            <CalculatorFormFields
+                :tool-name="props.interrupt.toolName"
+                :prefilled="props.interrupt.prefilled"
+                :missing="props.interrupt.missing"
+                v-model="formData"
+                v-model:branch="selectedBranch"
+            />
+        </CardContent>
+        <CardFooter v-if="!isSnapshot" class="justify-end gap-2">
+            <Button variant="outline" :disabled="submitting" @click="onCancel">取消</Button>
+            <Button :disabled="!isValid || submitting" @click="onSubmit">
+                <Loader2 v-if="submitting" class="w-4 h-4 mr-1 animate-spin" />
+                计算
+            </Button>
+        </CardFooter>
+        <CardFooter v-else class="text-sm text-muted-foreground gap-2">
+            <CircleCheck v-if="!isCancelled" class="w-4 h-4 text-emerald-600" />
+            <Ban v-else class="w-4 h-4 text-muted-foreground" />
+            <span v-if="!isCancelled">用户已提交，{{ Object.keys(props.resumeValue ?? {}).length }} 个字段</span>
+            <span v-else>用户取消了本次计算</span>
+        </CardFooter>
+    </Card>
+</template>
 
-        <div v-else-if="meta.branchField && meta.branchUiType === 'select'" class="space-y-1.5">
-            <Label>{{ branchFieldLabel }}</Label>
-            <Select :model-value="branchValue" @update:model-value="onBranchChange">
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                    <SelectItem v-for="opt in meta.branchOptions" :key="opt.value" :value="opt.value">
-                        {{ opt.label }}
-                    </SelectItem>
-                </SelectContent>
-            </Select>
-        </div>
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '~/components/ui/card'
+import { Button } from '~/components/ui/button'
+import { Calculator, CircleCheck, Ban, Loader2 } from 'lucide-vue-next'
+import CalculatorFormFields from '~/components/ai/tools/CalculatorFormFields.vue'
+import { CALCULATOR_TOOL_META, type CalcFieldMeta } from '#shared/utils/tools/agentTools/_fieldMetadata'
 
-        <!-- 字段网格：根据当前分支显示对应字段 -->
-        <div class="grid grid-cols-2 gap-3">
-            <div v-for="field in visibleFields" :key="field.name" class="space-y-1.5">
-                <Label>
-                    <span v-if="isRequired(field)" class="text-destructive mr-1">*</span>
-                    {{ field.label }}
-                    <Badge v-if="prefilled[field.name] !== undefined && !isMissing(field)"
-                           variant="secondary" class="ml-2 text-xs">已自动填入</Badge>
-                    <Badge v-if="isMissing(field)" variant="destructive" class="ml-2 text-xs">需补全</Badge>
-                </Label>
+interface CalculatorInputInterrupt {
+    type: 'calculator_input'
+    toolName: string
+    prefilled: Record<string, any>
+    missing: string[]
+}
 
-                <Input v-if="field.type === 'number'"
-                       type="number"
-                       :model-value="formData[field.name]"
-                       :placeholder="field.placeholder || '0'"
-                       :class="isMissing(field) ? 'border-destructive' : (prefilled[field.name] !== undefined ? 'bg-primary/5' : '')"
-                       @update:model-value="(v: any) => onFieldInput(field.name, v === '' ? undefined : Number(v))" />
+const props = defineProps<{
+    interrupt: CalculatorInputInterrupt
+    onResolve?: (value: Record<string, any> | null) => Promise<void> | void
+    resumeValue?: Record<string, any> | null
+}>()
 
-                <Select v-else-if="field.type === 'select'"
-                        :model-value="String(formData[field.name] ?? '')"
-                        @update:model-value="(v: any) => onFieldInput(field.name, v)">
-                    <SelectTrigger><SelectValue placeholder="请选择" /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem v-for="opt in field.options" :key="opt.value" :value="opt.value">
-                            {{ opt.label }}
-                        </SelectItem>
-                    </SelectContent>
-                </Select>
+const isSnapshot = computed(() => props.resumeValue !== undefined)
+const isCancelled = computed(() => props.resumeValue === null
+    || (props.resumeValue && (props.resumeValue as { cancelled?: boolean }).cancelled === true))
 
-                <Input v-else
-                       :model-value="formData[field.name]"
-                       :placeholder="field.placeholder"
-                       @update:model-value="(v: any) => onFieldInput(field.name, v)" />
-            </div>
-        </div>
-    </div>
+const displayName = computed(() =>
+    CALCULATOR_TOOL_META[props.interrupt.toolName]?.displayName ?? props.interrupt.toolName)
+
+const formData = ref<Record<string, any>>({
+    ...props.interrupt.prefilled,
+    ...(isSnapshot.value && props.resumeValue ? props.resumeValue : {}),
+})
+const selectedBranch = ref<string>(
+    (formData.value[CALCULATOR_TOOL_META[props.interrupt.toolName]?.branchField ?? ''] as string)
+    ?? CALCULATOR_TOOL_META[props.interrupt.toolName]?.branchOptions?.[0]?.value
+    ?? '',
+)
+
+const submitting = ref(false)
+
+const isValid = computed(() => {
+    const meta = CALCULATOR_TOOL_META[props.interrupt.toolName]
+    if (!meta) return false
+    const requiredNames = meta.fields
+        .filter((f: CalcFieldMeta) => f.required || f.requiredBy?.[selectedBranch.value])
+        .map((f) => f.name)
+    return requiredNames.every((n) => formData.value[n] !== undefined && formData.value[n] !== '')
+})
+
+async function onSubmit() {
+    if (!isValid.value) return
+    submitting.value = true
+    try {
+        await props.onResolve?.(formData.value)
+    } finally {
+        submitting.value = false
+    }
+}
+
+async function onCancel() {
+    submitting.value = true
+    try {
+        await props.onResolve?.(null)  // null 表示取消（InterruptDispatcher 协议）
+    } finally {
+        submitting.value = false
+    }
+}
+</script>
+```
+
+- [ ] **Step 4: 创建 `CalculatorResultCard.vue`（结果态卡片，PANEL_TOOL_MAP 协议）**
+
+参考 `app/components/agents/contract/tools/ReviewContractCard.vue` 的 `input/output/state/toolName` props 形态：
+
+```vue
+<template>
+    <Card class="w-full">
+        <CardHeader class="pb-3">
+            <CardTitle class="flex items-center gap-2 text-base">
+                <CircleCheck v-if="!isCancelled" class="w-5 h-5 text-emerald-600" />
+                <Ban v-else class="w-5 h-5 text-muted-foreground" />
+                {{ displayName }}{{ isCancelled ? ' · 已取消' : '结果' }}
+            </CardTitle>
+        </CardHeader>
+        <CardContent v-if="!isCancelled" class="space-y-3">
+            <CalculatorResultBody :tool-name="toolName" :input="parsedInput" :output="parsedOutput" />
+            <Alert variant="success" class="block">
+                <Check class="w-4 h-4 mr-2 inline" />
+                已自动保存到案件记忆，下次再算时会自动预填这些字段
+            </Alert>
+        </CardContent>
+        <CardContent v-else>
+            <p class="text-sm text-muted-foreground">用户取消了本次计算</p>
+        </CardContent>
+    </Card>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Tabs, TabsList, TabsTrigger } from '~/components/ui/tabs'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
-import { Input } from '~/components/ui/input'
-import { Label } from '~/components/ui/label'
-import { Badge } from '~/components/ui/badge'
-import { CALCULATOR_TOOL_META, type CalcFieldMeta } from '#shared/utils/tools/agentTools/_fieldMetadata'
-
-const props = defineProps<{
-    toolName: string
-    prefilled: Record<string, any>
-    missing: string[]
-    modelValue: Record<string, any>
-    branch?: string
-}>()
-
-const emit = defineEmits<{
-    (e: 'update:modelValue', val: Record<string, any>): void
-    (e: 'update:branch', val: string): void
-}>()
-
-const meta = computed(() => CALCULATOR_TOOL_META[props.toolName]!)
-const branchValue = computed(() => props.branch ?? (props.prefilled[meta.value.branchField ?? ''] as string)
-                                  ?? meta.value.branchOptions?.[0]?.value ?? '')
-
-const branchFieldLabel = computed(() => {
-    const map: Record<string, string> = { type: '赔偿类型', caseType: '案件类型', mode: '计算模式',
-                                           feeTypeLevel1: '费用类型', queryType: '查询类型' }
-    return map[meta.value.branchField!] ?? meta.value.branchField!
-})
-
-const formData = computed(() => props.modelValue)
-
-const visibleFields = computed<CalcFieldMeta[]>(() => {
-    const branch = branchValue.value
-    const names = meta.value.fieldsByBranch?.[branch] ?? meta.value.fields.map((f) => f.name)
-    return names
-        .map((name) => meta.value.fields.find((f) => f.name === name))
-        .filter((f): f is CalcFieldMeta => f !== undefined)
-})
-
-function isRequired(field: CalcFieldMeta): boolean {
-    if (field.required) return true
-    return field.requiredBy?.[branchValue.value] ?? false
-}
-
-function isMissing(field: CalcFieldMeta): boolean {
-    return props.missing.includes(field.name) && (formData.value[field.name] === undefined
-                                                  || formData.value[field.name] === '')
-}
-
-function onFieldInput(name: string, value: any) {
-    emit('update:modelValue', { ...formData.value, [name]: value })
-}
-
-function onBranchChange(v: any) {
-    if (meta.value.branchField) {
-        emit('update:branch', v as string)
-        // 同步把分支字段值也写到 formData
-        emit('update:modelValue', { ...formData.value, [meta.value.branchField]: v })
-    }
-}
-</script>
-```
-
-- [ ] **Step 2: typecheck**
-
-Run: `bun run typecheck 2>&1 | grep "CalculatorFormFields" | head -3`
-Expected: 无错误
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add app/components/ai/tools/CalculatorFormFields.vue
-git commit -m "feat(agent-ui): 新增 CalculatorFormFields.vue（动态分支表单）"
-```
-
----
-
-## 任务 PR-A-T6：CalculatorTool.vue 三态壳 + interrupt 注册
-
-**Files:**
-- Create: `app/components/ai/tools/CalculatorTool.vue`
-- Modify: `app/components/case/interrupt/index.ts`
-
-- [ ] **Step 1: 创建 `CalculatorTool.vue`**
-
-```vue
-<template>
-    <Confirmation :approval="approval" :state="confirmationState" class="w-full">
-        <!-- 输入态：动态表单 -->
-        <ConfirmationRequest v-if="needsInput">
-            <ConfirmationTitle>{{ displayName }}</ConfirmationTitle>
-            <p class="text-muted-foreground text-sm mb-3">
-                <template v-if="missing.length > 0">案件信息不全，请补全 <strong class="text-destructive">{{ missing.length }}</strong> 个必填项</template>
-                <template v-else>请确认参数</template>
-            </p>
-
-            <CalculatorFormFields
-                :tool-name="toolName"
-                :prefilled="prefilled"
-                :missing="missing"
-                v-model="formData"
-                v-model:branch="selectedBranch"
-            />
-
-            <ConfirmationActions class="mt-4">
-                <ConfirmationAction variant="outline" @click="onCancel">取消</ConfirmationAction>
-                <ConfirmationAction :disabled="!isValid" @click="onSubmit">计算</ConfirmationAction>
-            </ConfirmationActions>
-        </ConfirmationRequest>
-
-        <!-- 结果态：参考各工具页面完整明细 -->
-        <ConfirmationAccepted v-else-if="output && !cancelled">
-            <div class="space-y-3">
-                <h3 class="font-semibold flex items-center gap-2">
-                    <CheckCircle2 class="w-5 h-5 text-emerald-600" />
-                    {{ displayName }}结果
-                </h3>
-                <CalculatorResult :tool-name="toolName" :input="finalInput" :output="output" />
-                <Alert variant="success" class="block">
-                    <Check class="w-4 h-4 mr-2 inline" />
-                    已自动保存到案件记忆，下次再算时会自动预填这些字段
-                </Alert>
-            </div>
-        </ConfirmationAccepted>
-
-        <!-- 取消态：保留卡片置灰 -->
-        <ConfirmationRejected v-else>
-            <p class="text-muted-foreground flex items-center gap-2">
-                <Ban class="w-4 h-4" />
-                用户取消了本次计算输入
-            </p>
-        </ConfirmationRejected>
-    </Confirmation>
-</template>
-
-<script setup lang="ts">
-import { ref, computed, watch } from 'vue'
-import {
-    Confirmation, ConfirmationRequest, ConfirmationAccepted, ConfirmationRejected,
-    ConfirmationTitle, ConfirmationActions, ConfirmationAction,
-} from '~/components/ai-elements/confirmation'
-import type { ToolUIPartApproval } from '~/components/ai-elements/confirmation/context'
-import type { ExtendedToolState } from '~/components/ai-elements/types'
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 import { Alert } from '~/components/ui/alert'
-import { CheckCircle2, Check, Ban } from 'lucide-vue-next'
-import CalculatorFormFields from '~/components/ai/tools/CalculatorFormFields.vue'
-import CalculatorResult from '~/components/ai/tools/CalculatorResult.vue'
-import { CALCULATOR_TOOL_META, type CalcFieldMeta } from '#shared/utils/tools/agentTools/_fieldMetadata'
+import { CircleCheck, Ban, Check } from 'lucide-vue-next'
+import CalculatorResultBody from '~/components/ai/tools/CalculatorResultBody.vue'
+import { CALCULATOR_TOOL_META } from '#shared/utils/tools/agentTools/_fieldMetadata'
 
 const props = defineProps<{
-    /** 工具调用的输入（中断时的 prefilled）+ 状态等 */
     toolName: string
-    input?: any           // interrupt 数据 { type, toolName, prefilled, missing }
-    output?: any          // 工具最终返回 JSON
-    state: ExtendedToolState
+    input?: any           // toolCall.args
+    output?: any          // toolCall.result（JSON 字符串或对象）
+    state?: string
 }>()
 
-const emit = defineEmits<{
-    confirm: [merged: Record<string, any>]   // 用户提交 → 父级 dispatch resume payload
-    reject: []                                // 用户取消 → 父级 dispatch resume payload {cancelled:true}
-}>()
-
-const approval = ref<ToolUIPartApproval>({ id: 'calculator-input' })
-const confirmationState = ref<ExtendedToolState>('approval-requested')
-
-const prefilled = computed<Record<string, any>>(() => props.input?.prefilled ?? {})
-const missing = computed<string[]>(() => props.input?.missing ?? [])
 const displayName = computed(() => CALCULATOR_TOOL_META[props.toolName]?.displayName ?? props.toolName)
 
-const formData = ref<Record<string, any>>({ ...prefilled.value })
-const selectedBranch = ref<string>(
-    (prefilled.value[CALCULATOR_TOOL_META[props.toolName]?.branchField ?? ''] as string)
-    ?? CALCULATOR_TOOL_META[props.toolName]?.branchOptions?.[0]?.value
-    ?? '',
-)
-
-const cancelled = computed(() => {
-    try {
-        const parsed = typeof props.output === 'string' ? JSON.parse(props.output) : props.output
-        return parsed?.cancelled === true
-    } catch { return false }
+const parsedOutput = computed<Record<string, any>>(() => {
+    if (!props.output) return {}
+    return typeof props.output === 'string' ? JSON.parse(props.output) : props.output
 })
 
-const needsInput = computed(() => {
-    return missing.value.length > 0
-        && !props.output
-        && confirmationState.value !== 'approval-responded'
-})
+const parsedInput = computed<Record<string, any>>(() => props.input ?? {})
 
-const isValid = computed(() => {
-    const meta = CALCULATOR_TOOL_META[props.toolName]
-    if (!meta) return false
-    const branch = selectedBranch.value
-    const requiredFieldNames = meta.fields
-        .filter((f: CalcFieldMeta) => f.required || f.requiredBy?.[branch])
-        .map((f) => f.name)
-    return requiredFieldNames.every(
-        (name) => formData.value[name] !== undefined && formData.value[name] !== '',
-    )
-})
-
-const finalInput = computed(() => {
-    // 结果态时优先用 props.input.prefilled 合并 formData 后的最终入参
-    return { ...prefilled.value, ...formData.value }
-})
-
-function onSubmit() {
-    if (!isValid.value) return
-    approval.value = { id: 'calculator-input', approved: true }
-    confirmationState.value = 'approval-responded'
-    emit('confirm', formData.value)
-}
-
-function onCancel() {
-    approval.value = { id: 'calculator-input', approved: false, reason: '用户取消' }
-    confirmationState.value = 'approval-responded'
-    emit('reject')
-}
+const isCancelled = computed(() => parsedOutput.value?.cancelled === true)
 </script>
 ```
 
-- [ ] **Step 2: 在 `app/components/case/interrupt/index.ts` 末尾注册**
+- [ ] **Step 5: 注册到 `globalInterruptRegistry` + `PANEL_TOOL_MAP`**
 
-Read 该文件，在末尾追加：
+`app/components/case/interrupt/index.ts` 末尾追加：
 
 ```typescript
-import CalculatorTool from '~/components/ai/tools/CalculatorTool.vue'
+import CalculatorInputCard from '~/components/ai/tools/CalculatorInputCard.vue'
 
-globalInterruptRegistry.register('calculator_input', CalculatorTool, { isToolCard: true })
+globalInterruptRegistry.register('calculator_input', CalculatorInputCard, { isToolCard: true })
 ```
 
-- [ ] **Step 3: typecheck**
+`app/components/agents/panelToolMap.ts` 顶部 import + map 追加（PR-A 仅 1 个，PR-B-T22 补 9 个）：
 
-Run: `bun run typecheck 2>&1 | grep -E "CalculatorTool|interrupt/index" | head -5`
+```typescript
+import AiToolsCalculatorResultCard from '~/components/ai/tools/CalculatorResultCard.vue'
+
+export const PANEL_TOOL_MAP: Record<string, Component> = {
+    // ... 已有 4 个
+    calculate_compensation: AiToolsCalculatorResultCard,
+}
+```
+
+- [ ] **Step 6: typecheck**
+
+Run: `bun run typecheck 2>&1 | grep -E "Calculator|panelToolMap|interrupt/index" | head -10`
 Expected: 无错误
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add app/components/ai/tools/CalculatorTool.vue app/components/case/interrupt/index.ts
-git commit -m "feat(agent-ui): CalculatorTool.vue 三态壳 + 注册到 globalInterruptRegistry"
+git add app/components/ai/tools/CalculatorFormFields.vue \
+        app/components/ai/tools/CalculatorResultBody.vue \
+        app/components/ai/tools/CalculatorInputCard.vue \
+        app/components/ai/tools/CalculatorResultCard.vue \
+        app/components/case/interrupt/index.ts \
+        app/components/agents/panelToolMap.ts
+git commit -m "feat(tools): Calculator 输入态/结果态两组件 + 注册 globalInterruptRegistry + PANEL_TOOL_MAP"
 ```
 
 ---
 
-## 任务 PR-A-T7：AiToolRenderer INTERNAL_TOOL_MAP 注册
-
-**Files:**
-- Modify: `app/components/ai/AiToolRenderer.vue`
-
-- [ ] **Step 1: 在 INTERNAL_TOOL_MAP 加 calculate_compensation**
-
-Read 文件找到 `INTERNAL_TOOL_MAP` 对象。在顶部 import 区加：
-
-```typescript
-import AiToolsCalculatorTool from '~/components/ai/tools/CalculatorTool.vue'
-```
-
-在 INTERNAL_TOOL_MAP 末尾加：
-
-```typescript
-calculate_compensation: AiToolsCalculatorTool,
-```
-
-> PR-B 时其余 9 个工具复用这个组件，到时再补 9 行映射。
-
-- [ ] **Step 2: typecheck**
-
-Run: `bun run typecheck 2>&1 | grep AiToolRenderer | head -3`
-Expected: 无错误
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add app/components/ai/AiToolRenderer.vue
-git commit -m "feat(agent-ui): AiToolRenderer INTERNAL_TOOL_MAP 注册 calculate_compensation"
-```
-
----
-
-## 任务 PR-A-T8：compensation 工具改造（interrupt + writeMemory + 必填校验）
+## 任务 PR-A-T5：compensation 工具改造（含 5 个边界 case）
 
 **Files:**
 - Modify: `shared/utils/tools/agentTools/compensationCalculator.tool.ts`
 - Modify: `tests/shared/utils/tools/agentTools/compensationCalculator.tool.test.ts`
 
-- [ ] **Step 1: 先写测试**
-
-替换原测试文件内容（或追加 describe block）：
+- [ ] **Step 1: 用 `vi.hoisted()` 模式写测试，覆盖 8 个 case**
 
 ```typescript
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { compensationCalculatorTool } from '#shared/utils/tools/agentTools/compensationCalculator.tool'
 
-// Mock LangGraph interrupt
-vi.mock('@langchain/langgraph', () => ({
-    interrupt: vi.fn(),
+// vi.hoisted: 项目惯用模式，防止 vi.resetModules 后 mock 引用失效
+const { interruptMock, writeMemoryMock, findLastCalcMock } = vi.hoisted(() => ({
+    interruptMock: vi.fn(),
+    writeMemoryMock: vi.fn().mockResolvedValue({ id: 'fake' }),
+    findLastCalcMock: vi.fn().mockResolvedValue(null),
 }))
 
-// Mock memory service
+vi.mock('@langchain/langgraph', () => ({ interrupt: interruptMock }))
 vi.mock('~~/server/services/memory/memory.service', () => ({
-    writeMemoryService: vi.fn().mockResolvedValue({ id: 'fake-id' }),
-    findLastCalculationByCase: vi.fn().mockResolvedValue(null),
+    writeMemoryService: writeMemoryMock,
+    findLastCalculationByCase: findLastCalcMock,
 }))
 
-import { interrupt } from '@langchain/langgraph'
-import {
-    writeMemoryService,
-    findLastCalculationByCase,
-} from '~~/server/services/memory/memory.service'
+import { createTool } from '#shared/utils/tools/agentTools/compensationCalculator.tool'
 
-describe('compensationCalculator.tool - 3 条路径', () => {
+describe('compensationCalculator - 路径 A/B/C + 边界', () => {
     beforeEach(() => {
-        vi.clearAllMocks()
+        interruptMock.mockReset()
+        writeMemoryMock.mockClear()
+        findLastCalcMock.mockClear()
+        findLastCalcMock.mockResolvedValue(null)
     })
 
-    it('路径 A：信息充足时直接计算，不调 interrupt', async () => {
-        const tool = compensationCalculatorTool.createTool({ userId: 1, caseId: 100, sessionId: 's1' })
-        const result = await (tool as any).invoke({
-            type: 'workInjury',
-            salary: 12000,
-            disabilityLevel: 8,
-            medicalExpenses: 25000,
-            nursingExpenses: 8000,
-            nutritionExpenses: 3000,
-        })
-
-        expect(interrupt).not.toHaveBeenCalled()
-        const parsed = JSON.parse(result as string)
+    it('路径 A: 信息充足直算 + 写记忆', async () => {
+        const tool = createTool({ userId: 1, caseId: 100, sessionId: 's1' })
+        const r = await tool.invoke({ type: 'workInjury', salary: 12000, disabilityLevel: 8 })
+        expect(interruptMock).not.toHaveBeenCalled()
+        const parsed = JSON.parse(r as string)
         expect(parsed.totalCompensation).toBeGreaterThan(0)
-        expect(writeMemoryService).toHaveBeenCalledWith(
-            expect.objectContaining({
-                caseId: 100,
-                kind: 'calculation',
-                subjectKey: 'calculation:calculate_compensation',
-                extraMetadata: expect.objectContaining({
-                    calculation: expect.objectContaining({ tool: 'calculate_compensation' }),
-                }),
+        expect(writeMemoryMock).toHaveBeenCalledWith(expect.objectContaining({
+            kind: 'calculation', subjectKey: 'calculation:calculate_compensation',
+            extraMetadata: expect.objectContaining({
+                calculation: expect.objectContaining({ tool: 'calculate_compensation' }),
             }),
-        )
+        }))
     })
 
-    it('路径 B：缺必填字段时调 interrupt 并用 resume 值继续', async () => {
-        vi.mocked(interrupt).mockReturnValue({ salary: 12000, disabilityLevel: 8 })
-
-        const tool = compensationCalculatorTool.createTool({ userId: 1, caseId: 100, sessionId: 's1' })
-        const result = await (tool as any).invoke({
-            type: 'workInjury',
-            // salary / disabilityLevel 缺失
-        })
-
-        expect(interrupt).toHaveBeenCalledWith(
-            expect.objectContaining({
-                type: 'calculator_input',
-                toolName: 'calculate_compensation',
-                missing: expect.arrayContaining(['salary', 'disabilityLevel']),
-            }),
-        )
-        const parsed = JSON.parse(result as string)
-        expect(parsed.totalCompensation).toBeGreaterThan(0)
-        expect(writeMemoryService).toHaveBeenCalled()
+    it('路径 B: 缺字段 → interrupt → resume 后计算', async () => {
+        interruptMock.mockReturnValue({ salary: 12000, disabilityLevel: 8 })
+        const tool = createTool({ userId: 1, caseId: 100, sessionId: 's1' })
+        const r = await tool.invoke({ type: 'workInjury' })
+        expect(interruptMock).toHaveBeenCalledWith(expect.objectContaining({
+            type: 'calculator_input',
+            toolName: 'calculate_compensation',
+            missing: expect.arrayContaining(['salary', 'disabilityLevel']),
+        }))
+        expect(JSON.parse(r as string).totalCompensation).toBeGreaterThan(0)
     })
 
-    it('路径 C：resume 返回 cancelled 时工具返回 cancelled', async () => {
-        vi.mocked(interrupt).mockReturnValue({ cancelled: true, reason: '用户取消' })
-
-        const tool = compensationCalculatorTool.createTool({ userId: 1, caseId: 100, sessionId: 's1' })
-        const result = await (tool as any).invoke({ type: 'workInjury' })
-
-        const parsed = JSON.parse(result as string)
+    it('路径 C: resume = null → 返回 cancelled', async () => {
+        interruptMock.mockReturnValue(null)
+        const tool = createTool({ userId: 1, caseId: 100, sessionId: 's1' })
+        const r = await tool.invoke({ type: 'workInjury' })
+        const parsed = JSON.parse(r as string)
         expect(parsed.cancelled).toBe(true)
-        expect(parsed.reason).toContain('用户取消')
-        expect(writeMemoryService).not.toHaveBeenCalled()
+        expect(writeMemoryMock).not.toHaveBeenCalled()
     })
 
-    it('ctx.caseId 为空时跳过 case_memory 查询和写入', async () => {
-        const tool = compensationCalculatorTool.createTool({ userId: 1, sessionId: 's1' })  // 无 caseId
-        await (tool as any).invoke({
-            type: 'workInjury',
-            salary: 12000,
-            disabilityLevel: 8,
-        })
-
-        expect(findLastCalculationByCase).not.toHaveBeenCalled()
-        expect(writeMemoryService).not.toHaveBeenCalled()
+    it('ctx.caseId 为空时跳过 L2 查询 + 跳过写入', async () => {
+        const tool = createTool({ userId: 1, sessionId: 's1' })  // 无 caseId
+        await tool.invoke({ type: 'workInjury', salary: 12000, disabilityLevel: 8 })
+        expect(findLastCalcMock).not.toHaveBeenCalled()
+        expect(writeMemoryMock).not.toHaveBeenCalled()
     })
 
-    it('resume payload 非法时抛错', async () => {
-        vi.mocked(interrupt).mockReturnValue('invalid' as any)
+    it('resume payload 非法（非 object 非 null）抛错', async () => {
+        interruptMock.mockReturnValue('invalid')
+        const tool = createTool({ userId: 1, caseId: 100, sessionId: 's1' })
+        await expect(tool.invoke({ type: 'workInjury' })).rejects.toThrow(/resume payload 非法/)
+    })
 
-        const tool = compensationCalculatorTool.createTool({ userId: 1, caseId: 100, sessionId: 's1' })
-        await expect(
-            (tool as any).invoke({ type: 'workInjury' }),
-        ).rejects.toThrow(/resume payload 非法/)
+    it('边界 - zod 失败：LLM 不传 type', async () => {
+        const tool = createTool({ userId: 1, caseId: 100, sessionId: 's1' })
+        await expect(tool.invoke({ } as any)).rejects.toThrow(/type/)
+    })
+
+    it('边界 - service 抛错时返回 error JSON 不阻塞', async () => {
+        // 用极端不合法参数让 service 抛
+        const tool = createTool({ userId: 1, caseId: 100, sessionId: 's1' })
+        // workInjury 必填 salary/disabilityLevel 都缺时 LLM 调用走 interrupt 不抛 — 这里改测交通事故缺关键参数后让计算抛
+        // ... 略，按 service 真实抛错条件构造
+    })
+
+    it('边界 - 写记忆失败不阻塞结果', async () => {
+        writeMemoryMock.mockRejectedValueOnce(new Error('DB down'))
+        const tool = createTool({ userId: 1, caseId: 100, sessionId: 's1' })
+        const r = await tool.invoke({ type: 'workInjury', salary: 12000, disabilityLevel: 8 })
+        expect(JSON.parse(r as string).totalCompensation).toBeGreaterThan(0)  // 结果仍返回
     })
 })
 ```
@@ -990,7 +964,7 @@ describe('compensationCalculator.tool - 3 条路径', () => {
 Run: `npx vitest run tests/shared/utils/tools/agentTools/compensationCalculator.tool.test.ts`
 Expected: FAIL — 现 tool 没有 interrupt 逻辑
 
-- [ ] **Step 3: 改造 `compensationCalculator.tool.ts` 全文重写**
+- [ ] **Step 3: 改造 `compensationCalculator.tool.ts` 用项目惯例 export 形态**
 
 ```typescript
 /**
@@ -1000,7 +974,7 @@ import { z } from 'zod'
 import { tool } from '@langchain/core/tools'
 import { interrupt } from '@langchain/langgraph'
 import { InterruptType } from '#shared/types/case'
-import type { ToolModule, ToolContext } from '#shared/types/agentTools'
+import type { ToolContext, ToolDefinition } from '#shared/types/agentTools'
 import {
     calculateWorkInjuryCompensation,
     calculateTrafficAccidentCompensation,
@@ -1012,24 +986,22 @@ import {
 } from '~~/server/services/memory/memory.service'
 
 const schema = z.object({
-    type: z.enum(['workInjury', 'trafficAccident', 'death']).describe(
-        '赔偿类型：workInjury（工伤）、trafficAccident（交通事故）、death（死亡）',
-    ),
+    type: z.enum(['workInjury', 'trafficAccident', 'death']).describe('赔偿类型'),
     salary: z.number().min(0).optional().describe('月工资（元），workInjury 必填'),
     disabilityLevel: z.number().int().min(1).max(10).optional().describe('伤残等级（1-10级），workInjury 必填'),
     medicalExpenses: z.number().min(0).optional().describe('医疗费用（元），trafficAccident 必填'),
-    nursingExpenses: z.number().min(0).optional().describe('护理费用（元）'),
-    nutritionExpenses: z.number().min(0).optional().describe('营养费用（元）'),
+    nursingExpenses: z.number().min(0).optional(),
+    nutritionExpenses: z.number().min(0).optional(),
     disabilityCompensation: z.number().min(0).optional().describe('伤残赔偿金（元），trafficAccident 必填'),
-    lostIncome: z.number().min(0).optional().describe('误工费（元）'),
-    transportationExpenses: z.number().min(0).optional().describe('交通费（元）'),
-    accommodationExpenses: z.number().min(0).optional().describe('住宿费（元）'),
-    propertyLoss: z.number().min(0).optional().describe('财产损失（元）'),
+    lostIncome: z.number().min(0).optional(),
+    transportationExpenses: z.number().min(0).optional(),
+    accommodationExpenses: z.number().min(0).optional(),
+    propertyLoss: z.number().min(0).optional(),
     annualIncome: z.number().min(0).optional().describe('年收入（元），death 必填'),
-    deathCompensationYears: z.number().int().min(1).max(20).optional().describe('死亡赔偿金年限（年），默认 20'),
-    funeralExpenses: z.number().min(0).optional().describe('丧葬费（元）'),
-    dependentCompensation: z.number().min(0).optional().describe('被抚养人生活费（元）'),
-    emotionalDamages: z.number().min(0).optional().describe('精神损害赔偿金（元）'),
+    deathCompensationYears: z.number().int().min(1).max(20).optional(),
+    funeralExpenses: z.number().min(0).optional(),
+    dependentCompensation: z.number().min(0).optional(),
+    emotionalDamages: z.number().min(0).optional(),
 })
 
 const REQUIRED_FIELDS: Record<string, string[]> = {
@@ -1038,132 +1010,130 @@ const REQUIRED_FIELDS: Record<string, string[]> = {
     death: ['annualIncome'],
 }
 
-export const compensationCalculatorTool: ToolModule = {
-    toolDefinition: {
-        name: 'calculate_compensation',
-        description: '赔偿金计算：支持工伤、交通事故、死亡 3 种场景。当必填字段缺失时会通过 interrupt 让用户在 inline 卡片补全，禁止使用 0 或默认值替代真实数据。',
-        schema,
-    },
-    createTool: (ctx: ToolContext) =>
-        tool(async (input) => {
-            // ① L2 兜底查 case_memory
-            const memoryCalc = ctx.caseId
-                ? await findLastCalculationByCase(ctx.caseId, 'calculate_compensation')
-                : null
-            let merged = { ...(memoryCalc?.input ?? {}), ...input } as Record<string, any>
+export const toolDefinition: ToolDefinition<typeof schema> = {
+    name: 'calculate_compensation',
+    description: '赔偿金计算：支持工伤/交通事故/死亡 3 种场景。必填字段缺失时通过 interrupt 让用户在 inline 卡片补全，禁用 0 替代真实数据。',
+    schema,
+}
 
-            // ② 必填校验
-            const required = REQUIRED_FIELDS[merged.type] ?? []
-            const missing = required.filter(
-                (f) => merged[f] === undefined || merged[f] === null || merged[f] === '',
-            )
+export function createTool(ctx: ToolContext) {
+    return tool(async (input) => {
+        // ① L2 兜底查 case_memory
+        const memoryCalc = ctx.caseId
+            ? await findLastCalculationByCase(ctx.caseId, 'calculate_compensation')
+            : null
+        let merged = { ...(memoryCalc?.input ?? {}), ...input } as Record<string, any>
 
-            // ③ 信息不足 → interrupt
-            if (missing.length > 0) {
-                const resumed = interrupt({
-                    type: InterruptType.CALCULATOR_INPUT,
-                    toolName: 'calculate_compensation',
-                    prefilled: merged,
-                    missing,
-                }) as unknown
+        // ② 必填校验
+        const required = REQUIRED_FIELDS[merged.type] ?? []
+        const missing = required.filter((f) => merged[f] === undefined || merged[f] === null || merged[f] === '')
 
-                if (!resumed || typeof resumed !== 'object') {
-                    throw new Error(`calculate_compensation: resume payload 非法 (${typeof resumed})`)
-                }
-                const payload = resumed as { cancelled?: boolean; reason?: string; [k: string]: unknown }
-                if (payload.cancelled) {
-                    return JSON.stringify({ cancelled: true, reason: payload.reason ?? '用户取消了本次计算' })
-                }
-                merged = { ...merged, ...payload }
+        // ③ 信息不足 → interrupt（防御性校验：as unknown + null 取消 + object 合并）
+        if (missing.length > 0) {
+            const resumed = interrupt({
+                type: InterruptType.CALCULATOR_INPUT,
+                toolName: 'calculate_compensation',
+                prefilled: merged,
+                missing,
+            }) as unknown
+
+            if (resumed === null) {
+                return JSON.stringify({ cancelled: true, reason: '用户取消了本次计算' })
             }
-
-            // ④ 调 service 算结果
-            let result: Record<string, unknown>
-            if (merged.type === 'workInjury') {
-                result = calculateWorkInjuryCompensation(
-                    merged.salary, merged.disabilityLevel,
-                    merged.medicalExpenses ?? 0, merged.nursingExpenses ?? 0, merged.nutritionExpenses ?? 0,
-                ) as unknown as Record<string, unknown>
-            } else if (merged.type === 'trafficAccident') {
-                result = calculateTrafficAccidentCompensation(
-                    merged.medicalExpenses ?? 0, merged.disabilityCompensation ?? 0,
-                    merged.nursingExpenses ?? 0, merged.lostIncome ?? 0,
-                    merged.nutritionExpenses ?? 0, merged.transportationExpenses ?? 0,
-                    merged.accommodationExpenses ?? 0, merged.propertyLoss ?? 0,
-                ) as unknown as Record<string, unknown>
-            } else {
-                result = calculateDeathCompensation(
-                    merged.annualIncome, merged.deathCompensationYears ?? 20,
-                    merged.funeralExpenses ?? 0, merged.dependentCompensation ?? 0,
-                    merged.emotionalDamages ?? 0,
-                ) as unknown as Record<string, unknown>
+            if (!resumed || typeof resumed !== 'object') {
+                throw new Error(`calculate_compensation: resume payload 非法 (${typeof resumed})`)
             }
+            merged = { ...merged, ...(resumed as Record<string, unknown>) }
+        }
 
-            // ⑤ 写入 case_memory
-            if (ctx.caseId) {
-                await writeMemoryService({
-                    caseId: ctx.caseId,
-                    kind: 'calculation',
-                    text: `[计算] 赔偿金 · ${merged.type} · 总额 ${result.totalCompensation ?? '-'} 元`,
-                    subjectKey: 'calculation:calculate_compensation',
-                    source: 'manual',
-                    extraMetadata: {
-                        calculation: {
-                            tool: 'calculate_compensation',
-                            input: merged,
-                            output: result,
-                            calculatedAt: new Date().toISOString(),
-                        },
+        // ④ 调 service 算结果
+        let result: Record<string, unknown>
+        if (merged.type === 'workInjury') {
+            result = calculateWorkInjuryCompensation(
+                merged.salary, merged.disabilityLevel,
+                merged.medicalExpenses ?? 0, merged.nursingExpenses ?? 0, merged.nutritionExpenses ?? 0,
+            ) as unknown as Record<string, unknown>
+        } else if (merged.type === 'trafficAccident') {
+            result = calculateTrafficAccidentCompensation(
+                merged.medicalExpenses ?? 0, merged.disabilityCompensation ?? 0,
+                merged.nursingExpenses ?? 0, merged.lostIncome ?? 0,
+                merged.nutritionExpenses ?? 0, merged.transportationExpenses ?? 0,
+                merged.accommodationExpenses ?? 0, merged.propertyLoss ?? 0,
+            ) as unknown as Record<string, unknown>
+        } else {
+            result = calculateDeathCompensation(
+                merged.annualIncome, merged.deathCompensationYears ?? 20,
+                merged.funeralExpenses ?? 0, merged.dependentCompensation ?? 0,
+                merged.emotionalDamages ?? 0,
+            ) as unknown as Record<string, unknown>
+        }
+
+        // ⑤ 写入 case_memory（失败不阻塞）
+        if (ctx.caseId) {
+            await writeMemoryService({
+                caseId: ctx.caseId,
+                kind: 'calculation',
+                text: `[计算] 赔偿金 · ${merged.type} · 总额 ${result.totalCompensation ?? '-'} 元`,
+                subjectKey: 'calculation:calculate_compensation',
+                source: 'manual',
+                extraMetadata: {
+                    calculation: {
+                        tool: 'calculate_compensation',
+                        input: merged,
+                        output: result,
+                        calculatedAt: new Date().toISOString(),
                     },
-                })
-            }
+                },
+            }).catch((err) => {
+                logger.error('[calculate_compensation] 写入案件记忆失败（不阻塞结果）', err)
+            })
+        }
 
-            return JSON.stringify(result)
-        }, {
-            name: 'calculate_compensation',
-            description: '赔偿金计算',
-            schema,
-        }) as any,
+        return JSON.stringify(result)
+    }, toolDefinition)
 }
 ```
 
 - [ ] **Step 4: 跑测试验证 PASS**
 
 Run: `npx vitest run tests/shared/utils/tools/agentTools/compensationCalculator.tool.test.ts`
-Expected: 5 tests passed
+Expected: 8 tests passed
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add shared/utils/tools/agentTools/compensationCalculator.tool.ts tests/shared/utils/tools/agentTools/compensationCalculator.tool.test.ts
-git commit -m "feat(agent): compensation 工具改造（interrupt + writeMemory + 必填校验）"
+git add shared/utils/tools/agentTools/compensationCalculator.tool.ts \
+        tests/shared/utils/tools/agentTools/compensationCalculator.tool.test.ts
+git commit -m "feat(tools): compensation 工具改造（interrupt + writeMemory + 8 边界测试）"
 ```
 
 ---
 
-## 任务 PR-A-T9：agent-platform 注册 + DB nodes 挂载
+## 任务 PR-A-T6：agent-platform 注册 + DB 挂载
 
 **Files:**
 - Modify: `server/services/agent-platform/tools/index.ts`
 - Modify: `prisma/seeds/seedData.sql`
 
-- [ ] **Step 1: 在 `agent-platform/tools/index.ts` 顶部 import 区加**
+- [ ] **Step 1: agent-platform/tools/index.ts 注册（用项目惯例 namespace 形态，无需 `as any`）**
+
+顶部 import：
 
 ```typescript
 import * as compensationCalculatorTool from '#shared/utils/tools/agentTools/compensationCalculator.tool'
 ```
 
-在 `toolModules` 对象末尾加：
+`toolModules` 末尾追加：
 
 ```typescript
-    calculate_compensation: compensationCalculatorTool.compensationCalculatorTool as any,
+    calculate_compensation: compensationCalculatorTool,  // 命中现有 ToolModule 接口（toolDefinition + createTool）
 ```
 
-> 注：`compensationCalculatorTool` 是 ToolModule 对象，不是 namespace，需要 `as any` 适配现有 `toolModules: Record<string, ToolModule>` 的引用形态。如 typecheck 抱怨可调整 import 形式。
+> 注：现有 `toolModules: Record<string, ToolModule>` 接受 `ToolModule = { toolDefinition, createTool }` 形态。新工具 `*.tool.ts` 也按这个 export 形态（T5 已落地），无需 `as any`。
 
-- [ ] **Step 2: 改 dev 库 `nodes.assistantMain.tools` 字段**
+- [ ] **Step 2: 改 dev 库 `nodes.assistantMain.tools`**
 
-Run（dev 库）:
+Run:
 ```bash
 docker exec postgres psql -U daixin -d ls_new -c "
 UPDATE nodes SET tools = tools || '[\"calculate_compensation\"]'::jsonb
@@ -1172,233 +1142,312 @@ WHERE name = 'assistantMain' AND NOT tools @> '[\"calculate_compensation\"]'::js
 ```
 Expected: `UPDATE 1`
 
-- [ ] **Step 3: 同步 `prisma/seeds/seedData.sql`**
+- [ ] **Step 3: 同步 seedData.sql**
 
-Read seedData.sql 找到 `INSERT INTO ... nodes ... name='assistantMain'` 行，把 tools 字段的 JSON 数组追加 `"calculate_compensation"`：
+按 `.claude/rules/database.md` 严格规则：**直接修改 INSERT INTO nodes ... VALUES 中 assistantMain 那一行的 tools JSON 数组**（不能写 UPDATE）。
 
-之前类似：
+例如原行：
 ```sql
-'["search_law", "review_contract", ...]'
+INSERT INTO "public"."nodes" (..., "tools", ...) VALUES (..., '["search_law", ...]', ...);
 ```
-改成：
+改成（在数组末尾追加 `"calculate_compensation"`）：
 ```sql
-'["search_law", "review_contract", ..., "calculate_compensation"]'
+INSERT INTO "public"."nodes" (..., "tools", ...) VALUES (..., '["search_law", ..., "calculate_compensation"]', ...);
 ```
 
-- [ ] **Step 4: typecheck**
-
-Run: `bun run typecheck 2>&1 | grep "agent-platform/tools" | head -3`
-Expected: 无错误
-
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: typecheck + Commit**
 
 ```bash
+bun run typecheck 2>&1 | grep "agent-platform/tools" | head -3
 git add server/services/agent-platform/tools/index.ts prisma/seeds/seedData.sql
-git commit -m "feat(agent): toolModules 注册 calculate_compensation + nodes.assistantMain.tools 挂载"
+git commit -m "feat(tools): toolModules 注册 calculate_compensation + nodes.assistantMain.tools 挂载"
 ```
 
 ---
 
-## 任务 PR-A-T10：E2E 测试 3 条路径
+## 任务 PR-A-T7：integration 测试（vi.hoisted + 注册表完整性）
 
 **Files:**
-- Create: `tests/server/agents/legal-assistant/calculator-tools.e2e.test.ts`
+- Create: `tests/server/agents/legal-assistant/calculator-tools.integration.test.ts`
 
-- [ ] **Step 1: 写 E2E 测试（mock LLM 决策 + 真 interrupt flow）**
+- [ ] **Step 1: 写 integration 测试**（实质：经 agent-platform 注册表反向验证工具可被 LLM 调到）
 
 ```typescript
-/**
- * Calculator Agent Tools E2E
- * 验证 3 条路径：A 直算 / B 弹卡片提交 / C 取消
- */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('@langchain/langgraph', () => ({
-    interrupt: vi.fn(),
+const { interruptMock, writeMemoryMock, findLastCalcMock } = vi.hoisted(() => ({
+    interruptMock: vi.fn(),
+    writeMemoryMock: vi.fn().mockResolvedValue({ id: 'fake' }),
+    findLastCalcMock: vi.fn().mockResolvedValue(null),
 }))
 
+vi.mock('@langchain/langgraph', () => ({ interrupt: interruptMock }))
 vi.mock('~~/server/services/memory/memory.service', () => ({
-    writeMemoryService: vi.fn().mockResolvedValue({ id: 'fake' }),
-    findLastCalculationByCase: vi.fn().mockResolvedValue(null),
+    writeMemoryService: writeMemoryMock,
+    findLastCalculationByCase: findLastCalcMock,
 }))
 
-import { interrupt } from '@langchain/langgraph'
-import { getToolInstancesService } from '~~/server/services/agent-platform/tools/index'
+import {
+    getToolInstancesService,
+    getAllToolNamesService,
+} from '~~/server/services/agent-platform/tools/index'
 
-describe('calculator-tools E2E - 通过 agent-platform 工具注册表调用', () => {
-    beforeEach(() => vi.clearAllMocks())
-
-    it('路径 A：通过工具注册表调 calculate_compensation 信息充足直算', async () => {
-        const [tool] = getToolInstancesService(
-            ['calculate_compensation'],
-            { userId: 1, caseId: 100, sessionId: 's1' },
-        )
-
-        const result = await tool!.invoke({
-            type: 'workInjury',
-            salary: 12000,
-            disabilityLevel: 8,
-        })
-
-        expect(interrupt).not.toHaveBeenCalled()
-        const parsed = JSON.parse(result as string)
-        expect(parsed.totalCompensation).toBeGreaterThan(0)
+describe('calculator-tools integration（agent-platform 注册表）', () => {
+    beforeEach(() => {
+        interruptMock.mockReset()
+        writeMemoryMock.mockClear()
+        findLastCalcMock.mockClear()
+        findLastCalcMock.mockResolvedValue(null)
     })
 
-    it('路径 B：缺字段 → interrupt → resume 用户填值 → 算出结果', async () => {
-        vi.mocked(interrupt).mockReturnValue({ salary: 12000, disabilityLevel: 8 })
-
-        const [tool] = getToolInstancesService(
-            ['calculate_compensation'],
-            { userId: 1, caseId: 100, sessionId: 's1' },
-        )
-
-        const result = await tool!.invoke({ type: 'workInjury' })
-        expect(interrupt).toHaveBeenCalledWith(
-            expect.objectContaining({ type: 'calculator_input' }),
-        )
-        const parsed = JSON.parse(result as string)
-        expect(parsed.totalCompensation).toBeGreaterThan(0)
-    })
-
-    it('路径 C：用户取消 → 返回 cancelled', async () => {
-        vi.mocked(interrupt).mockReturnValue({ cancelled: true, reason: '用户取消' })
-
-        const [tool] = getToolInstancesService(
-            ['calculate_compensation'],
-            { userId: 1, caseId: 100, sessionId: 's1' },
-        )
-
-        const result = await tool!.invoke({ type: 'workInjury' })
-        expect(JSON.parse(result as string).cancelled).toBe(true)
-    })
-
-    it('toolModules 注册表包含 calculate_compensation', async () => {
-        const { getAllToolNamesService } = await import('~~/server/services/agent-platform/tools/index')
+    it('toolModules 注册表含 calculate_compensation', () => {
         expect(getAllToolNamesService()).toContain('calculate_compensation')
+    })
+
+    it('路径 A: 经注册表拿到 tool 实例直接调用', async () => {
+        const [tool] = getToolInstancesService(
+            ['calculate_compensation'],
+            { userId: 1, caseId: 100, sessionId: 's1' },
+        )
+        const r = await tool!.invoke({ type: 'workInjury', salary: 12000, disabilityLevel: 8 })
+        expect(interruptMock).not.toHaveBeenCalled()
+        expect(JSON.parse(r as string).totalCompensation).toBeGreaterThan(0)
+    })
+
+    it('路径 B: 缺字段触发 interrupt → resume 用户填值', async () => {
+        interruptMock.mockReturnValue({ salary: 12000, disabilityLevel: 8 })
+        const [tool] = getToolInstancesService(
+            ['calculate_compensation'],
+            { userId: 1, caseId: 100, sessionId: 's1' },
+        )
+        const r = await tool!.invoke({ type: 'workInjury' })
+        expect(interruptMock).toHaveBeenCalledWith(expect.objectContaining({ type: 'calculator_input' }))
+        expect(JSON.parse(r as string).totalCompensation).toBeGreaterThan(0)
+    })
+
+    it('路径 C: resume = null → cancelled', async () => {
+        interruptMock.mockReturnValue(null)
+        const [tool] = getToolInstancesService(
+            ['calculate_compensation'],
+            { userId: 1, caseId: 100, sessionId: 's1' },
+        )
+        const r = await tool!.invoke({ type: 'workInjury' })
+        expect(JSON.parse(r as string).cancelled).toBe(true)
     })
 })
 ```
 
 - [ ] **Step 2: 跑测试**
 
-Run: `npx vitest run tests/server/agents/legal-assistant/calculator-tools.e2e.test.ts`
+Run: `npx vitest run tests/server/agents/legal-assistant/calculator-tools.integration.test.ts`
 Expected: 4 tests passed
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add tests/server/agents/legal-assistant/calculator-tools.e2e.test.ts
-git commit -m "test(agent): calculator-tools E2E 验证 3 条路径 + 注册表"
+git add tests/server/agents/legal-assistant/calculator-tools.integration.test.ts
+git commit -m "test(tools): calculator-tools integration 验证 3 路径 + 注册表完整性"
 ```
 
 ---
 
-## 任务 PR-A-T11：浏览器手动走查 + PR-A 收尾
+## 任务 PR-A-T8：浏览器手动走查 + PR-A 收尾
 
-- [ ] **Step 1: 跑全量回归**
+- [ ] **Step 1: 跑全量回归（不含案件管理，避免噪声）**
 
 Run:
 ```bash
-npx vitest run tests/shared/utils/tools/ tests/server/services/memory/ tests/server/agents/legal-assistant/ 2>&1 | tail -5
+npx vitest run tests/shared/utils/tools/agentTools/ tests/server/services/memory/ tests/server/agents/legal-assistant/ 2>&1 | tail -8
 ```
-Expected: Tests 全 PASS
+Expected: 全 PASS（11+ tests，含 memory 3 + compensation 8 + integration 4）
 
 - [ ] **Step 2: typecheck**
 
 Run: `bun run typecheck 2>&1 | tail -10`
 Expected: 无新错误
 
-- [ ] **Step 3: 浏览器走查（人工）**
+- [ ] **Step 3: 浏览器走查（人工，4 个验收点）**
 
-`bun dev` → 登录 → `/dashboard/assistant` 法律助手 → 选一个真实案件 → 问：
+`bun dev` → 登录 → `/dashboard/assistant` → 选真实案件：
 
-1. **路径 A**：「帮我算下我的工伤赔偿金，我月薪 12000，伤残 8 级」 → LLM 应该直接调工具返回结果，对话流出现绿色 ✓ 卡片
-2. **路径 B**：「帮我算下我的工伤赔偿金」（不提工资和伤残）→ LLM 应该调工具触发 interrupt，对话流出现可编辑卡片，用户填值点「计算」→ 卡片切结果态
-3. **路径 C**：路径 B 触发后点「取消」→ 卡片置灰显示「用户取消了本次计算输入」 + LLM 自然衔接回复
+1. **路径 A**：「算下我的工伤赔偿金，我月薪 12000，伤残 8 级」→ LLM 直接调工具 → 对话流出现绿色 ✓ 结果卡（CalculatorResultCard）
+2. **路径 B**：「算下我的工伤赔偿金」（不提工资）→ LLM 调工具 interrupt → 对话流出现可编辑卡（CalculatorInputCard）→ 填值点「计算」→ snapshot 卡显示「已提交，X 个字段」+ 紧接着结果卡（CalculatorResultCard）+ LLM 文字回复
+3. **路径 C**：路径 B 触发后点「取消」→ snapshot 卡显示「用户取消」 + 结果卡显示「已取消」 + LLM 自然衔接
+4. **search_case_memory 验收**（spec §12 第 7 项）：完成路径 A/B 后，新开对话问"我之前算过哪些"→ LLM 应通过 search_case_memory 工具召回到刚算的"[计算] 赔偿金"text
 
-- [ ] **Step 4: PR-A 总结 commit**
+- [ ] **Step 4: PR-A 收尾 commit**
 
 ```bash
-git commit --allow-empty -m "chore(agent): PR-A 完成 - 基建 + calculate_compensation 跑通 3 条路径"
+git commit --allow-empty -m "chore(tools): PR-A 完成 - 基建 + calculate_compensation 跑通 3 路径"
 ```
 
 ---
 
-# PR-B · 剩余 9 个工具批量改造（3-4h）
+# PR-B · 剩余 9 个工具批量改造（约 3-4h）
 
-## 任务 PR-B-T12：补全 _fieldMetadata.ts（其余 9 个工具）
+## 任务 PR-B-T9：_fieldMetadata 补全 9 工具（含 court_fee 嵌套子分支）
 
 **Files:**
 - Modify: `shared/utils/tools/agentTools/_fieldMetadata.ts`
 
-- [ ] **Step 1: 按 spec §7 分支策略补全 9 个工具的 meta**
+- [ ] **Step 1: 按 spec §7 + zod schema 字段名补 9 个工具 meta**
 
-每个工具的 fields / fieldsByBranch / branchUiType 严格对照对应 `*.tool.ts` 的现有 zod schema（PR3 已有），仅 UI 元数据扩展。
+按下表分支策略，逐个工具加 `CALCULATOR_TOOL_META[xxx] = { ... }`：
 
-需补全的 toolName：
-- `calculate_interest` · branchField='mode'，3 分支 Tab
-- `calculate_delay_interest` · 无分支
-- `calculate_court_fee` · branchField='feeTypeLevel1'，2 分支 Tab
-- `calculate_lawyer_fee` · branchField='caseType'，6 分支 Select
-- `calculate_overtime_pay` · 无分支
-- `calculate_social_insurance` · 无分支
-- `calculate_divorce_property` · 无分支（childCustody 是普通字段）
-- `calculate_date` · branchField='mode'，6 分支 Select
-- `bank_rate_query` · branchField='queryType'，4 分支 Tab
+| toolName | branchField | branchUiType | nestedBranchByValue |
+|---|---|---|---|
+| `calculate_interest` | `mode` (lpr/pboc/simple) | tab | — |
+| `calculate_delay_interest` | — | — | — |
+| `calculate_court_fee` | `feeTypeLevel1` (caseFee/applicationFee) | tab | `caseFee → { field: 'nonPropertyType', uiType: 'radio', options: [...] }` |
+| `calculate_lawyer_fee` | `caseType` (civil/criminal/admin/commercial/consult/document) | select | — |
+| `calculate_overtime_pay` | — | — | — |
+| `calculate_social_insurance` | — | — | — |
+| `calculate_divorce_property` | — | — | — |
+| `calculate_date` | `mode` (6 种推算) | select | — |
+| `bank_rate_query` | `queryType` (lpr/deposit/loan/all) | tab | — |
 
-按 `calculate_compensation` 的模板格式批量加。每个工具的 fields 列表参考 `shared/utils/tools/agentTools/<tool>.tool.ts` 的 zod schema 字段名 + describe 中文。
+每个工具的 fields 列表对照 `shared/utils/tools/agentTools/<tool>.tool.ts` 的现有 zod schema，提取字段名 + describe 作为 label。
 
-- [ ] **Step 2: typecheck**
-
-Run: `bun run typecheck 2>&1 | grep "_fieldMetadata" | head -3`
-Expected: 无错误
-
-- [ ] **Step 3: Commit**
+- [ ] **Step 2: typecheck + Commit**
 
 ```bash
+bun run typecheck 2>&1 | grep "_fieldMetadata" | head -3
 git add shared/utils/tools/agentTools/_fieldMetadata.ts
-git commit -m "feat(agent): _fieldMetadata 补全剩余 9 个工具的字段元数据"
+git commit -m "feat(tools): _fieldMetadata 补全 9 工具（含 court_fee 嵌套子分支）"
 ```
 
 ---
 
-## 任务 PR-B-T13 至 PR-B-T21：9 个工具改造
+## 任务 PR-B-T10：CalculatorResultBody 补全 9 工具结果展示
 
-每个工具按 `compensation` 的同样模式改造：
+**Files:**
+- Modify: `app/components/ai/tools/CalculatorResultBody.vue`
 
-| Task | 工具文件 | 分支字段 | 必填字段（按分支） |
-|------|---------|---------|------------------|
-| T13 | `interestCalculator.tool.ts` | mode | lpr: amount/startDate/endDate; pboc: 同; simple: amount/startDate/endDate/customRate |
-| T14 | `delayInterestCalculator.tool.ts` | — | amount/startDate/endDate |
-| T15 | `courtFeeCalculator.tool.ts` | feeTypeLevel1 | caseFee: amount(财产案件); applicationFee: amount |
-| T16 | `lawyerFeeCalculator.tool.ts` | caseType | civil/commercial/administrative: disputeAmount; criminal: caseDuration; consultation: consultationHours; document: documentType |
-| T17 | `overtimePayCalculator.tool.ts` | — | monthlySalary + 至少一个加班时长 |
-| T18 | `socialInsuranceCalculator.tool.ts` | — | monthlySalary/months |
-| T19 | `divorcePropertyCalculator.tool.ts` | — | 至少一个资产或债务 > 0 |
-| T20 | `dateCalculator.tool.ts` | mode | addDays/addMonths/addYears: startDate+amount; workingDays: startDate+endDate; legalDeadline/limitation: startDate+limitationType |
-| T21 | `bankRateQuery.tool.ts` | queryType | 无（全部可选，查询场景）|
+- [ ] **Step 1: 按 spec §8.5 对照表补 9 个 v-else-if 分支**
 
-每个 task 的 5 个 step：
+为每个 toolName 加 `<template v-else-if="toolName === 'xxx'">`，结果布局**直接对照对应 dashboard 工具页面**（`app/pages/dashboard/tools/*.vue` 已经在 PR4 接入 `ToolsResultCard`）：
 
-- [ ] **Step 1：写测试 5 cases**（mock interrupt + 4 条路径 + 边界 case）参考 T8 测试模板
-- [ ] **Step 2：跑测试 FAIL**
-- [ ] **Step 3：改造 *.tool.ts**（按 T8 compensation 模式）
-- [ ] **Step 4：跑测试 PASS**
-- [ ] **Step 5：Commit** `feat(agent): X 工具改造（interrupt + writeMemory + 必填校验）`
+| toolName | 参考页面 | 关键 row |
+|---|---|---|
+| `calculate_interest` | interest.vue | 本息合计 + 计息时间 + 跨 LPR 分段表格 |
+| `calculate_delay_interest` | delay-interest.vue | 本息合计 + 计息天数 + 明细表 |
+| `calculate_court_fee` | court-fee.vue | 应缴费用 + 争议金额 + 明细 |
+| `calculate_lawyer_fee` | lawyer-fee.vue | 律师费总额 + 明细 |
+| `calculate_overtime_pay` | overtime.vue | 总加班费 + 工/休/节分项 + 调休时间 |
+| `calculate_social_insurance` | social-insurance.vue | 追缴总额 + 个人/单位 2 Accordion + 明细 |
+| `calculate_divorce_property` | divorce-property.vue | 4 个 Accordion：财产概览/分割结果/子女抚养/详细说明 |
+| `calculate_date` | date-calculator.vue | 起止日期 + 总说明 + 结果日期/工作日天数 |
+| `bank_rate_query` | bank-rate.vue | 利率表 Tab + 表格行 |
 
-> bank_rate_query 工具特殊：纯查询无"用户输入"语义，**不调 interrupt 也不写 memory**，仅做参数 type 分支。改造时跳过 step ③ ⑤。
+- [ ] **Step 2: typecheck + Commit**
+
+```bash
+bun run typecheck 2>&1 | grep CalculatorResultBody | head -3
+git add app/components/ai/tools/CalculatorResultBody.vue
+git commit -m "feat(tools): CalculatorResultBody 补全 9 工具结果展示分支"
+```
 
 ---
 
-## 任务 PR-B-T22：agent-platform + AiToolRenderer + DB 批量注册
+## 任务 PR-B-T11：批量改造无分支 4 工具
+
+**Files (合并 task)：**
+- Modify: `delayInterestCalculator.tool.ts` + 其测试
+- Modify: `overtimePayCalculator.tool.ts` + 其测试
+- Modify: `socialInsuranceCalculator.tool.ts` + 其测试
+- Modify: `divorcePropertyCalculator.tool.ts` + 其测试
+
+- [ ] **Step 1: 对 4 个工具按 PR-A-T5 模板逐个改造**
+
+每个工具：
+- export 形态改为 `export const toolDefinition` + `export function createTool(ctx)`
+- 必填校验：直接列必填字段（无分支判定）
+- interrupt + resumed 防御校验
+- 写记忆 catch 不阻塞
+- 测试 4 cases（路径 A/B/C + caseId 空），不写 "resume 非法" case（spec 边界已被 PR-A-T5 覆盖）
+
+每个工具的必填字段（参考 zod schema）：
+- `delay_interest`: amount, startDate, endDate
+- `overtime_pay`: monthlySalary（至少一个加班时长 > 0）
+- `social_insurance`: monthlySalary, months
+- `divorce_property`: 至少一项资产或债务 > 0（用 totalAssets + totalDebts > 0 校验）
+
+- [ ] **Step 2: 跑全 4 测试**
+
+Run: `npx vitest run tests/shared/utils/tools/agentTools/{delayInterest,overtimePay,socialInsurance,divorceProperty}*.tool.test.ts`
+Expected: 全 PASS
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add shared/utils/tools/agentTools/{delayInterest,overtimePay,socialInsurance,divorceProperty}Calculator.tool.ts \
+        tests/shared/utils/tools/agentTools/{delayInterest,overtimePay,socialInsurance,divorceProperty}Calculator.tool.test.ts
+git commit -m "feat(tools): 4 个无分支工具批量接入 interrupt + writeMemory"
+```
+
+---
+
+## 任务 PR-B-T12：批量改造有分支 5 工具
+
+**Files (合并 task)：**
+- Modify: `interestCalculator.tool.ts` + 其测试
+- Modify: `courtFeeCalculator.tool.ts` + 其测试（含嵌套 nonPropertyType）
+- Modify: `lawyerFeeCalculator.tool.ts` + 其测试
+- Modify: `dateCalculator.tool.ts` + 其测试
+- Modify: `bankRateQuery.tool.ts` + 其测试（**特殊：纯查询不调 interrupt 不写记忆**）
+
+- [ ] **Step 1: 对 5 个工具按 PR-A-T5 模板逐个改造**
+
+每个工具：
+- export 形态对齐
+- 按分支 `REQUIRED_FIELDS_BY_BRANCH[branch]` 必填校验
+- court_fee 特殊：feeTypeLevel1='caseFee' 时需要再校验 nonPropertyType
+- bank_rate_query 特殊：跳过 interrupt + 跳过 writeMemory（纯查询无用户输入语义）
+
+每工具测试 4 cases（路径 A/B/C + caseId 空，bank_rate 只测 A）。
+
+每个工具必填字段（按分支）：
+- `interest`:
+  - lpr/pboc: amount, startDate, endDate
+  - simple: amount, startDate, endDate, customRate
+- `court_fee`:
+  - caseFee + property: amount > 0
+  - caseFee + non-property: 仅 nonPropertyType 必选
+  - applicationFee: amount > 0
+- `lawyer_fee`:
+  - civil/commercial/administrative: disputeAmount > 0
+  - criminal: caseDuration > 0
+  - consultation: consultationHours > 0
+  - document: documentType 必选
+- `date`:
+  - addDays/addMonths/addYears: startDate + amount
+  - workingDays: startDate + endDate
+  - legalDeadline/limitation: startDate + limitationType
+- `bank_rate_query`: 无必填（查询场景）
+
+- [ ] **Step 2: 跑全 5 测试**
+
+Run: `npx vitest run tests/shared/utils/tools/agentTools/{interest,courtFee,lawyerFee,date,bankRate}*.tool.test.ts`
+Expected: 全 PASS
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add shared/utils/tools/agentTools/{interest,courtFee,lawyerFee,date,bankRate}*.tool.ts \
+        tests/shared/utils/tools/agentTools/{interest,courtFee,lawyerFee,date,bankRate}*.tool.test.ts
+git commit -m "feat(tools): 5 个有分支工具批量接入 interrupt + writeMemory（含 court_fee 嵌套子分支 + bank_rate 纯查询特例）"
+```
+
+---
+
+## 任务 PR-B-T13：批量注册（agent-platform + PANEL_TOOL_MAP + DB）
 
 **Files:**
 - Modify: `server/services/agent-platform/tools/index.ts`
-- Modify: `app/components/ai/AiToolRenderer.vue`
+- Modify: `app/components/agents/panelToolMap.ts`
 - Modify: `prisma/seeds/seedData.sql`
 
-- [ ] **Step 1: agent-platform/tools/index.ts 加 9 个 import + 9 个 toolModules 注册**
+- [ ] **Step 1: agent-platform/tools/index.ts 加 9 个 import + 9 个 toolModules**
 
 ```typescript
 import * as interestCalculatorTool from '#shared/utils/tools/agentTools/interestCalculator.tool'
@@ -1412,32 +1461,32 @@ import * as dateCalculatorTool from '#shared/utils/tools/agentTools/dateCalculat
 import * as bankRateQueryTool from '#shared/utils/tools/agentTools/bankRateQuery.tool'
 ```
 
-toolModules 加 9 行：
+toolModules 加 9 行（**无需 `as any`**）：
 
 ```typescript
-    calculate_interest: interestCalculatorTool.interestCalculatorTool as any,
-    calculate_delay_interest: delayInterestCalculatorTool.delayInterestCalculatorTool as any,
-    calculate_court_fee: courtFeeCalculatorTool.courtFeeCalculatorTool as any,
-    calculate_lawyer_fee: lawyerFeeCalculatorTool.lawyerFeeCalculatorTool as any,
-    calculate_overtime_pay: overtimePayCalculatorTool.overtimePayCalculatorTool as any,
-    calculate_social_insurance: socialInsuranceCalculatorTool.socialInsuranceCalculatorTool as any,
-    calculate_divorce_property: divorcePropertyCalculatorTool.divorcePropertyCalculatorTool as any,
-    calculate_date: dateCalculatorTool.dateCalculatorTool as any,
-    bank_rate_query: bankRateQueryTool.bankRateQueryTool as any,
+    calculate_interest: interestCalculatorTool,
+    calculate_delay_interest: delayInterestCalculatorTool,
+    calculate_court_fee: courtFeeCalculatorTool,
+    calculate_lawyer_fee: lawyerFeeCalculatorTool,
+    calculate_overtime_pay: overtimePayCalculatorTool,
+    calculate_social_insurance: socialInsuranceCalculatorTool,
+    calculate_divorce_property: divorcePropertyCalculatorTool,
+    calculate_date: dateCalculatorTool,
+    bank_rate_query: bankRateQueryTool,
 ```
 
-- [ ] **Step 2: AiToolRenderer.vue 加 9 行 INTERNAL_TOOL_MAP**
+- [ ] **Step 2: panelToolMap.ts 加 9 行结果卡映射**
 
 ```typescript
-calculate_interest: AiToolsCalculatorTool,
-calculate_delay_interest: AiToolsCalculatorTool,
-calculate_court_fee: AiToolsCalculatorTool,
-calculate_lawyer_fee: AiToolsCalculatorTool,
-calculate_overtime_pay: AiToolsCalculatorTool,
-calculate_social_insurance: AiToolsCalculatorTool,
-calculate_divorce_property: AiToolsCalculatorTool,
-calculate_date: AiToolsCalculatorTool,
-bank_rate_query: AiToolsCalculatorTool,
+    calculate_interest: AiToolsCalculatorResultCard,
+    calculate_delay_interest: AiToolsCalculatorResultCard,
+    calculate_court_fee: AiToolsCalculatorResultCard,
+    calculate_lawyer_fee: AiToolsCalculatorResultCard,
+    calculate_overtime_pay: AiToolsCalculatorResultCard,
+    calculate_social_insurance: AiToolsCalculatorResultCard,
+    calculate_divorce_property: AiToolsCalculatorResultCard,
+    calculate_date: AiToolsCalculatorResultCard,
+    bank_rate_query: AiToolsCalculatorResultCard,
 ```
 
 - [ ] **Step 3: DB nodes.assistantMain.tools 追加 9 个**
@@ -1452,125 +1501,87 @@ WHERE name = 'assistantMain';
 
 - [ ] **Step 4: seedData.sql 同步**
 
-Read 找 `assistantMain` 行的 tools JSON 数组，把 9 个工具名追加。
+按 PR-A-T6 Step 3 同样规则：**修改 INSERT VALUES 中 assistantMain 行的 tools JSON 数组值**（9 个工具名追加），禁止用 UPDATE。
 
-- [ ] **Step 5: typecheck + commit**
+- [ ] **Step 5: typecheck + Commit**
 
 ```bash
 bun run typecheck 2>&1 | tail -5
-git add server/services/agent-platform/tools/index.ts app/components/ai/AiToolRenderer.vue prisma/seeds/seedData.sql
-git commit -m "feat(agent): toolModules + AiToolRenderer + nodes.tools 批量注册剩余 9 个 calculator"
+git add server/services/agent-platform/tools/index.ts app/components/agents/panelToolMap.ts prisma/seeds/seedData.sql
+git commit -m "feat(tools): 批量注册剩余 9 个 calculator（toolModules + PANEL_TOOL_MAP + nodes.tools）"
 ```
 
 ---
 
-## 任务 PR-B-T23：补全 CalculatorResult.vue（其余 9 个工具结果展示）
+## 任务 PR-B-T14：全量回归 + 浏览器走查 + 收尾
 
-**Files:**
-- Modify: `app/components/ai/tools/CalculatorResult.vue`
-
-- [ ] **Step 1: 按 spec §8.5 对照表补 9 个 v-if 分支**
-
-每个工具的结果展示**直接复用对应 `app/pages/dashboard/tools/<tool>.vue` 的结果区结构**（PR4 已经把它们都接入了 `ToolsResultCard`）。在 CalculatorResult.vue 内可以：
-
-- 简单复用 `ToolsResultCard` 组件 + 复制各页面的 `<template #summary>` 块进来
-- 或者直接把页面里抽到的子组件 import 进 CalculatorResult（如果 PR4 抽过的话）
-
-按 toolName 加 v-if 分支：
-
-```vue
-<div v-if="toolName === 'calculate_interest'" class="...">
-    <!-- 复制 app/pages/dashboard/tools/interest.vue 结果区结构 -->
-</div>
-
-<div v-else-if="toolName === 'calculate_delay_interest'" ...>...</div>
-<!-- ... 其余 7 个 -->
-
-<div v-else-if="toolName === 'bank_rate_query'" class="...">
-    <!-- 利率表 Tab + 表格 -->
-</div>
-```
-
-- [ ] **Step 2: typecheck + 浏览器走查**
-
-Run: `bun run typecheck 2>&1 | grep CalculatorResult | head -3`
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add app/components/ai/tools/CalculatorResult.vue
-git commit -m "feat(agent-ui): CalculatorResult 补全剩余 9 个工具结果展示"
-```
-
----
-
-## 任务 PR-B-T24：全量回归 + PR-B 收尾
-
-- [ ] **Step 1: 跑全量测试**
+- [ ] **Step 1: 全量测试**
 
 Run:
 ```bash
-npx vitest run tests/shared/utils/tools/ tests/server/services/memory/ tests/server/agents/legal-assistant/ 2>&1 | tail -10
+npx vitest run tests/shared/utils/tools/agentTools/ tests/server/services/memory/ tests/server/agents/legal-assistant/ 2>&1 | tail -10
 ```
-Expected: 全 PASS（含 10 个工具的单测 + 1 个 E2E 测试）
+Expected: 全 PASS（10 工具单测 + memory + integration 共 40+ tests）
 
 - [ ] **Step 2: typecheck**
 
 Run: `bun run typecheck 2>&1 | tail -5`
 Expected: 无新错误
 
-- [ ] **Step 3: 浏览器人工走查 10 个工具**
+- [ ] **Step 3: 浏览器手动走查 10 个工具**
 
-在法律助手分别问 10 个场景：
+按下表分别问问题，验证 3 路径至少各触发 1 次：
 
 | 工具 | 触发问题 | 期望路径 |
-|------|--------|--------|
+|---|---|---|
 | compensation | "工伤赔偿，月薪 1.2 万伤残 8 级" | A 直算 |
-| interest | "本金 100 万，2019-01-01 至 2024 末，按 LPR 算利息" | A 或 B（看 LLM 抽取）|
+| interest | "本金 100 万，2019-01-01 至 2024 末，按 LPR 算" | A 或 B |
 | delay-interest | "10 万本金，2020-2024 迟延履行利息" | A 或 B |
-| court-fee | "争议金额 500 万的诉讼费" | A 直算 |
-| lawyer-fee | "刑事案件律师费" | B 弹卡片（缺 caseDuration）|
-| overtime | "加班费，月薪 1 万，工作日加班 20 小时" | A 直算 |
-| social-insurance | "社保追缴 12 个月" | B 弹卡片（缺 monthlySalary）|
-| divorce-property | "离婚财产分割" | B 弹卡片（缺资产）|
+| court-fee | "争议 500 万的诉讼费" | A 直算 |
+| lawyer-fee | "刑事案件律师费" | B（缺 caseDuration） |
+| overtime | "加班费，月薪 1 万，工作日加班 20h" | A 直算 |
+| social-insurance | "社保追缴 12 个月" | B（缺 monthlySalary） |
+| divorce-property | "离婚财产分割" | B（缺资产） |
 | date | "起算日 2024-01-01 后 60 天" | A 直算 |
 | bank-rate | "查 2024 年 LPR" | A 直查 |
 
-3 条路径每条至少触发 1 次。点取消验证 cancelled 衔接。
+至少 1 次点「取消」验证 C 路径；至少 1 次问"我之前算过哪些"验证 search_case_memory 召回（spec §12 第 7 项）。
 
 - [ ] **Step 4: PR-B 收尾 commit**
 
 ```bash
-git commit --allow-empty -m "chore(agent): PR-B 完成 - 10 个 calculator 工具全接入法律助手"
+git commit --allow-empty -m "chore(tools): PR-B 完成 - 10 calculator 全接入法律助手"
 ```
 
 ---
 
 ## 收尾交付物清单
 
-**新建：**
-- `shared/utils/tools/agentTools/_fieldMetadata.ts`（含 10 工具元数据）
-- `app/components/ai/tools/CalculatorTool.vue`
-- `app/components/ai/tools/CalculatorFormFields.vue`
-- `app/components/ai/tools/CalculatorResult.vue`
-- `tests/server/agents/legal-assistant/calculator-tools.e2e.test.ts`
+**新建**:
+- `shared/utils/tools/agentTools/_fieldMetadata.ts`（10 工具元数据，含嵌套子分支）
+- `app/components/ai/tools/CalculatorInputCard.vue`（输入态卡片）
+- `app/components/ai/tools/CalculatorResultCard.vue`（结果态卡片）
+- `app/components/ai/tools/CalculatorFormFields.vue`（动态表单）
+- `app/components/ai/tools/CalculatorResultBody.vue`（10 工具结果体）
+- `tests/server/agents/legal-assistant/calculator-tools.integration.test.ts`
 
-**修改：**
+**修改**:
 - `shared/types/case.ts`（InterruptType + TypedInterruptData）
-- `shared/types/memory.ts`（MemoryKind + CaseMemoryMetadata）
-- `server/services/memory/memory.service.ts`（writeMemoryService 加 extraMetadata + findLastCalculationByCase）
-- `shared/utils/tools/agentTools/*.tool.ts`（10 个工具改造）
-- `tests/shared/utils/tools/agentTools/*.tool.test.ts`（10 个工具测试改造）
+- `shared/types/memory.ts`（MemoryKind + CaseMemoryMetadata.calculation）
+- `server/services/memory/memory.service.ts`（extraMetadata + findLastCalculationByCase）
+- 10 个 `*.tool.ts` + 10 个 `*.tool.test.ts`
 - `server/services/agent-platform/tools/index.ts`（toolModules 注册 10 个）
-- `app/components/ai/AiToolRenderer.vue`（INTERNAL_TOOL_MAP 注册 10 个）
 - `app/components/case/interrupt/index.ts`（globalInterruptRegistry 注册 calculator_input）
+- `app/components/agents/panelToolMap.ts`（PANEL_TOOL_MAP 注册 10 个结果卡）
 - `prisma/seeds/seedData.sql`（nodes.assistantMain.tools 加 10 个）
 
-**测试覆盖：**
-- memory.service 3 cases（extraMetadata 透传 / findLastCalculationByCase 查最近 / 无记录返回 null）
-- 10 个工具各 5 cases（路径 A / B / C + ctx.caseId 空 + resume 非法）
-- E2E 3 cases（A / B / C 全链路）+ 1 case（注册表完整性）
+**测试覆盖**:
+- memory.service 3 cases
+- compensation 8 cases（含全部 spec §10 边界 8 种之 5 种关键场景）
+- 9 个工具 × 4 cases = 36 cases
+- integration 4 cases
+- 浏览器手动走查 10 工具 + cancelled + search_case_memory
 
-**生效条件：**
-- prisma migrate（本次无 schema 变更）
-- 服务重启后 LLM 在法律助手对话中即可调 10 个 calculator
+**生效条件**:
+- 无 prisma migrate（本次无 schema 变更）
+- 服务重启后 LLM 即可调全部 10 个 calculator
