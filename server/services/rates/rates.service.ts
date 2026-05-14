@@ -77,9 +77,9 @@ export interface UpdateLPRRateInput {
     remark?: string | null
 }
 
-export async function listLPRRatesService(): Promise<LPRRate[]> {
+export async function listLPRRatesService(): Promise<Array<LPRRate & { id: number; remark: string | null }>> {
     const rows = await findAllLPRRatesDAO()
-    return rows.map(toLPRRate)
+    return rows.map((row) => ({ id: row.id, ...toLPRRate(row), remark: row.remark }))
 }
 
 export async function createLPRRateService(input: CreateLPRRateInput) {
@@ -133,8 +133,9 @@ export interface CreatePBOCDepositRateInput {
 }
 export type UpdatePBOCDepositRateInput = Partial<CreatePBOCDepositRateInput>
 
-export async function listPBOCDepositRatesService(): Promise<DepositRate[]> {
-    return (await findAllPBOCDepositRatesDAO()).map(toPBOCDepositRate)
+export async function listPBOCDepositRatesService(): Promise<Array<DepositRate & { id: number; remark: string | null }>> {
+    const rows = await findAllPBOCDepositRatesDAO()
+    return rows.map((row) => ({ id: row.id, ...toPBOCDepositRate(row), remark: row.remark }))
 }
 
 export async function createPBOCDepositRateService(input: CreatePBOCDepositRateInput) {
@@ -190,8 +191,9 @@ export interface CreatePBOCLoanRateInput {
 }
 export type UpdatePBOCLoanRateInput = Partial<CreatePBOCLoanRateInput>
 
-export async function listPBOCLoanRatesService(): Promise<LoanRate[]> {
-    return (await findAllPBOCLoanRatesDAO()).map(toPBOCLoanRate)
+export async function listPBOCLoanRatesService(): Promise<Array<LoanRate & { id: number; remark: string | null }>> {
+    const rows = await findAllPBOCLoanRatesDAO()
+    return rows.map((row) => ({ id: row.id, ...toPBOCLoanRate(row), remark: row.remark }))
 }
 
 export async function createPBOCLoanRateService(input: CreatePBOCLoanRateInput) {
