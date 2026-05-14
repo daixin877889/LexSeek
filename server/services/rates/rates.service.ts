@@ -67,14 +67,14 @@ export interface CreateLPRRateInput {
     effectDate: string
     oneYear: number
     fiveYear: number
-    remark?: string
+    remark?: string | null
 }
 
 export interface UpdateLPRRateInput {
     effectDate?: string
     oneYear?: number
     fiveYear?: number
-    remark?: string
+    remark?: string | null
 }
 
 export async function listLPRRatesService(): Promise<LPRRate[]> {
@@ -129,7 +129,7 @@ export interface CreatePBOCDepositRateInput {
     twoYear: number
     threeYear: number
     fiveYear: number
-    remark?: string
+    remark?: string | null
 }
 export type UpdatePBOCDepositRateInput = Partial<CreatePBOCDepositRateInput>
 
@@ -186,7 +186,7 @@ export interface CreatePBOCLoanRateInput {
     oneYear: number
     oneToFiveYear: number
     fiveYear: number
-    remark?: string
+    remark?: string | null
 }
 export type UpdatePBOCLoanRateInput = Partial<CreatePBOCLoanRateInput>
 
