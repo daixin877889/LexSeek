@@ -665,7 +665,7 @@ function handlePanelResize(sizes: number[]) {
 
 <template>
     <div class="p-4 md:p-6 flex flex-col gap-4" style="height: calc(100vh - 48px)">
-        <!-- 顶部来源条仅当从法律助手 / 小索跳入时显示 -->
+        <!-- 顶部来源条仅当从通用问答 / 小索跳入时显示 -->
         <AgentsDocumentDraftSourceBar
             v-if="showSourceBar"
             :from="fromSource"

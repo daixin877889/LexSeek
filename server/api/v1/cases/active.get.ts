@@ -1,7 +1,7 @@
 /**
  * GET /api/v1/cases/active
  *
- * 用户端「我的进行中案件」列表（用于法律助手关联案件 Dialog）。
+ * 用户端「我的进行中案件」列表（用于通用问答关联案件 Dialog）。
  * - 严格 owner-only：仅返回当前用户名下的案件
  * - 排除已软删（deletedAt IS NULL）
  * - 排除已归档案件（status != ARCHIVED）

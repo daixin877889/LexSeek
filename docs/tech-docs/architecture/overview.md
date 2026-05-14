@@ -83,7 +83,7 @@ LexSeek/
 ├── server/                       # 服务端 (Nitro)
 │   ├── api/v1/                   # REST API 路由 (25 个模块)
 │   │   ├── admin/               # 管理接口 (权限/角色/用户/产品/法规/合同/文书/节点/skills 等)
-│   │   ├── assistant/           # 法律助手 / 文书 / 合同 用户端接口
+│   │   ├── assistant/           # 通用问答 / 文书 / 合同 用户端接口
 │   │   ├── auth/                # 认证 (登录/注册/密码)
 │   │   ├── callback/            # 第三方异步回调（含 MinerU）
 │   │   ├── cases/               # 案件分析 (分析运行 / 会话 / init-analysis)
@@ -114,7 +114,7 @@ LexSeek/
 │   │   ├── case-module/          # 案件子模块"小索"（StateGraph，moduleName 路由）
 │   │   ├── contract/             # 合同审查（StateGraph，含 stance interrupt）
 │   │   ├── document/             # 文书起草（StateGraph）
-│   │   └── legal-assistant/      # 全局法律助手（无 caseId，跨案件）
+│   │   └── legal-assistant/      # 全局通用问答（无 caseId，跨案件）
 │   ├── middleware/                # 三层中间件链 (requestId → auth → permission)
 │   ├── services/                  # 业务逻辑层 (29 个子目录 + dashboard.service.ts 顶级文件)
 │   │   ├── agent-platform/       # 自研 LangGraph 适配层（factory/registry/middleware/skills/tools/sse/state/subAgent/context/diagnostics/nodeConfig/threadState/checkpointer）
@@ -297,7 +297,7 @@ server/lib/
 | agent | services/agent/ | Agent 任务队列 + Redis SSE 事件桥（agentRuns 表 + agentWorker） |
 | agent-platform | services/agent-platform/ | 自研 LangGraph 适配层（middleware/factory/registry/skills/sse/state/subAgent/tools/nodeConfig/context/diagnostics 等） |
 | ai | services/ai/ | AI 通用 helper（如 `generateSummaryService`） |
-| assistant | services/assistant/ | 法律助手 / 文书 / 合同 用户端业务 |
+| assistant | services/assistant/ | 通用问答 / 文书 / 合同 用户端业务 |
 | audit | services/audit/ | 审计日志（订单 / 支付 / 权限变更） |
 | auth | services/auth/ | JWT 认证、Cookie 管理 |
 | campaign | services/campaign/ | 营销活动 |

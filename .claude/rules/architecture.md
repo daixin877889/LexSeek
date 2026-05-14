@@ -20,7 +20,7 @@ LexSeek/
 │   │   ├── ai-elements/        # AI 对话/流式输出组件（自动注册）
 │   │   ├── admin/              # 管理后台组件（NavMain、Breadcrumb、各资源 CRUD 子目录）
 │   │   ├── case/, caseDetail/, caseAnalysis/, caseCreation/, initAnalysis/  # 案件相关
-│   │   ├── assistant/, agents/                                             # 法律助手 / Agent 平台 UI
+│   │   ├── assistant/, agents/                                             # 通用问答 / Agent 平台 UI
 │   │   ├── legal/, legal-search/                                            # 法规检索
 │   │   ├── membership/, order/, payment/, points/, purchase/, redeem/      # 会员 / 交易
 │   │   └── …                   # 其他业务组件
@@ -46,7 +46,7 @@ LexSeek/
 │   │   ├── memory/             # 案件记忆系统
 │   │   ├── security/           # 风控（验证码、登录风险）
 │   │   ├── case/, material/, workflow/, retrieval/, legal/                  # 核心业务
-│   │   ├── assistant/, agent/                                               # 法律助手 / Agent 任务调度
+│   │   ├── assistant/, agent/                                               # 通用问答 / Agent 任务调度
 │   │   ├── auth/, users/, sms/, rbac/, audit/                               # 身份与权限
 │   │   ├── payment/, membership/, point/, product/, redemption/, campaign/  # 交易
 │   │   ├── model/, node/, sse/, files/, storage/, system/, wechat/          # 平台基础设施
@@ -57,7 +57,7 @@ LexSeek/
 │   │   ├── _shared/            # 跨 vertical 共享上下文/工具
 │   │   ├── case-analysis/, case-main/, case-module/                         # 案件分析 vertical
 │   │   ├── contract/, document/                                             # 合同 / 文档 vertical
-│   │   └── legal-assistant/                                                 # 法律助手 vertical
+│   │   └── legal-assistant/                                                 # 通用问答 vertical
 │   ├── lib/                    # 第三方/基建封装（payment、oss、storage、redis、aliSms）
 │   ├── middleware/             # 三段式：01.requestId → 02.auth → 03.permission
 │   ├── routes/                 # 非 /api 的少量 Nitro 路由

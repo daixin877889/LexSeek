@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 法律助手 · 对话面板
+ * 通用问答 · 对话面板
  *
  * 父组件 chat.vue 用 `:key="sessionId"` 强制 remount 本组件，让 useStreamChat 基于
  * 新 threadId 重建实例避免跨会话污染。本组件只管"当前 session 下的一次完整生命周期"，

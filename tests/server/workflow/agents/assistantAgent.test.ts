@@ -1,5 +1,5 @@
 /**
- * 通用法律助手主代理 assistantAgent 测试
+ * 通用问答主代理 assistantAgent 测试
  *
  * **Feature: assistant-context-segments**
  * **Validates: assistantAgent 接入 buildContextSegments（caseId=null 短路退化）**
@@ -125,11 +125,11 @@ function createAssistantNodeConfig(overrides: Partial<NodeConfig> = {}): NodeCon
     return {
         id: 1,
         name: 'assistantMain',
-        title: '通用法律助手主Agent',
-        description: '通用法律助手',
+        title: '通用问答主Agent',
+        description: '通用问答',
         type: 'main',
         prompts: [
-            { id: 1, name: 'system', content: '你是通用法律助手', version: '1.0', type: 'system', status: 1 },
+            { id: 1, name: 'system', content: '你是通用问答', version: '1.0', type: 'system', status: 1 },
         ],
         modelId: 1,
         modelName: 'gpt-4o',
@@ -186,7 +186,7 @@ describe('runAssistantChat — buildContextSegments 接入（Phase 4）', () => 
         expect(callArg.agentName).toBe('assistantMain')
         expect(callArg.userQuery).toBe('帮我看看合同')
         // roleAndFlowTemplate 来自 renderSystemPrompt(mainConfig, {})
-        expect(callArg.roleAndFlowTemplate).toBe('你是通用法律助手')
+        expect(callArg.roleAndFlowTemplate).toBe('你是通用问答')
     })
 
     it('caseId=null 时 SystemMessage 退化为 roleAndFlow 单段（其余 3 段为空）', async () => {
@@ -205,7 +205,7 @@ describe('runAssistantChat — buildContextSegments 接入（Phase 4）', () => 
         // 6 个 agent 统一通过 buildSystemPromptForAgent 包装为 SystemMessage（不再保留 OpenAI 走纯字符串的旧分支）
         expect(createAgentArg.systemPrompt).toBeInstanceOf(SystemMessage)
         // 退化形态：cachedPromptToPlainText 把单段 roleAndFlow 直接拼成自身（无 \n\n 分隔符，因为只有一段）
-        expect(createAgentArg.systemPrompt.content).toBe('你是通用法律助手')
+        expect(createAgentArg.systemPrompt.content).toBe('你是通用问答')
     })
 
     it('节点没有可用 API 密钥（status !== 1）时抛错', async () => {
@@ -277,7 +277,7 @@ describe('runAssistantChat — buildContextSegments 接入（Phase 4）', () => 
         expect(content).toHaveLength(1)
         expect(content[0]).toMatchObject({
             type: 'text',
-            text: '你是通用法律助手',
+            text: '你是通用问答',
             cache_control: { type: 'ephemeral', ttl: '1h' },
         })
     })

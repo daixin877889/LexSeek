@@ -1,7 +1,7 @@
 /**
  * review_contract 子代理工具（阶段 5）
  *
- * 法律助手主 Agent 用此工具调起「合同审查助手」分析一份合同。流程：
+ * 通用问答主 Agent 用此工具调起「合同审查助手」分析一份合同。流程：
  * 1. 校验 ossFileId 归属当前用户、文件类型为 .docx
  * 2. 创建 contractReview 记录 + 关联 caseSession（scope=contract）
  * 3. 加载合同段落 → detectParties 识别甲乙方 + 合同类型（写入 review）
@@ -404,7 +404,7 @@ export function createTool(context: ToolContext) {
                     level: (r.level ?? 'low') as 'high' | 'medium' | 'low',
                 }))
 
-                // from 参数：caseId 非空 = 小索路径（caseMain），caseId 为空 = 法律助手路径（assistantMain）
+                // from 参数：caseId 非空 = 小索路径（caseMain），caseId 为空 = 通用问答路径（assistantMain）
                 // 来源条按此分支决定返回入口与右侧关联状态显示（决策 D2/D3，参见 plan 阶段 6）
                 const fromParam = caseId ? 'xiaosuo' : 'assistant'
                 const href = `/dashboard/contract/${review.id}`

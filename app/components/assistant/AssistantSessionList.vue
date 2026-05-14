@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 通用法律助手 · 会话列表
+ * 通用问答 · 会话列表
  *
  * 展示当前用户的 assistant 会话（scope=assistant），
  * 支持新建 / 重命名 / 软删 / 选中（v-model:selectedId）。

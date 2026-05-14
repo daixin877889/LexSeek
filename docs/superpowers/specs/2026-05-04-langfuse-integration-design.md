@@ -32,7 +32,7 @@ LexSeek 是一个生产级法律 AI 应用，后端聚集了大量基于 LangCha
 
 | # | 决策点 | 结论 |
 |---|--------|------|
-| D1 | 集成范围 | **全量**：18 个 `createChatModel` 调用点全部覆盖（agent 主入口 + 案件初始化 + 案件提取 + 子 agent + 合同上传 + 法律助手 + 意图分类 + 素材摘要 + 文档/案件/合同/助手 vertical workflow agents） |
+| D1 | 集成范围 | **全量**：18 个 `createChatModel` 调用点全部覆盖（agent 主入口 + 案件初始化 + 案件提取 + 子 agent + 合同上传 + 通用问答 + 意图分类 + 素材摘要 + 文档/案件/合同/助手 vertical workflow agents） |
 | D2 | 挂点策略 | **工厂底层 ES Proxy 拦截 + AsyncLocalStorage 透传业务上下文**（同步链路）；trace 实际上送由 OTel NodeSDK + LangfuseSpanProcessor 全局接管 |
 | D3 | trace_id 反查机制 | **B 档：放弃确定性 trace_id，反查靠 `metadata.runId`**。trace_id 由 OTel 自动随机分配；所有 trace 的 metadata 强制写入 `runId / requestId / userId / 业务实体 ID`，反查在 Langfuse UI metadata 过滤器搜 `runId=xxx` 即可 |
 | D4 | PII 脱敏 | **B 档**：主体内容（案情/合同正文/咨询）原样上送；身份证 / 手机号 / 邮箱 / 银行卡号正则打码；通过 `LangfuseSpanProcessor` 的 `mask` 钩子统一拦截，**对嵌套对象/数组递归处理** |
@@ -576,7 +576,7 @@ it('案件初始化 → trace 应携带 caseId 和 vertical=init-analysis', asyn
    - 案件初始化 → 看 trace
    - 案件分析对话 → 看 trace（用 metadata.runId 过滤定位）
    - 合同审查 → 看 trace
-   - 法律助手对话 → 看 trace
+   - 通用问答对话 → 看 trace
    - 验证：user_id / session_id / tags / metadata.runId / metadata.caseId / metadata.runId 全对、PII 已脱敏（含嵌套 messages 内）、token 数有值
 6. 完成 E2E checklist（见附录 B）
 
@@ -701,9 +701,9 @@ describe('Node.js AsyncLocalStorage 同步语义验证', () => {
 - [ ] `metadata.reviewId` = `contractReviews.id`
 - [ ] `metadata.caseId` 对应正确（可空）
 
-**步骤 3：法律助手对话**
+**步骤 3：通用问答对话**
 
-- [ ] 法律助手输入问题 → 等待回答
+- [ ] 通用问答输入问题 → 等待回答
 - [ ] Langfuse 用 metadata.runId 找到 trace
 - [ ] `tags` 含 `legal-assistant`；`runName` = `legal-assistant`
 - [ ] `metadata.caseId` 应为空

@@ -189,7 +189,7 @@ interface ModuleAgentOptions {
 
 ---
 
-## 3. legal-assistant（法律助手）
+## 3. legal-assistant（通用问答）
 
 **源文件：** `server/services/workflow/agents/assistantAgent.ts`
 
@@ -231,7 +231,7 @@ assistantMain
 ### 特殊路径
 
 - 无 case 上下文，最通用的 agent
-- 无 skillsMiddleware（法律助手场景不启用 skills）
+- 无 skillsMiddleware（通用问答场景不启用 skills）
 
 ### 入参签名
 

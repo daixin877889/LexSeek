@@ -28,7 +28,7 @@ const prisma = new PrismaClient({ adapter: pool })
 /**
  * Seed: assistantMain 节点 + 系统提示词 v1
  *
- * - 模型优先复用 caseMain 的 modelId，保证通用法律助手与案件分析能力基线一致。
+ * - 模型优先复用 caseMain 的 modelId，保证通用问答与案件分析能力基线一致。
  * - caseMain 不存在时，回退到首个启用的 model，并打印 warning 提醒运维补齐。
  * - upsert 节点：不覆盖已有配置（update 留空）。
  * - 提示词 v1 仅在不存在时创建，已有人工修订的提示词保持不变。
@@ -54,7 +54,7 @@ async function seedAssistantMainNode(prismaClient: PrismaClient): Promise<void> 
         update: {},
         create: {
             name: 'assistantMain',
-            title: '通用法律助手主Agent',
+            title: '通用问答主Agent',
             description: '无案件上下文的法律问答与工具调用',
             type: 'agent',
             priority: 10,
@@ -65,7 +65,7 @@ async function seedAssistantMainNode(prismaClient: PrismaClient): Promise<void> 
     })
 
     // 3. upsert 系统提示词 v1（find-then-create 保证幂等；若已存在则不覆盖内容）
-    const systemPromptContent = `你是 LexSeek 的通用法律助手，服务于中国大陆法律场景下的律师、法务与普通用户。
+    const systemPromptContent = `你是 LexSeek 的通用问答，服务于中国大陆法律场景下的律师、法务与普通用户。
 
 # 能力边界
 - 你可以回答法律知识问题、提供文书起草思路、做合同基础分析。
@@ -93,7 +93,7 @@ async function seedAssistantMainNode(prismaClient: PrismaClient): Promise<void> 
         await prismaClient.prompts.create({
             data: {
                 name: 'assistantMain_system',
-                title: '通用法律助手系统提示词 v1',
+                title: '通用问答系统提示词 v1',
                 content: systemPromptContent,
                 variables: [],
                 version: 'v1',
@@ -207,8 +207,8 @@ async function seedAssistantTokenRule(prismaClient: PrismaClient): Promise<void>
         create: {
             key: 'assistant_token',
             group,
-            name: '通用法律助手 token 计费',
-            description: '通用法律助手按模型 token 用量扣减积分',
+            name: '通用问答 token 计费',
+            description: '通用问答按模型 token 用量扣减积分',
             unit,
             pointAmount,
             discount,
@@ -392,7 +392,7 @@ async function seedDocumentDraftTokenRule(prismaClient: PrismaClient): Promise<v
 
 /**
  * 让位：把 seedData.sql 中原 sort ∈ [5, 9] 的 dashboard 顶级菜单整体下移 2 格，
- * 为法律助手三条菜单（sort=4/5/6）腾出位置。
+ * 为通用问答三条菜单（sort=4/5/6）腾出位置。
  *
  * 幂等保护：
  * - 只修改 name 属于原始静态菜单集合（legal/tools/diskSpace/membership/settings）的行
@@ -428,13 +428,13 @@ async function shiftLegacyDashboardMenus(prismaClient: PrismaClient): Promise<vo
 
     if (legacy.length > 0) {
         console.log(
-            `[seed] 已让位 ${legacy.length} 条 dashboard 菜单（sort +2，为法律助手腾位）`,
+            `[seed] 已让位 ${legacy.length} 条 dashboard 菜单（sort +2，为通用问答腾位）`,
         )
     }
 }
 
 /**
- * Seed: 法律助手侧边栏三级菜单 + 默认角色授权
+ * Seed: 通用问答侧边栏三级菜单 + 默认角色授权
  *
  * 设计要点：
  * 1. navMain.vue 渲染扁平 isMenu=true 列表，不支持父子折叠，因此直接注册三条顶级菜单。
@@ -464,10 +464,10 @@ async function seedAssistantRouters(prismaClient: PrismaClient): Promise<void> {
     const menus = [
         {
             name: 'dashboard-assistant-chat',
-            title: '法律助手',
+            title: '通用问答',
             path: '/dashboard/assistant',
             icon: 'lucideIcons.MessageSquareIcon',
-            description: '无案件上下文的通用法律助手对话入口',
+            description: '无案件上下文的通用问答对话入口',
             sort: 4,
         },
         {
@@ -520,7 +520,7 @@ async function seedAssistantRouters(prismaClient: PrismaClient): Promise<void> {
     })
     if (targetRoles.length === 0) {
         console.warn('[seed] 未找到 user/admin 角色，跳过助手菜单授权（super_admin 由代码旁路放行）')
-        console.log('[seed] 法律助手菜单注册完成')
+        console.log('[seed] 通用问答菜单注册完成')
         return
     }
 
@@ -541,7 +541,7 @@ async function seedAssistantRouters(prismaClient: PrismaClient): Promise<void> {
     }
 
     console.log(
-        `[seed] 法律助手菜单注册完成：${menus.length} 条路由，授权角色 [${targetRoles
+        `[seed] 通用问答菜单注册完成：${menus.length} 条路由，授权角色 [${targetRoles
             .map((r) => r.code)
             .join(', ')}]`,
     )

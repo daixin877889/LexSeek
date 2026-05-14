@@ -145,7 +145,7 @@ describe('update_document_draft tool', () => {
             draft: { id: 100, values: { 被告: '李四' } },
         })
 
-        // case 1: 法律助手场景，无 caseId
+        // case 1: 通用问答场景，无 caseId
         const tool1 = createTool({ userId: 1, sessionId: 'sess-x', runId: 'run-x' })
         const out1 = JSON.parse(await tool1.invoke({ draftId: 100, fieldUpdates: { 被告: '李四' } }) as string)
         expect(out1.href).toBe('/dashboard/document/drafts/100?from=assistant&sessionId=sess-x')

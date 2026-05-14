@@ -450,7 +450,7 @@ createAgent({
 | 案件分析主 Agent | `server/services/workflow/agents/caseMainAgent.ts` |
 | 合同审查主 Agent | `server/services/workflow/agents/contractReviewMainAgent.ts` |
 | 文书草稿主 Agent | `server/services/workflow/agents/documentMainAgent.ts` |
-| 通用法律助手 Agent | `server/services/workflow/agents/assistantAgent.ts` |
+| 通用问答 Agent | `server/services/workflow/agents/assistantAgent.ts` |
 | 模块对话 Agent | `server/services/workflow/agents/moduleAgent.ts` |
 | Sub-agent 工厂 | `server/services/workflow/agents/subAgentToolFactory.ts` |
 

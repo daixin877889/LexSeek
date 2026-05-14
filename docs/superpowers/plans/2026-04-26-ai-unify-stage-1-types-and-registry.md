@@ -110,7 +110,7 @@ Expected: FAIL，原因 `Cannot find module '#shared/types/agentEvent'`
 export enum SessionScope {
     /** 案件域：含小索 / 模块对话 / 案件初分 */
     CASE = 'case',
-    /** 法律助手域：跨案件全局通用助手 */
+    /** 通用问答域：跨案件全局通用助手 */
     ASSISTANT = 'assistant',
     /** 文书生成域 */
     DOCUMENT = 'document',
@@ -1645,7 +1645,7 @@ export function registerLegacyRunners(): void {
         },
     })
 
-    // ── 法律助手 ──
+    // ── 通用问答 ──
     agentRegistry.register({
         scope: SessionScope.ASSISTANT,
         description: 'runAssistantChat (legacy)',
@@ -2032,7 +2032,7 @@ Run: `bun dev`，登录测试账号，分别验证：
 1. 案件主对话（小索）：发起一次对话，确认 SSE 正常推送
 2. 模块对话：进入某分析模块，发起对话
 3. 案件初分：启动初始化分析（少量模块），观察工作流是否正常推进
-4. 法律助手：发起对话
+4. 通用问答：发起对话
 5. 文书生成：起草一篇文书
 6. 合同审查：上传合同走立场选择 + resume
 

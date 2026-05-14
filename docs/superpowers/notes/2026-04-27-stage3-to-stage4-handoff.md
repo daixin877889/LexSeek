@@ -12,7 +12,7 @@
   - 一次性同步脚本 `scripts/stage3-apply-search-law.ts`（dev 库已应用，幂等通过）
   - 防回退测试 `tests/server/agent-platform/nodeConfig.searchLaw.test.ts`（锁定 seedData.sql 11 节点 + 8 prompt）
   - 合同审查 streaming test mock 同步
-  - 端到端 smoke：法律助手 ✓ / 文书生成 ✓ / 模块对话 ✓（dispatch 通畅）
+  - 端到端 smoke：通用问答 ✓ / 文书生成 ✓ / 模块对话 ✓（dispatch 通畅）
   - 合同审查端到端 ✗：架构限制（resume 后子流程 invokeNodeJson 不支持 tool calling），阶段 4 解决
   - **附带 stage 2 dispatch bug 修复**（agents-load.ts tree-shake 致 5 vertical 未注册，commit `e3bea88a`）
 
@@ -78,7 +78,7 @@ docs/superpowers/notes/2026-04-27-stage3-to-stage4-handoff.md
 | 阶段 | 工程量 | 关键产出 |
 |---|---|---|
 | 4 | 1-2 周 | 合同审查接底座（resume 路径重写，关键风险）|
-| 5 | 1-2 周 | 法律助手 → 文书 / 合同（无 caseId 启动 + 工具卡片设计 + 跳转协议）|
+| 5 | 1-2 周 | 通用问答 → 文书 / 合同（无 caseId 启动 + 工具卡片设计 + 跳转协议）|
 | 6 | 1 周 | 小索 → 文书 / 合同（带 caseId 透传）|
 | 7 | 1-2 周 | 前端复用收敛（useStreamChat 工厂、interrupt 注册表、6 个业务 composable 收敛）|
 | 8 | 1 周 | 案件初分接 skills + 提示词改造（`useSkillsAsLogic` 字段已存在，可逐节点切换）|

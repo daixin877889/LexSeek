@@ -3150,7 +3150,7 @@ Expected: typecheck 无错 + 测试全绿
 
 - [ ] **Step 4: Agent E2E 验证**
 
-通过 `/dashboard/assistant`（法律助手）问"借款 100 万、年利率 4.5%、借期 365 天的利息是多少" → 验证 Agent 选了 `interestCalculator` 并返回正确答案。
+通过 `/dashboard/assistant`（通用问答）问"借款 100 万、年利率 4.5%、借期 365 天的利息是多少" → 验证 Agent 选了 `interestCalculator` 并返回正确答案。
 
 - [ ] **Step 5: PR4 收尾 commit**
 

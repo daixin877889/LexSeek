@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 让法律助手 / 文书 / 合同 / 案件分析等所有 AI 入口的"停止"与"放弃中断"按钮真正生效，队列残留可控，中断态 UI 不再显示停止按钮。
+**Goal:** 让通用问答 / 文书 / 合同 / 案件分析等所有 AI 入口的"停止"与"放弃中断"按钮真正生效，队列残留可控，中断态 UI 不再显示停止按钮。
 
 **Architecture:** 后端新增 vertical 无关的通用任务控制接口 + 修复 cancelRunService 对 INTERRUPTED 状态的语义；前端 useStopActiveRun 切到通用接口、4 处空函数 `@cancel` 接住放弃路径、AiPromptInput 加防守性中断判定、新增 QueuePausedBanner 独立组件由 panel 渲染。
 
@@ -896,7 +896,7 @@ git commit -m "docs(spec): 补 AI 任务通用接口 RBAC 注册实施记录"
 
 - [ ] **Step 1：手工验证当前 bug**
 
-启动 dev：`bun dev`。打开法律助手页面（独立会话，无 caseId），发起一个对话让 AI 开始打字。**打开浏览器 DevTools → Network 面板** → 点"停止"按钮 → 观察请求：
+启动 dev：`bun dev`。打开通用问答页面（独立会话，无 caseId），发起一个对话让 AI 开始打字。**打开浏览器 DevTools → Network 面板** → 点"停止"按钮 → 观察请求：
 
 Expected（治本前的 bug 现场）：
 - `GET /api/v1/cases/analysis/runs/current/<sessionId>` → 404 "案件不存在"
@@ -915,7 +915,7 @@ import { useApiFetch } from '~/composables/useApiFetch'
  * 双重取消公共函数：SSE stop + 查询 runId + 调用 cancel API。
  *
  * 走通用 vertical 无关接口 /api/v1/agent/runs/*,归属只看 user.id,
- * 不再要求 session 挂在案件下。法律助手 / 独立合同 / 独立文书等
+ * 不再要求 session 挂在案件下。通用问答 / 独立合同 / 独立文书等
  * caseId=null 的会话都能正确停止。
  *
  * 返回 `{ ok, error? }`：
@@ -950,7 +950,7 @@ export async function stopActiveRun(sessionId: string): Promise<{ ok: boolean; e
 
 - [ ] **Step 3：手工验证切端点后行为正确**
 
-`bun dev` 已经启动。法律助手页面，发起对话，AI 开始打字时点停止：
+`bun dev` 已经启动。通用问答页面，发起对话，AI 开始打字时点停止：
 
 Expected：
 - `GET /api/v1/agent/runs/current/<sessionId>` → 200，返回 `{ data: { run: { id: ... } } }`
@@ -973,7 +973,7 @@ git add app/composables/useStopActiveRun.ts
 git commit -m "fix(api): useStopActiveRun 切到通用 agent runs 接口
 
 旧端点 /api/v1/cases/analysis/runs/* 对无 caseId 的会话直接 404,
-法律助手 / 独立文书 / 独立合同的停止按钮根本没传到后端。改为新
+通用问答 / 独立文书 / 独立合同的停止按钮根本没传到后端。改为新
 通用接口 /api/v1/agent/runs/*,归属只看 user.id。
 
 spec: docs/superpowers/specs/2026-05-14-ai-stop-and-queue-design.md §7.1"
@@ -1086,9 +1086,9 @@ bun run typecheck
 
 Expected：无新增类型错误。
 
-- [ ] **Step 7：手工验证 — 法律助手放弃中断**
+- [ ] **Step 7：手工验证 — 通用问答放弃中断**
 
-`bun dev`。法律助手页发"帮我起草一份租赁合同"让 AI 弹出模板选择卡片 → 关闭/放弃这张卡 → 期望：
+`bun dev`。通用问答页发"帮我起草一份租赁合同"让 AI 弹出模板选择卡片 → 关闭/放弃这张卡 → 期望：
 
 - 卡片消失
 - 后端 run.status 从 INTERRUPTED 变为 CANCELLED
@@ -1190,7 +1190,7 @@ Expected：无新增类型错误。
 
 - [ ] **Step 4：手工验证 — 中断态 UI 表现**
 
-`bun dev`。法律助手发"帮我起草一份租赁合同"让 AI 弹出模板选择卡片：
+`bun dev`。通用问答发"帮我起草一份租赁合同"让 AI 弹出模板选择卡片：
 
 Expected：
 - 主输入框灰掉、disabled
@@ -1340,9 +1340,9 @@ bun run typecheck
 
 Expected：无新增类型错误。
 
-- [ ] **Step 8：手工验证 — 法律助手停止 + 队列残留**
+- [ ] **Step 8：手工验证 — 通用问答停止 + 队列残留**
 
-`bun dev`。法律助手：
+`bun dev`。通用问答：
 1. 发"什么是劳动合同？"等 AI 开始打字
 2. 在 AI 打字过程中再输入"举几个例子"+ 点"加入队列"，重复一次（队列 +2）
 3. 点停止按钮
@@ -1408,10 +1408,10 @@ Expected：无新增类型错误。
 
 | Vertical | 场景 | 期望结果 |
 |---|---|---|
-| 法律助手 | 1 打字时停止 | 输入框立刻可用，发新消息正常回答 |
-| 法律助手 | 2 中断卡放弃 | 中断态无停止按钮，输入框禁用；放弃后立刻可用 |
-| 法律助手 | 3 入队+停止+继续 | 队列残留 banner 显示，[继续] 后依次派发 |
-| 法律助手 | 4 入队+停止+清空 | banner 显示，[清空] 后队列空 |
+| 通用问答 | 1 打字时停止 | 输入框立刻可用，发新消息正常回答 |
+| 通用问答 | 2 中断卡放弃 | 中断态无停止按钮，输入框禁用；放弃后立刻可用 |
+| 通用问答 | 3 入队+停止+继续 | 队列残留 banner 显示，[继续] 后依次派发 |
+| 通用问答 | 4 入队+停止+清空 | banner 显示，[清空] 后队列空 |
 | 独立文书 | 1-4 | 同上 |
 | 独立合同 | 1-4 | 同上 |
 | 案件分析 | 1-4 | 同上 |
@@ -1420,7 +1420,7 @@ Expected：无新增类型错误。
 
 - [ ] **Step 5：跨标签同步用例**
 
-打开 2 个浏览器标签都进同一个法律助手会话：
+打开 2 个浏览器标签都进同一个通用问答会话：
 1. 标签 A 发"什么是劳动合同"等 AI 打字
 2. 标签 A 入队 1 条"举几个例子"
 3. 标签 A 点停止
@@ -1431,22 +1431,22 @@ Expected：B 标签 banner 与 A 同步出现/消失（验证 useQueueDispatcher
 
 - [ ] **Step 6：离开页面继续运行用例（产品原则）**
 
-1. 法律助手发一个会让 AI 思考较长（≥10 秒）的复杂问题
+1. 通用问答发一个会让 AI 思考较长（≥10 秒）的复杂问题
 2. AI 开始打字后立即用左侧菜单切换到其他业务页（如"文书"或"合同"）
 3. 等 15-20 秒
-4. 回到刚才的法律助手会话
+4. 回到刚才的通用问答会话
 
 Expected：看到 AI 已经完整回答完，未被打断（验证路由切换不触发 stop）。
 
 - [ ] **Step 7：连点两次停止幂等**
 
-法律助手 AI 打字中，连续快速点停止按钮 2 次。
+通用问答 AI 打字中，连续快速点停止按钮 2 次。
 
 Expected：第二次点击不报错，UI 表现一致。
 
 - [ ] **Step 8：删除会话用例**
 
-法律助手会话 AI 正在打字时，从侧栏点删除该会话。
+通用问答会话 AI 正在打字时，从侧栏点删除该会话。
 
 Expected：会话立即从侧栏消失，后端 agentRuns 表对应记录 status=CANCELLED（不是 RUNNING 残留）。可用 psql 验证：
 

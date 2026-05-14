@@ -207,7 +207,7 @@ export interface BuiltSystemPrompt {
  * - subAgentToolFactory（ask_*_expert 子 Agent）
  * - runAnalysisSubAgent（案件分析子 Agent）
  * - contractReviewMainAgent（合同审查主 Agent，本次改造非目标范围 spec §2.2）
- * - assistantAgent（法律助手主 Agent，caseId 永远 null，本次改造非目标）
+ * - assistantAgent（通用问答主 Agent，caseId 永远 null，本次改造非目标）
  *
  * 一站式构建 agent 的 SystemMessage：
  * buildContextSegments → toCachedPrompt → 按 sdkType 分流（anthropic content blocks

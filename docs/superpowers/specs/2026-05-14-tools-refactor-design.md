@@ -17,7 +17,7 @@ LexSeek 当前 10 个办案工具计算器（`app/pages/dashboard/tools/*.vue` +
 ## 目标
 
 1. 消除数据/算法/UI 三类冗余，让"运维改 LPR 一处生效全部计算器"成为可能
-2. 把 10 个计算器全部包装为 Agent 可调用工具，让法律助手 / 案件分析 / 各 vertical 子节点能按需调用
+2. 把 10 个计算器全部包装为 Agent 可调用工具，让通用问答 / 案件分析 / 各 vertical 子节点能按需调用
 3. 利率（LPR + 央行存款基准 + 央行贷款基准）入库 + 管理后台可维护，央行发新利率运营加一行 SQL 即可生效
 4. 保持现有 100% 测试覆盖率契约不变
 
@@ -450,7 +450,7 @@ export const createTool = (_ctx: ToolContext) => tool(
 
 ### 端到端集成验证（完成判定）
 
-在 PR3 合并前补充 **「法律助手在对话中调用所有 10 个工具」** 的端到端集成测试：
+在 PR3 合并前补充 **「通用问答在对话中调用所有 10 个工具」** 的端到端集成测试：
 - 测试位置：`tests/server/agents/legal-assistant/calculator-tools.e2e.test.ts`
 - 验证方式：构造 10 个典型业务问答 prompt（如"原告 100 万欠款，借期 1 年，按 LPR 4 倍算迟延履行利息是多少"），让 assistantMain agent 完整跑一遍，断言至少有一次 tool_call 命中目标工具
 - 这条测试不替代各工具单测，但兜住"工具配进 nodes.tools 但 LLM 看不到 / 调不到"的回归
@@ -532,7 +532,7 @@ npx vitest run tests/shared/utils/tools/ --coverage
 - [ ] `bun run typecheck` 无错误
 - [ ] admin 后台「利率管理」可登录、可增删改（带 deletedAt 软删除）、修改后立即在工具页面生效
 - [ ] 10 个工具页面在 dashboard 视觉无回归（chrome-devtools MCP 快照比对）
-- [ ] 法律助手 Agent 在对话中可成功调用全部 10 个计算工具（`tests/server/agents/legal-assistant/calculator-tools.e2e.test.ts` 全绿）
+- [ ] 通用问答 Agent 在对话中可成功调用全部 10 个计算工具（`tests/server/agents/legal-assistant/calculator-tools.e2e.test.ts` 全绿）
 
 ## 工作量估算
 

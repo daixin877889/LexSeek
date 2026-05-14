@@ -586,7 +586,7 @@ async function generateMaterialSummaryInner(materialId: number): Promise<void> {
         if (!material) return
 
         // 跨命名空间防重：若同 ossFile 已有 OSS 级摘要任务在跑，等它完成再判定
-        // （typical 场景：用户在小索/法律助手输入框上传文件触发 OSS 级摘要，
+        // （typical 场景：用户在小索/通用问答输入框上传文件触发 OSS 级摘要，
         //   随后点发送创建 caseMaterials 行，中间件再走一次 Material 级；
         //   这里 await 一下让 Material 级直接命中防重早返）
         if (material.ossFileId) {
@@ -801,7 +801,7 @@ async function persistOssFileSummary(
  * 按 ossFileId 生成识别记录表的 200 字摘要（不依赖 caseMaterials 行）
  *
  * 与 generateMaterialSummaryService 的差异：
- * - 不依赖 caseMaterials 行（小索/法律助手输入框选文件即触发场景）
+ * - 不依赖 caseMaterials 行（小索/通用问答输入框选文件即触发场景）
  * - 自动判断 ossFile 对应识别记录类型（doc / image / audio）
  * - 失败穷尽时不写 caseMaterials.status=FAILED（可能没有 caseMaterials 行；
  *   后续 generateMaterialSummaryService 会兜底标记）

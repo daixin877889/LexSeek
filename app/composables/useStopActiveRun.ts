@@ -3,7 +3,7 @@ import { useApiFetch } from '~/composables/useApiFetch'
  * 双重取消公共函数：SSE stop + 查询 runId + 调用 cancel API。
  *
  * 走通用 vertical 无关接口 /api/v1/agent/runs/*,归属只看 user.id,
- * 不再要求 session 挂在案件下。法律助手 / 独立合同 / 独立文书等
+ * 不再要求 session 挂在案件下。通用问答 / 独立合同 / 独立文书等
  * caseId=null 的会话都能正确停止。
  *
  * 返回 `{ ok, error? }`：

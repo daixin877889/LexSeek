@@ -6,7 +6,7 @@
  *
  * Scopes:
  * - 'case'：案件分析（小索 + 模块对话），caseId 必填
- * - 'legal_assistant'：法律助手，跨案件全局
+ * - 'legal_assistant'：通用问答，跨案件全局
  * - 'document'：文书生成
  * - 'contract'：合同审查
  * - 'case_analysis_init'：初分流程
@@ -154,7 +154,7 @@ function defaultApiEndpoints(scope: DomainScope): ResolvedApiConfig {
         deleteUrl: (sid) => `/api/v1/assistant/sessions/${sid}`,
         renameUrl: (sid) => `/api/v1/assistant/sessions/${sid}/rename`,
         chatUrl: '/api/v1/assistant/chat',
-        historyUrl: null,  // 法律助手 vertical 暂未实现 thread 历史 endpoint
+        historyUrl: null,  // 通用问答 vertical 暂未实现 thread 历史 endpoint
       }
     case 'document':
       // 单 session 默认：list/create/delete/rename 都 null（业务方按 draftId 单 session 驱动）

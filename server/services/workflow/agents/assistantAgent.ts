@@ -1,5 +1,5 @@
 /**
- * 通用法律助手主代理（assistantMain 节点）
+ * 通用问答主代理（assistantMain 节点）
  *
  * 对照 caseMainAgent 的 assistant 版：
  * - 系统提示词不假设 case 上下文
@@ -29,7 +29,7 @@ import {
 } from '../middleware'
 import { resolveContextWindow } from '../context/messageCompressor'
 
-/** 通用法律助手主代理节点名称 */
+/** 通用问答主代理节点名称 */
 const ASSISTANT_MAIN_NODE_NAME = 'assistantMain'
 
 export interface AssistantAgentOptions {
@@ -44,7 +44,7 @@ export interface AssistantAgentOptions {
 }
 
 /**
- * 执行通用法律助手对话。
+ * 执行通用问答对话。
  *
  * 使用 createAgent + 精简中间件创建 assistant 主代理，
  * 返回 SSE 格式的 ReadableStream。
@@ -65,7 +65,7 @@ export async function runAssistantChat(
     const [checkpointer, store, mainConfig] = await Promise.all([
         getCheckpointer(),
         getStore(),
-        getValidNodeConfig(ASSISTANT_MAIN_NODE_NAME, '通用法律助手主Agent'),
+        getValidNodeConfig(ASSISTANT_MAIN_NODE_NAME, '通用问答主Agent'),
     ])
 
     // 2. 获取可用 API Key
@@ -105,7 +105,7 @@ export async function runAssistantChat(
         ? getToolInstancesService(mainConfig.tools, toolContext)
         : []
 
-    logger.info('通用法律助手 Agent 创建', {
+    logger.info('通用问答 Agent 创建', {
         sessionId,
         model: mainConfig.modelName,
         toolsCount: tools.length,

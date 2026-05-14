@@ -15,7 +15,7 @@
  *     scope: SessionScope.ASSISTANT,
  *     agentType: 'createAgent',
  *     nodeName: 'legalAssistant',
- *     description: '法律助手',
+ *     description: '通用问答',
  * })
  * ```
  *

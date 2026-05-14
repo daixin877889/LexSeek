@@ -69,7 +69,7 @@ const {
 
 <template>
     <div class="h-full min-h-0 flex flex-col">
-        <!-- 顶部来源条仅当从法律助手 / 小索跳入时显示 -->
+        <!-- 顶部来源条仅当从通用问答 / 小索跳入时显示 -->
         <div v-if="showSourceBar" class="px-4 pt-3">
             <AgentsContractReviewSourceBar
                 :from="fromSource"

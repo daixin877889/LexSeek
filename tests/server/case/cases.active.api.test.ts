@@ -1,7 +1,7 @@
 /**
  * GET /api/v1/cases/active · service 集成测试（真实 DB）
  *
- * 阶段 5 · 法律助手关联案件 Dialog（CaseLinkerDialog）依赖此接口拉取
+ * 阶段 5 · 通用问答关联案件 Dialog（CaseLinkerDialog）依赖此接口拉取
  * 用户名下进行中（非归档、非软删）案件列表。
  *
  * **Feature: ai-unify-stage-5**

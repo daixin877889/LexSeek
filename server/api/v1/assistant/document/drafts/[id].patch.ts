@@ -6,7 +6,7 @@
  * 1. 更新 values（占位符填值，原有功能）
  *    - 草稿处于 drafting/filling 状态时拒绝（409）
  *    - 不在 template.placeholders 中的 key 会被忽略
- * 2. 关联 / 解绑案件（阶段 5 新增 - 法律助手关联案件 Dialog）
+ * 2. 关联 / 解绑案件（阶段 5 新增 - 通用问答关联案件 Dialog）
  *    - caseId: number  → 关联到指定案件（必须归属当前用户 + 未软删 + 非已归档）
  *    - caseId: null    → 解除关联
  *

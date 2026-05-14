@@ -1,4 +1,4 @@
-# 阶段 5 · 法律助手 → 文书 / 合同（无 caseId）
+# 阶段 5 · 通用问答 → 文书 / 合同（无 caseId）
 
 > Spec 锚点：`docs/superpowers/specs/2026-04-26-ai-infrastructure-unification-design.md` §6 阶段 5
 > 工程量：**2-3 周**（产品决策追加了 interrupt 透传机制 + 模板推荐卡片）
@@ -9,11 +9,11 @@
 
 ## 一、目标（用户视角）
 
-让用户在「法律助手」对话里可以一句话起草文书 / 审一份合同：
+让用户在「通用问答」对话里可以一句话起草文书 / 审一份合同：
 
 - **E2E 1（文书）**：用户输入"帮我起草起诉状" → 助手弹「模板选择卡片」（推荐 3 个 + 第一个预选） → 用户点「使用此模板」 → 助手起草中... → 工具卡片"已完成" → 跳文书页 → "+ 关联案件"成功
 - **E2E 2（合同）**：用户输入"审一下这份合同"（拖入 docx）→ 助手弹「立场选择卡片」 → 用户选乙方 + 填甲乙双方名 → 助手分析中... → 工具卡片"已完成"含 Top 3 风险 → 跳合同工作台 → "+ 关联案件"成功
-- **返回闭环**：从子页面顶部"← 返回 法律助手"按钮可以回到原对话（用 `?sid=` 恢复 session）
+- **返回闭环**：从子页面顶部"← 返回 通用问答"按钮可以回到原对话（用 `?sid=` 恢复 session）
 
 ---
 
@@ -25,9 +25,9 @@
 | **D2** | 文书起草的「模板选择」 | **永远弹推荐卡片**：上半部分 3 个推荐 + 第一个预选；下半折叠"浏览全部 + 搜索 + 分类筛选"；零召回时直接展开搜索 |
 | **D2.匹配** | 模板推荐算法 | LLM 传 `intent + keywords + 可选 category 提示`；后端类内优先 + 跨类兜底；评分：name×10 / desc×5 / category×3 / 用户最近 30 天用过×8 |
 | **D3** | assistantMain 节点 skill 接入 | **一次性接通 6 个**（docx / pptx / evidence-defense / litigation-visualization / minimax-pdf / minimax-xlsx） |
-| **D4** | 工具卡片注入位置 | 法律助手聊天面板就地注入 `AiToolRenderer.toolMap`（阶段 7 收敛时再迁移） |
+| **D4** | 工具卡片注入位置 | 通用问答聊天面板就地注入 `AiToolRenderer.toolMap`（阶段 7 收敛时再迁移） |
 | **D5** | 执行模式 | **TeamCreate 4 个 teammate 并行**：tools-impl / admin-api / frontend-cards / frontend-pages |
-| **顶部来源条** | 文书页 / 合同工作台顶部 | 左"← 返回 法律助手" + 右"+ 关联案件"，去重复 |
+| **顶部来源条** | 文书页 / 合同工作台顶部 | 左"← 返回 通用问答" + 右"+ 关联案件"，去重复 |
 | **关联案件 Dialog** | 列表过滤 | 排除已删除 + 已归档（status≠active）案件 |
 
 ---
@@ -131,7 +131,7 @@
 
 ```
 ┌──────────────────────────────────────────────────┐
-│ ← 返回 法律助手                       [+ 关联案件]  │
+│ ← 返回 通用问答                       [+ 关联案件]  │
 ├──────────────────────────────────────────────────┤
 │   （原有的文书编辑器 / 合同审查工作台界面）         │
 └──────────────────────────────────────────────────┘
@@ -169,7 +169,7 @@
 | `SSECustomEventType.DRAFT_SAVED` / `CONTRACT_REVIEW_SAVED` | 阶段 1 已预留 + payload 接口已声明 | `shared/types/agentEvent.ts:43-64` |
 | `publishCustomEvent(event)` | 通用桥接已就位 | `server/services/agent/agentEventBridge.ts:124` |
 | `assistantMain` 节点（id=15）| DB 已有，当前 tools=`["search_law"]`，无 skills 关联 | `prisma/seeds/seedData.sql:1077` |
-| 法律助手 vertical | createAgent 路径，自动跑全栈中间件 + 自动挂 4 个 skill 工具 + skills middleware | `server/agents/legal-assistant/agent.config.ts` |
+| 通用问答 vertical | createAgent 路径，自动跑全栈中间件 + 自动挂 4 个 skill 工具 + skills middleware | `server/agents/legal-assistant/agent.config.ts` |
 | `documentDraft.service.createDraftService` | 字段已含 `caseId`（默认 null） | `server/agents/document/documentDraft.service.ts:49` |
 | `documentTemplates` 表 | scope=global / user，category 9 大类枚举，用户配额 20 | `prisma/models/document.prisma:2` |
 | `DOCUMENT_CATEGORIES` 枚举 | 9 大类 + label 已定义 | `shared/types/document.ts:9` |
@@ -193,7 +193,7 @@
 | 文书页 / 合同工作台顶部"来源条"区块 | 抽 `DraftSourceBar.vue` / `ReviewSourceBar.vue` 子组件 |
 | 工具卡片：`DraftDocumentCard.vue` / `ReviewContractCard.vue` | `app/components/agents/document/tools/` 与 `app/components/agents/contract/tools/` |
 | Interrupt 卡片：`TemplateSelectCard.vue` / `StanceSelectCard.vue` | `app/components/agents/document/interrupts/` 与 `app/components/agents/contract/interrupts/` |
-| 法律助手 chat panel toolMap + interruptMap 注入 | 改 `AssistantChatPanel.vue` |
+| 通用问答 chat panel toolMap + interruptMap 注入 | 改 `AssistantChatPanel.vue` |
 
 ---
 
@@ -326,7 +326,7 @@
 - [ ] `assistantMain` node_skills 关联 6 个 skill
 - [ ] 4 张前端卡片（2 工具结果卡 + 2 interrupt 卡）就位 + 通过 toolMap/interruptMap 注入
 - [ ] `CaseLinkerDialog.vue` 就位，文书页 / 合同工作台两处都能调起并成功 PATCH
-- [ ] 跳转协议 `?from=&caseId=&sessionId=` 在两个独立页落地，「返回法律助手」可恢复 session
+- [ ] 跳转协议 `?from=&caseId=&sessionId=` 在两个独立页落地，「返回通用问答」可恢复 session
 - [ ] 2 个 PATCH 接口 + 用户端归属校验 + 已归档案件拒绝
 - [ ] 模板推荐 service 单测覆盖各路径
 - [ ] interrupt 透传链路（子代理 → 主代理 → SSE → 前端 → resume）端到端通
@@ -341,5 +341,5 @@
 - **interrupt 透传是新基建**，spec §4.3 原本排在阶段 7，本阶段提前实现 2 类（template_select / stance_select）。后续阶段 7 全局收敛时再扩展到通用注册表
 - contract vertical 增加 `skipStanceInterrupt` 选项需向后兼容，default `false`
 - `runAndDrainStream` 用于合同分析时可能 30-60s 延迟，前端工具卡"执行中"态要有 loading 动画
-- 法律助手 `useAssistantChat` 内核保留（阶段 7 收敛目标），本阶段只在 chat panel 加 toolMap/interruptMap prop
+- 通用问答 `useAssistantChat` 内核保留（阶段 7 收敛目标），本阶段只在 chat panel 加 toolMap/interruptMap prop
 - 模板推荐的 keywords 来自 LLM，零信任（可能为空），算法必须能在零关键词下也能回退到"用户最近使用 + priority 排序"

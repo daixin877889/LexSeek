@@ -41,7 +41,7 @@ shared/types/
 ├── agentEvent.ts        # Agent 事件 / Session Scope/Type 等
 ├── agentRun.ts          # Agent 任务运行类型
 ├── agentAudit.ts        # Agent 审计日志类型
-├── assistant.ts         # 法律助手类型
+├── assistant.ts         # 通用问答类型
 ├── contract.ts          # 合同审查类型
 ├── document.ts          # 文档起草类型
 ├── legal.ts、legal-search.ts、legal-parser.ts  # 法律法规

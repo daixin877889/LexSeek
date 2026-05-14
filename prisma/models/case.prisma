@@ -97,13 +97,13 @@ model cases {
 }
 
 /// 案件会话表 - 存储案件分析的会话上下文，对应 LangGraph 的 thread_id
-/// 通过 scope 字段扩展为双域：case（案件内）与 assistant（通用法律助手）
+/// 通过 scope 字段扩展为双域：case（案件内）与 assistant（通用问答）
 model caseSessions {
   /// 会话ID，主键，自增
   id        Int       @id @default(autoincrement())
   /// 会话唯一标识，对应 LangGraph thread_id
   sessionId String    @unique @map("session_id") @db.VarChar(100)
-  /// 会话归属域：case（案件内）/ assistant（通用法律助手）
+  /// 会话归属域：case（案件内）/ assistant（通用问答）
   scope     String    @default("case") @db.VarChar(20)
   /// 会话所有者用户ID
   /// - scope=assistant：必须存在（应用层校验）

@@ -311,10 +311,10 @@ describe('buildContextSegments - caseId=null 退化路径', () => {
       caseId: null,
       agentName: 'assistantAgent',
       userQuery: 'hello',
-      roleAndFlowTemplate: '我是法律助手',
+      roleAndFlowTemplate: '我是通用问答',
     })
 
-    expect(segs.roleAndFlow).toBe('我是法律助手')
+    expect(segs.roleAndFlow).toBe('我是通用问答')
     expect(segs.caseProfile).toBe('')
     expect(segs.moduleSummaries).toBe('')
     expect(segs.dynamicContext).toBe('')
@@ -463,14 +463,14 @@ describe('buildSystemPromptForAgent', () => {
       caseId: null,
       agentName: 'assistantAgent',
       userQuery: '',
-      roleAndFlowTemplate: '我是法律助手',
+      roleAndFlowTemplate: '我是通用问答',
     })
 
     expect(Array.isArray(built.systemMessage.content)).toBe(true)
     const blocks = built.systemMessage.content as Array<Record<string, unknown>>
-    expect(blocks[0]).toMatchObject({ type: 'text', text: '我是法律助手' })
+    expect(blocks[0]).toMatchObject({ type: 'text', text: '我是通用问答' })
     expect(blocks[0]?.cache_control).toEqual({ type: 'ephemeral', ttl: '1h' })
-    expect(built.plainText).toBe('我是法律助手')
+    expect(built.plainText).toBe('我是通用问答')
   })
 
   it('openai SDK：systemMessage.content 是纯文本字符串', async () => {
@@ -478,11 +478,11 @@ describe('buildSystemPromptForAgent', () => {
       caseId: null,
       agentName: 'assistantAgent',
       userQuery: '',
-      roleAndFlowTemplate: '我是法律助手',
+      roleAndFlowTemplate: '我是通用问答',
     })
 
     expect(typeof built.systemMessage.content).toBe('string')
-    expect(built.systemMessage.content).toBe('我是法律助手')
-    expect(built.plainText).toBe('我是法律助手')
+    expect(built.systemMessage.content).toBe('我是通用问答')
+    expect(built.plainText).toBe('我是通用问答')
   })
 })

@@ -1,5 +1,5 @@
 /**
- * 阶段 5 一次性数据更新脚本：法律助手节点配置同步
+ * 阶段 5 一次性数据更新脚本：通用问答节点配置同步
  *
  * 两件事：
  *  1. 把 assistantMain (id=15) 的 tools 列升级为 ["search_law", "draft_document", "review_contract"]
@@ -34,7 +34,7 @@ const pool = new PrismaPg({
 const prisma = new PrismaClient({ adapter: pool })
 
 async function main(): Promise<void> {
-    console.log('===== 阶段 5 · 法律助手节点配置同步开始 =====')
+    console.log('===== 阶段 5 · 通用问答节点配置同步开始 =====')
     console.log(`[env] DATABASE_URL=${process.env.DATABASE_URL?.replace(/:[^@]+@/, ':***@')}`)
 
     const node = await prisma.nodes.findUnique({ where: { name: 'assistantMain' } })

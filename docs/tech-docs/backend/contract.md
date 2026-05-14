@@ -235,7 +235,7 @@ type ContractReviewEvent =
 | 工作区 / 版本物理分离 | 工作区改动频繁；版本是合规留痕，不可变 JSONB 快照 |
 | 批注永不物理删除 | 软删 `deletedAt`，避免回传 docx diff 时丢失对话上下文 |
 | `wordCommentRef` 不加 UNIQUE | 并发导出时概率冲突会抛 P2002 让上传失败；rand8 碰撞概率 1/2e14 可接受 |
-| `cot_messages` 字段独立存事件序列 | `skipStanceInterrupt` 路径（法律助手 reviewContract 工具调用）不写 LangGraph checkpoint，靠此字段实现"刷新历史"恢复 |
+| `cot_messages` 字段独立存事件序列 | `skipStanceInterrupt` 路径（通用问答 reviewContract 工具调用）不写 LangGraph checkpoint，靠此字段实现"刷新历史"恢复 |
 
 ---
 

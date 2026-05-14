@@ -10,7 +10,7 @@
 | 阶段 2 Agent 工厂化 + 业务 vertical + Skills 入网 | ✅ 完成 | `ai-unify-stage-2-done` |
 | 阶段 3 search_law 普及（用户可见）| ⏳ 待做 | — |
 | 阶段 4 合同审查接底座（高风险）| ⏳ 待做 | — |
-| 阶段 5 法律助手 → 文书 / 合同（用户可见）| ⏳ 待做 | — |
+| 阶段 5 通用问答 → 文书 / 合同（用户可见）| ⏳ 待做 | — |
 | 阶段 6 小索 → 文书 / 合同（用户可见）| ⏳ 待做 | — |
 | 阶段 7 前端复用收敛 | ⏳ 待做 | — |
 | 阶段 8 案件初分接 skills + 提示词改造 | ⏳ 待做 | — |
@@ -101,17 +101,17 @@ spec：docs/superpowers/specs/2026-04-26-ai-infrastructure-unification-design.md
 
 ---
 
-## 阶段 5：法律助手 → 文书 / 合同（用户可见，1-2 周）
+## 阶段 5：通用问答 → 文书 / 合同（用户可见，1-2 周）
 
 **Spec 章节**：spec §6 阶段 5 + §5（业务互调设计）
 
-**简述**：实现 C 档协作的核心——法律助手能调起文书生成和合同审查作为子代理工具。无 caseId 启动模式（用户在结果独立页通过"+关联案件"按钮补绑）。
+**简述**：实现 C 档协作的核心——通用问答能调起文书生成和合同审查作为子代理工具。无 caseId 启动模式（用户在结果独立页通过"+关联案件"按钮补绑）。
 
 **完成定义**：
 - `server/services/agent-platform/tools/draftDocument.tool.ts` + `reviewContract.tool.ts` 实现（同步执行）
 - 两个工具注册到工具注册表
-- 法律助手节点（`assistantMain`）的 nodes.tools 加 `draft_document` 和 `review_contract`
-- 法律助手节点接入全部 6 个 skills
+- 通用问答节点（`assistantMain`）的 nodes.tools 加 `draft_document` 和 `review_contract`
+- 通用问答节点接入全部 6 个 skills
 - `app/components/agents/document/tools/DraftDocumentCard.vue` 实现（摘要 + 跳转按钮）
 - `app/components/agents/contract/tools/ReviewContractCard.vue` 实现（摘要 + Top 风险 + 跳转）
 - 跳转协议落地：`?from=&caseId=&sessionId=`
@@ -119,7 +119,7 @@ spec：docs/superpowers/specs/2026-04-26-ai-infrastructure-unification-design.md
 - `PATCH /api/v1/assistant/document/drafts/:id { caseId }` 接口
 - `PATCH /api/v1/assistant/contract/reviews/:id { caseId }` 接口
 
-**用户可见点**：法律助手输入"帮我起草起诉状" / "审一下这份合同" → 工具卡片在对话流出现 → 跳转独立页继续精修。
+**用户可见点**：通用问答输入"帮我起草起诉状" / "审一下这份合同" → 工具卡片在对话流出现 → 跳转独立页继续精修。
 
 **关键风险（spec §7 第 5 条）**：低风险——子代理同步执行可能阻塞主对话 30 秒-2 分钟。缓解：工具卡片实时显示进度。
 
@@ -199,7 +199,7 @@ spec：docs/superpowers/specs/2026-04-26-ai-infrastructure-unification-design.md
 
 ## 收尾遗留 issue（不阻塞，记录给后续阶段知情）
 
-1. **`tests/server/assistant/assistantAgent.integration.test.ts` 1 fail**：测试 DB `ls_new_testing` 中 `assistantMain` 节点 seed 数据缺失（"通用法律助手主Agent 节点未配置或未启用"）。pre-existing。建议在阶段 3 时顺手修测试库 seed。
+1. **`tests/server/assistant/assistantAgent.integration.test.ts` 1 fail**：测试 DB `ls_new_testing` 中 `assistantMain` 节点 seed 数据缺失（"通用问答主Agent 节点未配置或未启用"）。pre-existing。建议在阶段 3 时顺手修测试库 seed。
 2. **`tests/server/agent/agentRun.dao.test.ts` 2 个 pre-existing fail**：partial unique index + 测试隔离问题。阶段 1 起就存在。
 3. **HNSW 索引每次 prisma migrate dev 会被 DROP**：项目级权衡。每次 migrate 后需补 `restore_hnsw_indexes` migration。阶段 3 不涉及 schema 改动，应不会触发。阶段 8 涉及节点 schema 变更时需注意。
 4. **app.vue route depth typecheck error**：Nuxt 路由类型递归过深的历史问题，与本改造无关。

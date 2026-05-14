@@ -400,7 +400,7 @@ export async function completeAnalysisWithRAG(input: CompleteAnalysisWithRAGInpu
 
     const summary = await generateSummaryService(model, analysisResult, {
       maxChars: 400,
-      systemPrompt: '你是法律助手。对下方分析报告正文生成 200-400 字的中文专业摘要，保留关键事实、结论、依据，不加开场白总结语。',
+      systemPrompt: '你是通用问答。对下方分析报告正文生成 200-400 字的中文专业摘要，保留关键事实、结论、依据，不加开场白总结语。',
     })
 
     const updated = await tx.caseAnalyses.update({

@@ -4,7 +4,7 @@
  *
  * 显示当前案件下的合同审查列表，每条可点击进入合同审查工作区，
  * 顶部提供「新建合同审查」入口跳转到 /dashboard/contract?new=1&caseId=xxx
- * （合同审查已从法律助手下独立为顶级模块）。
+ * （合同审查已从通用问答下独立为顶级模块）。
  *
  * 数据源：GET /api/v1/assistant/contract/reviews?caseId={caseId}&skip=0&take=50
  */

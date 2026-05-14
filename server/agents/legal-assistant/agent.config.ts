@@ -1,8 +1,8 @@
 /**
- * legal-assistant vertical（通用法律助手）Agent 配置
+ * legal-assistant vertical（通用问答）Agent 配置
  *
  * 使用 defineDomainAgent 工厂声明：
- * - scope: ASSISTANT（法律助手域，全局通用，无 caseId 绑定）
+ * - scope: ASSISTANT（通用问答域，全局通用，无 caseId 绑定）
  * - agentType: createAgent（ReAct 循环）
  * - nodeName: assistantMain（静态节点，所有助手会话共用）
  *
@@ -24,5 +24,5 @@ export const legalAssistantAgent = defineDomainAgent({
     scope: SessionScope.ASSISTANT,
     agentType: 'createAgent',
     nodeName: 'assistantMain',
-    description: '通用法律助手（assistantMain 节点）',
+    description: '通用问答（assistantMain 节点）',
 })

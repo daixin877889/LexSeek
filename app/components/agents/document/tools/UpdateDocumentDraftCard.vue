@@ -2,7 +2,7 @@
 /**
  * 更新文书草稿工具结果卡片
  *
- * 由法律助手 / 小索 / 文书面板通过 AiToolRenderer.toolMap 注入。
+ * 由通用问答 / 小索 / 文书面板通过 AiToolRenderer.toolMap 注入。
  * update_document_draft 工具调用 patchDraftService 增量改字段并发 DRAFT_UPDATED SSE。
  *
  * 跟 RecommendTemplateCard / DraftDocumentCard 同理:历史会话回放兜底 + 让用户

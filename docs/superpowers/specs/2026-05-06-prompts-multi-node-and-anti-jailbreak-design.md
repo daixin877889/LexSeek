@@ -9,7 +9,7 @@
 
 ## 1. 背景
 
-LexSeek 6 个 vertical Agent（案件主流程 / 案件模块分析 / 案件深度分析 / 合同审查 / 文档起草 / 法律助手）都基于 LangGraph + agent-platform 装配，多轮对话能力已具备。当前提示词（prompts 表）和节点（nodes 表）是 **1:N 强绑定关系**，存在两个并行问题：
+LexSeek 6 个 vertical Agent（案件主流程 / 案件模块分析 / 案件深度分析 / 合同审查 / 文档起草 / 通用问答）都基于 LangGraph + agent-platform 装配，多轮对话能力已具备。当前提示词（prompts 表）和节点（nodes 表）是 **1:N 强绑定关系**，存在两个并行问题：
 
 ### 1.1 问题 A：提示词复用受限
 

@@ -2,7 +2,7 @@
 /**
  * 文书起草工具结果卡片（Mockup D）
  *
- * 由法律助手 chat panel 通过 AiToolRenderer.toolMap 注入。
+ * 由通用问答 chat panel 通过 AiToolRenderer.toolMap 注入。
  * - 执行中：spinner + "正在起草《XXX》..."
  * - 已完成：标题（书名号包裹的文书名）+ 字数 / 摘要 + 跳转按钮
  * - 失败：红色边框 + 错误信息

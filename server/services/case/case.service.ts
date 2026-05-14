@@ -267,7 +267,7 @@ export interface ActiveCaseItem {
 /**
  * 获取当前用户「进行中」案件列表。
  *
- * 用于法律助手关联案件 Dialog（CaseLinkerDialog）：
+ * 用于通用问答关联案件 Dialog（CaseLinkerDialog）：
  * - owner-only：仅返回当前用户名下的案件
  * - 排除已软删（deletedAt IS NULL）+ 已归档案件（status != ARCHIVED）
  * - 可选 q 关键词模糊匹配 title

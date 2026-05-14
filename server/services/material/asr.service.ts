@@ -882,7 +882,7 @@ export const completeTranscriptionService = async (
         await markMaterialsByOssFileIdService(ossFileId, MaterialStatus.COMPLETED)
 
         // 6.2 fire-and-forget 按 OssFile 触发摘要生成
-        // 不依赖 caseMaterials 行存在（小索/法律助手输入框上传场景下还没创建 caseMaterials）
+        // 不依赖 caseMaterials 行存在（小索/通用问答输入框上传场景下还没创建 caseMaterials）
         // 内部按 ossFileId 自动定位识别记录表写入 summary；防重 + 重试由 service 内部承担
         generateOssFileSummaryService(ossFileId).catch(() => { /* 已在内部 catch */ })
 

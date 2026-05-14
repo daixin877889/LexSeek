@@ -1,7 +1,7 @@
 /**
  * sub-agent 流消费助手（runAndDrainStream）
  *
- * 用于 §阶段 5 子代理工具：法律助手主 Agent 调起 draft_document / review_contract
+ * 用于 §阶段 5 子代理工具：通用问答主 Agent 调起 draft_document / review_contract
  * 工具，工具内部需要同步执行 documentMain / contractReviewMain（两者都返回 SSE
  * 格式 `event: xxx\ndata: ...\n\n` 的 ReadableStream<Uint8Array>），并把"落库后
  * 的最终结果"返回给主 Agent。

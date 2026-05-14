@@ -164,7 +164,7 @@ async function generateSessionTitleInner(
                 reason: titleErr instanceof Error ? titleErr.message : String(titleErr),
             })
             try {
-                nodeConfig = await getValidNodeConfig(ASSISTANT_MAIN_NODE_NAME, '通用法律助手主Agent')
+                nodeConfig = await getValidNodeConfig(ASSISTANT_MAIN_NODE_NAME, '通用问答主Agent')
             } catch (mainErr) {
                 logger.warn('生成标题跳过：节点配置不可用', {
                     sessionId,

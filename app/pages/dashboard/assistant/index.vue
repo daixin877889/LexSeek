@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 法律助手 · 对话页（路由 /dashboard/assistant）
+ * 通用问答 · 对话页（路由 /dashboard/assistant）
  *
  * 布局：左 AssistantSessionList + 右 AssistantChatPanel。
  *
@@ -19,7 +19,7 @@ import AssistantSessionList from '~/components/assistant/AssistantSessionList.vu
 
 definePageMeta({
     layout: 'dashboard-layout',
-    title: '法律助手',
+    title: '通用问答',
     icon: 'MessageSquare',
 })
 
@@ -76,7 +76,7 @@ function handleRunComplete() {
                     </div>
                     <div class="space-y-2">
                         <h2 class="text-2xl font-semibold text-foreground">
-                            法律助手对话
+                            通用问答对话
                         </h2>
                         <p class="text-sm text-muted-foreground leading-relaxed">
                             遇到法律问题、需要起草思路、想快速查询法条？<br>

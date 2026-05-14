@@ -582,7 +582,7 @@ export const completeConversionService = async (
         }
 
         // 6. fire-and-forget 按 OssFile 触发摘要生成
-        // 不依赖 caseMaterials 行存在（小索/法律助手输入框上传场景下还没创建 caseMaterials）
+        // 不依赖 caseMaterials 行存在（小索/通用问答输入框上传场景下还没创建 caseMaterials）
         generateOssFileSummaryService(task.ossFileId).catch(() => { /* 已在内部 catch */ })
 
         logger.info(`PDF 转换完成：taskId=${taskId}`)

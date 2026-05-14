@@ -2,7 +2,7 @@
 /**
  * 模板推荐工具结果卡片
  *
- * 由法律助手 / 小索 / 文书面板通过 AiToolRenderer.toolMap 注入。
+ * 由通用问答 / 小索 / 文书面板通过 AiToolRenderer.toolMap 注入。
  * recommend_template 工具走 LangGraph interrupt 弹 TemplateSelectCard 让用户挑模板,
  * 选完之后工具返回 templateId/templateName/placeholders 给 LLM。
  *

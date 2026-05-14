@@ -163,7 +163,7 @@ export async function createAndStartContractReviewService(
 /**
  * 关联 / 解绑合同审查到案件。
  *
- * 阶段 5 · 法律助手「+ 关联案件」入口：用户在合同审查工作台顶部"来源条"
+ * 阶段 5 · 通用问答「+ 关联案件」入口：用户在合同审查工作台顶部"来源条"
  * 点关联，选定案件后调用此接口写入 review.caseId；caseId=null 表示解绑。
  *
  * 校验：

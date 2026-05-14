@@ -1,5 +1,5 @@
 /**
- * 通用法律助手相关类型
+ * 通用问答相关类型
  *
  * 用于前后端共享的助手（assistant）域类型定义。
  * 与 case 域共用 case_sessions 表但 scope='assistant'，参见 spec §4.10, §5.1, §5.6.1-3。

@@ -188,7 +188,7 @@ export interface ContractReviewAgentOptions {
     /**
      * 阶段 5 新增：跳过 stance interrupt 直接走 resume 分支。
      *
-     * 法律助手 `review_contract` 子代理工具调用本函数前，已在工具内部完成
+     * 通用问答 `review_contract` 子代理工具调用本函数前，已在工具内部完成
      * "立场选择 interrupt + 落库 stance/partyA/partyB" 的工作；此时调用方
      * 传 `skipStanceInterrupt: true`，本函数从 review 表读取已落库的立场，
      * 直接走 resume 分支（不再创建 createAgent / 不再 invoke parseAndAskStance）。
@@ -199,7 +199,7 @@ export interface ContractReviewAgentOptions {
     /**
      * 子流事件转发到主流的 callbacks（首轮 agent.stream 路径生效）。
      *
-     * 法律助手 reviewContract.tool 调用本函数时走 skipStanceInterrupt=true 路径，
+     * 通用问答 reviewContract.tool 调用本函数时走 skipStanceInterrupt=true 路径，
      * 该路径不调 agent.stream → callbacks **不会触发**（设计上可接受）。
      * 跑中反馈通过现有 stage 事件（segment / detect / stance / analyze progress / summarize）
      * + 前端 ReviewContractCard 实现。
@@ -508,7 +508,7 @@ export async function runContractReviewChat(
     //
     // 触发条件（任一即进 resume 分支）：
     //   A. command 存在：合同 vertical 自身的 /stance 端点 enqueue resume run（向后兼容）
-    //   B. skipStanceInterrupt && review.stance：法律助手 review_contract 子代理工具
+    //   B. skipStanceInterrupt && review.stance：通用问答 review_contract 子代理工具
     //      在工具内部已完成 stance 选择 interrupt + 落库，调本函数时直接跳过 stance 流程
     //      （DOCX-S5 子代理工具走 skipStanceInterrupt 路径）
     const shouldRunResumeBranch = !!command || (skipStanceInterrupt && !!review.stance)

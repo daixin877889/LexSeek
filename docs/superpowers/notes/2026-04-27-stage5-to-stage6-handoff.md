@@ -8,7 +8,7 @@
 - **阶段 2** (tag `ai-unify-stage-2-done`)：Agent 工厂化 + 业务 vertical + Skills 入网。
 - **阶段 3** (tag `ai-unify-stage-3-done`)：search_law 普及。
 - **阶段 4** (tag `ai-unify-stage-4-done`)：合同审查接入底座（C+ 方案）。
-- **阶段 5** (tag `ai-unify-stage-5-done`)：法律助手 → 文书 / 合同（无 caseId）。
+- **阶段 5** (tag `ai-unify-stage-5-done`)：通用问答 → 文书 / 合同（无 caseId）。
 
 ## 阶段 5 执行模式
 
@@ -24,12 +24,12 @@
 ## 阶段 5 验证
 
 E2E 完整闭环（chrome-devtools 真机跑通）：
-- **E2E 1（文书）**：法律助手对话 → "帮我起草起诉状" → 弹模板选择卡 → 选民事起诉状 → 起草完成 → 工具卡显示标题/字数/摘要 → 跳文书页 → 顶部"返回 法律助手 + 关联案件" → 关联到"朱某与某保安公司劳动合同纠纷" → "已关联"徽章
-- **E2E 2（合同）**：法律助手对话 → 上传材料弹框选 docx → "帮我审一下这份合同" → 弹立场选择卡（甲乙方自动预填"上海坑人科技有限公司 / 杨白劳"）→ 选乙方 → 90 秒分析 → 工具卡显示 Top 3 风险（试用期违规 / 单方调岗权滥用 / 排除法定救济权利）→ 跳合同工作台 → 7 条高风险全部识别 → 关联案件成功
+- **E2E 1（文书）**：通用问答对话 → "帮我起草起诉状" → 弹模板选择卡 → 选民事起诉状 → 起草完成 → 工具卡显示标题/字数/摘要 → 跳文书页 → 顶部"返回 通用问答 + 关联案件" → 关联到"朱某与某保安公司劳动合同纠纷" → "已关联"徽章
+- **E2E 2（合同）**：通用问答对话 → 上传材料弹框选 docx → "帮我审一下这份合同" → 弹立场选择卡（甲乙方自动预填"上海坑人科技有限公司 / 杨白劳"）→ 选乙方 → 90 秒分析 → 工具卡显示 Top 3 风险（试用期违规 / 单方调岗权滥用 / 排除法定救济权利）→ 跳合同工作台 → 7 条高风险全部识别 → 关联案件成功
 
 **E2E 期间修复的 7+ 个集成 bug**：
 1. LangGraph sub-agent interrupt resume value 的双层包装（command.resume + toolCallId 路由）→ 工具内手动解包
-2. 法律助手 `enable-file-upload="false"` 导致上传按钮缺失 → 改 true
+2. 通用问答 `enable-file-upload="false"` 导致上传按钮缺失 → 改 true
 3. 上传材料按钮点不开（hidden file input 触发不稳）→ 接 MaterialSelector，参照创建案件页模式
 4. LLM 把 ossFileId 传成字符串 "1012" → schema 改 z.coerce.number
 5. review_contract 工具 href 路径错（`/dashboard/assistant/contract/`）→ 改成 `/dashboard/contract/`
@@ -73,7 +73,7 @@ docs/superpowers/notes/2026-04-27-stage5-to-stage6-handoff.md
 
 **评估**：阶段 5 时间紧，按用户决策**并入阶段 7「前端复用收敛」**。spec §4.3 的 interrupt 注册表设计本就在阶段 7 范围。
 
-**处置建议**：阶段 7 把 interrupt dialog 改为消息流内联（影响 6 个对话窗口：小索 / 案件模块 / 案件分析 / 法律助手 / 合同 / 文书）。卡片组件本身（TemplateSelectCard / StanceSelectCard）零改动，只是 chat panel 的渲染入口换。
+**处置建议**：阶段 7 把 interrupt dialog 改为消息流内联（影响 6 个对话窗口：小索 / 案件模块 / 案件分析 / 通用问答 / 合同 / 文书）。卡片组件本身（TemplateSelectCard / StanceSelectCard）零改动，只是 chat panel 的渲染入口换。
 
 ### 2. 工具调用过程的 raw JSON 在消息流中可见
 
@@ -100,7 +100,7 @@ docs/superpowers/notes/2026-04-27-stage5-to-stage6-handoff.md
 
 **评估**：阶段 7 路径 2 改造（state schema 扩展 + 后端 system prompt 拼接）。当前方案足够支撑产品体验。
 
-### 5. 工具卡 `interrupt 透传 → resume`链路只有法律助手 chat panel 实现
+### 5. 工具卡 `interrupt 透传 → resume`链路只有通用问答 chat panel 实现
 
 **症状**：阶段 5 只在 AssistantChatPanel.vue 注入了 toolMap + interrupt 分发，小索 / 案件模块 / 文书的 chat panel 没接。
 
@@ -120,7 +120,7 @@ docs/superpowers/notes/2026-04-27-stage5-to-stage6-handoff.md
 
 ## 关键架构事实（避免新会话误改）
 
-- **法律助手 vertical 走 createAgent 路径**（`server/agents/legal-assistant/agent.config.ts`），自动跑全栈中间件 + 自动挂 4 个 skill 工具 + skills middleware
+- **通用问答 vertical 走 createAgent 路径**（`server/agents/legal-assistant/agent.config.ts`），自动跑全栈中间件 + 自动挂 4 个 skill 工具 + skills middleware
 - **assistantMain 节点**（id=15）tools = `["search_law", "draft_document", "review_contract"]`，关联 6 个 skill
 - **子代理工具的 stream**：用 `runAndDrainStream(stream)` 消费整个 ReadableStream，从最终持久化结果反查（不依赖 stream 中间事件）
 - **interrupt 透传**：子代理工具 `throw interrupt({ type, toolCallId, ...payload })` → LangGraph 自然透到主 agent streamValues 的 `__interrupt__` → 前端 `useStreamChat.interruptData` 现成读取 → 按 type 分发到卡片 → 用户提交 → `resumeInterrupt(value)` → `stream.submit({ command: { resume: value } })` → LangGraph 自动把 value 透回到 `interrupt()` 返回值（**注意双层包装：command.resume + toolCallId 路由，工具内手动解包**）
@@ -128,7 +128,7 @@ docs/superpowers/notes/2026-04-27-stage5-to-stage6-handoff.md
 - **review_contract / draft_document 工具的 ossFileId 来源**：用户上传文件时，前端 `useAssistantChat.sendMessage` 把附件元数据通过双轨承载（content sentinel `__ATTACHMENTS__\n[json]` + `additional_kwargs.attachments`）发给 LLM；LLM 从 sentinel JSON parse 出 ossFileId 调工具
 - **附件渲染**：`AiMessageListVirtualItem` 检测 `msg.attachments` → 走 `AttachmentMessageBubble`（独立白色气泡，去掉 user 默认 `bg-secondary` 灰底）→ 卡片点击调 `CaseAnalysisDocPreviewDialog` / `AudioPreviewDialog`（与案件详情页统一体验）
 - **关联案件 Dialog**：`app/components/cases/CaseLinkerDialog.vue` 用 `GET /api/v1/cases/active`（排除已删除 + 已归档 + 非自己），文书页 / 合同页通过 `useCaseLinker` composable 接入
-- **顶部"来源条"**：`from=assistant` 时显示「← 返回 法律助手 + + 关联案件」，**返回链接始终回助手对话**（即使后续关联了案件也不切到案件页 — 用户决策）；阶段 6 加 `from=xiaosuo` 分支
+- **顶部"来源条"**：`from=assistant` 时显示「← 返回 通用问答 + + 关联案件」，**返回链接始终回助手对话**（即使后续关联了案件也不切到案件页 — 用户决策）；阶段 6 加 `from=xiaosuo` 分支
 
 ## 阶段 5 沉淀的工具
 

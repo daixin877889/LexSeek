@@ -22,7 +22,7 @@
           </div>
           <div class="bg-primary/5 rounded-lg p-8">
             <quote-icon class="h-12 w-12 text-primary mb-4" />
-            <blockquote class="text-xl italic mb-6">"我们的愿景是打造一个智能法律助手，它不仅能够理解法律语言，还能够像经验丰富的律师一样思考和分析案件。"</blockquote>
+            <blockquote class="text-xl italic mb-6">"我们的愿景是打造一个智能通用问答，它不仅能够理解法律语言，还能够像经验丰富的律师一样思考和分析案件。"</blockquote>
             <div class="flex items-center gap-3">
               <div class="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
                 <user-icon class="h-6 w-6 text-primary" />

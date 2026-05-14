@@ -57,7 +57,7 @@ describe('buildContextSegments - nullable caseId', () => {
   it('caseId=null 但提供 roleAndFlowTemplate 时仍返回 roleAndFlow 段', async () => {
     const { buildContextSegments } = await import('~~/server/services/workflow/context/moduleContextBuilder')
 
-    const template = '# 角色\n你是一个法律助手，提供专业的法律咨询。'
+    const template = '# 角色\n你是一个通用问答，提供专业的法律咨询。'
     const segs = await buildContextSegments({
       caseId: null,
       agentName: 'assistantMain',

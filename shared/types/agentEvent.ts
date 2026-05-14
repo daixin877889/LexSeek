@@ -17,7 +17,7 @@ import type { ContractReviewEvent, RiskLevel } from './contract'
 export enum SessionScope {
     /** 案件域：含小索 / 模块对话 / 案件初分 */
     CASE = 'case',
-    /** 法律助手域：跨案件全局通用助手 */
+    /** 通用问答域：跨案件全局通用助手 */
     ASSISTANT = 'assistant',
     /** 文书生成域 */
     DOCUMENT = 'document',

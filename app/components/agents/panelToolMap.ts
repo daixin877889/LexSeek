@@ -1,5 +1,5 @@
 /**
- * 业务面板共享 toolMap：法律助手 / 小索 / 合同审查面板都把这套子代理工具结果卡
+ * 业务面板共享 toolMap：通用问答 / 小索 / 合同审查面板都把这套子代理工具结果卡
  * 注入给 AiChat 让 AiToolRenderer 命中后渲染对应卡片。
  *
  * 2026-05-05 重构后：draft_document 拆成 recommend_template / save_document_draft /

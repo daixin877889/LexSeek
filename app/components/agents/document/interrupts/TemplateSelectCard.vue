@@ -143,7 +143,7 @@ async function fetchBrowseList() {
         }
         const kw = debouncedKeyword.value.trim()
         if (kw) query.q = kw
-        // 法律助手默认混合显示 global + user 模板（不传 scope）
+        // 通用问答默认混合显示 global + user 模板（不传 scope）
         const data = await useApiFetch<BrowseResponse>(
             '/api/v1/assistant/document/templates',
             { query },

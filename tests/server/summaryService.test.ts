@@ -18,7 +18,7 @@ describe('generateSummaryService', () => {
     }
     const res = await generateSummaryService(mockModel as unknown as BaseChatModel, '风险评估分析正文...', {
       maxChars: 400,
-      systemPrompt: '你是法律助手，对分析报告做 200-400 字的专业摘要',
+      systemPrompt: '你是通用问答，对分析报告做 200-400 字的专业摘要',
     })
     expect(res).toContain('风险等级')
     expect(res.length).toBeLessThanOrEqual(400)

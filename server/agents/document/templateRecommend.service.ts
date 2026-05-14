@@ -1,7 +1,7 @@
 /**
  * 文书模板推荐 Service
  *
- * 服务于阶段 5 法律助手 → 文书生成「模板选择卡片」推荐：助手 LLM 把用户意图
+ * 服务于阶段 5 通用问答 → 文书生成「模板选择卡片」推荐：助手 LLM 把用户意图
  * 转成 `{ intent, keywords?, categoryHint? }`，本服务负责在用户可见模板池
  * （scope=global ∪ scope=user 当前用户私人）中召回 + 评分 + 取 top 5。
  *

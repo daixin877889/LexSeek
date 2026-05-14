@@ -39,7 +39,7 @@ export interface ToolContext {
     /**
      * 案件 ID
      *
-     * case 域场景必填；assistant 域（通用法律助手）无案件上下文时可缺省。
+     * case 域场景必填；assistant 域（通用问答）无案件上下文时可缺省。
      * 依赖 caseId 的工具（如 save_analysis_result、process_materials）
      * 需在运行时校验 caseId 非空，否则抛错。
      */
