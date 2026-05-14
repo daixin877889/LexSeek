@@ -139,16 +139,8 @@
 
       <!-- 右侧：计算结果区 -->
       <div class="w-full lg:w-7/12">
-        <Card v-if="showResult" class="shadow-none border">
-          <CardHeader>
-            <div class="flex justify-between items-center">
-              <CardTitle>计算结果</CardTitle>
-              <Button variant="outline" @click="exportToExcel" class="flex items-center gap-1">
-                <span>导出Excel</span>
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
+        <ToolsResultCard v-if="showResult" title="计算结果" @export="exportToExcel">
+          <template #extra-accordion>
             <Accordion type="single" collapsible class="w-full space-y-2">
               <!-- 工作年限计算 -->
               <AccordionItem value="work-years">
@@ -209,16 +201,16 @@
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
-
-            <!-- 总计 -->
-            <Alert variant="success" class="mt-4 border border-primary block">
+          </template>
+          <template #footer>
+            <Alert variant="success" class="border border-primary block">
               <div class="flex justify-between items-center">
                 <span class="text-lg font-bold">{{ isCompensation ? "经济补偿金：" : "经济赔偿金：" }}</span>
                 <span class="text-lg font-bold">{{ formatCurrency(totalAmount) }}元</span>
               </div>
             </Alert>
-          </CardContent>
-        </Card>
+          </template>
+        </ToolsResultCard>
 
         <div v-if="!showResult" class="h-full flex items-center justify-center rounded-lg border border-dashed p-8">
           <div class="text-center">
@@ -244,6 +236,7 @@
 <script setup>
 import ToolsCalculatorPageHeader from '~/components/tools/CalculatorPageHeader.vue'
 import ToolsDateInput from '~/components/tools/DateInput.vue'
+import ToolsResultCard from '~/components/tools/ResultCard.vue'
 import toast from '#shared/utils/toast'
 import { useAlertDialogStore } from '~/store/alertDialog'
 definePageMeta({

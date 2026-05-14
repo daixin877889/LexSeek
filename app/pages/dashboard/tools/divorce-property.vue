@@ -238,11 +238,8 @@
 
       <!-- 右侧：计算结果区 -->
       <div class="w-full lg:w-7/12">
-        <Card v-if="result" class="shadow-none border">
-          <CardHeader>
-            <CardTitle>财产分割结果</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <ToolsResultCard v-if="result" title="财产分割结果" :show-export="false">
+          <template #extra-accordion>
             <Accordion type="multiple" class="w-full space-y-2" :defaultValue="['overview', 'distribution']">
               <!-- 财产概览 -->
               <AccordionItem value="overview">
@@ -330,8 +327,8 @@
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
-          </CardContent>
-        </Card>
+          </template>
+        </ToolsResultCard>
 
         <div v-if="!result" class="h-full flex items-center justify-center rounded-lg border border-dashed p-8">
           <div class="text-center">
@@ -356,6 +353,7 @@
 
 <script setup>
 import ToolsCalculatorPageHeader from '~/components/tools/CalculatorPageHeader.vue'
+import ToolsResultCard from '~/components/tools/ResultCard.vue'
 import toast from '#shared/utils/toast'
 definePageMeta({
   title: "离婚财产分割计算器",

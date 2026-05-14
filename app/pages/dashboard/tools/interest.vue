@@ -248,18 +248,10 @@
 
       <!-- 右侧：结果显示区域 -->
       <div class="w-full lg:w-7/12">
-        <Card v-if="result" class="shadow-none border mb-6">
-          <CardHeader>
-            <div class="flex justify-between items-center">
-              <CardTitle>计算结果</CardTitle>
-              <Button variant="outline" @click="exportToExcel" class="flex items-center gap-1">
-                <span>导出Excel</span>
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
+        <ToolsResultCard v-if="result" title="计算结果" class="mb-6" @export="exportToExcel">
+          <template #summary>
             <!-- 计算说明提示 -->
-            <Alert v-if="result.pbocResult && result.lprResult" class="mb-4 block">
+            <Alert v-if="result.pbocResult && result.lprResult" class="block">
               <p class="mb-1">
                 <strong>计算说明：</strong>本次计算从<strong>{{ result.startDate }}</strong>开始，跨越LPR实施日期(2019-08-20)，系统自动分段计算：
               </p>
@@ -272,14 +264,14 @@
               <p class="text-xs text-muted-foreground mt-1">注：计算结果已包含所有历史利率调整</p>
             </Alert>
 
-            <Alert v-else-if="calculationType === 'custom'" class="mb-4 block">
+            <Alert v-else-if="calculationType === 'custom'" class="block">
               <p>
                 <strong>计算说明：</strong>本次使用自定义利率({{ customRate }}%)计算 <strong>{{ result.startDate }}</strong> 至 {{
                 result.endDate }} 期间的利息
               </p>
             </Alert>
 
-            <Alert v-else-if="calculationType === 'pboc'" class="mb-4 block">
+            <Alert v-else-if="calculationType === 'pboc'" class="block">
               <p>
                 <strong>计算说明：</strong>本次使用中国人民银行基准利率计算 <strong>{{ result.startDate }}</strong> 至 {{ result.endDate }}
                 期间的利息
@@ -287,7 +279,7 @@
               <p class="text-xs text-muted-foreground mt-1">注：利率数据包含2012年至今的所有基准利率变动</p>
             </Alert>
 
-            <Alert v-else-if="calculationType === 'lpr'" class="mb-4 block">
+            <Alert v-else-if="calculationType === 'lpr'" class="block">
               <p>
                 <strong>计算说明：</strong>本次使用LPR利率计算 <strong>{{ result.startDate }}</strong> 至 {{ result.endDate }} 期间的利息
               </p>
@@ -295,7 +287,7 @@
             </Alert>
 
             <!-- 结果概览 -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div class="space-y-2">
                 <div class="flex justify-between items-center">
                   <span>本金:</span>
@@ -322,6 +314,8 @@
               </div>
             </div>
 
+          </template>
+          <template #extra-accordion>
             <!-- 跨越LPR实施日期的分段显示 -->
             <div v-if="result.pbocResult && result.lprResult" class="space-y-4">
               <Accordion type="single" collapsible class="w-full">
@@ -402,7 +396,7 @@
             </div>
 
             <!-- 单一计算方法的结果显示 -->
-            <div v-else class="mt-4">
+            <div v-else>
               <Accordion type="single" collapsible class="w-full">
                 <AccordionItem value="details">
                   <AccordionTrigger>
@@ -452,8 +446,8 @@
                 </AccordionItem>
               </Accordion>
             </div>
-          </CardContent>
-        </Card>
+          </template>
+        </ToolsResultCard>
 
         <div v-if="!result" class="h-full flex items-center justify-center rounded-lg border border-dashed p-8">
           <div class="text-center">
@@ -479,6 +473,7 @@
 import ToolsCalculatorPageHeader from '~/components/tools/CalculatorPageHeader.vue'
 import ToolsDateInput from '~/components/tools/DateInput.vue'
 import ToolsMoneyInput from '~/components/tools/MoneyInput.vue'
+import ToolsResultCard from '~/components/tools/ResultCard.vue'
 import toast from '#shared/utils/toast'
 definePageMeta({
   title: "利息计算",

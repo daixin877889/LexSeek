@@ -296,34 +296,23 @@
 
       <!-- 右侧：计算结果区 -->
       <div class="w-full lg:w-7/12">
-        <Card v-if="result" class="shadow-none border">
-          <CardHeader>
-            <CardTitle>律师费用计算结果</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Alert variant="success" class="mb-4 border border-primary block">
+        <ToolsResultCard v-if="result" title="律师费用计算结果" :show-export="false">
+          <template #summary>
+            <Alert variant="success" class="border border-primary block">
               <div class="flex justify-between items-center">
                 <span class="text-lg font-bold">律师费用：</span>
                 <span class="text-lg font-bold">{{ formatCurrency(result.fee) }} 元</span>
               </div>
             </Alert>
-
-            <Accordion type="single" collapsible class="w-full">
-              <AccordionItem value="calculation-details">
-                <AccordionTrigger>
-                  <h3 class="text-lg font-semibold">计算明细</h3>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <div class="bg-muted/50 p-4 rounded text-sm">
-                    <div v-for="(detail, index) in result.details" :key="index" class="mb-1">
-                      {{ detail }}
-                    </div>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-          </CardContent>
-        </Card>
+          </template>
+          <template #details>
+            <div class="bg-muted/50 p-4 rounded text-sm">
+              <div v-for="(detail, index) in result.details" :key="index" class="mb-1">
+                {{ detail }}
+              </div>
+            </div>
+          </template>
+        </ToolsResultCard>
 
         <div v-if="!result" class="h-full flex items-center justify-center rounded-lg border border-dashed p-8">
           <div class="text-center">
@@ -361,6 +350,7 @@
 
 <script setup>
 import ToolsCalculatorPageHeader from '~/components/tools/CalculatorPageHeader.vue'
+import ToolsResultCard from '~/components/tools/ResultCard.vue'
 definePageMeta({
   title: "律师费用计算",
   layout: "dashboard-layout",

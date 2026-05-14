@@ -70,19 +70,11 @@
 
       <!-- 右侧：结果显示区域 -->
       <div class="w-full lg:w-7/12">
-        <Card v-if="result" class="shadow-none border">
-          <CardHeader>
-            <div class="flex justify-between items-center">
-              <CardTitle>计算结果</CardTitle>
-              <Button variant="outline" @click="exportToExcel" class="flex items-center gap-1">
-                <span>导出Excel</span>
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
+        <ToolsResultCard v-if="result" title="计算结果" @export="exportToExcel">
+          <template #summary>
             <!-- 计算说明提示 -->
             <Alert v-if="result.details && result.details.length > 0 && result.details[2]?.includes('跨越')"
-              class="mb-4 block">
+              class="block">
               <p class="mb-1">
                 <strong>计算说明：</strong>本次计算从<strong>{{ result.startDate }}</strong>开始，跨越了2019年8月20日的利率政策变更点，系统自动分段计算：
               </p>
@@ -95,7 +87,7 @@
               <p class="text-xs text-muted-foreground mt-1">注：根据《最高人民法院关于审理民间借贷案件适用法律若干问题的规定》进行计算</p>
             </Alert>
 
-            <Alert v-else class="mb-4 block">
+            <Alert v-else class="block">
               <p>
                 <strong>计算说明：</strong>
                 本次计算使用
@@ -106,7 +98,7 @@
             </Alert>
 
             <!-- 结果概览 -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div class="space-y-2">
                 <div class="flex justify-between items-center">
                   <span>本金:</span>
@@ -133,6 +125,8 @@
               </div>
             </div>
 
+          </template>
+          <template #extra-accordion>
             <!-- 详细结果 -->
             <Accordion type="single" collapsible class="w-full">
               <!-- 计息明细 -->
@@ -230,8 +224,8 @@
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
-          </CardContent>
-        </Card>
+          </template>
+        </ToolsResultCard>
 
         <!-- 空状态 -->
         <div v-if="!result" class="h-full flex items-center justify-center rounded-lg border border-dashed p-8">
@@ -259,6 +253,7 @@
 import ToolsCalculatorPageHeader from '~/components/tools/CalculatorPageHeader.vue'
 import ToolsDateInput from '~/components/tools/DateInput.vue'
 import ToolsMoneyInput from '~/components/tools/MoneyInput.vue'
+import ToolsResultCard from '~/components/tools/ResultCard.vue'
 import toast from '#shared/utils/toast'
 definePageMeta({
   title: "延迟履行利息",

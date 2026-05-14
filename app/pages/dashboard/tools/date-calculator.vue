@@ -98,11 +98,8 @@
 
       <!-- 右侧：推算结果区 -->
       <div class="w-full lg:w-7/12">
-        <Card v-if="result" class="shadow-none border">
-          <CardHeader>
-            <CardTitle>推算结果</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <ToolsResultCard v-if="result" title="推算结果" :show-export="false">
+          <template #summary>
             <Alert class="block">
               <div class="flex justify-between items-center mb-1">
                 <span>起始日期：</span>
@@ -113,28 +110,25 @@
                 <span class="font-semibold">{{ result.endDate }}</span>
               </div>
             </Alert>
-
-            <Alert variant="success" class="mt-4 border border-primary block">
+            <Alert variant="success" class="border border-primary block">
               <div class="flex justify-between items-center">
                 <span class="font-bold">{{ result.details }}</span>
               </div>
             </Alert>
-
-            <div v-if="result.resultDate" class="mt-4 p-4 bg-muted/30 rounded">
+            <div v-if="result.resultDate" class="p-4 bg-muted/30 rounded">
               <div class="flex justify-between items-center">
                 <span>结果日期：</span>
                 <span class="font-semibold">{{ result.resultDate }}</span>
               </div>
             </div>
-
-            <div v-if="result.workingDays !== undefined" class="mt-4 p-4 bg-muted/30 rounded">
+            <div v-if="result.workingDays !== undefined" class="p-4 bg-muted/30 rounded">
               <div class="flex justify-between items-center">
                 <span>工作日天数：</span>
                 <span class="font-semibold">{{ result.workingDays }} 天</span>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </template>
+        </ToolsResultCard>
 
         <div v-if="!result" class="h-full flex items-center justify-center rounded-lg border border-dashed p-8">
           <div class="text-center">
@@ -160,6 +154,7 @@
 <script setup>
 import ToolsCalculatorPageHeader from '~/components/tools/CalculatorPageHeader.vue'
 import ToolsDateInput from '~/components/tools/DateInput.vue'
+import ToolsResultCard from '~/components/tools/ResultCard.vue'
 definePageMeta({
   title: "日期推算",
   layout: "dashboard-layout",

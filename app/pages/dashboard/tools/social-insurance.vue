@@ -223,12 +223,9 @@
 
       <!-- 右侧：计算结果区 -->
       <div class="w-full lg:w-7/12">
-        <Card v-if="result" class="shadow-none border">
-          <CardHeader>
-            <CardTitle>追缴金额计算结果</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Alert class="mb-4 block">
+        <ToolsResultCard v-if="result" title="追缴金额计算结果" :show-export="false">
+          <template #summary>
+            <Alert class="block">
               <div class="flex justify-between items-center mb-1">
                 <span>月工资：</span>
                 <span class="font-semibold">{{ formatCurrency(monthlySalary) }} 元</span>
@@ -242,14 +239,14 @@
                 <span class="font-semibold">{{ calculatedWithEmployerPart ? "包含单位部分" : "仅计算个人部分" }}</span>
               </div>
             </Alert>
-
-            <Alert variant="success" class="mb-4 border border-primary block">
+            <Alert variant="success" class="border border-primary block">
               <div class="flex justify-between items-center">
                 <span class="text-lg font-bold">追缴总额：</span>
                 <span class="text-lg font-bold">{{ formatCurrency(calculatedTotalAmount) }} 元</span>
               </div>
             </Alert>
-
+          </template>
+          <template #extra-accordion>
             <Accordion type="single" collapsible class="w-full space-y-2">
               <!-- 个人缴纳部分 -->
               <AccordionItem value="employee-part">
@@ -396,8 +393,8 @@
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
-          </CardContent>
-        </Card>
+          </template>
+        </ToolsResultCard>
 
         <div v-if="!result" class="h-full flex items-center justify-center rounded-lg border border-dashed p-8">
           <div class="text-center">
@@ -422,6 +419,7 @@
 
 <script setup>
 import ToolsCalculatorPageHeader from '~/components/tools/CalculatorPageHeader.vue'
+import ToolsResultCard from '~/components/tools/ResultCard.vue'
 definePageMeta({
   title: "社保追缴计算器",
   layout: "dashboard-layout",
