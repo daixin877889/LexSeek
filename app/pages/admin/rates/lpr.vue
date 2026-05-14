@@ -10,6 +10,8 @@
             </Button>
         </div>
 
+        <LPRSyncStatusCard @synced="loadList" />
+
         <Card>
             <Table>
                 <TableHeader>
@@ -29,7 +31,8 @@
                         <TableCell class="text-muted-foreground">{{ row.remark || '—' }}</TableCell>
                         <TableCell class="text-right space-x-2">
                             <Button variant="ghost" size="sm" @click="openEdit(row)">编辑</Button>
-                            <Button variant="ghost" size="sm" class="text-destructive" @click="confirmDelete(row)">删除</Button>
+                            <Button variant="ghost" size="sm" class="text-destructive"
+                                @click="confirmDelete(row)">删除</Button>
                         </TableCell>
                     </TableRow>
                     <TableRow v-if="rows.length === 0">
@@ -44,6 +47,7 @@
 </template>
 
 <script setup lang="ts">
+import LPRSyncStatusCard from '~/components/admin/rates/LPRSyncStatusCard.vue'
 import { Card } from '~/components/ui/card'
 import { Button } from '~/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '~/components/ui/table'
@@ -53,7 +57,7 @@ import { useAlertDialogStore } from '~/store/alertDialog'
 import LPRFormDialog from '~/components/admin/rates/LPRFormDialog.vue'
 import type { LPRRate } from '#shared/types/tools'
 
-definePageMeta({ layout: 'admin-layout' })
+definePageMeta({ layout: 'admin-layout', title: 'LPR 利率' })
 
 interface Row extends LPRRate { id: number; remark?: string }
 
