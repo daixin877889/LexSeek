@@ -4,6 +4,7 @@
  * 从全国银行间同业拆借中心（chinamoney.com.cn）公开接口拉取最新 LPR 数据，
  * 解析后入库 lpr_rates，并把每次执行结果记入 lpr_sync_logs。
  */
+import type { $Fetch } from 'ofetch'
 
 /** chinamoney API 响应结构 */
 export interface ChinamoneyLPRResponse {
@@ -34,7 +35,8 @@ export async function fetchLPRFromChinamoneyService(opts: {
     const fmt = (d: Date) => d.toISOString().slice(0, 10)
     const url = `https://www.chinamoney.com.cn/ags/ms/cm-u-bk-currency/LprHis?lang=CN&strStartDate=${fmt(opts.rangeStart)}&strEndDate=${fmt(opts.rangeEnd)}`
 
-    const response = await $fetch<ChinamoneyLPRResponse>(url, {
+    // 通过 globalThis 动态取，确保测试时 vi.stubGlobal 的 mock 能生效
+    const response = await (globalThis.$fetch as $Fetch)<ChinamoneyLPRResponse>(url, {
         method: 'POST',
         headers: {
             Accept: 'application/json, text/javascript, */*; q=0.01',
