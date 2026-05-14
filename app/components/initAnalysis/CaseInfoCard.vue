@@ -17,15 +17,15 @@
       -->
       <div class="flex flex-wrap gap-x-8 gap-y-2 text-sm">
         <!-- 标题（独占整行） -->
-        <div class="basis-full flex gap-4 items-baseline">
-          <span class="w-16 shrink-0 text-muted-foreground">标题</span>
+        <div class="basis-full flex gap-3 items-baseline">
+          <span class="w-14 shrink-0 text-muted-foreground">标题</span>
           <Input v-if="isEditing" v-model="editForm.title" class="h-7 text-sm flex-1" />
           <span v-else class="font-bold text-foreground flex-1 min-w-0">{{ caseInfo.title }}</span>
         </div>
 
         <!-- 类型（仅展示态显示，案件创建后不允许改） -->
         <div v-if="!isEditing && caseInfo.caseType" class="flex gap-3 items-baseline">
-          <span class="w-16 shrink-0 text-muted-foreground">类型</span>
+          <span class="w-14 shrink-0 text-muted-foreground">类型</span>
           <span class="text-foreground">{{ caseInfo.caseType.name }}</span>
         </div>
 
@@ -38,8 +38,8 @@
         </div>
 
         <!-- 状态（编辑态，独占一行让 Select 够宽） -->
-        <div v-if="isEditing" class="basis-full flex gap-4 items-baseline">
-          <span class="w-16 shrink-0 text-muted-foreground">状态</span>
+        <div v-if="isEditing" class="basis-full flex gap-3 items-baseline">
+          <span class="w-14 shrink-0 text-muted-foreground">状态</span>
           <Select
             :model-value="String(editForm.status)"
             @update:model-value="(v: any) => editForm.status = Number(v)"
@@ -64,14 +64,14 @@
         </div>
 
         <!-- 分析立场（编辑态，独占一行让 ToggleGroup 完整显示） -->
-        <div v-if="isEditing" class="basis-full flex gap-4 items-center">
-          <span class="w-16 shrink-0 text-muted-foreground">分析立场</span>
+        <div v-if="isEditing" class="basis-full flex gap-3 items-center">
+          <span class="w-14 shrink-0 text-muted-foreground">分析立场</span>
           <StanceToggleGroup v-model="editForm.stance" />
         </div>
 
         <!-- 原告（独占整行） -->
-        <div v-if="isEditing || plaintiffNames.length > 0" class="basis-full flex gap-4 items-baseline">
-          <span class="w-16 shrink-0 text-muted-foreground">原告</span>
+        <div v-if="isEditing || plaintiffNames.length > 0" class="basis-full flex gap-3 items-baseline">
+          <span class="w-14 shrink-0 text-muted-foreground">原告</span>
           <div v-if="isEditing" class="flex flex-wrap gap-1.5 items-center flex-1">
             <Badge v-for="(name, i) in editForm.plaintiff" :key="name" variant="outline"
               class="font-normal px-2 py-0 h-5 text-[11px] border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-400 gap-1">
@@ -98,8 +98,8 @@
         </div>
 
         <!-- 被告（独占整行） -->
-        <div v-if="isEditing || defendantNames.length > 0" class="basis-full flex gap-4 items-baseline">
-          <span class="w-16 shrink-0 text-muted-foreground">被告</span>
+        <div v-if="isEditing || defendantNames.length > 0" class="basis-full flex gap-3 items-baseline">
+          <span class="w-14 shrink-0 text-muted-foreground">被告</span>
           <div v-if="isEditing" class="flex flex-wrap gap-1.5 items-center flex-1">
             <Badge v-for="(name, i) in editForm.defendant" :key="name" variant="outline"
               class="font-normal px-2 py-0 h-5 text-[11px] border-orange-300 text-orange-700 dark:border-orange-700 dark:text-orange-400 gap-1">
@@ -126,13 +126,13 @@
         </div>
 
         <!-- 法院（独占整行） -->
-        <div v-if="!isEditing && caseInfo.courtName" class="basis-full flex gap-4 items-baseline">
-          <span class="w-16 shrink-0 text-muted-foreground">法院</span>
+        <div v-if="!isEditing && caseInfo.courtName" class="basis-full flex gap-3 items-baseline">
+          <span class="w-14 shrink-0 text-muted-foreground">法院</span>
           <span class="text-foreground">{{ caseInfo.courtName }}</span>
         </div>
 
-        <div v-if="isEditing" class="basis-full flex gap-4 items-baseline">
-          <span class="w-16 shrink-0 text-muted-foreground">法院</span>
+        <div v-if="isEditing" class="basis-full flex gap-3 items-baseline">
+          <span class="w-14 shrink-0 text-muted-foreground">法院</span>
           <Input v-model="editForm.courtName" class="h-7 text-sm flex-1" placeholder="如：北京市朝阳区人民法院" />
         </div>
 
@@ -162,27 +162,27 @@
 
         <!-- 一审 / 二审 案号 + 法官（编辑态，2x2 紧凑栅格） -->
         <div v-if="isEditing" class="basis-full grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2">
-          <div class="flex gap-4 items-baseline">
-            <span class="w-16 shrink-0 text-muted-foreground">一审案号</span>
+          <div class="flex gap-3 items-baseline">
+            <span class="w-14 shrink-0 text-muted-foreground">一审案号</span>
             <Input v-model="editForm.firstInstanceCaseNo" class="h-7 text-sm flex-1" />
           </div>
-          <div class="flex gap-4 items-baseline">
-            <span class="w-16 shrink-0 text-muted-foreground">一审法官</span>
+          <div class="flex gap-3 items-baseline">
+            <span class="w-14 shrink-0 text-muted-foreground">一审法官</span>
             <Input v-model="editForm.firstInstanceJudge" class="h-7 text-sm flex-1" />
           </div>
-          <div class="flex gap-4 items-baseline">
-            <span class="w-16 shrink-0 text-muted-foreground">二审案号</span>
+          <div class="flex gap-3 items-baseline">
+            <span class="w-14 shrink-0 text-muted-foreground">二审案号</span>
             <Input v-model="editForm.secondInstanceCaseNo" class="h-7 text-sm flex-1" />
           </div>
-          <div class="flex gap-4 items-baseline">
-            <span class="w-16 shrink-0 text-muted-foreground">二审法官</span>
+          <div class="flex gap-3 items-baseline">
+            <span class="w-14 shrink-0 text-muted-foreground">二审法官</span>
             <Input v-model="editForm.secondInstanceJudge" class="h-7 text-sm flex-1" />
           </div>
         </div>
 
         <!-- 额外字段（独占整行） -->
-        <div v-for="field in caseInfo.extraFields" :key="field.name" class="basis-full flex gap-4 items-baseline">
-          <span class="w-16 shrink-0 text-muted-foreground">{{ field.title }}</span>
+        <div v-for="field in caseInfo.extraFields" :key="field.name" class="basis-full flex gap-3 items-baseline">
+          <span class="w-14 shrink-0 text-muted-foreground">{{ field.title }}</span>
           <span class="font-bold text-foreground">{{ field.value }}</span>
         </div>
       </div>
