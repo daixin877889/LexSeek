@@ -36,7 +36,7 @@ export function calculateCourtFee(
 /**
  * 计算受理费
  */
-function calculateCaseFee(feeType: CaseFeeType, amount: number = 0, options: CourtFeeOptions = {}): CourtFeeResult {
+function calculateCaseFee(feeType: CaseFeeType, amount: number, options: CourtFeeOptions): CourtFeeResult {
     let fee = 0
     const details: string[] = []
 
@@ -125,7 +125,7 @@ function calculateCaseFee(feeType: CaseFeeType, amount: number = 0, options: Cou
 /**
  * 计算申请费
  */
-function calculateApplicationFee(feeType: ApplicationFeeType, amount: number = 0, options: CourtFeeOptions = {}): CourtFeeResult {
+function calculateApplicationFee(feeType: ApplicationFeeType, amount: number, options: CourtFeeOptions): CourtFeeResult {
     let fee = 0
     const details: string[] = []
 
@@ -232,9 +232,10 @@ function getPropertyCaseFeeDetail(amount: number): string {
         return `计算公式：不超过1万元的，每件交纳50元`
     }
 
+    // 上方已 early return amount <= 10000，此处 amount 必 > 10000
     let details = '计算公式：'
 
-    if (amount > 10000) {
+    {
         if (amount <= 100000) {
             details += `50元 + (${amount} - 10000) × 2.5%`
         } else {
@@ -318,9 +319,10 @@ function getExecutionFeeDetail(amount: number): string {
         return `计算公式：不超过1万元的，每件交纳50元`
     }
 
+    // 上方已 early return amount <= 10000，此处 amount 必 > 10000
     let details = '计算公式：'
 
-    if (amount > 10000) {
+    {
         if (amount <= 500000) {
             details += `50元 + (${amount} - 10000) × 1%`
         } else {
@@ -347,7 +349,7 @@ function getExecutionFeeDetail(amount: number): string {
 /**
  * 计算海事案件申请费
  */
-function calculateMaritimeFee(maritimeType: MaritimeType | undefined, amount: number = 0): number {
+function calculateMaritimeFee(maritimeType: MaritimeType | undefined, amount: number): number {
     switch (maritimeType) {
         case 'fund': // 申请设立海事赔偿责任限制基金
             return Math.round(amount * 0.001)

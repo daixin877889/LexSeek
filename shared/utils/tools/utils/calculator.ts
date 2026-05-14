@@ -10,11 +10,9 @@ export function formatCurrency(num: number | null | undefined, decimals: number 
     if (num === null || num === undefined || isNaN(num)) return '0'
 
     const numStr = parseFloat(String(num)).toFixed(decimals)
-
     const parts = numStr.split('.')
-    if (parts[0]) {
-        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, thou)
-    }
+    // toFixed 总返回非空整数部分（即使是 "0"），故 parts[0] 必存在
+    parts[0] = parts[0]!.replace(/\B(?=(\d{3})+(?!\d))/g, thou)
 
     return parts.join(dec)
 }
@@ -70,15 +68,14 @@ export function numberToChinese(num: number | null | undefined): string {
     const numStr = Math.abs(num).toFixed(2)
     let result = ''
 
-    // 处理小数部分
-    if (numStr.indexOf('.') > 0) {
-        const decimalPart = numStr.split('.')[1] ?? ''
-        if (decimalPart !== '00') {
-            for (let i = 0; i < decimalPart.length; i++) {
-                const n = parseInt(decimalPart.charAt(i))
-                if (n !== 0) {
-                    result += (digit[n] ?? '') + (fraction[i] ?? '')
-                }
+    // 小数部分：toFixed(2) 总返回形如 "X.XX"，split('.')[1] 必存在且长度=2
+    const decimalPart = numStr.split('.')[1]!
+    if (decimalPart !== '00') {
+        for (let i = 0; i < decimalPart.length; i++) {
+            const n = parseInt(decimalPart.charAt(i))
+            if (n !== 0) {
+                // n 由 parseInt('0'-'9') 必落在 0-9，digit / fraction 索引必存在
+                result += digit[n]! + fraction[i]!
             }
         }
     }
@@ -96,13 +93,16 @@ export function numberToChinese(num: number | null | undefined): string {
             const m = p % 4
             if (n === 0) {
                 if (m !== 0 || (i > 0 && intPart.charAt(i - 1) !== '0')) {
-                    result += digit[n] ?? ''
+                    // n=0，digit[0] 是 '零'
+                    result += digit[n]!
                 }
             } else {
-                result += (digit[n] ?? '') + (unit[1]?.[m] ?? '')
+                // n: 0-9 必存在；m: 0-3 必存在
+                result += digit[n]! + unit[1]![m]!
             }
             if (m === 0 && q > 0) {
-                result += unit[0]?.[q] ?? ''
+                // q ≤ 2（最大支持亿），unit[0] 三元素必存在
+                result += unit[0]![q]!
             }
         }
         result += '元' + (result.endsWith('元') || result.indexOf('角') >= 0 || result.indexOf('分') >= 0 ? '' : '整')

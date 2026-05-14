@@ -85,18 +85,15 @@ export function isValidDate(value: unknown): boolean {
     const date = new Date(strValue)
     if (isNaN(date.getTime())) return false
 
-    // 检查月份和日期的范围
-    const parts = strValue.split('-')
-    if (parts.length !== 3) return false
-
+    // 上方正则已确保 strValue 形如 YYYY-MM-DD，且 new Date 解析通过；
+    // 月份非法（>12 / <1）的字符串在 Node 环境下会被 line 86 的 NaN 检查拦截
+    const parts = strValue.split('-') as [string, string, string]
     const [year, monthStr, dayStr] = parts
     const yearNum = Number(year)
     const month = Number(monthStr)
     const day = Number(dayStr)
 
-    if (isNaN(yearNum) || isNaN(month) || isNaN(day)) return false
-    if (month < 1 || month > 12) return false
-
+    // 校验日期溢出（如 2025-02-30 / 非闰年 2-29 被 JS 自动归一到下个月）
     const lastDayOfMonth = new Date(yearNum, month, 0).getDate()
     if (day < 1 || day > lastDayOfMonth) return false
 

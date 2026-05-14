@@ -317,4 +317,18 @@ describe('validateForm', () => {
         )
         expect(result.valid).toBe(true)
     })
+
+    it('validateForm 非必填字段为空时应跳过类型校验（覆盖 line 129 false 分支）', () => {
+        // rule.required=false 且 value=空 → 进入 line 129 的 if (!isEmpty(value)) false 分支
+        const result = validateForm(
+            { email: '', age: '' },
+            {
+                email: { type: 'number' as any },   // 非必填，空值
+                age: { required: false, type: 'integer' as any }
+            }
+        )
+        expect(result.valid).toBe(true)
+        expect(result.errors.email).toBeUndefined()
+        expect(result.errors.age).toBeUndefined()
+    })
 })

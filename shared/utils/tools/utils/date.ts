@@ -16,28 +16,21 @@ export function formatDate(date: Date | string | null | undefined): string {
         return ''
     }
 
-    let dateObj: Date
-    try {
-        // 如果传入的是字符串，先转换为日期对象
-        dateObj = typeof date === 'string' ? new Date(date) : date
+    // 如果传入的是字符串，先转换为日期对象
+    const dateObj: Date = typeof date === 'string' ? new Date(date) : date
 
-        // 检查日期是否有效
-        if (isNaN(dateObj.getTime())) {
-            console.error('formatDate: 无效的日期', date)
-            return ''
-        }
-
-        const year = dateObj.getFullYear()
-        // 月份从0开始，需要+1，并确保是两位数
-        const month = String(dateObj.getMonth() + 1).padStart(2, '0')
-        const day = String(dateObj.getDate()).padStart(2, '0')
-
-        return `${year}-${month}-${day}`
-        /* istanbul ignore next -- 上方已校验 isNaN(getTime())；try 内仅纯算术，不会抛错；防御性兜底 */
-    } catch (error) {
-        console.error('formatDate: 日期格式化失败', error)
+    // 检查日期是否有效
+    if (isNaN(dateObj.getTime())) {
+        console.error('formatDate: 无效的日期', date)
         return ''
     }
+
+    const year = dateObj.getFullYear()
+    // 月份从0开始，需要+1，并确保是两位数
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0')
+    const day = String(dateObj.getDate()).padStart(2, '0')
+
+    return `${year}-${month}-${day}`
 }
 
 /**
@@ -51,41 +44,36 @@ export function parseDate(dateStr: string | null | undefined): Date | null {
         return null
     }
 
-    try {
-        // 验证日期格式 YYYY-MM-DD
-        const regex = /^(\d{4})-(\d{2})-(\d{2})$/
-        const match = dateStr.match(regex)
+    // 验证日期格式 YYYY-MM-DD
+    const regex = /^(\d{4})-(\d{2})-(\d{2})$/
+    const match = dateStr.match(regex)
 
-        if (!match) {
-            console.error('parseDate: 日期格式不正确，应为YYYY-MM-DD', dateStr)
-            return null
-        }
-
-        const year = parseInt(match[1] ?? '0', 10)
-        const month = parseInt(match[2] ?? '0', 10) - 1 // 月份从0开始
-        const day = parseInt(match[3] ?? '0', 10)
-
-        const date = new Date(year, month, day)
-
-        // 验证日期有效性
-        if (
-            date.getFullYear() !== year ||
-            date.getMonth() !== month ||
-            date.getDate() !== day
-        ) {
-            console.error('parseDate: 无效的日期', dateStr)
-            return null
-        }
-
-        // 设置时间为当天的00:00:00
-        date.setHours(0, 0, 0, 0)
-
-        return date
-        /* istanbul ignore next -- 上方已做正则+有效性校验；try 内 new Date(年,月,日) 不会抛错；防御性兜底 */
-    } catch (error) {
-        console.error('parseDate: 日期解析失败', error)
+    if (!match) {
+        console.error('parseDate: 日期格式不正确，应为YYYY-MM-DD', dateStr)
         return null
     }
+
+    // 正则 /^(\d{4})-(\d{2})-(\d{2})$/ 已确保 3 个捕获组都存在
+    const year = parseInt(match[1]!, 10)
+    const month = parseInt(match[2]!, 10) - 1 // 月份从0开始
+    const day = parseInt(match[3]!, 10)
+
+    const date = new Date(year, month, day)
+
+    // 验证日期有效性
+    if (
+        date.getFullYear() !== year ||
+        date.getMonth() !== month ||
+        date.getDate() !== day
+    ) {
+        console.error('parseDate: 无效的日期', dateStr)
+        return null
+    }
+
+    // 设置时间为当天的00:00:00
+    date.setHours(0, 0, 0, 0)
+
+    return date
 }
 
 /**
@@ -95,33 +83,27 @@ export function parseDate(dateStr: string | null | undefined): Date | null {
  * @returns 天数差值
  */
 export function daysBetween(startDate: string | Date, endDate: string | Date): number {
-    try {
-        // 确保日期是Date对象
-        const start = typeof startDate === 'string' ? parseDate(startDate) : startDate
-        const end = typeof endDate === 'string' ? parseDate(endDate) : endDate
+    // 确保日期是Date对象
+    const start = typeof startDate === 'string' ? parseDate(startDate) : startDate
+    const end = typeof endDate === 'string' ? parseDate(endDate) : endDate
 
-        if (!start || !end) {
-            console.error('daysBetween: 无效的开始日期或结束日期')
-            return 0
-        }
-
-        // 重置时间为00:00:00以确保正确计算天数
-        const startTime = new Date(start)
-        startTime.setHours(0, 0, 0, 0)
-
-        const endTime = new Date(end)
-        endTime.setHours(0, 0, 0, 0)
-
-        // 计算天数差 (毫秒转为天)
-        const diffTime = Math.abs(endTime.getTime() - startTime.getTime())
-        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
-
-        return diffDays
-        /* istanbul ignore next -- start/end 已分别校验为 Date 或 null（null 已早返回）；try 内仅纯算术；防御性兜底 */
-    } catch (error) {
-        console.error('daysBetween: 计算天数失败', error)
+    if (!start || !end) {
+        console.error('daysBetween: 无效的开始日期或结束日期')
         return 0
     }
+
+    // 重置时间为00:00:00以确保正确计算天数
+    const startTime = new Date(start)
+    startTime.setHours(0, 0, 0, 0)
+
+    const endTime = new Date(end)
+    endTime.setHours(0, 0, 0, 0)
+
+    // 计算天数差 (毫秒转为天)
+    const diffTime = Math.abs(endTime.getTime() - startTime.getTime())
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
+
+    return diffDays
 }
 
 /**

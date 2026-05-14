@@ -156,9 +156,9 @@ function calculateCivilLawyerFee(
     amount: number,
     complexity: ComplexityType,
     regionCoefficient: number,
-    hasAppeal: boolean = false,
-    hasExecution: boolean = false,
-    stages: CivilStage[] = []
+    hasAppeal: boolean,
+    hasExecution: boolean,
+    stages: CivilStage[]
 ): number {
     let baseFee = 0
 
@@ -256,8 +256,8 @@ function getCivilFeeDescription(amount: number): string {
 function calculateCriminalLawyerFee(
     complexity: ComplexityType,
     regionCoefficient: number,
-    stages: CriminalStage[] = [],
-    caseDuration: number = 1
+    stages: CriminalStage[],
+    caseDuration: number
 ): number {
     let baseFee = getCriminalBaseFee(complexity)
 
@@ -313,7 +313,7 @@ function getCriminalBaseFee(complexity: ComplexityType): number {
 function calculateAdministrativeLawyerFee(
     type: LawyerAdministrativeType,
     regionCoefficient: number,
-    hasAppeal: boolean = false
+    hasAppeal: boolean
 ): number {
     let baseFee = getAdministrativeBaseFee(type)
 
@@ -364,9 +364,9 @@ function getConsultationHourlyRate(regionCoefficient: number): number {
  * 计算法律文书费用
  */
 function calculateDocumentFee(
-    documentType: DocumentType | undefined = 'contract',
+    documentType: DocumentType | undefined,
     regionCoefficient: number,
-    complexity: ComplexityType | undefined = 'medium'
+    complexity: ComplexityType | undefined
 ): number {
     let baseFee = 0
 
@@ -411,8 +411,8 @@ function calculateDocumentFee(
  * 计算商事法律服务费用
  */
 function calculateCommercialFee(
-    commercialType: CommercialType | undefined = 'contract_review',
-    amount: number = 0,
+    commercialType: CommercialType | undefined,
+    amount: number,
     regionCoefficient: number
 ): number {
     let baseFee = 0
@@ -531,10 +531,7 @@ function getAdministrativeTypeText(type: LawyerAdministrativeType): string {
  * 获取代理阶段文本
  */
 function getStagesText(stages: (CivilStage | CriminalStage)[]): string {
-    if (!stages || stages.length === 0) {
-        return '全程代理'
-    }
-
+    // 调用方 calculateLawyerFee 已通过 `if (stages && stages.length > 0)` 守卫，此处 stages 必非空
     const stageTexts: Record<string, string> = {
         'preparation': '准备阶段',
         'evidence': '举证阶段',

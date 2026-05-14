@@ -7,7 +7,8 @@ import { describe, it, expect } from 'vitest'
 import {
     formatCurrency,
     calculateInterest,
-    numberToChinese
+    numberToChinese,
+    formatRMB,
 } from '#shared/utils/tools/utils/calculator'
 
 describe('formatCurrency', () => {
@@ -122,5 +123,57 @@ describe('numberToChinese', () => {
     it('应正确处理多位小数金额', () => {
         // 触发 digit[n] 的 ?? 分支和 fraction[i] 的 ?? 分支
         expect(numberToChinese(1.01)).toBe('壹分壹元')
+    })
+})
+
+describe('formatRMB（人民币千分位 zh-CN 格式）', () => {
+    it('null 应返回 0', () => {
+        expect(formatRMB(null)).toBe('0')
+    })
+
+    it('undefined 应返回 0', () => {
+        expect(formatRMB(undefined)).toBe('0')
+    })
+
+    it('NaN 应返回 0（数字直接传入）', () => {
+        expect(formatRMB(NaN)).toBe('0')
+    })
+
+    it('无法解析的字符串应返回 0', () => {
+        expect(formatRMB('abc')).toBe('0')
+    })
+
+    it('应格式化整数千分位（默认不强制小数位）', () => {
+        expect(formatRMB(1000)).toBe('1,000')
+        expect(formatRMB(1234567)).toBe('1,234,567')
+    })
+
+    it('应正确格式化字符串数字', () => {
+        expect(formatRMB('1234.56')).toBe('1,234.56')
+    })
+
+    it('指定 decimals=2 应强制两位小数', () => {
+        expect(formatRMB(1234, 2)).toBe('1,234.00')
+        expect(formatRMB(1234.5, 2)).toBe('1,234.50')
+        expect(formatRMB(1234.567, 2)).toBe('1,234.57')
+    })
+
+    it('指定 decimals=0 应不显示小数位', () => {
+        expect(formatRMB(1234.56, 0)).toBe('1,235')
+    })
+})
+
+describe('calculateInterest 默认参数', () => {
+    it('省略 yearDays 应使用默认 365', () => {
+        // 覆盖 line 51 default-arg
+        const interest = calculateInterest(10000, 5, 365)
+        expect(interest).toBeCloseTo(500, 0)
+    })
+})
+
+describe('formatCurrency 边界：整数部分为空（小数位较多）', () => {
+    it('numStr 整数部分为 "0" 应正常处理', () => {
+        // 覆盖 line 15 if (parts[0]) true 分支（"0" 是 truthy）
+        expect(formatCurrency(0.5)).toBe('0.50')
     })
 })

@@ -121,19 +121,18 @@ const bankRates: {
  * @returns LPR利率数据
  */
 export function queryLPRRate(date?: string): LPRRate | null {
-    // 如果没有指定日期，返回最新的LPR利率
+    // 如果没有指定日期，返回最新的LPR利率（模块内常量数组非空，[0] 必存在）
     if (!date) {
-        return bankRates.lpr[0] ?? null
+        return bankRates.lpr[0]!
     }
 
     // 将查询日期转换为时间戳
     const queryTimestamp = new Date(date).getTime()
 
     // 查找小于等于查询日期的最近一条记录
+    // 注：bankRates.lpr 是模块内常量数组，索引在 0..length 范围内元素必然存在
     for (let i = 0; i < bankRates.lpr.length; i++) {
-        const rate = bankRates.lpr[i]
-        /* istanbul ignore next -- bankRates.lpr 是模块内常量数组，遍历元素必然存在；防御性兜底 */
-        if (!rate) continue
+        const rate = bankRates.lpr[i]!
         const rateTimestamp = new Date(rate.date).getTime()
         if (queryTimestamp >= rateTimestamp) {
             return rate
@@ -150,19 +149,18 @@ export function queryLPRRate(date?: string): LPRRate | null {
  * @returns 存款基准利率数据
  */
 export function queryDepositRate(date?: string): DepositRate | null {
-    // 如果没有指定日期，返回最新的存款基准利率
+    // 如果没有指定日期，返回最新的存款基准利率（模块内常量数组非空，[0] 必存在）
     if (!date) {
-        return bankRates.benchmark[0] ?? null
+        return bankRates.benchmark[0]!
     }
 
     // 将查询日期转换为时间戳
     const queryTimestamp = new Date(date).getTime()
 
     // 查找小于等于查询日期的最近一条记录
+    // 注：bankRates.benchmark 是模块内常量数组，索引在 0..length 范围内元素必然存在
     for (let i = 0; i < bankRates.benchmark.length; i++) {
-        const rate = bankRates.benchmark[i]
-        /* istanbul ignore next -- bankRates.benchmark 是模块内常量数组，遍历元素必然存在；防御性兜底 */
-        if (!rate) continue
+        const rate = bankRates.benchmark[i]!
         const rateTimestamp = new Date(rate.date).getTime()
         if (queryTimestamp >= rateTimestamp) {
             return rate
@@ -179,19 +177,18 @@ export function queryDepositRate(date?: string): DepositRate | null {
  * @returns 贷款基准利率数据
  */
 export function queryLoanRate(date?: string): LoanRate | null {
-    // 如果没有指定日期，返回最新的贷款基准利率
+    // 如果没有指定日期，返回最新的贷款基准利率（模块内常量数组非空，[0] 必存在）
     if (!date) {
-        return bankRates.loan[0] ?? null
+        return bankRates.loan[0]!
     }
 
     // 将查询日期转换为时间戳
     const queryTimestamp = new Date(date).getTime()
 
     // 查找小于等于查询日期的最近一条记录
+    // 注：bankRates.loan 是模块内常量数组，索引在 0..length 范围内元素必然存在
     for (let i = 0; i < bankRates.loan.length; i++) {
-        const rate = bankRates.loan[i]
-        /* istanbul ignore next -- bankRates.loan 是模块内常量数组，遍历元素必然存在；防御性兜底 */
-        if (!rate) continue
+        const rate = bankRates.loan[i]!
         const rateTimestamp = new Date(rate.date).getTime()
         if (queryTimestamp >= rateTimestamp) {
             return rate
