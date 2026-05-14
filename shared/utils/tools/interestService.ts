@@ -15,46 +15,13 @@ import type {
     InterestDetail,
     AdjustmentMethod
 } from '#shared/types/tools'
+import { getLPRRates } from '#shared/utils/tools/data'
 import { daysBetween, formatDate } from './utils/date'
 import { logger } from '#shared/utils/logger'
 
 
-// 利率数据 (从interest.sql导入的数据)
-const interestRates: InterestRateData[] = [
-    // LPR利率 (type=2)
-    // 1年期LPR (period=1)
-    { sTime: '2019-08-20', rate: 4.25, type: 2, period: 1 },
-    { sTime: '2019-09-20', rate: 4.2, type: 2, period: 1 },
-    { sTime: '2019-11-20', rate: 4.15, type: 2, period: 1 },
-    { sTime: '2020-02-20', rate: 4.05, type: 2, period: 1 },
-    { sTime: '2020-04-20', rate: 3.85, type: 2, period: 1 },
-    { sTime: '2021-12-20', rate: 3.8, type: 2, period: 1 },
-    { sTime: '2022-01-20', rate: 3.7, type: 2, period: 1 },
-    { sTime: '2022-08-22', rate: 3.65, type: 2, period: 1 },
-    { sTime: '2023-06-20', rate: 3.55, type: 2, period: 1 },
-    { sTime: '2023-08-21', rate: 3.45, type: 2, period: 1 },
-    { sTime: '2023-09-20', rate: 3.45, type: 2, period: 1 },
-    { sTime: '2024-07-20', rate: 3.35, type: 2, period: 1 },
-    { sTime: '2024-10-21', rate: 3.10, type: 2, period: 1 },
-    { sTime: '2025-05-20', rate: 3.00, type: 2, period: 1 },
-    { sTime: '2025-06-20', rate: 3.00, type: 2, period: 1 },
-    { sTime: '2025-07-21', rate: 3.00, type: 2, period: 1 },
-    // 5年期以上LPR (period=2)
-    { sTime: '2019-08-20', rate: 4.85, type: 2, period: 2 },
-    { sTime: '2019-11-20', rate: 4.8, type: 2, period: 2 },
-    { sTime: '2020-02-20', rate: 4.75, type: 2, period: 2 },
-    { sTime: '2020-04-20', rate: 4.65, type: 2, period: 2 },
-    { sTime: '2022-01-20', rate: 4.6, type: 2, period: 2 },
-    { sTime: '2022-05-20', rate: 4.45, type: 2, period: 2 },
-    { sTime: '2022-08-22', rate: 4.3, type: 2, period: 2 },
-    { sTime: '2023-06-20', rate: 4.2, type: 2, period: 2 },
-    { sTime: '2023-08-21', rate: 4.2, type: 2, period: 2 },
-    { sTime: '2024-02-20', rate: 3.95, type: 2, period: 2 },
-    { sTime: '2024-07-22', rate: 3.85, type: 2, period: 2 },
-    { sTime: '2024-10-21', rate: 3.60, type: 2, period: 2 },
-    { sTime: '2025-05-20', rate: 3.50, type: 2, period: 2 },
-    { sTime: '2025-06-20', rate: 3.50, type: 2, period: 2 },
-    { sTime: '2025-07-21', rate: 3.50, type: 2, period: 2 },
+// 中国人民银行基准利率数据 (type=1)
+const pbocRates: InterestRateData[] = [
     // 中国人民银行基准利率 (type=1)
     // 六个月以内 (period=1)
     { sTime: '1991-04-21', rate: 8.1, type: 1, period: 1 },
@@ -268,17 +235,44 @@ const interestRates: InterestRateData[] = [
 ]
 
 /**
+ * 将 LPRRate 格式转换为 InterestRateData 格式
+ * - period=1：1年期 LPR（oneYear）
+ * - period=2：5年期以上 LPR（fiveYear）
+ * - 其他 period：返回空数组（无效期限）
+ */
+function lprRatesToInterestRateData(period: number): InterestRateData[] {
+    if (period !== 1 && period !== 2) {
+        return []
+    }
+    // getLPRRates() 返回按日期降序排列，转换为升序
+    const lprRates = [...getLPRRates()].sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    )
+    return lprRates.map(r => ({
+        sTime: r.date,
+        rate: period === 1 ? r.oneYear : r.fiveYear,
+        type: 2,
+        period
+    }))
+}
+
+/**
  * 获取利率数据
  * @param type 类型（1：基准利率，2：LPR）
  * @param period 期限
- * @returns 利率数据
+ * @returns 利率数据（按日期升序排列）
  */
 export function getInterestRates(type: number | string, period: number | string): InterestRateData[] {
-    // 确保将type和period转换为数字类型
     const numType = Number(type)
     const numPeriod = Number(period)
 
-    return interestRates.filter(rate => rate.type === numType && rate.period === numPeriod)
+    // LPR 数据从 data 层动态读取
+    if (numType === 2) {
+        return lprRatesToInterestRateData(numPeriod)
+    }
+
+    // PBOC 基准利率从本地常量读取
+    return pbocRates.filter(rate => rate.type === numType && rate.period === numPeriod)
         .sort((a, b) => new Date(a.sTime).getTime() - new Date(b.sTime).getTime())
 }
 
