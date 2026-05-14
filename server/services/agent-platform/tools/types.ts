@@ -7,6 +7,10 @@
 
 import { tool, type StructuredTool } from '@langchain/core/tools'
 import type { ZodObject, ZodType, z } from 'zod'
+import type { ToolContext, ToolDefinition, ToolModule } from '#shared/types/agentTools'
+
+/** @deprecated 已迁至 shared/types/agentTools.ts，此文件保留兼容旧引用 */
+export type { ToolContext, ToolDefinition, ToolModule } from '#shared/types/agentTools'
 
 /** 工具参数定义（用于 API 返回） */
 export interface ToolParameter {
@@ -30,46 +34,6 @@ export interface ToolMeta {
     description: string
     /** 参数定义列表 */
     parameters: ToolParameter[]
-}
-
-/** 工具上下文（运行时注入） */
-export interface ToolContext {
-    /** 用户 ID */
-    userId: number
-    /**
-     * 案件 ID
-     *
-     * case 域场景必填；assistant 域（通用问答）无案件上下文时可缺省。
-     * 依赖 caseId 的工具（如 save_analysis_result、process_materials）
-     * 需在运行时校验 caseId 非空，否则抛错。
-     */
-    caseId?: number
-    /** 会话 ID */
-    sessionId: string
-    /** 运行 ID（模块对话工具需要） */
-    runId?: string
-    /** 文书草稿 ID（文书生成场景） */
-    draftId?: number
-    /** 合同审查 ID（parseAndAskStance 工具依赖） */
-    reviewId?: number
-}
-
-/** 工具定义（单一数据源） */
-export interface ToolDefinition<T extends ZodObject<Record<string, ZodType>>> {
-    /** 工具名称 */
-    name: string
-    /** 工具描述 */
-    description: string
-    /** 参数 schema（zod 定义，作为唯一数据源） */
-    schema: T
-}
-
-/** 工具模块接口 */
-export interface ToolModule {
-    /** 工具定义（包含 name、description、schema） */
-    toolDefinition: ToolDefinition<ZodObject<Record<string, ZodType>>>
-    /** 工具工厂函数 */
-    createTool: (context: ToolContext) => StructuredTool
 }
 
 /**
