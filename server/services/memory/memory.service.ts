@@ -13,6 +13,8 @@ export interface MemoryWriteInput {
   subjectKey?: string
   confidence?: number
   source?: MemorySource
+  /** 透传到 PGVectorStore.metadata 的额外字段（如 calculation 计算历史） */
+  extraMetadata?: Partial<Pick<CaseMemoryMetadata, 'calculation'>>
 }
 
 /**
@@ -43,6 +45,7 @@ export async function writeMemoryService(input: MemoryWriteInput): Promise<{ id:
     source: input.source,
     supersedes,
     createdAt: new Date().toISOString(),
+    ...input.extraMetadata,
   }
   const doc: Document = {
     pageContent: input.text,
@@ -130,4 +133,26 @@ export async function recallMemoryService(params: {
     filterInvalidated: !includeInvalidated,
     enableVersionScoring: true,
   })
+}
+
+/**
+ * 查最近一次同案件同工具的计算历史（用于 L2 兜底预填）。
+ *
+ * 利用版本链：subjectKey='calculation:{tool}' 同案件只有 1 条未失效记录。
+ * ORDER BY 兜底版本链失效场景（并发写入 / 测试环境多条遗留）。
+ */
+export async function findLastCalculationByCase(
+  caseId: number,
+  tool: string,
+): Promise<CaseMemoryMetadata['calculation'] | null> {
+  const rows = await prisma.$queryRaw<Array<{ metadata: CaseMemoryMetadata }>>`
+    SELECT metadata FROM case_memories
+    WHERE (metadata->>'caseId')::int = ${caseId}
+      AND metadata->>'kind' = 'calculation'
+      AND metadata->>'subjectKey' = ${'calculation:' + tool}
+      AND (metadata->>'invalidatedAt') IS NULL
+    ORDER BY (metadata->'calculation'->>'calculatedAt') DESC NULLS LAST
+    LIMIT 1
+  `
+  return rows[0]?.metadata?.calculation ?? null
 }
