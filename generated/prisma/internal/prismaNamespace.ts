@@ -435,9 +435,9 @@ export const ModelName = {
   pointConsumptionItems: 'pointConsumptionItems',
   pointConsumptionRecords: 'pointConsumptionRecords',
   products: 'products',
-  lpr_rates: 'lpr_rates',
-  pboc_deposit_rates: 'pboc_deposit_rates',
-  pboc_loan_rates: 'pboc_loan_rates',
+  lprRates: 'lprRates',
+  pbocDepositRates: 'pbocDepositRates',
+  pbocLoanRates: 'pbocLoanRates',
   roles: 'roles',
   roleRouters: 'roleRouters',
   userRoles: 'userRoles',
@@ -473,7 +473,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "agentRuns" | "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "agentToolAuditLogs" | "campaigns" | "caseTypes" | "cases" | "caseSessions" | "caseMaterials" | "caseAnalyses" | "demoCases" | "caseMaterialEmbeddings" | "caseMemories" | "caseAnalysisEmbeddings" | "contractPlaybooks" | "contractReviews" | "contractReviewLegacyRisksBackup" | "contractReviewVersions" | "contractRisks" | "contractAnnotations" | "documentTemplates" | "documentDrafts" | "documentDraftSnapshots" | "documentDraftVersions" | "ossFiles" | "legalMain" | "legalArticles" | "lawEmbeddings" | "textContentRecords" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "modelProviders" | "modelApiKeys" | "models" | "nodeGroups" | "nodes" | "prompts" | "levelNodeAccess" | "node_prompts" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "lpr_rates" | "pboc_deposit_rates" | "pboc_loan_rates" | "roles" | "roleRouters" | "userRoles" | "docRecognitionRecords" | "imageRecognitionRecords" | "asrTasks" | "asrRecords" | "mineruTokens" | "mineruTasks" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "skills" | "node_skills" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
+    modelProps: "agentRuns" | "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "agentToolAuditLogs" | "campaigns" | "caseTypes" | "cases" | "caseSessions" | "caseMaterials" | "caseAnalyses" | "demoCases" | "caseMaterialEmbeddings" | "caseMemories" | "caseAnalysisEmbeddings" | "contractPlaybooks" | "contractReviews" | "contractReviewLegacyRisksBackup" | "contractReviewVersions" | "contractRisks" | "contractAnnotations" | "documentTemplates" | "documentDrafts" | "documentDraftSnapshots" | "documentDraftVersions" | "ossFiles" | "legalMain" | "legalArticles" | "lawEmbeddings" | "textContentRecords" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "modelProviders" | "modelApiKeys" | "models" | "nodeGroups" | "nodes" | "prompts" | "levelNodeAccess" | "node_prompts" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "lprRates" | "pbocDepositRates" | "pbocLoanRates" | "roles" | "roleRouters" | "userRoles" | "docRecognitionRecords" | "imageRecognitionRecords" | "asrTasks" | "asrRecords" | "mineruTokens" | "mineruTasks" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "skills" | "node_skills" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -4251,225 +4251,225 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
-    lpr_rates: {
-      payload: Prisma.$lpr_ratesPayload<ExtArgs>
-      fields: Prisma.lpr_ratesFieldRefs
+    lprRates: {
+      payload: Prisma.$lprRatesPayload<ExtArgs>
+      fields: Prisma.lprRatesFieldRefs
       operations: {
         findUnique: {
-          args: Prisma.lpr_ratesFindUniqueArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$lpr_ratesPayload> | null
+          args: Prisma.lprRatesFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lprRatesPayload> | null
         }
         findUniqueOrThrow: {
-          args: Prisma.lpr_ratesFindUniqueOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$lpr_ratesPayload>
+          args: Prisma.lprRatesFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lprRatesPayload>
         }
         findFirst: {
-          args: Prisma.lpr_ratesFindFirstArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$lpr_ratesPayload> | null
+          args: Prisma.lprRatesFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lprRatesPayload> | null
         }
         findFirstOrThrow: {
-          args: Prisma.lpr_ratesFindFirstOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$lpr_ratesPayload>
+          args: Prisma.lprRatesFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lprRatesPayload>
         }
         findMany: {
-          args: Prisma.lpr_ratesFindManyArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$lpr_ratesPayload>[]
+          args: Prisma.lprRatesFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lprRatesPayload>[]
         }
         create: {
-          args: Prisma.lpr_ratesCreateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$lpr_ratesPayload>
+          args: Prisma.lprRatesCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lprRatesPayload>
         }
         createMany: {
-          args: Prisma.lpr_ratesCreateManyArgs<ExtArgs>
+          args: Prisma.lprRatesCreateManyArgs<ExtArgs>
           result: BatchPayload
         }
         createManyAndReturn: {
-          args: Prisma.lpr_ratesCreateManyAndReturnArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$lpr_ratesPayload>[]
+          args: Prisma.lprRatesCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lprRatesPayload>[]
         }
         delete: {
-          args: Prisma.lpr_ratesDeleteArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$lpr_ratesPayload>
+          args: Prisma.lprRatesDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lprRatesPayload>
         }
         update: {
-          args: Prisma.lpr_ratesUpdateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$lpr_ratesPayload>
+          args: Prisma.lprRatesUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lprRatesPayload>
         }
         deleteMany: {
-          args: Prisma.lpr_ratesDeleteManyArgs<ExtArgs>
+          args: Prisma.lprRatesDeleteManyArgs<ExtArgs>
           result: BatchPayload
         }
         updateMany: {
-          args: Prisma.lpr_ratesUpdateManyArgs<ExtArgs>
+          args: Prisma.lprRatesUpdateManyArgs<ExtArgs>
           result: BatchPayload
         }
         updateManyAndReturn: {
-          args: Prisma.lpr_ratesUpdateManyAndReturnArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$lpr_ratesPayload>[]
+          args: Prisma.lprRatesUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lprRatesPayload>[]
         }
         upsert: {
-          args: Prisma.lpr_ratesUpsertArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$lpr_ratesPayload>
+          args: Prisma.lprRatesUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lprRatesPayload>
         }
         aggregate: {
-          args: Prisma.Lpr_ratesAggregateArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.AggregateLpr_rates>
+          args: Prisma.LprRatesAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateLprRates>
         }
         groupBy: {
-          args: Prisma.lpr_ratesGroupByArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.Lpr_ratesGroupByOutputType>[]
+          args: Prisma.lprRatesGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.LprRatesGroupByOutputType>[]
         }
         count: {
-          args: Prisma.lpr_ratesCountArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.Lpr_ratesCountAggregateOutputType> | number
+          args: Prisma.lprRatesCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.LprRatesCountAggregateOutputType> | number
         }
       }
     }
-    pboc_deposit_rates: {
-      payload: Prisma.$pboc_deposit_ratesPayload<ExtArgs>
-      fields: Prisma.pboc_deposit_ratesFieldRefs
+    pbocDepositRates: {
+      payload: Prisma.$pbocDepositRatesPayload<ExtArgs>
+      fields: Prisma.pbocDepositRatesFieldRefs
       operations: {
         findUnique: {
-          args: Prisma.pboc_deposit_ratesFindUniqueArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$pboc_deposit_ratesPayload> | null
+          args: Prisma.pbocDepositRatesFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$pbocDepositRatesPayload> | null
         }
         findUniqueOrThrow: {
-          args: Prisma.pboc_deposit_ratesFindUniqueOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$pboc_deposit_ratesPayload>
+          args: Prisma.pbocDepositRatesFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$pbocDepositRatesPayload>
         }
         findFirst: {
-          args: Prisma.pboc_deposit_ratesFindFirstArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$pboc_deposit_ratesPayload> | null
+          args: Prisma.pbocDepositRatesFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$pbocDepositRatesPayload> | null
         }
         findFirstOrThrow: {
-          args: Prisma.pboc_deposit_ratesFindFirstOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$pboc_deposit_ratesPayload>
+          args: Prisma.pbocDepositRatesFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$pbocDepositRatesPayload>
         }
         findMany: {
-          args: Prisma.pboc_deposit_ratesFindManyArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$pboc_deposit_ratesPayload>[]
+          args: Prisma.pbocDepositRatesFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$pbocDepositRatesPayload>[]
         }
         create: {
-          args: Prisma.pboc_deposit_ratesCreateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$pboc_deposit_ratesPayload>
+          args: Prisma.pbocDepositRatesCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$pbocDepositRatesPayload>
         }
         createMany: {
-          args: Prisma.pboc_deposit_ratesCreateManyArgs<ExtArgs>
+          args: Prisma.pbocDepositRatesCreateManyArgs<ExtArgs>
           result: BatchPayload
         }
         createManyAndReturn: {
-          args: Prisma.pboc_deposit_ratesCreateManyAndReturnArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$pboc_deposit_ratesPayload>[]
+          args: Prisma.pbocDepositRatesCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$pbocDepositRatesPayload>[]
         }
         delete: {
-          args: Prisma.pboc_deposit_ratesDeleteArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$pboc_deposit_ratesPayload>
+          args: Prisma.pbocDepositRatesDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$pbocDepositRatesPayload>
         }
         update: {
-          args: Prisma.pboc_deposit_ratesUpdateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$pboc_deposit_ratesPayload>
+          args: Prisma.pbocDepositRatesUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$pbocDepositRatesPayload>
         }
         deleteMany: {
-          args: Prisma.pboc_deposit_ratesDeleteManyArgs<ExtArgs>
+          args: Prisma.pbocDepositRatesDeleteManyArgs<ExtArgs>
           result: BatchPayload
         }
         updateMany: {
-          args: Prisma.pboc_deposit_ratesUpdateManyArgs<ExtArgs>
+          args: Prisma.pbocDepositRatesUpdateManyArgs<ExtArgs>
           result: BatchPayload
         }
         updateManyAndReturn: {
-          args: Prisma.pboc_deposit_ratesUpdateManyAndReturnArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$pboc_deposit_ratesPayload>[]
+          args: Prisma.pbocDepositRatesUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$pbocDepositRatesPayload>[]
         }
         upsert: {
-          args: Prisma.pboc_deposit_ratesUpsertArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$pboc_deposit_ratesPayload>
+          args: Prisma.pbocDepositRatesUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$pbocDepositRatesPayload>
         }
         aggregate: {
-          args: Prisma.Pboc_deposit_ratesAggregateArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.AggregatePboc_deposit_rates>
+          args: Prisma.PbocDepositRatesAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregatePbocDepositRates>
         }
         groupBy: {
-          args: Prisma.pboc_deposit_ratesGroupByArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.Pboc_deposit_ratesGroupByOutputType>[]
+          args: Prisma.pbocDepositRatesGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PbocDepositRatesGroupByOutputType>[]
         }
         count: {
-          args: Prisma.pboc_deposit_ratesCountArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.Pboc_deposit_ratesCountAggregateOutputType> | number
+          args: Prisma.pbocDepositRatesCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PbocDepositRatesCountAggregateOutputType> | number
         }
       }
     }
-    pboc_loan_rates: {
-      payload: Prisma.$pboc_loan_ratesPayload<ExtArgs>
-      fields: Prisma.pboc_loan_ratesFieldRefs
+    pbocLoanRates: {
+      payload: Prisma.$pbocLoanRatesPayload<ExtArgs>
+      fields: Prisma.pbocLoanRatesFieldRefs
       operations: {
         findUnique: {
-          args: Prisma.pboc_loan_ratesFindUniqueArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$pboc_loan_ratesPayload> | null
+          args: Prisma.pbocLoanRatesFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$pbocLoanRatesPayload> | null
         }
         findUniqueOrThrow: {
-          args: Prisma.pboc_loan_ratesFindUniqueOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$pboc_loan_ratesPayload>
+          args: Prisma.pbocLoanRatesFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$pbocLoanRatesPayload>
         }
         findFirst: {
-          args: Prisma.pboc_loan_ratesFindFirstArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$pboc_loan_ratesPayload> | null
+          args: Prisma.pbocLoanRatesFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$pbocLoanRatesPayload> | null
         }
         findFirstOrThrow: {
-          args: Prisma.pboc_loan_ratesFindFirstOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$pboc_loan_ratesPayload>
+          args: Prisma.pbocLoanRatesFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$pbocLoanRatesPayload>
         }
         findMany: {
-          args: Prisma.pboc_loan_ratesFindManyArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$pboc_loan_ratesPayload>[]
+          args: Prisma.pbocLoanRatesFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$pbocLoanRatesPayload>[]
         }
         create: {
-          args: Prisma.pboc_loan_ratesCreateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$pboc_loan_ratesPayload>
+          args: Prisma.pbocLoanRatesCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$pbocLoanRatesPayload>
         }
         createMany: {
-          args: Prisma.pboc_loan_ratesCreateManyArgs<ExtArgs>
+          args: Prisma.pbocLoanRatesCreateManyArgs<ExtArgs>
           result: BatchPayload
         }
         createManyAndReturn: {
-          args: Prisma.pboc_loan_ratesCreateManyAndReturnArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$pboc_loan_ratesPayload>[]
+          args: Prisma.pbocLoanRatesCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$pbocLoanRatesPayload>[]
         }
         delete: {
-          args: Prisma.pboc_loan_ratesDeleteArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$pboc_loan_ratesPayload>
+          args: Prisma.pbocLoanRatesDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$pbocLoanRatesPayload>
         }
         update: {
-          args: Prisma.pboc_loan_ratesUpdateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$pboc_loan_ratesPayload>
+          args: Prisma.pbocLoanRatesUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$pbocLoanRatesPayload>
         }
         deleteMany: {
-          args: Prisma.pboc_loan_ratesDeleteManyArgs<ExtArgs>
+          args: Prisma.pbocLoanRatesDeleteManyArgs<ExtArgs>
           result: BatchPayload
         }
         updateMany: {
-          args: Prisma.pboc_loan_ratesUpdateManyArgs<ExtArgs>
+          args: Prisma.pbocLoanRatesUpdateManyArgs<ExtArgs>
           result: BatchPayload
         }
         updateManyAndReturn: {
-          args: Prisma.pboc_loan_ratesUpdateManyAndReturnArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$pboc_loan_ratesPayload>[]
+          args: Prisma.pbocLoanRatesUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$pbocLoanRatesPayload>[]
         }
         upsert: {
-          args: Prisma.pboc_loan_ratesUpsertArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$pboc_loan_ratesPayload>
+          args: Prisma.pbocLoanRatesUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$pbocLoanRatesPayload>
         }
         aggregate: {
-          args: Prisma.Pboc_loan_ratesAggregateArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.AggregatePboc_loan_rates>
+          args: Prisma.PbocLoanRatesAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregatePbocLoanRates>
         }
         groupBy: {
-          args: Prisma.pboc_loan_ratesGroupByArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.Pboc_loan_ratesGroupByOutputType>[]
+          args: Prisma.pbocLoanRatesGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PbocLoanRatesGroupByOutputType>[]
         }
         count: {
-          args: Prisma.pboc_loan_ratesCountArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.Pboc_loan_ratesCountAggregateOutputType> | number
+          args: Prisma.pbocLoanRatesCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PbocLoanRatesCountAggregateOutputType> | number
         }
       }
     }
@@ -6912,7 +6912,7 @@ export const ProductsScalarFieldEnum = {
 export type ProductsScalarFieldEnum = (typeof ProductsScalarFieldEnum)[keyof typeof ProductsScalarFieldEnum]
 
 
-export const Lpr_ratesScalarFieldEnum = {
+export const LprRatesScalarFieldEnum = {
   id: 'id',
   effectDate: 'effectDate',
   oneYear: 'oneYear',
@@ -6923,10 +6923,10 @@ export const Lpr_ratesScalarFieldEnum = {
   deletedAt: 'deletedAt'
 } as const
 
-export type Lpr_ratesScalarFieldEnum = (typeof Lpr_ratesScalarFieldEnum)[keyof typeof Lpr_ratesScalarFieldEnum]
+export type LprRatesScalarFieldEnum = (typeof LprRatesScalarFieldEnum)[keyof typeof LprRatesScalarFieldEnum]
 
 
-export const Pboc_deposit_ratesScalarFieldEnum = {
+export const PbocDepositRatesScalarFieldEnum = {
   id: 'id',
   effectDate: 'effectDate',
   demand: 'demand',
@@ -6942,10 +6942,10 @@ export const Pboc_deposit_ratesScalarFieldEnum = {
   deletedAt: 'deletedAt'
 } as const
 
-export type Pboc_deposit_ratesScalarFieldEnum = (typeof Pboc_deposit_ratesScalarFieldEnum)[keyof typeof Pboc_deposit_ratesScalarFieldEnum]
+export type PbocDepositRatesScalarFieldEnum = (typeof PbocDepositRatesScalarFieldEnum)[keyof typeof PbocDepositRatesScalarFieldEnum]
 
 
-export const Pboc_loan_ratesScalarFieldEnum = {
+export const PbocLoanRatesScalarFieldEnum = {
   id: 'id',
   effectDate: 'effectDate',
   sixMonths: 'sixMonths',
@@ -6958,7 +6958,7 @@ export const Pboc_loan_ratesScalarFieldEnum = {
   deletedAt: 'deletedAt'
 } as const
 
-export type Pboc_loan_ratesScalarFieldEnum = (typeof Pboc_loan_ratesScalarFieldEnum)[keyof typeof Pboc_loan_ratesScalarFieldEnum]
+export type PbocLoanRatesScalarFieldEnum = (typeof PbocLoanRatesScalarFieldEnum)[keyof typeof PbocLoanRatesScalarFieldEnum]
 
 
 export const RolesScalarFieldEnum = {
@@ -7594,9 +7594,9 @@ export type GlobalOmitConfig = {
   pointConsumptionItems?: Prisma.pointConsumptionItemsOmit
   pointConsumptionRecords?: Prisma.pointConsumptionRecordsOmit
   products?: Prisma.productsOmit
-  lpr_rates?: Prisma.lpr_ratesOmit
-  pboc_deposit_rates?: Prisma.pboc_deposit_ratesOmit
-  pboc_loan_rates?: Prisma.pboc_loan_ratesOmit
+  lprRates?: Prisma.lprRatesOmit
+  pbocDepositRates?: Prisma.pbocDepositRatesOmit
+  pbocLoanRates?: Prisma.pbocLoanRatesOmit
   roles?: Prisma.rolesOmit
   roleRouters?: Prisma.roleRoutersOmit
   userRoles?: Prisma.userRolesOmit

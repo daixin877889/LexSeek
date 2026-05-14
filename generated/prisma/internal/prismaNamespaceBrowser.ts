@@ -102,9 +102,9 @@ export const ModelName = {
   pointConsumptionItems: 'pointConsumptionItems',
   pointConsumptionRecords: 'pointConsumptionRecords',
   products: 'products',
-  lpr_rates: 'lpr_rates',
-  pboc_deposit_rates: 'pboc_deposit_rates',
-  pboc_loan_rates: 'pboc_loan_rates',
+  lprRates: 'lprRates',
+  pbocDepositRates: 'pbocDepositRates',
+  pbocLoanRates: 'pbocLoanRates',
   roles: 'roles',
   roleRouters: 'roleRouters',
   userRoles: 'userRoles',
@@ -1063,7 +1063,7 @@ export const ProductsScalarFieldEnum = {
 export type ProductsScalarFieldEnum = (typeof ProductsScalarFieldEnum)[keyof typeof ProductsScalarFieldEnum]
 
 
-export const Lpr_ratesScalarFieldEnum = {
+export const LprRatesScalarFieldEnum = {
   id: 'id',
   effectDate: 'effectDate',
   oneYear: 'oneYear',
@@ -1074,10 +1074,10 @@ export const Lpr_ratesScalarFieldEnum = {
   deletedAt: 'deletedAt'
 } as const
 
-export type Lpr_ratesScalarFieldEnum = (typeof Lpr_ratesScalarFieldEnum)[keyof typeof Lpr_ratesScalarFieldEnum]
+export type LprRatesScalarFieldEnum = (typeof LprRatesScalarFieldEnum)[keyof typeof LprRatesScalarFieldEnum]
 
 
-export const Pboc_deposit_ratesScalarFieldEnum = {
+export const PbocDepositRatesScalarFieldEnum = {
   id: 'id',
   effectDate: 'effectDate',
   demand: 'demand',
@@ -1093,10 +1093,10 @@ export const Pboc_deposit_ratesScalarFieldEnum = {
   deletedAt: 'deletedAt'
 } as const
 
-export type Pboc_deposit_ratesScalarFieldEnum = (typeof Pboc_deposit_ratesScalarFieldEnum)[keyof typeof Pboc_deposit_ratesScalarFieldEnum]
+export type PbocDepositRatesScalarFieldEnum = (typeof PbocDepositRatesScalarFieldEnum)[keyof typeof PbocDepositRatesScalarFieldEnum]
 
 
-export const Pboc_loan_ratesScalarFieldEnum = {
+export const PbocLoanRatesScalarFieldEnum = {
   id: 'id',
   effectDate: 'effectDate',
   sixMonths: 'sixMonths',
@@ -1109,7 +1109,7 @@ export const Pboc_loan_ratesScalarFieldEnum = {
   deletedAt: 'deletedAt'
 } as const
 
-export type Pboc_loan_ratesScalarFieldEnum = (typeof Pboc_loan_ratesScalarFieldEnum)[keyof typeof Pboc_loan_ratesScalarFieldEnum]
+export type PbocLoanRatesScalarFieldEnum = (typeof PbocLoanRatesScalarFieldEnum)[keyof typeof PbocLoanRatesScalarFieldEnum]
 
 
 export const RolesScalarFieldEnum = {

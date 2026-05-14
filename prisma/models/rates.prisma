@@ -1,5 +1,5 @@
 /// LPR 利率历史（央行每月公布）
-model lpr_rates {
+model lprRates {
   /// 主键
   id          Int       @id @default(autoincrement())
   /// 生效日（央行公布日），仅日期精度
@@ -16,10 +16,11 @@ model lpr_rates {
   deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
   @@index([effectDate(sort: Desc)])
   @@index([deletedAt])
+  @@map("lpr_rates")
 }
 
 /// 央行存款基准利率历史
-model pboc_deposit_rates {
+model pbocDepositRates {
   id           Int       @id @default(autoincrement())
   effectDate   DateTime  @unique @map("effect_date") @db.Date
   /// 活期 (%)
@@ -42,10 +43,11 @@ model pboc_deposit_rates {
   deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
   @@index([effectDate(sort: Desc)])
   @@index([deletedAt])
+  @@map("pboc_deposit_rates")
 }
 
 /// 央行贷款基准利率历史
-model pboc_loan_rates {
+model pbocLoanRates {
   id            Int       @id @default(autoincrement())
   effectDate    DateTime  @unique @map("effect_date") @db.Date
   /// 六个月 (%)
@@ -62,4 +64,5 @@ model pboc_loan_rates {
   deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(6)
   @@index([effectDate(sort: Desc)])
   @@index([deletedAt])
+  @@map("pboc_loan_rates")
 }
