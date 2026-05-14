@@ -42,11 +42,13 @@
 - **新组件** `app/components/case/BatchAnalysisPopover.vue`
   - props：`caseId: number`、`showBatchButton: boolean`、`isAnalysisRunning: boolean`
   - emits：`new-batch`（点击底部新建项时触发）、`open-session(sessionId)`（点击列表项时触发）
-  - 内部用 shadcn-vue `Popover` + `PopoverContent`，复用 `SessionListPopover.vue` 的列表样式（手抄而非组件复用，因为业务字段不同）。
+  - 内部用 shadcn-vue `Popover` + `PopoverContent`，复用 `SessionListPopover.vue` 的列表样式（手抄而非组件复用——后者 trigger 写死「显示当前 currentId 对应 title」，与本场景「+ 批量分析」按钮形态不匹配，强行复用需要加 ≥5 个新 prop 让原组件变三用，反而难维护）。
+  - **Popover 禁用规则**：`showBatchButton===false` 时，禁用**底部「+ 新建批量分析」按钮**（直接给 `<button>` 元素加 `:disabled` + tooltip），而**不是**给 `PopoverTrigger` 加 disabled——trigger 始终可点开查看历史会话。参考 `SessionListPopover.vue:91-100` 的写法。
 - **新 API** `GET /api/v1/cases/analysis/init-sessions?caseId=:caseId`
   - 文件：`server/api/v1/cases/analysis/init-sessions.get.ts`
-  - 实现照抄 `module-sessions.get.ts`，只是 `type=2`、不带 `metadataFilter`。
-  - 返回 `{ sessionId, title, hasActiveRun, createdAt, updatedAt }[]`。title 取 `caseSessions.title`，为空时回退为「批量分析 #N」（N 为按创建顺序的序号）。
+  - 实现照抄 `module-sessions.get.ts`，只是 `type=2`、不带 `metadataFilter`，底层共用 `listSessionsWithActiveRunDAO`。
+  - **鉴权**：用户端接口，必须 `userId: user.id` 严格过滤；未登录返 401；案件不存在或非本人返 404（参照 module-sessions.get.ts 第 22-30 行）。**无需**在管理后台 RBAC api_permissions 表登记（用户端接口不走 03.permission 中间件强制拦截）。
+  - 返回 `{ sessionId, title, hasActiveRun, createdAt, updatedAt }[]`。title 取 `caseSessions.title`，为空时回退为「批量分析 #N」（N 为按创建顺序的序号，前端拼）。
 - **替换按钮**：`app/components/case/AnalysisResults.vue:463-469` 这段模板替换为 `<BatchAnalysisPopover>`，把 props 透传过去。
 - **父级连接**：`app/pages/dashboard/cases/[id].vue` 复用现有 `handleBatchGenerate()` 作为 `new-batch` 回调；新增 `handleOpenInitSession(sessionId)` 跳 `/dashboard/cases/init-analysis/:sessionId`。
 - **现有行为保留**：`showBatchButton` 计算逻辑、跨标签广播 (`postCrossTabEvent`)、`SessionListPopover.vue` 本身不变。
@@ -113,26 +115,25 @@
 
 #### 3.3.2 技术落地
 
-- **Sheet 改动**：`AssistantDocumentTemplatePickerSheet` 的 `@select` 事件改为同时回传 `{ templateId: number, templateName: string }`（当前只传 id）。
-- **跳转 URL 协议**：`app/pages/dashboard/cases/[id].vue:270 handleTemplateSelect` 修改为：
+- **跳转 URL 协议**：`app/pages/dashboard/cases/[id].vue:270 handleTemplateSelect` 修改跳转 URL 增加一个 boolean query：
   ```
   /dashboard/document/drafts/{draftId}
     ?from=case
     &caseId={caseId}
     &returnTab={returnTab}
     &autoAi=1
-    &autoPrompt={encodeURIComponent('请根据当前案件信息生成《'+templateName+'》')}
   ```
+  **不**额外携带 `autoPrompt` / 模板名——文书页本身就要加载草稿数据（`GET /api/v1/assistant/document/drafts/:id` 返回值已含 `templateName`，见 `server/api/v1/assistant/document/drafts.get.ts:39`），让文书页自己从草稿对象拿模板名即可。这也意味着**不需要修改** `DocumentTemplatePickerSheet` 的 emit 协议。
 - **文书页处理**：`app/pages/dashboard/document/drafts/[id].vue`
-  - 在草稿数据加载完成且 `useDocumentAgent()` 就绪后，检查 `route.query.autoAi === '1'`。
-  - 若是：`openAgent()` → 等下一帧（`nextTick`） → 调用 `handleChatSubmit({ text: route.query.autoPrompt ?? fallback })` → `router.replace({ query: { from, caseId, returnTab } })` 清除 autoAi / autoPrompt 防刷新重复触发。
-  - **兜底**：若 `autoPrompt` 缺失，回退为「请根据当前案件信息开始生成本文书」。
-- **不修改**：`ChatWindowShell.vue` / `AiChat.vue` / `useDocumentAgent` — 自动发送复用现有 `handleChatSubmit` 路径，等同于用户手动输入。
+  - 在 `onMounted` 里（**不放 `watch(route.query)`**——避免 router.replace 时多余触发）注册一个一次性副作用：等草稿数据 + `useDocumentAgent()` 都就绪后执行。
+  - 若 `route.query.autoAi === '1'`：`openAgent()` → `nextTick` → 从草稿对象取 `templateName` → `handleChatSubmit({ text: '请根据当前案件信息生成《' + templateName + '》' })` → `router.replace({ query: { from, caseId, returnTab } })` 清除 `autoAi` 防刷新重复触发。
+  - **兜底**：若 `templateName` 缺失（理论上不应发生），回退为「请根据当前案件信息开始生成本文书」。
+- **不修改**：`AssistantDocumentTemplatePickerSheet` / `ChatWindowShell.vue` / `AiChat.vue` / `useDocumentAgent` — 自动发送复用现有 `handleChatSubmit` 路径，等同于用户手动输入。
 
 #### 3.3.3 验收
 
 - 走详情页「新建文书」全链路：选模板 → 文书页打开后 1 秒内浮窗自动展开 + 看到自动发送的指令气泡 + Agent 开始流式输出。
-- 同链路完成后，浏览器地址栏 URL 已经不带 `autoAi` / `autoPrompt`。
+- 同链路完成后，浏览器地址栏 URL 已经不带 `autoAi`。
 - 直接复制此前 draft URL（不带 autoAi）在新 tab 打开：浮窗不会自动打开，行为同改造前。
 
 ---
@@ -161,6 +162,7 @@
   ```
 - 迁移：`bun run prisma:migrate --name add_cases_stance`。
 - **存量行行为**：DEFAULT 'plaintiff' 自动回填，存量案件下次跑分析按"原告视角"进行（与新建默认一致）。这是与用户在 brainstorm 阶段明确确认过的选择；如果以后需要存量保持隐式中立，仅需把 DEFAULT 改为 'neutral'，前端默认仍为 plaintiff。
+- **DEFAULT 安全性说明**：Prisma 对"加 NOT NULL + DEFAULT 字段"会生成单步 SQL `ALTER TABLE cases ADD COLUMN stance VARCHAR(20) NOT NULL DEFAULT 'plaintiff'`，PostgreSQL 11+ 对该形式做元数据级回填（不重写表数据，立即生效）。项目内 `add_thinking_fields`、`add_contract_review_phase_b_fields` 等 5 处迁移已验证此模式可用。**实施时**：跑 `prisma migrate dev --name add_cases_stance` 后，先看 `prisma/migrations/<ts>_add_cases_stance/migration.sql` 确认 SQL 是单步 ADD COLUMN with DEFAULT，再 commit。
 
 ##### 类型
 
@@ -182,7 +184,9 @@
 ##### UI 控件
 
 - 复用 shadcn-vue `ToggleGroup`（`type="single"`、`variant="outline"`）实现三段式平铺。
-- 提取通用子组件 `app/components/caseCreation/StanceToggleGroup.vue`（创建页和编辑表单共用）。
+- **先安装组件**：`ls app/components/ui/` 当前**未安装** `toggle-group`，实施前先跑 `npx shadcn-vue@latest add toggle-group`（产物落到 `app/components/ui/toggle-group/`，禁止手改）。
+- 提取通用子组件 `app/components/caseCreation/StanceToggleGroup.vue`（创建页和编辑表单共用，封装空值拦截逻辑）。
+- **空值拦截**：shadcn-vue `ToggleGroup type="single"` 允许用户再次点击当前项"取消选中"，v-model 会变为空字符串。StanceToggleGroup 内部 `watch` 监听 v-model：若变为空，立刻还原为上一个有效值（确保始终有立场被选中，符合业务约束）。
 
 ##### 表单与 API
 
@@ -229,13 +233,16 @@
   - schema migration 在 worker 隔离 DB 上跑通；
   - 创建 API zod 校验测试；
   - moduleContextBuilder 单元测试断言 `profile.stance` 与 system prompt 段文案；
+  - 单元测试断言 `CaseStance.PLAINTIFF === 'plaintiff'`、`CaseStance.DEFENDANT === 'defendant'`、`CaseStance.NEUTRAL === 'neutral'`，确保 enum 值与 Prisma `@default("plaintiff")` 等 DB 字符串值始终一致；
+  - StanceToggleGroup 空值拦截单元测试（v-model 设为 `''` 时应立刻被还原）；
   - 人工跑一次原告 / 被告 / 中立各 1 case 看分析结果差异。
 
 ## 6. 改动文件清单
 
 | 模块 | 新建 | 修改 |
 |------|-----|------|
-| 前端组件 | `app/components/case/BatchAnalysisPopover.vue`、`app/components/caseCreation/StanceToggleGroup.vue` | `app/components/case/AnalysisResults.vue`、`app/components/initAnalysis/CaseInfoCard.vue`、`app/components/caseCreation/ManualForm.vue`、`app/components/assistant/document/DocumentTemplatePickerSheet.vue` |
+| 前端组件 | `app/components/case/BatchAnalysisPopover.vue`、`app/components/caseCreation/StanceToggleGroup.vue` | `app/components/case/AnalysisResults.vue`、`app/components/initAnalysis/CaseInfoCard.vue`、`app/components/caseCreation/ManualForm.vue` |
+| shadcn 组件 | `app/components/ui/toggle-group/`（`npx shadcn-vue add toggle-group` 生成，禁止手改） | — |
 | 页面 | — | `app/pages/dashboard/cases/[id].vue`、`app/pages/dashboard/document/drafts/[id].vue` |
 | Composable / 类型 | — | `app/composables/useCaseDetail.ts`、`shared/types/case.ts` |
 | 后端 API | `server/api/v1/cases/analysis/init-sessions.get.ts` | `server/api/v1/cases/[caseId].put.ts`、`server/api/v1/cases/create.post.ts` |
@@ -246,7 +253,7 @@
 
 - **§3.1**：依赖 `caseSessions` 表 type=2 数据稳定，无 schema 风险。
 - **§3.2**：依赖现有 schema，无迁移风险。注意编辑表单字段增多时验证 UX。
-- **§3.3**：URL query 长度受浏览器限制（一般 2KB+），模板名 50 字内安全；若以后有超长模板名需评估改用 session storage。
+- **§3.3**：URL 仅传 `autoAi=1` 一个 boolean query（无中文 encode），不存在长度风险；模板名由文书页从草稿对象自行读取，与跳转链路解耦。
 - **§3.4**：新增 DB 字段 + DEFAULT。如果用户期望存量保持中立，需把 DEFAULT 改为 'neutral'，前端默认 plaintiff 不变——本 spec 已明确选 plaintiff 一致回填。
 
 ## 8. 后续可拓展
