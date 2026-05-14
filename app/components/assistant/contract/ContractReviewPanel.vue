@@ -598,8 +598,8 @@ function handleContainerClick(e: MouseEvent) {
         <QueuePausedBanner
             v-if="currentQueueLen > 0 && isQueuePaused"
             :queue-length="currentQueueLen"
-            @resume="() => resumeQueue()"
-            @clear="() => clearQueue()"
+            @resume="resumeQueue"
+            @clear="clearQueue"
         />
 
         <!-- Step 2 结果屏 -->

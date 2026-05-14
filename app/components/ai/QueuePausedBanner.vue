@@ -2,12 +2,8 @@
 /**
  * 队列残留提示条
  *
- * 在 AI 任务停止 / 放弃中断后,如果输入队列里还有未发送的消息,
- * 在 AiChat 上方显示本条:左侧提示文案 + 右侧 [清空] [继续] 双按钮。
- *
- * 显示条件由调用方控制（v-if="queueLength > 0 && isQueuePaused"）。
- *
- * spec: docs/superpowers/specs/2026-05-14-ai-stop-and-queue-design.md §5.4 §7.5
+ * AI 任务停止 / 放弃中断后,如果输入队列里还有未发送的消息,
+ * 在 AiChat 上方显示:左侧剩余条数 + 右侧 [清空] [继续] 双按钮。
  */
 import { AlertCircle } from 'lucide-vue-next'
 import { Alert, AlertDescription } from '~/components/ui/alert'
