@@ -61,8 +61,8 @@ LexSeek 当前 10 个办案工具计算器（`app/pages/dashboard/tools/*.vue` +
 ```
 ┌─────────────────────────────────────────┐  PR4
 │  UI 层：10 个 .vue + 4 个共用组件          │
-│  CalculatorPageHeader / DateInput /       │
-│  MoneyInput / ResultCard；dayjs 迁移        │
+│  CalculatorPageHeader / DateInput（薄包装） │
+│  / MoneyInput / ResultCard                │
 └────────────────┬────────────────────────┘
                  │ 调
 ┌────────────────┴────────────────────────┐  PR3
@@ -94,45 +94,57 @@ LexSeek 当前 10 个办案工具计算器（`app/pages/dashboard/tools/*.vue` +
 ```prisma
 /// LPR 利率历史（央行每月公布）
 model lpr_rates {
-  id          Int      @id @default(autoincrement())
-  effectDate  DateTime @unique @map("effect_date") @db.Date
-  oneYear     Decimal  @map("one_year")    @db.Decimal(6,4)
-  fiveYear    Decimal  @map("five_year")   @db.Decimal(6,4)
-  remark      String?  @db.VarChar(255)
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id          Int       @id @default(autoincrement())
+  effectDate  DateTime  @unique @map("effect_date") @db.Date
+  oneYear     Decimal   @map("one_year")    @db.Decimal(6,4)
+  fiveYear    Decimal   @map("five_year")   @db.Decimal(6,4)
+  remark      String?   @db.VarChar(255)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
   @@index([effectDate(sort: Desc)])
+  @@index([deletedAt])
 }
 
 /// 央行存款基准利率历史
 model pboc_deposit_rates {
-  id           Int      @id @default(autoincrement())
-  effectDate   DateTime @unique @map("effect_date") @db.Date
-  demand       Decimal  @db.Decimal(6,4)
-  threeMonths  Decimal  @map("three_months") @db.Decimal(6,4)
-  sixMonths    Decimal  @map("six_months")  @db.Decimal(6,4)
-  oneYear      Decimal  @map("one_year")    @db.Decimal(6,4)
-  twoYear      Decimal  @map("two_year")    @db.Decimal(6,4)
-  threeYear    Decimal  @map("three_year")  @db.Decimal(6,4)
-  fiveYear     Decimal  @map("five_year")   @db.Decimal(6,4)
-  remark       String?  @db.VarChar(255)
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id           Int       @id @default(autoincrement())
+  effectDate   DateTime  @unique @map("effect_date") @db.Date
+  demand       Decimal   @db.Decimal(6,4)
+  threeMonths  Decimal   @map("three_months") @db.Decimal(6,4)
+  sixMonths    Decimal   @map("six_months")  @db.Decimal(6,4)
+  oneYear      Decimal   @map("one_year")    @db.Decimal(6,4)
+  twoYear      Decimal   @map("two_year")    @db.Decimal(6,4)
+  threeYear    Decimal   @map("three_year")  @db.Decimal(6,4)
+  fiveYear     Decimal   @map("five_year")   @db.Decimal(6,4)
+  remark       String?   @db.VarChar(255)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
+  @@index([effectDate(sort: Desc)])
+  @@index([deletedAt])
 }
 
 /// 央行贷款基准利率历史
 model pboc_loan_rates {
-  id            Int      @id @default(autoincrement())
-  effectDate    DateTime @unique @map("effect_date") @db.Date
-  sixMonths     Decimal  @map("six_months")     @db.Decimal(6,4)
-  oneYear       Decimal  @map("one_year")       @db.Decimal(6,4)
-  oneToFiveYear Decimal  @map("one_to_five")    @db.Decimal(6,4)
-  fiveYearPlus  Decimal  @map("five_year_plus") @db.Decimal(6,4)
-  remark        String?  @db.VarChar(255)
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id            Int       @id @default(autoincrement())
+  effectDate    DateTime  @unique @map("effect_date") @db.Date
+  sixMonths     Decimal   @map("six_months")     @db.Decimal(6,4)
+  oneYear       Decimal   @map("one_year")       @db.Decimal(6,4)
+  oneToFiveYear Decimal   @map("one_to_five")    @db.Decimal(6,4)
+  fiveYearPlus  Decimal   @map("five_year_plus") @db.Decimal(6,4)
+  remark        String?   @db.VarChar(255)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(6)
+  @@index([effectDate(sort: Desc)])
+  @@index([deletedAt])
 }
 ```
+
+> - `effectDate` 用 `@db.Date`（仅需日期粒度，与央行公布形态一致）
+> - `createdAt / updatedAt / deletedAt` 统一 `@db.Timestamptz(6)`，与项目 `case.prisma` 等其他业务表惯例对齐
+> - 软删除：管理后台「删除」实际写入 `deletedAt = now()`，可恢复；DAO 查询统一 `where: { deletedAt: null }` 过滤
 
 - 迁移走 `bun run prisma:migrate --name init_rates_tables`
 - 初始历史数据写入 `prisma/seeds/seedData.sql`，把现有 TS 常量翻译成 INSERT 语句（86 条 LPR + 10 条 PBOC 存款 + 10 条 PBOC 贷款）
@@ -190,16 +202,25 @@ server/api/v1/admin/rates/                   ← 管理端 CRUD（03.permission.
 ```
 
 Service 层 `server/services/rates/`:
-- `rates.dao.ts` — Prisma CRUD
-- `rates.service.ts` — 业务包装；写入 DB 后立即调用 `setLPRRates()` 同步刷新本进程内存缓存
+- `rates.dao.ts` — Prisma CRUD（查询统一 `where: { deletedAt: null }`；删除走 update `{ deletedAt: new Date() }`）
+- `rates.service.ts` — 业务包装；从 DAO 拿到 Prisma 实体后**用 `shared/utils/decimalToNumber.ts` 转换 Decimal 字段为 number** 再返回；写入 DB 后立即调用 `setLPRRates()` 等同步刷新本进程内存缓存
 
-服务端启动 plugin `server/plugins/01.rates-cache.ts`：进程启动时一次性从 DB 加载全部利率灌入 `setLPRRates` / `setPBOCDepositRates` / `setPBOCLoanRates`。
+服务端启动 plugin `server/plugins/rates-cache.ts`：进程启动时一次性从 DB 加载全部利率（Decimal → number 已在 service 转好）灌入 `setLPRRates` / `setPBOCDepositRates` / `setPBOCLoanRates`。
 
-### 客户端加载
+### 客户端加载（lazy load 组件级）
 
-办案工具进入路由时（`/dashboard/tools/*`），通过 nuxt route middleware 或 layout setup 调一次 GET `/api/v1/tools/rates/lpr` 等三个接口，hydrate 到客户端的 setLPRRates。一次拉取，进入任一工具页都生效。
+不使用 route middleware（粒度过粗）。在 4 个共用组件（PR4 引入）的 setup 中按需 `useApiFetch` 拉取，首次进入工具页面触发，重复进入由现有 fetch 缓存机制去重：
 
-实现位置：`app/middleware/01.toolsRates.ts` 或 `app/layouts/dashboard.vue` 内 onMounted 触发。
+```typescript
+// app/components/tools/CalculatorPageHeader.vue 或 useRatesLoader composable
+onMounted(async () => {
+  const lpr = await useApiFetch<LPRRate[]>('/api/v1/tools/rates/lpr')
+  if (lpr) setLPRRates(lpr)
+  // 同样 pbocDeposit / pbocLoan
+})
+```
+
+实现位置：建议抽 `app/composables/useToolsRates.ts` 统一封装，4 个共用组件按需 import 调用。
 
 ### RBAC
 
@@ -208,7 +229,7 @@ admin:rates:read    →  super_admin / admin / operator
 admin:rates:write   →  super_admin / admin
 ```
 
-新增权限通过 seedData.sql 写入 `permissions` 和 `role_permissions` 表。
+新增权限通过 seedData.sql **追加 `INSERT INTO permissions` / `INSERT INTO role_permissions` 新行**（不允许写 UPDATE，参见 [database.md](.claude/rules/database.md) 数据级变更规则）。
 
 ## PR1b · 管理后台 admin CRUD 页面（1 天）
 
@@ -229,7 +250,7 @@ app/components/admin/rates/
 
 `routers` 表新增「数据维护 → 利率管理」入口（`/admin/rates`），归在 admin 主菜单。
 
-UI 行为：列表按 effectDate desc 分页；新增/编辑表单字段对应 schema；删除走 useAlertDialogStore 二次确认；保存成功 toast + 刷新列表。
+UI 行为：列表按 effectDate desc 分页；新增/编辑表单字段对应 schema；**删除走 useAlertDialogStore 二次确认后调用 service 的软删除方法**（实际写 `deletedAt = now()`，可恢复）；保存成功 toast + 刷新列表。
 
 ## PR1c · 其他法规常量集中（0.5 天）
 
@@ -256,7 +277,7 @@ shared/utils/tools/data/
 
 API 形态保持现有数据结构（`{date, oneYear, fiveYear}` 等），适配器函数（如 `getInterestRates(2, 1)` 派生为 `getLPRRates()` 的视图）在 PR2 算法层实现。
 
-## PR2 · 算法层（1.5-2 天）
+## PR2 · 算法层（2-2.5 天）
 
 ```
 shared/utils/tools/algorithms/
@@ -354,15 +375,21 @@ shared/utils/tools/agentTools/
 └── dateCalculator.tool.ts
 ```
 
+### 类型迁移（关键前置）
+
+现有 `ToolDefinition` / `ToolContext` 定义在 `server/services/agent-platform/tools/types.ts`，shared 层 import 会形成跨层依赖（违反 [types.md](.claude/rules/types.md) 第 3 节规范）。
+
+**PR3 第一步**：把这两个类型迁移到 `shared/types/agentTools.ts`，server 侧改为从 shared 导入。Agent 工具文件即可干净地依赖 shared 类型，不引入 server 依赖。
+
 ### 工具统一模板
 
-每个工具一个文件，结构对齐现有 `server/agents/contract/tools/parseAndAskStance.tool.ts`：
+每个工具一个文件，结构对齐现有 `server/agents/contract/tools/parseAndAskStance.tool.ts`。**注意 `tool()` 第二参数传 plain object，不要用 `ToolDefinition<typeof schema>` 包装**（这是 LangChain 0.3+ 的标准用法，Context7 核对源码确认）：
 
 ```typescript
 import { tool } from '@langchain/core/tools'
 import { z } from 'zod'
 import { calculateDivorceProperty } from '../divorcePropertyService'
-import type { ToolDefinition, ToolContext } from '~~/server/services/agent-platform/tools/types'
+import type { ToolContext } from '#shared/types/agentTools'
 
 const schema = z.object({
   totalAssets: z.number().describe('夫妻共同财产总额（元）'),
@@ -375,19 +402,29 @@ const schema = z.object({
   // ... 完整参数
 })
 
-export const toolDefinition: ToolDefinition<typeof schema> = {
+const toolDefinition = {
   name: 'divorce_property_calculator',
   description:
     '依据《民法典》原则计算离婚财产分割：夫妻共同财产、个人财产、债务分担、抚养费等。' +
     '调用前从对话中提取或主动询问必要参数（财产总额、债务、个人财产、抚养相关）。',
   schema,
-}
+} as const
 
-export const createTool = (ctx: ToolContext) => tool(async (input) => {
-  const result = calculateDivorceProperty(input)
-  return JSON.stringify(result)
-}, toolDefinition)
+export { toolDefinition }
+
+export const createTool = (_ctx: ToolContext) => tool(
+  async (input) => {
+    const result = calculateDivorceProperty(input)
+    return JSON.stringify(result)
+  },
+  toolDefinition,
+)
 ```
+
+> - `.describe()` 会被 LangChain 自动抽取进 JSON Schema 的 `description` 字段，让 LLM 看到（Context7 验证）
+> - `.default(0)` 会生成 JSON Schema `default` 字段，LLM 可合法省略该参数
+> - `tool()` 第二参数传 **plain object**（不要用 `ToolDefinition<typeof schema>` 类型包装），这是 LangChain v0.3+ 的标准用法
+> - 返回 `JSON.stringify(result)` 让 LLM 能解析结构化输出
 
 ### nodes.tools 配置（按 vertical 关联）
 
@@ -406,10 +443,17 @@ export const createTool = (ctx: ToolContext) => tool(async (input) => {
 
 ### Agent 工具测试
 
-每个工具一个 `.tool.test.ts`：
+每个工具一个 `.tool.test.ts`，放在 **`tests/shared/utils/tools/agentTools/`**（与现有 15 个 service 测试同级）：
 - mock ToolContext，调 createTool 返回的 tool
 - 用 zod schema 喂典型参数，验证返回 JSON 中关键字段
 - 不重复 service 业务逻辑测试（已 100% 覆盖）
+
+### 端到端集成验证（完成判定）
+
+在 PR3 合并前补充 **「法律助手在对话中调用所有 10 个工具」** 的端到端集成测试：
+- 测试位置：`tests/server/agents/legal-assistant/calculator-tools.e2e.test.ts`
+- 验证方式：构造 10 个典型业务问答 prompt（如"原告 100 万欠款，借期 1 年，按 LPR 4 倍算迟延履行利息是多少"），让 assistantMain agent 完整跑一遍，断言至少有一次 tool_call 命中目标工具
+- 这条测试不替代各工具单测，但兜住"工具配进 nodes.tools 但 LLM 看不到 / 调不到"的回归
 
 ## PR4 · UI 层（2 天）
 
@@ -423,13 +467,13 @@ app/components/tools/
 └── ResultCard.vue
 ```
 
-**CalculatorPageHeader**：标题 + 问号按钮 + 弹出帮助卡。替代 8 处粘贴。
+**CalculatorPageHeader**：标题 + 问号按钮 + 弹出帮助卡（用 Popover + HelpCircle）。替代 8 处粘贴。
 
-**DateInput**：日历图标 + Input type=date + 隐藏原生 picker CSS。替代 4 处粘贴。
+**DateInput**：**复用** 现有 `app/components/ui/calendar/` 的 Calendar + Popover 组合，做薄包装：触发器是带日历图标的 Input，点击弹出 Calendar 选日期。替代 4 处「Input type=date + 隐藏原生 picker CSS」的旧实现。
 
-**MoneyInput**：金额输入 + 内部触发 `numberToChinese` 显示大写。替代 4 处 convertToChinese。
+**MoneyInput**：金额输入 + 内部调 `numberToChinese` 显示大写。替代 4 处 convertToChinese。
 
-**ResultCard**：结果展示卡 + Accordion 折叠明细表格。替代 8 处粘贴。
+**ResultCard**：结果展示卡 + Accordion 折叠明细表格（**复用** `app/components/ui/card/` + `app/components/ui/accordion/`）。替代 8 处粘贴。
 
 ### 删除清单
 
@@ -441,12 +485,7 @@ app/components/tools/
 - [interest.vue:540](app/pages/dashboard/tools/interest.vue:540) 的 `designatedLprTable` 第 3 份 LPR 日期表 → `getLPRRates().map(r => r.date)` 派生
 - [interest.vue:822-966](app/pages/dashboard/tools/interest.vue:822) 第 4 套跨 LPR 实施日分段算法 → 删除（service 已处理）
 
-### dayjs 迁移
-
-按 CLAUDE.md 项目规范，日期处理统一用 dayjs：
-- `shared/utils/tools/utils/date.ts` 252 行 → 删除（functionality 迁到 dayjs API 直调）
-- `app/utils/formatDate.ts` 30 行 → 删除（dayjs 直接 `.format('YYYY-MM-DD HH:mm:ss')`）
-- 各 .vue 页面内联的 formatDate → 删除，dayjs 直调
+> **不在本期范围**：`shared/utils/tools/utils/date.ts` / `app/utils/formatDate.ts` / 各 .vue 内联 formatDate 的 dayjs 迁移。这属于体系级技术债清理，与本次重构主线（数据 / 算法 / Agent / UI 复用）无直接关系，应独立规划。本期保留现有 date.ts。
 
 ## 测试基线契约
 
@@ -491,9 +530,21 @@ npx vitest run tests/shared/utils/tools/ --coverage
 - [ ] 6 个 PR 全部合入 dev 分支
 - [ ] `npx vitest run tests/shared/utils/tools/ --coverage` 显示 15 个文件四项指标全 100%
 - [ ] `bun run typecheck` 无错误
-- [ ] admin 后台「利率管理」可登录、可增删改、修改后立即在工具页面生效
+- [ ] admin 后台「利率管理」可登录、可增删改（带 deletedAt 软删除）、修改后立即在工具页面生效
 - [ ] 10 个工具页面在 dashboard 视觉无回归（chrome-devtools MCP 快照比对）
-- [ ] 法律助手 / 案件分析 Agent 在对话中可成功调用至少一个计算工具（端到端验证）
+- [ ] 法律助手 Agent 在对话中可成功调用全部 10 个计算工具（`tests/server/agents/legal-assistant/calculator-tools.e2e.test.ts` 全绿）
+
+## 工作量估算
+
+| PR | 估算 | 关键风险 |
+|----|------|--------|
+| PR1a 利率库化 + 服务端 API | 2 天 | Decimal → number 转换边界、缓存与 DB 一致性 |
+| PR1b 管理后台 admin CRUD | 1 天 | 多 tab 列表 + 三套 FormDialog |
+| PR1c 其他常量迁移 | 0.5 天 | fee brackets / 社保 / 加班全部入 `shared/utils/tools/data/` |
+| PR2 算法层抽象 + 调用方迁移 | **2-2.5 天** | 5 处 service 调用方改写 + breakdown 文本与现有 details 字段对齐 + 测试基线 100% 验证 |
+| PR3 Agent 工具层 | 1.5 天 | 类型迁移到 shared + 10 个工具实现 + E2E 集成测试 |
+| PR4 UI 层 4 个共用组件 | 2 天 | DateInput 薄包装 Calendar + 10 个页面替换 |
+| **总计** | **9-10 天** | 每个 PR 独立验证，可串可并 |
 
 ## 后续
 
