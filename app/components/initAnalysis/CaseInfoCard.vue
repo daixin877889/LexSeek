@@ -15,7 +15,7 @@
         - 紧凑字段（类型/状态/立场/一二审案号法官）按内容宽度，gap-x-8 视觉分隔
         - 编辑态所有 Input 字段独占一行，保证输入框够宽
       -->
-      <div class="flex flex-wrap gap-x-8 gap-y-2 text-sm">
+      <div class="flex flex-wrap gap-x-8 gap-y-4 text-sm">
         <!-- 标题（独占整行） -->
         <div class="basis-full flex gap-3 items-baseline">
           <span class="w-14 shrink-0 text-muted-foreground">标题</span>
@@ -161,7 +161,7 @@
         </div>
 
         <!-- 一审 / 二审 案号 + 法官（编辑态，2x2 紧凑栅格） -->
-        <div v-if="isEditing" class="basis-full grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2">
+        <div v-if="isEditing" class="basis-full grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
           <div class="flex gap-3 items-baseline">
             <span class="w-14 shrink-0 text-muted-foreground">一审案号</span>
             <Input v-model="editForm.firstInstanceCaseNo" class="h-7 text-sm flex-1" />
