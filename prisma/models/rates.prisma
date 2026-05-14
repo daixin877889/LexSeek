@@ -1,0 +1,65 @@
+/// LPR 利率历史（央行每月公布）
+model lpr_rates {
+  /// 主键
+  id          Int       @id @default(autoincrement())
+  /// 生效日（央行公布日），仅日期精度
+  effectDate  DateTime  @unique @map("effect_date") @db.Date
+  /// 1 年期 LPR (%)
+  oneYear     Decimal   @map("one_year")    @db.Decimal(6, 4)
+  /// 5 年期以上 LPR (%)
+  fiveYear    Decimal   @map("five_year")   @db.Decimal(6, 4)
+  /// 备注（可选）
+  remark      String?   @db.VarChar(255)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// 软删除时间戳，NULL 表示有效
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+  @@index([effectDate(sort: Desc)])
+  @@index([deletedAt])
+}
+
+/// 央行存款基准利率历史
+model pboc_deposit_rates {
+  id           Int       @id @default(autoincrement())
+  effectDate   DateTime  @unique @map("effect_date") @db.Date
+  /// 活期 (%)
+  demand       Decimal   @db.Decimal(6, 4)
+  /// 三个月 (%)
+  threeMonths  Decimal   @map("three_months") @db.Decimal(6, 4)
+  /// 六个月 (%)
+  sixMonths    Decimal   @map("six_months")   @db.Decimal(6, 4)
+  /// 一年 (%)
+  oneYear      Decimal   @map("one_year")     @db.Decimal(6, 4)
+  /// 二年 (%)
+  twoYear      Decimal   @map("two_year")     @db.Decimal(6, 4)
+  /// 三年 (%)
+  threeYear    Decimal   @map("three_year")   @db.Decimal(6, 4)
+  /// 五年 (%)
+  fiveYear     Decimal   @map("five_year")    @db.Decimal(6, 4)
+  remark       String?   @db.VarChar(255)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
+  @@index([effectDate(sort: Desc)])
+  @@index([deletedAt])
+}
+
+/// 央行贷款基准利率历史
+model pboc_loan_rates {
+  id            Int       @id @default(autoincrement())
+  effectDate    DateTime  @unique @map("effect_date") @db.Date
+  /// 六个月 (%)
+  sixMonths     Decimal   @map("six_months")     @db.Decimal(6, 4)
+  /// 一年 (%)
+  oneYear       Decimal   @map("one_year")       @db.Decimal(6, 4)
+  /// 一至五年 (%)
+  oneToFiveYear Decimal   @map("one_to_five")    @db.Decimal(6, 4)
+  /// 五年以上 (%)
+  fiveYear      Decimal   @map("five_year_plus") @db.Decimal(6, 4)
+  remark        String?   @db.VarChar(255)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(6)
+  @@index([effectDate(sort: Desc)])
+  @@index([deletedAt])
+}

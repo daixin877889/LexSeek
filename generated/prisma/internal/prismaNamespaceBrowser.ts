@@ -102,6 +102,9 @@ export const ModelName = {
   pointConsumptionItems: 'pointConsumptionItems',
   pointConsumptionRecords: 'pointConsumptionRecords',
   products: 'products',
+  lpr_rates: 'lpr_rates',
+  pboc_deposit_rates: 'pboc_deposit_rates',
+  pboc_loan_rates: 'pboc_loan_rates',
   roles: 'roles',
   roleRouters: 'roleRouters',
   userRoles: 'userRoles',
@@ -1058,6 +1061,55 @@ export const ProductsScalarFieldEnum = {
 } as const
 
 export type ProductsScalarFieldEnum = (typeof ProductsScalarFieldEnum)[keyof typeof ProductsScalarFieldEnum]
+
+
+export const Lpr_ratesScalarFieldEnum = {
+  id: 'id',
+  effectDate: 'effectDate',
+  oneYear: 'oneYear',
+  fiveYear: 'fiveYear',
+  remark: 'remark',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type Lpr_ratesScalarFieldEnum = (typeof Lpr_ratesScalarFieldEnum)[keyof typeof Lpr_ratesScalarFieldEnum]
+
+
+export const Pboc_deposit_ratesScalarFieldEnum = {
+  id: 'id',
+  effectDate: 'effectDate',
+  demand: 'demand',
+  threeMonths: 'threeMonths',
+  sixMonths: 'sixMonths',
+  oneYear: 'oneYear',
+  twoYear: 'twoYear',
+  threeYear: 'threeYear',
+  fiveYear: 'fiveYear',
+  remark: 'remark',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type Pboc_deposit_ratesScalarFieldEnum = (typeof Pboc_deposit_ratesScalarFieldEnum)[keyof typeof Pboc_deposit_ratesScalarFieldEnum]
+
+
+export const Pboc_loan_ratesScalarFieldEnum = {
+  id: 'id',
+  effectDate: 'effectDate',
+  sixMonths: 'sixMonths',
+  oneYear: 'oneYear',
+  oneToFiveYear: 'oneToFiveYear',
+  fiveYear: 'fiveYear',
+  remark: 'remark',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type Pboc_loan_ratesScalarFieldEnum = (typeof Pboc_loan_ratesScalarFieldEnum)[keyof typeof Pboc_loan_ratesScalarFieldEnum]
 
 
 export const RolesScalarFieldEnum = {

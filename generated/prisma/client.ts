@@ -315,6 +315,21 @@ export type pointConsumptionRecords = Prisma.pointConsumptionRecordsModel
  */
 export type products = Prisma.productsModel
 /**
+ * Model lpr_rates
+ * LPR 利率历史（央行每月公布）
+ */
+export type lpr_rates = Prisma.lpr_ratesModel
+/**
+ * Model pboc_deposit_rates
+ * 央行存款基准利率历史
+ */
+export type pboc_deposit_rates = Prisma.pboc_deposit_ratesModel
+/**
+ * Model pboc_loan_rates
+ * 央行贷款基准利率历史
+ */
+export type pboc_loan_rates = Prisma.pboc_loan_ratesModel
+/**
  * Model roles
  * 角色表
  */
