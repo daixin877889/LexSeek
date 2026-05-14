@@ -40,15 +40,6 @@ vi.mock('#app/composables/head', async (importOriginal) => {
   }
 })
 
-// stubGlobal 作为兜底，保证在不同 Nuxt 内部解析路径下也能被捕获
-vi.stubGlobal('useSeoMeta', (arg: Record<string, unknown>) => {
-  useSeoMetaArgs.push(arg)
-})
-vi.stubGlobal('useHead', (arg: Record<string, unknown>) => {
-  useHeadArgs.push(arg)
-})
-vi.stubGlobal('useRuntimeConfig', mockRuntimeConfig)
-
 const { useSiteSeo } = await import('~/composables/useSiteSeo')
 
 beforeEach(() => {

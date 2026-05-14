@@ -32,15 +32,12 @@ export const useSiteSeo = (opt: SiteSeoOptions) => {
     robots: opt.noindex ? 'noindex,nofollow' : 'index,follow',
   })
 
-  const jsonLdScripts = (() => {
-    if (!opt.jsonLd) return []
-    const blocks = Array.isArray(opt.jsonLd) ? opt.jsonLd : [opt.jsonLd]
-    return blocks.map((block) => ({
-      type: 'application/ld+json',
-      // 防御性转义 `<`，避免 JSON 字符串内含 `</script>` 时打断 HTML
-      innerHTML: JSON.stringify(block).replace(/</g, '\\u003c'),
-    }))
-  })()
+  const jsonLdBlocks = opt.jsonLd ? (Array.isArray(opt.jsonLd) ? opt.jsonLd : [opt.jsonLd]) : []
+  const jsonLdScripts = jsonLdBlocks.map((block) => ({
+    type: 'application/ld+json',
+    // 防御性转义 `<`，避免 JSON 字符串内含 `</script>` 时打断 HTML
+    innerHTML: JSON.stringify(block).replace(/</g, '\\u003c'),
+  }))
 
   useHead({
     link: [{ rel: 'canonical', href: fullUrl }],
