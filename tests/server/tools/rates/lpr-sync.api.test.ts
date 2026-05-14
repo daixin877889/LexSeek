@@ -6,13 +6,18 @@
  * 注：测试目录放在 tests/server/tools/rates/ 而非 tests/server/api/...，
  * 因为 tests/server/api/** 被 vitest exclude（参考 PR1a-T7 implementer 的踩坑修正）
  */
-import { describe, it, expect, afterEach, vi } from 'vitest'
+import { describe, it, expect, afterEach, afterAll, vi } from 'vitest'
 import '../../_helpers/handler-test'
 
 // mock $fetch（ofetch）：在 Nitro/Nuxt 环境中 $fetch 是 globalThis 上的全局
 // 须在 import handler 之前 stub，以便 handler 引入的 service 拿到 mock
 const fetchMock = vi.fn()
 vi.stubGlobal('$fetch', fetchMock)
+
+// 测试结束时清理全局 stub，避免污染同 worker 内后续测试文件
+afterAll(() => {
+    vi.unstubAllGlobals()
+})
 
 import { prisma } from '~~/server/utils/db'
 import syncStatusHandler from '~~/server/api/v1/admin/rates/lpr/sync-status.get'

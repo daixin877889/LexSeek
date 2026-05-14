@@ -3,11 +3,16 @@
  *
  * **Feature: lpr-auto-sync**
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest'
 
 // mock $fetch（ofetch）：在 Nitro/Nuxt 环境中 $fetch 是 globalThis 上的全局
 const fetchMock = vi.fn()
 vi.stubGlobal('$fetch', fetchMock)
+
+// 测试结束时清理全局 stub，避免污染同 worker 内后续测试文件（如 rates.service.test.ts 真实调用 $fetch）
+afterAll(() => {
+    vi.unstubAllGlobals()
+})
 
 import { fetchLPRFromChinamoneyService } from '~~/server/services/rates/lprSync.service'
 
