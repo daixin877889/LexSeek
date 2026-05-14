@@ -54,6 +54,7 @@ export type CasesMinAggregateOutputType = {
   secondInstanceJudge: string | null
   status: number | null
   isDemo: boolean | null
+  stance: string | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -73,6 +74,7 @@ export type CasesMaxAggregateOutputType = {
   secondInstanceJudge: string | null
   status: number | null
   isDemo: boolean | null
+  stance: string | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -95,6 +97,7 @@ export type CasesCountAggregateOutputType = {
   secondInstanceJudge: number
   status: number
   isDemo: number
+  stance: number
   createdAt: number
   updatedAt: number
   deletedAt: number
@@ -130,6 +133,7 @@ export type CasesMinAggregateInputType = {
   secondInstanceJudge?: true
   status?: true
   isDemo?: true
+  stance?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -149,6 +153,7 @@ export type CasesMaxAggregateInputType = {
   secondInstanceJudge?: true
   status?: true
   isDemo?: true
+  stance?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -171,6 +176,7 @@ export type CasesCountAggregateInputType = {
   secondInstanceJudge?: true
   status?: true
   isDemo?: true
+  stance?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -280,6 +286,7 @@ export type CasesGroupByOutputType = {
   secondInstanceJudge: string | null
   status: number
   isDemo: boolean
+  stance: string
   createdAt: Date
   updatedAt: Date
   deletedAt: Date | null
@@ -325,6 +332,7 @@ export type casesWhereInput = {
   secondInstanceJudge?: Prisma.StringNullableFilter<"cases"> | string | null
   status?: Prisma.IntFilter<"cases"> | number
   isDemo?: Prisma.BoolFilter<"cases"> | boolean
+  stance?: Prisma.StringFilter<"cases"> | string
   createdAt?: Prisma.DateTimeFilter<"cases"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"cases"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"cases"> | Date | string | null
@@ -354,6 +362,7 @@ export type casesOrderByWithRelationInput = {
   secondInstanceJudge?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   isDemo?: Prisma.SortOrder
+  stance?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -386,6 +395,7 @@ export type casesWhereUniqueInput = Prisma.AtLeast<{
   secondInstanceJudge?: Prisma.StringNullableFilter<"cases"> | string | null
   status?: Prisma.IntFilter<"cases"> | number
   isDemo?: Prisma.BoolFilter<"cases"> | boolean
+  stance?: Prisma.StringFilter<"cases"> | string
   createdAt?: Prisma.DateTimeFilter<"cases"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"cases"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"cases"> | Date | string | null
@@ -415,6 +425,7 @@ export type casesOrderByWithAggregationInput = {
   secondInstanceJudge?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   isDemo?: Prisma.SortOrder
+  stance?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -445,6 +456,7 @@ export type casesScalarWhereWithAggregatesInput = {
   secondInstanceJudge?: Prisma.StringNullableWithAggregatesFilter<"cases"> | string | null
   status?: Prisma.IntWithAggregatesFilter<"cases"> | number
   isDemo?: Prisma.BoolWithAggregatesFilter<"cases"> | boolean
+  stance?: Prisma.StringWithAggregatesFilter<"cases"> | string
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"cases"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"cases"> | Date | string
   deletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"cases"> | Date | string | null
@@ -464,6 +476,7 @@ export type casesCreateInput = {
   secondInstanceJudge?: string | null
   status?: number
   isDemo?: boolean
+  stance?: string
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -493,6 +506,7 @@ export type casesUncheckedCreateInput = {
   secondInstanceJudge?: string | null
   status?: number
   isDemo?: boolean
+  stance?: string
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -517,6 +531,7 @@ export type casesUpdateInput = {
   secondInstanceJudge?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stance?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -546,6 +561,7 @@ export type casesUncheckedUpdateInput = {
   secondInstanceJudge?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stance?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -573,6 +589,7 @@ export type casesCreateManyInput = {
   secondInstanceJudge?: string | null
   status?: number
   isDemo?: boolean
+  stance?: string
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -592,6 +609,7 @@ export type casesUpdateManyMutationInput = {
   secondInstanceJudge?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stance?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -614,6 +632,7 @@ export type casesUncheckedUpdateManyInput = {
   secondInstanceJudge?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stance?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -646,6 +665,7 @@ export type casesCountOrderByAggregateInput = {
   secondInstanceJudge?: Prisma.SortOrder
   status?: Prisma.SortOrder
   isDemo?: Prisma.SortOrder
+  stance?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -672,6 +692,7 @@ export type casesMaxOrderByAggregateInput = {
   secondInstanceJudge?: Prisma.SortOrder
   status?: Prisma.SortOrder
   isDemo?: Prisma.SortOrder
+  stance?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -691,6 +712,7 @@ export type casesMinOrderByAggregateInput = {
   secondInstanceJudge?: Prisma.SortOrder
   status?: Prisma.SortOrder
   isDemo?: Prisma.SortOrder
+  stance?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -889,6 +911,7 @@ export type casesCreateWithoutCaseTypeInput = {
   secondInstanceJudge?: string | null
   status?: number
   isDemo?: boolean
+  stance?: string
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -916,6 +939,7 @@ export type casesUncheckedCreateWithoutCaseTypeInput = {
   secondInstanceJudge?: string | null
   status?: number
   isDemo?: boolean
+  stance?: string
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -972,6 +996,7 @@ export type casesScalarWhereInput = {
   secondInstanceJudge?: Prisma.StringNullableFilter<"cases"> | string | null
   status?: Prisma.IntFilter<"cases"> | number
   isDemo?: Prisma.BoolFilter<"cases"> | boolean
+  stance?: Prisma.StringFilter<"cases"> | string
   createdAt?: Prisma.DateTimeFilter<"cases"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"cases"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"cases"> | Date | string | null
@@ -991,6 +1016,7 @@ export type casesCreateWithoutCaseSessionsInput = {
   secondInstanceJudge?: string | null
   status?: number
   isDemo?: boolean
+  stance?: string
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1019,6 +1045,7 @@ export type casesUncheckedCreateWithoutCaseSessionsInput = {
   secondInstanceJudge?: string | null
   status?: number
   isDemo?: boolean
+  stance?: string
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1058,6 +1085,7 @@ export type casesUpdateWithoutCaseSessionsInput = {
   secondInstanceJudge?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stance?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1086,6 +1114,7 @@ export type casesUncheckedUpdateWithoutCaseSessionsInput = {
   secondInstanceJudge?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stance?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1109,6 +1138,7 @@ export type casesCreateWithoutCaseMaterialsInput = {
   secondInstanceJudge?: string | null
   status?: number
   isDemo?: boolean
+  stance?: string
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1137,6 +1167,7 @@ export type casesUncheckedCreateWithoutCaseMaterialsInput = {
   secondInstanceJudge?: string | null
   status?: number
   isDemo?: boolean
+  stance?: string
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1176,6 +1207,7 @@ export type casesUpdateWithoutCaseMaterialsInput = {
   secondInstanceJudge?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stance?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1204,6 +1236,7 @@ export type casesUncheckedUpdateWithoutCaseMaterialsInput = {
   secondInstanceJudge?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stance?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1227,6 +1260,7 @@ export type casesCreateWithoutCaseAnalysesInput = {
   secondInstanceJudge?: string | null
   status?: number
   isDemo?: boolean
+  stance?: string
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1255,6 +1289,7 @@ export type casesUncheckedCreateWithoutCaseAnalysesInput = {
   secondInstanceJudge?: string | null
   status?: number
   isDemo?: boolean
+  stance?: string
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1294,6 +1329,7 @@ export type casesUpdateWithoutCaseAnalysesInput = {
   secondInstanceJudge?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stance?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1322,6 +1358,7 @@ export type casesUncheckedUpdateWithoutCaseAnalysesInput = {
   secondInstanceJudge?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stance?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1345,6 +1382,7 @@ export type casesCreateWithoutContractReviewsInput = {
   secondInstanceJudge?: string | null
   status?: number
   isDemo?: boolean
+  stance?: string
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1373,6 +1411,7 @@ export type casesUncheckedCreateWithoutContractReviewsInput = {
   secondInstanceJudge?: string | null
   status?: number
   isDemo?: boolean
+  stance?: string
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1412,6 +1451,7 @@ export type casesUpdateWithoutContractReviewsInput = {
   secondInstanceJudge?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stance?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1440,6 +1480,7 @@ export type casesUncheckedUpdateWithoutContractReviewsInput = {
   secondInstanceJudge?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stance?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1463,6 +1504,7 @@ export type casesCreateWithoutDocumentDraftsInput = {
   secondInstanceJudge?: string | null
   status?: number
   isDemo?: boolean
+  stance?: string
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1491,6 +1533,7 @@ export type casesUncheckedCreateWithoutDocumentDraftsInput = {
   secondInstanceJudge?: string | null
   status?: number
   isDemo?: boolean
+  stance?: string
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1530,6 +1573,7 @@ export type casesUpdateWithoutDocumentDraftsInput = {
   secondInstanceJudge?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stance?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1558,6 +1602,7 @@ export type casesUncheckedUpdateWithoutDocumentDraftsInput = {
   secondInstanceJudge?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stance?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1581,6 +1626,7 @@ export type casesCreateWithoutUserInput = {
   secondInstanceJudge?: string | null
   status?: number
   isDemo?: boolean
+  stance?: string
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1608,6 +1654,7 @@ export type casesUncheckedCreateWithoutUserInput = {
   secondInstanceJudge?: string | null
   status?: number
   isDemo?: boolean
+  stance?: string
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1660,6 +1707,7 @@ export type casesCreateManyCaseTypeInput = {
   secondInstanceJudge?: string | null
   status?: number
   isDemo?: boolean
+  stance?: string
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1679,6 +1727,7 @@ export type casesUpdateWithoutCaseTypeInput = {
   secondInstanceJudge?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stance?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1706,6 +1755,7 @@ export type casesUncheckedUpdateWithoutCaseTypeInput = {
   secondInstanceJudge?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stance?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1732,6 +1782,7 @@ export type casesUncheckedUpdateManyWithoutCaseTypeInput = {
   secondInstanceJudge?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stance?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1753,6 +1804,7 @@ export type casesCreateManyUserInput = {
   secondInstanceJudge?: string | null
   status?: number
   isDemo?: boolean
+  stance?: string
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1772,6 +1824,7 @@ export type casesUpdateWithoutUserInput = {
   secondInstanceJudge?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stance?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1799,6 +1852,7 @@ export type casesUncheckedUpdateWithoutUserInput = {
   secondInstanceJudge?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stance?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1825,6 +1879,7 @@ export type casesUncheckedUpdateManyWithoutUserInput = {
   secondInstanceJudge?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  stance?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1914,6 +1969,7 @@ export type casesSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   secondInstanceJudge?: boolean
   status?: boolean
   isDemo?: boolean
+  stance?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -1944,6 +2000,7 @@ export type casesSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   secondInstanceJudge?: boolean
   status?: boolean
   isDemo?: boolean
+  stance?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -1968,6 +2025,7 @@ export type casesSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   secondInstanceJudge?: boolean
   status?: boolean
   isDemo?: boolean
+  stance?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -1992,12 +2050,13 @@ export type casesSelectScalar = {
   secondInstanceJudge?: boolean
   status?: boolean
   isDemo?: boolean
+  stance?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
 }
 
-export type casesOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "title" | "content" | "userId" | "caseTypeId" | "plaintiff" | "defendant" | "summary" | "extractedInfo" | "courtName" | "firstInstanceCaseNo" | "secondInstanceCaseNo" | "firstInstanceJudge" | "secondInstanceJudge" | "status" | "isDemo" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["cases"]>
+export type casesOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "title" | "content" | "userId" | "caseTypeId" | "plaintiff" | "defendant" | "summary" | "extractedInfo" | "courtName" | "firstInstanceCaseNo" | "secondInstanceCaseNo" | "firstInstanceJudge" | "secondInstanceJudge" | "status" | "isDemo" | "stance" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["cases"]>
 export type casesInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.usersDefaultArgs<ExtArgs>
   caseType?: boolean | Prisma.caseTypesDefaultArgs<ExtArgs>
@@ -2114,6 +2173,10 @@ export type $casesPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
      * 是否为示范案件
      */
     isDemo: boolean
+    /**
+     * 分析立场：plaintiff（原告）/ defendant（被告）/ neutral（中立）
+     */
+    stance: string
     /**
      * 创建时间
      */
@@ -2572,6 +2635,7 @@ export interface casesFieldRefs {
   readonly secondInstanceJudge: Prisma.FieldRef<"cases", 'String'>
   readonly status: Prisma.FieldRef<"cases", 'Int'>
   readonly isDemo: Prisma.FieldRef<"cases", 'Boolean'>
+  readonly stance: Prisma.FieldRef<"cases", 'String'>
   readonly createdAt: Prisma.FieldRef<"cases", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"cases", 'DateTime'>
   readonly deletedAt: Prisma.FieldRef<"cases", 'DateTime'>

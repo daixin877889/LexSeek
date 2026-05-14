@@ -6140,6 +6140,7 @@ export const CasesScalarFieldEnum = {
   secondInstanceJudge: 'secondInstanceJudge',
   status: 'status',
   isDemo: 'isDemo',
+  stance: 'stance',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'
