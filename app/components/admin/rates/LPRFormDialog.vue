@@ -8,16 +8,16 @@
 
             <div class="space-y-4">
                 <div class="space-y-1.5">
-                    <Label>生效日 <span class="text-destructive">*</span></Label>
+                    <Label><span class="text-destructive">*</span> 生效日</Label>
                     <DatePicker v-model="form.effectDate" placeholder="选择生效日" />
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div class="space-y-1.5">
-                        <Label>1 年期 (%) <span class="text-destructive">*</span></Label>
+                        <Label><span class="text-destructive">*</span> 1 年期 (%)</Label>
                         <Input v-model.number="form.oneYear" type="number" step="0.01" />
                     </div>
                     <div class="space-y-1.5">
-                        <Label>5 年期以上 (%) <span class="text-destructive">*</span></Label>
+                        <Label><span class="text-destructive">*</span> 5 年期以上 (%)</Label>
                         <Input v-model.number="form.fiveYear" type="number" step="0.01" />
                     </div>
                 </div>
