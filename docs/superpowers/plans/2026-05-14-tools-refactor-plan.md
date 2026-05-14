@@ -98,7 +98,7 @@ tests/server/agents/legal-assistant/
 ### 修改文件
 
 ```
-shared/types/tools.ts                                        # PR1a 加 LPRRate/PBOCDepositRate/PBOCLoanRate 类型
+shared/types/tools.ts                                        # PR1a 加 LPRRate/DepositRate/LoanRate 类型
 shared/utils/tools/bankRateService.ts                        # PR1c 改 import getXxxRates
 shared/utils/tools/interestService.ts                        # PR1c+PR2 改 import + 用算法层
 shared/utils/tools/delayInterestService.ts                   # PR2 用 calculateSegmentedInterest
@@ -114,62 +114,26 @@ app/pages/dashboard/tools/*.vue (10 个)                       # PR4 用共用�
 
 ---
 
+## 命名修订说明（2026-05-14 执行期修订）
+
+执行 PR1a-T1 时发现 `shared/types/tools.ts:15-38` 已存在等价的 LPRRate / DepositRate / LoanRate 三个 interface。沿用旧命名，规则如下：
+
+- **TS 类型名**：`LPRRate` / `DepositRate` / `LoanRate`（项目原命名，不再加 PBOC 前缀）
+- **TS 字段名**：`LoanRate.fiveYear`（旧字段名，语义"5年以上"；不再用 `fiveYearPlus`）
+- **DAO/Service 函数名保留 PBOC 前缀**：`findAllPBOCDepositRatesDAO` / `listPBOCDepositRatesService` 等（保留前缀以便函数名直接表达"央行（PBOC）"语义，与"普通银行存款利率"区分）
+- **DB 列 / 表名保留 pboc 前缀**：表 `pboc_deposit_rates` / `pboc_loan_rates`，列 `five_year_plus`
+- **Prisma 字段名**：`fiveYear`（与 TS 旧命名对齐，通过 `@map("five_year_plus")` 桥接到 DB 列）
+- **URL 路径保留 pboc 前缀**：`/api/v1/admin/rates/pboc-deposit` / `pboc-loan`（与表名一致）
+
+---
+
 # PR1a · 利率数据库化 + 服务端 API（2 天）
 
-## 任务 PR1a-T1：定义类型基础
+## ~~任务 PR1a-T1：定义类型基础~~（已跳过）
 
-**Files:**
-- Modify: `shared/types/tools.ts`
+**执行结果：** 项目 `shared/types/tools.ts:15-38` 已存在 LPRRate / DepositRate / LoanRate 三个等价 interface，PR1a-T1 改为"沿用旧命名"，无需新增类型。Git 上留有两个互补 commit（`1593a479` 追加 + `188ea5a1` 撤销），净改动 0。
 
-- [ ] **Step 1: 在 `shared/types/tools.ts` 文件末尾追加三个利率类型**
-
-```typescript
-/**
- * LPR 利率（央行每月公布）
- *
- * - date：央行公布生效日，YYYY-MM-DD
- * - oneYear：1 年期 LPR (%)
- * - fiveYear：5 年期以上 LPR (%)
- */
-export interface LPRRate {
-    date: string
-    oneYear: number
-    fiveYear: number
-}
-
-/** 央行存款基准利率 */
-export interface PBOCDepositRate {
-    date: string
-    demand: number       // 活期
-    threeMonths: number  // 三个月
-    sixMonths: number    // 六个月
-    oneYear: number      // 一年
-    twoYear: number      // 二年
-    threeYear: number    // 三年
-    fiveYear: number     // 五年
-}
-
-/** 央行贷款基准利率 */
-export interface PBOCLoanRate {
-    date: string
-    sixMonths: number
-    oneYear: number
-    oneToFiveYear: number
-    fiveYearPlus: number
-}
-```
-
-- [ ] **Step 2: 验证类型导入路径**
-
-Run: `bun run typecheck`
-Expected: 无错误
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add shared/types/tools.ts
-git commit -m "feat(tools): 新增 LPRRate / PBOCDepositRate / PBOCLoanRate 类型"
-```
+后续 task 全部按上方"命名修订说明"使用旧命名 + DAO/Service 保留 PBOC 前缀。
 
 ---
 
@@ -238,7 +202,7 @@ model pboc_loan_rates {
   /// 一至五年 (%)
   oneToFiveYear Decimal   @map("one_to_five")    @db.Decimal(6, 4)
   /// 五年以上 (%)
-  fiveYearPlus  Decimal   @map("five_year_plus") @db.Decimal(6, 4)
+  fiveYear      Decimal   @map("five_year_plus") @db.Decimal(6, 4)
   remark        String?   @db.VarChar(255)
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -526,9 +490,9 @@ export function setLPRRates(rates: readonly LPRRate[]): void {
 - [ ] **Step 2: 创建 `shared/utils/tools/data/pbocDepositRates.ts`**
 
 ```typescript
-import type { PBOCDepositRate } from '#shared/types/tools'
+import type { DepositRate } from '#shared/types/tools'
 
-const DEFAULT_PBOC_DEPOSIT_RATES: readonly PBOCDepositRate[] = [
+const DEFAULT_PBOC_DEPOSIT_RATES: readonly DepositRate[] = [
     { date: '2015-10-24', demand: 0.35, threeMonths: 1.10, sixMonths: 1.30, oneYear: 1.50, twoYear: 2.10, threeYear: 2.75, fiveYear: 2.75 },
     { date: '2015-08-26', demand: 0.35, threeMonths: 1.35, sixMonths: 1.55, oneYear: 1.75, twoYear: 2.35, threeYear: 3.00, fiveYear: 3.00 },
     { date: '2015-06-28', demand: 0.35, threeMonths: 1.60, sixMonths: 1.80, oneYear: 2.00, twoYear: 2.60, threeYear: 3.25, fiveYear: 3.25 },
@@ -541,13 +505,13 @@ const DEFAULT_PBOC_DEPOSIT_RATES: readonly PBOCDepositRate[] = [
     { date: '2011-04-06', demand: 0.50, threeMonths: 2.85, sixMonths: 3.05, oneYear: 3.25, twoYear: 4.15, threeYear: 4.65, fiveYear: 4.75 },
 ]
 
-let runtimeCache: readonly PBOCDepositRate[] = DEFAULT_PBOC_DEPOSIT_RATES
+let runtimeCache: readonly DepositRate[] = DEFAULT_PBOC_DEPOSIT_RATES
 
-export function getPBOCDepositRates(): readonly PBOCDepositRate[] {
+export function getDepositRates(): readonly DepositRate[] {
     return runtimeCache
 }
 
-export function setPBOCDepositRates(rates: readonly PBOCDepositRate[]): void {
+export function setDepositRates(rates: readonly DepositRate[]): void {
     runtimeCache = [...rates].sort(
         (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     )
@@ -557,28 +521,28 @@ export function setPBOCDepositRates(rates: readonly PBOCDepositRate[]): void {
 - [ ] **Step 3: 创建 `shared/utils/tools/data/pbocLoanRates.ts`**
 
 ```typescript
-import type { PBOCLoanRate } from '#shared/types/tools'
+import type { LoanRate } from '#shared/types/tools'
 
-const DEFAULT_PBOC_LOAN_RATES: readonly PBOCLoanRate[] = [
-    { date: '2015-10-24', sixMonths: 4.35, oneYear: 4.35, oneToFiveYear: 4.75, fiveYearPlus: 4.90 },
-    { date: '2015-08-26', sixMonths: 4.60, oneYear: 4.60, oneToFiveYear: 5.00, fiveYearPlus: 5.15 },
-    { date: '2015-06-28', sixMonths: 4.85, oneYear: 4.85, oneToFiveYear: 5.25, fiveYearPlus: 5.40 },
-    { date: '2015-05-11', sixMonths: 5.10, oneYear: 5.10, oneToFiveYear: 5.50, fiveYearPlus: 5.65 },
-    { date: '2015-03-01', sixMonths: 5.35, oneYear: 5.35, oneToFiveYear: 5.75, fiveYearPlus: 5.90 },
-    { date: '2014-11-22', sixMonths: 5.60, oneYear: 5.60, oneToFiveYear: 6.00, fiveYearPlus: 6.15 },
-    { date: '2012-07-06', sixMonths: 5.85, oneYear: 6.00, oneToFiveYear: 6.15, fiveYearPlus: 6.40 },
-    { date: '2012-06-08', sixMonths: 6.10, oneYear: 6.31, oneToFiveYear: 6.40, fiveYearPlus: 6.65 },
-    { date: '2011-07-07', sixMonths: 6.56, oneYear: 6.65, oneToFiveYear: 6.90, fiveYearPlus: 7.05 },
-    { date: '2011-04-06', sixMonths: 6.31, oneYear: 6.40, oneToFiveYear: 6.65, fiveYearPlus: 6.80 },
+const DEFAULT_PBOC_LOAN_RATES: readonly LoanRate[] = [
+    { date: '2015-10-24', sixMonths: 4.35, oneYear: 4.35, oneToFiveYear: 4.75, fiveYear: 4.90 },
+    { date: '2015-08-26', sixMonths: 4.60, oneYear: 4.60, oneToFiveYear: 5.00, fiveYear: 5.15 },
+    { date: '2015-06-28', sixMonths: 4.85, oneYear: 4.85, oneToFiveYear: 5.25, fiveYear: 5.40 },
+    { date: '2015-05-11', sixMonths: 5.10, oneYear: 5.10, oneToFiveYear: 5.50, fiveYear: 5.65 },
+    { date: '2015-03-01', sixMonths: 5.35, oneYear: 5.35, oneToFiveYear: 5.75, fiveYear: 5.90 },
+    { date: '2014-11-22', sixMonths: 5.60, oneYear: 5.60, oneToFiveYear: 6.00, fiveYear: 6.15 },
+    { date: '2012-07-06', sixMonths: 5.85, oneYear: 6.00, oneToFiveYear: 6.15, fiveYear: 6.40 },
+    { date: '2012-06-08', sixMonths: 6.10, oneYear: 6.31, oneToFiveYear: 6.40, fiveYear: 6.65 },
+    { date: '2011-07-07', sixMonths: 6.56, oneYear: 6.65, oneToFiveYear: 6.90, fiveYear: 7.05 },
+    { date: '2011-04-06', sixMonths: 6.31, oneYear: 6.40, oneToFiveYear: 6.65, fiveYear: 6.80 },
 ]
 
-let runtimeCache: readonly PBOCLoanRate[] = DEFAULT_PBOC_LOAN_RATES
+let runtimeCache: readonly LoanRate[] = DEFAULT_PBOC_LOAN_RATES
 
-export function getPBOCLoanRates(): readonly PBOCLoanRate[] {
+export function getLoanRates(): readonly LoanRate[] {
     return runtimeCache
 }
 
-export function setPBOCLoanRates(rates: readonly PBOCLoanRate[]): void {
+export function setLoanRates(rates: readonly LoanRate[]): void {
     runtimeCache = [...rates].sort(
         (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     )
@@ -743,7 +707,7 @@ describe('rates.dao - PBOC Loan', () => {
     it('createPBOCLoanRateDAO + findAllPBOCLoanRatesDAO + update + softDelete 全链路', async () => {
         const created = await createPBOCLoanRateDAO({
             effectDate: new Date(`2030-05-${String(Date.now() % 28 + 1).padStart(2, '0')}`),
-            sixMonths: 4.00, oneYear: 4.10, oneToFiveYear: 4.40, fiveYearPlus: 4.60,
+            sixMonths: 4.00, oneYear: 4.10, oneToFiveYear: 4.40, fiveYear: 4.60,
         })
         createdIds.push(created.id)
 
@@ -1005,12 +969,12 @@ Expected: FAIL — service 文件不存在
  * 1. 把 Prisma Decimal 转 number、Date 转 YYYY-MM-DD 字符串（让 API/缓存只持有 plain 数据）
  * 2. 增删改后自动刷新 shared/utils/tools/data/ 模块级缓存
  */
-import type { LPRRate, PBOCDepositRate, PBOCLoanRate } from '#shared/types/tools'
+import type { LPRRate, DepositRate, LoanRate } from '#shared/types/tools'
 import { decimalToNumber } from '#shared/utils/decimalToNumber'
 import {
     getLPRRates, setLPRRates,
-    setPBOCDepositRates,
-    setPBOCLoanRates,
+    setDepositRates,
+    setLoanRates,
 } from '#shared/utils/tools/data'
 import {
     findAllLPRRatesDAO, createLPRRateDAO, updateLPRRateDAO, softDeleteLPRRateDAO,
@@ -1031,7 +995,7 @@ function toLPRRate(row: lpr_rates): LPRRate {
     }
 }
 
-function toPBOCDepositRate(row: pboc_deposit_rates): PBOCDepositRate {
+function toPBOCDepositRate(row: pboc_deposit_rates): DepositRate {
     return {
         date: row.effectDate.toISOString().slice(0, 10),
         demand: decimalToNumber(row.demand),
@@ -1044,13 +1008,13 @@ function toPBOCDepositRate(row: pboc_deposit_rates): PBOCDepositRate {
     }
 }
 
-function toPBOCLoanRate(row: pboc_loan_rates): PBOCLoanRate {
+function toPBOCLoanRate(row: pboc_loan_rates): LoanRate {
     return {
         date: row.effectDate.toISOString().slice(0, 10),
         sixMonths: decimalToNumber(row.sixMonths),
         oneYear: decimalToNumber(row.oneYear),
         oneToFiveYear: decimalToNumber(row.oneToFiveYear),
-        fiveYearPlus: decimalToNumber(row.fiveYearPlus),
+        fiveYear: decimalToNumber(row.fiveYear),
     }
 }
 
@@ -1119,14 +1083,14 @@ export interface CreatePBOCDepositRateInput {
 }
 export type UpdatePBOCDepositRateInput = Partial<CreatePBOCDepositRateInput>
 
-async function refreshPBOCDepositCacheService(): Promise<PBOCDepositRate[]> {
+async function refreshPBOCDepositCacheService(): Promise<DepositRate[]> {
     const rows = await findAllPBOCDepositRatesDAO()
     const list = rows.map(toPBOCDepositRate)
-    setPBOCDepositRates(list)
+    setDepositRates(list)
     return list
 }
 
-export async function listPBOCDepositRatesService(): Promise<PBOCDepositRate[]> {
+export async function listPBOCDepositRatesService(): Promise<DepositRate[]> {
     return (await findAllPBOCDepositRatesDAO()).map(toPBOCDepositRate)
 }
 
@@ -1162,19 +1126,19 @@ export async function deletePBOCDepositRateService(id: number) {
 
 export interface CreatePBOCLoanRateInput {
     effectDate: string
-    sixMonths: number; oneYear: number; oneToFiveYear: number; fiveYearPlus: number
+    sixMonths: number; oneYear: number; oneToFiveYear: number; fiveYear: number
     remark?: string
 }
 export type UpdatePBOCLoanRateInput = Partial<CreatePBOCLoanRateInput>
 
-async function refreshPBOCLoanCacheService(): Promise<PBOCLoanRate[]> {
+async function refreshPBOCLoanCacheService(): Promise<LoanRate[]> {
     const rows = await findAllPBOCLoanRatesDAO()
     const list = rows.map(toPBOCLoanRate)
-    setPBOCLoanRates(list)
+    setLoanRates(list)
     return list
 }
 
-export async function listPBOCLoanRatesService(): Promise<PBOCLoanRate[]> {
+export async function listPBOCLoanRatesService(): Promise<LoanRate[]> {
     return (await findAllPBOCLoanRatesDAO()).map(toPBOCLoanRate)
 }
 
@@ -1182,7 +1146,7 @@ export async function createPBOCLoanRateService(input: CreatePBOCLoanRateInput) 
     const created = await createPBOCLoanRateDAO({
         effectDate: new Date(input.effectDate),
         sixMonths: input.sixMonths, oneYear: input.oneYear,
-        oneToFiveYear: input.oneToFiveYear, fiveYearPlus: input.fiveYearPlus,
+        oneToFiveYear: input.oneToFiveYear, fiveYear: input.fiveYear,
         remark: input.remark ?? null,
     })
     await refreshPBOCLoanCacheService()
@@ -1192,7 +1156,7 @@ export async function createPBOCLoanRateService(input: CreatePBOCLoanRateInput) 
 export async function updatePBOCLoanRateService(id: number, input: UpdatePBOCLoanRateInput) {
     const data: Record<string, unknown> = {}
     if (input.effectDate !== undefined) data.effectDate = new Date(input.effectDate)
-    for (const k of ['sixMonths', 'oneYear', 'oneToFiveYear', 'fiveYearPlus', 'remark'] as const) {
+    for (const k of ['sixMonths', 'oneYear', 'oneToFiveYear', 'fiveYear', 'remark'] as const) {
         if (input[k] !== undefined) data[k] = input[k]
     }
     const updated = await updatePBOCLoanRateDAO(id, data)
@@ -1542,7 +1506,7 @@ const schema = z.object({
     sixMonths: z.number().min(0).max(99.9999),
     oneYear: z.number().min(0).max(99.9999),
     oneToFiveYear: z.number().min(0).max(99.9999),
-    fiveYearPlus: z.number().min(0).max(99.9999),
+    fiveYear: z.number().min(0).max(99.9999),
     remark: z.string().optional(),
 })
 ```
@@ -1608,9 +1572,9 @@ git commit -m "feat(rates): 新增服务端启动 plugin，自动刷新利率模
 - [ ] **Step 1: 创建 `app/composables/useToolsRates.ts`**
 
 ```typescript
-import { setLPRRates, setPBOCDepositRates, setPBOCLoanRates, getLPRRates, getPBOCDepositRates, getPBOCLoanRates } from '#shared/utils/tools/data'
+import { setLPRRates, setDepositRates, setLoanRates, getLPRRates, getDepositRates, getLoanRates } from '#shared/utils/tools/data'
 import { useApiFetch } from '~/composables/useApiFetch'
-import type { LPRRate, PBOCDepositRate, PBOCLoanRate } from '#shared/types/tools'
+import type { LPRRate, DepositRate, LoanRate } from '#shared/types/tools'
 
 let loaded = false
 let loadingPromise: Promise<void> | null = null
@@ -1629,12 +1593,12 @@ export function useToolsRates() {
             try {
                 const [lpr, deposit, loan] = await Promise.all([
                     useApiFetch<LPRRate[]>('/v1/tools/rates/lpr', { method: 'GET' }),
-                    useApiFetch<PBOCDepositRate[]>('/v1/tools/rates/pboc-deposit', { method: 'GET' }),
-                    useApiFetch<PBOCLoanRate[]>('/v1/tools/rates/pboc-loan', { method: 'GET' }),
+                    useApiFetch<DepositRate[]>('/v1/tools/rates/pboc-deposit', { method: 'GET' }),
+                    useApiFetch<LoanRate[]>('/v1/tools/rates/pboc-loan', { method: 'GET' }),
                 ])
                 if (lpr) setLPRRates(lpr)
-                if (deposit) setPBOCDepositRates(deposit)
-                if (loan) setPBOCLoanRates(loan)
+                if (deposit) setDepositRates(deposit)
+                if (loan) setLoanRates(loan)
                 loaded = true
             } catch (err) {
                 console.error('[useToolsRates] 加载利率失败，使用默认值', err)
@@ -1648,8 +1612,8 @@ export function useToolsRates() {
     return {
         ensureLoaded,
         getLPR: getLPRRates,
-        getPBOCDeposit: getPBOCDepositRates,
-        getPBOCLoan: getPBOCLoanRates,
+        getPBOCDeposit: getDepositRates,
+        getPBOCLoan: getLoanRates,
     }
 }
 ```
@@ -1680,13 +1644,13 @@ git commit -m "feat(rates): 新增 useToolsRates composable，工具页首次进
 ```typescript
 import {
     getLPRRates,
-    getPBOCDepositRates,
-    getPBOCLoanRates,
+    getDepositRates,
+    getLoanRates,
 } from '#shared/utils/tools/data'
 
 // ... 原文件中所有 bankRates.lpr 改为 getLPRRates()
-// bankRates.benchmark 改为 getPBOCDepositRates()
-// bankRates.loan 改为 getPBOCLoanRates()
+// bankRates.benchmark 改为 getDepositRates()
+// bankRates.loan 改为 getLoanRates()
 ```
 
 具体 `getCurrentLPR()` / `getCurrentLoanRate()` / `getCurrentDepositRate()` / `getHistoricalLPR()` 等函数的内部实现，把 `bankRates.lpr[0]` 改成 `getLPRRates()[0]!`（仍保留 `!` non-null 断言：默认数组非空，DB 来源数据库表也至少 seed 了 1 条）；其它 forEach/find 同理把 `bankRates.X` 替换为 `getXRates()`。
