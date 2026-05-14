@@ -433,3 +433,37 @@ export interface CompensationExportResult {
     lastMonthWage: number
     totalAmount: number
 }
+
+/**
+ * LPR 利率（央行每月公布）
+ *
+ * - date：央行公布生效日，YYYY-MM-DD
+ * - oneYear：1 年期 LPR (%)
+ * - fiveYear：5 年期以上 LPR (%)
+ */
+export interface LPRRate {
+    date: string
+    oneYear: number
+    fiveYear: number
+}
+
+/** 央行存款基准利率 */
+export interface PBOCDepositRate {
+    date: string
+    demand: number       // 活期
+    threeMonths: number  // 三个月
+    sixMonths: number    // 六个月
+    oneYear: number      // 一年
+    twoYear: number      // 二年
+    threeYear: number    // 三年
+    fiveYear: number     // 五年
+}
+
+/** 央行贷款基准利率 */
+export interface PBOCLoanRate {
+    date: string
+    sixMonths: number
+    oneYear: number
+    oneToFiveYear: number
+    fiveYearPlus: number
+}
