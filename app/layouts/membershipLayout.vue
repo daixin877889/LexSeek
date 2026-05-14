@@ -30,6 +30,11 @@
 <script setup lang="ts">
 import { Crown, Ticket, Sparkles, UserPlus, ReceiptJapaneseYen } from "lucide-vue-next";
 
+// 私密区域，禁止搜索引擎索引
+useHead({
+  meta: [{ name: 'robots', content: 'noindex,nofollow' }]
+})
+
 const membershipRoutes = ref([
   {
     title: "我的会员",

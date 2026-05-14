@@ -63,6 +63,11 @@ import { useApi } from '~/composables/useApi'
 import { useAdminMenuStore } from '~/store/adminMenu'
 import { usePermissionStore } from '~/store/permission'
 
+// 私密区域，禁止搜索引擎索引
+useHead({
+  meta: [{ name: 'robots', content: 'noindex,nofollow' }]
+})
+
 const store = useAdminMenuStore()
 const permissionStore = usePermissionStore()
 

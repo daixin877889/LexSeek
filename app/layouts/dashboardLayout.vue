@@ -107,6 +107,11 @@ import DashboardNavUserRight from '~/components/dashboard/navUserRight.vue'
 import GeneralThemeToggle from '~/components/general/ThemeToggle.vue'
 import BrandLogo from '~/components/general/BrandLogo.vue'
 
+// 私密区域，禁止搜索引擎索引
+useHead({
+  meta: [{ name: 'robots', content: 'noindex,nofollow' }]
+})
+
 const sidebarTriggerRef = ref<InstanceType<typeof import("@/components/ui/sidebar").SidebarTrigger> | null>(null);
 
 // 窄窗口自动折叠侧边栏（lg 断点以下）

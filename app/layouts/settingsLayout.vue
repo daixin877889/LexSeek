@@ -27,9 +27,15 @@
 </template>
 
 <script setup lang="ts">
+import { UserIcon, LockIcon } from "lucide-vue-next";
+
+// 私密区域，禁止搜索引擎索引
+useHead({
+  meta: [{ name: 'robots', content: 'noindex,nofollow' }]
+})
+
 const router = useRouter();
 // const menuStore = useMenuStore();
-import { UserIcon, LockIcon } from "lucide-vue-next";
 const settingsRoutes = ref([
   {
     title: "个人资料",
