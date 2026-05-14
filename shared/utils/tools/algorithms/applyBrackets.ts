@@ -19,12 +19,8 @@ export interface Bracket {
 
 export function applyBrackets(amount: number, brackets: readonly Bracket[]): number {
     if (amount <= 0) return 0
-    for (const b of brackets) {
-        if (amount <= b.upper) {
-            if (b.fixed !== undefined) return b.fixed
-            return b.base + (amount - b.start) * b.rate
-        }
-    }
-    // 数组定义不完整（缺 Infinity 档）— 不应发生
-    throw new Error('applyBrackets: brackets 数组不完整')
+    // brackets 数组契约：末档 upper=Infinity，保证 find 必有命中
+    const matched = brackets.find(b => amount <= b.upper)!
+    if (matched.fixed !== undefined) return matched.fixed
+    return matched.base + (amount - matched.start) * matched.rate
 }
