@@ -134,6 +134,7 @@
 </template>
 
 <script setup>
+import ToolsCalculatorPageHeader from '~/components/tools/CalculatorPageHeader.vue'
 definePageMeta({
   title: "银行利率查询",
   layout: "dashboard-layout",

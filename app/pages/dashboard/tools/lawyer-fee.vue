@@ -360,6 +360,7 @@
 </template>
 
 <script setup>
+import ToolsCalculatorPageHeader from '~/components/tools/CalculatorPageHeader.vue'
 definePageMeta({
   title: "律师费用计算",
   layout: "dashboard-layout",

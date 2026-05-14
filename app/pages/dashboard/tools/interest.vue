@@ -476,6 +476,9 @@
 </template>
 
 <script setup>
+import ToolsCalculatorPageHeader from '~/components/tools/CalculatorPageHeader.vue'
+import ToolsDateInput from '~/components/tools/DateInput.vue'
+import ToolsMoneyInput from '~/components/tools/MoneyInput.vue'
 import toast from '#shared/utils/toast'
 definePageMeta({
   title: "利息计算",

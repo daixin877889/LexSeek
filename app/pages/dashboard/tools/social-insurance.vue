@@ -421,6 +421,7 @@
 </template>
 
 <script setup>
+import ToolsCalculatorPageHeader from '~/components/tools/CalculatorPageHeader.vue'
 definePageMeta({
   title: "社保追缴计算器",
   layout: "dashboard-layout",

@@ -225,6 +225,7 @@
 </template>
 
 <script setup>
+import ToolsCalculatorPageHeader from '~/components/tools/CalculatorPageHeader.vue'
 import toast from '#shared/utils/toast'
 import { useAlertDialogStore } from '~/store/alertDialog'
 definePageMeta({

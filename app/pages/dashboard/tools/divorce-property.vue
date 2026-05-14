@@ -355,6 +355,7 @@
 </template>
 
 <script setup>
+import ToolsCalculatorPageHeader from '~/components/tools/CalculatorPageHeader.vue'
 import toast from '#shared/utils/toast'
 definePageMeta({
   title: "离婚财产分割计算器",
