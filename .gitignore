@@ -48,6 +48,7 @@ coverage
 tests/e2e/screenshots/
 
 .tsbuildinfo
+*.tsbuildinfo
 update-prompt-*.sql
 
 .playground
