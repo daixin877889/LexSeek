@@ -34,6 +34,12 @@
           </p>
         </div>
 
+        <!-- 分析立场 -->
+        <div class="space-y-2">
+          <label class="text-sm font-medium leading-none">分析立场</label>
+          <StanceToggleGroup v-model="form.stance" class="mt-1" />
+        </div>
+
         <!-- 原告 -->
         <CaseCreationPartyInput v-model="form.plaintiff" label="原告" placeholder="请输入原告姓名或名称" />
 
@@ -114,13 +120,14 @@
 <script lang="ts" setup>
 import { toast } from 'vue-sonner'
 import type { OssFileItem } from '~/store/file'
-import { CaseMaterialType } from '#shared/types/case'
+import { CaseMaterialType, CaseStance } from '#shared/types/case'
 import type { CaseTypeOption, ExtraField } from '#shared/types/case'
 import type { ExtractedFormData, CreateCaseParams } from '~/composables/useCaseCreation'
 import { mergeAutofillPreservingUserInput } from '~/composables/useCaseCreation'
 import { getMaterialType } from '~/utils/caseMaterial'
 import CaseCreationMaterialUploader from '~/components/caseCreation/MaterialUploader.vue'
 import CaseCreationPartyInput from '~/components/caseCreation/PartyInput.vue'
+import StanceToggleGroup from '~/components/caseCreation/StanceToggleGroup.vue'
 import type { caseTypes } from '~~/generated/prisma/client'
 
 type InitialData = ExtractedFormData & {
@@ -147,6 +154,7 @@ const form = reactive({
   content: '',
   materials: [] as OssFileItem[],
   status: 1,
+  stance: CaseStance.PLAINTIFF,
   courtName: '',
   firstInstanceCaseNo: '',
   secondInstanceCaseNo: '',
@@ -204,6 +212,9 @@ watch(() => props.initialData, (data) => {
   // 状态只有当 AI 显式给出有效值时才覆盖默认
   if (data.status !== undefined && data.status !== null) form.status = data.status
 
+  // 立场（AI / 外部预填）：仅在显式给出有效枚举值时覆盖默认（plaintiff）
+  if (data.stance !== undefined && data.stance !== null) form.stance = data.stance
+
   if (data.initialFiles?.length) {
     const newFiles = data.initialFiles.filter(f => !form.materials.some(m => m.id === f.id))
     form.materials = [...form.materials, ...newFiles]
@@ -249,6 +260,7 @@ function handleSubmit() {
     summary: props.initialData?.summary || undefined,
     extractedInfo: props.initialData?.extractedInfo || undefined,
     status: form.status,
+    stance: form.stance,
     courtName: form.courtName.trim() || undefined,
     firstInstanceCaseNo: form.firstInstanceCaseNo.trim() || undefined,
     secondInstanceCaseNo: form.secondInstanceCaseNo.trim() || undefined,
@@ -263,6 +275,7 @@ function getCurrentValues() {
     plaintiff: [...form.plaintiff],
     defendant: [...form.defendant],
     status: form.status,
+    stance: form.stance,
     courtName: form.courtName,
     firstInstanceCaseNo: form.firstInstanceCaseNo,
     secondInstanceCaseNo: form.secondInstanceCaseNo,

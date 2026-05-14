@@ -22,7 +22,9 @@ const stances: CaseStance[] = [
   CaseStance.NEUTRAL,
 ]
 
-function handleChange(val: string | string[] | null | undefined) {
+// reka-ui 的 ToggleGroupRoot emit 签名为 AcceptableValue | AcceptableValue[]
+// （含 string/number/boolean/null/undefined/Record 等），这里收成 unknown 后做窄化
+function handleChange(val: unknown) {
   // shadcn-vue ToggleGroup type=single 在用户"再次点击当前项"取消选中时
   // 会发出空字符串或 null —— 业务上必须始终有立场被选中，统一拦截还原。
   if (val == null || val === '' || (Array.isArray(val) && val.length === 0)) {

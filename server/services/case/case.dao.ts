@@ -47,9 +47,16 @@ export const createCaseDao = async (
                 plaintiff: (data.plaintiff ?? undefined) as any,
                 defendant: (data.defendant ?? undefined) as any,
                 isDemo: data.isDemo ?? false,
-                status: CaseStatus.CONSULTING,
+                status: data.status ?? CaseStatus.CONSULTING,
                 summary: data.summary ?? undefined,
                 extractedInfo: (data.extractedInfo ?? undefined) as any,
+                // 显式 fallback 到 'plaintiff'（与 DB DEFAULT 一致），避免 zod default 与 DB default 不一致时的歧义
+                stance: data.stance ?? 'plaintiff',
+                courtName: data.courtName ?? undefined,
+                firstInstanceCaseNo: data.firstInstanceCaseNo ?? undefined,
+                firstInstanceJudge: data.firstInstanceJudge ?? undefined,
+                secondInstanceCaseNo: data.secondInstanceCaseNo ?? undefined,
+                secondInstanceJudge: data.secondInstanceJudge ?? undefined,
             },
         })
         return caseRecord

@@ -453,6 +453,20 @@ export interface CreateCaseInput {
     summary?: string | null
     /** AI 提取的扩展字段 */
     extractedInfo?: ExtraField[] | null
+    /** 分析立场（默认 plaintiff） */
+    stance?: CaseStance
+    /** 案件状态（前端创建表单可填，未填走 DAO 默认 CONSULTING） */
+    status?: number
+    /** 法院名称 */
+    courtName?: string | null
+    /** 一审案件编号 */
+    firstInstanceCaseNo?: string | null
+    /** 一审法官姓名 */
+    firstInstanceJudge?: string | null
+    /** 二审案件编号 */
+    secondInstanceCaseNo?: string | null
+    /** 二审法官姓名 */
+    secondInstanceJudge?: string | null
 }
 
 /** 更新案件输入 */

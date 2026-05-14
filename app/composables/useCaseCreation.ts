@@ -1,4 +1,5 @@
 import type { CaseMaterialParam, CaseTypeOption, ExtractedCaseInfo, ExtraField, DemoCaseListItem, DemoCasePrepareResponse } from '#shared/types/case'
+import { CaseStance } from '#shared/types/case'
 import type { OssFileDto } from '#shared/types/file'
 import type { OssFileItem } from '~/store/file'
 import { toast } from 'vue-sonner'
@@ -21,6 +22,8 @@ export interface CreateCaseParams {
   secondInstanceCaseNo?: string
   firstInstanceJudge?: string
   secondInstanceJudge?: string
+  /** 分析立场 */
+  stance?: CaseStance
 }
 
 export interface ExtractedFormData {
@@ -35,6 +38,8 @@ export interface ExtractedFormData {
   secondInstanceCaseNo?: string
   firstInstanceJudge?: string
   secondInstanceJudge?: string
+  /** 分析立场（AI 提取或外部预填） */
+  stance?: CaseStance
 }
 
 /** 前端控制器接口：由 AiPromptInput 的 defineExpose 实现 */
