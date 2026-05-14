@@ -1,38 +1,21 @@
 <template>
   <div class="p-4">
-    <div class="flex items-center justify-between mb-2">
-      <h1 class="text-[22px] font-bold truncate">律师费用计算</h1>
-      <div class="relative">
-        <Button variant="ghost" size="icon" @click="isHelpOpen = !isHelpOpen" class="rounded-full">
-          <HelpCircle class="h-5 w-5" />
-          <span class="sr-only">帮助</span>
-        </Button>
-        <div v-if="isHelpOpen" class="absolute right-0 z-50 w-80 mt-2 p-4 bg-card rounded-lg border shadow-lg">
-          <div class="flex justify-between items-center mb-3">
-            <h3 class="font-semibold text-base">律师费用计算指引</h3>
-            <Button variant="ghost" size="icon" @click="isHelpOpen = false" class="h-6 w-6">
-              <X class="h-5 w-5" />
-              <span class="sr-only">关闭</span>
-            </Button>
-          </div>
-
-          <div class="text-sm space-y-3 max-h-96 overflow-y-auto">
-            <div>
-              <h4 class="font-semibold mb-1">律师费用说明：</h4>
-              <ul class="list-disc list-inside space-y-1">
-                <li>本计算器根据不同案件类型、复杂程度、地区等因素计算律师费用</li>
-                <li>计算结果仅供参考，实际收费标准可能因律师事务所和个人律师而有所不同</li>
-                <li>建议您在选择律师服务前先咨询相关律师，确认具体费用</li>
-              </ul>
-            </div>
-
-            <div class="bg-muted/30 p-2 rounded">
-              <p><strong>提示：</strong>本计算结果仅为参考，具体费用以律师事务所实际报价为准。</p>
-            </div>
-          </div>
+    <ToolsCalculatorPageHeader title="律师费用计算" help-title="律师费用计算指引">
+      <template #help>
+        <div>
+          <h4 class="font-semibold mb-1">律师费用说明：</h4>
+          <ul class="list-disc list-inside space-y-1">
+            <li>本计算器根据不同案件类型、复杂程度、地区等因素计算律师费用</li>
+            <li>计算结果仅供参考，实际收费标准可能因律师事务所和个人律师而有所不同</li>
+            <li>建议您在选择律师服务前先咨询相关律师，确认具体费用</li>
+          </ul>
         </div>
-      </div>
-    </div>
+        <div class="bg-muted/30 p-2 rounded">
+          <p><strong>提示：</strong>本计算结果仅为参考，具体费用以律师事务所实际报价为准。</p>
+        </div>
+      </template>
+    </ToolsCalculatorPageHeader>
+
 
     <div class="flex flex-col lg:flex-row gap-6">
       <!-- 左侧：信息输入区 -->
@@ -383,16 +366,8 @@ definePageMeta({
 });
 
 import { calculateLawyerFee } from "#shared/utils/tools/lawyerFeeService";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Alert } from "@/components/ui/alert";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // 基本数据
-const isHelpOpen = ref(false);
 const caseType = ref("civil");
 const disputeAmount = ref(100000);
 const complexity = ref("medium");
@@ -482,7 +457,6 @@ watch(caseType, () => {
   selectedStages.value = [];
 });
 
-import { X, HelpCircle } from "lucide-vue-next";
 </script>
 
 <style scoped>
