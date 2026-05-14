@@ -15,8 +15,8 @@ import type {
     LawyerFeeOptions,
     LawyerFeeResult
 } from '#shared/types/tools'
-// 律师费档位常量（PR2-T5 用 applyBrackets 重写时会直接用上）
-import { LAWYER_CIVIL_BRACKETS, LAWYER_COMMERCIAL_BRACKETS } from './data/feeBrackets'
+import { LAWYER_CIVIL_BRACKETS } from './data/feeBrackets'
+import { applyBrackets } from './algorithms'
 
 /**
  * 计算律师费用
@@ -162,22 +162,7 @@ function calculateCivilLawyerFee(
     hasExecution: boolean,
     stages: CivilStage[]
 ): number {
-    let baseFee = 0
-
-    // 基础收费阶梯
-    if (amount <= 100000) {
-        baseFee = 5000
-    } else if (amount <= 500000) {
-        baseFee = 5000 + (amount - 100000) * 0.04
-    } else if (amount <= 1000000) {
-        baseFee = 5000 + 400000 * 0.04 + (amount - 500000) * 0.03
-    } else if (amount <= 5000000) {
-        baseFee = 5000 + 400000 * 0.04 + 500000 * 0.03 + (amount - 1000000) * 0.02
-    } else if (amount <= 10000000) {
-        baseFee = 5000 + 400000 * 0.04 + 500000 * 0.03 + 4000000 * 0.02 + (amount - 5000000) * 0.01
-    } else {
-        baseFee = 5000 + 400000 * 0.04 + 500000 * 0.03 + 4000000 * 0.02 + 5000000 * 0.01 + (amount - 10000000) * 0.005
-    }
+    let baseFee = applyBrackets(amount, LAWYER_CIVIL_BRACKETS)
 
     // 复杂度调整
     let complexityFactor = 1.0
