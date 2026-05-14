@@ -187,6 +187,7 @@ function calculateBeforePolicyPeriods(
     while (segmentStart < end) {
         let segmentEnd: Date
         const currentRateData = allRates[currentRateIndex]
+        /* istanbul ignore next -- currentRateIndex 受前置循环约束（< allRates.length-1），结构上不会越界；防御性兜底 */
         if (!currentRateData) break
         const currentRate = currentRateData.rate
 
@@ -300,6 +301,7 @@ function calculateAfterPolicyPeriods(
     while (segmentStart < end) {
         let segmentEnd: Date
         const currentRateData = allRates[currentRateIndex]
+        /* istanbul ignore next -- currentRateIndex 受前置循环约束（< allRates.length-1），结构上不会越界；防御性兜底 */
         if (!currentRateData) break
         const currentRate = currentRateData.rate
 
