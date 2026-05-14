@@ -221,6 +221,11 @@ function handleBatchGenerate() {
   navigateTo(`/dashboard/cases/init-analysis?caseId=${caseId.value}`)
 }
 
+// --- 打开历史批量分析会话（由 BatchAnalysisPopover 列表项点击触发） ---
+function handleOpenInitSession(sessionId: string) {
+  navigateTo(`/dashboard/cases/init-analysis/${sessionId}`)
+}
+
 // --- 前往处理中断 ---
 function handleGoToInterrupt() {
   const sessionId = analysisStatus.value?.sessionId
@@ -374,6 +379,7 @@ function handleXiaosuoFocusQuery() {
             @navigate-to-select-mode="navigateToSelectMode"
             @generate-module="handleGenerateModule"
             @batch-generate="handleBatchGenerate"
+            @open-init-session="handleOpenInitSession"
             @go-to-interrupt="handleGoToInterrupt"
             @go-to-running-workflow="handleGoToRunningWorkflow"
             @create-document="handleCreateDocument"
@@ -402,6 +408,7 @@ function handleXiaosuoFocusQuery() {
             @regenerate="handleModuleRegenerate"
             @generate-module="handleGenerateModule"
             @batch-generate="handleBatchGenerate"
+            @open-init-session="handleOpenInitSession"
             @go-to-interrupt="handleGoToInterrupt"
             @go-to-running-workflow="handleGoToRunningWorkflow" />
           <CaseDetailDocuments

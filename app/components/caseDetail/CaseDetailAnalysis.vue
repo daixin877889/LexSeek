@@ -17,6 +17,7 @@ const emit = defineEmits<{
   regenerate: [result: AnalysisResult]
   generateModule: [moduleName: string, moduleTitle: string]
   batchGenerate: []
+  openInitSession: [sessionId: string]
   goToInterrupt: []
   goToRunningWorkflow: []
 }>()
@@ -44,6 +45,7 @@ const viewMode = defineModel<'dashboard' | 'detail'>('viewMode', { default: 'das
       @regenerate="(result) => emit('regenerate', result)"
       @generate-module="(name, title) => emit('generateModule', name, title)"
       @batch-generate="emit('batchGenerate')"
+      @open-init-session="(sid) => emit('openInitSession', sid)"
       @go-to-interrupt="emit('goToInterrupt')"
       @go-to-running-workflow="emit('goToRunningWorkflow')"
     />

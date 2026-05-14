@@ -40,6 +40,7 @@ import {
 } from 'lucide-vue-next'
 import { useMediaQuery } from '@vueuse/core'
 import CaseAnalysisVersionSheet from '~/components/case/AnalysisVersionSheet.vue'
+import BatchAnalysisPopover from '~/components/case/BatchAnalysisPopover.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useFormatters } from '~/composables/useFormatters'
 
@@ -133,6 +134,8 @@ const emit = defineEmits<{
     (e: 'goToRunningWorkflow'): void
     /** 查看全部（跳转分析视图） */
     (e: 'viewAll'): void
+    /** 打开历史批量分析会话（由 BatchAnalysisPopover 列表项点击触发） */
+    (e: 'openInitSession', sessionId: string): void
 }>()
 
 // 版本 Sheet 状态
@@ -460,13 +463,13 @@ function formatAnalyzedAt(dateStr: string): string {
                         </h3>
 
                         <div class="flex items-center gap-2">
-                            <button v-if="effectiveShowBatchButton"
-                                class="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors mr-2"
-                                title="批量分析"
-                                @click="emit('batchGenerate')">
-                                <PlusIcon class="size-3" />
-                                <span class="hidden lg:inline">批量分析</span>
-                            </button>
+                            <!-- 批量分析下拉：trigger 始终可见，新建按钮按 showBatchButton 禁用兜底 -->
+                            <BatchAnalysisPopover v-if="caseId"
+                                :case-id="caseId"
+                                :show-batch-button="effectiveShowBatchButton ?? false"
+                                :is-analysis-running="isAnalysisRunning ?? false"
+                                @new-batch="emit('batchGenerate')"
+                                @open-session="sid => emit('openInitSession', sid)" />
                             <button v-if="showViewAll"
                                 class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors mr-2"
                                 title="查看全部"

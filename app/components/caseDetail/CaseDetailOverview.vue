@@ -51,6 +51,7 @@ const emit = defineEmits<{
   navigateToSelectMode: []
   generateModule: [moduleName: string, moduleTitle: string]
   batchGenerate: []
+  openInitSession: [sessionId: string]
   goToInterrupt: []
   goToRunningWorkflow: []
   createDocument: []
@@ -216,12 +217,13 @@ function executeDelete() {
 
       <!-- 分析结果（AnalysisResults 内部 header 统一管理按钮：批量分析 + 查看全部 + 视图切换） -->
       <!-- 传 h-auto 覆盖组件自带的 h-full，避免在 overview 纵向流式布局中撑满高度把后续板块挤出视口 -->
-      <CaseAnalysisResults class="h-auto" :results="analysisResults" :module-cards="moduleCards" v-model:view-mode="analysisViewMode"
+      <CaseAnalysisResults class="h-auto" :case-id="caseId" :results="analysisResults" :module-cards="moduleCards" v-model:view-mode="analysisViewMode"
         v-model:active-module="analysisActiveModule" :show-regenerate="false" :show-copy="false"
         :show-batch-button="showBatchButton" :has-pending-interrupt="hasPendingInterrupt"
         :is-analysis-running="isAnalysisRunning"
         :show-view-all="true"
         @generate-module="(name, title) => emit('generateModule', name, title)" @batch-generate="emit('batchGenerate')"
+        @open-init-session="sid => emit('openInitSession', sid)"
         @go-to-interrupt="emit('goToInterrupt')" @go-to-running-workflow="emit('goToRunningWorkflow')"
         @view-all="emit('navigateView', 'analysis')" />
 
