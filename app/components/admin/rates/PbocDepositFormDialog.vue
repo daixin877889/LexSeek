@@ -9,7 +9,7 @@
             <div class="space-y-3">
                 <div>
                     <Label>生效日</Label>
-                    <Input v-model="form.effectDate" type="date" />
+                    <DatePicker v-model="form.effectDate" placeholder="选择生效日" />
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
@@ -60,6 +60,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
+import DatePicker from '~/components/general/DatePicker.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useAlertDialogStore } from '~/store/alertDialog'
 import type { DepositRate } from '#shared/types/tools'
