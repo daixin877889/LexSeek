@@ -18,7 +18,7 @@
 | 图标载体 | page meta 写 lucide 字符串名；**复用** `~/utils/lucideIcons` + `getAdminIcon()` 动态解析（与 admin 菜单同源） |
 | 动作绑定 | meta 写 `handler: 'logout'` 字符串字面量；composable 内 handlerMap 绑函数 |
 | 角色匹配 | 按 `roles.code` 字段（实施 step 1 确认；若该字段不存在改用 `name`） |
-| 类型扩展 | 用 `declare module 'vue-router'` + `declare module '#app'` 给 `RouteMeta` / `PageMeta` 加 `userMenu` 字段（官方推荐做法），消除 composable 里的 inline cast |
+| 类型处理 | 不做 `declare module` 增广；Nuxt `PageMeta` 自带 `[key: string]: unknown` 索引签名，扩展字段访问后 inline cast，对齐项目惯例（参见 `app/components/admin/Breadcrumb.vue:69` 对 `route.meta.title` 的 cast） |
 | 渲染层 | 抽 `UserMenuList.vue` 共享子组件，两端组件保留各自触发器和用户卡片 header |
 
 ## 菜单内容范围
@@ -67,10 +67,13 @@ useUserNavigation.handleLogout          │     5. 隐藏空分组              
 
 ```ts
 import type { Component } from 'vue'
-import type lucideIcons from '~/utils/lucideIcons'
 
-/** 受 lucide-vue-next 实际导出约束的图标名（编译期类型安全 — 拼错会报错） */
-export type LucideIconName = keyof typeof lucideIcons
+/**
+ * lucide-vue-next 图标名（字符串）
+ * 运行时由 getAdminIcon() 在 ~/utils/lucideIcons 中查表；未知名跳过 + logger.warn。
+ * 不在类型层硬约束 lucide 实际导出名 — 否则 shared/ 需反向引用 ~/utils（违反层次）。
+ */
+export type LucideIconName = string
 
 export interface UserMenuRouteMeta {
   group: string
@@ -103,23 +106,9 @@ export type UserMenuRenderNode =
   | { kind: 'route'; path: string; title: string; icon: Component }
   | { kind: 'separator'; id: string }
   | { kind: 'action'; id: string; title: string; icon: Component; danger: boolean; onClick: () => void | Promise<void> }
-
-/** 给 vue-router 的 RouteMeta 扩展 userMenu 字段 — composable 内可直接 r.meta.userMenu，无需 cast */
-declare module 'vue-router' {
-  interface RouteMeta {
-    userMenu?: UserMenuRouteMeta
-  }
-}
-
-/** 给 Nuxt PageMeta 扩展同名字段 — page 文件里 definePageMeta({ userMenu: {...} }) 有补全 */
-declare module '#app' {
-  interface PageMeta {
-    userMenu?: UserMenuRouteMeta
-  }
-}
-
-export {}
 ```
+
+> **为什么不做 `declare module` 增广**：Nuxt 自带 `declare module 'vue-router' { interface RouteMeta extends UnwrapRef<PageMeta> }`（见 `node_modules/nuxt/dist/pages/runtime/composables.d.ts:45`），且 `PageMeta` 有 `[key: string]: unknown` 索引签名，自定义字段访问后 inline cast 是项目现有惯例（`app/components/admin/Breadcrumb.vue:69` 对 `route.meta.title` 同样这样写）。增广方案有"加载时机"风险（需要确保 augmentation 文件被某个 import 链触发），不如保持简洁。
 
 ### `app/config/userMenu.ts`
 
@@ -139,7 +128,7 @@ export const userMenuActions: UserMenuActionItem[] = [
 ]
 ```
 
-> 不再自造 icon 白名单 map：图标按字符串名走项目已有的 `getAdminIcon(name)` 函数（位于 `app/composables/useAdminMenu.ts`），它内部查 `~/utils/lucideIcons`（即 `import * as LucideIcons from 'lucide-vue-next'` 的整包导出）。`LucideIconName` 类型用 `keyof typeof lucideIcons` 约束，拼错图标名会被 TypeScript 直接报错。
+> 不再自造 icon 白名单 map：图标按字符串名走项目已有的 `getAdminIcon(name)` 函数（位于 `app/composables/useAdminMenu.ts`），它内部查 `~/utils/lucideIcons`（即 `import * as LucideIcons from 'lucide-vue-next'` 的整包导出）。`LucideIconName` 在类型层只声明为 `string`，**未知图标名由运行时 `getAdminIcon` 返回 null → composable 跳过该项 + `logger.warn`** 兜底。不在 shared 层做 `keyof typeof lucideIcons` 强约束，避免 shared 反向 import app 层。
 
 ### page meta 标记表
 
@@ -184,14 +173,15 @@ export function useUserMenu(): { items: ComputedRef<UserMenuRenderNode[]> } {
     const allowed = (roles?: string[]) =>
       !roles || roles.length === 0 || roles.some((c) => myRoleCodes.has(c))
 
-    // 1. 扫路由 — 依赖 vue-router 的 RouteMeta module augmentation，无需 cast
+    // 1. 扫路由（PageMeta 自带 [key: string]: unknown 索引签名 — cast 自定义字段）
     type Collected = UserMenuRouteMeta & { path: string; fallbackTitle?: string }
     const collected: Collected[] = []
     for (const r of router.getRoutes()) {
-      if (!r.meta.userMenu) continue
-      if (!allowed(r.meta.userMenu.roles)) continue
+      const userMenu = r.meta.userMenu as UserMenuRouteMeta | undefined
+      if (!userMenu) continue
+      if (!allowed(userMenu.roles)) continue
       collected.push({
-        ...r.meta.userMenu,
+        ...userMenu,
         path: r.path,
         fallbackTitle: r.meta.title as string | undefined,
       })
@@ -262,7 +252,7 @@ export function useUserMenu(): { items: ComputedRef<UserMenuRenderNode[]> } {
 说明：
 - `computed` / `useRouter` 走 Nuxt 自动导入，无需 import（见 `.claude/rules/main.md`）。
 - `getAdminIcon` 来自 `~/composables/useAdminMenu.ts:40`，已是项目通用的"图标名 → 组件"解析函数，与 admin 菜单同源。
-- `r.meta.userMenu` 类型来自 `shared/types/userMenu.ts` 末尾的 `declare module 'vue-router'`，**无 inline cast**。
+- `r.meta.userMenu` 和 `r.meta.title` 用 inline cast — Nuxt `PageMeta` 自带 `[key: string]: unknown` 索引签名，访问自定义字段后 cast 是项目惯例（`admin/Breadcrumb.vue:69` 也这样写）。
 - `fallbackTitle` 仅 fallback 到 `meta.title`；不再 fallback 到 `path`（path 暴露技术细节）。
 
 ## 共享渲染组件
@@ -387,7 +377,7 @@ mock 策略：
 | 场景 | 处理 |
 |---|---|
 | 路由无 `meta.userMenu` | 不进用户菜单（侧边栏入口的默认情况） |
-| `meta.userMenu.icon` 在 `lucideIcons` 中找不到 | 跳过该项 + `logger.warn`（防御，不抛错；类型层面 `LucideIconName = keyof typeof lucideIcons` 已挡住编译期拼错） |
+| `meta.userMenu.icon` 在 `lucideIcons` 中找不到 | 跳过该项 + `logger.warn`（运行时防御）。`LucideIconName = string`，不在类型层硬约束（否则 shared 需反向引 `~/utils`，违反层次） |
 | 中央骨架登记的 group 无任何项 | 空分组隐藏 |
 | `meta.userMenu.title` 未填 | fallback 到 `meta.title`（不再回退到 `path`，避免暴露技术细节） |
 | SSR 阶段角色状态 | `app.vue` setup 已 await `initUserRoles`，**首屏渲染时即就绪**，无未水合窗口 |
