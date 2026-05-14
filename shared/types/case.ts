@@ -477,10 +477,14 @@ export interface UpdateCaseInput {
     content?: string | null
     /** 案件类型 ID */
     caseTypeId?: number
-    /** 原告信息 */
-    plaintiff?: PartyInfo[] | null
-    /** 被告信息 */
-    defendant?: PartyInfo[] | null
+    /**
+     * 原告信息。
+     * 支持 PartyInfo[] 结构化对象，或纯 string[]（前端编辑表单回填名字数组）。
+     * DAO 把整个 array 写入 cases.plaintiff JSONB 字段。
+     */
+    plaintiff?: (PartyInfo | string)[] | null
+    /** 被告信息（同 plaintiff） */
+    defendant?: (PartyInfo | string)[] | null
     /** 案件状态 */
     status?: number
     /** 法院名称 */
@@ -493,6 +497,10 @@ export interface UpdateCaseInput {
     firstInstanceJudge?: string | null
     /** 二审法官姓名 */
     secondInstanceJudge?: string | null
+    /** 分析立场 */
+    stance?: CaseStance
+    /** 案件概述（可空） */
+    summary?: string | null
 }
 
 /** 案件列表查询参数 */

@@ -3,99 +3,64 @@
  *
  * PUT /api/v1/cases/[caseId]
  *
- * 更新案件标题、原告、被告，同步写入 DB、JSONB 和长期记忆三层存储
+ * 调 updateCaseService 真正写库。owner-only 由 validateCaseAccessService 保证。
+ *
+ * 历史：M2 重构时把 saveCaseInfoService 写库逻辑注释掉了，handler 直接 return 成功，
+ * 导致"编辑信息"在生产是假修改（前端用编辑数据本地刷新 caseInfo 看似生效，
+ * 刷新页面就丢）。本次重写接回 updateCaseService 全字段持久化。
  */
 import { z } from 'zod'
-import type { ExtractedCaseInfo } from '#shared/types/case'
 import {
-    getCaseByIdService,
     validateCaseAccessService,
+    updateCaseService,
 } from '~~/server/services/case/case.service'
-import { saveCaseInfoService } from '~~/server/services/case/caseExtraction.service'
+import type { UpdateCaseInput } from '#shared/types/case'
+import { CaseStance } from '#shared/types/case'
 
 const bodySchema = z.object({
     title: z.string().trim().min(1).max(500).optional(),
+    content: z.string().max(10000).optional(),
+    status: z.number().int().positive().optional(),
     plaintiff: z.array(z.string().trim().min(1)).optional(),
     defendant: z.array(z.string().trim().min(1)).optional(),
+    courtName: z.string().trim().max(200).optional(),
+    firstInstanceCaseNo: z.string().trim().max(100).optional(),
+    firstInstanceJudge: z.string().trim().max(100).optional(),
+    secondInstanceCaseNo: z.string().trim().max(100).optional(),
+    secondInstanceJudge: z.string().trim().max(100).optional(),
+    stance: z.nativeEnum(CaseStance).optional(),
 }).refine(
-    data => data.title !== undefined || data.plaintiff !== undefined || data.defendant !== undefined,
+    data => Object.keys(data).length > 0,
     { message: '至少需要提供一个更新字段' },
 )
 
 export default defineEventHandler(async (event) => {
-    // 1. 认证
     const user = event.context.auth?.user
-    if (!user) {
-        return resError(event, 401, '请先登录')
-    }
+    if (!user) return resError(event, 401, '请先登录')
 
-    // 2. 路由参数
     const caseIdStr = getRouterParam(event, 'caseId')
     const caseId = Number.parseInt(caseIdStr || '', 10)
-    if (Number.isNaN(caseId) || caseId <= 0) {
-        return resError(event, 400, '无效的案件 ID')
-    }
+    if (Number.isNaN(caseId) || caseId <= 0) return resError(event, 400, '无效的案件 ID')
 
-    // 3. 请求体验证
     const body = await readBody(event)
     const result = bodySchema.safeParse(body)
-    if (!result.success) {
-        return resError(event, 400, result.error.issues[0]?.message ?? '参数校验失败')
-    }
-    const updates = result.data
+    if (!result.success) return resError(event, 400, result.error.issues[0]?.message ?? '参数校验失败')
 
-    // 4. 去重
+    const updates = result.data
     if (updates.plaintiff) updates.plaintiff = [...new Set(updates.plaintiff)]
     if (updates.defendant) updates.defendant = [...new Set(updates.defendant)]
 
     try {
-        // 5. 权限校验
         await validateCaseAccessService(caseId, user.id)
-
-        // 6. 并发读取案件数据和案件类型列表
-        const [caseRecord, caseTypes] = await Promise.all([
-            getCaseByIdService(caseId, true),
-            prisma.caseTypes.findMany({ select: { id: true, name: true } }),
-        ])
-        if (!caseRecord) {
-            return resError(event, 404, '案件不存在')
-        }
-
-        // 7. 构造合并后的 ExtractedCaseInfo
-        const parseNames = (val: unknown): string[] => {
-            if (!Array.isArray(val)) return []
-            return val.map((v: any) => typeof v === 'string' ? v : v?.name ?? '').filter(Boolean)
-        }
-
-        const base: ExtractedCaseInfo = (caseRecord.extractedInfo as unknown as ExtractedCaseInfo) ?? {
-            title: caseRecord.title,
-            plaintiff: parseNames(caseRecord.plaintiff),
-            defendant: parseNames(caseRecord.defendant),
-            caseType: caseRecord.caseType?.name ?? '',
-            summary: caseRecord.summary ?? '',
-            extraFields: [],
-        }
-
-        const merged: ExtractedCaseInfo = {
-            ...base,
-            ...(updates.title !== undefined ? { title: updates.title } : {}),
-            ...(updates.plaintiff !== undefined ? { plaintiff: updates.plaintiff } : {}),
-            ...(updates.defendant !== undefined ? { defendant: updates.defendant } : {}),
-        }
-
-        // 8. 三层写入
-        // M2 废弃：案件基础信息已通过 cases 表 + extractedInfo 足够表示，
-        // 不再写 PostgresStore ('cases', caseId, 'basic_info') 避免和案件档案 JSON 重复灌 prompt。
-        // 存量数据保留不读，后续观察无引用再清理。
-        // await saveCaseInfoService(caseId, merged, caseTypes)
-
-        return resSuccess(event, '更新成功', null)
+        // zod parsed object 的运行时 shape 与 UpdateCaseInput 一致；用 satisfies
+        // 收紧类型（types.md 禁 `as any`），编译期会校验所有字段对齐。
+        await updateCaseService(caseId, updates satisfies UpdateCaseInput)
+        return resSuccess(event, '更新成功', { id: caseId })
     }
     catch (error: any) {
         logger.error('更新案件基本信息失败', { caseId, error: error.message })
-        if (error.message === '无权访问该案件') {
-            return resError(event, 403, error.message)
-        }
+        if (error.message === '无权访问该案件') return resError(event, 403, error.message)
+        if (error.message === '案件已归档，不可编辑') return resError(event, 403, error.message)
         return resError(event, 500, '更新失败')
     }
 })

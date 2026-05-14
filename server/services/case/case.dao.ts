@@ -294,6 +294,8 @@ export const updateCaseDao = async (
         if (data.secondInstanceCaseNo !== undefined) updateData.secondInstanceCaseNo = data.secondInstanceCaseNo
         if (data.firstInstanceJudge !== undefined) updateData.firstInstanceJudge = data.firstInstanceJudge
         if (data.secondInstanceJudge !== undefined) updateData.secondInstanceJudge = data.secondInstanceJudge
+        if (data.stance !== undefined) updateData.stance = data.stance
+        if (data.summary !== undefined) updateData.summary = data.summary
 
         const caseRecord = await client.cases.update({
             where: { id },
