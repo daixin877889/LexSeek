@@ -191,4 +191,151 @@ describe('rerankTemplatesService', () => {
         expect(r.picks[0]!.reason).toBe('首次')  // 保留首次出现的 reason
         expect(r.fallback).toBe(false)
     })
+
+    it('LLM 调用抛错 → fallback=true、reason=llm_error、按 candidates 顺序补足', async () => {
+        const { getValidNodeConfig } = await import('~~/server/services/node/node.service')
+        const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
+        const { buildContextSegments } = await import('~~/server/services/agent-platform/context/moduleContextBuilder')
+        ;(getValidNodeConfig as any).mockResolvedValue({
+            modelSdkType: 'openai', modelName: 'gpt-4o-mini', modelMaxOutputTokens: 4096,
+            modelApiKeys: [{ status: 1, apiKey: 'sk-test' }],
+            modelProviderBaseUrl: 'https://api.example.com',
+        })
+        ;(buildContextSegments as any).mockResolvedValue({
+            roleAndFlow: '', caseProfile: '', moduleSummaries: '', dynamicContext: '',
+        })
+        const invokeMock = vi.fn().mockRejectedValue(new Error('网络错误'))
+        ;(createChatModel as any).mockReturnValue({
+            withStructuredOutput: vi.fn().mockReturnValue({ invoke: invokeMock }),
+        })
+
+        const r = await rerankTemplatesService({
+            userId: 1, sessionId: 's1', userQuery: 'x', intent: 'x',
+            candidates: [makeCandidate(10), makeCandidate(11), makeCandidate(12), makeCandidate(13), makeCandidate(14), makeCandidate(15)],
+            topN: 5,
+        })
+        expect(r.fallback).toBe(true)
+        expect(r.fallbackReason).toBe('llm_error')
+        // 按 candidates 顺序补足
+        expect(r.picks.map(p => p.templateId)).toEqual([10, 11, 12, 13, 14])
+    })
+
+    it('LLM 超时 → fallback=true、reason=timeout', async () => {
+        const { getValidNodeConfig } = await import('~~/server/services/node/node.service')
+        const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
+        const { buildContextSegments } = await import('~~/server/services/agent-platform/context/moduleContextBuilder')
+        ;(getValidNodeConfig as any).mockResolvedValue({
+            modelSdkType: 'openai', modelName: 'gpt-4o-mini', modelMaxOutputTokens: 4096,
+            modelApiKeys: [{ status: 1, apiKey: 'sk-test' }],
+            modelProviderBaseUrl: 'https://api.example.com',
+        })
+        ;(buildContextSegments as any).mockResolvedValue({
+            roleAndFlow: '', caseProfile: '', moduleSummaries: '', dynamicContext: '',
+        })
+        // 模拟超时：永不 resolve，由 AbortController 中断
+        const invokeMock = vi.fn().mockImplementation((_msgs, opts) =>
+            new Promise((_, reject) => {
+                opts.signal.addEventListener('abort', () =>
+                    reject(Object.assign(new Error('aborted'), { name: 'AbortError' })),
+                )
+            }),
+        )
+        ;(createChatModel as any).mockReturnValue({
+            withStructuredOutput: vi.fn().mockReturnValue({ invoke: invokeMock }),
+        })
+
+        const r = await rerankTemplatesService({
+            userId: 1, sessionId: 's1', userQuery: 'x', intent: 'x',
+            candidates: [makeCandidate(10), makeCandidate(11), makeCandidate(12), makeCandidate(13), makeCandidate(14), makeCandidate(15)],
+            topN: 5,
+            timeoutMs: 50,  // 50ms 快速超时
+        })
+        expect(r.fallback).toBe(true)
+        expect(r.fallbackReason).toBe('timeout')
+        expect(r.picks.map(p => p.templateId)).toEqual([10, 11, 12, 13, 14])
+    })
+
+    it('LLM 返回 picks=[] → fallback=true、reason=empty_output', async () => {
+        const { getValidNodeConfig } = await import('~~/server/services/node/node.service')
+        const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
+        const { buildContextSegments } = await import('~~/server/services/agent-platform/context/moduleContextBuilder')
+        ;(getValidNodeConfig as any).mockResolvedValue({
+            modelSdkType: 'openai', modelName: 'gpt-4o-mini', modelMaxOutputTokens: 4096,
+            modelApiKeys: [{ status: 1, apiKey: 'sk-test' }],
+            modelProviderBaseUrl: 'https://api.example.com',
+        })
+        ;(buildContextSegments as any).mockResolvedValue({
+            roleAndFlow: '', caseProfile: '', moduleSummaries: '', dynamicContext: '',
+        })
+        ;(createChatModel as any).mockReturnValue({
+            withStructuredOutput: vi.fn().mockReturnValue({
+                invoke: vi.fn().mockResolvedValue({ picks: [] }),
+            }),
+        })
+
+        const r = await rerankTemplatesService({
+            userId: 1, sessionId: 's1', userQuery: 'x', intent: 'x',
+            candidates: [makeCandidate(10), makeCandidate(11), makeCandidate(12), makeCandidate(13), makeCandidate(14), makeCandidate(15)],
+            topN: 5,
+        })
+        expect(r.fallback).toBe(true)
+        expect(r.fallbackReason).toBe('empty_output')
+        expect(r.picks.length).toBe(5)
+    })
+
+    it('LLM 返回 id 全部编造 → fallback=true、reason=not_enough_valid_ids', async () => {
+        const { getValidNodeConfig } = await import('~~/server/services/node/node.service')
+        const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
+        const { buildContextSegments } = await import('~~/server/services/agent-platform/context/moduleContextBuilder')
+        ;(getValidNodeConfig as any).mockResolvedValue({
+            modelSdkType: 'openai', modelName: 'gpt-4o-mini', modelMaxOutputTokens: 4096,
+            modelApiKeys: [{ status: 1, apiKey: 'sk-test' }],
+            modelProviderBaseUrl: 'https://api.example.com',
+        })
+        ;(buildContextSegments as any).mockResolvedValue({
+            roleAndFlow: '', caseProfile: '', moduleSummaries: '', dynamicContext: '',
+        })
+        ;(createChatModel as any).mockReturnValue({
+            withStructuredOutput: vi.fn().mockReturnValue({
+                invoke: vi.fn().mockResolvedValue({
+                    picks: [{ templateId: 9999 }, { templateId: 8888 }],
+                }),
+            }),
+        })
+
+        const r = await rerankTemplatesService({
+            userId: 1, sessionId: 's1', userQuery: 'x', intent: 'x',
+            candidates: [makeCandidate(10), makeCandidate(11), makeCandidate(12), makeCandidate(13), makeCandidate(14), makeCandidate(15)],
+            topN: 5,
+        })
+        expect(r.fallback).toBe(true)
+        expect(r.fallbackReason).toBe('not_enough_valid_ids')
+    })
+
+    it('caseId 为 null → 仍能 rerank（不查案件，buildContextSegments 不被调）', async () => {
+        const { getValidNodeConfig } = await import('~~/server/services/node/node.service')
+        const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
+        const { buildContextSegments } = await import('~~/server/services/agent-platform/context/moduleContextBuilder')
+        ;(getValidNodeConfig as any).mockResolvedValue({
+            modelSdkType: 'openai', modelName: 'gpt-4o-mini', modelMaxOutputTokens: 4096,
+            modelApiKeys: [{ status: 1, apiKey: 'sk-test' }],
+            modelProviderBaseUrl: 'https://api.example.com',
+        })
+        const buildCtxSpy = buildContextSegments as any
+        const invokeMock = vi.fn().mockResolvedValue({
+            picks: [{ templateId: 10 }, { templateId: 11 }, { templateId: 12 }],
+        })
+        ;(createChatModel as any).mockReturnValue({
+            withStructuredOutput: vi.fn().mockReturnValue({ invoke: invokeMock }),
+        })
+
+        const r = await rerankTemplatesService({
+            userId: 1, caseId: null, sessionId: 's1',
+            userQuery: '帮我写起诉状', intent: '起诉状',
+            candidates: [makeCandidate(10), makeCandidate(11), makeCandidate(12), makeCandidate(13), makeCandidate(14), makeCandidate(15)],
+            topN: 5,
+        })
+        expect(r.fallback).toBe(false)
+        expect(buildCtxSpy).not.toHaveBeenCalled()
+    })
 })

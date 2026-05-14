@@ -195,10 +195,31 @@ export async function rerankTemplatesService(input: RerankInput): Promise<Rerank
         return ''
     })
 
-    // 4. 调 LLM rerank
-    const llmPicks = await callRerankLLM(input, caseContext)
+    // 4. 调 LLM rerank（任何失败都 fallback 回 candidates 顺序）
+    let llmPicks: { templateId: number; reason?: string }[]
+    try {
+        llmPicks = await callRerankLLM(input, caseContext)
+    }
+    catch (err) {
+        const reason: RerankFallbackReason
+            = err instanceof Error && (err.name === 'AbortError' || err.message === 'rerank_timeout' || /aborted/i.test(err.message))
+                ? 'timeout'
+                : 'llm_error'
+        logger.warn('[rerankTemplatesService] LLM 调用失败，fallback 回粗筛顺序', {
+            sessionId: input.sessionId,
+            reason,
+            err: err instanceof Error ? err.message : String(err),
+        })
+        return fillFromCandidates([], new Set(), candidates, topN, reason)
+    }
 
-    // 5. 校验：templateId 必须在 candidates 集合内 + 去重
+    // 5. LLM 返回空 picks → fallback empty_output
+    if (llmPicks.length === 0) {
+        logger.warn('[rerankTemplatesService] LLM 返回 picks=[]，fallback', { sessionId: input.sessionId })
+        return fillFromCandidates([], new Set(), candidates, topN, 'empty_output')
+    }
+
+    // 6. 校验：templateId 必须在 candidates 集合内 + 去重
     const validIdSet = new Set(candidates.map(c => c.id))
     const seen = new Set<number>()
     const validPicks: RerankPick[] = []
@@ -209,14 +230,11 @@ export async function rerankTemplatesService(input: RerankInput): Promise<Rerank
         validPicks.push({ templateId: p.templateId, reason: p.reason })
     }
 
-    // 6. 截到 topN
-    const finalPicks = validPicks.slice(0, topN)
-
     // 7. LLM 至少返回了 1 个有效 id → 尊重 LLM 判断，按 LLM 顺序返回
-    if (finalPicks.length > 0) {
-        return { picks: finalPicks, fallback: false }
+    if (validPicks.length > 0) {
+        return { picks: validPicks.slice(0, topN), fallback: false }
     }
 
     // 8. LLM 返回的 id 全部编造（0 个有效）→ 用 candidates 顺序补足
-    return fillFromCandidates(finalPicks, seen, candidates, topN, 'not_enough_valid_ids')
+    return fillFromCandidates(validPicks.slice(0, topN), seen, candidates, topN, 'not_enough_valid_ids')
 }
