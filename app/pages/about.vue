@@ -321,11 +321,27 @@
 </template>
 
 <script setup lang="ts">
+import { useSiteSeo } from '~/composables/useSiteSeo'
+import { breadcrumbLd } from '#shared/utils/seo/jsonLd'
+import { UserIcon, QuoteIcon, ZapIcon, ShieldIcon, LockIcon, UsersIcon, SparklesIcon, HeartIcon, CalendarIcon, MailIcon, PhoneIcon, MapPinIcon } from "lucide-vue-next";
+
+const { siteUrl } = useRuntimeConfig().public.seo
+useSiteSeo({
+  title: '关于 LexSeek 法索 AI - 用 AI 重塑法律服务',
+  description: 'LexSeek 法索 AI 由上海盛熙律泓教育科技有限公司打造，致力于将多模态 AI 与法律专业知识深度融合，为律师与法务提供高效、精准的智能办案工具。',
+  path: '/about',
+  keywords: ['LexSeek', '法索AI', '法律科技公司', '法律AI团队', '上海盛熙律泓'],
+  ogImage: '/og/about.png',
+  jsonLd: breadcrumbLd([
+    { name: '首页', path: '/' },
+    { name: '关于我们', path: '/about' },
+  ], siteUrl),
+})
+
 definePageMeta({
   layout: "base-layout",
   title: "关于我们",
 });
-import { UserIcon, QuoteIcon, ZapIcon, ShieldIcon, LockIcon, UsersIcon, SparklesIcon, HeartIcon, CalendarIcon, MailIcon, PhoneIcon, MapPinIcon } from "lucide-vue-next";
 
 onMounted(() => {
   window.scrollTo(0, 0);
