@@ -39,7 +39,8 @@
                         <TableCell class="text-muted-foreground">{{ row.remark || '—' }}</TableCell>
                         <TableCell class="text-right space-x-2">
                             <Button variant="ghost" size="sm" @click="openEdit(row)">编辑</Button>
-                            <Button variant="ghost" size="sm" class="text-destructive" @click="confirmDelete(row)">删除</Button>
+                            <Button variant="ghost" size="sm" class="text-destructive"
+                                @click="confirmDelete(row)">删除</Button>
                         </TableCell>
                     </TableRow>
                     <TableRow v-if="rows.length === 0">
@@ -63,7 +64,7 @@ import { useAlertDialogStore } from '~/store/alertDialog'
 import PbocDepositFormDialog from '~/components/admin/rates/PbocDepositFormDialog.vue'
 import type { DepositRate } from '#shared/types/tools'
 
-definePageMeta({ layout: 'admin-layout' })
+definePageMeta({ layout: 'admin-layout', title: '央行存款基准利率' })
 
 interface Row extends DepositRate { id: number; remark?: string }
 
