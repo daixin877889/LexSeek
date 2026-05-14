@@ -11,6 +11,8 @@ import type {
     CourtFeeResult,
     MaritimeType
 } from '#shared/types/tools'
+// 法院受理费 / 执行费档位常量（PR2-T5 用 applyBrackets 重写时会直接用上）
+import { COURT_ACCEPTANCE_BRACKETS, COURT_EXECUTION_BRACKETS } from './data/feeBrackets'
 
 /**
  * 计算诉讼费用

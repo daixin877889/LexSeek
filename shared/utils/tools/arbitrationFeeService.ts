@@ -3,6 +3,8 @@
  */
 
 import type { RegionType, ArbitrationFeeResult } from '#shared/types/tools'
+// 仲裁费档位常量（PR2-T5 用 applyBrackets 重写时会直接用上）
+import { ARBITRATION_BRACKETS } from './data/feeBrackets'
 
 /**
  * 计算仲裁费用

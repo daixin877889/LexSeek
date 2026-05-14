@@ -15,6 +15,8 @@ import type {
     LawyerFeeOptions,
     LawyerFeeResult
 } from '#shared/types/tools'
+// 律师费档位常量（PR2-T5 用 applyBrackets 重写时会直接用上）
+import { LAWYER_CIVIL_BRACKETS, LAWYER_COMMERCIAL_BRACKETS } from './data/feeBrackets'
 
 /**
  * 计算律师费用
