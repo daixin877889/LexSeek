@@ -6,6 +6,7 @@ import type { DelayInterestResult, InterestDetail } from '#shared/types/tools'
 import { daysBetween, formatDate } from './utils/date'
 import { logger } from '#shared/utils/logger'
 import { getInterestRates } from './interestService'
+import { roundToCents } from './algorithms'
 
 /**
  * 计算迟延履行利息
@@ -93,7 +94,7 @@ export function calculateDelayInterest(
     }
 
     // 四舍五入总利息，保留两位小数
-    const roundedInterest = Math.round(totalInterest * 100) / 100
+    const roundedInterest = roundToCents(totalInterest)
 
     logger.debug('迟延履行利息计算结果', {
         totalInterest: roundedInterest,
@@ -154,7 +155,7 @@ function calculateBeforePolicyPeriods(
         const baseRate = 4.35
         const delayRate = baseRate * 1.5
         const interest = principal * delayRate / 100 / yearDays * days
-        const roundedInterest = Math.round(interest * 100) / 100
+        const roundedInterest = roundToCents(interest)
 
         details.push(`基准利率：${baseRate}%，迟延履行利率：${delayRate.toFixed(2)}%`)
         details.push(`计算公式：${principal} × ${delayRate.toFixed(2)}% ÷ 100 ÷ ${yearDays} × ${days} = ${roundedInterest.toFixed(2)}元`)
@@ -206,7 +207,7 @@ function calculateBeforePolicyPeriods(
         // 计算该段的天数和利息
         const segmentDays = daysBetween(formatDate(segmentStart), formatDate(segmentEnd))
         const segmentInterest = principal * delayRate / 100 / yearDays * segmentDays
-        const roundedSegmentInterest = Math.round(segmentInterest * 100) / 100
+        const roundedSegmentInterest = roundToCents(segmentInterest)
 
         // 记录计算明细
         interestDetails.push({
@@ -267,7 +268,7 @@ function calculateAfterPolicyPeriods(
         const lprRate = 3.85
         const delayRate = lprRate * 4
         const interest = principal * delayRate / 100 / yearDays * days
-        const roundedInterest = Math.round(interest * 100) / 100
+        const roundedInterest = roundToCents(interest)
 
         details.push(`LPR利率：${lprRate}%，迟延履行利率：${delayRate.toFixed(2)}%`)
         details.push(`计算公式：${principal} × ${delayRate.toFixed(2)}% ÷ 100 ÷ ${yearDays} × ${days} = ${roundedInterest.toFixed(2)}元`)
@@ -319,7 +320,7 @@ function calculateAfterPolicyPeriods(
         // 计算该段的天数和利息
         const segmentDays = daysBetween(formatDate(segmentStart), formatDate(segmentEnd))
         const segmentInterest = principal * delayRate / 100 / yearDays * segmentDays
-        const roundedSegmentInterest = Math.round(segmentInterest * 100) / 100
+        const roundedSegmentInterest = roundToCents(segmentInterest)
 
         // 记录计算明细
         interestDetails.push({
