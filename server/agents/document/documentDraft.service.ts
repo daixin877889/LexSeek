@@ -132,7 +132,7 @@ export async function createDraftService(
 
 // ==================== getDraftService ====================
 
-/** 查询草稿详情，校验归属权后返回 draft 记录。 */
+/** 查询草稿详情，校验归属权后返回 draft 记录（附 templateName，供前端展示与 autoAi 启动指令用）。 */
 export async function getDraftService(
     userId: number,
     draftId: number,
@@ -146,7 +146,16 @@ export async function getDraftService(
         return { error: '无权访问此草稿', code: 403 }
     }
 
-    return { draft }
+    // 补查模板名：DAO 只 SELECT documentDrafts 表自身字段（不含 template join），
+    // 前端文书页（如 autoAi=1 的启动指令需要拼"请根据当前案件信息生成《{模板名}》"）需要 templateName。
+    const template = await getDocumentTemplateDAO(draft.templateId)
+
+    return {
+        draft: {
+            ...draft,
+            templateName: template?.name ?? null,
+        },
+    }
 }
 
 // ==================== patchDraftService ====================
