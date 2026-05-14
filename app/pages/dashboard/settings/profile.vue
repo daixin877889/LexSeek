@@ -49,6 +49,7 @@ import { useUserStore } from '~/store/user'
 definePageMeta({
   layout: "dashboard-layout",
   title: "个人资料",
+  userMenu: { group: 'settings', title: '个人资料', icon: 'User', order: 1 },
 });
 
 const props = defineProps({

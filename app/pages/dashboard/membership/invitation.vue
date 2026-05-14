@@ -137,6 +137,7 @@ dayjs.locale("zh-cn");
 definePageMeta({
   layout: "dashboard-layout",
   title: "邀请注册",
+  userMenu: { group: 'membership', title: '邀请注册', icon: 'UserPlus', order: 4 },
 });
 
 // 获取用户 store

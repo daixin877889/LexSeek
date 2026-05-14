@@ -79,6 +79,7 @@ import { resetAllStore } from '~/utils/resetStore'
 definePageMeta({
   title: "安全设置",
   layout: "dashboard-layout",
+  userMenu: { group: 'settings', title: '安全设置', icon: 'Lock', order: 2 },
 });
 import { Loader2Icon, SaveIcon, SmartphoneIcon, LaptopIcon, TabletIcon, XIcon, RefreshCwIcon } from "lucide-vue-next";
 const userStore = useUserStore();

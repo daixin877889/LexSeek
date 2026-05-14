@@ -207,6 +207,7 @@ import { useWxSupportStore } from '~/store/wxSupport'
 definePageMeta({
   title: "工作台",
   layout: "dashboard-layout",
+  userMenu: { group: 'home', title: '首页', icon: 'Home', order: 0 },
 });
 
 const userStore = useUserStore();

@@ -62,6 +62,7 @@ import { useWechatPayment } from '~/composables/useWechatPayment'
 definePageMeta({
   layout: "dashboard-layout",
   title: "我的订单",
+  userMenu: { group: 'membership', title: '我的订单', icon: 'ListChecks', order: 5 },
 });
 
 // ==================== 类型定义 ====================

@@ -45,6 +45,7 @@ import { useApiFetch } from '~/composables/useApiFetch'
 definePageMeta({
   layout: "dashboard-layout",
   title: "兑换会员",
+  userMenu: { group: 'membership', title: '兑换会员', icon: 'Gift', order: 2 },
 });
 
 // ==================== 类型定义 ====================

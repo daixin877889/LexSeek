@@ -11,6 +11,7 @@ definePageMeta({
       return navigateTo("/dashboard/membership/level");
     },
   ],
+  userMenu: { group: 'membership', title: '我的会员', icon: 'Crown', order: 1 },
 });
 </script>
 
