@@ -29,6 +29,7 @@ import * as reviewContractTool from './reviewContract.tool'
 import * as recommendTemplateTool from './recommendTemplate.tool'
 import * as saveDocumentDraftTool from './saveDocumentDraft.tool'
 import * as updateDocumentDraftTool from './updateDocumentDraft.tool'
+import * as compensationCalculatorTool from '#shared/utils/tools/agentTools/compensationCalculator.tool'
 
 /** 通用工具模块映射 */
 const toolModules: Record<string, ToolModule> = {
@@ -52,6 +53,8 @@ const toolModules: Record<string, ToolModule> = {
     save_document_draft: saveDocumentDraftTool,
     update_document_draft: updateDocumentDraftTool,
     review_contract: reviewContractTool,
+    // 办案计算器工具
+    calculate_compensation: compensationCalculatorTool,
 }
 
 /**
