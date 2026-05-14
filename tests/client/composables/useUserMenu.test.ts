@@ -10,34 +10,53 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref } from 'vue'
 import type { UserMenuRouteMeta } from '#shared/types/userMenu'
 
-// ========== mocks ==========
-
-/** mock 路由表 — 每个用例重置 */
-const mockRoutes = ref<Array<{ path: string; meta: Record<string, unknown> }>>([])
-vi.stubGlobal('useRouter', () => ({
-  getRoutes: () => mockRoutes.value,
+// ========== hoisted mock state ==========
+// vi.mock 工厂在 module 解析时被 hoist 到顶部 — 必须用 vi.hoisted 让 mock 函数能引用这些状态
+const {
+  mockRoutes,
+  mockUserRoles,
+  mockGroups,
+  mockActions,
+  loggerWarn,
+  handleLogoutStub,
+} = vi.hoisted(() => ({
+  mockRoutes: { value: [] as Array<{ path: string; meta: Record<string, unknown> }> },
+  mockUserRoles: { value: [] as Array<{ code?: string; name?: string }> },
+  mockGroups: { value: [] as Array<{ id: string; title?: string; order: number }> },
+  mockActions: { value: [] as Array<{ id: string; title: string; icon: string; danger?: boolean; order: number; roles?: string[]; handler: 'logout' }> },
+  loggerWarn: vi.fn(),
+  handleLogoutStub: vi.fn(),
 }))
 
-/** mock 角色 store */
-const mockUserRoles = ref<Array<{ code?: string; name?: string }>>([])
-vi.stubGlobal('useRoleStore', () => ({
-  userRoles: mockUserRoles.value,
-}))
+// ========== module mocks ==========
 
-/** mock logger（spec 要求未知 icon 时 logger.warn） */
-const loggerWarn = vi.fn()
-vi.stubGlobal('logger', { warn: loggerWarn, error: vi.fn(), info: vi.fn(), debug: vi.fn() })
+// composable 自动导入 useRouter — mock vue-router 模块本体替换它
+vi.mock('vue-router', async () => {
+  const actual = await vi.importActual<typeof import('vue-router')>('vue-router')
+  return {
+    ...actual,
+    useRouter: () => ({
+      getRoutes: () => mockRoutes.value,
+    }),
+  }
+})
 
-/** mock getAdminIcon — 把字符串名当作伪 component 返回；'INVALID' 返回 null */
-vi.mock('~/composables/useAdminMenu', () => ({
-  getAdminIcon: vi.fn((name: string) => {
-    if (name === 'INVALID') return null
-    return { __iconName: name } as unknown as import('vue').Component
+// composable 显式 import useRoleStore — mock 该模块
+vi.mock('~/store/role', () => ({
+  useRoleStore: () => ({
+    get userRoles() { return mockUserRoles.value },
   }),
 }))
 
-/** mock useUserNavigation — handleLogout 是 stub，可断言被绑到 action.onClick */
-const handleLogoutStub = vi.fn()
+// getAdminIcon — 'INVALID' 返回 null，其他名返回伪 component
+vi.mock('~/composables/useAdminMenu', () => ({
+  getAdminIcon: (name: string) => {
+    if (name === 'INVALID') return null
+    return { __iconName: name }
+  },
+}))
+
+// useUserNavigation — handleLogout 是 stub，可断言被绑到 action.onClick
 vi.mock('~/composables/useUserNavigation', () => ({
   useUserNavigation: () => ({
     handleLogout: handleLogoutStub,
@@ -46,12 +65,15 @@ vi.mock('~/composables/useUserNavigation', () => ({
   }),
 }))
 
-/** mock 中央骨架 — 让测试用例可控注入 */
-const mockGroups = ref<Array<{ id: string; title?: string; order: number }>>([])
-const mockActions = ref<Array<{ id: string; title: string; icon: string; danger?: boolean; order: number; roles?: string[]; handler: 'logout' }>>([])
+// 中央骨架 — 用 getter 让测试用例可注入
 vi.mock('~/config/userMenu', () => ({
   get userMenuGroups() { return mockGroups.value },
   get userMenuActions() { return mockActions.value },
+}))
+
+// logger 由 composable 显式 import — mock 该模块的 named export
+vi.mock('#shared/utils/logger', () => ({
+  logger: { warn: loggerWarn, error: vi.fn(), info: vi.fn(), debug: vi.fn() },
 }))
 
 // 被测函数 — 必须在 mock 之后导入

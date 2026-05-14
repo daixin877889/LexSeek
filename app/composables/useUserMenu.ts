@@ -1,4 +1,6 @@
-import type { ComputedRef } from 'vue'
+import { computed, type ComputedRef } from 'vue'
+import { useRouter } from 'vue-router'
+import { logger } from '#shared/utils/logger'
 import type { UserMenuRenderNode, UserMenuRouteMeta } from '#shared/types/userMenu'
 import { userMenuGroups, userMenuActions } from '~/config/userMenu'
 import { useRoleStore } from '~/store/role'
