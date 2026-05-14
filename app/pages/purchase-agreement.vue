@@ -252,6 +252,14 @@
 </template>
 
 <script setup>
+import { useSiteSeo } from '~/composables/useSiteSeo'
+
+useSiteSeo({
+  title: '购买协议',
+  description: 'LexSeek 法索 AI 会员服务购买协议，包含订阅服务、计费、退款等相关条款。',
+  path: '/purchase-agreement',
+})
+
 definePageMeta({
   layout: "base-layout",
   title: "服务购买协议",

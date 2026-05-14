@@ -246,6 +246,14 @@
 </template>
 
 <script setup>
+import { useSiteSeo } from '~/composables/useSiteSeo'
+
+useSiteSeo({
+  title: '使用条款',
+  description: 'LexSeek 法索 AI 使用条款，明确平台服务范围、用户权利义务及相关法律约定。',
+  path: '/terms-of-use',
+})
+
 definePageMeta({
   layout: "base-layout",
   title: "使用条款",

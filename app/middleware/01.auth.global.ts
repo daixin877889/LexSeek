@@ -19,6 +19,9 @@ const PUBLIC_ROUTES = [
     '/features',
     '/pricing',
     '/about',
+    '/privacy-agreement',
+    '/terms-of-use',
+    '/purchase-agreement',
     '/403',
     '/404',
 ]

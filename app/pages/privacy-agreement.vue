@@ -266,6 +266,14 @@
 </template>
 
 <script setup>
+import { useSiteSeo } from '~/composables/useSiteSeo'
+
+useSiteSeo({
+  title: '隐私政策',
+  description: 'LexSeek 法索 AI 隐私政策，详细说明我们如何收集、使用、存储和保护您的个人信息。',
+  path: '/privacy-agreement',
+})
+
 definePageMeta({
   layout: "base-layout",
   title: "隐私政策",
