@@ -18,6 +18,7 @@ import type {
 import { getLPRRates } from '#shared/utils/tools/data'
 import { daysBetween, formatDate } from './utils/date'
 import { logger } from '#shared/utils/logger'
+import { roundToCents } from './algorithms'
 
 
 // 中国人民银行基准利率数据 (type=1)
@@ -376,10 +377,10 @@ export function calculateCustomRateInterest(
     const annualRate = rateNum / 100
     const interestExact = principalNum * annualRate * days / yearDaysNum
     // 最后再四舍五入到分
-    const interest = Math.round(interestExact * 100) / 100
+    const interest = roundToCents(interestExact)
 
     // 总额 = 本金 + 利息
-    const totalAmount = Math.round((principalNum + interest) * 100) / 100
+    const totalAmount = roundToCents(principalNum + interest)
 
     // 计算过程描述
     const process = `本金 ${principalNum.toFixed(2)} 元 × 年利率 ${rateNum.toFixed(4)}% ÷ 100 × ${days} 天 ÷ ${yearDaysNum} 天 = 利息 ${interest.toFixed(2)} 元`
@@ -539,7 +540,7 @@ export function calculatePeriodInterest(
 
     // 计算利息 (本金 * 年利率% / 100 * 天数 / 年天数)
     const annualRate = Number((adjustedRate / 100).toFixed(10))
-    const interest = Math.round(principalNum * annualRate * daysNum / yearDaysNum * 100) / 100
+    const interest = roundToCents(principalNum * annualRate * daysNum / yearDaysNum)
 
     logger.debug('期间利息计算结果', {
         principal: principalNum,
@@ -720,7 +721,7 @@ export function calculateLPRInterest(
         // 使用高精度计算
         const segmentInterest = principalNum * adjustedRate / 100 * segmentDays / yearDaysNum
         // 四舍五入保留两位小数
-        const roundedSegmentInterest = Math.round(segmentInterest * 100) / 100
+        const roundedSegmentInterest = roundToCents(segmentInterest)
 
         logger.debug('分段利息计算:', {
             segmentStart: formatDate(segmentStart),
@@ -755,7 +756,7 @@ export function calculateLPRInterest(
     const dateAdjusted = startDate !== startDateOriginal
 
     // 四舍五入总利息，保留两位小数
-    totalInterest = Math.round(totalInterest * 100) / 100
+    totalInterest = roundToCents(totalInterest)
 
     logger.debug('LPR计算结果:', {
         totalInterest,
@@ -929,7 +930,7 @@ export function calculatePBOCInterest(
     }
 
     // 四舍五入总利息，保留两位小数
-    totalInterest = Math.round(totalInterest * 100) / 100
+    totalInterest = roundToCents(totalInterest)
 
     // 获取期限的文字描述（period 由 1-5 枚举驱动）
     const periodTextMap: Record<number, string> = {
