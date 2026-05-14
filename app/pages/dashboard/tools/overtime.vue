@@ -1,34 +1,17 @@
 <template>
   <div class="p-4">
-    <div class="flex items-center justify-between mb-2">
-      <h1 class="text-[22px] font-bold truncate">加班费/调休计算</h1>
-      <div class="relative">
-        <Button variant="ghost" size="icon" @click="isHelpOpen = !isHelpOpen" class="rounded-full">
-          <HelpCircle class="h-5 w-5" />
-          <span class="sr-only">帮助</span>
-        </Button>
-        <div v-if="isHelpOpen" class="absolute right-0 z-50 w-80 mt-2 p-4 bg-card rounded-lg border shadow-lg">
-          <div class="flex justify-between items-center mb-3">
-            <h3 class="font-semibold text-base">加班费计算指引</h3>
-            <Button variant="ghost" size="icon" @click="isHelpOpen = false" class="h-6 w-6">
-              <X class="h-5 w-5" />
-              <span class="sr-only">关闭</span>
-            </Button>
-          </div>
-
-          <div class="text-sm space-y-3 max-h-96 overflow-y-auto">
-            <div>
-              <h4 class="font-semibold mb-1">加班费计算标准：</h4>
-              <ul class="list-disc list-inside space-y-1">
-                <li>工作日加班：不低于工资的1.5倍</li>
-                <li>休息日加班：不低于工资的2倍</li>
-                <li>法定节假日加班：不低于工资的3倍</li>
-              </ul>
-            </div>
-          </div>
+    <ToolsCalculatorPageHeader title="加班费/调休计算" help-title="加班费计算指引">
+      <template #help>
+        <div>
+          <h4 class="font-semibold mb-1">加班费计算标准：</h4>
+          <ul class="list-disc list-inside space-y-1">
+            <li>工作日加班：不低于工资的1.5倍</li>
+            <li>休息日加班：不低于工资的2倍</li>
+            <li>法定节假日加班：不低于工资的3倍</li>
+          </ul>
         </div>
-      </div>
-    </div>
+      </template>
+    </ToolsCalculatorPageHeader>
 
     <div class="flex flex-col lg:flex-row gap-6">
       <!-- 左侧：信息输入区 -->
@@ -255,7 +238,6 @@ import { calculateOvertimePay, calculateCompensatoryTime } from "#shared/utils/t
 const alertDialogStore = useAlertDialogStore();
 
 // 状态管理
-const isHelpOpen = ref(false);
 const baseSalary = ref(5000);
 const workdayOvertimeHours = ref(0);
 const weekendOvertimeHours = ref(0);
@@ -309,6 +291,4 @@ function calculateTime() {
 function formatCurrency(value) {
   return new Intl.NumberFormat("zh-CN").format(value);
 }
-
-import { X, HelpCircle } from "lucide-vue-next";
 </script>
