@@ -25,15 +25,15 @@
         </div>
 
         <div class="bg-card border rounded-lg p-6 shadow-sm">
-          <!-- Tab导航 -->
+          <!-- 暂时移除微信小程序注册入口，保留代码以便后续恢复 -->
           <Tabs v-model="activeTab" class="w-full">
-            <TabsList class="grid w-full grid-cols-2 mb-6">
+            <!-- <TabsList class="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="miniprogram">小程序注册</TabsTrigger>
               <TabsTrigger value="website">网站注册</TabsTrigger>
-            </TabsList>
+            </TabsList> -->
 
-            <!-- 小程序注册Tab -->
-            <TabsContent value="miniprogram" class="mt-6">
+            <!-- 暂时移除微信小程序注册入口，保留代码以便后续恢复 -->
+            <!-- <TabsContent value="miniprogram" class="mt-6">
               <div class="text-center space-y-4">
                 <h3 class="text-lg font-medium mb-4">微信扫码注册</h3>
                 <div class="flex justify-center">
@@ -47,7 +47,7 @@
                   <NuxtLink to="#" @click="toLogin" class="text-primary hover:underline font-medium"> 立即登录 </NuxtLink>
                 </p>
               </div>
-            </TabsContent>
+            </TabsContent> -->
 
             <!-- 网站注册Tab -->
             <TabsContent value="website">
@@ -89,9 +89,10 @@
                   <span v-show="errMsg.verificationCode" class="text-red-500 ml-0.5 text-xs">{{ errMsg.verificationCode
                     }}</span>
                   <!-- <div class="text-sm text-muted-foreground mt-2">尝试多次无法接收验证码？请点击 <a href="#" class="text-primary font-semibold underline" @click="wxSupportStore.showQrCode('/images/loginWx.jpg')">联系客服</a> 开通账号。</div> -->
-                  <div class="text-sm text-muted-foreground mt-2">尝试多次无法接收验证码？请使用 <a
+                  <!-- 暂时移除"请使用小程序注册"引导文案，保留代码以便后续恢复 -->
+                  <!-- <div class="text-sm text-muted-foreground mt-2">尝试多次无法接收验证码？请使用 <a
                       class="text-primary font-semibold underline" href="#"
-                      @click.prevent="activeTab = 'miniprogram'">小程序注册</a>。</div>
+                      @click.prevent="activeTab = 'miniprogram'">小程序注册</a>。</div> -->
                 </div>
 
                 <div>
@@ -187,7 +188,8 @@ const route = useRoute();
 const router = useRouter();
 
 // Tab 相关状态
-const activeTab = ref("miniprogram");
+// 暂时移除微信小程序注册入口，默认显示网站注册；恢复入口时改回 "miniprogram"
+const activeTab = ref("website");
 
 // 表单数据
 const formData = reactive({
