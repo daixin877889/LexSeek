@@ -125,6 +125,14 @@ import GeneralAuthSidebar from '~/components/general/authSidebar.vue'
 import { useAliyunCaptcha } from '~/composables/useAliyunCaptcha'
 import { useSmsCooldown } from '~/composables/useSmsCooldown'
 import { useAuthStore } from '~/store/auth'
+import { useSiteSeo } from '~/composables/useSiteSeo'
+
+useSiteSeo({
+  title: '重置密码',
+  description: '重置您的 LexSeek 法索 AI 账号密码。',
+  path: '/reset-password',
+  noindex: true,
+})
 
 const router = useRouter();
 const authStore = useAuthStore();

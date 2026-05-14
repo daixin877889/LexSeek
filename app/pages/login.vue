@@ -99,6 +99,14 @@ import GeneralAuthSidebar from '~/components/general/authSidebar.vue'
 import { useAliyunCaptcha } from '~/composables/useAliyunCaptcha'
 import { useAuthStore } from '~/store/auth'
 import { getRememberedAccount, rememberMeHandler } from '~/utils/auth'
+import { useSiteSeo } from '~/composables/useSiteSeo'
+
+useSiteSeo({
+  title: '登录',
+  description: '登录您的 LexSeek 法索 AI 账号。',
+  path: '/login',
+  noindex: true,
+})
 
 const route = useRoute();
 const router = useRouter();

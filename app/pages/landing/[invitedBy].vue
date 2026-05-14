@@ -257,12 +257,20 @@ import {
   ArrowRight, ChevronDown, Sparkles, FileText,
   Calendar, Target, ClipboardList, Heart
 } from "lucide-vue-next";
+import { useSiteSeo } from '~/composables/useSiteSeo'
 
 // 设置页面不使用默认 layout
 definePageMeta({
   layout: false,
   title: "邀请注册",
 });
+
+useSiteSeo({
+  title: '专属邀请',
+  description: '通过专属邀请注册 LexSeek 法索 AI，获得新用户专享福利。',
+  path: '/landing',
+  noindex: true,
+})
 
 const route = useRoute();
 const router = useRouter();

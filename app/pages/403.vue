@@ -2,9 +2,18 @@
 /**
  * 403 无权限页面
  */
+import { useSiteSeo } from '~/composables/useSiteSeo'
+
 definePageMeta({
     layout: false,
     title: '无权限访问',
+})
+
+useSiteSeo({
+  title: '无权限访问',
+  description: '您没有权限访问此页面。',
+  path: '/403',
+  noindex: true,
 })
 
 const router = useRouter()

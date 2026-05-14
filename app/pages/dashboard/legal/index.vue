@@ -147,6 +147,7 @@ import LegalSearchLegalListMobile from '~/components/legal-search/LegalListMobil
 import LegalSearchUnifiedSearchPanel from '~/components/legal-search/UnifiedSearchPanel.vue'
 import { useArticleSearch } from '~/composables/useArticleSearch'
 import { useLegalSearch } from '~/composables/useLegalSearch'
+import { useSiteSeo } from '~/composables/useSiteSeo'
 
 // ==================== 页面元数据 ====================
 
@@ -157,9 +158,11 @@ definePageMeta({
 
 // ==================== SEO ====================
 
-useSeoMeta({
+useSiteSeo({
     title: '法律法规 - 法律检索系统',
     description: '搜索和浏览法律法规全文，支持多维度筛选和法条语义搜索',
+    path: '/dashboard/legal',
+    noindex: true,
 })
 
 // ==================== 组合式函数 ====================

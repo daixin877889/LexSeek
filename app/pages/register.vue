@@ -183,6 +183,14 @@ import GeneralAuthSidebar from '~/components/general/authSidebar.vue'
 import { useAliyunCaptcha } from '~/composables/useAliyunCaptcha'
 import { useSmsCooldown } from '~/composables/useSmsCooldown'
 import { useAuthStore } from '~/store/auth'
+import { useSiteSeo } from '~/composables/useSiteSeo'
+
+useSiteSeo({
+  title: '注册',
+  description: '注册 LexSeek 法索 AI 账号，立即体验律师专属 AI 工作台。',
+  path: '/register',
+  noindex: true,
+})
 
 const route = useRoute();
 const router = useRouter();

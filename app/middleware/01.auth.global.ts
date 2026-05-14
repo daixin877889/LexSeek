@@ -34,8 +34,8 @@ const AUTH_ONLY_ROUTES = [
 ]
 
 export default defineNuxtRouteMiddleware(async (to) => {
-    // 公开路由直接放行
-    if (PUBLIC_ROUTES.includes(to.path)) {
+    // 公开路由直接放行（支持精确匹配和 /landing/ 前缀动态路由）
+    if (PUBLIC_ROUTES.includes(to.path) || to.path.startsWith('/landing/')) {
         // 定义认证状态
         let isAuthenticated = false
         if (import.meta.server) {
