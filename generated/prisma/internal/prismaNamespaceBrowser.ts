@@ -105,6 +105,7 @@ export const ModelName = {
   lprRates: 'lprRates',
   pbocDepositRates: 'pbocDepositRates',
   pbocLoanRates: 'pbocLoanRates',
+  lprSyncLogs: 'lprSyncLogs',
   roles: 'roles',
   roleRouters: 'roleRouters',
   userRoles: 'userRoles',
@@ -1111,6 +1112,24 @@ export const PbocLoanRatesScalarFieldEnum = {
 } as const
 
 export type PbocLoanRatesScalarFieldEnum = (typeof PbocLoanRatesScalarFieldEnum)[keyof typeof PbocLoanRatesScalarFieldEnum]
+
+
+export const LprSyncLogsScalarFieldEnum = {
+  id: 'id',
+  startedAt: 'startedAt',
+  finishedAt: 'finishedAt',
+  status: 'status',
+  triggeredBy: 'triggeredBy',
+  rangeStart: 'rangeStart',
+  rangeEnd: 'rangeEnd',
+  fetchedCount: 'fetchedCount',
+  insertedCount: 'insertedCount',
+  errorMessage: 'errorMessage',
+  operatorId: 'operatorId',
+  createdAt: 'createdAt'
+} as const
+
+export type LprSyncLogsScalarFieldEnum = (typeof LprSyncLogsScalarFieldEnum)[keyof typeof LprSyncLogsScalarFieldEnum]
 
 
 export const RolesScalarFieldEnum = {

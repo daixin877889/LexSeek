@@ -330,6 +330,11 @@ export type pbocDepositRates = Prisma.pbocDepositRatesModel
  */
 export type pbocLoanRates = Prisma.pbocLoanRatesModel
 /**
+ * Model lprSyncLogs
+ * LPR 自动同步日志（每次执行一条，含手动 / 自动触发）
+ */
+export type lprSyncLogs = Prisma.lprSyncLogsModel
+/**
  * Model roles
  * 角色表
  */

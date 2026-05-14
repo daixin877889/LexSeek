@@ -66,3 +66,31 @@ model pbocLoanRates {
   @@index([deletedAt])
   @@map("pboc_loan_rates")
 }
+
+/// LPR 自动同步日志（每次执行一条，含手动 / 自动触发）
+model lprSyncLogs {
+  id            Int       @id @default(autoincrement())
+  /// 任务开始时间
+  startedAt     DateTime  @map("started_at")    @db.Timestamptz(6)
+  /// 任务结束时间（成功 / 失败时填入）
+  finishedAt    DateTime? @map("finished_at")   @db.Timestamptz(6)
+  /// running | success | failure
+  status        String    @db.VarChar(16)
+  /// 触发方式：auto (cron) | manual (admin 按钮)
+  triggeredBy   String    @map("triggered_by")  @db.VarChar(16)
+  /// 拉取窗口起始（请求时传给 API）
+  rangeStart    DateTime  @map("range_start")   @db.Date
+  rangeEnd      DateTime  @map("range_end")     @db.Date
+  /// API 返回的 records 总条数
+  fetchedCount  Int       @default(0) @map("fetched_count")
+  /// 真正入库的新条目数（去重后）
+  insertedCount Int       @default(0) @map("inserted_count")
+  /// 失败时的错误信息
+  errorMessage  String?   @map("error_message") @db.Text
+  /// 手动触发时记录 admin user id（不加外键，参考 agentToolAuditLogs 风格）
+  operatorId    Int?      @map("operator_id")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([startedAt(sort: Desc)])
+  @@map("lpr_sync_logs")
+}

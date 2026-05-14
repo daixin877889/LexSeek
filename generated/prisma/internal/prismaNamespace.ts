@@ -438,6 +438,7 @@ export const ModelName = {
   lprRates: 'lprRates',
   pbocDepositRates: 'pbocDepositRates',
   pbocLoanRates: 'pbocLoanRates',
+  lprSyncLogs: 'lprSyncLogs',
   roles: 'roles',
   roleRouters: 'roleRouters',
   userRoles: 'userRoles',
@@ -473,7 +474,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "agentRuns" | "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "agentToolAuditLogs" | "campaigns" | "caseTypes" | "cases" | "caseSessions" | "caseMaterials" | "caseAnalyses" | "demoCases" | "caseMaterialEmbeddings" | "caseMemories" | "caseAnalysisEmbeddings" | "contractPlaybooks" | "contractReviews" | "contractReviewLegacyRisksBackup" | "contractReviewVersions" | "contractRisks" | "contractAnnotations" | "documentTemplates" | "documentDrafts" | "documentDraftSnapshots" | "documentDraftVersions" | "ossFiles" | "legalMain" | "legalArticles" | "lawEmbeddings" | "textContentRecords" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "modelProviders" | "modelApiKeys" | "models" | "nodeGroups" | "nodes" | "prompts" | "levelNodeAccess" | "node_prompts" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "lprRates" | "pbocDepositRates" | "pbocLoanRates" | "roles" | "roleRouters" | "userRoles" | "docRecognitionRecords" | "imageRecognitionRecords" | "asrTasks" | "asrRecords" | "mineruTokens" | "mineruTasks" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "skills" | "node_skills" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
+    modelProps: "agentRuns" | "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "agentToolAuditLogs" | "campaigns" | "caseTypes" | "cases" | "caseSessions" | "caseMaterials" | "caseAnalyses" | "demoCases" | "caseMaterialEmbeddings" | "caseMemories" | "caseAnalysisEmbeddings" | "contractPlaybooks" | "contractReviews" | "contractReviewLegacyRisksBackup" | "contractReviewVersions" | "contractRisks" | "contractAnnotations" | "documentTemplates" | "documentDrafts" | "documentDraftSnapshots" | "documentDraftVersions" | "ossFiles" | "legalMain" | "legalArticles" | "lawEmbeddings" | "textContentRecords" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "modelProviders" | "modelApiKeys" | "models" | "nodeGroups" | "nodes" | "prompts" | "levelNodeAccess" | "node_prompts" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "lprRates" | "pbocDepositRates" | "pbocLoanRates" | "lprSyncLogs" | "roles" | "roleRouters" | "userRoles" | "docRecognitionRecords" | "imageRecognitionRecords" | "asrTasks" | "asrRecords" | "mineruTokens" | "mineruTasks" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "skills" | "node_skills" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -4473,6 +4474,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    lprSyncLogs: {
+      payload: Prisma.$lprSyncLogsPayload<ExtArgs>
+      fields: Prisma.lprSyncLogsFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.lprSyncLogsFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lprSyncLogsPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.lprSyncLogsFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lprSyncLogsPayload>
+        }
+        findFirst: {
+          args: Prisma.lprSyncLogsFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lprSyncLogsPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.lprSyncLogsFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lprSyncLogsPayload>
+        }
+        findMany: {
+          args: Prisma.lprSyncLogsFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lprSyncLogsPayload>[]
+        }
+        create: {
+          args: Prisma.lprSyncLogsCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lprSyncLogsPayload>
+        }
+        createMany: {
+          args: Prisma.lprSyncLogsCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.lprSyncLogsCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lprSyncLogsPayload>[]
+        }
+        delete: {
+          args: Prisma.lprSyncLogsDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lprSyncLogsPayload>
+        }
+        update: {
+          args: Prisma.lprSyncLogsUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lprSyncLogsPayload>
+        }
+        deleteMany: {
+          args: Prisma.lprSyncLogsDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.lprSyncLogsUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.lprSyncLogsUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lprSyncLogsPayload>[]
+        }
+        upsert: {
+          args: Prisma.lprSyncLogsUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lprSyncLogsPayload>
+        }
+        aggregate: {
+          args: Prisma.LprSyncLogsAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateLprSyncLogs>
+        }
+        groupBy: {
+          args: Prisma.lprSyncLogsGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.LprSyncLogsGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.lprSyncLogsCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.LprSyncLogsCountAggregateOutputType> | number
+        }
+      }
+    }
     roles: {
       payload: Prisma.$rolesPayload<ExtArgs>
       fields: Prisma.rolesFieldRefs
@@ -6962,6 +7037,24 @@ export const PbocLoanRatesScalarFieldEnum = {
 export type PbocLoanRatesScalarFieldEnum = (typeof PbocLoanRatesScalarFieldEnum)[keyof typeof PbocLoanRatesScalarFieldEnum]
 
 
+export const LprSyncLogsScalarFieldEnum = {
+  id: 'id',
+  startedAt: 'startedAt',
+  finishedAt: 'finishedAt',
+  status: 'status',
+  triggeredBy: 'triggeredBy',
+  rangeStart: 'rangeStart',
+  rangeEnd: 'rangeEnd',
+  fetchedCount: 'fetchedCount',
+  insertedCount: 'insertedCount',
+  errorMessage: 'errorMessage',
+  operatorId: 'operatorId',
+  createdAt: 'createdAt'
+} as const
+
+export type LprSyncLogsScalarFieldEnum = (typeof LprSyncLogsScalarFieldEnum)[keyof typeof LprSyncLogsScalarFieldEnum]
+
+
 export const RolesScalarFieldEnum = {
   id: 'id',
   name: 'name',
@@ -7598,6 +7691,7 @@ export type GlobalOmitConfig = {
   lprRates?: Prisma.lprRatesOmit
   pbocDepositRates?: Prisma.pbocDepositRatesOmit
   pbocLoanRates?: Prisma.pbocLoanRatesOmit
+  lprSyncLogs?: Prisma.lprSyncLogsOmit
   roles?: Prisma.rolesOmit
   roleRouters?: Prisma.roleRoutersOmit
   userRoles?: Prisma.userRolesOmit
