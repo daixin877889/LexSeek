@@ -612,13 +612,13 @@ describe('rates.dao - LPR', () => {
 
     afterEach(async () => {
         if (createdIds.length > 0) {
-            await prisma.lpr_rates.deleteMany({ where: { id: { in: createdIds } } })
+            await prisma.lprRates.deleteMany({ where: { id: { in: createdIds } } })
             createdIds.length = 0
         }
     })
 
     it('findAllLPRRatesDAO 应返回未软删除的所有 LPR，按 effectDate desc 排序', async () => {
-        const seedCount = await prisma.lpr_rates.count({ where: { deletedAt: null } })
+        const seedCount = await prisma.lprRates.count({ where: { deletedAt: null } })
         expect(seedCount).toBeGreaterThanOrEqual(72)
         const rates = await findAllLPRRatesDAO()
         expect(rates).toHaveLength(seedCount)
@@ -658,7 +658,7 @@ describe('rates.dao - LPR', () => {
         })
         createdIds.push(created.id)
         await softDeleteLPRRateDAO(created.id)
-        const reloaded = await prisma.lpr_rates.findUnique({ where: { id: created.id } })
+        const reloaded = await prisma.lprRates.findUnique({ where: { id: created.id } })
         expect(reloaded?.deletedAt).not.toBeNull()
         const visible = await findAllLPRRatesDAO()
         expect(visible.find((r) => r.id === created.id)).toBeUndefined()
@@ -669,7 +669,7 @@ describe('rates.dao - PBOC Deposit', () => {
     const createdIds: number[] = []
     afterEach(async () => {
         if (createdIds.length > 0) {
-            await prisma.pboc_deposit_rates.deleteMany({ where: { id: { in: createdIds } } })
+            await prisma.pbocDepositRates.deleteMany({ where: { id: { in: createdIds } } })
             createdIds.length = 0
         }
     })
@@ -686,7 +686,7 @@ describe('rates.dao - PBOC Deposit', () => {
         expect(list.find((r) => r.id === created.id)).toBeTruthy()
 
         await updatePBOCDepositRateDAO(created.id, { demand: 0.40 })
-        const reloaded = await prisma.pboc_deposit_rates.findUnique({ where: { id: created.id } })
+        const reloaded = await prisma.pbocDepositRates.findUnique({ where: { id: created.id } })
         expect(Number(reloaded!.demand)).toBe(0.40)
 
         await softDeletePBOCDepositRateDAO(created.id)
@@ -699,7 +699,7 @@ describe('rates.dao - PBOC Loan', () => {
     const createdIds: number[] = []
     afterEach(async () => {
         if (createdIds.length > 0) {
-            await prisma.pboc_loan_rates.deleteMany({ where: { id: { in: createdIds } } })
+            await prisma.pbocLoanRates.deleteMany({ where: { id: { in: createdIds } } })
             createdIds.length = 0
         }
     })
@@ -746,30 +746,30 @@ type PrismaClient = typeof prisma
 
 // ============ LPR ============
 
-export async function findAllLPRRatesDAO(tx?: PrismaClient): Promise<lpr_rates[]> {
-    return (tx ?? prisma).lpr_rates.findMany({
+export async function findAllLPRRatesDAO(tx?: PrismaClient): Promise<lprRates[]> {
+    return (tx ?? prisma).lprRates.findMany({
         where: { deletedAt: null },
         orderBy: { effectDate: 'desc' },
     })
 }
 
 export async function createLPRRateDAO(
-    data: Prisma.lpr_ratesCreateInput,
+    data: Prisma.lprRatesCreateInput,
     tx?: PrismaClient
-): Promise<lpr_rates> {
-    return (tx ?? prisma).lpr_rates.create({ data })
+): Promise<lprRates> {
+    return (tx ?? prisma).lprRates.create({ data })
 }
 
 export async function updateLPRRateDAO(
     id: number,
-    data: Prisma.lpr_ratesUpdateInput,
+    data: Prisma.lprRatesUpdateInput,
     tx?: PrismaClient
-): Promise<lpr_rates> {
-    return (tx ?? prisma).lpr_rates.update({ where: { id }, data })
+): Promise<lprRates> {
+    return (tx ?? prisma).lprRates.update({ where: { id }, data })
 }
 
-export async function softDeleteLPRRateDAO(id: number, tx?: PrismaClient): Promise<lpr_rates> {
-    return (tx ?? prisma).lpr_rates.update({
+export async function softDeleteLPRRateDAO(id: number, tx?: PrismaClient): Promise<lprRates> {
+    return (tx ?? prisma).lprRates.update({
         where: { id },
         data: { deletedAt: new Date() },
     })
@@ -777,33 +777,33 @@ export async function softDeleteLPRRateDAO(id: number, tx?: PrismaClient): Promi
 
 // ============ PBOC Deposit ============
 
-export async function findAllPBOCDepositRatesDAO(tx?: PrismaClient): Promise<pboc_deposit_rates[]> {
-    return (tx ?? prisma).pboc_deposit_rates.findMany({
+export async function findAllPBOCDepositRatesDAO(tx?: PrismaClient): Promise<pbocDepositRates[]> {
+    return (tx ?? prisma).pbocDepositRates.findMany({
         where: { deletedAt: null },
         orderBy: { effectDate: 'desc' },
     })
 }
 
 export async function createPBOCDepositRateDAO(
-    data: Prisma.pboc_deposit_ratesCreateInput,
+    data: Prisma.pbocDepositRatesCreateInput,
     tx?: PrismaClient
-): Promise<pboc_deposit_rates> {
-    return (tx ?? prisma).pboc_deposit_rates.create({ data })
+): Promise<pbocDepositRates> {
+    return (tx ?? prisma).pbocDepositRates.create({ data })
 }
 
 export async function updatePBOCDepositRateDAO(
     id: number,
-    data: Prisma.pboc_deposit_ratesUpdateInput,
+    data: Prisma.pbocDepositRatesUpdateInput,
     tx?: PrismaClient
-): Promise<pboc_deposit_rates> {
-    return (tx ?? prisma).pboc_deposit_rates.update({ where: { id }, data })
+): Promise<pbocDepositRates> {
+    return (tx ?? prisma).pbocDepositRates.update({ where: { id }, data })
 }
 
 export async function softDeletePBOCDepositRateDAO(
     id: number,
     tx?: PrismaClient
-): Promise<pboc_deposit_rates> {
-    return (tx ?? prisma).pboc_deposit_rates.update({
+): Promise<pbocDepositRates> {
+    return (tx ?? prisma).pbocDepositRates.update({
         where: { id },
         data: { deletedAt: new Date() },
     })
@@ -811,33 +811,33 @@ export async function softDeletePBOCDepositRateDAO(
 
 // ============ PBOC Loan ============
 
-export async function findAllPBOCLoanRatesDAO(tx?: PrismaClient): Promise<pboc_loan_rates[]> {
-    return (tx ?? prisma).pboc_loan_rates.findMany({
+export async function findAllPBOCLoanRatesDAO(tx?: PrismaClient): Promise<pbocLoanRates[]> {
+    return (tx ?? prisma).pbocLoanRates.findMany({
         where: { deletedAt: null },
         orderBy: { effectDate: 'desc' },
     })
 }
 
 export async function createPBOCLoanRateDAO(
-    data: Prisma.pboc_loan_ratesCreateInput,
+    data: Prisma.pbocLoanRatesCreateInput,
     tx?: PrismaClient
-): Promise<pboc_loan_rates> {
-    return (tx ?? prisma).pboc_loan_rates.create({ data })
+): Promise<pbocLoanRates> {
+    return (tx ?? prisma).pbocLoanRates.create({ data })
 }
 
 export async function updatePBOCLoanRateDAO(
     id: number,
-    data: Prisma.pboc_loan_ratesUpdateInput,
+    data: Prisma.pbocLoanRatesUpdateInput,
     tx?: PrismaClient
-): Promise<pboc_loan_rates> {
-    return (tx ?? prisma).pboc_loan_rates.update({ where: { id }, data })
+): Promise<pbocLoanRates> {
+    return (tx ?? prisma).pbocLoanRates.update({ where: { id }, data })
 }
 
 export async function softDeletePBOCLoanRateDAO(
     id: number,
     tx?: PrismaClient
-): Promise<pboc_loan_rates> {
-    return (tx ?? prisma).pboc_loan_rates.update({
+): Promise<pbocLoanRates> {
+    return (tx ?? prisma).pbocLoanRates.update({
         where: { id },
         data: { deletedAt: new Date() },
     })
@@ -883,7 +883,7 @@ describe('rates.service', () => {
     const createdIds: number[] = []
     afterEach(async () => {
         if (createdIds.length > 0) {
-            await prisma.lpr_rates.deleteMany({ where: { id: { in: createdIds } } })
+            await prisma.lprRates.deleteMany({ where: { id: { in: createdIds } } })
             createdIds.length = 0
         }
     })
@@ -987,7 +987,7 @@ import type {
 
 // ============ 内部转换 ============
 
-function toLPRRate(row: lpr_rates): LPRRate {
+function toLPRRate(row: lprRates): LPRRate {
     return {
         date: row.effectDate.toISOString().slice(0, 10),
         oneYear: decimalToNumber(row.oneYear),
@@ -995,7 +995,7 @@ function toLPRRate(row: lpr_rates): LPRRate {
     }
 }
 
-function toPBOCDepositRate(row: pboc_deposit_rates): DepositRate {
+function toPBOCDepositRate(row: pbocDepositRates): DepositRate {
     return {
         date: row.effectDate.toISOString().slice(0, 10),
         demand: decimalToNumber(row.demand),
@@ -1008,7 +1008,7 @@ function toPBOCDepositRate(row: pboc_deposit_rates): DepositRate {
     }
 }
 
-function toPBOCLoanRate(row: pboc_loan_rates): LoanRate {
+function toPBOCLoanRate(row: pbocLoanRates): LoanRate {
     return {
         date: row.effectDate.toISOString().slice(0, 10),
         sixMonths: decimalToNumber(row.sixMonths),
@@ -1343,7 +1343,7 @@ describe('admin/rates/lpr CRUD', () => {
     const createdIds: number[] = []
     afterEach(async () => {
         if (createdIds.length) {
-            await prisma.lpr_rates.deleteMany({ where: { id: { in: createdIds } } })
+            await prisma.lprRates.deleteMany({ where: { id: { in: createdIds } } })
             createdIds.length = 0
         }
     })
@@ -1371,7 +1371,7 @@ describe('admin/rates/lpr CRUD', () => {
             ...buildAdminEvent({ param: String(id) }),
         })
         expect(delRes.code).toBe(200)
-        const row = await prisma.lpr_rates.findUnique({ where: { id } })
+        const row = await prisma.lprRates.findUnique({ where: { id } })
         expect(row?.deletedAt).not.toBeNull()
     })
 
