@@ -10,7 +10,8 @@
  */
 import { renderAsync } from 'docx-preview'
 import { toast } from 'vue-sonner'
-import { locateClauseElement } from '#shared/utils/clauseLocator'
+import { PlusIcon } from 'lucide-vue-next'
+import { locateClauseElement, paragraphIndexOfElement } from '#shared/utils/clauseLocator'
 import type { Risk, RiskDisplayPhaseB, RiskLevel } from '#shared/types/contract'
 // UI-L1：从 app/utils/contractRiskLevelStyle.ts 单一数据源 import，
 // 与 RiskListPanel 的徽章配色统一维护。
@@ -47,11 +48,56 @@ const emit = defineEmits<{
     focusRisk: [riskId: string]
     hoverClause: [riskId: string | null]
     locateResult: [notLocatedIds: Set<string>]
+    addRiskFromParagraph: [payload: { clauseParagraphIndex: number, clauseText: string }]
 }>()
 
 const containerRef = ref<HTMLElement | null>(null)
 const loading = ref(false)
 const empty = computed(() => !props.reviewedFileId && !props.originalFileId)
+
+// hover 新增风险：当前 hover 的正文段落 + 浮动「＋」位置
+const hoveredParagraph = ref<HTMLElement | null>(null)
+const addBtnTop = ref(0)
+
+/** 可新增段落：section.docx 直接子级、非空 <p>，排除表格内段落 */
+function isAddableParagraph(el: Element | null): el is HTMLElement {
+    if (!el || !(el instanceof HTMLElement) || el.tagName !== 'P') return false
+    if ((el.textContent ?? '').trim().length === 0) return false
+    if (el.closest('td')) return false
+    if (!el.parentElement?.classList.contains('docx')) return false
+    return true
+}
+
+function syncAddBtnTop() {
+    const para = hoveredParagraph.value
+    const c = containerRef.value
+    if (!para || !c) return
+    addBtnTop.value = para.offsetTop - c.scrollTop
+}
+
+function onContainerMouseOver(e: MouseEvent) {
+    const para = (e.target as HTMLElement | null)?.closest('p') ?? null
+    if (!isAddableParagraph(para)) {
+        hoveredParagraph.value = null
+        return
+    }
+    hoveredParagraph.value = para
+    syncAddBtnTop()
+}
+
+function onAddBtnClick() {
+    const para = hoveredParagraph.value
+    if (!para || !containerRef.value) return
+    const idx = paragraphIndexOfElement(containerRef.value, para)
+    if (idx < 0) return
+    emit('addRiskFromParagraph', {
+        clauseParagraphIndex: idx,
+        clauseText: (para.textContent ?? '').trim(),
+    })
+}
+
+// containerRef 跨 docx 重渲染（loadDocx 的 innerHTML=''）始终存在，scroll 监听器不会失效
+onMounted(() => containerRef.value?.addEventListener('scroll', syncAddBtnTop))
 
 // 每次 load 触发时递增；仅最新 seq 允许继续写入 DOM，防止过期请求覆盖
 let fetchSeq = 0
@@ -165,6 +211,7 @@ onBeforeUnmount(() => {
         clearTimeout(flashWindowTimer)
         flashWindowTimer = null
     }
+    containerRef.value?.removeEventListener('scroll', syncAddBtnTop)
 })
 
 async function loadDocx(fileId: number) {
@@ -275,10 +322,23 @@ watch(
                 合同加载中...
             </div>
             <!-- 白纸：bg-background 浅色=白 / 暗色=深主题色；.docx 原生白纸居中陈列 -->
-            <div
-                ref="containerRef"
-                class="docx-preview-container flex-1 min-h-0 overflow-y-auto rounded-md bg-background p-6"
-            />
+            <div class="relative flex-1 min-h-0">
+                <div
+                    ref="containerRef"
+                    class="docx-preview-container h-full overflow-y-auto rounded-md bg-background p-6"
+                    @mouseover="onContainerMouseOver"
+                />
+                <button
+                    v-if="hoveredParagraph"
+                    type="button"
+                    class="absolute left-3 z-20 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow hover:scale-110 transition"
+                    :style="{ top: addBtnTop + 'px' }"
+                    title="在此段落新增风险"
+                    @click.stop="onAddBtnClick"
+                >
+                    <PlusIcon class="size-3" />
+                </button>
+            </div>
         </template>
     </div>
 </template>
