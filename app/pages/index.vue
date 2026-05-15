@@ -5,51 +5,7 @@
     <LandingSolutions />
     <LandingFeatures />
 
-    <!-- 工作流程 -->
-    <section class="py-12 px-4">
-      <div class="max-w-[1200px] mx-auto">
-        <div class="text-center mb-12">
-          <h2 class="text-3xl font-bold mb-4">简单三步，完成案件分析</h2>
-          <p class="text-lg text-muted-foreground max-w-2xl mx-auto">LexSeek 简化了案件分析流程，让您能够专注于案件策略的制定</p>
-        </div>
-
-        <div class="grid md:grid-cols-3 gap-8">
-          <div class="text-center">
-            <div
-              class="bg-primary/10 text-primary h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4">
-              <file-plus-icon class="h-8 w-8" />
-            </div>
-            <h3 class="text-xl font-semibold mb-2">1. 输入案情</h3>
-            <p class="text-muted-foreground">输入或上传案件材料，包括事实描述、证据材料等关键信息。</p>
-          </div>
-
-          <div class="text-center">
-            <div
-              class="bg-primary/10 text-primary h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4">
-              <cpu-icon class="h-8 w-8" />
-            </div>
-            <h3 class="text-xl font-semibold mb-2">2. AI 分析</h3>
-            <p class="text-muted-foreground">我们的 AI 系统会自动分析案情，提取关键信息，生成分析结果。</p>
-          </div>
-
-          <div class="text-center">
-            <div
-              class="bg-primary/10 text-primary h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4">
-              <check-circle-icon class="h-8 w-8" />
-            </div>
-            <h3 class="text-xl font-semibold mb-2">3. 获取结果</h3>
-            <p class="text-muted-foreground">查看分析结果，包括案情概要、大事记、案由、请求权分析等内容。</p>
-          </div>
-        </div>
-
-        <div class="flex justify-center mt-10">
-          <NuxtLink to="/dashboard/cases/create"
-            class="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors">
-            {{ btnText }}</NuxtLink>
-        </div>
-      </div>
-    </section>
-
+    <LandingWorkflow />
     <!-- 办案工具 -->
     <section class="py-12 bg-muted/30 px-4">
       <div class="max-w-[1200px] mx-auto">
@@ -162,6 +118,7 @@ import LandingHero from '~/components/landing/LandingHero.vue'
 import LandingPainPoints from '~/components/landing/LandingPainPoints.vue'
 import LandingSolutions from '~/components/landing/LandingSolutions.vue'
 import LandingFeatures from '~/components/landing/LandingFeatures.vue'
+import LandingWorkflow from '~/components/landing/LandingWorkflow.vue'
 import { useAuthStore } from '~/store/auth'
 definePageMeta({
   layout: "base-layout",
