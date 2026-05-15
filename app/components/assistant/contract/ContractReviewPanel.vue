@@ -61,11 +61,7 @@ const risksEditing = useContractReviewRisksEditing({
     reviewId,
     review,
     hasUnsavedDocxChanges,
-    // PATCH risk-list 成功后刷新版本工作区（编辑/删除的列表数据源是 versioning.currentView）并提示
-    onPatchSuccess: () => {
-        versioning.refreshWorkspace()
-        toast.success('风险清单已更新')
-    },
+    onPatchSuccess: () => notifyRiskListChanged('风险清单已更新'),
 })
 const lifecycle = useContractReviewLifecycle({
     reviewId,
@@ -580,6 +576,12 @@ function handleAddRiskFromParagraph(payload: { clauseParagraphIndex: number; cla
     riskPanelRef.value?.openCreateWithPrefill(payload)
 }
 
+/** 风险清单变更后统一刷新版本工作区（编辑/删除/新增的列表数据源是 versioning.currentView）并提示 */
+function notifyRiskListChanged(message: string) {
+    versioning.refreshWorkspace()
+    toast.success(message)
+}
+
 async function handleCreateRisk(payload: { clauseText: string; clauseParagraphIndex: number; risk: Risk }) {
     if (!reviewId.value) return
     const r = payload.risk
@@ -602,8 +604,7 @@ async function handleCreateRisk(payload: { clauseText: string; clauseParagraphIn
         },
     )
     if (resp != null) {
-        await versioning.refreshWorkspace()
-        toast.success('风险已新增')
+        notifyRiskListChanged('风险已新增')
     } else {
         toast.error('新增风险失败，请稍后重试')
     }

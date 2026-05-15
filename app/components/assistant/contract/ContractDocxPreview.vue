@@ -11,7 +11,7 @@
 import { renderAsync } from 'docx-preview'
 import { toast } from 'vue-sonner'
 import { PlusIcon } from 'lucide-vue-next'
-import { locateClauseElement, paragraphIndexOfElement } from '#shared/utils/clauseLocator'
+import { locateClauseElement, paragraphIndexOfElement, isBodyParagraph } from '#shared/utils/clauseLocator'
 import type { Risk, RiskDisplayPhaseB, RiskLevel } from '#shared/types/contract'
 // UI-L1：从 app/utils/contractRiskLevelStyle.ts 单一数据源 import，
 // 与 RiskListPanel 的徽章配色统一维护。
@@ -59,16 +59,6 @@ const empty = computed(() => !props.reviewedFileId && !props.originalFileId)
 const hoveredParagraph = ref<HTMLElement | null>(null)
 const addBtnTop = ref(0)
 
-/** 可新增段落：section.docx > article 直接子级、非空 <p>（排除页眉页脚与表格内段落） */
-function isAddableParagraph(el: Element | null): el is HTMLElement {
-    if (!el || !(el instanceof HTMLElement) || el.tagName !== 'P') return false
-    if ((el.textContent ?? '').trim().length === 0) return false
-    // docx-preview 把正文段落渲染为 section.docx > article 的直接子级；
-    // 页眉/页脚段落父级是 header/footer、表格内段落父级是 td，均不可新增。
-    if (el.parentElement?.tagName !== 'ARTICLE') return false
-    return true
-}
-
 function syncAddBtnTop() {
     const para = hoveredParagraph.value
     const c = containerRef.value
@@ -80,10 +70,12 @@ function syncAddBtnTop() {
 
 function onContainerMouseOver(e: MouseEvent) {
     const para = (e.target as HTMLElement | null)?.closest('p') ?? null
-    if (!isAddableParagraph(para)) {
+    if (!isBodyParagraph(para)) {
         hoveredParagraph.value = null
         return
     }
+    // 同段落内移动持续命中同一 <p>，已是当前 hover 段落则跳过重算
+    if (para === hoveredParagraph.value) return
     hoveredParagraph.value = para
     syncAddBtnTop()
 }
@@ -145,7 +137,7 @@ function runDecorateOnce(): Set<string> {
         const topLevel = risks.reduce<RiskLevel>(
             (top, r) => (LEVEL_RANK[r.level] > LEVEL_RANK[top] ? r.level : top), 'low')
         el.dataset.riskLevel = topLevel
-        for (const lv of ['high', 'medium', 'low'] as const) el.classList.remove(...LEVEL_BG[lv])
+        for (const lv of Object.keys(LEVEL_RANK) as RiskLevel[]) el.classList.remove(...LEVEL_BG[lv])
         el.classList.add(...LEVEL_BG[topLevel])
         // 幂等：只挂一次事件；hover/click 联动到该段第一条风险（其余风险经右侧卡片点选定位）
         if (!el.dataset.hoverHooked) {
