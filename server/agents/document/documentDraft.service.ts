@@ -68,6 +68,28 @@ export async function createDraftService(
         return { error: '无权使用此模板', code: 403 }
     }
 
+    // owner-only：caseId 必须属于当前用户
+    if (caseId !== undefined && caseId !== null) {
+        const ownedCase = await prisma.cases.findFirst({
+            where: { id: caseId, userId, deletedAt: null },
+            select: { id: true },
+        })
+        if (!ownedCase) {
+            return { error: '案件不存在', code: 404 }
+        }
+    }
+
+    // owner-only：sourceFileIds 必须全部属于当前用户
+    if (sourceFileIds?.length) {
+        const ownedFiles = await prisma.ossFiles.findMany({
+            where: { id: { in: sourceFileIds }, userId, deletedAt: null },
+            select: { id: true },
+        })
+        if (ownedFiles.length !== sourceFileIds.length) {
+            return { error: '存在不属于当前用户的文件', code: 404 }
+        }
+    }
+
     // 直接创建 scope='document' 的 caseSession（不复用 createAssistantSessionDAO，后者会硬编码 scope='assistant'
     // 导致 agentWorker 错误路由到 runAssistantChat 通用助手）
     const session = await prisma.caseSessions.create({

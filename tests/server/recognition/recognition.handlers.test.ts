@@ -36,6 +36,8 @@ vi.mock('~~/server/services/material/mineru.dao', () => ({
 vi.mock('~~/server/services/material/mineruTask.service', () => ({
     createMineruTaskService: vi.fn(),
     getMineruTaskByOssFileIdService: vi.fn(),
+    getMineruTaskByTaskIdService: vi.fn(),
+    getMineruTaskByIdService: vi.fn(),
 }))
 vi.mock('~~/server/services/material/mineruToken.service', () => ({
     pickTokenForNewTaskService: vi.fn(),
@@ -233,7 +235,11 @@ describe('POST /api/v1/recognition/start', () => {
 })
 
 describe('GET /api/v1/recognition/status/:ossFileId', () => {
-    beforeEach(() => vi.clearAllMocks())
+    beforeEach(() => {
+        vi.clearAllMocks()
+        // owner-only：默认 ossFile 属于 user 100，便于命中后续状态分支
+        ;(globalThis as any).prisma.ossFiles.findFirst.mockResolvedValue({ id: 1, userId: 100 })
+    })
 
     it('mineruTask 命中（即使 SUCCESS 也强制 recognized=false）', async () => {
         // mineruTask 表无 summary 字段；mineruTask 命中通常说明 docRecord 还未创建或摘要未生成
@@ -296,6 +302,12 @@ describe('GET /api/v1/recognition/status/:ossFileId', () => {
         ;(getMineruTaskByOssFileIdService as any).mockRejectedValue(new Error('db'))
         const res: any = await statusHandler(makeEvent({ userId: 100, params: { ossFileId: '1' } }) as any)
         expectError(res, 500)
+    })
+
+    it('ossFile 属于他人 → 404 越权拒绝', async () => {
+        ;(globalThis as any).prisma.ossFiles.findFirst.mockResolvedValueOnce(null)
+        const res: any = await statusHandler(makeEvent({ userId: 100, params: { ossFileId: '1' } }) as any)
+        expectError(res, 404)
     })
 })
 
@@ -611,6 +623,13 @@ describe('GET /api/v1/recognition/audio/task & MinerU/doc handlers (smoke)', () 
     it('mineru/task/:taskId - 未登录 401', async () => {
         const res: any = await mineruTaskHandler(makeEvent({ params: { taskId: 'T' } }) as any)
         expectError(res, 401)
+    })
+
+    it('mineru/task/:taskId - task 归他人 → 404 越权拒绝', async () => {
+        const { getMineruTaskByTaskIdService } = await import('~~/server/services/material/mineruTask.service')
+        ;(getMineruTaskByTaskIdService as any).mockResolvedValueOnce({ id: 1, userId: 999, status: 2, ossFileId: 5, errorMsg: null })
+        const res: any = await mineruTaskHandler(makeEvent({ userId: 100, params: { taskId: 'T' } }) as any)
+        expectError(res, 404)
     })
 
     it('mineru/upload - 未登录 401', async () => {

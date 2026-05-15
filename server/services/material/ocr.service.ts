@@ -612,10 +612,10 @@ export async function createImageRecognitionByBase64Service(
             }
         }
 
-        // 2. 验证 OSS 文件是否存在
+        // 2. 验证 OSS 文件是否存在（owner-only：仅允许识别自己上传的文件）
         // Requirements: 10.1
         const ossFile = await (tx || prisma).ossFiles.findFirst({
-            where: { id: ossFileId, deletedAt: null },
+            where: { id: ossFileId, userId, deletedAt: null },
         })
 
         if (!ossFile) {

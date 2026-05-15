@@ -69,6 +69,11 @@ export default defineEventHandler(async (event) => {
             return resError(event, 404, '任务不存在')
         }
 
+        // owner-only：任务必须属于当前用户
+        if (task.userId !== user.id) {
+            return resError(event, 404, '任务不存在')
+        }
+
         // 4. 查询识别记录（如果任务成功）
         let recordId: number | null = null
         if (task.status === MineruTaskStatus.SUCCESS) {

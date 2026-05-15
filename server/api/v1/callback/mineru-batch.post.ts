@@ -190,18 +190,23 @@ export default defineEventHandler(async (event): Promise<CallbackResponse> => {
             const taskRawData = task.taskRawData as Record<string, any> | null
             const seed = taskRawData?.seed as string | undefined
 
-            // 获取用户 UID（用于签名验证）
-            // 注意：MinerU 文档说 uid 是用户在 MinerU 平台的 UID，需要从个人中心查询
-            // 这里我们暂时跳过签名验证，因为需要配置 MinerU UID
-            // TODO: 配置 MinerU UID 后启用签名验证
-            // if (seed) {
-            //     const mineruUid = useRuntimeConfig().mineruUid
-            //     if (mineruUid && !verifyChecksum(checksum, content, seed, mineruUid)) {
-            //         logger.error(`MinerU 批量回调：签名验证失败 ossFileId=${ossFileId}`)
-            //         failCount++
-            //         continue
-            //     }
-            // }
+            // 签名验证：checksum = SHA256(uid + seed + content)
+            // 配置了 NUXT_MINERU_UID 时强制验签；未配置时降级 warn 并继续（保持生产可用性）
+            const mineruUid = useRuntimeConfig().mineru?.uid
+            if (mineruUid) {
+                if (!seed) {
+                    logger.error(`MinerU 批量回调：任务缺少 seed 无法验签 ossFileId=${ossFileId}`)
+                    failCount++
+                    continue
+                }
+                if (!verifyChecksum(checksum, content, seed, mineruUid)) {
+                    logger.error(`MinerU 批量回调：签名验证失败 ossFileId=${ossFileId}`)
+                    failCount++
+                    continue
+                }
+            } else {
+                logger.warn(`MinerU 批量回调：NUXT_MINERU_UID 未配置，签名验证跳过 ossFileId=${ossFileId}`)
+            }
 
             // 幂等检查：如果任务已完成，跳过
             if (task.status === MineruTaskStatus.SUCCESS || task.status === MineruTaskStatus.FAILED) {

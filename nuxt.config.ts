@@ -318,6 +318,12 @@ export default defineNuxtConfig({
     redis: {
       url: '',
     },
+    // MinerU 配置（环境变量映射: NUXT_MINERU_UID）
+    // uid 用于回调签名校验：checksum = SHA256(uid + seed + content)
+    // 未配置时回调验签降级为 warn-only（保持当前生产可用性）
+    mineru: {
+      uid: '',
+    },
     // 存储适配器配置
     storage: {
       // 默认存储类型: aliyun_oss, qiniu, tencent_cos

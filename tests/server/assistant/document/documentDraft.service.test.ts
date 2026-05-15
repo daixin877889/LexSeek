@@ -119,14 +119,29 @@ const MOCK_DRAFT_READY = {
 // createDraftService 内部直接用 prisma.caseSessions.create（而非 DAO），
 // Prisma Proxy 不支持 vi.spyOn，改用属性替换；保留原函数在 afterEach 复位
 type CaseSessionsCreate = PrismaClient['caseSessions']['create']
+type CasesFindFirst = PrismaClient['cases']['findFirst']
+type OssFilesFindMany = PrismaClient['ossFiles']['findMany']
 const testPrisma = (globalThis as unknown as { prisma: PrismaClient }).prisma
 let __origCaseSessionsCreate: CaseSessionsCreate | null = null
+let __origCasesFindFirst: CasesFindFirst | null = null
+let __origOssFilesFindMany: OssFilesFindMany | null = null
 
 beforeEach(() => {
     vi.resetAllMocks()
 
     __origCaseSessionsCreate = testPrisma.caseSessions.create.bind(testPrisma.caseSessions)
     testPrisma.caseSessions.create = vi.fn().mockResolvedValue(MOCK_SESSION) as unknown as CaseSessionsCreate
+
+    // owner-only 校验默认放行：测试用例可在自己内部覆盖以触发 404
+    __origCasesFindFirst = testPrisma.cases.findFirst.bind(testPrisma.cases)
+    testPrisma.cases.findFirst = vi.fn().mockImplementation(({ where }: any) =>
+        Promise.resolve({ id: where?.id ?? null }),
+    ) as unknown as CasesFindFirst
+    __origOssFilesFindMany = testPrisma.ossFiles.findMany.bind(testPrisma.ossFiles)
+    testPrisma.ossFiles.findMany = vi.fn().mockImplementation(({ where }: any) => {
+        const ids: number[] = where?.id?.in ?? []
+        return Promise.resolve(ids.map(id => ({ id })))
+    }) as unknown as OssFilesFindMany
 
     // 默认：成功路径
     mockGetDocumentTemplateDAO.mockResolvedValue(MOCK_GLOBAL_TEMPLATE)
@@ -151,6 +166,14 @@ afterEach(() => {
     if (__origCaseSessionsCreate) {
         testPrisma.caseSessions.create = __origCaseSessionsCreate
         __origCaseSessionsCreate = null
+    }
+    if (__origCasesFindFirst) {
+        testPrisma.cases.findFirst = __origCasesFindFirst
+        __origCasesFindFirst = null
+    }
+    if (__origOssFilesFindMany) {
+        testPrisma.ossFiles.findMany = __origOssFilesFindMany
+        __origOssFilesFindMany = null
     }
 })
 
@@ -203,6 +226,20 @@ describe('createDraftService', () => {
             })
 
             expect(result).not.toHaveProperty('code', 403)
+        })
+
+        it('owner-only：传入他人 caseId → 404', async () => {
+            testPrisma.cases.findFirst = vi.fn().mockResolvedValue(null) as unknown as CasesFindFirst
+            const result = await createDraftService({ userId: 100, templateId: 1, caseId: 999 })
+            expect(result).toEqual({ error: '案件不存在', code: 404 })
+            expect(mockCreateDocumentDraftDAO).not.toHaveBeenCalled()
+        })
+
+        it('owner-only：sourceFileIds 含他人文件 → 404', async () => {
+            testPrisma.ossFiles.findMany = vi.fn().mockResolvedValue([{ id: 5 }]) as unknown as OssFilesFindMany
+            const result = await createDraftService({ userId: 100, templateId: 1, sourceFileIds: [5, 6] })
+            expect(result).toEqual({ error: '存在不属于当前用户的文件', code: 404 })
+            expect(mockCreateDocumentDraftDAO).not.toHaveBeenCalled()
         })
     })
 
