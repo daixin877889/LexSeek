@@ -73,7 +73,9 @@ function syncAddBtnTop() {
     const para = hoveredParagraph.value
     const c = containerRef.value
     if (!para || !c) return
-    addBtnTop.value = para.offsetTop - c.scrollTop
+    // 用 getBoundingClientRect 取实时视口位置：offsetTop 依赖 offsetParent 链，
+    // docx-preview 的 section.docx 自带定位，offsetParent 并非按钮的 relative 参照容器。
+    addBtnTop.value = para.getBoundingClientRect().top - c.getBoundingClientRect().top
 }
 
 function onContainerMouseOver(e: MouseEvent) {
