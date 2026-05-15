@@ -6,95 +6,7 @@
     <LandingFeatures />
 
     <LandingWorkflow />
-    <!-- 办案工具 -->
-    <section class="py-12 bg-muted/30 px-4">
-      <div class="max-w-[1200px] mx-auto">
-        <div class="text-center mb-12">
-          <h2 class="text-3xl font-bold mb-4">专业办案工具</h2>
-          <p class="text-lg text-muted-foreground max-w-2xl mx-auto">丰富的计算工具集合，帮助您精确计算各类费用和数据，提升办案效率</p>
-        </div>
-
-        <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-          <NuxtLink to="/dashboard/tools/interest"
-            class="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center text-center group">
-            <calculator-icon
-              class="h-12 w-12 text-primary mb-4 group-hover:scale-110 transition-transform duration-300" />
-            <h3 class="text-lg font-semibold mb-2">利息计算</h3>
-            <p class="text-muted-foreground text-sm">计算各类借款、欠款的利息</p>
-          </NuxtLink>
-
-          <NuxtLink to="/dashboard/tools/court-fee"
-            class="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center text-center group">
-            <litigation-icon
-              class="h-12 w-12 text-primary mb-4 group-hover:scale-110 transition-transform duration-300" />
-            <h3 class="text-lg font-semibold mb-2">诉讼费用</h3>
-            <p class="text-muted-foreground text-sm">计算诉讼案件的诉讼费用</p>
-          </NuxtLink>
-
-          <NuxtLink to="/dashboard/tools/lawyer-fee"
-            class="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center text-center group">
-            <money-bag-icon
-              class="h-12 w-12 text-primary mb-4 group-hover:scale-110 transition-transform duration-300" />
-            <h3 class="text-lg font-semibold mb-2">律师费计算</h3>
-            <p class="text-muted-foreground text-sm">计算律师费用</p>
-          </NuxtLink>
-
-          <NuxtLink to="/dashboard/tools/delay-interest"
-            class="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center text-center group">
-            <clock-icon class="h-12 w-12 text-primary mb-4 group-hover:scale-110 transition-transform duration-300" />
-            <h3 class="text-lg font-semibold mb-2">延迟履行利息</h3>
-            <p class="text-muted-foreground text-sm">计算延迟履行的利息</p>
-          </NuxtLink>
-
-          <NuxtLink to="/dashboard/tools/bank-rate"
-            class="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center text-center group">
-            <badge-percent-icon
-              class="h-12 w-12 text-primary mb-4 group-hover:scale-110 transition-transform duration-300" />
-            <h3 class="text-lg font-semibold mb-2">银行利率查询</h3>
-            <p class="text-muted-foreground text-sm">查询银行的最新利率</p>
-          </NuxtLink>
-
-          <NuxtLink to="/dashboard/tools/date-calculator"
-            class="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center text-center group">
-            <calendar-icon
-              class="h-12 w-12 text-primary mb-4 group-hover:scale-110 transition-transform duration-300" />
-            <h3 class="text-lg font-semibold mb-2">日期推算</h3>
-            <p class="text-muted-foreground text-sm">计算特定日期间隔或推算日期</p>
-          </NuxtLink>
-
-          <NuxtLink to="/dashboard/tools/compensation"
-            class="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center text-center group">
-            <money-icon class="h-12 w-12 text-primary mb-4 group-hover:scale-110 transition-transform duration-300" />
-            <h3 class="text-lg font-semibold mb-2">赔偿计算器</h3>
-            <p class="text-muted-foreground text-sm">计算各类赔偿金额</p>
-          </NuxtLink>
-
-          <NuxtLink to="/dashboard/tools/overtime"
-            class="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center text-center group">
-            <briefcase-icon
-              class="h-12 w-12 text-primary mb-4 group-hover:scale-110 transition-transform duration-300" />
-            <h3 class="text-lg font-semibold mb-2">加班计算</h3>
-            <p class="text-muted-foreground text-sm">计算加班费用</p>
-          </NuxtLink>
-
-          <NuxtLink to="/dashboard/tools/divorce-property"
-            class="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center text-center group">
-            <heart-handshake-icon
-              class="h-12 w-12 text-primary mb-4 group-hover:scale-110 transition-transform duration-300" />
-            <h3 class="text-lg font-semibold mb-2">离婚财产分割</h3>
-            <p class="text-muted-foreground text-sm">离婚财产分割计算</p>
-          </NuxtLink>
-
-          <NuxtLink to="/dashboard/tools/social-insurance"
-            class="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center text-center group">
-            <ShieldIcon class="h-12 w-12 text-primary mb-4 group-hover:scale-110 transition-transform duration-300" />
-            <h3 class="text-lg font-semibold mb-2">社保追缴</h3>
-            <p class="text-muted-foreground text-sm">计算社保追缴金额</p>
-          </NuxtLink>
-        </div>
-      </div>
-    </section>
-
+    <LandingTools />
     <!-- 号召行动 -->
     <section class="py-12 bg-primary text-primary-foreground px-4">
       <div class="max-w-[1200px] mx-auto text-center">
@@ -119,6 +31,7 @@ import LandingPainPoints from '~/components/landing/LandingPainPoints.vue'
 import LandingSolutions from '~/components/landing/LandingSolutions.vue'
 import LandingFeatures from '~/components/landing/LandingFeatures.vue'
 import LandingWorkflow from '~/components/landing/LandingWorkflow.vue'
+import LandingTools from '~/components/landing/LandingTools.vue'
 import { useAuthStore } from '~/store/auth'
 definePageMeta({
   layout: "base-layout",
