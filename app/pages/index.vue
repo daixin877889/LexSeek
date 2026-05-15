@@ -3,70 +3,7 @@
     <LandingHero />
     <LandingPainPoints />
     <LandingSolutions />
-    <!-- 功能简介区 -->
-    <section class="py-12 bg-muted/30 px-4">
-      <div class="max-w-[1200px] mx-auto">
-        <div class="text-center mb-12">
-          <h2 class="text-3xl font-bold mb-4">强大的功能，简化您的工作流程</h2>
-          <p class="text-lg text-muted-foreground max-w-2xl mx-auto">LexSeek 提供全面的案件分析工具，帮助您更高效地处理法律案件</p>
-        </div>
-
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
-          <div class="bg-card rounded-lg p-6 shadow-sm flex flex-col items-center text-center">
-            <file-text-icon class="h-10 w-10 text-primary mb-4" />
-            <h3 class="text-xl font-semibold mb-2">案情概要生成</h3>
-            <p class="text-muted-foreground">自动分析案件材料，生成简洁明了的案情概要，帮助您快速把握案件要点。</p>
-          </div>
-
-          <div class="bg-card rounded-lg p-6 shadow-sm flex flex-col items-center text-center">
-            <calendar-icon class="h-10 w-10 text-primary mb-4" />
-            <h3 class="text-xl font-semibold mb-2">案件大事记</h3>
-            <p class="text-muted-foreground">自动整理案件时间线，按时间顺序呈现关键事件，便于您全面了解案件发展过程。</p>
-          </div>
-
-          <div class="bg-card rounded-lg p-6 shadow-sm flex flex-col items-center text-center">
-            <gavel-icon class="h-10 w-10 text-primary mb-4" />
-            <h3 class="text-xl font-semibold mb-2">案由确认</h3>
-            <p class="text-muted-foreground">智能识别案件类型和案由，提供法律依据，帮助您准确定位案件性质。</p>
-          </div>
-
-          <div class="bg-card rounded-lg p-6 shadow-sm flex flex-col items-center text-center">
-            <clipboard-list-icon class="h-10 w-10 text-primary mb-4" />
-            <h3 class="text-xl font-semibold mb-2">请求权生成与分析</h3>
-            <p class="text-muted-foreground">根据案情自动生成可能的请求权，并提供详细分析和法律依据。</p>
-          </div>
-
-          <div class="bg-card rounded-lg p-6 shadow-sm flex flex-col items-center text-center">
-            <shield-icon class="h-10 w-10 text-primary mb-4" />
-            <h3 class="text-xl font-semibold mb-2">对方抗辩预测</h3>
-            <p class="text-muted-foreground">预测对方可能的抗辩理由和策略，帮助您提前准备应对方案。</p>
-          </div>
-
-          <div class="bg-card rounded-lg p-6 shadow-sm flex flex-col items-center text-center">
-            <EvidenceIcon class="h-10 w-10 text-primary mb-4" />
-            <h3 class="text-xl font-semibold mb-2">证据清单</h3>
-            <p class="text-muted-foreground">分析并整理案件所需证据清单建议，让您胸有成竹。</p>
-          </div>
-          <div class="bg-card rounded-lg p-6 shadow-sm flex flex-col items-center text-center">
-            <TrendIcon class="h-10 w-10 text-primary mb-4" />
-            <h3 class="text-xl font-semibold mb-2">法律合理性审查和判决趋势预测</h3>
-            <p class="text-muted-foreground">案件法律合理性审查、预测判决趋势，助您及时调整诉讼策略。</p>
-          </div>
-
-          <div class="bg-card rounded-lg p-6 shadow-sm flex flex-col items-center text-center">
-            <history-icon class="h-10 w-10 text-primary mb-4" />
-            <h3 class="text-xl font-semibold mb-2">分析历史记录</h3>
-            <p class="text-muted-foreground">保存所有分析结果，随时查阅和比较，持续跟踪案件进展。</p>
-          </div>
-        </div>
-
-        <div class="flex justify-center mt-10">
-          <NuxtLink to="/dashboard/cases/create"
-            class="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors">
-            {{ btnText }}</NuxtLink>
-        </div>
-      </div>
-    </section>
+    <LandingFeatures />
 
     <!-- 工作流程 -->
     <section class="py-12 px-4">
@@ -224,6 +161,7 @@
 import LandingHero from '~/components/landing/LandingHero.vue'
 import LandingPainPoints from '~/components/landing/LandingPainPoints.vue'
 import LandingSolutions from '~/components/landing/LandingSolutions.vue'
+import LandingFeatures from '~/components/landing/LandingFeatures.vue'
 import { useAuthStore } from '~/store/auth'
 definePageMeta({
   layout: "base-layout",
