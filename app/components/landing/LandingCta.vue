@@ -44,8 +44,7 @@
 </template>
 
 <script setup lang="ts">
-import { useAuthStore } from "~/store/auth"
+import { useCtaText } from "~/composables/useCtaText"
 
-const authStore = useAuthStore()
-const btnText = computed(() => (authStore.isAuthenticated ? "开始分析" : "免费体验"))
+const btnText = useCtaText()
 </script>

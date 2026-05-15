@@ -58,6 +58,7 @@
             controls
             playsinline
             webkit-playsinline
+            preload="none"
             class="block h-full w-full bg-black object-cover"
           />
         </div>
@@ -67,10 +68,9 @@
 </template>
 
 <script setup lang="ts">
-import { useAuthStore } from "~/store/auth"
+import { useCtaText } from "~/composables/useCtaText"
 
-const authStore = useAuthStore()
-const btnText = computed(() => (authStore.isAuthenticated ? "开始分析" : "免费体验"))
+const btnText = useCtaText()
 
 const TRUST = ["数万律师 · 律所信赖", "案件记忆 · 持续学习", "多模型适配"]
 </script>
