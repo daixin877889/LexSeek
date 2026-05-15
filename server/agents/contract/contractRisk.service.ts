@@ -9,7 +9,7 @@
 import type { Prisma, contractRisks } from '~~/generated/prisma/client'
 import type { Risk, RiskArchivedStatus, RiskLevel, RiskSource, StancePreference } from '#shared/types/contract'
 import { DEFAULT_AI_RISK_STANCE } from '#shared/types/contract'
-import { updateContractRiskDAO } from './contractRisk.dao'
+import { updateContractRiskDAO, createContractRiskDAO } from './contractRisk.dao'
 import { splitSentences } from './utils/splitSentences'
 import { resolveQuoteAnchor } from './utils/resolveQuoteAnchor'
 
@@ -149,4 +149,40 @@ export async function persistAiRisksAsContractRows(input: {
     })
 
     return client.contractRisks.createManyAndReturn({ data })
+}
+
+/**
+ * 律师手动新增单条风险（contract-add-risk-hover）。
+ *
+ * source 固定 'manual'；无精确句子锚点（problematicQuote 等留 null）；
+ * clauseIndex 取与 clauseParagraphIndex 相同的值，使其在 RiskListPanel 按
+ * clauseParagraphIndex 排序时落在正确的段落位置。
+ */
+export async function addManualRiskService(input: {
+    reviewId: number
+    clauseText: string
+    clauseParagraphIndex: number
+    level: RiskLevel
+    category: string
+    problem: string
+    legalBasis?: string | null
+    analysis?: string | null
+    suggestion?: string | null
+    suggestedClauseText?: string | null
+}): Promise<contractRisks> {
+    return createContractRiskDAO({
+        reviewId: input.reviewId,
+        source: 'manual',
+        category: input.category,
+        level: input.level,
+        stance: DEFAULT_AI_RISK_STANCE,
+        problem: input.problem,
+        legalBasis: input.legalBasis ?? null,
+        analysis: input.analysis ?? null,
+        suggestion: input.suggestion ?? null,
+        suggestedClauseText: input.suggestedClauseText ?? null,
+        clauseText: input.clauseText,
+        clauseParagraphIndex: input.clauseParagraphIndex,
+        clauseIndex: input.clauseParagraphIndex,
+    })
 }
