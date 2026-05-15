@@ -13,7 +13,12 @@
 import type { Risk, RiskLevel } from '#shared/types/contract'
 import { RISK_LEVEL_LABEL } from '#shared/types/contract'
 
-const props = defineProps<{ open: boolean; risk: Risk | null }>()
+const props = defineProps<{
+    open: boolean
+    risk: Risk | null
+    /** 新增模式下由预览段落预填的原文与段落序号 */
+    prefill?: { clauseText: string; clauseParagraphIndex: number } | null
+}>()
 const emit = defineEmits<{
     'update:open': [value: boolean]
     confirm: [payload: Risk]
@@ -28,20 +33,21 @@ interface FormState {
     problem: string
     legalBasis: string
     analysis: string
-    risk: string
     suggestion: string
     suggestedClauseText: string
 }
 
 const emptyForm = (): FormState => ({
-    clauseIndex: 0, clauseText: '', level: 'medium', category: '', problem: '',
-    legalBasis: '', analysis: '', risk: '', suggestion: '', suggestedClauseText: '',
+    clauseIndex: props.prefill?.clauseParagraphIndex ?? 0,
+    clauseText: props.prefill?.clauseText ?? '',
+    level: 'medium', category: '', problem: '',
+    legalBasis: '', analysis: '', suggestion: '', suggestedClauseText: '',
 })
 
 const fromRisk = (r: Risk): FormState => ({
     clauseIndex: r.clauseIndex, clauseText: r.clauseText, level: r.level,
     category: r.category, problem: r.problem, legalBasis: r.legalBasis ?? '',
-    analysis: r.analysis, risk: r.risk, suggestion: r.suggestion,
+    analysis: r.analysis, suggestion: r.suggestion,
     suggestedClauseText: r.suggestedClauseText ?? '',
 })
 
@@ -57,7 +63,7 @@ const canSubmit = computed(() => {
     const idx = typeof f.clauseIndex === 'number' ? f.clauseIndex : Number(f.clauseIndex)
     if (!Number.isInteger(idx) || idx < 0) return false
     if (!f.clauseText.trim() || !f.category.trim()) return false
-    if (!f.problem.trim() || !f.analysis.trim() || !f.risk.trim() || !f.suggestion.trim()) return false
+    if (!f.problem.trim() || !f.analysis.trim() || !f.suggestion.trim()) return false
     if (f.level !== 'low' && !f.suggestedClauseText.trim()) return false
     return true
 })
@@ -75,7 +81,8 @@ function handleConfirm() {
         problem: f.problem,
         legalBasis: f.legalBasis.trim() || undefined,
         analysis: f.analysis,
-        risk: f.risk,
+        // Risk.risk 是必填字段；新增模式无此输入，透传原值或空串
+        risk: props.risk?.risk ?? '',
         suggestion: f.suggestion,
         suggestedClauseText: f.suggestedClauseText.trim() || undefined,
     })
@@ -89,11 +96,9 @@ function handleCancel() {
 
 // 配置化的 Textarea 字段，减少模板重复
 const textFields: Array<{ key: keyof FormState; label: string; rows: number; placeholder: string; optional?: boolean }> = [
-    { key: 'clauseText', label: '原文条款', rows: 3, placeholder: '粘贴原合同的该段落...' },
     { key: 'problem', label: '问题概述', rows: 2, placeholder: '问题概述文本' },
     { key: 'legalBasis', label: '法律依据', rows: 2, placeholder: '如：《民法典》第 509 条...', optional: true },
     { key: 'analysis', label: '条款分析', rows: 3, placeholder: '条款分析文本' },
-    { key: 'risk', label: '法律风险', rows: 3, placeholder: '法律风险文本' },
     { key: 'suggestion', label: '修改建议', rows: 3, placeholder: '修改建议文本' },
 ]
 
@@ -104,15 +109,17 @@ const levelOptions: Array<{ value: RiskLevel; label: string }> = (
 
 <template>
     <Dialog :open="open" @update:open="(v: boolean) => emit('update:open', v)">
-        <DialogContent class="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+        <DialogContent
+            class="flex flex-col gap-0 p-0 w-screen h-dvh max-w-none rounded-none border-0 sm:h-auto sm:max-h-[90vh] sm:w-[80vw] sm:max-w-[80vw] sm:rounded-lg sm:border"
+        >
+            <DialogHeader class="shrink-0 border-b px-6 py-4">
                 <DialogTitle>{{ risk ? '编辑风险' : '新增风险' }}</DialogTitle>
                 <DialogDescription class="sr-only">编辑或新增合同风险条目</DialogDescription>
             </DialogHeader>
 
-            <div class="space-y-4 py-2">
-                <div class="grid grid-cols-2 gap-3">
-                    <div class="space-y-1">
+            <div class="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4">
+                <div class="grid gap-3" :class="risk ? 'grid-cols-1' : 'grid-cols-2'">
+                    <div v-if="!risk" class="space-y-1">
                         <Label for="risk-clause-index">条款序号（段落 index，从 0 开始）</Label>
                         <Input id="risk-clause-index" v-model="form.clauseIndex" type="number" min="0" />
                     </div>
@@ -125,6 +132,16 @@ const levelOptions: Array<{ value: RiskLevel; label: string }> = (
                             </div>
                         </RadioGroup>
                     </div>
+                </div>
+
+                <div class="space-y-1">
+                    <Label for="risk-clause-text">原文条款</Label>
+                    <div
+                        v-if="risk === null"
+                        id="risk-clause-text"
+                        class="rounded-md border bg-muted px-3 py-2 text-sm text-muted-foreground whitespace-pre-wrap"
+                    >{{ form.clauseText }}</div>
+                    <Textarea v-else id="risk-clause-text" v-model="form.clauseText" :rows="3" />
                 </div>
 
                 <div v-for="field in textFields" :key="field.key" class="space-y-1">
@@ -160,7 +177,7 @@ const levelOptions: Array<{ value: RiskLevel; label: string }> = (
                 </div>
             </div>
 
-            <DialogFooter>
+            <DialogFooter class="shrink-0 border-t px-6 py-4">
                 <Button variant="outline" @click="handleCancel">取消</Button>
                 <Button :disabled="!canSubmit" @click="handleConfirm">确认</Button>
             </DialogFooter>
