@@ -548,9 +548,11 @@ function handleContainerClick(e: MouseEvent) {
     const targetEl = e.target as HTMLElement | null
     if (!targetEl) return
     if (targetEl.closest('[role="dialog"], [data-state="open"]')) return
-    const target = targetEl.closest('[data-risk-id]')
+    // 卡片用单值 data-risk-id，预览段落用多值 data-risk-ids（取首条）
+    const target = targetEl.closest('[data-risk-id], [data-risk-ids]')
     if (!target) return
-    const id = (target as HTMLElement).dataset.riskId
+    const ds = (target as HTMLElement).dataset
+    const id = ds.riskId ?? (ds.riskIds ?? '').split(' ').filter(Boolean)[0]
     if (id) {
         e.preventDefault()
         togglePin(id)

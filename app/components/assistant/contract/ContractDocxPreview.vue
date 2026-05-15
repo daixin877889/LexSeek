@@ -111,10 +111,20 @@ let fetchSeq = 0
  * 注：文档"纸面"保持白色（Word 预览惯例），不随全局 dark 主题翻转；
  * 因此段落高亮只用 light 变体，避免在白纸上出现暗色块的突兀对比。
  */
-/** 内部函数：在 DOM 里跑一次定位，返回没匹配到的 riskId 集合（不发 emit） */
+/** 风险等级排序：high > medium > low，同段多风险时取最高等级作段落底色 */
+const LEVEL_RANK: Record<RiskLevel, number> = { high: 3, medium: 2, low: 1 }
+
+/**
+ * 内部函数：在 DOM 里跑一次定位，返回没匹配到的 riskId 集合（不发 emit）。
+ *
+ * 先按段落 DOM 聚合——同一段落可定位到多条风险（AI 单条款多 risk / 律师手动追加）。
+ * 段落用多值 data-risk-ids（空格分隔）标记，配合 [data-risk-ids~="X"] 选择器，
+ * 使右侧任一条风险卡片都能联动到左侧同一段落。
+ */
 function runDecorateOnce(): Set<string> {
     if (!containerRef.value) return new Set(props.risks.map(r => r.id))
     const notLocatedIds = new Set<string>()
+    const paraToRisks = new Map<HTMLElement, RiskDisplayPhaseB[]>()
     for (const risk of props.risks) {
         // 优先级 0：clauseParagraphIndex 直定位（与后端"非空段落序号"空间一致），
         // 解决 reviewed docx 注入批注后 textContent 与原 clause_text 微差异（全角空格、
@@ -124,16 +134,25 @@ function runDecorateOnce(): Set<string> {
             notLocatedIds.add(risk.id)
             continue
         }
-        // 幂等：已装饰（由 dataset.riskId 标记）直接跳过，避免 LEVEL_BG class 叠加
-        if (el.dataset.riskId === risk.id) continue
-        el.dataset.riskId = risk.id
-        el.dataset.riskLevel = risk.level
-        el.classList.add(...LEVEL_BG[risk.level])
-        // 幂等：只挂一次事件
+        const arr = paraToRisks.get(el)
+        if (arr) arr.push(risk)
+        else paraToRisks.set(el, [risk])
+    }
+    for (const [el, risks] of paraToRisks) {
+        // 多值标记：该段全部风险 id（空格分隔）
+        el.dataset.riskIds = risks.map(r => r.id).join(' ')
+        // 底色取该段最高风险等级；先清旧底色再加，避免重复 decorate 叠加 / 等级变化残留
+        const topLevel = risks.reduce<RiskLevel>(
+            (top, r) => (LEVEL_RANK[r.level] > LEVEL_RANK[top] ? r.level : top), 'low')
+        el.dataset.riskLevel = topLevel
+        for (const lv of ['high', 'medium', 'low'] as const) el.classList.remove(...LEVEL_BG[lv])
+        el.classList.add(...LEVEL_BG[topLevel])
+        // 幂等：只挂一次事件；hover/click 联动到该段第一条风险（其余风险经右侧卡片点选定位）
         if (!el.dataset.hoverHooked) {
-            el.addEventListener('mouseenter', () => emit('hoverClause', risk.id))
+            const firstId = risks[0]!.id
+            el.addEventListener('mouseenter', () => emit('hoverClause', firstId))
             el.addEventListener('mouseleave', () => emit('hoverClause', null))
-            el.addEventListener('click', () => emit('focusRisk', risk.id))
+            el.addEventListener('click', () => emit('focusRisk', firstId))
             el.dataset.hoverHooked = '1'
         }
     }
@@ -275,12 +294,13 @@ watch(
     [() => props.focusedRiskId, () => props.pinnedRiskIds, () => props.hoveredRiskId, () => props.risks],
     (newVals, oldVals) => {
         if (!containerRef.value) return
-        containerRef.value.querySelectorAll('[data-risk-id]').forEach(el => {
-            const id = (el as HTMLElement).dataset.riskId
-            if (!id) return
-            const isActive = id === props.focusedRiskId
-            const isPinned = props.pinnedRiskIds.has(id) && !isActive
-            const isHovered = id === props.hoveredRiskId && !isActive && !isPinned
+        containerRef.value.querySelectorAll('[data-risk-ids]').forEach(el => {
+            const ids = ((el as HTMLElement).dataset.riskIds ?? '').split(' ').filter(Boolean)
+            if (ids.length === 0) return
+            const isActive = props.focusedRiskId != null && ids.includes(props.focusedRiskId)
+            const isPinned = !isActive && ids.some(id => props.pinnedRiskIds.has(id))
+            const isHovered = !isActive && !isPinned
+                && props.hoveredRiskId != null && ids.includes(props.hoveredRiskId)
 
             el.classList.remove(
                 'bg-yellow-200', 'border-l-[5px]', 'border-red-700',
@@ -298,7 +318,7 @@ watch(
             }
         })
         if (props.focusedRiskId) {
-            const el = containerRef.value.querySelector(`[data-risk-id="${props.focusedRiskId}"]`)
+            const el = containerRef.value.querySelector(`[data-risk-ids~="${props.focusedRiskId}"]`)
             el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
         }
 
