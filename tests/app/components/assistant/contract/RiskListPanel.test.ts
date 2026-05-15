@@ -10,13 +10,13 @@ import type { ContractOverview, Risk, ContractReviewStatus, PlaybookSnapshot, Co
  * **Feature: contract-review-m4 + m5**
  *
  * M4 只读版（13 用例）：
- * - 按 clauseIndex 升序渲染 / 不原地 sort props
+ * - 按 clauseParagraphIndex 升序渲染 / 不原地 sort props
  * - level 徽章颜色 + 中文文案
  * - 点击 Card 展开 / 收起 / 切换 / 展开内容正确
  * - summary 空/非空 / 下载按钮三态
  *
  * M5 CRUD 扩展（8 用例）：
- * - 顶部「新增风险」按钮 + 每条风险的「编辑 / 删除」按钮
+ * - 新增入口经 openCreateWithPrefill 暴露给预览 hover；每条风险有「编辑 / 删除」按钮
  * - editable 由 status 推导
  * - RiskEditDialog / AlertDialog 交互触发 editRisks
  */
@@ -238,8 +238,10 @@ function findDownloadButton(w: Wrapper) {
     return findButtonByText(w, '下载批注 Word')!
 }
 
-function findCreateButton(w: Wrapper) {
-    return findButtonByText(w, '新增风险')!
+function exposedOpenCreate(w: Wrapper) {
+    return (w.vm as unknown as {
+        openCreateWithPrefill: (p: { clauseText: string; clauseParagraphIndex: number }) => void
+    }).openCreateWithPrefill
 }
 
 describe('RiskListPanel', () => {
@@ -249,14 +251,14 @@ describe('RiskListPanel', () => {
         expect(findCards(w)).toHaveLength(0)
     })
 
-    it('按 clauseIndex 升序渲染风险（输入故意倒序）', () => {
-        const r1 = makeRisk({ id: 'a', clauseIndex: 5, category: '条款甲' })
-        const r2 = makeRisk({ id: 'b', clauseIndex: 1, category: '条款乙' })
+    it('按 clauseParagraphIndex 升序渲染风险（输入故意倒序）', () => {
+        const r1 = makeRisk({ id: 'a', clauseParagraphIndex: 5, category: '条款甲' })
+        const r2 = makeRisk({ id: 'b', clauseParagraphIndex: 1, category: '条款乙' })
         const w = mountPanel({ risks: [r1, r2] })
 
         const cards = findCards(w)
         expect(cards).toHaveLength(2)
-        // clauseIndex=1 的 "条款乙" 排在前面
+        // clauseParagraphIndex=1 的 "条款乙" 排在前面
         expect(cards[0]!.text()).toContain('条款乙')
         expect(cards[1]!.text()).toContain('条款甲')
     })
@@ -399,18 +401,16 @@ describe('RiskListPanel M5 扩展', () => {
         return { status: 'completed' as ContractReviewStatus, reviewedFileId: 123, ...over }
     }
 
-    it('顶部显示"新增风险"按钮；editable=true 时可点击', () => {
+    it('顶部不再显示"新增风险"按钮（入口已移至左侧预览 hover）', () => {
         const w = mountPanel(completedProps({ risks: [] }))
-        const btn = findCreateButton(w)
-        expect(btn).toBeTruthy()
-        expect((btn.element as HTMLButtonElement).disabled).toBe(false)
+        expect(findButtonByText(w, '新增风险')).toBeUndefined()
+        // 新增入口改为暴露 openCreateWithPrefill 给父组件（预览 hover「＋」调用）
+        expect(typeof exposedOpenCreate(w)).toBe('function')
     })
 
-    it('editable=false 时新增/编辑/删除按钮全部 disabled', async () => {
+    it('editable=false 时编辑/删除按钮 disabled', async () => {
         // status != 'completed' → 全局不可编辑
         const w = mountPanel({ status: 'reviewing', risks: [makeRisk()] })
-        expect((findCreateButton(w).element as HTMLButtonElement).disabled).toBe(true)
-
         await findCards(w)[0]!.trigger('click')
         const editBtn = findButtonByText(w, '编辑')!
         const delBtn = findButtonByText(w, '删除')!
@@ -418,11 +418,12 @@ describe('RiskListPanel M5 扩展', () => {
         expect((delBtn.element as HTMLButtonElement).disabled).toBe(true)
     })
 
-    it('点击"新增风险" → 打开 RiskEditDialog（editingRisk=null）', async () => {
+    it('openCreateWithPrefill → 打开 RiskEditDialog（新增模式 editingRisk=null）', async () => {
         const w = mountPanel(completedProps({ risks: [] }))
         expect(w.find('[data-stub="RiskEditDialog"]').exists()).toBe(false)
 
-        await findCreateButton(w).trigger('click')
+        exposedOpenCreate(w)({ clauseText: '段落原文', clauseParagraphIndex: 3 })
+        await nextTick()
         const dialog = w.find('[data-stub="RiskEditDialog"]')
         expect(dialog.exists()).toBe(true)
         expect(dialog.attributes('data-has-risk')).toBe('0')
@@ -438,16 +439,20 @@ describe('RiskListPanel M5 扩展', () => {
         expect(dialog.attributes('data-has-risk')).toBe('1')
     })
 
-    it('RiskEditDialog 确认新增 → emit editRisks 追加 1 条', async () => {
-        const existing = makeRisk({ id: 'existing', clauseIndex: 0 })
-        const w = mountPanel(completedProps({ risks: [existing] }))
-        await findCreateButton(w).trigger('click')
+    it('openCreateWithPrefill 后确认 → emit createRisk 携带 prefill 与新 risk', async () => {
+        const w = mountPanel(completedProps({ risks: [makeRisk({ id: 'existing' })] }))
+        exposedOpenCreate(w)({ clauseText: '段落原文', clauseParagraphIndex: 3 })
+        await nextTick()
         await w.find('[data-test="edit-dialog-fire-confirm"]').trigger('click')
 
-        const payload = w.emitted('editRisks')![0][0] as Risk[]
-        expect(payload).toHaveLength(2)
-        expect(payload[0]!.id).toBe('existing')
-        expect(payload[1]!.id).toBe('new-risk-uuid')
+        const payload = w.emitted('createRisk')![0][0] as {
+            clauseText: string; clauseParagraphIndex: number; risk: Risk
+        }
+        expect(payload.clauseText).toBe('段落原文')
+        expect(payload.clauseParagraphIndex).toBe(3)
+        expect(payload.risk.id).toBe('new-risk-uuid')
+        // 新增走 createRisk，不再走 editRisks
+        expect(w.emitted('editRisks')).toBeUndefined()
     })
 
     it('RiskEditDialog 确认编辑 → emit editRisks 替换同 id 的 risk', async () => {

@@ -9,7 +9,7 @@
  * - 通过 POST /api/v1/files/oss/download-url 拿签名 URL，再 fetch 拉 ArrayBuffer
  * - 使用 renderAsync 渲染到 containerRef
  * - fetchSeq 机制：快速连续变化 props 时只有最新一次生效
- * - M6.1：renderAsync 完成后注入 data-risk-id；支持聚焦/钉/悬停态样式联动
+ * - M6.1：renderAsync 完成后注入 data-risk-ids；支持聚焦/钉/悬停态样式联动
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -41,6 +41,8 @@ const mockGlobalFetch = vi.fn()
 const mockLocateClauseElement = vi.fn()
 vi.mock('#shared/utils/clauseLocator', () => ({
     locateClauseElement: (...args: unknown[]) => mockLocateClauseElement(...args),
+    paragraphIndexOfElement: vi.fn(() => 0),
+    isBodyParagraph: (el: Element | null) => !!el && el instanceof HTMLElement && el.tagName === 'P',
 }))
 
 // ── 动态导入（确保 mock 先完成）─────────────────────────────────────────────
@@ -216,11 +218,11 @@ describe('ContractDocxPreview M6.1 风险标记联动', () => {
         return w
     }
 
-    it('renderAsync 完成后对应段落被注入 data-risk-id', async () => {
+    it('renderAsync 完成后对应段落被注入 data-risk-ids', async () => {
         const risk = makeRisk('r1', '乙方应在 30 天内支付款项')
         const w = await setupWithRisk(risk)
 
-        const el = w.element.querySelector('[data-risk-id="r1"]')
+        const el = w.element.querySelector('[data-risk-ids~="r1"]')
         expect(el).not.toBeNull()
         expect((el as HTMLElement).dataset.riskLevel).toBe('high')
     })
@@ -229,7 +231,7 @@ describe('ContractDocxPreview M6.1 风险标记联动', () => {
         const risk = makeRisk('r2', '违约方承担全部损失', 'medium')
         const w = await setupWithRisk(risk)
 
-        const el = w.element.querySelector('[data-risk-id="r2"]')
+        const el = w.element.querySelector('[data-risk-ids~="r2"]')
         expect(el).not.toBeNull()
         expect(el!.classList.contains('bg-orange-50')).toBe(true)
     })
@@ -238,7 +240,7 @@ describe('ContractDocxPreview M6.1 风险标记联动', () => {
         const risk = makeRisk('r3', '合同一旦签署不得撤销')
         const w = await setupWithRisk(risk)
 
-        const el = w.element.querySelector('[data-risk-id="r3"]') as HTMLElement
+        const el = w.element.querySelector('[data-risk-ids~="r3"]') as HTMLElement
         expect(el).not.toBeNull()
         el.click()
         await flushPromises()
@@ -250,7 +252,7 @@ describe('ContractDocxPreview M6.1 风险标记联动', () => {
         const risk = makeRisk('r4', '任何争议提交仲裁解决')
         const w = await setupWithRisk(risk)
 
-        const el = w.element.querySelector('[data-risk-id="r4"]') as HTMLElement
+        const el = w.element.querySelector('[data-risk-ids~="r4"]') as HTMLElement
         expect(el).not.toBeNull()
 
         el.dispatchEvent(new MouseEvent('mouseenter'))
@@ -267,7 +269,7 @@ describe('ContractDocxPreview M6.1 风险标记联动', () => {
         const w = await setupWithRisk(risk)
 
         // 初始无聚焦
-        const el = w.element.querySelector('[data-risk-id="r5"]')
+        const el = w.element.querySelector('[data-risk-ids~="r5"]')
         expect(el!.classList.contains('bg-yellow-200')).toBe(false)
 
         // 设置 focusedRiskId
@@ -282,7 +284,7 @@ describe('ContractDocxPreview M6.1 风险标记联动', () => {
         const risk = makeRisk('r6', '本合同自双方签字盖章后生效')
         const w = await setupWithRisk(risk)
 
-        const el = w.element.querySelector('[data-risk-id="r6"]')
+        const el = w.element.querySelector('[data-risk-ids~="r6"]')
         expect(el!.classList.contains('bg-yellow-50')).toBe(false)
 
         await w.setProps({ hoveredRiskId: 'r6' })
@@ -300,7 +302,7 @@ describe('ContractDocxPreview M6.1 风险标记联动', () => {
         await w.setProps({ focusedRiskId: 'r7' })
         await flushPromises()
 
-        const el = w.element.querySelector('[data-risk-id="r7"]')
+        const el = w.element.querySelector('[data-risk-ids~="r7"]')
         expect(el!.classList.contains('bg-yellow-200')).toBe(true)
 
         await w.setProps({ focusedRiskId: null })
@@ -313,7 +315,7 @@ describe('ContractDocxPreview M6.1 风险标记联动', () => {
         const risk = makeRisk('rx', '连续触发 decorate 不叠加', 'high')
         const w = await setupWithRisk(risk)
 
-        const el = w.element.querySelector('[data-risk-id="rx"]') as HTMLElement
+        const el = w.element.querySelector('[data-risk-ids~="rx"]') as HTMLElement
         expect(el).not.toBeNull()
         const classNameBefore = el.className
 
@@ -339,7 +341,7 @@ describe('ContractDocxPreview M6.1 风险标记联动', () => {
         await flushPromises()
 
         // 未找到时不注入任何 data-risk-id
-        expect(w.element.querySelector('[data-risk-id]')).toBeNull()
+        expect(w.element.querySelector('[data-risk-ids]')).toBeNull()
         // 也不应有报错（renderAsync 成功调用）
         expect(mockRenderAsync).toHaveBeenCalledTimes(1)
     })
