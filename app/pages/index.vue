@@ -1,34 +1,7 @@
 <template>
   <div>
     <LandingHero />
-    <!-- 痛点 -->
-    <section class="py-12 bg-muted/30 px-4">
-      <div class="max-w-[1200px] mx-auto">
-        <div class="text-center mb-12">
-          <h2 class="text-3xl font-bold mb-4">资源受限的“大多数”</h2>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-          <div class="bg-card rounded-xl p-8 shadow-sm border border-border/50 dark:border-white/5 dark:shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex flex-col items-center text-center transition-all hover:shadow-md hover:-translate-y-1">
-            <div class="text-6xl font-bold text-primary mb-4">50%</div>
-            <h3 class="text-xl font-semibold mb-2">时间浪费</h3>
-            <p class="text-muted-foreground">法律专业人士高达一半的工作时间被耗费在重复性的文书审阅和信息检索上。</p>
-          </div>
-
-          <div class="bg-card rounded-xl p-8 shadow-sm border border-border/50 dark:border-white/5 dark:shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex flex-col items-center text-center transition-all hover:shadow-md hover:-translate-y-1">
-            <div class="text-6xl font-bold text-primary mb-4">75%</div>
-            <h3 class="text-xl font-semibold mb-2">经验鸿沟</h3>
-            <p class="text-muted-foreground">青年律师的成长和办案质量高度受限于个人经验，行业知识难以标准化传承。</p>
-          </div>
-
-          <div class="bg-card rounded-xl p-8 shadow-sm border border-border/50 dark:border-white/5 dark:shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex flex-col items-center text-center transition-all hover:shadow-md hover:-translate-y-1">
-            <div class="text-6xl font-bold text-primary mb-4">50%</div>
-            <h3 class="text-xl font-semibold mb-2">人才困局</h3>
-            <p class="text-muted-foreground">一半的小型律所难以吸引和留住人才，高强度的重复性工作是职业倦怠的主要原因。</p>
-          </div>
-        </div>
-      </div>
-    </section>
+    <LandingPainPoints />
     <!-- 解决方案 -->
     <section class="py-12 bg-muted/30 px-4">
       <div class="max-w-[1200px] mx-auto">
@@ -284,6 +257,7 @@
 
 <script setup lang="ts">
 import LandingHero from '~/components/landing/LandingHero.vue'
+import LandingPainPoints from '~/components/landing/LandingPainPoints.vue'
 import { useAuthStore } from '~/store/auth'
 definePageMeta({
   layout: "base-layout",
