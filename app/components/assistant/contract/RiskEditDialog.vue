@@ -118,20 +118,14 @@ const levelOptions: Array<{ value: RiskLevel; label: string }> = (
             </DialogHeader>
 
             <div class="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4">
-                <div class="grid gap-3" :class="risk ? 'grid-cols-1' : 'grid-cols-2'">
-                    <div v-if="!risk" class="space-y-1">
-                        <Label for="risk-clause-index">条款序号（段落 index，从 0 开始）</Label>
-                        <Input id="risk-clause-index" v-model="form.clauseIndex" type="number" min="0" />
-                    </div>
-                    <div class="space-y-1">
-                        <Label>风险级别</Label>
-                        <RadioGroup v-model="form.level" class="flex gap-3">
-                            <div v-for="opt in levelOptions" :key="opt.value" class="flex items-center gap-1">
-                                <RadioGroupItem :id="`risk-lv-${opt.value}`" :value="opt.value" />
-                                <Label :for="`risk-lv-${opt.value}`">{{ opt.label }}</Label>
-                            </div>
-                        </RadioGroup>
-                    </div>
+                <div class="space-y-1">
+                    <Label>风险级别</Label>
+                    <RadioGroup v-model="form.level" class="flex gap-3">
+                        <div v-for="opt in levelOptions" :key="opt.value" class="flex items-center gap-1">
+                            <RadioGroupItem :id="`risk-lv-${opt.value}`" :value="opt.value" />
+                            <Label :for="`risk-lv-${opt.value}`">{{ opt.label }}</Label>
+                        </div>
+                    </RadioGroup>
                 </div>
 
                 <div class="space-y-1">
