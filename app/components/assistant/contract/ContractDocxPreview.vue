@@ -24,6 +24,7 @@ import { useApiFetch } from '~/composables/useApiFetch'
 import {
     decorateQuoteRanges,
     clearAllQuoteHighlights,
+    computeQuoteRange,
 } from '~/utils/quoteHighlight'
 
 const props = withDefaults(defineProps<{
@@ -111,6 +112,28 @@ let fetchSeq = 0
 const LEVEL_RANK: Record<RiskLevel, number> = { high: 3, medium: 2, low: 1 }
 
 /**
+ * 定位一条风险应高亮的段落。
+ *
+ * 优先用 problematicQuote 精确定位到「问题语句所在的段落」——clauseText 跨多段时
+ * （如"特殊限制"块含生育限制 / 隐私监控两个子条款），clauseParagraphIndex 只指向
+ * 块起始段，problematicQuote 才指向真正的问题段落。无 quote 锚点时回退到
+ * clauseParagraphIndex / clauseText（locateClauseElement 的四级兜底）。
+ */
+function locateRiskParagraph(risk: RiskDisplayPhaseB, container: HTMLElement): HTMLElement | null {
+    const range = computeQuoteRange(risk, container)
+    if (range) {
+        const startNode = range.startContainer
+        const startEl = startNode.nodeType === Node.TEXT_NODE
+            ? startNode.parentElement
+            : (startNode as Element)
+        const p = startEl?.closest('p')
+        if (p instanceof HTMLElement) return p
+    }
+    const el = locateClauseElement(container, risk.clauseText, risk.clauseParagraphIndex)
+    return el instanceof HTMLElement ? el : null
+}
+
+/**
  * 内部函数：在 DOM 里跑一次定位，返回没匹配到的 riskId 集合（不发 emit）。
  *
  * 先按段落 DOM 聚合——同一段落可定位到多条风险（AI 单条款多 risk / 律师手动追加）。
@@ -118,15 +141,13 @@ const LEVEL_RANK: Record<RiskLevel, number> = { high: 3, medium: 2, low: 1 }
  * 使右侧任一条风险卡片都能联动到左侧同一段落。
  */
 function runDecorateOnce(): Set<string> {
-    if (!containerRef.value) return new Set(props.risks.map(r => r.id))
+    const container = containerRef.value
+    if (!container) return new Set(props.risks.map(r => r.id))
     const notLocatedIds = new Set<string>()
     const paraToRisks = new Map<HTMLElement, RiskDisplayPhaseB[]>()
     for (const risk of props.risks) {
-        // 优先级 0：clauseParagraphIndex 直定位（与后端"非空段落序号"空间一致），
-        // 解决 reviewed docx 注入批注后 textContent 与原 clause_text 微差异（全角空格、
-        // 标点变体）导致的"未定位"误报。详见 shared/utils/clauseLocator.ts。
-        const el = locateClauseElement(containerRef.value, risk.clauseText, risk.clauseParagraphIndex)
-        if (!el || !(el instanceof HTMLElement)) {
+        const el = locateRiskParagraph(risk, container)
+        if (!el) {
             notLocatedIds.add(risk.id)
             continue
         }
