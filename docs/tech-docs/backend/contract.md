@@ -277,9 +277,11 @@ OOXML `w:id` 在文档内是跨多种元素**共享**的 ID 池：bookmark / `<w
 
 合同正文同一句话常跨多个 `<w:r>`（粗体的"违约金"在自己 run、普通字在另一 run）。`redlineInjector.splitRunAtOffset` 拆 run 时 deep-clone `<w:rPr>` 副本到两侧，quote 范围 run 把 `<w:t>` 替换为 `<w:delText>`（保留 `xml:space="preserve"`），整体 wrap 进 `<w:del>`。律师拒绝修订时原字体格式（粗体/字号/颜色）完整恢复。
 
-### 11.4 整段删除段落标记同步
+### 11.4 整段替换保留段落标记符
 
-quote == 整段 `clauseText` 且 textContent 完全覆盖时，`addParagraphDeleteMark` 在 `<w:p><w:pPr><w:rPr>` 内追加 `<w:del/>` 子标记——律师"接受所有修订"会同时删段落标记不留空段。
+quote == 整段 `clauseText` 且 textContent 完全覆盖时，仍只在段内装 `<w:del>`（包旧文字）+ `<w:ins>`（包改写建议），**不**对段落标记符（pilcrow ¶）做任何修订标记。
+
+能进入 redline 的 risk 一定带非空 `suggestedClauseText`（见 §11.6 跳过条件），"整段命中"本质是"整段**替换**"而非"整段删除"。按 ECMA-376 §17.13.5.15，给 `<w:p><w:pPr><w:rPr>` 加 `<w:del/>` 表示段落标记符被删除，Word 会把该段与**下一段合并**显示——整段替换若删段落标记符，下一条款标题会被吸进正文末尾、排版错乱。段落标记符保留后，律师"接受所有修订"即得到"旧文字删除、新文字保留、段落独立"的正确结果。
 
 ### 11.5 both 模式 commentRange 精确包裹（spec §8.3.6 核心 UX）
 

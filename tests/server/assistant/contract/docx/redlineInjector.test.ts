@@ -4,9 +4,12 @@ import { join } from 'node:path'
 import {
     parseOoxml,
     findAll,
+    findFirst,
     walk,
     tagOf,
     getAttr,
+    childrenOf,
+    paragraphText,
     findMaxSharedId,
 } from '~~/server/agents/contract/docx/xmlAst'
 import {
@@ -183,7 +186,7 @@ describe('injectRedlineMarks 装配（同段 quote）', () => {
     })
 })
 
-describe('injectRedlineMarks 跨段 / 整段删除', () => {
+describe('injectRedlineMarks 跨段 / 整段替换', () => {
     async function buildFixtureBuffer(documentXml: string): Promise<Buffer> {
         const original = await readFile(SAMPLE)
         const zip = await loadDocxZip(original)
@@ -223,7 +226,7 @@ describe('injectRedlineMarks 跨段 / 整段删除', () => {
         expect(result.nextIdAfter).toBe(3)
     })
 
-    it('整段删除（quote 覆盖整段 textContent）：段落 pPr/rPr/del 同步加上', async () => {
+    it('整段替换（quote 覆盖整段 textContent）：只装 w:del+w:ins，不动段落标记符', async () => {
         const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:body>
@@ -245,10 +248,54 @@ describe('injectRedlineMarks 跨段 / 整段删除', () => {
         expect(result.skippedRiskIds).toEqual([])
         const zip = await loadDocxZip(result.buffer)
         const docXml = await readTextFromZip(zip, 'word/document.xml')
-        // 段落 pPr/rPr/del 加上
-        expect(docXml).toMatch(/<w:pPr><w:rPr><w:del[^/]*\/><\/w:rPr><\/w:pPr>/)
-        // 占用 3 个 ID（del + ins + pPr/del）
-        expect(result.nextIdAfter).toBe(3)
+        // 整段旧文字进 w:del、新文字进 w:ins
+        expect(docXml).toContain('<w:delText xml:space="preserve">这一整段都是问题。</w:delText>')
+        expect(docXml).toMatch(/<w:ins[^>]*>[\s\S]*建议改写后的整段。[\s\S]*<\/w:ins>/)
+        // 段落标记符（pilcrow）保留——不得加 <w:pPr><w:rPr><w:del/></w:rPr></w:pPr>
+        expect(docXml).not.toMatch(/<w:pPr><w:rPr><w:del[^/]*\/><\/w:rPr><\/w:pPr>/)
+        // 整段替换只占 2 个 ID（del + ins）
+        expect(result.nextIdAfter).toBe(2)
+    })
+
+    it('整段替换 quote：不加 deleted paragraph mark，下一段保持独立段落（修订版段落错乱回归）', async () => {
+        // 正文段 + 标题段两段；对正文段做整段替换 redline。
+        // bug：旧实现给正文段加 <w:pPr><w:rPr><w:del/></w:rPr></w:pPr>（删除段落标记符），
+        // Word 据 ECMA-376 §17.13.5.15 会把本段与下一段合并显示 → 下一条款标题被吸进正文末尾。
+        const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t xml:space="preserve">本条款内容存在严重问题。</w:t></w:r></w:p>
+    <w:p><w:r><w:t xml:space="preserve">第二条 工作内容与地点</w:t></w:r></w:p>
+  </w:body>
+</w:document>`
+        const buffer = await buildFixtureBuffer(xml)
+        const clauseText = '本条款内容存在严重问题。'
+        const result = await injectRedlineMarks(buffer, [{
+            id: 1,
+            clauseText,
+            clauseParagraphIndex: 0,
+            problematicQuote: clauseText,
+            quoteCharStart: 0,
+            quoteCharEnd: clauseText.length,
+            suggestedClauseText: '改写后的整段内容。',
+        }], { reviewId: 999, idStart: 0 })
+
+        expect(result.skippedRiskIds).toEqual([])
+        const zip = await loadDocxZip(result.buffer)
+        const docXml = await readTextFromZip(zip, 'word/document.xml')
+
+        // 段落标记符（pilcrow ¶）不可被标记删除——否则 Word 会把本段与下一段合并显示
+        expect(docXml).not.toMatch(/<w:pPr><w:rPr><w:del[^/]*\/><\/w:rPr><\/w:pPr>/)
+
+        // body 仍是两个独立 <w:p>，标题段文字完整保留在自己的段落里
+        const docAst = parseOoxml(docXml)
+        const body = findFirst(docAst, 'w:body')!
+        const paragraphs = childrenOf(body).filter(n => tagOf(n) === 'w:p')
+        expect(paragraphs).toHaveLength(2)
+        expect(paragraphText(paragraphs[1]!)).toBe('第二条 工作内容与地点')
+
+        // 整段替换只占 2 个 ID（w:del + w:ins）
+        expect(result.nextIdAfter).toBe(2)
     })
 })
 

@@ -4,7 +4,9 @@
  * 输入：每条 risk 的 quote 锚点（PR3 落地）+ suggestedClauseText（risksSchema 已强制单段）。
  * 输出：原 docx 内 quote 范围内所有 run 被 wrap 进 `<w:del>`（保留原 `<w:rPr>` 副本，
  *   `<w:t>` → `<w:delText>`），紧邻插入 `<w:ins>` 包裹 suggestedClauseText（继承 quote
- *   起始 run 的 rPr）。整段被删时段落标记同步加 `<w:pPr><w:rPr><w:del/></w:rPr></w:pPr>`。
+ *   起始 run 的 rPr）。段落标记符（pilcrow）始终保留——每条 redline 必带
+ *   suggestedClauseText（属"整段/部分替换"而非"整段删除"），删除段落标记符会让 Word
+ *   把该段与下一段合并显示（ECMA-376 §17.13.5.15），下一条款标题被吸进正文末尾。
  *
  * 跳过条件（risk 不参与 redline，记入 skippedRiskIds，调用方可走 comment fallback）：
  *  - problematicQuote == null（无锚点）
@@ -15,7 +17,7 @@
  *
  * ID 协调（spec §8.3.1）：
  *  - 入参 idStart 必须 ≥ findMaxSharedId(原 docx) + 1
- *  - 每条 redline 占 2 个 ID（w:del + w:ins）；整段删除时多占 1 个（pPr/rPr/del）
+ *  - 每条 redline 占 2 个 ID（w:del + w:ins）
  *  - 返回 nextIdAfter = idStart + 已分配数，供 both 模式接力 commentInjector
  */
 import {
@@ -25,7 +27,6 @@ import {
     tagOf,
     textOf,
     makeElement,
-    makeLeaf,
     makeText,
     collectNonEmptyParagraphs,
     stripIllegalXmlChars,
@@ -41,7 +42,6 @@ import {
 import {
     locateQuoteInParagraphs,
     computeRunLength,
-    paragraphTextLengthByRunRule,
     type RunSplit,
 } from './redlineLocate'
 
@@ -148,9 +148,6 @@ export async function injectRedlineMarks(
             continue
         }
 
-        // 整段删除判定：startParaIdx == endParaIdx 且 quote 覆盖该段所有 textContent
-        const wholeParagraphDeletion = isWholeParagraphDeletion(loc, nonEmptyParagraphs, risk)
-
         if (loc.startParaIdx === loc.endParaIdx) {
             const split = loc.splits[0]!.runSplit!
             const delId = cursorId
@@ -164,10 +161,6 @@ export async function injectRedlineMarks(
                 dateIso,
             })
             cursorId += 2
-            if (wholeParagraphDeletion) {
-                addParagraphDeleteMark(nonEmptyParagraphs[loc.startParaIdx]!, cursorId, dateIso)
-                cursorId += 1
-            }
             spansByRiskId.set(risk.id, {
                 paragraphSpans: [{ paraIdx: loc.startParaIdx, delId, insId }],
             })
@@ -213,27 +206,6 @@ export async function injectRedlineMarks(
  */
 function deepClone<T>(node: T): T {
     return structuredClone(node)
-}
-
-/**
- * 判断 quote 是否完整覆盖一段所有 textContent（同段 + 起止 run 都在边界 + 段长 == quote 长）。
- * 命中时调用方需要给段落加 <w:pPr><w:rPr><w:del/></w:rPr></w:pPr> 段尾标记。
- */
-function isWholeParagraphDeletion(
-    loc: { startParaIdx: number; endParaIdx: number; splits: Array<{ runSplit: RunSplit | null }> },
-    nonEmptyParagraphs: Node[],
-    risk: { quoteCharStart: number | null; quoteCharEnd: number | null },
-): boolean {
-    if (loc.startParaIdx !== loc.endParaIdx) return false
-    const split = loc.splits[0]!.runSplit
-    if (!split) return false
-    const para = nonEmptyParagraphs[loc.startParaIdx]!
-    const paraLen = paragraphTextLengthByRunRule(para)
-    return split.startRunIdx === firstRunIdx(para)
-        && split.startRunOffset === 0
-        && split.endRunOffset === computeRunLength(childrenOf(para)[split.endRunIdx]!)
-        && split.endRunIdx === lastRunIdx(para)
-        && paraLen === risk.quoteCharEnd! - risk.quoteCharStart!
 }
 
 function getRPr(runNode: Node): Node | null {
@@ -481,37 +453,4 @@ function wholeParagraphRunSplit(paraNode: Node): RunSplit {
         endRunIdx: endIdx,
         endRunOffset: computeRunLength(kids[endIdx]!),
     }
-}
-
-/**
- * 段落整段被删时同步加 <w:pPr><w:rPr><w:del/></w:rPr></w:pPr>。
- * 已存在 w:pPr 时复用，否则新建放到段落首位。
- */
-function addParagraphDeleteMark(paraNode: Node, delId: number, dateIso: string): void {
-    const tag = tagOf(paraNode)
-    if (!tag) return
-    const kids = paraNode[tag] as NodeArray
-    if (!Array.isArray(kids)) return
-
-    let pPr = kids.find(k => tagOf(k) === 'w:pPr')
-    if (!pPr) {
-        pPr = makeElement('w:pPr', {}, [])
-        kids.unshift(pPr)
-    }
-
-    const pPrTag = tagOf(pPr)!
-    const pPrKids = pPr[pPrTag] as NodeArray
-
-    let rPr = pPrKids.find(k => tagOf(k) === 'w:rPr')
-    if (!rPr) {
-        rPr = makeElement('w:rPr', {}, [])
-        pPrKids.unshift(rPr)
-    }
-    const rPrTag = tagOf(rPr)!
-    const rPrKids = rPr[rPrTag] as NodeArray
-    rPrKids.push(makeLeaf('w:del', {
-        'w:id': String(delId),
-        'w:author': REDLINE_AUTHOR,
-        'w:date': dateIso,
-    }))
 }
