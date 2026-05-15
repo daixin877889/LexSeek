@@ -59,12 +59,13 @@ const empty = computed(() => !props.reviewedFileId && !props.originalFileId)
 const hoveredParagraph = ref<HTMLElement | null>(null)
 const addBtnTop = ref(0)
 
-/** 可新增段落：section.docx 直接子级、非空 <p>，排除表格内段落 */
+/** 可新增段落：section.docx > article 直接子级、非空 <p>（排除页眉页脚与表格内段落） */
 function isAddableParagraph(el: Element | null): el is HTMLElement {
     if (!el || !(el instanceof HTMLElement) || el.tagName !== 'P') return false
     if ((el.textContent ?? '').trim().length === 0) return false
-    if (el.closest('td')) return false
-    if (!el.parentElement?.classList.contains('docx')) return false
+    // docx-preview 把正文段落渲染为 section.docx > article 的直接子级；
+    // 页眉/页脚段落父级是 header/footer、表格内段落父级是 td，均不可新增。
+    if (el.parentElement?.tagName !== 'ARTICLE') return false
     return true
 }
 

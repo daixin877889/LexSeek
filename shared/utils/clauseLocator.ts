@@ -84,18 +84,21 @@ export function findByParagraphIndex(container: Element, paragraphIndex: number)
 /**
  * 取元素在「合同正文段落」序列中的 0-based 序号，供手动新增风险落库 clauseParagraphIndex。
  *
- * 口径对齐后端 buildClauseToParagraphMap（w:body 直接子级段落）——只统计
- * docx-preview 渲染出的 section.docx 的直接子级 <p>（非空）；表格 td 内、
- * 脚注内的段落不在该序号体系内，返回 -1。
+ * 口径对齐后端 buildClauseToParagraphMap（w:body 直接子级段落）——docx-preview 把正文
+ * 段落渲染在 `section.docx > article` 内（section 直接子级是 header/article/footer），
+ * 故只统计各 section 的 article 直接子级非空 <p>，按出现顺序连续编号；页眉/页脚、
+ * 表格 td 内段落不在该序号体系内，返回 -1。
  */
 export function paragraphIndexOfElement(container: Element, target: Element): number {
-    const section = container.querySelector('section.docx') ?? container
+    const articles = container.querySelectorAll('section.docx > article')
     let count = 0
-    for (const el of Array.from(section.children)) {
-        if (el.tagName !== 'P') continue
-        if ((el.textContent ?? '').trim().length === 0) continue
-        if (el === target) return count
-        count++
+    for (const article of articles) {
+        for (const el of Array.from(article.children)) {
+            if (el.tagName !== 'P') continue
+            if ((el.textContent ?? '').trim().length === 0) continue
+            if (el === target) return count
+            count++
+        }
     }
     return -1
 }
