@@ -510,7 +510,7 @@ export const VERSION_SYSTEM_LABEL_DISPLAY: Record<VersionSystemLabel, string> = 
     auto_backup: '自动备份',
 }
 
-export const RISK_SOURCES = ['ai', 'external_new', 'global_review'] as const
+export const RISK_SOURCES = ['ai', 'external_new', 'global_review', 'manual'] as const
 export type RiskSource = typeof RISK_SOURCES[number]
 
 export const ANNOTATION_AUTHOR_TYPES = ['ai', 'lawyer', 'external'] as const

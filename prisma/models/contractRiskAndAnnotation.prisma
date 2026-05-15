@@ -2,7 +2,7 @@
 model contractRisks {
   id         Int    @id @default(autoincrement())
   reviewId   Int    @map("review_id")
-  /// 来源：Phase A 仅 ai；Phase B 扩展 external_new；Phase C 扩展 global_review
+  /// 来源：Phase A 仅 ai；Phase B 扩展 external_new；Phase C 扩展 global_review；manual 为律师手动新增
   source     String @db.VarChar(20)
   /// playbook code（仅 source=ai 有值）
   code       String? @db.VarChar(30)
