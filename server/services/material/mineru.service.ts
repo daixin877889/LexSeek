@@ -161,7 +161,7 @@ async function uploadImageToOss(
                 filePath: ossPath,
                 fileSize: imageBuffer.length,
                 fileType: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
-                source: FileSource.CASE_ANALYSIS,
+                source: FileSource.DOC_EMBEDDED_IMAGE,
                 status: OssFileStatus.UPLOADED,
                 encrypted: false,
             },

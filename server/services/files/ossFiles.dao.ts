@@ -310,7 +310,7 @@ export async function findOssFilesByUserIdDao(userId: number, options: {
     pageSize: number
     fileType?: FileType
     fileName?: string
-    source?: FileSource
+    source?: FileSource[]
     sortField?: FileSortField
     sortOrder?: SortOrder
     tx?: Prisma.TransactionClient
@@ -333,9 +333,8 @@ export async function findOssFilesByUserIdDao(userId: number, options: {
             where.fileName = { contains: options.fileName, mode: 'insensitive' }
         }
 
-        // 按来源筛选
-        if (options.source) {
-            where.source = options.source
+        if (options.source?.length) {
+            where.source = { in: options.source }
         }
 
         // 构建排序条件：未传入排序参数时默认按 ID 降序

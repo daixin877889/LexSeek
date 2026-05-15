@@ -83,7 +83,7 @@ async function uploadImageToOss(
     const basePath = storageConfig.basePath
 
     // 使用自定义路径或生成默认路径
-    const dir = customPath || `${basePath}user${userId}/${FileSource.CASE_ANALYSIS}/`
+    const dir = customPath || `${basePath}user${userId}/${FileSource.DOC_EMBEDDED_IMAGE}/`
 
     const ext = mimeType.split('/').pop() || 'png'
     const saveName = `${uuidv4()}.${ext}`
@@ -98,7 +98,7 @@ async function uploadImageToOss(
                 filePath: `${dir}${saveName}`,
                 fileSize: imageBuffer.length,
                 fileType: mimeType,
-                source: FileSource.CASE_ANALYSIS,
+                source: FileSource.DOC_EMBEDDED_IMAGE,
                 status: OssFileStatus.PENDING,
                 encrypted: false,
             },

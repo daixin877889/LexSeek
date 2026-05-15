@@ -20,6 +20,8 @@ export enum FileSource {
     DOCUMENT_TEMPLATE = "document_template",
     /** 文书导出 */
     DOCUMENT_EXPORT = "document_export",
+    /** 文档内嵌图片：MinerU / base64 / URL 图片处理器从文档中提取出的附属图片，不作为独立案件材料展示 */
+    DOC_EMBEDDED_IMAGE = "doc_embedded_image",
 }
 
 /**
@@ -35,6 +37,7 @@ export const FileSourceName = {
     [FileSource.DEMO_CASE]: "示范案例",
     [FileSource.DOCUMENT_TEMPLATE]: "文书模板",
     [FileSource.DOCUMENT_EXPORT]: "文书导出",
+    [FileSource.DOC_EMBEDDED_IMAGE]: "文档内嵌图片",
 }
 
 // 文件来源允许的文件类型及最大大小

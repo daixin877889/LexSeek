@@ -160,7 +160,7 @@ async function uploadSingleImageToOssService(
     const ossConfig = storageConfig.aliyunOss
     const bucket = ossConfig.bucket
     const basePath = storageConfig.basePath
-    const dir = `${basePath}user${userId}/${FileSource.CASE_ANALYSIS}/`
+    const dir = `${basePath}user${userId}/${FileSource.DOC_EMBEDDED_IMAGE}/`
     const callbackUrl = storageConfig.callbackUrl
 
     const saveName = `${uuidv7()}.${getExtensionFromFileName(fileName) || 'png'}`
@@ -175,7 +175,7 @@ async function uploadSingleImageToOssService(
                 filePath: `${dir}${saveName}`,
                 fileSize: imageData.length,
                 fileType: mimeType,
-                source: FileSource.CASE_ANALYSIS,
+                source: FileSource.DOC_EMBEDDED_IMAGE,
                 status: OssFileStatus.PENDING,
                 encrypted: false,
             },
@@ -196,7 +196,7 @@ async function uploadSingleImageToOssService(
                 callbackBodyType: 'application/x-www-form-urlencoded',
                 callbackVar: {
                     user_id: userId,
-                    source: FileSource.CASE_ANALYSIS,
+                    source: FileSource.DOC_EMBEDDED_IMAGE,
                     original_file_name: fileName,
                     file_id: ossFile.id.toString(),
                     encrypted: '0',

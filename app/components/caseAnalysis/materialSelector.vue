@@ -138,7 +138,7 @@
                   </Badge>
                 </div>
                 <div class="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                  <span>{{ formatByteSize(file.fileSize) }}</span>
+                  <span>{{ formatByteSize(file.fileSize, 2) }}</span>
                   <span>•</span>
                   <span>{{ formatDateRelative(file.createdAt) }}</span>
                 </div>
@@ -262,11 +262,12 @@ const loadingMore = ref(false);
 const hasMore = computed(() => allFiles.value.length < totalFiles.value);
 
 // 构建查询参数
+// 案件材料弹框允许选中"案件分析上传"+"云盘上传"两类来源；MinerU/文档识别生成的 DOC_EMBEDDED_IMAGE 不在白名单内，自动被排除
 const queryParams = computed<FileListParams>(() => ({
   page: currentPage.value,
   pageSize: pageSize.value,
   fileName: searchQuery.value || undefined,
-  source: FileSource.CASE_ANALYSIS,
+  source: [FileSource.CASE_ANALYSIS, FileSource.FILE],
   sortField: "createdAt",
   sortOrder: "desc",
 }));
