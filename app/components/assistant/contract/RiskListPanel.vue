@@ -14,7 +14,7 @@
  * - 客户已移除分组（底部，annotation.removedByClient=true，默认折叠）
  */
 import {
-    DownloadIcon, ChevronDownIcon, Loader2Icon, PlusIcon, PencilIcon, Trash2Icon,
+    DownloadIcon, ChevronDownIcon, Loader2Icon, PencilIcon, Trash2Icon,
     FileTextIcon, Pin, TriangleAlert, CheckCircle2Icon, XCircleIcon,
     SendIcon, MessageCircleIcon, UserIcon, EyeOffIcon, RotateCcwIcon,
     SparklesIcon,
@@ -88,6 +88,8 @@ const emit = defineEmits<{
     'restore-annotation': [annotationId: number]
     /** Phase B：跳转到孤立风险的原始语境版本 */
     'jump-to-original': [riskId: string]
+    /** 预览 hover「＋」新增风险：原文 + 段落序号 + 弹框收集的风险内容 */
+    createRisk: [payload: { clauseText: string; clauseParagraphIndex: number; risk: Risk }]
 }>()
 
 const containerRef = ref<HTMLElement | null>(null)
@@ -142,22 +144,30 @@ const editable = computed(() => isCompleted.value)
 // 编辑对话框状态
 const editDialogOpen = ref(false)
 const editingRisk = ref<Risk | null>(null)
+/** 新增模式下由预览段落 hover「＋」预填的原文与段落序号 */
+const createPrefill = ref<{ clauseText: string; clauseParagraphIndex: number } | null>(null)
 
-function openCreate() {
+/** 由父组件（预览 hover「＋」）调用：以预填打开新增弹框 */
+function openCreateWithPrefill(payload: { clauseText: string; clauseParagraphIndex: number }) {
     if (!editable.value) return
     editingRisk.value = null
+    createPrefill.value = payload
     editDialogOpen.value = true
 }
+defineExpose({ openCreateWithPrefill })
+
 function openEdit(risk: Risk) {
     if (!editable.value) return
     editingRisk.value = risk
     editDialogOpen.value = true
 }
 function handleEditConfirm(payload: Risk) {
-    const idx = props.risks.findIndex(r => r.id === payload.id)
-    const newRisks = idx >= 0
-        ? props.risks.map(r => (r.id === payload.id ? payload : r))
-        : [...props.risks, payload]
+    if (createPrefill.value && !props.risks.some(r => r.id === payload.id)) {
+        emit('createRisk', { ...createPrefill.value, risk: payload })
+        createPrefill.value = null
+        return
+    }
+    const newRisks = props.risks.map(r => (r.id === payload.id ? payload : r))
     emit('editRisks', newRisks)
 }
 
@@ -235,11 +245,12 @@ const externalNewRisks = computed(() => {
 })
 
 /** 主风险清单（非外部新增、非孤立），未处置在前，已处置在后 */
+const mainSortKey = (r: RiskDisplayPhaseB) => r.clauseParagraphIndex ?? Number.MAX_SAFE_INTEGER
 const mainRisks = computed(() => {
     const all = props.risks.filter(r => r.source !== 'external_new' && !r.orphaned)
-    const unarchived = all.filter(r => !getArchivedStatus(r)).sort((a, b) => a.clauseIndex - b.clauseIndex)
+    const unarchived = all.filter(r => !getArchivedStatus(r)).sort((a, b) => mainSortKey(a) - mainSortKey(b))
     if (hideArchived.value) return unarchived
-    const archived = all.filter(r => !!getArchivedStatus(r)).sort((a, b) => a.clauseIndex - b.clauseIndex)
+    const archived = all.filter(r => !!getArchivedStatus(r)).sort((a, b) => mainSortKey(a) - mainSortKey(b))
     return [...unarchived, ...archived]
 })
 
@@ -358,21 +369,16 @@ const downloadButtonTitle = computed(() => {
                 @focus-risk="(id: string) => emit('focusRisk', id)"
             />
             <div ref="containerRef" class="p-3 space-y-2">
-                <!-- 顶部操作行：新增风险 + 隐藏已处置开关 -->
-                <div class="flex items-center gap-2">
-                    <Button variant="outline" class="flex-1" :disabled="!editable || readOnly" @click="openCreate">
-                        <PlusIcon class="size-4 mr-1" />新增风险
-                    </Button>
-                    <div v-if="archivedCount > 0" class="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0">
-                        <Switch
-                            :checked="hideArchived"
-                            @update:checked="hideArchived = $event"
-                        />
-                        <span class="flex items-center gap-0.5">
-                            <EyeOffIcon class="size-3" />
-                            隐藏已处置（{{ archivedCount }}）
-                        </span>
-                    </div>
+                <!-- 隐藏已处置开关 -->
+                <div v-if="archivedCount > 0" class="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Switch
+                        :checked="hideArchived"
+                        @update:checked="hideArchived = $event"
+                    />
+                    <span class="flex items-center gap-0.5">
+                        <EyeOffIcon class="size-3" />
+                        隐藏已处置（{{ archivedCount }}）
+                    </span>
                 </div>
 
                 <!--
@@ -694,7 +700,12 @@ const downloadButtonTitle = computed(() => {
             </div>
         </div>
 
-        <AssistantContractRiskEditDialog v-model:open="editDialogOpen" :risk="editingRisk" @confirm="handleEditConfirm" />
+        <AssistantContractRiskEditDialog
+            v-model:open="editDialogOpen"
+            :risk="editingRisk"
+            :prefill="createPrefill"
+            @confirm="handleEditConfirm"
+        />
 
         <AssistantContractExportPdfDialog v-model:open="exportPdfDialogOpen" @confirm="handleExportPdfConfirm" />
 
