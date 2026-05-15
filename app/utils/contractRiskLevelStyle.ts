@@ -19,11 +19,12 @@ export const RISK_LEVEL_BADGE_CLASS: Record<RiskLevel, string> = {
 }
 
 /**
- * docx 段落浅色高亮（保留多 class 形式，部分调用方走 classList.add(...) 接口）。
- * 注意：docx 预览背景为白纸，故只用 light 变体配色 + 左侧色条，避免突兀。
+ * docx 段落风险高亮（保留多 class 形式，部分调用方走 classList.add(...) 接口）。
+ * 设计：白纸上用极淡的分级晕染底色（~6% 透明度，接近白、整页不喧宾夺主）+ 醒目
+ * 左竖线标等级 + pl-3 让竖线与正文之间留出间距。
  */
 export const RISK_LEVEL_DOCX_BG_CLASS: Record<RiskLevel, string[]> = {
-    high: ['bg-red-50', 'border-l-4', 'border-red-400'],
-    medium: ['bg-orange-50', 'border-l-4', 'border-orange-400'],
-    low: ['bg-slate-50', 'border-l-4', 'border-slate-400'],
+    high: ['bg-red-500/[0.06]', 'border-l-4', 'border-red-500', 'pl-3'],
+    medium: ['bg-orange-500/[0.06]', 'border-l-4', 'border-orange-500', 'pl-3'],
+    low: ['bg-gray-500/[0.06]', 'border-l-4', 'border-gray-400', 'pl-3'],
 }
