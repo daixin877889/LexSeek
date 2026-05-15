@@ -62,7 +62,7 @@ export const toolDefinition: ToolDefinition<typeof schema> = {
 }
 
 export function createTool(ctx: ToolContext) {
-    return tool(async (input) => {
+    return tool(async (input, cfg) => {
         // ① L2 兜底：从案件记忆查上次同工具计算结果预填
         const memoryCalc = ctx.caseId
             ? await findLastCalculationByCase(ctx.caseId, 'calculate_compensation')
@@ -78,6 +78,7 @@ export function createTool(ctx: ToolContext) {
         // ③ 信息不足 → interrupt（防御性校验：as unknown + null 取消 + object 合并）
         if (missing.length > 0) {
             const resumed = interrupt({
+                toolCallId: (cfg as any)?.toolCall?.id ?? "",
                 type: InterruptType.CALCULATOR_INPUT,
                 toolName: 'calculate_compensation',
                 prefilled: merged,

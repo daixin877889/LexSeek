@@ -33,7 +33,7 @@ export const toolDefinition: ToolDefinition<typeof schema> = {
 }
 
 export function createTool(_ctx: ToolContext) {
-    return tool(async (input) => {
+    return tool(async (input, cfg) => {
         if (input.queryType === 'all') {
             const result = {
                 lpr: getLatestLPR(),
