@@ -178,28 +178,46 @@ definePageMeta({
   title: "价格方案",
 })
 
-const CARD_CLASS = {
+type Variant = "amber" | "sky" | "plain"
+
+interface Plan {
+  productId: number
+  variant: Variant
+  badge: string | null
+  name: string
+  price: string
+  cycle: string
+  strike: string | null
+  bonus: string
+  flavor: string
+  cta: string
+  footnote: string
+  perks: { label: string; soon?: boolean }[]
+  crossed: string[]
+}
+
+const CARD_CLASS: Record<Variant, string> = {
   amber: "border-2 border-[#E07A0A] shadow-[0_18px_36px_-18px_rgba(224,122,10,0.2)]",
   sky: "border-2 border-[#1E9EED] shadow-[0_18px_36px_-18px_rgba(30,158,237,0.25)]",
   plain: "border shadow-[0_1px_2px_0_rgb(0_0_0/0.04)]",
 }
-const BADGE_CLASS = {
+const BADGE_CLASS: Record<Variant, string> = {
   amber: "bg-linear-to-br from-[#FFB75E] to-[#E07A0A]",
   sky: "bg-linear-to-br from-[#1E9EED] to-[#090380]",
   plain: "",
 }
-const BTN_CLASS = {
+const BTN_CLASS: Record<Variant, string> = {
   amber: "bg-linear-to-br from-[#FFB75E] to-[#E07A0A] text-white shadow-[0_12px_24px_-10px_rgba(224,122,10,0.35)]",
   sky: "bg-linear-to-br from-[#1E9EED] to-[#090380] text-white shadow-[0_12px_24px_-10px_rgba(9,3,128,0.4)]",
   plain: "border border-primary/40 text-primary",
 }
-const FOOTNOTE_CLASS = {
+const FOOTNOTE_CLASS: Record<Variant, string> = {
   amber: "text-[#E07A0A]",
   sky: "text-primary",
   plain: "text-muted-foreground",
 }
 
-const PLANS = [
+const PLANS: Plan[] = [
   {
     productId: 10, variant: "amber", badge: "新手专享",
     name: "新手旗舰套餐", price: "¥9.9", cycle: "/月", strike: null,
