@@ -37,6 +37,14 @@
                     <div class="flex justify-between text-sm"><span>精神损害</span><span>{{ fmt(output.emotionalDamages) }}</span></div>
                 </template>
 
+                <!-- severance 分支字段（经济补偿金 / 经济赔偿金） -->
+                <template v-else-if="input.type === 'severance'">
+                    <div class="flex justify-between text-sm"><span>工作年限</span><span>{{ output.totalYears }} 年 {{ output.totalMonths }} 个月（计 {{ output.calculatedYears }} 年）</span></div>
+                    <div class="flex justify-between text-sm"><span>计算月工资</span><span>{{ fmt(output.effectiveMonthlyWage) }}</span></div>
+                    <div class="flex justify-between text-sm"><span>基础补偿</span><span>{{ fmt(output.baseAmount) }}</span></div>
+                    <div v-if="Number(output.article40Extra) > 0" class="flex justify-between text-sm"><span>第四十条额外补偿（+1）</span><span>{{ fmt(output.article40Extra) }}</span></div>
+                </template>
+
                 <div class="flex justify-between border-t pt-2 mt-2">
                     <span class="font-semibold">赔偿总额</span>
                     <span class="font-semibold text-primary text-lg">{{ fmt(output.totalCompensation) }}</span>
@@ -383,12 +391,16 @@ function fmt(n: unknown): string {
 }
 
 const compensationTypeText = computed(() => {
+    const t = props.input.type as string
+    if (t === 'severance') {
+        return props.input.severanceSubType === 'damages' ? '经济赔偿金（2N）' : '经济补偿金（N / N+1）'
+    }
     const m: Record<string, string> = {
         workInjury: '工伤赔偿',
         trafficAccident: '交通事故',
         death: '死亡赔偿',
     }
-    return m[props.input.type as string] ?? '—'
+    return m[t] ?? '—'
 })
 
 const lawyerCaseTypeText = computed(() => {

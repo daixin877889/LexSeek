@@ -71,6 +71,7 @@ describe('interestCalculator - 路径 A/B/C + 边界', () => {
             amount: 50000,
             startDate: '2023-01-01',
             endDate: '2024-01-01',
+            lprPeriod: 1,
         })
         expect(interruptMock).not.toHaveBeenCalled()
         expect(calcLPRMock).toHaveBeenCalled()

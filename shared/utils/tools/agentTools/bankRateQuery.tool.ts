@@ -40,7 +40,7 @@ export function createTool(_ctx: ToolContext) {
                 depositRate: getLatestDepositRate(),
                 loanRate: getLatestLoanRate(),
             }
-            return JSON.stringify(result)
+            return JSON.stringify({ ...input, ...result })
         }
 
         if (input.queryType === 'lpr') {

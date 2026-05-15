@@ -63,6 +63,26 @@ export function calculateDateAfterYears(startDate: string, years: number): DateC
 }
 
 /**
+ * 计算两个日期之间的总天数
+ * @param startDate 起始日期，格式YYYY-MM-DD
+ * @param endDate 结束日期，格式YYYY-MM-DD
+ * @returns 计算结果
+ */
+export function calculateTotalDays(startDate: string, endDate: string): WorkingDaysResult {
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    const diffTime = Math.abs(end.getTime() - start.getTime())
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+    return {
+        startDate,
+        endDate,
+        workingDays: diffDays,
+        details: `从${startDate}到${endDate}之间的总天数为${diffDays}天`
+    }
+}
+
+/**
  * 计算两个日期之间的工作日天数（不包括周六日）
  * @param startDate 起始日期，格式YYYY-MM-DD
  * @param endDate 结束日期，格式YYYY-MM-DD

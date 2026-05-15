@@ -32,11 +32,11 @@ describe('courtFeeCalculator - 路径 A/B/C + 嵌套校验', () => {
         calcCourtFeeMock.mockReset().mockReturnValue(defaultResult)
     })
 
-    it('路径 A: caseFee+property 信息充足直算 + 写记忆', async () => {
+    it('路径 A: caseFee+财产案件 信息充足直算 + 写记忆', async () => {
         const toolInstance = createTool({ userId: 1, caseId: 100, sessionId: 's1' })
         const r = await toolInstance.invoke({
             feeTypeLevel1: 'caseFee',
-            nonPropertyType: 'property',
+            caseFeeType: 'property',
             amount: 100000,
         })
         expect(interruptMock).not.toHaveBeenCalled()
@@ -57,6 +57,7 @@ describe('courtFeeCalculator - 路径 A/B/C + 嵌套校验', () => {
         const toolInstance = createTool({ userId: 1, caseId: 100, sessionId: 's1' })
         const r = await toolInstance.invoke({
             feeTypeLevel1: 'applicationFee',
+            applicationFeeType: 'execution',
             amount: 50000,
         })
         expect(interruptMock).not.toHaveBeenCalled()
@@ -69,6 +70,7 @@ describe('courtFeeCalculator - 路径 A/B/C + 嵌套校验', () => {
         const toolInstance = createTool({ userId: 1, caseId: 100, sessionId: 's1' })
         const r = await toolInstance.invoke({
             feeTypeLevel1: 'caseFee',
+            caseFeeType: 'nonProperty',
             nonPropertyType: 'other',
         })
         expect(interruptMock).not.toHaveBeenCalled()
@@ -76,23 +78,34 @@ describe('courtFeeCalculator - 路径 A/B/C + 嵌套校验', () => {
         expect(parsed.totalFee).toBeDefined()
     })
 
-    it('路径 B: caseFee 缺 nonPropertyType → interrupt', async () => {
-        interruptMock.mockReturnValue({ nonPropertyType: 'property', amount: 100000 })
+    it('路径 B: caseFee 缺 caseFeeType → interrupt', async () => {
+        interruptMock.mockReturnValue({ caseFeeType: 'property', amount: 100000 })
         const toolInstance = createTool({ userId: 1, caseId: 100, sessionId: 's1' })
         await toolInstance.invoke({ feeTypeLevel1: 'caseFee' })
         expect(interruptMock).toHaveBeenCalledWith(
             expect.objectContaining({
                 type: 'calculator_input',
                 toolName: 'calculate_court_fee',
+                missing: expect.arrayContaining(['caseFeeType']),
+            }),
+        )
+    })
+
+    it('路径 B: caseFee+非财产 缺 nonPropertyType → interrupt', async () => {
+        interruptMock.mockReturnValue({ nonPropertyType: 'divorce' })
+        const toolInstance = createTool({ userId: 1, caseId: 100, sessionId: 's1' })
+        await toolInstance.invoke({ feeTypeLevel1: 'caseFee', caseFeeType: 'nonProperty' })
+        expect(interruptMock).toHaveBeenCalledWith(
+            expect.objectContaining({
                 missing: expect.arrayContaining(['nonPropertyType']),
             }),
         )
     })
 
-    it('路径 B: caseFee+property 缺 amount → interrupt', async () => {
+    it('路径 B: caseFee+财产案件 缺 amount → interrupt', async () => {
         interruptMock.mockReturnValue({ amount: 100000 })
         const toolInstance = createTool({ userId: 1, caseId: 100, sessionId: 's1' })
-        await toolInstance.invoke({ feeTypeLevel1: 'caseFee', nonPropertyType: 'property' })
+        await toolInstance.invoke({ feeTypeLevel1: 'caseFee', caseFeeType: 'property' })
         expect(interruptMock).toHaveBeenCalledWith(
             expect.objectContaining({
                 missing: expect.arrayContaining(['amount']),
@@ -111,7 +124,7 @@ describe('courtFeeCalculator - 路径 A/B/C + 嵌套校验', () => {
 
     it('ctx.caseId 为空时跳过 L2 查询 + 跳过写入', async () => {
         const toolInstance = createTool({ userId: 1, sessionId: 's1' })
-        await toolInstance.invoke({ feeTypeLevel1: 'caseFee', nonPropertyType: 'property', amount: 100000 })
+        await toolInstance.invoke({ feeTypeLevel1: 'caseFee', caseFeeType: 'property', amount: 100000 })
         expect(findLastCalcMock).not.toHaveBeenCalled()
         expect(writeMemoryMock).not.toHaveBeenCalled()
     })

@@ -13,16 +13,16 @@ import { roundToCents } from './algorithms'
  * @param amount 本金
  * @param startDate 开始日期
  * @param endDate 结束日期
- * @param rate 利率 (%)，仅用于自定义利率模式，其他模式从内置数据获取
+ * @param yearDays 年计息天数，默认 365；传 360 用于商业惯例（按月 30 天）
  * @returns 迟延履行利息计算结果
  */
 export function calculateDelayInterest(
     amount: number | string,
     startDate: string,
     endDate: string,
-    rate?: number | string
+    yearDays?: number | string
 ): DelayInterestResult {
-    logger.debug('迟延履行利息计算开始', { amount, startDate, endDate, rate })
+    logger.debug('迟延履行利息计算开始', { amount, startDate, endDate, yearDays })
 
     const principal = parseFloat(String(amount))
     const start = new Date(startDate)
@@ -34,8 +34,11 @@ export function calculateDelayInterest(
     // 利率转换政策分界点: 2019年8月20日
     const policyChangeDate = new Date('2019-08-20')
 
-    // 默认使用365天作为年计息天数
-    const yearDays = 365
+    // 年计息天数：未传或非法值时默认 365
+    const yearDaysValue = (() => {
+        const parsed = yearDays !== undefined ? parseInt(String(yearDays)) : NaN
+        return parsed === 360 ? 360 : 365
+    })()
 
     // 准备结果
     let totalInterest = 0
@@ -48,13 +51,13 @@ export function calculateDelayInterest(
         logger.debug('跨越政策变更日期的计算')
 
         // 前段计算 - 使用央行基准利率的1.5倍(2019年8月20日前)
-        const periodsBefore = calculateBeforePolicyPeriods(principal, startDate, '2019-08-20', yearDays)
+        const periodsBefore = calculateBeforePolicyPeriods(principal, startDate, '2019-08-20', yearDaysValue)
         totalInterest += periodsBefore.totalInterest
         details = details.concat(periodsBefore.details)
         interestDetails = interestDetails.concat(periodsBefore.interestDetails)
 
         // 后段计算 - 使用LPR的4倍(2019年8月20日后)
-        const periodsAfter = calculateAfterPolicyPeriods(principal, '2019-08-20', endDate, yearDays)
+        const periodsAfter = calculateAfterPolicyPeriods(principal, '2019-08-20', endDate, yearDaysValue)
         totalInterest += periodsAfter.totalInterest
         details = details.concat(periodsAfter.details)
         interestDetails = interestDetails.concat(periodsAfter.interestDetails)
@@ -68,7 +71,7 @@ export function calculateDelayInterest(
         // 2. 完全在2019年8月20日后的情况 - 使用LPR的4倍
         logger.debug('完全在政策变更日期后的计算')
 
-        const periodsAfter = calculateAfterPolicyPeriods(principal, startDate, endDate, yearDays)
+        const periodsAfter = calculateAfterPolicyPeriods(principal, startDate, endDate, yearDaysValue)
         totalInterest = periodsAfter.totalInterest
         details = periodsAfter.details
         interestDetails = periodsAfter.interestDetails
@@ -82,7 +85,7 @@ export function calculateDelayInterest(
         // 3. 完全在2019年8月20日前的情况 - 使用央行基准利率的1.5倍
         logger.debug('完全在政策变更日期前的计算')
 
-        const periodsBefore = calculateBeforePolicyPeriods(principal, startDate, endDate, yearDays)
+        const periodsBefore = calculateBeforePolicyPeriods(principal, startDate, endDate, yearDaysValue)
         totalInterest = periodsBefore.totalInterest
         details = periodsBefore.details
         interestDetails = periodsBefore.interestDetails

@@ -33,7 +33,7 @@ const REQUIRED_FIELDS = ['monthlySalary', 'months']
 
 export const toolDefinition: ToolDefinition<typeof schema> = {
     name: 'calculate_social_insurance_backpay',
-    description: '社保追缴计算：根据月工资基数和追缴月数，计算养老保险、医疗保险、失业保险、工伤保险、生育保险、住房公积金的个人及单位应缴金额汇总，适用于劳动争议社保补缴场景。必填字段缺失时通过 interrupt 让用户补全。',
+    description: '社保追缴计算：根据月工资基数和追缴月数，计算养老保险、医疗保险、失业保险、工伤保险、生育保险、住房公积金的个人及单位应缴金额汇总，适用于劳动争议社保补缴场景。数值参数（金额、时长、数量、档位枚举等）必须由用户在自然语言里明确告知；用户未告知时该字段必须留空，工具会自动弹 inline 卡片让用户补全；严禁猜测、估算或套用默认值。',
     schema,
 }
 
@@ -52,7 +52,7 @@ export function createTool(ctx: ToolContext) {
 
         // ③ 信息不足 → interrupt
         if (missing.length > 0) {
-            const resumed = interrupt({
+            const resumedRaw = interrupt({
                 toolCallId: (cfg as any)?.toolCall?.id ?? "",
                 type: InterruptType.CALCULATOR_INPUT,
                 toolName: 'calculate_social_insurance_backpay',
@@ -60,13 +60,26 @@ export function createTool(ctx: ToolContext) {
                 missing,
             }) as unknown
 
+            if (resumedRaw === null) {
+                return JSON.stringify({ cancelled: true, reason: '用户取消了本次计算' })
+            }
+            if (!resumedRaw || typeof resumedRaw !== 'object') {
+                throw new Error(`calculate_social_insurance_backpay: resume payload 非法 (${typeof resumedRaw})`)
+            }
+            // LangGraph Command resume payload 形如 { resume: { [toolCallId]: realValue } } 双层包装；
+            // 与 reviewContract.tool.ts 对齐做两层 unwrap，缺一层会导致 merged.* 全部 undefined。
+            const tcId = (cfg as any)?.toolCall?.id ?? ''
+            const layer1 = (resumedRaw as { resume?: unknown }).resume ?? resumedRaw
+            const resumed = (layer1 && typeof layer1 === 'object' && tcId && tcId in (layer1 as Record<string, unknown>)
+                ? (layer1 as Record<string, unknown>)[tcId]
+                : layer1) as Record<string, unknown> | null
             if (resumed === null) {
                 return JSON.stringify({ cancelled: true, reason: '用户取消了本次计算' })
             }
             if (!resumed || typeof resumed !== 'object') {
-                throw new Error(`calculate_social_insurance_backpay: resume payload 非法 (${typeof resumed})`)
+                throw new Error(`resume payload 解包后非对象 (${typeof resumed})`)
             }
-            merged = { ...merged, ...(resumed as Record<string, unknown>) }
+            merged = { ...merged, ...resumed }
         }
 
         // ④ 调 service 算结果（构造可选 rates 参数）
@@ -118,6 +131,6 @@ export function createTool(ctx: ToolContext) {
             })
         }
 
-        return JSON.stringify(result)
+        return JSON.stringify({ ...merged, ...(result as Record<string, unknown>) })
     }, toolDefinition)
 }

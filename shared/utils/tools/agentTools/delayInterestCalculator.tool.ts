@@ -21,13 +21,14 @@ const schema = z.object({
     amount: z.number().positive().optional().describe('本金金额（元），必填'),
     startDate: z.string().optional().describe('迟延履行开始日期，格式 YYYY-MM-DD，必填'),
     endDate: z.string().optional().describe('迟延履行结束日期，格式 YYYY-MM-DD，必填'),
+    yearDays: z.enum(['365', '360']).optional().describe('年计息天数，可选；365 为日历年（默认），360 为商业惯例（按月 30 天）'),
 })
 
 const REQUIRED_FIELDS = ['amount', 'startDate', 'endDate']
 
 export const toolDefinition: ToolDefinition<typeof schema> = {
     name: 'calculate_delay_interest',
-    description: '迟延履行利息计算：根据判决确定的本金、迟延期间起止日期，依据司法解释规则（2019年8月20日前用央行基准利率1.5倍，之后用LPR 4倍）计算迟延履行利息。必填字段缺失时通过 interrupt 让用户补全。',
+    description: '迟延履行利息计算：根据判决确定的本金、迟延期间起止日期，依据司法解释规则（2019年8月20日前用央行基准利率1.5倍，之后用LPR 4倍）计算迟延履行利息。数值参数（金额、时长、数量、档位枚举等）必须由用户在自然语言里明确告知；用户未告知时该字段必须留空，工具会自动弹 inline 卡片让用户补全；严禁猜测、估算或套用默认值。',
     schema,
 }
 
@@ -46,7 +47,7 @@ export function createTool(ctx: ToolContext) {
 
         // ③ 信息不足 → interrupt
         if (missing.length > 0) {
-            const resumed = interrupt({
+            const resumedRaw = interrupt({
                 toolCallId: (cfg as any)?.toolCall?.id ?? "",
                 type: InterruptType.CALCULATOR_INPUT,
                 toolName: 'calculate_delay_interest',
@@ -54,13 +55,26 @@ export function createTool(ctx: ToolContext) {
                 missing,
             }) as unknown
 
+            if (resumedRaw === null) {
+                return JSON.stringify({ cancelled: true, reason: '用户取消了本次计算' })
+            }
+            if (!resumedRaw || typeof resumedRaw !== 'object') {
+                throw new Error(`calculate_delay_interest: resume payload 非法 (${typeof resumedRaw})`)
+            }
+            // LangGraph Command resume payload 形如 { resume: { [toolCallId]: realValue } } 双层包装；
+            // 与 reviewContract.tool.ts 对齐做两层 unwrap，缺一层会导致 merged.* 全部 undefined。
+            const tcId = (cfg as any)?.toolCall?.id ?? ''
+            const layer1 = (resumedRaw as { resume?: unknown }).resume ?? resumedRaw
+            const resumed = (layer1 && typeof layer1 === 'object' && tcId && tcId in (layer1 as Record<string, unknown>)
+                ? (layer1 as Record<string, unknown>)[tcId]
+                : layer1) as Record<string, unknown> | null
             if (resumed === null) {
                 return JSON.stringify({ cancelled: true, reason: '用户取消了本次计算' })
             }
             if (!resumed || typeof resumed !== 'object') {
-                throw new Error(`calculate_delay_interest: resume payload 非法 (${typeof resumed})`)
+                throw new Error(`resume payload 解包后非对象 (${typeof resumed})`)
             }
-            merged = { ...merged, ...(resumed as Record<string, unknown>) }
+            merged = { ...merged, ...resumed }
         }
 
         // ④ 调 service 算结果
@@ -70,6 +84,7 @@ export function createTool(ctx: ToolContext) {
                 merged.amount as number,
                 merged.startDate as string,
                 merged.endDate as string,
+                merged.yearDays as string | undefined,
             ) as unknown as Record<string, unknown>
         } catch (err) {
             logger.error('[calculate_delay_interest] 计算失败', err)
@@ -100,6 +115,6 @@ export function createTool(ctx: ToolContext) {
             })
         }
 
-        return JSON.stringify(result)
+        return JSON.stringify({ ...merged, ...(result as Record<string, unknown>) })
     }, toolDefinition)
 }

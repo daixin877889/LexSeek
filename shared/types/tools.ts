@@ -69,6 +69,23 @@ export interface DeathCompensationResult {
     details: string[]
 }
 
+// ============ 经济补偿金 / 经济赔偿金 ============
+export type SeveranceSubType = 'compensation' | 'damages'
+
+export interface SeveranceCompensationResult {
+    subType: SeveranceSubType
+    totalYears: number
+    totalMonths: number
+    totalDays: number
+    calculatedYears: number
+    effectiveMonthlyWage: number
+    isAboveLimit: boolean
+    baseAmount: number
+    article40Extra: number
+    totalCompensation: number
+    details: string[]
+}
+
 // ============ 诉讼费用计算 ============
 export type FeeTypeLevel1 = 'caseFee' | 'applicationFee'
 export type CaseFeeType = 'property' | 'nonProperty' | 'intellectualProperty' | 'labor' | 'administrative' | 'jurisdiction'

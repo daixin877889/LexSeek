@@ -16,6 +16,7 @@ import {
     calculateDateAfterDays,
     calculateDateAfterMonths,
     calculateDateAfterYears,
+    calculateTotalDays,
     calculateWorkingDays,
     calculateLegalDeadline,
     calculateLimitationPeriod,
@@ -26,8 +27,8 @@ import {
 } from '~~/server/services/memory/memory.service'
 
 const schema = z.object({
-    mode: z.enum(['addDays', 'addMonths', 'addYears', 'workingDays', 'legalDeadline', 'limitation']).describe(
-        '计算模式：addDays（加减天数）、addMonths（加减月数）、addYears（加减年数）、workingDays（两日期间工作日天数）、legalDeadline（法定期限截止日）、limitation（诉讼时效期限）'
+    mode: z.enum(['addDays', 'addMonths', 'addYears', 'totalDays', 'workingDays', 'legalDeadline', 'limitation']).describe(
+        '计算模式：addDays（加减天数）、addMonths（加减月数）、addYears（加减年数）、totalDays（两日期间总天数）、workingDays（两日期间工作日天数）、legalDeadline（法定期限截止日）、limitation（诉讼时效期限）'
     ),
     startDate: z.string().optional().describe('起始日期，格式 YYYY-MM-DD，必填'),
     endDate: z.string().optional().describe('结束日期，格式 YYYY-MM-DD，mode=workingDays 时必填'),
@@ -45,6 +46,7 @@ const REQUIRED_FIELDS_BY_BRANCH: Record<string, string[]> = {
     addDays: ['startDate', 'days'],
     addMonths: ['startDate', 'months'],
     addYears: ['startDate', 'years'],
+    totalDays: ['startDate', 'endDate'],
     workingDays: ['startDate', 'endDate'],
     legalDeadline: ['startDate', 'days'],
     limitation: ['startDate'],
@@ -53,9 +55,9 @@ const REQUIRED_FIELDS_BY_BRANCH: Record<string, string[]> = {
 export const toolDefinition: ToolDefinition<typeof schema> = {
     name: 'calculate_date',
     description:
-        '法律日期计算：支持从起始日期加减天数/月数/年数推算目标日期、计算两日期间工作日天数、' +
-        '计算法定期限截止日、计算诉讼时效到期日，适用于起诉期限、合同履行期、证据保全期等场景。' +
-        '必填字段缺失时通过 interrupt 让用户补全。',
+        '法律日期计算：支持从起始日期加减天数/月数/年数推算目标日期、计算两日期间总天数或工作日天数、' +
+        '计算法定期限截止日、计算诉讼时效到期日，适用于起诉期限、合同履行期、证据保全期、案件时间跨度计算等场景。' +
+        '数值参数（金额、时长、数量、档位枚举等）必须由用户在自然语言里明确告知；用户未告知时该字段必须留空，工具会自动弹 inline 卡片让用户补全；严禁猜测、估算或套用默认值。',
     schema,
 }
 
@@ -67,15 +69,20 @@ export function createTool(ctx: ToolContext) {
             : null
         let merged = { ...(memoryCalc?.input ?? {}), ...input } as Record<string, unknown>
 
-        // ② 必填校验：按当前分支找缺失字段
-        const required = REQUIRED_FIELDS_BY_BRANCH[merged.mode as string] ?? []
-        const missing = required.filter(
-            (f) => merged[f] === undefined || merged[f] === null || merged[f] === '',
-        )
+        // ② 必填校验：mode 必填，然后按分支找缺失字段
+        const missing = []
+        if (!merged.mode || merged.mode === '') {
+            missing.push('mode')
+        } else {
+            const required = REQUIRED_FIELDS_BY_BRANCH[merged.mode as string] ?? []
+            missing.push(
+                ...required.filter((f) => merged[f] === undefined || merged[f] === null || merged[f] === '')
+            )
+        }
 
         // ③ 信息不足 → interrupt
         if (missing.length > 0) {
-            const resumed = interrupt({
+            const resumedRaw = interrupt({
                 toolCallId: (cfg as any)?.toolCall?.id ?? "",
                 type: InterruptType.CALCULATOR_INPUT,
                 toolName: 'calculate_date',
@@ -83,13 +90,26 @@ export function createTool(ctx: ToolContext) {
                 missing,
             }) as unknown
 
+            if (resumedRaw === null) {
+                return JSON.stringify({ cancelled: true, reason: '用户取消了本次计算' })
+            }
+            if (!resumedRaw || typeof resumedRaw !== 'object') {
+                throw new Error(`calculate_date: resume payload 非法 (${typeof resumedRaw})`)
+            }
+            // LangGraph Command resume payload 形如 { resume: { [toolCallId]: realValue } } 双层包装；
+            // 与 reviewContract.tool.ts 对齐做两层 unwrap，缺一层会导致 merged.* 全部 undefined。
+            const tcId = (cfg as any)?.toolCall?.id ?? ''
+            const layer1 = (resumedRaw as { resume?: unknown }).resume ?? resumedRaw
+            const resumed = (layer1 && typeof layer1 === 'object' && tcId && tcId in (layer1 as Record<string, unknown>)
+                ? (layer1 as Record<string, unknown>)[tcId]
+                : layer1) as Record<string, unknown> | null
             if (resumed === null) {
                 return JSON.stringify({ cancelled: true, reason: '用户取消了本次计算' })
             }
             if (!resumed || typeof resumed !== 'object') {
-                throw new Error(`calculate_date: resume payload 非法 (${typeof resumed})`)
+                throw new Error(`resume payload 解包后非对象 (${typeof resumed})`)
             }
-            merged = { ...merged, ...(resumed as Record<string, unknown>) }
+            merged = { ...merged, ...resumed }
         }
 
         // ④ 调 service 算结果
@@ -104,6 +124,9 @@ export function createTool(ctx: ToolContext) {
                     break
                 case 'addYears':
                     result = calculateDateAfterYears(merged.startDate as string, merged.years as number)
+                    break
+                case 'totalDays':
+                    result = calculateTotalDays(merged.startDate as string, (merged.endDate as string) ?? merged.startDate as string)
                     break
                 case 'workingDays':
                     result = calculateWorkingDays(merged.startDate as string, (merged.endDate as string) ?? merged.startDate as string)
@@ -155,6 +178,6 @@ export function createTool(ctx: ToolContext) {
             })
         }
 
-        return JSON.stringify(result)
+        return JSON.stringify({ ...merged, ...(result as Record<string, unknown>) })
     }, toolDefinition)
 }

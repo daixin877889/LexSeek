@@ -14,7 +14,7 @@
         <div v-else-if="meta.branchField && meta.branchUiType === 'select'" class="space-y-1.5">
             <Label>{{ branchFieldLabel }}</Label>
             <Select :model-value="branchValue" @update:model-value="onBranchChange">
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger class="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                     <SelectItem v-for="opt in meta.branchOptions" :key="opt.value" :value="opt.value">
                         {{ opt.label }}
@@ -36,14 +36,18 @@
 
         <!-- 字段网格 -->
         <div class="grid grid-cols-2 gap-3">
-            <div v-for="field in visibleFields" :key="field.name" class="space-y-1.5">
-                <Label>
-                    <span v-if="isRequired(field)" class="text-destructive mr-1">*</span>
-                    {{ field.label }}
-                    <Badge v-if="isPrefilled(field) && !isMissing(field)" variant="secondary" class="ml-2 text-xs">
+            <div v-for="field in visibleFields" :key="field.name" class="space-y-1.5"
+                 :class="{ 'col-span-2': isLongLabel(field) }">
+                <Label class="flex flex-wrap items-center gap-1.5">
+                    <span class="inline-flex items-baseline">
+                        <span v-if="isRequired(field)" class="text-destructive mr-0.5">*</span>
+                        <span>{{ field.label }}</span>
+                        <span v-if="field.unit" class="text-muted-foreground">（{{ field.unit }}）</span>
+                    </span>
+                    <Badge v-if="isPrefilled(field) && !isMissing(field)" variant="secondary" class="text-xs">
                         已自动填入
                     </Badge>
-                    <Badge v-if="isMissing(field)" variant="destructive" class="ml-2 text-xs">需补全</Badge>
+                    <Badge v-if="isMissing(field)" variant="destructive" class="text-xs">需补全</Badge>
                 </Label>
 
                 <!-- 数字输入 -->
@@ -57,14 +61,29 @@
                 <!-- 下拉选择 -->
                 <Select v-else-if="field.type === 'select'"
                         :model-value="String(formData[field.name] ?? '')"
-                        @update:model-value="(v: any) => onFieldInput(field.name, v)">
-                    <SelectTrigger><SelectValue placeholder="请选择" /></SelectTrigger>
+                        @update:model-value="(v: any) => onSelectInput(field.name, v)">
+                    <SelectTrigger class="w-full"><SelectValue placeholder="请选择" /></SelectTrigger>
                     <SelectContent>
                         <SelectItem v-for="opt in field.options" :key="opt.value" :value="opt.value">
                             {{ opt.label }}
                         </SelectItem>
                     </SelectContent>
                 </Select>
+
+                <!-- 日期选择（统一用 shadcn-vue 封装的 DatePicker） -->
+                <DatePicker v-else-if="field.type === 'date'"
+                            :model-value="formData[field.name] ?? null"
+                            :class="fieldClass(field)"
+                            @update:model-value="(v: string | null) => onFieldInput(field.name, v ?? undefined)" />
+
+                <!-- 布尔（开关）-->
+                <div v-else-if="field.type === 'boolean'" class="flex items-center h-9">
+                    <Switch :model-value="formData[field.name] === true"
+                            @update:model-value="(v: any) => onFieldInput(field.name, v)" />
+                    <span class="ml-2 text-sm text-muted-foreground">
+                        {{ formData[field.name] === true ? '是' : '否' }}
+                    </span>
+                </div>
 
                 <!-- 文本输入（兜底） -->
                 <Input v-else :model-value="formData[field.name]" :placeholder="field.placeholder"
@@ -82,6 +101,8 @@ import { RadioGroup, RadioGroupItem } from '~/components/ui/radio-group'
 import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
 import { Badge } from '~/components/ui/badge'
+import { Switch } from '~/components/ui/switch'
+import DatePicker from '~/components/general/DatePicker.vue'
 import { CALCULATOR_TOOL_META, type CalcFieldMeta } from '#shared/utils/tools/agentTools/_fieldMetadata'
 
 const props = defineProps<{
@@ -110,8 +131,8 @@ const branchValue = computed(() =>
 const branchFieldLabel = computed(() => {
     const m: Record<string, string> = {
         type: '赔偿类型',
-        caseType: '案件类型',
-        mode: '计算模式',
+        caseType: '服务类型',
+        mode: '计算方式',
         feeTypeLevel1: '费用类型',
         queryType: '查询类型',
     }
@@ -130,9 +151,16 @@ const visibleFields = computed<CalcFieldMeta[]>(() => {
     return names
         .map((n) => meta.value.fields.find((f) => f.name === n))
         .filter((f): f is CalcFieldMeta => !!f)
+        // 字段级条件可见：showWhen 指定的依赖字段当前值不在 in 列表时隐藏
+        .filter((f) => {
+            if (!f.showWhen) return true
+            return f.showWhen.in.includes(String(formData.value[f.showWhen.field]))
+        })
 })
 
 function isRequired(f: CalcFieldMeta): boolean {
+    // showWhen 隐藏的字段不计必填（避免用户填不到的字段卡住提交）
+    if (f.showWhen && !f.showWhen.in.includes(String(formData.value[f.showWhen.field]))) return false
     return !!(f.required || f.requiredBy?.[branchValue.value])
 }
 
@@ -144,6 +172,12 @@ function isPrefilled(f: CalcFieldMeta): boolean {
     return props.prefilled[f.name] !== undefined
 }
 
+/** label + unit 总长超 8 字（中文宽字符）时该字段占整行，避免在 grid-cols-2 半列宽下被 badge 挤压折行 */
+function isLongLabel(f: CalcFieldMeta): boolean {
+    const len = f.label.length + (f.unit ? f.unit.length + 2 : 0)
+    return len > 8
+}
+
 function fieldClass(f: CalcFieldMeta): string {
     if (isMissing(f)) return 'border-destructive'
     if (isPrefilled(f)) return 'bg-primary/5'
@@ -152,6 +186,12 @@ function fieldClass(f: CalcFieldMeta): string {
 
 function onFieldInput(name: string, value: any) {
     emit('update:modelValue', { ...formData.value, [name]: value })
+}
+
+/** select 字段：纯数字字符串自动转 number（如伤残等级 '5' → 5），避免 service 收到字符串拿不到数据 */
+function onSelectInput(name: string, value: any) {
+    const coerced = typeof value === 'string' && /^-?\d+(\.\d+)?$/.test(value) ? Number(value) : value
+    emit('update:modelValue', { ...formData.value, [name]: coerced })
 }
 
 function onBranchChange(v: any) {

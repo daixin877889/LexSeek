@@ -1145,3 +1145,115 @@ export function calculateLoanInterest(
         }
     }
 }
+
+/**
+ * 自动分段利息计算：以 2019-08-20（LPR 实施日）为分界，
+ * 早段用 PBOC 基准利率、晚段用 LPR 利率，跨段时合并两段结果。
+ * @param principal 本金
+ * @param startDate 开始日期 YYYY-MM-DD
+ * @param endDate 结束日期 YYYY-MM-DD
+ * @param lprPeriod LPR 期限档（1=一年期，2=五年期以上）
+ * @param pbocPeriod PBOC 期限档（1-5）
+ * @param adjustmentMethod 利率调整方式（'无'/'上浮'/'下浮'/'倍率'/'加点'/'减点'）
+ * @param adjustmentValue 利率调整值
+ * @param yearDays 年计息天数（默认 360）
+ */
+export interface AutoSegmentInterestResult {
+    amount: number
+    startDate: string
+    endDate: string
+    days: number
+    totalInterest: number
+    total: number
+    details: string[]
+    interestDetails: InterestDetail[]
+    pbocResult?: PBOCInterestResult
+    lprResult?: LPRInterestResult
+}
+
+export function calculateAutoSegmentInterest(
+    principal: number | string,
+    startDate: string,
+    endDate: string,
+    lprPeriod: number | string,
+    pbocPeriod: number | string,
+    adjustmentMethod: AdjustmentMethod = '无',
+    adjustmentValue: number | string = 0,
+    yearDays: number | string = 360
+): AutoSegmentInterestResult {
+    const principalNum = parseFloat(String(principal))
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    const lprStartDate = new Date('2019-08-20')
+
+    // PBOC 期限到 LPR 期限的映射（一至三年/三至五年/五年以上 → LPR 5 年期以上）
+    const mappedLprPeriod = parseInt(String(pbocPeriod)) >= 3 ? '2' : '1'
+
+    if (end < lprStartDate) {
+        // 全部使用 PBOC 基准利率
+        const pbocResult = calculatePBOCInterest(
+            principalNum, startDate, endDate, pbocPeriod,
+            adjustmentMethod, adjustmentValue, yearDays,
+        )
+        return {
+            amount: principalNum,
+            startDate,
+            endDate,
+            days: pbocResult.days,
+            totalInterest: pbocResult.totalInterest,
+            total: principalNum + pbocResult.totalInterest,
+            details: ['自动分段：全部使用基准利率（早于 LPR 实施日 2019-08-20）', ...(pbocResult.details ?? [])],
+            interestDetails: pbocResult.interestDetails ?? [],
+        }
+    }
+
+    if (start >= lprStartDate) {
+        // 全部使用 LPR
+        const lprResult = calculateLPRInterest(
+            principalNum, startDate, endDate, mappedLprPeriod,
+            adjustmentMethod, adjustmentValue, yearDays,
+        )
+        return {
+            amount: principalNum,
+            startDate,
+            endDate,
+            days: lprResult.days,
+            totalInterest: lprResult.totalInterest,
+            total: principalNum + lprResult.totalInterest,
+            details: ['自动分段：全部使用 LPR 利率（晚于 LPR 实施日 2019-08-20）', ...(lprResult.details ?? [])],
+            interestDetails: lprResult.interestDetails ?? [],
+        }
+    }
+
+    // 跨段：startDate ~ 2019-08-19 用 PBOC；2019-08-20 ~ endDate 用 LPR
+    const pbocEndDate = new Date(lprStartDate)
+    pbocEndDate.setDate(pbocEndDate.getDate() - 1)
+    const pbocResult = calculatePBOCInterest(
+        principalNum, startDate, formatDate(pbocEndDate), pbocPeriod,
+        adjustmentMethod, adjustmentValue, yearDays,
+    )
+    const lprResult = calculateLPRInterest(
+        principalNum, formatDate(lprStartDate), endDate, mappedLprPeriod,
+        adjustmentMethod, adjustmentValue, yearDays,
+    )
+    const totalInterest = (pbocResult.totalInterest || 0) + (lprResult.totalInterest || 0)
+    const totalDays = (pbocResult.days || 0) + (lprResult.days || 0)
+
+    return {
+        amount: principalNum,
+        startDate,
+        endDate,
+        days: totalDays,
+        totalInterest,
+        total: principalNum + totalInterest,
+        details: [
+            `自动分段：计算期跨越 LPR 实施日 2019-08-20，分两段计算`,
+            `第一段（基准利率，${startDate} 至 2019-08-19）：利息 ${pbocResult.totalInterest.toFixed(2)} 元，${pbocResult.days} 天`,
+            `第二段（LPR 利率，2019-08-20 至 ${endDate}）：利息 ${lprResult.totalInterest.toFixed(2)} 元，${lprResult.days} 天`,
+            `合计：本金 ${principalNum.toFixed(2)} 元，利息 ${totalInterest.toFixed(2)} 元，本息合计 ${(principalNum + totalInterest).toFixed(2)} 元`,
+        ],
+        interestDetails: [...(pbocResult.interestDetails ?? []), ...(lprResult.interestDetails ?? [])],
+        pbocResult,
+        lprResult,
+    }
+}

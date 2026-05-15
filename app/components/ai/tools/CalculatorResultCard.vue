@@ -35,7 +35,15 @@ const parsedOutput = computed<Record<string, any>>(() => {
     return {}
 })
 
-const parsedInput = computed<Record<string, any>>(() => props.input ?? {})
+/**
+ * 合并输入：toolCall.args（LLM 原始入参，多半只有分支字段）+ output 里 echo 的 merged 字段。
+ * 工具实现里 `return JSON.stringify({ ...merged, ...result })`，所以 output 里包含用户在 interrupt 卡片
+ * 填的全部字段；这里以 output 为主、args 兜底，保证 result body 拿到完整 input。
+ */
+const parsedInput = computed<Record<string, any>>(() => ({
+    ...(props.input ?? {}),
+    ...parsedOutput.value,
+}))
 
 const isRunning = computed(() =>
     props.state === 'input-streaming' || props.state === 'input-available',
