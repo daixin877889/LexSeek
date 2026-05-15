@@ -1,12 +1,9 @@
 <template>
-  <div class="min-h-screen bg-background flex">
-    <!-- 左侧背景图 -->
-    <general-auth-sidebar />
+  <div class="theme-brand grid min-h-screen bg-background lg:grid-cols-2">
+    <GeneralAuthSidebar />
 
-    <!-- 右侧重置密码区域 -->
-    <div class="flex-1 flex flex-col justify-center items-center px-4 sm:px-6 lg:flex-none lg:w-1/2 relative">
-      <!-- 主题切换按钮 -->
-      <div class="absolute top-4 right-4">
+    <div class="relative flex items-center justify-center bg-[image:var(--wash-page)] px-6 py-12">
+      <div class="absolute right-4 top-4">
         <ClientOnly>
           <GeneralThemeToggle />
         </ClientOnly>
@@ -14,129 +11,162 @@
       <ClientOnly>
         <AuthAliyunCaptchaHost scene="resetPasswordSms" />
       </ClientOnly>
-      <div class="mx-auto w-full max-w-sm lg:w-96">
-        <div class="text-center mb-8">
-          <div class="flex justify-center items-center gap-2 mb-2">
-            <scale-icon class="h-8 w-8 text-primary" />
-            <h1 class="text-2xl font-bold">LexSeek</h1>
-          </div>
-          <h2 class="text-xl font-semibold">重置密码</h2>
+
+      <div class="w-full max-w-[420px]">
+        <div class="mb-6 flex items-center gap-2.5 lg:hidden">
+          <img src="/logo.svg" alt="" class="size-9">
+          <span translate="no" class="text-[18px] font-bold">
+            LexSeek<span class="font-normal text-muted-foreground mx-1">｜</span><span class="font-semibold">法索 AI</span>
+          </span>
         </div>
 
-        <div class="bg-card border rounded-lg p-6 shadow-sm">
-          <form @submit.prevent="handleResetPassword" class="space-y-5">
-            <div>
-              <label for="phone" class="block text-sm font-medium mb-1"> <span
-                  class="text-red-500 ml-0.5">*</span>手机号</label>
-              <div class="relative w-full">
-                <Input id="phone" v-model="formData.phone" type="tel" autocomplete="tel" required @input="phoneMsg"
-                  class="h-10 w-full px-3 py-2 border rounded-md text-base" placeholder="请输入您的手机号" />
-                <Button type="button" @click="getVerificationCode"
-                  :disabled="isGettingCode || isCoolingDown || !validatePhone(formData.phone)"
-                  class="absolute right-0 top-0 h-10 px-3 py-2 bg-primary text-primary-foreground rounded-r-md rounded-l-none hover:bg-primary/90 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap">
-                  {{ countdown > 0 ? `${countdown}秒后重试` : "获取验证码" }}
-                </Button>
-              </div>
-              <span v-show="errMsg.phone" class="text-red-500 ml-0.5 text-xs">{{ errMsg.phone }}</span>
-            </div>
+        <NuxtLink
+          to="/login"
+          class="mb-4 inline-flex items-center gap-1 text-[13px] font-medium text-muted-foreground transition-colors hover:text-primary"
+        >
+          <ChevronLeft class="size-3.5" />
+          返回登录
+        </NuxtLink>
 
-            <div>
-              <label for="verificationCode" class="block text-sm font-medium mb-1"> <span
-                  class="text-red-500 ml-0.5">*</span>验证码</label>
-              <Input id="verificationCode" v-model="formData.verificationCode" type="text" autocomplete="one-time-code" required
-                @input="verificationCodeMsg" class="h-10 w-full px-3 py-2 border rounded-md text-base"
-                placeholder="请输入短信验证码" />
-              <span v-show="errMsg.verificationCode" class="text-red-500 ml-0.5 text-xs">{{ errMsg.verificationCode
-              }}</span>
-            </div>
+        <h3 class="mb-2 text-[28px] font-bold leading-[1.2]">重置密码</h3>
+        <p class="mb-7 text-[14.5px] leading-[1.5] text-muted-foreground">通过手机号验证身份，即可设置新的登录密码</p>
 
-            <div>
-              <label for="password" class="block text-sm font-medium mb-1"> <span
-                  class="text-red-500 ml-0.5">*</span>密码</label>
-              <div class="relative">
-                <Input id="password" v-model="formData.password" :type="showPassword ? 'text' : 'password'"
-                  autocomplete="new-password" required @input="passwordMsg"
-                  class="h-10 w-full px-3 py-2 border rounded-md text-base" placeholder="请设置新密码" />
-                <button type="button" @click="showPassword = !showPassword"
-                  class="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
-                  <eye-icon v-if="!showPassword" class="h-4 w-4" />
-                  <eye-off-icon v-else class="h-4 w-4" />
-                </button>
-              </div>
-              <span v-show="errMsg.password" class="text-red-500 ml-0.5 text-xs">{{ errMsg.password }}</span>
-            </div>
-
-            <div>
-              <label for="confirmPassword" class="block text-sm font-medium mb-1"> <span
-                  class="text-red-500 ml-0.5">*</span>确认密码</label>
-              <div class="relative">
-                <Input id="confirmPassword" v-model="formData.confirmPassword"
-                  :type="showConfirmPassword ? 'text' : 'password'" autocomplete="new-password" required
-                  @input="confirmPasswordMsg" class="h-10 w-full px-3 py-2 border rounded-md text-base"
-                  placeholder="请再次输入新密码" />
-                <button type="button" @click="showConfirmPassword = !showConfirmPassword"
-                  class="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
-                  <eye-icon v-if="!showConfirmPassword" class="h-4 w-4" />
-                  <eye-off-icon v-else class="h-4 w-4" />
-                </button>
-              </div>
-              <span v-show="errMsg.confirmPassword" class="text-red-500 ml-0.5 text-xs">{{ errMsg.confirmPassword
-              }}</span>
-            </div>
-
-            <div>
-              <Button type="submit" :disabled="authStore.loading || !isFormValid"
-                class="w-full flex h-10 justify-center items-center py-2.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors font-medium">
-                <loader-2 v-if="authStore.loading" class="w-4 h-4 mr-2 animate-spin" />
-                {{ authStore.loading ? "重置中..." : "重置密码" }}
-              </Button>
-            </div>
-
-            <!-- 错误信息显示 -->
-            <div v-if="authStore.error" class="mt-2 text-center">
-              <p class="text-sm text-red-500">{{ authStore.error }}</p>
-            </div>
-          </form>
-
-          <div class="mt-6 text-center">
-            <p class="text-sm text-muted-foreground">
-              想起密码了?
-              <NuxtLink to="/login" class="text-primary hover:underline font-medium"> 返回登录 </NuxtLink>
-            </p>
+        <form class="flex flex-col gap-4" @submit.prevent="handleResetPassword">
+          <div>
+            <label for="phone" class="mb-1.5 block text-[13.5px] font-medium">
+              <span class="mr-0.5 text-red-500">*</span>手机号
+            </label>
+            <Input id="phone" v-model="formData.phone" type="tel" autocomplete="tel" placeholder="请输入您的手机号" @input="phoneMsg" />
+            <p v-show="errMsg.phone" class="mt-1 text-[12px] text-red-500">{{ errMsg.phone }}</p>
           </div>
-        </div>
+
+          <div>
+            <label for="verificationCode" class="mb-1.5 block text-[13.5px] font-medium">
+              <span class="mr-0.5 text-red-500">*</span>验证码
+            </label>
+            <div class="flex gap-2.5">
+              <Input
+                id="verificationCode"
+                v-model="formData.verificationCode"
+                type="text"
+                autocomplete="one-time-code"
+                placeholder="请输入短信验证码"
+                class="flex-1"
+                @input="verificationCodeMsg"
+              />
+              <button
+                type="button"
+                :disabled="isGettingCode || isCoolingDown || !validatePhone(formData.phone)"
+                class="shrink-0 whitespace-nowrap rounded-md border border-primary/40 px-3.5 text-[13px] font-semibold text-primary transition hover:bg-primary/5 disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground"
+                @click="getVerificationCode"
+              >{{ countdown > 0 ? `${countdown}秒后重试` : "获取验证码" }}</button>
+            </div>
+            <p v-show="errMsg.verificationCode" class="mt-1 text-[12px] text-red-500">{{ errMsg.verificationCode }}</p>
+          </div>
+
+          <div>
+            <label for="password" class="mb-1.5 block text-[13.5px] font-medium">
+              <span class="mr-0.5 text-red-500">*</span>新密码
+            </label>
+            <div class="relative">
+              <Input
+                id="password"
+                v-model="formData.password"
+                :type="showPassword ? 'text' : 'password'"
+                autocomplete="new-password"
+                placeholder="请设置至少 8 位新密码"
+                class="pr-10"
+                @input="passwordMsg"
+              />
+              <button
+                type="button"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                aria-label="切换密码可见"
+                @click="showPassword = !showPassword"
+              >
+                <EyeOffIcon v-if="showPassword" class="size-4" />
+                <EyeIcon v-else class="size-4" />
+              </button>
+            </div>
+            <p v-show="errMsg.password" class="mt-1 text-[12px] text-red-500">{{ errMsg.password }}</p>
+          </div>
+
+          <div>
+            <label for="confirmPassword" class="mb-1.5 block text-[13.5px] font-medium">
+              <span class="mr-0.5 text-red-500">*</span>确认密码
+            </label>
+            <div class="relative">
+              <Input
+                id="confirmPassword"
+                v-model="formData.confirmPassword"
+                :type="showConfirmPassword ? 'text' : 'password'"
+                autocomplete="new-password"
+                placeholder="请再次输入新密码"
+                class="pr-10"
+                @input="confirmPasswordMsg"
+              />
+              <button
+                type="button"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                aria-label="切换密码可见"
+                @click="showConfirmPassword = !showConfirmPassword"
+              >
+                <EyeOffIcon v-if="showConfirmPassword" class="size-4" />
+                <EyeIcon v-else class="size-4" />
+              </button>
+            </div>
+            <p v-show="errMsg.confirmPassword" class="mt-1 text-[12px] text-red-500">{{ errMsg.confirmPassword }}</p>
+          </div>
+
+          <button
+            type="submit"
+            :disabled="authStore.loading || !isFormValid"
+            class="mt-1 flex h-12 items-center justify-center gap-2 rounded-lg bg-linear-to-br from-[#1E9EED] to-[#090380] text-[15px] font-semibold text-white shadow-[0_14px_28px_-10px_rgba(9,3,128,0.4)] transition hover:brightness-105 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Loader2 v-if="authStore.loading" class="size-4 animate-spin" />
+            {{ authStore.loading ? "重置中..." : "重置密码" }}
+          </button>
+
+          <p v-if="authStore.error" class="text-center text-[13px] text-red-500">{{ authStore.error }}</p>
+        </form>
+
+        <p class="mt-7 text-center text-[13px] text-muted-foreground">
+          想起密码了？
+          <NuxtLink to="/login" class="font-medium text-primary hover:underline">返回登录</NuxtLink>
+        </p>
       </div>
     </div>
   </div>
 </template>
 
-definePageMeta({
-title: "重置密码",
-});
-
 <script setup>
-import { ScaleIcon, EyeIcon, EyeOffIcon, Loader2 } from "lucide-vue-next";
-import { SmsType } from '#shared/types/sms'
-import { validatePhone } from '#shared/utils/phone'
-import toast from '#shared/utils/toast'
-import AuthAliyunCaptchaHost from '~/components/auth/AliyunCaptchaHost.vue'
-import GeneralThemeToggle from '~/components/general/ThemeToggle.vue'
-import GeneralAuthSidebar from '~/components/general/authSidebar.vue'
-import { useAliyunCaptcha } from '~/composables/useAliyunCaptcha'
-import { useSmsCooldown } from '~/composables/useSmsCooldown'
-import { useAuthStore } from '~/store/auth'
-import { useSiteSeo } from '~/composables/useSiteSeo'
+import { ChevronLeft, EyeIcon, EyeOffIcon, Loader2 } from "lucide-vue-next"
+import { SmsType } from "#shared/types/sms"
+import { validatePhone } from "#shared/utils/phone"
+import toast from "#shared/utils/toast"
+import AuthAliyunCaptchaHost from "~/components/auth/AliyunCaptchaHost.vue"
+import GeneralThemeToggle from "~/components/general/ThemeToggle.vue"
+import GeneralAuthSidebar from "~/components/general/authSidebar.vue"
+import { useAliyunCaptcha } from "~/composables/useAliyunCaptcha"
+import { useSmsCooldown } from "~/composables/useSmsCooldown"
+import { useAuthStore } from "~/store/auth"
+import { useSiteSeo } from "~/composables/useSiteSeo"
+
+definePageMeta({
+  layout: false,
+  title: "重置密码",
+})
 
 useSiteSeo({
-  title: '重置密码',
-  description: '重置您的 LexSeek 法索 AI 账号密码。',
-  path: '/reset-password',
+  title: "重置密码",
+  description: "重置您的 LexSeek 法索 AI 账号密码。",
+  path: "/reset-password",
   noindex: true,
 })
 
-const router = useRouter();
-const authStore = useAuthStore();
-const resetPasswordSmsCaptcha = useAliyunCaptcha("resetPasswordSms");
+const router = useRouter()
+const authStore = useAuthStore()
+const resetPasswordSmsCaptcha = useAliyunCaptcha("resetPasswordSms")
 
 // 表单数据
 const formData = reactive({
@@ -144,142 +174,131 @@ const formData = reactive({
   verificationCode: "",
   password: "",
   confirmPassword: "",
-});
+})
 
 const errMsg = reactive({
   phone: "",
   verificationCode: "",
   password: "",
   confirmPassword: "",
-});
+})
 
 // 统一表单验证函数
 const validateField = (field) => {
   switch (field) {
     case "phone":
-      errMsg.phone = !validatePhone(formData.phone) ? "请输入正确的手机号" : "";
-      break;
+      errMsg.phone = !validatePhone(formData.phone) ? "请输入正确的手机号" : ""
+      break
     case "verificationCode":
-      errMsg.verificationCode = !formData.verificationCode ? "请输入验证码" : "";
-      break;
+      errMsg.verificationCode = !formData.verificationCode ? "请输入验证码" : ""
+      break
     case "password":
-      errMsg.password = formData.password.length < 8 ? "请输入至少8位密码" : "";
-      // 密码变更时同时校验确认密码
+      errMsg.password = formData.password.length < 8 ? "请输入至少8位密码" : ""
       if (formData.confirmPassword) {
-        validateField("confirmPassword");
+        validateField("confirmPassword")
       }
-      break;
+      break
     case "confirmPassword":
-      errMsg.confirmPassword = formData.password !== formData.confirmPassword ? "输入的两次密码不一致" : "";
-      break;
+      errMsg.confirmPassword = formData.password !== formData.confirmPassword ? "输入的两次密码不一致" : ""
+      break
     default:
-      // 验证所有字段
-      validateField("phone");
-      validateField("verificationCode");
-      validateField("password");
-      validateField("confirmPassword");
+      validateField("phone")
+      validateField("verificationCode")
+      validateField("password")
+      validateField("confirmPassword")
   }
-};
+}
 
-const phoneMsg = () => validateField("phone");
-const verificationCodeMsg = () => validateField("verificationCode");
-const passwordMsg = () => validateField("password");
-const confirmPasswordMsg = () => validateField("confirmPassword");
+const phoneMsg = () => validateField("phone")
+const verificationCodeMsg = () => validateField("verificationCode")
+const passwordMsg = () => validateField("password")
+const confirmPasswordMsg = () => validateField("confirmPassword")
 
-const showPassword = ref(false);
-const showConfirmPassword = ref(false);
+const showPassword = ref(false)
+const showConfirmPassword = ref(false)
 
 // 验证码相关
-const isGettingCode = ref(false);
+const isGettingCode = ref(false)
 const { countdown, isCoolingDown, applyCooldown, getCooldownMessage } = useSmsCooldown(
   () => formData.phone,
   SmsType.RESET_PASSWORD,
-);
+)
 
 onMounted(() => {
-  resetPasswordSmsCaptcha.preload();
-});
+  resetPasswordSmsCaptcha.preload()
+})
 
 // 表单验证
 const isFormValid = computed(() => {
-  return formData.verificationCode && formData.password && formData.confirmPassword && formData.password === formData.confirmPassword && formData.password.length >= 8 && validatePhone(formData.phone);
-});
+  return formData.verificationCode && formData.password && formData.confirmPassword && formData.password === formData.confirmPassword && formData.password.length >= 8 && validatePhone(formData.phone)
+})
 
 // 获取验证码
 const getVerificationCode = async () => {
   if (!validatePhone(formData.phone)) {
-    authStore.error = "请输入正确的手机号格式";
-    return;
+    authStore.error = "请输入正确的手机号格式"
+    return
   }
 
   if (isCoolingDown.value) {
-    authStore.error = getCooldownMessage();
-    return;
+    authStore.error = getCooldownMessage()
+    return
   }
 
-  isGettingCode.value = true;
+  isGettingCode.value = true
   try {
-    const captchaVerifyParam = await resetPasswordSmsCaptcha.verify();
+    const captchaVerifyParam = await resetPasswordSmsCaptcha.verify()
     const result = await authStore.sendSmsCode({
       phone: formData.phone,
       type: SmsType.RESET_PASSWORD,
       captchaVerifyParam: captchaVerifyParam || undefined,
-    });
+    })
 
     if (result.success) {
       if (result.retryAfterSec) {
-        applyCooldown(result.retryAfterSec);
+        applyCooldown(result.retryAfterSec)
       }
-      toast.success("验证码已发送");
+      toast.success("验证码已发送")
     } else {
       if (result.retryAfterSec) {
-        applyCooldown(result.retryAfterSec);
+        applyCooldown(result.retryAfterSec)
       }
       authStore.error = result.retryAfterSec
         ? getCooldownMessage(result.message || "验证码获取频率过高，请稍后再试")
-        : result.message || authStore.error || "获取验证码失败";
+        : result.message || authStore.error || "获取验证码失败"
     }
   } catch (captchaError) {
-    authStore.error = captchaError?.message || "安全验证失败，请稍后再试";
+    authStore.error = captchaError?.message || "安全验证失败，请稍后再试"
   } finally {
-    isGettingCode.value = false;
+    isGettingCode.value = false
   }
-};
+}
 
 // 重置密码处理
 const handleResetPassword = async () => {
-  // 清除之前的错误信息
-  authStore.error = null;
+  authStore.error = null
+  validateField()
 
-  // 提交前验证所有字段
-  validateField();
-
-  // 表单验证
   if (!isFormValid.value) {
-    // 找到第一个错误信息显示
     for (const key in errMsg) {
       if (errMsg[key]) {
-        authStore.error = errMsg[key];
-        return;
+        authStore.error = errMsg[key]
+        return
       }
     }
-    authStore.error = "请完成所有必填项";
-    return;
+    authStore.error = "请完成所有必填项"
+    return
   }
 
   const isSuccess = await authStore.resetPassword({
     phone: formData.phone,
     code: formData.verificationCode,
     newPassword: formData.password,
-  });
+  })
 
   if (isSuccess) {
-    toast.success("密码重置成功，请登录");
-    // 重置密码成功，跳转到登录页
-    router.replace({
-      path: "/login",
-      query: { phone: formData.phone },
-    });
+    toast.success("密码重置成功，请登录")
+    router.replace({ path: "/login", query: { phone: formData.phone } })
   }
-};
+}
 </script>
