@@ -2,18 +2,9 @@
   <div>
     <!-- 页面标题 -->
     <section class="relative overflow-hidden bg-[image:var(--wash-page)] px-4 pt-[72px] pb-20">
-      <div
-        aria-hidden="true"
-        class="pointer-events-none absolute -left-40 -top-40 h-[480px] w-[480px] rounded-full"
-        style="background: radial-gradient(circle, #1EEDC4 0%, transparent 70%); opacity: 0.18; filter: blur(60px);"
-      />
-      <div
-        aria-hidden="true"
-        class="pointer-events-none absolute -right-40 -top-[120px] h-[520px] w-[520px] rounded-full"
-        style="background: radial-gradient(circle, #1E9EED 0%, transparent 70%); opacity: 0.22; filter: blur(80px);"
-      />
+      <HeroGlow />
       <div class="relative z-[1] mx-auto max-w-[880px] text-center">
-        <p class="mb-3.5 text-[13px] font-medium uppercase tracking-[0.08em] text-primary">ABOUT US</p>
+        <BrandEyebrow class="mb-3.5">ABOUT US</BrandEyebrow>
         <h1 class="mb-4 text-[36px] font-bold leading-[1.15] tracking-[-0.025em] md:text-[48px]">
           用 AI 重新定义<span class="bg-gradient-brand bg-clip-text text-transparent">法律服务</span>
         </h1>
@@ -27,9 +18,9 @@
     <section class="bg-background px-4 py-20">
       <div class="mx-auto grid max-w-[1200px] items-center gap-12 lg:grid-cols-2">
         <div>
-          <p class="mb-3 text-[13px] font-medium uppercase tracking-[0.08em] text-primary">MISSION · 我们的使命</p>
+          <BrandEyebrow class="mb-3">MISSION · 我们的使命</BrandEyebrow>
           <h2 class="mb-[18px] text-[26px] font-bold leading-[1.2] tracking-[-0.02em] md:text-[32px]">
-            让法律工作<span class="bg-linear-to-br from-[#1E9EED] to-[#090380] bg-clip-text text-transparent">更高效、更普惠</span>
+            让法律工作<GradientText>更高效、更普惠</GradientText>
           </h2>
           <p class="mb-3.5 text-[15px] leading-[1.75] text-muted-foreground">
             LexSeek 致力于将人工智能技术与法律专业知识相结合，为法律从业者提供高效、准确的案件分析工具，帮助律师节省时间，提高工作效率，让法律服务更加普惠。
@@ -65,9 +56,9 @@
     <section class="bg-muted/30 px-4 py-20">
       <div class="mx-auto max-w-[1200px]">
         <div class="mb-12 text-center">
-          <p class="mb-3 text-[13px] font-medium uppercase tracking-[0.08em] text-primary">VALUES · 价值观</p>
+          <BrandEyebrow class="mb-3">VALUES · 价值观</BrandEyebrow>
           <h2 class="mb-3.5 text-[26px] font-bold leading-[1.2] tracking-[-0.02em] md:text-[32px]">
-            指引我们每一个<span class="bg-linear-to-br from-[#1E9EED] to-[#090380] bg-clip-text text-transparent">决策的核心信念</span>
+            指引我们每一个<GradientText>决策的核心信念</GradientText>
           </h2>
           <p class="mx-auto max-w-[600px] text-[16px] leading-[1.6] text-muted-foreground">
             这些核心价值观指引着我们产品开发和团队文化的每一个决策
@@ -96,9 +87,9 @@
     <section id="contact" class="bg-background px-4 py-20">
       <div class="mx-auto grid max-w-[1200px] items-center gap-12 lg:grid-cols-2">
         <div>
-          <p class="mb-3 text-[13px] font-medium uppercase tracking-[0.08em] text-primary">CONTACT · 联系我们</p>
+          <BrandEyebrow class="mb-3">CONTACT · 联系我们</BrandEyebrow>
           <h2 class="mb-3.5 text-[26px] font-bold leading-[1.2] tracking-[-0.02em] md:text-[32px]">
-            我们<span class="bg-linear-to-br from-[#1E9EED] to-[#090380] bg-clip-text text-transparent">随时在线</span>
+            我们<GradientText>随时在线</GradientText>
           </h2>
           <p class="mb-6 text-[15.5px] leading-[1.7] text-muted-foreground">
             无论您是有产品疑问、合作意向，还是想加入我们的团队，都欢迎通过以下方式与我们联系。
@@ -116,7 +107,7 @@
           </div>
         </div>
         <div class="rounded-[18px] border bg-card p-9 text-center shadow-[0_1px_2px_0_rgb(0_0_0/0.04)]">
-          <p class="mb-3.5 text-[13px] font-medium uppercase tracking-[0.08em] text-primary">WECHAT</p>
+          <BrandEyebrow class="mb-3.5">WECHAT</BrandEyebrow>
           <h3 class="mb-[18px] text-[20px] font-bold leading-[1.3]">扫码添加客服微信</h3>
           <div class="mx-auto mb-4 w-fit rounded-[14px] bg-gradient-brand p-1">
             <img
@@ -166,6 +157,9 @@
 import { Quote, Zap, Shield, Lock, Users, Sparkles, Heart, Mail, Phone } from "lucide-vue-next"
 import { useSiteSeo } from "~/composables/useSiteSeo"
 import { breadcrumbLd } from "#shared/utils/seo/jsonLd"
+import BrandEyebrow from "~/components/general/BrandEyebrow.vue"
+import GradientText from "~/components/general/GradientText.vue"
+import HeroGlow from "~/components/general/HeroGlow.vue"
 
 definePageMeta({
   layout: "base-layout",

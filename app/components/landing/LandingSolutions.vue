@@ -2,11 +2,11 @@
   <section class="bg-muted/30 px-4 py-20">
     <div class="mx-auto max-w-[1200px]">
       <div class="mb-12 text-center">
-        <p class="mb-3 text-[13px] font-medium uppercase tracking-[0.08em] text-primary">
+        <BrandEyebrow class="mb-3">
           THE SOLUTION · 解决方案
-        </p>
+        </BrandEyebrow>
         <h2 class="mb-4 text-[28px] font-bold leading-[1.2] tracking-[-0.02em] md:text-[36px]">
-          一站式<span class="bg-linear-to-br from-[#1E9EED] to-[#090380] bg-clip-text text-transparent">智慧法律AI</span>
+          一站式<GradientText>智慧法律AI</GradientText>
         </h2>
         <p class="mx-auto max-w-[640px] text-base leading-[1.6] text-muted-foreground">
           我们用一个平台，三大支柱，彻底解决行业痛点，将法律工作化繁为简。
@@ -42,6 +42,8 @@
 
 <script setup lang="ts">
 import { Cpu, FileText, Users } from "lucide-vue-next"
+import BrandEyebrow from "~/components/general/BrandEyebrow.vue"
+import GradientText from "~/components/general/GradientText.vue"
 import { useCtaText } from "~/composables/useCtaText"
 
 const btnText = useCtaText()

@@ -2,11 +2,11 @@
   <section class="bg-background px-4 py-20">
     <div class="mx-auto max-w-[1200px]">
       <div class="mb-12 text-center">
-        <p class="mb-3 text-[13px] font-medium uppercase tracking-[0.08em] text-primary">
+        <BrandEyebrow class="mb-3">
           UTILITY TOOLS
-        </p>
+        </BrandEyebrow>
         <h2 class="mb-4 text-[28px] font-bold leading-[1.2] tracking-[-0.02em] md:text-[36px]">
-          专业<span class="bg-linear-to-br from-[#1E9EED] to-[#090380] bg-clip-text text-transparent">办案工具</span>
+          专业<GradientText>办案工具</GradientText>
         </h2>
         <p class="mx-auto max-w-[640px] text-base leading-[1.6] text-muted-foreground">
           丰富的计算工具集合，帮助您精确计算各类费用和数据，提升办案效率
@@ -33,6 +33,8 @@
 
 <script setup lang="ts">
 import { Calculator, Clock, BadgePercent, Calendar, Briefcase, HeartHandshake, Shield } from "lucide-vue-next"
+import BrandEyebrow from "~/components/general/BrandEyebrow.vue"
+import GradientText from "~/components/general/GradientText.vue"
 import LitigationIcon from "~/components/icons/Litigation.vue"
 import MoneyBagIcon from "~/components/icons/MoneyBag.vue"
 import MoneyIcon from "~/components/icons/MoneyIcon.vue"

@@ -2,11 +2,11 @@
   <section class="bg-background px-4 py-20">
     <div class="mx-auto max-w-[1200px]">
       <div class="mb-14 text-center">
-        <p class="mb-3 text-[13px] font-medium uppercase tracking-[0.08em] text-primary">
+        <BrandEyebrow class="mb-3">
           FEATURES · 核心能力
-        </p>
+        </BrandEyebrow>
         <h2 class="mb-4 text-[28px] font-bold leading-[1.2] tracking-[-0.02em] md:text-[36px]">
-          强大的功能，<span class="bg-linear-to-br from-[#1E9EED] to-[#090380] bg-clip-text text-transparent">简化您的工作流程</span>
+          强大的功能，<GradientText>简化您的工作流程</GradientText>
         </h2>
         <p class="mx-auto max-w-[640px] text-[18px] leading-[1.6] text-muted-foreground">
           LexSeek 提供全面的案件分析工具，帮助您更高效地处理法律案件
@@ -41,6 +41,9 @@
 </template>
 
 <script setup lang="ts">
+import BrandEyebrow from "~/components/general/BrandEyebrow.vue"
+import GradientText from "~/components/general/GradientText.vue"
+
 const MINT = { tintBg: "var(--tint-mint-bg)", tintFg: "var(--tint-mint-fg)" }
 const SKY = { tintBg: "var(--tint-sky-bg)", tintFg: "var(--tint-sky-fg)" }
 const NAVY = { tintBg: "var(--tint-navy-bg)", tintFg: "var(--tint-navy-fg)" }

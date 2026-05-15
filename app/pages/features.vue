@@ -2,18 +2,9 @@
   <div>
     <!-- 页面标题 -->
     <section class="relative overflow-hidden bg-[image:var(--wash-page)] px-4 pt-[72px] pb-20">
-      <div
-        aria-hidden="true"
-        class="pointer-events-none absolute -left-40 -top-40 h-[480px] w-[480px] rounded-full"
-        style="background: radial-gradient(circle, #1EEDC4 0%, transparent 70%); opacity: 0.18; filter: blur(60px);"
-      />
-      <div
-        aria-hidden="true"
-        class="pointer-events-none absolute -right-40 -top-[120px] h-[520px] w-[520px] rounded-full"
-        style="background: radial-gradient(circle, #1E9EED 0%, transparent 70%); opacity: 0.22; filter: blur(80px);"
-      />
+      <HeroGlow />
       <div class="relative z-[1] mx-auto max-w-[900px] text-center">
-        <p class="mb-3.5 text-[13px] font-medium uppercase tracking-[0.08em] text-primary">FEATURES</p>
+        <BrandEyebrow class="mb-3.5">FEATURES</BrandEyebrow>
         <h1 class="mb-4 text-[36px] font-bold leading-[1.15] tracking-[-0.025em] md:text-[48px]">
           全方位<span class="bg-gradient-brand bg-clip-text text-transparent">法律分析工具</span>
         </h1>
@@ -27,9 +18,9 @@
     <section class="bg-background px-4 py-20">
       <div class="mx-auto max-w-[1200px]">
         <div class="mb-14 text-center">
-          <p class="mb-3 text-[13px] font-medium uppercase tracking-[0.08em] text-primary">CORE MODULES · 核心模块</p>
+          <BrandEyebrow class="mb-3">CORE MODULES · 核心模块</BrandEyebrow>
           <h2 class="text-[28px] font-bold leading-[1.2] tracking-[-0.02em] md:text-[36px]">
-            围绕案件全生命周期的<span class="bg-linear-to-br from-[#1E9EED] to-[#090380] bg-clip-text text-transparent">四大能力</span>
+            围绕案件全生命周期的<GradientText>四大能力</GradientText>
           </h2>
         </div>
         <div class="flex flex-col gap-6">
@@ -71,9 +62,9 @@
     <section class="bg-muted/30 px-4 py-20">
       <div class="mx-auto max-w-[1200px]">
         <div class="mb-12 text-center">
-          <p class="mb-3 text-[13px] font-medium uppercase tracking-[0.08em] text-primary">EXTENDED · 拓展能力</p>
+          <BrandEyebrow class="mb-3">EXTENDED · 拓展能力</BrandEyebrow>
           <h2 class="text-[26px] font-bold leading-[1.2] tracking-[-0.02em] md:text-[32px]">
-            更多<span class="bg-linear-to-br from-[#1E9EED] to-[#090380] bg-clip-text text-transparent">辅助办案能力</span>
+            更多<GradientText>辅助办案能力</GradientText>
           </h2>
         </div>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -99,9 +90,9 @@
     <section class="bg-background px-4 py-20">
       <div class="mx-auto max-w-[1200px]">
         <div class="mb-12 text-center">
-          <p class="mb-3 text-[13px] font-medium uppercase tracking-[0.08em] text-primary">TECHNOLOGY · 技术优势</p>
+          <BrandEyebrow class="mb-3">TECHNOLOGY · 技术优势</BrandEyebrow>
           <h2 class="text-[26px] font-bold leading-[1.2] tracking-[-0.02em] md:text-[32px]">
-            基于最新 AI 技术的<span class="bg-linear-to-br from-[#1E9EED] to-[#090380] bg-clip-text text-transparent">行业领先能力</span>
+            基于最新 AI 技术的<GradientText>行业领先能力</GradientText>
           </h2>
         </div>
         <div class="grid grid-cols-1 gap-[18px] md:grid-cols-3">
@@ -127,9 +118,9 @@
     <section class="bg-muted/30 px-4 py-20">
       <div class="mx-auto max-w-[1200px]">
         <div class="mb-12 text-center">
-          <p class="mb-3 text-[13px] font-medium uppercase tracking-[0.08em] text-primary">VOICES · 客户声音</p>
+          <BrandEyebrow class="mb-3">VOICES · 客户声音</BrandEyebrow>
           <h2 class="text-[26px] font-bold leading-[1.2] tracking-[-0.02em] md:text-[32px]">
-            来自<span class="bg-linear-to-br from-[#1E9EED] to-[#090380] bg-clip-text text-transparent">一线办案者的反馈</span>
+            来自<GradientText>一线办案者的反馈</GradientText>
           </h2>
         </div>
         <div class="grid grid-cols-1 gap-[18px] md:grid-cols-3">
@@ -155,6 +146,9 @@
 import { FileText, Calendar, Gavel, ClipboardList, Shield, Layers, TrendingUp, History, Cpu, Database, Key, Quote, CircleCheck } from "lucide-vue-next"
 import { useSiteSeo } from "~/composables/useSiteSeo"
 import { breadcrumbLd, itemListLd } from "#shared/utils/seo/jsonLd"
+import BrandEyebrow from "~/components/general/BrandEyebrow.vue"
+import GradientText from "~/components/general/GradientText.vue"
+import HeroGlow from "~/components/general/HeroGlow.vue"
 import summaryImg from "@/assets/features/summary.jpg"
 import timelineImg from "@/assets/features/timeline.jpg"
 import causeImg from "@/assets/features/cause.jpg"

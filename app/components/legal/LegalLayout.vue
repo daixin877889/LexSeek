@@ -2,21 +2,12 @@
   <div class="theme-brand">
     <!-- 头部 -->
     <section class="relative overflow-hidden bg-[image:var(--wash-page)] px-4 pb-14 pt-16 text-center">
-      <div
-        aria-hidden="true"
-        class="pointer-events-none absolute -left-40 -top-40 h-[480px] w-[480px] rounded-full"
-        style="background: radial-gradient(circle, #1EEDC4 0%, transparent 70%); opacity: 0.18; filter: blur(60px);"
-      />
-      <div
-        aria-hidden="true"
-        class="pointer-events-none absolute -right-40 -top-[120px] h-[520px] w-[520px] rounded-full"
-        style="background: radial-gradient(circle, #1E9EED 0%, transparent 70%); opacity: 0.22; filter: blur(80px);"
-      />
+      <HeroGlow />
       <div class="relative z-[1] mx-auto max-w-[880px]">
-        <p class="mb-3.5 text-[13px] font-medium uppercase tracking-[0.08em] text-primary">LEGAL</p>
+        <BrandEyebrow class="mb-3.5">LEGAL</BrandEyebrow>
         <h1 class="mb-3.5 text-[28px] font-bold leading-[1.2] tracking-[-0.025em] md:text-[40px]">
           <span translate="no">LexSeek｜法索 AI </span>
-          <span class="bg-linear-to-br from-[#1E9EED] to-[#090380] bg-clip-text text-transparent">{{ title }}</span>
+          <GradientText>{{ title }}</GradientText>
         </h1>
         <div class="text-[14px] text-muted-foreground">
           <span>生效日期：{{ effective }}</span>
@@ -77,6 +68,9 @@
 
 <script setup lang="ts">
 import { ArrowUp } from "lucide-vue-next"
+import BrandEyebrow from "~/components/general/BrandEyebrow.vue"
+import GradientText from "~/components/general/GradientText.vue"
+import HeroGlow from "~/components/general/HeroGlow.vue"
 
 const props = defineProps<{
   title: string

@@ -2,9 +2,9 @@
   <section class="bg-muted/30 px-4 py-20">
     <div class="mx-auto max-w-[1200px]">
       <div class="mb-14 text-center">
-        <p class="mb-3 text-[13px] font-medium uppercase tracking-[0.08em] text-primary">
+        <BrandEyebrow class="mb-3">
           HOW IT WORKS
-        </p>
+        </BrandEyebrow>
         <h2 class="text-[28px] font-bold leading-[1.2] tracking-[-0.02em] md:text-[36px]">
           简单三步，<span class="bg-linear-to-br from-[#1EEDC4] to-[#1E9EED] bg-clip-text text-transparent">完成案件分析</span>
         </h2>
@@ -63,6 +63,7 @@
 
 <script setup lang="ts">
 import { FilePlusIcon, CpuIcon, CheckCircleIcon } from "lucide-vue-next"
+import BrandEyebrow from "~/components/general/BrandEyebrow.vue"
 
 const STEPS = [
   {

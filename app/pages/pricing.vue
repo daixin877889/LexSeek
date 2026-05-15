@@ -2,18 +2,9 @@
   <div>
     <!-- 页面标题 -->
     <section class="relative overflow-hidden bg-[image:var(--wash-page)] px-4 pt-[72px] pb-20">
-      <div
-        aria-hidden="true"
-        class="pointer-events-none absolute -left-40 -top-40 h-[480px] w-[480px] rounded-full"
-        style="background: radial-gradient(circle, #1EEDC4 0%, transparent 70%); opacity: 0.18; filter: blur(60px);"
-      />
-      <div
-        aria-hidden="true"
-        class="pointer-events-none absolute -right-40 -top-[120px] h-[520px] w-[520px] rounded-full"
-        style="background: radial-gradient(circle, #1E9EED 0%, transparent 70%); opacity: 0.22; filter: blur(80px);"
-      />
+      <HeroGlow />
       <div class="relative z-[1] mx-auto max-w-[900px] text-center">
-        <p class="mb-3.5 text-[13px] font-medium uppercase tracking-[0.08em] text-primary">PRICING</p>
+        <BrandEyebrow class="mb-3.5">PRICING</BrandEyebrow>
         <h1 class="mb-4 text-[36px] font-bold leading-[1.15] tracking-[-0.025em] md:text-[48px]">
           灵活的<span class="bg-gradient-brand bg-clip-text text-transparent">定价方案</span>
         </h1>
@@ -84,9 +75,9 @@
     <section class="bg-muted/30 px-4 py-20">
       <div class="mx-auto max-w-[1200px]">
         <div class="mb-10 text-center">
-          <p class="mb-3 text-[13px] font-medium uppercase tracking-[0.08em] text-primary">COMPARE · 功能说明</p>
+          <BrandEyebrow class="mb-3">COMPARE · 功能说明</BrandEyebrow>
           <h2 class="text-[26px] font-bold leading-[1.2] tracking-[-0.02em] md:text-[32px]">
-            不同套餐的<span class="bg-linear-to-br from-[#1E9EED] to-[#090380] bg-clip-text text-transparent">能力对比</span>
+            不同套餐的<GradientText>能力对比</GradientText>
           </h2>
         </div>
         <div class="overflow-hidden rounded-2xl border bg-card shadow-[0_1px_2px_0_rgb(0_0_0/0.04)]">
@@ -133,9 +124,9 @@
     <section class="bg-background px-4 py-20">
       <div class="mx-auto max-w-[880px]">
         <div class="mb-10 text-center">
-          <p class="mb-3 text-[13px] font-medium uppercase tracking-[0.08em] text-primary">FAQ · 常见问题</p>
+          <BrandEyebrow class="mb-3">FAQ · 常见问题</BrandEyebrow>
           <h2 class="text-[26px] font-bold leading-[1.2] tracking-[-0.02em] md:text-[32px]">
-            还有疑问？这里也许<span class="bg-linear-to-br from-[#1E9EED] to-[#090380] bg-clip-text text-transparent">有答案</span>
+            还有疑问？这里也许<GradientText>有答案</GradientText>
           </h2>
         </div>
         <div class="flex flex-col gap-3.5">
@@ -168,6 +159,9 @@
 
 <script setup lang="ts">
 import { Check, X, ShieldX } from "lucide-vue-next"
+import BrandEyebrow from "~/components/general/BrandEyebrow.vue"
+import GradientText from "~/components/general/GradientText.vue"
+import HeroGlow from "~/components/general/HeroGlow.vue"
 import PurchaseFlow from "~/components/purchase/PurchaseFlow.vue"
 import { usePurchaseFlow } from "~/composables/usePurchaseFlow"
 import { useSiteSeo } from "~/composables/useSiteSeo"

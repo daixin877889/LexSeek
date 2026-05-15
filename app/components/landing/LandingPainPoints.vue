@@ -2,11 +2,11 @@
   <section class="bg-background px-4 py-20">
     <div class="mx-auto max-w-[1200px]">
       <div class="mb-12 text-center">
-        <p class="mb-3 text-[13px] font-medium uppercase tracking-[0.08em] text-primary">
+        <BrandEyebrow class="mb-3">
           THE PROBLEM · 行业痛点
-        </p>
+        </BrandEyebrow>
         <h2 class="text-[28px] font-bold leading-[1.2] tracking-[-0.02em] md:text-[36px]">
-          资源受限的<span class="bg-linear-to-br from-[#1E9EED] to-[#090380] bg-clip-text text-transparent">“大多数”</span>
+          资源受限的<GradientText>“大多数”</GradientText>
         </h2>
       </div>
 
@@ -39,6 +39,9 @@
 </template>
 
 <script setup lang="ts">
+import BrandEyebrow from "~/components/general/BrandEyebrow.vue"
+import GradientText from "~/components/general/GradientText.vue"
+
 const ITEMS = [
   {
     stat: "50%",
