@@ -21,6 +21,7 @@ import {
 } from 'lucide-vue-next'
 import { useLocalStorage } from '@vueuse/core'
 import type { ContractOverview, Risk, RiskDisplayPhaseB, ContractReviewStatus, PlaybookSnapshot, ContractAnnotationEntity, RiskArchivedStatus, ContractExportMode } from '#shared/types/contract'
+import type { AcceptableValue } from 'reka-ui'
 import { RISK_LEVEL_LABEL } from '#shared/types/contract'
 import {
     DropdownMenu,
@@ -332,7 +333,7 @@ function handleArchive(riskStringId: string, status: RiskArchivedStatus | null) 
  */
 const exportMode = useLocalStorage<ContractExportMode>('contract-review-export-mode', 'comment')
 
-function handleSelectMode(value: string | number) {
+function handleSelectMode(value: AcceptableValue) {
     const next = value as ContractExportMode
     exportMode.value = next
     emit('download', next)
