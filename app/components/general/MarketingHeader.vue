@@ -38,7 +38,7 @@
           >登录</NuxtLink>
           <NuxtLink
             :to="loginLink"
-            class="px-[18px] py-2 text-sm font-medium text-white rounded-md bg-gradient-to-br from-[#1E9EED] to-[#090380] shadow-[0_6px_16px_-6px_rgba(9,3,128,0.4)] hover:brightness-110 active:scale-[0.98] transition"
+            class="px-[18px] py-2 text-sm font-medium text-white rounded-md bg-linear-to-br from-[#1E9EED] to-[#090380] shadow-[0_6px_16px_-6px_rgba(9,3,128,0.4)] hover:brightness-110 active:scale-[0.98] transition"
           >免费注册</NuxtLink>
         </div>
 
@@ -123,7 +123,7 @@
                 >登录</NuxtLink>
                 <NuxtLink
                   :to="loginLink"
-                  class="px-4 py-2.5 rounded-md text-center text-sm font-semibold text-white bg-gradient-to-br from-[#1E9EED] to-[#090380] shadow-[0_8px_20px_-8px_rgba(9,3,128,0.4)]"
+                  class="px-4 py-2.5 rounded-md text-center text-sm font-semibold text-white bg-linear-to-br from-[#1E9EED] to-[#090380] shadow-[0_8px_20px_-8px_rgba(9,3,128,0.4)]"
                   @click="mobileMenuOpen = false"
                 >免费注册</NuxtLink>
               </div>
