@@ -2,42 +2,7 @@
   <div>
     <LandingHero />
     <LandingPainPoints />
-    <!-- 解决方案 -->
-    <section class="py-12 bg-muted/30 px-4">
-      <div class="max-w-[1200px] mx-auto">
-        <div class="text-center mb-12">
-          <h2 class="text-3xl font-bold mb-4">解决方案：一站式智慧法律AI</h2>
-          <p class="text-lg text-muted-foreground max-w-2xl mx-auto">我们用一个平台，三大支柱，彻底解决行业痛点，将法律工作化繁为简。</p>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-          <div class="bg-card rounded-xl p-8 shadow-sm border border-border/50 dark:border-white/5 dark:shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex flex-col items-center text-center transition-all hover:shadow-md">
-            <file-text-icon class="h-10 w-10 text-primary mb-4" />
-            <h3 class="text-xl font-semibold mb-2">分析引擎</h3>
-            <p class="text-muted-foreground">多模态AI驱动，深度分析案情与合同，提供数据驱动的决策洞见。</p>
-          </div>
-
-          <div class="bg-card rounded-xl p-8 shadow-sm border border-border/50 dark:border-white/5 dark:shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex flex-col items-center text-center transition-all hover:shadow-md">
-            <calendar-icon class="h-10 w-10 text-primary mb-4" />
-            <h3 class="text-xl font-semibold mb-2">智能生成系统</h3>
-            <p class="text-muted-foreground">一键生成标准化法律文书，将律师从重复性写作中解放，效率倍增。</p>
-          </div>
-
-          <div class="bg-card rounded-xl p-8 shadow-sm border border-border/50 dark:border-white/5 dark:shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex flex-col items-center text-center transition-all hover:shadow-md">
-            <calendar-icon class="h-10 w-10 text-primary mb-4" />
-            <h3 class="text-xl font-semibold mb-2">协同管理平台</h3>
-            <p class="text-muted-foreground">案件、文档、任务云端管理，打破团队信息壁垒，实现无缝协同。(即将上线)</p>
-          </div>
-        </div>
-
-        <div class="flex justify-center mt-10">
-          <NuxtLink to="/dashboard/cases/create"
-            class="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 active:scale-95 transition-all shadow-lg shadow-primary/20">
-            {{ btnText }}</NuxtLink>
-        </div>
-      </div>
-    </section>
-
+    <LandingSolutions />
     <!-- 功能简介区 -->
     <section class="py-12 bg-muted/30 px-4">
       <div class="max-w-[1200px] mx-auto">
@@ -258,6 +223,7 @@
 <script setup lang="ts">
 import LandingHero from '~/components/landing/LandingHero.vue'
 import LandingPainPoints from '~/components/landing/LandingPainPoints.vue'
+import LandingSolutions from '~/components/landing/LandingSolutions.vue'
 import { useAuthStore } from '~/store/auth'
 definePageMeta({
   layout: "base-layout",
