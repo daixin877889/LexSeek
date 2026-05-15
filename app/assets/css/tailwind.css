@@ -31,6 +31,10 @@
   /* Yellow 主题：晨光黄到蜜桃金渐变 */
   --background-image-gradient-custom-yellow: linear-gradient(97deg, #fffbeb, #fef3c7);
   --background-image-gradient-custom-yellow-dark: linear-gradient(97deg, #2d2a18, #3d341d);
+
+  /* 品牌渐变（源自 logo：青绿→天蓝→深蓝） */
+  --background-image-gradient-brand: linear-gradient(135deg, #1EEDC4 0%, #1E9EED 50%, #090380 100%);
+  --background-image-gradient-brand-soft: linear-gradient(97deg, #E0F8F1 0%, #E1F1FE 50%, #E5E4F2 100%);
 }
 
 @theme inline {
@@ -105,6 +109,14 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* 品牌色常量（明暗通用，源自 logo 渐变） */
+  --brand-mint: #1EEDC4;
+  --brand-sky: #1E9EED;
+  --brand-navy: #090380;
+  --brand-mint-soft: #E0F8F1;
+  --brand-sky-soft: #E1F1FE;
+  --brand-navy-soft: #E5E4F2;
 }
 
 .dark {
@@ -265,6 +277,36 @@
   --sidebar-primary: oklch(0.795 0.184 86.047);
   --sidebar-primary-foreground: oklch(0.253 0.029 58.044);
   --background-image-gradient-custom-dark: var(--background-image-gradient-custom-yellow-dark);
+}
+
+/* ==================== Brand 主题（营销公开页作用域，非用户可切换主题） ====================
+ * 挂在 baseLayout 根节点。营销页内 --primary 变品牌天蓝，--background/--card 等不动。
+ * 工作台/后台用别的布局，拿不到此 class，配色零影响。
+ * 暗色用 `.dark .theme-brand` 后代选择器匹配 —— .dark 在 <html>，.theme-brand 在 baseLayout 的 div。
+ */
+.theme-brand {
+  --primary: oklch(0.683 0.158 240);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.683 0.158 240);
+  --wash-page: linear-gradient(180deg, #FFFFFF 0%, #F2FBFD 35%, #ECF3FE 100%);
+  --tint-mint-bg: linear-gradient(135deg, #C8F7EA, #9DEDD3);
+  --tint-mint-fg: #0BA47C;
+  --tint-sky-bg: linear-gradient(135deg, #CFE9FE, #94CBFA);
+  --tint-sky-fg: #0A78D8;
+  --tint-navy-bg: linear-gradient(135deg, #D7D5EE, #B0AADE);
+  --tint-navy-fg: #5048C0;
+}
+.dark .theme-brand {
+  --primary: oklch(0.755 0.155 230);
+  --primary-foreground: oklch(0.145 0 0);
+  --ring: oklch(0.755 0.155 230);
+  --wash-page: linear-gradient(180deg, #0F1115 0%, #0E1822 50%, #0B0F2A 100%);
+  --tint-mint-bg: linear-gradient(135deg, rgba(30,237,196,0.22), rgba(30,237,196,0.1));
+  --tint-mint-fg: #5BFCD4;
+  --tint-sky-bg: linear-gradient(135deg, rgba(30,158,237,0.26), rgba(30,158,237,0.12));
+  --tint-sky-fg: #82CCFF;
+  --tint-navy-bg: linear-gradient(135deg, rgba(148,140,255,0.26), rgba(148,140,255,0.12));
+  --tint-navy-fg: #BEB8FF;
 }
 
 @layer base {
