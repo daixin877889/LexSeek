@@ -295,6 +295,8 @@
   --tint-sky-fg: #0A78D8;
   --tint-navy-bg: linear-gradient(135deg, #D7D5EE, #B0AADE);
   --tint-navy-fg: #5048C0;
+  --tint-amber-bg: linear-gradient(135deg, #FFE7C7, #FFCF8F);
+  --tint-amber-fg: #E07A0A;
 }
 .dark .theme-brand {
   --primary: oklch(0.755 0.155 230);
@@ -307,6 +309,8 @@
   --tint-sky-fg: #82CCFF;
   --tint-navy-bg: linear-gradient(135deg, rgba(148,140,255,0.26), rgba(148,140,255,0.12));
   --tint-navy-fg: #BEB8FF;
+  --tint-amber-bg: linear-gradient(135deg, rgba(245,158,11,0.24), rgba(245,158,11,0.1));
+  --tint-amber-fg: #FCBF6F;
 }
 
 @layer base {
