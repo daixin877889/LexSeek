@@ -129,7 +129,7 @@ const levelOptions: Array<{ value: RiskLevel; label: string }> = (
                 </div>
 
                 <div class="space-y-1">
-                    <Label for="risk-clause-text">原文条款</Label>
+                    <Label for="risk-clause-text"><span class="text-destructive">* </span>原文条款</Label>
                     <div
                         v-if="risk === null"
                         id="risk-clause-text"
@@ -140,7 +140,7 @@ const levelOptions: Array<{ value: RiskLevel; label: string }> = (
 
                 <div v-for="field in textFields" :key="field.key" class="space-y-1">
                     <Label :for="`risk-${field.key}`">
-                        {{ field.label }}
+                        <span v-if="!field.optional" class="text-destructive">* </span>{{ field.label }}
                         <span v-if="field.optional" class="text-muted-foreground">（可空）</span>
                     </Label>
                     <Textarea
@@ -152,13 +152,13 @@ const levelOptions: Array<{ value: RiskLevel; label: string }> = (
                 </div>
 
                 <div class="space-y-1">
-                    <Label for="risk-category">风险类别</Label>
+                    <Label for="risk-category"><span class="text-destructive">* </span>风险类别</Label>
                     <Input id="risk-category" v-model="form.category" placeholder="如：付款条件" />
                 </div>
 
                 <div class="space-y-1">
                     <Label for="risk-suggested-clause">
-                        建议改写后的条款
+                        <span v-if="form.level !== 'low'" class="text-destructive">* </span>建议改写后的条款
                         <span v-if="form.level !== 'low'" class="text-destructive">（高/中风险必填）</span>
                         <span v-else class="text-muted-foreground">（可空）</span>
                     </Label>
