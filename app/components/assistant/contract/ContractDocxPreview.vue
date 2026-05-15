@@ -63,14 +63,20 @@ const empty = computed(() => !props.reviewedFileId && !props.originalFileId)
 // hover 新增风险：当前 hover 的正文段落 + 浮动「＋」位置
 const hoveredParagraph = ref<HTMLElement | null>(null)
 const addBtnTop = ref(0)
+const addBtnLeft = ref(0)
 
-function syncAddBtnTop() {
+function syncAddBtnPos() {
     const para = hoveredParagraph.value
     const c = containerRef.value
     if (!para || !c) return
     // 用 getBoundingClientRect 取实时视口位置：offsetTop 依赖 offsetParent 链，
     // docx-preview 的 section.docx 自带定位，offsetParent 并非按钮的 relative 参照容器。
-    addBtnTop.value = para.getBoundingClientRect().top - c.getBoundingClientRect().top
+    const paraRect = para.getBoundingClientRect()
+    const cRect = c.getBoundingClientRect()
+    addBtnTop.value = paraRect.top - cRect.top
+    // 水平跟随段落左缘——按钮恒定置于段落左缘外侧 6px 的 gutter（按钮宽 20px），
+    // 始终随段落走，不随页面宽度 / 白纸居中位置漂移。
+    addBtnLeft.value = paraRect.left - cRect.left - 26
 }
 
 function onContainerMouseOver(e: MouseEvent) {
@@ -82,7 +88,7 @@ function onContainerMouseOver(e: MouseEvent) {
     // 同段落内移动持续命中同一 <p>，已是当前 hover 段落则跳过重算
     if (para === hoveredParagraph.value) return
     hoveredParagraph.value = para
-    syncAddBtnTop()
+    syncAddBtnPos()
 }
 
 function onAddBtnClick() {
@@ -97,7 +103,7 @@ function onAddBtnClick() {
 }
 
 // containerRef 跨 docx 重渲染（loadDocx 的 innerHTML=''）始终存在，scroll 监听器不会失效
-onMounted(() => containerRef.value?.addEventListener('scroll', syncAddBtnTop))
+onMounted(() => containerRef.value?.addEventListener('scroll', syncAddBtnPos))
 
 // 每次 load 触发时递增；仅最新 seq 允许继续写入 DOM，防止过期请求覆盖
 let fetchSeq = 0
@@ -250,7 +256,7 @@ onBeforeUnmount(() => {
         clearTimeout(flashWindowTimer)
         flashWindowTimer = null
     }
-    containerRef.value?.removeEventListener('scroll', syncAddBtnTop)
+    containerRef.value?.removeEventListener('scroll', syncAddBtnPos)
 })
 
 async function loadDocx(fileId: number) {
@@ -372,8 +378,8 @@ watch(
                 <button
                     v-if="hoveredParagraph"
                     type="button"
-                    class="absolute left-3 z-20 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow hover:scale-110 transition"
-                    :style="{ top: addBtnTop + 'px' }"
+                    class="absolute z-20 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow hover:scale-110 transition"
+                    :style="{ top: addBtnTop + 'px', left: addBtnLeft + 'px' }"
                     title="在此段落新增风险"
                     @click.stop="onAddBtnClick"
                 >
