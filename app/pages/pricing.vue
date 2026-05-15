@@ -1,855 +1,353 @@
 <template>
   <div>
     <!-- 页面标题 -->
-    <section class="bg-primary/5 py-12 md:py-16 px-4">
-      <div class="max-w-[1200px] mx-auto">
-        <div class="text-center">
-          <h1 class="text-4xl font-bold mb-4">价格方案</h1>
-          <p class="text-xl text-muted-foreground max-w-3xl mx-auto">灵活的定价方案，满足不同规模团队的需求</p>
-        </div>
+    <section class="relative overflow-hidden bg-[image:var(--wash-page)] px-4 pt-[72px] pb-20">
+      <div
+        aria-hidden="true"
+        class="pointer-events-none absolute -left-40 -top-40 h-[480px] w-[480px] rounded-full"
+        style="background: radial-gradient(circle, #1EEDC4 0%, transparent 70%); opacity: 0.18; filter: blur(60px);"
+      />
+      <div
+        aria-hidden="true"
+        class="pointer-events-none absolute -right-40 -top-[120px] h-[520px] w-[520px] rounded-full"
+        style="background: radial-gradient(circle, #1E9EED 0%, transparent 70%); opacity: 0.22; filter: blur(80px);"
+      />
+      <div class="relative z-[1] mx-auto max-w-[900px] text-center">
+        <p class="mb-3.5 text-[13px] font-medium uppercase tracking-[0.08em] text-primary">PRICING</p>
+        <h1 class="mb-4 text-[36px] font-bold leading-[1.15] tracking-[-0.025em] md:text-[48px]">
+          灵活的<span class="bg-gradient-brand bg-clip-text text-transparent">定价方案</span>
+        </h1>
+        <p class="mx-auto max-w-[680px] text-[19px] leading-[1.6] text-muted-foreground">
+          按需选择，满足不同规模团队的需求 · 新用户注册即享 7 天全功能免费试用
+        </p>
       </div>
     </section>
 
-    <!-- 定价表格 -->
-    <section class="py-16 px-4">
-      <div class="max-w-[1200px] mx-auto">
-        <div class="grid md:grid-cols-4 gap-8">
-          <!-- 新手旗舰套餐 -->
+    <!-- 套餐卡片 -->
+    <section class="bg-background px-4 pt-10 pb-20">
+      <div class="mx-auto max-w-[1240px]">
+        <div class="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-4">
           <div
-            class="bg-card rounded-lg border-2 border-amber-600 overflow-hidden relative hover:shadow-md transition-shadow flex flex-col">
-            <div class="absolute top-0 right-0">
-              <div class="bg-amber-600 text-white px-3 py-1 text-sm font-medium">新手专享</div>
-            </div>
-            <div class="p-6 flex-1 flex flex-col">
-              <div class="mb-4">
-                <h3 class="text-3xl font-bold mt-2">新手旗舰套餐</h3>
-                <p class="text-3xl font-bold mt-2">
-                  ¥9.9
-                  <span class="text-base font-normal text-muted-foreground">/月</span>
-                  <span class="text-sm font-bold mt-2 ml-2">赠送 300 积分</span>
-                </p>
-              </div>
-              <p class="text-muted-foreground mb-6">旗舰版会员，限购 1 次</p>
-              <ul class="space-y-3 mb-8 flex-1">
-                <li class="flex items-start gap-2">
-                  <check-icon class="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                  <span>5GB云盘存储空间</span>
-                </li>
-                <li class="flex items-start gap-2">
-                  <check-icon class="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                  <span>专业版所有功能</span>
-                </li>
-                <li class="flex items-start gap-2">
-                  <check-icon class="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                  <span>录音智能转写</span>
-                </li>
-                <li class="flex items-start gap-2">
-                  <check-icon class="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                  <span>全部案件可视化工具 <span class="text-sm text-muted-foreground">(即将上线)</span></span>
-                </li>
-                <li class="flex items-start gap-2">
-                  <check-icon class="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                  <span>起诉状答辩状撰写
-                    <!-- <span class="text-sm text-muted-foreground">(即将上线)</span> -->
-                  </span>
-                </li>
-                <li class="flex items-start gap-2">
-                  <check-icon class="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                  <span>案件复盘 <span class="text-sm text-muted-foreground">(即将上线)</span></span>
-                </li>
+            v-for="plan in PLANS"
+            :key="plan.productId"
+            class="relative flex flex-col overflow-hidden rounded-[18px] bg-card p-7 transition hover:-translate-y-1"
+            :class="CARD_CLASS[plan.variant]"
+          >
+            <div
+              v-if="plan.badge"
+              class="absolute right-0 top-0 rounded-bl-[10px] px-3 py-[5px] text-[11px] font-semibold tracking-[0.04em] text-white"
+              :class="BADGE_CLASS[plan.variant]"
+            >{{ plan.badge }}</div>
 
-                <li class="flex items-start gap-2">
-                  <check-icon class="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                  <span>后续更新的的所有功能 <span class="text-sm text-muted-foreground"></span></span>
-                </li>
+            <h3 class="mb-3.5 text-[22px] font-bold leading-[1.2]">{{ plan.name }}</h3>
+            <div class="mb-2 flex items-baseline gap-1.5">
+              <span class="text-[36px] font-extrabold leading-none tracking-[-0.02em]">{{ plan.price }}</span>
+              <span class="text-[14px] text-muted-foreground">{{ plan.cycle }}</span>
+            </div>
+            <div v-if="plan.strike" class="mb-2 text-[12.5px] text-muted-foreground">
+              原价 <span class="line-through">{{ plan.strike }}</span>
+            </div>
+            <div class="mb-3.5 inline-flex w-fit rounded-full bg-primary/10 px-2.5 py-1 text-[11.5px] font-semibold text-primary">
+              {{ plan.bonus }}
+            </div>
+            <p class="mb-[18px] text-[13.5px] leading-[1.5] text-muted-foreground">{{ plan.flavor }}</p>
 
-                <li class="flex items-start gap-2">
-                  <user-round-check class="h-5 w-5 text-[#eb782c] mt-0.5 shrink-0" />
-                  <span>专属客服服务 <span class="text-sm text-muted-foreground"></span></span>
-                </li>
-              </ul>
-              <button @click="buy(10)"
-                class="w-full py-2 bg-amber-600 text-white font-medium rounded-md hover:bg-amber-700 transition-colors">立即抢购</button>
-            </div>
-            <div class="p-4 bg-amber-50 border-t mt-auto">
-              <p class="text-sm text-center text-amber-700">每人限购一次</p>
-            </div>
-          </div>
+            <ul class="mb-[22px] flex flex-1 flex-col gap-[9px]">
+              <li v-for="p in plan.perks" :key="p.label" class="flex items-start gap-2 text-[13.5px] leading-[1.5]">
+                <Check class="mt-[3px] size-4 shrink-0 text-green-500" />
+                <span>{{ p.label }}<span v-if="p.soon" class="text-muted-foreground"> (即将上线)</span></span>
+              </li>
+              <li v-for="c in plan.crossed" :key="c" class="flex items-start gap-2 text-[13.5px] leading-[1.5] text-muted-foreground">
+                <X class="mt-[3px] size-4 shrink-0 opacity-50" />
+                <span>{{ c }}</span>
+              </li>
+            </ul>
 
-          <!-- 基础方案 -->
-          <div
-            class="bg-card rounded-lg border overflow-hidden hover:shadow-md transition-shadow relative flex flex-col">
-            <!-- <div class="absolute top-0 right-0">
-              <div class="bg-muted-foreground text-primary-foreground px-3 py-1 text-sm font-medium">
-                限时免费
-              </div>
-            </div> -->
-            <div class="p-6 flex-1 flex flex-col">
-              <div class="mb-4">
-                <h3 class="text-3xl font-bold mt-2">基础版</h3>
-                <!-- <h3 class="text-lg font-medium text-muted-foreground">基础版</h3> -->
-                <p class="text-3xl font-bold mt-2">
-                  ¥365
-                  <span class="text-base font-normal text-muted-foreground"> <span
-                      class="line-through">780</span>/年</span>
-                  <span class="text-sm font-bold mt-2 ml-2">赠送 3650 积分</span>
-                </p>
-              </div>
-              <p class="text-muted-foreground mb-6">适合做简单的案件分析</p>
-              <ul class="space-y-3 mb-8 flex-1">
-                <li class="flex items-start gap-2">
-                  <check-icon class="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                  <span>100MB云盘存储空间</span>
-                </li>
-                <li class="flex items-start gap-2">
-                  <check-icon class="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                  <span>案情概要整理</span>
-                </li>
-                <li class="flex items-start gap-2">
-                  <check-icon class="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                  <span>案件大事记整理</span>
-                </li>
-
-                <li class="flex items-start gap-2">
-                  <x-icon class="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
-                  <span class="text-muted-foreground">案由确认功能</span>
-                </li>
-                <li class="flex items-start gap-2">
-                  <x-icon class="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
-                  <span class="text-muted-foreground">请求权分析功能</span>
-                </li>
-                <li class="flex items-start gap-2">
-                  <x-icon class="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
-                  <span class="text-muted-foreground">对方抗辩预测功能</span>
-                </li>
-                <li class="flex items-start gap-2">
-                  <x-icon class="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
-                  <span class="text-muted-foreground">证据清单建议</span>
-                </li>
-                <li class="flex items-start gap-2">
-                  <x-icon class="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
-                  <span class="text-muted-foreground">案件可视化工具</span>
-                </li>
-              </ul>
-              <!-- <button @click="wxSupportStore.showQrCode" class="w-full py-2 border border-primary text-primary font-medium rounded-md hover:bg-primary/5 transition-colors">
-                联系客服申请免费试用资格
-              </button> -->
-              <!-- <button @click="wxSupportStore.showQrCode()" disabled class="w-full py-2 border border-primary text-primary font-medium rounded-md hover:bg-primary/5 transition-colors">
-                内测期间暂不开放购买
-              </button> -->
-              <button @click="buy(1)"
-                class="w-full py-2 border border-primary text-primary font-medium rounded-md hover:bg-primary/5 transition-colors">订阅基础版会员</button>
-            </div>
-            <div class="p-4 bg-muted/20 border-t mt-auto">
-              <p class="text-sm text-center text-muted-foreground">功能存在部份限制</p>
-            </div>
-          </div>
-
-          <!-- 专业方案 (推荐) -->
-          <div
-            class="bg-card rounded-lg border-2 border-primary overflow-hidden relative hover:shadow-md transition-shadow flex flex-col">
-            <div class="absolute top-0 right-0">
-              <div class="bg-primary text-primary-foreground px-3 py-1 text-sm font-medium">推荐方案</div>
-            </div>
-            <div class="p-6 flex-1 flex flex-col">
-              <div class="mb-4">
-                <h3 class="text-3xl font-bold mt-2">专业版</h3>
-                <!-- <h3 class="text-lg font-medium text-muted-foreground">专业版</h3> -->
-                <p class="text-3xl font-bold mt-2">
-                  ¥680
-                  <span class="text-base font-normal text-muted-foreground"> <span
-                      class="line-through">1280</span>/年</span>
-                  <span class="text-sm font-bold mt-2 ml-2">赠送 6800 积分</span>
-                </p>
-              </div>
-              <p class="text-muted-foreground mb-6">适合做专业的案件分析</p>
-              <ul class="space-y-3 mb-8 flex-1">
-                <li class="flex items-start gap-2">
-                  <check-icon class="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                  <span>1GB云盘存储空间</span>
-                </li>
-                <li class="flex items-start gap-2">
-                  <check-icon class="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                  <span>基础版所有功能</span>
-                </li>
-                <li class="flex items-start gap-2">
-                  <check-icon class="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                  <span>请求权分析功能</span>
-                </li>
-                <li class="flex items-start gap-2">
-                  <check-icon class="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                  <span>案由确认功能</span>
-                </li>
-
-                <li class="flex items-start gap-2">
-                  <check-icon class="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                  <span>对方抗辩预测功能</span>
-                </li>
-                <li class="flex items-start gap-2">
-                  <check-icon class="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                  <span>证据清单建议</span>
-                </li>
-                <li class="flex items-start gap-2">
-                  <check-icon class="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                  <span>部份案件可视化工具 <span class="text-sm text-muted-foreground">(即将上线)</span></span>
-                </li>
-                <li class="flex items-start gap-2">
-                  <check-icon class="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                  <span>试用新功能的机会</span>
-                </li>
-              </ul>
-              <button @click="buy(2)"
-                class="w-full py-2 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors">订阅专业版会员</button>
-              <!-- <button @click="wxSupportStore.showQrCode()" class="w-full py-2 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors">
-                内测期间联系客服免费试用
-              </button> -->
-            </div>
-            <div class="p-4 bg-primary/5 border-t mt-auto">
-              <p class="text-sm text-center text-primary">最受欢迎的选择</p>
-            </div>
-          </div>
-
-          <!-- 旗舰版 -->
-          <div class="bg-card rounded-lg border overflow-hidden hover:shadow-md transition-shadow flex flex-col">
-            <div class="p-6 flex-1 flex flex-col">
-              <div class="mb-4">
-                <h3 class="text-3xl font-bold mt-2">旗舰版</h3>
-                <!-- <h3 class="text-lg font-medium text-muted-foreground">旗舰版</h3> -->
-                <p class="text-3xl font-bold mt-2">
-                  ¥1280
-                  <span class="text-base font-normal text-muted-foreground"> <span
-                      class="line-through">2480</span>/年</span>
-                  <span class="text-sm font-bold mt-2 ml-2">赠送 12800 积分</span>
-                </p>
-              </div>
-              <p class="text-muted-foreground mb-6">适合做案件深度分析及案例研究</p>
-              <ul class="space-y-3 mb-8 flex-1">
-                <li class="flex items-start gap-2">
-                  <check-icon class="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                  <span>5GB云盘存储空间</span>
-                </li>
-                <li class="flex items-start gap-2">
-                  <check-icon class="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                  <span>专业版所有功能</span>
-                </li>
-                <li class="flex items-start gap-2">
-                  <check-icon class="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                  <span>录音智能转写</span>
-                </li>
-                <li class="flex items-start gap-2">
-                  <check-icon class="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                  <span>全部案件可视化工具 <span class="text-sm text-muted-foreground">(即将上线)</span></span>
-                </li>
-                <li class="flex items-start gap-2">
-                  <check-icon class="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                  <span>起诉状答辩状撰写
-                    <!-- <span class="text-sm text-muted-foreground">(即将上线)</span> -->
-                  </span>
-                </li>
-                <li class="flex items-start gap-2">
-                  <check-icon class="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                  <span>案件复盘 <span class="text-sm text-muted-foreground">(即将上线)</span></span>
-                </li>
-
-                <li class="flex items-start gap-2">
-                  <check-icon class="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                  <span>后续更新的的所有功能 <span class="text-sm text-muted-foreground"></span></span>
-                </li>
-
-                <li class="flex items-start gap-2">
-                  <user-round-check class="h-5 w-5 text-[#eb782c] mt-0.5 shrink-0" />
-                  <span>专属客服服务 <span class="text-sm text-muted-foreground"></span></span>
-                </li>
-              </ul>
-              <button @click="buy(3)"
-                class="w-full py-2 border border-primary text-primary font-medium rounded-md hover:bg-primary/5 transition-colors">订阅旗舰版会员</button>
-              <!-- <button @click="wxSupportStore.showQrCode()" disabled class="w-full py-2 border border-primary text-primary font-medium rounded-md hover:bg-primary/5 transition-colors">
-                内测期间暂不开放购买
-              </button> -->
-            </div>
-            <div class="p-4 bg-muted/20 border-t mt-auto">
-              <p class="text-sm text-center text-muted-foreground">功能无限制</p>
-            </div>
+            <button
+              type="button"
+              class="rounded-md px-4 py-3 text-[14px] font-semibold transition hover:brightness-105 active:scale-[0.98]"
+              :class="BTN_CLASS[plan.variant]"
+              @click="buy(plan.productId)"
+            >{{ plan.cta }}</button>
+            <p class="mt-3.5 text-center text-[11.5px] font-medium" :class="FOOTNOTE_CLASS[plan.variant]">
+              {{ plan.footnote }}
+            </p>
           </div>
         </div>
-
-        <!-- 年付折扣提示 -->
-        <div class="mt-8 text-center">
-          <p class="text-muted-foreground">注册享7天全功能免费试用，<NuxtLink to="/register"
-              class="text-primary font-bold hover:underline">立即注册</NuxtLink>体验</p>
-        </div>
+        <p class="mt-7 text-center text-[14px] font-medium text-muted-foreground">
+          注册享 7 天全功能免费试用，<NuxtLink to="/register" class="font-bold text-primary hover:underline">立即注册</NuxtLink>体验
+        </p>
       </div>
     </section>
 
     <!-- 功能对比 -->
-    <section class="py-16 bg-muted/30 px-4">
-      <div class="max-w-[1200px] mx-auto">
-        <div class="text-center mb-12">
-          <h2 class="text-3xl font-bold mb-4">功能说明</h2>
-          <p class="text-lg text-muted-foreground max-w-2xl mx-auto">不同的会员等级可使用不同的功能，更多功能正在陆续上线中...</p>
+    <section class="bg-muted/30 px-4 py-20">
+      <div class="mx-auto max-w-[1200px]">
+        <div class="mb-10 text-center">
+          <p class="mb-3 text-[13px] font-medium uppercase tracking-[0.08em] text-primary">COMPARE · 功能说明</p>
+          <h2 class="text-[26px] font-bold leading-[1.2] tracking-[-0.02em] md:text-[32px]">
+            不同套餐的<span class="bg-linear-to-br from-[#1E9EED] to-[#090380] bg-clip-text text-transparent">能力对比</span>
+          </h2>
         </div>
-
-        <div class="bg-card rounded-lg border overflow-hidden">
+        <div class="overflow-hidden rounded-2xl border bg-card shadow-[0_1px_2px_0_rgb(0_0_0/0.04)]">
           <div class="overflow-x-auto">
-            <table class="w-full min-w-[800px] table-with-borders">
+            <table class="w-full min-w-[800px] border-collapse">
               <thead>
-                <tr class="border-b bg-muted/50">
-                  <th class="px-4 py-3 text-left text-sm font-medium w-28">功能分类</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium w-60">功能名称</th>
-                  <th class="px-4 py-3 text-center text-sm font-medium">免费版</th>
-                  <th class="px-4 py-3 text-center text-sm font-medium">基础版</th>
-                  <th class="px-4 py-3 text-center text-sm font-medium">专业版</th>
-                  <th class="px-4 py-3 text-center text-sm font-medium">旗舰版</th>
+                <tr class="bg-primary/[0.06]">
+                  <th class="w-28 px-4 py-3.5 text-left text-[13px] font-semibold">分类</th>
+                  <th class="w-60 px-4 py-3.5 text-left text-[13px] font-semibold">功能名称</th>
+                  <th v-for="n in PLAN_NAMES" :key="n" class="px-4 py-3.5 text-center text-[13px] font-semibold">{{ n }}</th>
                 </tr>
               </thead>
               <tbody>
-                <!-- 云盘空间 -->
-                <tr class="border-b bg-muted/20">
-                  <td class="px-4 py-3 text-sm font-medium" rowspan="1">文件存储</td>
-                  <td class="px-4 py-3 text-sm font-medium" rowspan="1">云盘空间</td>
-                  <td class="px-4 py-3 text-sm text-center">100MB</td>
-                  <td class="px-4 py-3 text-sm text-center">100MB</td>
-                  <td class="px-4 py-3 text-sm text-center">1GB</td>
-                  <td class="px-4 py-3 text-sm text-center">5GB</td>
-                </tr>
-
-                <!-- 案件分析功能 -->
-                <tr class="border-b bg-muted/20">
-                  <td class="px-4 py-3 text-sm font-medium" rowspan="8">案件分析</td>
-                  <td class="px-4 py-3 text-sm">提取案件标题</td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                </tr>
-                <tr class="border-b">
-                  <td class="px-4 py-3 text-sm">生成案情概要</td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                </tr>
-                <tr class="border-b">
-                  <td class="px-4 py-3 text-sm">提取案件大事记</td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                </tr>
-                <tr class="border-b">
-                  <td class="px-4 py-3 text-sm">预分析案件请求权</td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                </tr>
-                <tr class="border-b">
-                  <td class="px-4 py-3 text-sm">法律合理性审查和判决趋势预测</td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                </tr>
-                <tr class="border-b">
-                  <td class="px-4 py-3 text-sm">预选案由</td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                </tr>
-                <tr class="border-b">
-                  <td class="px-4 py-3 text-sm">抗辩分析及策略预测</td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                </tr>
-                <tr class="border-b">
-                  <td class="px-4 py-3 text-sm">证据清单预处理</td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                </tr>
-
-                <!-- 办案工具功能 -->
-                <tr class="border-b">
-                  <td class="px-4 py-3 text-sm font-medium" rowspan="13">办案工具</td>
-                  <td class="px-4 py-3 text-sm">录音智能转写</td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                </tr>
-                <tr class="border-b">
-                  <td class="px-4 py-3 text-sm">利息计算工具</td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                </tr>
-                <tr class="border-b">
-                  <td class="px-4 py-3 text-sm">诉讼费用计算工具</td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                </tr>
-                <tr class="border-b">
-                  <td class="px-4 py-3 text-sm">律师费用计算工具</td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                </tr>
-                <tr class="border-b">
-                  <td class="px-4 py-3 text-sm">延迟履行利息计算工具</td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                </tr>
-                <tr class="border-b">
-                  <td class="px-4 py-3 text-sm">银行利率查询工具</td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                </tr>
-                <tr class="border-b">
-                  <td class="px-4 py-3 text-sm">日期推算工具</td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                </tr>
-                <tr class="border-b">
-                  <td class="px-4 py-3 text-sm">赔偿计算器</td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                </tr>
-                <tr class="border-b">
-                  <td class="px-4 py-3 text-sm">加班计算工具</td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                </tr>
-                <tr class="border-b">
-                  <td class="px-4 py-3 text-sm">高婚财产分割工具</td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                </tr>
-                <tr class="border-b">
-                  <td class="px-4 py-3 text-sm">社保追偿工具</td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                </tr>
-                <tr class="border-b">
-                  <td class="px-4 py-3 text-sm">法律文书生成</td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center text-sm text-muted-foreground">部分</td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                </tr>
-                <tr class="border-b">
-                  <td class="px-4 py-3 text-sm">案件可视化工具</td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center text-sm text-muted-foreground">部分</td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                </tr>
-
-                <!-- 其他功能 -->
-                <!-- <tr class="border-b bg-muted/20">
-                  <td class="px-4 py-3 text-sm font-medium" rowspan="5">其他功能</td>
-                  <td class="px-4 py-3 text-sm">类案研判 <span class="text-sm text-muted-foreground">(即将上线)</span></td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                </tr> -->
-                <!-- <tr class="border-b">
-                  <td class="px-4 py-3 text-sm">非诉文书提取 <span class="text-sm text-muted-foreground">(即将上线)</span></td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                </tr> -->
-                <!-- <tr class="border-b">
-                  <td class="px-4 py-3 text-sm">办案小结 <span class="text-sm text-muted-foreground">(即将上线)</span></td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                </tr>
-                <tr class="border-b">
-                  <td class="px-4 py-3 text-sm">案件复盘 <span class="text-sm text-muted-foreground">(即将上线)</span></td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                </tr> -->
-                <!-- <tr class="border-b">
-                  <td class="px-4 py-3 text-sm">合同审查 <span class="text-sm text-muted-foreground">(即将上线)</span></td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <x-icon class="h-4 w-4 text-red-500 mx-auto" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <check-icon class="h-4 w-4 text-green-600 mx-auto" />
-                  </td>
-                </tr> -->
+                <template v-for="group in COMPARISON" :key="group.group">
+                  <tr v-for="(row, ri) in group.rows" :key="row.label" class="border-t">
+                    <td v-if="ri === 0" :rowspan="group.rows.length" class="px-4 py-3 align-middle text-[13px] font-semibold">
+                      {{ group.group }}
+                    </td>
+                    <td class="px-4 py-3 text-[13.5px]">{{ row.label }}</td>
+                    <td v-for="(c, ci) in row.cells" :key="ci" class="px-4 py-3 text-center">
+                      <Check v-if="c === true" class="mx-auto size-4 text-green-600" />
+                      <X v-else-if="c === false" class="mx-auto size-4 text-red-500 opacity-55" />
+                      <span v-else class="text-[13px] font-medium">{{ c }}</span>
+                    </td>
+                  </tr>
+                </template>
               </tbody>
             </table>
           </div>
         </div>
-
-        <div class="mt-8 bg-primary/5 rounded-lg p-6 border border-primary/20">
-          <div class="flex flex-col md:flex-row items-start md:items-center gap-4">
-            <ShieldX class="h-10 w-10 text-primary shrink-0" />
-            <div>
-              <h3 class="text-xl font-semibold mb-1">防滥用说明</h3>
-              <p class="text-muted-foreground">LexSeek 仅提供给会员本人使用，禁止任何形式的转卖、出租、出借、赠与等行为。案件分析功能限制同一时间分析的案件数(并发数)为1个。</p>
-            </div>
+        <div class="mt-6 flex items-start gap-3.5 rounded-xl border border-primary/20 bg-primary/[0.06] p-5">
+          <ShieldX class="size-9 shrink-0 text-primary" />
+          <div>
+            <h3 class="mb-1.5 text-[15px] font-bold leading-[1.3]">防滥用说明</h3>
+            <p class="text-[13px] leading-[1.6] text-muted-foreground">
+              LexSeek 仅提供给会员本人使用，禁止任何形式的转卖、出租、出借、赠与等行为。案件分析功能限制同一时间分析的案件数 (并发数) 为 1 个。
+            </p>
           </div>
         </div>
       </div>
     </section>
 
     <!-- 常见问题 -->
-    <section class="py-16 px-4">
-      <div class="max-w-[1200px] mx-auto">
-        <div class="text-center mb-12">
-          <h2 class="text-3xl font-bold mb-4">常见问题</h2>
-          <p class="text-lg text-muted-foreground max-w-2xl mx-auto">关于定价和使用的一些常见问题解答</p>
+    <section class="bg-background px-4 py-20">
+      <div class="mx-auto max-w-[880px]">
+        <div class="mb-10 text-center">
+          <p class="mb-3 text-[13px] font-medium uppercase tracking-[0.08em] text-primary">FAQ · 常见问题</p>
+          <h2 class="text-[26px] font-bold leading-[1.2] tracking-[-0.02em] md:text-[32px]">
+            还有疑问？这里也许<span class="bg-linear-to-br from-[#1E9EED] to-[#090380] bg-clip-text text-transparent">有答案</span>
+          </h2>
         </div>
-
-        <div class="space-y-6 max-w-3xl mx-auto">
-          <div class="bg-card rounded-lg p-6 border">
-            <h3 class="text-lg font-semibold mb-2">有免费试用吗？</h3>
-            <p class="text-muted-foreground">是的，新用户注册后可获得7天免费试用，可体验旗舰版的全部功能。</p>
+        <div class="flex flex-col gap-3.5">
+          <div
+            v-for="it in FAQ"
+            :key="it.q"
+            class="rounded-xl border bg-card px-[22px] py-5 shadow-[0_1px_2px_0_rgb(0_0_0/0.04)] transition hover:-translate-y-1 hover:shadow-md"
+          >
+            <h3 class="mb-1.5 text-[16px] font-semibold leading-[1.3]">{{ it.q }}</h3>
+            <p class="text-[14px] leading-[1.65] text-muted-foreground">{{ it.a }}</p>
           </div>
-
-          <div class="bg-card rounded-lg p-6 border">
-            <h3 class="text-lg font-semibold mb-2">可以随时更换订阅方案吗？</h3>
-            <p class="text-muted-foreground">您可以随时升级您的订阅方案，但降级需要等待当前会员有效期结束后进行续订。</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- 行动号召 -->
-    <section class="py-16 bg-primary text-primary-foreground px-4">
-      <div class="max-w-[1200px] mx-auto text-center">
-        <h2 class="text-3xl font-bold mb-4">开始免费试用</h2>
-        <p class="text-xl mb-8 max-w-2xl mx-auto opacity-90">立即注册并获得7天免费试用</p>
-        <div class="flex flex-col sm:flex-row gap-4 justify-center">
-          <NuxtLink to="/register"
-            class="inline-flex items-center justify-center px-6 py-3 bg-background text-foreground font-medium rounded-md hover:bg-background/90 transition-colors">
-            免费注册 </NuxtLink>
-          <a href="#" @click="wxSupportStore.showQrCode()"
-            class="inline-flex items-center justify-center px-6 py-3 bg-white/15 text-primary-foreground border border-white/30 font-medium rounded-md hover:bg-white/25 transition-colors">
-            联系客服 </a>
         </div>
       </div>
     </section>
 
     <!-- 购买流程组件（包含认证弹框和支付二维码弹框） -->
-    <PurchaseFlow v-model:show-auth-modal="purchaseFlow.showAuthModal.value"
+    <PurchaseFlow
+      v-model:show-auth-modal="purchaseFlow.showAuthModal.value"
       :auth-modal-tab="purchaseFlow.authModalTab.value"
-      v-model:show-q-r-code-dialog="purchaseFlow.showQRCodeDialog.value" :qr-code-url="purchaseFlow.qrCodeUrl.value"
-      :payment-loading="purchaseFlow.paymentLoading.value" :payment-paid="purchaseFlow.paymentPaid.value"
-      @auth-success="purchaseFlow.handleAuthSuccess" @auth-cancel="purchaseFlow.handleAuthCancel"
-      @close-q-r-code="purchaseFlow.closeQRCodeDialog" />
+      v-model:show-q-r-code-dialog="purchaseFlow.showQRCodeDialog.value"
+      :qr-code-url="purchaseFlow.qrCodeUrl.value"
+      :payment-loading="purchaseFlow.paymentLoading.value"
+      :payment-paid="purchaseFlow.paymentPaid.value"
+      @auth-success="purchaseFlow.handleAuthSuccess"
+      @auth-cancel="purchaseFlow.handleAuthCancel"
+      @close-q-r-code="purchaseFlow.closeQRCodeDialog"
+    />
   </div>
 </template>
 
-<script setup>
-import PurchaseFlow from '~/components/purchase/PurchaseFlow.vue'
-import { usePurchaseFlow } from '~/composables/usePurchaseFlow'
-import { useWxSupportStore } from '~/store/wxSupport'
-import { useSiteSeo } from '~/composables/useSiteSeo'
-import { breadcrumbLd, faqLd } from '#shared/utils/seo/jsonLd'
-import { CheckIcon, XIcon, CoinsIcon, ShieldX, UserRoundCheck } from "lucide-vue-next";
-
-const { siteUrl } = useRuntimeConfig().public.seo
-useSiteSeo({
-  title: '价格方案 - 律师 AI 会员订阅',
-  description: 'LexSeek 法索 AI 提供新手旗舰¥9.9/月、基础版¥365/年、专业版¥680/年、旗舰版¥1280/年四档会员，覆盖案件分析、合同审查、办案工具全功能；注册即享 7 天免费试用。',
-  path: '/pricing',
-  keywords: ['LexSeek会员', '法律AI订阅', '律师AI价格', '案件分析订阅', '法律科技会员'],
-  ogImage: '/og/pricing.png',
-  jsonLd: [
-    breadcrumbLd([
-      { name: '首页', path: '/' },
-      { name: '价格方案', path: '/pricing' },
-    ], siteUrl),
-    {
-      '@context': 'https://schema.org',
-      '@type': 'Product',
-      name: 'LexSeek 法索 AI 会员订阅',
-      description: '律师 AI 工作台会员订阅，提供案件分析、合同审查、办案工具全功能',
-      brand: { '@type': 'Brand', name: 'LexSeek 法索 AI' },
-      offers: {
-        '@type': 'AggregateOffer',
-        priceCurrency: 'CNY',
-        lowPrice: '9.9',
-        highPrice: '1280',
-        offerCount: 4,
-      },
-    },
-    faqLd([
-      { q: '有免费试用吗？', a: '是的，新用户注册后可获得 7 天免费试用，可体验旗舰版的全部功能。' },
-      { q: '可以随时更换订阅方案吗？', a: '您可以随时升级您的订阅方案，但降级需要等待当前会员有效期结束后进行续订。' },
-    ]),
-  ],
-})
+<script setup lang="ts">
+import { Check, X, ShieldX } from "lucide-vue-next"
+import PurchaseFlow from "~/components/purchase/PurchaseFlow.vue"
+import { usePurchaseFlow } from "~/composables/usePurchaseFlow"
+import { useSiteSeo } from "~/composables/useSiteSeo"
+import { breadcrumbLd, faqLd } from "#shared/utils/seo/jsonLd"
 
 definePageMeta({
   layout: "base-layout",
   title: "价格方案",
-});
+})
 
-// 使用微信客服 store（Nuxt 自动导入）
-const wxSupportStore = useWxSupportStore();
+const CARD_CLASS = {
+  amber: "border-2 border-[#E07A0A] shadow-[0_18px_36px_-18px_rgba(224,122,10,0.2)]",
+  sky: "border-2 border-[#1E9EED] shadow-[0_18px_36px_-18px_rgba(30,158,237,0.25)]",
+  plain: "border shadow-[0_1px_2px_0_rgb(0_0_0/0.04)]",
+}
+const BADGE_CLASS = {
+  amber: "bg-linear-to-br from-[#FFB75E] to-[#E07A0A]",
+  sky: "bg-linear-to-br from-[#1E9EED] to-[#090380]",
+  plain: "",
+}
+const BTN_CLASS = {
+  amber: "bg-linear-to-br from-[#FFB75E] to-[#E07A0A] text-white shadow-[0_12px_24px_-10px_rgba(224,122,10,0.35)]",
+  sky: "bg-linear-to-br from-[#1E9EED] to-[#090380] text-white shadow-[0_12px_24px_-10px_rgba(9,3,128,0.4)]",
+  plain: "border border-primary/40 text-primary",
+}
+const FOOTNOTE_CLASS = {
+  amber: "text-[#E07A0A]",
+  sky: "text-primary",
+  plain: "text-muted-foreground",
+}
 
-// 购买流程 composable
+const PLANS = [
+  {
+    productId: 10, variant: "amber", badge: "新手专享",
+    name: "新手旗舰套餐", price: "¥9.9", cycle: "/月", strike: null,
+    bonus: "赠送 300 积分", flavor: "旗舰版会员，限购 1 次", cta: "立即抢购", footnote: "每人限购一次",
+    perks: [
+      { label: "5GB 云盘存储空间" },
+      { label: "专业版所有功能" },
+      { label: "录音智能转写" },
+      { label: "全部案件可视化工具", soon: true },
+      { label: "起诉状答辩状撰写" },
+      { label: "案件复盘", soon: true },
+      { label: "后续更新的所有功能" },
+      { label: "专属客服服务" },
+    ],
+    crossed: [],
+  },
+  {
+    productId: 1, variant: "plain", badge: null,
+    name: "基础版", price: "¥365", cycle: "/年", strike: "¥780",
+    bonus: "赠送 3,650 积分", flavor: "适合做简单的案件分析", cta: "订阅基础版会员", footnote: "功能存在部份限制",
+    perks: [
+      { label: "100MB 云盘存储空间" },
+      { label: "案情概要整理" },
+      { label: "案件大事记整理" },
+    ],
+    crossed: ["案由确认功能", "请求权分析功能", "对方抗辩预测功能", "证据清单建议", "案件可视化工具"],
+  },
+  {
+    productId: 2, variant: "sky", badge: "推荐方案",
+    name: "专业版", price: "¥680", cycle: "/年", strike: "¥1,280",
+    bonus: "赠送 6,800 积分", flavor: "适合做专业的案件分析", cta: "订阅专业版会员", footnote: "最受欢迎的选择",
+    perks: [
+      { label: "1GB 云盘存储空间" },
+      { label: "基础版所有功能" },
+      { label: "请求权分析功能" },
+      { label: "案由确认功能" },
+      { label: "对方抗辩预测功能" },
+      { label: "证据清单建议" },
+      { label: "部份案件可视化工具", soon: true },
+      { label: "试用新功能的机会" },
+    ],
+    crossed: [],
+  },
+  {
+    productId: 3, variant: "plain", badge: null,
+    name: "旗舰版", price: "¥1,280", cycle: "/年", strike: "¥2,480",
+    bonus: "赠送 12,800 积分", flavor: "适合做案件深度分析及案例研究", cta: "订阅旗舰版会员", footnote: "功能无限制",
+    perks: [
+      { label: "5GB 云盘存储空间" },
+      { label: "专业版所有功能" },
+      { label: "录音智能转写" },
+      { label: "全部案件可视化工具", soon: true },
+      { label: "起诉状答辩状撰写" },
+      { label: "案件复盘", soon: true },
+      { label: "后续更新的所有功能" },
+      { label: "专属客服服务" },
+    ],
+    crossed: [],
+  },
+]
+
+const PLAN_NAMES = ["免费版", "基础版", "专业版", "旗舰版"]
+
+const COMPARISON = [
+  {
+    group: "文件存储",
+    rows: [
+      { label: "云盘空间", cells: ["100MB", "100MB", "1GB", "5GB"] },
+    ],
+  },
+  {
+    group: "案件分析",
+    rows: [
+      { label: "提取案件标题", cells: [true, true, true, true] },
+      { label: "生成案情概要", cells: [true, true, true, true] },
+      { label: "提取案件大事记", cells: [false, false, true, true] },
+      { label: "预分析案件请求权", cells: [false, false, true, true] },
+      { label: "法律合理性审查和判决趋势预测", cells: [false, false, true, true] },
+      { label: "预选案由", cells: [false, false, true, true] },
+      { label: "抗辩分析及策略预测", cells: [false, false, true, true] },
+      { label: "证据清单预处理", cells: [false, false, true, true] },
+    ],
+  },
+  {
+    group: "办案工具",
+    rows: [
+      { label: "录音智能转写", cells: [false, false, true, true] },
+      { label: "利息计算工具", cells: [true, true, true, true] },
+      { label: "诉讼费用计算工具", cells: [true, true, true, true] },
+      { label: "律师费用计算工具", cells: [true, true, true, true] },
+      { label: "延迟履行利息计算工具", cells: [true, true, true, true] },
+      { label: "银行利率查询工具", cells: [true, true, true, true] },
+      { label: "日期推算工具", cells: [true, true, true, true] },
+      { label: "赔偿计算器", cells: [true, true, true, true] },
+      { label: "加班计算工具", cells: [true, true, true, true] },
+      { label: "离婚财产分割工具", cells: [true, true, true, true] },
+      { label: "社保追偿工具", cells: [true, true, true, true] },
+      { label: "法律文书生成", cells: [false, false, "部分", true] },
+      { label: "案件可视化工具", cells: [false, false, "部分", true] },
+    ],
+  },
+]
+
+const FAQ = [
+  { q: "有免费试用吗？", a: "是的，新用户注册后可获得 7 天免费试用，可体验旗舰版的全部功能。" },
+  { q: "可以随时更换订阅方案吗？", a: "您可以随时升级您的订阅方案，但降级需要等待当前会员有效期结束后进行续订。" },
+]
+
 const purchaseFlow = usePurchaseFlow({
   onSuccess: () => {
-    // 购买成功后跳转到会员页面
-    navigateTo("/dashboard/membership/level");
+    navigateTo("/dashboard/membership/level")
   },
-});
+})
 
-/**
- * 购买会员
- * @param productId 商品 ID
- */
-const buy = (productId) => {
-  purchaseFlow.buy(productId);
-};
+const buy = (productId: number) => {
+  purchaseFlow.buy(productId)
+}
 
-onMounted(() => {
-  window.scrollTo(0, 0);
-});
+const { siteUrl } = useRuntimeConfig().public.seo
+useSiteSeo({
+  title: "价格方案 - 律师 AI 会员订阅",
+  description: "LexSeek 法索 AI 提供新手旗舰¥9.9/月、基础版¥365/年、专业版¥680/年、旗舰版¥1280/年四档会员，覆盖案件分析、合同审查、办案工具全功能；注册即享 7 天免费试用。",
+  path: "/pricing",
+  keywords: ["LexSeek会员", "法律AI订阅", "律师AI价格", "案件分析订阅", "法律科技会员"],
+  ogImage: "/og/pricing.png",
+  jsonLd: [
+    breadcrumbLd([
+      { name: "首页", path: "/" },
+      { name: "价格方案", path: "/pricing" },
+    ], siteUrl),
+    {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: "LexSeek 法索 AI 会员订阅",
+      description: "律师 AI 工作台会员订阅，提供案件分析、合同审查、办案工具全功能",
+      brand: { "@type": "Brand", name: "LexSeek 法索 AI" },
+      offers: {
+        "@type": "AggregateOffer",
+        priceCurrency: "CNY",
+        lowPrice: "9.9",
+        highPrice: "1280",
+        offerCount: 4,
+      },
+    },
+    faqLd([
+      { q: "有免费试用吗？", a: "是的，新用户注册后可获得 7 天免费试用，可体验旗舰版的全部功能。" },
+      { q: "可以随时更换订阅方案吗？", a: "您可以随时升级您的订阅方案，但降级需要等待当前会员有效期结束后进行续订。" },
+    ]),
+  ],
+})
 </script>
-
-<style scoped>
-.table-with-borders td,
-.table-with-borders th {
-  border-right: 1px solid hsl(var(--border));
-}
-
-.table-with-borders td:last-child,
-.table-with-borders th:last-child {
-  border-right: none;
-}
-</style>
