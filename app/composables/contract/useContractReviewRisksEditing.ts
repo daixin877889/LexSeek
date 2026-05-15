@@ -16,6 +16,8 @@ export interface UseContractReviewRisksEditingDeps {
     reviewId: Ref<number | null>
     review: Ref<ReviewWithParsedRisks | null>
     hasUnsavedDocxChanges: Ref<boolean>
+    /** PATCH risk-list 成功后回调——用于刷新版本工作区数据、提示用户 */
+    onPatchSuccess?: () => void
 }
 
 export function useContractReviewRisksEditing(deps: UseContractReviewRisksEditingDeps) {
@@ -55,6 +57,7 @@ export function useContractReviewRisksEditing(deps: UseContractReviewRisksEditin
         }
         lastServerRisks = risks
         lastServerUnsaved = true
+        deps.onPatchSuccess?.()
     }, 500)
 
     /** 乐观更新 + debounce 提交 */

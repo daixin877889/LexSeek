@@ -57,7 +57,16 @@ const sessionIdRef = ref<string | null>(null)
 
 // === 业务态 sub-composable ===
 const stages = useContractReviewStages()
-const risksEditing = useContractReviewRisksEditing({ reviewId, review, hasUnsavedDocxChanges })
+const risksEditing = useContractReviewRisksEditing({
+    reviewId,
+    review,
+    hasUnsavedDocxChanges,
+    // PATCH risk-list 成功后刷新版本工作区（编辑/删除的列表数据源是 versioning.currentView）并提示
+    onPatchSuccess: () => {
+        versioning.refreshWorkspace()
+        toast.success('风险清单已更新')
+    },
+})
 const lifecycle = useContractReviewLifecycle({
     reviewId,
     review,
