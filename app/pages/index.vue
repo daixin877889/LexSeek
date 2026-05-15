@@ -1,33 +1,6 @@
 <template>
   <div>
-    <!-- 英雄区域 -->
-    <section class="py-12 md:py-24 px-4">
-      <div class="max-w-[1200px] mx-auto">
-        <div class="grid md:grid-cols-2 gap-8 items-center">
-          <div>
-            <h1 class="text-3xl md:text-5xl font-bold tracking-tight mb-4 leading-tight md:leading-normal">
-              专为法律人打造的
-              <br />案情分析与诉讼辅助AI平台
-            </h1>
-            <p class="text-xl text-muted-foreground mb-8">LexSeek 帮助律师精炼案件信息，洞悉复杂案情脉络，提供从概要梳理到策略预判的深度分析，助您高效决策，掌控全局。</p>
-            <div class="flex flex-col sm:flex-row gap-4">
-              <NuxtLink to="/dashboard/cases/create"
-                class="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors">
-                {{ btnText }}</NuxtLink>
-              <NuxtLink to="/features"
-                class="inline-flex items-center justify-center px-6 py-3 bg-muted text-foreground font-medium rounded-md hover:bg-muted/80 transition-colors">
-                了解更多</NuxtLink>
-            </div>
-          </div>
-          <div class="relative">
-            <div class="bg-linear-to-r from-primary/20 to-primary/10 rounded-lg">
-              <video class="w-full h-full object-cover rounded-xl shadow-lg" src="https://lexseek.cn/video/vcr.mp4"
-                webkit-playsinline playsinline poster="https://lexseek.cn/video/cover.png" controls></video>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
+    <LandingHero />
     <!-- 痛点 -->
     <section class="py-12 bg-muted/30 px-4">
       <div class="max-w-[1200px] mx-auto">
@@ -310,6 +283,7 @@
 </template>
 
 <script setup lang="ts">
+import LandingHero from '~/components/landing/LandingHero.vue'
 import { useAuthStore } from '~/store/auth'
 definePageMeta({
   layout: "base-layout",
