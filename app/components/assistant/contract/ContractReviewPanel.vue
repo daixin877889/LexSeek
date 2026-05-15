@@ -556,6 +556,47 @@ function handleContainerClick(e: MouseEvent) {
         togglePin(id)
     }
 }
+
+// ===== 预览 hover「＋」新增风险 =====
+// 分栏(isSplit)/窄屏 v-if/v-else 互斥，同一时刻只渲染一个 RiskListPanel；
+// 函数式 ref + if(el) 守卫确保 riskPanelRef 始终指向当前挂载实例（离场实例回调传 null 被忽略）。
+const riskPanelRef = ref<{ openCreateWithPrefill: (p: { clauseText: string; clauseParagraphIndex: number }) => void } | null>(null)
+function setRiskPanelRef(el: any) {
+    if (el) riskPanelRef.value = el
+}
+
+function handleAddRiskFromParagraph(payload: { clauseParagraphIndex: number; clauseText: string }) {
+    riskPanelRef.value?.openCreateWithPrefill(payload)
+}
+
+async function handleCreateRisk(payload: { clauseText: string; clauseParagraphIndex: number; risk: Risk }) {
+    if (!reviewId.value) return
+    const r = payload.risk
+    const resp = await useApiFetch(
+        `/api/v1/assistant/contract/reviews/add-risk/${reviewId.value}`,
+        {
+            method: 'POST',
+            body: {
+                clauseText: payload.clauseText,
+                clauseParagraphIndex: payload.clauseParagraphIndex,
+                level: r.level,
+                category: r.category,
+                problem: r.problem,
+                legalBasis: r.legalBasis ?? null,
+                analysis: r.analysis,
+                suggestion: r.suggestion,
+                suggestedClauseText: r.suggestedClauseText ?? null,
+            },
+            showError: false,
+        },
+    )
+    if (resp != null) {
+        await versioning.refreshWorkspace()
+        toast.success('风险已新增')
+    } else {
+        toast.error('新增风险失败，请稍后重试')
+    }
+}
 </script>
 
 <template>
@@ -708,6 +749,7 @@ function handleContainerClick(e: MouseEvent) {
                                     @focus-risk="focusRisk"
                                     @hover-clause="setHoveredRisk"
                                     @locate-result="markLocated"
+                                    @add-risk-from-paragraph="handleAddRiskFromParagraph"
                                 />
                             </div>
                         </ResizablePanel>
@@ -729,6 +771,7 @@ function handleContainerClick(e: MouseEvent) {
                                     <span class="animate-pulse">{{ statusLabel }}</span>
                                 </div>
                                 <AssistantContractRiskListPanel
+                                    :ref="setRiskPanelRef"
                                     :risks="effectiveRisks"
                                     :annotations="versionedAnnotations"
                                     :read-only="versioning.isReadOnly.value"
@@ -755,6 +798,7 @@ function handleContainerClick(e: MouseEvent) {
                                     @update-annotation="handleUpdateAnnotation"
                                     @delete-annotation="handleDeleteAnnotation"
                                     @restore-annotation="handleRestoreAnnotation"
+                                    @create-risk="handleCreateRisk"
                                 />
                             </div>
                         </ResizablePanel>
@@ -773,6 +817,7 @@ function handleContainerClick(e: MouseEvent) {
                                 @focus-risk="focusRisk"
                                 @hover-clause="setHoveredRisk"
                                 @locate-result="markLocated"
+                                @add-risk-from-paragraph="handleAddRiskFromParagraph"
                             />
                         </div>
                         <div class="flex-1 min-h-0 flex flex-col overflow-hidden rounded-lg border bg-card">
@@ -789,6 +834,7 @@ function handleContainerClick(e: MouseEvent) {
                                 <span class="animate-pulse">{{ statusLabel }}</span>
                             </div>
                             <AssistantContractRiskListPanel
+                                :ref="setRiskPanelRef"
                                 :risks="effectiveRisks"
                                 :annotations="versionedAnnotations"
                                 :read-only="versioning.isReadOnly.value"
@@ -814,6 +860,7 @@ function handleContainerClick(e: MouseEvent) {
                                 @update-annotation="handleUpdateAnnotation"
                                 @delete-annotation="handleDeleteAnnotation"
                                 @restore-annotation="handleRestoreAnnotation"
+                                @create-risk="handleCreateRisk"
                             />
                         </div>
                     </div>
