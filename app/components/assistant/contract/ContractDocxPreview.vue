@@ -70,10 +70,10 @@ function syncAddBtnTop() {
 
 function onContainerMouseOver(e: MouseEvent) {
     const para = (e.target as HTMLElement | null)?.closest('p') ?? null
-    if (!isBodyParagraph(para)) {
-        hoveredParagraph.value = null
-        return
-    }
+    // 命中非正文段落（段落间空白、左侧 gutter、页眉页脚）时保持当前按钮不清空——
+    // 鼠标从段落移向左侧「＋」按钮的途中必然经过非段落区，清空会让按钮闪掉无法点击。
+    // 真正的隐藏交给容器 mouseleave。
+    if (!isBodyParagraph(para)) return
     // 同段落内移动持续命中同一 <p>，已是当前 hover 段落则跳过重算
     if (para === hoveredParagraph.value) return
     hoveredParagraph.value = para
@@ -337,7 +337,7 @@ watch(
                 合同加载中...
             </div>
             <!-- 白纸：bg-background 浅色=白 / 暗色=深主题色；.docx 原生白纸居中陈列 -->
-            <div class="relative flex-1 min-h-0">
+            <div class="relative flex-1 min-h-0" @mouseleave="hoveredParagraph = null">
                 <div
                     ref="containerRef"
                     class="docx-preview-container h-full overflow-y-auto rounded-md bg-background p-6"
