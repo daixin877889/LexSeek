@@ -308,15 +308,21 @@ watch(
                 el.classList.add(RISK_LEVEL_DOCX_HOVER_BG[level])
             }
         })
-        if (props.focusedRiskId) {
-            const el = containerRef.value.querySelector(`[data-risk-ids~="${props.focusedRiskId}"]`)
-            el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        }
-
-        // PR 5：focused 切到新 risk → 启动 1 秒衰减窗口（spec § 7.5）
+        // focused 切到新 risk → 滚动定位 + 启动 1 秒衰减窗口（spec § 7.5）
         const prevFocused = (oldVals?.[0] ?? null) as string | null
         const newFocused = (newVals[0] ?? null) as string | null
         if (newFocused && newFocused !== prevFocused) {
+            // 仅在 focusedRiskId 真正切换时滚动定位——watch 同时监听 hovered/pinned/risks，
+            // 每次触发都滚会把预览区反复拽回 focused 段落，用户无法手动滚动。
+            // 且只滚容器自身：scrollIntoView 会连带滚动外层页面容器造成"跳屏"。
+            const c = containerRef.value
+            const el = c.querySelector(`[data-risk-ids~="${newFocused}"]`)
+            if (el instanceof HTMLElement) {
+                const elRect = el.getBoundingClientRect()
+                const cRect = c.getBoundingClientRect()
+                const top = c.scrollTop + (elRect.top - cRect.top) - (c.clientHeight - elRect.height) / 2
+                c.scrollTo({ top, behavior: 'smooth' })
+            }
             startFlashWindow()
         }
 
