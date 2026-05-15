@@ -15,7 +15,11 @@ import { locateClauseElement, paragraphIndexOfElement, isBodyParagraph } from '#
 import type { Risk, RiskDisplayPhaseB, RiskLevel } from '#shared/types/contract'
 // UI-L1：从 app/utils/contractRiskLevelStyle.ts 单一数据源 import，
 // 与 RiskListPanel 的徽章配色统一维护。
-import { RISK_LEVEL_DOCX_BG_CLASS as LEVEL_BG } from '~/utils/contractRiskLevelStyle'
+import {
+    RISK_LEVEL_DOCX_BG_CLASS as LEVEL_BG,
+    RISK_LEVEL_DOCX_FOCUS_CLASS,
+    RISK_LEVEL_DOCX_HOVER_BG,
+} from '~/utils/contractRiskLevelStyle'
 import { useApiFetch } from '~/composables/useApiFetch'
 import {
     decorateQuoteRanges,
@@ -294,19 +298,14 @@ watch(
             const isHovered = !isActive && !isPinned
                 && props.hoveredRiskId != null && ids.includes(props.hoveredRiskId)
 
-            el.classList.remove(
-                'bg-yellow-200', 'border-l-[5px]', 'border-red-700',
-                '[box-shadow:0_0_0_1px_#b91c1c]',
-                'bg-yellow-50',
-            )
-            if (isActive || isPinned) {
-                el.classList.add(
-                    'bg-yellow-200', 'border-l-[5px]', 'border-red-700',
-                    '[box-shadow:0_0_0_1px_#b91c1c]',
-                )
+            const level = ((el as HTMLElement).dataset.riskLevel ?? 'low') as RiskLevel
+            for (const lv of ['high', 'medium', 'low'] as RiskLevel[]) {
+                el.classList.remove(...RISK_LEVEL_DOCX_FOCUS_CLASS[lv], RISK_LEVEL_DOCX_HOVER_BG[lv])
             }
-            if (isHovered) {
-                el.classList.add('bg-yellow-50')
+            if (isActive || isPinned) {
+                el.classList.add(...RISK_LEVEL_DOCX_FOCUS_CLASS[level])
+            } else if (isHovered) {
+                el.classList.add(RISK_LEVEL_DOCX_HOVER_BG[level])
             }
         })
         if (props.focusedRiskId) {

@@ -19,12 +19,31 @@ export const RISK_LEVEL_BADGE_CLASS: Record<RiskLevel, string> = {
 }
 
 /**
- * docx 段落风险高亮（保留多 class 形式，部分调用方走 classList.add(...) 接口）。
- * 设计：白纸上用极淡的分级晕染底色（~3% 透明度，接近白、整页不喧宾夺主）+ 醒目
- * 左竖线标等级 + pl-3 让竖线与正文之间留出间距。
+ * docx 段落风险高亮配色（保留多 class 形式，部分调用方走 classList.add(...) 接口）。
+ *
+ * 设计（重新设计版）：色彩收敛为「红 / 琥珀 / 蓝」三色相——高=红、中=琥珀、低=蓝，
+ * 低风险用冷色与高/中的暖色拉开对比，三档一眼分清。段落基线只铺极淡晕染底
+ * （~4.5%，整页近白纸）+ 等级色左竖线 + pl-3 间距。选中/悬停态见下方 FOCUS / HOVER。
  */
 export const RISK_LEVEL_DOCX_BG_CLASS: Record<RiskLevel, string[]> = {
-    high: ['bg-red-500/[0.03]', 'border-l-4', 'border-red-500', 'pl-3'],
-    medium: ['bg-orange-500/[0.03]', 'border-l-4', 'border-orange-500', 'pl-3'],
-    low: ['bg-gray-500/[0.03]', 'border-l-4', 'border-gray-400', 'pl-3'],
+    high: ['bg-red-600/[0.045]', 'border-l-4', 'border-red-600', 'pl-3'],
+    medium: ['bg-amber-600/[0.05]', 'border-l-4', 'border-amber-600', 'pl-3'],
+    low: ['bg-sky-600/[0.045]', 'border-l-4', 'border-sky-600', 'pl-3'],
+}
+
+/**
+ * 选中（focused）/ 钉住（pinned）态：等级色底色加深 + 一圈内描边强调（不再用亮黄）。
+ * bg 带 ! important——段落基线已有 bg-*-600/[0.045]，同为 background-color 需强制覆盖。
+ */
+export const RISK_LEVEL_DOCX_FOCUS_CLASS: Record<RiskLevel, string[]> = {
+    high: ['bg-red-600/[0.1]!', 'ring-1', 'ring-inset', 'ring-red-600/40'],
+    medium: ['bg-amber-600/[0.1]!', 'ring-1', 'ring-inset', 'ring-amber-600/40'],
+    low: ['bg-sky-600/[0.1]!', 'ring-1', 'ring-inset', 'ring-sky-600/40'],
+}
+
+/** 悬停（hovered）态：等级色底色轻微加深，无描边（bg 同样需 ! 覆盖基线） */
+export const RISK_LEVEL_DOCX_HOVER_BG: Record<RiskLevel, string> = {
+    high: 'bg-red-600/[0.08]!',
+    medium: 'bg-amber-600/[0.08]!',
+    low: 'bg-sky-600/[0.08]!',
 }
