@@ -6,9 +6,9 @@
  *      （段落级浅色底由 ContractDocxPreview 段落级流程负责，仍生效）
  *
  * 三态命名 Highlight（spec § 7.6 矩阵）：
- *  - quote-default：idle / hovered / focused 衰减后（默认深黄 60%）
- *  - quote-focused：focusedRiskId 且 flash 窗口活跃（深橙 85%，1 秒后由调用方关闭 flashWindowActive 触发衰减）
- *  - quote-pinned：在 pinnedRiskIds 集合（棕黄 70%）
+ *  - quote-default：idle / hovered / focused 衰减后（红色下划线、半透明）
+ *  - quote-focused：focusedRiskId 且 flash 窗口活跃（红色下划线实色 + 极淡红底，1 秒后由调用方关闭 flashWindowActive 触发衰减）
+ *  - quote-pinned：在 pinnedRiskIds 集合（红色下划线、较醒目）
  */
 
 import { findByParagraphIndex } from '#shared/utils/clauseLocator'

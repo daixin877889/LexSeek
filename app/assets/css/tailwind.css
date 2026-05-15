@@ -338,22 +338,16 @@
  * 设计：问题语句改用红色下划线标出（不再铺黄色块），三态靠下划线深浅 +
  * focused 极淡底色区分。文档纸面恒为白色、不随主题翻转，故无 dark 变体。
  */
-::highlight(quote-default) {
-    text-decoration-line: underline;
-    text-decoration-color: rgb(220 38 38 / 0.5);
-    text-decoration-thickness: 2px;
-    text-underline-offset: 2px;
-}
-::highlight(quote-pinned) {
-    text-decoration-line: underline;
-    text-decoration-color: rgb(220 38 38 / 0.85);
-    text-decoration-thickness: 2px;
-    text-underline-offset: 2px;
-}
+::highlight(quote-default),
+::highlight(quote-pinned),
 ::highlight(quote-focused) {
     text-decoration-line: underline;
-    text-decoration-color: rgb(220 38 38);
     text-decoration-thickness: 2px;
     text-underline-offset: 2px;
+}
+::highlight(quote-default) { text-decoration-color: rgb(220 38 38 / 0.5); }
+::highlight(quote-pinned) { text-decoration-color: rgb(220 38 38 / 0.85); }
+::highlight(quote-focused) {
+    text-decoration-color: rgb(220 38 38);
     background-color: rgb(220 38 38 / 0.08);
 }

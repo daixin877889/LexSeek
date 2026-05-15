@@ -326,7 +326,7 @@ watch(
                 && props.hoveredRiskId != null && ids.includes(props.hoveredRiskId)
 
             const level = ((el as HTMLElement).dataset.riskLevel ?? 'low') as RiskLevel
-            for (const lv of ['high', 'medium', 'low'] as RiskLevel[]) {
+            for (const lv of Object.keys(LEVEL_RANK) as RiskLevel[]) {
                 el.classList.remove(...RISK_LEVEL_DOCX_FOCUS_CLASS[lv], RISK_LEVEL_DOCX_HOVER_BG[lv])
             }
             if (isActive || isPinned) {
@@ -353,8 +353,11 @@ watch(
             startFlashWindow()
         }
 
-        // PR 5：派系字符级 quote 高亮三态（spec § 7.6 矩阵）
-        paintQuoteHighlights()
+        // quote 高亮三态只取决于 focused / pinned / risks（pickHighlightState 不看 hovered）；
+        // 仅 hovered 变化时跳过重算，避免鼠标在风险卡片间移动反复 clear + 重建 Highlight。
+        if (newVals[0] !== oldVals?.[0] || newVals[1] !== oldVals?.[1] || newVals[3] !== oldVals?.[3]) {
+            paintQuoteHighlights()
+        }
     },
 )
 </script>
