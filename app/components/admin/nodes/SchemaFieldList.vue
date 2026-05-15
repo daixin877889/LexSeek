@@ -12,7 +12,7 @@
                 />
                 <Select v-model="field.type"
                     @update:model-value="(val: AcceptableValue) => onTypeChange(field, val)">
-                    <SelectTrigger>
+                    <SelectTrigger class="w-full">
                         <SelectValue placeholder="类型" />
                     </SelectTrigger>
                     <SelectContent>

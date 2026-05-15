@@ -68,7 +68,7 @@
                     <div class="flex gap-2">
                         <Input v-model.number="item.inputValue" type="number" min="0" class="flex-1" />
                         <Select v-model="item.unit" class="w-24" v-if="item.unitType === 'byte'">
-                            <SelectTrigger>
+                            <SelectTrigger class="w-full">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>

@@ -127,7 +127,7 @@
                         <div class="space-y-2">
                             <Label>单位类型 <span class="text-destructive">*</span></Label>
                             <Select v-model="form.unitType">
-                                <SelectTrigger>
+                                <SelectTrigger class="w-full">
                                     <SelectValue placeholder="选择单位" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -139,7 +139,7 @@
                         <div class="space-y-2">
                             <Label>计算模式 <span class="text-destructive">*</span></Label>
                             <Select v-model="form.consumptionMode">
-                                <SelectTrigger>
+                                <SelectTrigger class="w-full">
                                     <SelectValue placeholder="选择模式" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -154,7 +154,7 @@
                         <div class="flex gap-2">
                             <Input v-model.number="defaultValueInput" type="number" min="0" class="flex-1" />
                             <Select v-model="defaultValueUnit" class="w-24" v-if="form.unitType === 'byte'">
-                                <SelectTrigger>
+                                <SelectTrigger class="w-full">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>

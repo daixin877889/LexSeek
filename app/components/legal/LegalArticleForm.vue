@@ -8,7 +8,7 @@
                 <div class="w-full sm:w-1/2 space-y-2">
                     <Label for="type">条文类型 <span class="text-destructive">*</span></Label>
                     <Select v-model="form.type">
-                        <SelectTrigger>
+                        <SelectTrigger class="w-full">
                             <SelectValue placeholder="请选择条文类型" />
                         </SelectTrigger>
                         <SelectContent>

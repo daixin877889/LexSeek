@@ -88,7 +88,7 @@
                             <div class="space-y-2">
                                 <Label>权益类型 <span class="text-destructive">*</span></Label>
                                 <Select v-model="grantForm.benefitId">
-                                    <SelectTrigger>
+                                    <SelectTrigger class="w-full">
                                         <SelectValue placeholder="选择权益类型" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -105,7 +105,7 @@
                                     <Input v-model.number="grantForm.inputValue" type="number" min="1" class="flex-1" />
                                     <Select v-model="grantForm.unit" class="w-24"
                                         v-if="selectedBenefitUnitType === 'byte'">
-                                        <SelectTrigger>
+                                        <SelectTrigger class="w-full">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>

@@ -217,7 +217,7 @@
               <div v-if="options.hasChildren">
                 <label class="text-sm font-medium leading-none">子女抚养权</label>
                 <Select v-model="options.childCustody" class="mt-1.5">
-                  <SelectTrigger>
+                  <SelectTrigger class="w-full">
                     <SelectValue :placeholder="getChildCustodyText()" />
                   </SelectTrigger>
                   <SelectContent>
