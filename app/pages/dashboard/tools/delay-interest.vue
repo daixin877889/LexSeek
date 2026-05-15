@@ -263,6 +263,9 @@ definePageMeta({
 import { calculateDelayInterest } from "#shared/utils/tools/delayInterestService";
 import { formatDate, daysBetween } from "#shared/utils/tools/utils/date";
 import { exportDelayInterestToExcel } from "#shared/utils/tools/utils/excelExport";
+import { useToolsRates } from '~/composables/useToolsRates'
+
+const { ensureLoaded } = useToolsRates()
 
 // 状态管理
 const principal = ref(100000);
@@ -270,6 +273,11 @@ const yearDays = ref(365);
 const startDate = ref(formatDate(new Date(new Date().setFullYear(new Date().getFullYear() - 1))));
 const endDate = ref(formatDate(new Date()));
 const result = ref(null);
+
+// 组件挂载时从接口拉取最新利率（失败时回退到内置默认快照）
+onMounted(async () => {
+  await ensureLoaded();
+});
 
 // 检查日期是否在LPR起始日期之后
 function isAfterLPRDate(dateStr) {

@@ -18,9 +18,9 @@ export function useToolsRates() {
     loadingPromise = (async () => {
       try {
         const [lpr, deposit, loan] = await Promise.all([
-          useApiFetch<LPRRate[]>('/v1/tools/rates/lpr', { method: 'GET' }),
-          useApiFetch<DepositRate[]>('/v1/tools/rates/pboc-deposit', { method: 'GET' }),
-          useApiFetch<LoanRate[]>('/v1/tools/rates/pboc-loan', { method: 'GET' }),
+          useApiFetch<LPRRate[]>('/api/v1/tools/rates/lpr', { method: 'GET' }),
+          useApiFetch<DepositRate[]>('/api/v1/tools/rates/pboc-deposit', { method: 'GET' }),
+          useApiFetch<LoanRate[]>('/api/v1/tools/rates/pboc-loan', { method: 'GET' }),
         ])
         if (lpr) setLPRRates(lpr)
         if (deposit) setDepositRates(deposit)

@@ -482,6 +482,9 @@ definePageMeta({
 import { calculateSimpleInterest, calculateCustomRateInterest, calculateLPRInterest, calculatePBOCInterest, getRateForDate, getInterestRates } from "#shared/utils/tools/interestService";
 import { formatDate, daysBetween } from "#shared/utils/tools/utils/date";
 import { exportInterestToExcel } from "#shared/utils/tools/utils/excelExport";
+import { useToolsRates } from '~/composables/useToolsRates'
+
+const { ensureLoaded } = useToolsRates()
 
 // 状态管理
 const calculationType = ref("custom");
@@ -1029,8 +1032,9 @@ watch(
   }
 );
 
-// 组件挂载时执行
-onMounted(() => {
+// 组件挂载时先从接口拉取最新利率，再刷新页面用到的利率展示
+onMounted(async () => {
+  await ensureLoaded();
   updateApplicableRates();
   updateDesignatedLprRate();
   updateDesignatedPbocRate();

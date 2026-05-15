@@ -11,7 +11,7 @@
           </ul>
         </div>
         <div class="bg-muted/50 p-2 rounded">
-          <p><strong>注意：</strong>本数据仅供参考，最后更新时间：2025-04-20</p>
+          <p><strong>注意：</strong>本数据仅供参考，最后更新时间：{{ lastUpdated }}</p>
         </div>
       </template>
     </ToolsCalculatorPageHeader>
@@ -127,7 +127,7 @@
 
     <div class="mt-4">
       <Alert variant="info" class="block">
-        <p class="text-sm"><strong>说明：</strong> 数据仅供参考，最后更新时间：2025-04-20</p>
+        <p class="text-sm"><strong>说明：</strong> 数据仅供参考，最后更新时间：{{ lastUpdated }}</p>
       </Alert>
     </div>
   </div>
@@ -135,17 +135,23 @@
 
 <script setup>
 import ToolsCalculatorPageHeader from '~/components/tools/CalculatorPageHeader.vue'
+import { useToolsRates } from '~/composables/useToolsRates'
+import { getLPRHistory, getLoanRateHistory, getDepositRateHistory } from "#shared/utils/tools/bankRateService";
+
 definePageMeta({
   title: "银行利率查询",
   layout: "dashboard-layout",
 });
 
-import { getLPRHistory, getLoanRateHistory, getDepositRateHistory } from "#shared/utils/tools/bankRateService";
+const { ensureLoaded } = useToolsRates()
 
 // 状态管理
 const lprHistory = ref([]);
 const loanHistory = ref([]);
 const depositHistory = ref([]);
+
+// 数据更新时间：取最新一条 LPR 的生效日期
+const lastUpdated = computed(() => lprHistory.value[0]?.date ?? "—");
 
 // 方法
 function loadRateData() {
@@ -154,8 +160,9 @@ function loadRateData() {
   depositHistory.value = getDepositRateHistory();
 }
 
-// 组件挂载时执行
-onMounted(() => {
+// 组件挂载时先从接口拉取最新利率（失败时回退到内置默认快照）
+onMounted(async () => {
+  await ensureLoaded();
   loadRateData();
 });
 </script>
