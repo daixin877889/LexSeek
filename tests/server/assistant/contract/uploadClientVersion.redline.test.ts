@@ -276,7 +276,7 @@ describe('uploadClientVersionService · 修订版回传识别（spec §11.2）',
         const clauseText = '违约金按合同总额的百分之五十计算。'
         const quote = '百分之五十'
         const start = clauseText.indexOf(quote)
-        const { riskId } = await seedRiskWithAnnotation({
+        const { riskId, annId } = await seedRiskWithAnnotation({
             clauseText,
             problematicQuote: quote,
             quoteCharStart: start,
@@ -314,6 +314,12 @@ describe('uploadClientVersionService · 修订版回传识别（spec §11.2）',
         expect(risk.clientRedlineDecision).toBe('untouched')
         // 未处理不动律师处置
         expect(risk.archivedStatus).toBeNull()
+
+        // 回归（review 6 真实 bug）：该风险走 redline 修订标记导出、不写批注，其
+        // annotation 不在 customXmlRefEntries 内——回传识别不能把它误判成「客户删除
+        // 批注」（否则整批走修订标记的风险批注会被错误标记 removedByClient）
+        const ann = await prisma.contractAnnotations.findUniqueOrThrow({ where: { id: annId } })
+        expect(ann.removedByClient).toBe(false)
     })
 
     it('修订版回传：全接受 → clientRedlineDecision=accepted 且 archivedStatus=handled', async () => {

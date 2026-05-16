@@ -445,10 +445,18 @@ export async function* uploadClientVersionService(params: {
         return parsed.reviewId === review.id ? parsed.annotationId : null
     }
 
-    // 客户删除：workspace annotation 在 newComments 里找不到命中
+    // 客户删除：导出时写过批注、回传 docx 里却找不到的 annotation 才算客户删除。
+    // customXmlRefEntries 是身份证登记的「本次导出实际写成 docx 批注」的 annotation 全集。
+    // 导出修订版（redline 模式）时，带 suggestedClauseText 的风险走 <w:ins>/<w:del>
+    // 修订标记、不写批注，其 annotation 不在此集合内——「docx 里没有它」是设计内正常
+    // 情况，不能误判成客户删除（否则 redline 回传会把整批走修订标记的风险批注全标删）。
+    // customXml 身份证缺失时集合为空 → 一律不判删除（误判会让律师批注丢失，比漏判更严重）。
+    const exportedAnnIds = new Set(customXmlRefEntries.map(e => e.annotationId))
     const removedAnnIds: number[] = []
     for (const a of dbAnnotations) {
-        if (!commentByAnnId.has(a.id)) removedAnnIds.push(a.id)
+        if (commentByAnnId.has(a.id)) continue
+        if (!exportedAnnIds.has(a.id)) continue
+        removedAnnIds.push(a.id)
     }
 
     // bug #3：客户在 Word 里改了 AI / 律师批注的文本内容（wId 未变）。
