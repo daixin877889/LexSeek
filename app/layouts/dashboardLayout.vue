@@ -1,5 +1,5 @@
 <template>
-  <SidebarProvider v-model:open="sidebarOpen">
+  <SidebarProvider v-model:open="sidebarOpen" class="theme-brand">
     <!-- 侧边栏 -->
     <Sidebar collapsible="icon">
       <!-- 顶部logo -->
@@ -21,7 +21,7 @@
         <!-- 头部 - 固定在顶部，支持页面级隐藏 -->
         <header
           v-show="!hideDashboardHeader"
-          class="flex h-12 shrink-0 items-center justify-between gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 bg-background border-b z-50">
+          class="flex h-12 shrink-0 items-center justify-between gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 bg-background/70 backdrop-blur-md border-b z-50">
           <div class="flex gap-2 px-4">
             <!-- logo -->
             <div class="flex items-center gap-2 md:hidden">

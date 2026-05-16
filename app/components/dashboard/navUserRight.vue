@@ -15,7 +15,7 @@
       <DropdownMenuLabel class="p-0 font-normal">
         <div class="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
           <Avatar class="h-8 w-8 rounded-lg">
-            <AvatarFallback class="rounded-lg">LS</AvatarFallback>
+            <AvatarFallback class="rounded-lg bg-gradient-brand text-white font-semibold">LS</AvatarFallback>
           </Avatar>
           <div class="grid flex-1 text-left text-sm leading-tight">
             <span class="truncate font-semibold">{{ displayName }}</span>

@@ -279,16 +279,19 @@
   --background-image-gradient-custom-dark: var(--background-image-gradient-custom-yellow-dark);
 }
 
-/* ==================== Brand 主题（营销公开页作用域，非用户可切换主题） ====================
- * 挂在 baseLayout 根节点。营销页内 --primary 变品牌天蓝，--background/--card 等不动。
- * 工作台/后台用别的布局，拿不到此 class，配色零影响。
- * 暗色用 `.dark .theme-brand` 后代选择器匹配 —— .dark 在 <html>，.theme-brand 在 baseLayout 的 div。
+/* ==================== Brand 主题（作用域类，非用户可切换主题） ====================
+ * 挂在 baseLayout（营销 / 认证 / 法律页）与 dashboardLayout（工作台）根节点。
+ * 作用域内 --primary 变品牌天蓝，--background/--card 等不动。
+ * 后台管理走 admin-layout，拿不到此 class，配色零影响。
+ * 暗色用 `.dark .theme-brand` 后代选择器匹配 —— .dark 在 <html>，.theme-brand 在布局 div。
  */
 .theme-brand {
   --primary: oklch(0.683 0.158 240);
   --primary-foreground: oklch(0.985 0 0);
   --ring: oklch(0.683 0.158 240);
+  --sidebar-ring: oklch(0.683 0.158 240);
   --wash-page: linear-gradient(180deg, #FFFFFF 0%, #F2FBFD 35%, #ECF3FE 100%);
+  --wash-sidebar: linear-gradient(180deg, #F2FBFD 0%, #FFFFFF 35%, #FFFFFF 100%);
   --tint-mint-bg: linear-gradient(135deg, #C8F7EA, #9DEDD3);
   --tint-mint-fg: #0BA47C;
   --tint-sky-bg: linear-gradient(135deg, #CFE9FE, #94CBFA);
@@ -302,7 +305,9 @@
   --primary: oklch(0.755 0.155 230);
   --primary-foreground: oklch(0.145 0 0);
   --ring: oklch(0.755 0.155 230);
+  --sidebar-ring: oklch(0.755 0.155 230);
   --wash-page: linear-gradient(180deg, #0F1115 0%, #0E1822 50%, #0B0F2A 100%);
+  --wash-sidebar: linear-gradient(180deg, #0E1822 0%, #0A0E18 50%, #0A0E18 100%);
   --tint-mint-bg: linear-gradient(135deg, rgba(30,237,196,0.22), rgba(30,237,196,0.1));
   --tint-mint-fg: #5BFCD4;
   --tint-sky-bg: linear-gradient(135deg, rgba(30,158,237,0.26), rgba(30,158,237,0.12));
@@ -311,6 +316,11 @@
   --tint-navy-fg: #BEB8FF;
   --tint-amber-bg: linear-gradient(135deg, rgba(245,158,11,0.24), rgba(245,158,11,0.1));
   --tint-amber-fg: #FCBF6F;
+}
+
+/* 工作台侧边栏品牌微光晕 —— 经作用域规则上色，不改 shadcn ui/sidebar 组件 */
+.theme-brand [data-sidebar="sidebar"] {
+  background-image: var(--wash-sidebar);
 }
 
 @layer base {

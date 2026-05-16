@@ -3,10 +3,19 @@
     <SidebarGroupContent>
       <SidebarMenu>
         <template v-for="item in roleStore.currentRoleRouters.filter((item: any) => item.isMenu && item.groupId === 1)" :key="item.title">
-          <SidebarMenuItem :class="isActive(item.path) ? 'bg-primary/10 rounded-md' : ''">
+          <SidebarMenuItem
+            :class="isActive(item.path) ? 'rounded-md' : ''"
+            :style="isActive(item.path) ? activeBgStyle : undefined"
+          >
+            <span
+              v-if="isActive(item.path)"
+              aria-hidden="true"
+              class="absolute left-0 top-1.5 bottom-1.5 z-10 w-[3px] rounded-full"
+              :style="stripeStyle"
+            />
             <SidebarMenuButton as-child :tooltip="item.title" :class="[
               'p-4 pt-5 pb-5 text-base',
-              isActive(item.path) ? 'text-primary' : ''
+              isActive(item.path) ? 'font-medium text-primary' : ''
             ]">
               <NuxtLink :to="item.path">
                 <component v-if="item.icon" :is="getIcon(item.icon)" />
@@ -24,6 +33,13 @@ import { useRoleStore } from '~/store/role'
 import lucideIcons from '~/utils/lucideIcons'
 const roleStore = useRoleStore();
 const route = useRoute();
+
+/** 选中项左侧 3px 品牌竖条 */
+const stripeStyle = { background: 'linear-gradient(180deg, #1EEDC4, #1E9EED, #090380)' }
+/** 选中项淡渐变底（青/蓝低透明 → 透明） */
+const activeBgStyle = {
+  backgroundImage: 'linear-gradient(90deg, rgba(30,237,196,0.16), rgba(30,158,237,0.16) 60%, transparent)',
+}
 
 /** 判断菜单是否激活（精确匹配或子路由匹配） */
 const isActive = (path: string) => {
