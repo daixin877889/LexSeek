@@ -155,8 +155,8 @@ model contractRisks {
 ```xml
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <lexseekRedlineRefs xmlns="urn:lexseek:contract-review-redline:v1" reviewId="871">
-  <ref riskId="42" delIds="5" insId="6"/>
-  <ref riskId="43" delIds="8,10" insId="11"/>
+  <ref riskId="42" delIds="5" insId="6" paraIdxs="12"/>
+  <ref riskId="43" delIds="8,10" insId="11" paraIdxs="20,21"/>
 </lexseekRedlineRefs>
 ```
 
@@ -166,6 +166,7 @@ model contractRisks {
 | `<ref>` `riskId` | `contractRisks.id` |
 | `<ref>` `delIds` | 该风险所有 `<w:del>` 节点的 `w:id`（跨段风险有多个，逗号分隔） |
 | `<ref>` `insId` | 该风险 `<w:ins>` 节点的 `w:id`（跨段风险只有结尾段有 ins，单值） |
+| `<ref>` `paraIdxs` | 该修订所跨**非空段落序号**（逗号分隔）。回传识别据此把正文比对限定在风险所属段落（§6.2），避免长文档里偶然同名命中。来自 `RedlineWrapTarget.paragraphSpans[].paraIdx` |
 
 > 修订身份证**无 DB 对应物**（不像批注的 `wordCommentRef` 存在 DB）。修订身份是 `(reviewId, riskId)`，del/ins 的 `w:id` 每次导出重新分配，`redlineRefs.xml` 每次导出按当次分配的 id 重新生成，纯导出期产物。因此不需要 `rand` 随机段。
 
@@ -173,7 +174,7 @@ model contractRisks {
 
 `injectRedlineMarks` 已通过 `InjectRedlineResult.spansByRiskId`（`Map<riskId, RedlineWrapTarget>`，`riskId → paragraphSpans[{paraIdx, delId, insId}]`）公开该映射。导出时用它直接构造并写入 `redlineRefs.xml`：
 
-- 每条 risk 一个 `<ref riskId delIds insId>`：`delIds` = 所有 span 的 `delId`，`insId` = 唯一非 null 的 `insId`。
+- 每条 risk 一个 `<ref riskId delIds insId paraIdxs>`：`delIds` = 所有 span 的 `delId`，`insId` = 唯一非 null 的 `insId`，`paraIdxs` = 所有 span 的 `paraIdx`（非空段落序号，逗号分隔）。
 - 根元素 `reviewId` 取 `options.reviewId`（已有入参）。
 
 `redline` 与 `both` 模式都写 `redlineRefs.xml`；`comment` 模式不写（无修订标记）。
@@ -198,10 +199,7 @@ model contractRisks {
 
 1. 读 `word/customXml/redlineRefs.xml` → 根元素 `reviewId` + `RedlineRefEntry[]`（`{ riskId, delIds: number[], insId: number }`）。文件不存在 → 空。
 2. 扫 `word/document.xml`，收集**还存活的** `<w:ins>` 与 `<w:del>` 节点的 `w:id` 两个 Set。
-3. 提供回传文档的归一化正文文本，两份语料：
-   - `corpusT` —— 所有 `<w:t>` 文本拼接（含 `<w:ins>` 内的、含被拒绝修订恢复出来的、含普通正文）。
-   - `corpusDel` —— 所有 `<w:delText>` 文本拼接（仍处于「待删」状态的旧文字）。
-   - 归一化复用 `textSimilarity.ts` 的 `normalizeForMatch`。
+3. 按**非空段落**提供归一化语料 `paragraphs` 数组——每个非空段落一项，含该段 `<w:t>` 文本与 `<w:delText>` 文本（均经 `textSimilarity.ts` 的 `normalizeForMatch` 归一化）。非空段落口径与 `collectNonEmptyParagraphs` 一致；回传识别按 §5.1 的 `paraIdxs` 取对应段落语料做比对（§6.2）。
 
 XML 解析与遍历**复用 `xmlAst.ts` 现成工具**——`findAll`（取 `ref`/`w:ins`/`w:del`/`w:t`/`w:delText` 节点）、`getAttr`（读属性）、`textOf` / `walk`（取文本），不自造遍历。判定逻辑做成**纯函数** `classifyRedlineDecision(...)` 便于单测。
 
@@ -230,7 +228,7 @@ XML 解析与遍历**复用 `xmlAst.ts` 现成工具**——`findAll`（取 `ref
    | `old` 含 `new`（在原文上删减） | `old` 命中 `corpusT` → **拒绝**；`old` 未命中、`new` 命中 → **接受**；两者都未命中 → **需确认** |
    | 互不包含（实质重写） | `new` 命中且 `old` 未命中 → **接受**；`old` 命中且 `new` 未命中 → **拒绝**；其余（都命中/都不命中）→ **需确认** |
 
-> 命中判断为 `normalizeForMatch` 归一化后的包含匹配。为降低长文档里的偶然同名命中，实现时优先用现有 `commentInjector.findParagraphIndexByQuote` 一类锚点匹配先定位该风险所属段落、再在段落文本内判断，定位失败再退回全文语料。
+> 命中判断为 `normalizeForMatch` 归一化后的包含匹配，且 **`corpusT`/`corpusDel` 限定在该风险所属段落**——按 §5.1 `redlineRefs.xml` 记录的 `paraIdxs` 取对应非空段落的 `<w:t>`/`<w:delText>` 语料，避免长文档里偶然同名子串误判。`paraIdxs` 越界（客户结构性增删段落致序号漂移）时回退全文语料。
 >
 > 能进入 `redlineRefs.xml` 的风险必带非空 `problematicQuote` 与 `suggestedClauseText`（无锚点/无改写的风险导出时已 fallback 成批注），故 `old`/`new` 必非空、且 `old != new`。
 >
