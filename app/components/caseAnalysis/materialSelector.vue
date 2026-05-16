@@ -18,7 +18,7 @@
             <Button v-for="option in fileTypeOptions" :key="option.value"
               variant="outline" size="sm"
               :class="['h-9', selectedFileType === option.value
-                ? 'bg-gradient-brand text-white border-transparent shadow-md shadow-primary/25 hover:text-white'
+                ? 'bg-gradient-brand text-white border-transparent shadow-[0_6px_14px_-6px_rgba(9,3,128,0.35)] hover:text-white'
                 : '']"
               @click="selectedFileType = option.value">
               <component :is="option.icon" :class="['size-4', isSearchExpanded ? '' : 'md:mr-1.5', 'lg:mr-1.5']" />
