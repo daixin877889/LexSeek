@@ -15,16 +15,18 @@ export default defineEventHandler(async (event) => {
       name: z.string("姓名不能为空").max(20, "姓名长度不能超过20个字符"),
       company: z.string().max(100, "公司名称长度不能超过100个字符").optional(),
       profile: z.string().max(200, "个人简介长度不能超过200个字符").optional(),
+      contractExportSignature: z.string().max(50, "署名长度不能超过50个字符").optional(),
     }).parse(payload))
 
     const user = event.context.auth.user;
-    const { name, company, profile } = body;
+    const { name, company, profile, contractExportSignature } = body;
 
     // 更新用户资料
     const updatedUser = await updateUserProfileDao(user.id, {
       name,
       company: company ?? undefined,
       profile: profile ?? undefined,
+      contractExportSignature: contractExportSignature ?? undefined,
     });
 
     // 获取更新后的用户信息

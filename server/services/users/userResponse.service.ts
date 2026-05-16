@@ -33,6 +33,8 @@ export interface SafeUserInfo {
     profile: string | null
     /** 邀请码 */
     inviteCode: string | null
+    /** 合同导出署名 */
+    contractExportSignature: string | null
 }
 
 /**
@@ -56,5 +58,6 @@ export const formatUserResponseService = (user: users & { userRoles: (userRoles 
         company: user.company,
         profile: user.profile,
         inviteCode: user.inviteCode,
+        contractExportSignature: user.contractExportSignature,
     }
 }

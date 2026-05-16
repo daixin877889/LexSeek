@@ -23,6 +23,7 @@ export default defineEventHandler(async (event) => {
             company: userInfo.company,
             profile: userInfo.profile,
             inviteCode: userInfo.inviteCode,
+            contractExportSignature: userInfo.contractExportSignature,
         })
 
     } catch (error) {

@@ -16,7 +16,7 @@ vi.mock('~~/server/services/users/users.dao', () => ({
     updateUserProfileDao: vi.fn(),
 }))
 vi.mock('~~/server/services/users/userResponse.service', () => ({
-    formatUserResponseService: vi.fn((u: any) => ({ id: u.id, phone: u.phone, roles: [], status: u.status })),
+    formatUserResponseService: vi.fn((u: any) => ({ id: u.id, phone: u.phone, roles: [], status: u.status, contractExportSignature: u.contractExportSignature })),
 }))
 vi.mock('~~/server/services/users/tokenBlacklist.dao', () => ({
     addTokenBlacklistDao: vi.fn(),
@@ -81,6 +81,7 @@ const FULL_USER = (overrides: Partial<any> = {}) => ({
     company: 'C',
     profile: 'P',
     inviteCode: 'INV',
+    contractExportSignature: null,
     password: 'hashed:oldpass8',
     userRoles: [{ roleId: 1 }],
     ...overrides,
@@ -194,6 +195,23 @@ describe('PUT /api/v1/users/profile', () => {
             userId: 100, body: { name: '李四' },
         }) as any)
         expectError(res, 400, '用户不存在')
+    })
+
+    it('contractExportSignature 透传到 DAO 并出现在响应', async () => {
+        mUpdateProfile.mockResolvedValue({ id: 100 } as any)
+        mFindById.mockResolvedValue(FULL_USER({ contractExportSignature: '王明远律师' }) as any)
+        const res: any = await profileHandler(makeEvent({
+            userId: 100, body: { name: '李四', contractExportSignature: '王明远律师' },
+        }) as any)
+        expectSuccess(res, d => expect(d.contractExportSignature).toBe('王明远律师'))
+        expect(mUpdateProfile).toHaveBeenCalledWith(100, expect.objectContaining({ contractExportSignature: '王明远律师' }))
+    })
+
+    it('contractExportSignature 超 50 字 → 400', async () => {
+        const res: any = await profileHandler(makeEvent({
+            userId: 100, body: { name: '李四', contractExportSignature: '签'.repeat(51) },
+        }) as any)
+        expectError(res, 400)
     })
 })
 
