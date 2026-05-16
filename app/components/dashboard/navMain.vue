@@ -2,20 +2,20 @@
   <SidebarGroup>
     <SidebarGroupContent>
       <SidebarMenu>
-        <template v-for="item in roleStore.currentRoleRouters.filter((item: any) => item.isMenu && item.groupId === 1)" :key="item.title">
+        <template v-for="item in menuItems" :key="item.title">
           <SidebarMenuItem
-            :class="isActive(item.path) ? 'rounded-md' : ''"
-            :style="isActive(item.path) ? activeBgStyle : undefined"
+            :class="item.active ? 'rounded-md' : ''"
+            :style="item.active ? activeBgStyle : undefined"
           >
             <span
-              v-if="isActive(item.path)"
+              v-if="item.active"
               aria-hidden="true"
               class="absolute left-0 top-1.5 bottom-1.5 z-10 w-[3px] rounded-full"
               :style="stripeStyle"
             />
             <SidebarMenuButton as-child :tooltip="item.title" :class="[
               'p-4 pt-5 pb-5 text-base',
-              isActive(item.path) ? 'font-medium text-primary' : ''
+              item.active ? 'font-medium text-primary' : ''
             ]">
               <NuxtLink :to="item.path">
                 <component v-if="item.icon" :is="getIcon(item.icon)" />
@@ -56,6 +56,13 @@ const isActive = (path: string) => {
   }
   return false
 }
+
+/** 主菜单项 + 预标注激活态（避免模板里反复 filter 与多次调用 isActive） */
+const menuItems = computed(() =>
+  roleStore.currentRoleRouters
+    .filter((item: any) => item.isMenu && item.groupId === 1)
+    .map((item: any) => ({ ...item, active: isActive(item.path) })),
+)
 
 const getIcon = (iconName: string): Component | undefined => {
   if (!iconName) return undefined;

@@ -11,7 +11,7 @@
     <!-- 活动横幅 -->
     <button
       type="button"
-      class="relative mb-8 w-full overflow-hidden rounded-xl bg-gradient-brand px-5 py-3.5 text-left text-white shadow-[0_10px_25px_-10px_rgba(9,3,128,0.4)] transition hover:brightness-105"
+      class="relative mb-8 w-full cursor-pointer overflow-hidden rounded-xl bg-gradient-brand px-5 py-3.5 text-left text-white shadow-[0_10px_25px_-10px_rgba(9,3,128,0.4)] transition hover:brightness-105"
       @click="wxSupportStore.showQrCode()"
     >
       <span aria-hidden="true" class="pointer-events-none absolute -top-8 right-16 size-36 rounded-full bg-white/[0.08]" />
@@ -74,8 +74,8 @@
           :key="action.title"
           :to="action.to"
           :type="action.to ? undefined : 'button'"
-          class="flex items-center gap-4 rounded-xl border border-border bg-card p-4 text-left shadow-sm transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-md"
-          @click="action.action === 'help' && wxSupportStore.showQrCode()"
+          class="flex cursor-pointer items-center gap-4 rounded-xl border border-border bg-card p-4 text-left shadow-sm transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-md"
+          @click="action.onClick?.()"
         >
           <div :class="['flex size-10 shrink-0 items-center justify-center rounded-[10px]', TINTS[action.tint]]">
             <component :is="action.icon" class="size-5" />
@@ -218,13 +218,13 @@ interface QuickAction {
   body: string
   tint: Tint
   to?: string
-  action?: 'help'
+  onClick?: () => void
 }
 
 const QUICK_ACTIONS: QuickAction[] = [
   { icon: FilePlus, title: '新建分析', body: '分析新的案件', tint: 'sky', to: '/dashboard/cases/create' },
   { icon: FolderOpen, title: '我的案件', body: '查看所有案件', tint: 'mint', to: '/dashboard/cases' },
   { icon: Crown, title: '会员中心', body: '管理套餐和积分', tint: 'amber', to: '/dashboard/membership' },
-  { icon: HelpCircle, title: '获取帮助', body: '联系客服支持', tint: 'navy', action: 'help' },
+  { icon: HelpCircle, title: '获取帮助', body: '联系客服支持', tint: 'navy', onClick: () => wxSupportStore.showQrCode() },
 ]
 </script>
