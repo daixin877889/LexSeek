@@ -155,6 +155,26 @@ export function isCaseReadOnly(status: CaseStatus | number): boolean {
   return status === CaseStatus.ARCHIVED
 }
 
+/** 判断案件是否处于「进行中」阶段（咨询 / 准备 / 一审 / 二审，不含结案与归档） */
+export function isCaseInProgress(status: CaseStatus | number): boolean {
+  return (
+    status === CaseStatus.CONSULTING ||
+    status === CaseStatus.PREPARING ||
+    status === CaseStatus.FIRST_TRIAL ||
+    status === CaseStatus.SECOND_TRIAL
+  )
+}
+
+/** 案件状态概览（「我的案件」页统计卡用，跨全部案件聚合） */
+export interface CaseStatusSummary {
+  /** 全部案件数（含归档） */
+  total: number
+  /** 进行中（咨询 / 准备 / 一审 / 二审） */
+  inProgress: number
+  /** 已结案 */
+  closed: number
+}
+
 /** 会话状态枚举 */
 export enum SessionStatus {
     /** 进行中 */

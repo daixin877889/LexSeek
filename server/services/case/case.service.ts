@@ -16,20 +16,21 @@ import {
     findCaseBySessionIdDao,
     findSessionByIdDao,
     findManyCasesDao,
+    countCasesByStatusDao,
     updateCaseDao,
     updateSessionStatusDao,
     softDeleteCaseDao,
     findLatestSessionByCaseIdDao,
     checkCaseOwnershipDao,
 } from './case.dao'
-import { CaseStatus, SessionStatus, CaseMaterialType, isCaseReadOnly } from '#shared/types/case'
+import { CaseStatus, SessionStatus, CaseMaterialType, isCaseReadOnly, isCaseInProgress } from '#shared/types/case'
 
 // 导入案件类型服务
 import { getCaseTypeByIdService } from './caseType.service'
 
 // 导入案件材料服务
 import { batchAddCaseMaterialsService } from './caseMaterial.service'
-import type { CaseListParams, CreateCaseInput, ExtractedCaseInfo, UpdateCaseInput } from '#shared/types/case'
+import type { CaseListParams, CreateCaseInput, ExtractedCaseInfo, UpdateCaseInput, CaseStatusSummary } from '#shared/types/case'
 import type { CaseWithRelations } from '~~/server/services/case/case.dao'
 import { getEnabledCaseTypesService } from '~~/server/services/case/caseType.service'
 
@@ -244,6 +245,29 @@ export const getUserCasesService = async (
     options: Omit<CaseListParams, 'userId'> = {}
 ): Promise<{ list: CaseWithRelations[]; total: number }> => {
     return await findManyCasesDao({ ...options, userId })
+}
+
+/**
+ * 获取用户案件状态概览。
+ *
+ * 跨该用户全部案件聚合，不受列表搜索 / 类型 / 状态筛选与分页影响——
+ * 用于「我的案件」页顶部三张统计卡。
+ */
+export const getCaseStatusSummaryService = async (
+    userId: number
+): Promise<CaseStatusSummary> => {
+    const byStatus = await countCasesByStatusDao(userId)
+
+    let total = 0
+    let inProgress = 0
+    let closed = 0
+    for (const [status, count] of Object.entries(byStatus)) {
+        total += count
+        const s = Number(status)
+        if (s === CaseStatus.CLOSED) closed += count
+        else if (isCaseInProgress(s)) inProgress += count
+    }
+    return { total, inProgress, closed }
 }
 
 /**

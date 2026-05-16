@@ -13,23 +13,21 @@
         <Button
           class="w-full bg-gradient-brand text-white shadow-lg shadow-primary/25 transition hover:brightness-105 active:scale-95 md:w-auto">
           <Plus class="mr-2 size-4" />
-          新建分析
+          新建案件
         </Button>
       </NuxtLink>
     </div>
 
-    <!-- 快速统计卡片 -->
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-      <Card v-for="stat in caseStats" :key="stat.label" class="border-primary/10 bg-card/60 p-5 backdrop-blur">
-        <div class="flex items-center gap-4">
-          <div :class="['flex size-11 shrink-0 items-center justify-center rounded-xl', TINTS[stat.tint]]">
-            <component :is="stat.icon" class="size-5" />
+    <!-- 快速统计卡片（移动端也保持一行 3 列，纵向紧凑布局） -->
+    <div class="grid grid-cols-3 gap-3 sm:gap-4">
+      <Card v-for="stat in caseStats" :key="stat.label" class="border-primary/10 bg-card/60 p-3 backdrop-blur sm:p-5">
+        <div class="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-4">
+          <div :class="['flex size-9 shrink-0 items-center justify-center rounded-lg sm:size-11 sm:rounded-xl', TINTS[stat.tint]]">
+            <component :is="stat.icon" class="size-4 sm:size-5" />
           </div>
           <div class="min-w-0">
             <p class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{{ stat.label }}</p>
-            <p class="text-2xl font-bold text-foreground">
-              {{ stat.value }}<span v-if="stat.suffix" class="ml-1 text-sm font-normal text-muted-foreground">{{ stat.suffix }}</span>
-            </p>
+            <p class="text-xl font-bold text-foreground sm:text-2xl">{{ stat.value }}</p>
           </div>
         </div>
       </Card>
@@ -64,7 +62,7 @@
     </div>
 
     <!-- 空状态 -->
-    <CasesEmpty v-else-if="!cases || cases.length === 0" :has-filters="hasFilters" @reset="resetFilters" />
+    <CasesEmpty v-else-if="cases.length === 0" :has-filters="hasFilters" @reset="resetFilters" />
 
     <!-- 案件列表 -->
     <template v-else>
@@ -104,7 +102,7 @@
 import type { Component } from 'vue'
 import { Plus, Loader2, Briefcase, Clock, CheckCircle, List, LayoutGrid } from "lucide-vue-next";
 import { toast } from "vue-sonner";
-import { CaseStatus, type CaseListItem, type CaseTypeOption } from "#shared/types/case";
+import type { CaseListItem, CaseTypeOption, CaseStatusSummary } from "#shared/types/case";
 import CasesDeleteDialog from '~/components/cases/CasesDeleteDialog.vue'
 import CasesEmpty from '~/components/cases/CasesEmpty.vue'
 import CasesFilter from '~/components/cases/CasesFilter.vue'
@@ -202,19 +200,18 @@ const TINTS: Record<StatTint, string> = {
 interface CaseStat {
   label: string
   value: number
-  suffix?: string
   icon: Component
   tint: StatTint
 }
 
-/** 进行中阶段：咨询/准备/一审/二审（不含结案、归档） */
-const ACTIVE_STATUSES: number[] = [CaseStatus.CONSULTING, CaseStatus.PREPARING, CaseStatus.FIRST_TRIAL, CaseStatus.SECOND_TRIAL]
+/** 案件状态概览（来自接口，跨全部案件，不受筛选 / 分页影响） */
+const statusSummary = ref<CaseStatusSummary>({ total: 0, inProgress: 0, closed: 0 })
 
-/** 三张统计卡：累计案件取分页总数，进行中/结案为当前页计数 */
+/** 三张统计卡——均取自跨全部案件的状态概览 */
 const caseStats = computed<CaseStat[]>(() => [
-  { label: '累计案件', value: pagination.total, icon: Briefcase, tint: 'sky' },
-  { label: '进行中', value: cases.value.filter(c => ACTIVE_STATUSES.includes(c.status)).length, suffix: '(当前页)', icon: Clock, tint: 'mint' },
-  { label: '结案', value: cases.value.filter(c => c.status === CaseStatus.CLOSED).length, suffix: '(当前页)', icon: CheckCircle, tint: 'navy' },
+  { label: '累计案件', value: statusSummary.value.total, icon: Briefcase, tint: 'sky' },
+  { label: '进行中', value: statusSummary.value.inProgress, icon: Clock, tint: 'mint' },
+  { label: '结案', value: statusSummary.value.closed, icon: CheckCircle, tint: 'navy' },
 ])
 
 // ==================== 监听器 ====================
@@ -256,6 +253,7 @@ const fetchCases = async () => {
       page: number;
       pageSize: number;
       totalPages: number;
+      statusSummary: CaseStatusSummary;
     }>("/api/v1/cases", { query });
 
     if (result) {
@@ -264,6 +262,7 @@ const fetchCases = async () => {
       pagination.pageSize = result.pageSize;
       pagination.total = result.total;
       pagination.totalPages = result.totalPages;
+      statusSummary.value = result.statusSummary;
       // 后端可能对越界页码做了修正，保持 URL 与实际页码一致
       syncPageToUrl(result.page);
     }

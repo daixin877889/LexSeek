@@ -266,6 +266,35 @@ export const findManyCasesDao = async (
 }
 
 /**
+ * 按状态聚合统计某用户的案件数
+ *
+ * 跨该用户全部案件（不分页、不受列表筛选影响）。
+ *
+ * @param userId 用户 ID
+ * @returns { 状态值: 数量 } 映射
+ */
+export const countCasesByStatusDao = async (
+    userId: number
+): Promise<Record<number, number>> => {
+    try {
+        const grouped = await prisma.cases.groupBy({
+            by: ['status'],
+            where: { userId, deletedAt: null },
+            _count: { _all: true },
+        })
+
+        const result: Record<number, number> = {}
+        for (const g of grouped) {
+            result[g.status] = g._count._all
+        }
+        return result
+    } catch (error) {
+        logger.error('按状态统计案件数失败：', error)
+        throw error
+    }
+}
+
+/**
  * 更新案件
  * @param id 案件 ID
  * @param data 更新数据
