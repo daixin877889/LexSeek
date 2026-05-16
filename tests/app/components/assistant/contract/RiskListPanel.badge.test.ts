@@ -38,6 +38,8 @@ vi.mock('lucide-vue-next', () => {
         EyeOffIcon: stub('EyeOffIcon'),
         RotateCcwIcon: stub('RotateCcwIcon'),
         SparklesIcon: stub('SparklesIcon'),
+        CircleDashedIcon: stub('CircleDashedIcon'),
+        HelpCircleIcon: stub('HelpCircleIcon'),
     }
 })
 
@@ -203,5 +205,12 @@ describe('RiskListPanel Task 3.3.2：AI 已重审徽章', () => {
         const w = mountPanel(risks)
         // 2 个徽章
         expect(w.findAll('[data-icon="SparklesIcon"]')).toHaveLength(2)
+    })
+})
+
+describe('RiskListPanel Task 11：客户修订处置徽章', () => {
+    it('风险带 clientRedlineDecision 时渲染客户处置徽章', () => {
+        const wrapper = mountPanel([makeRisk({ clientRedlineDecision: 'accepted' })])
+        expect(wrapper.text()).toContain('客户已采纳')
     })
 })

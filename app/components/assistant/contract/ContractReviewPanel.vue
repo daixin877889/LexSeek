@@ -302,6 +302,7 @@ const effectiveRisks = computed<RiskDisplayPhaseB[]>(() => {
             // 永远 0/N 命中（即便 LLM 实际写了 code）
             matchedPointCode: e.code ?? undefined,
             archivedStatus: e.archivedStatus,
+            clientRedlineDecision: e.clientRedlineDecision,
             problematicQuote: e.problematicQuote ?? undefined,
             quoteCharStart: e.quoteCharStart ?? null,
             quoteCharEnd: e.quoteCharEnd ?? null,
