@@ -393,6 +393,44 @@ describe('injectRedlineMarks · 完整 docx round-trip + spec §8.5 验证项', 
         expect(inter).toEqual([])
     })
 
+    it('spec §5 redlineRefs.xml 身份证：zip 含 word/customXml/redlineRefs.xml 且内容完整', async () => {
+        // 使用 fixture XML（与上方 buildFixtureBuffer 同模式）确保 paragraphs[0] 够长
+        const original = await readFile(SAMPLE)
+        const fixtureZip = await loadDocxZip(original)
+        fixtureZip.file('word/document.xml', `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">违约金按 0.05% 计算，逾期利率另行约定。</w:t></w:r></w:p>
+  </w:body>
+</w:document>`)
+        const fixtureBuffer = await fixtureZip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' })
+
+        const clauseText = '违约金按 0.05% 计算，逾期利率另行约定。'
+        const result = await injectRedlineMarks(fixtureBuffer, [{
+            id: 871,
+            clauseText,
+            clauseParagraphIndex: 0,
+            problematicQuote: '0.05%',
+            quoteCharStart: 5,
+            quoteCharEnd: 10,
+            suggestedClauseText: '修订建议内容',
+        }], { reviewId: 871, idStart: 100, signature: '王明远' })
+
+        expect(result.skippedRiskIds).toEqual([])
+        expect(result.spansByRiskId.size).toBe(1)
+        const zip = await loadDocxZip(result.buffer)
+
+        const refsXml = await readTextFromZip(zip, 'word/customXml/redlineRefs.xml')
+        expect(refsXml).toContain('reviewId="871"')
+        for (const riskId of result.spansByRiskId.keys()) {
+            expect(refsXml).toContain(`riskId="${riskId}"`)
+        }
+        expect(refsXml).toMatch(/paraIdxs="\d/)
+
+        const ct = await readTextFromZip(zip, '[Content_Types].xml')
+        expect(ct).toContain('PartName="/word/customXml/redlineRefs.xml"')
+    })
+
     it('spec §8.5 ⑤ 端到端：含控制字符的 suggestedClauseText 经 stripIllegalXmlChars 后产物 XML 不含 0x00-0x08/0x0B/0x0C/0x0E-0x1F', async () => {
         const original = await readFile(SAMPLE)
         const { paragraphs } = await parseContractDocx(original)

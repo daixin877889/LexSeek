@@ -28,6 +28,8 @@ import {
     textOf,
     makeElement,
     makeText,
+    makeLeaf,
+    makeXmlDecl,
     collectNonEmptyParagraphs,
     stripIllegalXmlChars,
     type Node,
@@ -39,11 +41,14 @@ import {
     writeTextToZip,
     zipToBuffer,
 } from './zipRewriter'
+import { registerCustomXmlPart } from './customXmlRegistrar'
 import {
     locateQuoteInParagraphs,
     computeRunLength,
     type RunSplit,
 } from './redlineLocate'
+
+const REDLINE_REFS_PATH = 'word/customXml/redlineRefs.xml'
 
 export interface RedlineRisk {
     /** contractRisks.id（数据库主键），仅用于 skippedRiskIds 回报 */
@@ -89,6 +94,30 @@ export interface InjectRedlineResult {
     /** 下一个可用 w:id（供 both 模式接力 commentInjector） */
     nextIdAfter: number
     warnings: string[]
+}
+
+/** 用 spansByRiskId 构造 redlineRefs.xml 身份证（spec §5.1） */
+function buildRedlineRefsXml(reviewId: number, spansByRiskId: Map<number, RedlineWrapTarget>): string {
+    const children: NodeArray = []
+    for (const [riskId, target] of spansByRiskId) {
+        const delIds = target.paragraphSpans.map(s => s.delId)
+        const insId = target.paragraphSpans.find(s => s.insId !== null)?.insId
+        const paraIdxs = target.paragraphSpans.map(s => s.paraIdx)
+        if (insId == null || delIds.length === 0) continue
+        children.push(makeLeaf('ref', {
+            riskId: String(riskId),
+            delIds: delIds.join(','),
+            insId: String(insId),
+            paraIdxs: paraIdxs.join(','),
+        }))
+    }
+    return stringifyOoxml([
+        makeXmlDecl(),
+        makeElement('lexseekRedlineRefs', {
+            xmlns: 'urn:lexseek:contract-review-redline:v1',
+            reviewId: String(reviewId),
+        }, children),
+    ])
 }
 
 export async function injectRedlineMarks(
@@ -192,6 +221,13 @@ export async function injectRedlineMarks(
     }
 
     writeTextToZip(zip, 'word/document.xml', stringifyOoxml(documentAst))
+
+    // 写修订身份证 customXml（供回传识别，spec §5）
+    if (spansByRiskId.size > 0) {
+        writeTextToZip(zip, REDLINE_REFS_PATH, buildRedlineRefsXml(options.reviewId, spansByRiskId))
+        await registerCustomXmlPart(zip, { partPath: REDLINE_REFS_PATH, relId: 'rIdLexseekRedlineRefs' })
+    }
+
     return {
         buffer: await zipToBuffer(zip),
         skippedRiskIds,
