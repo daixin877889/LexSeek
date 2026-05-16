@@ -5,23 +5,24 @@
       enter-to-class="opacity-100" leave-active-class="transition duration-150 ease-in"
       leave-from-class="opacity-100" leave-to-class="opacity-0">
       <div v-if="isOverDropZone"
-        class="absolute inset-0 z-10 flex items-center justify-center bg-primary/10 backdrop-blur-sm border-2 border-dashed border-primary rounded-lg">
-        <div class="flex flex-col items-center gap-2 text-primary animate-pulse">
+        class="absolute inset-0 z-10 flex items-center justify-center rounded-[14px] border-2 border-dashed border-primary bg-primary/10 backdrop-blur-sm">
+        <div class="flex animate-pulse flex-col items-center gap-2 text-primary">
           <UploadIcon class="size-8" />
-          <p class="text-sm font-bold">释放以上传文件</p>
+          <p class="text-sm font-semibold">释放以上传文件</p>
         </div>
       </div>
     </Transition>
 
     <!-- 上传区域 -->
     <div
-      class="flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-muted-foreground/25 p-8 text-center transition-colors hover:border-primary/50 hover:bg-muted/30 cursor-pointer"
+      class="dropzone-wash flex cursor-pointer flex-col items-center justify-center gap-3 rounded-[14px] border-2 border-dashed border-primary/35 px-6 py-9 text-center transition-colors hover:border-primary/55"
       @click="triggerFileInput">
-      <div class="rounded-full bg-muted p-3">
-        <UploadCloudIcon class="size-6 text-muted-foreground" />
+      <div
+        class="flex size-13 items-center justify-center rounded-full bg-gradient-brand text-white shadow-[0_14px_28px_-10px_rgba(30,158,237,0.4)]">
+        <UploadCloudIcon class="size-6" />
       </div>
       <div>
-        <p class="text-sm font-medium">点击上传或拖拽文件到此区域</p>
+        <p class="text-sm font-semibold">点击上传或拖拽文件到此区域</p>
         <p class="mt-1 text-xs text-muted-foreground">
           {{ acceptHint || '支持常见文档、图片、音频格式' }}
         </p>
@@ -35,58 +36,55 @@
     <!-- 文件列表 -->
     <div v-if="allFiles.length > 0" class="mt-3 space-y-2">
       <div v-for="item in allFiles" :key="item.key"
-        class="group flex items-center gap-3 rounded-md border border-border px-3 py-2 text-sm transition-colors hover:bg-muted/50"
+        class="group flex items-center gap-3 rounded-[10px] border border-border bg-card px-3 py-2.5 transition-colors hover:border-primary/30 hover:bg-muted/40"
         :class="{ 'cursor-pointer': item.ossFileId && getRecognitionStatus(item.ossFileId) === 'success' }"
         @click="item.ossFileId && openPreview(item.ossFileId)">
         <!-- 文件图标/状态 -->
-        <div class="shrink-0">
+        <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
           <Loader2Icon v-if="item.uploading" class="size-4 animate-spin text-primary" />
           <AlertCircleIcon v-else-if="item.error" class="size-4 text-destructive" />
           <FileIcon v-else class="size-4 text-muted-foreground" />
         </div>
 
-        <!-- 文件名 -->
-        <span class="flex-1 truncate" :class="{ 'text-destructive': item.error }">
-          {{ item.name }}
-        </span>
+        <!-- 文件名 + 大小/错误 -->
+        <div class="min-w-0 flex-1">
+          <p class="truncate text-[13px] font-medium" :class="{ 'text-destructive': item.error }">
+            {{ item.name }}
+          </p>
+          <p class="mt-0.5 truncate text-[11.5px]" :class="item.error ? 'text-destructive' : 'text-muted-foreground'">
+            {{ item.error || formatSize(item.size) }}
+          </p>
+        </div>
 
         <!-- 识别状态徽章 -->
         <Badge v-if="getRecognitionStatus(item.ossFileId) === 'recognizing'" variant="outline"
-          class="text-xs px-1 h-5 text-blue-500 border-blue-500 animate-pulse bg-blue-50/50 dark:bg-blue-500/10 shrink-0">
+          class="text-xs px-1.5 h-5 text-blue-500 border-blue-500/40 animate-pulse bg-blue-50/50 dark:bg-blue-500/10 shrink-0">
           <Loader2Icon class="size-3 animate-spin mr-0.5" />
           识别中
         </Badge>
         <Badge v-else-if="getRecognitionStatus(item.ossFileId) === 'success'" variant="outline"
-          class="text-xs px-1 h-5 text-green-500 border-green-500 bg-green-50/50 dark:bg-green-500/10 shrink-0">
+          class="text-xs px-1.5 h-5 text-green-600 border-green-500/40 bg-green-50/50 dark:bg-green-500/10 shrink-0">
           <CheckIcon class="size-3 mr-0.5" />
           已识别
         </Badge>
         <Badge v-else-if="getRecognitionStatus(item.ossFileId) === 'error'" variant="outline"
-          class="text-xs px-1 h-5 text-red-500 border-red-500 cursor-pointer bg-red-50/50 dark:bg-red-500/10 shrink-0"
+          class="text-xs px-1.5 h-5 text-red-500 border-red-500/40 cursor-pointer bg-red-50/50 dark:bg-red-500/10 shrink-0"
           @click.stop="retryRecognition(item.ossFileId!, props.modelValue)">
           <AlertCircleIcon class="size-3 mr-0.5" />
           重试
         </Badge>
 
-        <!-- 文件大小 -->
-        <span class="shrink-0 text-xs text-muted-foreground">
-          {{ formatSize(item.size) }}
-        </span>
-
         <!-- 进度条 -->
         <div v-if="item.uploading && !item.error" class="w-16 shrink-0">
-          <div class="h-1.5 rounded-full bg-muted-foreground/20 overflow-hidden">
-            <div class="h-full bg-primary transition-all duration-300 rounded-full"
+          <div class="h-1.5 overflow-hidden rounded-full bg-muted-foreground/15">
+            <div class="h-full rounded-full bg-primary transition-all duration-300"
               :style="{ width: `${item.progress}%` }" />
           </div>
         </div>
 
-        <!-- 错误提示 -->
-        <span v-if="item.error" class="shrink-0 text-xs text-destructive">{{ item.error }}</span>
-
         <!-- 删除按钮 -->
         <Button type="button" variant="ghost" size="icon"
-          class="size-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+          class="size-7 shrink-0 text-muted-foreground transition-opacity hover:text-destructive sm:opacity-0 sm:group-hover:opacity-100"
           @click.stop="removeItem(item)">
           <XIcon class="size-3.5" />
           <span class="sr-only">删除</span>
