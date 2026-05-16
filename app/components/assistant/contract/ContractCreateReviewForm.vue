@@ -281,7 +281,7 @@ async function submitPaste() {
                 <p v-if="uploadError" class="text-xs text-destructive">{{ uploadError }}</p>
 
                 <div class="flex justify-center pt-1">
-                    <Button class="h-11 bg-gradient-brand-button px-10 text-[15px] text-white"
+                    <Button class="h-11 w-full bg-gradient-brand-button text-[15px] text-white sm:w-60"
                         :disabled="!selectedFile || submitting || localUploading" @click="submitUpload">
                         <Loader2Icon v-if="submitting" class="size-4 animate-spin" />
                         <SparklesIcon v-else class="size-4" />
@@ -300,7 +300,7 @@ async function submitPaste() {
                         :class="['text-[11px]', pasteText.length > PASTE_MAX ? 'text-destructive' : 'text-muted-foreground']">
                         {{ pasteText.length.toLocaleString() }} / {{ PASTE_MAX.toLocaleString() }} 字
                     </span>
-                    <Button class="h-11 bg-gradient-brand-button px-10 text-[15px] text-white"
+                    <Button class="h-11 w-full bg-gradient-brand-button text-[15px] text-white sm:w-60"
                         :disabled="pasteSubmitting || !canSubmitPaste" @click="submitPaste">
                         <Loader2Icon v-if="pasteSubmitting" class="size-4 animate-spin" />
                         <SparklesIcon v-else class="size-4" />
