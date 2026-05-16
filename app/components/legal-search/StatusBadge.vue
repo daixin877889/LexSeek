@@ -10,8 +10,7 @@
  * 法律法规检索通用状态徽章
  * 用于类型徽章（法律/行政法规/司法解释/指导意见）与生效状态徽章（现行有效/尚未生效/已失效）
  */
-
-type BadgeTone = 'info' | 'success' | 'warn' | 'muted'
+import type { BadgeTone } from '~/components/legal-search/legalDisplay'
 
 interface Props {
     /** 色调 */

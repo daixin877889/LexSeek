@@ -25,8 +25,8 @@
                             {{ item.documentNumber }}
                         </div>
                     </div>
-                    <LegalSearchStatusBadge :tone="getTypeTone(item.type)">
-                        {{ getTypeLabel(item.type) }}
+                    <LegalSearchStatusBadge :tone="getLegalTypeTone(item.type)">
+                        {{ LegalTypeLabels[item.type] }}
                     </LegalSearchStatusBadge>
                 </div>
 
@@ -40,7 +40,7 @@
 
                 <!-- 底部信息 -->
                 <div class="flex items-center gap-3 text-sm text-muted-foreground">
-                    <span>{{ formatDate(item.effectiveDate) }}</span>
+                    <span>{{ formatLegalDate(item.effectiveDate) }}</span>
                     <LegalSearchStatusBadge :tone="getValidityTone(item)">
                         {{ getValidityLabel(item) }}
                     </LegalSearchStatusBadge>
@@ -114,9 +114,15 @@
 <script lang="ts" setup>
 import { FileText, ChevronLeft, ChevronRight, Loader2 } from 'lucide-vue-next'
 import type { LegalListItemWithValidity } from '~/composables/useLegalSearch'
-import { LegalType } from '#shared/types/legal'
+import { LegalTypeLabels } from '#shared/types/legal'
 import LegalSearchStatusBadge from '~/components/legal-search/StatusBadge.vue'
-import dayjs from 'dayjs'
+import {
+    getLegalTypeTone,
+    getValidityLabel,
+    getValidityTone,
+    parseIssuingAuthorities,
+    formatLegalDate,
+} from '~/components/legal-search/legalDisplay'
 
 // ==================== Props ====================
 
@@ -168,67 +174,6 @@ watch(() => props.currentPage, (newPage) => {
 })
 
 // ==================== 方法 ====================
-
-/** 获取法律类型标签 */
-const getTypeLabel = (type: LegalType): string => {
-    const labels: Record<LegalType, string> = {
-        law: '法律',
-        regulation: '行政法规',
-        judicial_interp: '司法解释',
-        guideline: '指导意见',
-    }
-    return labels[type] || type
-}
-
-/** 获取法律类型徽章色调 */
-const getTypeTone = (type: LegalType): 'info' | 'success' | 'warn' | 'muted' => {
-    const tones: Record<LegalType, 'info' | 'success' | 'warn' | 'muted'> = {
-        law: 'info',
-        regulation: 'success',
-        judicial_interp: 'warn',
-        guideline: 'muted',
-    }
-    return tones[type] || 'info'
-}
-
-/** 格式化日期 */
-const formatDate = (date: string | Date | null): string => {
-    if (!date) return '-'
-    return dayjs(date).format('YYYY-MM-DD')
-}
-
-/** 获取生效状态标签 */
-const getValidityLabel = (item: LegalListItemWithValidity): string => {
-    const now = new Date()
-    const effectiveDate = item.effectiveDate ? new Date(item.effectiveDate) : null
-    const invalidDate = item.invalidDate ? new Date(item.invalidDate) : null
-    if (invalidDate && invalidDate <= now) {
-        return '已失效'
-    }
-    if (effectiveDate && effectiveDate > now) {
-        return '尚未生效'
-    }
-    return '现行有效'
-}
-
-/** 获取生效状态徽章色调 */
-const getValidityTone = (item: LegalListItemWithValidity): 'info' | 'success' | 'muted' => {
-    const now = new Date()
-    const effectiveDate = item.effectiveDate ? new Date(item.effectiveDate) : null
-    const invalidDate = item.invalidDate ? new Date(item.invalidDate) : null
-    if (invalidDate && invalidDate <= now) {
-        return 'muted'
-    }
-    if (effectiveDate && effectiveDate > now) {
-        return 'info'
-    }
-    return 'success'
-}
-
-/** 解析发文机关（支持全角和半角逗号分隔） */
-const parseIssuingAuthorities = (authority: string): string[] => {
-    return authority.split(/[,，]/).map(s => s.trim()).filter(s => s.length > 0)
-}
 
 /** 处理项目点击 */
 const handleItemClick = (item: LegalListItemWithValidity) => {

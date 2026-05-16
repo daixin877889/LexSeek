@@ -174,6 +174,7 @@ import LegalSearchLegalList from '~/components/legal-search/LegalList.vue'
 import LegalSearchLegalListMobile from '~/components/legal-search/LegalListMobile.vue'
 import LegalSearchUnifiedSearchPanel from '~/components/legal-search/UnifiedSearchPanel.vue'
 import LegalSearchStatusBadge from '~/components/legal-search/StatusBadge.vue'
+import type { BadgeTone } from '~/components/legal-search/legalDisplay'
 import { useArticleSearch } from '~/composables/useArticleSearch'
 import { useLegalSearch } from '~/composables/useLegalSearch'
 import { useSiteSeo } from '~/composables/useSiteSeo'
@@ -216,7 +217,7 @@ const SORT_OPTIONS = [
 const ARTICLE_NO_RE = /^第[一二三四五六七八九十百千零〇\d]+条/
 
 /** 法条类型中文名 → 徽章色调 */
-const ARTICLE_TYPE_TONE: Record<string, 'info' | 'success' | 'warn' | 'muted'> = {
+const ARTICLE_TYPE_TONE: Record<string, BadgeTone> = {
     '法律': 'info',
     '法规': 'success',
     '司法解释': 'warn',
@@ -272,10 +273,10 @@ const hasArticleSearched = ref(false)
 /** 防止循环更新的标志 */
 const isRestoring = ref(false)
 
-/** 搜全文当前排序值 */
-const sortValue = ref<'publishDate' | 'effectiveDate' | 'name'>('publishDate')
-
 // ==================== 计算属性 ====================
+
+/** 搜全文当前排序值（派生自检索筛选条件，与 useLegalSearch 单一数据源保持一致） */
+const sortValue = computed(() => legalSearch.filters.value.sortBy)
 
 /** 法条卡片派生数据 */
 const articleCards = computed(() =>
@@ -496,7 +497,6 @@ const handleReset = () => {
         }
         selectedLegalId.value = null
         hasSearchResults.value = false
-        sortValue.value = 'publishDate'
         legalSearch.resetFilters()
     } else {
         articleQuery.value = ''
@@ -524,7 +524,6 @@ const handleTrendingClick = (keyword: string) => {
 const handleSortChange = (val: string) => {
     const opt = SORT_OPTIONS.find(o => o.value === val)
     if (!opt) return
-    sortValue.value = opt.value
     legalSearch.setSort(opt.sortBy, opt.sortOrder)
 }
 
