@@ -18,6 +18,8 @@ model users {
   company         String?   @db.VarChar(100)
   /// 个人简介，可选
   profile         String?
+  /// 合同审查导出署名：导出修订/批注 docx 时 AI 修订与 AI 批注的作者名。为空时回退 users.name。
+  contractExportSignature String?   @map("contract_export_signature") @db.VarChar(50)
   /// 邀请码，唯一
   inviteCode      String?   @unique @map("invite_code") @db.VarChar(10)
   /// 邀请人用户ID，外键关联用户表

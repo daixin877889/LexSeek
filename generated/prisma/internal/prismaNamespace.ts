@@ -6423,7 +6423,8 @@ export const ContractRisksScalarFieldEnum = {
   originalClauseText: 'originalClauseText',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  orphaned: 'orphaned'
+  orphaned: 'orphaned',
+  clientRedlineDecision: 'clientRedlineDecision'
 } as const
 
 export type ContractRisksScalarFieldEnum = (typeof ContractRisksScalarFieldEnum)[keyof typeof ContractRisksScalarFieldEnum]
@@ -7358,6 +7359,7 @@ export const UsersScalarFieldEnum = {
   status: 'status',
   company: 'company',
   profile: 'profile',
+  contractExportSignature: 'contractExportSignature',
   inviteCode: 'inviteCode',
   invitedBy: 'invitedBy',
   openid: 'openid',

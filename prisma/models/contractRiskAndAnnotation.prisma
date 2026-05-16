@@ -60,6 +60,9 @@ model contractRisks {
   updatedAt DateTime @updatedAt @map("updated_at")
   /// Phase B：当前版本无法定位锚点（孤立批注区）
   orphaned            Boolean  @default(false) @map("orphaned")
+  /// 客户对该风险对应 AI 修订的处置（独立于律师 archivedStatus）：
+  /// accepted / rejected / untouched / ambiguous；null = 未以修订形式导出过 / 不适用。
+  clientRedlineDecision String?  @map("client_redline_decision") @db.VarChar(12)
 
   review      contractReviews       @relation(fields: [reviewId], references: [id], onDelete: Cascade)
   annotations contractAnnotations[]

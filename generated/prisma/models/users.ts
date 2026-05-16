@@ -48,6 +48,7 @@ export type UsersMinAggregateOutputType = {
   status: number | null
   company: string | null
   profile: string | null
+  contractExportSignature: string | null
   inviteCode: string | null
   invitedBy: number | null
   openid: string | null
@@ -68,6 +69,7 @@ export type UsersMaxAggregateOutputType = {
   status: number | null
   company: string | null
   profile: string | null
+  contractExportSignature: string | null
   inviteCode: string | null
   invitedBy: number | null
   openid: string | null
@@ -88,6 +90,7 @@ export type UsersCountAggregateOutputType = {
   status: number
   company: number
   profile: number
+  contractExportSignature: number
   inviteCode: number
   invitedBy: number
   openid: number
@@ -122,6 +125,7 @@ export type UsersMinAggregateInputType = {
   status?: true
   company?: true
   profile?: true
+  contractExportSignature?: true
   inviteCode?: true
   invitedBy?: true
   openid?: true
@@ -142,6 +146,7 @@ export type UsersMaxAggregateInputType = {
   status?: true
   company?: true
   profile?: true
+  contractExportSignature?: true
   inviteCode?: true
   invitedBy?: true
   openid?: true
@@ -162,6 +167,7 @@ export type UsersCountAggregateInputType = {
   status?: true
   company?: true
   profile?: true
+  contractExportSignature?: true
   inviteCode?: true
   invitedBy?: true
   openid?: true
@@ -269,6 +275,7 @@ export type UsersGroupByOutputType = {
   status: number
   company: string | null
   profile: string | null
+  contractExportSignature: string | null
   inviteCode: string | null
   invitedBy: number | null
   openid: string | null
@@ -312,6 +319,7 @@ export type usersWhereInput = {
   status?: Prisma.IntFilter<"users"> | number
   company?: Prisma.StringNullableFilter<"users"> | string | null
   profile?: Prisma.StringNullableFilter<"users"> | string | null
+  contractExportSignature?: Prisma.StringNullableFilter<"users"> | string | null
   inviteCode?: Prisma.StringNullableFilter<"users"> | string | null
   invitedBy?: Prisma.IntNullableFilter<"users"> | number | null
   openid?: Prisma.StringNullableFilter<"users"> | string | null
@@ -352,6 +360,7 @@ export type usersOrderByWithRelationInput = {
   status?: Prisma.SortOrder
   company?: Prisma.SortOrderInput | Prisma.SortOrder
   profile?: Prisma.SortOrderInput | Prisma.SortOrder
+  contractExportSignature?: Prisma.SortOrderInput | Prisma.SortOrder
   inviteCode?: Prisma.SortOrderInput | Prisma.SortOrder
   invitedBy?: Prisma.SortOrderInput | Prisma.SortOrder
   openid?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -396,6 +405,7 @@ export type usersWhereUniqueInput = Prisma.AtLeast<{
   status?: Prisma.IntFilter<"users"> | number
   company?: Prisma.StringNullableFilter<"users"> | string | null
   profile?: Prisma.StringNullableFilter<"users"> | string | null
+  contractExportSignature?: Prisma.StringNullableFilter<"users"> | string | null
   invitedBy?: Prisma.IntNullableFilter<"users"> | number | null
   openid?: Prisma.StringNullableFilter<"users"> | string | null
   unionid?: Prisma.StringNullableFilter<"users"> | string | null
@@ -435,6 +445,7 @@ export type usersOrderByWithAggregationInput = {
   status?: Prisma.SortOrder
   company?: Prisma.SortOrderInput | Prisma.SortOrder
   profile?: Prisma.SortOrderInput | Prisma.SortOrder
+  contractExportSignature?: Prisma.SortOrderInput | Prisma.SortOrder
   inviteCode?: Prisma.SortOrderInput | Prisma.SortOrder
   invitedBy?: Prisma.SortOrderInput | Prisma.SortOrder
   openid?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -463,6 +474,7 @@ export type usersScalarWhereWithAggregatesInput = {
   status?: Prisma.IntWithAggregatesFilter<"users"> | number
   company?: Prisma.StringNullableWithAggregatesFilter<"users"> | string | null
   profile?: Prisma.StringNullableWithAggregatesFilter<"users"> | string | null
+  contractExportSignature?: Prisma.StringNullableWithAggregatesFilter<"users"> | string | null
   inviteCode?: Prisma.StringNullableWithAggregatesFilter<"users"> | string | null
   invitedBy?: Prisma.IntNullableWithAggregatesFilter<"users"> | number | null
   openid?: Prisma.StringNullableWithAggregatesFilter<"users"> | string | null
@@ -482,6 +494,7 @@ export type usersCreateInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -522,6 +535,7 @@ export type usersUncheckedCreateInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -561,6 +575,7 @@ export type usersUpdateInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -601,6 +616,7 @@ export type usersUncheckedUpdateInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -641,6 +657,7 @@ export type usersCreateManyInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -660,6 +677,7 @@ export type usersUpdateManyMutationInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -680,6 +698,7 @@ export type usersUncheckedUpdateManyInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -710,6 +729,7 @@ export type usersCountOrderByAggregateInput = {
   status?: Prisma.SortOrder
   company?: Prisma.SortOrder
   profile?: Prisma.SortOrder
+  contractExportSignature?: Prisma.SortOrder
   inviteCode?: Prisma.SortOrder
   invitedBy?: Prisma.SortOrder
   openid?: Prisma.SortOrder
@@ -736,6 +756,7 @@ export type usersMaxOrderByAggregateInput = {
   status?: Prisma.SortOrder
   company?: Prisma.SortOrder
   profile?: Prisma.SortOrder
+  contractExportSignature?: Prisma.SortOrder
   inviteCode?: Prisma.SortOrder
   invitedBy?: Prisma.SortOrder
   openid?: Prisma.SortOrder
@@ -756,6 +777,7 @@ export type usersMinOrderByAggregateInput = {
   status?: Prisma.SortOrder
   company?: Prisma.SortOrder
   profile?: Prisma.SortOrder
+  contractExportSignature?: Prisma.SortOrder
   inviteCode?: Prisma.SortOrder
   invitedBy?: Prisma.SortOrder
   openid?: Prisma.SortOrder
@@ -1067,6 +1089,7 @@ export type usersCreateWithoutPermissionAuditLogsInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -1106,6 +1129,7 @@ export type usersUncheckedCreateWithoutPermissionAuditLogsInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -1160,6 +1184,7 @@ export type usersUpdateWithoutPermissionAuditLogsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1199,6 +1224,7 @@ export type usersUncheckedUpdateWithoutPermissionAuditLogsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1237,6 +1263,7 @@ export type usersCreateWithoutCasesInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -1276,6 +1303,7 @@ export type usersUncheckedCreateWithoutCasesInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -1330,6 +1358,7 @@ export type usersUpdateWithoutCasesInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1369,6 +1398,7 @@ export type usersUncheckedUpdateWithoutCasesInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1407,6 +1437,7 @@ export type usersCreateWithoutCaseSessionsInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -1446,6 +1477,7 @@ export type usersUncheckedCreateWithoutCaseSessionsInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -1500,6 +1532,7 @@ export type usersUpdateWithoutCaseSessionsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1539,6 +1572,7 @@ export type usersUncheckedUpdateWithoutCaseSessionsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1577,6 +1611,7 @@ export type usersCreateWithoutContractReviewsInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -1616,6 +1651,7 @@ export type usersUncheckedCreateWithoutContractReviewsInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -1670,6 +1706,7 @@ export type usersUpdateWithoutContractReviewsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1709,6 +1746,7 @@ export type usersUncheckedUpdateWithoutContractReviewsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1747,6 +1785,7 @@ export type usersCreateWithoutContractReviewVersionsInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -1786,6 +1825,7 @@ export type usersUncheckedCreateWithoutContractReviewVersionsInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -1840,6 +1880,7 @@ export type usersUpdateWithoutContractReviewVersionsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1879,6 +1920,7 @@ export type usersUncheckedUpdateWithoutContractReviewVersionsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1917,6 +1959,7 @@ export type usersCreateWithoutContractAnnotationsInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -1956,6 +1999,7 @@ export type usersUncheckedCreateWithoutContractAnnotationsInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -2010,6 +2054,7 @@ export type usersUpdateWithoutContractAnnotationsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2049,6 +2094,7 @@ export type usersUncheckedUpdateWithoutContractAnnotationsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2087,6 +2133,7 @@ export type usersCreateWithoutDocumentTemplatesInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -2126,6 +2173,7 @@ export type usersUncheckedCreateWithoutDocumentTemplatesInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -2180,6 +2228,7 @@ export type usersUpdateWithoutDocumentTemplatesInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2219,6 +2268,7 @@ export type usersUncheckedUpdateWithoutDocumentTemplatesInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2257,6 +2307,7 @@ export type usersCreateWithoutDocumentDraftsInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -2296,6 +2347,7 @@ export type usersUncheckedCreateWithoutDocumentDraftsInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -2350,6 +2402,7 @@ export type usersUpdateWithoutDocumentDraftsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2389,6 +2442,7 @@ export type usersUncheckedUpdateWithoutDocumentDraftsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2427,6 +2481,7 @@ export type usersCreateWithoutUserMembershipsInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -2466,6 +2521,7 @@ export type usersUncheckedCreateWithoutUserMembershipsInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -2520,6 +2576,7 @@ export type usersUpdateWithoutUserMembershipsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2559,6 +2616,7 @@ export type usersUncheckedUpdateWithoutUserMembershipsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2597,6 +2655,7 @@ export type usersCreateWithoutUserBenefitsInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -2636,6 +2695,7 @@ export type usersUncheckedCreateWithoutUserBenefitsInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -2690,6 +2750,7 @@ export type usersUpdateWithoutUserBenefitsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2729,6 +2790,7 @@ export type usersUncheckedUpdateWithoutUserBenefitsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2767,6 +2829,7 @@ export type usersCreateWithoutOrdersInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -2806,6 +2869,7 @@ export type usersUncheckedCreateWithoutOrdersInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -2860,6 +2924,7 @@ export type usersUpdateWithoutOrdersInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2899,6 +2964,7 @@ export type usersUncheckedUpdateWithoutOrdersInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2937,6 +3003,7 @@ export type usersCreateWithoutMembershipUpgradeRecordsInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -2976,6 +3043,7 @@ export type usersUncheckedCreateWithoutMembershipUpgradeRecordsInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -3030,6 +3098,7 @@ export type usersUpdateWithoutMembershipUpgradeRecordsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -3069,6 +3138,7 @@ export type usersUncheckedUpdateWithoutMembershipUpgradeRecordsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -3107,6 +3177,7 @@ export type usersCreateWithoutPointRecordsInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -3146,6 +3217,7 @@ export type usersUncheckedCreateWithoutPointRecordsInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -3200,6 +3272,7 @@ export type usersUpdateWithoutPointRecordsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -3239,6 +3312,7 @@ export type usersUncheckedUpdateWithoutPointRecordsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -3277,6 +3351,7 @@ export type usersCreateWithoutPointConsumptionRecordsInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -3316,6 +3391,7 @@ export type usersUncheckedCreateWithoutPointConsumptionRecordsInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -3370,6 +3446,7 @@ export type usersUpdateWithoutPointConsumptionRecordsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -3409,6 +3486,7 @@ export type usersUncheckedUpdateWithoutPointConsumptionRecordsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -3447,6 +3525,7 @@ export type usersCreateWithoutUserRolesInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -3486,6 +3565,7 @@ export type usersUncheckedCreateWithoutUserRolesInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -3540,6 +3620,7 @@ export type usersUpdateWithoutUserRolesInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -3579,6 +3660,7 @@ export type usersUncheckedUpdateWithoutUserRolesInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -3617,6 +3699,7 @@ export type usersCreateWithoutDocRecognitionRecordsInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -3656,6 +3739,7 @@ export type usersUncheckedCreateWithoutDocRecognitionRecordsInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -3710,6 +3794,7 @@ export type usersUpdateWithoutDocRecognitionRecordsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -3749,6 +3834,7 @@ export type usersUncheckedUpdateWithoutDocRecognitionRecordsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -3787,6 +3873,7 @@ export type usersCreateWithoutImageRecognitionRecordsInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -3826,6 +3913,7 @@ export type usersUncheckedCreateWithoutImageRecognitionRecordsInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -3880,6 +3968,7 @@ export type usersUpdateWithoutImageRecognitionRecordsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -3919,6 +4008,7 @@ export type usersUncheckedUpdateWithoutImageRecognitionRecordsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -3957,6 +4047,7 @@ export type usersCreateWithoutAsrRecordsInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -3996,6 +4087,7 @@ export type usersUncheckedCreateWithoutAsrRecordsInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -4050,6 +4142,7 @@ export type usersUpdateWithoutAsrRecordsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -4089,6 +4182,7 @@ export type usersUncheckedUpdateWithoutAsrRecordsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -4127,6 +4221,7 @@ export type usersCreateWithoutMineruTasksInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -4166,6 +4261,7 @@ export type usersUncheckedCreateWithoutMineruTasksInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -4220,6 +4316,7 @@ export type usersUpdateWithoutMineruTasksInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -4259,6 +4356,7 @@ export type usersUncheckedUpdateWithoutMineruTasksInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -4297,6 +4395,7 @@ export type usersCreateWithoutRedemptionRecordsInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -4336,6 +4435,7 @@ export type usersUncheckedCreateWithoutRedemptionRecordsInput = {
   status?: number
   company?: string | null
   profile?: string | null
+  contractExportSignature?: string | null
   inviteCode?: string | null
   invitedBy?: number | null
   openid?: string | null
@@ -4390,6 +4490,7 @@ export type usersUpdateWithoutRedemptionRecordsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -4429,6 +4530,7 @@ export type usersUncheckedUpdateWithoutRedemptionRecordsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractExportSignature?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -4670,6 +4772,7 @@ export type usersSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   status?: boolean
   company?: boolean
   profile?: boolean
+  contractExportSignature?: boolean
   inviteCode?: boolean
   invitedBy?: boolean
   openid?: boolean
@@ -4711,6 +4814,7 @@ export type usersSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   status?: boolean
   company?: boolean
   profile?: boolean
+  contractExportSignature?: boolean
   inviteCode?: boolean
   invitedBy?: boolean
   openid?: boolean
@@ -4731,6 +4835,7 @@ export type usersSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   status?: boolean
   company?: boolean
   profile?: boolean
+  contractExportSignature?: boolean
   inviteCode?: boolean
   invitedBy?: boolean
   openid?: boolean
@@ -4751,6 +4856,7 @@ export type usersSelectScalar = {
   status?: boolean
   company?: boolean
   profile?: boolean
+  contractExportSignature?: boolean
   inviteCode?: boolean
   invitedBy?: boolean
   openid?: boolean
@@ -4761,7 +4867,7 @@ export type usersSelectScalar = {
   deletedAt?: boolean
 }
 
-export type usersOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "username" | "email" | "phone" | "password" | "status" | "company" | "profile" | "inviteCode" | "invitedBy" | "openid" | "unionid" | "registerChannel" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["users"]>
+export type usersOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "username" | "email" | "phone" | "password" | "status" | "company" | "profile" | "contractExportSignature" | "inviteCode" | "invitedBy" | "openid" | "unionid" | "registerChannel" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["users"]>
 export type usersInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   userRoles?: boolean | Prisma.users$userRolesArgs<ExtArgs>
   pointRecords?: boolean | Prisma.users$pointRecordsArgs<ExtArgs>
@@ -4909,6 +5015,10 @@ export type $usersPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
      * 个人简介，可选
      */
     profile: string | null
+    /**
+     * 合同审查导出署名：导出修订/批注 docx 时 AI 修订与 AI 批注的作者名。为空时回退 users.name。
+     */
+    contractExportSignature: string | null
     /**
      * 邀请码，唯一
      */
@@ -5393,6 +5503,7 @@ export interface usersFieldRefs {
   readonly status: Prisma.FieldRef<"users", 'Int'>
   readonly company: Prisma.FieldRef<"users", 'String'>
   readonly profile: Prisma.FieldRef<"users", 'String'>
+  readonly contractExportSignature: Prisma.FieldRef<"users", 'String'>
   readonly inviteCode: Prisma.FieldRef<"users", 'String'>
   readonly invitedBy: Prisma.FieldRef<"users", 'Int'>
   readonly openid: Prisma.FieldRef<"users", 'String'>
