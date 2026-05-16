@@ -18,10 +18,10 @@
       </NuxtLink>
     </div>
 
-    <!-- 快速统计卡片（移动端也保持一行 3 列，纵向紧凑布局） -->
+    <!-- 快速统计卡片（移动端也保持一行 3 列，图标文字横向排列） -->
     <div class="grid grid-cols-3 gap-3 sm:gap-4">
       <Card v-for="stat in caseStats" :key="stat.label" class="border-primary/10 bg-card/60 p-3 backdrop-blur sm:p-5">
-        <div class="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-4">
+        <div class="flex items-center gap-2.5 sm:gap-4">
           <div :class="['flex size-9 shrink-0 items-center justify-center rounded-lg sm:size-11 sm:rounded-xl', TINTS[stat.tint]]">
             <component :is="stat.icon" class="size-4 sm:size-5" />
           </div>
