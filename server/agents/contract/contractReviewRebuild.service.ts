@@ -17,6 +17,7 @@ import { randomUUID } from 'node:crypto'
 import type { contractReviews } from '~~/generated/prisma/client'
 import { findOssFileByIdDao, createOssFileDao } from '~~/server/services/files/ossFiles.dao'
 import { setCompletedAfterRebuildDAO } from './contractReview.dao'
+import { resolveContractExportSignatureService } from '~~/server/services/users/contractSignature.service'
 import {
     injectAnnotations,
     injectRedlineMarks,
@@ -87,9 +88,10 @@ export async function rebuildDocxService(
 
     let finalBuffer: Buffer
     const writeRefs = new Map<number, string>()
+    const signature = await resolveContractExportSignatureService(review.userId)
 
     if (mode === 'comment') {
-        const r = await injectAnnotations(origBuffer, annotations, review.id)
+        const r = await injectAnnotations(origBuffer, annotations, review.id, { signature })
         finalBuffer = Buffer.isBuffer(r.buffer) ? r.buffer : Buffer.from(r.buffer)
         for (const [k, v] of r.refsByAnnotationId) writeRefs.set(k, v)
     }
@@ -109,7 +111,7 @@ export async function rebuildDocxService(
             suggestedClauseText: r.suggestedClauseText,
         }))
         const redlineResult = await injectRedlineMarks(origBuffer, redlineRisks, {
-            reviewId: review.id, idStart,
+            reviewId: review.id, idStart, signature,
         })
 
         if (mode === 'redline') {
@@ -117,7 +119,7 @@ export async function rebuildDocxService(
             const skippedSet = new Set(redlineResult.skippedRiskIds)
             const fallback = annotations.filter(a => skippedSet.has(a.riskId))
             if (fallback.length > 0) {
-                const cr = await injectAnnotations(redlineResult.buffer, fallback, review.id, { idStart: redlineResult.nextIdAfter })
+                const cr = await injectAnnotations(redlineResult.buffer, fallback, review.id, { idStart: redlineResult.nextIdAfter, signature })
                 finalBuffer = Buffer.isBuffer(cr.buffer) ? cr.buffer : Buffer.from(cr.buffer)
                 for (const [k, v] of cr.refsByAnnotationId) writeRefs.set(k, v)
             }
@@ -131,6 +133,7 @@ export async function rebuildDocxService(
             const cr = await injectAnnotations(redlineResult.buffer, annotations, review.id, {
                 idStart: redlineResult.nextIdAfter,
                 wrapTargetByRiskId: redlineResult.spansByRiskId,
+                signature,
             })
             finalBuffer = Buffer.isBuffer(cr.buffer) ? cr.buffer : Buffer.from(cr.buffer)
             for (const [k, v] of cr.refsByAnnotationId) writeRefs.set(k, v)

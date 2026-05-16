@@ -6,7 +6,6 @@
  * 测试范围：
  * - generateWordCommentRef：格式 / rand8 唯一性
  * - extractRandomFromRef：空值 / 错误格式 / 正常格式
- * - buildAuthorField：人名 trim / 空值兜底
  * - stripAuthorRef：完整 LS:xxx [#a-b-c] 剥离 / 仅含 LS: 前缀的客户自定义保留
  * - stripLeadingLsPrefix：强制剥 LS: 前缀
  * - isWordCommentRef：合法格式 vs 非法
@@ -20,7 +19,6 @@ import { describe, it, expect } from 'vitest'
 import {
     generateWordCommentRef,
     extractRandomFromRef,
-    buildAuthorField,
     stripAuthorRef,
     stripLeadingLsPrefix,
     isWordCommentRef,
@@ -65,27 +63,6 @@ describe('wordCommentRef 工具', () => {
             expect(extractRandomFromRef('FAKE-101-abc')).toBeNull()
             expect(extractRandomFromRef('LEXSEEK-101')).toBeNull()
             expect(extractRandomFromRef('LEXSEEK-101-toolong123')).toBeNull()
-        })
-    })
-
-    describe('buildAuthorField', () => {
-        it('正常人名前加 LS: 前缀', () => {
-            expect(buildAuthorField('AI', 100, 'LEXSEEK-101-abc12345')).toBe('LS:AI')
-            expect(buildAuthorField('张律师', 200, 'LEXSEEK-202-def67890')).toBe('LS:张律师')
-        })
-
-        it('空名字兜底 AI', () => {
-            expect(buildAuthorField('', 100, 'ref')).toBe('LS:AI')
-            expect(buildAuthorField('   ', 100, 'ref')).toBe('LS:AI')
-        })
-
-        it('null/undefined 名字兜底 AI', () => {
-            expect(buildAuthorField(null as unknown as string, 100, 'ref')).toBe('LS:AI')
-            expect(buildAuthorField(undefined as unknown as string, 100, 'ref')).toBe('LS:AI')
-        })
-
-        it('两侧空白被 trim', () => {
-            expect(buildAuthorField('  律师  ', 100, 'ref')).toBe('LS:律师')
         })
     })
 

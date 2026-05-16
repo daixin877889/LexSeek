@@ -21,7 +21,7 @@ import {
     writeTextToZip,
     zipToBuffer,
 } from './zipRewriter'
-import { generateWordCommentRef, buildAuthorField } from '../utils/wordCommentRef'
+import { generateWordCommentRef } from '../utils/wordCommentRef'
 import { normalizeForMatch } from '../utils/textSimilarity'
 import {
     parseOoxml,
@@ -337,6 +337,8 @@ export interface InjectAnnotationsOptions {
      * - 未命中：维持现状按 anchorParagraphIndex 在段落首/尾插 commentRange
      */
     wrapTargetByRiskId?: Map<number, RedlineWrapTarget>
+    /** AI 批注的作者署名（spec §4.3）；不传时回退 'AI' */
+    signature?: string
 }
 
 /**
@@ -364,6 +366,7 @@ export async function injectAnnotations(
 ): Promise<InjectAnnotationsResult> {
     const idStart = opts?.idStart ?? 0
     const wrapTargetByRiskId = opts?.wrapTargetByRiskId ?? new Map<number, RedlineWrapTarget>()
+    const signature = opts?.signature?.trim() || 'AI'
     const nextIdAfter = idStart + annotations.length
     const refsByAnnotationId = new Map<number, string>()
 
@@ -483,7 +486,7 @@ export async function injectAnnotations(
 
     // comments.xml：全 annotations（含越界的）以保持 w:id 连续
     writeTextToZip(zip, 'word/comments.xml',
-        buildCommentsXmlFromAnnotations(annotations, refsByAnnotationId, wordIdByAnnotationId, reviewId),
+        buildCommentsXmlFromAnnotations(annotations, wordIdByAnnotationId, reviewId, signature),
     )
     // 移除原文件残留的 comments.xml.rels（我们生成的 comments 无外部关系；
     // 原 rels 的悬空引用会让 Word 报"文件损坏"）
@@ -586,23 +589,21 @@ function buildAnnotationRefsXml(
 }
 
 /**
- * 构造 Phase C+ comments.xml。身份证三重防线：
- *   1. customXml（另文件，不在这里）
- *   2. w:author 尾 [#id-rand8]
- *   3. w:initials 写短头像缩写，不承载身份证
+ * 构造 Phase C+ comments.xml。spec §4.3：作者名一律去 LS: 前缀；
+ * AI 内容用署名，律师/客户用各自姓名。
  */
 function buildCommentsXmlFromAnnotations(
     annotations: ContractAnnotationForExport[],
-    refs: Map<number, string>,
     wordIds: Map<number, number>,
     reviewId: number,
+    signature: string,
 ): string {
     const fallbackNow = new Date().toISOString()
     const children = annotations.map(a => {
         const wId = wordIds.get(a.id)!
-        const ref = refs.get(a.id)!
-        const author = buildAuthorField(a.authorName, reviewId, ref)
-        const initials = initialsFor(a.authorType)
+        // spec §4.3：作者名一律去 LS: 前缀；AI 内容用署名，律师/客户用各自姓名
+        const author = a.authorType === 'ai' ? signature : a.authorName
+        const initials = initialsFor(a.authorType, signature)
         // M7：优先用 annotation.createdAt，回落到当前时间兜底
         const dateIso = a.createdAt ? a.createdAt.toISOString() : fallbackNow
 
@@ -631,10 +632,10 @@ function buildCommentsXmlFromAnnotations(
     return stringifyOoxml(ast)
 }
 
-/** 批注头像缩写：Word UI 在批注圆形头像里显示此两字符 */
-function initialsFor(authorType: AnnotationAuthorType): string {
+/** 批注头像缩写：AI 用署名前 2 字，律师/客户用角色字 */
+function initialsFor(authorType: AnnotationAuthorType, signature: string): string {
     switch (authorType) {
-        case 'ai': return 'AI'
+        case 'ai': return signature.slice(0, 2) || 'AI'
         case 'lawyer': return '律'
         case 'external': return '客'
         default: return 'LS'

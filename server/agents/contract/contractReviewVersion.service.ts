@@ -39,6 +39,7 @@ import {
 import { uploadAndRegisterOssFile } from './utils/uploadAndRegisterOssFile'
 import { FileSource } from '#shared/types/file'
 import { DOCX_MIME } from '#shared/utils/mime'
+import { resolveContractExportSignatureService } from '~~/server/services/users/contractSignature.service'
 import {
     buildContractReviewFilename,
     buildContentDispositionForFilename,
@@ -311,9 +312,10 @@ export async function downloadContractReviewVersionService(
     }
 
     let injectedBuffer: Buffer
+    const signature = await resolveContractExportSignatureService(review.userId)
     try {
         if (mode === 'comment') {
-            const result = await injectAnnotations(baseBuffer, exportable, review.id)
+            const result = await injectAnnotations(baseBuffer, exportable, review.id, { signature })
             injectedBuffer = Buffer.isBuffer(result.buffer) ? result.buffer : Buffer.from(result.buffer)
         }
         else {
@@ -332,7 +334,7 @@ export async function downloadContractReviewVersionService(
                 suggestedClauseText: r.suggestedClauseText ?? null,
             }))
             const redlineResult = await injectRedlineMarks(baseBuffer, redlineRisks, {
-                reviewId: review.id, idStart,
+                reviewId: review.id, idStart, signature,
             })
 
             if (mode === 'redline') {
@@ -341,6 +343,7 @@ export async function downloadContractReviewVersionService(
                 if (fallback.length > 0) {
                     const cr = await injectAnnotations(redlineResult.buffer, fallback, review.id, {
                         idStart: redlineResult.nextIdAfter,
+                        signature,
                     })
                     injectedBuffer = Buffer.isBuffer(cr.buffer) ? cr.buffer : Buffer.from(cr.buffer)
                 }
@@ -353,6 +356,7 @@ export async function downloadContractReviewVersionService(
                 const cr = await injectAnnotations(redlineResult.buffer, exportable, review.id, {
                     idStart: redlineResult.nextIdAfter,
                     wrapTargetByRiskId: redlineResult.spansByRiskId,
+                    signature,
                 })
                 injectedBuffer = Buffer.isBuffer(cr.buffer) ? cr.buffer : Buffer.from(cr.buffer)
             }

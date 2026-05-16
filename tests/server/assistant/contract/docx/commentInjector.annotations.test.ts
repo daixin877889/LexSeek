@@ -94,9 +94,12 @@ describe('injectAnnotations', () => {
         const zip = await loadDocxZip(buffer)
         const commentsXml = await readTextFromZip(zip, 'word/comments.xml')
 
-        expect(commentsXml).toContain('w:author="LS:AI"')
-        expect(commentsXml).toContain('w:author="LS:张律师"')
-        expect(commentsXml).toContain('w:author="LS:客户甲"')
+        // spec §4.3：作者名一律去 LS: 前缀；AI 内容用署名（未传 signature 回退 'AI'），律师/客户用各自姓名
+        expect(commentsXml).toContain('w:author="AI"')
+        expect(commentsXml).toContain('w:author="张律师"')
+        expect(commentsXml).toContain('w:author="客户甲"')
+        // 全文无 LS: 前缀
+        expect(commentsXml).not.toContain('LS:')
         // 反向断言：不应再出现 [#...-...-...] 身份证机器码
         expect(commentsXml).not.toMatch(/w:author="[^"]*\[#\d+-\d+-[a-zA-Z0-9]{8}\]"/)
     })
@@ -381,5 +384,29 @@ describe('injectAnnotations idStart 协调（PR6 §8.3.1）', () => {
         const docXml = await readTextFromZip(zip, 'word/document.xml')
         // 仍按既有逻辑：commentRangeStart 在段首
         expect(docXml).toMatch(/<w:commentRangeStart\s+w:id="0"/)
+    })
+})
+
+describe('injectAnnotations 署名与去 LS: 前缀（Task 5 spec §4.3）', () => {
+    it('AI 批注用署名，律师批注去 LS: 前缀，全文无 LS: 字符串', async () => {
+        const original = await readFile(SAMPLE)
+        const { paragraphs } = await parseContractDocx(original)
+        const idx = Math.min(1, paragraphs.length - 1)
+
+        const annotations: ContractAnnotationForExport[] = [
+            makeAnnotation({ id: 1, authorType: 'ai', authorName: 'AI', anchorParagraphIndex: idx }),
+            makeAnnotation({ id: 2, authorType: 'lawyer', authorName: '陈律师', anchorParagraphIndex: idx }),
+        ]
+
+        const { buffer } = await injectAnnotations(original, annotations, 999, { signature: '王明远' })
+        const zip = await loadDocxZip(buffer)
+        const commentsXml = await readTextFromZip(zip, 'word/comments.xml')
+
+        // AI 批注用署名
+        expect(commentsXml).toContain('w:author="王明远"')
+        // 律师批注去前缀（authorName 直接用，无 LS: 前缀）
+        expect(commentsXml).toContain('w:author="陈律师"')
+        // 全文无 LS: 前缀
+        expect(commentsXml).not.toContain('LS:')
     })
 })

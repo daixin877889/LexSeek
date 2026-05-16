@@ -24,7 +24,7 @@ import { injectAnnotations, type ContractAnnotationForExport } from '~~/server/a
 import { parseContractDocx } from '~~/server/agents/contract/docx/parser'
 
 const SAMPLE = join(__dirname, '../../../../../prisma/seeds/contract-samples/labor.docx')
-const W_AUTHOR = 'LexSeek AI'
+const W_AUTHOR = '审查人'
 
 function makeRisk(overrides: Partial<RedlineRisk> & { id: number }): RedlineRisk {
     return {

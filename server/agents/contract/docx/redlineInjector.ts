@@ -45,8 +45,6 @@ import {
     type RunSplit,
 } from './redlineLocate'
 
-const REDLINE_AUTHOR = 'LexSeek AI'
-
 export interface RedlineRisk {
     /** contractRisks.id（数据库主键），仅用于 skippedRiskIds 回报 */
     id: number
@@ -96,12 +94,13 @@ export interface InjectRedlineResult {
 export async function injectRedlineMarks(
     docxBuffer: Buffer,
     risks: RedlineRisk[],
-    options: { reviewId: number, idStart: number },
+    options: { reviewId: number, idStart: number, signature?: string },
 ): Promise<InjectRedlineResult> {
     const skippedRiskIds: number[] = []
     const warnings: string[] = []
     const spansByRiskId = new Map<number, RedlineWrapTarget>()
     let cursorId = options.idStart
+    const redlineAuthor = options.signature?.trim() || '审查人'
 
     // 先过滤掉前置 invalid 的 risk（不解 zip 也能判断）
     const candidates: RedlineRisk[] = []
@@ -159,6 +158,7 @@ export async function injectRedlineMarks(
                 delId,
                 insId,
                 dateIso,
+                author: redlineAuthor,
             })
             cursorId += 2
             spansByRiskId.set(risk.id, {
@@ -182,6 +182,7 @@ export async function injectRedlineMarks(
                     delId,
                     insId,
                     dateIso,
+                    author: redlineAuthor,
                 })
                 cursorId += isEnd ? 2 : 1
                 paragraphSpans.push({ paraIdx: seg.paraIdx, delId, insId })
@@ -316,8 +317,9 @@ function applyRedlineToParagraph(input: {
     delId: number
     insId: number | null
     dateIso: string
+    author: string
 }): void {
-    const { paraNode, runSplit, suggestedClauseText, delId, insId, dateIso } = input
+    const { paraNode, runSplit, suggestedClauseText, delId, insId, dateIso, author } = input
     const tag = tagOf(paraNode)
     if (!tag) return
     const kids = paraNode[tag] as NodeArray
@@ -352,7 +354,7 @@ function applyRedlineToParagraph(input: {
             if (delChildren.length > 0) {
                 newRuns.push(makeElement('w:del', {
                     'w:id': String(delId),
-                    'w:author': REDLINE_AUTHOR,
+                    'w:author': author,
                     'w:date': dateIso,
                 }, delChildren))
             }
@@ -364,6 +366,7 @@ function applyRedlineToParagraph(input: {
                     inheritedRpr: inheritRpr ? deepClone(inheritRpr) : null,
                     insId,
                     dateIso,
+                    author,
                 }))
             }
             if (after) newRuns.push(after)
@@ -392,7 +395,7 @@ function applyRedlineToParagraph(input: {
     if (delChildren.length > 0) {
         newRuns.push(makeElement('w:del', {
             'w:id': String(delId),
-            'w:author': REDLINE_AUTHOR,
+            'w:author': author,
             'w:date': dateIso,
         }, delChildren))
     }
@@ -403,6 +406,7 @@ function applyRedlineToParagraph(input: {
             inheritedRpr: inheritRpr ? deepClone(inheritRpr) : null,
             insId,
             dateIso,
+            author,
         }))
     }
     if (afterEndRun) newRuns.push(afterEndRun)
@@ -416,8 +420,9 @@ function buildInsertNode(input: {
     inheritedRpr: Node | null
     insId: number
     dateIso: string
+    author: string
 }): Node {
-    const { text, inheritedRpr, insId, dateIso } = input
+    const { text, inheritedRpr, insId, dateIso, author } = input
     // spec §8.3.8：LLM 输出可能含 U+0008 等非法 XML 控制字符，写入 OOXML 前过滤
     const safeText = stripIllegalXmlChars(text)
     const runChildren: NodeArray = []
@@ -425,7 +430,7 @@ function buildInsertNode(input: {
     runChildren.push(makeElement('w:t', { 'xml:space': 'preserve' }, [makeText(safeText)]))
     return makeElement('w:ins', {
         'w:id': String(insId),
-        'w:author': REDLINE_AUTHOR,
+        'w:author': author,
         'w:date': dateIso,
     }, [makeElement('w:r', {}, runChildren)])
 }
