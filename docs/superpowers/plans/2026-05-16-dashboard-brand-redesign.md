@@ -434,7 +434,7 @@ interface QuickAction {
 }
 
 const QUICK_ACTIONS: QuickAction[] = [
-  { icon: FilePlus, title: '新建分析', body: '分析新的案件', tint: 'sky', to: '/dashboard/cases/create' },
+  { icon: FilePlus, title: '创建案件', body: '分析新的案件', tint: 'sky', to: '/dashboard/cases/create' },
   { icon: FolderOpen, title: '我的案件', body: '查看所有案件', tint: 'mint', to: '/dashboard/cases' },
   { icon: Crown, title: '会员中心', body: '管理套餐和积分', tint: 'amber', to: '/dashboard/membership' },
   { icon: HelpCircle, title: '获取帮助', body: '联系客服支持', tint: 'navy', action: 'help' },
