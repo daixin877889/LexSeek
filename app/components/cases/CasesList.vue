@@ -1,44 +1,42 @@
 <template>
-    <!-- 移动端卡片视图 -->
-    <div class="space-y-3 md:hidden">
+    <!-- 桌面端列表视图：卡片行 -->
+    <div class="flex flex-col gap-3">
         <div v-for="item in list" :key="item.id"
-            class="flex flex-col rounded-xl border bg-card shadow-sm transition active:scale-[0.99]">
-            <!-- 内容区 -->
-            <div class="flex flex-1 flex-col gap-3 p-4">
-                <NuxtLink :to="`/dashboard/cases/${item.id}`"
-                    class="line-clamp-2 text-[15px] font-semibold leading-snug text-foreground">
-                    {{ item.title }}
-                </NuxtLink>
-                <div class="flex flex-wrap items-center gap-1.5">
-                    <CasesCaseStatusBadge :status="item.status" />
+            class="group flex items-center gap-4 rounded-xl border bg-card p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
+            <!-- 主信息 -->
+            <div class="min-w-0 flex-1">
+                <div class="mb-1.5 flex items-center gap-2">
+                    <NuxtLink :to="`/dashboard/cases/${item.id}`"
+                        class="truncate font-medium text-foreground transition-colors hover:text-primary">
+                        {{ item.title }}
+                    </NuxtLink>
                     <Badge v-if="item.isDemo" variant="outline"
-                        class="rounded border-amber-500/30 bg-[image:var(--tint-amber-bg)] px-1.5 py-0 text-[10px] font-semibold text-[color:var(--tint-amber-fg)]">
+                        class="shrink-0 rounded border-amber-500/30 bg-[image:var(--tint-amber-bg)] px-1.5 py-0 text-[10px] font-semibold text-[color:var(--tint-amber-fg)]">
                         演示
                     </Badge>
                 </div>
                 <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                     <span class="font-mono">#{{ item.id }}</span>
+                    <CasesCaseStatusBadge :status="item.status" />
                     <span>{{ getCaseTypeName(item.caseTypeId) }}</span>
                     <span>创建于 {{ formatDate(item.createdAt, 'YYYY-MM-DD') }}</span>
                 </div>
             </div>
-            <!-- 操作栏 -->
-            <div class="flex items-center justify-between gap-2 border-t border-border px-4 py-2.5">
-                <div class="flex items-center gap-1">
-                    <Button v-if="!isCaseReadOnly(item.status)" variant="ghost" size="icon"
-                        class="size-9 rounded-md text-muted-foreground"
-                        title="归档案件" @click="openArchive(item)">
-                        <Archive class="size-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" :disabled="isCaseReadOnly(item.status)"
-                        :title="isCaseReadOnly(item.status) ? '归档案件不可删除' : '删除案件'"
-                        class="size-9 rounded-md text-destructive/70"
-                        @click="emit('delete', item.id)">
-                        <Trash2 class="size-4" />
-                    </Button>
-                </div>
+            <!-- 操作 -->
+            <div class="flex shrink-0 items-center gap-1.5">
+                <Button v-if="!isCaseReadOnly(item.status)" variant="ghost" size="icon"
+                    class="size-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                    title="归档案件" @click="openArchive(item)">
+                    <Archive class="size-4" />
+                </Button>
+                <Button variant="ghost" size="icon" :disabled="isCaseReadOnly(item.status)"
+                    :title="isCaseReadOnly(item.status) ? '归档案件不可删除' : '删除案件'"
+                    class="size-8 rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    @click="emit('delete', item.id)">
+                    <Trash2 class="size-4" />
+                </Button>
                 <NuxtLink :to="`/dashboard/cases/${item.id}`">
-                    <Button variant="outline" size="sm" class="h-9 gap-1.5">
+                    <Button variant="outline" size="sm" class="h-8 gap-1.5 hover:border-primary hover:text-primary">
                         <Eye class="size-3.5" />
                         查看详情
                     </Button>

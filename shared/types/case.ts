@@ -140,14 +140,14 @@ export const CaseStatusText: Record<CaseStatus, string> = {
   [CaseStatus.ARCHIVED]:     '归档',
 }
 
-/** 徽章 Tailwind 类（固定色系 + dark 变体） */
+/** 徽章 Tailwind 类（六阶段六色相：青→蓝→琥珀→紫→翠→灰 + dark 变体） */
 export const CaseStatusBadgeClass: Record<CaseStatus, string> = {
-  [CaseStatus.CONSULTING]:   'bg-zinc-500/10 text-zinc-700 dark:bg-zinc-500/15 dark:text-zinc-300',
-  [CaseStatus.PREPARING]:    'bg-blue-500/10 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
-  [CaseStatus.FIRST_TRIAL]:  'bg-amber-500/10 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
-  [CaseStatus.SECOND_TRIAL]: 'bg-orange-500/10 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300',
-  [CaseStatus.CLOSED]:       'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
-  [CaseStatus.ARCHIVED]:     'bg-muted text-muted-foreground',
+  [CaseStatus.CONSULTING]:   'bg-cyan-500/10 text-cyan-700 border-cyan-500/30 dark:bg-cyan-400/15 dark:text-cyan-300 dark:border-cyan-400/30',
+  [CaseStatus.PREPARING]:    'bg-blue-500/10 text-blue-700 border-blue-500/30 dark:bg-blue-400/15 dark:text-blue-300 dark:border-blue-400/30',
+  [CaseStatus.FIRST_TRIAL]:  'bg-amber-500/10 text-amber-700 border-amber-500/30 dark:bg-amber-400/15 dark:text-amber-300 dark:border-amber-400/30',
+  [CaseStatus.SECOND_TRIAL]: 'bg-violet-500/10 text-violet-700 border-violet-500/30 dark:bg-violet-400/15 dark:text-violet-300 dark:border-violet-400/30',
+  [CaseStatus.CLOSED]:       'bg-emerald-500/10 text-emerald-700 border-emerald-500/30 dark:bg-emerald-400/15 dark:text-emerald-300 dark:border-emerald-400/30',
+  [CaseStatus.ARCHIVED]:     'bg-muted text-muted-foreground border-border',
 }
 
 /** 判断状态是否只读（UI 禁用编辑/分析/写记忆入口） */
