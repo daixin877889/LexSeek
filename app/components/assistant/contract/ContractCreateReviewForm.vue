@@ -315,8 +315,9 @@ async function submitPaste() {
             </TabsContent>
         </Tabs>
 
-        <!-- 文件库弹窗：复用案件分析的素材选择器 -->
-        <CaseAnalysisMaterialSelector ref="materialSelectorRef" @files-selected="handleFilesSelected" />
+        <!-- 文件库弹窗：复用案件分析的素材选择器，限定仅显示 .docx -->
+        <CaseAnalysisMaterialSelector ref="materialSelectorRef" :accept-extensions="['docx']"
+            @files-selected="handleFilesSelected" />
         <!-- 隐藏的原生文件选择器：拖拽区点击时触发 -->
         <input ref="fileInputRef" type="file" accept=".docx" class="hidden" @change="onFileInputChange" />
     </div>

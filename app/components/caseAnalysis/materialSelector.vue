@@ -12,8 +12,8 @@
       <div class="flex flex-col gap-3 min-h-0 flex-1 overflow-hidden">
         <!-- 操作栏：响应式布局 -->
         <div class="flex flex-wrap items-center gap-2 md:gap-3">
-          <!-- 左侧：文件类型筛选 -->
-          <div v-if="!isUploadMode" class="flex items-center gap-1.5">
+          <!-- 左侧：文件类型筛选（调用方限定扩展名时隐藏） -->
+          <div v-if="!isUploadMode && !hasExtensionRestriction" class="flex items-center gap-1.5">
             <Button v-for="option in fileTypeOptions" :key="option.value"
               :variant="selectedFileType === option.value ? 'default' : 'outline'" size="sm" :class="['h-9 shadow-none focus-visible:ring-0', selectedFileType === option.value
                 ? 'bg-gradient-brand-button text-white hover:text-white'
@@ -194,6 +194,7 @@ import { useDebounceFn } from "@vueuse/core";
 import { FileSource } from "#shared/types/file";
 import type { OssFileItem, FileListParams } from "~/store/file";
 import { formatByteSize } from "#shared/utils/unitConverision";
+import { getExtensionFromFileName } from "#shared/utils/file";
 import { getFileIcon, getFileIconColor } from "~/utils/file";
 import toast from '#shared/utils/toast'
 import GeneralFileUploader from '~/components/general/fileUploader.vue'
@@ -205,6 +206,8 @@ import { useFileStore } from '~/store/file'
 const props = defineProps<{
   // 禁止选择的文件 ID 列表（已添加到父组件的文件）
   disabledFileIds?: number[]
+  // 仅显示指定扩展名的文件（小写、不含点，如 ['docx']）；不传则不限制类型
+  acceptExtensions?: string[]
 }>()
 
 // 使用格式化工具
@@ -338,6 +341,9 @@ async function loadFiles(append = false) {
   }
 }
 
+// 是否启用扩展名限制（调用方通过 acceptExtensions 指定）
+const hasExtensionRestriction = computed(() => (props.acceptExtensions?.length ?? 0) > 0);
+
 // 过滤后的文件列表
 const filteredFiles = computed(() => {
   let result = allFiles.value;
@@ -357,6 +363,12 @@ const filteredFiles = computed(() => {
           return true;
       }
     });
+  }
+
+  // 按扩展名限制（调用方指定，如合同审查仅允许 .docx）
+  if (hasExtensionRestriction.value) {
+    const accepted = props.acceptExtensions!.map((e) => e.toLowerCase());
+    result = result.filter((file) => accepted.includes(getExtensionFromFileName(file.fileName)));
   }
 
   return result;
