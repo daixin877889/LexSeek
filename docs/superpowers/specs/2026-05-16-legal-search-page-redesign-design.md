@@ -122,8 +122,13 @@
   - 顶行：类型徽章（`StatusBadge`）+ 法条号（品牌蓝、加粗）+ 右侧相似度徽章
     （小圆点 + `相似度 XX.X%`，`ml-auto`）。
   - 法律名称 h3。
-  - 章节面包屑（`chapter_hierarchy.join(' › ')`），`text-xs text-muted-foreground`。
+  - 章节面包屑，`text-xs text-muted-foreground`。
   - 高亮摘录：3 行截断（`line-clamp-3`），命中关键词高亮（沿用现有 `highlightContent`）。
+- **法条号来源说明**：法条搜索结果（`LawSearchResultItem`）没有独立的"条号"字段，
+  但 `chapter_hierarchy` 数组由 `buildChapterHierarchy` 构建、含 L5（条级标题）。
+  因此：取 `chapter_hierarchy` 末段，若匹配 `第…条` 形式（正则 `/^第[一二三四五六七八九十百千零〇\d]+条/`）
+  则作为"法条号"单独展示、其余段作为面包屑；不匹配时不展示法条号、整串作为面包屑。
+  此为纯展示层拆分，不伪造数据。
 - 列表底部居中提示：`点击法条卡片可查看完整条文与关联案例`。
 - 卡片点击仍打开现有 `ArticleDetailDialog`（弹窗本身不改）。
 - 加载 / 错误 / 空态保留，重新配色对齐卡片风格。
