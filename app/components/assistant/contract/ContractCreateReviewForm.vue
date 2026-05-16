@@ -1,13 +1,10 @@
 <script setup lang="ts">
 /**
- * 合同审查 · 新建审查表单（共享组件）
+ * 合同审查 · 新建审查表单
  *
- * 同时用于：
- *  - 列表页 /dashboard/contract 顶部内嵌的新建卡片
- *  - 合同详情页 NewReviewDialog 弹窗内
- *
+ * 内嵌于列表页 /dashboard/contract 顶部的新建卡片。
  * 三种来源：本机上传 .docx（拖拽 / 点击）、文件库选择、粘贴文本。
- * 成功后 emit('created', reviewId)，由调用方决定后续（跳详情 / 关弹窗）。
+ * 成功后 emit('created', reviewId)，由调用方决定后续（跳详情）。
  */
 import { ref, computed } from 'vue'
 import { toast } from 'vue-sonner'
@@ -219,15 +216,16 @@ async function submitPaste() {
             <!-- 选择文件 -->
             <TabsContent value="upload" class="mt-4 space-y-3">
                 <!-- 已选文件 -->
-                <div v-if="selectedFile"
-                    class="flex items-center gap-3.5 rounded-xl border bg-background p-4">
-                    <div class="flex size-11 shrink-0 items-center justify-center rounded-[11px] [background-image:var(--tint-navy-bg)] text-[var(--tint-navy-fg)]">
+                <div v-if="selectedFile" class="flex items-center gap-3.5 rounded-xl border bg-background p-4">
+                    <div
+                        class="flex size-11 shrink-0 items-center justify-center rounded-[11px] [background-image:var(--tint-navy-bg)] text-[var(--tint-navy-fg)]">
                         <FileTextIcon class="size-5" />
                     </div>
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center gap-2">
                             <span class="truncate text-sm font-medium">{{ selectedFile.fileName }}</span>
-                            <span class="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
+                            <span
+                                class="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
                                 已就绪
                             </span>
                         </div>
@@ -243,16 +241,13 @@ async function submitPaste() {
 
                 <!-- 未选文件 -->
                 <template v-else>
-                    <div class="rounded-xl border-2 border-dashed p-7 text-center transition-colors"
-                        :class="[
-                            isDragging ? 'border-primary bg-primary/5' : 'border-primary/25 hover:border-primary/45',
-                            localUploading ? 'cursor-default' : 'cursor-pointer',
-                        ]"
-                        @click="triggerFilePicker"
-                        @dragover.prevent="!localUploading && (isDragging = true)"
-                        @dragleave="isDragging = false"
-                        @drop.prevent="handleDrop">
-                        <div class="mx-auto flex size-12 items-center justify-center rounded-xl [background-image:var(--tint-sky-bg)] text-[var(--tint-sky-fg)]">
+                    <div class="rounded-xl border-2 border-dashed p-7 text-center transition-colors" :class="[
+                        isDragging ? 'border-primary bg-primary/5' : 'border-primary/25 hover:border-primary/45',
+                        localUploading ? 'cursor-default' : 'cursor-pointer',
+                    ]" @click="triggerFilePicker" @dragover.prevent="!localUploading && (isDragging = true)"
+                        @dragleave="isDragging = false" @drop.prevent="handleDrop">
+                        <div
+                            class="mx-auto flex size-12 items-center justify-center rounded-xl [background-image:var(--tint-sky-bg)] text-[var(--tint-sky-fg)]">
                             <UploadIcon class="size-6" />
                         </div>
                         <template v-if="localUploading">
@@ -288,7 +283,7 @@ async function submitPaste() {
 
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <span class="text-[11px] text-muted-foreground">
-                        支持 .docx · 单文件 ≤ {{ CONTRACT_MAX_MB }} MB · 每份消耗 30 积分
+                        支持 .docx · 单文件 ≤ {{ CONTRACT_MAX_MB }} MB
                     </span>
                     <Button class="bg-gradient-brand-button text-white"
                         :disabled="!selectedFile || submitting || localUploading" @click="submitUpload">
@@ -302,14 +297,14 @@ async function submitPaste() {
             <!-- 粘贴文本 -->
             <TabsContent value="paste" class="mt-4 space-y-3">
                 <Textarea v-model="pasteText" :rows="9" :disabled="pasteSubmitting"
-                    placeholder="将合同全文粘贴到这里，AI 会自动识别合同类型与风险条款…"
-                    class="resize-y font-mono text-sm" />
+                    placeholder="将合同全文粘贴到这里，AI 会自动识别合同类型与风险条款…" class="resize-y font-mono text-sm" />
                 <div class="flex flex-wrap items-center justify-between gap-3">
-                    <span :class="['text-[11px]', pasteText.length > PASTE_MAX ? 'text-destructive' : 'text-muted-foreground']">
-                        {{ pasteText.length.toLocaleString() }} / {{ PASTE_MAX.toLocaleString() }} 字 · 每份消耗 30 积分
+                    <span
+                        :class="['text-[11px]', pasteText.length > PASTE_MAX ? 'text-destructive' : 'text-muted-foreground']">
+                        {{ pasteText.length.toLocaleString() }} / {{ PASTE_MAX.toLocaleString() }} 字
                     </span>
-                    <Button class="bg-gradient-brand-button text-white"
-                        :disabled="pasteSubmitting || !canSubmitPaste" @click="submitPaste">
+                    <Button class="bg-gradient-brand-button text-white" :disabled="pasteSubmitting || !canSubmitPaste"
+                        @click="submitPaste">
                         <Loader2Icon v-if="pasteSubmitting" class="size-4 animate-spin" />
                         <SparklesIcon v-else class="size-4" />
                         开始审查
