@@ -7,6 +7,17 @@
  */
 import { normalizeForMatch } from '../utils/textSimilarity'
 import { ClientRedlineDecision } from '#shared/types/contract'
+import { loadDocxZip } from './zipRewriter'
+import {
+    parseOoxml,
+    findFirst,
+    findAll,
+    getAttr,
+    textOf,
+    walk,
+    tagOf,
+    collectNonEmptyParagraphs,
+} from './xmlAst'
 
 /** redlineRefs.xml 里一条 <ref> 的解析结果 */
 export interface RedlineRefEntry {
@@ -30,6 +41,104 @@ export interface ClassifyRedlineInput {
     /** 风险 DB 字段（原始值，函数内部归一化） */
     problematicQuote: string
     suggestedClauseText: string
+}
+
+/** 单个非空段落的归一化语料 */
+export interface RedlineParagraph {
+    /** 该段 <w:t> 文本，已 normalizeForMatch 归一化 */
+    tNorm: string
+    /** 该段 <w:delText> 文本，已 normalizeForMatch 归一化 */
+    delNorm: string
+}
+
+export interface ParsedRedlineMarks {
+    /** redlineRefs.xml 根元素 reviewId；文件不存在为 null */
+    reviewId: number | null
+    refs: RedlineRefEntry[]
+    survivingInsIds: Set<number>
+    survivingDelIds: Set<number>
+    /** 按非空段落（collectNonEmptyParagraphs 口径）的归一化语料 */
+    paragraphs: RedlineParagraph[]
+}
+
+/**
+ * 解析回传 docx 的修订信息（spec §6.1）。
+ * redlineRefs.xml 不存在 / 损坏 → reviewId=null、refs=[]（上层靠安全保护处理）。
+ */
+export async function parseRedlineMarks(docxBuffer: Buffer): Promise<ParsedRedlineMarks> {
+    const zip = await loadDocxZip(docxBuffer)
+
+    let reviewId: number | null = null
+    const refs: RedlineRefEntry[] = []
+    const refsFile = zip.file('word/customXml/redlineRefs.xml')
+    if (refsFile) {
+        try {
+            const ast = parseOoxml(await refsFile.async('string'))
+            const root = findFirst(ast, 'lexseekRedlineRefs')
+            if (root) {
+                const rid = parseInt(getAttr(root, 'reviewId') ?? '', 10)
+                reviewId = Number.isFinite(rid) ? rid : null
+            }
+            for (const node of findAll(ast, 'ref')) {
+                const riskId = parseInt(getAttr(node, 'riskId') ?? '', 10)
+                const insId = parseInt(getAttr(node, 'insId') ?? '', 10)
+                const parseIds = (attr: string) => (getAttr(node, attr) ?? '')
+                    .split(',').map(s => parseInt(s, 10)).filter(n => Number.isFinite(n))
+                const delIds = parseIds('delIds')
+                const paraIdxs = parseIds('paraIdxs')
+                if (Number.isFinite(riskId) && Number.isFinite(insId) && delIds.length > 0) {
+                    refs.push({ riskId, delIds, insId, paraIdxs })
+                }
+            }
+        } catch { /* 文件损坏 → 空 refs */ }
+    }
+
+    const survivingInsIds = new Set<number>()
+    const survivingDelIds = new Set<number>()
+    const paragraphs: RedlineParagraph[] = []
+    const docFile = zip.file('word/document.xml')
+    if (docFile) {
+        const ast = parseOoxml(await docFile.async('string'))
+        for (const n of findAll(ast, 'w:ins')) {
+            const id = parseInt(getAttr(n, 'w:id') ?? '', 10)
+            if (Number.isFinite(id)) survivingInsIds.add(id)
+        }
+        for (const n of findAll(ast, 'w:del')) {
+            const id = parseInt(getAttr(n, 'w:id') ?? '', 10)
+            if (Number.isFinite(id)) survivingDelIds.add(id)
+        }
+        // 按非空段落收集 <w:t> / <w:delText> 语料
+        for (const para of collectNonEmptyParagraphs(ast)) {
+            let rawT = ''
+            let rawDel = ''
+            walk([para], (n) => {
+                const tag = tagOf(n)
+                if (tag === 'w:t') rawT += textOf(n)
+                else if (tag === 'w:delText') rawDel += textOf(n)
+            })
+            paragraphs.push({ tNorm: normalizeForMatch(rawT), delNorm: normalizeForMatch(rawDel) })
+        }
+    }
+
+    return { reviewId, refs, survivingInsIds, survivingDelIds, paragraphs }
+}
+
+/**
+ * 取某条修订身份证对应的比对语料（spec §6.2）：限定在 paraIdxs 记录的段落；
+ * paraIdxs 越界（客户结构性增删段落致序号漂移）时回退全文语料。
+ */
+export function resolveCorpusForRef(
+    parsed: ParsedRedlineMarks,
+    ref: RedlineRefEntry,
+): { corpusT: string; corpusDel: string } {
+    const valid = ref.paraIdxs.filter(i => i >= 0 && i < parsed.paragraphs.length)
+    const picked = valid.length > 0
+        ? valid.map(i => parsed.paragraphs[i]!)
+        : parsed.paragraphs // 段落序号越界 → 回退全文语料
+    return {
+        corpusT: picked.map(p => p.tNorm).join(' '),
+        corpusDel: picked.map(p => p.delNorm).join(' '),
+    }
 }
 
 /**
