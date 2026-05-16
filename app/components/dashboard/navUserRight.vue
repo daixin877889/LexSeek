@@ -1,13 +1,13 @@
 <template>
   <DropdownMenu>
     <DropdownMenuTrigger as-child>
-      <button class="p-2 rounded-md hover:bg-muted transition-colors focus:outline-none">
+      <button class="p-2 rounded-md hover:bg-primary/[0.08] transition-colors focus:outline-none">
         <User class="h-6 w-6" />
       </button>
     </DropdownMenuTrigger>
 
     <DropdownMenuContent
-      class="min-w-56 rounded-lg"
+      class="theme-brand min-w-56 rounded-lg"
       side="bottom"
       align="end"
       :side-offset="8"

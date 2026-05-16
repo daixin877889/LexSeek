@@ -11,12 +11,12 @@
     <DropdownMenuItem
       v-else-if="node.kind === 'route'"
       as-child
-      class="cursor-pointer"
+      class="cursor-pointer focus:bg-primary/[0.08]"
     >
       <NuxtLink
         :to="node.path"
-        active-class="bg-accent text-accent-foreground"
-        exact-active-class="bg-accent text-accent-foreground font-medium"
+        active-class="bg-primary/[0.08] text-primary"
+        exact-active-class="bg-primary/[0.08] text-primary font-medium"
       >
         <component :is="node.icon" class="mr-2 h-4 w-4" />
         {{ node.title }}
@@ -29,7 +29,9 @@
       v-else-if="node.kind === 'action'"
       :class="[
         'cursor-pointer group',
-        node.danger && 'text-red-500 data-highlighted:bg-red-50 data-highlighted:text-red-600',
+        node.danger
+          ? 'text-red-500 data-highlighted:bg-red-50 data-highlighted:text-red-600'
+          : 'focus:bg-primary/[0.08]',
       ]"
       @click="node.onClick"
     >

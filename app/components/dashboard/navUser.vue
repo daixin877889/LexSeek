@@ -5,7 +5,7 @@
         <DropdownMenuTrigger as-child>
           <SidebarMenuButton
             size="lg"
-            class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+            class="hover:bg-primary/[0.08] data-[state=open]:bg-primary/[0.08] data-[state=open]:text-sidebar-accent-foreground"
           >
             <Avatar class="h-8 w-8 rounded-lg">
               <AvatarFallback class="rounded-lg bg-gradient-brand text-white font-semibold">LS</AvatarFallback>
@@ -19,7 +19,7 @@
         </DropdownMenuTrigger>
 
         <DropdownMenuContent
-          class="w-[--reka-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+          class="theme-brand w-[--reka-dropdown-menu-trigger-width] min-w-56 rounded-lg"
           side="right"
           align="end"
           :side-offset="4"

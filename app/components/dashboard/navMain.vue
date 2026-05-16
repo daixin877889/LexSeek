@@ -1,5 +1,7 @@
 <template>
-  <SidebarGroup>
+  <!-- theme-brand：移动端侧边栏走 Sheet 会 portal 出布局的 theme-brand 作用域，
+       这里自带一份，保证导航项的品牌色 hover 在移动端也生效 -->
+  <SidebarGroup class="theme-brand">
     <SidebarGroupContent>
       <SidebarMenu>
         <template v-for="item in menuItems" :key="item.title">

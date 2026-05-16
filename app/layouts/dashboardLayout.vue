@@ -51,7 +51,7 @@
             </ClientOnly>
 
             <!-- 移动端菜单按钮 -->
-            <button class="p-2 rounded-md hover:bg-muted transition-colors focus:outline-none md:hidden"
+            <button class="p-2 rounded-md hover:bg-primary/[0.08] transition-colors focus:outline-none md:hidden"
               @click="toggleSidebar">
               <MenuIcon class="h-6 w-6" />
             </button>

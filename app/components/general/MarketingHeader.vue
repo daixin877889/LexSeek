@@ -51,13 +51,13 @@
           <DropdownMenu>
             <DropdownMenuTrigger as-child>
               <button
-                class="flex items-center justify-center h-9 w-9 rounded-full bg-muted hover:bg-muted/80 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                class="flex items-center justify-center h-9 w-9 rounded-full bg-muted hover:bg-primary/[0.08] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 aria-label="用户菜单"
               >
                 <User class="h-5 w-5" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" class="w-56">
+            <DropdownMenuContent align="end" class="theme-brand w-56">
               <DropdownMenuLabel class="font-normal">
                 <div class="flex flex-col space-y-1">
                   <p class="text-sm font-medium leading-none">{{ userStore.userInfo.name }}</p>
@@ -65,18 +65,18 @@
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem as-child>
+              <DropdownMenuItem as-child class="focus:bg-primary/[0.08]">
                 <NuxtLink to="/dashboard" class="cursor-pointer w-full">个人中心</NuxtLink>
               </DropdownMenuItem>
-              <DropdownMenuItem as-child>
+              <DropdownMenuItem as-child class="focus:bg-primary/[0.08]">
                 <NuxtLink to="/dashboard/cases" class="cursor-pointer w-full">我的案件</NuxtLink>
               </DropdownMenuItem>
-              <DropdownMenuItem as-child>
+              <DropdownMenuItem as-child class="focus:bg-primary/[0.08]">
                 <NuxtLink to="/dashboard/settings" class="cursor-pointer w-full">账户设置</NuxtLink>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                class="text-red-500 cursor-pointer focus:text-red-500"
+                class="text-red-500 cursor-pointer focus:bg-red-500/10 focus:text-red-500"
                 @click="handleLogout"
               >退出登录</DropdownMenuItem>
             </DropdownMenuContent>
@@ -87,13 +87,13 @@
         <Sheet v-model:open="mobileMenuOpen">
           <SheetTrigger as-child>
             <button
-              class="md:hidden flex items-center justify-center h-9 w-9 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              class="md:hidden flex items-center justify-center h-9 w-9 rounded-md text-muted-foreground hover:bg-primary/[0.08] hover:text-foreground transition-colors"
               aria-label="打开菜单"
             >
               <Menu class="h-5 w-5" />
             </button>
           </SheetTrigger>
-          <SheetContent side="left" class="w-[280px] sm:max-w-[280px] p-0 gap-0">
+          <SheetContent side="left" class="theme-brand w-[280px] sm:max-w-[280px] p-0 gap-0">
             <SheetTitle class="sr-only">导航菜单</SheetTitle>
             <SheetDescription class="sr-only">站点导航与登录入口</SheetDescription>
             <div class="flex items-center gap-2.5 px-5 py-5 border-b">
