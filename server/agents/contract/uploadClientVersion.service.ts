@@ -524,6 +524,7 @@ export async function* uploadClientVersionService(params: {
                 corpusDel,
                 problematicQuote: risk.problematicQuote,
                 suggestedClauseText: risk.suggestedClauseText,
+                trustWordIds: rl.trustWordIds,
             })
             redlineDecisions.set(ref.riskId, decision)
             redlineCounts[decision]++

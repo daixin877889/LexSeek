@@ -18,6 +18,7 @@ import {
     tagOf,
     collectNonEmptyParagraphs,
 } from './xmlAst'
+import { locateLexseekCustomXml, REDLINE_REFS_NS } from './customXmlLocator'
 
 /** redlineRefs.xml 里一条 <ref> 的解析结果 */
 export interface RedlineRefEntry {
@@ -41,6 +42,8 @@ export interface ClassifyRedlineInput {
     /** 风险 DB 字段（原始值，函数内部归一化） */
     problematicQuote: string
     suggestedClauseText: string
+    /** docx 内 w:id 是否可信（见 ParsedRedlineMarks.trustWordIds）；false 时跳过精确层 */
+    trustWordIds: boolean
 }
 
 /** 单个非空段落的归一化语料 */
@@ -59,6 +62,11 @@ export interface ParsedRedlineMarks {
     survivingDelIds: Set<number>
     /** 按非空段落（collectNonEmptyParagraphs 口径）的归一化语料 */
     paragraphs: RedlineParagraph[]
+    /**
+     * docx 内 w:id 是否可信。身份证文件在原始路径 = docx 未被 Word 等工具规范化
+     * 重写过 = w:id 未被重排 = 可信；否则不可信，修订判定须跳过精确层。
+     */
+    trustWordIds: boolean
 }
 
 /**
@@ -73,15 +81,18 @@ export async function parseRedlineMarks(docxBuffer: Buffer): Promise<ParsedRedli
     } catch {
         // docxBuffer 不是合法 docx zip：修订标记是回传识别的增强项而非核心，解析失败
         // 降级为空结果，由上层批注链路 + 安全保护兜底，不中止回传。
-        return { reviewId: null, refs: [], survivingInsIds: new Set(), survivingDelIds: new Set(), paragraphs: [] }
+        return { reviewId: null, refs: [], survivingInsIds: new Set(), survivingDelIds: new Set(), paragraphs: [], trustWordIds: true }
     }
 
     let reviewId: number | null = null
     const refs: RedlineRefEntry[] = []
-    const refsFile = zip.file('word/customXml/redlineRefs.xml')
-    if (refsFile) {
+    // 身份证文件按命名空间定位（兼容 Word 把 customXml 改名移位）
+    const located = await locateLexseekCustomXml(zip, REDLINE_REFS_NS, 'word/customXml/redlineRefs.xml')
+    // 文件不在原始路径 → docx 被 Word 等规范化重写过 → docx 内 w:id 不可信
+    const trustWordIds = located ? located.atOriginalPath : true
+    if (located) {
         try {
-            const ast = parseOoxml(await refsFile.async('string'))
+            const ast = parseOoxml(located.xml)
             const root = findFirst(ast, 'lexseekRedlineRefs')
             if (root) {
                 const rid = parseInt(getAttr(root, 'reviewId') ?? '', 10)
@@ -128,7 +139,7 @@ export async function parseRedlineMarks(docxBuffer: Buffer): Promise<ParsedRedli
         }
     }
 
-    return { reviewId, refs, survivingInsIds, survivingDelIds, paragraphs }
+    return { reviewId, refs, survivingInsIds, survivingDelIds, paragraphs, trustWordIds }
 }
 
 /**
@@ -155,18 +166,22 @@ export function resolveCorpusForRef(
  * Layer 2（正文）：corpusDel 含原文→未处理；否则按 old/new 子串包含关系选判别字段定接受/拒绝。
  */
 export function classifyRedlineDecision(input: ClassifyRedlineInput): ClientRedlineDecision {
-    const { ref, survivingInsIds, survivingDelIds, corpusT, corpusDel } = input
+    const { ref, survivingInsIds, survivingDelIds, corpusT, corpusDel, trustWordIds } = input
     const oldText = normalizeForMatch(input.problematicQuote)
     const newText = normalizeForMatch(input.suggestedClauseText)
     // 防御：redlineRefs 风险理论上 old/new 必非空且不等
     if (!oldText || !newText || oldText === newText) return ClientRedlineDecision.AMBIGUOUS
 
-    // ===== Layer 1：w:id 精确层 =====
-    const delAllAlive = ref.delIds.length > 0 && ref.delIds.every(id => survivingDelIds.has(id))
-    const delNoneAlive = ref.delIds.every(id => !survivingDelIds.has(id))
-    const insAlive = survivingInsIds.has(ref.insId)
-    if (delAllAlive && insAlive) return ClientRedlineDecision.UNTOUCHED
-    if (!(delNoneAlive && !insAlive)) return ClientRedlineDecision.AMBIGUOUS // 部分存活
+    // ===== Layer 1：w:id 精确层（仅在 w:id 可信时启用）=====
+    // docx 经 Word 等工具规范化重写后，w:id 被重排、新旧编号空间重叠，拿旧 id 去查
+    // 会碰巧命中不相干修订 → 随机误判。trustWordIds=false 时必须跳过（spec §6）。
+    if (trustWordIds) {
+        const delAllAlive = ref.delIds.length > 0 && ref.delIds.every(id => survivingDelIds.has(id))
+        const delNoneAlive = ref.delIds.every(id => !survivingDelIds.has(id))
+        const insAlive = survivingInsIds.has(ref.insId)
+        if (delAllAlive && insAlive) return ClientRedlineDecision.UNTOUCHED
+        if (!(delNoneAlive && !insAlive)) return ClientRedlineDecision.AMBIGUOUS // 部分存活
+    }
 
     // ===== Layer 2：正文比对层 =====
     if (corpusDel.includes(oldText)) return ClientRedlineDecision.UNTOUCHED
@@ -191,3 +206,14 @@ export function classifyRedlineDecision(input: ClassifyRedlineInput): ClientRedl
     if (oldInT && !newInT) return ClientRedlineDecision.REJECTED
     return ClientRedlineDecision.AMBIGUOUS
 }
+
+/**
+ * 取全文语料（所有非空段落拼接），用于 paraIdxs 段落定位失准时的兜底重判（spec §6）。
+ */
+export function resolveFullCorpus(parsed: ParsedRedlineMarks): { corpusT: string; corpusDel: string } {
+    return {
+        corpusT: parsed.paragraphs.map(p => p.tNorm).join(' '),
+        corpusDel: parsed.paragraphs.map(p => p.delNorm).join(' '),
+    }
+}
+

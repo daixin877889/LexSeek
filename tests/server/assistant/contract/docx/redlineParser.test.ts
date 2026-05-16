@@ -19,7 +19,10 @@ import {
 import {
     parseRedlineMarks,
     resolveCorpusForRef,
+    classifyRedlineDecision,
+    resolveFullCorpus,
 } from '~~/server/agents/contract/docx/redlineParser'
+import { ClientRedlineDecision } from '#shared/types/contract'
 
 const SAMPLE = join(__dirname, '../../../../../prisma/seeds/contract-samples/labor.docx')
 
@@ -149,7 +152,7 @@ describe('parseRedlineMarks · 缺文件与损坏边界（spec §11.1）', () =>
         const zip = await loadDocxZip(original)
         zip.file(
             'word/customXml/redlineRefs.xml',
-            `<?xml version="1.0" encoding="UTF-8"?><lexseekRedlineRefs reviewId="not-a-number"><ref riskId="1" insId="2" delIds="3" paraIdxs="0"/></lexseekRedlineRefs>`,
+            `<?xml version="1.0" encoding="UTF-8"?><lexseekRedlineRefs xmlns="urn:lexseek:contract-review-redline:v1" reviewId="not-a-number"><ref riskId="1" insId="2" delIds="3" paraIdxs="0"/></lexseekRedlineRefs>`,
         )
         const buffer = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' })
 
@@ -165,7 +168,7 @@ describe('parseRedlineMarks · 缺文件与损坏边界（spec §11.1）', () =>
         const zip = await loadDocxZip(original)
         zip.file(
             'word/customXml/redlineRefs.xml',
-            `<?xml version="1.0" encoding="UTF-8"?><lexseekRedlineRefs reviewId="42"></lexseekRedlineRefs>`,
+            `<?xml version="1.0" encoding="UTF-8"?><lexseekRedlineRefs xmlns="urn:lexseek:contract-review-redline:v1" reviewId="42"></lexseekRedlineRefs>`,
         )
         const buffer = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' })
 
@@ -379,5 +382,57 @@ describe('parseRedlineMarks · 多条 risk round-trip', () => {
                 expect(parsed.survivingDelIds.has(delId)).toBe(true)
             }
         }
+    })
+})
+
+describe('classifyRedlineDecision · trustWordIds 开关（spec §6）', () => {
+    const ref = { riskId: 1, delIds: [10], insId: 11, paraIdxs: [0] }
+
+    it('trustWordIds=true 且 del+ins 都存活 → 精确层判 UNTOUCHED', () => {
+        const d = classifyRedlineDecision({
+            ref, trustWordIds: true,
+            survivingInsIds: new Set([11]), survivingDelIds: new Set([10]),
+            corpusT: '双方按约担责', corpusDel: '甲方负全责',
+            problematicQuote: '甲方负全责', suggestedClauseText: '双方按约担责',
+        })
+        expect(d).toBe(ClientRedlineDecision.UNTOUCHED)
+    })
+
+    it('trustWordIds=false → 跳过精确层，即便 id 碰巧存活也走正文比对', () => {
+        // del/ins id 在存活集合里（模拟 Word 重排后碰巧命中），但 trustWordIds=false
+        // → 不走精确层；正文里 corpusDel 含原文 → 正文层判 UNTOUCHED
+        const d = classifyRedlineDecision({
+            ref, trustWordIds: false,
+            survivingInsIds: new Set([11]), survivingDelIds: new Set([10]),
+            corpusT: '双方按约担责', corpusDel: '甲方负全责',
+            problematicQuote: '甲方负全责', suggestedClauseText: '双方按约担责',
+        })
+        expect(d).toBe(ClientRedlineDecision.UNTOUCHED)
+    })
+
+    it('trustWordIds=false + 正文是新文本 → 正文层判 ACCEPTED', () => {
+        const d = classifyRedlineDecision({
+            ref, trustWordIds: false,
+            survivingInsIds: new Set([11]), survivingDelIds: new Set([10]),
+            corpusT: '双方按约担责', corpusDel: '',
+            problematicQuote: '甲方负全责', suggestedClauseText: '双方按约担责',
+        })
+        expect(d).toBe(ClientRedlineDecision.ACCEPTED)
+    })
+})
+
+describe('resolveFullCorpus', () => {
+    it('拼接所有段落的归一化语料', () => {
+        const parsed = {
+            reviewId: 1, refs: [], survivingInsIds: new Set<number>(), survivingDelIds: new Set<number>(),
+            trustWordIds: true,
+            paragraphs: [
+                { tNorm: '第一段', delNorm: '删一' },
+                { tNorm: '第二段', delNorm: '删二' },
+            ],
+        }
+        const r = resolveFullCorpus(parsed)
+        expect(r.corpusT).toBe('第一段 第二段')
+        expect(r.corpusDel).toBe('删一 删二')
     })
 })

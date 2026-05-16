@@ -17,6 +17,7 @@ function run(opts: {
         corpusDel: opts.corpusDel ?? '',
         problematicQuote: opts.old,
         suggestedClauseText: opts.neu,
+        trustWordIds: true,
     })
 }
 
