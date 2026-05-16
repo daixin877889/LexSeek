@@ -31,11 +31,9 @@
                 </div>
 
                 <!-- 发文机关 -->
-                <div v-if="item.issuingAuthority" class="flex flex-wrap gap-1">
-                    <span v-for="(authority, index) in parseIssuingAuthorities(item.issuingAuthority)" :key="index"
-                        class="inline-flex items-center rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                        {{ authority }}
-                    </span>
+                <div v-if="item.issuingAuthority" class="line-clamp-2 text-sm text-muted-foreground"
+                    :title="formatIssuingAuthorities(item.issuingAuthority)">
+                    {{ formatIssuingAuthorities(item.issuingAuthority) }}
                 </div>
 
                 <!-- 底部信息 -->
@@ -120,7 +118,7 @@ import {
     getLegalTypeTone,
     getValidityLabel,
     getValidityTone,
-    parseIssuingAuthorities,
+    formatIssuingAuthorities,
     formatLegalDate,
 } from '~/components/legal-search/legalDisplay'
 

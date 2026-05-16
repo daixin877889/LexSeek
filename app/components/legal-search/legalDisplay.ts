@@ -60,5 +60,9 @@ export const getValidityTone = (item: LegalListItemWithValidity): BadgeTone =>
     VALIDITY_TONE[computeValidityState(item)]
 
 /** 解析发文机关（支持全角和半角逗号分隔） */
-export const parseIssuingAuthorities = (authority: string): string[] =>
+const parseIssuingAuthorities = (authority: string): string[] =>
     authority.split(/[,，]/).map(s => s.trim()).filter(s => s.length > 0)
+
+/** 格式化发文机关为顿号分隔的单行文本 */
+export const formatIssuingAuthorities = (authority: string): string =>
+    parseIssuingAuthorities(authority).join('、')

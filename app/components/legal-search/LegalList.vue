@@ -2,7 +2,14 @@
     <div class="bg-card rounded-xl border overflow-hidden">
         <!-- 表格内容 -->
         <div class="overflow-x-auto">
-            <table class="w-full min-w-[720px]">
+            <table class="w-full min-w-[760px] table-fixed">
+                <colgroup>
+                    <col />
+                    <col class="w-28" />
+                    <col class="w-[30%]" />
+                    <col class="w-32" />
+                    <col class="w-28" />
+                </colgroup>
                 <thead>
                     <tr class="bg-muted/50">
                         <th v-for="h in TABLE_HEADERS" :key="h"
@@ -28,31 +35,32 @@
                         <tr v-for="item in items" :key="item.id"
                             class="cursor-pointer border-b transition-colors hover:bg-muted/50"
                             :class="{ 'bg-muted/30': selectedId === item.id }" @click="handleRowClick(item)">
-                            <td class="px-4 py-3" style="max-width: 420px">
-                                <div class="font-semibold text-foreground">{{ item.name }}</div>
-                                <div v-if="item.documentNumber" class="mt-0.5 text-xs text-muted-foreground">
+                            <td class="px-4 py-3 align-top">
+                                <div class="font-semibold text-foreground line-clamp-2" :title="item.name">
+                                    {{ item.name }}
+                                </div>
+                                <div v-if="item.documentNumber"
+                                    class="mt-0.5 truncate text-xs text-muted-foreground"
+                                    :title="item.documentNumber">
                                     {{ item.documentNumber }}
                                 </div>
                             </td>
-                            <td class="px-4 py-3">
+                            <td class="px-4 py-3 align-top">
                                 <LegalSearchStatusBadge :tone="getLegalTypeTone(item.type)">
                                     {{ LegalTypeLabels[item.type] }}
                                 </LegalSearchStatusBadge>
                             </td>
-                            <td class="px-4 py-3">
-                                <div v-if="item.issuingAuthority" class="flex flex-wrap gap-1">
-                                    <span v-for="(authority, index) in parseIssuingAuthorities(item.issuingAuthority)"
-                                        :key="index"
-                                        class="inline-flex items-center rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                                        {{ authority }}
-                                    </span>
+                            <td class="px-4 py-3 align-top">
+                                <div v-if="item.issuingAuthority" class="line-clamp-2 text-sm text-muted-foreground"
+                                    :title="formatIssuingAuthorities(item.issuingAuthority)">
+                                    {{ formatIssuingAuthorities(item.issuingAuthority) }}
                                 </div>
                                 <span v-else class="text-sm text-muted-foreground">-</span>
                             </td>
-                            <td class="px-4 py-3 text-sm text-muted-foreground">
+                            <td class="whitespace-nowrap px-4 py-3 align-top text-sm text-muted-foreground">
                                 {{ formatLegalDate(item.effectiveDate) }}
                             </td>
-                            <td class="px-4 py-3">
+                            <td class="px-4 py-3 align-top">
                                 <LegalSearchStatusBadge :tone="getValidityTone(item)">
                                     {{ getValidityLabel(item) }}
                                 </LegalSearchStatusBadge>
@@ -120,7 +128,7 @@ import {
     getLegalTypeTone,
     getValidityLabel,
     getValidityTone,
-    parseIssuingAuthorities,
+    formatIssuingAuthorities,
     formatLegalDate,
 } from '~/components/legal-search/legalDisplay'
 
