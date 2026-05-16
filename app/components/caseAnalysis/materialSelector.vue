@@ -1,9 +1,8 @@
 <template>
   <Dialog v-model:open="open">
     <DialogContent
-      :class="['max-w-4xl min-w-[80vw] md:min-w-[70vw] h-[85vh] md:h-[90vh] z-[70] rounded-2xl shadow-2xl', 'grid grid-rows-[auto_1fr] overflow-hidden', isUploadMode ? '' : 'grid-rows-[auto_1fr_auto]']"
-      overlay-class="z-[70]"
-      @interactOutside="(e) => e.preventDefault()">
+      :class="['theme-brand max-w-4xl min-w-[80vw] md:min-w-[70vw] h-[85vh] md:h-[90vh] z-[70] rounded-2xl shadow-2xl', 'grid grid-rows-[auto_1fr] overflow-hidden', isUploadMode ? '' : 'grid-rows-[auto_1fr_auto]']"
+      overlay-class="z-[70]" @openAutoFocus="(e) => e.preventDefault()" @interactOutside="(e) => e.preventDefault()">
       <DialogHeader>
         <DialogTitle>选择案情材料</DialogTitle>
         <DialogDescription class="hidden md:block">从已上传的文件中选择，或上传新的案情材料</DialogDescription>
@@ -16,12 +15,10 @@
           <!-- 左侧：文件类型筛选 -->
           <div v-if="!isUploadMode" class="flex items-center gap-1.5">
             <Button v-for="option in fileTypeOptions" :key="option.value"
-              variant="outline" size="sm"
-              :class="['h-9', selectedFileType === option.value
-                ? 'bg-gradient-brand text-white border-transparent shadow-[0_6px_14px_-6px_rgba(9,3,128,0.35)] hover:text-white'
-                : '']"
-              @click="selectedFileType = option.value">
-              <component :is="option.icon" :class="['size-4', isSearchExpanded ? '' : 'md:mr-1.5', 'lg:mr-1.5']" />
+              :variant="selectedFileType === option.value ? 'default' : 'outline'" size="sm" :class="['h-9 shadow-none focus-visible:ring-0', selectedFileType === option.value
+                ? 'bg-gradient-brand-button text-white hover:text-white'
+                : '']" @click="selectedFileType = option.value">
+              <component :is="option.icon" :class="['size-4', isSearchExpanded ? '' : 'md:mr-0.5', 'lg:mr-0.5']" />
               <span :class="['hidden', isSearchExpanded ? 'lg:inline' : 'md:inline']">{{ option.label }}</span>
             </Button>
           </div>
@@ -31,7 +28,8 @@
             <!-- 搜索框容器（上传模式下隐藏） -->
             <div v-if="!isUploadMode" class="relative hidden md:flex items-center">
               <!-- 桌面端（lg+）：默认展开的搜索框 -->
-              <Input v-model="searchQuery" placeholder="搜索文件名..." class="h-9 w-64 hidden lg:block">
+              <Input v-model="searchQuery" placeholder="搜索文件名..."
+                class="h-9 w-64 hidden lg:block shadow-none focus-visible:ring-0">
               <template #prefix>
                 <SearchIcon class="size-4 text-muted-foreground" />
               </template>
@@ -45,7 +43,8 @@
 
               <!-- 中等屏幕（md-lg）：展开状态的搜索框（向左展开） -->
               <div v-if="isSearchExpanded" class="absolute right-0 z-10 lg:hidden" @mouseleave="handleSearchBlur">
-                <Input ref="searchInputRef" v-model="searchQuery" placeholder="搜索文件名..." class="h-9 w-64">
+                <Input ref="searchInputRef" v-model="searchQuery" placeholder="搜索文件名..."
+                  class="h-9 w-64 shadow-none focus-visible:ring-0">
                 <template #prefix>
                   <SearchIcon class="size-4 text-muted-foreground" />
                 </template>
@@ -54,7 +53,8 @@
             </div>
 
             <!-- 上传按钮 -->
-            <Button variant="default" size="sm" @click="toggleUploadMode" class="h-9 bg-gradient-brand text-white">
+            <Button variant="default" size="sm" @click="toggleUploadMode"
+              class="h-9 bg-gradient-brand-button text-white">
               <component :is="isUploadMode ? ArrowLeftIcon : UploadIcon"
                 :class="['size-4', isSearchExpanded ? '' : 'md:mr-1.5', 'lg:mr-1.5']" />
               <span :class="['hidden', isSearchExpanded ? 'lg:inline' : 'md:inline']">{{ isUploadMode ? "返回列表" : "上传文件"
@@ -64,7 +64,7 @@
 
           <!-- 移动端：搜索框单独一行 -->
           <div class="w-full md:hidden">
-            <Input v-model="searchQuery" placeholder="搜索文件名..." class="h-9 w-full">
+            <Input v-model="searchQuery" placeholder="搜索文件名..." class="h-9 w-full shadow-none focus-visible:ring-0">
             <template #prefix>
               <SearchIcon class="size-4 text-muted-foreground" />
             </template>
@@ -120,7 +120,8 @@
             ]" @click="!isFileDisabled(file.id) && toggleFileSelection(file.id)">
               <!-- 复选框 -->
               <Checkbox :id="`file-${file.id}`" :model-value="selectedFiles.includes(file.id)"
-                :disabled="isFileDisabled(file.id)" class="cursor-pointer data-[state=checked]:bg-gradient-brand data-[state=checked]:border-transparent"
+                :disabled="isFileDisabled(file.id)"
+                class="cursor-pointer shadow-none focus-visible:ring-0 data-[state=checked]:bg-gradient-brand-button data-[state=checked]:border-0"
                 @update:model-value="handleCheckboxChange(file.id, $event as boolean)" />
 
               <!-- 文件图标 -->
@@ -178,7 +179,8 @@
         <!-- 右侧按钮组 -->
         <div class="flex items-center gap-2 ml-auto">
           <Button variant="outline" @click="closeDialog"> 取消 </Button>
-          <Button @click="confirmSelection" :disabled="selectedFiles.length === 0" class="bg-gradient-brand text-white"> 确认选择 ({{ selectedFiles.length }})
+          <Button @click="confirmSelection" :disabled="selectedFiles.length === 0"
+            class="bg-gradient-brand-button text-white"> 确认选择 ({{ selectedFiles.length }})
           </Button>
         </div>
       </DialogFooter>

@@ -60,12 +60,34 @@
     </div>
 
     <!-- step = 'confirm': 确认表单视图 -->
-    <div v-if="step === 'confirm'" class="flex flex-1 flex-col overflow-y-auto pb-0">
-      <!-- 返回按钮 -->
-      <Button variant="ghost" size="sm" class="self-start m-4 mb-0" @click="step = 'ai'">
-        <ArrowLeftIcon class="size-4 mr-1" />
-        返回
-      </Button>
+    <div v-if="step === 'confirm'" class="flex flex-1 flex-col overflow-y-auto">
+      <!-- 页头：返回 + 标题 + AI 回填提示 -->
+      <div class="px-4 pt-5 sm:px-6 md:px-10">
+        <button type="button"
+          class="-ml-2 mb-3 inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          @click="step = 'ai'">
+          <ArrowLeftIcon class="size-4" />
+          返回上一步
+        </button>
+
+        <h1 class="text-[22px] font-bold tracking-tight">完善案件信息</h1>
+        <p class="mt-1 text-[13.5px] text-muted-foreground">核对并补全以下信息，确认后小索将立即开始案件分析</p>
+
+        <!-- AI 回填提示横幅 -->
+        <div v-if="aiFilled"
+          class="mt-4 flex items-center gap-3 rounded-xl border border-primary/15 bg-gradient-brand-soft px-4 py-3 dark:bg-gradient-brand-soft-dark">
+          <div
+            class="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-brand p-[2.5px] shadow-[0_10px_20px_-9px_rgba(30,158,237,0.5)]">
+            <div class="flex size-full items-center justify-center overflow-hidden rounded-full bg-white">
+              <IconXiaosuoIcon class="size-6" />
+            </div>
+          </div>
+          <p class="text-[13px] leading-relaxed text-foreground">
+            <GradientText class="font-semibold">小索</GradientText>
+            已根据案情自动梳理以下信息，请核对修改后提交。
+          </p>
+        </div>
+      </div>
 
       <!-- 表单 -->
       <CaseCreationManualForm ref="manualFormRef" :case-types="caseTypes" :is-submitting="isSubmitting"
@@ -74,13 +96,20 @@
 
     <!-- 确认表单底部操作栏 -->
     <div v-if="step === 'confirm'"
-      class="sticky bottom-0 border-t bg-background/95 backdrop-blur-sm px-4 sm:px-6 md:px-12 py-3">
-      <div class="flex justify-end">
-        <Button :disabled="!manualFormRef?.canSubmit || isSubmitting" class="w-full sm:w-auto min-w-[120px]"
-          @click="manualFormRef?.submit()">
-          <Loader2Icon v-if="isSubmitting" class="size-4 mr-2 animate-spin" />
-          创建案件
-        </Button>
+      class="sticky bottom-0 border-t border-border bg-background/90 px-4 py-3 backdrop-blur-sm sm:px-6 md:px-10">
+      <div class="flex items-center justify-between gap-3">
+        <span class="text-[12.5px] text-muted-foreground">
+          <span class="text-destructive">*</span> 为必填项
+        </span>
+        <div class="flex items-center gap-2.5">
+          <Button variant="outline" :disabled="isSubmitting" @click="step = 'ai'">取消</Button>
+          <Button :disabled="!manualFormRef?.canSubmit || isSubmitting"
+            class="min-w-[120px] bg-gradient-brand-button text-white shadow-[0_10px_20px_-8px_rgba(30,158,237,0.42)]"
+            @click="manualFormRef?.submit()">
+            <Loader2Icon v-if="isSubmitting" class="size-4 animate-spin" />
+            创建案件
+          </Button>
+        </div>
       </div>
     </div>
   </div>
@@ -96,6 +125,8 @@ import CaseAnalysisExample from '~/components/caseAnalysis/example.vue'
 import CaseAnalysisMaterialSelector from '~/components/caseAnalysis/materialSelector.vue'
 import CaseAnalysisWelcome from '~/components/caseAnalysis/welcome.vue'
 import CaseCreationManualForm from '~/components/caseCreation/ManualForm.vue'
+import GradientText from '~/components/general/GradientText.vue'
+import IconXiaosuoIcon from '~/components/icon/XiaosuoIcon.vue'
 import { useCaseCreation } from '~/composables/useCaseCreation'
 
 definePageMeta({
@@ -146,6 +177,9 @@ function goToManual() {
   uploadedFiles.value = []
   step.value = 'confirm'
 }
+
+// AI 是否已回填表单（决定是否显示小索回填提示横幅）
+const aiFilled = computed(() => !!extractedFormData.value)
 
 // 表单初始数据
 const formInitialData = computed(() => {

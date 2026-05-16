@@ -1,11 +1,8 @@
 <script lang="ts" setup>
 /**
  * 三段式立场单选控件（原告/被告/中立）。
- * 封装 shadcn-vue ToggleGroup 的"再次点击取消选中"行为：
- * 若 v-model 变为空字符串，watch 拦截并还原为上一个有效值，
- * 保证业务上始终有立场被选中。
+ * 始终有一项被选中——点击只切换到目标项，不会取消选中。
  */
-import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group'
 import { CaseStance, CaseStanceText } from '#shared/types/case'
 
 const props = defineProps<{
@@ -21,41 +18,23 @@ const stances: CaseStance[] = [
   CaseStance.DEFENDANT,
   CaseStance.NEUTRAL,
 ]
-
-// reka-ui 的 ToggleGroupRoot emit 签名为 AcceptableValue | AcceptableValue[]
-// （含 string/number/boolean/null/undefined/Record 等），这里收成 unknown 后做窄化
-function handleChange(val: unknown) {
-  // shadcn-vue ToggleGroup type=single 在用户"再次点击当前项"取消选中时
-  // 会发出空字符串或 null —— 业务上必须始终有立场被选中，统一拦截还原。
-  if (val == null || val === '' || (Array.isArray(val) && val.length === 0)) {
-    emit('update:modelValue', props.modelValue)
-    return
-  }
-  const v = Array.isArray(val) ? val[0] : val
-  if (typeof v !== 'string' || v === '') {
-    emit('update:modelValue', props.modelValue)
-    return
-  }
-  emit('update:modelValue', v as CaseStance)
-}
 </script>
 
 <template>
-  <ToggleGroup
-    type="single"
-    variant="outline"
-    size="sm"
-    :model-value="props.modelValue"
-    class="inline-flex gap-1 w-fit"
-    @update:model-value="handleChange"
-  >
-    <ToggleGroupItem
+  <div role="radiogroup" class="inline-flex w-fit gap-1 rounded-[9px] border border-border bg-muted p-1">
+    <button
       v-for="s in stances"
       :key="s"
-      :value="s"
-      class="h-6 min-w-0 px-2.5 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+      type="button"
+      role="radio"
+      :aria-checked="props.modelValue === s"
+      class="rounded-md px-4 py-1.5 text-xs font-medium transition-all"
+      :class="props.modelValue === s
+        ? 'bg-gradient-brand-button text-white shadow-[0_6px_14px_-7px_rgba(30,158,237,0.5)]'
+        : 'text-muted-foreground hover:text-foreground'"
+      @click="emit('update:modelValue', s)"
     >
       {{ CaseStanceText[s] }}
-    </ToggleGroupItem>
-  </ToggleGroup>
+    </button>
+  </div>
 </template>

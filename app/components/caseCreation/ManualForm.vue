@@ -1,11 +1,12 @@
 <template>
-  <form class="py-6 sm:py-8 px-4 sm:px-6 md:px-12 overflow-y-auto" @submit.prevent="handleSubmit">
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10">
+  <form class="px-4 py-6 sm:px-6 md:px-10 lg:py-8" @submit.prevent="handleSubmit">
+    <div class="rounded-[14px] border border-border bg-card p-5 sm:p-6">
+      <div class="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-10">
       <!-- 左栏：案件信息 -->
-      <div class="space-y-4 sm:space-y-6">
+      <div class="space-y-5">
         <!-- 案件标题 -->
         <div class="space-y-2">
-          <label class="text-sm font-medium leading-none">
+          <label class="text-[13px] font-semibold">
             案件标题 <span class="text-destructive">*</span>
           </label>
           <Input v-model="form.title" placeholder="请输入案件标题" @blur="touched.title = true" class="mt-1" />
@@ -16,7 +17,7 @@
 
         <!-- 案件类型 -->
         <div class="space-y-2">
-          <label class="text-sm font-medium leading-none">
+          <label class="text-[13px] font-semibold">
             案件类型 <span class="text-destructive">*</span>
           </label>
           <Select v-model="form.caseTypeId" @update:model-value="touched.caseTypeId = true" class="mt-1">
@@ -36,7 +37,7 @@
 
         <!-- 分析立场 -->
         <div class="space-y-2">
-          <label class="text-sm font-medium leading-none">分析立场</label>
+          <label class="text-[13px] font-semibold">分析立场</label>
           <StanceToggleGroup v-model="form.stance" class="mt-1" />
         </div>
 
@@ -48,7 +49,7 @@
 
         <!-- 案件状态 -->
         <div class="space-y-2">
-          <label class="text-sm font-medium leading-none">案件状态</label>
+          <label class="text-[13px] font-semibold">案件状态</label>
           <Select
             :model-value="String(form.status)"
             @update:model-value="(v: any) => form.status = Number(v)"
@@ -69,7 +70,9 @@
 
         <!-- 诉讼信息（选填） -->
         <div class="space-y-3">
-          <h3 class="text-sm font-semibold text-foreground pb-1 border-b border-border">诉讼信息（选填）</h3>
+          <h3 class="border-b border-border pb-2 text-[13px] font-semibold text-foreground">
+            诉讼信息<span class="font-normal text-muted-foreground">（选填）</span>
+          </h3>
           <div class="space-y-3">
             <div>
               <label class="text-xs font-medium text-muted-foreground mb-1 block">法院名称</label>
@@ -98,7 +101,7 @@
 
         <!-- 案件描述 -->
         <div class="space-y-2">
-          <label class="text-sm font-medium leading-none">案件描述</label>
+          <label class="text-[13px] font-semibold">案件描述</label>
           <Textarea v-model="form.content" placeholder="请输入案件描述" :rows="6" @blur="touched.content = true"
             class="mt-1" />
           <p v-if="touched.content && !form.content.trim() && form.materials.length === 0"
@@ -109,9 +112,10 @@
       </div>
 
       <!-- 右栏：案件材料 -->
-      <div class="space-y-2">
-        <label class="text-sm font-medium leading-none">案件材料</label>
-        <CaseCreationMaterialUploader v-model="form.materials" class="mt-1" />
+      <div class="flex flex-col gap-2.5">
+        <label class="text-[13px] font-semibold">案件材料</label>
+        <CaseCreationMaterialUploader v-model="form.materials" />
+      </div>
       </div>
     </div>
   </form>
