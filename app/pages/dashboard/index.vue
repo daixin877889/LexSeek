@@ -48,7 +48,10 @@
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
             <p class="mb-1 text-sm font-medium text-muted-foreground">{{ stat.label }}</p>
-            <h3 class="truncate text-3xl font-bold text-card-foreground">{{ stat.value }}</h3>
+            <h3
+              class="truncate font-bold text-card-foreground"
+              :class="typeof stat.value === 'number' ? 'text-3xl' : 'text-2xl'"
+            >{{ stat.value }}</h3>
           </div>
           <div :class="['flex size-10 shrink-0 items-center justify-center rounded-[10px]', TINTS[stat.tint]]">
             <component :is="stat.icon" class="size-[22px]" />
