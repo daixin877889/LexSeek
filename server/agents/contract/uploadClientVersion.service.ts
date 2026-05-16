@@ -1009,23 +1009,37 @@ export async function* uploadClientVersionService(params: {
                 }
             }
 
-            // 写客户修订处置（spec §7）：接受 → 自动解决，但不覆盖律师已有处置
+            // 写客户修订处置（spec §7）：接受 → 自动解决，但不覆盖律师已有处置。
+            // 按 decision 分组 updateMany 批量写，避免逐条 update 在大合同上撑爆事务时长。
+            const riskIdsByDecision = new Map<ClientRedlineDecision, number[]>()
             for (const [riskId, decision] of redlineDecisions) {
-                const data: Prisma.contractRisksUpdateInput = { clientRedlineDecision: decision }
-                if (decision === ClientRedlineDecision.ACCEPTED) {
-                    const r = riskByIdForRedline.get(riskId)
-                    if (r && r.archivedStatus == null) {
-                        data.archivedStatus = 'handled'
-                        data.archivedAt = new Date()
-                    }
-                }
-                await tx.contractRisks.update({ where: { id: riskId }, data })
+                const ids = riskIdsByDecision.get(decision)
+                if (ids) ids.push(riskId)
+                else riskIdsByDecision.set(decision, [riskId])
+            }
+            for (const [decision, riskIds] of riskIdsByDecision) {
+                await tx.contractRisks.updateMany({
+                    where: { id: { in: riskIds } },
+                    data: { clientRedlineDecision: decision },
+                })
+            }
+            // 接受的修订：风险未被律师处置过（archivedStatus 为空）的自动归档为 handled
+            const acceptedRiskIds = riskIdsByDecision.get(ClientRedlineDecision.ACCEPTED) ?? []
+            if (acceptedRiskIds.length > 0) {
+                await tx.contractRisks.updateMany({
+                    where: { id: { in: acceptedRiskIds }, archivedStatus: null },
+                    data: { archivedStatus: 'handled', archivedAt: new Date() },
+                })
             }
 
             // DOCX-H3：syncReviewRisksJsonb 必须与 Step 5 锚点迁移在同一事务里，
             // 防止进程在锚点写完之后、JSONB 同步之前被 kill 让 PDF 导出 / 管理端列表
             // 读到过期快照。tx 透传保证同一 pg 连接、同一事务范围。
             await syncReviewRisksJsonb(review.id, tx)
+        }, {
+            // Step 5+6 事务含锚点迁移 + 修订处置 + JSONB 同步，大合同回传耗时可超默认
+            // 5s 阈值；回传是低频操作，放宽到 30s 保证原子性不被超时打断。
+            timeout: 30_000,
         })
 
         let summary = `本轮变化：${externalChangeCount} 处外部变更 · ${clauseModifiedCount} 处条款修改 · AI 增量重审 ${aiReviewCount} 条 · 全局复核 ${globalReviewNewRiskCount} 条`
