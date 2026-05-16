@@ -147,3 +147,16 @@ export const updateUserProfileDao = async (id: number, data: Prisma.usersUpdateI
         throw error
     }
 }
+
+/**
+ * 读取用户合同导出署名所需字段（name + contractExportSignature）。
+ * 仅 select 必要列，不带角色 include。
+ */
+export const findUserExportSignatureDao = async (
+    id: number,
+): Promise<{ name: string; contractExportSignature: string | null } | null> => {
+    return prisma.users.findFirst({
+        where: { id, deletedAt: null },
+        select: { name: true, contractExportSignature: true },
+    })
+}
