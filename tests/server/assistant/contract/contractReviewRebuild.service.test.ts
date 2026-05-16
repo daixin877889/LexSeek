@@ -43,6 +43,13 @@ vi.mock('~~/server/agents/contract/contractAnnotation.dao', () => ({
     listAnnotationsForExportDAO: vi.fn(),
 }))
 
+// 自定义署名功能：rebuildDocxService 新增调用 resolveContractExportSignatureService，
+// 其内部走 findUserExportSignatureDao → prisma.users.findFirst。本测试是 mock 单测、
+// 未 mock 该 DAO 链，故在此 mock 掉署名 service，返回固定署名，避免触达真实 DAO。
+vi.mock('~~/server/services/users/contractSignature.service', () => ({
+    resolveContractExportSignatureService: vi.fn().mockResolvedValue('审查人'),
+}))
+
 // stage 8 coverage 模式下显式 mock contractAnnotation.service，
 // 避免 istanbul instrumentation 改变模块加载次序导致 filterExportableDbAnnotations 未定义。
 // vitest run（无 coverage）能通过是因为模块缓存命中——这是 mock 配置不完整的隐性 bug。

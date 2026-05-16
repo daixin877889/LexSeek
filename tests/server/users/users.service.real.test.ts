@@ -379,7 +379,7 @@ describe('users.service.ts / userResponse.service.ts 真实数据库测试', () 
             expect(safe).not.toHaveProperty('createdAt')
             expect(safe).not.toHaveProperty('updatedAt')
 
-            // 返回对象的 key 集合等于安全字段白名单
+            // 返回对象的 key 集合等于安全字段白名单（与 SafeUserInfo / formatUserResponseService 全集对齐）
             const expectedKeys = [
                 'id',
                 'name',
@@ -391,6 +391,7 @@ describe('users.service.ts / userResponse.service.ts 真实数据库测试', () 
                 'company',
                 'profile',
                 'inviteCode',
+                'contractExportSignature',
             ].sort()
             expect(Object.keys(safe).sort()).toEqual(expectedKeys)
         })

@@ -86,19 +86,20 @@ describe('parseWordComments', () => {
         expect(ids).toEqual([0, 1])
     })
 
-    it('wAuthor 只含 LS: 前缀 + 人名（spec §14：身份证依赖 customXml）', async () => {
+    it('律师批注 wAuthor 为纯姓名、无 LS: 前缀（spec §4.3：作者名一律去 LS: 前缀）', async () => {
         const original = await readFile(SAMPLE)
         const { paragraphs } = await parseContractDocx(original)
         const maxIdx = paragraphs.length - 1
 
         const annotations: ContractAnnotationForExport[] = [
-            makeAnnotation({ id: 1, authorName: '张律师', anchorParagraphIndex: Math.min(1, maxIdx) }),
+            makeAnnotation({ id: 1, authorType: 'lawyer', authorName: '张律师', anchorParagraphIndex: Math.min(1, maxIdx) }),
         ]
 
         const { buffer } = await injectAnnotations(original, annotations, 999)
         const { comments } = await parseWordComments(buffer)
 
-        expect(comments[0].wAuthor).toBe('LS:张律师')
+        // spec §4.3：律师批注作者名用律师姓名本身，去掉历史 LS: 前缀
+        expect(comments[0].wAuthor).toBe('张律师')
     })
 
     it('wInitials 写短头像缩写而非 LEXSEEK（Phase C+：避免 Word people.xml 中毒）', async () => {
