@@ -91,7 +91,7 @@
       </div>
       <div class="flex flex-col gap-3">
         <NuxtLink v-for="c in dashboardData?.recentCases" :key="c.id" :to="`/dashboard/cases/${c.id}`"
-          class="block rounded-lg border border-border bg-card p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
+          class="block rounded-xl border bg-card p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
           <div class="flex items-center justify-between gap-3">
             <div class="min-w-0 flex-1">
               <div class="mb-1.5 flex items-center gap-2">
