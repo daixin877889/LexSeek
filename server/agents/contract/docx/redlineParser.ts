@@ -63,10 +63,18 @@ export interface ParsedRedlineMarks {
 
 /**
  * 解析回传 docx 的修订信息（spec §6.1）。
- * redlineRefs.xml 不存在 / 损坏 → reviewId=null、refs=[]（上层靠安全保护处理）。
+ * redlineRefs.xml 不存在 / 损坏、或 docxBuffer 非合法 docx → 返回空结果
+ * （reviewId=null、refs=[]），不抛错；上层靠批注链路 + 安全保护兜底。
  */
 export async function parseRedlineMarks(docxBuffer: Buffer): Promise<ParsedRedlineMarks> {
-    const zip = await loadDocxZip(docxBuffer)
+    let zip: Awaited<ReturnType<typeof loadDocxZip>>
+    try {
+        zip = await loadDocxZip(docxBuffer)
+    } catch {
+        // docxBuffer 不是合法 docx zip：修订标记是回传识别的增强项而非核心，解析失败
+        // 降级为空结果，由上层批注链路 + 安全保护兜底，不中止回传。
+        return { reviewId: null, refs: [], survivingInsIds: new Set(), survivingDelIds: new Set(), paragraphs: [] }
+    }
 
     let reviewId: number | null = null
     const refs: RedlineRefEntry[] = []

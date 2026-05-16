@@ -173,6 +173,18 @@ describe('parseRedlineMarks · 缺文件与损坏边界（spec §11.1）', () =>
         expect(result.reviewId).toBe(42)
         expect(result.refs).toEqual([])
     })
+
+    it('docxBuffer 非合法 docx zip：reviewId=null、refs/语料全空，不抛错', async () => {
+        // 整个 buffer 不是 zip（如客户上传了非 docx 文件 / buffer 损坏）：
+        // 修订标记是增强项，parseRedlineMarks 降级为空结果而非抛错（spec §6.1 容错契约）
+        const garbage = Buffer.from('this is plainly not a docx zip archive')
+        const result = await parseRedlineMarks(garbage)
+        expect(result.reviewId).toBeNull()
+        expect(result.refs).toEqual([])
+        expect(result.survivingInsIds.size).toBe(0)
+        expect(result.survivingDelIds.size).toBe(0)
+        expect(result.paragraphs).toEqual([])
+    })
 })
 
 // ===== §11.1 跨段 delIds 多值 =====
