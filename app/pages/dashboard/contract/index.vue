@@ -145,7 +145,7 @@ onMounted(async () => {
         </header>
 
         <!-- 新建审查卡片 -->
-        <div ref="createCardRef" class="rounded-xl border bg-card p-5 transition-shadow duration-300"
+        <div ref="createCardRef" class="rounded-xl bg-card p-5 transition-shadow duration-300"
             :class="highlightCreate ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''">
             <ContractCreateReviewForm :case-id="initCaseId" @created="handleCreated" />
         </div>

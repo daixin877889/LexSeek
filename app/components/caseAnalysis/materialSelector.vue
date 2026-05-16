@@ -112,17 +112,17 @@
             <!-- 文件列表 -->
             <div v-for="file in filteredFiles" :key="file.id" :class="[
               'flex items-center gap-3 p-4 transition-colors',
-              isFileDisabled(file.id)
+              isFileDisabled(file)
                 ? 'opacity-60 cursor-not-allowed bg-muted/30'
                 : selectedFiles.includes(file.id)
                   ? 'bg-primary/5 cursor-pointer'
                   : 'hover:bg-accent/50 cursor-pointer'
-            ]" @click="!isFileDisabled(file.id) && toggleFileSelection(file.id)">
+            ]" @click="!isFileDisabled(file) && toggleFileSelection(file.id)">
               <!-- 复选框 -->
               <Checkbox :id="`file-${file.id}`" :model-value="selectedFiles.includes(file.id)"
-                :disabled="isFileDisabled(file.id)"
+                :disabled="isFileDisabled(file)"
                 class="cursor-pointer shadow-none focus-visible:ring-0 data-[state=checked]:bg-gradient-brand-button data-[state=checked]:border-0"
-                @update:model-value="handleCheckboxChange(file.id, $event as boolean)" />
+                @update:model-value="handleCheckboxChange(file, $event as boolean)" />
 
               <!-- 文件图标 -->
               <div class="flex items-center justify-center size-10 rounded-lg bg-muted">
@@ -133,7 +133,7 @@
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
                   <label :for="`file-${file.id}`"
-                    :class="['text-sm font-medium truncate', isFileDisabled(file.id) ? 'cursor-not-allowed' : 'cursor-pointer']">
+                    :class="['text-sm font-medium truncate', isFileDisabled(file) ? 'cursor-not-allowed' : 'cursor-pointer']">
                     {{ file.fileName }}
                   </label>
                   <Badge v-if="file.encrypted" variant="secondary" class="text-xs">
@@ -141,8 +141,13 @@
                     已加密
                   </Badge>
                   <!-- 已添加标识 -->
-                  <Badge v-if="isFileDisabled(file.id)" variant="outline" class="text-xs">
+                  <Badge v-if="disabledFileIds?.includes(file.id)" variant="outline" class="text-xs">
                     已添加
+                  </Badge>
+                  <!-- 超出大小上限标识 -->
+                  <Badge v-if="isFileOversized(file)" variant="outline"
+                    class="text-xs border-destructive/40 text-destructive">
+                    超过 {{ maxFileSizeLabel }}
                   </Badge>
                 </div>
                 <div class="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
@@ -208,16 +213,25 @@ const props = defineProps<{
   disabledFileIds?: number[]
   // 仅显示指定扩展名的文件（小写、不含点，如 ['docx']）；不传则不限制类型
   acceptExtensions?: string[]
+  // 文件大小上限（字节）；超出的文件会被禁用、不可选；不传则不限制
+  maxFileSize?: number
 }>()
 
 // 使用格式化工具
 const { formatDateRelative } = useFormatters();
 
 /**
- * 判断文件是否被禁用（已添加到父组件）
+ * 文件是否超出调用方指定的大小上限
  */
-function isFileDisabled(fileId: number): boolean {
-  return props.disabledFileIds?.includes(fileId) ?? false
+function isFileOversized(file: OssFileItem): boolean {
+  return props.maxFileSize != null && file.fileSize > props.maxFileSize
+}
+
+/**
+ * 判断文件是否不可选（已添加到父组件，或超出大小上限）
+ */
+function isFileDisabled(file: OssFileItem): boolean {
+  return (props.disabledFileIds?.includes(file.id) ?? false) || isFileOversized(file)
 }
 
 // 对话框状态
@@ -344,6 +358,11 @@ async function loadFiles(append = false) {
 // 是否启用扩展名限制（调用方通过 acceptExtensions 指定）
 const hasExtensionRestriction = computed(() => (props.acceptExtensions?.length ?? 0) > 0);
 
+// 大小上限的可读文案（用于"文件过大"徽章）
+const maxFileSizeLabel = computed(() =>
+  props.maxFileSize != null ? formatByteSize(props.maxFileSize, 0) : ""
+);
+
 // 过滤后的文件列表
 const filteredFiles = computed(() => {
   let result = allFiles.value;
@@ -376,7 +395,7 @@ const filteredFiles = computed(() => {
 
 // 可选择的文件列表（排除已禁用的文件）
 const selectableFiles = computed(() => {
-  return filteredFiles.value.filter(file => !isFileDisabled(file.id))
+  return filteredFiles.value.filter(file => !isFileDisabled(file))
 })
 
 // 是否全选（只考虑可选择的文件）
@@ -473,12 +492,12 @@ const toggleFileSelection = (fileId: number) => {
 };
 
 // 处理 checkbox 状态变化
-const handleCheckboxChange = (fileId: number, checked: boolean) => {
-  if (isFileDisabled(fileId)) return;
+const handleCheckboxChange = (file: OssFileItem, checked: boolean) => {
+  if (isFileDisabled(file)) return;
 
-  const index = selectedFiles.value.indexOf(fileId);
+  const index = selectedFiles.value.indexOf(file.id);
   if (checked && index === -1) {
-    selectedFiles.value.push(fileId);
+    selectedFiles.value.push(file.id);
   } else if (!checked && index > -1) {
     selectedFiles.value.splice(index, 1);
   }

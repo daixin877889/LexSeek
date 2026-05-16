@@ -195,22 +195,16 @@ async function submitPaste() {
 <template>
     <div>
         <Tabs v-model="activeTab" class="w-full gap-0">
-            <!-- 头部：标题 + 分段 Tab -->
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                    <h2 class="text-base font-semibold">发起新的合同审查</h2>
-                    <p class="mt-1 text-xs text-muted-foreground">
-                        上传 .docx、从文件库选择，或直接粘贴合同全文 —— AI 逐条扫描风险条款
-                    </p>
-                </div>
-                <TabsList class="h-auto shrink-0 gap-[3px] rounded-[9px] border border-border">
+            <!-- 分段 Tab（居中） -->
+            <div class="flex justify-center">
+                <TabsList class="h-auto gap-[3px] rounded-[10px] border border-border p-1">
                     <TabsTrigger value="upload"
-                        class="h-auto px-[13px] py-[7px] text-[13px] leading-none text-muted-foreground data-[state=active]:bg-card dark:data-[state=active]:bg-card data-[state=active]:text-foreground dark:data-[state=active]:border-transparent data-[state=active]:shadow-[0_1px_2px_rgb(0_0_0/0.12)]">
-                        <UploadIcon class="size-3.5" />选择文件
+                        class="h-auto gap-2 px-6 py-2.5 text-sm leading-none text-muted-foreground data-[state=active]:bg-card dark:data-[state=active]:bg-card data-[state=active]:text-foreground dark:data-[state=active]:border-transparent data-[state=active]:shadow-[0_1px_2px_rgb(0_0_0/0.12)]">
+                        <UploadIcon class="size-4" />选择文件
                     </TabsTrigger>
                     <TabsTrigger value="paste"
-                        class="h-auto px-[13px] py-[7px] text-[13px] leading-none text-muted-foreground data-[state=active]:bg-card dark:data-[state=active]:bg-card data-[state=active]:text-foreground dark:data-[state=active]:border-transparent data-[state=active]:shadow-[0_1px_2px_rgb(0_0_0/0.12)]">
-                        <ClipboardIcon class="size-3.5" />粘贴文本
+                        class="h-auto gap-2 px-6 py-2.5 text-sm leading-none text-muted-foreground data-[state=active]:bg-card dark:data-[state=active]:bg-card data-[state=active]:text-foreground dark:data-[state=active]:border-transparent data-[state=active]:shadow-[0_1px_2px_rgb(0_0_0/0.12)]">
+                        <ClipboardIcon class="size-4" />粘贴文本
                     </TabsTrigger>
                 </TabsList>
             </div>
@@ -267,6 +261,9 @@ async function submitPaste() {
                             <p class="mt-1 text-xs text-muted-foreground">
                                 或<span class="font-semibold text-primary"> 点击选择本地文件</span>
                             </p>
+                            <p class="mt-2 text-[11px] text-muted-foreground">
+                                支持 .docx · 单文件 ≤ {{ CONTRACT_MAX_MB }} MB
+                            </p>
                         </template>
                     </div>
 
@@ -283,11 +280,8 @@ async function submitPaste() {
 
                 <p v-if="uploadError" class="text-xs text-destructive">{{ uploadError }}</p>
 
-                <div class="flex flex-wrap items-center justify-between gap-3">
-                    <span class="text-[11px] text-muted-foreground">
-                        支持 .docx · 单文件 ≤ {{ CONTRACT_MAX_MB }} MB
-                    </span>
-                    <Button class="bg-gradient-brand-button text-white"
+                <div class="flex justify-center pt-1">
+                    <Button class="h-11 bg-gradient-brand-button px-10 text-[15px] text-white"
                         :disabled="!selectedFile || submitting || localUploading" @click="submitUpload">
                         <Loader2Icon v-if="submitting" class="size-4 animate-spin" />
                         <SparklesIcon v-else class="size-4" />
@@ -301,13 +295,13 @@ async function submitPaste() {
                 <Textarea v-model="pasteText" :disabled="pasteSubmitting"
                     placeholder="将合同全文粘贴到这里，AI 会自动识别合同类型与风险条款…"
                     class="min-h-[calc(5*1.25rem+1rem)] max-h-[calc(10*1.25rem+1rem)] font-mono text-sm" />
-                <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-col items-center gap-2.5 pt-1">
                     <span
                         :class="['text-[11px]', pasteText.length > PASTE_MAX ? 'text-destructive' : 'text-muted-foreground']">
                         {{ pasteText.length.toLocaleString() }} / {{ PASTE_MAX.toLocaleString() }} 字
                     </span>
-                    <Button class="bg-gradient-brand-button text-white" :disabled="pasteSubmitting || !canSubmitPaste"
-                        @click="submitPaste">
+                    <Button class="h-11 bg-gradient-brand-button px-10 text-[15px] text-white"
+                        :disabled="pasteSubmitting || !canSubmitPaste" @click="submitPaste">
                         <Loader2Icon v-if="pasteSubmitting" class="size-4 animate-spin" />
                         <SparklesIcon v-else class="size-4" />
                         开始审查
@@ -318,7 +312,7 @@ async function submitPaste() {
 
         <!-- 文件库弹窗：复用案件分析的素材选择器，限定仅显示 .docx -->
         <CaseAnalysisMaterialSelector ref="materialSelectorRef" :accept-extensions="['docx']"
-            @files-selected="handleFilesSelected" />
+            :max-file-size="CONTRACT_MAX_MB * 1024 * 1024" @files-selected="handleFilesSelected" />
         <!-- 隐藏的原生文件选择器：拖拽区点击时触发 -->
         <input ref="fileInputRef" type="file" accept=".docx" class="hidden" @change="onFileInputChange" />
     </div>
