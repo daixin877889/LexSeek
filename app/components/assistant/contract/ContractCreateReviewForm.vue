@@ -205,11 +205,11 @@ async function submitPaste() {
                 </div>
                 <TabsList class="h-auto shrink-0 gap-[3px] rounded-[9px] border border-border">
                     <TabsTrigger value="upload"
-                        class="h-auto px-[13px] py-[7px] text-[13px] text-muted-foreground data-[state=active]:bg-card dark:data-[state=active]:bg-card data-[state=active]:text-foreground dark:data-[state=active]:border-transparent data-[state=active]:shadow-[0_1px_2px_rgb(0_0_0/0.12)]">
+                        class="h-auto px-[13px] py-[7px] text-[13px] leading-none text-muted-foreground data-[state=active]:bg-card dark:data-[state=active]:bg-card data-[state=active]:text-foreground dark:data-[state=active]:border-transparent data-[state=active]:shadow-[0_1px_2px_rgb(0_0_0/0.12)]">
                         <UploadIcon class="size-3.5" />选择文件
                     </TabsTrigger>
                     <TabsTrigger value="paste"
-                        class="h-auto px-[13px] py-[7px] text-[13px] text-muted-foreground data-[state=active]:bg-card dark:data-[state=active]:bg-card data-[state=active]:text-foreground dark:data-[state=active]:border-transparent data-[state=active]:shadow-[0_1px_2px_rgb(0_0_0/0.12)]">
+                        class="h-auto px-[13px] py-[7px] text-[13px] leading-none text-muted-foreground data-[state=active]:bg-card dark:data-[state=active]:bg-card data-[state=active]:text-foreground dark:data-[state=active]:border-transparent data-[state=active]:shadow-[0_1px_2px_rgb(0_0_0/0.12)]">
                         <ClipboardIcon class="size-3.5" />粘贴文本
                     </TabsTrigger>
                 </TabsList>
