@@ -298,8 +298,9 @@ async function submitPaste() {
 
             <!-- 粘贴文本 -->
             <TabsContent value="paste" class="mt-4 space-y-3">
-                <Textarea v-model="pasteText" :rows="9" :disabled="pasteSubmitting"
-                    placeholder="将合同全文粘贴到这里，AI 会自动识别合同类型与风险条款…" class="resize-y font-mono text-sm" />
+                <Textarea v-model="pasteText" :disabled="pasteSubmitting"
+                    placeholder="将合同全文粘贴到这里，AI 会自动识别合同类型与风险条款…"
+                    class="min-h-[calc(5*1.25rem+1rem)] max-h-[calc(10*1.25rem+1rem)] font-mono text-sm" />
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <span
                         :class="['text-[11px]', pasteText.length > PASTE_MAX ? 'text-destructive' : 'text-muted-foreground']">
