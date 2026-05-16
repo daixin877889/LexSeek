@@ -19,7 +19,7 @@
       <PromptInputProvider @submit="handleSubmit">
         <InternalStateSync />
         <PromptInput global-drop multiple
-          class="**:data-[slot=input-group]:border-primary/35 **:data-[slot=input-group]:rounded-xl **:data-[slot=input-group]:shadow-md **:data-[slot=input-group]:shadow-primary/15 transition-all">
+          class="**:data-[slot=input-group]:border-primary/35 **:data-[slot=input-group]:rounded-[14px] **:data-[slot=input-group]:shadow-md **:data-[slot=input-group]:shadow-primary/15 transition-all">
           <!-- 头部：自定义文件列表 -->
           <PromptInputHeader v-if="enableFileUpload && (selectedFiles.length > 0 || uploadingFiles.length > 0)">
             <div class="flex flex-wrap items-center gap-2 pt-3 pb-1 px-1 w-full">
@@ -125,6 +125,14 @@
                       @click="thinking = !thinking">
                       <BrainIcon :size="16" />
                       深度思考
+                      <!-- 深度思考开关（对齐设计稿的滑动开关） -->
+                      <span
+                        class="relative ml-0.5 h-4 w-7 shrink-0 rounded-full transition-colors"
+                        :class="thinking ? 'bg-primary' : 'bg-muted-foreground/35'">
+                        <span
+                          class="absolute top-0.5 size-3 rounded-full bg-white shadow-sm transition-all"
+                          :class="thinking ? 'left-3.5' : 'left-0.5'" />
+                      </span>
                     </PromptInputButton>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -138,7 +146,7 @@
               <!-- 非 loading 态：使用原有 PromptInputSubmit（承担 type=submit 原生提交） -->
               <PromptInputSubmit
                 v-if="!loading"
-                class="h-9 px-4! rounded-md bg-gradient-brand text-white shadow-lg shadow-primary/20 active:scale-95 transition-all @max-[500px]:h-7 @max-[500px]:px-2!"
+                class="h-9 px-4! rounded-md bg-gradient-brand-button text-white shadow-lg shadow-primary/20 active:scale-95 transition-all @max-[500px]:h-7 @max-[500px]:px-2!"
                 :status="submitStatus"
                 :disabled="isSendDisabled"
                 size="xs"
