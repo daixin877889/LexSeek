@@ -14,7 +14,7 @@
               :style="stripeStyle"
             />
             <SidebarMenuButton as-child :tooltip="item.title" :class="[
-              'p-4 pt-5 pb-5 text-base',
+              'p-4 pt-5 pb-5 text-base hover:bg-primary/[0.08]',
               item.active ? 'font-medium text-primary' : ''
             ]">
               <NuxtLink :to="item.path">
