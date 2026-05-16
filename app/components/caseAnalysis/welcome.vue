@@ -43,17 +43,7 @@ const titleParts = computed(() => props.title.split(/(小索)/))
 </script>
 
 <style scoped>
-@keyframes xiaosuoFloat {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-4px); }
-}
-@keyframes xiaosuoWiggle {
-  0%, 100% { rotate: 0deg; }
-  20%      { rotate: -6deg; }
-  40%      { rotate: 6deg; }
-  60%      { rotate: -4deg; }
-  80%      { rotate: 2deg; }
-}
+/* 小索头像盘：悬浮 + hover 摇摆（关键帧定义见 tailwind.css） */
 .xiaosuo-disc {
   animation: xiaosuoFloat 3.2s ease-in-out infinite;
   transition: scale 0.3s ease;

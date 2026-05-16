@@ -34,6 +34,8 @@
 
   /* 品牌渐变（源自 logo：青绿→天蓝→深蓝） */
   --background-image-gradient-brand: linear-gradient(135deg, #1EEDC4 0%, #1E9EED 50%, #090380 100%);
+  /* 品牌按钮渐变：天蓝→深蓝（去掉薄荷青起点，保证白色文字对比度，用于所有渐变按钮 / 选中态） */
+  --background-image-gradient-brand-button: linear-gradient(135deg, #1E9EED 0%, #090380 100%);
   --background-image-gradient-brand-soft: linear-gradient(97deg, #E0F8F1 0%, #E1F1FE 50%, #E5E4F2 100%);
   /* 品牌柔光渐变·深色（hero 横幅深色底，值取自设计稿 colors_and_type.css 的 --gradient-hero 深色值） */
   --background-image-gradient-brand-soft-dark: linear-gradient(135deg, #06363B 0%, #062847 50%, #050340 100%);
@@ -341,6 +343,27 @@
 @keyframes float {
   0%, 100% { translate: 0 0; }
   50% { translate: 0 -6px; }
+}
+
+/* 小索吉祥物动效（welcome 横幅头像盘 / 通用问答空状态吉祥物共用） */
+@keyframes xiaosuoFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-4px); }
+}
+@keyframes xiaosuoWiggle {
+  0%, 100% { rotate: 0deg; }
+  20%      { rotate: -6deg; }
+  40%      { rotate: 6deg; }
+  60%      { rotate: -4deg; }
+  80%      { rotate: 2deg; }
+}
+
+/* 拖拽上传区品牌色微光底纹（用 var(--card) 保证深色模式自适应） */
+@utility dropzone-wash {
+  background-image: linear-gradient(135deg,
+    color-mix(in srgb, var(--brand-mint) 5%, var(--card)) 0%,
+    var(--card) 50%,
+    color-mix(in srgb, var(--brand-sky) 5%, var(--card)) 100%);
 }
 
 /* ===== 合同审查 · quote 字符级高亮（AI 定位的问题语句） =====
