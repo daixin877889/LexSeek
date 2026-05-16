@@ -35,6 +35,8 @@
   /* 品牌渐变（源自 logo：青绿→天蓝→深蓝） */
   --background-image-gradient-brand: linear-gradient(135deg, #1EEDC4 0%, #1E9EED 50%, #090380 100%);
   --background-image-gradient-brand-soft: linear-gradient(97deg, #E0F8F1 0%, #E1F1FE 50%, #E5E4F2 100%);
+  /* 品牌柔光渐变·深色（hero 横幅深色底，值取自设计稿 colors_and_type.css 的 --gradient-hero 深色值） */
+  --background-image-gradient-brand-soft-dark: linear-gradient(135deg, #06363B 0%, #062847 50%, #050340 100%);
 }
 
 @theme inline {

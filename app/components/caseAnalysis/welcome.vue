@@ -1,7 +1,7 @@
 <template>
   <div class="p-4 pt-6 pb-4">
     <div
-      class="relative flex items-center gap-4 overflow-hidden rounded-[14px] border border-primary/15 bg-gradient-brand-soft px-6 py-5 dark:bg-gradient-custom-dark">
+      class="relative flex items-center gap-4 overflow-hidden rounded-[14px] border border-primary/15 bg-gradient-brand-soft px-6 py-5 dark:bg-gradient-brand-soft-dark">
       <!-- 右上角品牌色装饰光晕 -->
       <div aria-hidden="true"
         class="pointer-events-none absolute -right-5 -top-10 size-44 rounded-full bg-[radial-gradient(circle,#1EEDC4_0%,transparent_70%)] opacity-25 blur-2xl" />
