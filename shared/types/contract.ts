@@ -182,6 +182,7 @@ export interface Risk {
  */
 export type RiskDisplay = Risk & {
     archivedStatus?: RiskArchivedStatus | null
+    clientRedlineDecision?: ClientRedlineDecision | null
     entityId?: number
 }
 
@@ -519,6 +520,21 @@ export type AnnotationAuthorType = typeof ANNOTATION_AUTHOR_TYPES[number]
 export const RISK_ARCHIVED_STATUSES = ['handled', 'ignored'] as const  // Phase B 加 'client_removed'
 export type RiskArchivedStatus = typeof RISK_ARCHIVED_STATUSES[number]
 
+/** 客户对 AI 修订的处置维度（与律师处置状态 archivedStatus 相互独立） */
+export enum ClientRedlineDecision {
+    ACCEPTED = 'accepted',
+    REJECTED = 'rejected',
+    UNTOUCHED = 'untouched',
+    AMBIGUOUS = 'ambiguous',
+}
+
+export const ClientRedlineDecisionText: Record<ClientRedlineDecision, string> = {
+    [ClientRedlineDecision.ACCEPTED]: '客户已采纳',
+    [ClientRedlineDecision.REJECTED]: '客户已拒绝',
+    [ClientRedlineDecision.UNTOUCHED]: '客户未处理',
+    [ClientRedlineDecision.AMBIGUOUS]: '待确认',
+}
+
 // ===== 多版本：实体 =====
 export interface ContractRiskEntity {
     id: number
@@ -557,6 +573,8 @@ export interface ContractRiskEntity {
     // Phase B 锚点迁移痕迹
     originalClauseText: string | null
     orphaned: boolean
+    /** 客户对该风险对应 AI 修订的处置；null = 未以修订形式导出过 */
+    clientRedlineDecision: ClientRedlineDecision | null
 
     createdAt: string
     updatedAt: string
