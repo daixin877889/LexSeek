@@ -33,6 +33,8 @@ export interface UseLegalSearchReturn {
     filters: Readonly<Ref<LegalSearchFilters>>
     selectedLegal: Ref<LegalDetailResponse | null>
     issuingAuthorities: Ref<string[]>
+    /** 检索耗时（秒） */
+    searchElapsed: Ref<number>
 
     // 方法
     search: (keyword?: string) => Promise<void>
@@ -42,6 +44,7 @@ export interface UseLegalSearchReturn {
     setFilters: (filters: Partial<LegalSearchFilters>) => void
     resetFilters: () => void
     setPage: (page: number) => void
+    setSort: (sortBy: LegalSearchFilters['sortBy'], sortOrder: LegalSearchFilters['sortOrder']) => void
     refresh: () => Promise<void>
 }
 
@@ -73,6 +76,7 @@ export function useLegalSearch(): UseLegalSearchReturn {
     const statistics = ref<LegalSearchStatistics | null>(null)
     const selectedLegal = ref<LegalDetailResponse | null>(null)
     const issuingAuthorities = ref<string[]>([])
+    const searchElapsed = ref(0)
 
     // 分页状态
     const pagination = ref<PaginationState>({
@@ -90,6 +94,8 @@ export function useLegalSearch(): UseLegalSearchReturn {
         validityStatus: 'all',
         publishDateFrom: null,
         publishDateTo: null,
+        sortBy: 'publishDate',
+        sortOrder: 'desc',
     })
 
     /**
@@ -114,6 +120,7 @@ export function useLegalSearch(): UseLegalSearchReturn {
         try {
             loading.value = true
             clearError()
+            const startTime = performance.now()
 
             // 更新关键词
             if (keyword !== undefined) {
@@ -146,6 +153,8 @@ export function useLegalSearch(): UseLegalSearchReturn {
             if (filters.value.publishDateTo) {
                 query.publishDateTo = filters.value.publishDateTo
             }
+            query.sortBy = filters.value.sortBy
+            query.sortOrder = filters.value.sortOrder
 
             // 发送请求（使用 useApiFetch）
             const response = await useApiFetch<LegalListResponse>('/api/v1/legal/list', { query })
@@ -162,6 +171,7 @@ export function useLegalSearch(): UseLegalSearchReturn {
                     total: response.total,
                     totalPages: response.totalPages,
                 }
+                searchElapsed.value = (performance.now() - startTime) / 1000
             }
         } catch (err: any) {
             setError(err.message || '搜索失败')
@@ -248,6 +258,8 @@ export function useLegalSearch(): UseLegalSearchReturn {
             validityStatus: 'all',
             publishDateFrom: null,
             publishDateTo: null,
+            sortBy: 'publishDate',
+            sortOrder: 'desc',
         }
         pagination.value.page = 1
         // 自动搜索
@@ -262,6 +274,16 @@ export function useLegalSearch(): UseLegalSearchReturn {
             pagination.value.page = page
             search()
         }
+    }
+
+    /**
+     * 设置排序并重新检索
+     */
+    const setSort = (sortBy: LegalSearchFilters['sortBy'], sortOrder: LegalSearchFilters['sortOrder']) => {
+        filters.value.sortBy = sortBy
+        filters.value.sortOrder = sortOrder
+        pagination.value.page = 1
+        search()
     }
 
     /**
@@ -284,6 +306,7 @@ export function useLegalSearch(): UseLegalSearchReturn {
         filters: readonly(filters),
         selectedLegal,
         issuingAuthorities,
+        searchElapsed: readonly(searchElapsed),
 
         // 方法
         search,
@@ -293,6 +316,7 @@ export function useLegalSearch(): UseLegalSearchReturn {
         setFilters,
         resetFilters,
         setPage,
+        setSort,
         refresh,
     }
 }
