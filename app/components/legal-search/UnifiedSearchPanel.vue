@@ -21,7 +21,8 @@
                     : '输入法条内容或相关描述进行语义检索，例如：违约金过高如何调整…'"
                 class="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground disabled:opacity-60"
                 @input="handleInput" @keyup.enter="handleSearch" />
-            <Button class="shrink-0 bg-gradient-brand-button" :disabled="!canSearch || loading" @click="handleSearch">
+            <Button class="shrink-0 bg-gradient-brand-button text-white" :disabled="!canSearch || loading"
+                @click="handleSearch">
                 <Loader2 v-if="loading" class="h-4 w-4 animate-spin" />
                 检索
             </Button>

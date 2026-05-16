@@ -1,5 +1,6 @@
 <template>
     <div class="bg-card rounded-xl border overflow-hidden">
+        <TooltipProvider :delay-duration="200">
         <!-- 表格内容 -->
         <div class="overflow-x-auto">
             <table class="w-full min-w-[760px] table-fixed">
@@ -36,9 +37,16 @@
                             class="cursor-pointer border-b transition-colors hover:bg-muted/50"
                             :class="{ 'bg-muted/30': selectedId === item.id }" @click="handleRowClick(item)">
                             <td class="px-4 py-3 align-top">
-                                <div class="font-semibold text-foreground line-clamp-2" :title="item.name">
-                                    {{ item.name }}
-                                </div>
+                                <Tooltip>
+                                    <TooltipTrigger as-child>
+                                        <div class="font-semibold text-foreground line-clamp-2">
+                                            {{ item.name }}
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent class="max-w-sm whitespace-normal break-words">
+                                        {{ item.name }}
+                                    </TooltipContent>
+                                </Tooltip>
                                 <div v-if="item.documentNumber"
                                     class="mt-0.5 truncate text-xs text-muted-foreground"
                                     :title="item.documentNumber">
@@ -51,10 +59,16 @@
                                 </LegalSearchStatusBadge>
                             </td>
                             <td class="px-4 py-3 align-top">
-                                <div v-if="item.issuingAuthority" class="line-clamp-2 text-sm text-muted-foreground"
-                                    :title="formatIssuingAuthorities(item.issuingAuthority)">
-                                    {{ formatIssuingAuthorities(item.issuingAuthority) }}
-                                </div>
+                                <Tooltip v-if="item.issuingAuthority">
+                                    <TooltipTrigger as-child>
+                                        <div class="line-clamp-2 text-sm text-muted-foreground">
+                                            {{ formatIssuingAuthorities(item.issuingAuthority) }}
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent class="max-w-sm whitespace-normal break-words">
+                                        {{ formatIssuingAuthorities(item.issuingAuthority) }}
+                                    </TooltipContent>
+                                </Tooltip>
                                 <span v-else class="text-sm text-muted-foreground">-</span>
                             </td>
                             <td class="whitespace-nowrap px-4 py-3 align-top text-sm text-muted-foreground">
@@ -116,6 +130,7 @@
                 </button>
             </div>
         </div>
+        </TooltipProvider>
     </div>
 </template>
 
