@@ -130,7 +130,7 @@
               </div>
 
               <div class="pt-4">
-                <Button class="w-full" @click="calculate">计算</Button>
+                <Button class="w-full bg-gradient-brand-button text-white shadow-[0_10px_20px_-8px_rgba(30,158,237,0.42)]" @click="calculate">计算</Button>
               </div>
             </div>
           </CardContent>

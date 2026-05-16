@@ -57,7 +57,7 @@
               </div>
 
               <div class="flex flex-col gap-3 pt-2">
-                <Button @click="calculatePay">计算加班费</Button>
+                <Button class="bg-gradient-brand-button text-white shadow-[0_10px_20px_-8px_rgba(30,158,237,0.42)]" @click="calculatePay">计算加班费</Button>
                 <Button variant="outline" @click="calculateTime">计算调休时间</Button>
               </div>
             </div>

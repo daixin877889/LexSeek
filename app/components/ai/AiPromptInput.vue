@@ -1,5 +1,5 @@
 <template>
-  <div class="@container/prompt flex size-full flex-col justify-end relative p-4 @max-[500px]:p-0" ref="dropZoneRef">
+  <div class="@container/prompt flex size-full flex-col justify-end relative px-4 pb-4 @max-[500px]:p-0" ref="dropZoneRef">
     <div class="px-0 relative">
       <!-- 全屏拖拽覆盖层 -->
       <Transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0 scale-95"
@@ -121,7 +121,7 @@
                 <Tooltip>
                   <TooltipTrigger as-child>
                     <PromptInputButton variant="ghost"
-                      :class="['transition-colors @max-[500px]:h-7 @max-[500px]:px-2', thinking ? 'text-primary hover:bg-primary/5' : 'text-muted-foreground hover:bg-muted/50']"
+                      :class="['transition-colors @max-[500px]:h-7 @max-[500px]:px-2', thinking ? 'bg-primary/[0.12] text-primary hover:bg-primary/[0.15] hover:text-primary' : 'text-muted-foreground hover:bg-muted/50']"
                       @click="thinking = !thinking">
                       <BrainIcon :size="16" />
                       深度思考

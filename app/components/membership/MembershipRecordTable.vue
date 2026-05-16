@@ -54,7 +54,7 @@
                                     <td class="px-4 py-3 text-sm">{{ formatDateChinese(record.createdAt) }}</td>
                                     <!-- 操作列 - 阻止点击事件冒泡 -->
                                     <td class="px-4 py-3 text-sm text-center" @click.stop>
-                                        <Button v-if="record.status === 1 && !isHighestLevel(record.levelId)" size="sm"
+                                        <Button v-if="record.status === 1 && !isHighestLevel(record.levelId)" size="sm" class="bg-gradient-brand-button text-white"
                                             @click="emit('upgrade', record)">
                                             升级
                                         </Button>

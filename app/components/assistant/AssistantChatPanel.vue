@@ -11,11 +11,13 @@ import { toast } from 'vue-sonner'
 import type { AiPromptSubmitData } from '~/components/ai/AiPromptInput.vue'
 import type { OssFileItem } from '~/store/file'
 import AiChat from '~/components/ai/AiChat.vue'
+import AiChatQueueChips from '~/components/ai/AiChatQueueChips.vue'
 import QueuePausedBanner from '~/components/ai/QueuePausedBanner.vue'
 import InterruptDispatcher from '~/components/InterruptDispatcher.vue'
 import CaseAnalysisMaterialSelector from '~/components/caseAnalysis/materialSelector.vue'
 import { PANEL_TOOL_MAP } from '~/components/agents/panelToolMap'
 import { useLegalAssistantAgent } from '~/composables/agents'
+import { QUEUE_MAX_SIZE } from '~/composables/chatQueueActions'
 import { usePanelMessageStreamContext } from '~/composables/agent-platform/usePanelMessageStreamContext'
 
 const props = defineProps<{
@@ -44,11 +46,18 @@ const {
   resumeInterrupt,
   stopGeneration,
   init,
+  currentQueue,
   currentQueueLen,
   isQueuePaused,
+  queuePauseReason,
+  enqueueMessage,
   resumeQueue,
   clearQueue,
+  removeQueueItem,
 } = useLegalAssistantAgent(sessionIdRef)
+
+/** 队列是否已满（达到上限不再入队） */
+const queueFull = computed(() => currentQueueLen.value >= QUEUE_MAX_SIZE)
 
 // 旧版 useAssistantChat 提供的 isInterrupted 在工厂下需调用方自建
 const isInterrupted = computed(() => interruptData.value != null)
@@ -88,8 +97,18 @@ function handleSubmit(data: AiPromptSubmitData) {
   // 允许 files-only 提交：用户上传材料让 AI 直接看不留言是合理场景。
   // 旧版 !data.text.trim() 守卫会把"光附件"消息吞掉。
   if (!data.text.trim() && !data.files?.length) return
-  sendMessage(data, { thinking: thinking.value })
-  // 发送动作落定后立即清空输入框（含已选文件 chip + 文本），
+
+  // AI 回复中 / 队列暂停态：入队而非直接发送，由 dispatcher 在空闲后逐条派发（spec §5.3）
+  if (isLoading.value || isQueuePaused.value) {
+    const ok = enqueueMessage(data.text, data.files, thinking.value)
+    if (!ok) {
+      toast.warning(`队列已满（最多 ${QUEUE_MAX_SIZE} 条），请等待当前对话结束或清空队列`)
+      return
+    }
+  } else {
+    sendMessage(data, { thinking: thinking.value })
+  }
+  // 发送 / 入队落定后立即清空输入框（含已选文件 chip + 文本），
   // 与小索保持一致，避免下一轮发送时附件残留导致重复发送。
   aiChatRef.value?.resetPrompt()
 }
@@ -176,14 +195,27 @@ onMounted(async () => {
     <AiChat ref="aiChatRef" :messages="messages" :loading="isLoading" :is-interrupted="isInterrupted"
       v-model:thinking="thinking" panel-mode="left" :show-header="false" :enable-file-upload="true"
       :is-stopping="isStopping" prompt-placeholder="输入你的法律问题..." class="flex-1 min-h-0" :tool-map="PANEL_TOOL_MAP"
+      :queue-length="currentQueueLen" :queue-full="queueFull"
       :on-file-button-click="openMaterialSelector" @submit="handleSubmit" @stop="handleStop">
       <template #prompt-actions>
-        <div v-if="showRetryButton" class="flex items-center gap-2 px-4 py-2">
+        <!-- 重试按钮仅在队列为空时显示：队列有内容且因失败暂停时，
+             由 AiChatQueueChips 的"恢复队列"按钮覆盖，避免两个相似操作并存 -->
+        <div v-if="showRetryButton && currentQueue.length === 0" class="flex items-center gap-2 px-4 py-2">
           <Button size="sm" variant="outline" @click="onRetry">
             <RefreshCwIcon class="w-4 h-4 mr-1" />
             重试
           </Button>
         </div>
+        <!-- 消息排队条：用户在 AI 回复期间继续发送的消息 -->
+        <AiChatQueueChips
+          :queue="currentQueue"
+          :max="QUEUE_MAX_SIZE"
+          :paused="isQueuePaused"
+          :pause-reason="queuePauseReason"
+          @remove="removeQueueItem"
+          @resume="resumeQueue"
+          @clear="clearQueue"
+        />
       </template>
     </AiChat>
 

@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full flex flex-col p-4">
+  <div class="h-full flex flex-col p-4 relative">
     <!-- 顶部标题和存储使用情况 -->
     <div class="bg-background shrink-0 mb-6">
       <div class="mx-auto">
@@ -10,7 +10,8 @@
           </div>
           <!-- 上传文件按钮 -->
           <div>
-            <Button @click="showUploadDialog = true" class="bg-primary hover:bg-primary/90">
+            <Button @click="showUploadDialog = true"
+              class="bg-gradient-brand-button text-white shadow-[0_10px_20px_-8px_rgba(30,158,237,0.42)]">
               <UploadIcon class="h-4 w-4" />
               上传文件
             </Button>
@@ -18,7 +19,8 @@
         </div>
 
         <!-- 存储空间显示 -->
-        <div class="rounded-lg p-4 bg-gradient-custom dark:bg-gradient-custom-dark">
+        <div
+          class="rounded-[14px] border border-primary/15 p-4 bg-gradient-brand-soft dark:bg-gradient-brand-soft-dark">
           <div class="flex items-center justify-between">
             <div>
               <p class="text-sm text-muted-foreground">已使用空间</p>
@@ -56,11 +58,11 @@
               <div class="hidden md:flex bg-muted rounded-lg p-1">
                 <Button variant="ghost" size="sm" :class="{ 'bg-background shadow-sm': viewMode === 'grid' }"
                   @click="viewMode = 'grid'">
-                  <GridIcon class="h-4 w-4" />
+                  <LayoutGrid class="h-4 w-4" />
                 </Button>
                 <Button variant="ghost" size="sm" :class="{ 'bg-background shadow-sm': viewMode === 'list' }"
                   @click="viewMode = 'list'">
-                  <ListIcon class="h-4 w-4" />
+                  <List class="h-4 w-4" />
                 </Button>
               </div>
               <div class="text-sm text-muted-foreground hidden sm:block">共 {{ pagination.total }} 个文件</div>
@@ -142,8 +144,8 @@
 
           <!-- PC 端：网格/列表视图 + 分页 -->
           <template v-else>
-            <!-- PC 端视图 -->
-            <div class="hidden md:block h-full overflow-auto">
+            <!-- PC 端视图（p-1.5 留出卡片 hover 上浮 + 投影的空间，避免被上方工具栏裁切） -->
+            <div class="hidden md:block h-full overflow-auto p-1.5">
               <!-- 网格视图 -->
               <DiskSpaceFileListGrid v-if="viewMode === 'grid'" :files="fileList" :selected-file-ids="selectedFileIds" @click="openFileDetail" @toggle-select="toggleSelect" />
               <!-- 列表视图 -->
@@ -217,7 +219,7 @@ definePageMeta({
 });
 
 import { ref, reactive } from 'vue';
-import { UploadIcon, GridIcon, ListIcon, RefreshCwIcon, SearchIcon, FolderOpenIcon, XIcon, Trash2Icon } from "lucide-vue-next";
+import { UploadIcon, LayoutGrid, List, RefreshCwIcon, SearchIcon, FolderOpenIcon, XIcon } from "lucide-vue-next";
 import { refDebounced } from "@vueuse/core";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";

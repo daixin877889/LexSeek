@@ -40,7 +40,7 @@
                             <Smartphone class="w-10 h-10 text-primary" />
                         </div>
                         <p class="text-sm text-muted-foreground mb-4">点击下方按钮唤起微信支付</p>
-                        <Button @click="handleJsapiPay" :disabled="!jsapiParams">
+                        <Button class="bg-gradient-brand-button text-white" @click="handleJsapiPay" :disabled="!jsapiParams">
                             立即支付
                         </Button>
                     </div>

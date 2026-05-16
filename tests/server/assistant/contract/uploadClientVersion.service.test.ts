@@ -102,7 +102,7 @@ describe('uploadClientVersionService（B1 骨架）', () => {
         await prisma.users.deleteMany({ where: { id: userId } })
     })
 
-    it('骨架事件数量：5 个 progress + 1 个 complete', async () => {
+    it('骨架事件数量：6 个 progress + 1 个 complete', async () => {
         const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
         const events = await collectEvents(
             uploadClientVersionService({ review, ossFileId, userId }),
@@ -113,12 +113,13 @@ describe('uploadClientVersionService（B1 骨架）', () => {
         const errorEvents = events.filter((e) => e.type === 'error')
 
         expect(errorEvents).toHaveLength(0)
-        expect(progressEvents).toHaveLength(5) // backup / parse / diff / ai / merge
+        // backup/parse/diff/ai 各 done 一次；merge 先 progress（前端切 loading）再 done
+        expect(progressEvents).toHaveLength(6)
         expect(completeEvents).toHaveLength(1)
 
         // 验证 progress steps 顺序
         const steps = progressEvents.map((e) => (e.data as { step: string }).step)
-        expect(steps).toEqual(['backup', 'parse', 'diff', 'ai', 'merge'])
+        expect(steps).toEqual(['backup', 'parse', 'diff', 'ai', 'merge', 'merge'])
 
         // complete 事件包含 newVersionId
         const completeData = completeEvents[0].data as { newVersionId: number; summary: string }

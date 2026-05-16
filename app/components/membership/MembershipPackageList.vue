@@ -10,17 +10,17 @@
                     <h4 class="font-semibold">{{ plan.name }}</h4>
                     <!-- 免费用户显示购买按钮 -->
                     <Button v-if="isFreeUser" size="sm" :disabled="!agreeToAgreement" @click.stop="emit('buy', plan)"
-                        class="absolute top-2 right-2">
+                        class="absolute top-2 right-2 bg-gradient-brand-button text-white">
                         购买
                     </Button>
                     <!-- 限购商品显示购买按钮（不能升级） -->
                     <Button v-else-if="isLimitedPurchasePlan(plan)" size="sm" :disabled="!agreeToAgreement"
-                        @click.stop="emit('buy', plan)" class="absolute top-2 right-2">
+                        @click.stop="emit('buy', plan)" class="absolute top-2 right-2 bg-gradient-brand-button text-white">
                         购买
                     </Button>
                     <!-- 付费用户显示升级按钮 -->
                     <Button v-else-if="canUpgradeToPlan(plan)" size="sm" :disabled="!agreeToAgreement"
-                        @click.stop="emit('upgrade', plan)" class="absolute top-2 right-2">
+                        @click.stop="emit('upgrade', plan)" class="absolute top-2 right-2 bg-gradient-brand-button text-white">
                         升级
                     </Button>
                 </div>

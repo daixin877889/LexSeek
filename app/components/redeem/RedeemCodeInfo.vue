@@ -48,7 +48,7 @@
                 <!-- 确认兑换按钮 -->
                 <AlertDialog>
                     <AlertDialogTrigger as-child>
-                        <Button class="w-full" :disabled="loading">确认兑换</Button>
+                        <Button class="w-full bg-gradient-brand-button text-white" :disabled="loading">确认兑换</Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                         <AlertDialogHeader>

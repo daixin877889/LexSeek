@@ -36,7 +36,7 @@
       </div>
 
       <div class="flex justify-end">
-        <Button type="submit" class="h-10 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors flex items-center gap-2" :disabled="userStore.loading">
+        <Button type="submit" class="h-10 px-4 py-2 bg-gradient-brand-button text-white rounded-md transition-colors flex items-center gap-2" :disabled="userStore.loading">
           <loader-2-icon v-if="userStore.loading" class="h-4 w-4 animate-spin" />
           <save-icon v-else class="h-4 w-4" />
           保存修改

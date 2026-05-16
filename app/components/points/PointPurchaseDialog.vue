@@ -11,7 +11,7 @@
                     class="border rounded-lg p-4 hover:border-primary transition-colors cursor-pointer relative">
                     <div class="flex justify-between items-start mb-2">
                         <h4 class="font-semibold">{{ product.name }}</h4>
-                        <Button size="sm" :disabled="!agreeToAgreement" class="absolute top-2 right-2"
+                        <Button size="sm" :disabled="!agreeToAgreement" class="absolute top-2 right-2 bg-gradient-brand-button text-white"
                             @click.stop="handleBuy(product)">
                             购买
                         </Button>

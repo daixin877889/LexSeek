@@ -809,6 +809,10 @@ export async function* uploadClientVersionService(params: {
 
     yield { type: 'progress', data: { step: 'ai', status: 'done' } }
 
+    // 进入「合并与更新」步：先发 progress 让前端把该步图标切到 loading 转圈。
+    // 整个 Step 5（锚点迁移计算 + 事务写入 + 保存快照）耗时较长，需要明确进行中反馈。
+    yield { type: 'progress', data: { step: 'merge', status: 'progress' } }
+
     // ============ Step 5 锚点迁移计算（重 CPU，必须在事务外）============
     // migrateRiskWithDualAnchor 内部是 scanWindowRange 双层窗口扫描 × diff-match-patch
     // Levenshtein，长条款上是几十秒级的重 CPU 计算。放进事务会让事务时钟被纯 JS 计算

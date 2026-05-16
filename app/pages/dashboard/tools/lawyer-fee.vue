@@ -287,7 +287,7 @@
               </div>
 
               <div class="mt-2">
-                <Button class="w-full h-10" @click="calculateFee">计算律师费用</Button>
+                <Button class="w-full h-10 bg-gradient-brand-button text-white shadow-[0_10px_20px_-8px_rgba(30,158,237,0.42)]" @click="calculateFee">计算律师费用</Button>
               </div>
             </div>
           </CardContent>

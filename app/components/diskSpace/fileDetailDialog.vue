@@ -104,7 +104,9 @@
                     <!-- 右侧按钮组 -->
                     <div class="flex gap-2">
                         <Button variant="outline" @click="dialogOpen = false">关闭</Button>
-                        <Button @click="downloadFile" :disabled="downloadLoading">
+                        <Button
+                            class="bg-gradient-brand-button text-white shadow-[0_10px_20px_-8px_rgba(30,158,237,0.42)]"
+                            @click="downloadFile" :disabled="downloadLoading">
                             <div v-if="downloadLoading"
                                 class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></div>
                             <DownloadIcon v-else class="h-4 w-4 mr-1" />

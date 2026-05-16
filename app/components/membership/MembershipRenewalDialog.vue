@@ -13,7 +13,7 @@
                     class="border rounded-lg p-4 hover:border-primary transition-colors cursor-pointer">
                     <div class="flex justify-between items-start mb-2">
                         <h4 class="font-semibold">{{ plan.name }}</h4>
-                        <Button size="sm" @click="emit('buy', plan)" :disabled="!localAgreed">
+                        <Button size="sm" class="bg-gradient-brand-button text-white" @click="emit('buy', plan)" :disabled="!localAgreed">
                             购买
                         </Button>
                     </div>

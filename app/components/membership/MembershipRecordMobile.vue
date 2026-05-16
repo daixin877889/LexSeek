@@ -21,7 +21,7 @@
                         class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">已结算</span>
                     <span v-else-if="record.status === 0"
                         class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">已作废</span>
-                    <Button v-if="record.status === 1 && !isHighestLevel(record.levelId)" size="sm"
+                    <Button v-if="record.status === 1 && !isHighestLevel(record.levelId)" size="sm" class="bg-gradient-brand-button text-white"
                         @click="emit('upgrade', record)">
                         升级
                     </Button>

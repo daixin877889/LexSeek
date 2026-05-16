@@ -229,7 +229,7 @@
               </div>
 
               <div class="pt-2">
-                <Button class="w-full" @click="calculate">计算分割结果</Button>
+                <Button class="w-full bg-gradient-brand-button text-white shadow-[0_10px_20px_-8px_rgba(30,158,237,0.42)]" @click="calculate">计算分割结果</Button>
               </div>
             </div>
           </CardContent>

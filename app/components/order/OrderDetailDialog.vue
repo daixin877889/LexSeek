@@ -57,14 +57,14 @@
 
                 <!-- 操作按钮 -->
                 <div class="shrink-0 flex gap-2 pt-4">
-                    <Button v-if="order.status === OrderStatus.PENDING" class="flex-1" @click="emit('pay', order)">
+                    <Button v-if="order.status === OrderStatus.PENDING" class="flex-1 bg-gradient-brand-button text-white" @click="emit('pay', order)">
                         立即支付
                     </Button>
-                    <Button v-if="order.status === OrderStatus.PENDING" variant="outline" class="flex-1"
+                    <Button v-if="order.status === OrderStatus.PENDING" class="flex-1 bg-gradient-brand-button text-white"
                         @click="emit('cancel', order)">
                         取消订单
                     </Button>
-                    <Button variant="outline" class="flex-1" @click="emit('update:open', false)">
+                    <Button class="flex-1 bg-gradient-brand-button text-white" @click="emit('update:open', false)">
                         关闭
                     </Button>
                 </div>

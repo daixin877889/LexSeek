@@ -123,9 +123,7 @@ defineExpose({ refresh: loadSessions, createSession, sessions, renameSession, re
         <div class="px-3 pb-2.5 pt-3.5">
             <Button
                 class="w-full gap-1.5 bg-gradient-brand-button text-white shadow-[0_8px_18px_-8px_rgba(30,158,237,0.4)]"
-                :disabled="creating"
-                @click="createSession"
-            >
+                :disabled="creating" @click="createSession">
                 <PlusIcon class="size-4" />
                 <span class="text-[13.5px] font-semibold">新会话</span>
             </Button>
@@ -135,12 +133,8 @@ defineExpose({ refresh: loadSessions, createSession, sessions, renameSession, re
         <div class="px-3 pb-2.5">
             <div class="flex items-center gap-1.5 rounded-lg border border-border bg-muted px-2.5 py-1.5">
                 <SearchIcon class="size-3.5 shrink-0 text-muted-foreground" />
-                <input
-                    v-model="search"
-                    placeholder="搜索会话..."
-                    aria-label="搜索会话"
-                    class="min-w-0 flex-1 border-none bg-transparent text-[12.5px] text-foreground outline-none placeholder:text-muted-foreground"
-                >
+                <input v-model="search" placeholder="搜索会话..." aria-label="搜索会话"
+                    class="min-w-0 flex-1 border-none bg-transparent text-[12.5px] text-foreground outline-none placeholder:text-muted-foreground">
             </div>
         </div>
 
@@ -148,46 +142,30 @@ defineExpose({ refresh: loadSessions, createSession, sessions, renameSession, re
         <div class="flex-1 overflow-y-auto px-2 pb-3">
             <!-- loading 骨架 -->
             <div v-if="loading && sessions.length === 0" class="space-y-1.5 px-1 py-2">
-                <div
-                    v-for="i in 5"
-                    :key="i"
-                    class="h-12 animate-pulse rounded-lg bg-muted"
-                />
+                <div v-for="i in 5" :key="i" class="h-12 animate-pulse rounded-lg bg-muted" />
             </div>
 
             <!-- 空状态 -->
-            <div
-                v-else-if="filteredSessions.length === 0"
-                class="py-10 text-center text-xs text-muted-foreground/70"
-            >
+            <div v-else-if="filteredSessions.length === 0" class="py-10 text-center text-xs text-muted-foreground/70">
                 {{ sessions.length === 0 ? '暂无会话' : '没有匹配的会话' }}
             </div>
 
             <!-- 列表 -->
             <template v-else>
-                <div class="px-2.5 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <!-- <div class="px-2.5 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                     历史会话
-                </div>
+                </div> -->
                 <ul class="space-y-0.5">
-                    <li
-                        v-for="s in filteredSessions"
-                        :key="s.sessionId"
+                    <li v-for="s in filteredSessions" :key="s.sessionId"
                         class="relative cursor-pointer rounded-lg px-2.5 py-2 transition-colors"
                         :class="selectedId === s.sessionId ? 'session-active' : 'hover:bg-primary/[0.08]'"
-                        @click="selectSession(s)"
-                    >
+                        @click="selectSession(s)">
                         <!-- 选中态左侧品牌色条 -->
-                        <span
-                            v-if="selectedId === s.sessionId"
-                            aria-hidden="true"
-                            class="absolute bottom-2 left-0 top-2 w-[3px] rounded-full bg-linear-to-b from-[var(--brand-mint)] via-[var(--brand-sky)] to-[var(--brand-navy)]"
-                        />
-                        <p
-                            class="truncate text-[13px] leading-snug"
-                            :class="selectedId === s.sessionId
-                                ? 'font-semibold text-primary'
-                                : 'font-medium text-foreground'"
-                        >
+                        <span v-if="selectedId === s.sessionId" aria-hidden="true"
+                            class="absolute bottom-2 left-0 top-2 w-[3px] rounded-full bg-linear-to-b from-[var(--brand-mint)] via-[var(--brand-sky)] to-[var(--brand-navy)]" />
+                        <p class="truncate text-[13px] leading-snug" :class="selectedId === s.sessionId
+                            ? 'font-semibold text-primary'
+                            : 'font-medium text-foreground'">
                             {{ s.title ?? '未命名对话' }}
                         </p>
                         <p class="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
@@ -205,8 +183,8 @@ defineExpose({ refresh: loadSessions, createSession, sessions, renameSession, re
 /* 选中会话项的品牌色横向渐隐底纹（取自设计稿） */
 .session-active {
     background-image: linear-gradient(90deg,
-        color-mix(in srgb, var(--brand-mint) 14%, transparent),
-        color-mix(in srgb, var(--brand-sky) 12%, transparent) 60%,
-        transparent);
+            color-mix(in srgb, var(--brand-mint) 14%, transparent),
+            color-mix(in srgb, var(--brand-sky) 12%, transparent) 60%,
+            transparent);
 }
 </style>

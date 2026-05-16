@@ -33,15 +33,15 @@
                 </div>
             </div>
             <div class="flex gap-2 pt-2 border-t">
-                <Button v-if="order.status === OrderStatus.PENDING" size="sm" class="flex-1"
+                <Button v-if="order.status === OrderStatus.PENDING" size="sm" class="flex-1 bg-gradient-brand-button text-white"
                     @click="emit('pay', order)">
                     支付
                 </Button>
-                <Button v-if="order.status === OrderStatus.PENDING" size="sm" variant="outline" class="flex-1"
+                <Button v-if="order.status === OrderStatus.PENDING" size="sm" class="flex-1 bg-gradient-brand-button text-white"
                     @click="emit('cancel', order)">
                     取消
                 </Button>
-                <Button size="sm" variant="ghost" class="flex-1" @click="emit('detail', order)">
+                <Button size="sm" class="flex-1 bg-gradient-brand-button text-white" @click="emit('detail', order)">
                     详情
                 </Button>
             </div>

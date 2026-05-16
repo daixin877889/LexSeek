@@ -1,108 +1,82 @@
 <template>
-  <!-- 网格视图文件列表 -->
-  <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+  <!-- 网格视图：自适应列宽，对齐云盘空间设计稿 -->
+  <div class="grid gap-3.5 [grid-template-columns:repeat(auto-fill,minmax(176px,1fr))]">
     <div v-for="file in files" :key="file.id"
       :class="[
-        'group bg-card rounded-lg border p-4 hover:shadow-md transition-all relative',
-        props.selectedFileIds.includes(file.id)
+        'relative cursor-pointer rounded-xl border bg-card px-3.5 py-4 transition duration-150',
+        selectedFileIds.includes(file.id)
           ? 'border-primary bg-primary/5'
-          : 'border-border hover:border-primary/50'
-      ]">
-      <!-- 复选框 - 始终显示 -->
-      <div
-        class="absolute top-3 left-3 z-10"
-        @click="emit('toggleSelect', file.id)">
-        <div
-          :class="[
-            'w-5 h-5 rounded border-2 cursor-pointer flex items-center justify-center transition-colors',
-            props.selectedFileIds.includes(file.id)
-              ? 'bg-primary border-primary'
-              : 'bg-white border-gray-300 dark:bg-gray-600 dark:border-gray-400'
-          ]">
-          <svg v-if="props.selectedFileIds.includes(file.id)" class="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none">
-            <path d="M2 6L5 9L10 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </div>
+          : 'border-border hover:-translate-y-0.5 hover:border-primary/45 hover:shadow-[0_10px_26px_-12px_rgba(0,0,0,0.22)]'
+      ]"
+      @click="emit('click', file)">
+      <!-- 复选框（左上角） -->
+      <div class="absolute left-3 top-3 z-10" @click.stop="emit('toggleSelect', file.id)">
+        <DiskCheckbox :checked="selectedFileIds.includes(file.id)" />
       </div>
 
-      <!-- 文件内容区域 - 点击打开详情 -->
-      <div class="cursor-pointer" @click="$emit('click', file)">
-        <!-- 文件图标/缩略图 -->
-        <div class="flex justify-center mb-3 mt-2">
-        <!-- 图片缩略图（仅非加密图片） -->
-        <div v-if="isImageType(file.fileType) && !file.encrypted"
-          class="w-12 h-12 rounded-lg overflow-hidden bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-          <img v-if="!thumbnailErrors[String(file.id)]" :src="file.url" :alt="file.fileName"
-            class="w-full h-full object-cover" @error="handleThumbnailError(String(file.id))" />
-          <ImageIcon v-else class="h-6 w-6 text-purple-600 dark:text-purple-400" />
-        </div>
-        <!-- 其他文件类型图标 -->
-        <div v-else class="w-12 h-12 rounded-lg flex items-center justify-center" :class="getFileIconBg(file.fileType)">
-          <component :is="getFileIcon(file.fileType)" class="h-6 w-6" :class="getFileIconColor(file.fileType)" />
+      <!-- 文件图标 / 图片缩略图 -->
+      <div class="mb-3 mt-1 flex justify-center">
+        <div
+          :class="['flex size-[52px] items-center justify-center overflow-hidden rounded-xl', getFileIconBg(file.fileType)]">
+          <img v-if="showThumbnail(file)" :src="file.url" :alt="file.fileName" class="size-full object-cover"
+            @error="handleThumbnailError(String(file.id))" />
+          <component :is="getFileIcon(file.fileType)" v-else class="size-6"
+            :class="getFileIconColor(file.fileType)" />
         </div>
       </div>
 
       <!-- 文件名 -->
-      <p class="text-sm font-medium text-foreground truncate text-center mb-1" :title="file.fileName">
+      <p class="mb-1.5 truncate text-center text-[13px] font-medium text-foreground" :title="file.fileName">
         {{ file.fileName }}
       </p>
 
-      <!-- 文件信息 -->
-      <div class="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+      <!-- 大小 + 加密标识 -->
+      <div class="mb-2.5 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
         <span>{{ formatByteSize(file.fileSize, 2) }}</span>
-        <span v-if="file.encrypted" class="text-green-600 dark:text-green-400 flex items-center gap-0.5">
-          <LockIcon class="h-3 w-3" />
-        </span>
+        <LockIcon v-if="file.encrypted" class="size-3 text-emerald-600 dark:text-emerald-400" />
       </div>
 
       <!-- 来源标签 -->
-      <div class="mt-2 flex justify-center">
-        <span class="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+      <div class="flex justify-center">
+        <span
+          class="max-w-full truncate rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
           {{ file.sourceName }}
         </span>
-      </div>
       </div>
     </div>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { LockIcon, ImageIcon } from "lucide-vue-next";
+import { LockIcon } from 'lucide-vue-next'
 import { formatByteSize } from '#shared/utils/unitConverision'
 import type { OssFileItem } from '~/store/file'
 import { getFileIcon, getFileIconBg, getFileIconColor, isImageType } from '~/utils/file'
-
-// ==================== Props ====================
+import DiskCheckbox from '~/components/diskSpace/Checkbox.vue'
 
 interface Props {
   /** 文件列表 */
-  files: OssFileItem[];
+  files: OssFileItem[]
   /** 选中的文件 ID 数组 */
-  selectedFileIds: number[];
+  selectedFileIds: number[]
 }
-
-const props = defineProps<Props>();
-
-// ==================== Emits ====================
+defineProps<Props>()
 
 const emit = defineEmits<{
   /** 点击文件 */
-  (e: "click", file: OssFileItem): void;
+  (e: 'click', file: OssFileItem): void
   /** 切换选择 */
-  (e: "toggleSelect", fileId: number): void;
-}>();
+  (e: 'toggleSelect', fileId: number): void
+}>()
 
-// ==================== 状态 ====================
+// 缩略图加载失败记录
+const thumbnailErrors = reactive<Record<string, boolean>>({})
 
-// 缩略图加载错误记录
-const thumbnailErrors = reactive<Record<string, boolean>>({});
+/** 是否展示图片缩略图（未加密、有 URL、且未加载失败的图片） */
+const showThumbnail = (file: OssFileItem) =>
+  isImageType(file.fileType) && !file.encrypted && !!file.url && !thumbnailErrors[String(file.id)]
 
-// ==================== 方法 ====================
-
-/**
- * 处理缩略图加载错误
- */
 const handleThumbnailError = (fileId: string) => {
-  thumbnailErrors[fileId] = true;
-};
+  thumbnailErrors[fileId] = true
+}
 </script>

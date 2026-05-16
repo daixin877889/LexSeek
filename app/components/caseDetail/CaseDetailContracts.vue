@@ -86,7 +86,9 @@ function statusBadgeVariant(status: string): 'default' | 'secondary' | 'destruct
             <p class="text-sm text-muted-foreground mb-4">
                 点击「新建合同审查」上传合同，AI 将按案件立场自动审查
             </p>
-            <Button size="sm" @click="handleCreate">
+            <Button size="sm"
+                class="bg-gradient-brand-button text-white shadow-[0_8px_18px_-8px_rgba(30,158,237,0.4)]"
+                @click="handleCreate">
                 <PlusIcon class="size-4 mr-1" />
                 新建合同审查
             </Button>
