@@ -252,7 +252,7 @@ export async function* uploadClientVersionService(params: {
     )
     // 重建 wId → {reviewId, annotationId}：annotationId 来自内容匹配，reviewId 取
     // 身份证文件声明值（跨审查时 ≠ review.id）。
-    const commentRefByWId = new Map<number, { reviewId: number; annotationId: number; source: string }>()
+    const commentRefByWId = new Map<number, { reviewId: number; annotationId: number; source: 'content' }>()
     for (const [wId, annotationId] of contentMatchByWId) {
         commentRefByWId.set(wId, {
             reviewId: declaredAnnReviewId ?? review.id,
@@ -524,11 +524,12 @@ export async function* uploadClientVersionService(params: {
         [ClientRedlineDecision.UNTOUCHED]: 0,
         [ClientRedlineDecision.AMBIGUOUS]: 0,
     }
-    // riskId → risk 行映射：Step 3b 与 Step 5+6 事务内写修订处置都要按 id 查 risk，
-    // 提到此处一次构建、两处复用，避免事务内再做线性 dbRisks.find。
+    // riskId → risk 行映射：Step 3b 修订识别按 ref.riskId 查 risk 行。
     const riskByIdForRedline = new Map(dbRisks.map(r => [r.id, r]))
     if (redlineUsable) {
         const rl = redline!
+        // 全文语料懒计算一次：多个 ref 判出 AMBIGUOUS 时复用，不重复 map+join
+        let fullCorpus: { corpusT: string; corpusDel: string } | null = null
         for (const ref of rl.refs) {
             const risk = riskByIdForRedline.get(ref.riskId)
             if (!risk || !risk.problematicQuote || !risk.suggestedClauseText) continue
@@ -546,13 +547,13 @@ export async function* uploadClientVersionService(params: {
             // spec §6：按 paraIdxs 取的段落语料判不出（段落序号被 Word 增删段落漂移）
             // 时，用全文语料兜底重判一次。
             if (decision === ClientRedlineDecision.AMBIGUOUS) {
-                const full = resolveFullCorpus(rl)
+                fullCorpus ??= resolveFullCorpus(rl)
                 decision = classifyRedlineDecision({
                     ref,
                     survivingInsIds: rl.survivingInsIds,
                     survivingDelIds: rl.survivingDelIds,
-                    corpusT: full.corpusT,
-                    corpusDel: full.corpusDel,
+                    corpusT: fullCorpus.corpusT,
+                    corpusDel: fullCorpus.corpusDel,
                     problematicQuote: risk.problematicQuote,
                     suggestedClauseText: risk.suggestedClauseText,
                     trustWordIds: rl.trustWordIds,
