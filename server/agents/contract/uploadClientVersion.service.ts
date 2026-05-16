@@ -30,6 +30,8 @@ import { analyzeSingleClause } from './analyzeSingleClause'
 import { diffClauses } from './utils/clauseDiff'
 import { migrateRiskWithDualAnchor } from './utils/anchorMigrate'
 import { parseWordComments, type ParsedWordComment, type AnnotationRefEntry } from './docx/wordCommentParser'
+import { parseRedlineMarks, classifyRedlineDecision, resolveCorpusForRef, type ParsedRedlineMarks } from './docx/redlineParser'
+import { ClientRedlineDecision } from '#shared/types/contract'
 import { parseCommentRef, generateWordCommentRef, stripAuthorRef } from './utils/wordCommentRef'
 import { buildClauseToParagraphMap } from './utils/clauseToParagraph'
 
@@ -145,6 +147,8 @@ export async function* uploadClientVersionService(params: {
         let newClauses: ClauseSnapshotItem[]
         let newComments: ParsedWordComment[] = []
         let annotationRefsByWId = new Map<number, AnnotationRefEntry>()
+        // 修订标记回传解析（spec §6）：纯修订版回传无 comment，靠 redlineRefs.xml + 存活 ins/del id
+        let redline: ParsedRedlineMarks | null = null
         // DOCX-C4：external_new 锚点需要用"非空段落序号 + 段落原文"而不是 clauseIndex，
         // 否则 paragraphIndex 可能远大于 newClauses.length 被误兜底为 0（挤到首段）。
         let newParagraphs: string[] = []
@@ -179,6 +183,10 @@ export async function* uploadClientVersionService(params: {
             const parsed = await parseWordComments(docxBuffer)
             newComments = parsed.comments
             annotationRefsByWId = parsed.annotationRefsByWId
+
+            // 修订标记解析（spec §6.1）：用同一份 Buffer 读 redlineRefs.xml + 存活 ins/del id。
+            // redlineRefs.xml 缺失 / 损坏时返回 reviewId=null、refs=[]（纯批注版回传场景）。
+            redline = await parseRedlineMarks(docxBuffer)
 
             yield { type: 'progress', data: { step: 'parse', status: 'done' } }
         } catch (e: unknown) {
@@ -334,26 +342,53 @@ export async function* uploadClientVersionService(params: {
     // DOCX-H5 收紧：仅统计带 wordCommentRef 的系统批注（AI/lawyer），忽略 external
     // （external 不参与身份证绑定）；命中比例 <20% 也触发保护——避免"10 条系统批注
     // 只对上 1 条"也被放行导致 9 条被误删。
+    // 修订身份证归属判定（spec §9.2）
+    const redlineCrossReview =
+        redline != null && redline.refs.length > 0
+        && redline.reviewId !== null && redline.reviewId !== review.id
+    if (redlineCrossReview) {
+        logger.warn('修订身份证跨审查，已忽略该 docx 的修订标记', {
+            uploadReviewId: review.id,
+            declaredReviewId: redline!.reviewId,
+            refCount: redline!.refs.length,
+        })
+    }
+    const redlineUsable = redline != null && redline.refs.length > 0 && !redlineCrossReview
+
+    // 统一覆盖率（spec §9.1）：批注命中 ∪ 修订身份证登记 的风险，
+    // 占「带 customXml 身份证（wordCommentRef 非空）的风险」的比例。
+    // 注：现有 DOCX-H5 注释称「忽略 external」与实际 filter 不符，统一以「带身份证」为口径。
     const systemDbAnnotations = dbAnnotations.filter(a => a.wordCommentRef != null)
-    const matchRatio = systemDbAnnotations.length > 0
-        ? commentByAnnId.size / systemDbAnnotations.length
-        : 1
+    const identifiableRiskIds = new Set(systemDbAnnotations.map(a => a.riskId))
+    const coveredRiskIds = new Set<number>()
+    for (const annId of commentByAnnId.keys()) {
+        const ann = annById.get(annId)
+        if (ann) coveredRiskIds.add(ann.riskId)
+    }
+    if (redlineUsable) {
+        for (const ref of redline!.refs) coveredRiskIds.add(ref.riskId)
+    }
+    let coveredCount = 0
+    for (const id of coveredRiskIds) if (identifiableRiskIds.has(id)) coveredCount++
+    const coverageRatio = identifiableRiskIds.size > 0 ? coveredCount / identifiableRiskIds.size : 1
     const NO_MATCH_THRESHOLD = 0.2
+    const docxHasContent = newComments.length > 0 || (redline != null && redline.refs.length > 0)
     const tripsSafety =
-        newComments.length > 0 && systemDbAnnotations.length > 0
-        && (commentByAnnId.size === 0 || matchRatio < NO_MATCH_THRESHOLD)
+        identifiableRiskIds.size > 0 && docxHasContent && coverageRatio < NO_MATCH_THRESHOLD
     if (tripsSafety) {
         logger.error(
-            '批注命中率过低：拒绝自动应用"全删+全新增"，保护数据不被误改',
+            '统一覆盖率过低：拒绝自动应用"全删+全新增"，保护数据不被误改',
             {
                 reviewId: review.id,
                 dbAnnotationsCount: dbAnnotations.length,
-                systemDbAnnotationsCount: systemDbAnnotations.length,
-                matched: commentByAnnId.size,
-                matchRatio: Number(matchRatio.toFixed(3)),
+                identifiableRiskCount: identifiableRiskIds.size,
+                coveredCount,
+                coverageRatio: Number(coverageRatio.toFixed(3)),
                 threshold: NO_MATCH_THRESHOLD,
                 newCommentsCount: newComments.length,
+                redlineRefCount: redline?.refs.length ?? 0,
                 crossReviewRejected,
+                redlineCrossReview,
                 snapshotSource,
             },
         )
@@ -361,10 +396,10 @@ export async function* uploadClientVersionService(params: {
             type: 'error',
             data: {
                 step: 'diff',
-                code: 'NO_ANNOTATION_MATCH',
-                message: crossReviewRejected > 0
-                    ? `上传的 docx 属于其他合同审查（身份证声明 reviewId 不匹配本审查），已拒绝处理。请确认上传的是 review #${review.id} 的最新导出版本。`
-                    : '上传 docx 中的批注与系统中任何一条都对不上，已中止处理以免误删。可能原因：1) 上传了非本次审查的 docx；2) 客户使用了会破坏批注标识的工具编辑；3) 当前 docx 是改造前的老导出，请重新从系统下载最新版发给客户。',
+                code: 'NO_CONTENT_MATCH',
+                message: (crossReviewRejected > 0 || redlineCrossReview)
+                    ? `上传的 docx 属于其他合同审查（文档标识里的审查编号与本次不符），已拒绝处理。请确认上传的是本审查导出的版本。`
+                    : '上传的 docx 没能和本次审查的任何批注或修订对应上，已中止处理以免误改。请确认：1) 上传的是本次审查导出的 docx；2) 客户编辑时未使用会破坏文档标识的工具——如不确定，建议重新从系统下载最新版发给客户。',
             },
         }
         return
@@ -457,6 +492,37 @@ export async function* uploadClientVersionService(params: {
     yield {
         type: 'progress',
         data: { step: 'diff', status: 'done', externalChangeCount, clauseModifiedCount },
+    }
+
+    // ===== Step 3b：修订处置识别（spec §6） =====
+    // 对 redlineRefs.xml 登记的每条修订，结合存活 ins/del id + 风险所属段落正文，
+    // 判定客户接受/拒绝/未处理/需确认。语料按 §6.2 限定在风险所属段落。
+    const redlineDecisions = new Map<number, ClientRedlineDecision>()
+    const redlineCounts: Record<ClientRedlineDecision, number> = {
+        [ClientRedlineDecision.ACCEPTED]: 0,
+        [ClientRedlineDecision.REJECTED]: 0,
+        [ClientRedlineDecision.UNTOUCHED]: 0,
+        [ClientRedlineDecision.AMBIGUOUS]: 0,
+    }
+    if (redlineUsable) {
+        const riskByIdForRedline = new Map(dbRisks.map(r => [r.id, r]))
+        for (const ref of redline!.refs) {
+            const risk = riskByIdForRedline.get(ref.riskId)
+            if (!risk || !risk.problematicQuote || !risk.suggestedClauseText) continue
+            const { corpusT, corpusDel } = resolveCorpusForRef(redline!, ref)
+            const decision = classifyRedlineDecision({
+                ref,
+                survivingInsIds: redline!.survivingInsIds,
+                survivingDelIds: redline!.survivingDelIds,
+                corpusT,
+                corpusDel,
+                problematicQuote: risk.problematicQuote,
+                suggestedClauseText: risk.suggestedClauseText,
+            })
+            redlineDecisions.set(ref.riskId, decision)
+            redlineCounts[decision]++
+        }
+        logger.info('修订处置识别完成', { reviewId: review.id, ...redlineCounts })
     }
 
     // ============ Step 4: AI 增量审查 + 全局复核 ============
@@ -904,13 +970,30 @@ export async function* uploadClientVersionService(params: {
                 }
             }
 
+            // 写客户修订处置（spec §7）：接受 → 自动解决，但不覆盖律师已有处置
+            for (const [riskId, decision] of redlineDecisions) {
+                const data: Prisma.contractRisksUpdateInput = { clientRedlineDecision: decision }
+                if (decision === ClientRedlineDecision.ACCEPTED) {
+                    const r = dbRisks.find(x => x.id === riskId)
+                    if (r && r.archivedStatus == null) {
+                        data.archivedStatus = 'handled'
+                        data.archivedAt = new Date()
+                    }
+                }
+                await tx.contractRisks.update({ where: { id: riskId }, data })
+            }
+
             // DOCX-H3：syncReviewRisksJsonb 必须与 Step 5 锚点迁移在同一事务里，
             // 防止进程在锚点写完之后、JSONB 同步之前被 kill 让 PDF 导出 / 管理端列表
             // 读到过期快照。tx 透传保证同一 pg 连接、同一事务范围。
             await syncReviewRisksJsonb(review.id, tx)
         })
 
-        const summary = `本轮变化：${externalChangeCount} 处外部变更 · ${clauseModifiedCount} 处条款修改 · AI 增量重审 ${aiReviewCount} 条 · 全局复核 ${globalReviewNewRiskCount} 条`
+        let summary = `本轮变化：${externalChangeCount} 处外部变更 · ${clauseModifiedCount} 处条款修改 · AI 增量重审 ${aiReviewCount} 条 · 全局复核 ${globalReviewNewRiskCount} 条`
+        if (redlineDecisions.size > 0) {
+            summary += ` · 客户修订：接受 ${redlineCounts.accepted} / 拒绝 ${redlineCounts.rejected} / 未处理 ${redlineCounts.untouched}`
+            if (redlineCounts.ambiguous > 0) summary += ` / 待确认 ${redlineCounts.ambiguous}`
+        }
         const newVersion = await saveContractReviewVersionService({
             reviewId: review.id,
             systemLabel: 'client_return',

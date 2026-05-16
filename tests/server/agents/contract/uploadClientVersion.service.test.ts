@@ -10,8 +10,8 @@
  * - Step 2 fileType 不是 docx → PARSE_FAILED
  * - Step 2 ZIP 头校验失败（buffer 不是合法 zip）→ PARSE_FAILED
  * - Step 2 parseWordComments 抛错 → PARSE_FAILED
- * - Step 3 跨 review 身份证 → 标 crossReviewRejected，但仍走 NO_ANNOTATION_MATCH 保护
- * - Step 3 NO_ANNOTATION_MATCH：DB 系统批注 / 上传新 docx 一个都对不上 → 拒绝
+ * - Step 3 跨 review 身份证 → 标 crossReviewRejected，但仍走 NO_CONTENT_MATCH 保护
+ * - Step 3 NO_CONTENT_MATCH：DB 系统批注 / 上传新 docx 一个都对不上 → 拒绝
  * - Step 3 客户回复：父批注是系统批注，子批注是非系统批注 → 升级为 external annotation
  * - Step 3 客户编辑系统批注 → 新建 external 子 annotation
  * - Step 3 客户新增独立批注（无 parent，非系统）→ external_new risk
@@ -411,7 +411,7 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
             expect(externalAnns.length).toBeGreaterThanOrEqual(1)
         }, 60000)
 
-        it('NO_ANNOTATION_MATCH 保护：DB 系统批注 / 上传 docx 批注全对不上 → 拒绝', async () => {
+        it('NO_CONTENT_MATCH 保护：DB 系统批注 / 上传 docx 批注全对不上 → 拒绝', async () => {
             // 预置 1 条系统 AI annotation
             const risk = await prisma.contractRisks.create({
                 data: {
@@ -447,12 +447,13 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                 uploadClientVersionService({ review, ossFileId, userId }),
             )
 
-            // ann 99999999 不在 DB → fallbackFailComments 路径，被升级为 external_new；但 systemDbAnnotations=1 且 matched=0 → 触发 NO_ANNOTATION_MATCH
+            // ann 99999999 不在 DB → fallbackFailComments 路径，被升级为 external_new；
+            // 带身份证的风险 1 条、覆盖 0 条 → 统一覆盖率 0 < 0.2 → 触发 NO_CONTENT_MATCH 保护
             const err = events.find(e => e.type === 'error')
-            expect(err?.data.code).toBe('NO_ANNOTATION_MATCH')
+            expect(err?.data.code).toBe('NO_CONTENT_MATCH')
         }, 60000)
 
-        it('跨 review 身份证 → crossReviewRejected + NO_ANNOTATION_MATCH', async () => {
+        it('跨 review 身份证 → crossReviewRejected + NO_CONTENT_MATCH', async () => {
             const risk = await prisma.contractRisks.create({
                 data: {
                     reviewId, source: 'ai', category: '风险',
@@ -488,8 +489,8 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                 uploadClientVersionService({ review, ossFileId, userId }),
             )
             const err = events.find(e => e.type === 'error')
-            expect(err?.data.code).toBe('NO_ANNOTATION_MATCH')
-            // message 应提到跨 review
+            expect(err?.data.code).toBe('NO_CONTENT_MATCH')
+            // message 应提到跨 review（跨审查文案含「其他合同审查」）
             expect(err?.data.message).toMatch(/其他合同|reviewId/)
         }, 60000)
     })
