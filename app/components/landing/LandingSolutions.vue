@@ -17,7 +17,7 @@
         <div
           v-for="item in PILLARS"
           :key="item.title"
-          class="rounded-2xl border bg-card p-8 shadow-sm transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-md"
+          class="rounded-2xl border bg-card p-8 transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-md"
         >
           <div
             class="mb-5 flex size-12 items-center justify-center rounded-[12px]"

@@ -22,7 +22,7 @@
       <div class="mx-auto grid max-w-[1200px] items-start gap-10 lg:grid-cols-[240px_1fr]">
         <!-- 粘性目录 -->
         <aside class="hidden lg:sticky lg:top-20 lg:block">
-          <div class="rounded-xl border bg-card p-4 shadow-[0_1px_2px_0_rgb(0_0_0/0.04)]">
+          <div class="rounded-xl border bg-card p-4">
             <p class="mb-3 text-[12px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">目录</p>
             <ul class="flex flex-col gap-0.5">
               <li v-for="(t, i) in toc" :key="t.id">

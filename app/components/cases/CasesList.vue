@@ -2,7 +2,7 @@
     <!-- 桌面端列表视图：卡片行 -->
     <div class="flex flex-col gap-3">
         <div v-for="item in list" :key="item.id"
-            class="group flex items-center gap-4 rounded-xl border bg-card p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
+            class="group flex items-center gap-4 rounded-xl border bg-card p-4 transition hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
             <!-- 主信息 -->
             <div class="min-w-0 flex-1">
                 <div class="mb-1.5 flex items-center gap-2">

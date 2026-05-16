@@ -27,7 +27,7 @@
                     清空筛选
                 </Button>
                 <NuxtLink to="/dashboard/cases/create">
-                    <Button class="rounded-full px-8 shadow-lg shadow-primary/20">
+                    <Button class="rounded-full px-8 shadow-lg shadow-primary/25">
                         <Plus class="h-4 w-4 mr-2" />
                         立即创建新分析
                     </Button>

@@ -80,7 +80,7 @@
             不同套餐的<GradientText>能力对比</GradientText>
           </h2>
         </div>
-        <div class="overflow-hidden rounded-2xl border bg-card shadow-[0_1px_2px_0_rgb(0_0_0/0.04)]">
+        <div class="overflow-hidden rounded-2xl border bg-card">
           <div class="overflow-x-auto">
             <table class="w-full min-w-[800px] border-collapse">
               <thead>
@@ -133,7 +133,7 @@
           <div
             v-for="it in FAQ"
             :key="it.q"
-            class="rounded-xl border bg-card px-[22px] py-5 shadow-[0_1px_2px_0_rgb(0_0_0/0.04)] transition hover:-translate-y-1 hover:shadow-md"
+            class="rounded-xl border bg-card px-[22px] py-5 transition hover:-translate-y-1 hover:shadow-md"
           >
             <h3 class="mb-1.5 text-[16px] font-semibold leading-[1.3]">{{ it.q }}</h3>
             <p class="text-[14px] leading-[1.65] text-muted-foreground">{{ it.a }}</p>
@@ -193,7 +193,7 @@ interface Plan {
 const CARD_CLASS: Record<Variant, string> = {
   amber: "border-2 border-[#E07A0A] shadow-[0_18px_36px_-18px_rgba(224,122,10,0.2)]",
   sky: "border-2 border-[#1E9EED] shadow-[0_18px_36px_-18px_rgba(30,158,237,0.25)]",
-  plain: "border shadow-[0_1px_2px_0_rgb(0_0_0/0.04)]",
+  plain: "border hover:shadow-md",
 }
 const BADGE_CLASS: Record<Variant, string> = {
   amber: "bg-linear-to-br from-[#FFB75E] to-[#E07A0A]",

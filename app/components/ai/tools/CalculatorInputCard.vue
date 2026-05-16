@@ -105,7 +105,7 @@ async function onCancel() {
     <div
         ref="cardRef"
         :class="[
-            'not-prose my-2 w-full max-w-lg rounded-lg border p-4 shadow-sm',
+            'not-prose my-2 w-full max-w-lg rounded-lg border p-4',
             isSnapshot
                 ? 'border-muted bg-muted/20 opacity-70 dark:border-muted dark:bg-muted/10'
                 : 'border-primary/40 bg-primary/5 dark:border-primary/30 dark:bg-primary/10',

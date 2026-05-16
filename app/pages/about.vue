@@ -68,7 +68,7 @@
           <div
             v-for="v in VALUES"
             :key="v.title"
-            class="rounded-2xl border bg-card p-[26px] shadow-[0_1px_2px_0_rgb(0_0_0/0.04)] transition hover:-translate-y-1 hover:shadow-md"
+            class="rounded-2xl border bg-card p-[26px] transition hover:-translate-y-1 hover:shadow-md"
           >
             <div
               class="mb-4 flex size-12 items-center justify-center rounded-[12px]"
@@ -106,7 +106,7 @@
             </div>
           </div>
         </div>
-        <div class="rounded-[18px] border bg-card p-9 text-center shadow-[0_1px_2px_0_rgb(0_0_0/0.04)]">
+        <div class="rounded-[18px] border bg-card p-9 text-center">
           <BrandEyebrow class="mb-3.5">WECHAT</BrandEyebrow>
           <h3 class="mb-[18px] text-[20px] font-bold leading-[1.3]">扫码添加客服微信</h3>
           <div class="mx-auto mb-4 w-fit rounded-[14px] bg-gradient-brand p-1">

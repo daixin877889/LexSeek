@@ -2,7 +2,7 @@
     <!-- 桌面端卡片视图 -->
     <div class="hidden grid-cols-1 gap-4 md:grid lg:grid-cols-2 xl:grid-cols-3">
         <div v-for="item in list" :key="item.id"
-            class="group flex flex-col rounded-xl border bg-card shadow-sm transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-md">
+            class="group flex flex-col rounded-xl border bg-card transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-md">
             <!-- 内容区 -->
             <div class="flex flex-1 flex-col gap-3 p-[18px]">
                 <NuxtLink :to="`/dashboard/cases/${item.id}`"

@@ -27,7 +27,7 @@
           <div
             v-for="(f, i) in MAIN_FEATURES"
             :key="f.title"
-            class="grid items-center gap-9 rounded-[18px] border bg-card p-7 shadow-[0_1px_2px_0_rgb(0_0_0/0.04)] transition hover:-translate-y-1 hover:shadow-md lg:grid-cols-2"
+            class="grid items-center gap-9 rounded-[18px] border bg-card p-7 transition hover:-translate-y-1 hover:shadow-md lg:grid-cols-2"
           >
             <div :class="i % 2 === 1 ? 'lg:order-2' : ''">
               <div class="mb-3 flex items-center gap-3.5">
@@ -71,7 +71,7 @@
           <div
             v-for="f in EXTRA_FEATURES"
             :key="f.title"
-            class="rounded-[14px] border bg-card p-[22px] shadow-[0_1px_2px_0_rgb(0_0_0/0.04)] transition hover:-translate-y-1 hover:shadow-md"
+            class="rounded-[14px] border bg-card p-[22px] transition hover:-translate-y-1 hover:shadow-md"
           >
             <div
               class="mb-3.5 flex size-11 items-center justify-center rounded-[11px]"
@@ -99,7 +99,7 @@
           <div
             v-for="f in TECH"
             :key="f.title"
-            class="rounded-2xl border bg-card p-7 shadow-[0_1px_2px_0_rgb(0_0_0/0.04)] transition hover:-translate-y-1 hover:shadow-md"
+            class="rounded-2xl border bg-card p-7 transition hover:-translate-y-1 hover:shadow-md"
           >
             <div
               class="mb-4 flex size-12 items-center justify-center rounded-[12px]"
@@ -127,7 +127,7 @@
           <div
             v-for="t in TESTIMONIALS"
             :key="t.name"
-            class="flex flex-col gap-3.5 rounded-2xl border bg-card p-6 shadow-[0_1px_2px_0_rgb(0_0_0/0.04)] transition hover:-translate-y-1 hover:shadow-md"
+            class="flex flex-col gap-3.5 rounded-2xl border bg-card p-6 transition hover:-translate-y-1 hover:shadow-md"
           >
             <Quote class="size-7 text-primary opacity-40" />
             <p class="text-[15px] font-medium leading-[1.65]">{{ t.quote }}</p>

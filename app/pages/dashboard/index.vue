@@ -12,7 +12,7 @@
 
     <!-- 活动横幅 -->
     <button type="button"
-      class="relative mb-8 w-full cursor-pointer overflow-hidden rounded-xl bg-gradient-brand px-5 py-3.5 text-left text-white shadow-[0_10px_25px_-10px_rgba(9,3,128,0.4)] transition hover:brightness-105"
+      class="relative mb-8 w-full cursor-pointer overflow-hidden rounded-xl bg-gradient-brand-button px-5 py-3.5 text-left text-white shadow-[0_10px_25px_-10px_rgba(9,3,128,0.4)] transition hover:brightness-105"
       @click="wxSupportStore.showQrCode()">
       <span aria-hidden="true"
         class="pointer-events-none absolute -top-8 right-16 size-36 rounded-full bg-white/[0.08]" />
@@ -43,7 +43,7 @@
     <!-- 数据概览卡片 -->
     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
       <component :is="stat.to ? NuxtLinkComp : 'div'" v-for="stat in stats" :key="stat.label" :to="stat.to"
-        class="group block rounded-xl border border-border bg-card p-6 shadow-sm transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-md">
+        class="group block rounded-xl border border-border bg-card p-6 transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-md">
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
             <p class="mb-1 text-sm font-medium text-muted-foreground">{{ stat.label }}</p>
@@ -70,7 +70,7 @@
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <component :is="action.to ? NuxtLinkComp : 'button'" v-for="action in QUICK_ACTIONS" :key="action.title"
           :to="action.to" :type="action.to ? undefined : 'button'"
-          class="flex cursor-pointer items-center gap-4 rounded-xl border border-border bg-card p-4 text-left shadow-sm transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-md"
+          class="flex cursor-pointer items-center gap-4 rounded-xl border border-border bg-card p-4 text-left transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-md"
           @click="action.onClick?.()">
           <div :class="['flex size-10 shrink-0 items-center justify-center rounded-[10px]', TINTS[action.tint]]">
             <component :is="action.icon" class="size-5" />
@@ -91,7 +91,7 @@
       </div>
       <div class="flex flex-col gap-3">
         <NuxtLink v-for="c in dashboardData?.recentCases" :key="c.id" :to="`/dashboard/cases/${c.id}`"
-          class="block rounded-xl border bg-card p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
+          class="block rounded-xl border bg-card p-4 transition hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
           <div class="flex items-center justify-between gap-3">
             <div class="min-w-0 flex-1">
               <div class="mb-1.5 flex items-center gap-2">

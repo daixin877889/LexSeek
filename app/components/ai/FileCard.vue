@@ -188,7 +188,7 @@ async function handleDownload() {
 
 <template>
   <div
-    class="my-2 inline-flex w-full max-w-sm flex-col gap-1 rounded-lg border bg-card px-4 py-3 shadow-sm"
+    class="my-2 inline-flex w-full max-w-sm flex-col gap-1 rounded-lg border bg-card px-4 py-3"
     :class="{
       'border-destructive/40 bg-destructive/5': deleted,
       'border-warning/40 bg-warning/5': temporary && !deleted,

@@ -96,7 +96,7 @@ const pendingFileName = computed(() => props.input?.fileName || '文件')
   <!-- 失败：简洁错误条，视觉体量与文件卡片一致 -->
   <div
     v-else-if="parsed.errorText"
-    class="my-2 inline-flex w-full max-w-sm items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive shadow-sm"
+    class="my-2 inline-flex w-full max-w-sm items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive"
   >
     <AlertCircleIcon class="mt-0.5 size-4 shrink-0" />
     <span class="min-w-0 flex-1 break-words">{{ parsed.errorText }}</span>
@@ -105,7 +105,7 @@ const pendingFileName = computed(() => props.input?.fileName || '文件')
   <!-- 进行中：上传中条 -->
   <div
     v-else-if="props.state === 'input-available'"
-    class="my-2 inline-flex w-full max-w-sm items-center gap-2 rounded-lg border bg-card px-4 py-3 text-sm text-muted-foreground shadow-sm"
+    class="my-2 inline-flex w-full max-w-sm items-center gap-2 rounded-lg border bg-card px-4 py-3 text-sm text-muted-foreground"
   >
     <Loader2Icon class="size-4 shrink-0 animate-spin" />
     <span class="min-w-0 flex-1 truncate">正在上传 {{ pendingFileName }} 到云盘…</span>

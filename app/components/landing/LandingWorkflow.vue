@@ -12,7 +12,7 @@
 
       <div class="grid items-center gap-6 lg:grid-cols-[1fr_auto_1fr_auto_1fr] lg:gap-0">
         <template v-for="(step, i) in STEPS" :key="step.n">
-          <div class="relative min-h-[220px] overflow-hidden rounded-[18px] border bg-card px-7 pb-7 pt-8 shadow-[0_1px_2px_0_rgba(0,0,0,0.04)] transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-md">
+          <div class="relative min-h-[220px] overflow-hidden rounded-[18px] border bg-card px-7 pb-7 pt-8 transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-md">
             <!-- 柔光晕 -->
             <div
               aria-hidden="true"

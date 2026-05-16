@@ -17,7 +17,7 @@
         <div
           v-for="item in FEATURES"
           :key="item.title"
-          class="rounded-[14px] border bg-card p-6 shadow-[0_1px_2px_0_rgb(0_0_0/0.04)] transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-md"
+          class="rounded-[14px] border bg-card p-6 transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-md"
         >
           <div
             class="mb-4 flex size-12 items-center justify-center rounded-[12px]"

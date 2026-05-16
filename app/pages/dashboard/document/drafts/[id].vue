@@ -740,7 +740,7 @@ function handlePanelResize(sizes: number[]) {
                     <SaveIcon class="size-4" />
                     <span class="hidden lg:inline ml-1">保存当前为版本</span>
                 </Button>
-                <Button variant="default" class="shadow-sm" title="AI 生成" @click="openAgent">
+                <Button variant="default" title="AI 生成" @click="openAgent">
                     <SparklesIcon class="size-4" />
                     <span class="hidden sm:inline ml-1">AI 生成</span>
                 </Button>

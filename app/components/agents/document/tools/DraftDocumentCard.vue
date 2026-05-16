@@ -90,7 +90,7 @@ function handleOpen() {
 
 <template>
     <div
-        class="not-prose group my-2 w-full max-w-md rounded-lg border bg-card p-4 shadow-sm transition-colors"
+        class="not-prose group my-2 w-full max-w-md rounded-lg border bg-card p-4 transition-colors"
         :class="[
             isRunning && 'border-primary/40 bg-primary/5',
             isFailed && 'border-destructive/40 bg-destructive/5',

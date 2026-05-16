@@ -11,7 +11,7 @@
       </div>
       <NuxtLink to="/dashboard/cases/create">
         <Button
-          class="w-full bg-gradient-brand text-white shadow-lg shadow-primary/25 transition hover:brightness-105 active:scale-95 md:w-auto">
+          class="w-full bg-gradient-brand-button text-white shadow-lg shadow-primary/25 transition hover:brightness-105 active:scale-95 md:w-auto">
           <Plus class="mr-2 size-4" />
           新建案件
         </Button>
@@ -20,7 +20,7 @@
 
     <!-- 快速统计卡片（移动端也保持一行 3 列，图标文字横向排列） -->
     <div class="grid grid-cols-3 gap-3 sm:gap-4">
-      <Card v-for="stat in caseStats" :key="stat.label" class="border-primary/10 bg-card/60 p-3 backdrop-blur sm:p-5">
+      <Card v-for="stat in caseStats" :key="stat.label" class="border-primary/10 bg-card/60 p-3 backdrop-blur transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-md sm:p-5">
         <div class="flex items-center gap-2.5 sm:gap-4">
           <div :class="['flex size-9 shrink-0 items-center justify-center rounded-lg sm:size-11 sm:rounded-xl', TINTS[stat.tint]]">
             <component :is="stat.icon" class="size-4 sm:size-5" />

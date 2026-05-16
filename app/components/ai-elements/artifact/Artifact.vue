@@ -8,7 +8,7 @@ const props = defineProps<{
 }>()
 
 const classes = computed(() => cn(
-  'flex flex-col overflow-hidden rounded-lg border bg-background shadow-sm',
+  'flex flex-col overflow-hidden rounded-lg border bg-background',
   props.class,
 ))
 </script>

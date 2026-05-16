@@ -18,7 +18,7 @@
           v-for="tool in TOOLS"
           :key="tool.to"
           :to="tool.to"
-          class="group flex flex-col items-center rounded-[12px] border bg-card p-6 text-center shadow-[0_1px_2px_0_rgb(0_0_0/0.04)] transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-md"
+          class="group flex flex-col items-center rounded-[12px] border bg-card p-6 text-center transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-md"
         >
           <div class="mb-3.5 flex size-12 items-center justify-center rounded-[12px] bg-[image:var(--tint-sky-bg)] text-[color:var(--tint-sky-fg)]">
             <component :is="tool.icon" class="size-7 transition group-hover:scale-110" />

@@ -14,7 +14,7 @@
         <div
           v-for="item in ITEMS"
           :key="item.title"
-          class="relative overflow-hidden rounded-2xl border bg-card px-8 pb-8 pt-9 shadow-[0_1px_2px_0_rgb(0_0_0/0.04)] transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-md"
+          class="relative overflow-hidden rounded-2xl border bg-card px-8 pb-8 pt-9 transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-md"
         >
           <!-- 顶部渐变描边 -->
           <div aria-hidden="true" class="absolute inset-x-0 top-0 h-[3px]" :style="{ background: item.stroke }" />

@@ -107,7 +107,7 @@ const stepColorClass: Record<StepKind, string> = {
 
 const wrapperClass = computed(() => {
   if (props.isFailed) return 'border-destructive/40 border-l-[3px] border-l-destructive bg-muted/30'
-  if (props.isRunning) return 'border-border border-l-[3px] border-l-primary bg-muted/30 shadow-sm'
+  if (props.isRunning) return 'border-border border-l-[3px] border-l-primary bg-muted/30'
   return 'border-border/60 border-l-[3px] border-l-primary/60 bg-muted/30'
 })
 
