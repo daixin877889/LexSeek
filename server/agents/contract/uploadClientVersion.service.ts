@@ -342,18 +342,21 @@ export async function* uploadClientVersionService(params: {
     // DOCX-H5 收紧：仅统计带 wordCommentRef 的系统批注（AI/lawyer），忽略 external
     // （external 不参与身份证绑定）；命中比例 <20% 也触发保护——避免"10 条系统批注
     // 只对上 1 条"也被放行导致 9 条被误删。
+    // redline 非空且确有修订条目 —— redlineCrossReview / redlineUsable / docxHasContent 共用
+    const redlineHasRefs = redline != null && redline.refs.length > 0
     // 修订身份证归属判定（spec §9.2）
     const redlineCrossReview =
-        redline != null && redline.refs.length > 0
-        && redline.reviewId !== null && redline.reviewId !== review.id
+        redlineHasRefs
+        && redline!.reviewId !== null && redline!.reviewId !== review.id
     if (redlineCrossReview) {
+        const rl = redline!
         logger.warn('修订身份证跨审查，已忽略该 docx 的修订标记', {
             uploadReviewId: review.id,
-            declaredReviewId: redline!.reviewId,
-            refCount: redline!.refs.length,
+            declaredReviewId: rl.reviewId,
+            refCount: rl.refs.length,
         })
     }
-    const redlineUsable = redline != null && redline.refs.length > 0 && !redlineCrossReview
+    const redlineUsable = redlineHasRefs && !redlineCrossReview
 
     // 统一覆盖率（spec §9.1）：批注命中 ∪ 修订身份证登记 的风险，
     // 占「带 customXml 身份证（wordCommentRef 非空）的风险」的比例。
@@ -372,7 +375,7 @@ export async function* uploadClientVersionService(params: {
     for (const id of coveredRiskIds) if (identifiableRiskIds.has(id)) coveredCount++
     const coverageRatio = identifiableRiskIds.size > 0 ? coveredCount / identifiableRiskIds.size : 1
     const NO_MATCH_THRESHOLD = 0.2
-    const docxHasContent = newComments.length > 0 || (redline != null && redline.refs.length > 0)
+    const docxHasContent = newComments.length > 0 || redlineHasRefs
     const tripsSafety =
         identifiableRiskIds.size > 0 && docxHasContent && coverageRatio < NO_MATCH_THRESHOLD
     if (tripsSafety) {
@@ -504,16 +507,19 @@ export async function* uploadClientVersionService(params: {
         [ClientRedlineDecision.UNTOUCHED]: 0,
         [ClientRedlineDecision.AMBIGUOUS]: 0,
     }
+    // riskId → risk 行映射：Step 3b 与 Step 5+6 事务内写修订处置都要按 id 查 risk，
+    // 提到此处一次构建、两处复用，避免事务内再做线性 dbRisks.find。
+    const riskByIdForRedline = new Map(dbRisks.map(r => [r.id, r]))
     if (redlineUsable) {
-        const riskByIdForRedline = new Map(dbRisks.map(r => [r.id, r]))
-        for (const ref of redline!.refs) {
+        const rl = redline!
+        for (const ref of rl.refs) {
             const risk = riskByIdForRedline.get(ref.riskId)
             if (!risk || !risk.problematicQuote || !risk.suggestedClauseText) continue
-            const { corpusT, corpusDel } = resolveCorpusForRef(redline!, ref)
+            const { corpusT, corpusDel } = resolveCorpusForRef(rl, ref)
             const decision = classifyRedlineDecision({
                 ref,
-                survivingInsIds: redline!.survivingInsIds,
-                survivingDelIds: redline!.survivingDelIds,
+                survivingInsIds: rl.survivingInsIds,
+                survivingDelIds: rl.survivingDelIds,
                 corpusT,
                 corpusDel,
                 problematicQuote: risk.problematicQuote,
@@ -974,7 +980,7 @@ export async function* uploadClientVersionService(params: {
             for (const [riskId, decision] of redlineDecisions) {
                 const data: Prisma.contractRisksUpdateInput = { clientRedlineDecision: decision }
                 if (decision === ClientRedlineDecision.ACCEPTED) {
-                    const r = dbRisks.find(x => x.id === riskId)
+                    const r = riskByIdForRedline.get(riskId)
                     if (r && r.archivedStatus == null) {
                         data.archivedStatus = 'handled'
                         data.archivedAt = new Date()
@@ -991,8 +997,12 @@ export async function* uploadClientVersionService(params: {
 
         let summary = `本轮变化：${externalChangeCount} 处外部变更 · ${clauseModifiedCount} 处条款修改 · AI 增量重审 ${aiReviewCount} 条 · 全局复核 ${globalReviewNewRiskCount} 条`
         if (redlineDecisions.size > 0) {
-            summary += ` · 客户修订：接受 ${redlineCounts.accepted} / 拒绝 ${redlineCounts.rejected} / 未处理 ${redlineCounts.untouched}`
-            if (redlineCounts.ambiguous > 0) summary += ` / 待确认 ${redlineCounts.ambiguous}`
+            summary += ` · 客户修订：接受 ${redlineCounts[ClientRedlineDecision.ACCEPTED]}`
+                + ` / 拒绝 ${redlineCounts[ClientRedlineDecision.REJECTED]}`
+                + ` / 未处理 ${redlineCounts[ClientRedlineDecision.UNTOUCHED]}`
+            if (redlineCounts[ClientRedlineDecision.AMBIGUOUS] > 0) {
+                summary += ` / 待确认 ${redlineCounts[ClientRedlineDecision.AMBIGUOUS]}`
+            }
         }
         const newVersion = await saveContractReviewVersionService({
             reviewId: review.id,

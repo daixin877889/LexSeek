@@ -486,7 +486,7 @@ export async function injectAnnotations(
 
     // comments.xml：全 annotations（含越界的）以保持 w:id 连续
     writeTextToZip(zip, 'word/comments.xml',
-        buildCommentsXmlFromAnnotations(annotations, wordIdByAnnotationId, reviewId, signature),
+        buildCommentsXmlFromAnnotations(annotations, wordIdByAnnotationId, signature),
     )
     // 移除原文件残留的 comments.xml.rels（我们生成的 comments 无外部关系；
     // 原 rels 的悬空引用会让 Word 报"文件损坏"）
@@ -591,11 +591,12 @@ function buildAnnotationRefsXml(
 /**
  * 构造 Phase C+ comments.xml。spec §4.3：作者名一律去 LS: 前缀；
  * AI 内容用署名，律师/客户用各自姓名。
+ *
+ * 身份证已移到 customXml/annotationRefs.xml，comments.xml 本身不承载 reviewId。
  */
 function buildCommentsXmlFromAnnotations(
     annotations: ContractAnnotationForExport[],
     wordIds: Map<number, number>,
-    reviewId: number,
     signature: string,
 ): string {
     const fallbackNow = new Date().toISOString()

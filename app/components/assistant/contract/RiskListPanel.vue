@@ -17,12 +17,12 @@ import {
     DownloadIcon, ChevronDownIcon, Loader2Icon, PencilIcon, Trash2Icon,
     FileTextIcon, Pin, TriangleAlert, CheckCircle2Icon, XCircleIcon,
     SendIcon, MessageCircleIcon, UserIcon, EyeOffIcon, RotateCcwIcon,
-    SparklesIcon, CircleDashedIcon, HelpCircleIcon,
+    SparklesIcon,
 } from 'lucide-vue-next'
 import { useLocalStorage } from '@vueuse/core'
 import type { ContractOverview, Risk, RiskDisplayPhaseB, ContractReviewStatus, PlaybookSnapshot, ContractAnnotationEntity, RiskArchivedStatus, ContractExportMode } from '#shared/types/contract'
 import type { AcceptableValue } from 'reka-ui'
-import { RISK_LEVEL_LABEL, ClientRedlineDecision, ClientRedlineDecisionText } from '#shared/types/contract'
+import { RISK_LEVEL_LABEL } from '#shared/types/contract'
 import {
     DropdownMenu,
     DropdownMenuTrigger,
@@ -31,8 +31,8 @@ import {
     DropdownMenuRadioGroup,
     DropdownMenuRadioItem,
 } from '~/components/ui/dropdown-menu'
-// UI-L1：徽章配色集中到 app/utils/contractRiskLevelStyle，与 ContractDocxPreview 共享
-import { RISK_LEVEL_BADGE_CLASS as LEVEL_CLASS } from '~/utils/contractRiskLevelStyle'
+// UI-L1：徽章配色集中到 app/utils/contractRiskLevelStyle，与 ContractDocxPreview / RiskCard 共享
+import { RISK_LEVEL_BADGE_CLASS as LEVEL_CLASS, CLIENT_REDLINE_BADGE } from '~/utils/contractRiskLevelStyle'
 import AssistantContractAnnotationBubble from '~/components/assistant/contract/AnnotationBubble.vue'
 import AssistantContractExportPdfDialog from '~/components/assistant/contract/ExportPdfDialog.vue'
 import AssistantContractOverviewPanel from '~/components/assistant/contract/OverviewPanel.vue'
@@ -223,30 +223,6 @@ const cardLayout = useLocalStorage<'stacked' | 'inline-diff'>(
 const ARCHIVED_STATUS_LABEL: Record<RiskArchivedStatus, string> = {
     handled: '已处理',
     ignored: '已忽略',
-}
-
-/** 客户修订处置徽章配置（图标 + 主题语义色，深色模式自适应） */
-const CLIENT_REDLINE_BADGE: Record<ClientRedlineDecision, { label: string; icon: unknown; class: string }> = {
-    [ClientRedlineDecision.ACCEPTED]: {
-        label: ClientRedlineDecisionText[ClientRedlineDecision.ACCEPTED],
-        icon: CheckCircle2Icon,
-        class: 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-400',
-    },
-    [ClientRedlineDecision.REJECTED]: {
-        label: ClientRedlineDecisionText[ClientRedlineDecision.REJECTED],
-        icon: XCircleIcon,
-        class: 'bg-orange-100 text-orange-700 dark:bg-orange-950/50 dark:text-orange-400',
-    },
-    [ClientRedlineDecision.UNTOUCHED]: {
-        label: ClientRedlineDecisionText[ClientRedlineDecision.UNTOUCHED],
-        icon: CircleDashedIcon,
-        class: 'bg-muted text-muted-foreground',
-    },
-    [ClientRedlineDecision.AMBIGUOUS]: {
-        label: ClientRedlineDecisionText[ClientRedlineDecision.AMBIGUOUS],
-        icon: HelpCircleIcon,
-        class: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950/50 dark:text-yellow-400',
-    },
 }
 
 function getArchivedStatus(r: RiskDisplayPhaseB): RiskArchivedStatus | null | undefined {

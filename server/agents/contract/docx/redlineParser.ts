@@ -1,8 +1,8 @@
 /**
  * 修订标记回传解析与处置判定（spec §6）。
  *
- * - parseRedlineMarks（Task 9）：从回传 docx 读 redlineRefs.xml + 存活 ins/del id + 按非空段落的正文语料。
- * - resolveCorpusForRef（Task 9）：按 redlineRefs 的 paraIdxs 取该风险所属段落的语料。
+ * - parseRedlineMarks：从回传 docx 读 redlineRefs.xml + 存活 ins/del id + 按非空段落的正文语料。
+ * - resolveCorpusForRef：按 redlineRefs 的 paraIdxs 取该风险所属段落的语料。
  * - classifyRedlineDecision：双层算法判定单条修订被客户接受/拒绝/未处理/需确认。
  */
 import { normalizeForMatch } from '../utils/textSimilarity'

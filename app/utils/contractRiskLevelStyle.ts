@@ -11,11 +11,42 @@
  * 单测如果要锁配色，进一份这里的映射即可。
  */
 import type { RiskLevel } from '#shared/types/contract'
+import { ClientRedlineDecision, ClientRedlineDecisionText } from '#shared/types/contract'
+import { CheckCircle2Icon, XCircleIcon, CircleDashedIcon, HelpCircleIcon } from 'lucide-vue-next'
 
 export const RISK_LEVEL_BADGE_CLASS: Record<RiskLevel, string> = {
     high: 'bg-red-500 text-white',
     medium: 'bg-orange-500 text-white',
     low: 'bg-gray-400 text-white',
+}
+
+/**
+ * 客户修订处置徽章配置（图标 + 主题语义色，深色模式自适应）。
+ *
+ * RiskCard 与 RiskListPanel 原本各维护一份完全相同的映射，散落两处易漂移；
+ * 统一收口到这里，两个组件直接 import 复用。
+ */
+export const CLIENT_REDLINE_BADGE: Record<ClientRedlineDecision, { label: string; icon: unknown; class: string }> = {
+    [ClientRedlineDecision.ACCEPTED]: {
+        label: ClientRedlineDecisionText[ClientRedlineDecision.ACCEPTED],
+        icon: CheckCircle2Icon,
+        class: 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-400',
+    },
+    [ClientRedlineDecision.REJECTED]: {
+        label: ClientRedlineDecisionText[ClientRedlineDecision.REJECTED],
+        icon: XCircleIcon,
+        class: 'bg-orange-100 text-orange-700 dark:bg-orange-950/50 dark:text-orange-400',
+    },
+    [ClientRedlineDecision.UNTOUCHED]: {
+        label: ClientRedlineDecisionText[ClientRedlineDecision.UNTOUCHED],
+        icon: CircleDashedIcon,
+        class: 'bg-muted text-muted-foreground',
+    },
+    [ClientRedlineDecision.AMBIGUOUS]: {
+        label: ClientRedlineDecisionText[ClientRedlineDecision.AMBIGUOUS],
+        icon: HelpCircleIcon,
+        class: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950/50 dark:text-yellow-400',
+    },
 }
 
 /**
