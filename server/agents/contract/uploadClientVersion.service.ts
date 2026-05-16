@@ -147,7 +147,7 @@ export async function* uploadClientVersionService(params: {
         let newDocxText: string
         let newClauses: ClauseSnapshotItem[]
         let newComments: ParsedWordComment[] = []
-        let annotationRefsByWId = new Map<number, AnnotationRefEntry>()
+        let customXmlRefEntries: AnnotationRefEntry[] = []
         // 修订标记回传解析（spec §6）：纯修订版回传无 comment，靠 redlineRefs.xml + 存活 ins/del id
         let redline: ParsedRedlineMarks | null = null
         // DOCX-C4：external_new 锚点需要用"非空段落序号 + 段落原文"而不是 clauseIndex，
@@ -183,7 +183,7 @@ export async function* uploadClientVersionService(params: {
             // 让上层感知并置 status=failed，避免"批注被当全部删除"的数据误删。
             const parsed = await parseWordComments(docxBuffer)
             newComments = parsed.comments
-            annotationRefsByWId = parsed.annotationRefsByWId
+            customXmlRefEntries = parsed.customXmlRefEntries
 
             // 修订标记解析（spec §6.1）：用同一份 Buffer 读 redlineRefs.xml + 存活 ins/del id。
             // redlineRefs.xml 缺失 / 损坏时返回 reviewId=null、refs=[]（纯批注版回传场景）。
@@ -243,10 +243,9 @@ export async function* uploadClientVersionService(params: {
     // 建 annotationId → ParsedWordComment 映射。
     // Word 兼容性（spec §5）：Word 重存 docx 会重排批注 w:id，导出时写入身份证的
     // wId 主键失效。改用正文内容把回传批注重新关联到系统批注。
-    // annotationRefsByWId 的 value（reviewId / annotationId）不受 Word 影响，仍用于
-    // 取「身份证声明的归属 review」做跨审查判定。
-    const annRefEntries = [...annotationRefsByWId.values()]
-    const declaredAnnReviewId = annRefEntries.length > 0 ? annRefEntries[0]!.reviewId : null
+    // customXml 身份证文件（含 reviewId）不被 Word 篡改，customXmlRefEntries 取自
+    // 它的全部 ref（不经 wId 过滤），用于取「身份证声明的归属 review」做跨审查判定。
+    const declaredAnnReviewId = customXmlRefEntries.length > 0 ? customXmlRefEntries[0]!.reviewId : null
     const contentMatchByWId = matchCommentsToAnnotations(
         newComments.map(c => ({ wId: c.wId, content: c.content })),
         dbAnnotations.map(a => ({ id: a.id, content: a.content })),

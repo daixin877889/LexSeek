@@ -55,7 +55,7 @@ vi.mock('~~/server/agents/contract/docx/parser', () => ({
 vi.mock('~~/server/agents/contract/docx/wordCommentParser', () => ({
     parseWordComments: vi.fn(async () => ({
         comments: [],
-        annotationRefsByWId: new Map(),
+        annotationRefsByWId: new Map(), customXmlRefEntries: [],
     })),
 }))
 
@@ -136,7 +136,7 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
         mockParseComments.mockReset()
         mockParseComments.mockResolvedValue({
             comments: [],
-            annotationRefsByWId: new Map(),
+            annotationRefsByWId: new Map(), customXmlRefEntries: [],
         })
         mockAnalyzeClause.mockReset()
         mockAnalyzeClause.mockResolvedValue([]) // 默认无新 risk
@@ -317,6 +317,7 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                         dateIso: new Date().toISOString(), anchorParagraphIndex: 0,
                     },
                 ],
+                customXmlRefEntries: [],
                 annotationRefsByWId: new Map([
                     [1, { reviewId, annotationId: sysAnn.id, source: 'customXml' }],
                 ]),
@@ -364,6 +365,7 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                         dateIso: new Date().toISOString(), anchorParagraphIndex: 0,
                     },
                 ],
+                customXmlRefEntries: [],
                 annotationRefsByWId: new Map([
                     [1, { reviewId, annotationId: sysAnn.id, source: 'customXml' }],
                 ]),
@@ -392,7 +394,7 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                         dateIso: new Date().toISOString(), anchorParagraphIndex: 0,
                     },
                 ],
-                annotationRefsByWId: new Map(),
+                annotationRefsByWId: new Map(), customXmlRefEntries: [],
             })
 
             const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
@@ -437,6 +439,7 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                         dateIso: new Date().toISOString(), anchorParagraphIndex: 0,
                     },
                 ],
+                customXmlRefEntries: [],
                 annotationRefsByWId: new Map([
                     [1, { reviewId, annotationId: 99999999, source: 'customXml' }], // 不存在的 ann id
                 ]),
@@ -478,6 +481,7 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                         dateIso: new Date().toISOString(), anchorParagraphIndex: 0,
                     },
                 ],
+                customXmlRefEntries: [{ reviewId: reviewId + 99999, annotationId: sysAnn.id, source: 'customXml', ref: '' }],
                 annotationRefsByWId: new Map([
                     // declared reviewId !== 当前 reviewId
                     [1, { reviewId: reviewId + 99999, annotationId: sysAnn.id, source: 'customXml' }],
@@ -800,7 +804,7 @@ describe('uploadClientVersionService（Phase B 双锚点迁移 spec §9.2）', (
         mockParseComments.mockReset()
         mockParseComments.mockResolvedValue({
             comments: [],
-            annotationRefsByWId: new Map(),
+            annotationRefsByWId: new Map(), customXmlRefEntries: [],
         })
         mockAnalyzeClause.mockReset()
         mockAnalyzeClause.mockResolvedValue([])

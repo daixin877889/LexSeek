@@ -18,7 +18,7 @@ import {
     tagOf,
     collectNonEmptyParagraphs,
 } from './xmlAst'
-import { locateLexseekCustomXml, REDLINE_REFS_NS } from './customXmlLocator'
+import { locateLexseekCustomXml, REDLINE_REFS_NS, REDLINE_REFS_ROOT } from './customXmlLocator'
 
 /** redlineRefs.xml 里一条 <ref> 的解析结果 */
 export interface RedlineRefEntry {
@@ -87,7 +87,7 @@ export async function parseRedlineMarks(docxBuffer: Buffer): Promise<ParsedRedli
     let reviewId: number | null = null
     const refs: RedlineRefEntry[] = []
     // 身份证文件按命名空间定位（兼容 Word 把 customXml 改名移位）
-    const located = await locateLexseekCustomXml(zip, REDLINE_REFS_NS, 'word/customXml/redlineRefs.xml')
+    const located = await locateLexseekCustomXml(zip, REDLINE_REFS_NS, REDLINE_REFS_ROOT, 'word/customXml/redlineRefs.xml')
     // 文件不在原始路径 → docx 被 Word 等规范化重写过 → docx 内 w:id 不可信
     const trustWordIds = located ? located.atOriginalPath : true
     if (located) {

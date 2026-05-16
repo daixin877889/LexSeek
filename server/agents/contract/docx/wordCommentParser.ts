@@ -19,7 +19,7 @@ import {
     textOf,
     hasRunChild,
 } from './xmlAst'
-import { locateLexseekCustomXml, ANNOTATION_REFS_NS } from './customXmlLocator'
+import { locateLexseekCustomXml, ANNOTATION_REFS_NS, ANNOTATION_REFS_ROOT } from './customXmlLocator'
 
 export interface ParsedWordComment {
     wId: number
@@ -58,6 +58,12 @@ export interface AnnotationRefEntry {
 export interface ParsedDocxComments {
     comments: ParsedWordComment[]
     annotationRefsByWId: Map<number, AnnotationRefEntry>
+    /**
+     * customXml 身份证文件里登记的全部 ref（不经 wId 过滤）。Word 重存会重排
+     * comment 的 w:id 使 annotationRefsByWId 映射失效，但 customXml 内容（含
+     * reviewId）不被篡改 —— 上层据此做跨审查归属判定。
+     */
+    customXmlRefEntries: AnnotationRefEntry[]
 }
 
 /**
@@ -69,7 +75,7 @@ export async function parseWordComments(docxBuffer: Buffer): Promise<ParsedDocxC
     const zip = await loadDocxZip(docxBuffer)
 
     const commentsFile = zip.file('word/comments.xml')
-    if (!commentsFile) return { comments: [], annotationRefsByWId: new Map() }
+    if (!commentsFile) return { comments: [], annotationRefsByWId: new Map(), customXmlRefEntries: [] }
 
     const commentsXml = await commentsFile.async('string')
     const comments = parseCommentNodes(commentsXml)
@@ -107,7 +113,7 @@ export async function parseWordComments(docxBuffer: Buffer): Promise<ParsedDocxC
         }
     }
 
-    return { comments, annotationRefsByWId }
+    return { comments, annotationRefsByWId, customXmlRefEntries: [...customXmlMap.values()] }
 }
 
 /** AST 解析 comments.xml 的所有 <w:comment> 节点 */
@@ -156,7 +162,7 @@ function collectCommentText(commentNode: Record<string, unknown>): string {
  */
 async function readCustomXmlRefs(zip: JSZip): Promise<Map<number, AnnotationRefEntry>> {
     const result = new Map<number, AnnotationRefEntry>()
-    const located = await locateLexseekCustomXml(zip, ANNOTATION_REFS_NS, 'word/customXml/annotationRefs.xml')
+    const located = await locateLexseekCustomXml(zip, ANNOTATION_REFS_NS, ANNOTATION_REFS_ROOT, 'word/customXml/annotationRefs.xml')
     if (!located) return result
     try {
         const ast = parseOoxml(located.xml)
