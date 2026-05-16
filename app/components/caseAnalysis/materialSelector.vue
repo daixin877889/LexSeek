@@ -1,7 +1,7 @@
 <template>
   <Dialog v-model:open="open">
     <DialogContent
-      :class="['max-w-4xl min-w-[80vw] md:min-w-[70vw] h-[85vh] md:h-[90vh] z-[70]', 'grid grid-rows-[auto_1fr] overflow-hidden', isUploadMode ? '' : 'grid-rows-[auto_1fr_auto]']"
+      :class="['max-w-4xl min-w-[80vw] md:min-w-[70vw] h-[85vh] md:h-[90vh] z-[70] rounded-2xl shadow-2xl', 'grid grid-rows-[auto_1fr] overflow-hidden', isUploadMode ? '' : 'grid-rows-[auto_1fr_auto]']"
       overlay-class="z-[70]"
       @interactOutside="(e) => e.preventDefault()">
       <DialogHeader>
@@ -16,8 +16,11 @@
           <!-- 左侧：文件类型筛选 -->
           <div v-if="!isUploadMode" class="flex items-center gap-1.5">
             <Button v-for="option in fileTypeOptions" :key="option.value"
-              :variant="selectedFileType === option.value ? 'default' : 'outline'" size="sm"
-              @click="selectedFileType = option.value" class="h-9">
+              variant="outline" size="sm"
+              :class="['h-9', selectedFileType === option.value
+                ? 'bg-gradient-brand text-white border-transparent shadow-md shadow-primary/25 hover:text-white'
+                : '']"
+              @click="selectedFileType = option.value">
               <component :is="option.icon" :class="['size-4', isSearchExpanded ? '' : 'md:mr-1.5', 'lg:mr-1.5']" />
               <span :class="['hidden', isSearchExpanded ? 'lg:inline' : 'md:inline']">{{ option.label }}</span>
             </Button>
@@ -51,7 +54,7 @@
             </div>
 
             <!-- 上传按钮 -->
-            <Button variant="default" size="sm" @click="toggleUploadMode" class="h-9">
+            <Button variant="default" size="sm" @click="toggleUploadMode" class="h-9 bg-gradient-brand text-white">
               <component :is="isUploadMode ? ArrowLeftIcon : UploadIcon"
                 :class="['size-4', isSearchExpanded ? '' : 'md:mr-1.5', 'lg:mr-1.5']" />
               <span :class="['hidden', isSearchExpanded ? 'lg:inline' : 'md:inline']">{{ isUploadMode ? "返回列表" : "上传文件"
@@ -94,7 +97,9 @@
             <!-- 空状态 -->
             <div v-if="filteredFiles.length === 0 && !loading"
               class="flex flex-col items-center justify-center h-full text-center">
-              <FileIcon class="size-12 text-muted-foreground/50 mb-4" />
+              <div class="flex size-14 items-center justify-center rounded-full bg-muted mb-4">
+                <FileIcon class="size-7 text-muted-foreground/50" />
+              </div>
               <p class="text-sm text-muted-foreground mb-2">
                 {{ searchQuery ? "未找到匹配的文件" : "暂无案情材料" }}
               </p>
@@ -109,15 +114,17 @@
               'flex items-center gap-3 p-4 transition-colors',
               isFileDisabled(file.id)
                 ? 'opacity-60 cursor-not-allowed bg-muted/30'
-                : 'hover:bg-accent/50 cursor-pointer'
+                : selectedFiles.includes(file.id)
+                  ? 'bg-primary/5 cursor-pointer'
+                  : 'hover:bg-accent/50 cursor-pointer'
             ]" @click="!isFileDisabled(file.id) && toggleFileSelection(file.id)">
               <!-- 复选框 -->
               <Checkbox :id="`file-${file.id}`" :model-value="selectedFiles.includes(file.id)"
-                :disabled="isFileDisabled(file.id)" class="cursor-pointer"
+                :disabled="isFileDisabled(file.id)" class="cursor-pointer data-[state=checked]:bg-gradient-brand data-[state=checked]:border-transparent"
                 @update:model-value="handleCheckboxChange(file.id, $event as boolean)" />
 
               <!-- 文件图标 -->
-              <div class="flex items-center justify-center size-10 rounded-md bg-muted">
+              <div class="flex items-center justify-center size-10 rounded-lg bg-muted">
                 <component :is="getFileIcon(file.fileType)" :class="['size-5', getFileIconColor(file.fileType)]" />
               </div>
 
@@ -171,7 +178,7 @@
         <!-- 右侧按钮组 -->
         <div class="flex items-center gap-2 ml-auto">
           <Button variant="outline" @click="closeDialog"> 取消 </Button>
-          <Button @click="confirmSelection" :disabled="selectedFiles.length === 0"> 确认选择 ({{ selectedFiles.length }})
+          <Button @click="confirmSelection" :disabled="selectedFiles.length === 0" class="bg-gradient-brand text-white"> 确认选择 ({{ selectedFiles.length }})
           </Button>
         </div>
       </DialogFooter>
