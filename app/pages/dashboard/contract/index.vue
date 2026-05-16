@@ -12,7 +12,7 @@
  *   caseId 传入表单，新建审查归属该案件。
  */
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
-import { refDebounced } from '@vueuse/core'
+import { refDebounced, useTimeoutFn } from '@vueuse/core'
 import { toast } from 'vue-sonner'
 import { FileText, Loader2, Search } from 'lucide-vue-next'
 import type { ReviewListItem } from '#shared/types/contract'
@@ -39,11 +39,13 @@ const initCaseId = computed(() => {
 })
 
 // ===== 筛选状态 =====
+type StatusFilter = 'all' | 'reviewing' | 'awaiting_stance' | 'completed' | 'failed'
+
 const formQ = ref('')
 const debouncedQ = refDebounced(formQ, 300)
-const formStatus = ref('all')
+const formStatus = ref<StatusFilter>('all')
 
-const STATUS_TABS = [
+const STATUS_TABS: { value: StatusFilter, label: string }[] = [
     { value: 'all', label: '全部' },
     { value: 'reviewing', label: '审查中' },
     { value: 'awaiting_stance', label: '等待立场' },
@@ -115,13 +117,19 @@ function confirmDelete(item: ReviewListItem) {
 // ===== ?new=1 → 滚动并高亮新建卡片 =====
 const createCardRef = ref<HTMLElement | null>(null)
 const highlightCreate = ref(false)
+// useTimeoutFn 在组件卸载时自动清理，避免悬挂定时器
+const { start: startHighlightReset } = useTimeoutFn(
+    () => { highlightCreate.value = false },
+    2000,
+    { immediate: false },
+)
 
 onMounted(async () => {
     if (route.query.new === '1') {
         await nextTick()
         createCardRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
         highlightCreate.value = true
-        setTimeout(() => { highlightCreate.value = false }, 2000)
+        startHighlightReset()
     }
 })
 </script>
@@ -130,10 +138,7 @@ onMounted(async () => {
     <div class="space-y-7 p-4 md:p-6">
         <!-- 页头 -->
         <header>
-            <!-- <p class="text-xs font-medium uppercase tracking-[0.08em] text-primary">
-                CONTRACT REVIEW · 合同审查
-            </p> -->
-            <h1 class="mt-2.5 text-2xl font-bold tracking-tight md:text-[28px]">合同审查</h1>
+            <h1 class="text-2xl font-bold tracking-tight md:text-[28px]">合同审查</h1>
             <p class="mt-1.5 max-w-2xl text-sm text-muted-foreground">
                 一键扫描合同条款风险、缺失项与改进建议
             </p>
