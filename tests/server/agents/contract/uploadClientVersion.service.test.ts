@@ -350,7 +350,7 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                 data: {
                     reviewId, riskId: risk.id,
                     authorType: 'ai', authorName: 'AI',
-                    content: '原始问题',
+                    content: '第一条甲方应支付首付款的约定缺少明确的支付时间，存在较大履约风险。',
                     wordCommentRef: `LEXSEEK-${1}-abcd1234`,
                 },
             })
@@ -360,7 +360,7 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                 comments: [
                     {
                         wId: 1, wAuthor: 'LS:AI', wInitials: '',
-                        content: '客户改的内容', parentWId: null,
+                        content: '第一条甲方应支付首付款的约定缺少明确的支付时间和方式，存在较大履约风险。', parentWId: null,
                         dateIso: new Date().toISOString(), anchorParagraphIndex: 0,
                     },
                 ],
@@ -464,7 +464,7 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
             const sysAnn = await prisma.contractAnnotations.create({
                 data: {
                     reviewId, riskId: risk.id,
-                    authorType: 'ai', authorName: 'AI', content: 'c',
+                    authorType: 'ai', authorName: 'AI', content: '第三条违约金条款约定金额过高，超过法定上限，可能被认定为无效。',
                     wordCommentRef: `LEXSEEK-${1}-abcd1234`,
                 },
             })
@@ -474,7 +474,7 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                 comments: [
                     {
                         wId: 1, wAuthor: 'LS:AI', wInitials: '',
-                        content: 'cross review 内容', parentWId: null,
+                        content: '第三条违约金条款约定金额过高，超过法定上限，可能被认定为无效。', parentWId: null,
                         dateIso: new Date().toISOString(), anchorParagraphIndex: 0,
                     },
                 ],

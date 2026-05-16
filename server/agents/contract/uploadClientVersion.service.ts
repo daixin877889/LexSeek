@@ -30,7 +30,8 @@ import { analyzeSingleClause } from './analyzeSingleClause'
 import { diffClauses } from './utils/clauseDiff'
 import { migrateRiskWithDualAnchor } from './utils/anchorMigrate'
 import { parseWordComments, type ParsedWordComment, type AnnotationRefEntry } from './docx/wordCommentParser'
-import { parseRedlineMarks, classifyRedlineDecision, resolveCorpusForRef, type ParsedRedlineMarks } from './docx/redlineParser'
+import { parseRedlineMarks, classifyRedlineDecision, resolveCorpusForRef, resolveFullCorpus, type ParsedRedlineMarks } from './docx/redlineParser'
+import { matchCommentsToAnnotations } from './docx/commentContentMatch'
 import { ClientRedlineDecision } from '#shared/types/contract'
 import { parseCommentRef, generateWordCommentRef, stripAuthorRef } from './utils/wordCommentRef'
 import { buildClauseToParagraphMap } from './utils/clauseToParagraph'
@@ -239,10 +240,27 @@ export async function* uploadClientVersionService(params: {
         }
     }
 
-    // 建 annotationId → ParsedWordComment 映射
-    // 优先从 customXml annotationRefs 查（Phase B 新导出的 docx），
-    // fallback 到 wInitials 正则解析（旧格式或 Word 截断后的降级路径）
-    // bug #12：记录命中/失败来源，便于后续监控"系统批注被误升级为 external_new"的情况。
+    // 建 annotationId → ParsedWordComment 映射。
+    // Word 兼容性（spec §5）：Word 重存 docx 会重排批注 w:id，导出时写入身份证的
+    // wId 主键失效。改用正文内容把回传批注重新关联到系统批注。
+    // annotationRefsByWId 的 value（reviewId / annotationId）不受 Word 影响，仍用于
+    // 取「身份证声明的归属 review」做跨审查判定。
+    const annRefEntries = [...annotationRefsByWId.values()]
+    const declaredAnnReviewId = annRefEntries.length > 0 ? annRefEntries[0]!.reviewId : null
+    const contentMatchByWId = matchCommentsToAnnotations(
+        newComments.map(c => ({ wId: c.wId, content: c.content })),
+        dbAnnotations.map(a => ({ id: a.id, content: a.content })),
+    )
+    // 重建 wId → {reviewId, annotationId}：annotationId 来自内容匹配，reviewId 取
+    // 身份证文件声明值（跨审查时 ≠ review.id）。
+    const commentRefByWId = new Map<number, { reviewId: number; annotationId: number; source: string }>()
+    for (const [wId, annotationId] of contentMatchByWId) {
+        commentRefByWId.set(wId, {
+            reviewId: declaredAnnReviewId ?? review.id,
+            annotationId,
+            source: 'content',
+        })
+    }
     const annById = new Map(dbAnnotations.map((a) => [a.id, a]))
     const commentByAnnId = new Map<number, ParsedWordComment>()
     let fallbackFail = 0
@@ -256,7 +274,7 @@ export async function* uploadClientVersionService(params: {
     const fallbackFailComments: ParsedWordComment[] = []
 
     for (const c of newComments) {
-        const refFromMap = annotationRefsByWId.get(c.wId)
+        const refFromMap = commentRefByWId.get(c.wId)
         if (!refFromMap) continue // 非系统批注 → 真新批注
 
         // H7：身份证声明的 review 必须等于当前 review，否则拒绝（跨 review 文件串扰保护）
@@ -306,17 +324,17 @@ export async function* uploadClientVersionService(params: {
     // 诊断快照：帮助定位匹配失败原因。大合同时（>50 条）只打前 50 条避免日志爆炸。
     const SNAPSHOT_LIMIT = 50
     const snapshotSource = newComments.slice(0, SNAPSHOT_LIMIT).map(c => {
-        const fromMap = annotationRefsByWId.get(c.wId)
+        const fromMap = commentRefByWId.get(c.wId)
         return {
             wId: c.wId,
             author: c.wAuthor,
-            source: fromMap?.source ?? null,
+            source: fromMap ? 'content' : null,
             declaredReviewId: fromMap?.reviewId ?? null,
             declaredAnnotationId: fromMap?.annotationId ?? null,
             contentPreview: (c.content ?? '').slice(0, 40),
         }
     })
-    const parsedCount = newComments.filter(c => annotationRefsByWId.has(c.wId)).length
+    const parsedCount = newComments.filter(c => commentRefByWId.has(c.wId)).length
     logger.info('本次上传批注匹配统计', {
         reviewId: review.id,
         dbAnnotationsCount: dbAnnotations.length,
@@ -410,16 +428,16 @@ export async function* uploadClientVersionService(params: {
 
     /** 判断一个 comment 是否为系统生成（LexSeek 注入）的批注 */
     function isSystemComment(c: ParsedWordComment): boolean {
-        return annotationRefsByWId.has(c.wId) || parseCommentRef(c.wAuthor, c.wInitials) !== null
+        return commentRefByWId.has(c.wId) || parseCommentRef(c.wAuthor, c.wInitials) !== null
     }
 
     /**
      * 获取一个 comment 对应的 annotationId。口径与 isSystemComment 一致：
-     * 先看 annotationRefsByWId（customXml 或 author），fallback 单独 parse author。
+     * 先看内容匹配结果 commentRefByWId，fallback 单独 parse author。
      * 非系统批注返回 null；跨 review 身份证也返回 null（外层已单独记日志）。
      */
     function getAnnotationId(c: ParsedWordComment): number | null {
-        const refFromMap = annotationRefsByWId.get(c.wId)
+        const refFromMap = commentRefByWId.get(c.wId)
         if (refFromMap) {
             return refFromMap.reviewId === review.id ? refFromMap.annotationId : null
         }
@@ -516,7 +534,7 @@ export async function* uploadClientVersionService(params: {
             const risk = riskByIdForRedline.get(ref.riskId)
             if (!risk || !risk.problematicQuote || !risk.suggestedClauseText) continue
             const { corpusT, corpusDel } = resolveCorpusForRef(rl, ref)
-            const decision = classifyRedlineDecision({
+            let decision = classifyRedlineDecision({
                 ref,
                 survivingInsIds: rl.survivingInsIds,
                 survivingDelIds: rl.survivingDelIds,
@@ -526,6 +544,21 @@ export async function* uploadClientVersionService(params: {
                 suggestedClauseText: risk.suggestedClauseText,
                 trustWordIds: rl.trustWordIds,
             })
+            // spec §6：按 paraIdxs 取的段落语料判不出（段落序号被 Word 增删段落漂移）
+            // 时，用全文语料兜底重判一次。
+            if (decision === ClientRedlineDecision.AMBIGUOUS) {
+                const full = resolveFullCorpus(rl)
+                decision = classifyRedlineDecision({
+                    ref,
+                    survivingInsIds: rl.survivingInsIds,
+                    survivingDelIds: rl.survivingDelIds,
+                    corpusT: full.corpusT,
+                    corpusDel: full.corpusDel,
+                    problematicQuote: risk.problematicQuote,
+                    suggestedClauseText: risk.suggestedClauseText,
+                    trustWordIds: rl.trustWordIds,
+                })
+            }
             redlineDecisions.set(ref.riskId, decision)
             redlineCounts[decision]++
         }
