@@ -809,8 +809,129 @@ export async function* uploadClientVersionService(params: {
 
     yield { type: 'progress', data: { step: 'ai', status: 'done' } }
 
-    // ============ Step 5+6: 一次事务写入 + 保存快照 ============
+    // ============ Step 5 锚点迁移计算（重 CPU，必须在事务外）============
+    // migrateRiskWithDualAnchor 内部是 scanWindowRange 双层窗口扫描 × diff-match-patch
+    // Levenshtein，长条款上是几十秒级的重 CPU 计算。放进事务会让事务时钟被纯 JS 计算
+    // 占满、触发 "expired transaction" 超时（Prisma 官方亦建议 doing less work in the
+    // transaction）。这里事务外先算好每条 risk 的 update payload，事务内只做 DB 写。
     try {
+        // DOCX-C3：r.clauseParagraphIndex 是"非空段落序号"空间，clauseDiffResult 里的
+        // oldIndex/newIndex 是 oldClauses/newClauses 的"数组下标"空间——两个空间不能直接
+        // ===。改成基于 clauseText 推断"老条款数组下标"：拿 r.clauseText 的 head 在
+        // oldClauses 里 find 第一个 includes 命中的条款下标；找不到 → migrate 走全局漂移。
+        const oldHeadToArrayIdx = new Map<string, number>()
+        for (let oi = 0; oi < oldClauses.length; oi++) {
+            const head = (oldClauses[oi]?.text ?? '').slice(0, 40)
+            if (head.length >= 4 && !oldHeadToArrayIdx.has(head)) {
+                oldHeadToArrayIdx.set(head, oi)
+            }
+        }
+        const findOldClauseArrayIdxByAnchor = (anchor: string): number | null => {
+            if (!anchor) return null
+            for (const [head, oi] of oldHeadToArrayIdx) {
+                if (anchor.includes(head)) return oi
+            }
+            return null
+        }
+
+        const migrateStartMs = Date.now()
+        const riskMigrateUpdates: Array<{ id: number; data: Prisma.contractRisksUpdateInput }> = []
+        for (const r of dbRisks) {
+            if (r.clauseParagraphIndex == null) continue
+            const oldArrayIdx = findOldClauseArrayIdxByAnchor(r.clauseText ?? '')
+            const isModified = oldArrayIdx !== null
+                && clauseDiffResult.modified.some((m) => m.oldIndex === oldArrayIdx)
+            const isRemoved = oldArrayIdx !== null && clauseDiffResult.removed.includes(oldArrayIdx)
+            const unchangedMapping = oldArrayIdx !== null
+                ? clauseDiffResult.unchanged.find((u) => u.oldIndex === oldArrayIdx)
+                : null
+
+            if (isModified || isRemoved || oldArrayIdx === null) {
+                // modified / removed / 完全找不到对应旧条款 → 走双锚点迁移（spec §9.2）
+                const preferredNew = isModified
+                    ? (clauseDiffResult.modified.find((m) => m.oldIndex === oldArrayIdx)?.newIndex ?? null)
+                    : null
+                const result = migrateRiskWithDualAnchor({
+                    oldClauseText: r.clauseText ?? '',
+                    oldProblematicQuote: r.problematicQuote,
+                    preferredNewClauseArrayIdx: preferredNew,
+                    newClauses,
+                    newDocxText,
+                })
+                if (result) {
+                    const newParaIdx = newClauseArrayIdxToParaIdx(result.newClauseArrayIdx)
+                    // spec §9.3：clauseText 实际变化 + 旧值非空 + 未备份过时才回填 originalClauseText
+                    // 旧值非空守护：PR2 schema 给 clauseText `@default("")`，存量行可能是空串，
+                    // 备份空串无业务意义反而污染"原文已修改"UI 提示
+                    const oldClauseTextStr = r.clauseText ?? ''
+                    const clauseTextChanged = oldClauseTextStr.length > 0 && oldClauseTextStr !== result.newClauseText
+                    const originalUpdate = clauseTextChanged && !r.originalClauseText
+                        ? { originalClauseText: oldClauseTextStr }
+                        : {}
+                    // 档 1 (matchType=quote)：写双锚点全字段；保留原 quoteMatchSource
+                    // 档 2 (matchType=clause)：写 clause 字段 + 清空 quote 字段（含 quoteMatchSource）
+                    const quoteUpdate = result.matchType === 'quote'
+                        ? {
+                            problematicQuote: result.newProblematicQuote,
+                            quoteCharStart: result.newQuoteCharStart,
+                            quoteCharEnd: result.newQuoteCharEnd,
+                            // quoteMatchSource 沿用旧值（迁移不改变首次审查时的命中来源语义）
+                        }
+                        : {
+                            problematicQuote: null,
+                            quoteCharStart: null,
+                            quoteCharEnd: null,
+                            quoteMatchSource: null,
+                        }
+                    riskMigrateUpdates.push({
+                        id: r.id,
+                        data: {
+                            clauseIndex: newClauses[result.newClauseArrayIdx]!.index,
+                            clauseParagraphIndex: newParaIdx,
+                            clauseText: result.newClauseText,
+                            clauseCharStart: result.newClauseCharStart,
+                            clauseCharEnd: result.newClauseCharEnd,
+                            orphaned: false, // 之前 orphaned=true 的 risk 重传后又能定位时复活
+                            ...quoteUpdate,
+                            ...originalUpdate,
+                        },
+                    })
+                } else {
+                    // 档 3：两档都失败 → orphaned，保留旧 clauseText / problematicQuote 不动
+                    // originalClauseText 仅在旧值非空 + 未备份过时回填（与档 1/2 同口径）
+                    const oldClauseTextStr = r.clauseText ?? ''
+                    const orphanedOriginalUpdate = oldClauseTextStr.length > 0 && !r.originalClauseText
+                        ? { originalClauseText: oldClauseTextStr }
+                        : {}
+                    riskMigrateUpdates.push({
+                        id: r.id,
+                        data: {
+                            orphaned: true,
+                            ...orphanedOriginalUpdate,
+                        },
+                    })
+                }
+            } else if (unchangedMapping) {
+                // unchanged clause：位置可能变化，更新 clauseParagraphIndex 到新段落序号
+                // （quote 字段无需动——clauseText 没变，相对 offset 仍然有效）
+                const newParaIdx = newClauseArrayIdxToParaIdx(unchangedMapping.newIndex)
+                if (newParaIdx !== r.clauseParagraphIndex) {
+                    riskMigrateUpdates.push({
+                        id: r.id,
+                        data: { clauseParagraphIndex: newParaIdx },
+                    })
+                }
+            }
+        }
+        logger.info('Step5 锚点迁移计算完成（事务外）', {
+            reviewId: review.id,
+            riskCount: dbRisks.length,
+            updateCount: riskMigrateUpdates.length,
+            ms: Date.now() - migrateStartMs,
+        })
+
+        // ============ Step 5+6: 一次事务写入 + 保存快照 ============
+        const txStartMs = Date.now()
         await prisma.$transaction(async (tx) => {
             // 标记客户删除的批注
             if (removedAnnIds.length > 0) {
@@ -900,114 +1021,10 @@ export async function* uploadClientVersionService(params: {
                 })
             }
 
-            // DOCX-C3：锚点迁移路径里 r.clauseParagraphIndex 是"非空段落序号"空间，
-            // clauseDiffResult.modified/removed/unchanged 里的 oldIndex/newIndex 是
-            // oldClauses/newClauses 的"数组下标"空间——两个空间不能直接 ===。
-            // 改成基于 clauseText 推断"老条款数组下标"：拿 r.clauseText 的 head
-            // 在 oldClauses 里 find 第一个 startsWith / includes 命中的条款下标。
-            // - 找到 → 用 modified/removed/unchanged 决定路径
-            // - 找不到（clauseText 与 oldClauses 都对不上）→ migrate 走全局漂移搜索
-            const oldHeadToArrayIdx = new Map<string, number>()
-            for (let oi = 0; oi < oldClauses.length; oi++) {
-                const head = (oldClauses[oi]?.text ?? '').slice(0, 40)
-                if (head.length >= 4 && !oldHeadToArrayIdx.has(head)) {
-                    oldHeadToArrayIdx.set(head, oi)
-                }
-            }
-            function findOldClauseArrayIdxByAnchor(anchor: string): number | null {
-                if (!anchor) return null
-                for (const [head, oi] of oldHeadToArrayIdx) {
-                    if (anchor.includes(head)) return oi
-                }
-                return null
-            }
-
-            for (const r of dbRisks) {
-                if (r.clauseParagraphIndex == null) continue
-                const oldArrayIdx = findOldClauseArrayIdxByAnchor(r.clauseText ?? '')
-                const isModified = oldArrayIdx !== null
-                    && clauseDiffResult.modified.some((m) => m.oldIndex === oldArrayIdx)
-                const isRemoved = oldArrayIdx !== null && clauseDiffResult.removed.includes(oldArrayIdx)
-                const unchangedMapping = oldArrayIdx !== null
-                    ? clauseDiffResult.unchanged.find((u) => u.oldIndex === oldArrayIdx)
-                    : null
-
-                if (isModified || isRemoved || oldArrayIdx === null) {
-                    // modified / removed / 完全找不到对应旧条款 → 走双锚点迁移（spec §9.2）
-                    const preferredNew = isModified
-                        ? (clauseDiffResult.modified.find((m) => m.oldIndex === oldArrayIdx)?.newIndex ?? null)
-                        : null
-                    const result = migrateRiskWithDualAnchor({
-                        oldClauseText: r.clauseText ?? '',
-                        oldProblematicQuote: r.problematicQuote,
-                        preferredNewClauseArrayIdx: preferredNew,
-                        newClauses,
-                        newDocxText,
-                    })
-                    if (result) {
-                        const newParaIdx = newClauseArrayIdxToParaIdx(result.newClauseArrayIdx)
-                        // spec §9.3：clauseText 实际变化 + 旧值非空 + 未备份过时才回填 originalClauseText
-                        // 旧值非空守护：PR2 schema 给 clauseText `@default("")`，存量行可能是空串，
-                        // 备份空串无业务意义反而污染"原文已修改"UI 提示
-                        const oldClauseTextStr = r.clauseText ?? ''
-                        const clauseTextChanged = oldClauseTextStr.length > 0 && oldClauseTextStr !== result.newClauseText
-                        const originalUpdate = clauseTextChanged && !r.originalClauseText
-                            ? { originalClauseText: oldClauseTextStr }
-                            : {}
-                        // 档 1 (matchType=quote)：写双锚点全字段；保留原 quoteMatchSource
-                        // 档 2 (matchType=clause)：写 clause 字段 + 清空 quote 字段（含 quoteMatchSource）
-                        const quoteUpdate = result.matchType === 'quote'
-                            ? {
-                                problematicQuote: result.newProblematicQuote,
-                                quoteCharStart: result.newQuoteCharStart,
-                                quoteCharEnd: result.newQuoteCharEnd,
-                                // quoteMatchSource 沿用旧值（迁移不改变首次审查时的命中来源语义）
-                            }
-                            : {
-                                problematicQuote: null,
-                                quoteCharStart: null,
-                                quoteCharEnd: null,
-                                quoteMatchSource: null,
-                            }
-                        await tx.contractRisks.update({
-                            where: { id: r.id },
-                            data: {
-                                clauseIndex: newClauses[result.newClauseArrayIdx]!.index,
-                                clauseParagraphIndex: newParaIdx,
-                                clauseText: result.newClauseText,
-                                clauseCharStart: result.newClauseCharStart,
-                                clauseCharEnd: result.newClauseCharEnd,
-                                orphaned: false, // 之前 orphaned=true 的 risk 重传后又能定位时复活
-                                ...quoteUpdate,
-                                ...originalUpdate,
-                            },
-                        })
-                    } else {
-                        // 档 3：两档都失败 → orphaned，保留旧 clauseText / problematicQuote 不动
-                        // originalClauseText 仅在旧值非空 + 未备份过时回填（与档 1/2 同口径）
-                        const oldClauseTextStr = r.clauseText ?? ''
-                        const orphanedOriginalUpdate = oldClauseTextStr.length > 0 && !r.originalClauseText
-                            ? { originalClauseText: oldClauseTextStr }
-                            : {}
-                        await tx.contractRisks.update({
-                            where: { id: r.id },
-                            data: {
-                                orphaned: true,
-                                ...orphanedOriginalUpdate,
-                            },
-                        })
-                    }
-                } else if (unchangedMapping) {
-                    // unchanged clause：位置可能变化，更新 clauseParagraphIndex 到新段落序号
-                    // （quote 字段无需动——clauseText 没变，相对 offset 仍然有效）
-                    const newParaIdx = newClauseArrayIdxToParaIdx(unchangedMapping.newIndex)
-                    if (newParaIdx !== r.clauseParagraphIndex) {
-                        await tx.contractRisks.update({
-                            where: { id: r.id },
-                            data: { clauseParagraphIndex: newParaIdx },
-                        })
-                    }
-                }
+            // Step 5 锚点迁移写回：payload 已在事务外算好（migrateRiskWithDualAnchor
+            // 是几十秒级重 CPU 计算，不能进事务——见事务外注释）。事务内只做 DB 写。
+            for (const u of riskMigrateUpdates) {
+                await tx.contractRisks.update({ where: { id: u.id }, data: u.data })
             }
 
             // 写客户修订处置（spec §7）：接受 → 自动解决，但不覆盖律师已有处置。
@@ -1038,10 +1055,11 @@ export async function* uploadClientVersionService(params: {
             // 读到过期快照。tx 透传保证同一 pg 连接、同一事务范围。
             await syncReviewRisksJsonb(review.id, tx)
         }, {
-            // Step 5+6 事务含锚点迁移 + 修订处置 + JSONB 同步，大合同回传耗时可超默认
-            // 5s 阈值；回传是低频操作，放宽到 30s 保证原子性不被超时打断。
+            // 事务现在只含 DB 写（创建批注 / 写迁移 payload / 写处置 / JSONB 同步），
+            // 重计算已移出事务。30s 阈值对纯 DB 写绰绰有余，留作兜底。
             timeout: 30_000,
         })
+        logger.info('Step5 事务完成', { reviewId: review.id, ms: Date.now() - txStartMs })
 
         let summary = `本轮变化：${externalChangeCount} 处外部变更 · ${clauseModifiedCount} 处条款修改 · AI 增量重审 ${aiReviewCount} 条 · 全局复核 ${globalReviewNewRiskCount} 条`
         if (redlineDecisions.size > 0) {
