@@ -80,13 +80,13 @@ function Hero({ onCtaClick }) {
             font: '400 13px/1.4 var(--font-sans)', color: 'var(--muted-foreground)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <BrandDot /> 数万律师 · 律所信赖
+              <BrandDot /> 法条核对 · 拒绝幻觉
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <BrandDot /> 案件记忆 · 持续学习
+              <BrandDot /> 案件记忆 · 越用越懂你
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <BrandDot /> 多模型适配
+              <BrandDot /> 多模态 · 多种材料精准识别
             </div>
           </div>
         </div>
