@@ -205,6 +205,8 @@ interface SafeUserInfo {
 
 **排除的字段**：`password`、`deletedAt`、`createdAt`、`updatedAt` 等敏感或内部字段。
 
+**扩展字段**：`users.contractExportSignature`（VARCHAR(50)，可空）存储用户在合同导出时的自定义署名，用于修订标记与批注气泡的 `w:author` 显示。`PUT /api/v1/users/profile` 已支持读写该字段；读取逻辑见 `server/services/users/contractSignature.service.ts` 的 `resolveContractExportSignatureService`（未设时回退账号姓名）。
+
 ## 3. 短信验证
 
 ### 3.1 验证码验证服务（smsVerification.service.ts）

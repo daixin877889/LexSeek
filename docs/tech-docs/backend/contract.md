@@ -363,3 +363,68 @@ WHERE source = 'ai'
 GROUP BY quote_match_source
 ORDER BY COUNT(*) DESC;
 ```
+
+---
+
+## 13. 修订版回传识别与自定义署名
+
+PR8 落地的能力：导出修订版 docx 时写入修订身份证，客户回传时自动识别每条 AI 修订的处置结果（接受/拒绝/未处理/需确认）；导出作者名支持用户自定义署名。
+
+### 13.1 修订身份证（redlineRefs.xml）
+
+`injectRedlineMarks`（`server/agents/contract/docx/redlineInjector.ts`）导出修订版 docx 后，将身份证文件写入 `word/customXml/redlineRefs.xml`，并经 `registerCustomXmlPart`（`server/agents/contract/docx/customXmlRegistrar.ts`）注册到 `[Content_Types].xml` 与对应 rels，使 Word 原生能读取该部分。
+
+身份证 XML 结构：
+
+```xml
+<lexseekRedlineRefs xmlns="urn:lexseek:contract-review-redline:v1" reviewId="123">
+  <ref riskId="5" delIds="10,11" insId="12" paraIdxs="3,4" />
+  ...
+</lexseekRedlineRefs>
+```
+
+| 属性 | 说明 |
+|------|------|
+| `reviewId` | 审查 ID，回传时用于跨审查校验，防止误回传 |
+| `riskId` | 对应 `contract_risks.id` |
+| `delIds` | 该 risk 的 `<w:del>` 节点 w:id 列表（逗号分隔） |
+| `insId` | 该 risk 的 `<w:ins>` 节点 w:id |
+| `paraIdxs` | 修订所跨非空段落序号，用于回传识别时定位语料范围 |
+
+### 13.2 回传识别：三个核心函数
+
+位于 `server/agents/contract/docx/redlineParser.ts`：
+
+| 函数 | 职责 |
+|------|------|
+| `parseRedlineMarks(docxBuffer)` | 读 redlineRefs.xml + 扫全文存活的 `<w:ins>` / `<w:del>` w:id 集合 + 收集所有非空段落归一化语料；文件不存在或损坏时返回空结果，不抛错 |
+| `resolveCorpusForRef(paragraphs, paraIdxs)` | 按 `paraIdxs` 取该风险所属段落的 `<w:t>` / `<w:delText>` 语料（归一化），将比对范围限定在风险段落，避免全文误判 |
+| `classifyRedlineDecision(input)` | 双层算法判定单条修订处置：Layer 1 比对 `delIds` / `insId` 在回传 docx 是否存活；Layer 2 比对正文语料（`problematicQuote` / `suggestedClauseText`）做文字兜底 |
+
+`classifyRedlineDecision` 返回 4 态（`ClientRedlineDecision` 枚举，位于 `shared/types/contract.ts`）：
+
+| 值 | 含义 |
+|----|------|
+| `accepted` | 客户接受了 AI 修订（del 消失、ins 保留或已接受入正文） |
+| `rejected` | 客户拒绝了 AI 修订（del 保留、ins 消失） |
+| `untouched` | 修订标记仍原样存活，客户未动 |
+| `ambiguous` | Layer 1/2 均无法确定（如 Word 重排 w:id 后语料也对不上） |
+
+### 13.3 uploadClientVersion 回传接入点
+
+`uploadClientVersionService`（`server/agents/contract/uploadClientVersion.service.ts`）在接收客户回传 docx 时：
+
+1. **Step 2**：调 `parseRedlineMarks` 解析修订信息，得到 `refs`、存活 id 集合、段落语料。
+2. **Step 3b**：对每条 ref 调 `resolveCorpusForRef` + `classifyRedlineDecision`，汇总 `redlineDecisions: Map<riskId, ClientRedlineDecision>`。
+3. **统一覆盖率安全保护**：批注命中数（批注链路）与修订登记数（`refs.length`）合并计算覆盖率，低于阈值时报 `NO_CONTENT_MATCH` 错误中止处理。跨审查 `reviewId` 不符时也触发同一错误，提示律师确认上传文件是否来自本审查。
+4. **Step 5（事务内）**：对 `redlineDecisions` 中每条写 `contractRisks.clientRedlineDecision`；若 `decision === 'accepted'` 且该 risk 的 `archivedStatus` 为 `null`，同步将 `archivedStatus` 置为 `'handled'`（自动解决）；不覆盖律师已有处置（`archivedStatus` 非 null 时跳过自动解决）。
+
+### 13.4 自定义署名
+
+`resolveContractExportSignatureService(userId)`（`server/services/users/contractSignature.service.ts`）：
+
+- 读 `users.contractExportSignature`（VARCHAR(50)）；为空/空白时回退用户账号姓名（`users.name`）；用户不存在时返回安全默认值。
+- 导出修订版时，`injectRedlineMarks` 的 `options.signature` 传入署名，修订标记的 `w:author` 写该值；导出批注时 `commentInjector` 同样使用署名作者名。
+- 历史写死的 `LS:` 前缀已移除，作者名就是署名本身（如"张三"），Word 修订栏/批注气泡直接显示律师姓名。
+
+署名可通过 `PUT /api/v1/users/profile` 读写（字段 `contractExportSignature`），设置界面位于用户设置页。
