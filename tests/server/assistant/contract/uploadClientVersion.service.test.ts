@@ -249,6 +249,7 @@ vi.mock('~~/server/agents/contract/docx/wordCommentParser', () => ({
     parseWordComments: vi.fn(async (): Promise<ParsedDocxComments> => ({
         comments: [],
         annotationRefsByWId: new Map(),
+        customXmlRefEntries: [],
     })),
 }))
 
@@ -346,6 +347,12 @@ describe('uploadClientVersionService（customXml 映射识别）', () => {
                     ref: `LEXSEEK-${ann.id}-abc12345`,
                 }],
             ]),
+            customXmlRefEntries: [{
+                reviewId,
+                annotationId: ann.id,
+                source: 'customXml',
+                ref: `LEXSEEK-${ann.id}-abc12345`,
+            }],
         } satisfies ParsedDocxComments)
 
         const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
