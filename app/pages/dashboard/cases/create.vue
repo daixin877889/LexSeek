@@ -13,7 +13,7 @@
     <!-- step = 'ai': AI 创建视图（v-show 保留 DOM 避免输入丢失） -->
     <div v-show="step === 'ai'" class="flex-1 overflow-y-auto">
       <!-- 欢迎语 -->
-      <CaseAnalysisWelcome title="你好，我是小索，你的案件分析助手" subtitle="在下方输入框输入或上传案情材料，我会为你分析案件" />
+      <CaseAnalysisWelcome title="你好，我是小索，您的案件分析助手" subtitle="在下方输入框输入或上传案情材料，我会为您分析案件" />
 
       <!-- 输入框 -->
       <AiPromptInput ref="promptInputRef" class="h-auto!" placeholder="请描述您的案件情况，例如：张三与李四因房屋租赁合同产生纠纷..."
