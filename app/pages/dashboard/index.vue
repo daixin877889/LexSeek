@@ -1,27 +1,31 @@
 <template>
   <div class="p-4 md:p-6 lg:p-8 w-full">
     <!-- 分析次数限制提示 -->
-    <div v-if="showAnalysisLimits" class="w-full p-4 mb-4 bg-primary/10 border border-primary/20 rounded-lg flex items-center justify-between">
+    <div v-if="showAnalysisLimits"
+      class="w-full p-4 mb-4 bg-primary/10 border border-primary/20 rounded-lg flex items-center justify-between">
       <p class="text-sm text-foreground">
-        您正在使用的是 <strong class="text-primary">{{ dashboardData?.membership?.levelName ?? '免费版' }}</strong>，今日可用分析次数 <strong>{{ 0 }} / {{ 10 }}</strong> ，本月可用分析次数 <strong>{{ 0 }} / {{ 100 }}</strong>。
+        您正在使用的是 <strong class="text-primary">{{ dashboardData?.membership?.levelName ?? '免费版' }}</strong>，今日可用分析次数
+        <strong>{{ 0 }} / {{ 10 }}</strong> ，本月可用分析次数 <strong>{{ 0 }} / {{ 100 }}</strong>。
       </p>
       <Button variant="default" size="sm">立即升级</Button>
     </div>
 
     <!-- 活动横幅 -->
-    <button
-      type="button"
+    <button type="button"
       class="relative mb-8 w-full cursor-pointer overflow-hidden rounded-xl bg-gradient-brand px-5 py-3.5 text-left text-white shadow-[0_10px_25px_-10px_rgba(9,3,128,0.4)] transition hover:brightness-105"
-      @click="wxSupportStore.showQrCode()"
-    >
-      <span aria-hidden="true" class="pointer-events-none absolute -top-8 right-16 size-36 rounded-full bg-white/[0.08]" />
-      <span aria-hidden="true" class="pointer-events-none absolute top-2.5 -right-5 size-16 rounded-full bg-white/[0.06]" />
+      @click="wxSupportStore.showQrCode()">
+      <span aria-hidden="true"
+        class="pointer-events-none absolute -top-8 right-16 size-36 rounded-full bg-white/[0.08]" />
+      <span aria-hidden="true"
+        class="pointer-events-none absolute top-2.5 -right-5 size-16 rounded-full bg-white/[0.06]" />
       <span class="relative flex items-center justify-between gap-4">
         <span class="flex items-center gap-3.5">
-          <span class="inline-flex shrink-0 items-center rounded-full bg-white px-3 py-[5px] text-[11px] font-bold tracking-[0.08em] text-[#0A4DA8]">限时活动</span>
+          <span
+            class="inline-flex shrink-0 items-center rounded-full bg-white px-3 py-[5px] text-[11px] font-bold tracking-[0.08em] text-[#0A4DA8]">限时活动</span>
           <span class="text-[15px] font-semibold leading-snug">联系客服可领取 7 天延长使用兑换码</span>
         </span>
-        <span class="hidden shrink-0 items-center gap-1 rounded-md bg-white/95 px-4 py-2 text-[13px] font-semibold text-[#0A4DA8] sm:inline-flex">
+        <span
+          class="hidden shrink-0 items-center gap-1 rounded-md bg-white/95 px-4 py-2 text-[13px] font-semibold text-[#0A4DA8] sm:inline-flex">
           点此联系客服
           <ArrowRight class="size-3.5" />
         </span>
@@ -38,20 +42,13 @@
 
     <!-- 数据概览卡片 -->
     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
-      <component
-        :is="stat.to ? NuxtLinkComp : 'div'"
-        v-for="stat in stats"
-        :key="stat.label"
-        :to="stat.to"
-        class="group block rounded-xl border border-border bg-card p-6 shadow-sm transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-md"
-      >
+      <component :is="stat.to ? NuxtLinkComp : 'div'" v-for="stat in stats" :key="stat.label" :to="stat.to"
+        class="group block rounded-xl border border-border bg-card p-6 shadow-sm transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-md">
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
             <p class="mb-1 text-sm font-medium text-muted-foreground">{{ stat.label }}</p>
-            <h3
-              class="truncate font-bold text-card-foreground"
-              :class="typeof stat.value === 'number' ? 'text-3xl' : 'text-2xl'"
-            >{{ stat.value }}</h3>
+            <h3 class="truncate font-bold text-card-foreground"
+              :class="typeof stat.value === 'number' ? 'text-3xl' : 'text-2xl'">{{ stat.value }}</h3>
           </div>
           <div :class="['flex size-10 shrink-0 items-center justify-center rounded-[10px]', TINTS[stat.tint]]">
             <component :is="stat.icon" class="size-[22px]" />
@@ -71,15 +68,10 @@
     <div class="mb-8">
       <h2 class="mb-4 text-xl font-semibold text-foreground">快速操作</h2>
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <component
-          :is="action.to ? NuxtLinkComp : 'button'"
-          v-for="action in QUICK_ACTIONS"
-          :key="action.title"
-          :to="action.to"
-          :type="action.to ? undefined : 'button'"
+        <component :is="action.to ? NuxtLinkComp : 'button'" v-for="action in QUICK_ACTIONS" :key="action.title"
+          :to="action.to" :type="action.to ? undefined : 'button'"
           class="flex cursor-pointer items-center gap-4 rounded-xl border border-border bg-card p-4 text-left shadow-sm transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-md"
-          @click="action.onClick?.()"
-        >
+          @click="action.onClick?.()">
           <div :class="['flex size-10 shrink-0 items-center justify-center rounded-[10px]', TINTS[action.tint]]">
             <component :is="action.icon" class="size-5" />
           </div>
@@ -98,20 +90,22 @@
         <NuxtLink to="/dashboard/cases" class="text-sm font-medium text-primary hover:underline">查看全部</NuxtLink>
       </div>
       <div class="flex flex-col gap-3">
-        <NuxtLink
-          v-for="c in dashboardData?.recentCases"
-          :key="c.id"
-          :to="`/dashboard/cases/${c.id}`"
-          class="block rounded-lg border border-border bg-card p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
-        >
+        <NuxtLink v-for="c in dashboardData?.recentCases" :key="c.id" :to="`/dashboard/cases/${c.id}`"
+          class="block rounded-lg border border-border bg-card p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
           <div class="flex items-center justify-between gap-3">
             <div class="min-w-0 flex-1">
-              <h3 class="mb-1.5 truncate font-medium text-foreground">{{ c.title }}</h3>
-              <div class="flex items-center gap-3">
-                <span class="text-sm text-muted-foreground">{{ c.date }}</span>
-                <span class="inline-flex items-center rounded px-2 py-0.5 text-xs font-normal bg-secondary text-secondary-foreground">{{ c.type }}</span>
-                <span v-if="c.status === 'in_progress'" class="inline-flex items-center rounded border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-xs font-normal text-blue-600 dark:text-blue-400">进行中</span>
-                <span v-else class="inline-flex items-center rounded border border-green-500/20 bg-green-500/10 px-2 py-0.5 text-xs font-normal text-green-600 dark:text-green-400">已完成</span>
+              <div class="mb-1.5 flex items-center gap-2">
+                <h3 class="truncate font-medium text-foreground">{{ c.title }}</h3>
+                <Badge v-if="c.isDemo" variant="outline"
+                  class="shrink-0 rounded border-amber-500/30 bg-[image:var(--tint-amber-bg)] px-1.5 py-0 text-[10px] font-semibold text-[color:var(--tint-amber-fg)]">
+                  演示
+                </Badge>
+              </div>
+              <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                <span class="font-mono">#{{ c.id }}</span>
+                <CasesCaseStatusBadge :status="c.status" />
+                <span>{{ c.type }}</span>
+                <span>创建于 {{ c.date }}</span>
               </div>
             </div>
             <ExternalLink class="size-4 shrink-0 text-muted-foreground" />
@@ -142,6 +136,7 @@ import { useApi } from '~/composables/useApi'
 import { useUserStore } from '~/store/user'
 import { useWxSupportStore } from '~/store/wxSupport'
 import GradientText from '~/components/general/GradientText.vue'
+import CasesCaseStatusBadge from '~/components/cases/CaseStatusBadge.vue'
 
 definePageMeta({
   title: "工作台",
@@ -225,7 +220,7 @@ interface QuickAction {
 }
 
 const QUICK_ACTIONS: QuickAction[] = [
-  { icon: FilePlus, title: '新建分析', body: '分析新的案件', tint: 'sky', to: '/dashboard/cases/create' },
+  { icon: FilePlus, title: '创建案件', body: '分析新的案件', tint: 'sky', to: '/dashboard/cases/create' },
   { icon: FolderOpen, title: '我的案件', body: '查看所有案件', tint: 'mint', to: '/dashboard/cases' },
   { icon: Crown, title: '会员中心', body: '管理套餐和积分', tint: 'amber', to: '/dashboard/membership' },
   { icon: HelpCircle, title: '获取帮助', body: '联系客服支持', tint: 'navy', onClick: () => wxSupportStore.showQrCode() },
