@@ -2,8 +2,13 @@
     <div class="p-4 md:p-6">
         <!-- 页面头部 -->
         <div class="mb-6">
-            <h1 class="text-2xl md:text-3xl font-bold mb-1">法律法规</h1>
-            <p class="text-muted-foreground text-sm">搜索和浏览法律法规全文，支持法条语义搜索</p>
+            <p class="mb-2 text-xs font-medium uppercase tracking-[0.08em] text-primary">
+                LEGAL SEARCH · 法律法规检索
+            </p>
+            <h1 class="mb-1 text-2xl font-bold md:text-3xl">法律法规检索</h1>
+            <p class="text-sm text-muted-foreground">
+                覆盖法律 · 行政法规 · 司法解释 · 指导意见，支持法规全文检索与法条语义检索。
+            </p>
         </div>
 
         <!-- 整合的搜索面板 -->
@@ -14,7 +19,21 @@
             v-model:article-validity-status="articleFilters.validityStatus"
             :issuing-authorities-options="legalSearch.issuingAuthorities.value"
             :loading="activeTab === 'legal' ? legalSearch.loading.value : articleSearch.loading.value"
-            @search="handleSearch" @reset="handleReset" class="mb-6" />
+            @search="handleSearch" @reset="handleReset" class="mb-4" />
+
+        <!-- 热门检索 -->
+        <div class="mb-6 flex flex-wrap items-center gap-2">
+            <span
+                class="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <Flame class="h-3.5 w-3.5" />
+                热门检索
+            </span>
+            <button v-for="kw in TRENDING_KEYWORDS" :key="kw" type="button"
+                class="bg-card rounded-full border px-3 py-1 text-[12.5px] text-foreground transition-colors hover:bg-muted"
+                @click="handleTrendingClick(kw)">
+                {{ kw }}
+            </button>
+        </div>
 
         <!-- 搜全文结果区域 -->
         <template v-if="activeTab === 'legal' && hasSearchResults">
@@ -25,17 +44,36 @@
 
             <!-- 空状态 -->
             <div v-else-if="legalSearch.legalList.value.length === 0"
-                class="bg-card rounded-lg border p-12 text-center">
-                <FileText class="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 class="text-lg font-medium mb-2">未找到相关法律法规</h3>
-                <p class="text-muted-foreground text-sm mb-4">请尝试调整搜索条件</p>
-                <Button variant="outline" @click="handleReset">
-                    重置筛选
-                </Button>
+                class="bg-card rounded-xl border p-12 text-center">
+                <FileText class="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                <h3 class="mb-2 text-lg font-medium">未找到相关法律法规</h3>
+                <p class="mb-4 text-sm text-muted-foreground">请尝试调整搜索条件</p>
+                <Button variant="outline" @click="handleReset">重置筛选</Button>
             </div>
 
-            <!-- 法律法规列表 -->
+            <!-- 结果列表 -->
             <template v-else>
+                <!-- 结果标题行 -->
+                <div class="mb-3 flex flex-wrap items-baseline justify-between gap-3">
+                    <h2 class="text-base font-semibold">
+                        找到 {{ legalSearch.pagination.value.total.toLocaleString() }} 部法律法规（耗时
+                        {{ legalSearch.searchElapsed.value.toFixed(2) }} 秒）
+                    </h2>
+                    <div class="flex items-center gap-2">
+                        <span class="whitespace-nowrap text-xs font-semibold text-muted-foreground">排序</span>
+                        <Select :model-value="sortValue" @update:model-value="handleSortChange($event as string)">
+                            <SelectTrigger class="w-[140px]">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem v-for="o in SORT_OPTIONS" :key="o.value" :value="o.value">
+                                    {{ o.label }}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+
                 <!-- 桌面端表格 -->
                 <LegalSearchLegalList :items="legalSearch.legalList.value" :loading="legalSearch.loading.value"
                     :total="legalSearch.pagination.value.total" :current-page="legalSearch.pagination.value.page"
@@ -60,75 +98,65 @@
             </div>
 
             <!-- 错误状态 -->
-            <div v-else-if="articleSearch.error.value" class="bg-card rounded-lg border p-12 text-center">
-                <AlertCircle class="h-12 w-12 mx-auto mb-4 text-destructive" />
-                <h3 class="text-lg font-medium mb-2">搜索失败</h3>
-                <p class="text-muted-foreground text-sm mb-4">{{ articleSearch.error.value }}</p>
+            <div v-else-if="articleSearch.error.value" class="bg-card rounded-xl border p-12 text-center">
+                <AlertCircle class="mx-auto mb-4 h-12 w-12 text-destructive" />
+                <h3 class="mb-2 text-lg font-medium">搜索失败</h3>
+                <p class="mb-4 text-sm text-muted-foreground">{{ articleSearch.error.value }}</p>
                 <Button variant="outline" @click="handleArticleRetry">
-                    <RefreshCw class="h-4 w-4 mr-2" />
+                    <RefreshCw class="mr-2 h-4 w-4" />
                     重试
                 </Button>
             </div>
 
             <!-- 空状态 -->
             <div v-else-if="articleSearch.results.value.length === 0"
-                class="bg-card rounded-lg border p-12 text-center">
-                <FileSearch class="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 class="text-lg font-medium mb-2">未找到相关法条</h3>
-                <p class="text-muted-foreground text-sm mb-4">请尝试使用不同的关键词搜索</p>
-                <Button variant="outline" @click="handleReset">
-                    重置搜索
-                </Button>
+                class="bg-card rounded-xl border p-12 text-center">
+                <FileSearch class="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                <h3 class="mb-2 text-lg font-medium">未找到相关法条</h3>
+                <p class="mb-4 text-sm text-muted-foreground">请尝试使用不同的关键词搜索</p>
+                <Button variant="outline" @click="handleReset">重置搜索</Button>
             </div>
 
-            <!-- 搜索结果列表 -->
-            <div v-else class="bg-card rounded-lg border">
-                <!-- 结果统计 -->
-                <div class="px-6 py-4 border-b">
-                    <div class="text-sm text-muted-foreground">
-                        找到 <span class="font-medium text-foreground">{{ articleSearch.total.value }}</span> 条相关法条
-                    </div>
-                </div>
-
-                <!-- 结果列表 -->
-                <div class="divide-y">
-                    <div v-for="result in articleSearch.results.value" :key="result.articles_id"
-                        class="p-6 hover:bg-muted/50 transition-colors cursor-pointer"
-                        @click="handleArticleResultClick(result)">
-                        <!-- 法律信息 -->
-                        <div class="flex items-start justify-between mb-3">
-                            <div class="flex-1 min-w-0">
-                                <h4 class="font-medium truncate">{{ result.legal_name }}</h4>
-                                <div v-if="result.chapter_hierarchy?.length" class="text-sm text-muted-foreground mt-1">
-                                    {{ result.chapter_hierarchy.join(' > ') }}
-                                </div>
-                            </div>
-                            <Badge v-if="result.metadata?.legal_type"
-                                :variant="getTypeVariant(result.metadata.legal_type as string)" class="ml-3 shrink-0">
-                                {{ getTypeLabel(result.metadata.legal_type as string) }}
-                            </Badge>
+            <!-- 结果列表 -->
+            <template v-else>
+                <h2 class="mb-3 text-base font-semibold">
+                    找到 {{ articleSearch.total.value }} 条相关法条 · 按语义相似度排序
+                    <span class="ml-1 font-normal text-muted-foreground">
+                        （耗时 {{ articleSearch.searchElapsed.value.toFixed(2) }} 秒）
+                    </span>
+                </h2>
+                <div class="flex flex-col gap-3">
+                    <div v-for="card in articleCards" :key="card.id"
+                        class="bg-card cursor-pointer rounded-xl border p-5 transition-colors hover:bg-muted/40"
+                        @click="handleArticleResultClick(card.raw)">
+                        <!-- 顶行：类型 + 法条号 + 相似度 -->
+                        <div class="mb-2 flex flex-wrap items-center gap-2.5">
+                            <LegalSearchStatusBadge :tone="card.typeTone">
+                                {{ card.typeLabel }}
+                            </LegalSearchStatusBadge>
+                            <span v-if="card.articleNo" class="text-[13px] font-semibold text-primary">
+                                {{ card.articleNo }}
+                            </span>
+                            <span v-if="card.similarity"
+                                class="ml-auto inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                                <span class="h-1.5 w-1.5 rounded-full bg-primary" />
+                                相似度 {{ card.similarity }}%
+                            </span>
                         </div>
-
-                        <!-- 法条内容 -->
-                        <div class="text-sm leading-relaxed text-muted-foreground line-clamp-3"
-                            v-html="highlightContent(extractArticleContent(result.content))" />
-
-                        <!-- 相似度分数 -->
-                        <div v-if="result.score" class="mt-3">
-                            <div class="text-xs text-muted-foreground">
-                                相似度: {{ (result.score * 100).toFixed(1) }}%
-                            </div>
+                        <!-- 法律名称 -->
+                        <h3 class="mb-1 font-semibold">{{ card.raw.legal_name }}</h3>
+                        <!-- 章节面包屑 -->
+                        <div v-if="card.breadcrumb.length" class="mb-2 text-xs text-muted-foreground">
+                            {{ card.breadcrumb.join('  ›  ') }}
                         </div>
+                        <!-- 高亮摘录 -->
+                        <p class="text-[13.5px] leading-relaxed text-foreground line-clamp-3" v-html="card.excerpt" />
                     </div>
+                    <p class="mt-1 text-center text-xs text-muted-foreground">
+                        点击法条卡片可查看完整条文与关联案例
+                    </p>
                 </div>
-
-                <!-- 底部提示 -->
-                <div class="px-6 py-4 border-t bg-muted/30">
-                    <div class="text-xs text-muted-foreground text-center">
-                        点击法条可查看详情
-                    </div>
-                </div>
-            </div>
+            </template>
         </template>
 
         <!-- 法条详情弹框 -->
@@ -137,7 +165,7 @@
 </template>
 
 <script lang="ts" setup>
-import { Loader2, FileText, AlertCircle, RefreshCw, FileSearch } from 'lucide-vue-next'
+import { Loader2, FileText, AlertCircle, RefreshCw, FileSearch, Flame } from 'lucide-vue-next'
 import type { ValidityStatusFilter, ArticleSearchFilters } from '#shared/types/legal-search'
 import { VALIDITY_STATUS_FILTERS } from '#shared/types/legal-search'
 import type { LawSearchResultItem, LegalType } from '#shared/types/legal'
@@ -145,6 +173,7 @@ import LegalSearchArticleDetailDialog from '~/components/legal-search/ArticleDet
 import LegalSearchLegalList from '~/components/legal-search/LegalList.vue'
 import LegalSearchLegalListMobile from '~/components/legal-search/LegalListMobile.vue'
 import LegalSearchUnifiedSearchPanel from '~/components/legal-search/UnifiedSearchPanel.vue'
+import LegalSearchStatusBadge from '~/components/legal-search/StatusBadge.vue'
 import { useArticleSearch } from '~/composables/useArticleSearch'
 import { useLegalSearch } from '~/composables/useLegalSearch'
 import { useSiteSeo } from '~/composables/useSiteSeo'
@@ -164,6 +193,35 @@ useSiteSeo({
     path: '/dashboard/legal',
     noindex: true,
 })
+
+// ==================== 常量 ====================
+
+/** 热门检索词（前端固定词表） */
+const TRENDING_KEYWORDS = [
+    '民法典 合同编',
+    '劳动合同法',
+    '公司法司法解释（四）',
+    '建设工程施工合同 资质',
+    '招标投标法',
+]
+
+/** 搜全文结果排序选项（仅保留后端支持的字段） */
+const SORT_OPTIONS = [
+    { value: 'publishDate', label: '按发布日期', sortBy: 'publishDate', sortOrder: 'desc' },
+    { value: 'effectiveDate', label: '按生效日期', sortBy: 'effectiveDate', sortOrder: 'desc' },
+    { value: 'name', label: '按名称', sortBy: 'name', sortOrder: 'asc' },
+] as const
+
+/** 法条号识别正则：以「第…条」开头 */
+const ARTICLE_NO_RE = /^第[一二三四五六七八九十百千零〇\d]+条/
+
+/** 法条类型中文名 → 徽章色调 */
+const ARTICLE_TYPE_TONE: Record<string, 'info' | 'success' | 'warn' | 'muted'> = {
+    '法律': 'info',
+    '法规': 'success',
+    '司法解释': 'warn',
+    '指导意见': 'muted',
+}
 
 // ==================== 组合式函数 ====================
 
@@ -213,6 +271,29 @@ const hasArticleSearched = ref(false)
 
 /** 防止循环更新的标志 */
 const isRestoring = ref(false)
+
+/** 搜全文当前排序值 */
+const sortValue = ref<'publishDate' | 'effectiveDate' | 'name'>('publishDate')
+
+// ==================== 计算属性 ====================
+
+/** 法条卡片派生数据 */
+const articleCards = computed(() =>
+    articleSearch.results.value.map(result => {
+        const { articleNo, breadcrumb } = splitChapter(result.chapter_hierarchy || [])
+        const legalType = result.metadata?.legal_type
+        return {
+            id: result.articles_id,
+            raw: result,
+            articleNo,
+            breadcrumb,
+            typeLabel: legalType || '法条',
+            typeTone: (legalType && ARTICLE_TYPE_TONE[legalType]) || 'info',
+            similarity: result.score ? (result.score * 100).toFixed(1) : null,
+            excerpt: highlightContent(extractArticleContent(result.content)),
+        }
+    })
+)
 
 // ==================== URL 状态同步 ====================
 
@@ -346,26 +427,15 @@ watch(() => legalSearch.pagination.value.page, () => {
 
 // ==================== 辅助方法 ====================
 
-/** 获取法律类型标签 */
-const getTypeLabel = (type: string): string => {
-    const labels: Record<string, string> = {
-        law: '法律',
-        regulation: '行政法规',
-        judicial_interp: '司法解释',
-        guideline: '指导意见',
+/** 拆分章节层级：末段若为「第…条」则作为法条号，其余作为面包屑 */
+const splitChapter = (hierarchy: string[]): { articleNo: string | null; breadcrumb: string[] } => {
+    if (hierarchy.length > 0) {
+        const last = hierarchy[hierarchy.length - 1]!
+        if (ARTICLE_NO_RE.test(last)) {
+            return { articleNo: last, breadcrumb: hierarchy.slice(0, -1) }
+        }
     }
-    return labels[type] || type
-}
-
-/** 获取法律类型徽章样式 */
-const getTypeVariant = (type: string): "default" | "secondary" | "outline" | "destructive" => {
-    const variants: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
-        law: 'default',
-        regulation: 'secondary',
-        judicial_interp: 'outline',
-        guideline: 'destructive',
-    }
-    return variants[type] || 'default'
+    return { articleNo: null, breadcrumb: hierarchy }
 }
 
 /** 提取法条实际内容（截取 "内容：" 后的部分） */
@@ -426,6 +496,7 @@ const handleReset = () => {
         }
         selectedLegalId.value = null
         hasSearchResults.value = false
+        sortValue.value = 'publishDate'
         legalSearch.resetFilters()
     } else {
         articleQuery.value = ''
@@ -437,6 +508,24 @@ const handleReset = () => {
         articleSearch.clearResults()
     }
     syncToUrl()
+}
+
+/** 处理热门检索词点击 */
+const handleTrendingClick = (keyword: string) => {
+    if (activeTab.value === 'legal') {
+        searchKeyword.value = keyword
+    } else {
+        articleQuery.value = keyword
+    }
+    handleSearch()
+}
+
+/** 处理排序变化 */
+const handleSortChange = (val: string) => {
+    const opt = SORT_OPTIONS.find(o => o.value === val)
+    if (!opt) return
+    sortValue.value = opt.value
+    legalSearch.setSort(opt.sortBy, opt.sortOrder)
 }
 
 /** 处理法律选择 - 跳转到预览页面 */
