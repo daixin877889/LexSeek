@@ -727,7 +727,7 @@ async function submitPaste() {
 
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <span class="text-[11px] text-muted-foreground">
-                        支持 .docx · 单文件 ≤ {{ CONTRACT_MAX_MB }} MB · 每份消耗 30 积分
+                        支持 .docx · 单文件 ≤ {{ CONTRACT_MAX_MB }} MB
                     </span>
                     <Button class="bg-gradient-brand-button text-white"
                         :disabled="!selectedFile || submitting || localUploading" @click="submitUpload">
@@ -745,7 +745,7 @@ async function submitPaste() {
                     class="resize-y font-mono text-sm" />
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <span :class="['text-[11px]', pasteText.length > PASTE_MAX ? 'text-destructive' : 'text-muted-foreground']">
-                        {{ pasteText.length.toLocaleString() }} / {{ PASTE_MAX.toLocaleString() }} 字 · 每份消耗 30 积分
+                        {{ pasteText.length.toLocaleString() }} / {{ PASTE_MAX.toLocaleString() }} 字
                     </span>
                     <Button class="bg-gradient-brand-button text-white"
                         :disabled="pasteSubmitting || !canSubmitPaste" @click="submitPaste">
@@ -1002,9 +1002,9 @@ onMounted(async () => {
     <div class="space-y-7 p-4 md:p-6">
         <!-- 页头 -->
         <header>
-            <p class="text-xs font-medium uppercase tracking-[0.08em] text-primary">
+            <!-- <p class="text-xs font-medium uppercase tracking-[0.08em] text-primary">
                 CONTRACT REVIEW · 合同审查
-            </p>
+            </p> -->
             <h1 class="mt-2.5 text-2xl font-bold tracking-tight md:text-[28px]">合同审查</h1>
             <p class="mt-1.5 max-w-2xl text-sm text-muted-foreground">
                 一键扫描合同条款风险、缺失项与改进建议
