@@ -327,6 +327,34 @@
   background-image: var(--wash-sidebar);
 }
 
+/* 品牌主题控件：默认态去掉 shadcn 控件自带的小阴影，焦点态只保留品牌光圈。 */
+.brand-control-focus {
+  box-shadow: none !important;
+}
+
+.brand-control-focus:focus,
+.brand-control-focus:focus-visible,
+.brand-control-focus:focus-within {
+  border-color: var(--brand-sky) !important;
+  --tw-ring-color: rgb(30 158 237 / 0.36) !important;
+  --tw-ring-shadow: 0 0 0 3px rgb(30 158 237 / 0.36) !important;
+  box-shadow: 0 0 0 3px rgb(30 158 237 / 0.36) !important;
+  outline: none !important;
+}
+
+.theme-brand .rich-text-editor > div {
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.theme-brand .rich-text-editor > div:focus-within {
+  border-color: var(--brand-sky);
+  box-shadow: 0 0 0 3px rgb(30 158 237 / 0.36);
+}
+
+.theme-brand .rich-text-editor .ProseMirror:focus {
+  outline: none;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
