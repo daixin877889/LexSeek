@@ -213,7 +213,7 @@ git commit -m "feat(storage): 新增统一 OSS 路径构造函数 buildStorageKe
 
 - [ ] **Step 1: 更新路径断言**
 
-**更新断言（documentTemplate.service.test.ts）**：桩已把 `basePath` 设为 `test/`。该文件共 **3 处** OSS 路径相关断言，逐处改（**第 3 处易漏，务必改**）：
+**更新断言（documentTemplate.service.test.ts）**：测试环境 `basePath` 为 `test/`（来自 `.env.testing`）。该文件共 **3 处** OSS 路径相关断言，逐处改（**第 3 处易漏，务必改**）：
 
 - 约第 311 行（『admin 上传：OSS 路径使用 global-templates 前缀』用例）：
 ```ts
