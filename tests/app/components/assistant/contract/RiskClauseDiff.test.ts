@@ -130,10 +130,10 @@ describe('RiskClauseDiff · inline-diff（Layout C）', () => {
             suggestedClauseText: '甲方应于五个工作日内支付预付款',
             problematicQuote: '三日',
         })
-        // 至少应有 line-through（删除段）和 font-medium（新增段）class 出现
+        // 至少应有 line-through（删除段）和 bg-emerald-600/15（新增段）class 出现
         const html = w.html()
         expect(html).toContain('line-through')
-        expect(html).toContain('font-medium')
+        expect(html).toContain('bg-emerald-600/15')
     })
 
     it('problematicQuote=null（quote 锚点解析失败）→ 严格降级显示纯 clauseText（spec § 6.4）', () => {
@@ -145,7 +145,7 @@ describe('RiskClauseDiff · inline-diff（Layout C）', () => {
         // 不应有 diff 视觉 class
         const html = w.html()
         expect(html).not.toContain('line-through')
-        expect(html).not.toContain('font-medium')
+        expect(html).not.toContain('bg-emerald-600/15')
         expect(w.text()).toContain('逾期按 0.05% 加收滞纳金')
     })
 
@@ -174,7 +174,7 @@ describe('RiskClauseDiff · inline-diff（Layout C）', () => {
         })
         const html = w.html()
         expect(html).not.toContain('line-through')
-        expect(html).not.toContain('font-medium')
+        expect(html).not.toContain('bg-emerald-600/15')
         expect(w.text()).toContain(same)
     })
 })
