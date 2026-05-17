@@ -30,8 +30,7 @@ const props = defineProps<{
     index: number
     total: number
     readOnly: boolean
-    isCompleted: boolean
-    /** 工作区可编辑：!isRebuilding && isCompleted（父组件算好透传） */
+    /** 工作区可编辑：审查处于 completed / failed 终态（父组件按 REVIEW_EDITABLE_STATUSES 透传） */
     editable: boolean
     currentUserId?: number | null
     isPinned: boolean
@@ -243,7 +242,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
                     :key="opt.k"
                     type="button"
                     class="px-4 py-1 rounded-md text-xs font-medium transition-colors"
-                    :class="layout === opt.k ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'"
+                    :class="layout === opt.k ? 'bg-card text-foreground' : 'text-muted-foreground'"
                     @click="emit('update:layout', opt.k)"
                 >{{ opt.label }}</button>
             </div>
@@ -302,7 +301,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
                     @delete="emit('delete-annotation', $event)"
                 />
                 <div
-                    v-if="!isOrphan && !readOnly && isCompleted"
+                    v-if="!isOrphan && !readOnly && editable"
                     class="rounded-lg border bg-background overflow-hidden transition-colors"
                     :class="replyFocused ? 'border-primary ring-[3px] ring-primary/15' : 'border-border'"
                 >
@@ -368,7 +367,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
                 >
                     <Trash2Icon class="size-3 mr-1" />删除
                 </Button>
-                <template v-if="!readOnly && isCompleted && !archived">
+                <template v-if="!readOnly && editable && !archived">
                     <Button
                         size="sm"
                         variant="outline"
@@ -387,7 +386,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
                     </Button>
                 </template>
                 <Button
-                    v-if="!readOnly && isCompleted && archived"
+                    v-if="!readOnly && editable && archived"
                     size="sm"
                     variant="outline"
                     @click="handleArchive(null)"

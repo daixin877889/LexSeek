@@ -248,10 +248,11 @@ export type ReviewWithParsedRisks = Omit<contractReviews, 'risks' | 'summary'> &
 }
 
 /**
- * 仅 completed 状态允许编辑 risks / 重生批注。
- * pending / reviewing / awaiting_stance / failed / rebuilding 均返回 409。
+ * completed / failed 状态允许编辑 risks / 重生批注：两者都是终态、数据完整。
+ * failed 多为分析中途某步异常所致，用户需要手动补救风险清单。
+ * pending / reviewing / awaiting_stance / rebuilding 仍返回 409。
  */
-export const REVIEW_EDITABLE_STATUSES: readonly ContractReviewStatus[] = ['completed'] as const
+export const REVIEW_EDITABLE_STATUSES: readonly ContractReviewStatus[] = ['completed', 'failed'] as const
 
 /**
  * 合同审查"忙状态"白名单：HTTP 层快速失败（DELETE / 重新上传等）+ service 层

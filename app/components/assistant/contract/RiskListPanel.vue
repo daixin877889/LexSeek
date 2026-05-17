@@ -16,6 +16,7 @@ import {
 } from 'lucide-vue-next'
 import { useLocalStorage } from '@vueuse/core'
 import type { ContractOverview, Risk, RiskDisplayPhaseB, ContractReviewStatus, PlaybookSnapshot, ContractAnnotationEntity, RiskArchivedStatus, ContractExportMode } from '#shared/types/contract'
+import { REVIEW_EDITABLE_STATUSES } from '#shared/types/contract'
 import type { AcceptableValue } from 'reka-ui'
 import {
     DropdownMenu,
@@ -135,7 +136,8 @@ onBeforeUnmount(() => {
 
 const isCompleted = computed(() => props.status === 'completed')
 const canDownload = computed(() => isCompleted.value && props.reviewedFileId !== null)
-const editable = computed(() => isCompleted.value)
+// completed 与 failed 均为可编辑终态（见 REVIEW_EDITABLE_STATUSES）
+const editable = computed(() => REVIEW_EDITABLE_STATUSES.includes(props.status))
 
 // 编辑对话框状态
 const editDialogOpen = ref(false)
@@ -364,7 +366,7 @@ function formatRemovedTime(value: string | Date): string {
                     type="button"
                     class="flex-1 py-1.5 rounded-md text-xs transition-colors"
                     :class="riskTab === 'list'
-                        ? 'bg-card font-semibold text-foreground shadow-sm'
+                        ? 'bg-card font-semibold text-foreground'
                         : 'font-medium text-muted-foreground'"
                     @click="riskTab = 'list'"
                 >风险清单 {{ totalRiskCount }}</button>
@@ -372,7 +374,7 @@ function formatRemovedTime(value: string | Date): string {
                     type="button"
                     class="flex-1 py-1.5 rounded-md text-xs transition-colors"
                     :class="riskTab === 'overview'
-                        ? 'bg-card font-semibold text-foreground shadow-sm'
+                        ? 'bg-card font-semibold text-foreground'
                         : 'font-medium text-muted-foreground'"
                     @click="riskTab = 'overview'"
                 >审查总览</button>
@@ -588,7 +590,6 @@ function formatRemovedTime(value: string | Date): string {
             :index="focusedIndex"
             :total="displayRisks.length"
             :read-only="readOnly ?? false"
-            :is-completed="isCompleted"
             :editable="editable"
             :current-user-id="currentUserId"
             :is-pinned="pinnedRiskIds.has(focusedRisk.id)"

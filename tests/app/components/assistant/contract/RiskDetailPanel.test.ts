@@ -55,7 +55,6 @@ function mountPanel(props: Partial<{
     index: number
     total: number
     readOnly: boolean
-    isCompleted: boolean
     editable: boolean
     currentUserId: number | null
     isPinned: boolean
@@ -69,7 +68,6 @@ function mountPanel(props: Partial<{
             index: 1,
             total: 3,
             readOnly: false,
-            isCompleted: true,
             editable: true,
             isPinned: false,
             layout: 'stacked',
