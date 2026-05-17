@@ -10,7 +10,8 @@
  */
 import { renderAsync } from 'docx-preview'
 import { toast } from 'vue-sonner'
-import { PlusIcon } from 'lucide-vue-next'
+import { PlusIcon, SunIcon, MoonIcon } from 'lucide-vue-next'
+import { useLocalStorage } from '@vueuse/core'
 import { locateClauseElement, paragraphIndexOfElement, isBodyParagraph } from '#shared/utils/clauseLocator'
 import type { Risk, RiskDisplayPhaseB, RiskLevel } from '#shared/types/contract'
 // UI-L1：从 app/utils/contractRiskLevelStyle.ts 单一数据源 import，
@@ -21,6 +22,7 @@ import {
     RISK_LEVEL_DOCX_HOVER_BG,
 } from '~/utils/contractRiskLevelStyle'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { useColorMode } from '~/composables/useColorMode'
 import {
     decorateQuoteRanges,
     clearAllQuoteHighlights,
@@ -59,6 +61,11 @@ const emit = defineEmits<{
 const containerRef = ref<HTMLElement | null>(null)
 const loading = ref(false)
 const empty = computed(() => !props.reviewedFileId && !props.originalFileId)
+
+// 文档纸面明暗：暗色模式下默认深色纸面，顶部按钮可强制切回白纸；偏好持久化到 localStorage。
+const { isDark } = useColorMode()
+const forceLightPaper = useLocalStorage('contract-docx-paper-light', false)
+const paperDark = computed(() => isDark.value && !forceLightPaper.value)
 
 // hover 新增风险：当前 hover 的正文段落 + 浮动「＋」位置
 const hoveredParagraph = ref<HTMLElement | null>(null)
@@ -377,8 +384,21 @@ watch(
                 <div
                     ref="containerRef"
                     class="docx-preview-container h-full overflow-y-auto rounded-md bg-card p-4"
+                    :class="{ 'docx-paper-dark': paperDark }"
                     @mouseover="onContainerMouseOver"
                 />
+                <!-- 纸面明暗切换：仅暗色模式下出现 -->
+                <button
+                    v-if="isDark"
+                    type="button"
+                    class="absolute top-3 right-3 z-30 inline-flex items-center justify-center size-7 rounded-md border bg-card shadow-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    :title="paperDark ? '切换为白色纸面' : '切换为深色纸面'"
+                    :aria-label="paperDark ? '切换为白色纸面' : '切换为深色纸面'"
+                    @click="forceLightPaper = !forceLightPaper"
+                >
+                    <SunIcon v-if="paperDark" class="size-4" />
+                    <MoonIcon v-else class="size-4" />
+                </button>
                 <button
                     v-if="hoveredParagraph"
                     type="button"
@@ -422,5 +442,36 @@ watch(
 .docx-preview-container :deep(h5),
 .docx-preview-container :deep(h6) {
     line-height: 1.95 !important;
+}
+
+/* 暗色纸面：深色模式下文档纸面随主题转深（可由顶部按钮切回白纸）。
+   纸面背景取 var(--card) 与外层容器同色，呈"正文直接铺在卡片上"的观感。 */
+.docx-preview-container.docx-paper-dark :deep(.docx) {
+    background: var(--card) !important;
+    color: var(--foreground) !important;
+}
+.docx-preview-container.docx-paper-dark :deep(.docx *) {
+    color: inherit !important;
+    border-color: var(--border) !important;
+}
+/* 风险段落高亮在深色纸面上改用更亮的色相 + 更高透明度，保证可见 */
+.docx-preview-container.docx-paper-dark :deep(p[data-risk-level="high"]) {
+    background-color: rgb(248 113 113 / 0.13) !important;
+}
+.docx-preview-container.docx-paper-dark :deep(p[data-risk-level="medium"]) {
+    background-color: rgb(251 146 60 / 0.14) !important;
+}
+.docx-preview-container.docx-paper-dark :deep(p[data-risk-level="low"]) {
+    background-color: rgb(56 189 248 / 0.13) !important;
+}
+/* 选中 / 钉住态（带 ring-1）在深色纸面上底色再加深 */
+.docx-preview-container.docx-paper-dark :deep(p[data-risk-level="high"].ring-1) {
+    background-color: rgb(248 113 113 / 0.24) !important;
+}
+.docx-preview-container.docx-paper-dark :deep(p[data-risk-level="medium"].ring-1) {
+    background-color: rgb(251 146 60 / 0.26) !important;
+}
+.docx-preview-container.docx-paper-dark :deep(p[data-risk-level="low"].ring-1) {
+    background-color: rgb(56 189 248 / 0.24) !important;
 }
 </style>
