@@ -10,6 +10,7 @@ import {
   Loader2Icon,
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import { useMarkdownDocxExport } from '~/composables/useMarkdownDocxExport'
 
 const props = defineProps<{
   title: string
@@ -32,6 +33,8 @@ interface ExportItem {
 const exportItems = ref<ExportItem[]>([])
 const selectMode = ref(false)
 const exporting = ref(false)
+
+const { exportMarkdownToDocx } = useMarkdownDocxExport()
 
 const selectedCount = computed(() => exportItems.value.filter(i => i.selected).length)
 
@@ -87,24 +90,7 @@ async function executeExport() {
     }
 
     const filename = sanitizeFilename(`【LexSeek 分析】${props.title || '案件报告'}.docx`)
-
-    // 主方案：markdown-docx
-    try {
-      const { default: markdownDocx, Packer } = await import('markdown-docx')
-      const doc = await markdownDocx(md, { ignoreHtml: true })
-      const blob = await Packer.toBlob(doc)
-      const { saveAs } = await import('file-saver')
-      saveAs(blob, filename)
-    }
-    catch {
-      // 备用方案：marked + html-docx-js-typescript
-      const { marked } = await import('marked')
-      const html = await marked(md)
-      const { asBlob } = await import('html-docx-js-typescript')
-      const blob = await asBlob(html)
-      const { saveAs } = await import('file-saver')
-      saveAs(blob as Blob, filename)
-    }
+    await exportMarkdownToDocx(md, filename)
 
     open.value = false
     emit('exportComplete')
