@@ -38,6 +38,20 @@ export function useContractReviewExport(reviewId: Ref<number | null>) {
                 toast.error('PDF 生成失败')
                 return
             }
+            // M18：服务端业务失败走 resError → HTTP 200 + JSON 体；ofetch 在 2xx 下不抛错，
+            // 把 JSON 错误体也包成 Blob（content-type=application/json）返回。若不校验 MIME，
+            // JSON 文本会被当 PDF 存成损坏文件，且 catch 永不触发。成功时必为 application/pdf。
+            if (!data.type.includes('application/pdf')) {
+                let message = 'PDF 生成失败'
+                try {
+                    const parsed = JSON.parse(await data.text()) as { message?: string }
+                    if (parsed?.message) message = parsed.message
+                } catch {
+                    // 响应体非 JSON，保留兜底文案
+                }
+                toast.error(message)
+                return
+            }
             triggerBrowserDownloadBlob(data, `contract-review-${reviewId.value}.pdf`)
             toast.success('PDF 已下载')
         } catch (e: unknown) {
