@@ -9,6 +9,7 @@
 
 import { uploadFileService } from '../storage/storage.service'
 import { FileSource, OssFileStatus } from '#shared/types/file'
+import { buildStorageDir } from '~~/server/utils/storagePath'
 import { v4 as uuidv4 } from 'uuid'
 import { $fetch as ofetch } from 'ofetch'
 
@@ -80,10 +81,8 @@ async function uploadImageToOss(
     const storageConfig = config.storage
     const ossConfig = storageConfig.aliyunOss
     const bucket = ossConfig.bucket
-    const basePath = storageConfig.basePath
-
     // 使用自定义路径或生成默认路径
-    const dir = customPath || `${basePath}user${userId}/${FileSource.DOC_EMBEDDED_IMAGE}/`
+    const dir = customPath || buildStorageDir({ scope: 'user', userId, source: FileSource.DOC_EMBEDDED_IMAGE })
 
     const ext = mimeType.split('/').pop() || 'png'
     const saveName = `${uuidv4()}.${ext}`

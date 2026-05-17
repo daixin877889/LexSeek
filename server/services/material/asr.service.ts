@@ -35,6 +35,8 @@ import { embedAudioService as embedAudioToVectorStore, formatAsrResultForEmbeddi
 import { DEFAULT_POLLING_CONFIG, calculateBackoffDelay } from './materialConstants'
 import type { PollingConfig } from './materialConstants'
 import { AsrRecordStatus, AsrTaskStatus } from '#shared/types/recognition'
+import { FileSource } from '#shared/types/file'
+import { buildStorageKey } from '~~/server/utils/storagePath'
 
 /** 音频识别节点名称 */
 const ASR_NODE_NAME = 'audioRecognition'
@@ -387,7 +389,13 @@ export async function uploadRawAsrJsonToOssService(
         const month = now.format('MM')
         const day = now.format('DD')
         const uuid = uuidv7()
-        const filePath = `asr/raw/${year}/${month}/${day}/${uuid}.json`
+        const filePath = buildStorageKey({
+            scope: 'user',
+            userId,
+            source: FileSource.ASR,
+            subDir: `raw/${year}/${month}/${day}`,
+            fileName: `${uuid}.json`,
+        })
 
         // 3. 将原始结果转换为 JSON 字符串
         const jsonContent = JSON.stringify(rawResult, null, 2)
@@ -407,6 +415,7 @@ export async function uploadRawAsrJsonToOssService(
                 filePath,
                 fileSize: buffer.length,
                 fileType: 'application/json',
+                source: FileSource.ASR,
                 status: 1, // 已上传
             },
         })

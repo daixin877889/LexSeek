@@ -12,6 +12,7 @@ import { marked } from 'marked'
 import { v7 as uuidv7 } from 'uuid'
 import { $fetch } from 'ofetch'
 import { FileSource, OssFileStatus } from '#shared/types/file'
+import { buildStorageDir } from '~~/server/utils/storagePath'
 import { StorageProviderType, type AliyunPostSignatureResult } from '~~/server/lib/storage/types'
 import { embedDocumentService } from '~~/server/services/material/materialEmbedding.service'
 import { getExtensionFromFileName } from '~~/shared/utils/file'
@@ -159,8 +160,7 @@ async function uploadSingleImageToOssService(
     const storageConfig = config.storage
     const ossConfig = storageConfig.aliyunOss
     const bucket = ossConfig.bucket
-    const basePath = storageConfig.basePath
-    const dir = `${basePath}user${userId}/${FileSource.DOC_EMBEDDED_IMAGE}/`
+    const dir = buildStorageDir({ scope: 'user', userId, source: FileSource.DOC_EMBEDDED_IMAGE })
     const callbackUrl = storageConfig.callbackUrl
 
     const saveName = `${uuidv7()}.${getExtensionFromFileName(fileName) || 'png'}`

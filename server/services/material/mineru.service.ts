@@ -35,6 +35,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { $fetch as ofetch } from 'ofetch'
 import { processUrlImagesInMarkdown } from './imageProcessor'
 import { FileSource, OssFileStatus } from '#shared/types/file'
+import { buildStorageKey } from '~~/server/utils/storagePath'
 import { getExtensionFromFileName } from '~~/shared/utils/file'
 import { calculateBackoffDelay, DEFAULT_POLLING_CONFIG } from './materialConstants'
 import type { PollingConfig } from './materialConstants'
@@ -144,7 +145,13 @@ async function uploadImageToOss(
 ): Promise<{ bucket: string; ossFileId: number } | null> {
     const ext = getExtensionFromFileName(imageName) || 'png'
     const uniqueName = `${uuidv4()}.${ext}`
-    const ossPath = `mineru/${taskId}/${uniqueName}`
+    const ossPath = buildStorageKey({
+        scope: 'user',
+        userId,
+        source: FileSource.DOC_EMBEDDED_IMAGE,
+        subDir: taskId,
+        fileName: uniqueName,
+    })
 
     const config = useRuntimeConfig()
     const storageConfig = config.storage
