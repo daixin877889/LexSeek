@@ -72,7 +72,7 @@ import { listEnabledPlaybookPointsDAO } from '../../assistant/contract/contractP
 import { loadContractFullText } from '../../assistant/contract/docx/loadContractFullText'
 import { segmentClauses } from '../../assistant/contract/docx/clauseSegmenter'
 import { analyzeSingleClause } from '../../assistant/contract/analyzeSingleClause'
-import { summarizeOverview } from '../../assistant/contract/summarizeOverview'
+import { summarizeOverview, remapHighlightRiskIds } from '../../assistant/contract/summarizeOverview'
 import {
     emitContractReviewEvent,
     type ContractReviewEmitterCtx,
@@ -83,7 +83,7 @@ import { saveContractReviewVersionService } from '../../assistant/contract/contr
 import { buildClauseToBodyParagraphMap } from '../../assistant/contract/utils/clauseToParagraph'
 import type { CallbackHandlerMethods } from '@langchain/core/callbacks/base'
 import type { Prisma } from '~~/generated/prisma/client'
-import type { Risk, Stance, ClauseSegment, ClauseSnapshotItem, PlaybookSnapshot } from '#shared/types/contract'
+import type { Risk, Stance, ClauseSegment, ClauseSnapshotItem, PlaybookSnapshot, ContractOverview } from '#shared/types/contract'
 import { resolveContextWindow } from '../context/messageCompressor'
 
 import { renderRiskAsAnnotationText } from '~~/server/services/assistant/contract/contractRiskRender'
@@ -140,6 +140,25 @@ async function persistRisksAndCreateV1Snapshot(
             authorName: 'AI',
             content: renderRiskAsAnnotationText(risks[i]!),
         })
+    }
+
+    // V2：summarizeOverview 生成 highlights 时只有内存 UUID（Risk.id），而前端风险卡片
+    // 用 contractRisks 表的整型 id。落库拿到整型 id 后回写 summary，使总览要点点击能
+    // 联动定位到风险卡片。createManyAndReturn 保序，createdRisks[i] 对应 risks[i]。
+    const uuidToIntId = new Map<string, number>()
+    for (let i = 0; i < createdRisks.length; i++) {
+        const uuid = risks[i]?.id
+        if (uuid) uuidToIntId.set(uuid, createdRisks[i]!.id)
+    }
+    if (uuidToIntId.size > 0) {
+        const reviewRow = await prisma.contractReviews.findUnique({
+            where: { id: reviewId },
+            select: { summary: true },
+        })
+        const summary = reviewRow?.summary as unknown as ContractOverview | null
+        if (summary && remapHighlightRiskIds(summary, uuidToIntId)) {
+            await updateContractReviewDAO(reviewId, { summary: summary as unknown as Prisma.InputJsonValue })
+        }
     }
 
     // 创建 v1 initial_upload 快照（显式传 docxText + clauses）
