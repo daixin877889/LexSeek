@@ -479,12 +479,12 @@ function formatAnalyzedAt(dateStr: string): string {
                             </button>
                             <div class="flex items-center bg-muted/50 rounded-lg p-0.5">
                                 <button class="size-7 flex items-center justify-center rounded-md transition-all"
-                                    :class="dashboardViewMode === 'grid' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'"
+                                    :class="dashboardViewMode === 'grid' ? 'bg-background text-primary' : 'text-muted-foreground hover:text-foreground'"
                                     @click="dashboardViewMode = 'grid'">
                                     <LayoutGridIcon class="size-3.5" />
                                 </button>
                                 <button class="size-7 flex items-center justify-center rounded-md transition-all"
-                                    :class="dashboardViewMode === 'list' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'"
+                                    :class="dashboardViewMode === 'list' ? 'bg-background text-primary' : 'text-muted-foreground hover:text-foreground'"
                                     @click="dashboardViewMode = 'list'">
                                     <ListIcon class="size-3.5" />
                                 </button>

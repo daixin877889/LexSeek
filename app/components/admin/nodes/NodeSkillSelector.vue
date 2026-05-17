@@ -14,7 +14,7 @@
             <!-- 搜索框 -->
             <div class="relative shrink-0">
                 <Search class="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input v-model="search" placeholder="搜索 Skill 名称或显示名" class="pl-8" />
+                <Input v-model="search" placeholder="搜索 Skill 名称或显示名" :class="['pl-8', adminBrandFocusClass]" />
             </div>
 
             <!-- 已选 Skills chip 展示 -->
@@ -22,8 +22,8 @@
                 <Badge
                     v-for="name in modelValue"
                     :key="name"
-                    variant="secondary"
-                    :class="isStopped(name) ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'"
+                    variant="outline"
+                    :class="isStopped(name) ? 'cursor-not-allowed opacity-60' : `cursor-pointer ${adminBrandChipClass}`"
                     @click="toggleSkill(name)"
                 >
                     {{ displayLabel(name) }}
@@ -48,7 +48,7 @@
                     <!-- 勾选框 -->
                     <div
                         class="size-4 shrink-0 mt-0.5 flex items-center justify-center rounded border"
-                        :class="modelValue.includes(skill.name) ? 'bg-primary border-primary text-primary-foreground' : 'border-input'"
+                        :class="modelValue.includes(skill.name) ? adminBrandSelectedBoxClass : adminBrandUnselectedBoxClass"
                     >
                         <Check v-if="modelValue.includes(skill.name)" class="size-3" />
                     </div>
@@ -77,6 +77,12 @@
 <script setup lang="ts">
 import { Check, Loader2, Search, X } from 'lucide-vue-next'
 import { useApiFetch } from '~/composables/useApiFetch'
+import {
+    adminBrandChipClass,
+    adminBrandFocusClass,
+    adminBrandSelectedBoxClass,
+    adminBrandUnselectedBoxClass,
+} from '~/utils/adminNodeBrandStyles'
 
 const props = defineProps<{
     /** 当前已选的 skill 名称列表 */

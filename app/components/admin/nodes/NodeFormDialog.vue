@@ -2,7 +2,7 @@
     <!-- 节点创建/编辑对话框 -->
     <Dialog v-model:open="open">
         <DialogContent
-            class="top-0 left-0 right-0 bottom-0 max-w-none sm:max-w-none translate-x-0 translate-y-0 rounded-none p-4 md:top-[50%] md:left-[50%] md:right-auto md:bottom-auto md:translate-x-[-50%] md:translate-y-[-50%] md:w-[85vw] md:max-w-[85vw] md:h-[85vh] md:rounded-lg md:p-6 flex flex-col overflow-hidden"
+            class="theme-brand top-0 left-0 right-0 bottom-0 max-w-none sm:max-w-none translate-x-0 translate-y-0 rounded-none p-4 md:top-[50%] md:left-[50%] md:right-auto md:bottom-auto md:translate-x-[-50%] md:translate-y-[-50%] md:w-[85vw] md:max-w-[85vw] md:h-[85vh] md:rounded-lg md:p-6 flex flex-col overflow-hidden"
             @interactOutside="(e) => e.preventDefault()">
             <DialogHeader class="shrink-0">
                 <DialogTitle>{{ isEdit ? '编辑节点' : '新增节点' }}</DialogTitle>
@@ -17,7 +17,11 @@
                     <TabsTrigger v-if="showOutputSchema" value="schema">结构化输出</TabsTrigger>
                     <TabsTrigger value="prompts">
                         提示词
-                        <Badge v-if="nodePrompts.length" variant="secondary" class="ml-1.5">
+                        <Badge
+                            v-if="nodePrompts.length"
+                            variant="outline"
+                            :class="['ml-1.5 h-5 min-w-5 px-1 py-0 text-[11px] leading-none', adminBrandChipClass]"
+                        >
                             {{ nodePrompts.length }}
                         </Badge>
                     </TabsTrigger>
@@ -29,20 +33,20 @@
                     <!-- 节点名称（创建时必填，编辑时不可修改） -->
                     <div v-if="!isEdit" class="space-y-2">
                         <Label>节点名称 <span class="text-destructive">*</span></Label>
-                        <Input v-model="form.name" placeholder="如：case_summary" />
+                        <Input v-model="form.name" placeholder="如：case_summary" :class="adminBrandFocusClass" />
                         <p class="text-xs text-muted-foreground">唯一标识符，创建后不可修改</p>
                     </div>
 
                     <!-- 节点标题 -->
                     <div class="space-y-2">
                         <Label>节点标题</Label>
-                        <Input v-model="form.title" placeholder="如：案件概要" />
+                        <Input v-model="form.title" placeholder="如：案件概要" :class="adminBrandFocusClass" />
                     </div>
 
                     <!-- 节点描述 -->
                     <div class="space-y-2">
                         <Label>节点描述</Label>
-                        <Textarea v-model="form.description" placeholder="描述节点的功能和用途" rows="2" />
+                        <Textarea v-model="form.description" placeholder="描述节点的功能和用途" rows="2" :class="adminBrandFocusClass" />
                     </div>
 
                     <!-- 节点类型和优先级 -->
@@ -50,10 +54,10 @@
                         <div class="space-y-2">
                             <Label>节点类型 <span class="text-destructive">*</span></Label>
                             <Select v-model="form.type">
-                                <SelectTrigger class="w-full">
+                                <SelectTrigger :class="['w-full', adminBrandFocusClass]">
                                     <SelectValue placeholder="选择类型" />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent class="theme-brand">
                                     <SelectItem v-for="(label, value) in NodeTypeLabels" :key="value" :value="value">
                                         {{ label }}
                                     </SelectItem>
@@ -62,7 +66,7 @@
                         </div>
                         <div class="space-y-2">
                             <Label>优先级</Label>
-                            <Input v-model.number="form.priority" type="number" min="1" placeholder="100" />
+                            <Input v-model.number="form.priority" type="number" min="1" placeholder="100" :class="adminBrandFocusClass" />
                             <p class="text-xs text-muted-foreground">数值越小优先级越高</p>
                         </div>
                     </div>
@@ -76,7 +80,7 @@
                                     variant="outline"
                                     role="combobox"
                                     :aria-expanded="modelOpen"
-                                    class="w-full justify-between font-normal"
+                                    :class="['w-full justify-between font-normal', adminBrandFocusClass]"
                                 >
                                     <span class="flex items-center gap-2 min-w-0"
                                         :class="form.modelId ? '' : 'text-muted-foreground'">
@@ -86,9 +90,9 @@
                                     <ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
                             </PopoverTrigger>
-                            <PopoverContent class="w-(--reka-popover-trigger-width) p-0" align="start">
+                            <PopoverContent class="theme-brand w-(--reka-popover-trigger-width) p-0" align="start">
                                 <Command>
-                                    <CommandInput placeholder="搜索模型..." />
+                                    <CommandInput placeholder="搜索模型..." :class="adminBrandFocusClass" />
                                     <CommandList>
                                         <CommandEmpty>没有匹配的模型</CommandEmpty>
                                         <CommandGroup>
@@ -128,10 +132,10 @@
                     <div class="space-y-2">
                         <Label>节点分组</Label>
                         <Select v-model="form.groupId">
-                            <SelectTrigger class="w-full">
+                            <SelectTrigger :class="['w-full', adminBrandFocusClass]">
                                 <SelectValue placeholder="选择分组（可选）" />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent class="theme-brand">
                                 <SelectItem value="none">无分组</SelectItem>
                                 <SelectItem v-for="g in groups" :key="g.id" :value="String(g.id)">
                                     {{ g.name }}
@@ -144,10 +148,10 @@
                     <div class="space-y-2">
                         <Label>状态</Label>
                         <Select v-model="form.status">
-                            <SelectTrigger class="w-full">
+                            <SelectTrigger :class="['w-full', adminBrandFocusClass]">
                                 <SelectValue />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent class="theme-brand">
                                 <SelectItem value="1">启用</SelectItem>
                                 <SelectItem value="0">禁用</SelectItem>
                             </SelectContent>
@@ -171,12 +175,12 @@
                         <div class="relative shrink-0">
                             <Search
                                 class="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input v-model="toolSearch" placeholder="搜索工具名或描述" class="pl-8" />
+                            <Input v-model="toolSearch" placeholder="搜索工具名或描述" :class="['pl-8', adminBrandFocusClass]" />
                         </div>
                         <!-- 已选工具展示 -->
                         <div v-if="form.tools.length" class="flex flex-wrap gap-2 shrink-0">
-                            <Badge v-for="toolName in form.tools" :key="toolName" variant="secondary"
-                                class="cursor-pointer" @click="toggleTool(toolName)">
+                            <Badge v-for="toolName in form.tools" :key="toolName" variant="outline"
+                                class="cursor-pointer" :class="adminBrandChipClass" @click="toggleTool(toolName)">
                                 {{ toolName }}
                                 <X class="h-3 w-3 ml-1" />
                             </Badge>
@@ -191,7 +195,7 @@
                                 class="flex items-start gap-3 p-3 hover:bg-muted/50 cursor-pointer border-b last:border-b-0"
                                 @click="toggleTool(tool.name)">
                                 <div class="size-4 shrink-0 mt-0.5 flex items-center justify-center rounded border"
-                                    :class="form.tools.includes(tool.name) ? 'bg-primary border-primary text-primary-foreground' : 'border-input'">
+                                    :class="form.tools.includes(tool.name) ? adminBrandSelectedBoxClass : adminBrandUnselectedBoxClass">
                                     <Check v-if="form.tools.includes(tool.name)" class="size-3" />
                                 </div>
                                 <div class="flex-1 min-w-0">
@@ -236,8 +240,8 @@
             </Tabs>
 
             <DialogFooter class="shrink-0">
-                <Button variant="outline" @click="open = false">取消</Button>
-                <Button @click="handleSubmit" :disabled="submitting">
+                <Button variant="outline" :class="adminBrandFocusClass" @click="open = false">取消</Button>
+                <Button :class="adminBrandPrimaryButtonClass" @click="handleSubmit" :disabled="submitting">
                     <Loader2 v-if="submitting" class="h-4 w-4 mr-2 animate-spin" />
                     {{ isEdit ? '保存' : '创建' }}
                 </Button>
@@ -258,6 +262,13 @@ import AdminNodesOutputSchemaEditor from '~/components/admin/nodes/OutputSchemaE
 import AdminNodesNodeSkillSelector from '~/components/admin/nodes/NodeSkillSelector.vue'
 import AdminNodesNodePromptManager from '~/components/admin/nodes/NodePromptManager.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
+import {
+    adminBrandChipClass,
+    adminBrandFocusClass,
+    adminBrandPrimaryButtonClass,
+    adminBrandSelectedBoxClass,
+    adminBrandUnselectedBoxClass,
+} from '~/utils/adminNodeBrandStyles'
 
 /** 工具元信息类型 */
 interface ToolMeta {

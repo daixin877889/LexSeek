@@ -1,12 +1,12 @@
 <template>
-    <div class="space-y-6">
+    <div class="theme-brand space-y-6">
         <!-- 标题区 -->
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
                 <h1 class="text-2xl md:text-3xl font-bold mb-1">支付记录</h1>
                 <p class="text-muted-foreground text-sm">查询用户支付情况</p>
             </div>
-            <Button variant="outline" @click="exportCsv">
+            <Button variant="outline" class="brand-control-focus" @click="exportCsv">
                 <Download class="w-4 h-4 mr-2" /> 导出 CSV
             </Button>
         </div>

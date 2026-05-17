@@ -1,7 +1,7 @@
 <template>
     <!-- 生成兑换码对话框 -->
     <Dialog :open="open" @update:open="$emit('update:open', $event)">
-        <DialogContent class="max-w-md max-h-[85vh] flex flex-col">
+        <DialogContent class="theme-brand max-h-[85vh] max-w-md flex flex-col">
             <DialogHeader class="shrink-0">
                 <DialogTitle>生成兑换码</DialogTitle>
                 <DialogDescription>批量生成兑换码，最多一次生成 1000 个</DialogDescription>
@@ -10,10 +10,10 @@
                 <div class="space-y-2">
                     <Label>兑换码类型 <span class="text-destructive">*</span></Label>
                     <Select v-model="form.type">
-                        <SelectTrigger class="w-full">
+                        <SelectTrigger :class="['w-full', adminBrandFocusClass]">
                             <SelectValue placeholder="选择类型" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent class="theme-brand">
                             <SelectItem value="1">仅会员</SelectItem>
                             <SelectItem value="2">仅积分</SelectItem>
                             <SelectItem value="3">会员和积分</SelectItem>
@@ -22,15 +22,16 @@
                 </div>
                 <div class="space-y-2">
                     <Label>生成数量 <span class="text-destructive">*</span></Label>
-                    <Input v-model.number="form.quantity" type="number" min="1" max="1000" placeholder="1-1000" />
+                    <Input v-model.number="form.quantity" type="number" min="1" max="1000" placeholder="1-1000"
+                        :class="adminBrandFocusClass" />
                 </div>
                 <div v-if="form.type === '1' || form.type === '3'" class="space-y-2">
                     <Label>会员级别 <span class="text-destructive">*</span></Label>
                     <Select v-model="form.levelId">
-                        <SelectTrigger class="w-full">
+                        <SelectTrigger :class="['w-full', adminBrandFocusClass]">
                             <SelectValue placeholder="选择会员级别" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent class="theme-brand">
                             <SelectItem v-for="level in membershipLevels" :key="level.id" :value="String(level.id)">
                                 {{ level.name }}</SelectItem>
                         </SelectContent>
@@ -38,11 +39,13 @@
                 </div>
                 <div v-if="form.type === '1' || form.type === '3'" class="space-y-2">
                     <Label>会员时长（天） <span class="text-destructive">*</span></Label>
-                    <Input v-model.number="form.duration" type="number" min="1" placeholder="天数" />
+                    <Input v-model.number="form.duration" type="number" min="1" placeholder="天数"
+                        :class="adminBrandFocusClass" />
                 </div>
                 <div v-if="form.type === '2' || form.type === '3'" class="space-y-2">
                     <Label>积分数量 <span class="text-destructive">*</span></Label>
-                    <Input v-model.number="form.pointAmount" type="number" min="1" placeholder="积分数量" />
+                    <Input v-model.number="form.pointAmount" type="number" min="1" placeholder="积分数量"
+                        :class="adminBrandFocusClass" />
                 </div>
                 <div class="space-y-2">
                     <Label>过期时间</Label>
@@ -50,13 +53,14 @@
                         <PopoverTrigger as-child>
                             <Button variant="outline" :class="[
                                 'w-full justify-start text-left font-normal',
+                                adminBrandFocusClass,
                                 !form.expiredAt && 'text-muted-foreground'
                             ]">
                                 <CalendarIcon class="mr-2 h-4 w-4" />
                                 {{ form.expiredAt ? formatDisplayDate(form.expiredAt) : '选择过期日期（可选）' }}
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent class="w-auto p-0" align="start">
+                        <PopoverContent class="theme-brand w-auto p-0" align="start">
                             <Calendar v-model="(form.expiredAt as any)" :min-value="(minDate as any)" locale="zh-CN"
                                 initial-focus @update:model-value="datePickerOpen = false" />
                         </PopoverContent>
@@ -64,12 +68,12 @@
                 </div>
                 <div class="space-y-2">
                     <Label>备注</Label>
-                    <Input v-model="form.remark" placeholder="可选备注，方便后续搜索" />
+                    <Input v-model="form.remark" placeholder="可选备注，方便后续搜索" :class="adminBrandFocusClass" />
                 </div>
             </div>
             <DialogFooter class="shrink-0">
-                <Button variant="outline" @click="$emit('update:open', false)">取消</Button>
-                <Button @click="handleSubmit" :disabled="generating">
+                <Button variant="outline" :class="adminBrandFocusClass" @click="$emit('update:open', false)">取消</Button>
+                <Button :class="adminBrandPrimaryButtonClass" @click="handleSubmit" :disabled="generating">
                     <Loader2 v-if="generating" class="h-4 w-4 mr-2 animate-spin" />
                     生成
                 </Button>
@@ -86,7 +90,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { getLocalTimeZone, today, type DateValue } from '@internationalized/date'
 import dayjs from 'dayjs'
 import { useApiFetch } from '~/composables/useApiFetch'
-import type { membershipLevels } from '~~/generated/prisma/client'
+import {
+    adminBrandFocusClass,
+    adminBrandPrimaryButtonClass,
+} from '~/utils/adminBrandStyles'
 
 // 定义 props
 const props = defineProps<{

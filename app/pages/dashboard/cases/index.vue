@@ -40,13 +40,13 @@
       <div class="hidden shrink-0 items-center gap-1 self-end rounded-lg border bg-muted p-1 md:flex">
         <button type="button" title="列表视图" aria-label="列表视图"
           class="flex size-8 cursor-pointer items-center justify-center rounded-md transition-colors"
-          :class="viewMode === 'list' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+          :class="viewMode === 'list' ? 'bg-card text-foreground' : 'text-muted-foreground hover:text-foreground'"
           @click="viewMode = 'list'">
           <List class="size-4" />
         </button>
         <button type="button" title="卡片视图" aria-label="卡片视图"
           class="flex size-8 cursor-pointer items-center justify-center rounded-md transition-colors"
-          :class="viewMode === 'grid' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+          :class="viewMode === 'grid' ? 'bg-card text-foreground' : 'text-muted-foreground hover:text-foreground'"
           @click="viewMode = 'grid'">
           <LayoutGrid class="size-4" />
         </button>

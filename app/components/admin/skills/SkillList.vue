@@ -2,7 +2,7 @@
     <div class="space-y-4">
         <!-- 操作栏 -->
         <div class="flex justify-end">
-            <Button variant="outline" :disabled="resyncing" @click="handleResync">
+            <Button variant="outline" :class="adminBrandFocusClass" :disabled="resyncing" @click="handleResync">
                 <RefreshCw v-if="!resyncing" class="h-4 w-4 mr-2" />
                 <Loader2 v-else class="h-4 w-4 mr-2 animate-spin" />
                 重新扫描
@@ -41,18 +41,27 @@
                             <TableCell class="font-mono text-sm font-medium">{{ skill.name }}</TableCell>
                             <TableCell>
                                 <div class="flex items-center gap-2">
-                                    <span>{{ skill.customTitle ?? skill.title ?? '-' }}</span>
-                                    <Button variant="ghost" size="icon" class="h-6 w-6" @click="handleEdit(skill)">
+                                    <span>{{ getSkillDisplayTitle(skill) }}</span>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        :class="['h-6 w-6', adminBrandFocusClass]"
+                                        @click="handleEdit(skill)"
+                                    >
                                         <Pencil class="h-3.5 w-3.5" />
                                     </Button>
                                 </div>
                             </TableCell>
                             <TableCell>
-                                <Badge v-if="skill.version" variant="secondary">v{{ skill.version }}</Badge>
+                                <Badge v-if="skill.version" variant="outline" :class="adminBrandChipClass">
+                                    v{{ skill.version }}
+                                </Badge>
                                 <span v-else class="text-muted-foreground text-sm">-</span>
                             </TableCell>
                             <TableCell>
-                                <Badge variant="outline">{{ skill.source }}</Badge>
+                                <Badge variant="outline" :class="getSkillSourceBadgeClass(skill.source)">
+                                    {{ getSkillSourceLabel(skill.source) }}
+                                </Badge>
                             </TableCell>
                             <TableCell class="font-mono text-xs text-muted-foreground max-w-[200px] truncate">
                                 {{ skill.path }}
@@ -86,6 +95,15 @@ import { useApiFetch } from '~/composables/useApiFetch'
 import { useFormatters } from '~/composables/useFormatters'
 import AdminSkillsSkillEnableSwitch from '~/components/admin/skills/SkillEnableSwitch.vue'
 import AdminSkillsSkillEditDialog from '~/components/admin/skills/SkillEditDialog.vue'
+import {
+    adminBrandChipClass,
+    adminBrandFocusClass,
+} from '~/utils/adminBrandStyles'
+
+const SKILL_SOURCE_LABELS: Record<string, string> = {
+    filesystem: '文件系统',
+    uploaded: '后台上传',
+}
 
 const { formatDate: formatDateRaw } = useFormatters()
 
@@ -109,6 +127,22 @@ const resyncing = ref(false)
 
 function formatDate(date: string) {
     return formatDateRaw(date, 'MM-DD HH:mm')
+}
+
+function getSkillDisplayTitle(skill: Skill) {
+    return skill.customTitle ?? skill.title ?? skill.name
+}
+
+function getSkillSourceLabel(source: string) {
+    return SKILL_SOURCE_LABELS[source] ?? source
+}
+
+function getSkillSourceBadgeClass(source: string) {
+    if (source === 'uploaded') {
+        return 'border-transparent bg-amber-500/10 text-amber-700 dark:text-amber-300'
+    }
+
+    return adminBrandChipClass
 }
 
 async function loadSkills() {

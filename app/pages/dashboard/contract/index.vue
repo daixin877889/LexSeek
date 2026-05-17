@@ -163,7 +163,7 @@ onMounted(async () => {
                     <TabsList
                         class="h-auto w-full justify-start gap-[3px] overflow-x-auto rounded-[9px] border border-border sm:w-auto">
                         <TabsTrigger v-for="t in STATUS_TABS" :key="t.value" :value="t.value"
-                            class="h-auto px-[13px] py-[7px] text-[13px] leading-none text-muted-foreground data-[state=active]:bg-card dark:data-[state=active]:bg-card data-[state=active]:text-foreground dark:data-[state=active]:border-transparent data-[state=active]:shadow-[0_1px_2px_rgb(0_0_0/0.12)]">
+                            class="h-auto px-[13px] py-[7px] text-[13px] leading-none text-muted-foreground data-[state=active]:bg-card dark:data-[state=active]:bg-card data-[state=active]:text-foreground dark:data-[state=active]:border-transparent">
                             {{ t.label }}
                         </TabsTrigger>
                     </TabsList>

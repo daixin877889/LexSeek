@@ -2,7 +2,7 @@
   <Dialog v-model:open="open">
     <DialogContent
       :class="['theme-brand max-w-4xl min-w-[80vw] md:min-w-[70vw] h-[85vh] md:h-[90vh] z-[70] rounded-2xl shadow-2xl', 'grid grid-rows-[auto_1fr] overflow-hidden', isUploadMode ? '' : 'grid-rows-[auto_1fr_auto]']"
-      overlay-class="z-[70]" @openAutoFocus="(e) => e.preventDefault()" @interactOutside="(e) => e.preventDefault()">
+      overlay-class="z-[70]" @openAutoFocus="handleDialogAutoFocus" @interactOutside="(e) => e.preventDefault()">
       <DialogHeader>
         <DialogTitle>选择案情材料</DialogTitle>
         <DialogDescription class="hidden md:block">从已上传的文件中选择，或上传新的案情材料</DialogDescription>
@@ -236,6 +236,15 @@ function isFileDisabled(file: OssFileItem): boolean {
 
 // 对话框状态
 const open = defineModel<boolean>("open", { default: false });
+
+/**
+ * 弹窗打开时不自动聚焦搜索框（避免移动端弹起键盘），但必须把焦点移入弹窗容器本身——
+ * 否则触发按钮保留焦点，会与 Radix 给页面其余部分加的 aria-hidden 冲突（控制台 a11y 告警）。
+ */
+function handleDialogAutoFocus(e: Event) {
+  e.preventDefault();
+  (e.target as HTMLElement | null)?.focus();
+}
 
 // 文件 store
 const fileStore = useFileStore();

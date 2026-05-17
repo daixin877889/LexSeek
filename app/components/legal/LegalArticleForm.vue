@@ -1,5 +1,5 @@
 <template>
-    <form @submit.prevent="handleSubmit" class="flex flex-col h-full">
+    <form @submit.prevent="handleSubmit" class="theme-brand flex flex-col h-full">
         <!-- 可滚动的表单内容区域 -->
         <div class="flex-1 overflow-y-auto space-y-4 pr-1">
             <!-- 条文类型 + 排序（sm 以上各占 50%） -->
@@ -8,10 +8,10 @@
                 <div class="w-full sm:w-1/2 space-y-2">
                     <Label for="type">条文类型 <span class="text-destructive">*</span></Label>
                     <Select v-model="form.type">
-                        <SelectTrigger class="w-full">
+                        <SelectTrigger :class="['w-full', adminBrandFocusClass]">
                             <SelectValue placeholder="请选择条文类型" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent class="theme-brand">
                             <SelectItem value="notice">通知</SelectItem>
                             <SelectItem value="header">正文头部</SelectItem>
                             <SelectItem value="footer">正文尾部</SelectItem>
@@ -28,7 +28,7 @@
                 <!-- 排序 -->
                 <div class="w-full sm:w-1/2 space-y-2">
                     <Label for="order">排序序号</Label>
-                    <Input id="order" v-model.number="form.order" type="number" placeholder="用于排序的序号" />
+                    <Input id="order" v-model.number="form.order" type="number" placeholder="用于排序的序号" :class="adminBrandFocusClass" />
                 </div>
             </div>
 
@@ -38,23 +38,23 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div class="space-y-1.5">
                         <Label for="l1" class="text-xs">编</Label>
-                        <Input id="l1" v-model="form.l1" placeholder="第一编" class="h-9" />
+                        <Input id="l1" v-model="form.l1" placeholder="第一编" :class="['h-9', adminBrandFocusClass]" />
                     </div>
                     <div class="space-y-1.5">
                         <Label for="l2" class="text-xs">分编</Label>
-                        <Input id="l2" v-model="form.l2" placeholder="第一分编" class="h-9" />
+                        <Input id="l2" v-model="form.l2" placeholder="第一分编" :class="['h-9', adminBrandFocusClass]" />
                     </div>
                     <div class="space-y-1.5">
                         <Label for="l3" class="text-xs">章</Label>
-                        <Input id="l3" v-model="form.l3" placeholder="第一章" class="h-9" />
+                        <Input id="l3" v-model="form.l3" placeholder="第一章" :class="['h-9', adminBrandFocusClass]" />
                     </div>
                     <div class="space-y-1.5">
                         <Label for="l4" class="text-xs">节</Label>
-                        <Input id="l4" v-model="form.l4" placeholder="第一节" class="h-9" />
+                        <Input id="l4" v-model="form.l4" placeholder="第一节" :class="['h-9', adminBrandFocusClass]" />
                     </div>
                     <div class="space-y-1.5">
                         <Label for="l5" class="text-xs">条</Label>
-                        <Input id="l5" v-model="form.l5" placeholder="第一条" class="h-9" />
+                        <Input id="l5" v-model="form.l5" placeholder="第一条" :class="['h-9', adminBrandFocusClass]" />
                     </div>
                 </div>
             </div>
@@ -64,19 +64,19 @@
                 <!-- 发布日期 -->
                 <div class="space-y-2">
                     <Label>发布日期</Label>
-                    <GeneralDatePicker v-model="form.publishDate" placeholder="选择发布日期" />
+                    <GeneralDatePicker v-model="form.publishDate" placeholder="选择发布日期" :class="adminBrandFocusClass" />
                 </div>
 
                 <!-- 生效日期 -->
                 <div class="space-y-2">
                     <Label>生效日期</Label>
-                    <GeneralDatePicker v-model="form.effectiveDate" placeholder="选择生效日期" />
+                    <GeneralDatePicker v-model="form.effectiveDate" placeholder="选择生效日期" :class="adminBrandFocusClass" />
                 </div>
 
                 <!-- 失效日期 -->
                 <div class="space-y-2">
                     <Label>失效日期</Label>
-                    <GeneralDatePicker v-model="form.invalidDate" placeholder="选择失效日期" />
+                    <GeneralDatePicker v-model="form.invalidDate" placeholder="选择失效日期" :class="adminBrandFocusClass" />
                 </div>
             </div>
 
@@ -90,10 +90,10 @@
 
         <!-- 固定底部操作按钮 -->
         <div class="flex items-center justify-end gap-4 pt-4 mt-4 border-t shrink-0">
-            <Button type="button" variant="outline" @click="$emit('cancel')">
+            <Button type="button" variant="outline" :class="adminBrandFocusClass" @click="$emit('cancel')">
                 取消
             </Button>
-            <Button type="submit" :disabled="submitting">
+            <Button type="submit" :class="adminBrandPrimaryButtonClass" :disabled="submitting">
                 <Loader2 v-if="submitting" class="h-4 w-4 mr-2 animate-spin" />
                 {{ initialData ? '保存修改' : '创建' }}
             </Button>
@@ -107,6 +107,7 @@ import { toast } from 'vue-sonner'
 import type { LegalArticleListItem, CreateLegalArticleRequest, UpdateLegalArticleRequest, ArticleType } from '#shared/types/legal'
 import GeneralDatePicker from '~/components/general/DatePicker.vue'
 import GeneralRichTextEditor from '~/components/general/RichTextEditor.vue'
+import { adminBrandFocusClass, adminBrandPrimaryButtonClass } from '~/utils/adminBrandStyles'
 
 /** Props */
 const props = defineProps<{

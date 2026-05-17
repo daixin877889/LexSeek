@@ -1,12 +1,12 @@
 <template>
-        <div class="space-y-6">
+        <div class="theme-brand space-y-6">
             <!-- 页面标题 -->
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                     <h1 class="text-2xl md:text-3xl font-bold mb-1">权益类型管理</h1>
                     <p class="text-muted-foreground text-sm">管理系统中的权益类型定义</p>
                 </div>
-                <Button @click="openCreateDialog">
+                <Button :class="adminBrandPrimaryButtonClass" @click="openCreateDialog">
                     <Plus class="h-4 w-4 mr-2" />
                     新增权益
                 </Button>
@@ -14,18 +14,18 @@
 
             <!-- 搜索和筛选 -->
             <div class="flex flex-col md:flex-row gap-4">
-                <Input v-model="keyword" placeholder="搜索权益名称或标识码..." class="md:max-w-xs" @keyup.enter="handleSearch" />
+                <Input v-model="keyword" placeholder="搜索权益名称或标识码..." :class="['md:max-w-xs', adminBrandFocusClass]" @keyup.enter="handleSearch" />
                 <Select v-model="statusFilter">
-                    <SelectTrigger class="w-full md:w-32">
+                    <SelectTrigger :class="['w-full md:w-32', adminBrandFocusClass]">
                         <SelectValue placeholder="状态" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent class="theme-brand">
                         <SelectItem value="all">全部状态</SelectItem>
                         <SelectItem value="1">启用</SelectItem>
                         <SelectItem value="0">禁用</SelectItem>
                     </SelectContent>
                 </Select>
-                <Button variant="outline" @click="handleSearch">
+                <Button variant="outline" :class="adminBrandFocusClass" @click="handleSearch">
                     <Search class="h-4 w-4 mr-2" />
                     搜索
                 </Button>
@@ -46,54 +46,51 @@
             <!-- 权益列表 -->
             <template v-else>
                 <div class="bg-card rounded-lg border overflow-hidden">
-                    <div class="overflow-x-auto">
-                        <table class="w-full">
-                            <thead>
-                                <tr class="border-b bg-muted/50">
-                                    <th class="px-4 py-3 text-left text-sm font-medium">名称</th>
-                                    <th class="px-4 py-3 text-left text-sm font-medium">标识码</th>
-                                    <th class="px-4 py-3 text-center text-sm font-medium">单位类型</th>
-                                    <th class="px-4 py-3 text-center text-sm font-medium">计算模式</th>
-                                    <th class="px-4 py-3 text-center text-sm font-medium">默认值</th>
-                                    <th class="px-4 py-3 text-center text-sm font-medium">状态</th>
-                                    <th class="px-4 py-3 text-center text-sm font-medium w-32">操作</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr v-for="benefit in benefits" :key="benefit.id"
-                                    class="border-b last:border-b-0 hover:bg-muted/30 transition-colors">
-                                    <td class="px-4 py-3">
-                                        <div class="font-medium">{{ benefit.name }}</div>
-                                        <div v-if="benefit.description" class="text-xs text-muted-foreground">
-                                            {{ benefit.description }}
-                                        </div>
-                                    </td>
-                                    <td class="px-4 py-3 font-mono text-sm">{{ benefit.code }}</td>
-                                    <td class="px-4 py-3 text-center text-sm">{{ benefit.unitTypeName }}</td>
-                                    <td class="px-4 py-3 text-center text-sm">{{ benefit.consumptionModeName }}</td>
-                                    <td class="px-4 py-3 text-center text-sm">{{ benefit.formattedDefaultValue }}</td>
-                                    <td class="px-4 py-3 text-center">
-                                        <Badge :variant="benefit.status === 1 ? 'default' : 'secondary'">
-                                            {{ benefit.statusName }}
-                                        </Badge>
-                                    </td>
-                                    <td class="px-4 py-3 text-center">
-                                        <div class="flex items-center justify-center gap-1">
-                                            <Button variant="ghost" size="sm" @click="openEditDialog(benefit)">
-                                                <Pencil class="h-4 w-4" />
-                                            </Button>
-                                            <Button variant="ghost" size="sm" @click="handleToggleStatus(benefit)">
-                                                <Power class="h-4 w-4" />
-                                            </Button>
-                                            <Button variant="ghost" size="sm" @click="handleDelete(benefit)">
-                                                <Trash2 class="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                    <Table>
+                        <TableHeader>
+                            <TableRow class="bg-muted/50 hover:bg-muted/50">
+                                <TableHead class="px-4 py-3">名称</TableHead>
+                                <TableHead class="px-4 py-3">标识码</TableHead>
+                                <TableHead class="px-4 py-3 text-center">单位类型</TableHead>
+                                <TableHead class="px-4 py-3 text-center">计算模式</TableHead>
+                                <TableHead class="px-4 py-3 text-center">默认值</TableHead>
+                                <TableHead class="px-4 py-3 text-center">状态</TableHead>
+                                <TableHead class="w-32 px-4 py-3 text-center">操作</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            <TableRow v-for="benefit in benefits" :key="benefit.id" class="hover:bg-muted/30">
+                                <TableCell class="px-4 py-3">
+                                    <div class="font-medium">{{ benefit.name }}</div>
+                                    <div v-if="benefit.description" class="text-xs text-muted-foreground">
+                                        {{ benefit.description }}
+                                    </div>
+                                </TableCell>
+                                <TableCell class="px-4 py-3 font-mono text-sm">{{ benefit.code }}</TableCell>
+                                <TableCell class="px-4 py-3 text-center text-sm">{{ benefit.unitTypeName }}</TableCell>
+                                <TableCell class="px-4 py-3 text-center text-sm">{{ benefit.consumptionModeName }}</TableCell>
+                                <TableCell class="px-4 py-3 text-center text-sm">{{ benefit.formattedDefaultValue }}</TableCell>
+                                <TableCell class="px-4 py-3 text-center">
+                                    <Badge variant="outline" :class="getAdminStatusBadgeClass(benefit.status === 1)">
+                                        {{ benefit.statusName }}
+                                    </Badge>
+                                </TableCell>
+                                <TableCell class="px-4 py-3 text-center">
+                                    <div class="flex items-center justify-center gap-1">
+                                        <Button variant="ghost" size="sm" :class="adminBrandFocusClass" @click="openEditDialog(benefit)">
+                                            <Pencil class="h-4 w-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="sm" :class="adminBrandFocusClass" @click="handleToggleStatus(benefit)">
+                                            <Power class="h-4 w-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="sm" :class="['text-destructive hover:text-destructive', adminBrandFocusClass]" @click="handleDelete(benefit)">
+                                            <Trash2 class="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        </TableBody>
+                    </Table>
                 </div>
 
                 <!-- 分页 -->
@@ -104,7 +101,7 @@
 
         <!-- 新增/编辑对话框 -->
         <Dialog v-model:open="dialogOpen">
-            <DialogContent class="max-w-md">
+            <DialogContent class="theme-brand max-w-md">
                 <DialogHeader>
                     <DialogTitle>{{ isEdit ? '编辑权益' : '新增权益' }}</DialogTitle>
                     <DialogDescription>{{ isEdit ? '修改权益类型信息' : '创建新的权益类型' }}</DialogDescription>
@@ -112,25 +109,25 @@
                 <div class="space-y-4 py-4">
                     <div class="space-y-2">
                         <Label>权益名称 <span class="text-destructive">*</span></Label>
-                        <Input v-model="form.name" placeholder="如：云盘空间" />
+                        <Input v-model="form.name" placeholder="如：云盘空间" :class="adminBrandFocusClass" />
                     </div>
                     <div class="space-y-2">
                         <Label>标识码 <span class="text-destructive">*</span></Label>
-                        <Input v-model="form.code" placeholder="如：storage_space" :disabled="isEdit" />
+                        <Input v-model="form.code" placeholder="如：storage_space" :disabled="isEdit" :class="adminBrandFocusClass" />
                         <p class="text-xs text-muted-foreground">只能包含小写字母、数字和下划线，以字母开头</p>
                     </div>
                     <div class="space-y-2">
                         <Label>描述</Label>
-                        <Input v-model="form.description" placeholder="权益描述（可选）" />
+                        <Input v-model="form.description" placeholder="权益描述（可选）" :class="adminBrandFocusClass" />
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div class="space-y-2">
                             <Label>单位类型 <span class="text-destructive">*</span></Label>
                             <Select v-model="form.unitType">
-                                <SelectTrigger class="w-full">
+                                <SelectTrigger :class="['w-full', adminBrandFocusClass]">
                                     <SelectValue placeholder="选择单位" />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent class="theme-brand">
                                     <SelectItem value="byte">字节</SelectItem>
                                     <SelectItem value="count">次数</SelectItem>
                                 </SelectContent>
@@ -139,10 +136,10 @@
                         <div class="space-y-2">
                             <Label>计算模式 <span class="text-destructive">*</span></Label>
                             <Select v-model="form.consumptionMode">
-                                <SelectTrigger class="w-full">
+                                <SelectTrigger :class="['w-full', adminBrandFocusClass]">
                                     <SelectValue placeholder="选择模式" />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent class="theme-brand">
                                     <SelectItem value="sum">累加</SelectItem>
                                     <SelectItem value="max">取最大值</SelectItem>
                                 </SelectContent>
@@ -152,12 +149,12 @@
                     <div class="space-y-2">
                         <Label>默认值 <span class="text-destructive">*</span></Label>
                         <div class="flex gap-2">
-                            <Input v-model.number="defaultValueInput" type="number" min="0" class="flex-1" />
+                            <Input v-model.number="defaultValueInput" type="number" min="0" :class="['min-w-0 flex-1', adminBrandFocusClass]" />
                             <Select v-model="defaultValueUnit" class="w-24" v-if="form.unitType === 'byte'">
-                                <SelectTrigger class="w-full">
+                                <SelectTrigger :class="['w-24 shrink-0', adminBrandFocusClass]">
                                     <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent class="theme-brand">
                                     <SelectItem value="B">B</SelectItem>
                                     <SelectItem value="KB">KB</SelectItem>
                                     <SelectItem value="MB">MB</SelectItem>
@@ -172,8 +169,8 @@
                     </div>
                 </div>
                 <DialogFooter>
-                    <Button variant="outline" @click="dialogOpen = false">取消</Button>
-                    <Button @click="handleSubmit" :disabled="submitting">
+                    <Button variant="outline" :class="adminBrandFocusClass" @click="dialogOpen = false">取消</Button>
+                    <Button :class="adminBrandPrimaryButtonClass" @click="handleSubmit" :disabled="submitting">
                         <Loader2 v-if="submitting" class="h-4 w-4 mr-2 animate-spin" />
                         {{ isEdit ? '保存' : '创建' }}
                     </Button>
@@ -183,7 +180,7 @@
 
         <!-- 删除确认对话框 -->
         <AlertDialog v-model:open="deleteDialogOpen">
-            <AlertDialogContent>
+            <AlertDialogContent class="theme-brand">
                 <AlertDialogHeader>
                     <AlertDialogTitle>确认删除</AlertDialogTitle>
                     <AlertDialogDescription>
@@ -191,9 +188,9 @@
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>取消</AlertDialogCancel>
+                    <AlertDialogCancel :class="adminBrandFocusClass">取消</AlertDialogCancel>
                     <AlertDialogAction @click="confirmDelete" :disabled="deleting"
-                        class="bg-destructive text-white hover:bg-destructive/90">
+                        :class="adminBrandDestructiveActionClass">
                         <Loader2 v-if="deleting" class="h-4 w-4 mr-2 animate-spin" />
                         确认删除
                     </AlertDialogAction>
@@ -209,7 +206,12 @@ import type { BenefitAdminInfo } from '#shared/types/benefit'
 import { formatByteSize } from '#shared/utils/unitConverision'
 import GeneralPagination from '~/components/general/pagination.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
-import type { benefits } from '~~/generated/prisma/client'
+import {
+    adminBrandDestructiveActionClass,
+    adminBrandFocusClass,
+    adminBrandPrimaryButtonClass,
+    getAdminStatusBadgeClass,
+} from '~/utils/adminBrandStyles'
 
 definePageMeta({ layout: 'admin-layout', title: '权益类型管理' })
 

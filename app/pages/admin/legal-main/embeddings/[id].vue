@@ -1,9 +1,9 @@
 <template>
-        <div class="space-y-6">
+        <div class="theme-brand space-y-6">
             <!-- 页面标题 -->
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div class="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" @click="navigateTo('/admin/legal-main')">
+                    <Button variant="ghost" size="icon" :class="adminBrandFocusClass" @click="navigateTo('/admin/legal-main')">
                         <ArrowLeft class="h-4 w-4" />
                     </Button>
                     <div>
@@ -23,15 +23,15 @@
                     <!-- 条文 ID 筛选 -->
                     <div class="md:col-span-2">
                         <Label class="text-sm text-muted-foreground mb-1.5 block">条文 ID</Label>
-                        <Input v-model="filters.articleId" placeholder="输入条文 ID 筛选..." class="w-full" />
+                        <Input v-model="filters.articleId" placeholder="输入条文 ID 筛选..." :class="['w-full', adminBrandFocusClass]" />
                     </div>
                     <!-- 操作按钮 -->
                     <div class="flex items-end gap-2">
-                        <Button @click="handleSearch" class="flex-1">
+                        <Button @click="handleSearch" :class="['flex-1', adminBrandPrimaryButtonClass]">
                             <Search class="h-4 w-4 mr-2" />
                             搜索
                         </Button>
-                        <Button variant="outline" @click="handleReset">
+                        <Button variant="outline" :class="adminBrandFocusClass" @click="handleReset">
                             <RotateCcw class="h-4 w-4" />
                         </Button>
                     </div>
@@ -48,7 +48,7 @@
                 <Database class="h-12 w-12 text-muted-foreground/50 mb-4" />
                 <h3 class="text-lg font-medium mb-1">{{ filters.articleId ? '未找到匹配的嵌入记录' : '暂无嵌入记录' }}</h3>
                 <p class="text-muted-foreground text-sm mb-4">{{ filters.articleId ? '尝试调整筛选条件' : '请先对条文进行向量化处理' }}</p>
-                <Button v-if="filters.articleId" variant="outline" @click="handleReset">
+                <Button v-if="filters.articleId" variant="outline" :class="adminBrandFocusClass" @click="handleReset">
                     <RotateCcw class="h-4 w-4 mr-2" />
                     重置筛选
                 </Button>
@@ -73,11 +73,11 @@
                                             <span class="font-mono text-xs text-muted-foreground truncate">{{
                                                 embedding.id }}</span>
                                             <span v-if="!embedding.metadata?.invalid_date"
-                                                class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                                                :class="['inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium', adminBrandEnabledBadgeClass]">
                                                 有效
                                             </span>
                                             <span v-else
-                                                class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
+                                                :class="['inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium', adminBrandErrorBadgeClass]">
                                                 已失效
                                             </span>
                                         </div>
@@ -87,12 +87,12 @@
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-2" @click.stop>
-                                    <Button variant="ghost" size="icon" class="h-8 w-8" title="编辑元数据"
+                                    <Button variant="ghost" size="icon" :class="['h-8 w-8', adminBrandFocusClass]" title="编辑元数据"
                                         @click="handleEdit(embedding)">
                                         <Pencil class="h-4 w-4" />
                                     </Button>
                                     <Button variant="ghost" size="icon"
-                                        class="h-8 w-8 text-destructive hover:text-destructive" title="删除"
+                                        :class="['h-8 w-8 text-destructive hover:text-destructive', adminBrandFocusClass]" title="删除"
                                         @click="handleDelete(embedding)">
                                         <Trash2 class="h-4 w-4" />
                                     </Button>
@@ -179,7 +179,7 @@
 
         <!-- 编辑元数据对话框 -->
         <Dialog v-model:open="showEditDialog">
-            <DialogContent class="sm:max-w-md">
+            <DialogContent class="theme-brand sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>编辑元数据</DialogTitle>
                     <DialogDescription>
@@ -190,17 +190,17 @@
                     <!-- 是否有效 -->
                     <div class="flex items-center justify-between">
                         <Label>是否有效</Label>
-                        <Switch v-model="editForm.isValid" />
+                        <Switch v-model="editForm.isValid" :class="adminBrandSwitchClass" />
                     </div>
                     <!-- 失效日期 -->
                     <div class="space-y-2">
                         <Label>失效日期</Label>
-                        <GeneralDatePicker v-model="editForm.invalidDate" placeholder="选择失效日期" />
+                        <GeneralDatePicker v-model="editForm.invalidDate" placeholder="选择失效日期" :class="adminBrandFocusClass" />
                     </div>
                 </div>
                 <DialogFooter>
-                    <Button variant="outline" @click="showEditDialog = false">取消</Button>
-                    <Button @click="handleSaveEdit" :disabled="saving">
+                    <Button variant="outline" :class="adminBrandFocusClass" @click="showEditDialog = false">取消</Button>
+                    <Button :class="adminBrandPrimaryButtonClass" @click="handleSaveEdit" :disabled="saving">
                         <Loader2 v-if="saving" class="h-4 w-4 mr-2 animate-spin" />
                         保存
                     </Button>
@@ -210,7 +210,7 @@
 
         <!-- 删除确认对话框 -->
         <AlertDialog v-model:open="deleteDialogOpen">
-            <AlertDialogContent>
+            <AlertDialogContent class="theme-brand">
                 <AlertDialogHeader>
                     <AlertDialogTitle>确认删除</AlertDialogTitle>
                     <AlertDialogDescription>
@@ -218,8 +218,8 @@
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>取消</AlertDialogCancel>
-                    <AlertDialogAction @click="confirmDelete" class="bg-destructive text-white hover:bg-destructive/90">
+                    <AlertDialogCancel :class="adminBrandFocusClass">取消</AlertDialogCancel>
+                    <AlertDialogAction @click="confirmDelete" :class="adminBrandDestructiveActionClass">
                         删除
                     </AlertDialogAction>
                 </AlertDialogFooter>
@@ -236,6 +236,14 @@ import { ArticleTypeLabels } from '#shared/types/legal'
 import GeneralDatePicker from '~/components/general/DatePicker.vue'
 import GeneralPagination from '~/components/general/pagination.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
+import {
+    adminBrandDestructiveActionClass,
+    adminBrandEnabledBadgeClass,
+    adminBrandErrorBadgeClass,
+    adminBrandFocusClass,
+    adminBrandPrimaryButtonClass,
+    adminBrandSwitchClass,
+} from '~/utils/adminBrandStyles'
 
 definePageMeta({
     layout: 'admin-layout',

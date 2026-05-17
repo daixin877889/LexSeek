@@ -12,9 +12,10 @@
             </Button>
         </div>
         <div v-else class="space-y-2">
-            <Textarea v-model="draft" rows="3" placeholder="管理员内部备注（仅后台可见）" :maxlength="500" />
+            <Textarea v-model="draft" rows="3" placeholder="管理员内部备注（仅后台可见）" :maxlength="500"
+                :class="brandFocusClass" />
             <div class="flex gap-2">
-                <Button size="sm" :disabled="saving" @click="save">
+                <Button size="sm" :class="primaryButtonClass" :disabled="saving" @click="save">
                     <Loader2 v-if="saving" class="w-3 h-3 mr-1 animate-spin" /> 保存
                 </Button>
                 <Button size="sm" variant="ghost" @click="editing = false">取消</Button>
@@ -44,6 +45,8 @@ const emit = defineEmits<{ saved: [newRemark: string | null] }>()
 const editing = ref(false)
 const draft = ref('')
 const saving = ref(false)
+const brandFocusClass = 'brand-control-focus'
+const primaryButtonClass = 'bg-gradient-brand-button text-white brand-control-focus hover:brightness-105'
 
 function startEdit() {
     draft.value = props.modelValue ?? ''

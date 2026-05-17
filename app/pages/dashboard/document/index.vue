@@ -86,7 +86,7 @@ function goManageTemplates() {
                     <button v-for="opt in TEMPLATE_SCOPE_OPTIONS" :key="opt.value" type="button" :class="[
                         'px-3 h-7 rounded-full transition-colors',
                         scope === opt.value
-                            ? 'bg-background text-foreground shadow-sm'
+                            ? 'bg-background text-foreground'
                             : 'text-muted-foreground hover:text-foreground',
                     ]" @click="scope = opt.value">
                         {{ opt.label }}

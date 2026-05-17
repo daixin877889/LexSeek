@@ -1,8 +1,8 @@
 <template>
-        <div class="space-y-6">
+        <div class="theme-brand space-y-6">
             <!-- 页面标题 -->
             <div class="flex items-center gap-4">
-                <Button variant="ghost" size="icon" @click="navigateTo('/admin/legal-main')">
+                <Button variant="ghost" size="icon" :class="adminBrandFocusClass" @click="navigateTo('/admin/legal-main')">
                     <ArrowLeft class="h-4 w-4" />
                 </Button>
                 <div>
@@ -25,7 +25,7 @@
                 <AlertCircle class="h-12 w-12 text-destructive mb-4" />
                 <h3 class="text-lg font-medium mb-1">加载失败</h3>
                 <p class="text-muted-foreground text-sm mb-4">无法加载法律法规数据</p>
-                <Button @click="navigateTo('/admin/legal-main')">
+                <Button :class="adminBrandPrimaryButtonClass" @click="navigateTo('/admin/legal-main')">
                     返回列表
                 </Button>
             </div>
@@ -38,6 +38,7 @@ import { toast } from 'vue-sonner'
 import type { LegalMainInfo, UpdateLegalMainRequest } from '#shared/types/legal'
 import LegalMainForm from '~/components/legal/LegalMainForm.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { adminBrandFocusClass, adminBrandPrimaryButtonClass } from '~/utils/adminBrandStyles'
 
 definePageMeta({
     layout: 'admin-layout',

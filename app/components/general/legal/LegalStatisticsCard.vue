@@ -12,18 +12,18 @@
                     <p class="text-sm text-muted-foreground mb-1">条文总数</p>
                     <p class="text-3xl font-bold text-primary">{{ statistics.totalArticles }}</p>
                 </div>
-                <div class="bg-green-50 dark:bg-green-950/20 rounded-lg p-4">
+                <div class="bg-emerald-500/10 rounded-lg p-4">
                     <p class="text-sm text-muted-foreground mb-1">已向量化</p>
-                    <p class="text-3xl font-bold text-green-600 dark:text-green-400">
+                    <p class="text-3xl font-bold text-emerald-700 dark:text-emerald-300">
                         {{ statistics.embeddedArticles }}
                     </p>
                     <p class="text-xs text-muted-foreground mt-1">
                         {{ getPercentage(statistics.embeddedArticles, statistics.totalArticles) }}
                     </p>
                 </div>
-                <div class="bg-orange-50 dark:bg-orange-950/20 rounded-lg p-4">
+                <div class="bg-amber-500/10 rounded-lg p-4">
                     <p class="text-sm text-muted-foreground mb-1">未向量化</p>
-                    <p class="text-3xl font-bold text-orange-600 dark:text-orange-400">
+                    <p class="text-3xl font-bold text-amber-700 dark:text-amber-300">
                         {{ statistics.notEmbeddedArticles }}
                     </p>
                     <p class="text-xs text-muted-foreground mt-1">
@@ -41,7 +41,7 @@
                     </p>
                 </div>
                 <div class="w-full bg-muted rounded-full h-2">
-                    <div class="bg-green-600 dark:bg-green-400 h-2 rounded-full transition-all"
+                    <div class="bg-gradient-brand-button h-2 rounded-full transition-all"
                         :style="{ width: getPercentage(statistics.embeddedArticles, statistics.totalArticles) }">
                     </div>
                 </div>

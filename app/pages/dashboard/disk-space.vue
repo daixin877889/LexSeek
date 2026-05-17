@@ -56,11 +56,11 @@
             <div class="flex items-center gap-4">
               <!-- 视图切换（仅 PC 端显示） -->
               <div class="hidden md:flex bg-muted rounded-lg p-1">
-                <Button variant="ghost" size="sm" :class="{ 'bg-background shadow-sm': viewMode === 'grid' }"
+                <Button variant="ghost" size="sm" :class="{ 'bg-background': viewMode === 'grid' }"
                   @click="viewMode = 'grid'">
                   <LayoutGrid class="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="sm" :class="{ 'bg-background shadow-sm': viewMode === 'list' }"
+                <Button variant="ghost" size="sm" :class="{ 'bg-background': viewMode === 'list' }"
                   @click="viewMode = 'list'">
                   <List class="h-4 w-4" />
                 </Button>

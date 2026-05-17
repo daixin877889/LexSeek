@@ -1,6 +1,6 @@
 <template>
     <Sheet v-model:open="open">
-        <SheetContent class="w-full sm:max-w-[640px] overflow-y-auto">
+        <SheetContent class="theme-brand w-full overflow-y-auto sm:max-w-[640px]">
             <SheetHeader>
                 <SheetTitle>支付详情</SheetTitle>
                 <SheetDescription>查看支付单完整信息、关联订单和回调原始数据</SheetDescription>

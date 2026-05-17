@@ -2,7 +2,7 @@
     <!-- 提示词创建/编辑对话框 -->
     <Dialog v-model:open="open">
         <DialogContent
-            class="w-full! h-full! max-w-none! max-h-none! md:w-[80vw]! md:max-h-[90vh]! flex flex-col rounded-non!e md:rounded-lg!"
+            class="theme-brand w-full! h-full! max-w-none! max-h-none! md:w-[80vw]! md:max-h-[90vh]! flex flex-col rounded-none! md:rounded-lg!"
             :class="contentClass"
             :overlay-class="overlayClass"
             @interactOutside="(e) => e.preventDefault()">
@@ -16,24 +16,24 @@
                 <!-- 提示词名称（创建时必填，编辑时不可修改） -->
                 <div v-if="!isEdit" class="space-y-2">
                     <Label>提示词名称 <span class="text-destructive">*</span></Label>
-                    <Input v-model="form.name" placeholder="如：case_summary_system" />
+                    <Input v-model="form.name" placeholder="如：case_summary_system" :class="adminBrandFocusClass" />
                     <p class="text-xs text-muted-foreground">唯一标识符，同名称的提示词会自动管理版本</p>
                 </div>
 
                 <!-- 提示词标题 -->
                 <div class="space-y-2">
                     <Label>提示词标题</Label>
-                    <Input v-model="form.title" placeholder="如：案件概要系统提示词" />
+                    <Input v-model="form.title" placeholder="如：案件概要系统提示词" :class="adminBrandFocusClass" />
                 </div>
 
                 <!-- 提示词类型（仅创建时） -->
                 <div v-if="!isEdit" class="space-y-2">
                     <Label>提示词类型 <span class="text-destructive">*</span></Label>
                     <Select v-model="form.type">
-                        <SelectTrigger class="w-full">
+                        <SelectTrigger :class="['w-full', adminBrandFocusClass]">
                             <SelectValue placeholder="选择类型" />
                         </SelectTrigger>
-                        <SelectContent :class="innerOverlayClass">
+                        <SelectContent class="theme-brand" :class="innerOverlayClass">
                             <SelectItem value="system">系统提示词 (system) — 拼接到 system message</SelectItem>
                             <SelectItem value="user_injection">每轮隐藏注入 (user_injection) — 每轮紧贴最新用户消息前注入</SelectItem>
                             <SelectItem value="user">用户触发消息 (user) — UI 触发时模拟用户发送</SelectItem>
@@ -47,7 +47,7 @@
                 <div class="space-y-2">
                     <div class="flex items-center justify-between">
                         <Label>提示词内容 <span class="text-destructive">*</span></Label>
-                        <Button type="button" variant="ghost" size="sm" @click="insertVariable">
+                        <Button type="button" variant="ghost" size="sm" :class="adminBrandFocusClass" @click="insertVariable">
                             <Plus class="h-3 w-3 mr-1" />
                             插入变量
                         </Button>
@@ -63,15 +63,15 @@
                 <div v-if="extractedVariables.length" class="space-y-2">
                     <Label class="text-muted-foreground">检测到的变量</Label>
                     <div class="flex flex-wrap gap-2">
-                        <Badge v-for="(v, index) in extractedVariables" :key="index" variant="outline">
+                        <Badge v-for="(v, index) in extractedVariables" :key="index" variant="outline" :class="adminBrandChipClass">
                             {{ formatVariable(v) }}
                         </Badge>
                     </div>
                 </div>
             </div>
             <DialogFooter class="shrink-0">
-                <Button variant="outline" @click="open = false">取消</Button>
-                <Button @click="handleSubmit" :disabled="submitting">
+                <Button variant="outline" :class="adminBrandFocusClass" @click="open = false">取消</Button>
+                <Button :class="adminBrandPrimaryButtonClass" @click="handleSubmit" :disabled="submitting">
                     <Loader2 v-if="submitting" class="h-4 w-4 mr-2 animate-spin" />
                     {{ isEdit ? '保存（创建新版本）' : '创建' }}
                 </Button>
@@ -81,7 +81,7 @@
 
     <!-- 插入变量对话框 -->
     <Dialog v-model:open="variableDialogOpen">
-        <DialogContent class="max-w-sm" :class="innerContentClass" :overlay-class="innerOverlayClass">
+        <DialogContent class="theme-brand max-w-sm" :class="innerContentClass" :overlay-class="innerOverlayClass">
             <DialogHeader>
                 <DialogTitle>插入变量</DialogTitle>
                 <DialogDescription>输入变量名称，将自动插入到提示词内容中</DialogDescription>
@@ -89,12 +89,12 @@
             <div class="space-y-4 py-4">
                 <div class="space-y-2">
                     <Label>变量名称</Label>
-                    <Input v-model="newVariable" placeholder="如：caseInfo" @keyup.enter="confirmInsertVariable" />
+                    <Input v-model="newVariable" placeholder="如：caseInfo" :class="adminBrandFocusClass" @keyup.enter="confirmInsertVariable" />
                 </div>
                 <div class="space-y-2">
                     <Label class="text-muted-foreground">常用变量</Label>
                     <div class="flex flex-wrap gap-2">
-                        <Badge v-for="v in commonVariables" :key="v" variant="outline" class="cursor-pointer"
+                        <Badge v-for="v in commonVariables" :key="v" variant="outline" class="cursor-pointer" :class="adminBrandChipClass"
                             @click="newVariable = v">
                             {{ v }}
                         </Badge>
@@ -102,8 +102,8 @@
                 </div>
             </div>
             <DialogFooter>
-                <Button variant="outline" @click="variableDialogOpen = false">取消</Button>
-                <Button @click="confirmInsertVariable" :disabled="!newVariable.trim()">插入</Button>
+                <Button variant="outline" :class="adminBrandFocusClass" @click="variableDialogOpen = false">取消</Button>
+                <Button :class="adminBrandPrimaryButtonClass" @click="confirmInsertVariable" :disabled="!newVariable.trim()">插入</Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>
@@ -115,6 +115,7 @@ import { toast } from 'vue-sonner'
 import type { PromptWithRelations } from '#shared/types/node'
 import GeneralRichTextEditor from '~/components/general/RichTextEditor.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { adminBrandChipClass, adminBrandFocusClass, adminBrandPrimaryButtonClass } from '~/utils/adminBrandStyles'
 
 // 定义 props
 // nestedZIndex：嵌套打开（如从 NodeFormDialog 内部打开）时传入更高 z-index，

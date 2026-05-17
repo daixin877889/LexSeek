@@ -58,29 +58,29 @@
                         <!-- 向量化状态 -->
                         <td class="px-4 py-2.5 text-center">
                             <span v-if="article.isEmbedded"
-                                class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                                :class="['inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap', adminBrandEnabledBadgeClass]">
                                 <Check class="h-3 w-3 mr-1 shrink-0" />
                                 已嵌入
                             </span>
                             <span v-else
-                                class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400">
+                                :class="['inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap', adminBrandDisabledBadgeClass]">
                                 未嵌入
                             </span>
                         </td>
                         <!-- 操作 - 阻止点击事件冒泡 -->
                         <td class="px-4 py-2.5 text-center" @click.stop>
                             <div class="flex items-center justify-center gap-1">
-                                <Button variant="ghost" size="icon" class="h-7 w-7" title="重新向量化"
+                                <Button variant="ghost" size="icon" :class="['h-7 w-7', adminBrandFocusClass]" title="重新向量化"
                                     :disabled="embeddingId === article.id" @click="$emit('embed', article)">
                                     <Loader2 v-if="embeddingId === article.id" class="h-3.5 w-3.5 animate-spin" />
                                     <Sparkles v-else class="h-3.5 w-3.5" />
                                 </Button>
-                                <Button variant="ghost" size="icon" class="h-7 w-7" title="编辑"
+                                <Button variant="ghost" size="icon" :class="['h-7 w-7', adminBrandFocusClass]" title="编辑"
                                     @click="$emit('edit', article)">
                                     <Pencil class="h-3.5 w-3.5" />
                                 </Button>
                                 <Button variant="ghost" size="icon"
-                                    class="h-7 w-7 text-destructive hover:text-destructive" title="删除"
+                                    :class="['h-7 w-7 text-destructive hover:text-destructive', adminBrandFocusClass]" title="删除"
                                     @click="$emit('delete', article)">
                                     <Trash2 class="h-3.5 w-3.5" />
                                 </Button>
@@ -139,6 +139,7 @@ import dayjs from 'dayjs'
 import type { LegalArticleListItem, ArticleType } from '#shared/types/legal'
 import GeneralLegalArticleTypeBadge from '~/components/general/legal/ArticleTypeBadge.vue'
 import GeneralLegalStatusBadge from '~/components/general/legal/LegalStatusBadge.vue'
+import { adminBrandDisabledBadgeClass, adminBrandEnabledBadgeClass, adminBrandFocusClass } from '~/utils/adminBrandStyles'
 
 // 定义 props
 defineProps<{
@@ -203,10 +204,10 @@ const getTitleClass = (type: ArticleType): string => {
 const getRowClass = (type: ArticleType): string => {
     const baseClass = 'border-b cursor-pointer transition-colors group'
     const typeClasses: Record<string, string> = {
-        l1: 'bg-red-50/50 hover:bg-red-100/50 dark:bg-red-950/20 dark:hover:bg-red-950/30',
-        l2: 'bg-green-50/30 hover:bg-green-100/30 dark:bg-green-950/10 dark:hover:bg-green-950/20',
-        l3: 'bg-orange-50/30 hover:bg-orange-100/30 dark:bg-orange-950/10 dark:hover:bg-orange-950/20',
-        l4: 'bg-purple-50/20 hover:bg-purple-100/20 dark:bg-purple-950/10 dark:hover:bg-purple-950/15',
+        l1: 'bg-indigo-500/5 hover:bg-indigo-500/10',
+        l2: 'bg-cyan-500/5 hover:bg-cyan-500/10',
+        l3: 'bg-emerald-500/5 hover:bg-emerald-500/10',
+        l4: 'bg-amber-500/5 hover:bg-amber-500/10',
         l5: 'hover:bg-primary/5',
     }
     return `${baseClass} ${typeClasses[type] || 'hover:bg-muted/50'}`

@@ -1,9 +1,9 @@
 <template>
-        <div class="space-y-6">
+        <div class="theme-brand space-y-6">
             <!-- 页面标题和操作 -->
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div class="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" @click="navigateTo('/admin/prompts')">
+                    <Button variant="ghost" size="icon" :class="adminBrandFocusClass" @click="navigateTo('/admin/prompts')">
                         <ArrowLeft class="h-4 w-4" />
                     </Button>
                     <div>
@@ -12,11 +12,11 @@
                     </div>
                 </div>
                 <div class="flex gap-2">
-                    <Button v-if="prompt?.status !== 1" variant="outline" @click="handleActivate" :disabled="loading">
+                    <Button v-if="prompt?.status !== 1" variant="outline" :class="adminBrandFocusClass" @click="handleActivate" :disabled="loading">
                         <CheckCircle class="h-4 w-4 mr-2" />
                         激活此版本
                     </Button>
-                    <Button variant="outline" @click="versionDialogRef?.open(promptId)">
+                    <Button variant="outline" :class="adminBrandFocusClass" @click="versionDialogRef?.open(promptId)">
                         <History class="h-4 w-4 mr-2" />
                         版本历史
                     </Button>
@@ -37,7 +37,7 @@
                 <AlertCircle class="h-12 w-12 text-muted-foreground/50 mb-4" />
                 <h3 class="text-lg font-medium mb-1">提示词不存在</h3>
                 <p class="text-muted-foreground text-sm mb-4">该提示词可能已被删除</p>
-                <Button @click="navigateTo('/admin/prompts')">返回列表</Button>
+                <Button :class="adminBrandPrimaryButtonClass" @click="navigateTo('/admin/prompts')">返回列表</Button>
             </div>
 
             <!-- 提示词详情 -->
@@ -47,7 +47,7 @@
                     <CardHeader>
                         <div class="flex items-center justify-between">
                             <CardTitle>基本信息</CardTitle>
-                            <Badge :variant="prompt.status === 1 ? 'default' : 'secondary'">
+                            <Badge variant="outline" :class="getAdminStatusBadgeClass(prompt.status === 1)">
                                 {{ prompt.status === 1 ? '生效中' : '未生效' }}
                             </Badge>
                         </div>
@@ -64,7 +64,7 @@
                             </div>
                             <div class="space-y-1">
                                 <Label class="text-muted-foreground">提示词类型</Label>
-                                <Badge :variant="getTypeVariant(prompt.type)">
+                                <Badge variant="outline" :style="getAdminPromptTypeBadgeStyle(prompt.type)">
                                     {{ getTypeLabel(prompt.type) }}
                                 </Badge>
                             </div>
@@ -84,7 +84,7 @@
                                     class="flex flex-wrap gap-2">
                                     <li v-for="n in referencedNodes" :key="n.id">
                                         <NuxtLink :to="`/admin/nodes/${n.id}`"
-                                            class="inline-flex items-center rounded-md border bg-muted/30 px-2 py-1 text-sm text-primary hover:bg-muted hover:underline">
+                                            class="brand-control-focus inline-flex items-center rounded-md border border-primary/20 bg-primary/10 px-2 py-1 text-sm text-primary hover:bg-primary/15 hover:underline">
                                             {{ n.title || n.name }}
                                             <span class="ml-2 text-xs text-muted-foreground">序号 {{ n.displayOrder }}</span>
                                         </NuxtLink>
@@ -95,7 +95,7 @@
                             <div class="col-span-full space-y-1">
                                 <Label class="text-muted-foreground">变量列表</Label>
                                 <div v-if="promptVariables.length" class="flex flex-wrap gap-2">
-                                    <Badge v-for="(v, index) in promptVariables" :key="index" variant="outline">
+                                    <Badge v-for="(v, index) in promptVariables" :key="index" variant="outline" :class="adminBrandChipClass">
                                         {{ formatVariable(v) }}
                                     </Badge>
                                 </div>
@@ -110,7 +110,7 @@
                     <CardHeader>
                         <div class="flex items-center justify-between">
                             <CardTitle>提示词内容</CardTitle>
-                            <Button variant="outline" size="sm" @click="formDialogRef?.openEdit(prompt)">
+                            <Button variant="outline" size="sm" :class="adminBrandFocusClass" @click="formDialogRef?.openEdit(prompt)">
                                 <Pencil class="h-4 w-4 mr-2" />
                                 编辑内容
                             </Button>
@@ -135,7 +135,7 @@
                         <div v-if="promptVariables.length" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div v-for="v in promptVariables" :key="v" class="space-y-2">
                                 <Label>{{ formatVariable(v) }}</Label>
-                                <Textarea v-model="previewVariables[v]" :placeholder="getPlaceholder(v)" rows="2" />
+                                <Textarea v-model="previewVariables[v]" :placeholder="getPlaceholder(v)" rows="2" :class="adminBrandFocusClass" />
                             </div>
                         </div>
                         <div v-else class="text-muted-foreground text-sm">
@@ -144,12 +144,12 @@
 
                         <!-- 预览按钮 -->
                         <div v-if="promptVariables.length" class="flex gap-2">
-                            <Button @click="handlePreview" :disabled="previewing">
+                            <Button :class="adminBrandPrimaryButtonClass" @click="handlePreview" :disabled="previewing">
                                 <Loader2 v-if="previewing" class="h-4 w-4 mr-2 animate-spin" />
                                 <Eye v-else class="h-4 w-4 mr-2" />
                                 预览渲染
                             </Button>
-                            <Button variant="outline" @click="clearPreview">
+                            <Button variant="outline" :class="adminBrandFocusClass" @click="clearPreview">
                                 清空
                             </Button>
                         </div>
@@ -174,7 +174,7 @@
 
         <!-- 删除确认对话框 -->
         <AlertDialog v-model:open="deleteDialogOpen">
-            <AlertDialogContent>
+            <AlertDialogContent class="theme-brand">
                 <AlertDialogHeader>
                     <AlertDialogTitle>确认删除</AlertDialogTitle>
                     <AlertDialogDescription>
@@ -183,7 +183,7 @@
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>取消</AlertDialogCancel>
-                    <AlertDialogAction @click="confirmDelete" :disabled="deleting">
+                    <AlertDialogAction :class="adminBrandDestructiveActionClass" @click="confirmDelete" :disabled="deleting">
                         <Loader2 v-if="deleting" class="h-4 w-4 mr-2 animate-spin" />
                         确认删除
                     </AlertDialogAction>
@@ -198,10 +198,19 @@ import { toast } from 'vue-sonner'
 import dayjs from 'dayjs'
 import { Markdown } from 'vue-stream-markdown'
 import 'vue-stream-markdown/index.css'
+import { PromptTypeLabels } from '#shared/types/node'
 import type { PromptWithRelations } from '#shared/types/node'
 import AdminPromptsPromptFormDialog from '~/components/admin/prompts/PromptFormDialog.vue'
 import AdminPromptsVersionHistoryDialog from '~/components/admin/prompts/VersionHistoryDialog.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
+import {
+    adminBrandChipClass,
+    adminBrandDestructiveActionClass,
+    adminBrandFocusClass,
+    adminBrandPrimaryButtonClass,
+    getAdminPromptTypeBadgeStyle,
+    getAdminStatusBadgeClass,
+} from '~/utils/adminBrandStyles'
 
 definePageMeta({ layout: 'admin-layout', title: '提示词详情' })
 
@@ -251,24 +260,7 @@ const getPlaceholder = (v: string) => {
 
 // 提示词类型标签
 const getTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
-        system: '系统提示词',
-        user: '用户提示词',
-        user_injection: '用户每轮注入',
-        assistant: '助手提示词',
-    }
-    return labels[type] || type
-}
-
-// 提示词类型样式
-const getTypeVariant = (type: string) => {
-    const variants: Record<string, 'default' | 'secondary' | 'outline'> = {
-        system: 'default',
-        user: 'secondary',
-        user_injection: 'secondary',
-        assistant: 'outline',
-    }
-    return variants[type] || 'default'
+    return PromptTypeLabels[type as keyof typeof PromptTypeLabels] || type
 }
 
 // 加载提示词详情

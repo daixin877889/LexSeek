@@ -1,7 +1,7 @@
 <template>
     <!-- 版本历史对话框 -->
     <Dialog v-model:open="dialogOpen">
-        <DialogContent class="max-w-2xl max-h-[85vh] flex flex-col">
+        <DialogContent class="theme-brand max-w-2xl max-h-[85vh] flex flex-col">
             <DialogHeader class="shrink-0">
                 <DialogTitle>版本历史</DialogTitle>
                 <DialogDescription>
@@ -29,10 +29,10 @@
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-2 mb-2">
                                     <span class="font-mono font-medium">{{ version.version }}</span>
-                                    <Badge v-if="version.status === 1" variant="default">
+                                    <Badge v-if="version.status === 1" variant="outline" :class="getAdminStatusBadgeClass(true)">
                                         当前生效
                                     </Badge>
-                                    <Badge variant="outline">
+                                    <Badge variant="outline" :style="getAdminPromptTypeBadgeStyle(version.type)">
                                         {{ getTypeLabel(version.type) }}
                                     </Badge>
                                 </div>
@@ -44,11 +44,12 @@
                                 </div>
                             </div>
                             <div class="flex gap-2 shrink-0">
-                                <Button variant="ghost" size="sm" @click="handleViewContent(version)">
+                                <Button variant="ghost" size="sm" :class="adminBrandFocusClass" @click="handleViewContent(version)">
                                     <Eye class="h-4 w-4 mr-1" />
                                     查看
                                 </Button>
                                 <Button v-if="version.status !== 1" variant="outline" size="sm"
+                                    :class="adminBrandFocusClass"
                                     @click="handleActivate(version)">
                                     <CheckCircle class="h-4 w-4 mr-1" />
                                     激活
@@ -59,14 +60,14 @@
                 </div>
             </div>
             <DialogFooter class="shrink-0">
-                <Button variant="outline" @click="dialogOpen = false">关闭</Button>
+                <Button variant="outline" :class="adminBrandFocusClass" @click="dialogOpen = false">关闭</Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>
 
     <!-- 内容查看对话框 -->
     <Dialog v-model:open="contentDialogOpen">
-        <DialogContent class="max-w-2xl max-h-[85vh] flex flex-col">
+        <DialogContent class="theme-brand max-w-2xl max-h-[85vh] flex flex-col">
             <DialogHeader class="shrink-0">
                 <DialogTitle>
                     {{ selectedVersion?.title || selectedVersion?.name }}
@@ -83,15 +84,15 @@
                 <div v-if="selectedVersionVariables.length" class="mt-4 space-y-2">
                     <Label class="text-muted-foreground">变量列表</Label>
                     <div class="flex flex-wrap gap-2">
-                        <Badge v-for="(v, index) in selectedVersionVariables" :key="index" variant="outline">
+                        <Badge v-for="(v, index) in selectedVersionVariables" :key="index" variant="outline" :class="adminBrandChipClass">
                             {{ formatVariable(v) }}
                         </Badge>
                     </div>
                 </div>
             </div>
             <DialogFooter class="shrink-0">
-                <Button variant="outline" @click="contentDialogOpen = false">关闭</Button>
-                <Button v-if="selectedVersion?.status !== 1" @click="handleActivateFromContent">
+                <Button variant="outline" :class="adminBrandFocusClass" @click="contentDialogOpen = false">关闭</Button>
+                <Button v-if="selectedVersion?.status !== 1" :class="adminBrandPrimaryButtonClass" @click="handleActivateFromContent">
                     <CheckCircle class="h-4 w-4 mr-2" />
                     激活此版本
                 </Button>
@@ -103,8 +104,16 @@
 <script setup lang="ts">
 import { Loader2, History, Eye, CheckCircle } from 'lucide-vue-next'
 import dayjs from 'dayjs'
+import { PromptTypeLabels } from '#shared/types/node'
 import type { Prompt } from '#shared/types/node'
 import { useApiFetch } from '~/composables/useApiFetch'
+import {
+    adminBrandChipClass,
+    adminBrandFocusClass,
+    adminBrandPrimaryButtonClass,
+    getAdminPromptTypeBadgeStyle,
+    getAdminStatusBadgeClass,
+} from '~/utils/adminBrandStyles'
 
 // 定义事件
 const emit = defineEmits<{
@@ -137,12 +146,7 @@ const formatVariable = (v: string) => {
 
 // 提示词类型标签
 const getTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
-        system: '系统提示词',
-        user: '用户提示词',
-        assistant: '助手提示词',
-    }
-    return labels[type] || type
+    return PromptTypeLabels[type as keyof typeof PromptTypeLabels] || type
 }
 
 // 加载版本历史

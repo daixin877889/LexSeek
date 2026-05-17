@@ -1,5 +1,5 @@
 <template>
-    <div class="article-sort-tree">
+    <div class="theme-brand article-sort-tree">
         <!-- 加载状态 -->
         <div v-if="loading" class="flex justify-center py-8">
             <Loader2 class="h-8 w-8 animate-spin text-muted-foreground" />

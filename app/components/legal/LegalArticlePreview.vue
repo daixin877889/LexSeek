@@ -1,5 +1,5 @@
 <template>
-    <div class="legal-article-preview h-full flex flex-col">
+    <div class="theme-brand legal-article-preview h-full flex flex-col">
         <!-- 标题栏 - 超紧凑版 -->
         <div class="border-b px-3 py-1.5 bg-muted/30">
             <div class="flex items-center justify-between">
@@ -11,11 +11,11 @@
                     <!-- 导航按钮 -->
                     <Popover v-model:open="navigationOpen">
                         <PopoverTrigger as-child>
-                            <Button variant="ghost" size="icon" class="h-7 w-7">
+                            <Button variant="ghost" size="icon" :class="['h-7 w-7', adminBrandFocusClass]">
                                 <List class="h-3.5 w-3.5" />
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent class="w-80 p-0" align="end">
+                        <PopoverContent class="theme-brand w-80 p-0" align="end">
                             <div class="flex flex-col h-[400px]">
                                 <!-- 导航标题 -->
                                 <div class="px-3 py-2 border-b shrink-0">
@@ -26,7 +26,7 @@
                                     <div class="p-2 space-y-1">
                                         <button v-for="(article, index) in articles" :key="index"
                                             @click="scrollToArticle(index)"
-                                            class="w-full text-left px-2 py-1.5 rounded-md hover:bg-muted transition-colors flex items-center gap-2"
+                                            :class="['w-full text-left px-2 py-1.5 rounded-md hover:bg-muted transition-colors flex items-center gap-2', adminBrandFocusClass]"
                                             :style="{ paddingLeft: `${8 + getIndentLevel(article) * 8}px` }">
                                             <span class="text-xs text-muted-foreground shrink-0 min-w-[24px]">
                                                 {{ index + 1 }}
@@ -124,6 +124,7 @@ import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { ParsedArticle } from '#shared/types/legal-parser'
 import { error } from '#shared/utils/logger'
+import { adminBrandFocusClass } from '~/utils/adminBrandStyles'
 
 /**
  * Props 定义
@@ -253,11 +254,11 @@ function getTitleClass(type: ParsedArticle['type']): string {
 function getCardClass(type: ParsedArticle['type']): string {
     const baseClass = 'border rounded-md p-2 transition-colors'
     const typeClasses: Record<string, string> = {
-        l1: 'bg-red-50/50 border-red-200 dark:bg-red-950/20 dark:border-red-900',
-        l2: 'bg-green-50/50 border-green-200 dark:bg-green-950/20 dark:border-green-900',
-        l3: 'bg-orange-50/50 border-orange-200 dark:bg-orange-950/20 dark:border-orange-900',
-        l4: 'bg-purple-50/50 border-purple-200 dark:bg-purple-950/20 dark:border-purple-900',
-        l5: 'bg-blue-50/50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-900',
+        l1: 'bg-indigo-500/5 border-indigo-500/20',
+        l2: 'bg-cyan-500/5 border-cyan-500/20',
+        l3: 'bg-emerald-500/5 border-emerald-500/20',
+        l4: 'bg-amber-500/5 border-amber-500/20',
+        l5: 'bg-primary/5 border-primary/20',
     }
     return `${baseClass} ${typeClasses[type] || 'bg-card'}`
 }

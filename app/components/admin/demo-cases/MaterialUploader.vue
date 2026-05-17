@@ -2,7 +2,7 @@
   <div class="space-y-2">
     <div class="flex items-center justify-between">
       <Label>预设文件材料</Label>
-      <Button variant="outline" size="sm" @click="fileInputRef?.click()" :disabled="uploading">
+      <Button variant="outline" size="sm" :class="adminBrandFocusClass" @click="fileInputRef?.click()" :disabled="uploading">
         <Plus class="h-4 w-4 mr-1" />
         添加文件
       </Button>
@@ -17,21 +17,22 @@
     <div v-else class="space-y-2">
       <div v-for="(material, idx) in modelValue" :key="material.sourceOssFileId"
         class="flex items-center gap-2 p-2 border rounded-md">
-        <FileIcon class="h-4 w-4 shrink-0" />
+        <FileIcon class="h-4 w-4 shrink-0 text-primary" />
         <span class="flex-1 truncate text-sm">{{ material.name }}</span>
-        <Badge :variant="getBadgeVariant(recognitionStatus.get(material.sourceOssFileId))">
+        <Badge variant="outline" :class="getBadgeClass(recognitionStatus.get(material.sourceOssFileId))">
           {{ getBadgeLabel(recognitionStatus.get(material.sourceOssFileId)) }}
         </Badge>
-        <Button variant="ghost" size="icon" @click="removeMaterial(idx)">
+        <Button variant="ghost" size="icon" :class="['text-muted-foreground hover:text-destructive', adminBrandFocusClass]"
+          @click="removeMaterial(idx)">
           <X class="h-4 w-4" />
         </Button>
       </div>
 
       <div v-for="f in uploadingFiles" :key="f.id"
-        class="flex items-center gap-2 p-2 border rounded-md bg-muted/30">
-        <Loader2 class="h-4 w-4 animate-spin shrink-0" />
+        class="flex items-center gap-2 p-2 border rounded-md border-primary/20 bg-primary/5">
+        <Loader2 class="h-4 w-4 animate-spin shrink-0 text-primary" />
         <span class="flex-1 truncate text-sm">{{ f.file.name }}</span>
-        <span class="text-xs">{{ Math.round(f.progress) }}%</span>
+        <span class="text-xs text-primary">{{ Math.round(f.progress) }}%</span>
       </div>
     </div>
   </div>
@@ -45,6 +46,11 @@ import type { DemoCaseFileMaterial } from '#shared/types/case'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useBatchUpload } from '~/composables/useBatchUpload'
 import { useFileStore } from '~/store/file'
+import {
+  adminBrandDisabledBadgeClass,
+  adminBrandEnabledBadgeClass,
+  adminBrandFocusClass,
+} from '~/utils/adminBrandStyles'
 
 const modelValue = defineModel<DemoCaseFileMaterial[]>({ required: true })
 
@@ -130,10 +136,11 @@ function removeMaterial(idx: number) {
   recognitionStatus.value.delete(mat.sourceOssFileId)
 }
 
-function getBadgeVariant(s: 'recognizing' | 'success' | 'error' | null | undefined) {
-  if (s === 'success') return 'default' as const
-  if (s === 'error') return 'destructive' as const
-  return 'secondary' as const
+function getBadgeClass(s: 'recognizing' | 'success' | 'error' | null | undefined) {
+  if (s === 'success') return adminBrandEnabledBadgeClass
+  if (s === 'error') return 'border-transparent bg-destructive/10 text-destructive'
+  if (s === 'recognizing') return 'border-transparent bg-amber-500/10 text-amber-700 dark:text-amber-300'
+  return adminBrandDisabledBadgeClass
 }
 
 function getBadgeLabel(s: 'recognizing' | 'success' | 'error' | null | undefined) {

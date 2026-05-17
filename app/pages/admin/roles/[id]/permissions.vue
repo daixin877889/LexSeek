@@ -1,12 +1,12 @@
 <template>
-    <div class="space-y-6">
+    <div class="theme-brand space-y-6">
       <!-- 页面标题 -->
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 class="text-2xl md:text-3xl font-bold mb-1">权限分配</h1>
           <p class="text-muted-foreground text-sm">为角色「{{ role?.name }}」分配权限</p>
         </div>
-        <Button variant="outline" @click="navigateTo('/admin/roles')" class="w-full md:w-auto">
+        <Button variant="outline" :class="['w-full md:w-auto', adminBrandFocusClass]" @click="navigateTo('/admin/roles')">
           <ArrowLeft class="h-4 w-4 mr-2" />
           返回列表
         </Button>
@@ -32,14 +32,14 @@
               <p class="text-sm text-muted-foreground">勾选需要分配给该角色的 API 权限</p>
             </div>
             <div class="flex gap-4 mb-4">
-              <Input v-model="apiSearch" placeholder="搜索 API..." class="max-w-sm" />
+              <Input v-model="apiSearch" placeholder="搜索 API..." :class="['max-w-sm', adminBrandFocusClass]" />
             </div>
             <div class="bg-card rounded-lg border overflow-hidden max-h-96 overflow-y-auto">
               <table class="w-full">
                 <thead class="sticky top-0 bg-card z-10">
                   <tr class="border-b bg-muted/50">
                     <th class="px-4 py-3 text-left text-sm font-medium w-12">
-                      <Checkbox :model-value="isAllApiSelected" @update:model-value="toggleAllApi" />
+                      <Checkbox :model-value="isAllApiSelected" :class="adminBrandCheckboxClass" @update:model-value="toggleAllApi" />
                     </th>
                     <th class="px-4 py-3 text-left text-sm font-medium w-20">方法</th>
                     <th class="px-4 py-3 text-left text-sm font-medium">路径</th>
@@ -48,13 +48,17 @@
                 </thead>
                 <tbody>
                   <tr v-for="perm in filteredApiPermissions" :key="perm.id"
-                    class="border-b last:border-b-0 hover:bg-muted/30 transition-colors">
+                    class="border-b border-l-2 last:border-b-0 cursor-pointer transition-colors"
+                    :class="selectedApiIds.includes(perm.id) ? adminBrandSelectedListItemClass : adminBrandUnselectedListItemClass"
+                    @click="toggleApiPermission(perm.id, !selectedApiIds.includes(perm.id))">
                     <td class="px-4 py-3">
                       <Checkbox :model-value="selectedApiIds.includes(perm.id)"
+                        :class="adminBrandCheckboxClass"
+                        @click.stop
                         @update:model-value="(c: boolean | 'indeterminate') => toggleApiPermission(perm.id, c)" />
                     </td>
                     <td class="px-4 py-3">
-                      <Badge :variant="getMethodVariant(perm.method)">{{ perm.method }}</Badge>
+                      <Badge variant="outline" :class="getAdminHttpMethodBadgeClass(perm.method)">{{ perm.method }}</Badge>
                     </td>
                     <td class="px-4 py-3">
                       <code class="text-xs bg-muted px-1.5 py-0.5 rounded">{{ perm.path }}</code>
@@ -65,7 +69,7 @@
               </table>
             </div>
             <div class="flex justify-end mt-4">
-              <Button @click="saveApiPermissions" :disabled="savingApi">
+              <Button :class="adminBrandPrimaryButtonClass" @click="saveApiPermissions" :disabled="savingApi">
                 <Loader2 v-if="savingApi" class="h-4 w-4 mr-2 animate-spin" />
                 保存 API 权限
               </Button>
@@ -81,14 +85,14 @@
               <p class="text-sm text-muted-foreground">勾选需要分配给该角色的路由权限</p>
             </div>
             <div class="flex gap-4 mb-4">
-              <Input v-model="routeSearch" placeholder="搜索路由..." class="max-w-sm" />
+              <Input v-model="routeSearch" placeholder="搜索路由..." :class="['max-w-sm', adminBrandFocusClass]" />
             </div>
             <div class="bg-card rounded-lg border overflow-hidden max-h-96 overflow-y-auto">
               <table class="w-full">
                 <thead class="sticky top-0 bg-card z-10">
                   <tr class="border-b bg-muted/50">
                     <th class="px-4 py-3 text-left text-sm font-medium w-12">
-                      <Checkbox :model-value="isAllRouteSelected" @update:model-value="toggleAllRoute" />
+                      <Checkbox :model-value="isAllRouteSelected" :class="adminBrandCheckboxClass" @update:model-value="toggleAllRoute" />
                     </th>
                     <th class="px-4 py-3 text-left text-sm font-medium">路由名称</th>
                     <th class="px-4 py-3 text-left text-sm font-medium">路径</th>
@@ -97,9 +101,13 @@
                 </thead>
                 <tbody>
                   <tr v-for="r in filteredRoutePermissions" :key="r.id"
-                    class="border-b last:border-b-0 hover:bg-muted/30 transition-colors">
+                    class="border-b border-l-2 last:border-b-0 cursor-pointer transition-colors"
+                    :class="selectedRouteIds.includes(r.id) ? adminBrandSelectedListItemClass : adminBrandUnselectedListItemClass"
+                    @click="toggleRoutePermission(r.id, !selectedRouteIds.includes(r.id))">
                     <td class="px-4 py-3">
                       <Checkbox :model-value="selectedRouteIds.includes(r.id)"
+                        :class="adminBrandCheckboxClass"
+                        @click.stop
                         @update:model-value="(c: boolean | 'indeterminate') => toggleRoutePermission(r.id, c)" />
                     </td>
                     <td class="px-4 py-3 text-sm font-medium">{{ r.title }}</td>
@@ -107,14 +115,16 @@
                       <code class="text-xs bg-muted px-1.5 py-0.5 rounded">{{ r.path }}</code>
                     </td>
                     <td class="px-4 py-3 text-center">
-                      <span :class="getMenuClass(r.isMenu)">{{ r.isMenu ? '是' : '否' }}</span>
+                      <Badge variant="outline" :class="getAdminStatusBadgeClass(r.isMenu)">
+                        {{ r.isMenu ? '是' : '否' }}
+                      </Badge>
                     </td>
                   </tr>
                 </tbody>
               </table>
             </div>
             <div class="flex justify-end mt-4">
-              <Button @click="saveRoutePermissions" :disabled="savingRoute">
+              <Button :class="adminBrandPrimaryButtonClass" @click="saveRoutePermissions" :disabled="savingRoute">
                 <Loader2 v-if="savingRoute" class="h-4 w-4 mr-2 animate-spin" />
                 保存路由权限
               </Button>
@@ -133,6 +143,15 @@
 import { ArrowLeft, Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useApiFetch } from '~/composables/useApiFetch'
+import {
+  adminBrandCheckboxClass,
+  adminBrandFocusClass,
+  adminBrandPrimaryButtonClass,
+  adminBrandSelectedListItemClass,
+  adminBrandUnselectedListItemClass,
+  getAdminHttpMethodBadgeClass,
+  getAdminStatusBadgeClass,
+} from '~/utils/adminBrandStyles'
 
 definePageMeta({ layout: 'admin-layout', title: "权限分配" })
 
@@ -168,16 +187,6 @@ const filteredRoutePermissions = computed(() => {
 
 const isAllApiSelected = computed(() => filteredApiPermissions.value.length > 0 && filteredApiPermissions.value.every(p => selectedApiIds.value.includes(p.id)))
 const isAllRouteSelected = computed(() => filteredRoutePermissions.value.length > 0 && filteredRoutePermissions.value.every(r => selectedRouteIds.value.includes(r.id)))
-
-const getMethodVariant = (method: string) => {
-  const v: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = { GET: 'default', POST: 'secondary', PUT: 'outline', DELETE: 'destructive', PATCH: 'outline', '*': 'secondary' }
-  return v[method] || 'outline'
-}
-
-const getMenuClass = (isMenu: boolean): string => {
-  const base = 'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium'
-  return isMenu ? `${base} bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400` : `${base} bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400`
-}
 
 const toggleApiPermission = (id: number, checked: boolean | 'indeterminate') => {
   if (checked === true) { if (!selectedApiIds.value.includes(id)) selectedApiIds.value.push(id) }

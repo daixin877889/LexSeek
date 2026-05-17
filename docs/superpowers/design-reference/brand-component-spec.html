@@ -1633,6 +1633,7 @@
         <a href="#business">业务组件</a>
         <a href="#real-ui">实际 UI 示例</a>
         <a href="#dark">暗色模式</a>
+        <a href="#ai-guardrails">AI 执行约束</a>
         <a href="#rules">落地规则</a>
       </nav>
     </aside>
@@ -1907,12 +1908,20 @@
                 <td>默认白底、细边框；聚焦时品牌色边框和 3px 柔和焦点环。</td>
               </tr>
               <tr>
+                <td>勾选框</td>
+                <td>选中态使用品牌按钮渐变 <code>bg-gradient-brand-button</code>，未选中保持中性边框；不要退回单色 <code>primary</code>。</td>
+              </tr>
+              <tr>
                 <td>校验错误</td>
                 <td>红色边框、红色说明。错误说明要说明如何修正，不只写“错误”。</td>
               </tr>
               <tr>
                 <td>选择器</td>
                 <td>短选项使用 Select；长列表和可搜索项使用 Combobox / Popover。</td>
+              </tr>
+              <tr>
+                <td>开关</td>
+                <td>启用态使用品牌按钮渐变 <code>bg-gradient-brand-button</code>，关闭态使用 muted/input；焦点环使用品牌色，不使用单色主题色。</td>
               </tr>
               <tr>
                 <td>禁用态</td>
@@ -2221,6 +2230,10 @@
               <div class="source-path">app/components/membership/MembershipPackageList.vue<br>app/components/points/PointPurchaseDialog.vue<br>app/components/payment/PaymentQRCodeDialog.vue<br>app/components/order/OrderDetailDialog.vue</div>
             </div>
             <div class="source-item">
+              <div class="source-title">管理端财务列表</div>
+              <div class="source-path">app/pages/admin/orders/index.vue<br>app/pages/admin/payments/index.vue<br>app/components/admin/orders/OrderFilters.vue<br>app/components/admin/payments/PaymentFilters.vue<br>app/components/admin/shared/StatusBadge.vue</div>
+            </div>
+            <div class="source-item">
               <div class="source-title">办案工具</div>
               <div class="source-path">app/pages/dashboard/tools/index.vue<br>app/components/tools/CalculatorPageHeader.vue<br>app/components/tools/ResultCard.vue<br>app/pages/dashboard/tools/*.vue</div>
             </div>
@@ -2234,7 +2247,7 @@
             <li><strong>已对齐</strong><span>工作台统计卡、案件列表/卡片、法规检索、订单积分、文件库、通用 AI 对话的结构来源已经补到文档里；这些示例只用于配色，不作为重构结构。</span></li>
             <li><strong>已修正</strong><span>AI 对话不再使用简化“左会话 + 消息气泡 + 输入框”示意；现在锁定现有 AssistantSessionList、AssistantChatPanel、AiChat、AiPromptInput 等结构。</span></li>
             <li><strong>需要补强</strong><span>案件详情/分析、小索浮窗、合同审查、文书草稿、会员/支付、办案工具、全局工作台框架是关键页面族，下面新增配色规范。</span></li>
-            <li><strong>不纳入本轮</strong><span>管理端页面不在 <code>theme-brand</code> 工作台品牌作用域内，若后续要统一管理端，需要单独做 Admin 规范，不应混入用户端品牌主题。</span></li>
+            <li><strong>管理端补充</strong><span>管理端若纳入品牌主题，只能按现有 admin-layout、筛选、表格、移动卡片和详情抽屉结构换色；不得新增顶部渐变面板、筛选外框、表格阴影或额外信息层级。</span></li>
           </ul>
         </div>
 
@@ -2974,7 +2987,7 @@
                 <li><strong>会话容器</strong><span><code>bg-card border-border</code>，移动端遮罩保持 <code>bg-black/40</code>，不要改变抽屉/桌面停靠结构。</span></li>
                 <li><strong>会话列表</strong><span>新会话按钮保留品牌渐变；搜索框用 <code>bg-muted</code>；选中会话保留左侧品牌渐变条和横向渐隐底纹。</span></li>
                 <li><strong>消息列表</strong><span>Conversation 背景跟随容器；助手正文使用 <code>text-foreground</code>，用户消息沿用 MessageContent 现有分支，附件消息继续透明承载附件卡。</span></li>
-                <li><strong>输入框</strong><span>PromptInput 外框保留品牌边框/阴影；文件 chip 用 <code>border-border</code>、状态徽章用 blue/green/red 语义色；深度思考开关用 primary。</span></li>
+                <li><strong>输入框</strong><span>PromptInput 外框保留品牌边框/阴影；文件 chip 用 <code>border-border</code>、状态徽章用 blue/green/red 语义色；深度思考开关启用态用 <code>bg-gradient-brand-button</code>，不要退回单色 primary。</span></li>
                 <li><strong>队列/中断/停止</strong><span>QueuePausedBanner 和 AiChatQueueChips 使用 amber；停止按钮使用 destructive；工具卡、中断弹窗使用 card + border。</span></li>
               </ul>
             </div>
@@ -3021,6 +3034,109 @@
             </li>
           </ul>
         </div>
+      </section>
+
+      <section class="section" id="ai-guardrails">
+        <h2>AI 执行约束</h2>
+        <p class="section-desc">本章节是给 AI 的硬性验收协议。执行品牌主题迁移时，不能只看静态示意图，必须先对照项目现有实现，再用浏览器验证真实样式。</p>
+
+        <h3>一、任务边界</h3>
+        <ul class="color-spec-list">
+          <li><strong>只改配色</strong><span>允许调整品牌色、语义状态色、焦点、hover、active、selected、disabled、链接和主按钮；不允许改页面信息架构。</span></li>
+          <li><strong>结构不重画</strong><span>不得新增顶部渐变面板、筛选卡片外框、表格阴影、移动卡片重排、详情区卡片包裹、营销式 hero 或额外统计信息。</span></li>
+          <li><strong>以现有组件为准</strong><span>先阅读目标页面和子组件，保留现有布局、按钮位置、表格列、移动端结构、抽屉/弹窗结构和业务文案。</span></li>
+          <li><strong>只在必要处补作用域</strong><span>页面根节点、Sheet、Dialog、Dropdown、SelectContent 等可能脱离父级作用域的区域，需要确认品牌 token 是否实际生效。</span></li>
+        </ul>
+
+        <h3 style="margin-top:20px;">二、禁止变更清单</h3>
+        <div class="table-wrap">
+          <table class="spec-table">
+            <tbody>
+              <tr>
+                <td>后台标题区</td>
+                <td>保持原有紧凑标题 + 说明 + 右侧动作，不加渐变背景、不加统计块、不增加高度。</td>
+              </tr>
+              <tr>
+                <td>筛选表单</td>
+                <td>保持原有横向裸排，不额外包卡片、不加标题说明、不改变控件顺序。</td>
+              </tr>
+              <tr>
+                <td>表格</td>
+                <td>保持原有边框和表头样式，不加 shadow，不把表格改成卡片堆叠；只改必要的状态色和交互色。</td>
+              </tr>
+              <tr>
+                <td>移动卡片</td>
+                <td>保持现有信息顺序和密度，不新增 hover 阴影或拆分金额/标题结构，除非原组件已经如此设计。</td>
+              </tr>
+              <tr>
+                <td>详情抽屉</td>
+                <td>保持现有 section 和间距，不把每段内容重新包成带阴影卡片。</td>
+              </tr>
+              <tr>
+                <td>业务状态</td>
+                <td>成功、警告、错误、取消、过期等状态使用语义色，不随品牌蓝或当前主题色漂移。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 style="margin-top:20px;">三、焦点态验收</h3>
+        <ul class="dark-rule-list">
+          <li>
+            <span class="rule-label">不要只看 class</span>
+            <p class="rule-copy">表单控件可能同时带有 <code>focus-visible:border-ring</code>、<code>focus-visible:ring-ring/50</code> 和品牌覆盖类；必须读取浏览器最终计算样式。</p>
+          </li>
+          <li>
+            <span class="rule-label">品牌焦点标准</span>
+            <p class="rule-copy">输入框、日期框、下拉触发器、Textarea 聚焦后，边框应为品牌蓝 <code>rgb(30, 158, 237)</code>，光晕应为 <code>rgba(30, 158, 237, 0.36)</code>，不能显示 green / rose / orange / violet 等旧主题色。</p>
+          </li>
+          <li>
+            <span class="rule-label">必须用非品牌主题反测</span>
+            <p class="rule-copy">验收时先切到 green、rose 或其它旧主题色，再刷新目标页面并聚焦表单；如果焦点仍跟随旧主题色，说明迁移失败。</p>
+          </li>
+          <li>
+            <span class="rule-label">Portal 组件单独验收</span>
+            <p class="rule-copy">Select 下拉、Sheet、Dialog、DropdownMenu 可能渲染在页面根节点之外，不能假设父级 <code>theme-brand</code> 一定覆盖到它们。</p>
+          </li>
+        </ul>
+
+        <h3 style="margin-top:20px;">四、浏览器验收步骤</h3>
+        <div class="table-wrap">
+          <table class="spec-table">
+            <tbody>
+              <tr>
+                <td>1. 打开真实页面</td>
+                <td>使用已登录浏览器打开目标路由，不用静态 HTML 推断效果。</td>
+              </tr>
+              <tr>
+                <td>2. 聚焦关键控件</td>
+                <td>依次点击输入框、日期框、下拉框、Textarea、主按钮、分页当前项。</td>
+              </tr>
+              <tr>
+                <td>3. 读取计算样式</td>
+                <td>用 <code>getComputedStyle</code> 检查 <code>borderColor</code>、<code>boxShadow</code>、<code>--tw-ring-color</code>、文字色和背景色。</td>
+              </tr>
+              <tr>
+                <td>4. 对照禁止清单</td>
+                <td>确认没有新增渐变面板、筛选卡片、表格阴影、卡片嵌套、额外文案或结构重排。</td>
+              </tr>
+              <tr>
+                <td>5. 亮暗色双测</td>
+                <td>同一页面必须检查亮色和暗色；暗色不能残留白底黑字，亮色不能丢失品牌焦点。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 style="margin-top:20px;">五、失败示例</h3>
+        <ul class="rules">
+          <li>把后台标题区改成大面积品牌渐变面板。</li>
+          <li>给原本裸排的筛选表单新增外框、标题或说明。</li>
+          <li>给原本无阴影的表格新增阴影。</li>
+          <li>只在页面根节点加 <code>theme-brand</code>，但没有验证 Select、Sheet、Dialog 里的控件是否生效。</li>
+          <li>只检查 DOM class，不检查最终 <code>borderColor</code> 和 <code>boxShadow</code>。</li>
+          <li>在默认主题下看起来正确，但切到 green / rose / violet 后焦点色仍跟随旧主题。</li>
+        </ul>
       </section>
 
       <section class="section" id="rules">

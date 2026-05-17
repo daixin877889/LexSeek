@@ -37,7 +37,7 @@
 - `server/api/v1/storage/presigned-url/.get.ts`
 - `server/services/material/mineruResult.service.ts`
 - `server/services/material/imageProcessor.ts`
-- 受影响测试：`tests/server/assistant/document/documentTemplate.service.test.ts`、`tests/server/assistant/document/documentExport.test.ts`、`tests/server/workflow/tools/uploadWorkspaceFile.test.ts`、`tests/server/agent-platform/tools/uploadWorkspaceFile.test.ts` — 补 `useRuntimeConfig` 桩 / 更新路径断言
+- 受影响测试：`tests/server/assistant/document/documentTemplate.service.test.ts`、`tests/server/assistant/document/documentExport.test.ts` — 更新路径断言为带 `test/` 前缀的新值（其余模块测试通常无需改，详见各 Task）
 
 ---
 
@@ -52,59 +52,56 @@
 创建 `tests/server/utils/storagePath.test.ts`：
 
 ```ts
-import { describe, it, expect, beforeEach, afterAll } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { FileSource } from '#shared/types/file'
-import { buildStorageKey, buildStorageDir } from '~~/server/utils/storagePath'
+import { buildStorageKey, buildStorageDir, normalizeBasePath } from '~~/server/utils/storagePath'
 
-/** 保存原始 useRuntimeConfig，测试结束后还原，避免桩泄漏到同 worker 后续测试文件 */
-const originalUseRuntimeConfig = (globalThis as Record<string, unknown>).useRuntimeConfig
+// 说明：本项目 vitest 跑在 @nuxt/test-utils 的 nuxt 环境，server 模块里的
+// useRuntimeConfig() 是真实自动导入，测试侧无法用 globalThis 赋值 / vi.stubGlobal
+// 动态切换其返回值。因此「前缀规范化」逻辑抽成纯函数 normalizeBasePath 直接单测；
+// buildStorageDir/buildStorageKey 的路径结构用例统一在测试环境真实 basePath（由
+// .env.testing 的 NUXT_STORAGE_BASE_PATH 提供，= test/）下验证。
 
-/** 用 globalThis 注入 useRuntimeConfig（与项目测试基建 handler-test.ts 同款做法） */
-function setBasePath(basePath: string) {
-    ;(globalThis as Record<string, unknown>).useRuntimeConfig = () => ({ storage: { basePath } })
-}
-
-describe('storagePath', () => {
-    beforeEach(() => setBasePath('test/'))
-    afterAll(() => {
-        ;(globalThis as Record<string, unknown>).useRuntimeConfig = originalUseRuntimeConfig
+describe('normalizeBasePath（环境前缀规范化）', () => {
+    it('空值 → 空字符串', () => {
+        expect(normalizeBasePath('')).toBe('')
+        expect(normalizeBasePath(undefined)).toBe('')
+        expect(normalizeBasePath(null)).toBe('')
     })
 
-    it('buildStorageDir: user scope 拼出 {env}/user{id}/{source}/', () => {
+    it('不带末尾斜杠 → 自动补全 /', () => {
+        expect(normalizeBasePath('prod')).toBe('prod/')
+    })
+
+    it('已带末尾斜杠 → 原样返回', () => {
+        expect(normalizeBasePath('dev/')).toBe('dev/')
+    })
+})
+
+describe('buildStorageDir / buildStorageKey（路径结构）', () => {
+    it('user scope 拼出 {env}/user{id}/{source}/', () => {
         expect(buildStorageDir({ scope: 'user', userId: 7, source: FileSource.DOCUMENT_TEMPLATE }))
             .toBe('test/user7/document_template/')
     })
 
-    it('buildStorageDir: system scope owner 段为 system', () => {
+    it('system scope owner 段为 system', () => {
         expect(buildStorageDir({ scope: 'system', source: FileSource.DOCUMENT_TEMPLATE }))
             .toBe('test/system/document_template/')
     })
 
-    it('buildStorageDir: temp scope owner 段为 temp', () => {
+    it('temp scope owner 段为 temp', () => {
         expect(buildStorageDir({ scope: 'temp', source: FileSource.ASR }))
             .toBe('test/temp/asr/')
     })
 
-    it('buildStorageDir: subDir 作为二级目录拼入', () => {
+    it('subDir 作为二级目录拼入', () => {
         expect(buildStorageDir({ scope: 'user', userId: 7, source: FileSource.ASR, subDir: 'raw/2026/05/17' }))
             .toBe('test/user7/asr/raw/2026/05/17/')
     })
 
-    it('buildStorageKey: 末尾拼上 fileName', () => {
+    it('buildStorageKey 末尾拼上 fileName', () => {
         expect(buildStorageKey({ scope: 'user', userId: 7, source: FileSource.DOCUMENT_EXPORT, fileName: 'a.docx' }))
             .toBe('test/user7/document_export/a.docx')
-    })
-
-    it('basePath 为空时不加前缀', () => {
-        setBasePath('')
-        expect(buildStorageKey({ scope: 'system', source: FileSource.DOCUMENT_TEMPLATE, fileName: 'a.docx' }))
-            .toBe('system/document_template/a.docx')
-    })
-
-    it('basePath 不带末尾斜杠时自动补全', () => {
-        setBasePath('prod')
-        expect(buildStorageDir({ scope: 'temp', source: FileSource.ASR }))
-            .toBe('prod/temp/asr/')
     })
 
     it('scope=user 缺 userId 抛错', () => {
@@ -149,11 +146,16 @@ export interface StoragePathParams {
     subDir?: string
 }
 
-/** 取环境前缀，保证以 / 结尾或为空字符串 */
-function getBasePath(): string {
-    const basePath = useRuntimeConfig().storage.basePath || ''
+/** 规范化环境前缀：空值 → ''；非空 → 保证以 / 结尾。纯函数，便于单测。 */
+export function normalizeBasePath(raw: string | null | undefined): string {
+    const basePath = raw || ''
     if (!basePath) return ''
     return basePath.endsWith('/') ? basePath : `${basePath}/`
+}
+
+/** 取环境前缀（从 runtimeConfig 读取并规范化） */
+function getBasePath(): string {
+    return normalizeBasePath(useRuntimeConfig().storage.basePath)
 }
 
 /** owner 段：user{id} / system / temp */
@@ -183,7 +185,7 @@ export function buildStorageKey(params: StoragePathParams & { fileName: string }
 - [ ] **Step 4: 运行测试确认通过**
 
 Run: `npx vitest run tests/server/utils/storagePath.test.ts --reporter=verbose`
-Expected: PASS —— 8 个用例全绿。
+Expected: PASS —— 9 个用例全绿。
 
 - [ ] **Step 5: 类型检查**
 
@@ -207,17 +209,9 @@ git commit -m "feat(storage): 新增统一 OSS 路径构造函数 buildStorageKe
 - Test: `tests/server/assistant/document/documentTemplate.service.test.ts`
 - Test: `tests/server/assistant/document/documentExport.test.ts`
 
-> **关键前置**：`documentTemplate.service.ts` 与 `documentExport.service.ts` 当前都**不**调用 `useRuntimeConfig`，改造后经 `buildStorageKey` 间接调用它。两个测试文件目前只 `import '../../case/test-setup'`，而 `case/test-setup.ts` **未注入** `useRuntimeConfig` 全局桩——不补桩则测试一跑到 `buildStorageKey` 会因 `useRuntimeConfig is not defined` 崩溃。故 Step 1 必须先补桩。
+> **关键前置**：`documentTemplate.service.ts` 与 `documentExport.service.ts` 改造后经 `buildStorageKey` 间接调用 `useRuntimeConfig()`。项目 vitest 跑在 `@nuxt/test-utils` 的 nuxt 环境，`useRuntimeConfig` 是真实自动导入、**始终可用**（不会「未定义崩溃」）；其 `storage.basePath` 由 `.env.testing` 的 `NUXT_STORAGE_BASE_PATH` 提供（= `test/`）。测试侧无法用 `globalThis` 赋值或 `vi.stubGlobal` 改写 server 模块里这个自动导入的返回值，故**无需补桩**——只需把现有路径断言更新为带 `test/` 前缀的新值。
 
-- [ ] **Step 1: 补 useRuntimeConfig 全局桩 + 更新路径断言**
-
-**补桩**：在 `tests/server/assistant/document/documentTemplate.service.test.ts` 的 import 段之后（最后一行 import 之后）、首个 `describe`/`beforeEach` 之前，加一行：
-
-```ts
-;(globalThis as Record<string, unknown>).useRuntimeConfig = () => ({ storage: { basePath: 'test/' } })
-```
-
-在 `tests/server/assistant/document/documentExport.test.ts` 的 import 段之后同样加上这一行。
+- [ ] **Step 1: 更新路径断言**
 
 **更新断言（documentTemplate.service.test.ts）**：桩已把 `basePath` 设为 `test/`。该文件共 **3 处** OSS 路径相关断言，逐处改（**第 3 处易漏，务必改**）：
 
@@ -519,24 +513,18 @@ import { FileSource } from '#shared/types/file'
 Run: `bun run typecheck`
 Expected: 无新增错误。
 
-- [ ] **Step 5: 给测试补 useRuntimeConfig 桩并跑测试**
+- [ ] **Step 5: 跑现有测试**
 
-`uploadWorkspaceFile.tool.ts` 当前不调 `useRuntimeConfig`，改造后经 `buildStorageKey` 间接调用。它的两个测试文件 `tests/server/workflow/tools/uploadWorkspaceFile.test.ts`、`tests/server/agent-platform/tools/uploadWorkspaceFile.test.ts` 均未注入 `useRuntimeConfig` 桩——不补则跑到上传分支会 `useRuntimeConfig is not defined` 崩溃。
+`uploadWorkspaceFile.tool.ts` 改造后经 `buildStorageKey` 间接调用 `useRuntimeConfig()`——在 nuxt 测试环境下它始终可用、`storage.basePath` 由 `.env.testing` 提供（= `test/`），无需补桩。
 
-在这两个测试文件的 import 段之后各加一行：
-
-```ts
-;(globalThis as Record<string, unknown>).useRuntimeConfig = () => ({ storage: { basePath: 'test/' } })
-```
-
-然后运行：
 Run: `npx vitest run tests/server/workflow/tools/uploadWorkspaceFile.test.ts tests/server/agent-platform/tools/uploadWorkspaceFile.test.ts --reporter=verbose`
-Expected: PASS。两个文件里的路径类字符串（如 `MOCK_UPLOAD_RESULT.name`、`mockResolvedValueOnce({ name: ... })`）均为 mock 返回值，非对生成路径的断言，无需改动。
+Expected: PASS。两个文件里的路径类字符串（如 `MOCK_UPLOAD_RESULT.name`、`mockResolvedValueOnce({ name: ... })`）均为 mock 返回值，非对生成路径的断言，通常无需改动；若有用例断言工具实际生成的 OSS 路径，按带 `test/` 前缀的新值更新。
 
 - [ ] **Step 6: 提交**
 
 ```bash
-git add server/services/agent-platform/tools/uploadWorkspaceFile.tool.ts tests/server/workflow/tools/uploadWorkspaceFile.test.ts tests/server/agent-platform/tools/uploadWorkspaceFile.test.ts
+# 默认只改了 .tool.ts；若 Step 5 更新了测试文件，把对应 test 文件一并 git add
+git add server/services/agent-platform/tools/uploadWorkspaceFile.tool.ts
 git commit -m "fix(storage): Agent 工具上传文件补环境前缀，走统一路径函数"
 ```
 

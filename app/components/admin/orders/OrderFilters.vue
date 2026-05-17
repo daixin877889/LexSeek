@@ -1,11 +1,11 @@
 <template>
-    <div class="flex flex-col md:flex-row gap-3 flex-wrap">
-        <Input v-model="local.keyword" placeholder="订单号 / 手机号 / 昵称" class="md:w-56" />
+    <div class="flex flex-col gap-3 md:flex-row md:flex-wrap">
+        <Input v-model="local.keyword" placeholder="订单号 / 手机号 / 昵称" :class="['md:w-56', brandFocusClass]" />
         <Select v-model="statusValue">
-            <SelectTrigger class="md:w-32">
+            <SelectTrigger :class="['md:w-32', brandFocusClass]">
                 <SelectValue placeholder="状态" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent class="theme-brand">
                 <SelectItem value="all">全部状态</SelectItem>
                 <SelectItem value="0">待支付</SelectItem>
                 <SelectItem value="1">已支付</SelectItem>
@@ -14,19 +14,19 @@
             </SelectContent>
         </Select>
         <Select v-model="local.orderType">
-            <SelectTrigger class="md:w-32">
+            <SelectTrigger :class="['md:w-32', brandFocusClass]">
                 <SelectValue placeholder="类型" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent class="theme-brand">
                 <SelectItem value="all">全部类型</SelectItem>
                 <SelectItem value="purchase">新购</SelectItem>
                 <SelectItem value="upgrade">升级</SelectItem>
                 <SelectItem value="renew">续费</SelectItem>
             </SelectContent>
         </Select>
-        <Input v-model="local.startTime" type="date" class="md:w-40" />
-        <Input v-model="local.endTime" type="date" class="md:w-40" />
-        <Button variant="outline" @click="emit('search', toQuery())">
+        <Input v-model="local.startTime" type="date" :class="['md:w-40', brandFocusClass]" />
+        <Input v-model="local.endTime" type="date" :class="['md:w-40', brandFocusClass]" />
+        <Button variant="outline" :class="brandFocusClass" @click="emit('search', toQuery())">
             <Search class="w-4 h-4 mr-1" /> 筛选
         </Button>
         <Button variant="ghost" @click="reset">重置</Button>
@@ -48,6 +48,7 @@ interface LocalForm {
 
 const local = ref<LocalForm>({ keyword: '', orderType: 'all', startTime: '', endTime: '' })
 const statusValue = ref('all')
+const brandFocusClass = 'brand-control-focus'
 
 const emit = defineEmits<{ search: [query: Record<string, any>] }>()
 

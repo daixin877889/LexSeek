@@ -1,6 +1,6 @@
 <template>
     <AlertDialog v-model:open="isOpen">
-        <AlertDialogContent>
+        <AlertDialogContent class="theme-brand">
             <AlertDialogHeader>
                 <AlertDialogTitle>确认清理审计日志</AlertDialogTitle>
                 <AlertDialogDescription>
@@ -10,14 +10,14 @@
 
             <div class="py-2 space-y-2">
                 <label class="text-sm text-muted-foreground">删除此日期之前的记录</label>
-                <GeneralDatePicker v-model="beforeDate" placeholder="选择截止日期" clearable class="w-full" />
+                <GeneralDatePicker v-model="beforeDate" placeholder="选择截止日期" clearable class="w-full brand-control-focus" />
             </div>
 
             <AlertDialogFooter>
-                <AlertDialogCancel :disabled="loading">取消</AlertDialogCancel>
+                <AlertDialogCancel :class="adminBrandFocusClass" :disabled="loading">取消</AlertDialogCancel>
                 <AlertDialogAction
                     :disabled="loading || !beforeDate"
-                    class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    :class="adminBrandDestructiveActionClass"
                     @click="handleConfirm"
                 >
                     <Loader2 v-if="loading" class="h-4 w-4 animate-spin mr-2" />
@@ -33,6 +33,7 @@ import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import GeneralDatePicker from '~/components/general/DatePicker.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { adminBrandDestructiveActionClass, adminBrandFocusClass } from '~/utils/adminBrandStyles'
 
 const isOpen = defineModel<boolean>('open', { default: false })
 defineProps<{ total: number }>()

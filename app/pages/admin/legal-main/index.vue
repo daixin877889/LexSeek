@@ -1,12 +1,12 @@
 <template>
-        <div class="space-y-6">
+        <div class="theme-brand space-y-6">
             <!-- 页面标题 -->
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                     <h1 class="text-2xl md:text-3xl font-bold mb-1">法律法规管理</h1>
                     <p class="text-muted-foreground text-sm">管理法律、法规、司法解释等法律文件</p>
                 </div>
-                <Button @click="navigateTo('/admin/legal-main/create')" class="w-full md:w-auto">
+                <Button @click="navigateTo('/admin/legal-main/create')" :class="['w-full md:w-auto', adminBrandPrimaryButtonClass]">
                     <Plus class="h-4 w-4 mr-2" />
                     添加法律法规
                 </Button>
@@ -14,13 +14,13 @@
 
             <!-- 搜索和筛选 -->
             <div class="flex flex-col md:flex-row gap-4 flex-wrap">
-                <Input v-model="searchKeyword" placeholder="搜索法律名称、文号..." class="md:max-w-sm"
+                <Input v-model="searchKeyword" placeholder="搜索法律名称、文号..." :class="['md:max-w-sm', adminBrandFocusClass]"
                     @keyup.enter="handleSearch" />
                 <Select v-model="typeFilter">
-                    <SelectTrigger class="w-full md:w-36">
+                    <SelectTrigger :class="['w-full md:w-36', adminBrandFocusClass]">
                         <SelectValue placeholder="法律类型" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent class="theme-brand">
                         <SelectItem value="all">全部类型</SelectItem>
                         <SelectItem value="law">法律</SelectItem>
                         <SelectItem value="regulation">行政法规</SelectItem>
@@ -29,24 +29,24 @@
                     </SelectContent>
                 </Select>
                 <Select v-model="statusFilter">
-                    <SelectTrigger class="w-full md:w-32">
+                    <SelectTrigger :class="['w-full md:w-32', adminBrandFocusClass]">
                         <SelectValue placeholder="状态" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent class="theme-brand">
                         <SelectItem value="all">全部状态</SelectItem>
                         <SelectItem value="valid">有效</SelectItem>
                         <SelectItem value="invalid">已失效</SelectItem>
                         <SelectItem value="pending">未生效</SelectItem>
                     </SelectContent>
                 </Select>
-                <Input v-model="issuingAuthorityFilter" placeholder="发文机关..." class="md:max-w-40"
+                <Input v-model="issuingAuthorityFilter" placeholder="发文机关..." :class="['md:max-w-40', adminBrandFocusClass]"
                     @keyup.enter="handleSearch" />
                 <div class="flex gap-2">
-                    <Button variant="outline" @click="handleSearch">
+                    <Button variant="outline" :class="adminBrandFocusClass" @click="handleSearch">
                         <Search class="h-4 w-4 mr-2" />
                         搜索
                     </Button>
-                    <Button variant="ghost" @click="handleReset" title="重置筛选">
+                    <Button variant="ghost" :class="adminBrandFocusClass" @click="handleReset" title="重置筛选">
                         <RotateCcw class="h-4 w-4" />
                     </Button>
                 </div>
@@ -62,7 +62,7 @@
                 <Scale class="h-12 w-12 text-muted-foreground/50 mb-4" />
                 <h3 class="text-lg font-medium mb-1">暂无法律法规数据</h3>
                 <p class="text-muted-foreground text-sm mb-4">点击上方按钮添加第一条法律法规</p>
-                <Button @click="navigateTo('/admin/legal-main/create')">
+                <Button @click="navigateTo('/admin/legal-main/create')" :class="adminBrandPrimaryButtonClass">
                     <Plus class="h-4 w-4 mr-2" />
                     添加法律法规
                 </Button>
@@ -92,7 +92,7 @@
 
         <!-- 删除确认对话框 -->
         <AlertDialog v-model:open="deleteDialogOpen">
-            <AlertDialogContent>
+            <AlertDialogContent class="theme-brand">
                 <AlertDialogHeader>
                     <AlertDialogTitle>确认删除</AlertDialogTitle>
                     <AlertDialogDescription>
@@ -100,8 +100,8 @@
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>取消</AlertDialogCancel>
-                    <AlertDialogAction @click="confirmDelete" class="bg-destructive text-white hover:bg-destructive/90">
+                    <AlertDialogCancel :class="adminBrandFocusClass">取消</AlertDialogCancel>
+                    <AlertDialogAction @click="confirmDelete" :class="adminBrandDestructiveActionClass">
                         删除
                     </AlertDialogAction>
                 </AlertDialogFooter>
@@ -119,6 +119,7 @@ import AdminLegalMainTable from '~/components/admin/legal-main/LegalMainTable.vu
 import GeneralPagination from '~/components/general/pagination.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useUrlState } from '~/composables/useUrlState'
+import { adminBrandDestructiveActionClass, adminBrandFocusClass, adminBrandPrimaryButtonClass } from '~/utils/adminBrandStyles'
 
 definePageMeta({
     layout: 'admin-layout',

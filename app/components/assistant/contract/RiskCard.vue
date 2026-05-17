@@ -86,18 +86,17 @@ function onCardClick() {
     <div
         :data-risk-id="risk.id"
         :data-just-added="isJustAdded ? 'true' : 'false'"
-        class="relative rounded-[9px] border border-border border-l-[3px] cursor-pointer transition-colors px-2.5 py-2.5 pl-[11px]"
+        class="rounded-[9px] border border-border border-l-[3px] cursor-pointer transition-colors px-2.5 py-2.5 pl-[11px]"
         :class="[cardStateClass, { 'opacity-60': !!archivedStatus }]"
         @click="onCardClick"
     >
-        <!-- 流式冒出标记 -->
-        <span
-            v-if="isJustAdded"
-            class="absolute top-1.5 left-1.5 text-[9px] font-semibold bg-yellow-400/30 text-yellow-800 dark:text-yellow-200 px-1.5 py-px rounded"
-        >刚刚</span>
-
-        <!-- 第一行：等级徽章 + 类别 + 钉按钮 + 右向箭头 -->
+        <!-- 第一行：流式冒出标记 + 等级徽章 + 类别 + 钉按钮 + 右向箭头 -->
         <div class="flex items-center gap-2 min-w-0">
+            <!-- 流式冒出标记：行内排布，避免绝对定位压在等级徽章上 -->
+            <span
+                v-if="isJustAdded"
+                class="shrink-0 text-[9px] font-semibold bg-yellow-400/30 text-yellow-800 dark:text-yellow-200 px-1.5 py-px rounded"
+            >刚刚</span>
             <span
                 class="shrink-0 text-[11px] font-semibold px-1.5 py-px rounded"
                 :class="LEVEL_CLASS[risk.level]"

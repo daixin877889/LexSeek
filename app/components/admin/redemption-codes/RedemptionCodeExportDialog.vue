@@ -1,7 +1,7 @@
 <template>
     <!-- 导出选项对话框 -->
     <Dialog :open="open" @update:open="$emit('update:open', $event)">
-        <DialogContent class="max-w-sm">
+        <DialogContent class="theme-brand max-w-sm">
             <DialogHeader>
                 <DialogTitle>导出兑换码</DialogTitle>
                 <DialogDescription>选择导出范围</DialogDescription>
@@ -10,23 +10,23 @@
                 <div class="flex items-center space-x-2">
                     <RadioGroup v-model="exportOption" class="space-y-2">
                         <div class="flex items-center space-x-2">
-                            <RadioGroupItem value="current" id="export-current" />
+                            <RadioGroupItem value="current" id="export-current" :class="adminBrandFocusClass" />
                             <Label for="export-current">导出当前筛选结果</Label>
                         </div>
                         <div class="flex items-center space-x-2">
-                            <RadioGroupItem value="all" id="export-all" />
+                            <RadioGroupItem value="all" id="export-all" :class="adminBrandFocusClass" />
                             <Label for="export-all">导出全部兑换码</Label>
                         </div>
                         <div v-if="selectedCount > 0" class="flex items-center space-x-2">
-                            <RadioGroupItem value="selected" id="export-selected" />
+                            <RadioGroupItem value="selected" id="export-selected" :class="adminBrandFocusClass" />
                             <Label for="export-selected">导出选中的 {{ selectedCount }} 项</Label>
                         </div>
                     </RadioGroup>
                 </div>
             </div>
             <DialogFooter>
-                <Button variant="outline" @click="$emit('update:open', false)">取消</Button>
-                <Button @click="handleExport" :disabled="exporting">
+                <Button variant="outline" :class="adminBrandFocusClass" @click="$emit('update:open', false)">取消</Button>
+                <Button :class="adminBrandPrimaryButtonClass" @click="handleExport" :disabled="exporting">
                     <Loader2 v-if="exporting" class="h-4 w-4 mr-2 animate-spin" />
                     导出
                 </Button>
@@ -39,6 +39,10 @@
 import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import {
+    adminBrandFocusClass,
+    adminBrandPrimaryButtonClass,
+} from '~/utils/adminBrandStyles'
 
 // 定义 props
 const props = defineProps<{

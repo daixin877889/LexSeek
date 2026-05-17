@@ -1,6 +1,6 @@
 <template>
     <Sheet v-model:open="open">
-        <SheetContent class="w-full sm:max-w-[640px] overflow-y-auto">
+        <SheetContent class="theme-brand w-full overflow-y-auto sm:max-w-[640px]">
             <SheetHeader>
                 <SheetTitle>订单详情</SheetTitle>
                 <SheetDescription>查看订单完整信息、关联支付单和操作记录</SheetDescription>
@@ -106,7 +106,7 @@
                     </div>
                     <div v-else class="space-y-2">
                         <h3 class="text-sm font-medium">取消订单</h3>
-                        <Textarea v-model="cancelReason" rows="3"
+                        <Textarea v-model="cancelReason" rows="3" :class="brandFocusClass"
                             placeholder="请填写取消原因（1-200 字）" :maxlength="200" />
                         <div class="flex gap-2">
                             <Button variant="destructive" :disabled="!isReasonValid || cancelling"
@@ -151,6 +151,7 @@ const detail = ref<any | null>(null)
 const cancelMode = ref<'idle' | 'editing'>('idle')
 const cancelReason = ref('')
 const cancelling = ref(false)
+const brandFocusClass = 'brand-control-focus'
 const isReasonValid = computed(() => {
     const t = cancelReason.value.trim()
     return t.length >= 1 && t.length <= 200

@@ -11,7 +11,7 @@
                             <ChevronRight v-else class="w-3.5 h-3.5 text-muted-foreground" />
                         </div>
                         <span class="text-xs text-muted-foreground shrink-0">{{ startIndex + index + 1 }}</span>
-                        <span class="font-medium truncate text-[#18181B] dark:text-zinc-100"
+                        <span class="font-medium truncate text-foreground"
                             @click.stop="$emit('view-detail', legal.id)">
                             {{ legal.name }}
                         </span>
@@ -48,17 +48,17 @@
                 </div>
                 <!-- 操作按钮 -->
                 <div class="flex items-center gap-2 pt-2 border-t">
-                    <Button variant="outline" size="sm" class="flex-1 h-8 text-xs"
+                    <Button variant="outline" size="sm" :class="['flex-1 h-8 text-xs', adminBrandFocusClass]"
                         @click.stop="$emit('view-articles', legal.id)">
                         <FileText class="h-3 w-3 mr-1" />
                         条文
                     </Button>
-                    <Button variant="outline" size="sm" class="flex-1 h-8 text-xs"
+                    <Button variant="outline" size="sm" :class="['flex-1 h-8 text-xs', adminBrandFocusClass]"
                         @click.stop="$emit('edit', legal.id)">
                         <Pencil class="h-3 w-3 mr-1" />
                         编辑
                     </Button>
-                    <Button variant="outline" size="sm" class="h-8 text-xs text-destructive hover:text-destructive"
+                    <Button variant="outline" size="sm" :class="['h-8 text-xs text-destructive hover:text-destructive', adminBrandFocusClass]"
                         @click.stop="$emit('delete', legal)">
                         <Trash2 class="h-3 w-3" />
                     </Button>
@@ -73,6 +73,7 @@ import { ChevronRight, ChevronDown, FileText, Pencil, Trash2 } from 'lucide-vue-
 import type { LegalMainListItem } from '#shared/types/legal'
 import GeneralLegalStatusBadge from '~/components/general/legal/LegalStatusBadge.vue'
 import GeneralLegalTypeBadge from '~/components/general/legal/LegalTypeBadge.vue'
+import { adminBrandFocusClass } from '~/utils/adminBrandStyles'
 
 // 定义 props
 defineProps<{

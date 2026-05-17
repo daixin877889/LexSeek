@@ -1,7 +1,7 @@
 <template>
     <!-- 示范案例创建/编辑对话框 -->
     <Dialog v-model:open="open">
-        <DialogContent class="sm:max-w-4xl max-h-[85vh] flex flex-col" @interactOutside="(e) => e.preventDefault()">
+        <DialogContent class="theme-brand sm:max-w-4xl max-h-[85vh] flex flex-col" @interactOutside="(e) => e.preventDefault()">
             <DialogHeader class="shrink-0">
                 <DialogTitle>{{ isEdit ? '编辑示范案例' : '新增示范案例' }}</DialogTitle>
                 <DialogDescription>{{ isEdit ? '修改示范案例配置' : '创建新的示范案例' }}</DialogDescription>
@@ -10,17 +10,17 @@
                 <!-- 案例标题 -->
                 <div class="space-y-2">
                     <Label>案例标题 <span class="text-destructive">*</span></Label>
-                    <Input v-model="form.title" placeholder="请输入案例标题" />
+                    <Input v-model="form.title" placeholder="请输入案例标题" :class="adminBrandFocusClass" />
                 </div>
 
                 <!-- 案件类型 -->
                 <div class="space-y-2">
                     <Label>案件类型 <span class="text-destructive">*</span></Label>
                     <Select v-model="form.caseTypeId">
-                        <SelectTrigger class="w-full">
+                        <SelectTrigger :class="['w-full', adminBrandFocusClass]">
                             <SelectValue placeholder="选择案件类型" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent class="theme-brand">
                             <SelectItem v-for="t in caseTypes" :key="t.id" :value="String(t.id)">
                                 {{ t.name }}
                             </SelectItem>
@@ -32,16 +32,16 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div class="space-y-2">
                         <Label>排序优先级</Label>
-                        <Input v-model.number="form.priority" type="number" min="0" placeholder="100" />
+                        <Input v-model.number="form.priority" type="number" min="0" placeholder="100" :class="adminBrandFocusClass" />
                         <p class="text-xs text-muted-foreground">数字越小越靠前</p>
                     </div>
                     <div class="space-y-2">
                         <Label>状态</Label>
                         <Select v-model="form.status">
-                            <SelectTrigger class="w-full">
+                            <SelectTrigger :class="['w-full', adminBrandFocusClass]">
                                 <SelectValue />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent class="theme-brand">
                                 <SelectItem value="1">启用</SelectItem>
                                 <SelectItem value="0">禁用</SelectItem>
                             </SelectContent>
@@ -52,15 +52,15 @@
                 <!-- 案件描述（点击示范案例时填入用户输入框） -->
                 <div class="space-y-2">
                     <Label>案件描述</Label>
-                    <Textarea v-model="form.content" placeholder="点击示范案例时填入用户输入框的案情描述" rows="6" />
+                    <Textarea v-model="form.content" placeholder="点击示范案例时填入用户输入框的案情描述" rows="6" :class="adminBrandFocusClass" />
                 </div>
 
                 <!-- 预设文件材料 -->
                 <AdminDemoCasesMaterialUploader v-model="form.materials" />
             </div>
             <DialogFooter class="shrink-0">
-                <Button variant="outline" @click="open = false">取消</Button>
-                <Button @click="handleSubmit" :disabled="!canSubmit">
+                <Button variant="outline" :class="adminBrandFocusClass" @click="open = false">取消</Button>
+                <Button :class="adminBrandPrimaryButtonClass" @click="handleSubmit" :disabled="!canSubmit">
                     <Loader2 v-if="submitting" class="h-4 w-4 mr-2 animate-spin" />
                     {{ isEdit ? '保存' : '创建' }}
                 </Button>
@@ -76,7 +76,7 @@ import { toast } from 'vue-sonner'
 import type { DemoCaseFileMaterial } from '#shared/types/case'
 import AdminDemoCasesMaterialUploader from '~/components/admin/demo-cases/MaterialUploader.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
-import type { caseTypes } from '~~/generated/prisma/client'
+import { adminBrandFocusClass, adminBrandPrimaryButtonClass } from '~/utils/adminBrandStyles'
 
 /** 示范案例类型 */
 interface DemoCase {
@@ -227,4 +227,3 @@ defineExpose({
     openEdit,
 })
 </script>
-

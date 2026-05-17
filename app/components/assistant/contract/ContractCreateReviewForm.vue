@@ -199,11 +199,11 @@ async function submitPaste() {
             <div class="flex justify-center">
                 <TabsList class="h-auto gap-[3px] rounded-[10px] border border-border p-1">
                     <TabsTrigger value="upload"
-                        class="h-auto gap-2 px-6 py-2.5 text-sm leading-none text-muted-foreground data-[state=active]:bg-card dark:data-[state=active]:bg-card data-[state=active]:text-foreground dark:data-[state=active]:border-transparent data-[state=active]:shadow-[0_1px_2px_rgb(0_0_0/0.12)]">
+                        class="h-auto gap-2 px-6 py-2.5 text-sm leading-none text-muted-foreground data-[state=active]:bg-card dark:data-[state=active]:bg-card data-[state=active]:text-foreground dark:data-[state=active]:border-transparent">
                         <UploadIcon class="size-4" />选择文件
                     </TabsTrigger>
                     <TabsTrigger value="paste"
-                        class="h-auto gap-2 px-6 py-2.5 text-sm leading-none text-muted-foreground data-[state=active]:bg-card dark:data-[state=active]:bg-card data-[state=active]:text-foreground dark:data-[state=active]:border-transparent data-[state=active]:shadow-[0_1px_2px_rgb(0_0_0/0.12)]">
+                        class="h-auto gap-2 px-6 py-2.5 text-sm leading-none text-muted-foreground data-[state=active]:bg-card dark:data-[state=active]:bg-card data-[state=active]:text-foreground dark:data-[state=active]:border-transparent">
                         <ClipboardIcon class="size-4" />粘贴文本
                     </TabsTrigger>
                 </TabsList>
