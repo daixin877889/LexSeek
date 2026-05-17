@@ -52,9 +52,12 @@
 创建 `tests/server/utils/storagePath.test.ts`：
 
 ```ts
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterAll } from 'vitest'
 import { FileSource } from '#shared/types/file'
 import { buildStorageKey, buildStorageDir } from '~~/server/utils/storagePath'
+
+/** 保存原始 useRuntimeConfig，测试结束后还原，避免桩泄漏到同 worker 后续测试文件 */
+const originalUseRuntimeConfig = (globalThis as Record<string, unknown>).useRuntimeConfig
 
 /** 用 globalThis 注入 useRuntimeConfig（与项目测试基建 handler-test.ts 同款做法） */
 function setBasePath(basePath: string) {
@@ -63,6 +66,9 @@ function setBasePath(basePath: string) {
 
 describe('storagePath', () => {
     beforeEach(() => setBasePath('test/'))
+    afterAll(() => {
+        ;(globalThis as Record<string, unknown>).useRuntimeConfig = originalUseRuntimeConfig
+    })
 
     it('buildStorageDir: user scope 拼出 {env}/user{id}/{source}/', () => {
         expect(buildStorageDir({ scope: 'user', userId: 7, source: FileSource.DOCUMENT_TEMPLATE }))
