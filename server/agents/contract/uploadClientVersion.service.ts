@@ -91,6 +91,42 @@ type UploadEvent =
     | { type: 'error'; data: UploadVersionErrorData }
 
 /**
+ * S4 / DOCX-H1：补偿式回滚 Step 4 新建的 risks/annotations 行。
+ *
+ * Step 4a 写库循环抛错、或 Step 5+6 事务失败时调用，避免"风险条目凭空多出但无版本快照"
+ * 的数据不一致。删除顺序：先 annotation 再 risk（FK onDelete: Cascade 也能兜住，显式删更清楚）。
+ */
+async function rollbackStep4CreatedRows(
+    reviewId: number,
+    step4CreatedRiskIds: number[],
+    step4CreatedAnnIds: number[],
+): Promise<void> {
+    if (step4CreatedAnnIds.length === 0 && step4CreatedRiskIds.length === 0) return
+    try {
+        await prisma.$transaction(async (tx) => {
+            if (step4CreatedAnnIds.length > 0) {
+                await tx.contractAnnotations.deleteMany({ where: { id: { in: step4CreatedAnnIds } } })
+            }
+            if (step4CreatedRiskIds.length > 0) {
+                await tx.contractRisks.deleteMany({ where: { id: { in: step4CreatedRiskIds } } })
+            }
+        })
+        logger.warn('[uploadClientVersion] 失败补偿：已回滚 Step 4 新建行', {
+            reviewId,
+            rolledBackRisks: step4CreatedRiskIds.length,
+            rolledBackAnnotations: step4CreatedAnnIds.length,
+        })
+    } catch (rollbackErr) {
+        logger.error('[uploadClientVersion] 补偿回滚失败，可能留下孤立新风险', {
+            reviewId,
+            rolledBackRiskIds: step4CreatedRiskIds,
+            rolledBackAnnIds: step4CreatedAnnIds,
+            err: rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr),
+        })
+    }
+}
+
+/**
  * 客户回传 docx 上传六步处理链路。
  *
  * @param params.review    合同审查记录（含 id 和 currentVersionId）
@@ -654,91 +690,101 @@ export async function* uploadClientVersionService(params: {
 
     // M1：自此进入 Step 4a 写库阶段，后续失败不再恢复 originalStatus，一律置 failed。
     enteredMutationStage = true
-    for (const result of llmResults) {
-        const { i, m, clause } = result
-        if (!result.ok) {
-            logger.warn(`条款 #${clause.index} 增量 AI 审查失败，跳过`, { err: result.err })
+    try {
+        for (const result of llmResults) {
+            const { i, m, clause } = result
+            if (!result.ok) {
+                logger.warn(`条款 #${clause.index} 增量 AI 审查失败，跳过`, { err: result.err })
+                yield {
+                    type: 'progress',
+                    data: { step: 'ai', status: 'progress', total: clauseDiffResult.modified.length, current: i + 1 },
+                }
+                continue
+            }
+            const risk = result.risk
+            if (risk) {
+                // DOCX-H2 + C2：同条款可能有多条未处置 AI 风险。
+                // 原比较 `r.clauseParagraphIndex === m.oldIndex` 把 DB 里"段落序号空间"
+                // 的 clauseParagraphIndex 与 oldClauses 数组下标错配，永不命中；改用
+                // clauseText 文本 prefix 匹配 oldClauses[m.oldIndex].text 来识别"老条款下的旧 risk"，
+                // 跨"历史 clauseIndex / 现段落 paragraphIndex"两种空间都能识别。
+                const oldClauseHead = (oldClauses[m.oldIndex]?.text ?? '').slice(0, 40)
+                const existingRisks = oldClauseHead.length >= 4
+                    ? dbRisks.filter(
+                        (r) =>
+                            r.source === 'ai'
+                            && r.archivedStatus === null
+                            && (r.clauseText ?? '').includes(oldClauseHead),
+                    )
+                    : []
+                // DOCX-C1：写入端 clauseParagraphIndex 用非空段落序号（commentInjector 期望空间）
+                const newParaIdx = newClauseArrayIdxToParaIdx(m.newIndex)
+                if (existingRisks.length > 0) {
+                    for (const existing of existingRisks) {
+                        await prisma.contractRisks.update({
+                            where: { id: existing.id },
+                            data: {
+                                level: risk.level,
+                                category: risk.category,
+                                problem: risk.problem,
+                                legalBasis: risk.legalBasis ?? null,
+                                analysis: risk.analysis ?? null,
+                                suggestion: risk.suggestion ?? null,
+                                // PR10 方案 D：用不含编号字符的文本作 anchor，规避 redlineInjector 严格匹配失败
+                                // ?? clause.text 是 ClauseSnapshotItem.textWithoutNumber 的 optional 字段 fallback
+                                clauseText: clause.textWithoutNumber ?? clause.text,
+                                // 锚点迁移到新条款对应的段落序号，避免 Step 5 再扫一次
+                                clauseParagraphIndex: newParaIdx,
+                                ...(existing.originalClauseText ? {} : { originalClauseText: existing.clauseText }),
+                            },
+                        })
+                    }
+                } else {
+                    // CORE-R2：与 Phase A 主路径共用 persistAiRisksAsContractRows，
+                    // 字段映射收口到 contractRisk.service。clauseText 显式传 clause.text，
+                    // 与 Phase A 原始 AI risk 一致存条款全文，不再截断（bug #11）。
+                    const [newRisk] = await persistAiRisksAsContractRows({
+                        reviewId: review.id,
+                        rows: [{
+                            risk,
+                            // PR10 方案 D：理由同上
+                            clauseText: clause.textWithoutNumber ?? clause.text,
+                            clauseParagraphIndex: newParaIdx,
+                        }],
+                        stance: ((review.stance ?? DEFAULT_AI_RISK_STANCE) as unknown) as StancePreference,
+                    })
+                    if (!newRisk) throw new Error('persistAiRisksAsContractRows 未返回新风险')
+                    step4CreatedRiskIds.push(newRisk.id)
+                    const newAnn = await prisma.contractAnnotations.create({
+                        data: {
+                            reviewId: review.id,
+                            riskId: newRisk.id,
+                            authorType: 'ai',
+                            authorName: 'AI',
+                            content: risk.problem,
+                        },
+                    })
+                    step4CreatedAnnIds.push(newAnn.id)
+                    await prisma.contractAnnotations.update({
+                        where: { id: newAnn.id },
+                        data: { wordCommentRef: generateWordCommentRef(newAnn.id) },
+                    })
+                }
+                aiReviewCount++
+            }
             yield {
                 type: 'progress',
                 data: { step: 'ai', status: 'progress', total: clauseDiffResult.modified.length, current: i + 1 },
             }
-            continue
         }
-        const risk = result.risk
-        if (risk) {
-            // DOCX-H2 + C2：同条款可能有多条未处置 AI 风险。
-            // 原比较 `r.clauseParagraphIndex === m.oldIndex` 把 DB 里"段落序号空间"
-            // 的 clauseParagraphIndex 与 oldClauses 数组下标错配，永不命中；改用
-            // clauseText 文本 prefix 匹配 oldClauses[m.oldIndex].text 来识别"老条款下的旧 risk"，
-            // 跨"历史 clauseIndex / 现段落 paragraphIndex"两种空间都能识别。
-            const oldClauseHead = (oldClauses[m.oldIndex]?.text ?? '').slice(0, 40)
-            const existingRisks = oldClauseHead.length >= 4
-                ? dbRisks.filter(
-                    (r) =>
-                        r.source === 'ai'
-                        && r.archivedStatus === null
-                        && (r.clauseText ?? '').includes(oldClauseHead),
-                )
-                : []
-            // DOCX-C1：写入端 clauseParagraphIndex 用非空段落序号（commentInjector 期望空间）
-            const newParaIdx = newClauseArrayIdxToParaIdx(m.newIndex)
-            if (existingRisks.length > 0) {
-                for (const existing of existingRisks) {
-                    await prisma.contractRisks.update({
-                        where: { id: existing.id },
-                        data: {
-                            level: risk.level,
-                            category: risk.category,
-                            problem: risk.problem,
-                            legalBasis: risk.legalBasis ?? null,
-                            analysis: risk.analysis ?? null,
-                            suggestion: risk.suggestion ?? null,
-                            // PR10 方案 D：用不含编号字符的文本作 anchor，规避 redlineInjector 严格匹配失败
-                            // ?? clause.text 是 ClauseSnapshotItem.textWithoutNumber 的 optional 字段 fallback
-                            clauseText: clause.textWithoutNumber ?? clause.text,
-                            // 锚点迁移到新条款对应的段落序号，避免 Step 5 再扫一次
-                            clauseParagraphIndex: newParaIdx,
-                            ...(existing.originalClauseText ? {} : { originalClauseText: existing.clauseText }),
-                        },
-                    })
-                }
-            } else {
-                // CORE-R2：与 Phase A 主路径共用 persistAiRisksAsContractRows，
-                // 字段映射收口到 contractRisk.service。clauseText 显式传 clause.text，
-                // 与 Phase A 原始 AI risk 一致存条款全文，不再截断（bug #11）。
-                const [newRisk] = await persistAiRisksAsContractRows({
-                    reviewId: review.id,
-                    rows: [{
-                        risk,
-                        // PR10 方案 D：理由同上
-                        clauseText: clause.textWithoutNumber ?? clause.text,
-                        clauseParagraphIndex: newParaIdx,
-                    }],
-                    stance: ((review.stance ?? DEFAULT_AI_RISK_STANCE) as unknown) as StancePreference,
-                })
-                if (!newRisk) throw new Error('persistAiRisksAsContractRows 未返回新风险')
-                step4CreatedRiskIds.push(newRisk.id)
-                const newAnn = await prisma.contractAnnotations.create({
-                    data: {
-                        reviewId: review.id,
-                        riskId: newRisk.id,
-                        authorType: 'ai',
-                        authorName: 'AI',
-                        content: risk.problem,
-                    },
-                })
-                step4CreatedAnnIds.push(newAnn.id)
-                await prisma.contractAnnotations.update({
-                    where: { id: newAnn.id },
-                    data: { wordCommentRef: generateWordCommentRef(newAnn.id) },
-                })
-            }
-            aiReviewCount++
-        }
-        yield {
-            type: 'progress',
-            data: { step: 'ai', status: 'progress', total: clauseDiffResult.modified.length, current: i + 1 },
-        }
+    } catch (e: unknown) {
+        // S4：Step 4a 写库循环抛错——回滚已新建行 + yield error，避免前端 ai 步永久转圈，
+        // 且不让"凭空多出的风险/批注"残留。
+        const msg = e instanceof Error ? e.message : 'AI 增量审查失败'
+        logger.error('[uploadClientVersion] Step 4a 写库失败', { reviewId: review.id, err: msg })
+        await rollbackStep4CreatedRows(review.id, step4CreatedRiskIds, step4CreatedAnnIds)
+        yield { type: 'error', data: { step: 'ai', code: 'AI_REVIEW_FAILED', message: msg } }
+        return
     }
 
     // 4b. 全局复核：对整篇新文本做平衡性检查
@@ -1121,37 +1167,8 @@ export async function* uploadClientVersionService(params: {
     } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : '合并失败'
         // DOCX-H1：Step 5+6 事务失败时回滚 Step 4 新建的 risks/annotations，
-        // 避免"风险条目凭空多出但无版本快照"的数据不一致（律师下次刷新工作区会看到
-        // 来历不明的新增条目）。删除顺序：先 annotation 再 risk（FK onDelete: Cascade 也能兜住，
-        // 但显式删更清楚）。
-        if (step4CreatedAnnIds.length > 0 || step4CreatedRiskIds.length > 0) {
-            try {
-                await prisma.$transaction(async (tx) => {
-                    if (step4CreatedAnnIds.length > 0) {
-                        await tx.contractAnnotations.deleteMany({
-                            where: { id: { in: step4CreatedAnnIds } },
-                        })
-                    }
-                    if (step4CreatedRiskIds.length > 0) {
-                        await tx.contractRisks.deleteMany({
-                            where: { id: { in: step4CreatedRiskIds } },
-                        })
-                    }
-                })
-                logger.warn('[uploadClientVersion] 合并失败，已回滚 Step 4 新建行', {
-                    reviewId: review.id,
-                    rolledBackRisks: step4CreatedRiskIds.length,
-                    rolledBackAnnotations: step4CreatedAnnIds.length,
-                })
-            } catch (rollbackErr) {
-                logger.error('[uploadClientVersion] 补偿回滚失败，可能留下孤立新风险', {
-                    reviewId: review.id,
-                    rolledBackRiskIds: step4CreatedRiskIds,
-                    rolledBackAnnIds: step4CreatedAnnIds,
-                    err: rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr),
-                })
-            }
-        }
+        // 避免"风险条目凭空多出但无版本快照"的数据不一致。
+        await rollbackStep4CreatedRows(review.id, step4CreatedRiskIds, step4CreatedAnnIds)
         yield { type: 'error', data: { step: 'merge', code: 'MERGE_FAILED', message: msg } }
     }
     } finally {

@@ -841,6 +841,52 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
             expect(after.status).toBe('failed')
         }, 60000)
     })
+
+    describe('S4：Step 4a 写库失败 → 错误事件 + 回滚已新建行', () => {
+        it('Step 4a 写库抛错 → yield ai 错误事件，已建 risk/批注被回滚', async () => {
+            // 构造 modified 条款，让 Step 4a 走"创建新 risk"分支
+            const oldText = '第一条 旧条款 A 内容。\n第二条 旧条款 B。\n第三条 旧条款 C。'
+            const newParas = ['第一条 修改后的全新条款 A 内容。', '第二条 旧条款 B。', '第三条 旧条款 C。']
+            const v1 = await prisma.contractReviewVersions.create({
+                data: {
+                    reviewId, versionNumber: 1, systemLabel: 'lawyer_save',
+                    snapshotData: { docxText: oldText, clauses: [] },
+                    createdById: userId,
+                },
+            })
+            await prisma.contractReviews.update({
+                where: { id: reviewId },
+                data: { currentVersionId: v1.id, maxVersionNo: 1 },
+            })
+            mockParseDocx.mockResolvedValueOnce({ paragraphs: newParas, rawXml: '<root/>' })
+            mockAnalyzeClause.mockResolvedValueOnce([{
+                id: '', clauseIndex: 0, clauseText: '',
+                level: 'high', category: '违约', problem: '修改后的条款问题',
+                analysis: '分析', risk: '风险', suggestion: '建议',
+                legalBasis: '《合同法》第X条',
+            }])
+            // Step 4a 在创建 risk + annotation 之后、写 wordCommentRef 时抛错
+            const wordCommentRefMod = await import('~~/server/agents/contract/utils/wordCommentRef')
+            const spy = vi.spyOn(wordCommentRefMod, 'generateWordCommentRef')
+                .mockImplementationOnce(() => { throw new Error('生成批注引用失败') })
+            let events: { type: string; data: any }[]
+            try {
+                const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+                events = await collectEvents(uploadClientVersionService({ review, ossFileId, userId }))
+            } finally {
+                spy.mockRestore()
+            }
+            // 应 yield 出 ai 步的精确错误事件，而非让异常穿出导致前端 ai 步永久转圈
+            const aiError = events.find(e => e.type === 'error' && e.data.step === 'ai')
+            expect(aiError).toBeDefined()
+            expect(aiError!.data.code).toBe('AI_REVIEW_FAILED')
+            // Step 4a 已新建的 risk / annotation 应被补偿回滚，不残留"凭空多出的风险"
+            const aiRisks = await prisma.contractRisks.findMany({ where: { reviewId, source: 'ai' } })
+            expect(aiRisks).toHaveLength(0)
+            const anns = await prisma.contractAnnotations.findMany({ where: { reviewId } })
+            expect(anns).toHaveLength(0)
+        }, 60000)
+    })
 })
 
 // ==================== Phase B 双锚点迁移（PR7） ====================
