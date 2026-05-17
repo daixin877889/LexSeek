@@ -5,6 +5,7 @@ import { loadConfig } from './config'
 import { log, logError } from './logger'
 import { runFullMigration } from './orchestrator'
 import { runPreflight } from './preflight'
+import { runVerify } from './verify/index'
 
 async function cmdPreflight(): Promise<void> {
   const cfg = loadConfig()
@@ -35,6 +36,18 @@ async function cmdMigrate(): Promise<void> {
   }
 }
 
+async function cmdVerify(): Promise<void> {
+  const cfg = loadConfig()
+  const legacy = createLegacyClient(cfg.legacyDatabaseUrl)
+  const next = createNewClient(cfg.newDatabaseUrl)
+  try {
+    await runVerify(legacy, next)
+  } finally {
+    await legacy.$disconnect()
+    await next.$disconnect()
+  }
+}
+
 async function main(): Promise<void> {
   const cmd = process.argv[2]
   switch (cmd) {
@@ -44,8 +57,11 @@ async function main(): Promise<void> {
     case 'migrate':
       await cmdMigrate()
       break
+    case 'verify':
+      await cmdVerify()
+      break
     default:
-      logError(`未知命令：${cmd ?? '(空)'}。可用命令：preflight、migrate`)
+      logError(`未知命令：${cmd ?? '(空)'}。可用命令：preflight、migrate、verify`)
       process.exitCode = 1
   }
 }
