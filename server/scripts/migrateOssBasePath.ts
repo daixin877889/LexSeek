@@ -18,6 +18,7 @@
  * 生产环境顺序：dry-run → execute → 人工验证 → delete-source
  */
 import { fileURLToPath } from 'node:url'
+import { normalizeBasePath } from '../utils/storagePath'
 
 /** 单批查询条数 */
 const BATCH_SIZE = 200
@@ -100,7 +101,7 @@ async function main() {
     const { createOssClient } = await import('../lib/oss/client')
 
     const { execute, deleteSource } = parseArgs()
-    const basePath = process.env.NUXT_STORAGE_BASE_PATH || ''
+    const basePath = normalizeBasePath(process.env.NUXT_STORAGE_BASE_PATH)
     if (!basePath) {
         sharedLogger.error('未设置 NUXT_STORAGE_BASE_PATH，无环境前缀可迁移，退出')
         process.exit(1)
@@ -144,7 +145,7 @@ async function main() {
                 // 删源模式：filePath 已是带前缀的新路径，反推旧路径并删除
                 if (!filePath || !filePath.startsWith(basePath)) continue
                 const oldKey = filePath.slice(basePath.length)
-                if (!oldKey || oldKey === filePath) continue
+                if (!oldKey) continue
                 try {
                     const oldSize = await getObjectSize(client, oldKey)
                     if (oldSize === null) { skipped++; continue }
