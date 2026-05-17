@@ -8,7 +8,7 @@
  *  1. CSS.highlights 不可用时 mount 不抛错（spec § 7.3.3 早出降级）
  *  2. quote=null 的 risk 透传到工具（由工具内部按 § 6.4 跳过）
  *  3. 切换 reviewedFileId 触发 clearAllQuoteHighlights（spec § 7.4 重渲染保护）
- *  4. focusedRiskId 变化触发 decorateQuoteRanges 重画
+ *  4. risks 变化触发 decorateQuoteRanges 重画
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
@@ -38,6 +38,8 @@ vi.mock('~/composables/useApiFetch', () => ({ useApiFetch: hoisted.mockUseApiFet
 vi.mock('~/utils/quoteHighlight', () => ({
     decorateQuoteRanges: hoisted.mockDecorateQuoteRanges,
     clearAllQuoteHighlights: hoisted.mockClearAllQuoteHighlights,
+    // ContractDocxPreview 也 import computeQuoteRange 做段落定位；mock 返回 null 走 clauseLocator 兜底
+    computeQuoteRange: () => null,
 }))
 
 vi.stubGlobal('fetch', vi.fn(async () => new Response(new ArrayBuffer(8), { status: 200 })))
@@ -113,27 +115,21 @@ describe('ContractDocxPreview · quote 字符级高亮集成', () => {
         wrapper.unmount()
     })
 
-    it('focusedRiskId 变化触发 decorateQuoteRanges 重画', async () => {
+    it('risks 变化触发 decorateQuoteRanges 重画', async () => {
         const wrapper = mount(ContractDocxPreview, {
             props: {
                 reviewedFileId: 1,
                 originalFileId: null,
-                risks: [makeRisk(), makeRisk({ id: 'risk-2' })],
-                focusedRiskId: null,
+                risks: [makeRisk()],
             },
         })
         await flushPromises()
         const before = hoisted.mockDecorateQuoteRanges.mock.calls.length
 
-        await wrapper.setProps({ focusedRiskId: 'risk-1' })
+        await wrapper.setProps({ risks: [makeRisk(), makeRisk({ id: 'risk-2' })] })
         await nextTick()
 
         expect(hoisted.mockDecorateQuoteRanges.mock.calls.length).toBeGreaterThan(before)
-        const lastCall = hoisted.mockDecorateQuoteRanges.mock.calls.at(-1)
-        const passedState = lastCall?.[2] as { focusedRiskId: string | null; flashWindowActive: boolean }
-        expect(passedState.focusedRiskId).toBe('risk-1')
-        // focusedRiskId 切换时 flashWindowActive 应为 true（1 秒衰减窗口启动）
-        expect(passedState.flashWindowActive).toBe(true)
         wrapper.unmount()
     })
 })

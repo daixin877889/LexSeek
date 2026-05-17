@@ -232,38 +232,12 @@ async function decorateRisks(): Promise<void> {
     emit('locateResult', notLocated)
 }
 
-/**
- * PR 5 · § 7.5 焦点 1 秒衰减窗口。
- * focusedRiskId 变化时由 watch 置 true + 启动 1 秒 setTimeout 关闭；
- * pickHighlightState 在窗口关闭后把 quote-focused 衰减为 quote-default。
- */
-const flashWindowActive = ref(false)
-let flashWindowTimer: ReturnType<typeof setTimeout> | null = null
-
 function paintQuoteHighlights(): void {
     if (!containerRef.value) return
-    decorateQuoteRanges(props.risks, containerRef.value, {
-        focusedRiskId: props.focusedRiskId ?? null,
-        pinnedRiskIds: props.pinnedRiskIds,
-        flashWindowActive: flashWindowActive.value,
-    })
-}
-
-function startFlashWindow(): void {
-    flashWindowActive.value = true
-    if (flashWindowTimer) clearTimeout(flashWindowTimer)
-    flashWindowTimer = setTimeout(() => {
-        flashWindowActive.value = false
-        flashWindowTimer = null
-        paintQuoteHighlights()
-    }, 1000)
+    decorateQuoteRanges(props.risks, containerRef.value)
 }
 
 onBeforeUnmount(() => {
-    if (flashWindowTimer) {
-        clearTimeout(flashWindowTimer)
-        flashWindowTimer = null
-    }
     containerRef.value?.removeEventListener('scroll', syncAddBtnPos)
 })
 
@@ -343,7 +317,7 @@ watch(
                 el.classList.add(RISK_LEVEL_DOCX_HOVER_BG[level])
             }
         })
-        // focused 切到新 risk → 滚动定位 + 启动 1 秒衰减窗口（spec § 7.5）
+        // focused 切到新 risk → 滚动定位
         const prevFocused = (oldVals?.[0] ?? null) as string | null
         const newFocused = (newVals[0] ?? null) as string | null
         if (newFocused && newFocused !== prevFocused) {
@@ -358,12 +332,10 @@ watch(
                 const top = c.scrollTop + (elRect.top - cRect.top) - (c.clientHeight - elRect.height) / 2
                 c.scrollTo({ top, behavior: 'smooth' })
             }
-            startFlashWindow()
         }
 
-        // quote 高亮三态只取决于 focused / pinned / risks（pickHighlightState 不看 hovered）；
-        // 仅 hovered 变化时跳过重算，避免鼠标在风险卡片间移动反复 clear + 重建 Highlight。
-        if (newVals[0] !== oldVals?.[0] || newVals[1] !== oldVals?.[1] || newVals[3] !== oldVals?.[3]) {
+        // quote 高亮按风险等级染色，只随 risks 变化重画
+        if (newVals[3] !== oldVals?.[3]) {
             paintQuoteHighlights()
         }
     },

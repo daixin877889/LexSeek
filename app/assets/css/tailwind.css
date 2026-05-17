@@ -370,19 +370,15 @@
  * 用 CSS Custom Highlight API（baseline 2025/06）；不支持的浏览器静默退化为段落级。
  * 注册侧见 app/utils/quoteHighlight.ts 的 decorateQuoteRanges。
  * 必须放全局 CSS——Vue scoped [data-v-xxx] 让 ::highlight() 命中失效。
- * 设计：问题语句改用红色下划线标出（不再铺黄色块），三态靠下划线深浅 +
- * focused 极淡底色区分。文档纸面恒为白色、不随主题翻转，故无 dark 变体。
+ * 设计：问题语句用下划线标出，按风险等级染色（高=红 / 中=琥珀 / 低=天蓝）。
  */
-::highlight(quote-default),
-::highlight(quote-pinned),
-::highlight(quote-focused) {
+::highlight(quote-high),
+::highlight(quote-medium),
+::highlight(quote-low) {
     text-decoration-line: underline;
-    text-decoration-thickness: 2px;
-    text-underline-offset: 2px;
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 3px;
 }
-::highlight(quote-default) { text-decoration-color: rgb(220 38 38 / 0.5); }
-::highlight(quote-pinned) { text-decoration-color: rgb(220 38 38 / 0.85); }
-::highlight(quote-focused) {
-    text-decoration-color: rgb(220 38 38);
-    background-color: rgb(220 38 38 / 0.08);
-}
+::highlight(quote-high) { text-decoration-color: rgb(220 38 38); }
+::highlight(quote-medium) { text-decoration-color: rgb(217 119 6); }
+::highlight(quote-low) { text-decoration-color: rgb(14 165 233); }

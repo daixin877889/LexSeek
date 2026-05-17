@@ -4,14 +4,14 @@
  * **Feature: contract-review-precise-anchoring (PR 5)**
  * **Validates: spec § 7.3.1 / 7.3.3 / 7.6 / 6.4 + § 10.1 测试矩阵 ① ② ③ ④ ⑤**
  *
- * 6 个核心场景 + pickHighlightState 矩阵：
- *  1. computeQuoteRange · 单段 quote 命中（spec § 10.1 ②基础态）
- *  2. computeQuoteRange · 跨多 <p> 的 quote（含 \n 多行 clauseText，spec § 10.1 ①）
- *  3. computeQuoteRange · 跨多 <span> 的 quote（quote 起止落在 run 内部，spec § 10.1 ②跨 run）
- *  4. computeQuoteRange · quoteCharStart=null 降级返回 null（spec § 6.4 / § 10.1 ③）
- *  5. clearAllQuoteHighlights · 清空全部 3 个命名 Highlight（spec § 10.1 ④）
- *  6. decorateQuoteRanges · CSS.highlights 不可用时早出（spec § 10.1 ⑤）
- *  + pickHighlightState · 三态优先级 + flashWindowActive 衰减
+ * 核心场景：
+ *  1. computeQuoteRange · 单段 quote 命中
+ *  2. computeQuoteRange · 跨多 <p> 的 quote（含 \n 多行 clauseText）
+ *  3. computeQuoteRange · 跨多 <span> 的 quote（quote 起止落在 run 内部）
+ *  4. computeQuoteRange · quoteCharStart=null 降级返回 null（spec § 6.4）
+ *  5. clearAllQuoteHighlights · 清空全部命名 Highlight
+ *  6. decorateQuoteRanges · CSS.highlights 不可用时早出
+ *  7. decorateQuoteRanges · 按风险等级分桶到 quote-high/medium/low
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
@@ -19,7 +19,6 @@ import {
     computeQuoteRange,
     decorateQuoteRanges,
     clearAllQuoteHighlights,
-    pickHighlightState,
 } from '~/utils/quoteHighlight'
 import type { RiskDisplayPhaseB } from '#shared/types/contract'
 
@@ -142,19 +141,19 @@ describe('quoteHighlight 工具函数', () => {
         expect(range).toBeNull()
     })
 
-    it('clearAllQuoteHighlights · 清空全部 3 个命名 Highlight', () => {
+    it('clearAllQuoteHighlights · 清空全部命名 Highlight', () => {
         installCssHighlightMock()
         const cssAny = (globalThis.CSS as any)
-        cssAny.highlights.set('quote-default', new MockHighlight())
-        cssAny.highlights.set('quote-focused', new MockHighlight())
-        cssAny.highlights.set('quote-pinned', new MockHighlight())
-        expect(cssAny.highlights.has('quote-default')).toBe(true)
+        cssAny.highlights.set('quote-high', new MockHighlight())
+        cssAny.highlights.set('quote-medium', new MockHighlight())
+        cssAny.highlights.set('quote-low', new MockHighlight())
+        expect(cssAny.highlights.has('quote-high')).toBe(true)
 
         clearAllQuoteHighlights()
 
-        expect(cssAny.highlights.has('quote-default')).toBe(false)
-        expect(cssAny.highlights.has('quote-focused')).toBe(false)
-        expect(cssAny.highlights.has('quote-pinned')).toBe(false)
+        expect(cssAny.highlights.has('quote-high')).toBe(false)
+        expect(cssAny.highlights.has('quote-medium')).toBe(false)
+        expect(cssAny.highlights.has('quote-low')).toBe(false)
     })
 
     it('decorateQuoteRanges · CSS.highlights 不可用时早出（spec § 7.3.3）', () => {
@@ -162,26 +161,18 @@ describe('quoteHighlight 工具函数', () => {
         const container = buildContainer(
             '<p>工资按月支付。逾期支付的，每日按 0.05% 加收滞纳金。</p>',
         )
-        expect(() => decorateQuoteRanges([makeRisk()], container, {
-            focusedRiskId: null,
-            pinnedRiskIds: new Set(),
-            flashWindowActive: false,
-        })).not.toThrow()
+        expect(() => decorateQuoteRanges([makeRisk()], container)).not.toThrow()
     })
 
-    it('pickHighlightState · 三态优先级 + flashWindowActive 衰减（§ 7.5 / § 7.6）', () => {
-        const id = 'r1'
-        // focused + flash 窗口活跃 → quote-focused
-        expect(pickHighlightState(id, id, new Set(), true)).toBe('quote-focused')
-        // focused + flash 窗口已关闭 → 衰减为 quote-default（spec § 7.5 1 秒后切回）
-        expect(pickHighlightState(id, id, new Set(), false)).toBe('quote-default')
-        // 非 focused 但 pinned → quote-pinned
-        expect(pickHighlightState(id, 'other', new Set([id]), true)).toBe('quote-pinned')
-        // 非 focused 非 pinned → quote-default
-        expect(pickHighlightState(id, null, new Set(), true)).toBe('quote-default')
-        // focused 优先于 pinned（同时为 focused 且 pinned，flash 活跃 → focused）
-        expect(pickHighlightState(id, id, new Set([id]), true)).toBe('quote-focused')
-        // focused 优先于 pinned，但 flash 已衰减 → pinned 接管
-        expect(pickHighlightState(id, id, new Set([id]), false)).toBe('quote-pinned')
+    it('decorateQuoteRanges · 按风险等级分桶到 quote-high/medium/low', () => {
+        installCssHighlightMock()
+        const container = buildContainer(
+            '<p>工资按月支付。逾期支付的，每日按 0.05% 加收滞纳金。</p>',
+        )
+        decorateQuoteRanges([makeRisk({ id: 'r1', level: 'high' })], container)
+        const cssAny = (globalThis.CSS as any)
+        expect((cssAny.highlights.get('quote-high') as MockHighlight).size).toBe(1)
+        expect((cssAny.highlights.get('quote-medium') as MockHighlight).size).toBe(0)
+        expect((cssAny.highlights.get('quote-low') as MockHighlight).size).toBe(0)
     })
 })
