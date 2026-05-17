@@ -1,9 +1,9 @@
 <template>
-    <div class="space-y-6">
+    <div class="theme-brand space-y-6">
         <!-- 顶部返回 + 标题 -->
         <div class="flex items-center gap-3">
             <NuxtLink to="/admin/contract-reviews">
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" :class="adminBrandFocusClass">
                     <ArrowLeft class="h-4 w-4 mr-1" />
                     返回
                 </Button>
@@ -20,20 +20,20 @@
             <h3 class="text-lg font-medium mb-1">记录不存在</h3>
             <p class="text-muted-foreground text-sm mb-4">可能已被彻底移除，或 ID 无效</p>
             <NuxtLink to="/admin/contract-reviews">
-                <Button variant="outline">返回列表</Button>
+                <Button variant="outline" :class="adminBrandFocusClass">返回列表</Button>
             </NuxtLink>
         </div>
 
         <template v-else>
             <!-- 基本信息 -->
-            <Card>
+            <Card class="rounded-lg shadow-none">
                 <CardHeader>
                     <CardTitle class="flex items-center gap-3">
                         基本信息
-                        <Badge :variant="getReviewStatusBadgeVariant(detail.status)">
+                        <Badge variant="outline" :class="getAdminContractReviewStatusBadgeClass(detail.status)">
                             {{ getStatusLabel(detail.status) }}
                         </Badge>
-                        <Badge v-if="detail.deletedAt" variant="destructive">已删除</Badge>
+                        <Badge v-if="detail.deletedAt" variant="outline" :class="adminBrandErrorBadgeClass">已删除</Badge>
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -106,7 +106,7 @@
             </Card>
 
             <!-- 摘要 -->
-            <Card>
+            <Card class="rounded-lg shadow-none">
                 <CardHeader>
                     <CardTitle>审查摘要</CardTitle>
                 </CardHeader>
@@ -119,7 +119,7 @@
             </Card>
 
             <!-- 风险清单 -->
-            <Card>
+            <Card class="rounded-lg shadow-none">
                 <CardHeader>
                     <CardTitle>风险清单 <span class="text-muted-foreground text-sm">（只读 · {{ risks.length }} 条）</span>
                     </CardTitle>
@@ -134,7 +134,7 @@
                                     {{ idx + 1 }}. {{ risk.problem || risk.category || '（无标题）' }}
                                     <span v-if="risk.clauseIndex !== undefined" class="text-xs text-muted-foreground ml-1">#条款 {{ risk.clauseIndex }}</span>
                                 </div>
-                                <Badge v-if="risk.level" :variant="getRiskLevelBadgeVariant(risk.level)">
+                                <Badge v-if="risk.level" variant="outline" :class="getAdminRiskLevelBadgeClass(risk.level)">
                                     {{ getSeverityLabel(risk.level) }}
                                 </Badge>
                             </div>
@@ -163,7 +163,7 @@
 
             <!-- 页脚操作 -->
             <div v-if="!detail.deletedAt" class="flex justify-end">
-                <Button variant="destructive" @click="deleteDialogOpen = true">
+                <Button :class="adminBrandDestructiveActionClass" @click="deleteDialogOpen = true">
                     <Trash2 class="h-4 w-4 mr-2" />
                     软删除该记录
                 </Button>
@@ -173,7 +173,7 @@
 
     <!-- 删除确认 -->
     <AlertDialog v-model:open="deleteDialogOpen">
-        <AlertDialogContent>
+        <AlertDialogContent class="theme-brand">
             <AlertDialogHeader>
                 <AlertDialogTitle>确认软删除该审查记录？</AlertDialogTitle>
                 <AlertDialogDescription>
@@ -181,8 +181,8 @@
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-                <AlertDialogCancel :disabled="deleting">取消</AlertDialogCancel>
-                <AlertDialogAction :disabled="deleting" @click="confirmDelete">
+                <AlertDialogCancel :class="adminBrandFocusClass" :disabled="deleting">取消</AlertDialogCancel>
+                <AlertDialogAction :class="adminBrandDestructiveActionClass" :disabled="deleting" @click="confirmDelete">
                     <Loader2 v-if="deleting" class="h-4 w-4 mr-2 animate-spin" />
                     确认删除
                 </AlertDialogAction>
@@ -199,7 +199,13 @@ import { REVIEW_STATUS_LABEL, RISK_LEVEL_LABEL } from '#shared/types/contract'
 import { useApi } from '~/composables/useApi'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useFormatters } from '~/composables/useFormatters'
-import { getReviewStatusBadgeVariant, getRiskLevelBadgeVariant } from '~/utils/contractReviewBadge'
+import {
+    adminBrandDestructiveActionClass,
+    adminBrandErrorBadgeClass,
+    adminBrandFocusClass,
+    getAdminContractReviewStatusBadgeClass,
+    getAdminRiskLevelBadgeClass,
+} from '~/utils/adminBrandStyles'
 
 definePageMeta({ layout: 'admin-layout', title: '合同审查详情' })
 

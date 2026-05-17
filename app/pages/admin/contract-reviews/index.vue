@@ -1,5 +1,5 @@
 <template>
-    <div class="space-y-6">
+    <div class="theme-brand space-y-6">
         <!-- 页面标题 -->
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
@@ -11,10 +11,10 @@
         <!-- 筛选区域 -->
         <div class="flex flex-col md:flex-row gap-2 flex-wrap items-start md:items-center">
             <Select v-model="statusFilter">
-                <SelectTrigger class="w-full md:w-40">
+                <SelectTrigger :class="['w-full md:w-40', adminBrandFocusClass]">
                     <SelectValue placeholder="状态" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent class="theme-brand">
                     <SelectItem value="all">全部状态</SelectItem>
                     <SelectItem value="pending">待处理</SelectItem>
                     <SelectItem value="reviewing">审查中</SelectItem>
@@ -25,23 +25,24 @@
                 </SelectContent>
             </Select>
 
-            <Input v-model="keyword" placeholder="搜索合同文件名..." class="w-full md:w-64"
+            <Input v-model="keyword" placeholder="搜索合同文件名..." :class="['w-full md:w-64', adminBrandFocusClass]"
                 @keyup.enter="handleSearch" />
 
             <Input v-model="userIdInputStr" placeholder="按用户 ID" type="number"
-                class="w-full md:w-32" @keyup.enter="handleSearch" />
+                :class="['w-full md:w-32', adminBrandFocusClass]" @keyup.enter="handleSearch" />
 
             <div class="flex items-center gap-2 px-1">
                 <Checkbox id="include-deleted" :model-value="includeDeleted"
+                    :class="adminBrandCheckboxClass"
                     @update:model-value="(v) => (includeDeleted = v === true)" />
                 <Label for="include-deleted" class="text-sm cursor-pointer">显示已删除</Label>
             </div>
 
-            <Button @click="handleSearch">
+            <Button variant="outline" :class="adminBrandFocusClass" @click="handleSearch">
                 <Search class="h-4 w-4 mr-2" />
                 搜索
             </Button>
-            <Button variant="outline" @click="handleReset">重置</Button>
+            <Button variant="outline" :class="adminBrandFocusClass" @click="handleReset">重置</Button>
         </div>
 
         <!-- 加载状态 -->
@@ -58,10 +59,10 @@
 
         <!-- 表格 -->
         <template v-else>
-            <div class="rounded-md border">
+            <div class="bg-card rounded-lg border overflow-hidden">
                 <Table>
                     <TableHeader>
-                        <TableRow>
+                        <TableRow class="bg-muted/50 hover:bg-muted/50">
                             <TableHead class="w-[60px]">ID</TableHead>
                             <TableHead>合同文件</TableHead>
                             <TableHead class="w-[180px]">用户</TableHead>
@@ -75,14 +76,14 @@
                     </TableHeader>
                     <TableBody>
                         <TableRow v-for="row in rows" :key="row.id"
-                            :class="row.deletedAt ? 'opacity-50' : ''">
+                            :class="[row.deletedAt ? 'opacity-50' : '', 'hover:bg-muted/30']">
                             <TableCell class="font-medium">{{ row.id }}</TableCell>
                             <TableCell>
                                 <div class="flex items-center gap-2">
                                     <span class="truncate max-w-[280px]" :title="row.originalFileName ?? ''">
                                         {{ row.originalFileName ?? '—' }}
                                     </span>
-                                    <Badge v-if="row.deletedAt" variant="destructive" class="shrink-0">
+                                    <Badge v-if="row.deletedAt" variant="outline" :class="['shrink-0', adminBrandErrorBadgeClass]">
                                         已删除
                                     </Badge>
                                 </div>
@@ -96,7 +97,7 @@
                             <TableCell class="text-sm">{{ row.contractType ?? '—' }}</TableCell>
                             <TableCell class="text-sm">{{ row.stance ?? '—' }}</TableCell>
                             <TableCell>
-                                <Badge :variant="getReviewStatusBadgeVariant(row.status)">
+                                <Badge variant="outline" :class="getAdminContractReviewStatusBadgeClass(row.status)">
                                     {{ getStatusLabel(row.status) }}
                                 </Badge>
                             </TableCell>
@@ -110,10 +111,10 @@
                             <TableCell class="text-right">
                                 <div class="flex justify-end gap-1">
                                     <NuxtLink :to="`/admin/contract-reviews/${row.id}`">
-                                        <Button variant="ghost" size="sm">查看</Button>
+                                        <Button variant="ghost" size="sm" :class="adminBrandFocusClass">查看</Button>
                                     </NuxtLink>
                                     <Button v-if="!row.deletedAt" variant="ghost" size="sm"
-                                        class="text-destructive hover:text-destructive"
+                                        :class="['text-destructive hover:text-destructive', adminBrandFocusClass]"
                                         @click="askDelete(row)">
                                         删除
                                     </Button>
@@ -132,7 +133,7 @@
 
     <!-- 删除确认对话框 -->
     <AlertDialog v-model:open="deleteDialogOpen">
-        <AlertDialogContent>
+        <AlertDialogContent class="theme-brand">
             <AlertDialogHeader>
                 <AlertDialogTitle>确认软删除该审查记录？</AlertDialogTitle>
                 <AlertDialogDescription>
@@ -140,8 +141,8 @@
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-                <AlertDialogCancel :disabled="deleting">取消</AlertDialogCancel>
-                <AlertDialogAction :disabled="deleting" @click="confirmDelete">
+                <AlertDialogCancel :class="adminBrandFocusClass" :disabled="deleting">取消</AlertDialogCancel>
+                <AlertDialogAction :class="adminBrandDestructiveActionClass" :disabled="deleting" @click="confirmDelete">
                     <Loader2 v-if="deleting" class="h-4 w-4 mr-2 animate-spin" />
                     确认删除
                 </AlertDialogAction>
@@ -159,7 +160,13 @@ import GeneralPagination from '~/components/general/pagination.vue'
 import { useApi } from '~/composables/useApi'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useFormatters } from '~/composables/useFormatters'
-import { getReviewStatusBadgeVariant } from '~/utils/contractReviewBadge'
+import {
+    adminBrandCheckboxClass,
+    adminBrandDestructiveActionClass,
+    adminBrandErrorBadgeClass,
+    adminBrandFocusClass,
+    getAdminContractReviewStatusBadgeClass,
+} from '~/utils/adminBrandStyles'
 
 definePageMeta({ layout: 'admin-layout', title: '合同审查记录' })
 

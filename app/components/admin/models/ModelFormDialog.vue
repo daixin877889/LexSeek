@@ -1,7 +1,7 @@
 <template>
     <!-- 模型创建/编辑对话框 -->
     <Dialog v-model:open="open">
-        <DialogContent class="max-w-lg max-h-[85vh] flex flex-col" @interactOutside="(e) => e.preventDefault()">
+        <DialogContent class="theme-brand max-w-lg max-h-[85vh] flex flex-col" @interactOutside="(e) => e.preventDefault()">
             <DialogHeader class="shrink-0">
                 <DialogTitle>{{ isEdit ? '编辑模型' : '新增模型' }}</DialogTitle>
                 <DialogDescription>{{ isEdit ? '修改模型配置信息' : '创建新的模型配置' }}</DialogDescription>
@@ -10,10 +10,10 @@
                 <div v-if="!isEdit" class="space-y-2">
                     <Label>提供商 <span class="text-destructive">*</span></Label>
                     <Select v-model="form.providerId">
-                        <SelectTrigger class="w-full">
+                        <SelectTrigger :class="['w-full', adminBrandFocusClass]">
                             <SelectValue placeholder="选择提供商" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent class="theme-brand">
                             <SelectItem v-for="p in providers" :key="p.id" :value="String(p.id)">
                                 {{ p.name }}
                             </SelectItem>
@@ -23,20 +23,20 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div class="space-y-2">
                         <Label>模型名称 <span class="text-destructive">*</span></Label>
-                        <Input v-model="form.name" placeholder="如：gpt-4o" />
+                        <Input v-model="form.name" placeholder="如：gpt-4o" :class="adminBrandFocusClass" />
                     </div>
                     <div class="space-y-2">
                         <Label>显示名称 <span class="text-destructive">*</span></Label>
-                        <Input v-model="form.displayName" placeholder="如：GPT-4o" />
+                        <Input v-model="form.displayName" placeholder="如：GPT-4o" :class="adminBrandFocusClass" />
                     </div>
                 </div>
                 <div v-if="!isEdit" class="space-y-2">
                     <Label>模型类型 <span class="text-destructive">*</span></Label>
                     <Select v-model="form.modelType">
-                        <SelectTrigger class="w-full">
+                        <SelectTrigger :class="['w-full', adminBrandFocusClass]">
                             <SelectValue placeholder="选择模型类型" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent class="theme-brand">
                             <SelectItem v-for="(label, type) in ModelTypeLabels" :key="type" :value="type">
                                 {{ label }}
                             </SelectItem>
@@ -47,10 +47,10 @@
                 <div class="space-y-2">
                     <Label>SDK 类型 <span class="text-destructive">*</span></Label>
                     <Select v-model="form.sdkType">
-                        <SelectTrigger class="w-full">
+                        <SelectTrigger :class="['w-full', adminBrandFocusClass]">
                             <SelectValue placeholder="选择 SDK 类型" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent class="theme-brand">
                             <SelectItem v-for="option in sdkTypeOptions" :key="option.value" :value="option.value">
                                 {{ option.label }}
                             </SelectItem>
@@ -60,7 +60,7 @@
                 </div>
                 <!-- 仅当模型类型为 chat 时显示思考切换 -->
                 <div v-if="form.modelType === 'chat'" class="flex items-center space-x-2">
-                    <Checkbox id="supportsThinking" v-model="form.supportsThinking" />
+                    <Checkbox id="supportsThinking" v-model="form.supportsThinking" :class="adminBrandCheckboxClass" />
                     <Label for="supportsThinking" class="cursor-pointer">
                         支持思考切换
                         <span class="text-xs text-muted-foreground ml-2">
@@ -71,11 +71,11 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div class="space-y-2">
                         <Label>模型版本</Label>
-                        <Input v-model="form.modelVersion" placeholder="可选" />
+                        <Input v-model="form.modelVersion" placeholder="可选" :class="adminBrandFocusClass" />
                     </div>
                     <div class="space-y-2">
                         <Label>优先级</Label>
-                        <Input v-model.number="form.priority" type="number" min="1" placeholder="10" />
+                        <Input v-model.number="form.priority" type="number" min="1" placeholder="10" :class="adminBrandFocusClass" />
                     </div>
                 </div>
                 <!-- 对话模型专用字段 -->
@@ -83,11 +83,11 @@
                     <div class="grid grid-cols-2 gap-4">
                         <div class="space-y-2">
                             <Label>上下文窗口</Label>
-                            <Input v-model.number="form.contextWindow" type="number" min="1" placeholder="如：128000" />
+                            <Input v-model.number="form.contextWindow" type="number" min="1" placeholder="如：128000" :class="adminBrandFocusClass" />
                         </div>
                         <div class="space-y-2">
                             <Label>最大输出 tokens</Label>
-                            <Input v-model.number="form.maxOutputTokens" type="number" min="1" placeholder="如：8192 / 65536" />
+                            <Input v-model.number="form.maxOutputTokens" type="number" min="1" placeholder="如：8192 / 65536" :class="adminBrandFocusClass" />
                             <p class="text-xs text-muted-foreground">
                                 模型单次调用输出上限。deepseek-chat=8192、deepseek-reasoner=65536、claude/gemini 视模型而定；留空则默认 8192。
                             </p>
@@ -99,11 +99,11 @@
                     <div class="grid grid-cols-2 gap-4">
                         <div class="space-y-2">
                             <Label>嵌入维度</Label>
-                            <Input v-model.number="form.dimensions" type="number" min="1" placeholder="如：1536" />
+                            <Input v-model.number="form.dimensions" type="number" min="1" placeholder="如：1536" :class="adminBrandFocusClass" />
                         </div>
                         <div class="space-y-2">
                             <Label>批处理大小</Label>
-                            <Input v-model.number="form.batchSize" type="number" min="1" placeholder="如：5" />
+                            <Input v-model.number="form.batchSize" type="number" min="1" placeholder="如：5" :class="adminBrandFocusClass" />
                         </div>
                     </div>
                 </template>
@@ -112,12 +112,12 @@
                     <div class="space-y-2">
                         <Label>输入成本（/百万tokens）</Label>
                         <Input v-model.number="form.inputCostPerMillionTokens" type="number" min="0" step="0.01"
-                            placeholder="可选" />
+                            placeholder="可选" :class="adminBrandFocusClass" />
                     </div>
                     <div class="space-y-2">
                         <Label>输出成本（/百万tokens）</Label>
                         <Input v-model.number="form.outputCostPerMillionTokens" type="number" min="0" step="0.01"
-                            placeholder="可选" />
+                            placeholder="可选" :class="adminBrandFocusClass" />
                     </div>
                 </div>
                 <!-- 状态配置 -->
@@ -125,24 +125,24 @@
                     <div class="space-y-2">
                         <Label>状态</Label>
                         <Select v-model="form.status">
-                            <SelectTrigger class="w-full">
+                            <SelectTrigger :class="['w-full', adminBrandFocusClass]">
                                 <SelectValue />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent class="theme-brand">
                                 <SelectItem value="1">启用</SelectItem>
                                 <SelectItem value="0">禁用</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
                     <div class="flex items-end space-x-2 pb-1">
-                        <Checkbox id="isDefault" v-model="form.isDefault" />
+                        <Checkbox id="isDefault" v-model="form.isDefault" :class="adminBrandCheckboxClass" />
                         <Label for="isDefault" class="cursor-pointer">设为默认</Label>
                     </div>
                 </div>
             </div>
             <DialogFooter class="shrink-0">
-                <Button variant="outline" @click="open = false">取消</Button>
-                <Button @click="handleSubmit" :disabled="submitting">
+                <Button variant="outline" :class="adminBrandFocusClass" @click="open = false">取消</Button>
+                <Button :class="adminBrandPrimaryButtonClass" @click="handleSubmit" :disabled="submitting">
                     <Loader2 v-if="submitting" class="h-4 w-4 mr-2 animate-spin" />
                     {{ isEdit ? '保存' : '创建' }}
                 </Button>
@@ -157,6 +157,7 @@ import { toast } from 'vue-sonner'
 import type { ModelProvider, Model, SdkType } from '#shared/types/model'
 import { SDK_TYPES, SdkTypeLabels, ModelTypeLabels, DEFAULT_SDK_TYPE } from '#shared/types/model'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { adminBrandCheckboxClass, adminBrandFocusClass, adminBrandPrimaryButtonClass } from '~/utils/adminBrandStyles'
 
 // SDK 类型选项列表
 const sdkTypeOptions = SDK_TYPES.map(type => ({

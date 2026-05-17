@@ -1,6 +1,6 @@
 <template>
     <Dialog :open="open" @update:open="(v) => $emit('update:open', v)">
-        <DialogContent>
+        <DialogContent class="theme-brand">
             <DialogHeader>
                 <DialogTitle>{{ isEdit ? '编辑' : '新增' }} LPR 记录</DialogTitle>
                 <DialogDescription>央行公布日 1Y / 5Y 利率，% 单位（如 3.50 表示 3.5%）</DialogDescription>
@@ -9,27 +9,27 @@
             <div class="space-y-4">
                 <div class="space-y-1.5">
                     <Label><span class="text-destructive">*</span> 生效日</Label>
-                    <DatePicker v-model="form.effectDate" placeholder="选择生效日" />
+                    <DatePicker v-model="form.effectDate" placeholder="选择生效日" :class="adminBrandFocusClass" />
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div class="space-y-1.5">
                         <Label><span class="text-destructive">*</span> 1 年期 (%)</Label>
-                        <Input v-model.number="form.oneYear" type="number" step="0.01" />
+                        <Input v-model.number="form.oneYear" type="number" step="0.01" :class="adminBrandFocusClass" />
                     </div>
                     <div class="space-y-1.5">
                         <Label><span class="text-destructive">*</span> 5 年期以上 (%)</Label>
-                        <Input v-model.number="form.fiveYear" type="number" step="0.01" />
+                        <Input v-model.number="form.fiveYear" type="number" step="0.01" :class="adminBrandFocusClass" />
                     </div>
                 </div>
                 <div class="space-y-1.5">
                     <Label>备注（可选）</Label>
-                    <Input v-model="form.remark" placeholder="" />
+                    <Input v-model="form.remark" placeholder="" :class="adminBrandFocusClass" />
                 </div>
             </div>
 
             <DialogFooter>
-                <Button variant="outline" @click="$emit('update:open', false)">取消</Button>
-                <Button :disabled="saving" @click="onSave">保存</Button>
+                <Button variant="outline" :class="adminBrandFocusClass" @click="$emit('update:open', false)">取消</Button>
+                <Button :class="adminBrandPrimaryButtonClass" :disabled="saving" @click="onSave">保存</Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>
@@ -43,6 +43,7 @@ import { Label } from '~/components/ui/label'
 import DatePicker from '~/components/general/DatePicker.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useAlertDialogStore } from '~/store/alertDialog'
+import { adminBrandFocusClass, adminBrandPrimaryButtonClass } from '~/utils/adminBrandStyles'
 
 interface Row { id: number; date: string; oneYear: number; fiveYear: number; remark?: string }
 

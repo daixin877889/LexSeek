@@ -1,6 +1,6 @@
 <template>
     <Dialog :open="open" @update:open="(v) => $emit('update:open', v)">
-        <DialogContent>
+        <DialogContent class="theme-brand">
             <DialogHeader>
                 <DialogTitle>{{ isEdit ? '编辑' : '新增' }} PBOC 存款利率</DialogTitle>
                 <DialogDescription>人民银行公布的存款基准利率，% 单位（如 0.35 表示 0.35%）</DialogDescription>
@@ -9,47 +9,47 @@
             <div class="space-y-4">
                 <div class="space-y-1.5">
                     <Label><span class="text-destructive">*</span> 生效日</Label>
-                    <DatePicker v-model="form.effectDate" placeholder="选择生效日" />
+                    <DatePicker v-model="form.effectDate" placeholder="选择生效日" :class="adminBrandFocusClass" />
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div class="space-y-1.5">
                         <Label><span class="text-destructive">*</span> 活期 (%)</Label>
-                        <Input v-model.number="form.demand" type="number" step="0.01" />
+                        <Input v-model.number="form.demand" type="number" step="0.01" :class="adminBrandFocusClass" />
                     </div>
                     <div class="space-y-1.5">
                         <Label><span class="text-destructive">*</span> 三月 (%)</Label>
-                        <Input v-model.number="form.threeMonths" type="number" step="0.01" />
+                        <Input v-model.number="form.threeMonths" type="number" step="0.01" :class="adminBrandFocusClass" />
                     </div>
                     <div class="space-y-1.5">
                         <Label><span class="text-destructive">*</span> 六月 (%)</Label>
-                        <Input v-model.number="form.sixMonths" type="number" step="0.01" />
+                        <Input v-model.number="form.sixMonths" type="number" step="0.01" :class="adminBrandFocusClass" />
                     </div>
                     <div class="space-y-1.5">
                         <Label><span class="text-destructive">*</span> 一年 (%)</Label>
-                        <Input v-model.number="form.oneYear" type="number" step="0.01" />
+                        <Input v-model.number="form.oneYear" type="number" step="0.01" :class="adminBrandFocusClass" />
                     </div>
                     <div class="space-y-1.5">
                         <Label><span class="text-destructive">*</span> 二年 (%)</Label>
-                        <Input v-model.number="form.twoYear" type="number" step="0.01" />
+                        <Input v-model.number="form.twoYear" type="number" step="0.01" :class="adminBrandFocusClass" />
                     </div>
                     <div class="space-y-1.5">
                         <Label><span class="text-destructive">*</span> 三年 (%)</Label>
-                        <Input v-model.number="form.threeYear" type="number" step="0.01" />
+                        <Input v-model.number="form.threeYear" type="number" step="0.01" :class="adminBrandFocusClass" />
                     </div>
                     <div class="space-y-1.5">
                         <Label><span class="text-destructive">*</span> 五年 (%)</Label>
-                        <Input v-model.number="form.fiveYear" type="number" step="0.01" />
+                        <Input v-model.number="form.fiveYear" type="number" step="0.01" :class="adminBrandFocusClass" />
                     </div>
                 </div>
                 <div class="space-y-1.5">
                     <Label>备注（可选）</Label>
-                    <Input v-model="form.remark" placeholder="" />
+                    <Input v-model="form.remark" placeholder="" :class="adminBrandFocusClass" />
                 </div>
             </div>
 
             <DialogFooter>
-                <Button variant="outline" @click="$emit('update:open', false)">取消</Button>
-                <Button :disabled="saving" @click="onSave">保存</Button>
+                <Button variant="outline" :class="adminBrandFocusClass" @click="$emit('update:open', false)">取消</Button>
+                <Button :class="adminBrandPrimaryButtonClass" :disabled="saving" @click="onSave">保存</Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>
@@ -64,6 +64,7 @@ import DatePicker from '~/components/general/DatePicker.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useAlertDialogStore } from '~/store/alertDialog'
 import type { DepositRate } from '#shared/types/tools'
+import { adminBrandFocusClass, adminBrandPrimaryButtonClass } from '~/utils/adminBrandStyles'
 
 interface Row extends DepositRate { id: number; remark?: string }
 

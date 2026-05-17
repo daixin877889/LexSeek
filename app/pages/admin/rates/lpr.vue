@@ -1,37 +1,38 @@
 <template>
-    <div class="space-y-4">
+    <div class="theme-brand space-y-4">
         <div class="flex items-center justify-between">
             <div>
                 <h1 class="text-2xl font-semibold">LPR 利率</h1>
                 <p class="text-muted-foreground text-sm">央行每月 20 日公布；办案利息工具引用此表 1Y / 5Y 数据</p>
             </div>
             <div class="flex gap-2">
-                <Button variant="outline" :disabled="syncing" @click="onSync">
+                <Button variant="outline" :class="adminBrandFocusClass" :disabled="syncing" @click="onSync">
                     <RefreshCw class="w-4 h-4 mr-1" :class="syncing && 'animate-spin'" />
                     {{ syncing ? '同步中' : '立即同步' }}
                 </Button>
-                <Button @click="openCreate">
+                <Button :class="adminBrandPrimaryButtonClass" @click="openCreate">
                     <Plus class="w-4 h-4 mr-1" />新增
                 </Button>
             </div>
         </div>
 
-        <Alert v-if="syncResult" :variant="syncResult.success ? 'default' : 'destructive'" class="relative pr-10">
-            <CheckCircle2 v-if="syncResult.success" class="text-emerald-600" />
+        <Alert v-if="syncResult" :variant="syncResult.success ? 'default' : 'destructive'"
+            :class="['relative pr-10', syncResult.success && 'border-primary/20 bg-primary/5']">
+            <CheckCircle2 v-if="syncResult.success" class="text-primary" />
             <XCircle v-else />
             <AlertTitle>{{ syncResult.success ? '同步成功' : '同步失败' }}</AlertTitle>
             <AlertDescription>{{ syncResult.message }}</AlertDescription>
             <button type="button"
-                class="absolute right-2 top-2 p-1 rounded-md hover:bg-muted text-muted-foreground"
+                :class="['absolute right-2 top-2 p-1 rounded-md hover:bg-muted text-muted-foreground', adminBrandFocusClass]"
                 @click="syncResult = null">
                 <X class="w-4 h-4" />
             </button>
         </Alert>
 
-        <div class="rounded-md border">
+        <div class="bg-card rounded-lg border overflow-hidden">
             <Table>
                 <TableHeader>
-                    <TableRow>
+                    <TableRow class="bg-muted/50 hover:bg-muted/50">
                         <TableHead>生效日</TableHead>
                         <TableHead>1 年期 (%)</TableHead>
                         <TableHead>5 年期以上 (%)</TableHead>
@@ -40,7 +41,7 @@
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    <TableRow v-for="row in rows" :key="row.id">
+                    <TableRow v-for="row in rows" :key="row.id" class="hover:bg-muted/30">
                         <TableCell>{{ row.date }}</TableCell>
                         <TableCell>{{ row.oneYear.toFixed(2) }}</TableCell>
                         <TableCell>{{ row.fiveYear.toFixed(2) }}</TableCell>
@@ -48,16 +49,16 @@
                         <TableCell class="text-right">
                             <DropdownMenu>
                                 <DropdownMenuTrigger as-child>
-                                    <Button variant="ghost" size="icon">
+                                    <Button variant="ghost" size="icon" :class="adminBrandFocusClass">
                                         <MoreHorizontal class="h-4 w-4" />
                                     </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
+                                <DropdownMenuContent align="end" class="theme-brand shadow-none">
                                     <DropdownMenuItem @click="openEdit(row)">
                                         <Pencil class="h-4 w-4 mr-2" />
                                         编辑
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem class="text-destructive" @click="confirmDelete(row)">
+                                    <DropdownMenuItem class="text-destructive focus:text-destructive" @click="confirmDelete(row)">
                                         <Trash2 class="h-4 w-4 mr-2" />
                                         删除
                                     </DropdownMenuItem>
@@ -85,6 +86,10 @@ import { useApiFetch } from '~/composables/useApiFetch'
 import { useAlertDialogStore } from '~/store/alertDialog'
 import LPRFormDialog from '~/components/admin/rates/LPRFormDialog.vue'
 import type { LPRRate } from '#shared/types/tools'
+import {
+    adminBrandFocusClass,
+    adminBrandPrimaryButtonClass,
+} from '~/utils/adminBrandStyles'
 
 definePageMeta({ layout: 'admin-layout', title: 'LPR 利率' })
 

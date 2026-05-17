@@ -1,5 +1,5 @@
 <template>
-        <div class="space-y-6">
+        <div class="theme-brand space-y-6">
             <!-- 页面标题 -->
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
@@ -7,7 +7,7 @@
                     <p class="text-muted-foreground text-sm">管理 ASR 音频转录任务的状态和结果</p>
                 </div>
                 <div class="flex gap-2">
-                    <Button variant="outline" @click="handleBatchQuery"
+                    <Button variant="outline" :class="adminBrandFocusClass" @click="handleBatchQuery"
                         :disabled="!selectedIds.length || batchQuerying">
                         <Loader2 v-if="batchQuerying" class="h-4 w-4 mr-2 animate-spin" />
                         <RefreshCw v-else class="h-4 w-4 mr-2" />
@@ -20,10 +20,10 @@
             <div class="flex flex-col md:flex-row gap-4 flex-wrap">
                 <!-- 状态筛选 -->
                 <Select v-model="statusFilter">
-                    <SelectTrigger class="w-full md:w-32">
+                    <SelectTrigger :class="['w-full md:w-32', adminBrandFocusClass]">
                         <SelectValue placeholder="状态" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent class="theme-brand">
                         <SelectItem value="all">全部状态</SelectItem>
                         <SelectItem value="0">待处理</SelectItem>
                         <SelectItem value="1">处理中</SelectItem>
@@ -33,23 +33,25 @@
                 </Select>
 
                 <!-- 开始日期 -->
-                <GeneralDatePicker v-model="startDate" placeholder="开始日期" clearable class="w-full md:w-44" />
+                <GeneralDatePicker v-model="startDate" placeholder="开始日期" clearable
+                    class="w-full md:w-44 brand-control-focus" />
 
                 <!-- 结束日期 -->
-                <GeneralDatePicker v-model="endDate" placeholder="结束日期" clearable class="w-full md:w-44" />
+                <GeneralDatePicker v-model="endDate" placeholder="结束日期" clearable
+                    class="w-full md:w-44 brand-control-focus" />
 
                 <!-- 关键词搜索 -->
                 <div class="flex-1">
-                    <Input v-model="keyword" placeholder="搜索任务ID..." class="w-full md:w-64"
+                    <Input v-model="keyword" placeholder="搜索任务ID..." :class="['w-full md:w-64', adminBrandFocusClass]"
                         @keyup.enter="handleSearch" />
                 </div>
 
-                <Button variant="outline" @click="handleSearch">
+                <Button variant="outline" :class="adminBrandFocusClass" @click="handleSearch">
                     <Search class="h-4 w-4 mr-2" />
                     筛选
                 </Button>
 
-                <Button variant="ghost" @click="handleReset">
+                <Button variant="ghost" :class="adminBrandFocusClass" @click="handleReset">
                     <RotateCcw class="h-4 w-4 mr-2" />
                     重置
                 </Button>
@@ -69,12 +71,13 @@
 
             <!-- 任务列表 -->
             <template v-else>
-                <div class="rounded-md border">
+                <div class="bg-card rounded-lg border overflow-hidden">
                     <Table>
                         <TableHeader>
-                            <TableRow>
+                            <TableRow class="bg-muted/50 hover:bg-muted/50">
                                 <TableHead class="w-[50px]">
-                                    <Checkbox :model-value="isAllSelected" @update:model-value="handleSelectAll" />
+                                    <Checkbox :model-value="isAllSelected" :class="adminBrandCheckboxClass"
+                                        @update:model-value="handleSelectAll" />
                                 </TableHead>
                                 <TableHead class="w-[60px]">ID</TableHead>
                                 <TableHead>任务ID</TableHead>
@@ -86,9 +89,9 @@
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            <TableRow v-for="item in items" :key="item.id">
+                            <TableRow v-for="item in items" :key="item.id" class="hover:bg-muted/30">
                                 <TableCell>
-                                    <Checkbox :model-value="selectedIds.includes(item.id)"
+                                    <Checkbox :model-value="selectedIds.includes(item.id)" :class="adminBrandCheckboxClass"
                                         @update:model-value="(checked: boolean | 'indeterminate') => handleSelect(item.id, checked)" />
                                 </TableCell>
                                 <TableCell class="font-medium">{{ item.id }}</TableCell>
@@ -100,7 +103,7 @@
                                     <span v-else class="text-muted-foreground">-</span>
                                 </TableCell>
                                 <TableCell>
-                                    <Badge :variant="getStatusVariant(item.status)">
+                                    <Badge variant="outline" :class="getAdminTaskStatusBadgeClass(item.status)">
                                         {{ getStatusText(item.status) }}
                                     </Badge>
                                 </TableCell>
@@ -116,11 +119,11 @@
                                 <TableCell class="text-right">
                                     <DropdownMenu>
                                         <DropdownMenuTrigger as-child>
-                                            <Button variant="ghost" size="icon">
+                                            <Button variant="ghost" size="icon" :class="adminBrandFocusClass">
                                                 <MoreHorizontal class="h-4 w-4" />
                                             </Button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
+                                        <DropdownMenuContent align="end" class="theme-brand shadow-none">
                                             <DropdownMenuItem @click="handleViewDetail(item)">
                                                 <Eye class="h-4 w-4 mr-2" />
                                                 查看详情
@@ -151,7 +154,7 @@
 
         <!-- 任务详情对话框 -->
         <Dialog v-model:open="detailDialogOpen">
-            <DialogContent class="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogContent class="theme-brand max-w-2xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>任务详情</DialogTitle>
                     <DialogDescription>
@@ -171,7 +174,7 @@
                         </div>
                         <div>
                             <Label class="text-muted-foreground">状态</Label>
-                            <Badge :variant="getStatusVariant(selectedItem.status)" class="mt-1">
+                            <Badge variant="outline" :class="['mt-1', getAdminTaskStatusBadgeClass(selectedItem.status)]">
                                 {{ getStatusText(selectedItem.status) }}
                             </Badge>
                         </div>
@@ -216,8 +219,9 @@
                     </div>
                 </div>
                 <DialogFooter>
-                    <Button variant="outline" @click="detailDialogOpen = false">关闭</Button>
-                    <Button v-if="selectedItem?.status === 3" @click="handleRetry(selectedItem!)" :disabled="retrying">
+                    <Button variant="outline" :class="adminBrandFocusClass" @click="detailDialogOpen = false">关闭</Button>
+                    <Button v-if="selectedItem?.status === 3" :class="adminBrandPrimaryButtonClass"
+                        @click="handleRetry(selectedItem!)" :disabled="retrying">
                         <Loader2 v-if="retrying" class="h-4 w-4 mr-2 animate-spin" />
                         <RotateCcw v-else class="h-4 w-4 mr-2" />
                         重试任务
@@ -228,7 +232,7 @@
 
         <!-- 批量查询进度对话框 -->
         <Dialog v-model:open="batchProgressDialogOpen">
-            <DialogContent class="max-w-md">
+            <DialogContent class="theme-brand max-w-md">
                 <DialogHeader>
                     <DialogTitle>批量查询进度</DialogTitle>
                     <DialogDescription>
@@ -246,28 +250,28 @@
 
         <!-- 批量查询结果对话框 -->
         <Dialog v-model:open="batchResultDialogOpen">
-            <DialogContent class="max-w-md">
+            <DialogContent class="theme-brand max-w-md">
                 <DialogHeader>
                     <DialogTitle>批量查询结果</DialogTitle>
                 </DialogHeader>
                 <div v-if="batchResult" class="space-y-4">
                     <div class="grid grid-cols-2 gap-4 text-center">
                         <div class="p-4 bg-muted rounded-lg">
-                            <p class="text-2xl font-bold text-green-600">{{ batchResult.success }}</p>
+                            <p class="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{{ batchResult.success }}</p>
                             <p class="text-sm text-muted-foreground">查询成功</p>
                         </div>
                         <div class="p-4 bg-muted rounded-lg">
-                            <p class="text-2xl font-bold text-red-600">{{ batchResult.failed }}</p>
+                            <p class="text-2xl font-bold text-destructive">{{ batchResult.failed }}</p>
                             <p class="text-sm text-muted-foreground">查询失败</p>
                         </div>
                     </div>
                     <div class="p-4 bg-muted rounded-lg text-center">
-                        <p class="text-2xl font-bold text-blue-600">{{ batchResult.changed }}</p>
+                        <p class="text-2xl font-bold text-primary">{{ batchResult.changed }}</p>
                         <p class="text-sm text-muted-foreground">状态变更</p>
                     </div>
                 </div>
                 <DialogFooter>
-                    <Button @click="batchResultDialogOpen = false">确定</Button>
+                    <Button :class="adminBrandPrimaryButtonClass" @click="batchResultDialogOpen = false">确定</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -288,6 +292,12 @@ import dayjs from 'dayjs'
 import GeneralDatePicker from '~/components/general/DatePicker.vue'
 import GeneralPagination from '~/components/general/pagination.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
+import {
+    adminBrandCheckboxClass,
+    adminBrandFocusClass,
+    adminBrandPrimaryButtonClass,
+    getAdminTaskStatusBadgeClass,
+} from '~/utils/adminBrandStyles'
 
 // ASR 任务接口
 interface AsrTask {
@@ -362,17 +372,6 @@ const getStatusText = (status: number) => {
         3: '失败',
     }
     return map[status] || '未知'
-}
-
-// 状态样式映射
-const getStatusVariant = (status: number): 'default' | 'secondary' | 'destructive' | 'outline' => {
-    const map: Record<number, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-        0: 'outline',
-        1: 'secondary',
-        2: 'default',
-        3: 'destructive',
-    }
-    return map[status] || 'outline'
 }
 
 // 格式化日期

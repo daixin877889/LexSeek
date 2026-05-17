@@ -1,12 +1,12 @@
 <template>
-        <div class="space-y-6">
+        <div class="theme-brand space-y-6">
             <!-- 页面标题 -->
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                     <h1 class="text-2xl md:text-3xl font-bold mb-1">模型管理</h1>
                     <p class="text-muted-foreground text-sm">管理 AI 模型配置</p>
                 </div>
-                <Button @click="formDialogRef?.openCreate()">
+                <Button :class="adminBrandPrimaryButtonClass" @click="formDialogRef?.openCreate()">
                     <Plus class="h-4 w-4 mr-2" />
                     新增模型
                 </Button>
@@ -15,10 +15,10 @@
             <!-- 筛选 -->
             <div class="flex flex-col md:flex-row gap-4">
                 <Select v-model="providerFilter">
-                    <SelectTrigger class="w-full md:w-48">
+                    <SelectTrigger :class="['w-full md:w-48', adminBrandFocusClass]">
                         <SelectValue placeholder="选择提供商" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent class="theme-brand">
                         <SelectItem value="all">全部提供商</SelectItem>
                         <SelectItem v-for="p in providers" :key="p.id" :value="String(p.id)">
                             {{ p.name }}
@@ -26,10 +26,10 @@
                     </SelectContent>
                 </Select>
                 <Select v-model="typeFilter">
-                    <SelectTrigger class="w-full md:w-40">
+                    <SelectTrigger :class="['w-full md:w-40', adminBrandFocusClass]">
                         <SelectValue placeholder="模型类型" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent class="theme-brand">
                         <SelectItem value="all">全部类型</SelectItem>
                         <SelectItem v-for="(label, type) in ModelTypeLabels" :key="type" :value="type">
                             {{ label }}
@@ -37,16 +37,16 @@
                     </SelectContent>
                 </Select>
                 <Select v-model="statusFilter">
-                    <SelectTrigger class="w-full md:w-32">
+                    <SelectTrigger :class="['w-full md:w-32', adminBrandFocusClass]">
                         <SelectValue placeholder="状态" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent class="theme-brand">
                         <SelectItem value="all">全部状态</SelectItem>
                         <SelectItem value="1">启用</SelectItem>
                         <SelectItem value="0">禁用</SelectItem>
                     </SelectContent>
                 </Select>
-                <Button variant="outline" @click="handleSearch">
+                <Button variant="outline" :class="adminBrandFocusClass" @click="handleSearch">
                     <Search class="h-4 w-4 mr-2" />
                     筛选
                 </Button>
@@ -89,39 +89,39 @@
                                 <TableCell class="font-mono text-sm">{{ model.name }}</TableCell>
                                 <TableCell>{{ model.modelProvider?.name || '-' }}</TableCell>
                                 <TableCell>
-                                    <Badge :variant="getTypeVariant(model.modelType)">
+                                    <Badge variant="outline" :class="getAdminModelTypeBadgeClass(model.modelType)">
                                         {{ getTypeLabel(model.modelType) }}
                                     </Badge>
                                 </TableCell>
                                 <TableCell>
-                                    <Badge variant="outline">
+                                    <Badge variant="outline" :class="adminBrandDisabledBadgeClass">
                                         {{ SdkTypeLabels[model.sdkType as SdkType] || model.sdkType || '-' }}
                                     </Badge>
                                 </TableCell>
                                 <TableCell>
-                                    <Badge v-if="model.isDefault" variant="default">默认</Badge>
+                                    <Badge v-if="model.isDefault" variant="outline" :class="adminBrandActiveBadgeClass">默认</Badge>
                                     <span v-else class="text-muted-foreground">-</span>
                                 </TableCell>
                                 <TableCell>
-                                    <Badge v-if="model.modelType === 'chat'"
-                                        :variant="model.supportsThinking ? 'default' : 'secondary'">
+                                    <Badge v-if="model.modelType === 'chat'" variant="outline"
+                                        :class="getAdminThinkingBadgeClass(Boolean(model.supportsThinking))">
                                         {{ model.supportsThinking ? '开启' : '关闭' }}
                                     </Badge>
                                     <span v-else class="text-muted-foreground">-</span>
                                 </TableCell>
                                 <TableCell>
-                                    <Badge :variant="model.status === 1 ? 'default' : 'secondary'">
+                                    <Badge variant="outline" :class="getAdminStatusBadgeClass(model.status === 1)">
                                         {{ model.status === 1 ? '启用' : '禁用' }}
                                     </Badge>
                                 </TableCell>
                                 <TableCell class="text-right">
                                     <DropdownMenu>
                                         <DropdownMenuTrigger as-child>
-                                            <Button variant="ghost" size="icon">
+                                            <Button variant="ghost" size="icon" :class="adminBrandFocusClass">
                                                 <MoreHorizontal class="h-4 w-4" />
                                             </Button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
+                                        <DropdownMenuContent align="end" class="theme-brand shadow-none">
                                             <DropdownMenuItem v-if="!model.isDefault" @click="handleSetDefault(model)">
                                                 <Star class="h-4 w-4 mr-2" />
                                                 设为默认
@@ -153,7 +153,7 @@
 
         <!-- 删除确认对话框 -->
         <AlertDialog v-model:open="deleteDialogOpen">
-            <AlertDialogContent>
+            <AlertDialogContent class="theme-brand">
                 <AlertDialogHeader>
                     <AlertDialogTitle>确认删除</AlertDialogTitle>
                     <AlertDialogDescription>
@@ -161,8 +161,8 @@
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>取消</AlertDialogCancel>
-                    <AlertDialogAction @click="confirmDelete" :disabled="deleting">
+                    <AlertDialogCancel :class="adminBrandFocusClass">取消</AlertDialogCancel>
+                    <AlertDialogAction :class="adminBrandDestructiveActionClass" @click="confirmDelete" :disabled="deleting">
                         <Loader2 v-if="deleting" class="h-4 w-4 mr-2 animate-spin" />
                         确认删除
                     </AlertDialogAction>
@@ -180,6 +180,16 @@ import AdminModelsModelFormDialog from '~/components/admin/models/ModelFormDialo
 import GeneralPagination from '~/components/general/pagination.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
 import type { models } from '~~/generated/prisma/client'
+import {
+    adminBrandActiveBadgeClass,
+    adminBrandDestructiveActionClass,
+    adminBrandDisabledBadgeClass,
+    adminBrandFocusClass,
+    adminBrandPrimaryButtonClass,
+    getAdminModelTypeBadgeClass,
+    getAdminStatusBadgeClass,
+    getAdminThinkingBadgeClass,
+} from '~/utils/adminBrandStyles'
 
 definePageMeta({ layout: 'admin-layout', title: '模型管理' })
 
@@ -207,17 +217,6 @@ const selectedModel = ref<ModelWithProvider | null>(null)
 
 // 模型类型标签（复用 shared 定义，保证前后端一致）
 const getTypeLabel = (type: string) => ModelTypeLabels[type as ModelType] ?? type
-
-// 模型类型样式
-const getTypeVariant = (type: string) => {
-    const variants: Record<string, 'default' | 'secondary' | 'outline'> = {
-        chat: 'default',
-        embedding: 'secondary',
-        asr: 'outline',
-        rerank: 'secondary',
-    }
-    return variants[type] || 'default'
-}
 
 // 加载提供商列表
 const loadProviders = async () => {

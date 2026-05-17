@@ -1,12 +1,12 @@
 <template>
-        <div class="space-y-6">
+        <div class="theme-brand space-y-6">
             <!-- 页面标题 -->
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                     <h1 class="text-2xl md:text-3xl font-bold mb-1">积分消耗项目</h1>
                     <p class="text-muted-foreground text-sm">管理各功能的积分消耗配置</p>
                 </div>
-                <Button @click="formDialogRef?.openCreate()">
+                <Button :class="adminBrandPrimaryButtonClass" @click="formDialogRef?.openCreate()">
                     <Plus class="h-4 w-4 mr-2" />
                     新增项目
                 </Button>
@@ -15,10 +15,10 @@
             <!-- 筛选 -->
             <div class="flex flex-col md:flex-row gap-4">
                 <Select v-model="groupFilter">
-                    <SelectTrigger class="w-full md:w-48">
+                    <SelectTrigger :class="['w-full md:w-48', adminBrandFocusClass]">
                         <SelectValue placeholder="选择分组" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent class="theme-brand">
                         <SelectItem value="all">全部分组</SelectItem>
                         <SelectItem v-for="g in groups" :key="g" :value="g">
                             {{ getGroupLabel(g) }}
@@ -26,20 +26,20 @@
                     </SelectContent>
                 </Select>
                 <Select v-model="statusFilter">
-                    <SelectTrigger class="w-full md:w-32">
+                    <SelectTrigger :class="['w-full md:w-32', adminBrandFocusClass]">
                         <SelectValue placeholder="状态" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent class="theme-brand">
                         <SelectItem value="all">全部状态</SelectItem>
                         <SelectItem value="1">启用</SelectItem>
                         <SelectItem value="0">禁用</SelectItem>
                     </SelectContent>
                 </Select>
                 <div class="flex-1">
-                    <Input v-model="keyword" placeholder="搜索项目名称/描述..." class="w-full md:w-64"
+                    <Input v-model="keyword" placeholder="搜索项目名称/描述..." :class="['w-full md:w-64', adminBrandFocusClass]"
                         @keyup.enter="handleSearch" />
                 </div>
-                <Button variant="outline" @click="handleSearch">
+                <Button variant="outline" :class="adminBrandFocusClass" @click="handleSearch">
                     <Search class="h-4 w-4 mr-2" />
                     筛选
                 </Button>
@@ -59,10 +59,10 @@
 
             <!-- 项目列表 -->
             <template v-else>
-                <div class="rounded-md border">
+                <div class="bg-card rounded-lg border overflow-hidden">
                     <Table>
                         <TableHeader>
-                            <TableRow>
+                            <TableRow class="bg-muted/50 hover:bg-muted/50">
                                 <TableHead class="w-[60px]">ID</TableHead>
                                 <TableHead>Key</TableHead>
                                 <TableHead>分组</TableHead>
@@ -76,12 +76,14 @@
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            <TableRow v-for="item in items" :key="item.id">
+                            <TableRow v-for="item in items" :key="item.id" class="hover:bg-muted/30">
                                 <TableCell class="font-medium">{{ item.id }}</TableCell>
                                 <TableCell class="font-mono text-sm text-muted-foreground">{{ item.key || '-' }}
                                 </TableCell>
                                 <TableCell>
-                                    <Badge variant="outline">{{ getGroupLabel(item.group) }}</Badge>
+                                    <Badge variant="outline" :class="getAdminPointItemGroupBadgeClass(item.group)">
+                                        {{ getGroupLabel(item.group) }}
+                                    </Badge>
                                 </TableCell>
                                 <TableCell class="font-mono text-sm">{{ item.name }}</TableCell>
                                 <TableCell>{{ item.description || '-' }}</TableCell>
@@ -89,18 +91,18 @@
                                 <TableCell>{{ item.pointAmount }}</TableCell>
                                 <TableCell>{{ formatDiscount(item.discount) }}</TableCell>
                                 <TableCell>
-                                    <Badge :variant="item.status === 1 ? 'default' : 'secondary'">
+                                    <Badge variant="outline" :class="getAdminStatusBadgeClass(item.status === 1)">
                                         {{ item.status === 1 ? '启用' : '禁用' }}
                                     </Badge>
                                 </TableCell>
                                 <TableCell class="text-right">
                                     <DropdownMenu>
                                         <DropdownMenuTrigger as-child>
-                                            <Button variant="ghost" size="icon">
+                                            <Button variant="ghost" size="icon" :class="adminBrandFocusClass">
                                                 <MoreHorizontal class="h-4 w-4" />
                                             </Button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
+                                        <DropdownMenuContent align="end" class="theme-brand shadow-none">
                                             <DropdownMenuItem @click="formDialogRef?.openEdit(item)">
                                                 <Pencil class="h-4 w-4 mr-2" />
                                                 编辑
@@ -110,7 +112,7 @@
                                                 {{ item.status === 1 ? '禁用' : '启用' }}
                                             </DropdownMenuItem>
                                             <DropdownMenuSeparator />
-                                            <DropdownMenuItem class="text-destructive" @click="handleDelete(item)">
+                                            <DropdownMenuItem class="text-destructive focus:text-destructive" @click="handleDelete(item)">
                                                 <Trash2 class="h-4 w-4 mr-2" />
                                                 删除
                                             </DropdownMenuItem>
@@ -133,7 +135,7 @@
 
         <!-- 删除确认对话框 -->
         <AlertDialog v-model:open="deleteDialogOpen">
-            <AlertDialogContent>
+            <AlertDialogContent class="theme-brand">
                 <AlertDialogHeader>
                     <AlertDialogTitle>确认删除</AlertDialogTitle>
                     <AlertDialogDescription>
@@ -141,8 +143,9 @@
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>取消</AlertDialogCancel>
-                    <AlertDialogAction @click="confirmDelete" :disabled="deleting">
+                    <AlertDialogCancel :class="adminBrandFocusClass">取消</AlertDialogCancel>
+                    <AlertDialogAction @click="confirmDelete" :disabled="deleting"
+                        :class="adminBrandDestructiveActionClass">
                         <Loader2 v-if="deleting" class="h-4 w-4 mr-2 animate-spin" />
                         确认删除
                     </AlertDialogAction>
@@ -158,6 +161,13 @@ import type { PointConsumptionItem } from '#shared/types/point.types'
 import AdminPointItemsFormDialog from '~/components/admin/point-items/FormDialog.vue'
 import GeneralPagination from '~/components/general/pagination.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
+import {
+    adminBrandDestructiveActionClass,
+    adminBrandFocusClass,
+    adminBrandPrimaryButtonClass,
+    getAdminPointItemGroupBadgeClass,
+    getAdminStatusBadgeClass,
+} from '~/utils/adminBrandStyles'
 
 definePageMeta({ layout: 'admin-layout', title: '积分消耗项目' })
 

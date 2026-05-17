@@ -23,6 +23,9 @@ export const adminBrandSelectedListItemClass =
 export const adminBrandUnselectedListItemClass =
     'border-l-transparent hover:bg-muted/30'
 
+export const adminBrandListItemFocusClass =
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-inset'
+
 export const adminBrandEnabledBadgeClass =
     'border-transparent bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
 
@@ -173,5 +176,36 @@ export const getAdminModelTypeBadgeClass = (type: string): string => {
     if (type === 'embedding') return adminBrandEnabledBadgeClass
     if (type === 'asr') return adminBrandWarningBadgeClass
     if (type === 'rerank') return 'border-transparent bg-cyan-500/10 text-cyan-700 dark:text-cyan-300'
+    return adminBrandDisabledBadgeClass
+}
+
+export const getAdminPointItemGroupBadgeClass = (group: string): string => {
+    if (group === 'material') return adminBrandActiveBadgeClass
+    if (group === 'analysisModules') return adminBrandEnabledBadgeClass
+    if (group === 'agentToken') return adminBrandWarningBadgeClass
+    return adminBrandDisabledBadgeClass
+}
+
+export const getAdminTaskStatusBadgeClass = (status: number | string): string => {
+    if (Number(status) === 0) return adminBrandDisabledBadgeClass
+    if (Number(status) === 1) return adminBrandWarningBadgeClass
+    if (Number(status) === 2) return adminBrandEnabledBadgeClass
+    if (Number(status) === 3) return adminBrandErrorBadgeClass
+    return adminBrandDisabledBadgeClass
+}
+
+export const getAdminContractReviewStatusBadgeClass = (status: string): string => {
+    if (status === 'completed') return adminBrandEnabledBadgeClass
+    if (status === 'failed') return adminBrandErrorBadgeClass
+    if (status === 'reviewing' || status === 'awaiting_stance' || status === 'rebuilding') {
+        return adminBrandWarningBadgeClass
+    }
+    return adminBrandDisabledBadgeClass
+}
+
+export const getAdminRiskLevelBadgeClass = (level: string): string => {
+    if (level === 'high') return adminBrandErrorBadgeClass
+    if (level === 'medium') return adminBrandWarningBadgeClass
+    if (level === 'low') return adminBrandEnabledBadgeClass
     return adminBrandDisabledBadgeClass
 }

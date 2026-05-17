@@ -1,10 +1,10 @@
 <template>
-        <div class="space-y-6">
+        <div class="theme-brand space-y-6">
             <!-- 面包屑导航 -->
             <Breadcrumb>
                 <BreadcrumbList>
                     <BreadcrumbItem>
-                        <BreadcrumbLink @click="navigateTo('/admin/model-providers')">
+                        <BreadcrumbLink :class="['rounded-sm', adminBrandFocusClass]" @click="navigateTo('/admin/model-providers')">
                             模型提供商
                         </BreadcrumbLink>
                     </BreadcrumbItem>
@@ -30,7 +30,7 @@
             <!-- 提供商详情 -->
             <template v-else>
                 <!-- 提供商基本信息卡片 -->
-                <Card>
+                <Card class="shadow-none">
                     <CardHeader>
                         <div class="flex justify-between items-start">
                             <div>
@@ -39,7 +39,7 @@
                                     {{ provider.description || '暂无描述' }}
                                 </CardDescription>
                             </div>
-                            <Button @click="editProvider">
+                            <Button :class="adminBrandPrimaryButtonClass" @click="editProvider">
                                 <Pencil class="h-4 w-4 mr-2" />
                                 编辑提供商
                             </Button>
@@ -90,6 +90,7 @@ import ApiKeySection from '~/components/admin/model-providers/ApiKeySection.vue'
 import AdminModelProvidersModelSection from '~/components/admin/model-providers/ModelSection.vue'
 import ProviderFormDialog from '~/components/admin/model-providers/ProviderFormDialog.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { adminBrandFocusClass, adminBrandPrimaryButtonClass } from '~/utils/adminBrandStyles'
 
 definePageMeta({ layout: 'admin-layout', title: '提供商详情' })
 

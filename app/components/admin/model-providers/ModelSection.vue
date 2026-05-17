@@ -1,12 +1,12 @@
 <template>
-    <Card>
+    <Card class="theme-brand shadow-none">
         <CardHeader>
             <div class="flex justify-between items-center">
                 <div>
                     <CardTitle>模型配置</CardTitle>
                     <CardDescription>管理该提供商下的模型配置</CardDescription>
                 </div>
-                <Button @click="createModel">
+                <Button :class="adminBrandPrimaryButtonClass" @click="createModel">
                     <Plus class="h-4 w-4 mr-2" />
                     新增模型
                 </Button>
@@ -47,17 +47,17 @@
                                 <TableCell class="font-mono text-xs">{{ model.name }}</TableCell>
                                 <TableCell>{{ model.displayName }}</TableCell>
                                 <TableCell>
-                                    <Badge :variant="getModelTypeVariant(model.modelType)">
+                                    <Badge variant="outline" :class="getAdminModelTypeBadgeClass(model.modelType)">
                                         {{ ModelTypeLabels[model.modelType as keyof typeof ModelTypeLabels] }}
                                     </Badge>
                                 </TableCell>
                                 <TableCell>
-                                    <Badge :variant="model.status === 1 ? 'default' : 'secondary'">
+                                    <Badge variant="outline" :class="getAdminStatusBadgeClass(model.status === 1)">
                                         {{ model.status === 1 ? '启用' : '禁用' }}
                                     </Badge>
                                 </TableCell>
                                 <TableCell>
-                                    <Badge v-if="model.isDefault" variant="outline">
+                                    <Badge v-if="model.isDefault" variant="outline" :class="adminBrandActiveBadgeClass">
                                         <Star class="h-3 w-3 mr-1 fill-current" />
                                         默认
                                     </Badge>
@@ -67,11 +67,11 @@
                                 <TableCell class="text-right">
                                     <DropdownMenu>
                                         <DropdownMenuTrigger as-child>
-                                            <Button variant="ghost" size="icon">
+                                            <Button variant="ghost" size="icon" :class="adminBrandFocusClass">
                                                 <MoreHorizontal class="h-4 w-4" />
                                             </Button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
+                                        <DropdownMenuContent align="end" class="theme-brand shadow-none">
                                             <DropdownMenuItem @click="editModel(model)">
                                                 <Pencil class="h-4 w-4 mr-2" />
                                                 编辑
@@ -105,7 +105,7 @@
 
         <!-- 删除确认对话框 -->
         <AlertDialog v-model:open="deleteDialogOpen">
-            <AlertDialogContent>
+            <AlertDialogContent class="theme-brand">
                 <AlertDialogHeader>
                     <AlertDialogTitle>确认删除</AlertDialogTitle>
                     <AlertDialogDescription>
@@ -113,8 +113,8 @@
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>取消</AlertDialogCancel>
-                    <AlertDialogAction @click="confirmDelete" :disabled="deleting">
+                    <AlertDialogCancel :class="adminBrandFocusClass">取消</AlertDialogCancel>
+                    <AlertDialogAction :class="adminBrandDestructiveActionClass" @click="confirmDelete" :disabled="deleting">
                         <Loader2 v-if="deleting" class="h-4 w-4 mr-2 animate-spin" />
                         确认删除
                     </AlertDialogAction>
@@ -132,6 +132,14 @@ import { ModelTypeLabels } from '#shared/types/model'
 import GeneralPagination from '~/components/general/pagination.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
 import type { models } from '~~/generated/prisma/client'
+import {
+    adminBrandActiveBadgeClass,
+    adminBrandDestructiveActionClass,
+    adminBrandFocusClass,
+    adminBrandPrimaryButtonClass,
+    getAdminModelTypeBadgeClass,
+    getAdminStatusBadgeClass,
+} from '~/utils/adminBrandStyles'
 
 interface Props {
     providerId: number
@@ -154,22 +162,6 @@ const pagination = ref({ page: 1, pageSize: 10, total: 0 })
 // 删除对话框状态
 const deleteDialogOpen = ref(false)
 const selectedModel = ref<Model | null>(null)
-
-// 获取模型类型的 Badge 样式
-const getModelTypeVariant = (type: string) => {
-    switch (type) {
-        case 'chat':
-            return 'default'
-        case 'embedding':
-            return 'secondary'
-        case 'asr':
-            return 'outline'
-        case 'rerank':
-            return 'secondary'
-        default:
-            return 'secondary'
-    }
-}
 
 // 加载模型列表
 const loadModels = async () => {

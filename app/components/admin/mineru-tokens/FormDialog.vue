@@ -1,7 +1,7 @@
 <template>
     <!-- MinerU Token 创建/编辑对话框 -->
     <Dialog v-model:open="open">
-        <DialogContent class="max-w-lg max-h-[85vh] flex flex-col" @interactOutside="(e) => e.preventDefault()">
+        <DialogContent class="theme-brand max-w-lg max-h-[85vh] flex flex-col" @interactOutside="(e) => e.preventDefault()">
             <DialogHeader class="shrink-0">
                 <DialogTitle>{{ isEdit ? '编辑 MinerU Token' : '新增 MinerU Token' }}</DialogTitle>
                 <DialogDescription>{{ isEdit ? '修改 Token 配置' : '创建新的 MinerU API Token' }}</DialogDescription>
@@ -11,7 +11,7 @@
                 <!-- Token 名称 -->
                 <div class="space-y-2">
                     <Label>Token 名称 <span class="text-destructive">*</span></Label>
-                    <Input v-model="form.name" placeholder="如：主账号 Token" autocomplete="off" />
+                    <Input v-model="form.name" placeholder="如：主账号 Token" autocomplete="off" :class="adminBrandFocusClass" />
                     <p class="text-xs text-muted-foreground">用于标识不同的 Token</p>
                 </div>
 
@@ -20,10 +20,10 @@
                     <Label>Token 值 <span class="text-destructive">*</span></Label>
                     <div class="relative">
                         <Input v-model="form.token" :type="showToken ? 'text' : 'password'"
-                            :placeholder="isEdit ? '留空则不修改' : '请输入 MinerU API Token'" class="pr-10"
+                            :placeholder="isEdit ? '留空则不修改' : '请输入 MinerU API Token'" :class="['pr-10', adminBrandFocusClass]"
                             autocomplete="new-password" />
                         <Button type="button" variant="ghost" size="icon"
-                            class="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                            :class="['absolute right-0 top-0 h-full px-3 hover:bg-transparent', adminBrandFocusClass]"
                             @click="showToken = !showToken">
                             <Eye v-if="!showToken" class="h-4 w-4 text-muted-foreground" />
                             <EyeOff v-else class="h-4 w-4 text-muted-foreground" />
@@ -35,17 +35,17 @@
                 <!-- 备注 -->
                 <div class="space-y-2">
                     <Label>备注</Label>
-                    <Textarea v-model="form.remark" placeholder="Token 的用途说明或备注信息" rows="3" />
+                    <Textarea v-model="form.remark" placeholder="Token 的用途说明或备注信息" rows="3" :class="adminBrandFocusClass" />
                 </div>
 
                 <!-- 状态 -->
                 <div class="space-y-2">
                     <Label>状态</Label>
                     <Select v-model="form.status">
-                        <SelectTrigger class="w-full">
+                        <SelectTrigger :class="['w-full', adminBrandFocusClass]">
                             <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent class="theme-brand">
                             <SelectItem value="1">启用</SelectItem>
                             <SelectItem value="0">禁用</SelectItem>
                         </SelectContent>
@@ -60,6 +60,7 @@
                         <PopoverTrigger as-child>
                             <Button type="button" variant="outline" :class="cn(
                                 'w-full justify-start text-left font-normal',
+                                adminBrandFocusClass,
                                 !form.expiresDate && 'text-muted-foreground',
                             )">
                                 <CalendarIcon class="mr-2 h-4 w-4" />
@@ -70,16 +71,16 @@
                                 </span>
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent class="w-auto p-0" align="start">
+                        <PopoverContent class="theme-brand w-auto p-0" align="start">
                             <Calendar :model-value="calendarValue" locale="zh-CN" layout="month-and-year"
                                 initial-focus @update:model-value="handleCalendarSelect" />
                             <div class="border-t p-3 flex items-center gap-2">
                                 <Clock class="h-4 w-4 text-muted-foreground shrink-0" />
                                 <Select v-model="expiresHour" :disabled="!form.expiresDate">
-                                    <SelectTrigger class="w-24">
+                                    <SelectTrigger :class="['w-24', adminBrandFocusClass]">
                                         <SelectValue placeholder="时" />
                                     </SelectTrigger>
-                                    <SelectContent class="max-h-60">
+                                    <SelectContent class="theme-brand max-h-60">
                                         <SelectItem v-for="h in 24" :key="h - 1"
                                             :value="String(h - 1).padStart(2, '0')">
                                             {{ String(h - 1).padStart(2, '0') }} 时
@@ -88,10 +89,10 @@
                                 </Select>
                                 <span class="text-muted-foreground">:</span>
                                 <Select v-model="expiresMinute" :disabled="!form.expiresDate">
-                                    <SelectTrigger class="w-24">
+                                    <SelectTrigger :class="['w-24', adminBrandFocusClass]">
                                         <SelectValue placeholder="分" />
                                     </SelectTrigger>
-                                    <SelectContent class="max-h-60">
+                                    <SelectContent class="theme-brand max-h-60">
                                         <SelectItem v-for="m in 60" :key="m - 1"
                                             :value="String(m - 1).padStart(2, '0')">
                                             {{ String(m - 1).padStart(2, '0') }} 分
@@ -109,8 +110,8 @@
                 </div>
             </div>
             <DialogFooter class="shrink-0">
-                <Button type="button" variant="outline" @click="open = false">取消</Button>
-                <Button type="submit" :disabled="submitting">
+                <Button type="button" variant="outline" :class="adminBrandFocusClass" @click="open = false">取消</Button>
+                <Button type="submit" :class="adminBrandPrimaryButtonClass" :disabled="submitting">
                     <Loader2 v-if="submitting" class="h-4 w-4 mr-2 animate-spin" />
                     {{ isEdit ? '保存' : '创建' }}
                 </Button>
@@ -128,6 +129,7 @@ import { toast } from 'vue-sonner'
 import dayjs from 'dayjs'
 import { cn } from '@/lib/utils'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { adminBrandFocusClass, adminBrandPrimaryButtonClass } from '~/utils/adminBrandStyles'
 
 // MinerU Token 接口（脱敏版本）
 interface MineruTokenMasked {

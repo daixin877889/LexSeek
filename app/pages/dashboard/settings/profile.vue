@@ -26,13 +26,13 @@
       </div>
 
       <div>
-        <label for="bio" class="block text-sm font-medium mb-1">个人简介</label>
-        <Textarea id="bio" v-model="userForm.profile" rows="4" class="w-full px-3 py-2 border rounded-md bg-background resize-none" placeholder="请简要介绍您自己（选填）"></Textarea>
+        <label for="exportSignature" class="block text-sm font-medium mb-1">合同导出署名</label>
+        <Input id="exportSignature" v-model="userForm.contractExportSignature" type="text" maxlength="50" placeholder="导出合同审查 docx 时 AI 修订与批注以此署名显示；留空则使用姓名" class="w-full px-3 py-2 h-[42px] text-base border rounded-md bg-background" />
       </div>
 
       <div>
-        <label for="exportSignature" class="block text-sm font-medium mb-1">合同导出署名</label>
-        <Input id="exportSignature" v-model="userForm.contractExportSignature" type="text" maxlength="50" placeholder="导出合同审查 docx 时 AI 修订与批注以此署名显示；留空则使用姓名" class="w-full px-3 py-2 h-[42px] text-base border rounded-md bg-background" />
+        <label for="bio" class="block text-sm font-medium mb-1">个人简介</label>
+        <Textarea id="bio" v-model="userForm.profile" rows="4" class="w-full px-3 py-2 border rounded-md bg-background resize-none" placeholder="请简要介绍您自己（选填）"></Textarea>
       </div>
 
       <div class="flex justify-end">

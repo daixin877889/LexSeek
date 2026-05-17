@@ -1,19 +1,19 @@
 <template>
-    <div class="space-y-4">
+    <div class="theme-brand space-y-4">
         <div class="flex items-center justify-between">
             <div>
                 <h1 class="text-2xl font-semibold">央行贷款基准利率</h1>
                 <p class="text-muted-foreground text-sm">人民银行公布的贷款基准利率，办案利息计算工具引用此表数据</p>
             </div>
-            <Button @click="openCreate">
+            <Button :class="adminBrandPrimaryButtonClass" @click="openCreate">
                 <Plus class="w-4 h-4 mr-1" />新增
             </Button>
         </div>
 
-        <div class="rounded-md border">
+        <div class="bg-card rounded-lg border overflow-hidden">
             <Table>
                 <TableHeader>
-                    <TableRow>
+                    <TableRow class="bg-muted/50 hover:bg-muted/50">
                         <TableHead>生效日</TableHead>
                         <TableHead>六月 (%)</TableHead>
                         <TableHead>一年 (%)</TableHead>
@@ -24,7 +24,7 @@
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    <TableRow v-for="row in rows" :key="row.id">
+                    <TableRow v-for="row in rows" :key="row.id" class="hover:bg-muted/30">
                         <TableCell>{{ row.date }}</TableCell>
                         <TableCell>{{ row.sixMonths.toFixed(2) }}</TableCell>
                         <TableCell>{{ row.oneYear.toFixed(2) }}</TableCell>
@@ -34,16 +34,16 @@
                         <TableCell class="text-right">
                             <DropdownMenu>
                                 <DropdownMenuTrigger as-child>
-                                    <Button variant="ghost" size="icon">
+                                    <Button variant="ghost" size="icon" :class="adminBrandFocusClass">
                                         <MoreHorizontal class="h-4 w-4" />
                                     </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
+                                <DropdownMenuContent align="end" class="theme-brand shadow-none">
                                     <DropdownMenuItem @click="openEdit(row)">
                                         <Pencil class="h-4 w-4 mr-2" />
                                         编辑
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem class="text-destructive" @click="confirmDelete(row)">
+                                    <DropdownMenuItem class="text-destructive focus:text-destructive" @click="confirmDelete(row)">
                                         <Trash2 class="h-4 w-4 mr-2" />
                                         删除
                                     </DropdownMenuItem>
@@ -70,6 +70,7 @@ import { useApiFetch } from '~/composables/useApiFetch'
 import { useAlertDialogStore } from '~/store/alertDialog'
 import PbocLoanFormDialog from '~/components/admin/rates/PbocLoanFormDialog.vue'
 import type { LoanRate } from '#shared/types/tools'
+import { adminBrandFocusClass, adminBrandPrimaryButtonClass } from '~/utils/adminBrandStyles'
 
 definePageMeta({ layout: 'admin-layout', title: '央行贷款基准利率' })
 

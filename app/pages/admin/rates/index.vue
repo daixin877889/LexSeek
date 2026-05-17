@@ -1,15 +1,16 @@
 <template>
-    <div class="space-y-6">
+    <div class="theme-brand space-y-6">
         <div>
             <h1 class="text-2xl font-semibold">利率管理</h1>
             <p class="text-muted-foreground mt-1">维护办案工具引用的 LPR / 央行存款 / 央行贷款 三类基准利率历史</p>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card v-for="entry in entries" :key="entry.path" class="cursor-pointer hover:border-primary"
+            <Card v-for="entry in entries" :key="entry.path"
+                class="cursor-pointer rounded-lg shadow-none transition-colors hover:border-primary hover:bg-muted/30"
                 @click="navigateTo(entry.path)">
                 <CardHeader>
                     <CardTitle class="flex items-center gap-2">
-                        <component :is="entry.icon" class="w-5 h-5" />
+                        <component :is="entry.icon" class="w-5 h-5 text-primary" />
                         {{ entry.title }}
                     </CardTitle>
                     <CardDescription>{{ entry.desc }}</CardDescription>
