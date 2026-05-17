@@ -10,7 +10,7 @@
  *
  * 单测如果要锁配色，进一份这里的映射即可。
  */
-import type { RiskLevel } from '#shared/types/contract'
+import type { RiskLevel, RiskArchivedStatus } from '#shared/types/contract'
 import { ClientRedlineDecision, ClientRedlineDecisionText } from '#shared/types/contract'
 import { CheckCircle2Icon, XCircleIcon, CircleDashedIcon, HelpCircleIcon } from 'lucide-vue-next'
 
@@ -18,6 +18,12 @@ export const RISK_LEVEL_BADGE_CLASS: Record<RiskLevel, string> = {
     high: 'bg-red-500 text-white',
     medium: 'bg-orange-500 text-white',
     low: 'bg-slate-400 text-white',
+}
+
+/** 风险处置状态文案（RiskCard / RiskDetailPanel 共用） */
+export const RISK_ARCHIVED_STATUS_LABEL: Record<RiskArchivedStatus, string> = {
+    handled: '已处理',
+    ignored: '已忽略',
 }
 
 /**

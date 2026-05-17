@@ -14,7 +14,7 @@
 import { ChevronRightIcon, Pin, TriangleAlert, ClipboardList, CheckCircle2Icon, SparklesIcon } from 'lucide-vue-next'
 import type { RiskDisplayPhaseB, RiskArchivedStatus, PlaybookSnapshot, RiskLevel } from '#shared/types/contract'
 import { RISK_LEVEL_LABEL } from '#shared/types/contract'
-import { RISK_LEVEL_BADGE_CLASS as LEVEL_CLASS, CLIENT_REDLINE_BADGE } from '~/utils/contractRiskLevelStyle'
+import { RISK_LEVEL_BADGE_CLASS as LEVEL_CLASS, CLIENT_REDLINE_BADGE, RISK_ARCHIVED_STATUS_LABEL } from '~/utils/contractRiskLevelStyle'
 
 const props = defineProps<{
     risk: RiskDisplayPhaseB
@@ -36,12 +36,6 @@ const emit = defineEmits<{
     focus: [riskId: string]
     'toggle-pin': [riskId: string]
 }>()
-
-/** 已处置状态文案 */
-const ARCHIVED_STATUS_LABEL: Record<RiskArchivedStatus, string> = {
-    handled: '已处理',
-    ignored: '已忽略',
-}
 
 /** 客户外部新增变体（非孤立 + source=external_new） */
 const isExternal = computed(() => !props.isOrphaned && props.risk.source === 'external_new')
@@ -132,7 +126,7 @@ function onCardClick() {
                 class="inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-px rounded bg-emerald-600/12 text-emerald-700 dark:text-emerald-300"
             >
                 <CheckCircle2Icon class="size-2.5" />
-                {{ ARCHIVED_STATUS_LABEL[archivedStatus] }}
+                {{ RISK_ARCHIVED_STATUS_LABEL[archivedStatus] }}
             </span>
             <span
                 v-if="risk.originalClauseText && !isOrphaned"

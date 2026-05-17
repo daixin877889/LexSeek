@@ -19,7 +19,7 @@ import type {
     Risk, RiskDisplayPhaseB, RiskArchivedStatus, PlaybookSnapshot, ContractAnnotationEntity,
 } from '#shared/types/contract'
 import { RISK_LEVEL_LABEL } from '#shared/types/contract'
-import { RISK_LEVEL_BADGE_CLASS as LEVEL_CLASS, CLIENT_REDLINE_BADGE } from '~/utils/contractRiskLevelStyle'
+import { RISK_LEVEL_BADGE_CLASS as LEVEL_CLASS, CLIENT_REDLINE_BADGE, RISK_ARCHIVED_STATUS_LABEL } from '~/utils/contractRiskLevelStyle'
 import AssistantContractAnnotationBubble from '~/components/assistant/contract/AnnotationBubble.vue'
 import AssistantContractRiskClauseDiff from '~/components/assistant/contract/RiskClauseDiff.vue'
 
@@ -53,11 +53,6 @@ const emit = defineEmits<{
     'jump-to-original': [riskId: string]
     'update:layout': [layout: 'stacked' | 'inline-diff']
 }>()
-
-const ARCHIVED_STATUS_LABEL: Record<RiskArchivedStatus, string> = {
-    handled: '已处理',
-    ignored: '已忽略',
-}
 
 const LAYOUT_OPTIONS = [
     { k: 'stacked' as const, label: '分段' },
@@ -189,7 +184,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
                         class="inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-600/12 text-emerald-700 dark:text-emerald-300"
                     >
                         <CheckCircle2Icon class="size-2.5" />
-                        {{ ARCHIVED_STATUS_LABEL[risk.archivedStatus!] }}
+                        {{ RISK_ARCHIVED_STATUS_LABEL[risk.archivedStatus!] }}
                     </span>
                     <span
                         v-if="risk.originalClauseText && !isOrphan"
