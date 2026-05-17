@@ -41,6 +41,8 @@ export async function summarizeOverview(
     contractType: string | null,
     /** M11：透传取消信号到底层 LLM 调用，用户取消 / 超时时中断 summarize 阶段 */
     signal?: AbortSignal,
+    /** V1：回调 summarize LLM 调用的 token 用量，供调用方累计后按积分扣费 */
+    onTokenUsage?: (tokens: number) => void,
 ): Promise<ContractOverview> {
     if (risks.length === 0) {
         return {
@@ -57,6 +59,7 @@ export async function summarizeOverview(
         errorPrefix: 'summarizeOverview',
         logContext: { riskCount: risks.length, stance, contractType },
         signal,
+        onTokenUsage,
     })
 
     // UX-S2：LLM 可能返回空 riskId 或编造不存在的 riskId，前端点击要点时

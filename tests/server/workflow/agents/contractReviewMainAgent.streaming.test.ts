@@ -101,6 +101,11 @@ vi.mock('~~/server/services/assistant/contract/contractReviewVersion.service', a
     const actual = await importOriginal<typeof import('~~/server/services/assistant/contract/contractReviewVersion.service')>()
     return { ...actual, saveContractReviewVersionService: vi.fn().mockResolvedValue({ id: 1 }) }
 })
+// V1：mock 积分扣费服务，断言 resume 分支逐条分析阶段确实扣费
+vi.mock('~~/server/services/point/pointConsumption.service', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('~~/server/services/point/pointConsumption.service')>()
+    return { ...actual, consumePointsService: vi.fn().mockResolvedValue({ consumedAmount: 6 }) }
+})
 
 const mockStream = vi.hoisted(() => vi.fn(() => new ReadableStream<Uint8Array>({ start(c) { c.close() } })))
 
@@ -124,6 +129,7 @@ import {
 } from '~~/server/agents/contract/contractReview.dao'
 import { segmentClauses } from '~~/server/agents/contract/docx/clauseSegmenter'
 import { runAnnotateAndUpload } from '~~/server/services/workflow/middleware/reviewResultPersistence.middleware'
+import { consumePointsService } from '~~/server/services/point/pointConsumption.service'
 import type { ClauseSegment, Risk } from '#shared/types/contract'
 
 const emitterCtx = { runId: 'run-1', sessionId: 'sess-1' }
@@ -323,6 +329,50 @@ describe('runContractReviewChat resume 分支 - segments fail-fast', () => {
             { runId: 'run-empty', sessionId: 'sess-empty' },
             { type: 'stage', stage: 'analyze', status: 'done', warnings: ['no_segments'] },
         )
+    })
+})
+
+describe('runContractReviewChat resume 分支 - V1 逐条分析阶段计费', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('逐条分析 + 总览的 token 用量按 contract_review_token 扣积分', async () => {
+        ;(findContractReviewBySessionIdDAO as any).mockResolvedValueOnce({
+            id: 777,
+            userId: 7,
+            sessionId: 'sess-billing',
+            originalFileId: 99,
+            partyA: '甲方',
+            partyB: '乙方',
+            contractType: '服务合同',
+            stance: 'partyA',
+            status: 'reviewing',
+        })
+        ;(segmentClauses as any).mockResolvedValueOnce({ segments: mockSegments, normalizedText: '全文' })
+        // analyzeSingleClause：每条款返回 1 条风险并上报 2000 token
+        ;(analyzeSingleClause as any).mockImplementation(async (ctx: any) => {
+            ctx.onTokenUsage?.(2000)
+            return [riskHigh]
+        })
+
+        const stream = await runContractReviewChat('sess-billing', {
+            userId: 7,
+            runId: 'run-billing',
+            command: { stance: 'partyA' },
+        })
+        const reader = stream.getReader()
+        while (true) {
+            const { done } = await reader.read()
+            if (done) break
+        }
+
+        // 3 条款 × 2000 token = 6000 token → ceil(6000 / 1000) = 6 个计费单位
+        expect(consumePointsService).toHaveBeenCalledTimes(1)
+        const call = (consumePointsService as any).mock.calls[0]
+        expect(call[0]).toBe(7)                      // userId
+        expect(call[1]).toBe('contract_review_token') // itemKey
+        expect(call[2]).toBe(6)                       // quantity
     })
 })
 

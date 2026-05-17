@@ -78,6 +78,7 @@ import {
     type ContractReviewEmitterCtx,
 } from '../nodes/contractReviewStageEmitter'
 import { persistAiRisksAsContractRows, type PersistAiRiskRow } from '../../assistant/contract/contractRisk.service'
+import { consumePointsService } from '~~/server/services/point/pointConsumption.service'
 import { createContractAnnotationDAO } from '../../assistant/contract/contractAnnotation.dao'
 import { saveContractReviewVersionService } from '../../assistant/contract/contractReviewVersion.service'
 import { buildClauseToBodyParagraphMap } from '../../assistant/contract/utils/clauseToParagraph'
@@ -178,6 +179,9 @@ async function persistRisksAndCreateV1Snapshot(
 /** 合同审查主代理节点名称 */
 const CONTRACT_MAIN_NODE_NAME = 'contractReviewMain'
 
+/** 合同审查按 token 扣费的积分消耗项 key（首轮 pointConsumptionMiddleware 与 V1 resume 分支扣费同口径） */
+const CONTRACT_REVIEW_POINT_ITEM = 'contract_review_token'
+
 /**
  * Agent 首轮启动指令。
  *
@@ -240,6 +244,8 @@ export interface AnalyzeLoopContext {
     emitterCtx: ContractReviewEmitterCtx
     /** M11：透传取消信号到逐条分析的 LLM 调用，用户取消 / 超时时中断逐条分析 */
     signal?: AbortSignal
+    /** V1：回调每条款 LLM 调用的 token 用量，供调用方累计后按积分扣费 */
+    onTokenUsage?: (tokens: number) => void
 }
 
 /** 单合同条款分析的并发上限：保守取 8，对 DeepSeek/Anthropic API 友好且单合同 30 条款 4 轮搞定。 */
@@ -281,6 +287,7 @@ export async function runAnalyzeLoop(ctx: AnalyzeLoopContext): Promise<{ risks: 
                 contractType: ctx.contractType,
                 playbookSnapshot: ctx.playbookSnapshot,
                 signal: ctx.signal,
+                onTokenUsage: ctx.onTokenUsage,
             })
             await emitContractReviewEvent(ctx.emitterCtx, {
                 type: 'progress', current: seg.index, total,
@@ -417,7 +424,7 @@ export async function runContractReviewChat(
             name: MIDDLEWARE_NAMES.SCOPE_GUARD,
         },
         {
-            middleware: pointConsumptionMiddleware(userId, 'contract_review_token', sessionId),
+            middleware: pointConsumptionMiddleware(userId, CONTRACT_REVIEW_POINT_ITEM, sessionId),
             priority: MIDDLEWARE_PRIORITY.POINT_CONSUMPTION,
             name: MIDDLEWARE_NAMES.POINT_CONSUMPTION,
         },
@@ -636,6 +643,9 @@ export async function runContractReviewChat(
 
                     // 执行 analyze loop（发 analyze:running / progress / risk / analyze:done）
                     // M11：透传 signal——用户在逐条分析阶段取消 / 超时时，底层 LLM 调用随之中断。
+                    // V1：累计 resume 分支（逐条分析 + 总览）的 LLM token 用量，结束后统一扣积分。
+                    let resumeBranchTokens = 0
+                    const onTokenUsage = (tokens: number) => { resumeBranchTokens += tokens }
                     const { risks, warnings } = await runAnalyzeLoop({
                         segments,
                         stance,
@@ -645,6 +655,7 @@ export async function runContractReviewChat(
                         playbookSnapshot,
                         emitterCtx,
                         signal,
+                        onTokenUsage,
                     })
 
                     // S1：切分成功但全部条款分析失败（risks 空、warnings 非空）——合同根本没被
@@ -678,7 +689,7 @@ export async function runContractReviewChat(
                     // 生成结构化总览（summarize 阶段）
                     await emitContractReviewEvent(emitterCtx, { type: 'stage', stage: 'summarize', status: 'running' })
                     try {
-                        const overview = await summarizeOverview(risks, stance, review.contractType, signal)
+                        const overview = await summarizeOverview(risks, stance, review.contractType, signal, onTokenUsage)
                         overview.overall = `${overview.overall}${incompleteNote}`
                         await updateContractReviewDAO(review.id, { summary: overview as unknown as Prisma.InputJsonValue })
                         await emitContractReviewEvent(emitterCtx, { type: 'overview', overview })
@@ -689,6 +700,24 @@ export async function runContractReviewChat(
                             summary: { highlights: null, overall: `本合同识别到 ${risks.length} 条风险。${incompleteNote}` } as unknown as Prisma.InputJsonValue,
                         })
                         await emitContractReviewEvent(emitterCtx, { type: 'stage', stage: 'summarize', status: 'done' })
+                    }
+
+                    // V1：resume 分支逐条分析 + 总览的 LLM token 用量在此统一按积分扣费。
+                    // 首轮 agent 的 pointConsumptionMiddleware 只覆盖 detect/stance（token 极少），
+                    // 最贵的逐条分析此前完全漏计。扣费失败不阻断审查——token 已实际消耗、审查
+                    // 结果已产出，回滚已发生的分析无意义；记 warn 供运维核对即可。
+                    if (resumeBranchTokens > 0) {
+                        try {
+                            await consumePointsService(userId, CONTRACT_REVIEW_POINT_ITEM, Math.ceil(resumeBranchTokens / 1000), {
+                                remark: `合同审查逐条分析 reviewId=${review.id}`,
+                            })
+                        } catch (err) {
+                            logger.warn('合同审查逐条分析阶段积分扣减失败', {
+                                reviewId: review.id,
+                                tokens: resumeBranchTokens,
+                                err: err instanceof Error ? err.message : String(err),
+                            })
+                        }
                     }
 
                     // Phase A：写 ContractRisk + ContractAnnotation + 创建 v1 initial_upload 快照

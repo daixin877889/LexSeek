@@ -113,3 +113,27 @@ describe('runAnalyzeLoop · signal 透传 (M11)', () => {
         expect(analyzeSingleClauseMock.mock.calls[0]![0].signal).toBeUndefined()
     })
 })
+
+describe('runAnalyzeLoop · onTokenUsage 透传 (V1)', () => {
+    beforeEach(() => {
+        analyzeSingleClauseMock.mockReset()
+    })
+
+    it('onTokenUsage 透传给每次 analyzeSingleClause 调用', async () => {
+        analyzeSingleClauseMock.mockResolvedValue([])
+        const onTokenUsage = vi.fn()
+        await runAnalyzeLoop({
+            segments: [
+                { index: 1, number: '1', text: 'x' },
+                { index: 2, number: '2', text: 'y' },
+            ],
+            stance: 'partyB',
+            partyA: 'A', partyB: 'B', contractType: '劳动合同',
+            emitterCtx: { runId: 'run1', sessionId: 'sess1' },
+            onTokenUsage,
+        })
+        expect(analyzeSingleClauseMock).toHaveBeenCalledTimes(2)
+        expect(analyzeSingleClauseMock.mock.calls[0]![0]).toMatchObject({ onTokenUsage })
+        expect(analyzeSingleClauseMock.mock.calls[1]![0]).toMatchObject({ onTokenUsage })
+    })
+})

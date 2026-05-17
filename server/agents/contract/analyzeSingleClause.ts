@@ -63,6 +63,8 @@ export interface AnalyzeClauseContext {
     playbookSnapshot?: PlaybookSnapshot | null
     /** M11：透传取消信号到底层 LLM 调用，逐条分析阶段可被用户取消 / 超时中断 */
     signal?: AbortSignal
+    /** V1：回调本条款 LLM 调用的 token 用量，供调用方累计后按积分扣费 */
+    onTokenUsage?: (tokens: number) => void
 }
 
 /** 返回风险数组；空数组表示该条款无风险 */
@@ -78,6 +80,7 @@ export async function analyzeSingleClause(ctx: AnalyzeClauseContext): Promise<Ri
             clauseLength: ctx.clause.text.length,
         },
         signal: ctx.signal,
+        onTokenUsage: ctx.onTokenUsage,
     })
 
     if (data.skip || data.risks.length === 0) return []
