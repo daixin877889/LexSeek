@@ -63,9 +63,9 @@ export const CLIENT_REDLINE_BADGE: Record<ClientRedlineDecision, { label: string
  * （~4.5%，整页近白纸）+ 等级色左竖线 + pl-3 间距。选中/悬停态见下方 FOCUS / HOVER。
  */
 export const RISK_LEVEL_DOCX_BG_CLASS: Record<RiskLevel, string[]> = {
-    high: ['bg-red-600/[0.045]', 'border-l-4', 'border-red-600', 'rounded', 'pl-3'],
-    medium: ['bg-amber-600/[0.05]', 'border-l-4', 'border-amber-600', 'rounded', 'pl-3'],
-    low: ['bg-sky-600/[0.045]', 'border-l-4', 'border-sky-600', 'rounded', 'pl-3'],
+    high: ['bg-red-600/[0.05]', 'border-l-4', 'border-red-600', 'rounded', 'pl-3'],
+    medium: ['bg-amber-600/[0.06]', 'border-l-4', 'border-amber-600', 'rounded', 'pl-3'],
+    low: ['bg-sky-500/[0.05]', 'border-l-4', 'border-sky-500', 'rounded', 'pl-3'],
 }
 
 /**
@@ -73,14 +73,14 @@ export const RISK_LEVEL_DOCX_BG_CLASS: Record<RiskLevel, string[]> = {
  * bg 带 ! important——段落基线已有 bg-*-600/[0.045]，同为 background-color 需强制覆盖。
  */
 export const RISK_LEVEL_DOCX_FOCUS_CLASS: Record<RiskLevel, string[]> = {
-    high: ['bg-red-600/[0.1]!', 'ring-1', 'ring-inset', 'ring-red-600/40'],
-    medium: ['bg-amber-600/[0.1]!', 'ring-1', 'ring-inset', 'ring-amber-600/40'],
-    low: ['bg-sky-600/[0.1]!', 'ring-1', 'ring-inset', 'ring-sky-600/40'],
+    high: ['bg-red-600/[0.11]!', 'ring-1', 'ring-inset', 'ring-red-600/40'],
+    medium: ['bg-amber-600/[0.12]!', 'ring-1', 'ring-inset', 'ring-amber-600/40'],
+    low: ['bg-sky-500/[0.11]!', 'ring-1', 'ring-inset', 'ring-sky-500/40'],
 }
 
 /** 悬停（hovered）态：等级色底色轻微加深，无描边（bg 同样需 ! 覆盖基线） */
 export const RISK_LEVEL_DOCX_HOVER_BG: Record<RiskLevel, string> = {
     high: 'bg-red-600/[0.08]!',
-    medium: 'bg-amber-600/[0.08]!',
-    low: 'bg-sky-600/[0.08]!',
+    medium: 'bg-amber-600/[0.09]!',
+    low: 'bg-sky-500/[0.08]!',
 }

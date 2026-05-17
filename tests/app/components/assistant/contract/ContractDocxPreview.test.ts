@@ -233,7 +233,7 @@ describe('ContractDocxPreview M6.1 风险标记联动', () => {
 
         const el = w.element.querySelector('[data-risk-ids~="r2"]')
         expect(el).not.toBeNull()
-        expect(el!.classList.contains('bg-amber-600/[0.05]')).toBe(true)
+        expect(el!.classList.contains('bg-amber-600/[0.06]')).toBe(true)
     })
 
     it('点击段落触发 focusRisk emit', async () => {
@@ -270,13 +270,13 @@ describe('ContractDocxPreview M6.1 风险标记联动', () => {
 
         // 初始无聚焦（high 风险基线为 bg-red-600/[0.045]，无聚焦加深底色）
         const el = w.element.querySelector('[data-risk-ids~="r5"]')
-        expect(el!.classList.contains('bg-red-600/[0.1]!')).toBe(false)
+        expect(el!.classList.contains('bg-red-600/[0.11]!')).toBe(false)
 
         // 设置 focusedRiskId
         await w.setProps({ focusedRiskId: 'r5' })
         await flushPromises()
 
-        expect(el!.classList.contains('bg-red-600/[0.1]!')).toBe(true)
+        expect(el!.classList.contains('bg-red-600/[0.11]!')).toBe(true)
         expect(el!.classList.contains('ring-1')).toBe(true)
     })
 
@@ -303,12 +303,12 @@ describe('ContractDocxPreview M6.1 风险标记联动', () => {
         await flushPromises()
 
         const el = w.element.querySelector('[data-risk-ids~="r7"]')
-        expect(el!.classList.contains('bg-red-600/[0.1]!')).toBe(true)
+        expect(el!.classList.contains('bg-red-600/[0.11]!')).toBe(true)
 
         await w.setProps({ focusedRiskId: null })
         await flushPromises()
 
-        expect(el!.classList.contains('bg-red-600/[0.1]!')).toBe(false)
+        expect(el!.classList.contains('bg-red-600/[0.11]!')).toBe(false)
     })
 
     it('risks 连续触发 decorateRisks 不重复叠加 LEVEL_BG class', async () => {
