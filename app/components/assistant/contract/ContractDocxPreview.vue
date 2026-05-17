@@ -371,11 +371,11 @@ watch(
             <div v-if="loading" class="absolute top-2 left-1/2 -translate-x-1/2 text-xs text-muted-foreground z-10">
                 合同加载中...
             </div>
-            <!-- 白纸：bg-background 浅色=白 / 暗色=深主题色；.docx 原生白纸居中陈列 -->
+            <!-- 文档容器：bg-card 作纸面托盘，.docx 原生白纸由 wrapper 居中陈列 -->
             <div class="relative flex-1 min-h-0" @mouseleave="hoveredParagraph = null">
                 <div
                     ref="containerRef"
-                    class="docx-preview-container h-full overflow-y-auto rounded-md bg-background p-6"
+                    class="docx-preview-container h-full overflow-y-auto rounded-md bg-card p-4"
                     @mouseover="onContainerMouseOver"
                 />
                 <button
@@ -394,10 +394,10 @@ watch(
 </template>
 
 <!--
-  对齐文书编辑器 DocumentPreview 的纸面约定：
+  纸面约定（对齐设计稿）：
   - .docx-wrapper 透明 + 无阴影（外层容器已提供背景）
-  - section.docx 保留 docx-preview 默认白色纸面，仅去 margin/阴影避免重复
-  - 正文行距统一 1.8，与 DocumentPreview 一致
+  - section.docx 保留 docx-preview 默认白色纸面，去 margin/阴影、补页边距
+  - 正文行距 1.95
 -->
 <style scoped>
 .docx-preview-container :deep(.docx-wrapper) {
@@ -408,9 +408,9 @@ watch(
 .docx-preview-container :deep(.docx) {
     box-shadow: none !important;
     margin: 0 !important;
-    /* Word 风格内页边距：纯文本粘贴场景下 docx-preview 给 section 默认 padding=0，
-       会让正文和风险左边框直接贴纸面边。这里补回 32px 48px 页边距。 */
-    padding: 32px 48px !important;
+    /* 纸面内页边距：docx-preview 对纯文本粘贴场景默认 padding=0，正文会贴纸面边，
+       这里补回页边距（对齐设计稿 40/56/64）。 */
+    padding: 40px 56px 64px !important;
 }
 .docx-preview-container :deep(p),
 .docx-preview-container :deep(li),
@@ -420,6 +420,6 @@ watch(
 .docx-preview-container :deep(h4),
 .docx-preview-container :deep(h5),
 .docx-preview-container :deep(h6) {
-    line-height: 1.8 !important;
+    line-height: 1.95 !important;
 }
 </style>
