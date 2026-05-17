@@ -207,6 +207,9 @@ export async function injectRedlineMarks(
                 const para = nonEmptyParagraphs[seg.paraIdx]!
                 const isEnd = i === loc.splits.length - 1
                 const split = seg.runSplit ?? wholeParagraphRunSplit(para)
+                // L13：无直接 w:r 子节点的中间段无文字可删，跳过（中间段不承载 w:ins，
+                // 跳过不影响 suggestedClauseText 的插入）。
+                if (!split) continue
                 const delId = cursorId
                 const insId = isEnd ? cursorId + 1 : null
                 applyRedlineToParagraph({
@@ -420,6 +423,15 @@ function applyRedlineToParagraph(input: {
             kids.splice(runSplit.startRunIdx, 1, ...newRuns)
             return
         }
+        // L14：upToEnd.left 落空 = quote 区间为空（endRunOffset=0 的退化情形；
+        // locateQuoteInParagraphs 已保证 quoteCharEnd>quoteCharStart，理论不可达）。
+        // 显式 return——不能 fall-through 到跨 run 分支对同一 run 二次切分产出双删。
+        logger.warn('[redlineInjector] applyRedlineToParagraph: same-run quote 区间为空，跳过', {
+            startRunIdx: runSplit.startRunIdx,
+            startRunOffset: runSplit.startRunOffset,
+            endRunOffset: runSplit.endRunOffset,
+        })
+        return
     }
 
     // 跨 run（startRunIdx < endRunIdx）
@@ -504,10 +516,14 @@ function lastRunIdx(paraNode: Node): number {
     return -1
 }
 
-function wholeParagraphRunSplit(paraNode: Node): RunSplit {
+function wholeParagraphRunSplit(paraNode: Node): RunSplit | null {
     const kids = childrenOf(paraNode)
     const startIdx = firstRunIdx(paraNode)
     const endIdx = lastRunIdx(paraNode)
+    // L13：段落无直接 w:r 子节点（run 全嵌在 hyperlink / sdt 内）时 firstRunIdx /
+    // lastRunIdx 返回 -1，computeRunLength(kids[-1]!) 会对 undefined 取 tagOf 崩溃。
+    // 此类段落无可删除 run，返回 null 让调用方跳过。
+    if (startIdx < 0 || endIdx < 0) return null
     return {
         startRunIdx: startIdx,
         startRunOffset: 0,

@@ -678,13 +678,10 @@ function buildCommentsXmlFromAnnotations(
         if (a.parentAnnotationId !== null && wordIds.has(a.parentAnnotationId)) {
             attrs['w:parentId'] = String(wordIds.get(a.parentAnnotationId))
         }
-        const body: NodeArray = [
-            makeElement('w:p', {}, [
-                makeElement('w:r', {}, [
-                    makeElement('w:t', { 'xml:space': 'preserve' }, [makeText(stripIllegalXmlChars(a.content))]),
-                ]),
-            ]),
-        ]
+        // L12：a.content 是多段批注文本（renderRiskAsAnnotationText 用 \n 连接【法律依据】
+        // 【条款分析】等段）。塞进单个 <w:t> 时 Word 不渲染 \n 换行、气泡挤成一行；
+        // 按行拆成多个 <w:p> 才能正确换行。
+        const body: NodeArray = buildCommentParagraphs(stripIllegalXmlChars(a.content))
         return makeElement('w:comment', attrs, body)
     })
     const ast: NodeArray = [

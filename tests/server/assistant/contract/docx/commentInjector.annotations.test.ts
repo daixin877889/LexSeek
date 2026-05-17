@@ -265,6 +265,25 @@ describe('injectAnnotations', () => {
         expect(rels).toContain('Target="comments.xml"')
     })
 
+    it('L12：多行 content 按 \\n 拆成多个 <w:p>，气泡里正确换行', async () => {
+        const original = await readFile(SAMPLE)
+        const { paragraphs } = await parseContractDocx(original)
+        const annotations: ContractAnnotationForExport[] = [
+            makeAnnotation({
+                id: 1,
+                content: '问题：付款期限过短\n【法律依据】《民法典》第577条\n【建议】延长付款期',
+                anchorParagraphIndex: Math.min(1, paragraphs.length - 1),
+            }),
+        ]
+        const { buffer } = await injectAnnotations(original, annotations, 999)
+        const zip = await loadDocxZip(buffer)
+        const commentsXml = await readTextFromZip(zip, 'word/comments.xml')
+        // 3 行 content → w:comment 内 3 个 <w:p>（旧实现塞进单个 <w:t> 只有 1 个）
+        const pCount = (commentsXml.match(/<w:p\b/g) ?? []).length
+        expect(pCount).toBe(3)
+        expect(commentsXml).toContain('【法律依据】《民法典》第577条')
+    })
+
     it('内容含特殊字符时正常 XML 转义', async () => {
         const original = await readFile(SAMPLE)
         const { paragraphs } = await parseContractDocx(original)
