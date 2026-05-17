@@ -168,6 +168,8 @@ export async function* uploadClientVersionService(params: {
     // M1：是否已进入 Step 4a 写库阶段。Step 1~3（备份/解析/diff）全程只读、不改风险与批注，
     // 这些早期步骤失败时应把 status 恢复为 originalStatus，而非误锁成 failed。
     let enteredMutationStage = false
+    // M4：当前所处步骤，供外层 try 的 catch 按步骤 yield 精确错误码（diff / ai）。
+    let progressStep: 'diff' | 'ai' = 'diff'
     try {
         // ============ Step 1: 自动备份当前工作区 ============
         yield { type: 'progress', data: { step: 'backup', status: 'progress' } }
@@ -655,6 +657,7 @@ export async function* uploadClientVersionService(params: {
     }
 
     // ============ Step 4: AI 增量审查 + 全局复核 ============
+    progressStep = 'ai'
     yield { type: 'progress', data: { step: 'ai', status: 'progress' } }
     let aiReviewCount = 0
     let globalReviewNewRiskCount = 0
@@ -1272,6 +1275,19 @@ export async function* uploadClientVersionService(params: {
         await rollbackStep4CreatedRows(review.id, step4CreatedRiskIds, step4CreatedAnnIds)
         yield { type: 'error', data: { step: 'merge', code: 'MERGE_FAILED', message: msg } }
     }
+    } catch (e: unknown) {
+        // M4：Step 3/3b 差异识别、Step 4 预备阶段若抛未捕获异常，原先会穿出到 handler
+        // 兜底报 INTERNAL（step 恒为 merge、code 不精确）。这里按当前所处步骤 yield 精确
+        // 错误码，让前端把对应步骤标记为失败而非永久转圈。Step 1/2/4a/4b/5 各自有 try/catch，
+        // 正常不会落到这里。
+        const msg = e instanceof Error ? e.message : '处理失败'
+        logger.error('[uploadClientVersion] 未捕获异常', { reviewId: review.id, step: progressStep, err: msg })
+        yield {
+            type: 'error',
+            data: progressStep === 'diff'
+                ? { step: 'diff', code: 'DIFF_FAILED', message: msg }
+                : { step: 'ai', code: 'AI_REVIEW_FAILED', message: msg },
+        }
     } finally {
         // bug #9 + #10：原子锁必须释放。
         // M1：成功 → completed；失败时——已进入写库阶段 → failed；

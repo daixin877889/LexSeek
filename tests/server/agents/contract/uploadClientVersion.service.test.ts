@@ -953,6 +953,30 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
             expect(err?.data.code).toBe('NO_CONTENT_MATCH')
         }, 60000)
     })
+
+    describe('M4：Step 3/3b 异常错误码精度', () => {
+        it('Step 3 差异计算抛错 → yield {step:diff, code:DIFF_FAILED}，异常不穿出', async () => {
+            // Step 3 中段调 diffClauses 识别条款差异。让其抛错模拟差异计算崩溃 → Step 3 抛异常。
+            const clauseDiffMod = await import('~~/server/agents/contract/utils/clauseDiff')
+            const spy = vi.spyOn(clauseDiffMod, 'diffClauses')
+                .mockImplementationOnce(() => { throw new Error('差异计算崩溃') })
+            let events: { type: string; data: any }[]
+            try {
+                const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+                events = await collectEvents(uploadClientVersionService({ review, ossFileId, userId }))
+            } finally {
+                spy.mockRestore()
+            }
+            // 异常被捕获并转成精确的 diff 步错误事件，而非穿出到 handler 兜底 INTERNAL
+            const err = events.find(e => e.type === 'error')
+            expect(err).toBeDefined()
+            expect(err!.data.step).toBe('diff')
+            expect(err!.data.code).toBe('DIFF_FAILED')
+            // Step 3 失败发生在写库阶段之前 → status 恢复为进入前的 completed，不误锁 failed
+            const after = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+            expect(after.status).toBe('completed')
+        }, 60000)
+    })
 })
 
 // ==================== Phase B 双锚点迁移（PR7） ====================
