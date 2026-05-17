@@ -85,17 +85,23 @@ export class ReviewNotFoundError extends Error {
  * 入口先 findFirst 校验避免事务白白递增 maxVersionNo，事务内 update 用
  * updateMany + count 复核避免与软删并发竞态写出僵尸版本。
  */
-export async function saveContractReviewVersionService(input: SaveVersionInput) {
+export async function saveContractReviewVersionService(
+    input: SaveVersionInput,
+    txClient?: Prisma.TransactionClient,
+) {
     const { reviewId, systemLabel, lawyerNote, createdById } = input
+    // M2：已在外层事务内时（回传 Step 5）复用同一 tx 句柄，使版本快照与工作区写入原子化；
+    // 否则用全局 prisma 自开事务，与历史调用方（首次审查 / auto_backup）行为一致。
+    const db = txClient ?? prisma
 
     // 入口快速校验：review 不存在或已软删 → 直接抛错，避免进入事务
-    const existing = await prisma.contractReviews.findFirst({
+    const existing = await db.contractReviews.findFirst({
         where: { id: reviewId, deletedAt: null },
         select: { id: true },
     })
     if (!existing) throw new ReviewNotFoundError(reviewId)
 
-    return prisma.$transaction(async (tx) => {
+    const run = async (tx: Prisma.TransactionClient) => {
         // 1. 原子递增 + 读当前 currentVersionId 用于继承 docxText
         // 用 updateMany 而非 update，可在事务内复核 deletedAt 仍为 null（防并发软删竞态）
         const incrementResult = await tx.contractReviews.updateMany({
@@ -157,7 +163,8 @@ export async function saveContractReviewVersionService(input: SaveVersionInput) 
         if (finalUpdate.count !== 1) throw new ReviewNotFoundError(reviewId)
 
         return version
-    })
+    }
+    return txClient ? run(txClient) : prisma.$transaction(run)
 }
 
 /**

@@ -977,6 +977,129 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
             expect(after.status).toBe('completed')
         }, 60000)
     })
+
+    describe('M2/M3/M6：回传补偿 / 事务边界', () => {
+        // 建 v1 快照（clauses=[] 触发兜底重切，让 diffClauses 能识别 modified），
+        // 并让首个 parseContractDocx（accept 视图）返回新段落。
+        async function setupV1(oldText: string, newParas: string[]): Promise<void> {
+            const v1 = await prisma.contractReviewVersions.create({
+                data: {
+                    reviewId, versionNumber: 1, systemLabel: 'lawyer_save',
+                    snapshotData: { docxText: oldText, clauses: [] },
+                    createdById: userId,
+                },
+            })
+            await prisma.contractReviews.update({
+                where: { id: reviewId },
+                data: { currentVersionId: v1.id, maxVersionNo: 1 },
+            })
+            mockParseDocx.mockResolvedValueOnce({ paragraphs: newParas, rawXml: '<root/>' })
+        }
+
+        const OLD_TEXT = '第一条 这是旧条款 A 的全文，超过四十个字符方便后续 oldClauseHead 匹配命中。\n第二条 旧 B 条款内容。'
+        const NEW_PARAS = [
+            '第一条 这是旧条款 A 的全文，超过四十个字符方便后续 oldClauseHead 匹配命中。客户追加了一句。',
+            '第二条 旧 B 条款内容。',
+        ]
+
+        it('M6：Step 4a 已 in-place 更新的存量风险，Step 5 锚点迁移跳过它', async () => {
+            await setupV1(OLD_TEXT, NEW_PARAS)
+            // 存量 AI 风险：clauseText = 旧条款 1 全文（含 oldClauseHead），clauseCharStart 留空
+            const existingRisk = await prisma.contractRisks.create({
+                data: {
+                    reviewId, source: 'ai', category: '原分类', level: 'low', stance: 'balanced',
+                    problem: '原 problem', clauseText: OLD_TEXT.split('\n')[0]!,
+                    clauseParagraphIndex: 0,
+                },
+            })
+            // Step 4a 增量审查命中 → in-place 更新存量风险
+            mockAnalyzeClause.mockResolvedValueOnce([{
+                id: '', clauseIndex: 0, clauseText: '',
+                level: 'high', category: '新分类', problem: '新 problem',
+                analysis: '', risk: '', suggestion: '',
+            }])
+            const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+            const events = await collectEvents(uploadClientVersionService({ review, ossFileId, userId }))
+            expect(events.find(e => e.type === 'error')).toBeUndefined()
+
+            const after = await prisma.contractRisks.findUniqueOrThrow({ where: { id: existingRisk.id } })
+            // Step 4a 确实更新过该风险
+            expect(after.category).toBe('新分类')
+            // M6：Step 5 锚点迁移会写 clauseCharStart；跳过该风险则保持创建时的 null
+            expect(after.clauseCharStart).toBeNull()
+        }, 60000)
+
+        it('M3：Step 5 事务失败 → Step 4a in-place 更新的存量风险被补偿还原', async () => {
+            await setupV1(OLD_TEXT, NEW_PARAS)
+            const existingRisk = await prisma.contractRisks.create({
+                data: {
+                    reviewId, source: 'ai', category: '原分类', level: 'low', stance: 'balanced',
+                    problem: '原 problem', legalBasis: '原依据', clauseText: OLD_TEXT.split('\n')[0]!,
+                    clauseParagraphIndex: 0,
+                },
+            })
+            mockAnalyzeClause.mockResolvedValueOnce([{
+                id: '', clauseIndex: 0, clauseText: '',
+                level: 'high', category: '新分类', problem: '新 problem',
+                analysis: '新分析', risk: '', suggestion: '新建议', legalBasis: '新依据',
+            }])
+            // 让 client_return 版本快照创建失败 → Step 5 事务回滚 + 触发补偿
+            const versionMod = await import('~~/server/agents/contract/contractReviewVersion.service')
+            const orig = versionMod.saveContractReviewVersionService
+            const spy = vi.spyOn(versionMod, 'saveContractReviewVersionService')
+                .mockImplementation(async (input, tx) => {
+                    if (input.systemLabel === 'client_return') throw new Error('快照保存失败')
+                    return orig(input, tx)
+                })
+            try {
+                const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+                await collectEvents(uploadClientVersionService({ review, ossFileId, userId }))
+            } finally {
+                spy.mockRestore()
+            }
+            // M3：Step 4a in-place 更新被补偿还原 —— 被覆盖的字段回到更新前的值
+            const after = await prisma.contractRisks.findUniqueOrThrow({ where: { id: existingRisk.id } })
+            expect(after.level).toBe('low')
+            expect(after.category).toBe('原分类')
+            expect(after.legalBasis).toBe('原依据')
+        }, 60000)
+
+        it('M2：client_return 快照失败 → Step 5 事务整体回滚，锚点迁移不残留', async () => {
+            const oldClauseText = '第二条 乙方逾期支付的，每日按 0.05% 加收滞纳金，金额另行约定。'
+            const oldText = `第一条 工资按月支付。\n${oldClauseText}`
+            const newParas = [
+                '第一条 工资按月支付。',
+                '第二条 乙方逾期支付的，每日按 0.05% 加收滞纳金，金额由双方协商确定并写入附件。',
+            ]
+            await setupV1(oldText, newParas)
+            // analyzeSingleClause 返回空 → Step 4a 不动任何风险，锚点迁移完全交给 Step 5
+            mockAnalyzeClause.mockResolvedValue([])
+            const risk = await prisma.contractRisks.create({
+                data: {
+                    reviewId, source: 'ai', category: '违约金', level: 'medium', stance: 'balanced',
+                    problem: '违约金过低', clauseText: oldClauseText, clauseParagraphIndex: 1,
+                },
+            })
+            const versionMod = await import('~~/server/agents/contract/contractReviewVersion.service')
+            const orig = versionMod.saveContractReviewVersionService
+            const spy = vi.spyOn(versionMod, 'saveContractReviewVersionService')
+                .mockImplementation(async (input, tx) => {
+                    if (input.systemLabel === 'client_return') throw new Error('快照保存失败')
+                    return orig(input, tx)
+                })
+            try {
+                const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+                await collectEvents(uploadClientVersionService({ review, ossFileId, userId }))
+            } finally {
+                spy.mockRestore()
+            }
+            // M2：快照在同一事务内 → 快照失败连同锚点迁移一起回滚，clauseText 保持迁移前原值
+            const after = await prisma.contractRisks.findUniqueOrThrow({ where: { id: risk.id } })
+            expect(after.clauseText).toBe(oldClauseText)
+            const afterReview = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+            expect(afterReview.status).toBe('failed')
+        }, 60000)
+    })
 })
 
 // ==================== Phase B 双锚点迁移（PR7） ====================

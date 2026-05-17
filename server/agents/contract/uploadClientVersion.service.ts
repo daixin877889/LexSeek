@@ -9,7 +9,7 @@
  *
  * **Feature: contract-review-versioning-phase-b**
  */
-import type { contractReviews, Prisma } from '~~/generated/prisma/client'
+import type { contractReviews, contractRisks, Prisma } from '~~/generated/prisma/client'
 import type {
     UploadVersionProgressData,
     UploadVersionCompleteData,
@@ -91,17 +91,47 @@ type UploadEvent =
     | { type: 'error'; data: UploadVersionErrorData }
 
 /**
- * S4 / DOCX-H1：补偿式回滚 Step 4 新建的 risks/annotations 行。
+ * M3：Step 4a 对存量风险 in-place 更新写入的字段集（单点定义）。
  *
- * Step 4a 写库循环抛错、或 Step 5+6 事务失败时调用，避免"风险条目凭空多出但无版本快照"
- * 的数据不一致。删除顺序：先 annotation 再 risk（FK onDelete: Cascade 也能兜住，显式删更清楚）。
+ * Step 4a 正向更新与失败补偿还原共用此函数构造 update data——新增字段只改这里，
+ * 正反两端自动同步，杜绝「补偿漏还原某字段」的字段集漂移。
  */
-async function rollbackStep4CreatedRows(
+function buildStep4aExistingRiskUpdate(
+    src: Pick<contractRisks, 'level' | 'category' | 'problem' | 'legalBasis'
+        | 'analysis' | 'suggestion' | 'clauseText' | 'clauseParagraphIndex' | 'originalClauseText'>,
+): Prisma.contractRisksUpdateInput {
+    return {
+        level: src.level,
+        category: src.category,
+        problem: src.problem,
+        legalBasis: src.legalBasis,
+        analysis: src.analysis,
+        suggestion: src.suggestion,
+        clauseText: src.clauseText,
+        clauseParagraphIndex: src.clauseParagraphIndex,
+        originalClauseText: src.originalClauseText,
+    }
+}
+
+/**
+ * S4 / M3 / DOCX-H1：补偿式回滚 Step 4a 的全部变更。
+ *
+ * Step 4a 写库循环抛错、或 Step 5+6 事务失败时调用，避免「风险条目凭空多出 / 存量风险被
+ * in-place 覆盖却无版本快照」的数据不一致：
+ *  - 新建行（risks/annotations）：删除（先 annotation 再 risk，FK Cascade 也能兜，显式删更清楚）。
+ *  - in-place 更新过的存量风险：用更新前快照还原所有被 Step 4a 覆盖的字段。
+ */
+async function rollbackStep4Mutations(
     reviewId: number,
     step4CreatedRiskIds: number[],
     step4CreatedAnnIds: number[],
+    step4UpdatedExistingRisks: contractRisks[],
 ): Promise<void> {
-    if (step4CreatedAnnIds.length === 0 && step4CreatedRiskIds.length === 0) return
+    if (
+        step4CreatedAnnIds.length === 0
+        && step4CreatedRiskIds.length === 0
+        && step4UpdatedExistingRisks.length === 0
+    ) return
     try {
         await prisma.$transaction(async (tx) => {
             if (step4CreatedAnnIds.length > 0) {
@@ -110,17 +140,26 @@ async function rollbackStep4CreatedRows(
             if (step4CreatedRiskIds.length > 0) {
                 await tx.contractRisks.deleteMany({ where: { id: { in: step4CreatedRiskIds } } })
             }
+            // M3：还原 Step 4a in-place 更新过的存量风险——把被覆盖字段写回更新前的值。
+            for (const snap of step4UpdatedExistingRisks) {
+                await tx.contractRisks.update({
+                    where: { id: snap.id },
+                    data: buildStep4aExistingRiskUpdate(snap),
+                })
+            }
         })
-        logger.warn('[uploadClientVersion] 失败补偿：已回滚 Step 4 新建行', {
+        logger.warn('[uploadClientVersion] 失败补偿：已回滚 Step 4 变更', {
             reviewId,
             rolledBackRisks: step4CreatedRiskIds.length,
             rolledBackAnnotations: step4CreatedAnnIds.length,
+            restoredExistingRisks: step4UpdatedExistingRisks.length,
         })
     } catch (rollbackErr) {
-        logger.error('[uploadClientVersion] 补偿回滚失败，可能留下孤立新风险', {
+        logger.error('[uploadClientVersion] 补偿回滚失败，可能留下不一致数据', {
             reviewId,
             rolledBackRiskIds: step4CreatedRiskIds,
             rolledBackAnnIds: step4CreatedAnnIds,
+            restoredExistingRiskIds: step4UpdatedExistingRisks.map(r => r.id),
             err: rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr),
         })
     }
@@ -666,6 +705,11 @@ export async function* uploadClientVersionService(params: {
     // "风险条目凭空多出但无版本快照" 的数据不一致。
     const step4CreatedRiskIds: number[] = []
     const step4CreatedAnnIds: number[] = []
+    // M3/M6：Step 4a in-place 更新过的存量风险的「更新前快照」（按 id 去重，首次为准）。
+    //   - M3：补偿回滚时据此还原被覆盖字段。
+    //   - M6：其 id 集合即「Step 4a 已处理」标记，Step 5 锚点迁移跳过这些风险，避免基于
+    //     陈旧 dbRisks 重算覆盖 Step 4a 结果、甚至把刚刷新的风险误判 orphaned。
+    const step4UpdatedExistingRisks = new Map<number, contractRisks>()
 
     // DOCX-C1/C2：clauseParagraphIndex 必须用"非空段落序号"（commentInjector 期望的空间），
     // 不能用 newClauses 数组下标（条款序号空间）。这里建 newClauses → newParagraphs 映射，
@@ -754,9 +798,13 @@ export async function* uploadClientVersionService(params: {
                 const newParaIdx = newClauseArrayIdxToParaIdx(m.newIndex)
                 if (existingRisks.length > 0) {
                     for (const existing of existingRisks) {
+                        // M3/M6：登记更新前快照（同一风险多次命中以首次为准 = 真原值）。
+                        if (!step4UpdatedExistingRisks.has(existing.id)) {
+                            step4UpdatedExistingRisks.set(existing.id, existing)
+                        }
                         await prisma.contractRisks.update({
                             where: { id: existing.id },
-                            data: {
+                            data: buildStep4aExistingRiskUpdate({
                                 level: risk.level,
                                 category: risk.category,
                                 problem: risk.problem,
@@ -764,12 +812,12 @@ export async function* uploadClientVersionService(params: {
                                 analysis: risk.analysis ?? null,
                                 suggestion: risk.suggestion ?? null,
                                 // PR10 方案 D：用不含编号字符的文本作 anchor，规避 redlineInjector 严格匹配失败
-                                // ?? clause.text 是 ClauseSnapshotItem.textWithoutNumber 的 optional 字段 fallback
                                 clauseText: clause.textWithoutNumber ?? clause.text,
                                 // 锚点迁移到新条款对应的段落序号，避免 Step 5 再扫一次
                                 clauseParagraphIndex: newParaIdx,
-                                ...(existing.originalClauseText ? {} : { originalClauseText: existing.clauseText }),
-                            },
+                                // 首次迁移前回填 originalClauseText（已备份过 → 原值不变 = 无害空写）
+                                originalClauseText: existing.originalClauseText || existing.clauseText,
+                            }),
                         })
                     }
                 } else {
@@ -815,7 +863,7 @@ export async function* uploadClientVersionService(params: {
         // 且不让"凭空多出的风险/批注"残留。
         const msg = e instanceof Error ? e.message : 'AI 增量审查失败'
         logger.error('[uploadClientVersion] Step 4a 写库失败', { reviewId: review.id, err: msg })
-        await rollbackStep4CreatedRows(review.id, step4CreatedRiskIds, step4CreatedAnnIds)
+        await rollbackStep4Mutations(review.id, step4CreatedRiskIds, step4CreatedAnnIds, [...step4UpdatedExistingRisks.values()])
         yield { type: 'error', data: { step: 'ai', code: 'AI_REVIEW_FAILED', message: msg } }
         return
     }
@@ -947,6 +995,9 @@ export async function* uploadClientVersionService(params: {
         const riskMigrateUpdates: Array<{ id: number; data: Prisma.contractRisksUpdateInput }> = []
         for (const r of dbRisks) {
             if (r.clauseParagraphIndex == null) continue
+            // M6：Step 4a 已 in-place 更新（重新审查并迁移锚点）的存量风险跳过 Step 5 迁移——
+            // 否则基于陈旧 dbRisks 快照重算会覆盖 Step 4a 结果、甚至误标 orphaned。
+            if (step4UpdatedExistingRisks.has(r.id)) continue
 
             // S5：redline-aware 确定性迁移优先。风险在 redlineRefs 登记过时，用 ref.paraIdxs
             // 直接把它定位到回传 docx 的段落、映射到对应 newClauses 条款——绕开「原文锚点 vs
@@ -1111,8 +1162,11 @@ export async function* uploadClientVersionService(params: {
         })
 
         // ============ Step 5+6: 一次事务写入 + 保存快照 ============
+        // M2：client_return 版本快照纳入同一事务——快照失败时连同 removedAnnIds /
+        // 锚点迁移 / redline 处置一并回滚，杜绝「工作区已变更但无 client_return 快照」
+        // 的不对称状态。事务回调返回新版本行。
         const txStartMs = Date.now()
-        await prisma.$transaction(async (tx) => {
+        const newVersion = await prisma.$transaction(async (tx) => {
             // 标记客户删除的批注
             if (removedAnnIds.length > 0) {
                 await tx.contractAnnotations.updateMany({
@@ -1234,8 +1288,19 @@ export async function* uploadClientVersionService(params: {
             // 防止进程在锚点写完之后、JSONB 同步之前被 kill 让 PDF 导出 / 管理端列表
             // 读到过期快照。tx 透传保证同一 pg 连接、同一事务范围。
             await syncReviewRisksJsonb(review.id, tx)
+
+            // M2：client_return 版本快照在同一事务内创建，与上面的工作区写入原子化；
+            // 事务回调把新版本行返回给外层。
+            return await saveContractReviewVersionService({
+                reviewId: review.id,
+                systemLabel: 'client_return',
+                docxFileId: ossFileId,
+                createdById: userId,
+                docxText: newDocxText,
+                clauses: newClauses,
+            }, tx)
         }, {
-            // 事务现在只含 DB 写（创建批注 / 写迁移 payload / 写处置 / JSONB 同步），
+            // 事务含 DB 写（创建批注 / 写迁移 payload / 写处置 / JSONB 同步 / 版本快照），
             // 重计算已移出事务。30s 阈值对纯 DB 写绰绰有余，留作兜底。
             timeout: 30_000,
         })
@@ -1250,14 +1315,6 @@ export async function* uploadClientVersionService(params: {
                 summary += ` / 待确认 ${redlineCounts[ClientRedlineDecision.AMBIGUOUS]}`
             }
         }
-        const newVersion = await saveContractReviewVersionService({
-            reviewId: review.id,
-            systemLabel: 'client_return',
-            docxFileId: ossFileId,
-            createdById: userId,
-            docxText: newDocxText,
-            clauses: newClauses,
-        })
 
         yield {
             type: 'progress',
@@ -1272,7 +1329,7 @@ export async function* uploadClientVersionService(params: {
         const msg = e instanceof Error ? e.message : '合并失败'
         // DOCX-H1：Step 5+6 事务失败时回滚 Step 4 新建的 risks/annotations，
         // 避免"风险条目凭空多出但无版本快照"的数据不一致。
-        await rollbackStep4CreatedRows(review.id, step4CreatedRiskIds, step4CreatedAnnIds)
+        await rollbackStep4Mutations(review.id, step4CreatedRiskIds, step4CreatedAnnIds, [...step4UpdatedExistingRisks.values()])
         yield { type: 'error', data: { step: 'merge', code: 'MERGE_FAILED', message: msg } }
     }
     } catch (e: unknown) {
