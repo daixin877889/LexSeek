@@ -17,7 +17,7 @@ import { CheckCircle2Icon, XCircleIcon, CircleDashedIcon, HelpCircleIcon } from 
 export const RISK_LEVEL_BADGE_CLASS: Record<RiskLevel, string> = {
     high: 'bg-red-500 text-white',
     medium: 'bg-orange-500 text-white',
-    low: 'bg-gray-400 text-white',
+    low: 'bg-slate-400 text-white',
 }
 
 /**
