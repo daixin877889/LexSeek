@@ -664,7 +664,7 @@ async function handleCreateRisk(payload: { clauseText: string; clauseParagraphIn
                 class="flex items-center gap-2 px-4 py-2 border-b bg-muted text-muted-foreground text-sm shrink-0"
             >
                 <HistoryIcon class="size-4 shrink-0" />
-                <span class="font-medium text-foreground">只读模式 — 正在查看历史版本，无法编辑</span>
+                <span class="font-medium text-foreground">只读模式 — 正在查看历史版本 v{{ previewVersionNumber }}，无法编辑</span>
                 <button
                     class="ml-auto text-xs underline hover:opacity-80 text-primary"
                     @click="handleExitPreview"
@@ -715,7 +715,7 @@ async function handleCreateRisk(payload: { clauseText: string; clauseParagraphIn
                 class="flex items-center gap-2 px-4 py-2.5 border-b bg-primary/5 border-primary/20 text-sm shrink-0"
             >
                 <TrendingUpIcon class="size-4 shrink-0 text-primary" />
-                <span class="font-medium text-foreground">本轮变化</span>
+                <span class="font-semibold text-foreground">本轮变化</span>
                 <span class="text-xs text-muted-foreground flex-1 truncate">{{ versioning.lastUploadResult.value.summary }}</span>
                 <button
                     data-testid="dismiss-upload-banner"

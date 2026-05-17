@@ -32,30 +32,26 @@ vi.mock('vue-sonner', () => ({
     },
 }))
 
-// ── mock lucide-vue-next Loader2Icon（脚本内直接 import，globalStubs 无法注入）──
-vi.mock('lucide-vue-next', () => ({
-    Loader2Icon: defineComponent({
-        name: 'Loader2Icon',
-        setup: () => () => h('i', { 'data-stub': 'Loader2Icon' }),
-    }),
-    PinIcon: defineComponent({
-        name: 'PinIcon',
-        setup: () => () => h('i', { 'data-stub': 'PinIcon' }),
-    }),
-    MinusIcon: defineComponent({
-        name: 'MinusIcon',
-        setup: () => () => h('i', { 'data-stub': 'MinusIcon' }),
-    }),
-    XIcon: defineComponent({
-        name: 'XIcon',
-        setup: () => () => h('i', { 'data-stub': 'XIcon' }),
-    }),
-    // ResizableHandle 的 with-handle 槽里使用（分栏拖拽把手）
-    GripVertical: defineComponent({
-        name: 'GripVertical',
-        setup: () => () => h('i', { 'data-stub': 'GripVertical' }),
-    }),
-}))
+// ── mock lucide-vue-next（代理式自动 stub）──
+// 任意图标名按需自动生成 stub，覆盖全部传递依赖（contractRiskLevelStyle / RiskCard /
+// RiskDetailPanel / ContractDocxPreview 等）引入的图标，避免漏列导致整测试文件无法收集。
+vi.mock('lucide-vue-next', () => {
+    const made = new Map<string, unknown>()
+    const make = (name: string) => defineComponent({
+        name,
+        setup: () => () => h('i', { 'data-stub': name }),
+    })
+    return new Proxy({} as Record<string, unknown>, {
+        get(_t, prop: string | symbol) {
+            if (typeof prop !== 'string') return undefined
+            if (prop === '__esModule') return true
+            if (prop === 'default') return undefined
+            if (!made.has(prop)) made.set(prop, make(prop))
+            return made.get(prop)
+        },
+        has: () => true,
+    })
+})
 
 // ── mock useContractReview ──────────────────────────────────────────────────
 // 用受测试控制的 refs，驱动组件的三屏/Dialog/busy 行为。
