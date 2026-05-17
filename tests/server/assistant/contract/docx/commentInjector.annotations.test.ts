@@ -199,6 +199,54 @@ describe('injectAnnotations', () => {
         expect(rangeMatches.length).toBe(1)
     })
 
+    it('M9 回归：anchorParagraphIndex 为 null（上游 clauseParagraphIndex 越界落 null）时不抛 TypeError', async () => {
+        // 崩溃路径：越界 clauseIndex → buildClauseToBodyParagraphMap.get 得 undefined →
+        // clauseParagraphIndex 落库 null → runAnnotateAndUpload 用 `a.risk.clauseParagraphIndex!`
+        // 把 null 当 number 传入。旧实现 `null >= 0` 求值为真 → normalizedParas[null] 得 undefined
+        // → paraText.includes() 抛 TypeError → 整份审查置 failed。
+        const original = await readFile(SAMPLE)
+        const annotations: ContractAnnotationForExport[] = [
+            makeAnnotation({
+                id: 1,
+                anchorParagraphIndex: null as unknown as number,
+                anchorQuote: '一段绝不会出现在样本合同里的独特短语ZZZ99887',
+            }),
+        ]
+        // 修复前：抛 TypeError；修复后：quote 未命中 → 跳过该批注，不崩溃
+        const { buffer, refsByAnnotationId } = await injectAnnotations(original, annotations, 999)
+        expect(buffer).toBeInstanceOf(Buffer)
+        expect(refsByAnnotationId.size).toBe(1)
+    })
+
+    it('M9 回归：anchorParagraphIndex 为 null 但 anchorQuote 命中时，仍能按 quote 定位注入', async () => {
+        const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+            `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">` +
+            `<w:body>` +
+            `<w:p><w:r><w:t>合同编号 ABC-001</w:t></w:r></w:p>` +
+            `<w:p><w:r><w:t>第一条 乙方应当按时履行交付义务</w:t></w:r></w:p>` +
+            `<w:p><w:r><w:t>第二条 工作内容与职位</w:t></w:r></w:p>` +
+            `</w:body></w:document>`
+        const zip = new JSZip()
+        zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`)
+        zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`)
+        zip.file('word/_rels/document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`)
+        zip.file('word/document.xml', docXml)
+        const docxBuffer = Buffer.from(await zip.generateAsync({ type: 'nodebuffer' }))
+
+        const annotation = makeAnnotation({
+            id: 1,
+            anchorParagraphIndex: null as unknown as number,
+            anchorQuote: '第一条 乙方应当按时履行交付义务',
+        })
+        const { buffer } = await injectAnnotations(docxBuffer, [annotation], 999)
+        const resultZip = await loadDocxZip(buffer)
+        const resultDocXml = await readTextFromZip(resultZip, 'word/document.xml')
+        const allParas = resultDocXml.match(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g) ?? []
+        const paraWithRange = allParas.find(p => p.includes('<w:commentRangeStart'))
+        expect(paraWithRange).not.toBeUndefined()
+        expect(paraWithRange!).toContain('第一条 乙方应当按时履行交付义务')
+    })
+
     it('[Content_Types].xml 和 rels 含 comments 注册项', async () => {
         const original = await readFile(SAMPLE)
         const { paragraphs } = await parseContractDocx(original)

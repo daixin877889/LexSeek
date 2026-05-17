@@ -417,7 +417,11 @@ export async function injectAnnotations(
     const validAnnotations: ContractAnnotationForExport[] = []
     for (const a of annotations) {
         const paraIdx = a.anchorParagraphIndex
-        const paraValid = paraIdx >= 0 && paraIdx < nonEmptyCount
+        // M9：anchorParagraphIndex 上游可能因越界 clauseIndex 导致 clauseParagraphIndex 落
+        // null，再被 `a.risk.clauseParagraphIndex!` 断言成 number 实则 null 传进来。Number.isInteger
+        // 兜底——null / undefined / NaN / 非整数一律视为无效段落锚点，退回 quote fuzzy 定位，
+        // 避免 normalizedParas[null] 得 undefined → .includes() 抛 TypeError 把整份审查置 failed。
+        const paraValid = Number.isInteger(paraIdx) && paraIdx >= 0 && paraIdx < nonEmptyCount
 
         let resolved = -1
         if (paraValid) {

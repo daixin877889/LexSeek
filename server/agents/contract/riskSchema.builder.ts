@@ -20,7 +20,7 @@ export const RISK_SHAPE = z.object({
     //   - PATCH 路径：前端传的 id 来自之前 API 返回的已合法 UUID，不需要严格校验
     // YAGNI：id 校验对业务流程没有防护价值，放松后上游容错更强
     id: z.string().optional().describe('UUID，前端渲染 key；AI 路径会被服务端覆盖'),
-    clauseIndex: z.number().int().nonnegative().describe('段落索引（0-based）'),
+    clauseIndex: z.number().int().nonnegative().describe('条款序号（1-based，与 prompt 中的 clauseIndex 一致；AI 路径会被服务端按当前分析的条款强制覆盖）'),
     clauseText: z.string().min(1).max(10000).describe('原文段落全文'),
     level: z.enum(RISK_LEVEL).describe('风险级别'),
     category: z.string().min(1).max(200).describe('付款 / 交付 / 违约 / 保密 / 知识产权 / 争议解决 / 其他'),
