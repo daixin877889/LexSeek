@@ -19,6 +19,7 @@ import { z } from '#shared/utils/zod'
 import { createOssFilesDao } from '~~/server/services/files/ossFiles.dao'
 import { checkStorageQuotaService } from '~~/server/services/membership/userBenefit.service'
 import { generatePostSignatureService } from '~~/server/services/storage/storage.service'
+import { buildStorageDir } from '~~/server/utils/storagePath'
 
 /** 单个文件信息 */
 interface FileInfo {
@@ -119,8 +120,7 @@ export default defineEventHandler(async (event) => {
         const storageConfig = config.storage
         const ossConfig = storageConfig.aliyunOss
         const bucket = ossConfig.bucket
-        const basePath = storageConfig.basePath
-        const dir = `${basePath}user${user.id}/${source}/`
+        const dir = buildStorageDir({ scope: 'user', userId: user.id, source: source as FileSource })
         const callbackUrl = storageConfig.callbackUrl
 
         // 预处理文件信息

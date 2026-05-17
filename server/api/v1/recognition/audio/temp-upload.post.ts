@@ -17,6 +17,8 @@ import { SUPPORTED_AUDIO_TYPES } from '~~/server/services/material/asr.service'
 import { getExtensionFromFileName } from '#shared/utils/file'
 import { mime } from '#shared/utils/mime'
 import { generatePostSignatureService } from '~~/server/services/storage/storage.service'
+import { buildStorageDir } from '~~/server/utils/storagePath'
+import { FileSource } from '#shared/types/file'
 
 // 请求体验证 Schema
 const bodySchema = z.object({
@@ -116,7 +118,11 @@ export default defineEventHandler(async (event) => {
         // 从文件名获取扩展名，或从 MIME 类型推断
         const extension = getExtensionFromFileName(fileName) || mime.getExtension(actualMimeType) || 'mp3'
         const tempFileName = `${uuidv7()}.${extension}`
-        const tempDir = `temp/asr/${year}/${month}/${day}/`
+        const tempDir = buildStorageDir({
+            scope: 'temp',
+            source: FileSource.ASR,
+            subDir: `${year}/${month}/${day}`,
+        })
         const tempFilePath = `${tempDir}${tempFileName}`
 
         logger.debug('临时文件上传签名 API 生成临时路径', {

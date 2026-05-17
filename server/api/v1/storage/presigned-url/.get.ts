@@ -16,6 +16,7 @@ import { uuidv7 } from '#shared/utils/uuid'
 import { z } from '#shared/utils/zod'
 import { createOssFileDao } from '~~/server/services/files/ossFiles.dao'
 import { generatePostSignatureService } from '~~/server/services/storage/storage.service'
+import { buildStorageDir } from '~~/server/utils/storagePath'
 
 export default defineEventHandler(async (event) => {
     try {
@@ -63,7 +64,6 @@ export default defineEventHandler(async (event) => {
         const storageConfig = config.storage
         const ossConfig = storageConfig.aliyunOss
         const bucket = ossConfig.bucket
-        const basePath = storageConfig.basePath
         const callbackUrl = storageConfig.callbackUrl
 
         // 生成保存名称
@@ -72,7 +72,7 @@ export default defineEventHandler(async (event) => {
         const saveName = `${uuidv7()}.${extension}`
 
         // 生成保存目录
-        const dir = `${basePath}user${user.id}/${source}/`
+        const dir = buildStorageDir({ scope: 'user', userId: user.id, source })
 
         // 创建文件记录
         const file = await createOssFileDao({
