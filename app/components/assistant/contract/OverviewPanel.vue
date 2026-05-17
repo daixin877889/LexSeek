@@ -48,46 +48,43 @@ const missesExpanded = ref(false)
 </script>
 
 <template>
-    <div class="p-3 border-b bg-muted/10 space-y-3">
+    <div class="p-3 bg-muted/40 flex flex-col gap-3">
         <!-- 仪表盘 + 定性标签 -->
         <div class="flex items-center gap-3">
             <div
-                class="relative size-16 flex items-center justify-center"
-                :style="{
-                    background: `conic-gradient(#b91c1c 0deg ${arcDeg}deg, #e5e7eb ${arcDeg}deg 360deg)`,
-                    borderRadius: '50%',
-                }"
+                class="relative size-16 shrink-0 rounded-full flex items-center justify-center"
+                :style="{ background: `conic-gradient(#dc2626 0deg ${arcDeg}deg, var(--muted) ${arcDeg}deg 360deg)` }"
             >
-                <div class="absolute inset-2 bg-background rounded-full flex items-center justify-center text-lg font-bold">
+                <div class="absolute inset-[7px] bg-card rounded-full flex items-center justify-center text-lg font-bold">
                     {{ score }}
                 </div>
             </div>
             <div class="text-xs">
-                <div class="text-red-700 dark:text-red-300 font-semibold">合同风险分 {{ score }}/100</div>
-                <div class="text-muted-foreground">{{ scoreLabel }}</div>
+                <div class="text-[13px] font-semibold text-red-700 dark:text-red-300">合同风险分 {{ score }}/100</div>
+                <div class="text-muted-foreground mt-0.5">{{ scoreLabel }}</div>
             </div>
         </div>
 
         <!-- 三色计数卡（只读，不可点；用 div 而非 button） -->
         <div class="grid grid-cols-3 gap-1.5">
-            <div class="bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-200 rounded p-2 text-center" data-count="high">
-                <div class="text-lg font-bold">{{ counts.high }}</div>
-                <div class="text-xs">高</div>
+            <div class="rounded-md px-1 py-1.5 text-center bg-red-600/10 text-red-700 dark:text-red-300" data-count="high">
+                <div class="text-[17px] font-bold leading-none">{{ counts.high }}</div>
+                <div class="text-[11px] mt-0.5">高</div>
             </div>
-            <div class="bg-orange-100 dark:bg-orange-950/50 text-orange-700 dark:text-orange-200 rounded p-2 text-center" data-count="medium">
-                <div class="text-lg font-bold">{{ counts.medium }}</div>
-                <div class="text-xs">中</div>
+            <div class="rounded-md px-1 py-1.5 text-center bg-amber-600/12 text-amber-700 dark:text-amber-300" data-count="medium">
+                <div class="text-[17px] font-bold leading-none">{{ counts.medium }}</div>
+                <div class="text-[11px] mt-0.5">中</div>
             </div>
-            <div class="bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200 rounded p-2 text-center" data-count="low">
-                <div class="text-lg font-bold">{{ counts.low }}</div>
-                <div class="text-xs">低</div>
+            <div class="rounded-md px-1 py-1.5 text-center bg-slate-500/12 text-slate-600 dark:text-slate-300" data-count="low">
+                <div class="text-[17px] font-bold leading-none">{{ counts.low }}</div>
+                <div class="text-[11px] mt-0.5">低</div>
             </div>
         </div>
 
         <!-- 分档要点（仅 highlights 非空时显示） -->
         <template v-if="hasHighlights">
-            <div v-if="summary!.highlights!.high.length" class="space-y-1">
-                <div class="text-xs font-semibold text-red-700 dark:text-red-300 flex items-center gap-1">
+            <div v-if="summary!.highlights!.high.length" class="flex flex-col gap-0.5">
+                <div class="flex items-center gap-1 text-[11.5px] font-semibold text-red-700 dark:text-red-300">
                     <TriangleAlert class="size-3" />
                     高风险要点
                 </div>
@@ -97,17 +94,17 @@ const missesExpanded = ref(false)
                     :data-riskid="h.riskId"
                     :disabled="!h.riskId"
                     :class="[
-                        'block w-full text-left text-xs px-1.5 py-1 rounded transition-colors',
+                        'block w-full text-left text-[11.5px] px-1.5 py-1 rounded-md transition-colors',
                         h.riskId
-                            ? 'hover:bg-accent hover:text-accent-foreground'
-                            : 'cursor-default text-muted-foreground'
+                            ? 'text-foreground/75 hover:bg-primary/8'
+                            : 'cursor-default text-muted-foreground',
                     ]"
                     :title="!h.riskId ? '该要点缺少关联风险编号，无法跳转' : undefined"
                     @click="h.riskId && emit('focusRisk', h.riskId)"
                 >· {{ h.text }}</button>
             </div>
-            <div v-if="summary!.highlights!.medium.length" class="space-y-1">
-                <div class="text-xs font-semibold text-orange-700 dark:text-orange-300 flex items-center gap-1">
+            <div v-if="summary!.highlights!.medium.length" class="flex flex-col gap-0.5">
+                <div class="flex items-center gap-1 text-[11.5px] font-semibold text-amber-700 dark:text-amber-300">
                     <TriangleAlert class="size-3" />
                     中风险要点
                 </div>
@@ -117,17 +114,17 @@ const missesExpanded = ref(false)
                     :data-riskid="h.riskId"
                     :disabled="!h.riskId"
                     :class="[
-                        'block w-full text-left text-xs px-1.5 py-1 rounded transition-colors',
+                        'block w-full text-left text-[11.5px] px-1.5 py-1 rounded-md transition-colors',
                         h.riskId
-                            ? 'hover:bg-accent hover:text-accent-foreground'
-                            : 'cursor-default text-muted-foreground'
+                            ? 'text-foreground/75 hover:bg-primary/8'
+                            : 'cursor-default text-muted-foreground',
                     ]"
                     :title="!h.riskId ? '该要点缺少关联风险编号，无法跳转' : undefined"
                     @click="h.riskId && emit('focusRisk', h.riskId)"
                 >· {{ h.text }}</button>
             </div>
-            <div v-if="summary!.highlights!.low.length" class="space-y-1">
-                <div class="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+            <div v-if="summary!.highlights!.low.length" class="flex flex-col gap-0.5">
+                <div class="flex items-center gap-1 text-[11.5px] font-semibold text-slate-600 dark:text-slate-300">
                     <Info class="size-3" />
                     低风险要点
                 </div>
@@ -137,10 +134,10 @@ const missesExpanded = ref(false)
                     :data-riskid="h.riskId"
                     :disabled="!h.riskId"
                     :class="[
-                        'block w-full text-left text-xs px-1.5 py-1 rounded transition-colors',
+                        'block w-full text-left text-[11.5px] px-1.5 py-1 rounded-md transition-colors',
                         h.riskId
-                            ? 'hover:bg-accent hover:text-accent-foreground'
-                            : 'cursor-default text-muted-foreground'
+                            ? 'text-foreground/75 hover:bg-primary/8'
+                            : 'cursor-default text-muted-foreground',
                     ]"
                     :title="!h.riskId ? '该要点缺少关联风险编号，无法跳转' : undefined"
                     @click="h.riskId && emit('focusRisk', h.riskId)"
@@ -151,23 +148,23 @@ const missesExpanded = ref(false)
         <!-- 清单对照（仅 playbookMatch.enabled 时显示） -->
         <div
             v-if="playbookMatch.enabled.value"
-            class="rounded-md border bg-background px-3 py-2 space-y-2"
+            class="rounded-md border bg-background px-2.5 py-2 flex flex-col gap-1.5"
         >
-            <div class="flex items-center gap-2 text-xs font-semibold">
+            <div class="flex items-center gap-1.5 text-xs font-semibold">
                 <ClipboardList class="size-3.5" />
                 <span>审查清单 · {{ playbookSnapshot!.contractType }}</span>
-                <span class="ml-auto text-muted-foreground">
+                <span class="ml-auto text-[11px] font-normal text-muted-foreground">
                     命中 {{ playbookMatch.hitCount.value }} / {{ playbookMatch.total.value }}
                 </span>
             </div>
 
             <!-- 命中项 -->
-            <div v-if="playbookMatch.hits.value.length" class="space-y-1">
+            <div v-if="playbookMatch.hits.value.length" class="flex flex-col gap-0.5">
                 <button
                     v-for="h in playbookMatch.hits.value"
                     :key="h.point.code"
                     :data-riskid="h.risk.id"
-                    class="block w-full text-left text-xs px-1.5 py-1 rounded hover:bg-accent hover:text-accent-foreground transition-colors"
+                    class="block w-full text-left text-[11.5px] px-1.5 py-1 rounded-md hover:bg-primary/8 transition-colors"
                     @click="emit('focusRisk', h.risk.id)"
                 >
                     <TriangleAlert class="inline size-3 text-red-600 dark:text-red-300 mr-1 -mt-0.5" />
@@ -179,17 +176,17 @@ const missesExpanded = ref(false)
             <!-- 未命中项 -->
             <div v-if="playbookMatch.misses.value.length" class="border-t pt-1.5">
                 <button
-                    class="w-full flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                    class="w-full flex items-center gap-1 text-[11.5px] text-muted-foreground hover:text-foreground"
                     @click="missesExpanded = !missesExpanded"
                 >
                     <ChevronDown class="size-3 transition-transform" :class="{ 'rotate-180': missesExpanded }" />
                     <span>未命中 {{ playbookMatch.misses.value.length }} 条</span>
                 </button>
-                <div v-if="missesExpanded" class="mt-1 pl-4 space-y-0.5">
+                <div v-if="missesExpanded" class="mt-1 pl-4 flex flex-col gap-0.5">
                     <div
                         v-for="p in playbookMatch.misses.value"
                         :key="p.code"
-                        class="text-xs text-muted-foreground"
+                        class="text-[11.5px] text-muted-foreground"
                     >
                         · {{ p.title }}
                     </div>
@@ -200,7 +197,7 @@ const missesExpanded = ref(false)
         <!-- 总评 -->
         <div
             v-if="overall"
-            class="text-xs leading-relaxed rounded-md border-l-4 border-primary bg-primary/5 dark:bg-primary/10 px-2.5 py-2 text-foreground"
+            class="text-xs leading-relaxed rounded-r-md border-l-[3px] border-primary bg-primary/5 px-2.5 py-2 text-foreground"
         >
             <span class="font-semibold text-primary">总评：</span>{{ overall }}
         </div>
