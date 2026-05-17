@@ -342,7 +342,7 @@ describe('createDocumentTemplateService', () => {
             expect(mockCountUserTemplatesDAO).not.toHaveBeenCalled()
         })
 
-        it('scope=global 时 OSS 路径走 global-templates/ 前缀', async () => {
+        it('scope=global 时 OSS 路径走 system/document_template/ 格式', async () => {
             await createDocumentTemplateService({
                 ...BASE_PARAMS,
                 scope: 'global',
