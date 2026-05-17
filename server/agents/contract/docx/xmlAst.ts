@@ -299,6 +299,9 @@ const ID_BEARING_TAGS = new Set([
  *
  * 注意：只看 body 直接子段落，不递归 w:tbl 单元格里的段落——保持与 anchorParagraphIndex
  * 历史口径一致。commentInjector 与 redlineInjector 共享。
+ *
+ * M8：parser.ts 的 paragraphsFromAstWithMeta 复刻同口径产出 ParsedContract.bodyParagraphs。
+ * 改本函数判定（如新增过滤条件）须同步那里，否则批注注入口径会再次错位。
  */
 export function collectNonEmptyParagraphs(documentAst: NodeArray): Node[] {
     const body = findFirst(documentAst, 'w:body')

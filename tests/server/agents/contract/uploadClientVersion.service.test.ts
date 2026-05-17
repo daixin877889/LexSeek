@@ -41,14 +41,11 @@ vi.mock('~~/server/services/storage/storage.service', () => ({
 
 // 默认 parser：返回固定段落
 vi.mock('~~/server/agents/contract/docx/parser', () => ({
-    parseContractDocx: vi.fn(async () => ({
-        paragraphs: [
-            '第一条 甲方应支付首付款。',
-            '第二条 乙方应交付货物。',
-            '第三条 违约责任。',
-        ],
-        rawXml: '<root/>',
-    })),
+    parseContractDocx: vi.fn(async () => {
+        const paragraphs = ['第一条 甲方应支付首付款。', '第二条 乙方应交付货物。', '第三条 违约责任。']
+        // M8：mock 同样返回 body 段落口径字段（fixture 无表格 → identity 映射）
+        return { paragraphs, rawXml: '<root/>', bodyParagraphs: paragraphs, bodyParagraphIndex: paragraphs.map((_, i) => i) }
+    }),
 }))
 
 // 默认 wordCommentParser：返回空 comments + map（无任何客户批注/系统映射）
@@ -114,6 +111,11 @@ async function collectEvents(
     return events
 }
 
+/** M8：构造 parseContractDocx mock 返回值，补全 body 段落口径字段（fixture 无表格 → identity）。 */
+function fakeParsed(paragraphs: string[]) {
+    return { paragraphs, rawXml: '<root/>', bodyParagraphs: paragraphs, bodyParagraphIndex: paragraphs.map((_, i) => i) }
+}
+
 describe('uploadClientVersionService（关键失败路径补充）', () => {
     let userId: number
     let reviewId: number
@@ -125,14 +127,11 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
         mockDownload.mockReset()
         mockDownload.mockResolvedValue(FAKE_DOCX_BUFFER)
         mockParseDocx.mockReset()
-        mockParseDocx.mockResolvedValue({
-            paragraphs: [
-                '第一条 甲方应支付首付款。',
-                '第二条 乙方应交付货物。',
-                '第三条 违约责任。',
-            ],
-            rawXml: '<root/>',
-        })
+        mockParseDocx.mockResolvedValue(fakeParsed([
+            '第一条 甲方应支付首付款。',
+            '第二条 乙方应交付货物。',
+            '第三条 违约责任。',
+        ]))
         mockParseComments.mockReset()
         mockParseComments.mockResolvedValue({
             comments: [],
@@ -515,7 +514,7 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                 data: { currentVersionId: v1.id, maxVersionNo: 1 },
             })
             // 让 parseContractDocx 返回新版本段落
-            mockParseDocx.mockResolvedValueOnce({ paragraphs: newDocxParas, rawXml: '<root/>' })
+            mockParseDocx.mockResolvedValueOnce(fakeParsed(newDocxParas))
         }
 
         it('diff modified clause + analyzeSingleClause 返回 risk → 创建新 risk + annotation', async () => {
@@ -819,7 +818,7 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                 where: { id: reviewId },
                 data: { currentVersionId: v1.id, maxVersionNo: 1 },
             })
-            mockParseDocx.mockResolvedValueOnce({ paragraphs: newParas, rawXml: '<root/>' })
+            mockParseDocx.mockResolvedValueOnce(fakeParsed(newParas))
             mockAnalyzeClause.mockResolvedValueOnce([{
                 id: '', clauseIndex: 0, clauseText: '',
                 level: 'high', category: '违约', problem: '修改后的条款问题',
@@ -858,7 +857,7 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                 where: { id: reviewId },
                 data: { currentVersionId: v1.id, maxVersionNo: 1 },
             })
-            mockParseDocx.mockResolvedValueOnce({ paragraphs: newParas, rawXml: '<root/>' })
+            mockParseDocx.mockResolvedValueOnce(fakeParsed(newParas))
             mockAnalyzeClause.mockResolvedValueOnce([{
                 id: '', clauseIndex: 0, clauseText: '',
                 level: 'high', category: '违约', problem: '修改后的条款问题',
@@ -993,7 +992,7 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                 where: { id: reviewId },
                 data: { currentVersionId: v1.id, maxVersionNo: 1 },
             })
-            mockParseDocx.mockResolvedValueOnce({ paragraphs: newParas, rawXml: '<root/>' })
+            mockParseDocx.mockResolvedValueOnce(fakeParsed(newParas))
         }
 
         const OLD_TEXT = '第一条 这是旧条款 A 的全文，超过四十个字符方便后续 oldClauseHead 匹配命中。\n第二条 旧 B 条款内容。'
@@ -1119,13 +1118,10 @@ describe('uploadClientVersionService（Phase B 双锚点迁移 spec §9.2）', (
         mockDownload.mockReset()
         mockDownload.mockResolvedValue(FAKE_DOCX_BUFFER)
         mockParseDocx.mockReset()
-        mockParseDocx.mockResolvedValue({
-            paragraphs: [
-                '第一条 工资按月支付。',
-                '第二条 乙方逾期支付的，每日按 0.05% 加收滞纳金。',
-            ],
-            rawXml: '<root/>',
-        })
+        mockParseDocx.mockResolvedValue(fakeParsed([
+            '第一条 工资按月支付。',
+            '第二条 乙方逾期支付的，每日按 0.05% 加收滞纳金。',
+        ]))
         mockParseComments.mockReset()
         mockParseComments.mockResolvedValue({
             comments: [],
@@ -1231,13 +1227,10 @@ describe('uploadClientVersionService（Phase B 双锚点迁移 spec §9.2）', (
         })
 
         // 客户回传新 docx：把第二条改写但保留 quote 那一句
-        mockParseDocx.mockResolvedValueOnce({
-            paragraphs: [
-                '第一条 工资按月支付，并应在月底前一个工作日完成。',
-                '第二条 乙方应当及时履行付款义务；逾期支付的，每日按 0.05% 加收滞纳金；累计超 30 日的，甲方有权单方解除。',
-            ],
-            rawXml: '<root/>',
-        })
+        mockParseDocx.mockResolvedValueOnce(fakeParsed([
+            '第一条 工资按月支付，并应在月底前一个工作日完成。',
+            '第二条 乙方应当及时履行付款义务；逾期支付的，每日按 0.05% 加收滞纳金；累计超 30 日的，甲方有权单方解除。',
+        ]))
 
         const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
         const events = await collectEvents(uploadClientVersionService({
@@ -1299,13 +1292,10 @@ describe('uploadClientVersionService（Phase B 双锚点迁移 spec §9.2）', (
         })
 
         // 客户回传：保留前半条款，把 quote 那一句改成"协商解决"——档 1 fuzzy miss，档 2 sim≈0.625 命中
-        mockParseDocx.mockResolvedValueOnce({
-            paragraphs: [
-                '第一条 工资按月支付。',
-                '第二条 甲乙双方约定货款支付义务，乙方应在收货后 7 日内全额结清，由双方协商决定付款方式与具体争议处理事项。',
-            ],
-            rawXml: '<root/>',
-        })
+        mockParseDocx.mockResolvedValueOnce(fakeParsed([
+            '第一条 工资按月支付。',
+            '第二条 甲乙双方约定货款支付义务，乙方应在收货后 7 日内全额结清，由双方协商决定付款方式与具体争议处理事项。',
+        ]))
 
         const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
         const events = await collectEvents(uploadClientVersionService({
@@ -1358,13 +1348,10 @@ describe('uploadClientVersionService（Phase B 双锚点迁移 spec §9.2）', (
         })
 
         // 客户回传：第二条被微调
-        mockParseDocx.mockResolvedValueOnce({
-            paragraphs: [
-                '第一条 工资按月支付。',
-                '第二条 乙方逾期支付货款的，每日按 0.05% 加收滞纳金。',
-            ],
-            rawXml: '<root/>',
-        })
+        mockParseDocx.mockResolvedValueOnce(fakeParsed([
+            '第一条 工资按月支付。',
+            '第二条 乙方逾期支付货款的，每日按 0.05% 加收滞纳金。',
+        ]))
 
         const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
         const events = await collectEvents(uploadClientVersionService({
@@ -1411,13 +1398,10 @@ describe('uploadClientVersionService（Phase B 双锚点迁移 spec §9.2）', (
         })
 
         // 客户回传：把第二条整段替换成完全不相关的内容（无 第X条 编号 → segmentClauses 并入首段成单一 segment）
-        mockParseDocx.mockResolvedValueOnce({
-            paragraphs: [
-                '第一条 工资按月支付。',
-                'XYZXYZXYZ ABCABC DEF GHIJKL MNOPQRSTUVWXYZ啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊',
-            ],
-            rawXml: '<root/>',
-        })
+        mockParseDocx.mockResolvedValueOnce(fakeParsed([
+            '第一条 工资按月支付。',
+            'XYZXYZXYZ ABCABC DEF GHIJKL MNOPQRSTUVWXYZ啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊',
+        ]))
 
         const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
         const events = await collectEvents(uploadClientVersionService({
@@ -1459,13 +1443,10 @@ describe('uploadClientVersionService（Phase B 双锚点迁移 spec §9.2）', (
             },
         })
 
-        mockParseDocx.mockResolvedValueOnce({
-            paragraphs: [
-                '第一条 工资按月支付。',
-                '第二条 乙方应当按时履行付款义务，否则承担违约责任。',
-            ],
-            rawXml: '<root/>',
-        })
+        mockParseDocx.mockResolvedValueOnce(fakeParsed([
+            '第一条 工资按月支付。',
+            '第二条 乙方应当按时履行付款义务，否则承担违约责任。',
+        ]))
 
         const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
         await collectEvents(uploadClientVersionService({
@@ -1504,13 +1485,10 @@ describe('uploadClientVersionService（Phase B 双锚点迁移 spec §9.2）', (
         })
 
         // 这次客户又把那一句加回来了
-        mockParseDocx.mockResolvedValueOnce({
-            paragraphs: [
-                '第一条 工资按月支付。',
-                '第二条 乙方应及时付款；每日按 0.05% 加收滞纳金；累计超 30 日的甲方可解除。',
-            ],
-            rawXml: '<root/>',
-        })
+        mockParseDocx.mockResolvedValueOnce(fakeParsed([
+            '第一条 工资按月支付。',
+            '第二条 乙方应及时付款；每日按 0.05% 加收滞纳金；累计超 30 日的甲方可解除。',
+        ]))
 
         const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
         await collectEvents(uploadClientVersionService({
@@ -1550,14 +1528,11 @@ describe('uploadClientVersionService（Phase B 双锚点迁移 spec §9.2）', (
         })
 
         // 客户只在前面加了一段，没动第二条本身
-        mockParseDocx.mockResolvedValueOnce({
-            paragraphs: [
-                '前言：本合同自双方签字盖章之日起生效。',
-                '第一条 工资按月支付。',
-                '第二条 乙方逾期支付的，每日按 0.05% 加收滞纳金。',
-            ],
-            rawXml: '<root/>',
-        })
+        mockParseDocx.mockResolvedValueOnce(fakeParsed([
+            '前言：本合同自双方签字盖章之日起生效。',
+            '第一条 工资按月支付。',
+            '第二条 乙方逾期支付的，每日按 0.05% 加收滞纳金。',
+        ]))
 
         const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
         await collectEvents(uploadClientVersionService({

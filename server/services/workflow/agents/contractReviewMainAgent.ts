@@ -80,7 +80,7 @@ import {
 import { persistAiRisksAsContractRows, type PersistAiRiskRow } from '../../assistant/contract/contractRisk.service'
 import { createContractAnnotationDAO } from '../../assistant/contract/contractAnnotation.dao'
 import { saveContractReviewVersionService } from '../../assistant/contract/contractReviewVersion.service'
-import { buildClauseToParagraphMap } from '../../assistant/contract/utils/clauseToParagraph'
+import { buildClauseToBodyParagraphMap } from '../../assistant/contract/utils/clauseToParagraph'
 import type { CallbackHandlerMethods } from '@langchain/core/callbacks/base'
 import type { Prisma } from '~~/generated/prisma/client'
 import type { Risk, Stance, ClauseSegment, ClauseSnapshotItem, PlaybookSnapshot } from '#shared/types/contract'
@@ -102,6 +102,7 @@ async function persistRisksAndCreateV1Snapshot(
     clauses: ClauseSnapshotItem[],
     segments: ClauseSegment[],
     paragraphs: string[],
+    bodyParagraphIndex: (number | null)[],
 ): Promise<void> {
     // 幂等守卫：已有 currentVersionId 说明 v1 快照已存在，跳过
     const current = await prisma.contractReviews.findUnique({
@@ -113,12 +114,11 @@ async function persistRisksAndCreateV1Snapshot(
         return
     }
 
-    // Bug 修复：clauseIndex（segmentClauses 产出的"条款序号"）≠ clauseParagraphIndex
-    // （commentInjector / parseWordComments 使用的"非空段落序号"）。
-    // 先构造 clauseIndex → 非空段落序号 的映射：segment.offsetStart 落在哪一段，
-    // 该条款就归属哪一段。docxText 是 paragraphs.join('\n')，所以累加段落长度
-    // + 1 (for '\n') 就能找到对应段落序号。
-    const clauseIndexToParagraphIndex = buildClauseToParagraphMap(segments, paragraphs)
+    // clauseIndex（segmentClauses 产出的"条款序号"）≠ clauseParagraphIndex
+    // （commentInjector / parseWordComments 使用的"批注注入口径段落序号"）。
+    // M8：buildClauseToBodyParagraphMap 把条款序号换算成 body 直接段落序号；
+    // 条款落在表格内时为 null（其批注无法注入 docx，与 global_review 风险同口径）。
+    const clauseIndexToParagraphIndex = buildClauseToBodyParagraphMap(segments, paragraphs, bodyParagraphIndex)
 
     // PR10：用 segment.textWithoutNumber 作 anchor 字段（覆盖 LLM 自填的含编号 clauseText）
     const segmentByIndex = new Map(segments.map(s => [s.index, s]))
@@ -153,8 +153,8 @@ async function persistRisksAndCreateV1Snapshot(
     logger.info('persistRisksAndCreateV1Snapshot: v1 快照已创建', { reviewId, risksCount: risks.length })
 }
 
-// buildClauseToParagraphMap 已抽到 utils/clauseToParagraph.ts，
-// uploadClientVersion Step 4 也复用同一份映射逻辑（DOCX-C1/C2 修复）。
+// buildClauseToBodyParagraphMap 已抽到 utils/clauseToParagraph.ts，
+// uploadClientVersion Step 4 也复用同一份映射逻辑（DOCX-C1/C2 + M8 修复）。
 
 /** 合同审查主代理节点名称 */
 const CONTRACT_MAIN_NODE_NAME = 'contractReviewMain'
@@ -478,12 +478,15 @@ export async function runContractReviewChat(
     // paragraphs：非空段落数组（parseContractDocx 产出），用于把 segment.offsetStart
     // 映射到 commentInjector 使用的"非空段落序号"空间。
     let paragraphs: string[] = []
+    // M8：paragraphs[i] → 批注注入口径段落序号映射，写 clauseParagraphIndex 时换算用。
+    let bodyParagraphIndex: (number | null)[] = []
     try {
         await emitContractReviewEvent(emitterCtx, {
             type: 'stage', stage: 'segment', status: 'running',
         })
         const loaded = await loadContractFullText(review.originalFileId)
         paragraphs = loaded.paragraphs
+        bodyParagraphIndex = loaded.bodyParagraphIndex
         const segmentResult = await segmentClauses(loaded.fullText)
         segments = segmentResult.segments
         normalizedText = segmentResult.normalizedText
@@ -682,6 +685,7 @@ export async function runContractReviewChat(
                             clausesForSnapshot,
                             segments,
                             paragraphs,
+                            bodyParagraphIndex,
                         )
                     } catch (err) {
                         // v1 快照写入失败：后续 rebuild-docx / 版本时间线都依赖 ContractRisk + 快照，

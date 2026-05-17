@@ -32,10 +32,11 @@ vi.mock('~~/server/services/storage/storage.service', () => ({
 
 // mock parseContractDocx，避免依赖真实 docx 解析库对假 buffer 的处理
 vi.mock('~~/server/agents/contract/docx/parser', () => ({
-    parseContractDocx: vi.fn(async () => ({
-        paragraphs: ['第一条 甲方应在合同签署后 30 日内支付首付款。', '第二条 乙方应提供相应服务。'],
-        rawXml: '<root/>',
-    })),
+    parseContractDocx: vi.fn(async () => {
+        const paragraphs = ['第一条 甲方应在合同签署后 30 日内支付首付款。', '第二条 乙方应提供相应服务。']
+        // M8：mock 同样返回 body 段落口径字段（fixture 无表格 → identity 映射）
+        return { paragraphs, rawXml: '<root/>', bodyParagraphs: paragraphs, bodyParagraphIndex: paragraphs.map((_, i) => i) }
+    }),
 }))
 
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'

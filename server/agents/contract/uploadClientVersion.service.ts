@@ -35,7 +35,7 @@ import { parseRedlineMarks, classifyRedlineDecision, resolveCorpusForRef, resolv
 import { matchCommentsToAnnotations } from './docx/commentContentMatch'
 import { ClientRedlineDecision } from '#shared/types/contract'
 import { parseCommentRef, generateWordCommentRef, stripAuthorRef } from './utils/wordCommentRef'
-import { buildClauseToParagraphMap } from './utils/clauseToParagraph'
+import { buildClauseToBodyParagraphMap } from './utils/clauseToParagraph'
 
 /** 外部批注作者名落库默认值（stripAuthorRef 后仍为空时兜底）和长度上限。 */
 const DEFAULT_EXTERNAL_AUTHOR = '客户'
@@ -239,6 +239,9 @@ export async function* uploadClientVersionService(params: {
         // DOCX-C4：external_new 锚点需要用"非空段落序号 + 段落原文"而不是 clauseIndex，
         // 否则 paragraphIndex 可能远大于 newClauses.length 被误兜底为 0（挤到首段）。
         let newParagraphs: string[] = []
+        // M8：批注注入口径段落 + 分析口径→注入口径下标映射（见 parseContractDocx）。
+        let newBodyParagraphs: string[] = []
+        let newBodyParagraphIndex: (number | null)[] = []
         // S5：「拒绝所有修订」视图——Step 5 锚点迁移在定稿态失配时回退用它
         // （还原首轮审查原文，修订稿里原问题片段才能命中）。
         let rejectNewClauses: ClauseSnapshotItem[] = []
@@ -256,8 +259,10 @@ export async function* uploadClientVersionService(params: {
             }
 
             // 用同一份 Buffer 解析段落 + 批注，避免重复下载
-            const { paragraphs } = await parseContractDocx(docxBuffer)
+            const { paragraphs, bodyParagraphs, bodyParagraphIndex } = await parseContractDocx(docxBuffer)
             newParagraphs = paragraphs
+            newBodyParagraphs = bodyParagraphs
+            newBodyParagraphIndex = bodyParagraphIndex
             const { segments, normalizedText } = await segmentClauses(paragraphs.join('\n'))
             newDocxText = normalizedText
             newClauses = segments.map((s) => ({
@@ -711,16 +716,18 @@ export async function* uploadClientVersionService(params: {
     //     陈旧 dbRisks 重算覆盖 Step 4a 结果、甚至把刚刷新的风险误判 orphaned。
     const step4UpdatedExistingRisks = new Map<number, contractRisks>()
 
-    // DOCX-C1/C2：clauseParagraphIndex 必须用"非空段落序号"（commentInjector 期望的空间），
-    // 不能用 newClauses 数组下标（条款序号空间）。这里建 newClauses → newParagraphs 映射，
-    // 写入新 risk 时把 newClauses[m.newIndex].index 转换成非空段落序号。
-    const newClauseIdxToParaIdx = buildClauseToParagraphMap(newClauses, newParagraphs)
-    /** 把 newClauses 数组下标安全映射到非空段落序号；找不到时回落到 0（首段，避免 null 让批注挂不到） */
-    function newClauseArrayIdxToParaIdx(newArrayIdx: number): number {
+    // DOCX-C1/C2 + M8：clauseParagraphIndex 必须用「批注注入口径段落序号」
+    // （commentInjector 期望的空间），不能用 newClauses 数组下标（条款序号空间）。
+    // buildClauseToBodyParagraphMap 经 bodyParagraphIndex 把条款序号换算成该口径。
+    const newClauseIdxToParaIdx = buildClauseToBodyParagraphMap(newClauses, newParagraphs, newBodyParagraphIndex)
+    /**
+     * 把 newClauses 数组下标映射到批注注入口径段落序号。
+     * 条款落在表格内 / 数组下标越界时返回 null——该风险批注无法注入 docx（与 global_review 同口径）。
+     */
+    function newClauseArrayIdxToParaIdx(newArrayIdx: number): number | null {
         const seg = newClauses[newArrayIdx]
-        if (!seg) return 0
-        const para = newClauseIdxToParaIdx.get(seg.index)
-        return para ?? 0
+        if (!seg) return null
+        return newClauseIdxToParaIdx.get(seg.index) ?? null
     }
 
     // 4a. 对 diff.modified 的每个条款跑增量 AI 审查
@@ -1216,17 +1223,15 @@ export async function* uploadClientVersionService(params: {
 
             // 客户新增独立批注 → external_new risk + external annotation
             for (const c of newIndependent) {
-                // DOCX-C4：锚点是"非空段落序号"（parseWordComments 返回的 anchorParagraphIndex
-                // 和 commentInjector scanNonEmptyParagraphs 同口径）。越界校验必须用
-                // newParagraphs.length（非空段落总数）而不是 newClauses.length（条款总数，
-                // 通常远小于段落数）；clauseText 用段落原文（不是条款文本），与 parseWordComments
-                // 语义对齐，后续 rebuildDocxService 注入时 findParagraphIndexByQuote 能
-                // 字符串匹配兜底定位。
+                // DOCX-C4 + M8：c.anchorParagraphIndex 是 parseWordComments 的「批注注入
+                // 口径段落序号」（与 commentInjector / bodyParagraphs 同口径）。越界校验与
+                // clauseText 取段落原文都必须用 newBodyParagraphs（注入口径），不能用
+                // newParagraphs（分析口径，含表格段落、下标空间不同）。
                 const paraIdx = c.anchorParagraphIndex
-                const validPara = paraIdx !== null && paraIdx >= 0 && paraIdx < newParagraphs.length
+                const validPara = paraIdx !== null && paraIdx >= 0 && paraIdx < newBodyParagraphs.length
                 const clauseParagraphIndex = validPara ? paraIdx : null
                 const clauseText = validPara
-                    ? (newParagraphs[paraIdx!] ?? c.content.slice(0, 50))
+                    ? (newBodyParagraphs[paraIdx!] ?? c.content.slice(0, 50))
                     : c.content.slice(0, 50)
                 const risk = await tx.contractRisks.create({
                     data: {
