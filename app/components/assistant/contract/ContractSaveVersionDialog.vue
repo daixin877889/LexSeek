@@ -48,7 +48,7 @@ function handleConfirm() {
             </div>
             <DialogFooter>
                 <Button variant="outline" :disabled="submitting" @click="emit('update:open', false)">取消</Button>
-                <Button :disabled="submitting" @click="handleConfirm">
+                <Button :disabled="submitting" class="bg-gradient-brand-button text-white" @click="handleConfirm">
                     <Loader2 v-if="submitting" class="size-4 mr-1 animate-spin" />
                     保存版本
                 </Button>
