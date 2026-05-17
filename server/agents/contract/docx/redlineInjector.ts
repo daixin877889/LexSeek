@@ -41,14 +41,14 @@ import {
     writeTextToZip,
     zipToBuffer,
 } from './zipRewriter'
-import { registerCustomXmlPart } from './customXmlRegistrar'
+import { registerCustomXmlPart, removeCustomXmlPart } from './customXmlRegistrar'
 import {
     locateQuoteInParagraphs,
     computeRunLength,
     type RunSplit,
 } from './redlineLocate'
 
-const REDLINE_REFS_PATH = 'word/customXml/redlineRefs.xml'
+export const REDLINE_REFS_PATH = 'word/customXml/redlineRefs.xml'
 
 export interface RedlineRisk {
     /** contractRisks.id（数据库主键），仅用于 skippedRiskIds 回报 */
@@ -147,9 +147,15 @@ export async function injectRedlineMarks(
         candidates.push(r)
     }
 
+    const zip = await loadDocxZip(docxBuffer)
+
     if (candidates.length === 0) {
+        // M15：无 redline 候选，本轮不产生新 redlineRefs.xml。base 可能是客户回传件，
+        // 带着上一轮导出残留的陈旧 redlineRefs.xml——若原样带进产物，再回传时回传识别
+        // 会读到陈旧 delIds/insIds 致识别错乱。显式清理掉。
+        await removeCustomXmlPart(zip, { partPath: REDLINE_REFS_PATH })
         return {
-            buffer: Buffer.from(docxBuffer),
+            buffer: await zipToBuffer(zip),
             skippedRiskIds,
             spansByRiskId,
             nextIdAfter: cursorId,
@@ -157,7 +163,6 @@ export async function injectRedlineMarks(
         }
     }
 
-    const zip = await loadDocxZip(docxBuffer)
     const documentAst = parseOoxml(await readTextFromZip(zip, 'word/document.xml'))
     const nonEmptyParagraphs = collectNonEmptyParagraphs(documentAst)
     const dateIso = new Date().toISOString()
@@ -226,6 +231,11 @@ export async function injectRedlineMarks(
     if (spansByRiskId.size > 0) {
         writeTextToZip(zip, REDLINE_REFS_PATH, buildRedlineRefsXml(options.reviewId, spansByRiskId))
         await registerCustomXmlPart(zip, { partPath: REDLINE_REFS_PATH, relId: 'rIdLexseekRedlineRefs' })
+    }
+    else {
+        // M15：候选全部定位失败，本轮无新 redline 标记。同 candidates 为空的分支，
+        // 清理 base 残留的陈旧 redlineRefs.xml，避免陈旧身份证带进产物。
+        await removeCustomXmlPart(zip, { partPath: REDLINE_REFS_PATH })
     }
 
     return {
@@ -415,9 +425,16 @@ function applyRedlineToParagraph(input: {
     // 跨 run（startRunIdx < endRunIdx）
     const beforeStartRun = startSplit.left // 外
     const startInnerRun = startSplit.right // quote 起始
-    const middleRuns = kids.slice(runSplit.startRunIdx + 1, runSplit.endRunIdx)
-        .filter(k => tagOf(k) === 'w:r')
-        .map(k => deepClone(k))
+    // M13：区间 (startRunIdx, endRunIdx) 内除 w:r 外还可能夹着 bookmarkStart/End、
+    // commentRangeStart/End、proofErr 等零宽结构节点。旧实现 .filter(tagOf==='w:r')
+    // 只留 run，splice 整段替换后这些配对标记被切断一半 → 悬空 → Word 报"可读性内容
+    // 有问题"修复提示甚至损坏。这里把非 run 节点单独收集，删除区构造后原样补回。
+    const middleRuns: NodeArray = []
+    const preservedStructuralNodes: NodeArray = []
+    for (const node of kids.slice(runSplit.startRunIdx + 1, runSplit.endRunIdx)) {
+        if (tagOf(node) === 'w:r') middleRuns.push(deepClone(node))
+        else preservedStructuralNodes.push(deepClone(node))
+    }
     const endInnerRun = endSplit.left // quote 结尾
     const afterEndRun = endSplit.right // 外
 
@@ -445,6 +462,9 @@ function applyRedlineToParagraph(input: {
             author,
         }))
     }
+    // M13：区间内的非 run 结构节点在删除区/插入区之后、外段之前原样补回，
+    // 保证 bookmark/commentRange 等配对标记不悬空。
+    newRuns.push(...preservedStructuralNodes)
     if (afterEndRun) newRuns.push(afterEndRun)
 
     // 替换 [startRunIdx..endRunIdx] 区间为 newRuns

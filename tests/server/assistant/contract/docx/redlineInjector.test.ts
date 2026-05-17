@@ -462,3 +462,135 @@ describe('injectRedlineMarks · 完整 docx round-trip + spec §8.5 验证项', 
         expect(docXml).toContain('ABCD')
     })
 })
+
+// ===== M13：跨 run 修订注入保留区间内的非 run 结构节点 =====
+
+describe('applyRedlineToParagraph · M13 跨 run 保留非 run 结构节点', () => {
+    async function buildFixtureBuffer(documentXml: string): Promise<Buffer> {
+        const original = await readFile(SAMPLE)
+        const zip = await loadDocxZip(original)
+        zip.file('word/document.xml', documentXml)
+        return await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' })
+    }
+
+    it('quote 跨 run 且区间内夹 bookmarkStart/End 时，配对标记不被丢弃', async () => {
+        // 段落：run("违约金") + bookmarkStart + run("按月支付") + bookmarkEnd + run("逾期加收。")
+        // quote 跨三个 run，bookmarkStart/End 落在 (startRunIdx, endRunIdx) 区间内。
+        // 旧实现 .filter(tagOf==='w:r') 把它们删掉、splice 整段替换 → 配对标记悬空 → Word 报损坏。
+        const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t xml:space="preserve">违约金</w:t></w:r><w:bookmarkStart w:id="50" w:name="bk1"/><w:r><w:t xml:space="preserve">按月支付</w:t></w:r><w:bookmarkEnd w:id="50"/><w:r><w:t xml:space="preserve">逾期加收。</w:t></w:r></w:p>
+  </w:body>
+</w:document>`
+        const buffer = await buildFixtureBuffer(xml)
+        const clauseText = '违约金按月支付逾期加收。'
+        const result = await injectRedlineMarks(buffer, [{
+            id: 1,
+            clauseText,
+            clauseParagraphIndex: 0,
+            problematicQuote: '金按月支付逾',
+            quoteCharStart: 2,
+            quoteCharEnd: 8,
+            suggestedClauseText: '修订内容',
+        }], { reviewId: 999, idStart: 0 })
+
+        expect(result.skippedRiskIds).toEqual([])
+        const docXml = await readTextFromZip(await loadDocxZip(result.buffer), 'word/document.xml')
+        const docAst = parseOoxml(docXml)
+        // bookmarkStart / bookmarkEnd 都保留（配对完整，不悬空）
+        expect(findAll(docAst, 'w:bookmarkStart').length).toBe(1)
+        expect(findAll(docAst, 'w:bookmarkEnd').length).toBe(1)
+        // 中间 run 文字仍进了 w:del
+        expect(docXml).toContain('<w:delText')
+        expect(docXml).toContain('按月支付')
+    })
+})
+
+// ===== M15：导出前清理 base 残留的陈旧 redlineRefs.xml =====
+
+/** 先成功注入一轮 redline，得到一个带 redlineRefs.xml 的 docx（模拟客户回传件） */
+async function buildBufferWithRedlineRefs(): Promise<Buffer> {
+    const original = await readFile(SAMPLE)
+    const zip = await loadDocxZip(original)
+    zip.file('word/document.xml', `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body><w:p><w:r><w:t xml:space="preserve">违约金按 0.05% 计算。</w:t></w:r></w:p></w:body>
+</w:document>`)
+    const seedBuffer = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' })
+    const r = await injectRedlineMarks(seedBuffer, [{
+        id: 1, clauseText: '违约金按 0.05% 计算。', clauseParagraphIndex: 0,
+        problematicQuote: '0.05%', quoteCharStart: 5, quoteCharEnd: 10,
+        suggestedClauseText: '0.5%',
+    }], { reviewId: 871, idStart: 100 })
+    return Buffer.isBuffer(r.buffer) ? r.buffer : Buffer.from(r.buffer)
+}
+
+describe('injectRedlineMarks · M15 清理陈旧 redlineRefs.xml', () => {
+    it('本轮无 redline 候选（risk 全被前置跳过）时，清理 base 残留的陈旧 redlineRefs.xml', async () => {
+        const baseWithRefs = await buildBufferWithRedlineRefs()
+        expect((await loadDocxZip(baseWithRefs)).file('word/customXml/redlineRefs.xml')).not.toBeNull()
+
+        const result = await injectRedlineMarks(baseWithRefs, [
+            makeRisk({ id: 2 }), // 无 quote → 前置跳过 → candidates 为空
+        ], { reviewId: 871, idStart: 200 })
+        expect(result.spansByRiskId.size).toBe(0)
+
+        const zip = await loadDocxZip(result.buffer)
+        expect(zip.file('word/customXml/redlineRefs.xml')).toBeNull()
+        const ct = await readTextFromZip(zip, '[Content_Types].xml')
+        expect(ct).not.toContain('PartName="/word/customXml/redlineRefs.xml"')
+        const rels = await readTextFromZip(zip, 'word/_rels/document.xml.rels')
+        expect(rels).not.toContain('Target="customXml/redlineRefs.xml"')
+    })
+
+    it('候选存在但全部定位失败（spans 为空）时，也清理陈旧 redlineRefs.xml', async () => {
+        const baseWithRefs = await buildBufferWithRedlineRefs()
+        const result = await injectRedlineMarks(baseWithRefs, [
+            makeRisk({
+                id: 3,
+                clauseText: '与段落 textContent 完全不一致的条款文本',
+                clauseParagraphIndex: 0,
+                problematicQuote: '不一致',
+                quoteCharStart: 0,
+                quoteCharEnd: 3,
+                suggestedClauseText: '改写',
+            }),
+        ], { reviewId: 871, idStart: 200 })
+        expect(result.spansByRiskId.size).toBe(0)
+        expect(result.skippedRiskIds).toEqual([3])
+        expect((await loadDocxZip(result.buffer)).file('word/customXml/redlineRefs.xml')).toBeNull()
+    })
+
+})
+
+describe('injectAnnotations · M15 purgeRedlineRefs', () => {
+    function makeAnnotation(id: number): ContractAnnotationForExport {
+        return {
+            id,
+            riskId: id,
+            authorType: 'ai',
+            authorName: 'AI',
+            content: '审查意见',
+            parentAnnotationId: null,
+            anchorQuote: '违约金按 0.05% 计算。',
+            anchorParagraphIndex: 0,
+            wordCommentRef: null,
+        }
+    }
+
+    it('purgeRedlineRefs=true（comment 模式导出）时清理 base 残留的陈旧 redlineRefs.xml', async () => {
+        const baseWithRefs = await buildBufferWithRedlineRefs()
+        const result = await injectAnnotations(baseWithRefs, [makeAnnotation(1)], 871, { purgeRedlineRefs: true })
+        const zip = await loadDocxZip(result.buffer)
+        expect(zip.file('word/customXml/redlineRefs.xml')).toBeNull()
+        const ct = await readTextFromZip(zip, '[Content_Types].xml')
+        expect(ct).not.toContain('PartName="/word/customXml/redlineRefs.xml"')
+    })
+
+    it('不传 purgeRedlineRefs 时保留 redlineRefs.xml（both 模式 redline 已注入，不可误删）', async () => {
+        const baseWithRefs = await buildBufferWithRedlineRefs()
+        const result = await injectAnnotations(baseWithRefs, [makeAnnotation(1)], 871, {})
+        expect((await loadDocxZip(result.buffer)).file('word/customXml/redlineRefs.xml')).not.toBeNull()
+    })
+})

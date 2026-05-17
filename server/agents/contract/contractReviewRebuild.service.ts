@@ -89,7 +89,8 @@ export async function rebuildDocxService(
     const signature = await resolveContractExportSignatureService(review.userId)
 
     if (mode === 'comment') {
-        const r = await injectAnnotations(origBuffer, annotations, review.id, { signature })
+        // M15：comment 模式不注入 redline；清理 base 残留的陈旧 redlineRefs.xml
+        const r = await injectAnnotations(origBuffer, annotations, review.id, { signature, purgeRedlineRefs: true })
         finalBuffer = Buffer.isBuffer(r.buffer) ? r.buffer : Buffer.from(r.buffer)
         for (const [k, v] of r.refsByAnnotationId) writeRefs.set(k, v)
     }

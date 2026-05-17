@@ -45,7 +45,8 @@ import {
     type Node,
     type NodeArray,
 } from './xmlAst'
-import type { RedlineWrapTarget } from './redlineInjector'
+import { REDLINE_REFS_PATH, type RedlineWrapTarget } from './redlineInjector'
+import { removeCustomXmlPart } from './customXmlRegistrar'
 
 const LEVEL_LABEL: Record<RiskLevel, string> = {
     high: '高风险',
@@ -341,6 +342,13 @@ export interface InjectAnnotationsOptions {
     wrapTargetByRiskId?: Map<number, RedlineWrapTarget>
     /** AI 批注的作者署名（spec §4.3）；不传时回退 'AI' */
     signature?: string
+    /**
+     * M15：comment-only 模式导出时，清理 base（可能是客户回传件）残留的陈旧
+     * redlineRefs.xml + 其 [Content_Types].xml / rels 登记。
+     * both / redline 模式下 injectRedlineMarks 已写好本轮新鲜 redlineRefs，
+     * 这些模式**不传**此项（默认 false），避免误删本轮修订身份证。
+     */
+    purgeRedlineRefs?: boolean
 }
 
 /**
@@ -377,6 +385,8 @@ export async function injectAnnotations(
         zip.remove('word/customXml/annotationRefs.xml')
         // DOCX-H6：clean 残留的 customXml part rels 文件（极少存在但理论可能有）
         zip.remove('word/customXml/_rels/annotationRefs.xml.rels')
+        // M15：comment-only 导出清理 base 残留的陈旧 redlineRefs.xml
+        if (opts?.purgeRedlineRefs) await removeCustomXmlPart(zip, { partPath: REDLINE_REFS_PATH })
         await ensureContentTypesRegistered(zip, { comments: false, customXml: false })
         await ensureDocumentRelsRegistered(zip, { comments: false, customXml: false })
         return { buffer: await zipToBuffer(zip), refsByAnnotationId, nextIdAfter: opts?.idStart ?? 0 }
@@ -387,6 +397,8 @@ export async function injectAnnotations(
     }
 
     const zip = await loadDocxZip(docxBuffer)
+    // M15：comment-only 导出清理 base（可能是客户回传件）残留的陈旧 redlineRefs.xml
+    if (opts?.purgeRedlineRefs) await removeCustomXmlPart(zip, { partPath: REDLINE_REFS_PATH })
     const documentAst = parseOoxml(await readTextFromZip(zip, 'word/document.xml'))
     // S2 + M16：idStart 未显式传入（comment 默认模式）时，扫全文 w:id 共享池取 max+1，
     // 避免注入的 commentRange w:id 从 0 起撞原文档既有 bookmarkStart 等元素 → Word 报损坏。
@@ -462,7 +474,9 @@ export async function injectAnnotations(
     }
 
     if (validAnnotations.length === 0) {
-        return { buffer: Buffer.from(docxBuffer), refsByAnnotationId, nextIdAfter }
+        // M15：purgeRedlineRefs 已就地修改 zip，必须回写 zip 而非返回未改的 docxBuffer
+        const buffer = opts?.purgeRedlineRefs ? await zipToBuffer(zip) : Buffer.from(docxBuffer)
+        return { buffer, refsByAnnotationId, nextIdAfter }
     }
 
     // 按段落分组注入 range markers

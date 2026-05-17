@@ -320,7 +320,8 @@ export async function downloadContractReviewVersionService(
     const signature = await resolveContractExportSignatureService(review.userId)
     try {
         if (mode === 'comment') {
-            const result = await injectAnnotations(baseBuffer, exportable, review.id, { signature })
+            // M15：comment 模式不注入 redline；清理 base（可能是客户回传件）残留的陈旧 redlineRefs.xml
+            const result = await injectAnnotations(baseBuffer, exportable, review.id, { signature, purgeRedlineRefs: true })
             injectedBuffer = Buffer.isBuffer(result.buffer) ? result.buffer : Buffer.from(result.buffer)
         }
         else {
