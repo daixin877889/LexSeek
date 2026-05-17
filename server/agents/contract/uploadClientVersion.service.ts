@@ -103,6 +103,9 @@ export async function* uploadClientVersionService(params: {
     userId: number
 }): AsyncGenerator<UploadEvent> {
     const { review, ossFileId, userId } = params
+    // M1：进入前的原始 status。早期失败（尚未改动工作区数据）时 finally 据此恢复，
+    // 避免把原本 completed、可编辑的审查因瞬时错误（OSS 抖动 / 上传文件损坏）永久锁成 failed。
+    const originalStatus = review.status
 
     // ============ Step 0: 原子状态锁（bug #10） ============
     // HTTP 层已做过快速预检，但检查→开始之间存在 TOCTOU 窗口，
@@ -124,8 +127,11 @@ export async function* uploadClientVersionService(params: {
     }
 
     // 原子锁一旦拿到，后续无论成功/失败都必须释放，否则审查会永久卡在 rebuilding。
-    // 成功 → completed；任意失败（yield error + return / throw）→ failed。
+    // 成功 → completed；失败时按是否已进入写库阶段分流（见 finally）。
     let succeeded = false
+    // M1：是否已进入 Step 4a 写库阶段。Step 1~3（备份/解析/diff）全程只读、不改风险与批注，
+    // 这些早期步骤失败时应把 status 恢复为 originalStatus，而非误锁成 failed。
+    let enteredMutationStage = false
     try {
         // ============ Step 1: 自动备份当前工作区 ============
         yield { type: 'progress', data: { step: 'backup', status: 'progress' } }
@@ -646,6 +652,8 @@ export async function* uploadClientVersionService(params: {
         })),
     )
 
+    // M1：自此进入 Step 4a 写库阶段，后续失败不再恢复 originalStatus，一律置 failed。
+    enteredMutationStage = true
     for (const result of llmResults) {
         const { i, m, clause } = result
         if (!result.ok) {
@@ -1147,15 +1155,19 @@ export async function* uploadClientVersionService(params: {
         yield { type: 'error', data: { step: 'merge', code: 'MERGE_FAILED', message: msg } }
     }
     } finally {
-        // bug #9 + #10：原子锁必须释放。成功 → completed；任意失败分支 → failed。
+        // bug #9 + #10：原子锁必须释放。
+        // M1：成功 → completed；失败时——已进入写库阶段 → failed；
+        //     仍在 Step 1~3 早期阶段（未改动工作区数据）→ 恢复 originalStatus，不误锁成 failed。
+        const releaseStatus = succeeded
+            ? 'completed'
+            : (enteredMutationStage ? 'failed' : originalStatus)
         try {
-            await updateContractReviewDAO(review.id, {
-                status: succeeded ? 'completed' : 'failed',
-            })
+            await updateContractReviewDAO(review.id, { status: releaseStatus })
         } catch (releaseErr) {
             logger.error('uploadClientVersion: 释放 status 锁失败', {
                 reviewId: review.id,
                 succeeded,
+                releaseStatus,
                 err: releaseErr instanceof Error ? releaseErr.message : String(releaseErr),
             })
         }

@@ -610,7 +610,7 @@ export async function runContractReviewChat(
                     }
 
                     // 执行 analyze loop（发 analyze:running / progress / risk / analyze:done）
-                    const { risks } = await runAnalyzeLoop({
+                    const { risks, warnings } = await runAnalyzeLoop({
                         segments,
                         stance,
                         partyA: finalPartyA,
@@ -620,22 +620,46 @@ export async function runContractReviewChat(
                         emitterCtx,
                     })
 
+                    // S1：切分成功但全部条款分析失败（risks 空、warnings 非空）——合同根本没被
+                    // AI 分析过，不能继续走 summarize/persist/annotate 误判「审查完成·无风险」，
+                    // 直接置 failed。与上方 segments.length===0 的 fail-fast 同构。
+                    if (risks.length === 0 && warnings.length > 0) {
+                        logger.warn('runContractReviewChat resume: 全部条款分析失败，置 failed', {
+                            reviewId: review.id, sessionId,
+                            failedClauseCount: warnings.length, totalClauses: segments.length,
+                        })
+                        await updateContractReviewDAO(review.id, { status: 'failed' })
+                        // analyze:done（含 warnings）已由 runAnalyzeLoop 内部发出；补 summarize
+                        // running+done，否则前端 5 段进度条 allDone 永远不为真。
+                        await emitContractReviewEvent(emitterCtx, { type: 'stage', stage: 'summarize', status: 'running' })
+                        await emitContractReviewEvent(emitterCtx, { type: 'stage', stage: 'summarize', status: 'done' })
+                        controller.close()
+                        return
+                    }
+
                     // 写 risks 到 DB（一次性落库）
                     await updateContractReviewDAO(review.id, {
                         risks: risks as unknown as Prisma.InputJsonValue,
                     })
 
+                    // S1：部分条款分析失败（仍有风险产出）——审查可继续，但在总评末尾标注
+                    // 失败条款数，避免律师误以为审查已完整覆盖全部条款。
+                    const incompleteNote = warnings.length > 0
+                        ? `（另有 ${warnings.length} 条条款未能完成分析，建议重新审查）`
+                        : ''
+
                     // 生成结构化总览（summarize 阶段）
                     await emitContractReviewEvent(emitterCtx, { type: 'stage', stage: 'summarize', status: 'running' })
                     try {
                         const overview = await summarizeOverview(risks, stance, review.contractType)
+                        overview.overall = `${overview.overall}${incompleteNote}`
                         await updateContractReviewDAO(review.id, { summary: overview as unknown as Prisma.InputJsonValue })
                         await emitContractReviewEvent(emitterCtx, { type: 'overview', overview })
                         await emitContractReviewEvent(emitterCtx, { type: 'stage', stage: 'summarize', status: 'done' })
                     } catch (err) {
                         logger.warn('summarizeOverview 失败，降级为仅 overall', { reviewId: review.id, err })
                         await updateContractReviewDAO(review.id, {
-                            summary: { highlights: null, overall: `本合同识别到 ${risks.length} 条风险。` } as unknown as Prisma.InputJsonValue,
+                            summary: { highlights: null, overall: `本合同识别到 ${risks.length} 条风险。${incompleteNote}` } as unknown as Prisma.InputJsonValue,
                         })
                         await emitContractReviewEvent(emitterCtx, { type: 'stage', stage: 'summarize', status: 'done' })
                     }

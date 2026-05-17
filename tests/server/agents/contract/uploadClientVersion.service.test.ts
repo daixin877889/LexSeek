@@ -775,6 +775,72 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
             expect(labels).toContain('client_return')
         }, 60000)
     })
+
+    describe('M1：早期失败恢复原始 status（不误砸 failed）', () => {
+        it('Step 2 解析失败（parseContractDocx 抛错）→ status 恢复为原始 completed', async () => {
+            mockParseDocx.mockRejectedValueOnce(new Error('docx 解析崩溃'))
+            const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+            const events = await collectEvents(
+                uploadClientVersionService({ review, ossFileId, userId }),
+            )
+            expect(events.find(e => e.type === 'error')?.data.code).toBe('PARSE_FAILED')
+            // Step 2 失败时尚未发生任何工作区数据变更，status 必须恢复为进入前的 completed，
+            // 否则原本可编辑的审查会被瞬时错误永久锁成 failed。
+            const after = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+            expect(after.status).toBe('completed')
+        })
+
+        it('Step 2 文件类型非 docx → status 恢复为原始 completed', async () => {
+            await prisma.ossFiles.update({
+                where: { id: ossFileId },
+                data: { fileType: 'application/pdf' },
+            })
+            const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+            const events = await collectEvents(
+                uploadClientVersionService({ review, ossFileId, userId }),
+            )
+            expect(events.find(e => e.type === 'error')?.data.code).toBe('PARSE_FAILED')
+            const after = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+            expect(after.status).toBe('completed')
+        })
+
+        it('Step 4a 写库后失败 → status=failed（已发生数据变更，不恢复原始 status）', async () => {
+            // 构造一个会被 diff 判为 modified 的条款，让 Step 4a 真正写库（创建新 risk/annotation）
+            const oldText = '第一条 旧条款 A 内容。\n第二条 旧条款 B。\n第三条 旧条款 C。'
+            const newParas = ['第一条 修改后的全新条款 A 内容。', '第二条 旧条款 B。', '第三条 旧条款 C。']
+            const v1 = await prisma.contractReviewVersions.create({
+                data: {
+                    reviewId, versionNumber: 1, systemLabel: 'lawyer_save',
+                    snapshotData: { docxText: oldText, clauses: [] },
+                    createdById: userId,
+                },
+            })
+            await prisma.contractReviews.update({
+                where: { id: reviewId },
+                data: { currentVersionId: v1.id, maxVersionNo: 1 },
+            })
+            mockParseDocx.mockResolvedValueOnce({ paragraphs: newParas, rawXml: '<root/>' })
+            mockAnalyzeClause.mockResolvedValueOnce([{
+                id: '', clauseIndex: 0, clauseText: '',
+                level: 'high', category: '违约', problem: '修改后的条款问题',
+                analysis: '分析', risk: '风险', suggestion: '建议',
+                legalBasis: '《合同法》第X条',
+            }])
+            // Step 4a 写库完成后，让 Step 6 保存版本快照抛错 → 整体失败
+            const versionMod = await import('~~/server/agents/contract/contractReviewVersion.service')
+            const spy = vi.spyOn(versionMod, 'saveContractReviewVersionService')
+                .mockRejectedValueOnce(new Error('保存版本快照失败'))
+            try {
+                const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+                await collectEvents(uploadClientVersionService({ review, ossFileId, userId }))
+            } finally {
+                spy.mockRestore()
+            }
+            // Step 4a 已写过库（新建 risk/annotation），属"已发生数据变更"，失败必须置 failed
+            const after = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+            expect(after.status).toBe('failed')
+        }, 60000)
+    })
 })
 
 // ==================== Phase B 双锚点迁移（PR7） ====================

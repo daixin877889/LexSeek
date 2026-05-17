@@ -1050,8 +1050,7 @@
 
     .case-row:hover,
     .case-card:hover,
-    .file-tile:hover,
-    .session-item:hover {
+    .file-tile:hover {
       border-color: rgba(30, 158, 237, 0.34);
       box-shadow: var(--shadow-hover);
       transform: translateY(-1px);
@@ -1226,76 +1225,6 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-    }
-
-    .ai-shell {
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      display: grid;
-      grid-template-columns: 220px minmax(0, 1fr);
-      overflow: hidden;
-    }
-
-    .session-pane {
-      background: var(--muted-2);
-      border-right: 1px solid var(--border);
-      display: grid;
-      gap: 8px;
-      padding: 12px;
-    }
-
-    .session-item {
-      border: 1px solid transparent;
-      border-radius: 11px;
-      background: var(--card);
-      padding: 10px;
-      transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
-    }
-
-    .session-item.active {
-      background:
-        linear-gradient(90deg, rgba(30, 237, 196, 0.14), rgba(30, 158, 237, 0.12)),
-        var(--card);
-      border-color: rgba(30, 158, 237, 0.26);
-    }
-
-    .chat-pane {
-      display: grid;
-      gap: 12px;
-      padding: 16px;
-    }
-
-    .message {
-      border-radius: 12px;
-      font-size: 13px;
-      max-width: 72%;
-      padding: 10px 12px;
-    }
-
-    .message.assistant {
-      background: var(--muted);
-      color: var(--foreground);
-    }
-
-    .message.user {
-      background: var(--brand-button);
-      color: #fff;
-      justify-self: end;
-    }
-
-    .prompt-bar {
-      align-items: center;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      display: flex;
-      gap: 10px;
-      padding: 9px 10px;
-    }
-
-    .prompt-placeholder {
-      color: var(--muted-foreground);
-      flex: 1;
-      font-size: 13px;
     }
 
     .source-map {
@@ -1597,8 +1526,8 @@
     .dark-sample .order-mobile-card,
     .dark-sample .point-card,
     .dark-sample .file-tile,
-    .dark-sample .session-item,
-    .dark-sample .prompt-bar,
+    .dark-sample .source-item,
+    .dark-sample .structure-node,
     .dark-sample .search-panel,
     .dark-sample .dialog,
     .dark-sample .toast,
@@ -1616,10 +1545,6 @@
     .dark-sample .mini-table table {
       background: var(--card);
       color: var(--foreground);
-    }
-
-    .dark-sample .message.assistant {
-      background: var(--muted);
     }
 
     .dark-sample .search-input {
@@ -1660,7 +1585,6 @@
 
       .app-grid.cols-2,
       .app-grid.cols-3,
-      .ai-shell,
       .source-map,
       .token-grid,
       .dark-layout,
@@ -1669,11 +1593,6 @@
       }
 
       .dark-sidebar-demo {
-        border-right: 0;
-        border-bottom: 1px solid var(--border);
-      }
-
-      .session-pane {
         border-right: 0;
         border-bottom: 1px solid var(--border);
       }
@@ -2282,10 +2201,41 @@
               <div class="source-path">app/pages/dashboard/assistant/index.vue<br>app/components/assistant/AssistantSessionList.vue<br>app/components/assistant/AssistantChatPanel.vue<br>app/components/ai/AiChat.vue<br>app/components/ai/AiPromptInput.vue</div>
             </div>
             <div class="source-item">
+              <div class="source-title">全局工作台框架</div>
+              <div class="source-path">app/layouts/dashboardLayout.vue<br>app/components/dashboard/navMain.vue<br>app/components/general/ThemeToggle.vue<br>app/components/ViewModeToggle.vue</div>
+            </div>
+            <div class="source-item">
+              <div class="source-title">案件详情 / 分析</div>
+              <div class="source-path">app/pages/dashboard/cases/[id].vue<br>app/components/caseDetail/CaseDetailSidebar.vue<br>app/components/case/AnalysisResults.vue<br>app/components/caseDetail/CaseDetailXiaosuo.vue</div>
+            </div>
+            <div class="source-item">
+              <div class="source-title">合同审查</div>
+              <div class="source-path">app/pages/dashboard/contract/index.vue<br>app/components/assistant/contract/ContractReviewPanel.vue<br>app/components/assistant/contract/RiskCard.vue<br>app/components/assistant/contract/ReviewProgress.vue</div>
+            </div>
+            <div class="source-item">
+              <div class="source-title">文书草稿 / 模板</div>
+              <div class="source-path">app/pages/dashboard/document/drafts/[id].vue<br>app/components/assistant/document/DocumentPreview.vue<br>app/components/assistant/document/DraftCardList.vue<br>app/pages/dashboard/document/templates.vue</div>
+            </div>
+            <div class="source-item">
+              <div class="source-title">会员 / 支付</div>
+              <div class="source-path">app/components/membership/MembershipPackageList.vue<br>app/components/points/PointPurchaseDialog.vue<br>app/components/payment/PaymentQRCodeDialog.vue<br>app/components/order/OrderDetailDialog.vue</div>
+            </div>
+            <div class="source-item">
+              <div class="source-title">办案工具</div>
+              <div class="source-path">app/pages/dashboard/tools/index.vue<br>app/components/tools/CalculatorPageHeader.vue<br>app/components/tools/ResultCard.vue<br>app/pages/dashboard/tools/*.vue</div>
+            </div>
+            <div class="source-item">
               <div class="source-title">通用规则</div>
               <div class="source-path">结构不新增，语义不改名，图标不替换为 emoji；只调整品牌色、语义色、边框、底色、hover/focus/active/disabled。</div>
             </div>
           </div>
+          <h3 style="margin-top:16px;">覆盖审计结论</h3>
+          <ul class="color-spec-list">
+            <li><strong>已对齐</strong><span>工作台统计卡、案件列表/卡片、法规检索、订单积分、文件库、通用 AI 对话的结构来源已经补到文档里；这些示例只用于配色，不作为重构结构。</span></li>
+            <li><strong>已修正</strong><span>AI 对话不再使用简化“左会话 + 消息气泡 + 输入框”示意；现在锁定现有 AssistantSessionList、AssistantChatPanel、AiChat、AiPromptInput 等结构。</span></li>
+            <li><strong>需要补强</strong><span>案件详情/分析、小索浮窗、合同审查、文书草稿、会员/支付、办案工具、全局工作台框架是关键页面族，下面新增配色规范。</span></li>
+            <li><strong>不纳入本轮</strong><span>管理端页面不在 <code>theme-brand</code> 工作台品牌作用域内，若后续要统一管理端，需要单独做 Admin 规范，不应混入用户端品牌主题。</span></li>
+          </ul>
         </div>
 
         <div class="example-shell" style="margin-top:18px;">
@@ -2619,6 +2569,114 @@
             <li><strong>队列与中断</strong><span>排队、暂停、余额、失败等业务状态按 amber / red / green 语义色，不用品牌蓝替代。</span></li>
           </ul>
         </div>
+
+        <div class="example-shell" style="margin-top:18px;">
+          <div class="example-header">
+            <div>
+              <h3 class="example-title">全局工作台框架：侧边栏、顶栏、视图切换</h3>
+              <p class="example-desc">结构以 dashboardLayout、navMain、ThemeToggle、ViewModeToggle 为准。这里补的是全站页面骨架配色，避免只改内容区而漏掉导航态。</p>
+            </div>
+          </div>
+          <ul class="color-spec-list">
+            <li><strong>侧边栏背景</strong><span>工作台根容器保持 <code>theme-brand</code>；侧边栏使用 <code>var(--wash-sidebar)</code>，不要在菜单项内写死白底或深色背景。</span></li>
+            <li><strong>菜单选中态</strong><span>保留左侧 3px 品牌竖条和青蓝渐隐底纹；文字使用 <code>text-primary</code>，普通项 hover 用 <code>bg-primary/[0.08]</code>。</span></li>
+            <li><strong>顶栏</strong><span>使用 <code>bg-background/70 backdrop-blur-md border-b</code>，主题切换只呈现亮色/暗色，不再出现多色主题入口。</span></li>
+            <li><strong>视图切换</strong><span>保留图标按钮结构；激活项为 <code>bg-background shadow-sm text-primary</code>，未激活项为 muted 文字。</span></li>
+          </ul>
+        </div>
+
+        <div class="example-shell" style="margin-top:18px;">
+          <div class="example-header">
+            <div>
+              <h3 class="example-title">案件详情：侧栏、底部 Tab、分析模块、小索浮窗</h3>
+              <p class="example-desc">结构以 CaseDetail 页面族为准，不能把它改成普通卡片页。关键是多视图容器、桌面侧栏、移动端底部 Tab、模块对话、小索浮窗共存时的配色一致。</p>
+            </div>
+          </div>
+          <div class="structure-map">
+            <div class="structure-node">
+              <div class="structure-node-title">案件详情框架</div>
+              <p class="structure-node-copy">保留顶部返回/导出/小索入口、桌面左侧 CaseDetailSidebar、移动端 CaseDetailBottomTabs、内容区 Transition 和多个详情视图。</p>
+            </div>
+            <div class="structure-node">
+              <div class="structure-node-title">分析结果四态卡片</div>
+              <p class="structure-node-copy">保留 AnalysisResults 的 dashboard/detail 双模式、grid/list 切换、complete / in_progress / idle / failed 四态、BatchAnalysisPopover 和版本 Sheet。</p>
+            </div>
+            <div class="structure-node">
+              <div class="structure-node-title">小索浮窗</div>
+              <p class="structure-node-copy">保留 ChatWindowShell 的桌面全屏、小窗拖拽缩放、移动端底部 Sheet，以及 SessionListPopover、队列条、材料选择器、中断弹窗。</p>
+            </div>
+          </div>
+          <ul class="color-spec-list" style="margin-top:12px;">
+            <li><strong>侧栏/底部 Tab</strong><span>当前视图使用 <code>bg-primary/10 text-primary</code>；未选项用 muted，禁用项用 <code>text-muted-foreground/50</code>。</span></li>
+            <li><strong>分析四态</strong><span>完成态用 primary 淡底；运行态用 primary 边框和 spinner；待生成用 dashed muted；失败用 destructive 淡底和边框。</span></li>
+            <li><strong>运行/中断提示</strong><span>工作流运行条用 <code>bg-primary/10 border-primary/20 text-primary</code>；积分不足和中断处理用 amber 语义色。</span></li>
+            <li><strong>浮窗外壳</strong><span>ChatWindowShell 使用 <code>bg-background border shadow-xl</code>；标题栏用 <code>bg-muted/30 border-b</code>，小索入口保持原图标，不替换结构。</span></li>
+          </ul>
+        </div>
+
+        <div class="example-shell" style="margin-top:18px;">
+          <div class="example-header">
+            <div>
+              <h3 class="example-title">合同审查：创建卡、历史卡、审查面板、风险卡</h3>
+              <p class="example-desc">结构以合同审查列表和 ContractReviewPanel 为准。合同审查是高风险高密度页面，配色必须服务阅读、定位和风险等级。</p>
+            </div>
+          </div>
+          <ul class="color-spec-list">
+            <li><strong>列表页</strong><span>新建审查卡使用 <code>rounded-xl border bg-card</code>；高亮进入态用 <code>ring-primary ring-offset-background</code>；历史卡 hover 用 <code>border-primary/50 shadow-md</code>。</span></li>
+            <li><strong>状态标签</strong><span>reviewing / awaiting_stance / rebuilding 使用 primary 淡底；completed 使用 emerald；failed 使用 rose/destructive；pending 使用 muted。</span></li>
+            <li><strong>审查阶段进度</strong><span>wait 灰、running amber + pulse 光晕、done emerald；进度条当前仍为 blue，品牌化时应改为 primary，但不改变 5 段结构。</span></li>
+            <li><strong>风险等级</strong><span>保留现有 high=red、medium=orange、low=slate 的实色徽章；DOCX 段落高亮保留 red/amber/sky 语义，不用品牌蓝覆盖风险等级。</span></li>
+            <li><strong>风险卡交互</strong><span>focused / pinned / hovered / just-added / orphaned 使用现有黄橙琥珀系状态，不用统一品牌色替换。</span></li>
+          </ul>
+        </div>
+
+        <div class="example-shell" style="margin-top:18px;">
+          <div class="example-header">
+            <div>
+              <h3 class="example-title">文书草稿：字段表单、预览、历史版本、AI 生成助手</h3>
+              <p class="example-desc">结构以文书草稿详情、DocumentPreview、DraftCardList、模板页为准。文书预览区域的“纸面”不能随暗色模式反转。</p>
+            </div>
+          </div>
+          <ul class="color-spec-list">
+            <li><strong>顶部工具栏</strong><span>历史、材料、保存版本使用 outline；AI 生成和导出是当前操作区强动作，但同屏需要按业务主次控制主按钮数量。</span></li>
+            <li><strong>分栏编辑</strong><span>字段表单容器用 <code>bg-card border</code>；预览外壳用 <code>bg-muted/40 border</code>，ResizableHandle 保持轻量。</span></li>
+            <li><strong>DOCX 纸面</strong><span>DocumentPreview 的 docx 根保持 <code>bg-background</code> 或纸面白底规则；暗色模式只暗化外层工作区，不能把合同/文书纸面反成黑底。</span></li>
+            <li><strong>版本预览</strong><span>预览条使用 amber 语义，退出预览为 ghost；错误提示使用 destructive 淡底。</span></li>
+            <li><strong>草稿卡片</strong><span>drafting/filling/pending 用 sky，ready 用 emerald，exported 用 amber，failed 用 rose；图标块当前是 indigo，可保留为文书类辅助色。</span></li>
+          </ul>
+        </div>
+
+        <div class="example-shell" style="margin-top:18px;">
+          <div class="example-header">
+            <div>
+              <h3 class="example-title">会员与支付：套餐卡、积分购买、二维码/JSAPI 支付</h3>
+              <p class="example-desc">结构以 MembershipPackageList、PointPurchaseDialog、PaymentQRCodeDialog、订单详情弹窗为准。支付链路必须清楚区分购买动作、协议、支付中和支付成功。</p>
+            </div>
+          </div>
+          <ul class="color-spec-list">
+            <li><strong>套餐/积分卡</strong><span>卡片保持 <code>border rounded-lg</code>；选中或 hover 用 primary 边框；购买/升级按钮使用品牌渐变，协议未勾选时禁用。</span></li>
+            <li><strong>支付二维码</strong><span>支付弹窗使用正常 Dialog 结构和 z-index；二维码区域保持清晰白底展示，暗色模式只影响弹窗外层和文字。</span></li>
+            <li><strong>JSAPI 支付</strong><span>准备支付用 primary 淡底圆形图标块；立即支付用品牌按钮；支付中用 primary spinner。</span></li>
+            <li><strong>支付成功</strong><span>成功状态使用 green 语义圆形图标和文字，不使用品牌蓝表示成功。</span></li>
+            <li><strong>未同意协议</strong><span>占位区使用 dashed muted 边框和 muted 文案，不展示二维码或支付主按钮。</span></li>
+          </ul>
+        </div>
+
+        <div class="example-shell" style="margin-top:18px;">
+          <div class="example-header">
+            <div>
+              <h3 class="example-title">办案工具：工具入口、计算表单、结果卡、帮助弹层</h3>
+              <p class="example-desc">结构以 tools/index、各工具页、CalculatorPageHeader、ResultCard 为准。工具页是高频表单，不应做成营销页。</p>
+            </div>
+          </div>
+          <ul class="color-spec-list">
+            <li><strong>工具入口</strong><span>工具卡保持 <code>rounded-xl border bg-card</code>，hover 用 <code>border-primary/30 shadow-md</code>；图标块使用四组 tint token。</span></li>
+            <li><strong>计算表单</strong><span>输入区使用 shadcn Card、Input、Select、RadioGroup；主计算按钮使用品牌渐变，其它切换/查看数据来源用 ghost/link/outline。</span></li>
+            <li><strong>帮助弹层</strong><span>帮助按钮是 ghost icon；弹层用 <code>bg-card border shadow-lg</code>，警示段落用 destructive 淡底。</span></li>
+            <li><strong>结果卡</strong><span>ResultCard 保留 CardHeader、summary、Accordion details、footer；导出 Excel 使用 outline，结果中的核心金额可用 primary 强调。</span></li>
+            <li><strong>法规/明细表</strong><span>相关法规和明细表保持表格/折叠结构，暗色下表头 muted、边框可见、长数字不被品牌色淹没。</span></li>
+          </ul>
+        </div>
       </section>
 
       <section class="section" id="dark">
@@ -2763,8 +2821,8 @@
                 </tr>
                 <tr>
                   <td>AI 消息区</td>
-                  <td>助手消息 muted，用户消息品牌渐变，工具结果用 card + border。</td>
-                  <td>长文本区域优先保证阅读对比，不要大面积使用品牌渐变背景。</td>
+                  <td>沿用现有 Message / MessageContent / Reasoning / ToolRenderer 结构；用户消息、助手正文、附件消息按现有分支适配暗色，工具结果用 card + border。</td>
+                  <td>长文本区域优先保证阅读对比，不重画消息结构，不把附件、工具卡或推理块改成大面积品牌渐变。</td>
                 </tr>
               </tbody>
             </table>
@@ -2922,11 +2980,24 @@
             </div>
           </div>
 
-          <h3 style="margin-top:22px;">六、AI 重构检查清单</h3>
+          <h3 style="margin-top:22px;">六、关键页面暗色特例</h3>
+          <ul class="color-spec-list">
+            <li><strong>案件详情</strong><span>桌面侧栏、移动端底部 Tab、模块对话、小索浮窗都跟随 <code>bg-background / bg-card / border-border</code>；分析四态和中断条保留各自语义色。</span></li>
+            <li><strong>合同审查</strong><span>风险等级不品牌化：高=red，中=orange，低=slate/sky；DOCX 风险段落高亮保持浅底 + 左边线，纸面内容不要反成黑底。</span></li>
+            <li><strong>文书草稿</strong><span>工作区暗色化，DOCX 预览纸面保持可读纸张效果；版本预览条用 amber，错误条用 destructive。</span></li>
+            <li><strong>会员支付</strong><span>二维码和协议区域保持清晰边界；支付成功用 green，待支付/协议未确认用 amber 或 muted，不用品牌蓝表达支付结果。</span></li>
+            <li><strong>办案工具</strong><span>计算表单保持紧凑 Card 布局；结果卡、折叠明细和法规表格使用暗色边框，不用大面积渐变背景。</span></li>
+          </ul>
+
+          <h3 style="margin-top:22px;">七、AI 重构检查清单</h3>
           <ul class="dark-rule-list">
             <li>
               <span class="rule-label">先识别页面角色</span>
               <p class="rule-copy">判断页面是工作台、列表、详情、表单、支付、AI 对话还是文档阅读；再套用对应结构，不要把所有页面做成同一种卡片堆叠。</p>
+            </li>
+            <li>
+              <span class="rule-label">结构以项目现有组件为准</span>
+              <p class="rule-copy">本 HTML 的静态示意只表达配色和状态规则，不是组件结构蓝图；重构时不得把现有复杂组件替换成文档里的简化 div 结构。</p>
             </li>
             <li>
               <span class="rule-label">替换硬编码颜色</span>
@@ -2975,6 +3046,7 @@
               <li>在业务系统里使用过大的营销页标题。</li>
               <li>使用 emoji 图标；项目内应统一使用 lucide 图标。</li>
               <li>用原生 confirm / alert 处理业务确认。</li>
+              <li>把本 HTML 的静态示意结构直接替换项目现有组件结构。</li>
             </ul>
           </div>
         </div>

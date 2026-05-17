@@ -342,8 +342,15 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
                     }
                 )
 
-                if (!resp.ok || !resp.body) {
-                    error.value = { step: 'backup', message: resp.ok ? '服务器返回空响应' : `服务器错误 (${resp.status})` }
+                // S6：resError 在 SSE 开流前的失败分支（401/403/404/409/400）返回 HTTP 200 + JSON
+                // 业务错误体，resp.ok 对 HTTP 200 恒 true —— 必须靠 content-type 区分"真 SSE 流"与
+                // "JSON 错误体"，否则错误体会被当 SSE 流解析、解析不出事件 → 对话框永久转圈。
+                const contentType = (resp.headers.get('content-type') ?? '').toLowerCase()
+                if (!resp.ok || !resp.body || !contentType.includes('text/event-stream')) {
+                    let message = resp.ok ? '服务器返回了非预期响应' : `服务器错误 (${resp.status})`
+                    const errBody = await resp.json().catch(() => null) as { message?: string } | null
+                    if (errBody?.message) message = errBody.message
+                    error.value = { step: 'backup', message }
                     return
                 }
 
