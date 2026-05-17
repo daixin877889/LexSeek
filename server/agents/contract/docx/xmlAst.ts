@@ -196,6 +196,26 @@ export function paragraphText(paraNode: Node): string {
 }
 
 /**
+ * 从一个 <w:p> AST 节点提取「拒绝所有修订」视图文本（S5）。
+ *
+ * 按文档顺序收集 <w:delText>（被删除的原文）+ 非 <w:ins> 内的 <w:t>（未改动原文），
+ * 整个跳过 <w:ins> 子树（修订后新插入的内容）。还原首轮审查时该段落的原文。
+ * 对照 paragraphText：后者是「接受所有修订」的定稿态（取 <w:t>、丢 <w:delText>）。
+ */
+export function paragraphRejectText(paraNode: Node): string {
+    let s = ''
+    const visit = (node: Node): void => {
+        const tag = tagOf(node)
+        if (tag === 'w:ins') return            // 插入内容属修订后，拒绝视图排除（不递归进去）
+        if (tag === 'w:t') { s += textOf(node); return }
+        if (tag === 'w:delText') { s += textOf(node); return }
+        for (const child of childrenOf(node)) visit(child)
+    }
+    for (const child of childrenOf(paraNode)) visit(child)
+    return s
+}
+
+/**
  * 段落是否含 <w:r>（直接或嵌套在 hyperlink/sdt 等里），即"非空段落"。
  *
  * commentInjector 与 parseWordComments 的非空段落口径必须一致，统一从此处导出。

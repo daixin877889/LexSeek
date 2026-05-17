@@ -28,7 +28,7 @@ import { parseContractDocx } from './docx'
 import { saveContractReviewVersionService } from './contractReviewVersion.service'
 import { analyzeSingleClause } from './analyzeSingleClause'
 import { diffClauses } from './utils/clauseDiff'
-import { migrateRiskWithDualAnchor } from './utils/anchorMigrate'
+import { migrateRiskWithDualAnchor, migrateRiskByRedlineRef } from './utils/anchorMigrate'
 import { normalizeForMatch } from './utils/textSimilarity'
 import { parseWordComments, type ParsedWordComment, type AnnotationRefEntry } from './docx/wordCommentParser'
 import { parseRedlineMarks, classifyRedlineDecision, resolveCorpusForRef, resolveFullCorpus, type ParsedRedlineMarks } from './docx/redlineParser'
@@ -198,6 +198,10 @@ export async function* uploadClientVersionService(params: {
         // DOCX-C4：external_new 锚点需要用"非空段落序号 + 段落原文"而不是 clauseIndex，
         // 否则 paragraphIndex 可能远大于 newClauses.length 被误兜底为 0（挤到首段）。
         let newParagraphs: string[] = []
+        // S5：「拒绝所有修订」视图——Step 5 锚点迁移在定稿态失配时回退用它
+        // （还原首轮审查原文，修订稿里原问题片段才能命中）。
+        let rejectNewClauses: ClauseSnapshotItem[] = []
+        let rejectNewDocxText = ''
         try {
             const ossFile = await findOssFileByIdDao(ossFileId)
             if (!ossFile?.filePath) throw new Error('OSS 文件记录不存在或已删除')
@@ -216,6 +220,20 @@ export async function* uploadClientVersionService(params: {
             const { segments, normalizedText } = await segmentClauses(paragraphs.join('\n'))
             newDocxText = normalizedText
             newClauses = segments.map((s) => ({
+                index: s.index,
+                text: s.text,
+                textWithoutNumber: s.textWithoutNumber,
+                offsetStart: s.offsetStart,
+                offsetEnd: s.offsetEnd,
+                offsetStartWithoutNumber: s.offsetStartWithoutNumber,
+            }))
+
+            // S5：额外解析「拒绝所有修订」视图（取 <w:del> 原文、丢 <w:ins>），
+            // 供 Step 5 锚点迁移在定稿态失配时回退——还原首轮审查原文，原文锚点才能命中。
+            const rejectParsed = await parseContractDocx(docxBuffer, { revisionView: 'reject' })
+            const rejectSegmented = await segmentClauses(rejectParsed.paragraphs.join('\n'))
+            rejectNewDocxText = rejectSegmented.normalizedText
+            rejectNewClauses = rejectSegmented.segments.map((s) => ({
                 index: s.index,
                 text: s.text,
                 textWithoutNumber: s.textWithoutNumber,
@@ -914,6 +932,46 @@ export async function* uploadClientVersionService(params: {
         const riskMigrateUpdates: Array<{ id: number; data: Prisma.contractRisksUpdateInput }> = []
         for (const r of dbRisks) {
             if (r.clauseParagraphIndex == null) continue
+
+            // S5：redline-aware 确定性迁移优先。风险在 redlineRefs 登记过时，用 ref.paraIdxs
+            // 直接把它定位到回传 docx 的段落、映射到对应 newClauses 条款——绕开「原文锚点 vs
+            // 定稿态语料」模糊匹配。修订稿里原问题片段随 <w:del> 丢失，模糊匹配必然失配、
+            // 大批风险被误判 orphaned；redline-aware 命中即写库、跳过模糊匹配。
+            const redlineResult = migrateRiskByRedlineRef({
+                riskId: r.id,
+                redline,
+                reviewId: review.id,
+                newClauses,
+            })
+            if (redlineResult) {
+                const newParaIdx = newClauseArrayIdxToParaIdx(redlineResult.newClauseArrayIdx)
+                const oldClauseTextStr = r.clauseText ?? ''
+                const clauseTextChanged = oldClauseTextStr.length > 0
+                    && oldClauseTextStr !== redlineResult.newClauseText
+                const originalUpdate = clauseTextChanged && !r.originalClauseText
+                    ? { originalClauseText: oldClauseTextStr }
+                    : {}
+                riskMigrateUpdates.push({
+                    id: r.id,
+                    data: {
+                        clauseIndex: newClauses[redlineResult.newClauseArrayIdx]!.index,
+                        clauseParagraphIndex: newParaIdx,
+                        clauseText: redlineResult.newClauseText,
+                        clauseCharStart: redlineResult.newClauseCharStart,
+                        clauseCharEnd: redlineResult.newClauseCharEnd,
+                        orphaned: false,
+                        // redline 风险经修订处理后，原问题片段（曾在 <w:del> 内）不再可靠，
+                        // 清空 sub-clause quote——风险已确定性定位到条款，不再 orphaned。
+                        problematicQuote: null,
+                        quoteCharStart: null,
+                        quoteCharEnd: null,
+                        quoteMatchSource: null,
+                        ...originalUpdate,
+                    },
+                })
+                continue
+            }
+
             const oldArrayIdx = findOldClauseArrayIdxByAnchor(r.clauseText ?? '')
             const isModified = oldArrayIdx !== null
                 && clauseDiffResult.modified.some((m) => m.oldIndex === oldArrayIdx)
@@ -927,13 +985,44 @@ export async function* uploadClientVersionService(params: {
                 const preferredNew = isModified
                     ? (clauseDiffResult.modified.find((m) => m.oldIndex === oldArrayIdx)?.newIndex ?? null)
                     : null
-                const result = migrateRiskWithDualAnchor({
+                let result = migrateRiskWithDualAnchor({
                     oldClauseText: r.clauseText ?? '',
                     oldProblematicQuote: r.problematicQuote,
                     preferredNewClauseArrayIdx: preferredNew,
                     newClauses,
                     newDocxText,
                 })
+                // S5 回退：定稿态（接受所有修订）失配——很可能是修订稿，原文锚点对不上
+                // 定稿态文本。改用「拒绝所有修订」视图（还原首轮审查原文）重试；命中后把
+                // 拒绝视图条款按 index 映射回定稿态条款，并清空 quote（拒绝视图坐标对定稿态无效）。
+                if (!result && rejectNewClauses.length > 0) {
+                    const rejectResult = migrateRiskWithDualAnchor({
+                        oldClauseText: r.clauseText ?? '',
+                        oldProblematicQuote: r.problematicQuote,
+                        preferredNewClauseArrayIdx: preferredNew,
+                        newClauses: rejectNewClauses,
+                        newDocxText: rejectNewDocxText,
+                    })
+                    if (rejectResult) {
+                        const rejectSeg = rejectNewClauses[rejectResult.newClauseArrayIdx]
+                        const finalIdx = rejectSeg
+                            ? newClauses.findIndex((s) => s.index === rejectSeg.index)
+                            : -1
+                        const finalSeg = finalIdx !== -1 ? newClauses[finalIdx] : undefined
+                        if (finalSeg) {
+                            result = {
+                                matchType: 'clause',
+                                newClauseArrayIdx: finalIdx,
+                                newClauseText: finalSeg.text,
+                                newClauseCharStart: finalSeg.offsetStart,
+                                newClauseCharEnd: finalSeg.offsetEnd,
+                                newProblematicQuote: null,
+                                newQuoteCharStart: null,
+                                newQuoteCharEnd: null,
+                            }
+                        }
+                    }
+                }
                 if (result) {
                     const newParaIdx = newClauseArrayIdxToParaIdx(result.newClauseArrayIdx)
                     // spec §9.3：clauseText 实际变化 + 旧值非空 + 未备份过时才回填 originalClauseText

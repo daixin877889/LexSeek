@@ -1,5 +1,6 @@
 import type { ClauseSnapshotItem } from '#shared/types/contract'
-import { calcSimilarity, fuzzyLocateInText } from './textSimilarity'
+import { calcSimilarity, fuzzyLocateInText, normalizeForMatch } from './textSimilarity'
+import type { ParsedRedlineMarks } from '../docx/redlineParser'
 
 export interface AnchorMigrateResult {
     newClauseIndex: number
@@ -272,5 +273,65 @@ export function migrateRiskWithDualAnchor(input: DualAnchorMigrateInput): DualAn
     }
 
     // ===== 档 3：orphaned =====
+    return null
+}
+
+/** redline-aware 确定性迁移结果（S5） */
+export interface RedlineRefMigrateResult {
+    /** 命中的 newClauses 数组下标 */
+    newClauseArrayIdx: number
+    /** 新 clauseText（segment.text 全段） */
+    newClauseText: string
+    /** 新 clauseText 在文档全文 normalizedText 内的 offset */
+    newClauseCharStart: number
+    newClauseCharEnd: number
+}
+
+/** redline 段落文本太短时跳过 redline-aware（短文易跨条款误命中），落回模糊匹配 */
+const REDLINE_PARA_MIN_LEN = 8
+
+/**
+ * S5 · redline-aware 确定性锚点迁移。
+ *
+ * 客户回传的修订稿里，每条 redline 风险都在 redlineRefs.xml 登记了 paraIdxs
+ * （风险所在的非空段落序号）。据此可确定性地把风险定位到回传 docx 的段落、
+ * 再映射到对应的 newClauses 条款——不依赖「原文锚点 vs 定稿态语料」的模糊匹配
+ * （那正是 orphaned 大批误判的根因：原问题片段随 <w:del> 丢失，原文锚点必然失配）。
+ *
+ * 命中条件：风险在 redline.refs 有登记、非跨审查，且其某个 paraIdx 段落的最终态
+ * 文本能在某条 newClauses 条款内找到。任一条件不满足 → 返回 null，由调用方回落
+ * 既有的 migrateRiskWithDualAnchor 模糊匹配。
+ */
+export function migrateRiskByRedlineRef(params: {
+    riskId: number
+    /** parseRedlineMarks 的解析结果；回传 docx 无修订标记时为 null */
+    redline: ParsedRedlineMarks | null
+    /** 当前审查 id，用于排除跨审查回传 */
+    reviewId: number
+    /** 客户回传 docx 重切的新条款数组 */
+    newClauses: ClauseSnapshotItem[]
+}): RedlineRefMigrateResult | null {
+    const { riskId, redline, reviewId, newClauses } = params
+    if (!redline || redline.reviewId !== reviewId || newClauses.length === 0) return null
+
+    const ref = redline.refs.find(rf => rf.riskId === riskId)
+    if (!ref) return null
+
+    const normalizedClauses = newClauses.map(s => normalizeForMatch(s.text))
+    for (const pIdx of ref.paraIdxs) {
+        const para = redline.paragraphs[pIdx]
+        if (!para) continue
+        const paraText = para.tNorm
+        if (paraText.length < REDLINE_PARA_MIN_LEN) continue
+        const segIdx = normalizedClauses.findIndex(c => c.includes(paraText))
+        if (segIdx === -1) continue
+        const segment = newClauses[segIdx]!
+        return {
+            newClauseArrayIdx: segIdx,
+            newClauseText: segment.text,
+            newClauseCharStart: segment.offsetStart,
+            newClauseCharEnd: segment.offsetEnd,
+        }
+    }
     return null
 }

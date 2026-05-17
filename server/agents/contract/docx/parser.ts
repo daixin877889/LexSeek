@@ -11,7 +11,7 @@
  */
 import mammoth from 'mammoth'
 import { loadDocxZip, readTextFromZip, type DocxZip } from './zipRewriter'
-import { parseOoxml, findFirst, walk, tagOf, paragraphText, hasRunChild, splitParagraphs, type NodeArray } from './xmlAst'
+import { parseOoxml, findFirst, walk, tagOf, paragraphText, paragraphRejectText, hasRunChild, splitParagraphs, type NodeArray } from './xmlAst'
 import { buildNumberingPrefixMap, type NumberingPrefixMap } from './numbering'
 
 export interface ParsedContract {
@@ -19,10 +19,22 @@ export interface ParsedContract {
     rawXml: string
 }
 
+/**
+ * 修订视图：
+ * - 'accept'（默认）：接受所有修订后的定稿态文本（取 <w:ins>、丢 <w:del>），与历史行为一致。
+ * - 'reject'：拒绝所有修订后的原文态文本（取 <w:del>、丢 <w:ins>），S5 回退识别用——
+ *   修订稿里原问题片段随 <w:del> 被丢，定稿态对不上首轮审查锚点。
+ */
+export type RevisionView = 'accept' | 'reject'
+
+export interface ParseContractDocxOptions {
+    revisionView?: RevisionView
+}
+
 const TABLE_FALLBACK_RATIO = 0.6
 
 /** 直接 AST 解析 word/document.xml 的 w:body：递归收集所有非空 w:p（含 w:tbl 内嵌套） */
-function paragraphsFromAst(rawXml: string): string[] {
+function paragraphsFromAst(rawXml: string, view: RevisionView = 'accept'): string[] {
     try {
         const ast = parseOoxml(rawXml)
         const body = findFirst(ast, 'w:body')
@@ -31,7 +43,7 @@ function paragraphsFromAst(rawXml: string): string[] {
         walk((body as Record<string, unknown>)['w:body'] as NodeArray, (n) => {
             if (tagOf(n) !== 'w:p') return
             if (!hasRunChild(n)) return
-            const text = paragraphText(n).trim()
+            const text = (view === 'reject' ? paragraphRejectText(n) : paragraphText(n)).trim()
             if (text.length > 0) out.push(text)
         })
         return out
@@ -53,13 +65,22 @@ function applyPrefixMap(paragraphs: string[], prefixMap: NumberingPrefixMap): st
     })
 }
 
-export async function parseContractDocx(buffer: Buffer): Promise<ParsedContract> {
+export async function parseContractDocx(buffer: Buffer, options?: ParseContractDocxOptions): Promise<ParsedContract> {
+    const revisionView: RevisionView = options?.revisionView ?? 'accept'
     const zip = await loadDocxZip(buffer)
     const rawXml = await readTextFromZip(zip, 'word/document.xml')
     const numberingXml = await readNumberingXmlOrNull(zip)
 
     // prefixMap 与 paragraphsFromAst 同口径（深度优先遍历 <w:p>，含表格内段落）
     const prefixMap = buildNumberingPrefixMap(rawXml, numberingXml)
+
+    if (revisionView === 'reject') {
+        // 「拒绝所有修订」视图：必须走 AST（mammoth 只能产出接受修订的定稿态）。
+        // redlineInjector 的 ins/del 是段内替换、不增删段落，故拒绝视图与定稿态段落集合
+        // 一致，可直接套用同一份 prefixMap。
+        const rejectParas = paragraphsFromAst(rawXml, 'reject')
+        return { paragraphs: applyPrefixMap(rejectParas, prefixMap), rawXml }
+    }
 
     // mammoth 快速路径
     const { value: rawText } = await mammoth.extractRawText({ buffer })
