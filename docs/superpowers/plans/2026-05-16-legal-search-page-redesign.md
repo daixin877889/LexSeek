@@ -1357,9 +1357,9 @@ git commit -m "feat(ui): 法规检索移动端卡片按设计稿重做"
     <div class="p-4 md:p-6">
         <!-- 页面头部 -->
         <div class="mb-6">
-            <p class="mb-2 text-xs font-medium uppercase tracking-[0.08em] text-primary">
+            <!-- <p class="mb-2 text-xs font-medium uppercase tracking-[0.08em] text-primary">
                 LEGAL SEARCH · 法律法规检索
-            </p>
+            </p> -->
             <h1 class="mb-1 text-2xl font-bold md:text-3xl">法律法规检索</h1>
             <p class="text-sm text-muted-foreground">
                 覆盖法律 · 行政法规 · 司法解释 · 指导意见，支持法规全文检索与法条语义检索。

@@ -2,9 +2,9 @@
     <div class="p-4 md:p-6">
         <!-- 页面头部 -->
         <div class="mb-6">
-            <p class="mb-2 text-xs font-medium uppercase tracking-[0.08em] text-primary">
+            <!-- <p class="mb-2 text-xs font-medium uppercase tracking-[0.08em] text-primary">
                 LEGAL SEARCH · 法律法规检索
-            </p>
+            </p> -->
             <h1 class="mb-1 text-2xl font-bold md:text-3xl">法律法规检索</h1>
             <p class="text-sm text-muted-foreground">
                 覆盖法律 · 行政法规 · 司法解释 · 指导意见，支持法规全文检索与法条语义检索。
@@ -147,7 +147,7 @@
                         <h3 class="mb-1 font-semibold">{{ card.raw.legal_name }}</h3>
                         <!-- 章节面包屑 -->
                         <div v-if="card.breadcrumb.length" class="mb-2 text-xs text-muted-foreground">
-                            {{ card.breadcrumb.join('  ›  ') }}
+                            {{ card.breadcrumb.join(' › ') }}
                         </div>
                         <!-- 高亮摘录 -->
                         <p class="text-[13.5px] leading-relaxed text-foreground line-clamp-3" v-html="card.excerpt" />
@@ -199,10 +199,10 @@ useSiteSeo({
 
 /** 热门检索词（前端固定词表） */
 const TRENDING_KEYWORDS = [
-    '民法典 合同编',
+    '中华人民共和国民法典',
     '劳动合同法',
-    '公司法司法解释（四）',
-    '建设工程施工合同 资质',
+    '公司法',
+    '工程施工',
     '招标投标法',
 ]
 

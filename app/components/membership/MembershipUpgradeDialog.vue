@@ -121,7 +121,7 @@
                     </div>
 
                     <div class="flex justify-end gap-2">
-                        <Button class="bg-gradient-brand-button text-white" @click="handleOpenChange(false)">取消</Button>
+                        <Button variant="outline" @click="handleOpenChange(false)">取消</Button>
                         <Button class="bg-gradient-brand-button text-white" :disabled="!selectedOption || !localAgreed" @click="emit('confirm')">确认升级
                         </Button>
                     </div>

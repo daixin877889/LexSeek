@@ -3,7 +3,7 @@
     <div class="md:hidden">
         <!-- 刷新按钮 -->
         <div class="flex justify-end mb-3">
-            <Button size="sm" class="bg-gradient-brand-button text-white" :disabled="refreshing || loading" @click="emit('refresh')">
+            <Button variant="ghost" size="sm" :disabled="refreshing || loading" @click="emit('refresh')">
                 <RefreshCwIcon class="w-4 h-4 mr-1" :class="{ 'animate-spin': refreshing }" />
                 {{ refreshing ? '刷新中...' : '刷新' }}
             </Button>

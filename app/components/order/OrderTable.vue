@@ -48,11 +48,11 @@
                                     @click="emit('pay', order)">
                                     支付
                                 </Button>
-                                <Button v-if="order.status === OrderStatus.PENDING" size="sm" class="bg-gradient-brand-button text-white"
+                                <Button v-if="order.status === OrderStatus.PENDING" size="sm" variant="outline"
                                     @click="emit('cancel', order)">
                                     取消
                                 </Button>
-                                <Button size="sm" class="bg-gradient-brand-button text-white" @click="emit('detail', order)">
+                                <Button size="sm" variant="ghost" @click="emit('detail', order)">
                                     详情
                                 </Button>
                             </div>

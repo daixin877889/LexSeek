@@ -36,7 +36,11 @@
       </div>
 
       <div class="flex justify-between items-center">
-        <router-link to="/reset-password" class="text-primary hover:underline flex items-center gap-1 text-sm"> 忘记密码？前往 <strong>重置密码</strong> 页面 </router-link>
+        <div class="flex items-center gap-1 text-sm">
+          <span class="text-muted-foreground">忘记密码？前往</span>
+          <router-link to="/reset-password" class="text-primary hover:underline"><strong>重置密码</strong></router-link>
+          <span class="text-muted-foreground">页面</span>
+        </div>
         <Button type="submit" class="h-10 px-4 py-2 bg-gradient-brand-button text-white rounded-md transition-colors flex items-center gap-2" :disabled="isSecuritySaving || !isPasswordValid">
           <loader-2-icon v-if="isSecuritySaving" class="h-4 w-4 animate-spin" />
           <save-icon v-else class="h-4 w-4" />

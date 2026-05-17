@@ -7,7 +7,7 @@
         <span class="text-xs text-muted-foreground font-normal mt-1"> (不含已过期和未生效积分) </span>
       </h2>
       <div class="flex gap-2 sm:shrink-0">
-        <Button class="h-10 px-4 py-2 flex-1 sm:flex-initial bg-gradient-brand-button text-white" @click="showConsumptionStandard = true">
+        <Button variant="outline" class="h-10 px-4 py-2 flex-1 sm:flex-initial" @click="showConsumptionStandard = true">
           积分消耗标准 </Button>
         <Button class="h-10 px-4 py-2 flex-1 sm:flex-initial bg-gradient-brand-button text-white" @click="showPointProducts = true"> 购买积分 </Button>
       </div>

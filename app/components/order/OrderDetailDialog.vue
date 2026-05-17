@@ -60,11 +60,11 @@
                     <Button v-if="order.status === OrderStatus.PENDING" class="flex-1 bg-gradient-brand-button text-white" @click="emit('pay', order)">
                         立即支付
                     </Button>
-                    <Button v-if="order.status === OrderStatus.PENDING" class="flex-1 bg-gradient-brand-button text-white"
+                    <Button v-if="order.status === OrderStatus.PENDING" variant="outline" class="flex-1"
                         @click="emit('cancel', order)">
                         取消订单
                     </Button>
-                    <Button class="flex-1 bg-gradient-brand-button text-white" @click="emit('update:open', false)">
+                    <Button variant="outline" class="flex-1" @click="emit('update:open', false)">
                         关闭
                     </Button>
                 </div>
