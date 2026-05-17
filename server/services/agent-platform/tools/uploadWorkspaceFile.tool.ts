@@ -19,6 +19,7 @@ import { WORKSPACE_BASE, resolveWorkspaceDir } from './workspace'
 import type { ToolContext, ToolDefinition } from './types'
 import { FileSource, OssFileStatus } from '#shared/types/file'
 import { StorageProviderType } from '~~/server/lib/storage/types'
+import { buildStorageKey } from '~~/server/utils/storagePath'
 
 /** 文件大小上限：50MB */
 const MAX_FILE_SIZE = 50 * 1024 * 1024
@@ -202,7 +203,13 @@ async function uploadToUserStorage(
     mimeType: string,
 ): Promise<string> {
     try {
-        const ossPath = `users/${userId}/workspace/${sessionId}/${Date.now()}_${fileName}`
+        const ossPath = buildStorageKey({
+            scope: 'user',
+            userId,
+            source: FileSource.CASE_ANALYSIS,
+            subDir: sessionId,
+            fileName: `${Date.now()}_${fileName}`,
+        })
         const stream = createReadStream(filePath)
 
         const uploadResult = await uploadFileService(ossPath, stream, { contentType: mimeType, userId })
@@ -246,7 +253,12 @@ async function uploadToTempStorage(
 ): Promise<string> {
     try {
         const timestamp = Date.now()
-        const ossPath = `temp/${userId}/workspace/${sessionId}/${timestamp}_${fileName}`
+        const ossPath = buildStorageKey({
+            scope: 'temp',
+            source: FileSource.CASE_ANALYSIS,
+            subDir: sessionId,
+            fileName: `${timestamp}_${fileName}`,
+        })
         const stream = createReadStream(filePath)
 
         await uploadFileService(ossPath, stream, { contentType: mimeType })
