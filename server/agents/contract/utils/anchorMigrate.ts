@@ -115,13 +115,19 @@ export function migrateAnchor(params: MigrateAnchorParams): AnchorMigrateResult 
 
     if (!oldAnchorQuote || newClauses.length === 0) return null
 
-    // fast-path：调用方已知"这条 risk 应该落在新 clauses[preferredIdx] 上"时优先扫该条
+    let globalBestSim = -1
+    let globalBestResult: AnchorMigrateResult | null = null
+
+    // L1：优先扫 preferredNewClauseArrayIdx（调用方先验），但结果纳入全局取 max——
+    // 不再「首个达标即返回」。否则 preferredNewClauseArrayIdx 错配时会锁定一个达标
+    // 但非全局最优的条款。先扫 preferred 让相似度相同时优先归属于它（保留先验权重）。
     if (preferredNewClauseArrayIdx !== null) {
         const sameClause = newClauses[preferredNewClauseArrayIdx]
         if (sameClause) {
             const match = findBestSubstring(sameClause.text, oldAnchorQuote)
-            if (match && match.similarity >= similarityThreshold) {
-                return {
+            if (match && match.similarity > globalBestSim) {
+                globalBestSim = match.similarity
+                globalBestResult = {
                     newClauseIndex: preferredNewClauseArrayIdx,
                     newCharStart: match.charStart,
                     newCharEnd: match.charEnd,
@@ -131,12 +137,9 @@ export function migrateAnchor(params: MigrateAnchorParams): AnchorMigrateResult 
         }
     }
 
-    // 全局扫描所有条款（fast-path 未命中或调用方没有先验信息时）
-    let globalBestSim = -1
-    let globalBestResult: AnchorMigrateResult | null = null
-
+    // 全局扫描其余条款
     for (let i = 0; i < newClauses.length; i++) {
-        if (i === preferredNewClauseArrayIdx) continue // 已在 fast-path 试过
+        if (i === preferredNewClauseArrayIdx) continue // 已在上方先扫过
         const clause = newClauses[i]
         if (!clause) continue
         const match = findBestSubstring(clause.text, oldAnchorQuote)
@@ -214,8 +217,13 @@ export interface DualAnchorMigrateResult {
     newQuoteCharEnd: number | null
 }
 
-/** quote 字符数太短时跳过档 1 的最小阈值（与 resolveQuoteAnchor 档 2 同口径） */
-const MIN_QUOTE_LEN_FOR_TIER1 = 4
+/**
+ * quote 字符数太短时跳过档 1 的最小阈值。
+ * L2：旧值 4 偏低——4~7 字 quote 在 fuzzyLocateInText（Match_Threshold=0.3）下误命中率高，
+ * 抬到 8（与 commentInjector「strongLines >= 8 才算可靠匹配」同口径）。短 quote 直接走
+ * 档 2 clauseText 整段匹配，更稳。
+ */
+const MIN_QUOTE_LEN_FOR_TIER1 = 8
 /** 档 1 命中后相似度二次校验阈值（与 migrateAnchor 默认 similarityThreshold=0.6 同口径） */
 const TIER1_SIMILARITY_THRESHOLD = 0.6
 

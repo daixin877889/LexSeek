@@ -67,6 +67,25 @@ describe('migrateAnchor', () => {
         expect(result!.similarity).toBeGreaterThanOrEqual(0.6)
     })
 
+    it('L1：preferred 条款达标但非全局最优时，返回相似度更高的条款', () => {
+        const anchor = '甲方应当按时付款并承担违约责任'
+        const newClauses = makeClauses([
+            // preferred（idx 0）：轻微改写，相似度达标（≥0.6）但非最优
+            '第一条 甲方应当按时付款并承担相应责任。',
+            // idx 1：含 anchor 原文，相似度 1.0（全局最优）
+            '第三条 甲方应当按时付款并承担违约责任。',
+        ])
+        const result = migrateAnchor({
+            oldAnchorQuote: anchor,
+            preferredNewClauseArrayIdx: 0,
+            newClauses,
+        })
+        expect(result).not.toBeNull()
+        // 旧实现 fast-path「首个达标即返回」会锁定 idx 0；修复后纳入全局取 max → idx 1
+        expect(result!.newClauseIndex).toBe(1)
+        expect(result!.similarity).toBe(1)
+    })
+
     it('空输入（newClauses 为空）：返回 null', () => {
         const result = migrateAnchor({
             oldAnchorQuote: '甲方应按时付款',
