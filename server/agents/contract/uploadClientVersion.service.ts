@@ -1311,6 +1311,11 @@ export async function* uploadClientVersionService(params: {
         })
         logger.info('Step5 事务完成', { reviewId: review.id, ms: Date.now() - txStartMs })
 
+        // 合并事务已提交即视为成功。本函数是生成器，消费方收到 'complete' 事件后通常停止
+        // .next()，最后一个 yield 之后的语句不会执行——succeeded 必须在 yield 之前置位，
+        // 否则 finally 里 succeeded 恒为 false，会把已成功的回传 status 误锁成 failed。
+        succeeded = true
+
         let summary = `本轮变化：${externalChangeCount} 处外部变更 · ${clauseModifiedCount} 处条款修改 · AI 增量重审 ${aiReviewCount} 条 · 全局复核 ${globalReviewNewRiskCount} 条`
         if (redlineDecisions.size > 0) {
             summary += ` · 客户修订：接受 ${redlineCounts[ClientRedlineDecision.ACCEPTED]}`
@@ -1329,7 +1334,6 @@ export async function* uploadClientVersionService(params: {
             type: 'complete',
             data: { newVersionId: newVersion.id, summary },
         }
-        succeeded = true
     } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : '合并失败'
         // DOCX-H1：Step 5+6 事务失败时回滚 Step 4 新建的 risks/annotations，
