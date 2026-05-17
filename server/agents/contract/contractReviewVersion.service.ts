@@ -36,6 +36,7 @@ import {
 } from '~~/server/services/storage/storage.service'
 import { uploadAndRegisterOssFile } from './utils/uploadAndRegisterOssFile'
 import { FileSource } from '#shared/types/file'
+import { buildStorageKey } from '~~/server/utils/storagePath'
 import { DOCX_MIME } from '#shared/utils/mime'
 import { resolveContractExportSignatureService } from '~~/server/services/users/contractSignature.service'
 import {
@@ -383,9 +384,14 @@ export async function downloadContractReviewVersionService(
         versionNumber: version.versionNumber,
     })
 
-    // 上传到 OSS：contract-review/<userId>/version-<versionId>-<uuid>.docx
+    // 上传到 OSS（统一路径函数构造，{env}/user<id>/caseAnalysis/）
     // CORE-R3：上传 + 落 ossFiles + 失败清孤儿统一走 uploadAndRegisterOssFile。
-    const ossPath = `contract-review/${review.userId}/version-${versionId}-${randomUUID()}.docx`
+    const ossPath = buildStorageKey({
+        scope: 'user',
+        userId: review.userId,
+        source: FileSource.CASE_ANALYSIS,
+        fileName: `version-${versionId}-${randomUUID()}.docx`,
+    })
     let uploadName: string
     try {
         const result = await uploadAndRegisterOssFile({

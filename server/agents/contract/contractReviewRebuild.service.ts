@@ -36,6 +36,7 @@ import {
 import { getDefaultStorageConfigDao } from '~~/server/services/storage/storageConfig.dao'
 import { StorageProviderType } from '~~/server/lib/storage/types'
 import { FileSource, OssFileStatus } from '#shared/types/file'
+import { buildStorageKey } from '~~/server/utils/storagePath'
 import { DOCX_MIME } from '#shared/utils/mime'
 import type {
     ContractAnnotationForExport,
@@ -154,8 +155,13 @@ export async function rebuildDocxService(
 
     const buffer = finalBuffer
 
-    // OSS 路径与 M3 contractReview.service 保持同构：contract-review/<userId>/<uuid>.docx
-    const ossPath = `contract-review/${review.userId}/rebuild-${randomUUID()}.docx`
+    // OSS 路径与 contractReview.service 保持同构
+    const ossPath = buildStorageKey({
+        scope: 'user',
+        userId: review.userId,
+        source: FileSource.CASE_ANALYSIS,
+        fileName: `rebuild-${randomUUID()}.docx`,
+    })
     const [uploadResult, storageConfig] = await Promise.all([
         uploadFileService(ossPath, buffer, {
             contentType: DOCX_MIME,

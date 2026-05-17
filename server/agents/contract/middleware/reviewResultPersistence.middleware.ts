@@ -29,6 +29,7 @@ import {
 import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
 import { uploadAndRegisterOssFile } from '~~/server/services/assistant/contract/utils/uploadAndRegisterOssFile'
 import { FileSource } from '#shared/types/file'
+import { buildStorageKey } from '~~/server/utils/storagePath'
 import { DOCX_MIME } from '#shared/utils/mime'
 import type { ContractAnnotationForExport } from '~~/server/services/assistant/contract/docx'
 
@@ -109,9 +110,14 @@ export async function runAnnotateAndUpload(reviewId: number): Promise<void> {
     }
 
     // OSS 路径与 contractReviewRebuild.service 保持同构：
-    // contract-review/<userId>/reviewed-<uuid>.docx
+    // （统一路径函数构造，{env}/user<id>/caseAnalysis/）
     // CORE-R3：上传 + 落 ossFiles + 失败清孤儿统一走 uploadAndRegisterOssFile。
-    const ossPath = `contract-review/${review.userId}/reviewed-${randomUUID()}.docx`
+    const ossPath = buildStorageKey({
+        scope: 'user',
+        userId: review.userId,
+        source: FileSource.CASE_ANALYSIS,
+        fileName: `reviewed-${randomUUID()}.docx`,
+    })
     const { uploadName, ossFileId } = await uploadAndRegisterOssFile({
         ossPath,
         buffer: injectResult.buffer,

@@ -12,6 +12,7 @@
 import { randomUUID } from 'node:crypto'
 import { prisma } from '~~/server/utils/db'
 import { FileSource } from '#shared/types/file'
+import { buildStorageKey } from '~~/server/utils/storagePath'
 import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
 import { enqueueRunService } from '~~/server/services/agent/agentRun.service'
 import { textToDocxService } from './textToDocx.service'
@@ -105,7 +106,12 @@ export async function createAndStartContractReviewService(
         }
 
         const docxBuffer = await textToDocxService(text)
-        const ossPath = `contract-review/${userId}/${randomUUID()}.docx`
+        const ossPath = buildStorageKey({
+            scope: 'user',
+            userId,
+            source: FileSource.CASE_ANALYSIS,
+            fileName: `${randomUUID()}.docx`,
+        })
 
         // CORE-R3：上传 + 落 ossFiles + 失败清孤儿统一走 uploadAndRegisterOssFile。
         // CORE-M2：fileName 仍用粘贴文本头几字 + 时间戳，避免列表里多条粘贴 review
