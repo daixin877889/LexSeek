@@ -98,3 +98,19 @@ describe('migrateAnchor', () => {
         expect(result).toBeNull()
     })
 })
+
+describe('migrateAnchor S7：fallback 全文扫描上限保护', () => {
+    it('超长条款 + fuzzy 失配 → 不做无界全文扫描，毫秒级返回', () => {
+        // 2 万字条款 + 400 字 anchor（不在条款里）→ fallback 格点数远超上限 80k
+        const hugeClause = '甲'.repeat(20000)
+        const anchor = '乙'.repeat(400)
+        const newClauses = makeClauses([hugeClause])
+        const t0 = Date.now()
+        const result = migrateAnchor({ oldAnchorQuote: anchor, preferredNewClauseArrayIdx: null, newClauses })
+        const elapsed = Date.now() - t0
+        // anchor 不在条款里 → 无匹配
+        expect(result).toBeNull()
+        // 加上限保护后毫秒级返回；无保护时约 4e6 格点全文扫描会卡数十秒
+        expect(elapsed).toBeLessThan(2000)
+    })
+})

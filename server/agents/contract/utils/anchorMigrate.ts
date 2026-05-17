@@ -28,6 +28,9 @@ interface MigrateAnchorParams {
     similarityThreshold?: number
 }
 
+/** S7：findBestSubstring fallback 全文扫描的格点数上限，超过则放弃（避免长条款分钟级耗时） */
+const MAX_FALLBACK_SCAN_CELLS = 80_000
+
 /**
  * 在 [startLo, startHi] 区间内，用 [minWin, maxWin] 不同窗长扫一遍 clauseText，
  * 返回与 anchor 相似度最高的子串。窗口超出 clauseText 长度时 break。
@@ -97,7 +100,13 @@ function findBestSubstring(
         if (fast) return fast
     }
 
-    // fallback：fuzzyLocateInText 失败或精扫窗口为空，全文扫描兜底
+    // fallback：fuzzyLocateInText 失败或精扫窗口为空，全文扫描兜底。
+    // S7：全文扫描格点数 = 位置数 × 窗长档数，复杂度 O(格点数 × calcSimilarity)，长条款 +
+    // 长 anchor 可达分钟级。fuzzy（O(N) 指纹匹配）都没锚到，全文暴力扫命中率也极低——
+    // 格点数超预算直接放弃（返回 null，调用方按 orphaned 处理）。
+    const positionCount = Math.max(0, clauseText.length - minWin + 1)
+    const winLenCount = Math.max(0, maxWin - minWin + 1)
+    if (positionCount * winLenCount > MAX_FALLBACK_SCAN_CELLS) return null
     return scanWindowRange(clauseText, anchor, 0, clauseText.length - minWin, minWin, maxWin)
 }
 
