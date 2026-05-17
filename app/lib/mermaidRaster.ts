@@ -21,8 +21,8 @@ export interface MermaidPngOptions {
     /** 栅格倍率（相对 viewBox 尺寸），实际像素再乘 devicePixelRatio */
     scale: number
     /**
-     * 显示尺寸的最大宽度（整数像素）。给定时按 viewBox 宽高比缩放到不超过该宽度，
-     * 用于 Word 嵌图；不给定时显示尺寸即 viewBox 原始尺寸。
+     * 显示尺寸的最大宽度（像素）。给定时按 viewBox 宽高比缩放到不超过该宽度；
+     * 不给定时显示尺寸即 viewBox 原始尺寸。
      */
     maxDisplayWidth?: number
 }
@@ -65,8 +65,7 @@ export function injectSvgDimensions(svg: string, width: number, height: number):
 }
 
 /**
- * 按 viewBox 宽高比，把图表显示尺寸钳制到不超过 maxWidth。
- * 返回整数像素（markdown-docx 的 title 尺寸正则 /^(\d+%?)x(\d+%?)$/ 只认整数）。
+ * 按 viewBox 宽高比，把图表显示尺寸钳制到不超过 maxWidth，返回整数像素。
  */
 export function clampDiagramSize(
     viewBoxWidth: number,

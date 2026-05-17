@@ -11,6 +11,7 @@
 import { extractMermaidBlocks, replaceMermaidBlocks } from '~/utils/mermaidMarkdown'
 import type { MermaidImageRef } from '~/utils/mermaidMarkdown'
 import { mermaidToPng } from '~/lib/mermaidRaster'
+import { triggerBrowserDownloadBlob } from '~/utils/browserDownload'
 
 /** Word 正文宽度（A4 竖版，约 600px），用于把图表显示宽度钳制到正文内 */
 const WORD_CONTENT_WIDTH = 600
@@ -26,13 +27,12 @@ export function useMarkdownDocxExport() {
         const images: Array<MermaidImageRef | null> = []
         for (const block of blocks) {
             try {
-                const png = await mermaidToPng(block.code, {
+                images.push(await mermaidToPng(block.code, {
                     // Word 是白底，固定浅色主题，不跟随 App 明暗模式
                     theme: 'default',
                     scale: EXPORT_PNG_SCALE,
                     maxDisplayWidth: WORD_CONTENT_WIDTH,
-                })
-                images.push({ dataUrl: png.dataUrl, width: png.width, height: png.height })
+                }))
             }
             catch (err) {
                 logger.warn('[useMarkdownDocxExport] Mermaid 渲染失败，保留原始代码块', err)
@@ -67,8 +67,7 @@ export function useMarkdownDocxExport() {
     async function exportMarkdownToDocx(markdown: string, filename: string): Promise<void> {
         const processed = await embedMermaidImages(markdown)
         const blob = await renderDocx(processed)
-        const { saveAs } = await import('file-saver')
-        saveAs(blob, filename)
+        triggerBrowserDownloadBlob(blob, filename)
     }
 
     return { exportMarkdownToDocx }

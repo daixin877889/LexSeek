@@ -13,20 +13,11 @@
 import type { CodeNodeRendererProps, Control, ControlTransformer, SelectOption } from 'vue-stream-markdown'
 import { toast } from 'vue-sonner'
 import { mermaidToPng } from '~/lib/mermaidRaster'
+import { triggerBrowserDownloadUrl } from '~/utils/browserDownload'
 import { useColorMode } from '~/composables/useColorMode'
 
 /** 默认栅格倍率（相对 viewBox 尺寸），实际像素还会再乘 devicePixelRatio */
 export const DEFAULT_PNG_SCALE = 5
-
-/** 用 data URL 触发浏览器下载 */
-function triggerDownload(dataUrl: string, filename: string): void {
-    const a = document.createElement('a')
-    a.href = dataUrl
-    a.download = filename
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-}
 
 export function useMermaidHdPng() {
     const { isDark } = useColorMode()
@@ -39,7 +30,7 @@ export function useMermaidHdPng() {
                 theme: isDark.value ? 'dark' : 'default',
                 scale,
             })
-            triggerDownload(dataUrl, `diagram-${Date.now()}.png`)
+            triggerBrowserDownloadUrl(dataUrl, `diagram-${Date.now()}.png`)
         }
         catch (err) {
             const msg = err instanceof Error ? err.message : String(err)
