@@ -463,6 +463,26 @@ describe('权限服务测试', () => {
             expect(nodeIds).not.toContain(node1.id)
         })
 
+        it('应恢复已软删除后重新加入的权限', async () => {
+            const model = await createTestModel()
+            const node = await createTestNode(model.id)
+            const level = await createTestLevel()
+
+            await batchGrantAccessService(level.id, [node.id])
+            await batchUpdateAccessService(level.id, [])
+            await batchUpdateAccessService(level.id, [node.id])
+
+            const activeAccess = await testPrisma.levelNodeAccess.findFirst({
+                where: {
+                    levelId: level.id,
+                    nodeId: node.id,
+                    deletedAt: null,
+                },
+            })
+
+            expect(activeAccess).not.toBeNull()
+        })
+
         it('不存在的会员级别应抛出错误', async () => {
             const model = await createTestModel()
             const node = await createTestNode(model.id)
