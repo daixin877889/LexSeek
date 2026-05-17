@@ -14,6 +14,9 @@ model contractRisks {
   problem    String  @db.Text
   legalBasis String? @map("legal_basis") @db.Text
   analysis   String? @db.Text
+  /// M12：AI 生成的「对当前立场方的法律风险」分析（首次审查 source=ai 才填；
+  /// manual / global_review / external_new 来源的风险无此字段，留 null）。
+  risk       String? @db.Text
   suggestion String? @db.Text
   /// AI 生成的完整改写后条款（high/medium 必有；low 可空）；
   /// 前端 RiskClauseDiff 据此做字符级 diff 着色

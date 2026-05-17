@@ -59,6 +59,7 @@ export type ContractRisksMinAggregateOutputType = {
   problem: string | null
   legalBasis: string | null
   analysis: string | null
+  risk: string | null
   suggestion: string | null
   suggestedClauseText: string | null
   archivedStatus: string | null
@@ -90,6 +91,7 @@ export type ContractRisksMaxAggregateOutputType = {
   problem: string | null
   legalBasis: string | null
   analysis: string | null
+  risk: string | null
   suggestion: string | null
   suggestedClauseText: string | null
   archivedStatus: string | null
@@ -121,6 +123,7 @@ export type ContractRisksCountAggregateOutputType = {
   problem: number
   legalBasis: number
   analysis: number
+  risk: number
   suggestion: number
   suggestedClauseText: number
   archivedStatus: number
@@ -176,6 +179,7 @@ export type ContractRisksMinAggregateInputType = {
   problem?: true
   legalBasis?: true
   analysis?: true
+  risk?: true
   suggestion?: true
   suggestedClauseText?: true
   archivedStatus?: true
@@ -207,6 +211,7 @@ export type ContractRisksMaxAggregateInputType = {
   problem?: true
   legalBasis?: true
   analysis?: true
+  risk?: true
   suggestion?: true
   suggestedClauseText?: true
   archivedStatus?: true
@@ -238,6 +243,7 @@ export type ContractRisksCountAggregateInputType = {
   problem?: true
   legalBasis?: true
   analysis?: true
+  risk?: true
   suggestion?: true
   suggestedClauseText?: true
   archivedStatus?: true
@@ -356,6 +362,7 @@ export type ContractRisksGroupByOutputType = {
   problem: string
   legalBasis: string | null
   analysis: string | null
+  risk: string | null
   suggestion: string | null
   suggestedClauseText: string | null
   archivedStatus: string | null
@@ -410,6 +417,7 @@ export type contractRisksWhereInput = {
   problem?: Prisma.StringFilter<"contractRisks"> | string
   legalBasis?: Prisma.StringNullableFilter<"contractRisks"> | string | null
   analysis?: Prisma.StringNullableFilter<"contractRisks"> | string | null
+  risk?: Prisma.StringNullableFilter<"contractRisks"> | string | null
   suggestion?: Prisma.StringNullableFilter<"contractRisks"> | string | null
   suggestedClauseText?: Prisma.StringNullableFilter<"contractRisks"> | string | null
   archivedStatus?: Prisma.StringNullableFilter<"contractRisks"> | string | null
@@ -443,6 +451,7 @@ export type contractRisksOrderByWithRelationInput = {
   problem?: Prisma.SortOrder
   legalBasis?: Prisma.SortOrderInput | Prisma.SortOrder
   analysis?: Prisma.SortOrderInput | Prisma.SortOrder
+  risk?: Prisma.SortOrderInput | Prisma.SortOrder
   suggestion?: Prisma.SortOrderInput | Prisma.SortOrder
   suggestedClauseText?: Prisma.SortOrderInput | Prisma.SortOrder
   archivedStatus?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -479,6 +488,7 @@ export type contractRisksWhereUniqueInput = Prisma.AtLeast<{
   problem?: Prisma.StringFilter<"contractRisks"> | string
   legalBasis?: Prisma.StringNullableFilter<"contractRisks"> | string | null
   analysis?: Prisma.StringNullableFilter<"contractRisks"> | string | null
+  risk?: Prisma.StringNullableFilter<"contractRisks"> | string | null
   suggestion?: Prisma.StringNullableFilter<"contractRisks"> | string | null
   suggestedClauseText?: Prisma.StringNullableFilter<"contractRisks"> | string | null
   archivedStatus?: Prisma.StringNullableFilter<"contractRisks"> | string | null
@@ -512,6 +522,7 @@ export type contractRisksOrderByWithAggregationInput = {
   problem?: Prisma.SortOrder
   legalBasis?: Prisma.SortOrderInput | Prisma.SortOrder
   analysis?: Prisma.SortOrderInput | Prisma.SortOrder
+  risk?: Prisma.SortOrderInput | Prisma.SortOrder
   suggestion?: Prisma.SortOrderInput | Prisma.SortOrder
   suggestedClauseText?: Prisma.SortOrderInput | Prisma.SortOrder
   archivedStatus?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -551,6 +562,7 @@ export type contractRisksScalarWhereWithAggregatesInput = {
   problem?: Prisma.StringWithAggregatesFilter<"contractRisks"> | string
   legalBasis?: Prisma.StringNullableWithAggregatesFilter<"contractRisks"> | string | null
   analysis?: Prisma.StringNullableWithAggregatesFilter<"contractRisks"> | string | null
+  risk?: Prisma.StringNullableWithAggregatesFilter<"contractRisks"> | string | null
   suggestion?: Prisma.StringNullableWithAggregatesFilter<"contractRisks"> | string | null
   suggestedClauseText?: Prisma.StringNullableWithAggregatesFilter<"contractRisks"> | string | null
   archivedStatus?: Prisma.StringNullableWithAggregatesFilter<"contractRisks"> | string | null
@@ -580,6 +592,7 @@ export type contractRisksCreateInput = {
   problem: string
   legalBasis?: string | null
   analysis?: string | null
+  risk?: string | null
   suggestion?: string | null
   suggestedClauseText?: string | null
   archivedStatus?: string | null
@@ -613,6 +626,7 @@ export type contractRisksUncheckedCreateInput = {
   problem: string
   legalBasis?: string | null
   analysis?: string | null
+  risk?: string | null
   suggestion?: string | null
   suggestedClauseText?: string | null
   archivedStatus?: string | null
@@ -643,6 +657,7 @@ export type contractRisksUpdateInput = {
   problem?: Prisma.StringFieldUpdateOperationsInput | string
   legalBasis?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   analysis?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  risk?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   suggestion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   suggestedClauseText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -676,6 +691,7 @@ export type contractRisksUncheckedUpdateInput = {
   problem?: Prisma.StringFieldUpdateOperationsInput | string
   legalBasis?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   analysis?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  risk?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   suggestion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   suggestedClauseText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -708,6 +724,7 @@ export type contractRisksCreateManyInput = {
   problem: string
   legalBasis?: string | null
   analysis?: string | null
+  risk?: string | null
   suggestion?: string | null
   suggestedClauseText?: string | null
   archivedStatus?: string | null
@@ -737,6 +754,7 @@ export type contractRisksUpdateManyMutationInput = {
   problem?: Prisma.StringFieldUpdateOperationsInput | string
   legalBasis?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   analysis?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  risk?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   suggestion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   suggestedClauseText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -768,6 +786,7 @@ export type contractRisksUncheckedUpdateManyInput = {
   problem?: Prisma.StringFieldUpdateOperationsInput | string
   legalBasis?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   analysis?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  risk?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   suggestion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   suggestedClauseText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -809,6 +828,7 @@ export type contractRisksCountOrderByAggregateInput = {
   problem?: Prisma.SortOrder
   legalBasis?: Prisma.SortOrder
   analysis?: Prisma.SortOrder
+  risk?: Prisma.SortOrder
   suggestion?: Prisma.SortOrder
   suggestedClauseText?: Prisma.SortOrder
   archivedStatus?: Prisma.SortOrder
@@ -851,6 +871,7 @@ export type contractRisksMaxOrderByAggregateInput = {
   problem?: Prisma.SortOrder
   legalBasis?: Prisma.SortOrder
   analysis?: Prisma.SortOrder
+  risk?: Prisma.SortOrder
   suggestion?: Prisma.SortOrder
   suggestedClauseText?: Prisma.SortOrder
   archivedStatus?: Prisma.SortOrder
@@ -882,6 +903,7 @@ export type contractRisksMinOrderByAggregateInput = {
   problem?: Prisma.SortOrder
   legalBasis?: Prisma.SortOrder
   analysis?: Prisma.SortOrder
+  risk?: Prisma.SortOrder
   suggestion?: Prisma.SortOrder
   suggestedClauseText?: Prisma.SortOrder
   archivedStatus?: Prisma.SortOrder
@@ -983,6 +1005,7 @@ export type contractRisksCreateWithoutReviewInput = {
   problem: string
   legalBasis?: string | null
   analysis?: string | null
+  risk?: string | null
   suggestion?: string | null
   suggestedClauseText?: string | null
   archivedStatus?: string | null
@@ -1014,6 +1037,7 @@ export type contractRisksUncheckedCreateWithoutReviewInput = {
   problem: string
   legalBasis?: string | null
   analysis?: string | null
+  risk?: string | null
   suggestion?: string | null
   suggestedClauseText?: string | null
   archivedStatus?: string | null
@@ -1075,6 +1099,7 @@ export type contractRisksScalarWhereInput = {
   problem?: Prisma.StringFilter<"contractRisks"> | string
   legalBasis?: Prisma.StringNullableFilter<"contractRisks"> | string | null
   analysis?: Prisma.StringNullableFilter<"contractRisks"> | string | null
+  risk?: Prisma.StringNullableFilter<"contractRisks"> | string | null
   suggestion?: Prisma.StringNullableFilter<"contractRisks"> | string | null
   suggestedClauseText?: Prisma.StringNullableFilter<"contractRisks"> | string | null
   archivedStatus?: Prisma.StringNullableFilter<"contractRisks"> | string | null
@@ -1104,6 +1129,7 @@ export type contractRisksCreateWithoutAnnotationsInput = {
   problem: string
   legalBasis?: string | null
   analysis?: string | null
+  risk?: string | null
   suggestion?: string | null
   suggestedClauseText?: string | null
   archivedStatus?: string | null
@@ -1136,6 +1162,7 @@ export type contractRisksUncheckedCreateWithoutAnnotationsInput = {
   problem: string
   legalBasis?: string | null
   analysis?: string | null
+  risk?: string | null
   suggestion?: string | null
   suggestedClauseText?: string | null
   archivedStatus?: string | null
@@ -1181,6 +1208,7 @@ export type contractRisksUpdateWithoutAnnotationsInput = {
   problem?: Prisma.StringFieldUpdateOperationsInput | string
   legalBasis?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   analysis?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  risk?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   suggestion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   suggestedClauseText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1213,6 +1241,7 @@ export type contractRisksUncheckedUpdateWithoutAnnotationsInput = {
   problem?: Prisma.StringFieldUpdateOperationsInput | string
   legalBasis?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   analysis?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  risk?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   suggestion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   suggestedClauseText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1243,6 +1272,7 @@ export type contractRisksCreateManyReviewInput = {
   problem: string
   legalBasis?: string | null
   analysis?: string | null
+  risk?: string | null
   suggestion?: string | null
   suggestedClauseText?: string | null
   archivedStatus?: string | null
@@ -1272,6 +1302,7 @@ export type contractRisksUpdateWithoutReviewInput = {
   problem?: Prisma.StringFieldUpdateOperationsInput | string
   legalBasis?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   analysis?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  risk?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   suggestion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   suggestedClauseText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1303,6 +1334,7 @@ export type contractRisksUncheckedUpdateWithoutReviewInput = {
   problem?: Prisma.StringFieldUpdateOperationsInput | string
   legalBasis?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   analysis?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  risk?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   suggestion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   suggestedClauseText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1334,6 +1366,7 @@ export type contractRisksUncheckedUpdateManyWithoutReviewInput = {
   problem?: Prisma.StringFieldUpdateOperationsInput | string
   legalBasis?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   analysis?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  risk?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   suggestion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   suggestedClauseText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   archivedStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1396,6 +1429,7 @@ export type contractRisksSelect<ExtArgs extends runtime.Types.Extensions.Interna
   problem?: boolean
   legalBasis?: boolean
   analysis?: boolean
+  risk?: boolean
   suggestion?: boolean
   suggestedClauseText?: boolean
   archivedStatus?: boolean
@@ -1430,6 +1464,7 @@ export type contractRisksSelectCreateManyAndReturn<ExtArgs extends runtime.Types
   problem?: boolean
   legalBasis?: boolean
   analysis?: boolean
+  risk?: boolean
   suggestion?: boolean
   suggestedClauseText?: boolean
   archivedStatus?: boolean
@@ -1462,6 +1497,7 @@ export type contractRisksSelectUpdateManyAndReturn<ExtArgs extends runtime.Types
   problem?: boolean
   legalBasis?: boolean
   analysis?: boolean
+  risk?: boolean
   suggestion?: boolean
   suggestedClauseText?: boolean
   archivedStatus?: boolean
@@ -1494,6 +1530,7 @@ export type contractRisksSelectScalar = {
   problem?: boolean
   legalBasis?: boolean
   analysis?: boolean
+  risk?: boolean
   suggestion?: boolean
   suggestedClauseText?: boolean
   archivedStatus?: boolean
@@ -1514,7 +1551,7 @@ export type contractRisksSelectScalar = {
   clientRedlineDecision?: boolean
 }
 
-export type contractRisksOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "reviewId" | "source" | "code" | "category" | "level" | "stance" | "problem" | "legalBasis" | "analysis" | "suggestion" | "suggestedClauseText" | "archivedStatus" | "archivedAt" | "clauseIndex" | "clauseText" | "clauseParagraphIndex" | "clauseCharStart" | "clauseCharEnd" | "problematicQuote" | "quoteCharStart" | "quoteCharEnd" | "quoteMatchSource" | "originalClauseText" | "createdAt" | "updatedAt" | "orphaned" | "clientRedlineDecision", ExtArgs["result"]["contractRisks"]>
+export type contractRisksOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "reviewId" | "source" | "code" | "category" | "level" | "stance" | "problem" | "legalBasis" | "analysis" | "risk" | "suggestion" | "suggestedClauseText" | "archivedStatus" | "archivedAt" | "clauseIndex" | "clauseText" | "clauseParagraphIndex" | "clauseCharStart" | "clauseCharEnd" | "problematicQuote" | "quoteCharStart" | "quoteCharEnd" | "quoteMatchSource" | "originalClauseText" | "createdAt" | "updatedAt" | "orphaned" | "clientRedlineDecision", ExtArgs["result"]["contractRisks"]>
 export type contractRisksInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   review?: boolean | Prisma.contractReviewsDefaultArgs<ExtArgs>
   annotations?: boolean | Prisma.contractRisks$annotationsArgs<ExtArgs>
@@ -1556,6 +1593,11 @@ export type $contractRisksPayload<ExtArgs extends runtime.Types.Extensions.Inter
     problem: string
     legalBasis: string | null
     analysis: string | null
+    /**
+     * M12：AI 生成的「对当前立场方的法律风险」分析（首次审查 source=ai 才填；
+     * manual / global_review / external_new 来源的风险无此字段，留 null）。
+     */
+    risk: string | null
     suggestion: string | null
     /**
      * AI 生成的完整改写后条款（high/medium 必有；low 可空）；
@@ -2054,6 +2096,7 @@ export interface contractRisksFieldRefs {
   readonly problem: Prisma.FieldRef<"contractRisks", 'String'>
   readonly legalBasis: Prisma.FieldRef<"contractRisks", 'String'>
   readonly analysis: Prisma.FieldRef<"contractRisks", 'String'>
+  readonly risk: Prisma.FieldRef<"contractRisks", 'String'>
   readonly suggestion: Prisma.FieldRef<"contractRisks", 'String'>
   readonly suggestedClauseText: Prisma.FieldRef<"contractRisks", 'String'>
   readonly archivedStatus: Prisma.FieldRef<"contractRisks", 'String'>

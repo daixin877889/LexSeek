@@ -548,6 +548,8 @@ export interface ContractRiskEntity {
     problem: string
     legalBasis: string | null
     analysis: string | null
+    /** M12：AI 生成的「对当前立场方的法律风险」（首次审查 source=ai 才有；manual / global_review / external_new 来源为 null） */
+    risk: string | null
     suggestion: string | null
     /** AI 生成的完整改写后条款（high/medium 必有；low 可空） */
     suggestedClauseText: string | null

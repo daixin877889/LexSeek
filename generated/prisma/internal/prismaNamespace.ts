@@ -6407,6 +6407,7 @@ export const ContractRisksScalarFieldEnum = {
   problem: 'problem',
   legalBasis: 'legalBasis',
   analysis: 'analysis',
+  risk: 'risk',
   suggestion: 'suggestion',
   suggestedClauseText: 'suggestedClauseText',
   archivedStatus: 'archivedStatus',

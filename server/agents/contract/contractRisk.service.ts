@@ -130,6 +130,8 @@ export async function persistAiRisksAsContractRows(input: {
             problem: r.problem,
             legalBasis: r.legalBasis ?? null,
             analysis: r.analysis ?? null,
+            // M12：持久化 AI 生成的「立场专属法律风险」分析
+            risk: r.risk ?? null,
             suggestion: r.suggestion ?? null,
             suggestedClauseText: r.suggestedClauseText ?? null,
             // 双锚点 · 层 1

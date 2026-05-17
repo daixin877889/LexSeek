@@ -294,7 +294,10 @@ const effectiveRisks = computed<RiskDisplayPhaseB[]>(() => {
             problem: e.problem,
             legalBasis: e.legalBasis ?? undefined,
             analysis: e.analysis ?? '',
-            risk: e.problem,
+            // M12：contractRisks 表已持久化 risk（立场专属法律风险）。新审查取真值；
+            // M12 之前的存量 review 该列为 null，回退到 problem 保持无回归（且 risk 为
+            // Risk 必填字段，回退非空值可避免编辑保存时 PATCH schema 校验失败）。
+            risk: e.risk ?? e.problem,
             suggestion: e.suggestion ?? '',
             suggestedClauseText: e.suggestedClauseText ?? undefined,
             // Playbook 命中：entity 字段名是 code（contract_risks.code），
