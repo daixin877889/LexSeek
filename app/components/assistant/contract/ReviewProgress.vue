@@ -3,12 +3,13 @@
  * 合同审查阶段进度条（M6.1 子期 1）
  *
  * 5 段进度：识别 / 等立场 / 切分 / 分析 / 汇总
- * - 每段可视化为一个小圆点：wait 灰 / running 橙+光晕 / done 绿
+ * - 每段可视化：wait 灰点 / running Loader2 旋转 / done CheckCircle2
  * - analyze 阶段 running 时额外显示 "正在分析第 X / Y 条"
  * - 全部 done 时组件隐藏（by v-if）
  *
  * 自动导入名：AssistantContractReviewProgress
  */
+import { CheckCircle2Icon, Loader2Icon } from 'lucide-vue-next'
 
 type StageKey = 'detect' | 'stance' | 'segment' | 'analyze' | 'summarize'
 type Status = 'wait' | 'running' | 'done'
@@ -46,23 +47,29 @@ const progressText = computed(() => {
                         data-stage-dot
                         :data-stage="key"
                         :data-stage-status="stages[key]"
-                        class="size-2.5 rounded-full transition-colors shrink-0"
+                        class="flex items-center justify-center shrink-0"
+                    >
+                        <CheckCircle2Icon v-if="stages[key] === 'done'" class="size-3.5 text-emerald-600" />
+                        <Loader2Icon v-else-if="stages[key] === 'running'" class="size-3.5 text-primary animate-spin" />
+                        <span v-else class="size-2 rounded-full bg-muted-foreground/30" />
+                    </span>
+                    <span
+                        class="text-xs"
                         :class="{
-                            'bg-gray-300 dark:bg-gray-600': stages[key] === 'wait',
-                            'bg-amber-500 shadow-[0_0_0_3px_rgba(245,158,11,0.25)] animate-pulse': stages[key] === 'running',
-                            'bg-emerald-600': stages[key] === 'done',
+                            'text-emerald-600': stages[key] === 'done',
+                            'text-primary font-medium': stages[key] === 'running',
+                            'text-muted-foreground': stages[key] === 'wait',
                         }"
-                    />
-                    <span class="text-xs text-muted-foreground">{{ STAGE_LABEL[key] }}</span>
+                    >{{ STAGE_LABEL[key] }}</span>
                 </div>
-                <span v-if="key !== 'summarize'" class="text-gray-300 dark:text-gray-600">·</span>
+                <span v-if="key !== 'summarize'" class="text-muted-foreground/40">·</span>
             </template>
         </div>
         <div v-if="progressText" class="text-xs text-muted-foreground flex items-center gap-2">
             <span class="whitespace-nowrap">{{ progressText }}</span>
-            <div v-if="totalClauses" class="flex-1 h-1 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden min-w-[40px]">
+            <div v-if="totalClauses" class="flex-1 h-1 bg-muted rounded overflow-hidden min-w-[40px]">
                 <div
-                    class="h-full bg-blue-500 transition-all"
+                    class="h-full bg-gradient-brand-button transition-all"
                     :style="{ width: `${((analyzingIndex ?? 0) / totalClauses) * 100}%` }"
                 />
             </div>
