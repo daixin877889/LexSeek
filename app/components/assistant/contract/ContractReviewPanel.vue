@@ -10,7 +10,7 @@
  *
  * runStatus 文案内联（不拆 ContractReviewStatus.vue），见 spec §9.2。
  */
-import { Loader2Icon, SaveIcon, HistoryIcon, UploadIcon, TrendingUpIcon, XIcon } from 'lucide-vue-next'
+import { Loader2Icon, SaveIcon, HistoryIcon, UploadIcon, TrendingUpIcon, XIcon, ArrowLeftIcon } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useMediaQuery, useLocalStorage } from '@vueuse/core'
 import type { Risk, RiskDisplay, RiskDisplayPhaseB, ContractReviewStatus, StanceRequest, PlaybookSnapshot, RiskArchivedStatus, ReviewWithParsedRisks, ContractExportMode } from '#shared/types/contract'
@@ -663,6 +663,16 @@ async function handleCreateRisk(payload: { clauseText: string; clauseParagraphIn
                 v-if="versioning.isReadOnly.value"
                 class="flex items-center gap-2 px-4 py-2 border-b bg-muted text-muted-foreground text-sm shrink-0"
             >
+                <button
+                    v-if="!caseId"
+                    type="button"
+                    class="inline-flex items-center justify-center size-6 -ml-1 rounded text-muted-foreground hover:bg-background hover:text-foreground transition-colors shrink-0"
+                    aria-label="返回合同列表"
+                    title="返回合同列表"
+                    @click="navigateTo('/dashboard/contract')"
+                >
+                    <ArrowLeftIcon class="size-4" />
+                </button>
                 <HistoryIcon class="size-4 shrink-0" />
                 <span class="font-medium text-foreground">只读模式 — 正在查看历史版本 v{{ previewVersionNumber }}，无法编辑</span>
                 <button
@@ -678,6 +688,16 @@ async function handleCreateRisk(payload: { clauseText: string; clauseParagraphIn
                 v-else-if="versioning.versions.value.length > 0"
                 class="flex items-center gap-2 px-4 py-1.5 border-b bg-card shrink-0"
             >
+                <button
+                    v-if="!caseId"
+                    type="button"
+                    class="inline-flex items-center justify-center size-6 -ml-1 rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0"
+                    aria-label="返回合同列表"
+                    title="返回合同列表"
+                    @click="navigateTo('/dashboard/contract')"
+                >
+                    <ArrowLeftIcon class="size-4" />
+                </button>
                 <span
                     v-if="versioning.hasUnsavedEdits.value"
                     class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary"
