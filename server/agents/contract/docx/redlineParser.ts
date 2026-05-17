@@ -197,6 +197,10 @@ export function classifyRedlineDecision(input: ClassifyRedlineInput): ClientRedl
         const delNoneAlive = ref.delIds.every(id => !survivingDelIds.has(id))
         const insAlive = survivingInsIds.has(ref.insId)
         if (delAllAlive && insAlive) return ClientRedlineDecision.UNTOUCHED
+        // L6：除「del 全不存活 + ins 不存活」外的所有组合（含「del 全存活 + ins 不存活」
+        // 这种半接受形态）在 w:id 可信时一律落 AMBIGUOUS，不下沉 Layer 2 的半接受识别。
+        // 这是有意的保守落点：AMBIGUOUS 不丢数据，且该形态在 trustWordIds=true 下极罕见
+        // ——Word 接受修订通常触发规范化 → trustWordIds 翻 false → 半接受改由 Layer 2 识别。
         if (!(delNoneAlive && !insAlive)) return ClientRedlineDecision.AMBIGUOUS // 部分存活
     }
 

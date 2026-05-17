@@ -914,52 +914,64 @@ export async function* uploadClientVersionService(params: {
                     // global_review 在 Risk 类型上无 id/clauseIndex/clauseText/risk 概念，
                     // service 也不会写入这些字段，仅做类型占位。
                     const stance = ((review.stance ?? DEFAULT_AI_RISK_STANCE) as unknown) as StancePreference
-                    const createdRisks = await persistAiRisksAsContractRows({
-                        reviewId: review.id,
-                        stance,
-                        rows: rawRisks.map((r) => {
-                            const level: RiskLevel =
-                                r.level === 'high' || r.level === 'medium' || r.level === 'low' ? r.level : 'medium'
-                            const placeholder: Risk = {
-                                id: '',
-                                clauseIndex: -1,
-                                clauseText: '',
-                                level,
-                                category: r.category ?? '全局复核',
-                                problem: r.problem ?? '',
-                                legalBasis: r.legalBasis,
-                                analysis: r.analysis ?? '',
-                                risk: r.problem ?? '',
-                                suggestion: r.suggestion ?? '',
-                            }
-                            return {
-                                risk: placeholder,
-                                source: 'global_review',
-                                clauseText: r.problem ?? '（全局复核）',
-                                clauseParagraphIndex: null,
-                            }
-                        }),
+                    const globalReviewRows = rawRisks.map((r) => {
+                        const level: RiskLevel =
+                            r.level === 'high' || r.level === 'medium' || r.level === 'low' ? r.level : 'medium'
+                        const placeholder: Risk = {
+                            id: '',
+                            clauseIndex: -1,
+                            clauseText: '',
+                            level,
+                            category: r.category ?? '全局复核',
+                            problem: r.problem ?? '',
+                            legalBasis: r.legalBasis,
+                            analysis: r.analysis ?? '',
+                            risk: r.problem ?? '',
+                            suggestion: r.suggestion ?? '',
+                        }
+                        return {
+                            risk: placeholder,
+                            source: 'global_review' as const,
+                            clauseText: r.problem ?? '（全局复核）',
+                            clauseParagraphIndex: null,
+                        }
                     })
-                    for (let i = 0; i < createdRisks.length; i++) {
-                        const created = createdRisks[i]!
-                        const raw = rawRisks[i]!
-                        step4CreatedRiskIds.push(created.id)
-                        const newAnn = await prisma.contractAnnotations.create({
-                            data: {
-                                reviewId: review.id,
-                                riskId: created.id,
-                                authorType: 'ai',
-                                authorName: 'AI',
-                                content: raw.problem ?? '',
-                            },
+                    // L8：4b 的风险 + 批注创建包进单事务——任一步失败整体回滚，避免「成功
+                    // 上传里残留缺批注的半成品 global_review 风险」。全局复核本就是 best-effort，
+                    // 失败则整体跳过。tracking 数组在事务提交后才追加，不引用已回滚的行。
+                    const { gRiskIds, gAnnIds } = await prisma.$transaction(async (tx) => {
+                        const createdRisks = await persistAiRisksAsContractRows({
+                            reviewId: review.id,
+                            stance,
+                            rows: globalReviewRows,
+                            tx,
                         })
-                        step4CreatedAnnIds.push(newAnn.id)
-                        await prisma.contractAnnotations.update({
-                            where: { id: newAnn.id },
-                            data: { wordCommentRef: generateWordCommentRef(newAnn.id) },
-                        })
-                        globalReviewNewRiskCount++
-                    }
+                        const riskIds: number[] = []
+                        const annIds: number[] = []
+                        for (let i = 0; i < createdRisks.length; i++) {
+                            const created = createdRisks[i]!
+                            const raw = rawRisks[i]!
+                            riskIds.push(created.id)
+                            const newAnn = await tx.contractAnnotations.create({
+                                data: {
+                                    reviewId: review.id,
+                                    riskId: created.id,
+                                    authorType: 'ai',
+                                    authorName: 'AI',
+                                    content: raw.problem ?? '',
+                                },
+                            })
+                            annIds.push(newAnn.id)
+                            await tx.contractAnnotations.update({
+                                where: { id: newAnn.id },
+                                data: { wordCommentRef: generateWordCommentRef(newAnn.id) },
+                            })
+                        }
+                        return { gRiskIds: riskIds, gAnnIds: annIds }
+                    })
+                    step4CreatedRiskIds.push(...gRiskIds)
+                    step4CreatedAnnIds.push(...gAnnIds)
+                    globalReviewNewRiskCount += gRiskIds.length
                 }
             }
         }
@@ -1274,6 +1286,27 @@ export async function* uploadClientVersionService(params: {
                 if (ids) ids.push(riskId)
                 else riskIdsByDecision.set(decision, [riskId])
             }
+            // L7：客户跨两次上传「先接受后拒绝」时，上一轮 accept 自动归档的 handled 需
+            // 回退，否则被改判的风险仍以「已处理」隐藏。仅回退「本轮非 accepted + 当前
+            // archivedStatus=handled + 当前 clientRedlineDecision=accepted」的风险——这一
+            // 组合是上一轮 accept 自动归档的签名（此处在写入新 decision 前执行，
+            // clientRedlineDecision 仍是旧值）。极端情形「律师手动 handled 过的风险又被
+            // accept」无法与自动归档区分，属已知边界。
+            const nonAcceptedRiskIds = [
+                ...(riskIdsByDecision.get(ClientRedlineDecision.REJECTED) ?? []),
+                ...(riskIdsByDecision.get(ClientRedlineDecision.AMBIGUOUS) ?? []),
+                ...(riskIdsByDecision.get(ClientRedlineDecision.UNTOUCHED) ?? []),
+            ]
+            if (nonAcceptedRiskIds.length > 0) {
+                await tx.contractRisks.updateMany({
+                    where: {
+                        id: { in: nonAcceptedRiskIds },
+                        archivedStatus: 'handled',
+                        clientRedlineDecision: ClientRedlineDecision.ACCEPTED,
+                    },
+                    data: { archivedStatus: null, archivedAt: null },
+                })
+            }
             for (const [decision, riskIds] of riskIdsByDecision) {
                 await tx.contractRisks.updateMany({
                     where: { id: { in: riskIds } },
@@ -1437,7 +1470,10 @@ async function detectUnsavedEdits(
     // 多余的 auto_backup。仅律师真实编辑（content/archivedStatus/手动标记）才计。
     const [latestRisk, latestAnn, currentVer] = await Promise.all([
         prisma.contractRisks.findFirst({
-            where: { reviewId },
+            // L9：与 latestAnn 同口径排除系统写入态——latestAnn 滤掉 removedByClient /
+            // suppressInExport，latestRisk 同样滤掉 client_removed（客户删除风险是系统
+            // 写入，不算律师未保存编辑，否则下次 upload 多触发一次 auto_backup）。
+            where: { reviewId, archivedStatus: { not: 'client_removed' } },
             orderBy: { updatedAt: 'desc' },
             select: { updatedAt: true },
         }),
