@@ -301,7 +301,7 @@ describe('createDocumentTemplateService', () => {
             )
         })
 
-        it('admin 上传：OSS 路径使用 global-templates 前缀', async () => {
+        it('admin 上传：OSS 路径使用 system/document_template/ 格式', async () => {
             const adminParams = { ...BASE_PARAMS, scope: 'global' as const, ownerUserId: null }
 
             await createDocumentTemplateService(adminParams)
