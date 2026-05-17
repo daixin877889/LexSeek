@@ -65,12 +65,12 @@ function cancelEditNote() {
     <aside
         :class="[
             'border-r bg-muted/30 transition-all duration-200 flex flex-col',
-            collapsed ? 'w-[48px] py-3 items-center' : 'w-[220px] p-3',
+            collapsed ? 'w-[52px] py-3 items-center' : 'w-[220px] p-3',
         ]"
     >
         <!-- 折叠切换按钮 -->
         <button
-            class="size-6 rounded border bg-background hover:border-primary flex items-center justify-center shrink-0"
+            class="size-[26px] rounded-md border bg-card text-muted-foreground hover:bg-muted hover:text-foreground transition-colors flex items-center justify-center shrink-0"
             :title="collapsed ? '展开时间线' : '收起时间线'"
             @click="collapsed = !collapsed"
         >
@@ -79,7 +79,7 @@ function cancelEditNote() {
         </button>
 
         <!-- 标题（展开态） -->
-        <div v-if="!collapsed" class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide my-2">
+        <div v-if="!collapsed" class="text-[10.5px] font-semibold text-muted-foreground tracking-[0.06em] my-2">
             版本时间线
         </div>
 
