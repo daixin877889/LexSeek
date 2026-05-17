@@ -207,7 +207,7 @@ describe('createDocumentTemplateService', () => {
 
             const uploadCall = mockUploadFileService.mock.calls[0]
             const ossPath: string = uploadCall[0]
-            expect(ossPath).toContain(`users/${BASE_PARAMS.ownerUserId}/`)
+            expect(ossPath).toContain(`test/user${BASE_PARAMS.ownerUserId}/document_template/`)
         })
     })
 
@@ -308,7 +308,7 @@ describe('createDocumentTemplateService', () => {
 
             const uploadCall = mockUploadFileService.mock.calls[0]
             const ossPath: string = uploadCall[0]
-            expect(ossPath).toContain('global-templates/')
+            expect(ossPath).toContain('test/system/document_template/')
         })
     })
 
@@ -350,7 +350,7 @@ describe('createDocumentTemplateService', () => {
             })
 
             const ossPath = mockUploadFileService.mock.calls[0][0] as string
-            expect(ossPath).toMatch(/^global-templates\//)
+            expect(ossPath).toMatch(/^test\/system\/document_template\//)
             expect(ossPath).not.toContain('users/')
         })
 

@@ -275,7 +275,7 @@ describe('exportDraftService - 正常渲染流程', () => {
         await exportDraftService(100, 10)
 
         expect(mockUploadFileService).toHaveBeenCalledWith(
-            expect.stringContaining('users/100/document-exports/'),
+            expect.stringContaining('test/user100/document_export/'),
             expect.any(Buffer),
             expect.objectContaining({
                 contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

@@ -27,6 +27,7 @@ import { getDocumentDraftDAO, updateDocumentDraftDAO } from './documentDraft.dao
 import { getDocumentTemplateDAO } from './documentTemplate.dao'
 import { getVersionByIdDAO } from './documentDraftVersion.dao'
 import { extractDocxtemplaterErrorDetail } from './docxtemplaterError.util'
+import { buildStorageKey } from '~~/server/utils/storagePath'
 import type { ExportDraftResponse } from '#shared/types/document'
 
 /** 导出错误响应 */
@@ -85,7 +86,12 @@ async function renderAndUploadDocx(params: {
     }
 
     // 5. 并行上传 + 获取存储配置
-    const ossPath = `users/${userId}/document-exports/${Date.now()}_${safeBaseName}.docx`
+    const ossPath = buildStorageKey({
+        scope: 'user',
+        userId,
+        source: FileSource.DOCUMENT_EXPORT,
+        fileName: `${Date.now()}_${safeBaseName}.docx`,
+    })
     const [uploadResult, storageConfig] = await Promise.all([
         uploadFileService(ossPath, renderedBuffer, {
             contentType: DOCX_MIME,

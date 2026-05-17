@@ -15,6 +15,7 @@ import { FileSource, OssFileStatus } from '~~/shared/types/file'
 import { scanPlaceholders } from './templateScanner'
 import { createDocumentTemplateDAO, countUserTemplatesDAO } from './documentTemplate.dao'
 import { extractDocxtemplaterErrorDetail } from './docxtemplaterError.util'
+import { buildStorageKey } from '~~/server/utils/storagePath'
 import type { Prisma } from '#shared/types/prisma'
 import type { DocumentCategoryKey, Placeholder } from '#shared/types/document'
 
@@ -110,8 +111,17 @@ async function uploadAndCreate(opts: {
     const timestamp = Date.now()
     const ossPath =
         params.scope === 'user'
-            ? `users/${params.ownerUserId}/templates/${timestamp}_${params.fileName}`
-            : `global-templates/${timestamp}_${params.fileName}`
+            ? buildStorageKey({
+                  scope: 'user',
+                  userId: params.ownerUserId!,
+                  source: FileSource.DOCUMENT_TEMPLATE,
+                  fileName: `${timestamp}_${params.fileName}`,
+              })
+            : buildStorageKey({
+                  scope: 'system',
+                  source: FileSource.DOCUMENT_TEMPLATE,
+                  fileName: `${timestamp}_${params.fileName}`,
+              })
 
     // ownerUserId=null（scope='global'）走系统默认存储配置
     const userIdForStorage = params.ownerUserId ?? undefined
