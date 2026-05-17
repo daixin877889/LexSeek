@@ -288,6 +288,8 @@ const ID_BEARING_TAGS = new Set([
     'w:sectPrChange', 'w:tblPrChange', 'w:tcPrChange', 'w:trPrChange',
     'w:cellIns', 'w:cellDel', 'w:cellMerge', 'w:numberingChange',
     'w:commentRangeStart', 'w:commentRangeEnd', 'w:commentReference',
+    // M16：comments.xml 里 <w:comment w:id> 也占共享池——新分配 w:id 必须避开原生批注 id
+    'w:comment',
     'w:moveFromRangeStart', 'w:moveToRangeStart',
     'w:moveFromRangeEnd', 'w:moveToRangeEnd',
 ])

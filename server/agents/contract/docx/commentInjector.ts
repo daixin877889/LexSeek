@@ -20,6 +20,7 @@ import {
     readTextFromZip,
     writeTextToZip,
     zipToBuffer,
+    findMaxSharedIdInDocx,
 } from './zipRewriter'
 import { generateWordCommentRef } from '../utils/wordCommentRef'
 import { normalizeForMatch } from '../utils/textSimilarity'
@@ -40,6 +41,7 @@ import {
     paragraphText,
     hasRunChild,
     collectNonEmptyParagraphs,
+    stripIllegalXmlChars,
     type Node,
     type NodeArray,
 } from './xmlAst'
@@ -364,10 +366,8 @@ export async function injectAnnotations(
     reviewId: number,
     opts?: InjectAnnotationsOptions,
 ): Promise<InjectAnnotationsResult> {
-    const idStart = opts?.idStart ?? 0
     const wrapTargetByRiskId = opts?.wrapTargetByRiskId ?? new Map<number, RedlineWrapTarget>()
     const signature = opts?.signature?.trim() || 'AI'
-    const nextIdAfter = idStart + annotations.length
     const refsByAnnotationId = new Map<number, string>()
 
     if (annotations.length === 0) {
@@ -379,7 +379,7 @@ export async function injectAnnotations(
         zip.remove('word/customXml/_rels/annotationRefs.xml.rels')
         await ensureContentTypesRegistered(zip, { comments: false, customXml: false })
         await ensureDocumentRelsRegistered(zip, { comments: false, customXml: false })
-        return { buffer: await zipToBuffer(zip), refsByAnnotationId, nextIdAfter }
+        return { buffer: await zipToBuffer(zip), refsByAnnotationId, nextIdAfter: opts?.idStart ?? 0 }
     }
 
     for (const a of annotations) {
@@ -388,6 +388,14 @@ export async function injectAnnotations(
 
     const zip = await loadDocxZip(docxBuffer)
     const documentAst = parseOoxml(await readTextFromZip(zip, 'word/document.xml'))
+    // S2 + M16：idStart 未显式传入（comment 默认模式）时，扫全文 w:id 共享池取 max+1，
+    // 避免注入的 commentRange w:id 从 0 起撞原文档既有 bookmarkStart 等元素 → Word 报损坏。
+    const idStart = opts?.idStart ?? (await findMaxSharedIdInDocx(zip)) + 1
+    const nextIdAfter = idStart + annotations.length
+    // M14：原文档可能带客户原生批注。先记基线——原生 <w:comment> 节点 + document.xml
+    // 里原生 commentRange/Reference 计数；注入后保留原生批注、整体计数核对都带上基线。
+    const nativeComments = await readNativeComments(zip)
+    const nativeMarkers = countCommentMarkers(documentAst)
     const nonEmpty = collectNonEmptyParagraphs(documentAst)
     const nonEmptyCount = nonEmpty.length
     // 段落归一化结果一次算清，下面"精确优先"和 fuzzy 都复用，省 N×M 次 normalize。
@@ -484,9 +492,9 @@ export async function injectAnnotations(
     }
     writeTextToZip(zip, 'word/document.xml', stringifyOoxml(documentAst))
 
-    // comments.xml：全 annotations（含越界的）以保持 w:id 连续
+    // comments.xml：全 annotations（含越界的）以保持 w:id 连续；M14：保留原文档原生批注
     writeTextToZip(zip, 'word/comments.xml',
-        buildCommentsXmlFromAnnotations(annotations, wordIdByAnnotationId, signature),
+        buildCommentsXmlFromAnnotations(annotations, wordIdByAnnotationId, signature, nativeComments),
     )
     // 移除原文件残留的 comments.xml.rels（我们生成的 comments 无外部关系；
     // 原 rels 的悬空引用会让 Word 报"文件损坏"）
@@ -501,7 +509,7 @@ export async function injectAnnotations(
     await ensureDocumentRelsRegistered(zip, { comments: true, customXml: true })
 
     // 产物一致性自检（同段落多 comment 孤儿、AST round-trip 意外丢节点都会被抓到）
-    await assertCommentIntegrity(zip, validAnnotations.length, annotations.length)
+    await assertCommentIntegrity(zip, validAnnotations.length, annotations.length, nativeComments.length, nativeMarkers)
 
     return { buffer: await zipToBuffer(zip), refsByAnnotationId, nextIdAfter }
 }
@@ -514,6 +522,8 @@ async function assertCommentIntegrity(
     zip: Awaited<ReturnType<typeof loadDocxZip>>,
     validCount: number,
     totalCount: number,
+    nativeCommentCount: number,
+    nativeMarkers: { rangeStart: number; rangeEnd: number; reference: number },
 ): Promise<void> {
     const docAst = parseOoxml(await readTextFromZip(zip, 'word/document.xml'))
     const commentsAst = parseOoxml(await readTextFromZip(zip, 'word/comments.xml'))
@@ -523,20 +533,50 @@ async function assertCommentIntegrity(
     const rangeEndCount = findAll(docAst, 'w:commentRangeEnd').length
     const referenceCount = findAll(docAst, 'w:commentReference').length
 
+    // M14：保留了原文档原生批注，预期计数 = 我方注入 + 原生基线
+    const expectedComment = totalCount + nativeCommentCount
+    const expectedRangeStart = validCount + nativeMarkers.rangeStart
+    const expectedRangeEnd = validCount + nativeMarkers.rangeEnd
+    const expectedReference = validCount + nativeMarkers.reference
+
     const fail = (reason: string) => {
         throw new Error(
             `[commentInjector] 产物一致性检查失败：${reason}。`
             + ` comments.xml w:comment=${commentCount}，`
             + ` document.xml rangeStart=${rangeStartCount} / rangeEnd=${rangeEndCount} / reference=${referenceCount}，`
-            + ` 期望 ${totalCount} / ${validCount} / ${validCount} / ${validCount}。`
+            + ` 期望 ${expectedComment} / ${expectedRangeStart} / ${expectedRangeEnd} / ${expectedReference}（已含原生批注基线）。`
             + ' 这会让 Word 报"文件损坏"，拒绝产出。',
         )
     }
 
-    if (commentCount !== totalCount) fail('comments.xml 的 w:comment 数与 annotations 不符')
-    if (rangeStartCount !== validCount) fail('document.xml 的 commentRangeStart 数与 validAnnotations 不符')
-    if (rangeEndCount !== validCount) fail('document.xml 的 commentRangeEnd 数与 validAnnotations 不符')
-    if (referenceCount !== validCount) fail('document.xml 的 commentReference 数与 validAnnotations 不符')
+    if (commentCount !== expectedComment) fail('comments.xml 的 w:comment 数与 annotations + 原生批注不符')
+    if (rangeStartCount !== expectedRangeStart) fail('document.xml 的 commentRangeStart 数与 validAnnotations + 原生不符')
+    if (rangeEndCount !== expectedRangeEnd) fail('document.xml 的 commentRangeEnd 数与 validAnnotations + 原生不符')
+    if (referenceCount !== expectedReference) fail('document.xml 的 commentReference 数与 validAnnotations + 原生不符')
+}
+
+/**
+ * M14：读原文档 comments.xml 里既有的 <w:comment>（客户原生批注）。
+ * comment 模式整体覆盖 comments.xml 时，原生批注须保留并合并进新文件，否则丢失客户内容、
+ * 且 document.xml 里残留的原生 commentRange 会让 assertCommentIntegrity 计数对不上而抛错。
+ */
+async function readNativeComments(zip: Awaited<ReturnType<typeof loadDocxZip>>): Promise<NodeArray> {
+    const file = zip.file('word/comments.xml')
+    if (!file) return []
+    try {
+        return findAll(parseOoxml(await file.async('string')), 'w:comment')
+    } catch {
+        return []
+    }
+}
+
+/** M14：数 document.xml AST 里的原生 commentRange/Reference 标记基线。 */
+function countCommentMarkers(docAst: NodeArray): { rangeStart: number; rangeEnd: number; reference: number } {
+    return {
+        rangeStart: findAll(docAst, 'w:commentRangeStart').length,
+        rangeEnd: findAll(docAst, 'w:commentRangeEnd').length,
+        reference: findAll(docAst, 'w:commentReference').length,
+    }
 }
 
 /**
@@ -598,13 +638,16 @@ function buildCommentsXmlFromAnnotations(
     annotations: ContractAnnotationForExport[],
     wordIds: Map<number, number>,
     signature: string,
+    nativeComments: NodeArray = [],
 ): string {
     const fallbackNow = new Date().toISOString()
     const children = annotations.map(a => {
         const wId = wordIds.get(a.id)!
         // spec §4.3：作者名一律去 LS: 前缀；AI 内容用署名，律师/客户用各自姓名
-        const author = a.authorType === 'ai' ? signature : a.authorName
-        const initials = initialsFor(a.authorType, signature)
+        // S3：作者名 / 缩写统一过 stripIllegalXmlChars——authorName / signature 可能
+        // 来自剪贴板粘贴，混入 U+0008 等非法 XML 1.0 字符会让 Word 拒绝打开。
+        const author = stripIllegalXmlChars(a.authorType === 'ai' ? signature : a.authorName)
+        const initials = stripIllegalXmlChars(initialsFor(a.authorType, signature))
         // M7：优先用 annotation.createdAt，回落到当前时间兜底
         const dateIso = a.createdAt ? a.createdAt.toISOString() : fallbackNow
 
@@ -620,7 +663,7 @@ function buildCommentsXmlFromAnnotations(
         const body: NodeArray = [
             makeElement('w:p', {}, [
                 makeElement('w:r', {}, [
-                    makeElement('w:t', { 'xml:space': 'preserve' }, [makeText(a.content)]),
+                    makeElement('w:t', { 'xml:space': 'preserve' }, [makeText(stripIllegalXmlChars(a.content))]),
                 ]),
             ]),
         ]
@@ -628,7 +671,8 @@ function buildCommentsXmlFromAnnotations(
     })
     const ast: NodeArray = [
         makeXmlDecl(),
-        makeElement('w:comments', { 'xmlns:w': W_NS }, children),
+        // M14：原生批注在前、我方批注在后，合并进同一个 <w:comments>
+        makeElement('w:comments', { 'xmlns:w': W_NS }, [...nativeComments, ...children]),
     ]
     return stringifyOoxml(ast)
 }

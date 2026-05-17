@@ -21,11 +21,9 @@ import { resolveContractExportSignatureService } from '~~/server/services/users/
 import {
     injectAnnotations,
     injectRedlineMarks,
-    findMaxSharedId,
+    findMaxSharedIdInDocx,
     loadDocxZip,
-    readTextFromZip,
 } from './docx'
-import { parseOoxml } from './docx/xmlAst'
 import { listAnnotationsForExportDAO } from './contractAnnotation.dao'
 import { filterExportableDbAnnotations } from './contractAnnotation.service'
 import { listContractRisksDAO } from './contractRisk.dao'
@@ -97,8 +95,8 @@ export async function rebuildDocxService(
     }
     else {
         // redline / both 都需要先扫 ID 池底数
-        const docAst = parseOoxml(await readTextFromZip(await loadDocxZip(origBuffer), 'word/document.xml'))
-        const idStart = findMaxSharedId(docAst) + 1
+        // M16：扫全文 w:id 共享池（含页眉/页脚/原生批注）取 max+1，避免新 w:id 撞车致 Word 报损坏。
+        const idStart = await findMaxSharedIdInDocx(await loadDocxZip(origBuffer)) + 1
 
         const risks = await listContractRisksDAO(review.id)
         const redlineRisks: RedlineRisk[] = risks.map(r => ({

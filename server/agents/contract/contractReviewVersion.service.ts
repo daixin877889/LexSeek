@@ -20,11 +20,9 @@ import { isAnnotationExportable } from './contractAnnotation.service'
 import {
     injectAnnotations,
     injectRedlineMarks,
-    findMaxSharedId,
+    findMaxSharedIdInDocx,
     loadDocxZip,
-    readTextFromZip,
 } from './docx'
-import { parseOoxml } from './docx/xmlAst'
 import type {
     ContractAnnotationForExport,
     RedlineRisk,
@@ -320,8 +318,8 @@ export async function downloadContractReviewVersionService(
         }
         else {
             // PR6 §8.2 历史版本下载也支持 redline / both 三模式
-            const docAst = parseOoxml(await readTextFromZip(await loadDocxZip(baseBuffer), 'word/document.xml'))
-            const idStart = findMaxSharedId(docAst) + 1
+            // M16：扫全文 w:id 共享池（含页眉/页脚/原生批注）取 max+1，避免新 w:id 撞车致 Word 报损坏。
+            const idStart = await findMaxSharedIdInDocx(await loadDocxZip(baseBuffer)) + 1
 
             // snapshot 里的 risks 已含 PR2/PR3 的 quote 字段
             const redlineRisks: RedlineRisk[] = snapshot.risks.map(r => ({

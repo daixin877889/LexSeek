@@ -14,6 +14,7 @@ export {
     readTextFromZip,
     writeTextToZip,
     zipToBuffer,
+    findMaxSharedIdInDocx,
 } from './zipRewriter'
 export { escapeXml, findMaxSharedId, collectNonEmptyParagraphs } from './xmlAst'
 export { injectRedlineMarks } from './redlineInjector'
