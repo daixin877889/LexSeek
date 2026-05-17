@@ -103,3 +103,34 @@ describe('fuzzyLocateInText', () => {
         })
     })
 })
+
+describe('calcSimilarity', () => {
+    it('完全相同 → 1', () => {
+        expect(calcSimilarity('合同条款内容相同', '合同条款内容相同')).toBe(1)
+    })
+
+    it('都为空 → 1', () => {
+        expect(calcSimilarity('', '')).toBe(1)
+    })
+
+    it('完全不同 → 0', () => {
+        expect(calcSimilarity('AAAA', 'BBBB')).toBe(0)
+    })
+
+    it('部分相似 → 0~1 之间', () => {
+        const sim = calcSimilarity('甲方应当履行义务', '甲方应当履行职责')
+        expect(sim).toBeGreaterThan(0)
+        expect(sim).toBeLessThan(1)
+    })
+
+    it('M19：超长输入按前缀截断比对，相似长文本不退化为 0', () => {
+        // 两段各 5400 字的超长文本，前 2400 字完全相同、之后完全不同。
+        // 截断到上限后比对的是相同前缀 → 相似度 1。
+        // 旧实现不截断：diff_main 对超长输入会超过默认 1s Diff_Timeout 退化成
+        // "整删+整插"diff，相似度被误算成 ~0，本应保留的相似长条款被误判孤立。
+        const sharedPrefix = '合同条款内容'.repeat(400) // 2400 字 > 截断上限
+        const a = sharedPrefix + 'X'.repeat(3000)
+        const b = sharedPrefix + 'Y'.repeat(3000)
+        expect(calcSimilarity(a, b)).toBe(1)
+    })
+})
