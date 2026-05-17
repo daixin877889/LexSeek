@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
 
     const { user } = guard
 
-    const raw = await readBody(event)
+    const raw = await readBody(event).catch(() => null)
     const parsed = bodySchema.safeParse(raw)
     if (!parsed.success) return resError(event, 400, parsed.error.issues[0]?.message ?? '参数错误')
 

@@ -409,6 +409,20 @@ describe('useContractReviewVersion.updateVersionNote', () => {
 
         expect(c.versions.value[0].lawyerNote).toBe('发张三法务审阅')
     })
+
+    it('L11：PATCH 失败时回滚到原备注（乐观更新失败后不残留新值）', async () => {
+        // useApiFetch 失败返回 null
+        mockFetch.mockResolvedValueOnce(null)
+
+        const c = useContractReviewVersion(ref(1))
+        c.versions.value = [makeVersion(1)]
+        c.versions.value[0].lawyerNote = '原备注'
+
+        await c.updateVersionNote(1, '改坏了的新备注')
+
+        // 失败 → 回滚到原备注，而非残留乐观更新的新值
+        expect(c.versions.value[0].lawyerNote).toBe('原备注')
+    })
 })
 
 // ── debounce 真实 500ms 验证（不 mock @vueuse/core）──────────────────────────

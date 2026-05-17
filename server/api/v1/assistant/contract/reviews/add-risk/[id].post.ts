@@ -40,7 +40,7 @@ export default defineEventHandler(async (event) => {
         return resError(event, 409, '该审查尚未生成版本快照，暂不支持新增风险')
     }
 
-    const raw = await readBody(event)
+    const raw = await readBody(event).catch(() => null)
     const parsed = bodySchema.safeParse(raw)
     if (!parsed.success) return resError(event, 400, parsed.error.issues[0]?.message ?? '参数错误')
 

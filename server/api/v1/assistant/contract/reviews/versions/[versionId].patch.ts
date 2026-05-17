@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
     const guard = await loadOwnedReviewByVersionId(event, { actionLabel: '修改版本备注' })
     if (!guard.ok) return resError(event, guard.status, guard.message)
 
-    const raw = await readBody(event)
+    const raw = await readBody(event).catch(() => null)
     const parsed = bodySchema.safeParse(raw)
     if (!parsed.success) return resError(event, 400, parsed.error.issues[0]?.message ?? '参数错误')
 

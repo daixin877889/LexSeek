@@ -35,7 +35,7 @@ export default defineEventHandler(async (event) => {
         return resError(event, 409, '审查进行中，请等待完成再上传新版本')
     }
 
-    const raw = await readBody(event)
+    const raw = await readBody(event).catch(() => null)
     const parsed = bodySchema.safeParse(raw)
     if (!parsed.success) {
         return resError(event, 400, parsed.error.issues[0]?.message ?? '参数错误')

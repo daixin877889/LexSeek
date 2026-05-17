@@ -418,13 +418,20 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
 
     /** 更新版本备注（不受 isReadOnly 约束，历史版本也可加备注） */
     async function updateVersionNote(versionId: number, lawyerNote: string | null) {
+        // L11：乐观更新——先本地应用，时间线即时显示新备注（VersionTimeline 保存后会
+        // 同步关闭编辑框）。PATCH 失败时回滚到原值，配合 useApiFetch 默认错误 toast，
+        // 用户能明确看到备注未保存、而非静默丢失。
+        const prevNote = versions.value.find(v => v.id === versionId)?.lawyerNote ?? null
+        versions.value = versions.value.map(v =>
+            v.id === versionId ? { ...v, lawyerNote } : v,
+        )
         const resp = await useApiFetch(
             `/api/v1/assistant/contract/reviews/versions/${versionId}`,
             { method: 'PATCH', body: { lawyerNote } },
         )
-        if (resp) {
+        if (!resp) {
             versions.value = versions.value.map(v =>
-                v.id === versionId ? { ...v, lawyerNote } : v,
+                v.id === versionId ? { ...v, lawyerNote: prevNote } : v,
             )
         }
     }
