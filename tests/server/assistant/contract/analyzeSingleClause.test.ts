@@ -245,6 +245,24 @@ describe('analyzeSingleClause', () => {
         // LLM 回的 clauseIndex=999（越界）被服务端按当前分析条款强制覆盖为 5
         expect(result[0]?.clauseIndex).toBe(5)
     })
+
+    it('M11：ctx.signal 透传到底层 model.invoke 的 RunnableConfig', async () => {
+        // 回归 M11：resume 分支逐条分析阶段最耗时，signal 必须透传到 model.invoke，
+        // 用户取消/超时时才能中断 LLM 调用、停止烧 token。
+        const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
+        const invokeMock = vi.fn().mockResolvedValue({ content: JSON.stringify({ risks: [], skip: true }) })
+        ;(createChatModel as any).mockReturnValueOnce({ invoke: invokeMock })
+        const controller = new AbortController()
+        const { analyzeSingleClause } = await import('~~/server/agents/contract/analyzeSingleClause')
+        await analyzeSingleClause({
+            clause: { index: 1, number: '1', text: 'x' },
+            stance: 'partyB', partyA: 'A', partyB: 'B', contractType: '技服',
+            signal: controller.signal,
+        })
+        expect(invokeMock).toHaveBeenCalled()
+        // model.invoke(prompt, config) 的第二参数 RunnableConfig 必须携带 signal
+        expect(invokeMock.mock.calls[0]?.[1]?.signal).toBe(controller.signal)
+    })
 })
 
 const SNAPSHOT: PlaybookSnapshot = {

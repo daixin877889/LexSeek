@@ -117,4 +117,20 @@ describe('summarizeOverview', () => {
             summarizeOverview([makeRisk('r1', 'high')], 'partyB', '劳动合同'),
         ).rejects.toThrow(/schema 校验失败/)
     })
+
+    it('M11：signal 透传到底层 model.invoke 的 RunnableConfig', async () => {
+        const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
+        const invokeMock = vi.fn().mockResolvedValue({
+            content: JSON.stringify({
+                highlights: { high: [], medium: [], low: [] },
+                overall: '总评',
+            }),
+        })
+        ;(createChatModel as any).mockReturnValueOnce({ invoke: invokeMock })
+        const controller = new AbortController()
+        const { summarizeOverview } = await import('~~/server/agents/contract/summarizeOverview')
+        await summarizeOverview([makeRisk('r1', 'high')], 'partyB', '劳动合同', controller.signal)
+        expect(invokeMock).toHaveBeenCalled()
+        expect(invokeMock.mock.calls[0]?.[1]?.signal).toBe(controller.signal)
+    })
 })

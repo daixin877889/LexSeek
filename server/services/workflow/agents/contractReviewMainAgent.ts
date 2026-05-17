@@ -219,6 +219,8 @@ export interface AnalyzeLoopContext {
     /** M7 Playbook 快照；null/undefined 表示无清单，analyzeSingleClause 内部回退到无清单 prompt */
     playbookSnapshot?: PlaybookSnapshot | null
     emitterCtx: ContractReviewEmitterCtx
+    /** M11：透传取消信号到逐条分析的 LLM 调用，用户取消 / 超时时中断逐条分析 */
+    signal?: AbortSignal
 }
 
 /** 单合同条款分析的并发上限：保守取 8，对 DeepSeek/Anthropic API 友好且单合同 30 条款 4 轮搞定。 */
@@ -259,6 +261,7 @@ export async function runAnalyzeLoop(ctx: AnalyzeLoopContext): Promise<{ risks: 
                 partyB: ctx.partyB,
                 contractType: ctx.contractType,
                 playbookSnapshot: ctx.playbookSnapshot,
+                signal: ctx.signal,
             })
             await emitContractReviewEvent(ctx.emitterCtx, {
                 type: 'progress', current: seg.index, total,
@@ -613,6 +616,7 @@ export async function runContractReviewChat(
                     }
 
                     // 执行 analyze loop（发 analyze:running / progress / risk / analyze:done）
+                    // M11：透传 signal——用户在逐条分析阶段取消 / 超时时，底层 LLM 调用随之中断。
                     const { risks, warnings } = await runAnalyzeLoop({
                         segments,
                         stance,
@@ -621,6 +625,7 @@ export async function runContractReviewChat(
                         contractType: review.contractType,
                         playbookSnapshot,
                         emitterCtx,
+                        signal,
                     })
 
                     // S1：切分成功但全部条款分析失败（risks 空、warnings 非空）——合同根本没被
@@ -654,7 +659,7 @@ export async function runContractReviewChat(
                     // 生成结构化总览（summarize 阶段）
                     await emitContractReviewEvent(emitterCtx, { type: 'stage', stage: 'summarize', status: 'running' })
                     try {
-                        const overview = await summarizeOverview(risks, stance, review.contractType)
+                        const overview = await summarizeOverview(risks, stance, review.contractType, signal)
                         overview.overall = `${overview.overall}${incompleteNote}`
                         await updateContractReviewDAO(review.id, { summary: overview as unknown as Prisma.InputJsonValue })
                         await emitContractReviewEvent(emitterCtx, { type: 'overview', overview })

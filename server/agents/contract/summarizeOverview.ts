@@ -39,6 +39,8 @@ export async function summarizeOverview(
     risks: Risk[],
     stance: Stance,
     contractType: string | null,
+    /** M11：透传取消信号到底层 LLM 调用，用户取消 / 超时时中断 summarize 阶段 */
+    signal?: AbortSignal,
 ): Promise<ContractOverview> {
     if (risks.length === 0) {
         return {
@@ -54,6 +56,7 @@ export async function summarizeOverview(
         buildPrompt: (template) => renderPromptTemplate(template, risks, stance, contractType),
         errorPrefix: 'summarizeOverview',
         logContext: { riskCount: risks.length, stance, contractType },
+        signal,
     })
 
     // UX-S2：LLM 可能返回空 riskId 或编造不存在的 riskId，前端点击要点时

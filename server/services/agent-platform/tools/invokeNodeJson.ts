@@ -30,6 +30,11 @@ export interface InvokeNodeJsonOptions<T> {
     errorPrefix: string
     /** 透传到 logger.warn / logContextOverflow.extra 的诊断字段 */
     logContext?: Record<string, unknown>
+    /**
+     * M11：透传 AbortSignal 到 model.invoke。用户在最耗时的逐条分析阶段点取消 / 超时时，
+     * 底层 LLM 请求随之中断，不再继续烧 token。缺省时表示该次调用不可取消。
+     */
+    signal?: AbortSignal
 }
 
 /** 顶部 const，不暴露 API（spec §2.2 YAGNI 原则） */
@@ -68,7 +73,7 @@ export async function invokeNodeJson<T>(opts: InvokeNodeJsonOptions<T>): Promise
 }
 
 async function invokeNodeJsonInner<T>(opts: InvokeNodeJsonOptions<T>): Promise<T> {
-    const { nodeName, temperature, schema, buildPrompt, errorPrefix, logContext = {} } = opts
+    const { nodeName, temperature, schema, buildPrompt, errorPrefix, logContext = {}, signal } = opts
 
     const config = await getValidNodeConfig(nodeName)
     const activeKey = config.modelApiKeys.find(k => k.status === 1)
@@ -124,6 +129,7 @@ async function invokeNodeJsonInner<T>(opts: InvokeNodeJsonOptions<T>): Promise<T
             // JSON 代码块就是这条路径泄漏的，必须靠 tag 阻断。
             response = await model.invoke(currentPrompt, {
                 tags: ['langsmith:nostream', 'langfuse:nostream', 'internal'],
+                signal,
             })
         } catch (err) {
             // LLM invoke 抛错：不 retry，直接抛
