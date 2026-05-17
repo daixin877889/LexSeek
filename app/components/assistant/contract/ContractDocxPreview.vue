@@ -381,7 +381,7 @@ watch(
                 <button
                     v-if="hoveredParagraph"
                     type="button"
-                    class="absolute z-20 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow hover:scale-110 transition"
+                    class="absolute z-20 flex size-[22px] items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md hover:scale-110 transition"
                     :style="{ top: addBtnTop + 'px', left: addBtnLeft + 'px' }"
                     title="在此段落新增风险"
                     @click.stop="onAddBtnClick"

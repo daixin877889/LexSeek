@@ -233,7 +233,7 @@ describe('ContractDocxPreview M6.1 风险标记联动', () => {
 
         const el = w.element.querySelector('[data-risk-ids~="r2"]')
         expect(el).not.toBeNull()
-        expect(el!.classList.contains('bg-orange-50')).toBe(true)
+        expect(el!.classList.contains('bg-amber-600/[0.05]')).toBe(true)
     })
 
     it('点击段落触发 focusRisk emit', async () => {
@@ -264,38 +264,38 @@ describe('ContractDocxPreview M6.1 风险标记联动', () => {
         expect(w.emitted('hoverClause')).toEqual([['r4'], [null]])
     })
 
-    it('focusedRiskId 切换后对应段落获得 bg-yellow-200 class', async () => {
+    it('focusedRiskId 切换后对应段落获得聚焦高亮 class', async () => {
         const risk = makeRisk('r5', '甲方对乙方的损失不承担任何责任')
         const w = await setupWithRisk(risk)
 
-        // 初始无聚焦
+        // 初始无聚焦（high 风险基线为 bg-red-600/[0.045]，无聚焦加深底色）
         const el = w.element.querySelector('[data-risk-ids~="r5"]')
-        expect(el!.classList.contains('bg-yellow-200')).toBe(false)
+        expect(el!.classList.contains('bg-red-600/[0.1]!')).toBe(false)
 
         // 设置 focusedRiskId
         await w.setProps({ focusedRiskId: 'r5' })
         await flushPromises()
 
-        expect(el!.classList.contains('bg-yellow-200')).toBe(true)
-        expect(el!.classList.contains('border-l-[5px]')).toBe(true)
+        expect(el!.classList.contains('bg-red-600/[0.1]!')).toBe(true)
+        expect(el!.classList.contains('ring-1')).toBe(true)
     })
 
-    it('hoveredRiskId 切换后对应段落获得 bg-yellow-50 class', async () => {
+    it('hoveredRiskId 切换后对应段落获得悬停高亮 class', async () => {
         const risk = makeRisk('r6', '本合同自双方签字盖章后生效')
         const w = await setupWithRisk(risk)
 
         const el = w.element.querySelector('[data-risk-ids~="r6"]')
-        expect(el!.classList.contains('bg-yellow-50')).toBe(false)
+        expect(el!.classList.contains('bg-red-600/[0.08]!')).toBe(false)
 
         await w.setProps({ hoveredRiskId: 'r6' })
         await flushPromises()
 
-        expect(el!.classList.contains('bg-yellow-50')).toBe(true)
-        // hovered 不加聚焦边框
-        expect(el!.classList.contains('border-l-[5px]')).toBe(false)
+        expect(el!.classList.contains('bg-red-600/[0.08]!')).toBe(true)
+        // hovered 不加聚焦 ring
+        expect(el!.classList.contains('ring-1')).toBe(false)
     })
 
-    it('focusedRiskId 清除后 bg-yellow-200 被移除', async () => {
+    it('focusedRiskId 清除后聚焦高亮 class 被移除', async () => {
         const risk = makeRisk('r7', '乙方须按时完成交付')
         const w = await setupWithRisk(risk)
 
@@ -303,12 +303,12 @@ describe('ContractDocxPreview M6.1 风险标记联动', () => {
         await flushPromises()
 
         const el = w.element.querySelector('[data-risk-ids~="r7"]')
-        expect(el!.classList.contains('bg-yellow-200')).toBe(true)
+        expect(el!.classList.contains('bg-red-600/[0.1]!')).toBe(true)
 
         await w.setProps({ focusedRiskId: null })
         await flushPromises()
 
-        expect(el!.classList.contains('bg-yellow-200')).toBe(false)
+        expect(el!.classList.contains('bg-red-600/[0.1]!')).toBe(false)
     })
 
     it('risks 连续触发 decorateRisks 不重复叠加 LEVEL_BG class', async () => {
