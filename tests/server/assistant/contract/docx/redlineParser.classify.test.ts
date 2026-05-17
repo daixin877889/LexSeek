@@ -6,7 +6,7 @@ const ref: RedlineRefEntry = { riskId: 1, delIds: [10], insId: 11, paraIdxs: [3]
 
 function run(opts: {
     surviveDel?: number[]; surviveIns?: number[]
-    corpusT?: string; corpusDel?: string
+    corpusT?: string; corpusDel?: string; corpusIns?: string
     old: string; neu: string
 }) {
     return classifyRedlineDecision({
@@ -15,6 +15,7 @@ function run(opts: {
         survivingInsIds: new Set(opts.surviveIns ?? []),
         corpusT: opts.corpusT ?? '',
         corpusDel: opts.corpusDel ?? '',
+        corpusIns: opts.corpusIns ?? '',
         problematicQuote: opts.old,
         suggestedClauseText: opts.neu,
         trustWordIds: true,
@@ -30,9 +31,17 @@ describe('classifyRedlineDecision', () => {
         expect(run({ surviveDel: [10], old: '甲方负全责', neu: '双方按约担责' }))
             .toBe(ClientRedlineDecision.AMBIGUOUS)
     })
-    it('Layer 2：corpusDel 含原文 → 未处理（w:id 被重排）', () => {
-        expect(run({ corpusDel: '甲方负全责', corpusT: '双方按约担责', old: '甲方负全责', neu: '双方按约担责' }))
+    it('Layer 2：删除标记 + 插入标记都在 → 未处理（w:id 被重排）', () => {
+        expect(run({ corpusDel: '甲方负全责', corpusIns: '双方按约担责', corpusT: '双方按约担责', old: '甲方负全责', neu: '双方按约担责' }))
             .toBe(ClientRedlineDecision.UNTOUCHED)
+    })
+    it('Layer 2：删除标记残留、插入已接受转正 → 接受（半接受状态）', () => {
+        expect(run({ corpusDel: '甲方负全责', corpusIns: '', corpusT: '双方按约担责', old: '甲方负全责', neu: '双方按约担责' }))
+            .toBe(ClientRedlineDecision.ACCEPTED)
+    })
+    it('Layer 2：删除标记残留、插入已消但新文也不在 → 需确认', () => {
+        expect(run({ corpusDel: '甲方负全责', corpusIns: '', corpusT: '甲方负全责', old: '甲方负全责', neu: '双方按约担责' }))
+            .toBe(ClientRedlineDecision.AMBIGUOUS)
     })
     it('互不包含 · 全接受 → 接受', () => {
         expect(run({ corpusT: '双方按约担责', old: '甲方负全责', neu: '双方按约担责' }))

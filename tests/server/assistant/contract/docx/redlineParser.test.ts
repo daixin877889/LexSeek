@@ -392,7 +392,7 @@ describe('classifyRedlineDecision · trustWordIds 开关（spec §6）', () => {
         const d = classifyRedlineDecision({
             ref, trustWordIds: true,
             survivingInsIds: new Set([11]), survivingDelIds: new Set([10]),
-            corpusT: '双方按约担责', corpusDel: '甲方负全责',
+            corpusT: '双方按约担责', corpusDel: '甲方负全责', corpusIns: '双方按约担责',
             problematicQuote: '甲方负全责', suggestedClauseText: '双方按约担责',
         })
         expect(d).toBe(ClientRedlineDecision.UNTOUCHED)
@@ -400,11 +400,11 @@ describe('classifyRedlineDecision · trustWordIds 开关（spec §6）', () => {
 
     it('trustWordIds=false → 跳过精确层，即便 id 碰巧存活也走正文比对', () => {
         // del/ins id 在存活集合里（模拟 Word 重排后碰巧命中），但 trustWordIds=false
-        // → 不走精确层；正文里 corpusDel 含原文 → 正文层判 UNTOUCHED
+        // → 不走精确层；正文里删除标记 + 插入标记都在 → 正文层判 UNTOUCHED
         const d = classifyRedlineDecision({
             ref, trustWordIds: false,
             survivingInsIds: new Set([11]), survivingDelIds: new Set([10]),
-            corpusT: '双方按约担责', corpusDel: '甲方负全责',
+            corpusT: '双方按约担责', corpusDel: '甲方负全责', corpusIns: '双方按约担责',
             problematicQuote: '甲方负全责', suggestedClauseText: '双方按约担责',
         })
         expect(d).toBe(ClientRedlineDecision.UNTOUCHED)
@@ -414,7 +414,7 @@ describe('classifyRedlineDecision · trustWordIds 开关（spec §6）', () => {
         const d = classifyRedlineDecision({
             ref, trustWordIds: false,
             survivingInsIds: new Set([11]), survivingDelIds: new Set([10]),
-            corpusT: '双方按约担责', corpusDel: '',
+            corpusT: '双方按约担责', corpusDel: '', corpusIns: '',
             problematicQuote: '甲方负全责', suggestedClauseText: '双方按约担责',
         })
         expect(d).toBe(ClientRedlineDecision.ACCEPTED)
@@ -427,12 +427,13 @@ describe('resolveFullCorpus', () => {
             reviewId: 1, refs: [], survivingInsIds: new Set<number>(), survivingDelIds: new Set<number>(),
             trustWordIds: true,
             paragraphs: [
-                { tNorm: '第一段', delNorm: '删一' },
-                { tNorm: '第二段', delNorm: '删二' },
+                { tNorm: '第一段', delNorm: '删一', insNorm: '插一' },
+                { tNorm: '第二段', delNorm: '删二', insNorm: '插二' },
             ],
         }
         const r = resolveFullCorpus(parsed)
         expect(r.corpusT).toBe('第一段 第二段')
         expect(r.corpusDel).toBe('删一 删二')
+        expect(r.corpusIns).toBe('插一 插二')
     })
 })

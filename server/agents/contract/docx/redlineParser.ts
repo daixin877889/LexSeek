@@ -39,6 +39,8 @@ export interface ClassifyRedlineInput {
     corpusT: string
     /** 该风险所属段落的 <w:delText> 语料，已 normalizeForMatch 归一化 */
     corpusDel: string
+    /** 该风险所属段落的 <w:ins> 标记内语料，已归一化（区分「未处理」与「插入已接受」） */
+    corpusIns: string
     /** 风险 DB 字段（原始值，函数内部归一化） */
     problematicQuote: string
     suggestedClauseText: string
@@ -48,10 +50,12 @@ export interface ClassifyRedlineInput {
 
 /** 单个非空段落的归一化语料 */
 export interface RedlineParagraph {
-    /** 该段 <w:t> 文本，已 normalizeForMatch 归一化 */
+    /** 该段 <w:t> 文本（含 <w:ins> 内文本），已 normalizeForMatch 归一化 */
     tNorm: string
     /** 该段 <w:delText> 文本，已 normalizeForMatch 归一化 */
     delNorm: string
+    /** 该段 <w:ins> 标记内文本，已归一化。插入被接受（标记解包）后此处不再含该文本 */
+    insNorm: string
 }
 
 export interface ParsedRedlineMarks {
@@ -126,16 +130,27 @@ export async function parseRedlineMarks(docxBuffer: Buffer): Promise<ParsedRedli
             const id = parseInt(getAttr(n, 'w:id') ?? '', 10)
             if (Number.isFinite(id)) survivingDelIds.add(id)
         }
-        // 按非空段落收集 <w:t> / <w:delText> 语料
+        // 按非空段落收集 <w:t> / <w:delText> / <w:ins> 内文本语料
         for (const para of collectNonEmptyParagraphs(ast)) {
             let rawT = ''
             let rawDel = ''
+            let rawIns = ''
             walk([para], (n) => {
                 const tag = tagOf(n)
                 if (tag === 'w:t') rawT += textOf(n)
                 else if (tag === 'w:delText') rawDel += textOf(n)
             })
-            paragraphs.push({ tNorm: normalizeForMatch(rawT), delNorm: normalizeForMatch(rawDel) })
+            // 单独收集 <w:ins> 标记内文本：插入标记是否存活是「未处理 vs 已接受」的关键信号
+            for (const insNode of findAll([para], 'w:ins')) {
+                walk([insNode], (n) => {
+                    if (tagOf(n) === 'w:t') rawIns += textOf(n)
+                })
+            }
+            paragraphs.push({
+                tNorm: normalizeForMatch(rawT),
+                delNorm: normalizeForMatch(rawDel),
+                insNorm: normalizeForMatch(rawIns),
+            })
         }
     }
 
@@ -149,7 +164,7 @@ export async function parseRedlineMarks(docxBuffer: Buffer): Promise<ParsedRedli
 export function resolveCorpusForRef(
     parsed: ParsedRedlineMarks,
     ref: RedlineRefEntry,
-): { corpusT: string; corpusDel: string } {
+): { corpusT: string; corpusDel: string; corpusIns: string } {
     const valid = ref.paraIdxs.filter(i => i >= 0 && i < parsed.paragraphs.length)
     const picked = valid.length > 0
         ? valid.map(i => parsed.paragraphs[i]!)
@@ -157,16 +172,18 @@ export function resolveCorpusForRef(
     return {
         corpusT: picked.map(p => p.tNorm).join(' '),
         corpusDel: picked.map(p => p.delNorm).join(' '),
+        corpusIns: picked.map(p => p.insNorm).join(' '),
     }
 }
 
 /**
  * 双层判定（spec §6.2）。
  * Layer 1（w:id）：全部存活→未处理；部分存活→需确认；全不存活→转 Layer 2。
- * Layer 2（正文）：corpusDel 含原文→未处理；否则按 old/new 子串包含关系选判别字段定接受/拒绝。
+ * Layer 2（正文）：按删除标记 / 插入标记的存活组合判定，兼容「客户只接受插入、删除
+ *   标记残留」的半接受状态（spec §13.6）。
  */
 export function classifyRedlineDecision(input: ClassifyRedlineInput): ClientRedlineDecision {
-    const { ref, survivingInsIds, survivingDelIds, corpusT, corpusDel, trustWordIds } = input
+    const { ref, survivingInsIds, survivingDelIds, corpusT, corpusDel, corpusIns, trustWordIds } = input
     const oldText = normalizeForMatch(input.problematicQuote)
     const newText = normalizeForMatch(input.suggestedClauseText)
     // 防御：redlineRefs 风险理论上 old/new 必非空且不等
@@ -184,11 +201,24 @@ export function classifyRedlineDecision(input: ClassifyRedlineInput): ClientRedl
     }
 
     // ===== Layer 2：正文比对层 =====
-    if (corpusDel.includes(oldText)) return ClientRedlineDecision.UNTOUCHED
+    // 删除标记（<w:del>）与插入标记（<w:ins>）的存活组合是判定核心。Word 接受一条修订
+    // 需「删旧 + 插新」两个动作都生效；客户常只接受「插新」、留下「删旧」标记，形成
+    // 「半接受」状态——此时不能因删除标记残留就判未处理（spec §13.6）。
+    const delMarkAlive = corpusDel.includes(oldText)   // 旧文仍带 <w:del> 删除标记
+    const insMarkAlive = corpusIns.includes(newText)   // 新文仍带 <w:ins> 插入标记
+    const newInT = corpusT.includes(newText)           // 新文在正文（标记内或已转正）
+    const oldInT = corpusT.includes(oldText)           // 旧文在普通正文（删除标记被拒绝恢复）
 
-    const newInT = corpusT.includes(newText)
-    const oldInT = corpusT.includes(oldText)
+    // 删除标记 + 插入标记都在 → 客户完全没动
+    if (delMarkAlive && insMarkAlive) return ClientRedlineDecision.UNTOUCHED
 
+    // 删除标记残留、插入标记已消（客户接受新条款的「半接受」）：
+    // 新文已转正 → 视为客户接受；新文也不在（插入被拒绝）→ 状态矛盾，交律师确认
+    if (delMarkAlive && !insMarkAlive) {
+        return newInT ? ClientRedlineDecision.ACCEPTED : ClientRedlineDecision.AMBIGUOUS
+    }
+
+    // 删除标记已消 → 修订已被处理，按正文最终内容判定
     if (newText.includes(oldText)) {
         // new 含 old（扩写）
         if (newInT) return ClientRedlineDecision.ACCEPTED
@@ -210,10 +240,11 @@ export function classifyRedlineDecision(input: ClassifyRedlineInput): ClientRedl
 /**
  * 取全文语料（所有非空段落拼接），用于 paraIdxs 段落定位失准时的兜底重判（spec §6）。
  */
-export function resolveFullCorpus(parsed: ParsedRedlineMarks): { corpusT: string; corpusDel: string } {
+export function resolveFullCorpus(parsed: ParsedRedlineMarks): { corpusT: string; corpusDel: string; corpusIns: string } {
     return {
         corpusT: parsed.paragraphs.map(p => p.tNorm).join(' '),
         corpusDel: parsed.paragraphs.map(p => p.delNorm).join(' '),
+        corpusIns: parsed.paragraphs.map(p => p.insNorm).join(' '),
     }
 }
 

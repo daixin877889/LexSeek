@@ -537,17 +537,18 @@ export async function* uploadClientVersionService(params: {
     if (redlineUsable) {
         const rl = redline!
         // 全文语料懒计算一次：多个 ref 判出 AMBIGUOUS 时复用，不重复 map+join
-        let fullCorpus: { corpusT: string; corpusDel: string } | null = null
+        let fullCorpus: { corpusT: string; corpusDel: string; corpusIns: string } | null = null
         for (const ref of rl.refs) {
             const risk = riskByIdForRedline.get(ref.riskId)
             if (!risk || !risk.problematicQuote || !risk.suggestedClauseText) continue
-            const { corpusT, corpusDel } = resolveCorpusForRef(rl, ref)
+            const { corpusT, corpusDel, corpusIns } = resolveCorpusForRef(rl, ref)
             let decision = classifyRedlineDecision({
                 ref,
                 survivingInsIds: rl.survivingInsIds,
                 survivingDelIds: rl.survivingDelIds,
                 corpusT,
                 corpusDel,
+                corpusIns,
                 problematicQuote: risk.problematicQuote,
                 suggestedClauseText: risk.suggestedClauseText,
                 trustWordIds: rl.trustWordIds,
@@ -562,6 +563,7 @@ export async function* uploadClientVersionService(params: {
                     survivingDelIds: rl.survivingDelIds,
                     corpusT: fullCorpus.corpusT,
                     corpusDel: fullCorpus.corpusDel,
+                    corpusIns: fullCorpus.corpusIns,
                     problematicQuote: risk.problematicQuote,
                     suggestedClauseText: risk.suggestedClauseText,
                     trustWordIds: rl.trustWordIds,
