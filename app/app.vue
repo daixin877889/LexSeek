@@ -14,7 +14,6 @@
 import "vue-sonner/style.css";
 import GeneralAlertDialog from '~/components/general/AlertDialog.vue'
 import GeneralWxSupport from '~/components/general/WxSupport.vue'
-import { useTheme } from '~/composables/useTheme'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useAuthStore } from '~/store/auth'
 import { useRoleStore } from '~/store/role'
@@ -49,12 +48,6 @@ useHead({
 const authStore = useAuthStore();
 const userStore = useUserStore();
 const roleStore = useRoleStore();
-
-// 初始化主题色
-const { initTheme } = useTheme();
-onMounted(() => {
-  initTheme();
-});
 
 // 同步初始化认证状态（从 cookie 读取，SSR 和客户端都安全执行）
 authStore.initAuth();

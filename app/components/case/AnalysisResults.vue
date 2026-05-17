@@ -727,11 +727,11 @@ function formatAnalyzedAt(dateStr: string): string {
     border-radius: inherit;
     padding: 2px;
     background: linear-gradient(var(--gradient-angle, 0deg),
-        oklch(0.645 0.246 16.439) 0%,
-        oklch(0.7 0.15 250) 25%,
-        oklch(0.75 0.2 200) 50%,
-        oklch(0.7 0.15 250) 75%,
-        oklch(0.645 0.246 16.439) 100%
+        var(--brand-sky) 0%,
+        var(--brand-navy) 25%,
+        var(--brand-mint) 50%,
+        var(--brand-navy) 75%,
+        var(--brand-sky) 100%
     );
     mask: linear-gradient(#fff 0 0) content-box,
           linear-gradient(#fff 0 0);

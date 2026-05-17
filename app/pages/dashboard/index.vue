@@ -42,44 +42,91 @@
 
     <!-- 数据概览卡片 -->
     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
-      <component :is="stat.to ? NuxtLinkComp : 'div'" v-for="stat in stats" :key="stat.label" :to="stat.to"
-        class="group block rounded-xl border border-border bg-card p-6 transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-md">
-        <div class="flex items-start justify-between gap-3">
-          <div class="min-w-0">
-            <p class="mb-1 text-sm font-medium text-muted-foreground">{{ stat.label }}</p>
-            <h3 class="truncate font-bold text-card-foreground"
-              :class="typeof stat.value === 'number' ? 'text-3xl' : 'text-2xl'">{{ stat.value }}</h3>
+      <template v-for="stat in stats" :key="stat.label">
+        <NuxtLink v-if="stat.to" :to="stat.to"
+          class="group block rounded-xl border border-border bg-card p-6 transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-md">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="mb-1 text-sm font-medium text-muted-foreground">{{ stat.label }}</p>
+              <h3 class="truncate font-bold text-card-foreground"
+                :class="typeof stat.value === 'number' ? 'text-3xl' : 'text-2xl'">{{ stat.value }}</h3>
+            </div>
+            <div :class="['flex size-10 shrink-0 items-center justify-center rounded-[10px]', TINTS[stat.tint]]">
+              <FileText v-if="stat.icon === 'file-text'" class="size-[22px]" />
+              <BarChart3 v-else-if="stat.icon === 'bar-chart'" class="size-[22px]" />
+              <Coins v-else-if="stat.icon === 'coins'" class="size-[22px]" />
+              <Crown v-else class="size-[22px]" />
+            </div>
           </div>
-          <div :class="['flex size-10 shrink-0 items-center justify-center rounded-[10px]', TINTS[stat.tint]]">
-            <component :is="stat.icon" class="size-[22px]" />
+          <div class="mt-4">
+            <p v-if="stat.trend" class="flex items-center gap-1 text-[12.5px] font-medium text-green-600">
+              <TrendingUp class="size-3.5" />
+              <span>{{ stat.trend }}</span>
+            </p>
+            <p v-else-if="stat.sub" class="text-[12.5px] font-medium text-muted-foreground">{{ stat.sub }}</p>
+          </div>
+        </NuxtLink>
+
+        <div v-else
+          class="group block rounded-xl border border-border bg-card p-6 transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-md">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="mb-1 text-sm font-medium text-muted-foreground">{{ stat.label }}</p>
+              <h3 class="truncate font-bold text-card-foreground"
+                :class="typeof stat.value === 'number' ? 'text-3xl' : 'text-2xl'">{{ stat.value }}</h3>
+            </div>
+            <div :class="['flex size-10 shrink-0 items-center justify-center rounded-[10px]', TINTS[stat.tint]]">
+              <FileText v-if="stat.icon === 'file-text'" class="size-[22px]" />
+              <BarChart3 v-else-if="stat.icon === 'bar-chart'" class="size-[22px]" />
+              <Coins v-else-if="stat.icon === 'coins'" class="size-[22px]" />
+              <Crown v-else class="size-[22px]" />
+            </div>
+          </div>
+          <div class="mt-4">
+            <p v-if="stat.trend" class="flex items-center gap-1 text-[12.5px] font-medium text-green-600">
+              <TrendingUp class="size-3.5" />
+              <span>{{ stat.trend }}</span>
+            </p>
+            <p v-else-if="stat.sub" class="text-[12.5px] font-medium text-muted-foreground">{{ stat.sub }}</p>
           </div>
         </div>
-        <div class="mt-4">
-          <p v-if="stat.trend" class="flex items-center gap-1 text-[12.5px] font-medium text-green-600">
-            <TrendingUp class="size-3.5" />
-            <span>{{ stat.trend }}</span>
-          </p>
-          <p v-else-if="stat.sub" class="text-[12.5px] font-medium text-muted-foreground">{{ stat.sub }}</p>
-        </div>
-      </component>
+      </template>
     </div>
 
     <!-- 快速操作 -->
     <div class="mb-8">
       <h2 class="mb-4 text-xl font-semibold text-foreground">快速操作</h2>
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <component :is="action.to ? NuxtLinkComp : 'button'" v-for="action in QUICK_ACTIONS" :key="action.title"
-          :to="action.to" :type="action.to ? undefined : 'button'"
-          class="flex cursor-pointer items-center gap-4 rounded-xl border border-border bg-card p-4 text-left transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-md"
-          @click="action.onClick?.()">
-          <div :class="['flex size-10 shrink-0 items-center justify-center rounded-[10px]', TINTS[action.tint]]">
-            <component :is="action.icon" class="size-5" />
-          </div>
-          <div>
-            <h3 class="font-medium text-foreground">{{ action.title }}</h3>
-            <p class="mt-0.5 text-sm text-muted-foreground">{{ action.body }}</p>
-          </div>
-        </component>
+        <template v-for="action in QUICK_ACTIONS" :key="action.title">
+          <NuxtLink v-if="action.to" :to="action.to"
+            class="flex cursor-pointer items-center gap-4 rounded-xl border border-border bg-card p-4 text-left transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-md">
+            <div :class="['flex size-10 shrink-0 items-center justify-center rounded-[10px]', TINTS[action.tint]]">
+              <FilePlus v-if="action.icon === 'file-plus'" class="size-5" />
+              <FolderOpen v-else-if="action.icon === 'folder-open'" class="size-5" />
+              <Crown v-else-if="action.icon === 'crown'" class="size-5" />
+              <HelpCircle v-else class="size-5" />
+            </div>
+            <div>
+              <h3 class="font-medium text-foreground">{{ action.title }}</h3>
+              <p class="mt-0.5 text-sm text-muted-foreground">{{ action.body }}</p>
+            </div>
+          </NuxtLink>
+
+          <button v-else type="button"
+            class="flex cursor-pointer items-center gap-4 rounded-xl border border-border bg-card p-4 text-left transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-md"
+            @click="action.onClick?.()">
+            <div :class="['flex size-10 shrink-0 items-center justify-center rounded-[10px]', TINTS[action.tint]]">
+              <FilePlus v-if="action.icon === 'file-plus'" class="size-5" />
+              <FolderOpen v-else-if="action.icon === 'folder-open'" class="size-5" />
+              <Crown v-else-if="action.icon === 'crown'" class="size-5" />
+              <HelpCircle v-else class="size-5" />
+            </div>
+            <div>
+              <h3 class="font-medium text-foreground">{{ action.title }}</h3>
+              <p class="mt-0.5 text-sm text-muted-foreground">{{ action.body }}</p>
+            </div>
+          </button>
+        </template>
       </div>
     </div>
 
@@ -117,7 +164,6 @@
 </template>
 
 <script lang="ts" setup>
-import type { Component } from 'vue'
 import type { DashboardResponse } from '#shared/types/dashboard'
 import {
   FileText,
@@ -147,17 +193,18 @@ definePageMeta({
 const userStore = useUserStore();
 const wxSupportStore = useWxSupportStore();
 
-const { data: dashboardData } = await useApi<DashboardResponse>('/api/v1/dashboard')
+const { data: dashboardData } = await useApi<DashboardResponse>('/api/v1/dashboard', {
+  key: 'dashboard-home-data',
+})
 
 // 暂时隐藏，等 API 支持后再启用
 const showAnalysisLimits = false;
 
-// 动态组件：可点击的卡片用 NuxtLink，其余用原生元素
-const NuxtLinkComp = resolveComponent('NuxtLink')
-
 const today = dayjs().format('YYYY 年 M 月 D 日')
 
 type Tint = 'sky' | 'mint' | 'navy' | 'amber'
+type StatIcon = 'file-text' | 'bar-chart' | 'coins' | 'crown'
+type QuickActionIcon = 'file-plus' | 'folder-open' | 'crown' | 'help-circle'
 
 /** 品牌四色淡彩图标块 —— bg/fg 取自 .theme-brand 的 --tint-* token */
 const TINTS: Record<Tint, string> = {
@@ -170,7 +217,7 @@ const TINTS: Record<Tint, string> = {
 interface StatItem {
   label: string
   value: string | number
-  icon: Component
+  icon: StatIcon
   tint: Tint
   trend?: string
   sub?: string
@@ -181,21 +228,21 @@ const stats = computed<StatItem[]>(() => [
   {
     label: '总案件数',
     value: dashboardData.value?.statistics.totalCases ?? 0,
-    icon: FileText,
+    icon: 'file-text',
     tint: 'sky',
     trend: `+${dashboardData.value?.statistics.caseIncrease ?? 0} 本月`,
   },
   {
     label: '分析次数',
     value: dashboardData.value?.statistics.totalAnalysis ?? 0,
-    icon: BarChart3,
+    icon: 'bar-chart',
     tint: 'mint',
     trend: `+${dashboardData.value?.statistics.analysisIncrease ?? 0} 本月`,
   },
   {
     label: '可用积分',
     value: dashboardData.value?.points.remaining ?? 0,
-    icon: Coins,
+    icon: 'coins',
     tint: 'navy',
     sub: `购买: ${dashboardData.value?.points.purchasePoint ?? 0}，赠送: ${dashboardData.value?.points.otherPoint ?? 0}`,
     to: '/dashboard/membership/point',
@@ -203,7 +250,7 @@ const stats = computed<StatItem[]>(() => [
   {
     label: '会员等级',
     value: dashboardData.value?.membership?.levelName ?? '免费版',
-    icon: Crown,
+    icon: 'crown',
     tint: 'amber',
     sub: `有效期至：${dashboardData.value?.membership?.expiresAt ?? '-'}`,
     to: '/dashboard/membership',
@@ -211,7 +258,7 @@ const stats = computed<StatItem[]>(() => [
 ])
 
 interface QuickAction {
-  icon: Component
+  icon: QuickActionIcon
   title: string
   body: string
   tint: Tint
@@ -220,9 +267,9 @@ interface QuickAction {
 }
 
 const QUICK_ACTIONS: QuickAction[] = [
-  { icon: FilePlus, title: '创建案件', body: '分析新的案件', tint: 'sky', to: '/dashboard/cases/create' },
-  { icon: FolderOpen, title: '我的案件', body: '查看所有案件', tint: 'mint', to: '/dashboard/cases' },
-  { icon: Crown, title: '会员中心', body: '管理套餐和积分', tint: 'amber', to: '/dashboard/membership' },
-  { icon: HelpCircle, title: '获取帮助', body: '联系客服支持', tint: 'navy', onClick: () => wxSupportStore.showQrCode() },
+  { icon: 'file-plus', title: '创建案件', body: '分析新的案件', tint: 'sky', to: '/dashboard/cases/create' },
+  { icon: 'folder-open', title: '我的案件', body: '查看所有案件', tint: 'mint', to: '/dashboard/cases' },
+  { icon: 'crown', title: '会员中心', body: '管理套餐和积分', tint: 'amber', to: '/dashboard/membership' },
+  { icon: 'help-circle', title: '获取帮助', body: '联系客服支持', tint: 'navy', onClick: () => wxSupportStore.showQrCode() },
 ]
 </script>

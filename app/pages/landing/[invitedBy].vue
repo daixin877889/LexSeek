@@ -1,5 +1,5 @@
 <template>
-  <div class="landing-page">
+  <div class="theme-brand landing-page">
     <!-- 导航栏 -->
     <header class="nav-header" :class="{ 'nav-scrolled': scrolled }">
       <div class="nav-container">
@@ -428,19 +428,19 @@ onUnmounted(() => {
 .hero-bg {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom right, #18181b, #27272a, #000000);
+  background: linear-gradient(to bottom right, #090380, #0A335E, #05030F);
 }
 
 .hero-gradient-1 {
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at top right, rgba(59, 130, 246, 0.2), transparent 50%);
+  background: radial-gradient(ellipse at top right, rgba(30, 158, 237, 0.22), transparent 50%);
 }
 
 .hero-gradient-2 {
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at bottom left, rgba(147, 51, 234, 0.2), transparent 50%);
+  background: radial-gradient(ellipse at bottom left, rgba(30, 237, 196, 0.18), transparent 50%);
 }
 
 .hero-grid {
@@ -458,7 +458,7 @@ onUnmounted(() => {
   left: 25%;
   width: 16rem;
   height: 16rem;
-  background: rgba(59, 130, 246, 0.3);
+  background: rgba(30, 158, 237, 0.28);
   border-radius: 50%;
   filter: blur(100px);
   animation: pulse 4s ease-in-out infinite;
@@ -470,7 +470,7 @@ onUnmounted(() => {
   right: 25%;
   width: 20rem;
   height: 20rem;
-  background: rgba(147, 51, 234, 0.2);
+  background: rgba(30, 237, 196, 0.18);
   border-radius: 50%;
   filter: blur(120px);
   animation: pulse 4s ease-in-out infinite 1s;
@@ -540,7 +540,7 @@ onUnmounted(() => {
 }
 
 .hero-title-gradient {
-  background: linear-gradient(to right, #60a5fa, #a78bfa, #f472b6);
+  background: linear-gradient(to right, var(--brand-mint), var(--brand-sky), #B0AADE);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -674,27 +674,27 @@ onUnmounted(() => {
 }
 
 .benefit-icon-green {
-  background: rgba(34, 197, 94, 0.2);
+  background: rgba(30, 237, 196, 0.18);
 }
 
 .benefit-icon-green .icon-sm {
-  color: #4ade80;
+  color: var(--brand-mint);
 }
 
 .benefit-icon-blue {
-  background: rgba(59, 130, 246, 0.2);
+  background: rgba(30, 158, 237, 0.18);
 }
 
 .benefit-icon-blue .icon-sm {
-  color: #60a5fa;
+  color: var(--brand-sky);
 }
 
 .benefit-icon-purple {
-  background: rgba(147, 51, 234, 0.2);
+  background: rgba(176, 170, 222, 0.2);
 }
 
 .benefit-icon-purple .icon-sm {
-  color: #a78bfa;
+  color: #BEB8FF;
 }
 
 .icon-sm {
@@ -879,27 +879,27 @@ onUnmounted(() => {
 }
 
 .feature-icon-blue {
-  background: linear-gradient(to bottom right, #3b82f6, #2563eb);
+  background: linear-gradient(to bottom right, var(--brand-sky), var(--brand-navy));
 }
 
 .feature-icon-purple {
-  background: linear-gradient(to bottom right, #8b5cf6, #7c3aed);
+  background: linear-gradient(to bottom right, #B0AADE, var(--brand-navy));
 }
 
 .feature-icon-orange {
-  background: linear-gradient(to bottom right, #f97316, #ea580c);
+  background: linear-gradient(to bottom right, var(--brand-mint), var(--brand-sky));
 }
 
 .feature-icon-green {
-  background: linear-gradient(to bottom right, #22c55e, #16a34a);
+  background: linear-gradient(to bottom right, var(--brand-mint), #0BA47C);
 }
 
 .feature-icon-pink {
-  background: linear-gradient(to bottom right, #ec4899, #db2777);
+  background: linear-gradient(to bottom right, #B0AADE, var(--brand-sky));
 }
 
 .feature-icon-cyan {
-  background: linear-gradient(to bottom right, #06b6d4, #0891b2);
+  background: linear-gradient(to bottom right, var(--brand-sky), var(--brand-mint));
 }
 
 .icon-md {
@@ -1078,7 +1078,7 @@ onUnmounted(() => {
 .final-cta-bg {
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at center, rgba(59, 130, 246, 0.1), transparent 70%);
+  background: radial-gradient(ellipse at center, rgba(30, 158, 237, 0.12), transparent 70%);
 }
 
 .final-cta-content {
@@ -1120,7 +1120,7 @@ onUnmounted(() => {
 
 .btn-gradient {
   padding: 1.25rem 3rem;
-  background: linear-gradient(to right, #3b82f6, #8b5cf6);
+  background: linear-gradient(to right, var(--brand-sky), var(--brand-navy));
   color: #ffffff;
   border-radius: 0.75rem;
   font-weight: 700;
@@ -1132,7 +1132,7 @@ onUnmounted(() => {
 
 .btn-gradient:hover {
   transform: translateY(-2px);
-  box-shadow: 0 25px 50px -12px rgba(139, 92, 246, 0.3);
+  box-shadow: 0 25px 50px -12px rgba(30, 158, 237, 0.28);
 }
 
 /* ========== 页脚 ========== */

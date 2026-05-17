@@ -52,7 +52,7 @@ export default defineNuxtConfig({
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
         { name: 'description', content: '法索 AI（LexSeek）是专为律师、法务打造的多模态 AI 案件分析平台，提供案情概要、大事记、请求权分析、合同审查、文书生成、办案工具等一站式法律 AI 工作台。' },
         { name: 'keywords', content: '法律AI,律师助手,案件分析,诉讼辅助,合同审查AI,法律文书,法律科技,AI律师,办案工具,LexSeek,法索AI' },
-        { name: 'theme-color', content: '#171717' },
+        { name: 'theme-color', content: '#090380' },
         { name: 'format-detection', content: 'telephone=no' },
         // OG / Twitter 默认值（页面层 useSiteSeo 会覆盖）
         { property: 'og:site_name', content: 'LexSeek 法索 AI' },
@@ -78,7 +78,7 @@ export default defineNuxtConfig({
       // 内联脚本：在页面渲染前应用颜色模式，避免闪烁
       script: [
         {
-          innerHTML: `(function(){try{var s=localStorage.getItem('color-mode');var m=s&&['light','dark','system'].includes(s)?s:'light';var d=m==='dark'||(m==='system'&&window.matchMedia('(prefers-color-scheme:dark)').matches);document.documentElement.classList.toggle('dark',d);var t=localStorage.getItem('theme-color');if(t&&t!=='zinc')document.documentElement.classList.add('theme-'+t);document.documentElement.classList.add('theme-ready')}catch(e){document.documentElement.classList.add('theme-ready')}})()`,
+          innerHTML: `(function(){try{var r=document.documentElement;['theme-zinc','theme-rose','theme-blue','theme-green','theme-orange','theme-red','theme-violet','theme-yellow'].forEach(function(c){r.classList.remove(c)});localStorage.removeItem('theme-color');var s=localStorage.getItem('color-mode');var m=s==='dark'?'dark':'light';localStorage.setItem('color-mode',m);r.classList.toggle('dark',m==='dark');r.classList.add('theme-ready')}catch(e){document.documentElement.classList.add('theme-ready')}})()`,
           tagPosition: 'head'
         }
       ]

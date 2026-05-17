@@ -1,5 +1,5 @@
 <template>
-    <div class="legal-preview h-screen flex flex-col bg-background">
+    <div class="theme-brand legal-preview h-screen flex flex-col bg-background">
         <!-- 顶部工具栏 -->
         <div class="border-b bg-card px-4 py-3">
             <div class="flex items-center justify-between">

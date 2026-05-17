@@ -14,6 +14,7 @@
  */
 
 import type { H3Event } from 'h3'
+import { setResponseHeaders } from 'h3'
 import { replayEvents, createEventSubscription } from '~~/server/services/agent/agentEventBridge'
 import { getActiveRunService } from '~~/server/services/agent/agentRun.service'
 import { getThreadValuesService } from '~~/server/services/workflow/agents'
@@ -414,5 +415,28 @@ export function createAgentSseStream(
         controller.close()
       }
     },
+  })
+}
+
+/**
+ * 构造一个立即关闭的空 SSE 响应，用于聊天入口「会话从未运行过、无历史可回放」的场景。
+ *
+ * 不能复用 createAgentSseStream：该函数末尾会 createEventSubscription 订阅 run 的实时
+ * 事件，无有效 runId 时会订阅一个不存在的 run，keepalive 永不结束 → 前端永久 loading。
+ */
+export function createEmptyAgentSseResponse(event: H3Event): Response {
+  setResponseHeaders(event, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  })
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.close()
+    },
+  })
+  return new Response(stream, {
+    headers: { 'Content-Type': 'text/event-stream' },
   })
 }
