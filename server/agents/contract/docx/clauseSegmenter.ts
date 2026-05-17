@@ -119,8 +119,10 @@ function extractDiTiaoIndex(number: string): number | null {
         const v = cnNumToInt(cnMatch[1])
         if (v !== null) return v
     }
-    // 匹配「第1条」「第2条」等阿拉伯数字序数
-    const numMatch = number.match(/^第(\d+)条$/)
+    // 匹配「第1条」「第2条」「第3.1条」等阿拉伯数字序数。
+    // L3：允许「第X.Y条」多级编号——取整数前缀 X 作序号，避免 currentDiTiaoIdx 变 null
+    // 导致后续多级编号子项匹配失效。
+    const numMatch = number.match(/^第(\d+)(?:\.\d+)*条$/)
     if (numMatch?.[1]) return parseInt(numMatch[1], 10)
     return null
 }

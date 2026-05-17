@@ -29,6 +29,15 @@ export function buildClauseToParagraphMap(
     const map = new Map<number, number>()
     if (segments.length === 0 || paragraphs.length === 0) return map
 
+    // L5：本映射依赖「paragraphs[i] 内部不含换行符」隐含前提——segment.offsetStart 与
+    // paragraphStarts 须同口径才成立。某 <w:t> 字面含 \n 时偏移会漂移导致映射失准，
+    // 属理论边界；一旦出现至少 warn 让其可观测，而非静默错挂段落。
+    if (paragraphs.some(p => p.includes('\n'))) {
+        logger.warn('[clauseToParagraph] 段落文本含内部换行符，clauseIndex→段落映射可能漂移', {
+            paragraphCount: paragraphs.length,
+        })
+    }
+
     // 预计算每段起始偏移；fullTextLen 标记最后一段 end 之外的越界阈值
     const paragraphStarts: number[] = []
     let cursor = 0

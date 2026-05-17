@@ -100,7 +100,13 @@ function paragraphsFromAstWithMeta(rawXml: string, view: RevisionView = 'accept'
             }
         }
         return { paragraphs, bodyParagraphs, bodyParagraphIndex }
-    } catch {
+    } catch (err) {
+        // L4：document.xml 解析异常不可静默吞——返回空结果会让下游条款切分 / 锚点
+        // 全部 orphan，却没有任何排查线索。至少 warn 一条。
+        logger.warn('[contract parser] paragraphsFromAstWithMeta 解析 document.xml 失败，返回空结果', {
+            view,
+            err: err instanceof Error ? err.message : String(err),
+        })
         return { paragraphs: [], bodyParagraphs: [], bodyParagraphIndex: [] }
     }
 }
