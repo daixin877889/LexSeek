@@ -316,7 +316,7 @@ export async function* uploadClientVersionService(params: {
     )
     // 重建 wId → {reviewId, annotationId}：annotationId 来自内容匹配，reviewId 取
     // 身份证文件声明值（跨审查时 ≠ review.id）。
-    const commentRefByWId = new Map<number, { reviewId: number; annotationId: number; source: 'content' }>()
+    const commentRefByWId = new Map<number, { reviewId: number; annotationId: number; source: 'content' | 'authorRef' }>()
     for (const [wId, annotationId] of contentMatchByWId) {
         commentRefByWId.set(wId, {
             reviewId: declaredAnnReviewId ?? review.id,
@@ -337,8 +337,17 @@ export async function* uploadClientVersionService(params: {
     const fallbackFailComments: ParsedWordComment[] = []
 
     for (const c of newComments) {
-        const refFromMap = commentRefByWId.get(c.wId)
-        if (!refFromMap) continue // 非系统批注 → 真新批注
+        let refFromMap = commentRefByWId.get(c.wId)
+        if (!refFromMap) {
+            // M5：内容匹配失败（客户大幅改写系统批注致相似度低于阈值）→ 用作者内嵌的
+            // 身份证兜底回收 annotationId（Word 不改写 w:author，[#reviewId-annId-rand]
+            // 是可靠标识），避免系统批注被误判「客户删除」、改写内容随之丢失。
+            const parsed = parseCommentRef(c.wAuthor, c.wInitials)
+            if (parsed) {
+                refFromMap = { reviewId: parsed.reviewId, annotationId: parsed.annotationId, source: 'authorRef' }
+            }
+        }
+        if (!refFromMap) continue // 既无内容匹配又无作者身份证 → 真新批注
 
         // H7：身份证声明的 review 必须等于当前 review，否则拒绝（跨 review 文件串扰保护）
         if (refFromMap.reviewId !== review.id) {
@@ -456,7 +465,10 @@ export async function* uploadClientVersionService(params: {
     for (const id of coveredRiskIds) if (identifiableRiskIds.has(id)) coveredCount++
     const coverageRatio = identifiableRiskIds.size > 0 ? coveredCount / identifiableRiskIds.size : 1
     const NO_MATCH_THRESHOLD = 0.2
-    const docxHasContent = newComments.length > 0 || redlineHasRefs
+    // M7：customXmlRefEntries 非空 = 回传 docx 仍带我方身份证（确是本审查导出件），
+    // 即便客户工具把 comments.xml 整个剥掉也算「有内容」，否则安全网漏判、
+    // 全部已导出批注会被当客户删除。
+    const docxHasContent = newComments.length > 0 || redlineHasRefs || customXmlRefEntries.length > 0
     const tripsSafety =
         identifiableRiskIds.size > 0 && docxHasContent && coverageRatio < NO_MATCH_THRESHOLD
     if (tripsSafety) {

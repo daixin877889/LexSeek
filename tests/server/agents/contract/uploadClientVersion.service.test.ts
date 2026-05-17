@@ -887,6 +887,72 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
             expect(anns).toHaveLength(0)
         }, 60000)
     })
+
+    describe('M5：内容匹配失败用作者身份证兜底', () => {
+        it('系统批注被大幅改写（内容匹配失败）+ 作者带身份证 → 回收为编辑而非独立新批注', async () => {
+            const risk = await prisma.contractRisks.create({
+                data: {
+                    reviewId, source: 'ai', category: '风险', level: 'medium',
+                    problem: 'p', clauseText: '第一条 甲方应支付。', clauseParagraphIndex: 0,
+                },
+            })
+            const sysAnn = await prisma.contractAnnotations.create({
+                data: {
+                    reviewId, riskId: risk.id, authorType: 'ai', authorName: 'AI',
+                    content: 'AI 原始审查意见：违约金条款偏高', wordCommentRef: 'LEXSEEK-100-abcd1234',
+                },
+            })
+            // 回传：该系统批注被客户大幅改写（内容相似度低，内容匹配失败），但作者尾部带身份证
+            mockParseComments.mockResolvedValueOnce({
+                comments: [{
+                    wId: 1,
+                    wAuthor: `LS:AI [#${reviewId}-${sysAnn.id}-abcd1234]`,
+                    wInitials: '',
+                    content: '完全不一样的另一段客户重写文字内容占位用',
+                    parentWId: null,
+                }],
+                annotationRefsByWId: new Map(),
+                customXmlRefEntries: [],
+            })
+            const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+            await collectEvents(uploadClientVersionService({ review, ossFileId, userId }))
+            // M5：作者身份证回收 → 改写记为 sysAnn 的 external 子批注，而非无父的 external_new
+            const externals = await prisma.contractAnnotations.findMany({
+                where: { reviewId, authorType: 'external' },
+            })
+            const editedReply = externals.find(a => a.content.includes('客户重写'))
+            expect(editedReply).toBeDefined()
+            expect(editedReply!.parentAnnotationId).toBe(sysAnn.id)
+        }, 60000)
+    })
+
+    describe('M7：customXml 残留时安全网兜底', () => {
+        it('客户剥掉 comments.xml 但 annotationRefs.xml 残留 → 触发 NO_CONTENT_MATCH 保护', async () => {
+            const risk = await prisma.contractRisks.create({
+                data: {
+                    reviewId, source: 'ai', category: '风险', level: 'medium',
+                    problem: 'p', clauseText: 'q', clauseParagraphIndex: 0,
+                },
+            })
+            const sysAnn = await prisma.contractAnnotations.create({
+                data: {
+                    reviewId, riskId: risk.id, authorType: 'ai', authorName: 'AI',
+                    content: 'AI 批注', wordCommentRef: 'LEXSEEK-100-abcd1234',
+                },
+            })
+            // 回传 docx：comments.xml 被整个剥掉（comments 空），annotationRefs.xml 身份证残留
+            mockParseComments.mockResolvedValueOnce({
+                comments: [],
+                annotationRefsByWId: new Map(),
+                customXmlRefEntries: [{ reviewId, annotationId: sysAnn.id, source: 'customXml', ref: '' }],
+            })
+            const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+            const events = await collectEvents(uploadClientVersionService({ review, ossFileId, userId }))
+            // 带身份证的风险一条都没覆盖上 → 安全网必须触发，否则全部已导出批注被误标删除
+            const err = events.find(e => e.type === 'error')
+            expect(err?.data.code).toBe('NO_CONTENT_MATCH')
+        }, 60000)
+    })
 })
 
 // ==================== Phase B 双锚点迁移（PR7） ====================
