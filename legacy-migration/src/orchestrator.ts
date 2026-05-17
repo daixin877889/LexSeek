@@ -10,6 +10,7 @@ import { buildMigrators } from './migrators/index'
 import { ensureProgressTable } from './progress'
 import { runMigration } from './runner'
 import { resetSequences } from './sequenceReset'
+import { synthesizeTransaction } from './transforms/payment'
 
 /** 所有保留旧 ID 插入、需迁移后重置序列的表（按新库表名） */
 const SEQUENCE_TABLES = [
@@ -53,6 +54,9 @@ export async function runFullMigration(
   log('--- 重置自增序列 ---')
   await resetSequences(next as any, SEQUENCE_TABLES)
 
+  // 阶段 6：合成缺失的支付交易（须在 payment_transactions 序列重置之后）
+  await synthesizeMissingTransactions(legacy, next, migratedAt, exceptions)
+
   // 阶段 6：管理员角色补绑
   log('--- 管理员角色补绑 ---')
   await bindAdminRoles(next)
@@ -66,4 +70,43 @@ export async function runFullMigration(
     JSON.stringify({ migratedAt, exceptions: exceptions.count() }, null, 2),
     'utf8',
   )
+}
+
+/**
+ * 为"已支付（status=1）却无对应 payment_transactions"的订单合成交易行。
+ * 在 payment_transactions 序列重置之后执行，合成行用自增 ID；
+ * 幂等：按 transactionNo（LEGACY-ORD+orderId）唯一约束去重。
+ */
+async function synthesizeMissingTransactions(
+  legacy: LegacyPrismaClient,
+  next: NewPrismaClient,
+  migratedAt: Date,
+  exceptions: ExceptionCollector,
+): Promise<void> {
+  log('--- 合成缺失的支付交易 ---')
+  const L = legacy as any
+  const N = next as any
+  let after = 0
+  let synthesized = 0
+  for (;;) {
+    const orders = await L.paymentOrders.findMany({
+      where: { id: { gt: after }, status: 1 }, orderBy: { id: 'asc' }, take: 500,
+    })
+    if (orders.length === 0) break
+    for (const o of orders) {
+      const hasTx = await N.paymentTransactions.findFirst({ where: { orderId: o.id }, select: { id: true } })
+      if (hasTx) continue
+      // 仅为迁移成功的订单合成（订单可能因外键/重映射失败被跳过）
+      const orderExists = await N.orders.findUnique({ where: { id: o.id }, select: { id: true } })
+      if (!orderExists) continue
+      try {
+        await N.paymentTransactions.create({ data: synthesizeTransaction(o, migratedAt) })
+        synthesized++
+      } catch (e) {
+        exceptions.add('paymentTransactions(合成)', o.id, `合成失败：${(e as Error).message}`)
+      }
+    }
+    after = orders[orders.length - 1].id
+  }
+  log(`--- 合成交易完成：新增 ${synthesized} 条 ---`)
 }

@@ -3,6 +3,7 @@ import { writeFileSync } from 'node:fs'
 import { createLegacyClient, createNewClient } from './clients'
 import { loadConfig } from './config'
 import { log, logError } from './logger'
+import { runFullMigration } from './orchestrator'
 import { runPreflight } from './preflight'
 
 async function cmdPreflight(): Promise<void> {
@@ -20,14 +21,31 @@ async function cmdPreflight(): Promise<void> {
   }
 }
 
+async function cmdMigrate(): Promise<void> {
+  const cfg = loadConfig()
+  const adminRoleId = Number(process.env.MIGRATION_ADMIN_ROLE_ID ?? 0)
+  if (!adminRoleId) throw new Error('缺少 MIGRATION_ADMIN_ROLE_ID（新库基础 admin 角色的 id）')
+  const legacy = createLegacyClient(cfg.legacyDatabaseUrl)
+  const next = createNewClient(cfg.newDatabaseUrl)
+  try {
+    await runFullMigration(legacy, next, cfg, adminRoleId)
+  } finally {
+    await legacy.$disconnect()
+    await next.$disconnect()
+  }
+}
+
 async function main(): Promise<void> {
   const cmd = process.argv[2]
   switch (cmd) {
     case 'preflight':
       await cmdPreflight()
       break
+    case 'migrate':
+      await cmdMigrate()
+      break
     default:
-      logError(`未知命令：${cmd ?? '(空)'}。可用命令：preflight`)
+      logError(`未知命令：${cmd ?? '(空)'}。可用命令：preflight、migrate`)
       process.exitCode = 1
   }
 }
