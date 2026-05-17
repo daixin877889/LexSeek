@@ -31,6 +31,7 @@ import { InterruptType } from '#shared/types/case'
 import { runAnalysisSubAgent } from '~~/server/agents/case-analysis/runAnalysisSubAgent'
 import { completeAnalysisWithRAG } from '../case/initAnalysis.service'
 import { getLangfuseContext } from '~~/server/lib/langfuse'
+import { stripContentBeforeFirstH1 } from '#shared/utils/markdown'
 
 
 /**
@@ -259,7 +260,7 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
                     thinking: state.thinking ?? true,
                 })
                 responseMessages = sub.messages
-                resultText = sub.resultText
+                resultText = stripContentBeforeFirstH1(sub.resultText)
 
                 // 步骤 5c：计算 token
                 totalTokens = calculateTotalTokens(responseMessages)
