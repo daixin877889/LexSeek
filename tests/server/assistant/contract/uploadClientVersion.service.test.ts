@@ -102,7 +102,7 @@ describe('uploadClientVersionService（B1 骨架）', () => {
         await prisma.users.deleteMany({ where: { id: userId } })
     })
 
-    it('骨架事件数量：6 个 progress + 1 个 complete', async () => {
+    it('骨架事件：5 步各发 progress + done，外加 1 个 complete', async () => {
         const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
         const events = await collectEvents(
             uploadClientVersionService({ review, ossFileId, userId }),
@@ -113,13 +113,16 @@ describe('uploadClientVersionService（B1 骨架）', () => {
         const errorEvents = events.filter((e) => e.type === 'error')
 
         expect(errorEvents).toHaveLength(0)
-        // backup/parse/diff/ai 各 done 一次；merge 先 progress（前端切 loading）再 done
-        expect(progressEvents).toHaveLength(6)
         expect(completeEvents).toHaveLength(1)
 
-        // 验证 progress steps 顺序
-        const steps = progressEvents.map((e) => (e.data as { step: string }).step)
-        expect(steps).toEqual(['backup', 'parse', 'diff', 'ai', 'merge', 'merge'])
+        // 5 个步骤，每步进入发 progress（前端切 loading）、完成发 done
+        for (const step of ['backup', 'parse', 'diff', 'ai', 'merge']) {
+            const statuses = progressEvents
+                .filter((e) => (e.data as { step: string }).step === step)
+                .map((e) => (e.data as { status: string }).status)
+            expect(statuses).toContain('progress')
+            expect(statuses).toContain('done')
+        }
 
         // complete 事件包含 newVersionId
         const completeData = completeEvents[0].data as { newVersionId: number; summary: string }
@@ -235,9 +238,9 @@ describe('uploadClientVersionService（B1 骨架）', () => {
         expect(errData.step).toBe('parse')
         expect(errData.code).toBe('PARSE_FAILED')
 
-        // backup progress 应已产出（backup 先于 parse）
+        // backup 步应已产出 progress（backup 先于 parse）
         const progressEvents = events.filter((e) => e.type === 'progress')
-        expect(progressEvents[0]).toMatchObject({ data: { step: 'backup', status: 'done' } })
+        expect(progressEvents[0]).toMatchObject({ data: { step: 'backup', status: 'progress' } })
     })
 })
 

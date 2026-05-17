@@ -29,6 +29,7 @@ import { saveContractReviewVersionService } from './contractReviewVersion.servic
 import { analyzeSingleClause } from './analyzeSingleClause'
 import { diffClauses } from './utils/clauseDiff'
 import { migrateRiskWithDualAnchor } from './utils/anchorMigrate'
+import { normalizeForMatch } from './utils/textSimilarity'
 import { parseWordComments, type ParsedWordComment, type AnnotationRefEntry } from './docx/wordCommentParser'
 import { parseRedlineMarks, classifyRedlineDecision, resolveCorpusForRef, resolveFullCorpus, type ParsedRedlineMarks } from './docx/redlineParser'
 import { matchCommentsToAnnotations } from './docx/commentContentMatch'
@@ -127,6 +128,7 @@ export async function* uploadClientVersionService(params: {
     let succeeded = false
     try {
         // ============ Step 1: 自动备份当前工作区 ============
+        yield { type: 'progress', data: { step: 'backup', status: 'progress' } }
         try {
             const hasUnsaved = await detectUnsavedEdits(review.id, review.currentVersionId)
             if (hasUnsaved) {
@@ -144,6 +146,7 @@ export async function* uploadClientVersionService(params: {
         }
 
         // ============ Step 2: 解析新上传 docx（bug #9 强校验） ============
+        yield { type: 'progress', data: { step: 'parse', status: 'progress' } }
         let newDocxText: string
         let newClauses: ClauseSnapshotItem[]
         let newComments: ParsedWordComment[] = []
@@ -197,6 +200,7 @@ export async function* uploadClientVersionService(params: {
         }
 
     // ============ Step 3: 识别正文差异 + 批注变更 ============
+    yield { type: 'progress', data: { step: 'diff', status: 'progress' } }
     const [dbAnnotations, dbRisks, currentVersion] = await Promise.all([
         prisma.contractAnnotations.findMany({ where: { reviewId: review.id, deletedAt: null } }),
         prisma.contractRisks.findMany({ where: { reviewId: review.id } }),
@@ -468,7 +472,10 @@ export async function* uploadClientVersionService(params: {
         if (!dbAnn) continue
         // external 本身就是客户批注，不适用此场景
         if (dbAnn.authorType === 'external') continue
-        if (c.content.trim() === dbAnn.content.trim()) continue
+        // 比对用 normalizeForMatch 归一化：Word 重存会改批注的空白/标点/全半角格式，
+        // 严格 === 会把"纯格式变化"误判成"客户编辑了批注"（review 8 实测 4 条误判）。
+        // 归一化后仍不等才算客户的实质改动。
+        if (normalizeForMatch(c.content) === normalizeForMatch(dbAnn.content)) continue
         editedSystemReplies.push({ parentAnnId: annId, c })
     }
 
@@ -576,6 +583,7 @@ export async function* uploadClientVersionService(params: {
     }
 
     // ============ Step 4: AI 增量审查 + 全局复核 ============
+    yield { type: 'progress', data: { step: 'ai', status: 'progress' } }
     let aiReviewCount = 0
     let globalReviewNewRiskCount = 0
     // DOCX-H1 补偿式回滚：Step 4 在 tx 之外写 risks/annotations（AI 调用耗时较长，
