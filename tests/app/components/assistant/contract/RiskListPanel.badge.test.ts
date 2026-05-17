@@ -21,6 +21,9 @@ vi.mock('lucide-vue-next', () => {
     return {
         DownloadIcon: stub('DownloadIcon'),
         ChevronDownIcon: stub('ChevronDownIcon'),
+        ChevronRightIcon: stub('ChevronRightIcon'),
+        ChevronLeftIcon: stub('ChevronLeftIcon'),
+        XIcon: stub('XIcon'),
         Loader2Icon: stub('Loader2Icon'),
         PlusIcon: stub('PlusIcon'),
         PencilIcon: stub('PencilIcon'),
