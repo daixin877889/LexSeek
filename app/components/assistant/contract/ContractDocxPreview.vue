@@ -426,24 +426,24 @@ watch(
     color: inherit !important;
     border-color: var(--border) !important;
 }
-/* 风险段落高亮在深色纸面上改用更亮的色相 + 更高透明度，保证可见 */
+/* 风险段落高亮在深色纸面上：用饱和等级色 + 较高透明度，叠在近黑纸面上仍清晰呈红/琥珀/蓝 */
 .docx-preview-container.docx-paper-dark :deep(p[data-risk-level="high"]) {
-    background-color: rgb(248 113 113 / 0.13) !important;
+    background-color: rgb(239 68 68 / 0.3) !important;
 }
 .docx-preview-container.docx-paper-dark :deep(p[data-risk-level="medium"]) {
-    background-color: rgb(251 146 60 / 0.14) !important;
+    background-color: rgb(245 158 11 / 0.3) !important;
 }
 .docx-preview-container.docx-paper-dark :deep(p[data-risk-level="low"]) {
-    background-color: rgb(56 189 248 / 0.13) !important;
+    background-color: rgb(14 165 233 / 0.28) !important;
 }
 /* 选中 / 钉住态（带 ring-1）在深色纸面上底色再加深 */
 .docx-preview-container.docx-paper-dark :deep(p[data-risk-level="high"].ring-1) {
-    background-color: rgb(248 113 113 / 0.24) !important;
+    background-color: rgb(239 68 68 / 0.46) !important;
 }
 .docx-preview-container.docx-paper-dark :deep(p[data-risk-level="medium"].ring-1) {
-    background-color: rgb(251 146 60 / 0.26) !important;
+    background-color: rgb(245 158 11 / 0.46) !important;
 }
 .docx-preview-container.docx-paper-dark :deep(p[data-risk-level="low"].ring-1) {
-    background-color: rgb(56 189 248 / 0.24) !important;
+    background-color: rgb(14 165 233 / 0.44) !important;
 }
 </style>
