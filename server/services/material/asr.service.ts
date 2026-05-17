@@ -35,7 +35,7 @@ import { embedAudioService as embedAudioToVectorStore, formatAsrResultForEmbeddi
 import { DEFAULT_POLLING_CONFIG, calculateBackoffDelay } from './materialConstants'
 import type { PollingConfig } from './materialConstants'
 import { AsrRecordStatus, AsrTaskStatus } from '#shared/types/recognition'
-import { FileSource } from '#shared/types/file'
+import { FileSource, OssFileStatus } from '#shared/types/file'
 import { buildStorageKey } from '~~/server/utils/storagePath'
 
 /** 音频识别节点名称 */
@@ -416,7 +416,7 @@ export async function uploadRawAsrJsonToOssService(
                 fileSize: buffer.length,
                 fileType: 'application/json',
                 source: FileSource.ASR,
-                status: 1, // 已上传
+                status: OssFileStatus.UPLOADED,
             },
         })
 
