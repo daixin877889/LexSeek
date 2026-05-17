@@ -110,7 +110,7 @@ const levelOptions: Array<{ value: RiskLevel; label: string }> = (
 <template>
     <Dialog :open="open" @update:open="(v: boolean) => emit('update:open', v)">
         <DialogContent
-            class="flex flex-col gap-0 p-0 w-screen h-dvh max-w-none rounded-none border-0 sm:h-auto sm:max-h-[90vh] sm:w-[80vw] sm:max-w-[80vw] sm:rounded-lg sm:border"
+            class="flex flex-col gap-0 p-0 w-screen h-dvh max-w-none rounded-none border-0 sm:h-auto sm:max-h-[90vh] sm:w-[680px] sm:max-w-[92vw] sm:rounded-lg sm:border"
         >
             <DialogHeader class="shrink-0 border-b px-6 py-4">
                 <DialogTitle>{{ risk ? '编辑风险' : '新增风险' }}</DialogTitle>
@@ -173,7 +173,7 @@ const levelOptions: Array<{ value: RiskLevel; label: string }> = (
 
             <DialogFooter class="shrink-0 border-t px-6 py-4">
                 <Button variant="outline" @click="handleCancel">取消</Button>
-                <Button :disabled="!canSubmit" @click="handleConfirm">确认</Button>
+                <Button :disabled="!canSubmit" class="bg-gradient-brand-button text-white" @click="handleConfirm">确认</Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>
