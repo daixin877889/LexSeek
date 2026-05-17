@@ -1,5 +1,5 @@
 import type { ClauseSnapshotItem } from '#shared/types/contract'
-import { calcSimilarity } from './textSimilarity'
+import { calcSimilarity, normalizeForMatch } from './textSimilarity'
 
 export interface ClauseDiffResult {
     modified: Array<{ oldIndex: number; newIndex: number; similarity: number }>
@@ -33,15 +33,22 @@ export function diffClauses(
     const threshold = options?.modifiedThreshold ?? 0.6
     const result: ClauseDiffResult = { modified: [], added: [], removed: [], unchanged: [] }
 
+    // M20：比对前对条款文本做 normalizeForMatch 归一。Word 重存常改写空白 / 全半角 /
+    // 标点格式，不归一会让未改动条款 sim<1 被误判 modified、触发多余的 Step 4 AI 重审；
+    // 归一后未改动条款能严格 sim===1 落入 unchanged。每条款只归一一次，避免双重循环里
+    // N×M 次重复归一。
+    const oldNorm = oldClauses.map(c => (c ? normalizeForMatch(c.text) : null))
+    const newNorm = newClauses.map(c => (c ? normalizeForMatch(c.text) : null))
+
     // 收集 ≥ threshold 的所有 (oi, ni, sim) 候选
     const candidates: Array<{ oi: number; ni: number; sim: number }> = []
     for (let oi = 0; oi < oldClauses.length; oi++) {
-        const oldClause = oldClauses[oi]
-        if (!oldClause) continue
+        const oldText = oldNorm[oi]
+        if (oldText == null) continue
         for (let ni = 0; ni < newClauses.length; ni++) {
-            const newClause = newClauses[ni]
-            if (!newClause) continue
-            const sim = calcSimilarity(oldClause.text, newClause.text)
+            const newText = newNorm[ni]
+            if (newText == null) continue
+            const sim = calcSimilarity(oldText, newText)
             if (sim >= threshold) candidates.push({ oi, ni, sim })
         }
     }
