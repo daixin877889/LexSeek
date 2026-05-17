@@ -73,7 +73,8 @@ function syncAddBtnPos() {
     // docx-preview 的 section.docx 自带定位，offsetParent 并非按钮的 relative 参照容器。
     const paraRect = para.getBoundingClientRect()
     const cRect = c.getBoundingClientRect()
-    addBtnTop.value = paraRect.top - cRect.top
+    // 按钮垂直居中对齐段落（按钮 22px）
+    addBtnTop.value = paraRect.top - cRect.top + (paraRect.height - 22) / 2
     // 水平跟随段落左缘——按钮恒定置于段落左缘外侧 6px 的 gutter（按钮宽 20px），
     // 始终随段落走，不随页面宽度 / 白纸居中位置漂移。
     addBtnLeft.value = paraRect.left - cRect.left - 26

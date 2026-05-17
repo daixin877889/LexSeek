@@ -63,9 +63,9 @@ export const CLIENT_REDLINE_BADGE: Record<ClientRedlineDecision, { label: string
  * （~4.5%，整页近白纸）+ 等级色左竖线 + pl-3 间距。选中/悬停态见下方 FOCUS / HOVER。
  */
 export const RISK_LEVEL_DOCX_BG_CLASS: Record<RiskLevel, string[]> = {
-    high: ['bg-red-600/[0.045]', 'border-l-4', 'border-red-600', 'pl-3'],
-    medium: ['bg-amber-600/[0.05]', 'border-l-4', 'border-amber-600', 'pl-3'],
-    low: ['bg-sky-600/[0.045]', 'border-l-4', 'border-sky-600', 'pl-3'],
+    high: ['bg-red-600/[0.045]', 'border-l-4', 'border-red-600', 'rounded', 'pl-3'],
+    medium: ['bg-amber-600/[0.05]', 'border-l-4', 'border-amber-600', 'rounded', 'pl-3'],
+    low: ['bg-sky-600/[0.045]', 'border-l-4', 'border-sky-600', 'rounded', 'pl-3'],
 }
 
 /**
