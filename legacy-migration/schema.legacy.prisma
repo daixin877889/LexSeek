@@ -1,0 +1,1493 @@
+generator client {
+  provider = "prisma-client"
+  output   = "./legacy-client"
+}
+
+// generator comments {
+//   provider = "prisma-db-comments-generator"
+// }
+
+datasource db {
+  provider = "postgresql"
+  // 连接池配置，在连接字符串中可以添加参数来控制连接池
+  // 例如：postgresql://user:password@localhost:5432/db?connection_limit=20&pool_timeout=20
+  // 注意：Prisma 7 中，连接 URL 需要在 prisma.config.ts 中配置（用于迁移）和 PrismaClient 构造函数中传递（用于运行时）
+}
+
+/// 用户表
+model users {
+  /// 用户ID，主键，自增
+  id                       Int                        @id @default(autoincrement())
+  /// 用户姓名
+  name                     String                     @db.VarChar(100)
+  /// 用户名，可选
+  username                 String?                    @db.VarChar(100)
+  /// 电子邮箱，可选
+  email                    String?                    @db.VarChar(100)
+  /// 手机号，唯一标识
+  phone                    String                     @unique @db.VarChar(11)
+  /// 密码，加密存储
+  password                 String?                    @db.VarChar(100)
+  /// 用户角色：user-普通用户，admin-管理员
+  role                     String                     @default("user") @db.VarChar(20)
+  /// 用户状态：1-启用，0-禁用
+  status                   Int                        @default(1)
+  /// 所属公司/律所，可选
+  company                  String?                    @db.VarChar(100)
+  /// 个人简介，可选
+  profile                  String?
+  /// 邀请码，唯一
+  inviteCode               String                     @unique @map("invite_code") @db.VarChar(10)
+  /// 邀请人用户ID，外键关联用户表
+  invitedBy                Int?                       @map("invited_by")
+  /// 微信小程序openid
+  openid                   String?                    @map("openid") @db.VarChar(100)
+  /// 微信小程序unionid
+  unionid                  String?                    @map("unionid") @db.VarChar(100)
+  /// 用户注册渠道
+  registerChannel          String?                    @map("register_channel") @db.VarChar(100)
+  /// API Key
+  apiKey                   String?                    @unique @default(dbgenerated("gen_random_uuid()")) @map("api_key") @db.Uuid
+  /// 创建时间
+  createdAt                DateTime?                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt                DateTime?                  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间
+  deletedAt                DateTime?                  @map("deleted_at") @db.Timestamptz(6)
+  asrRecords               asrRecords[]
+  caseAnalyses             caseAnalyses[]
+  caseMaterials            caseMaterials[]
+  cases                    cases[]
+  docRecognitionRecords    docRecognitionRecords[]
+  membershipUpgradeRecords membershipUpgradeRecords[]
+  paymentOrders            paymentOrders[]
+  pointConsumptionRecords  pointConsumptionRecords[]
+  pointRecords             pointRecords[]
+  redemptionCodes          redemptionCodes[]
+  redemptionRecords        redemptionRecords[]
+  userMemberships          userMemberships[]
+  imageRecognitionRecords  imageRecognitionRecords[]
+
+  @@index([status], map: "idx_users_status")
+  @@index([deletedAt], map: "idx_users_deleted_at")
+  @@index([role], map: "idx_users_role")
+  @@map("users")
+}
+
+/// 会员级别表
+model membershipLevels {
+  /// 会员级别ID，主键，自增
+  id                 Int                        @id @default(autoincrement())
+  /// 会员级别名称
+  name               String                     @db.VarChar(100)
+  /// 会员级别描述
+  description        String?
+  /// 月度价格（元）- 已废弃，使用 products 表中的价格
+  priceMonthly       Decimal?                   @map("price_monthly") @db.Decimal(10, 2)
+  /// 年度价格（元）- 已废弃，使用 products 表中的价格
+  priceYearly        Decimal?                   @map("price_yearly") @db.Decimal(10, 2)
+  /// 赠送积分 - 已废弃，使用 products 表中的赠送积分
+  giftPoint          Int?                       @default(0) @map("gift_point")
+  /// 排序顺序
+  sortOrder          Int                        @default(0)
+  /// 状态：1-启用，0-禁用
+  status             Int                        @default(1)
+  /// 创建时间
+  createdAt          DateTime?                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt          DateTime?                  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间
+  deletedAt          DateTime?                  @map("deleted_at") @db.Timestamptz(6)
+  levelModuleAccess  levelModuleAccess[]
+  membershipBenefits membershipBenefits[]
+  fromUpgradeRecords membershipUpgradeRecords[] @relation("FromLevel")
+  toUpgradeRecords   membershipUpgradeRecords[] @relation("ToLevel")
+  paymentOrders      paymentOrders[]
+  products           products[]
+  redemptionCodes    redemptionCodes[]
+  userMemberships    userMemberships[]
+  levelNodeAccesses  levelNodeAccess[]          @relation("levelNodeAccess")
+
+  @@index([sortOrder], map: "idx_membership_levels_sort_order")
+  @@index([status], map: "idx_membership_levels_status")
+  @@index([deletedAt], map: "idx_membership_levels_deleted_at")
+  @@map("membership_levels")
+}
+
+/// 权益表
+model benefits {
+  /// 权益ID，主键，自增
+  id                 Int                  @id @default(autoincrement())
+  /// 权益名称
+  name               String               @db.VarChar(100)
+  /// 权益描述
+  description        String?              @db.VarChar(255)
+  /// 单位类型
+  unitType           Int                  @default(0) @map("unit_type")
+  /// 最小单位
+  minUnit            String?              @db.VarChar(10)
+  /// 计量模式
+  consumptionMode    Int                  @default(1) @map("consumption_mode")
+  /// 创建时间
+  createdAt          DateTime?            @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt          DateTime?            @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间
+  deletedAt          DateTime?            @map("deleted_at") @db.Timestamptz(6)
+  membershipBenefits membershipBenefits[]
+
+  @@index([name], map: "idx_benefits_name")
+  @@index([minUnit], map: "idx_benefits_min_unit")
+  @@index([deletedAt], map: "idx_benefits_deleted_at")
+  @@map("benefits")
+}
+
+/// 会员权益表
+model membershipBenefits {
+  /// 会员权益ID，主键，自增
+  id                 Int              @id @default(autoincrement())
+  /// 关联的会员级别ID，外键关联模会员级别表
+  levelId            Int              @map("level_id")
+  /// 关联的权益ID，外键关联权益表
+  benefitId          Int              @map("benefit_id")
+  /// 权益值
+  benefitValue       Decimal          @map("benefit_value") @db.Decimal(15, 2)
+  /// 单位
+  unit               String?
+  /// 周期性权益重置频率
+  resetFrequencyUnit Int?             @map("reset_frequency_unit")
+  /// 权益描述
+  description        String?
+  /// 状态：1-启用，0-禁用
+  status             Int              @default(1)
+  /// 创建时间
+  createdAt          DateTime?        @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt          DateTime?        @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间
+  deletedAt          DateTime?        @map("deleted_at") @db.Timestamptz(6)
+  benefit            benefits         @relation(fields: [benefitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  membershipLevel    membershipLevels @relation(fields: [levelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([levelId, benefitId])
+  @@index([levelId], map: "idx_membership_level_benefits_level_id")
+  @@index([benefitId], map: "idx_membership_level_benefits_benefit_id")
+  @@index([status], map: "idx_membership_level_benefits_status")
+  @@index([deletedAt], map: "idx_membership_level_benefits_deleted_at")
+  @@map("membership_benefits")
+}
+
+/// 用户权益表
+model userBenefits {
+  /// 用户权益ID，主键，自增
+  id               Int                @id @default(autoincrement())
+  /// 关联的用户ID，外键关联用户表
+  userId           Int                @map("user_id")
+  /// 资源ID,关联到user_benefits.id
+  benefitId        Int                @map("benefit_id")
+  /// 权益值
+  benefitValue     Decimal            @map("benefit_value") @db.Decimal(15, 2)
+  /// 单位
+  unit             String?
+  /// 已消耗量 
+  consumedValue    Decimal            @default(0) @map("consumed_value") @db.Decimal(15, 2)
+  /// 剩余量
+  remainingValue   Decimal?           @default(0) @map("remaining_value") @db.Decimal(15, 2)
+  /// 权益状态
+  status           Int                @default(1) @map("status")
+  /// 权益来源渠道
+  sourceType       Int                @map("source_type")
+  /// 权益来源ID，根据来源类型关联到不同的表
+  sourceId         Int?               @map("source_id")
+  /// 生效时间
+  effectiveAt      DateTime?          @map("effective_at") @db.Timestamptz(6)
+  /// 过期时间
+  expiredAt        DateTime?          @map("expired_at") @db.Timestamptz(6)
+  /// 备注
+  remark           String?
+  /// 创建时间
+  createdAt        DateTime?          @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt        DateTime?          @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间
+  deletedAt        DateTime?          @map("deleted_at") @db.Timestamptz(6)
+  resourceUsageLog resourceUsageLog[]
+
+  @@index([userId], map: "idx_user_benefits_user_id")
+  @@index([benefitId], map: "idx_user_benefits_benefit_id")
+  @@index([status], map: "idx_user_benefits_status")
+  @@index([sourceType], map: "idx_user_benefits_source_type")
+  @@index([effectiveAt], map: "idx_user_benefits_effective_at")
+  @@index([expiredAt], map: "idx_user_benefits_expired_at")
+  @@index([deletedAt], map: "idx_user_benefits_deleted_at")
+  @@map("user_benefits")
+}
+
+/// 资源使用记录表
+model resourceUsageLog {
+  /// 资源使用记录ID，主键，自增
+  id             Int          @id @default(autoincrement())
+  /// 用户资源ID,关联到user_benefits.id
+  userBenefitsId Int          @map("user_benefits_id")
+  /// 资源使用量
+  usageValue     Decimal      @map("usage_value") @db.Decimal(15, 2)
+  /// 用量单位
+  unit           String
+  /// 状态
+  status         Int          @default(1) @map("status")
+  /// 备注
+  remark         String?
+  /// 创建时间
+  createdAt      DateTime?    @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt      DateTime?    @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
+  userBenefits   userBenefits @relation(fields: [userBenefitsId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([userBenefitsId], map: "idx_resource_usage_log_user_benefits_id")
+  @@index([deletedAt], map: "idx_resource_usage_log_deleted_at")
+  @@map("resource_usage_log")
+}
+
+/// 用户会员信息表
+model userMemberships {
+  /// 会员ID，主键，自增
+  id                                                                       Int                        @id @default(autoincrement())
+  /// 关联的用户ID，外键关联用户表
+  userId                                                                   Int                        @map("user_id")
+  /// 关联的会员级别ID，外键关联会员级别表
+  levelId                                                                  Int                        @map("level_id")
+  /// 会员开始日期
+  startDate                                                                DateTime                   @map("start_date") @db.Timestamptz(6)
+  /// 会员到期日期
+  endDate                                                                  DateTime                   @map("end_date") @db.Timestamptz(6)
+  /// 是否自动续费
+  autoRenew                                                                Boolean?                   @default(false) @map("auto_renew")
+  /// 状态：1-有效，0-无效
+  status                                                                   Int                        @default(1) @map("status")
+  /// 会员来源类型：1-兑换码兑换，2-直接购买，3-管理员赠送，4-活动奖励，5-试用，6-注册赠送，7-推荐新用户注册赠送，8-会员升级，99-其他
+  sourceType                                                               Int?                       @map("source_type")
+  /// 会员来源ID，根据来源类型关联到不同的表
+  sourceId                                                                 Int?                       @map("source_id")
+  /// 创建时间
+  createdAt                                                                DateTime?                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt                                                                DateTime?                  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt                                                                DateTime?                  @map("deleted_at") @db.Timestamptz(6)
+  /// 升级前的会员记录ID
+  upgradedFromId                                                           Int?                       @map("upgraded_from_id")
+  /// 升级后的会员记录ID
+  upgradedToId                                                             Int?                       @map("upgraded_to_id")
+  /// 升级支付的价格
+  upgradePrice                                                             Decimal?                   @map("upgrade_price") @db.Decimal(10, 2)
+  /// 是否为升级记录
+  isUpgrade                                                                Boolean?                   @default(false) @map("is_upgrade")
+  toUpgradeRecords                                                         membershipUpgradeRecords[] @relation("ToMembership")
+  fromUpgradeRecords                                                       membershipUpgradeRecords[] @relation("FromMembership")
+  redemptionRecords                                                        redemptionRecords[]
+  upgradedFrom                                                             userMemberships?           @relation("MembershipUpgrade", fields: [upgradedFromId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_memberships_upgraded_from")
+  upgradedTo                                                               userMemberships[]          @relation("MembershipUpgrade")
+  user_memberships_user_memberships_upgraded_to_idTouser_memberships       userMemberships?           @relation("user_memberships_upgraded_to_idTouser_memberships", fields: [upgradedToId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_user_memberships_upgraded_to")
+  other_user_memberships_user_memberships_upgraded_to_idTouser_memberships userMemberships[]          @relation("user_memberships_upgraded_to_idTouser_memberships")
+  membershipLevel                                                          membershipLevels           @relation(fields: [levelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users                                                                    users                      @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([endDate], map: "idx_user_memberships_end_date")
+  @@index([levelId], map: "idx_user_memberships_level_id")
+  @@index([sourceType, sourceId], map: "idx_user_memberships_source")
+  @@index([status], map: "idx_user_memberships_status")
+  @@index([userId], map: "idx_user_memberships_user_id")
+  @@index([deletedAt], map: "idx_user_memberships_deleted_at")
+  @@index([upgradedFromId], map: "idx_user_memberships_upgraded_from_id")
+  @@index([upgradedToId], map: "idx_user_memberships_upgraded_to_id")
+  @@index([isUpgrade], map: "idx_user_memberships_is_upgrade")
+  @@map("user_memberships")
+}
+
+/// 兑换码表
+model redemptionCodes {
+  /// 兑换码ID，主键，自增
+  id                Int                 @id @default(autoincrement())
+  /// 兑换码，唯一
+  code              String              @unique @db.VarChar(50)
+  /// 关联的会员级别ID，外键关联会员级别表
+  levelId           Int                 @map("level_id")
+  /// 兑换会员有效期天数
+  duration          Int
+  /// 状态：1-有效，2-已使用，3-已过期，4-已作废
+  status            Int                 @default(1)
+  /// 备注
+  remark            String?             @db.VarChar(255)
+  /// 赠送积分
+  giftPoint         Int                 @default(0) @map("gift_point")
+  /// 创建者ID，外键关联用户表
+  createdBy         Int                 @map("created_by")
+  /// 创建时间
+  createdAt         DateTime?           @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt         DateTime?           @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt         DateTime?           @map("deleted_at") @db.Timestamptz(6)
+  users             users               @relation(fields: [createdBy], references: [id], onUpdate: NoAction)
+  membershipLevel   membershipLevels    @relation(fields: [levelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  redemptionRecords redemptionRecords[]
+
+  @@index([code], map: "idx_redemption_codes_code")
+  @@index([createdBy], map: "idx_redemption_codes_created_by")
+  @@index([levelId], map: "idx_redemption_codes_level_id")
+  @@index([status], map: "idx_redemption_codes_status")
+  @@index([deletedAt], map: "idx_redemption_codes_deleted_at")
+  @@map("redemption_codes")
+}
+
+/// 会员兑换记录表
+model redemptionRecords {
+  /// 兑换记录ID，主键，自增
+  id              Int              @id @default(autoincrement())
+  /// 关联的兑换码ID，外键关联兑换码表
+  codeId          Int              @map("code_id")
+  /// 关联的用户ID，外键关联用户表
+  userId          Int              @map("user_id")
+  /// 兑换时间
+  redeemedAt      DateTime         @default(now()) @map("redeemed_at") @db.Timestamptz(6)
+  /// 兑换码过期时间
+  expiresAt       DateTime         @map("expires_at") @db.Timestamptz(6)
+  /// 状态：1-有效，2-已过期，3-已作废
+  status          Int              @default(1)
+  /// 关联的会员ID，外键关联会员表
+  membershipId    Int?             @map("membership_id")
+  /// 创建时间
+  createdAt       DateTime?        @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt       DateTime?        @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt       DateTime?        @map("deleted_at") @db.Timestamptz(6)
+  redemptionCodes redemptionCodes  @relation(fields: [codeId], references: [id], onUpdate: NoAction)
+  userMemberships userMemberships? @relation(fields: [membershipId], references: [id], onUpdate: NoAction)
+  users           users            @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([codeId], map: "idx_redemption_records_code_id")
+  @@index([expiresAt], map: "idx_redemption_records_expires_at")
+  @@index([membershipId], map: "idx_redemption_records_membership_id")
+  @@index([status], map: "idx_redemption_records_status")
+  @@index([userId], map: "idx_redemption_records_user_id")
+  @@index([deletedAt], map: "idx_redemption_records_deleted_at")
+  @@map("redemption_records")
+}
+
+/// 积分记录表
+model pointRecords {
+  /// 积分记录ID，主键，自增
+  id                      Int                       @id @default(autoincrement())
+  /// 关联的用户ID，外键关联用户表
+  userId                  Int                       @map("user_id")
+  /// 积分数量
+  pointAmount             Int                       @map("point_amount")
+  /// 已使用积分数量
+  used                    Int                       @map("used")
+  /// 剩余积分数量
+  remaining               Int                       @map("remaining")
+  /// 积分来源
+  sourceType              Int                       @map("source_type")
+  /// 积分来源ID，根据来源类型关联到不同的表
+  sourceId                Int?                      @map("source_id")
+  /// 用户会员记录ID
+  userMembershipId        Int?                      @map("user_membership_id")
+  /// 生效时间
+  effectiveAt             DateTime                  @map("effective_at") @db.Timestamptz(6)
+  /// 过期时间
+  expiredAt               DateTime                  @map("expired_at") @db.Timestamptz(6)
+  /// 结算时间
+  settlementAt            DateTime?                 @map("settlement_at") @db.Timestamptz(6)
+  /// 积分状态
+  status                  Int                       @default(1) @map("status")
+  /// 备注
+  remark                  String?                   @map("remark")
+  /// 创建时间
+  createdAt               DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt               DateTime                  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt               DateTime?                 @map("deleted_at") @db.Timestamptz(6)
+  pointConsumptionRecords pointConsumptionRecords[]
+  users                   users                     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([userId], map: "idx_point_records_user_id")
+  @@index([sourceType], map: "idx_point_records_source_type")
+  @@index([sourceId], map: "idx_point_records_source_id")
+  @@index([effectiveAt], map: "idx_point_records_effective_at")
+  @@index([expiredAt], map: "idx_point_records_expired_at")
+  @@index([settlementAt], map: "idx_point_records_settlement_at")
+  @@index([deletedAt], map: "idx_point_records_deleted_at")
+  @@map("point_records")
+}
+
+/// 积分消耗项目表
+model pointConsumptionItems {
+  /// 积分消耗项目ID，主键，自增
+  id                      Int                       @id @default(autoincrement())
+  /// 分组
+  group                   String                    @db.VarChar(100)
+  /// 积分消耗项目名称
+  name                    String                    @db.VarChar(100)
+  /// 积分消耗项目描述
+  description             String?                   @db.VarChar(255)
+  /// 项目计量单位
+  unit                    String                    @db.VarChar(10)
+  /// 积分消耗数量
+  pointAmount             Int                       @map("point_amount")
+  /// 积分消耗项目状态
+  status                  Int                       @default(1)
+  /// 创建时间
+  createdAt               DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt               DateTime                  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt               DateTime?                 @map("deleted_at") @db.Timestamptz(6)
+  /// 消耗折扣
+  discount                Decimal?                  @default(1) @map("discount") @db.Decimal(3, 2)
+  pointConsumptionRecords pointConsumptionRecords[]
+
+  @@index([name], map: "idx_point_consumption_items_name")
+  @@index([status], map: "idx_point_consumption_items_status")
+  @@index([deletedAt], map: "idx_point_consumption_items_deleted_at")
+  @@map("point_consumption_items")
+}
+
+/// 积分消耗记录表
+model pointConsumptionRecords {
+  /// 积分消耗记录ID，主键，自增
+  id                    Int                   @id @default(autoincrement())
+  /// 关联的用户ID，外键关联用户表
+  userId                Int                   @map("user_id")
+  /// 关联的积分记录ID，外键关联积分记录表
+  pointRecordId         Int                   @map("point_record_id")
+  /// 积分消耗项目ID，外键关联积分消耗项目表
+  itemId                Int                   @map("item_id")
+  /// 积分消耗数量
+  pointAmount           Int                   @map("point_amount")
+  /// 积分消耗项目状态
+  status                Int                   @default(1)
+  /// 积分消耗对应项目的资源ID，根据来源类型关联到不同的表
+  sourceId              Int?                  @map("source_id")
+  /// 备注
+  remark                String?               @map("remark")
+  /// 创建时间
+  createdAt             DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt             DateTime              @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt             DateTime?             @map("deleted_at") @db.Timestamptz(6)
+  pointConsumptionItems pointConsumptionItems @relation(fields: [itemId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  pointRecords          pointRecords          @relation(fields: [pointRecordId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users                 users                 @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([userId], map: "idx_point_consumption_records_user_id")
+  @@index([itemId], map: "idx_point_consumption_records_item_id")
+  @@index([status], map: "idx_point_consumption_records_status")
+  @@index([deletedAt], map: "idx_point_consumption_records_deleted_at")
+  @@map("point_consumption_records")
+}
+
+/// 系统配置表
+model systemConfigs {
+  /// 配置ID，主键，自增
+  id          Int       @id @default(autoincrement())
+  /// 配置组
+  configGroup String    @map("config_group") @db.VarChar(50)
+  /// 配置名称
+  key         String    @db.VarChar(100)
+  /// 配置值
+  value       Json
+  /// 配置描述
+  description String?   @db.VarChar(255)
+  /// 状态：1-启用，0-禁用
+  status      Int       @default(1)
+  /// 创建时间
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  @@unique([configGroup, key])
+  @@index([configGroup], map: "idx_system_configs_config_group")
+  @@index([key], map: "idx_system_configs_key")
+  @@index([status], map: "idx_system_configs_status")
+  @@index([deletedAt], map: "idx_system_configs_deleted_at")
+  @@map("system_configs")
+}
+
+/// 分析模块表
+model analysisModules {
+  /// 分析模块ID，主键，自增
+  id                     Int                      @id @default(autoincrement())
+  /// 分析模块的英文名，唯一
+  name                   String                   @db.VarChar(100)
+  /// 分析模块的中文名
+  title                  String                   @db.VarChar(100)
+  /// 模块类型(1=案件分析模块,2=文书生成模块)
+  type                   Int                      @default(1) @db.SmallInt
+  /// 分析模块的系统提示词
+  prompt                 String?
+  /// 分析模块的系统角色提示词
+  systemPrompt           String?                  @map("system_prompt")
+  /// 关联的模型ID
+  modelId                Int?                     @map("model_id")
+  /// 分析模块的图标
+  icon                   String?                  @db.VarChar(255)
+  /// 优先级，数字越小优先级越高，默认值100
+  priority               Int                      @default(100)
+  /// 是否免费(0=需要会员,1=免费可用)
+  isFree                 Int                      @default(0) @map("is_free") @db.SmallInt
+  /// 分析模块可以使用的工具集合
+  tools                  Json?                    @default("[]")
+  /// 创建时间
+  createdAt              DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt              DateTime                 @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt              DateTime?                @map("deleted_at") @db.Timestamptz(6)
+  models                 models?                  @relation(fields: [modelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  caseTypeAnalysisModule caseTypeAnalysisModule[]
+  levelModuleAccess      levelModuleAccess[]
+
+  @@unique([name, deletedAt])
+  @@index([deletedAt], map: "idx_analysis_modules_deleted_at")
+  @@index([name], map: "idx_analysis_modules_name")
+  @@index([title], map: "idx_analysis_modules_title")
+  @@index([type], map: "idx_analysis_modules_type")
+  @@map("analysis_modules")
+}
+
+/// 案件类型表
+model caseType {
+  /// 案件类型ID，主键，自增
+  id                     Int                      @id @default(autoincrement())
+  /// 案件类型名称
+  name                   String                   @db.VarChar(100)
+  /// 案件类型编码，唯一
+  code                   String                   @unique @db.VarChar(50)
+  /// 案件类型状态：1-启用，2-禁用
+  status                 Int                      @default(1)
+  /// 是否隐藏：1-隐藏，0-显示
+  hidden                 Int                      @default(0)
+  /// 创建时间
+  createdAt              DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt              DateTime                 @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt              DateTime?                @map("deleted_at") @db.Timestamptz(6)
+  caseTypeAnalysisModule caseTypeAnalysisModule[]
+  cases                  cases[]
+
+  @@index([name], map: "idx_case_type_name")
+  @@index([code], map: "idx_case_type_code")
+  @@index([status], map: "idx_case_type_status")
+  @@index([hidden], map: "idx_case_type_hidden")
+  @@index([deletedAt], map: "idx_case_type_deleted_at")
+  @@map("case_type")
+}
+
+/// 案件类型基础分析模块关联表
+model caseTypeAnalysisModule {
+  /// 分析模块ID，主键，自增
+  id               Int             @id @default(autoincrement())
+  /// 关联的案件类型ID，外键关联案件类型表
+  caseTypeId       Int             @map("case_type_id")
+  /// 关联的分析模块ID，外键关联分析模块表
+  analysisModuleId Int             @map("analysis_module_id")
+  /// 优先级，数字越小优先级越高，默认值1
+  priority         Int             @default(1)
+  /// 状态：1-启用，2-禁用
+  status           Int             @default(1)
+  /// 创建时间
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt        DateTime        @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt        DateTime?       @map("deleted_at") @db.Timestamptz(6)
+  analysisModules  analysisModules @relation(fields: [analysisModuleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  caseType         caseType        @relation(fields: [caseTypeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([analysisModuleId], map: "idx_analysis_module_id")
+  @@index([caseTypeId], map: "idx_case_type_id")
+  @@index([status], map: "idx_status")
+  @@index([deletedAt], map: "idx_deleted_at")
+  @@map("case_type_analysis_module")
+}
+
+/// 案件表
+model cases {
+  /// 案件ID，主键，自增
+  id            Int             @id @default(autoincrement())
+  /// 案件标题
+  title         String          @db.VarChar(500)
+  /// 案件案件内容/描述内容
+  content       String?
+  /// 关联的用户ID，外键关联用户表
+  userId        Int             @map("user_id")
+  /// 关联的案件类型ID，外键关联案件类型表
+  caseTypeId    Int             @map("case_type_id")
+  /// 原告
+  plaintiff     Json?           @map("plaintiff")
+  /// 被告
+  defendant     Json?           @map("defendant")
+  /// 案件编号
+  caseNumber    String?         @map("case_number") @db.VarChar(100)
+  /// 案件状态：1-进行中，2-已完成，3-已关闭
+  status        Int             @default(1)
+  /// 完成时间
+  completedAt   DateTime?       @map("completed_at") @db.Timestamptz(6)
+  /// 关闭时间
+  closedAt      DateTime?       @map("closed_at") @db.Timestamptz(6)
+  /// 创建时间
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt     DateTime        @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt     DateTime?       @map("deleted_at") @db.Timestamptz(6)
+  caseAnalyses  caseAnalyses[]
+  caseMaterials caseMaterials[]
+  caseType      caseType        @relation(fields: [caseTypeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users         users           @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  caseSessions  caseSessions[]
+
+  @@index([userId], map: "idx_cases_user_id")
+  @@index([caseTypeId], map: "idx_cases_case_type_id")
+  @@index([status], map: "idx_cases_status")
+  @@index([deletedAt], map: "idx_cases_deleted_at")
+}
+
+/// 案件材料表
+model caseMaterials {
+  /// 材料ID，主键，自增
+  id              Int         @id @default(autoincrement())
+  /// 关联的用户ID，外键关联用户表
+  userId          Int         @map("user_id")
+  /// 关联的案件ID，外键关联案件表
+  caseId          Int         @map("case_id")
+  /// 材料名称
+  name            String      @db.VarChar(255)
+  /// 材料类型：1-案情材料，2-文档，3-图片，4-音频，5-视频
+  type            Int         @db.SmallInt
+  /// 材料内容，案情材料为用户输入内容，其他为解析后的内容
+  content         String?
+  /// OSS 文件ID，外键关联ossFiles表
+  ossFileId       Int?        @map("oss_file_id")
+  /// ASR 记录ID，外键关联asrRecords表
+  asrRecordId     Int?        @map("asr_record_id")
+  /// 材料分组
+  materialGroup   String?     @map("material_group") @db.VarChar(100)
+  /// 关键词
+  keywords        Json?       @map("keywords")
+  /// 摘要
+  summary         String?     @map("summary")
+  /// 向量存储的ID集合(仅text类型需要)
+  vectorIds       Json?       @map("vector_ids")
+  /// 最后嵌入时间(仅text类型需要)
+  lastEmbeddingAt DateTime?   @map("last_embedding_at") @db.Timestamptz()
+  /// 最后编辑时间
+  lastEditAt      DateTime?   @map("last_edit_at") @db.Timestamptz()
+  /// 创建时间
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt       DateTime    @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt       DateTime?   @map("deleted_at") @db.Timestamptz(6)
+  asrRecords      asrRecords? @relation(fields: [asrRecordId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  cases           cases       @relation(fields: [caseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  ossFiles        ossFiles?   @relation(fields: [ossFileId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users           users       @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([caseId], map: "idx_case_materials_case_id")
+  @@index([materialGroup], map: "idx_case_materials_material_group")
+  @@index([type], map: "idx_case_materials_type")
+  @@index([userId], map: "idx_case_materials_user_id")
+  @@index([asrRecordId], map: "idx_case_materials_asr_record_id")
+  @@index([lastEmbeddingAt], map: "idx_case_materials_last_embedding_at")
+  @@index([lastEditAt], map: "idx_case_materials_last_edit_at")
+  @@index([deletedAt], map: "idx_case_materials_deleted_at")
+  @@map("case_materials")
+}
+
+/// 案件材料嵌入表
+model materials_embeddings {
+  id        String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  text      String?
+  metadata  Json?
+  embedding Unsupported("vector")?
+}
+
+/// 案件会话表
+model caseSessions {
+  /// ID，主键，自增
+  id                  Int                   @id @default(autoincrement())
+  /// 关联的案件ID，外键关联案件表
+  caseId              Int                   @map("case_id")
+  /// 会话ID
+  sessionId           String                @unique @map("session_id") @db.VarChar(100)
+  /// 会话创建时间
+  createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt           DateTime              @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt           DateTime?             @map("deleted_at") @db.Timestamptz(6)
+  cases               cases                 @relation(fields: [caseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  caseAnalyses        caseAnalyses[]
+  caseSessionMessages caseSessionMessages[]
+
+  @@index([caseId], map: "idx_case_sessions_case_id")
+  @@index([sessionId], map: "idx_case_sessions_session_id")
+  @@index([deletedAt], map: "idx_case_sessions_deleted_at")
+  @@map("case_sessions")
+}
+
+/// 案件会话消息表
+model caseSessionMessages {
+  /// 消息ID，主键，uuid
+  id           String       @id @default(uuid())
+  /// 消息类型
+  messageType  String       @map("message_type") @db.VarChar(100)
+  /// 关联的案件会话ID，外键关联案件会话表
+  sessionId    String       @map("session_id") @db.VarChar(100)
+  /// 消息内容
+  data         Json         @map("data")
+  /// 创建时间
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt    DateTime     @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt    DateTime?    @map("deleted_at") @db.Timestamptz(6)
+  caseSessions caseSessions @relation(fields: [sessionId], references: [sessionId], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([messageType], map: "idx_case_session_messages_message_type")
+  @@index([sessionId], map: "idx_case_session_messages_session_id")
+  @@index([deletedAt], map: "idx_case_session_messages_deleted_at")
+  @@map("case_session_messages")
+}
+
+/// 案件分析表
+model caseAnalyses {
+  /// 分析记录ID，主键，自增
+  id              Int           @id @default(autoincrement())
+  /// 关联的案件ID，外键关联案件表
+  caseId          Int           @map("case_id")
+  /// 分析类型，对应分析模块表的 name 字段
+  analysisType    String        @map("analysis_type") @db.VarChar(50)
+  /// 分析过程/中间数据
+  analysisProcess String?       @map("analysis_process")
+  /// 分析结果
+  analysisResult  String?       @map("analysis_result")
+  /// 是否激活：1-激活，0-非激活
+  isActive        Int           @default(0) @map("is_active")
+  /// 生成类型：1-自动，2-手动修改
+  generationType  Int           @default(1) @map("generation_type")
+  /// 案件分析创建者用户ID，外键关联用户表
+  userId          Int           @map("user_id")
+  /// 分析版本号
+  version         Int
+  /// 分析对应的 sessionId
+  sessionId       String?       @map("session_id") @db.VarChar(100)
+  /// 分析标题
+  title           String?       @db.VarChar(100)
+  /// 消耗的token数量
+  usageToken      Int?          @map("usage_token")
+  /// 大模型生成的消息ID
+  messageId       String?       @map("message_id") @db.VarChar(100)
+  /// 关键词
+  keywords        Json?         @map("keywords")
+  /// 摘要
+  summary         String?       @map("summary")
+  /// 向量存储的ID集合(仅text类型需要)
+  vectorIds       Json?         @map("vector_ids")
+  /// 最后嵌入时间(仅text类型需要)
+  lastEmbeddingAt DateTime?     @map("last_embedding_at") @db.Timestamptz()
+  /// 分析状态：0-未开始，1-分析中，2-分析完成，3-分析失败
+  status          Int           @default(0)
+  /// 开始分析时间
+  startedAt       DateTime?     @map("started_at") @db.Timestamptz(6)
+  /// 分析完成时间
+  completedAt     DateTime?     @map("completed_at") @db.Timestamptz(6)
+  /// 创建时间
+  createdAt       DateTime?     @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt       DateTime?     @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt       DateTime?     @map("deleted_at") @db.Timestamptz(6)
+  cases           cases         @relation(fields: [caseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users           users         @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  caseSessions    caseSessions? @relation(fields: [sessionId], references: [sessionId], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([caseId], map: "idx_case_analyses_case_id")
+  @@index([userId], map: "idx_case_analyses_user_id")
+  @@index([deletedAt], map: "idx_case_analyses_deleted_at")
+  @@map("case_analyses")
+}
+
+/// 会员级别与分析模块关联表
+model levelModuleAccess {
+  /// 会员级别模块权限ID，主键，自增
+  id              Int              @id @default(autoincrement())
+  /// 关联的会员级别ID，外键关联会员级别表
+  levelId         Int              @map("level_id")
+  /// 关联的分析模块ID，外键关联分析模块表
+  moduleId        Int              @map("module_id")
+  /// 创建时间
+  createdAt       DateTime?        @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt       DateTime?        @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt       DateTime?        @map("deleted_at") @db.Timestamptz(6)
+  membershipLevel membershipLevels @relation(fields: [levelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  analysisModules analysisModules  @relation(fields: [moduleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([levelId, moduleId])
+  @@index([levelId], map: "idx_level_module_access_level_id")
+  @@index([moduleId], map: "idx_level_module_access_module_id")
+  @@map("level_module_access")
+}
+
+/// 模型提供商表
+model modelProviders {
+  /// 模型提供商ID，主键，自增
+  id           Int            @id @default(autoincrement())
+  /// 模型提供商名称，唯一
+  name         String         @unique @db.VarChar(100)
+  /// 模型提供商API基础URL
+  baseUrl      String         @map("base_url") @db.VarChar(255)
+  /// 模型提供商描述
+  description  String?
+  /// 创建时间
+  createdAt    DateTime?      @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt    DateTime?      @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt    DateTime?      @map("deleted_at") @db.Timestamptz(6)
+  modelApiKeys modelApiKeys[]
+  models       models[]
+
+  @@index([deletedAt], map: "idx_model_providers_deleted_at")
+  @@index([name], map: "idx_model_providers_name")
+  @@map("model_providers")
+}
+
+/// 模型API密钥表
+model modelApiKeys {
+  /// 模型API密钥ID，主键，自增
+  id             Int            @id @default(autoincrement())
+  /// 关联的模型提供商ID，外键关联模型提供商表
+  providerId     Int            @map("provider_id")
+  /// API密钥名称
+  name           String         @db.VarChar(100)
+  /// API密钥值
+  apiKey         String         @map("api_key") @db.VarChar(255)
+  /// 是否默认：1-是，0-否
+  isDefault      Boolean?       @default(false) @map("is_default")
+  /// 状态：1-启用，0-禁用
+  status         Int?           @default(1)
+  /// 日调用限制次数
+  dailyLimit     Int?           @map("daily_limit")
+  /// 月调用限制次数
+  monthlyLimit   Int?           @map("monthly_limit")
+  /// 创建时间
+  createdAt      DateTime?      @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt      DateTime?      @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt      DateTime?      @map("deleted_at") @db.Timestamptz(6)
+  modelProviders modelProviders @relation(fields: [providerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([providerId, name])
+  @@map("model_api_keys")
+}
+
+/// 模型配置表
+model models {
+  /// 模型ID，主键，自增
+  id                         Int               @id @default(autoincrement())
+  /// 关联的模型提供商ID，外键关联模型提供商表
+  providerId                 Int               @map("provider_id")
+  /// 模型名称
+  name                       String            @db.VarChar(100)
+  /// 模型显示名称
+  displayName                String            @map("display_name") @db.VarChar(100)
+  /// 模型类型：chat-对话模型，embedding-嵌入模型
+  modelType                  String            @map("model_type") @db.VarChar(20)
+  /// 模型版本
+  modelVersion               String?           @map("model_version") @db.VarChar(50)
+  /// 上下文窗口
+  contextWindow              Int?              @map("context_window")
+  /// 是否默认：1-是，0-否
+  isDefault                  Boolean?          @default(false) @map("is_default")
+  /// 状态：1-启用，0-禁用
+  status                     Int?              @default(1)
+  /// 优先级，数字越小优先级越高，默认 10
+  priority                   Int?              @default(10)
+  /// 输入成本（每百万tokens）
+  inputCostPerMillionTokens  Decimal?          @map("input_cost_per_million_tokens") @db.Decimal(12, 4)
+  /// 输出成本（每百万tokens）
+  outputCostPerMillionTokens Decimal?          @map("output_cost_per_million_tokens") @db.Decimal(12, 4)
+  /// 创建时间
+  createdAt                  DateTime?         @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt                  DateTime?         @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt                  DateTime?         @map("deleted_at") @db.Timestamptz(6)
+  analysisModules            analysisModules[]
+  modelProviders             modelProviders    @relation(fields: [providerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  nodes                      nodes[]
+
+  @@unique([providerId, name])
+  @@map("models")
+}
+
+/// 节点表
+model nodes {
+  /// 节点ID，主键，自增
+  id              Int               @id @default(autoincrement())
+  /// 节点名称
+  name            String            @db.VarChar(100)
+  /// 节点标题
+  title           String?           @db.VarChar(100)
+  /// 节点描述
+  description     String?           @db.VarChar(255)
+  /// 节点类型
+  type            String            @db.VarChar(100)
+  /// 优先级，数字越小优先级越高，默认值100
+  priority        Int               @default(100)
+  /// 提示词列表，关联 prompts 表
+  prompts         prompts[]         @relation("prompts")
+  /// 模型ID
+  modelId         Int
+  /// 模型
+  model           models            @relation(fields: [modelId], references: [id])
+  /// 工具列表
+  tools           Json?             @default("[]")
+  /// 节点分组ID，关联 nodeGroup 表
+  groupId         Int?              @map("group_id")
+  /// 创建时间
+  createdAt       DateTime?         @default(now()) @map("created_at") @db.Timestamptz()
+  /// 最后更新时间
+  updatedAt       DateTime?         @default(now()) @map("updated_at") @db.Timestamptz()
+  /// 删除时间，为NULL表示未删除
+  deletedAt       DateTime?         @map("deleted_at") @db.Timestamptz()
+  /// 节点分组
+  nodeGroup       nodeGroup?        @relation("nodeGroup", fields: [groupId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  levelNodeAccess levelNodeAccess[] @relation("levelNodeAccess")
+
+  @@index([name], map: "idx_node_name")
+  @@index([type], map: "idx_node_type")
+  @@index([groupId], map: "idx_node_group_id")
+  @@index([deletedAt], map: "idx_node_deleted_at")
+}
+
+/// 节点分组
+model nodeGroup {
+  /// 节点分组ID，主键，自增
+  id          Int       @id @default(autoincrement())
+  /// 节点分组名称
+  name        String    @db.VarChar(100)
+  /// 节点分组描述
+  description String?   @db.VarChar(255)
+  /// 创建时间
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+  /// 最后更新时间
+  updatedAt   DateTime? @default(now()) @map("updated_at") @db.Timestamptz()
+  /// 删除时间，为NULL表示未删除
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz()
+  /// 节点分组与节点关联表
+  nodes       nodes[]   @relation("nodeGroup")
+
+  @@index([name], map: "idx_node_group_name")
+  @@index([deletedAt], map: "idx_node_group_deleted_at")
+  @@map("node_groups")
+}
+
+/// 会员级别与节点关联表
+model levelNodeAccess {
+  /// 会员级别节点权限ID，主键，自增
+  id        Int              @id @default(autoincrement())
+  /// 关联的会员级别ID，外键关联会员级别表
+  levelId   Int              @map("level_id")
+  /// 关联的节点ID，外键关联节点表
+  nodeId    Int              @map("node_id")
+  /// 创建时间
+  createdAt DateTime?        @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt DateTime?        @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt DateTime?        @map("deleted_at") @db.Timestamptz(6)
+  level     membershipLevels @relation("levelNodeAccess", onDelete: NoAction, onUpdate: NoAction, fields: [levelId], references: [id])
+  node      nodes            @relation("levelNodeAccess", fields: [nodeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([levelId], map: "idx_level_node_access_level_id")
+  @@index([nodeId], map: "idx_level_node_access_node_id")
+  @@index([deletedAt], map: "idx_level_node_access_deleted_at")
+  @@map("level_node_access")
+}
+
+/// 提示词表
+model prompts {
+  /// 提示词ID，主键，自增
+  id        Int       @id @default(autoincrement())
+  /// 提示词名称
+  name      String    @db.VarChar(100)
+  /// 提示词标题
+  title     String?   @db.VarChar(100)
+  /// 提示词内容
+  content   String    @db.Text()
+  /// 变量列表
+  variables Json?     @default("[]")
+  /// 提示词版本
+  version   String    @db.VarChar(100)
+  /// 提示词类型：system-系统提示词，user-用户提示词，assistant-助手提示词，function-函数提示词
+  type      String    @db.VarChar(100)
+  /// 当前生效：1-生效，0-未生效
+  status    Int       @default(0)
+  /// 节点ID,关联 nodes 表
+  nodeId    Int
+  /// 节点
+  node      nodes     @relation("prompts", fields: [nodeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// 提示词创建时间
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+  /// 提示词最后更新时间
+  updatedAt DateTime? @default(now()) @map("updated_at") @db.Timestamptz()
+  /// 提示词删除时间，为NULL表示未删除
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz()
+
+  /// 同 name 和 type 下只有一条生效的记录
+  @@unique([name, type, status], map: "unique_prompt")
+  /// 同 name 和 type 下 version 唯一
+  @@unique([name, type, version], map: "unique_prompt_version")
+  @@index([name], map: "idx_prompt_name")
+  @@index([type], map: "idx_prompt_type")
+  @@index([status], map: "idx_prompt_status")
+}
+
+/// 商品表
+model products {
+  /// 商品ID，主键，自增
+  id                   Int               @id @default(autoincrement())
+  /// 商品名称
+  name                 String            @db.VarChar(100)
+  /// 商品描述
+  description          String?           @db.VarChar(500)
+  /// 商品类型：1-会员，2-积分
+  type                 Int
+  /// 商品分类
+  category             String?           @db.VarChar(50)
+  /// 月度价格（会员专用）
+  priceMonthly         Decimal?          @map("priceMonthly") @db.Decimal(10, 2)
+  /// 年度价格（会员专用）
+  priceYearly          Decimal?          @map("priceYearly") @db.Decimal(10, 2)
+  /// 默认售卖时长（会员专用）：1-月，2-年
+  defaultDuration      Int?              @map("default_duration")
+  /// 单价（积分专用）
+  unitPrice            Decimal?          @map("unitPrice") @db.Decimal(10, 2)
+  /// 月度价格原价（会员专用）
+  originalPriceMonthly Decimal?          @map("original_price_monthly") @db.Decimal(10, 2)
+  /// 年度价格原价（会员专用）
+  originalPriceYearly  Decimal?          @map("original_price_yearly") @db.Decimal(10, 2)
+  /// 单价原价（积分专用）
+  originalUnitPrice    Decimal?          @map("original_unit_price") @db.Decimal(10, 2)
+  /// 最小购买数量
+  minQuantity          Int?              @default(1)
+  /// 最大购买数量
+  maxQuantity          Int?
+  /// 商品购买次数限制（0-不限制）
+  purchaseLimit        Int?              @default(0) @map("purchase_limit")
+  /// 关联会员级别ID（会员商品专用）
+  levelId              Int?              @map("level_id")
+  /// 积分数量（积分商品专用）
+  pointAmount          Int?              @map("point_amount")
+  /// 赠送积分
+  giftPoint            Int?              @default(0) @map("gift_point")
+  /// 排序
+  sortOrder            Int               @default(0) @map("sort_order")
+  /// 状态：0-下架，1-上架
+  status               Int               @default(1)
+  /// 创建时间
+  createdAt            DateTime?         @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt            DateTime?         @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt            DateTime?         @map("deleted_at") @db.Timestamptz(6)
+  paymentOrders        paymentOrders[]
+  membershipLevels     membershipLevels? @relation(fields: [levelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([type], map: "idx_products_type")
+  @@index([category], map: "idx_products_category")
+  @@index([status], map: "idx_products_status")
+  @@index([levelId], map: "idx_products_level_id")
+  @@index([sortOrder], map: "idx_products_sort_order")
+  @@index([deletedAt], map: "idx_products_deleted_at")
+  @@map("products")
+}
+
+/// 支付订单表
+model paymentOrders {
+  /// 订单ID，主键，自增
+  id                       Int                        @id @default(autoincrement())
+  /// 订单号，唯一
+  orderNo                  String                     @unique @map("order_no") @db.VarChar(50)
+  /// 关联的用户ID，外键关联用户表
+  userId                   Int                        @map("user_id")
+  /// 关联的会员级别ID，外键关联会员级别表（兼容性保留）
+  levelId                  Int?                       @map("level_id")
+  /// 支付金额
+  amount                   Decimal                    @db.Decimal(10, 2)
+  /// 支付类型：1-微信支付，2-支付宝支付
+  paymentType              Int                        @default(1) @map("payment_type")
+  /// 支付方式：1-JSAPI支付，2-H5支付，3-APP支付
+  paymentWay               Int                        @map("payment_way")
+  /// 状态：0-未支付，1-已支付，2-已取消
+  status                   Int                        @default(0)
+  /// 预支付ID
+  prepayId                 String?                    @map("prepay_id") @db.VarChar(100)
+  /// 支付时间
+  paymentTime              DateTime?                  @map("payment_time") @db.Timestamptz(6)
+  /// 购买时长
+  duration                 Int                        @default(12)
+  /// 时间单位：1-月，2-年
+  paymentUnit              Int                        @default(1) @map("payment_unit")
+  /// 商品描述
+  description              String?                    @db.VarChar(255)
+  /// 创建时间
+  createdAt                DateTime?                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt                DateTime?                  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt                DateTime?                  @map("deleted_at") @db.Timestamptz(6)
+  /// 关联的商品ID，外键关联商品表（新架构）
+  productId                Int?                       @map("product_id")
+  /// 购买数量
+  quantity                 Int                        @default(1)
+  membershipUpgradeRecords membershipUpgradeRecords[]
+  membershipLevels         membershipLevels?          @relation(fields: [levelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  products                 products?                  @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users                    users                      @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  transactions             paymentTransactions[]
+
+  @@index([orderNo], map: "idx_payment_orders_order_no")
+  @@index([userId], map: "idx_payment_orders_user_id")
+  @@index([productId], map: "idx_payment_orders_product_id")
+  @@index([levelId], map: "idx_payment_orders_level_id")
+  @@index([status], map: "idx_payment_orders_status")
+  @@index([paymentType], map: "idx_payment_orders_payment_type")
+  @@index([deletedAt], map: "idx_payment_orders_deleted_at")
+  @@map("payment_orders")
+}
+
+/// 第三方支付交易记录表
+model paymentTransactions {
+  /// 交易ID，主键，自增
+  id            Int           @id @default(autoincrement())
+  /// 关联的订单ID
+  orderId       Int           @map("order_id")
+  /// 第三方支付交易号
+  transactionId String        @map("transaction_id") @db.VarChar(100)
+  /// 支付类型：1-微信支付，2-支付宝支付
+  paymentType   Int           @map("payment_type")
+  /// 支付方式：1-JSAPI支付，2-H5支付，3-APP支付
+  paymentWay    Int           @map("payment_way")
+  /// 支付金额
+  amount        Decimal       @db.Decimal(10, 2)
+  /// 交易状态：0-处理中，1-成功，2-失败
+  status        Int           @default(0)
+  /// 第三方支付状态描述
+  tradeState    String?       @map("trade_state") @db.VarChar(50)
+  /// 银行类型
+  bankType      String?       @map("bank_type") @db.VarChar(50)
+  /// 支付者信息，包括openid等
+  payerInfo     Json?         @map("payer_info")
+  /// 原始回调数据
+  rawData       Json?         @map("raw_data")
+  /// 通知时间
+  notifyTime    DateTime?     @map("notify_time") @db.Timestamptz(6)
+  /// 支付成功时间
+  successTime   DateTime?     @map("success_time") @db.Timestamptz(6)
+  /// 创建时间
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt     DateTime      @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt     DateTime?     @map("deleted_at") @db.Timestamptz(6)
+  paymentOrders paymentOrders @relation(fields: [orderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([orderId], map: "idx_payment_transactions_order_id")
+  @@index([transactionId], map: "idx_payment_transactions_transaction_id")
+  @@index([paymentType], map: "idx_payment_transactions_payment_type")
+  @@index([status], map: "idx_payment_transactions_status")
+  @@index([notifyTime], map: "idx_payment_transactions_notify_time")
+  @@map("payment_transactions")
+}
+
+/// OSS 文件表
+model ossFiles {
+  /// ID，主键，自增
+  id                      Int                       @id @default(autoincrement())
+  /// 关联的用户ID，外键关联用户表
+  userId                  Int                       @map("user_id")
+  /// 存储桶名称 
+  bucketName              String                    @map("bucket_name") @db.VarChar(100)
+  /// 文件名称
+  fileName                String                    @map("file_name") @db.VarChar(255)
+  /// 文件在 OSS 中的路径
+  filePath                String?                   @map("file_path") @db.VarChar(500)
+  /// 文件大小(字节)
+  fileSize                Decimal                   @map("file_size") @db.Decimal(15, 2)
+  /// 文件MIME类型
+  fileType                String                    @map("file_type") @db.VarChar(100)
+  /// 文件的md5值
+  fileMd5                 String?                   @map("file_md5") @db.VarChar(32)
+  /// 文件来源
+  source                  String?
+  /// 文件状态
+  status                  Int                       @default(0) @map("status")
+  /// 创建时间
+  createdAt               DateTime?                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt               DateTime?                 @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt               DateTime?                 @map("deleted_at") @db.Timestamptz(6)
+  asrRecords              asrRecords[]
+  caseMaterials           caseMaterials[]
+  docRecognitionRecords   docRecognitionRecords[]
+  imageRecognitionRecords imageRecognitionRecords[]
+
+  @@index([userId], map: "idx_oss_files_user_id")
+  @@index([bucketName], map: "idx_oss_files_bucket_name")
+  @@index([fileName], map: "idx_oss_files_file_name")
+  @@index([fileType], map: "idx_oss_files_file_type")
+  @@index([status], map: "idx_oss_files_status")
+  @@index([deletedAt], map: "idx_oss_files_deleted_at")
+  @@map("oss_files")
+}
+
+/// asr 识别记录表
+model asrRecords {
+  /// 识别结果ID，主键，自增
+  id              Int             @id @default(autoincrement())
+  /// 关联���用户ID，外键关联用户表
+  userId          Int             @map("user_id")
+  /// 关联的oss文件ID，外键关联oss文件表
+  ossFileId       Int             @map("oss_file_id")
+  /// 识别状态：0-待处理，1-处理中，2-已完成，3-失败
+  status          Int             @default(0)
+  /// 提交的音频 URL
+  audioUrl        String?         @map("audio_url") @db.VarChar(2000)
+  /// 识别结果
+  result          Json?
+  /// 转录原始 json，外间关联 oss_files 表
+  jsonOssFileId   Int?            @map("json_oss_file_id")
+  /// 音频时长
+  audioDuration   Int?            @map("audio_duration")
+  /// 说话人列表
+  speakers        Json?           @map("speakers")
+  /// 关联的asr识别任务ID
+  asrTasksId      Int?
+  /// 关键词
+  keywords        Json?           @map("keywords")
+  /// 摘要
+  summary         String?         @map("summary")
+  /// 向量存储的ID集合
+  vectorIds       Json?           @map("vector_ids")
+  /// 最后嵌入时间
+  lastEmbeddingAt DateTime?       @map("last_embedding_at") @db.Timestamptz()
+  /// 最后编辑时间
+  lastEditAt      DateTime?       @map("last_edit_at") @db.Timestamptz()
+  /// 创建时间
+  createdAt       DateTime?       @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt       DateTime?       @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt       DateTime?       @map("deleted_at") @db.Timestamptz(6)
+  asrTasks        asrTasks?       @relation(fields: [asrTasksId], references: [id])
+  ossFile         ossFiles        @relation(fields: [ossFileId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user            users           @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  caseMaterials   caseMaterials[]
+
+  @@index([ossFileId], map: "idx_asr_records_oss_file_id")
+  @@index([userId], map: "idx_asr_records_user_id")
+  @@index([status], map: "idx_asr_records_status")
+  @@index([audioUrl], map: "idx_asr_records_audio_url")
+  @@index([lastEmbeddingAt], map: "idx_asr_records_last_embedding_at")
+  @@index([lastEditAt], map: "idx_asr_records_last_edit_at")
+  @@index([deletedAt], map: "idx_asr_records_deleted_at")
+  @@map("asr_records")
+}
+
+/// asr 识别任务表
+model asrTasks {
+  /// 识别结果ID，主键，自增
+  id          Int          @id @default(autoincrement())
+  /// 识别状态：0-待处理，1-处理中，2-已完成，3-失败
+  status      Int          @default(0)
+  /// 任务 ID
+  taskId      String?      @map("task_id") @db.VarChar(50)
+  /// 任务原始数据
+  taskRawData Json?        @map("task_raw_data")
+  /// 识别结果
+  result      Json?        @map("result")
+  /// 创建时间
+  createdAt   DateTime?    @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt   DateTime?    @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt   DateTime?    @map("deleted_at") @db.Timestamptz(6)
+  asrRecords  asrRecords[]
+
+  @@index([status], map: "idx_asr_tasks_status")
+  @@index([taskId], map: "idx_asr_tasks_task_id")
+  @@index([deletedAt], map: "idx_asr_tasks_deleted_at")
+  @@map("asr_tasks")
+}
+
+/// 文档识别记录表
+model docRecognitionRecords {
+  /// 识别结果ID，主键，自增
+  id              Int       @id @default(autoincrement())
+  /// 关联的用户ID，外键关联用户表
+  userId          Int       @map("user_id")
+  /// 关联的oss文件ID，外键关联oss文件表
+  ossFileId       Int       @map("oss_file_id")
+  /// 识别状态：0-待处理，1-处理中，2-已完成，3-失败
+  status          Int       @default(0)
+  /// 识别的html内容
+  htmlContent     String?   @map("html_content") @db.Text
+  /// 识别的markdown内容`
+  markdownContent String?   @map("markdown_content") @db.Text
+  /// 关键词
+  keywords        Json?     @map("keywords")
+  /// 摘要
+  summary         String?   @map("summary")
+  /// 向量存储的ID集合
+  vectorIds       Json?     @map("vector_ids")
+  /// 最后嵌入时间
+  lastEmbeddingAt DateTime? @map("last_embedding_at") @db.Timestamptz()
+  /// 最后编辑时间
+  lastEditAt      DateTime? @map("last_edit_at") @db.Timestamptz()
+  /// 创建时间
+  createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt       DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+  ossFile         ossFiles  @relation(fields: [ossFileId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user            users     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([ossFileId], map: "idx_doc_recognition_records_oss_file_id")
+  @@index([userId], map: "idx_doc_recognition_records_user_id")
+  @@index([status], map: "idx_doc_recognition_records_status")
+  @@index([lastEmbeddingAt], map: "idx_doc_recognition_records_last_embedding_at")
+  @@index([lastEditAt], map: "idx_doc_recognition_records_last_edit_at")
+  @@index([deletedAt], map: "idx_doc_recognition_records_deleted_at")
+  @@map("doc_recognition_records")
+}
+
+/// 图片识别记录表
+model imageRecognitionRecords {
+  /// 识别结果ID，主键，自增
+  id              Int       @id @default(autoincrement())
+  /// 关联的用户ID，外键关联用户表
+  userId          Int       @map("user_id")
+  /// 关联的oss文件ID，外键关联oss文件表
+  ossFileId       Int       @map("oss_file_id")
+  /// 识别状态：0-待处理，1-处理中，2-已完成，3-失败
+  status          Int       @default(0)
+  /// 图片类型，doc-文档，photo-照片
+  imageType       String?   @map("image_type") @db.VarChar(100)
+  /// 识别的html内容
+  htmlContent     String?   @map("html_content") @db.Text
+  /// 识别的markdown内容`
+  markdownContent String?   @map("markdown_content") @db.Text
+  /// 关键词
+  keywords        Json?     @map("keywords")
+  /// 摘要
+  summary         String?   @map("summary")
+  /// 向量存储的ID集合
+  vectorIds       Json?     @map("vector_ids")
+  /// 最后嵌入时间
+  lastEmbeddingAt DateTime? @map("last_embedding_at") @db.Timestamptz(6)
+  /// 最后编辑时间
+  lastEditAt      DateTime? @map("last_edit_at") @db.Timestamptz()
+  /// 创建时间
+  createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt       DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+  ossFile         ossFiles  @relation(fields: [ossFileId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user            users     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([ossFileId], map: "idx_image_recognition_records_oss_file_id")
+  @@index([userId], map: "idx_image_recognition_records_user_id")
+  @@index([imageType], map: "idx_image_recognition_records_image_type")
+  @@index([status], map: "idx_image_recognition_records_status")
+  @@index([lastEmbeddingAt], map: "idx_image_recognition_records_last_embedding_at")
+  @@index([lastEditAt], map: "idx_image_recognition_records_last_edit_at")
+  @@index([deletedAt], map: "idx_image_recognition_records_deleted_at")
+  @@map("image_recognition_records")
+}
+
+/// 会员升级记录表
+model membershipUpgradeRecords {
+  /// 升级记录ID，主键，自增
+  id                    Int              @id @default(autoincrement())
+  /// 用户ID
+  userId                Int              @map("user_id")
+  /// 原会员记录ID
+  fromMembershipId      Int              @map("from_membership_id")
+  /// 新会员记录ID
+  toMembershipId        Int?             @map("to_membership_id")
+  /// 原会员级别ID
+  fromLevelId           Int              @map("from_level_id")
+  /// 目标会员级别ID
+  toLevelId             Int              @map("to_level_id")
+  /// 升级价格
+  upgradePrice          Decimal          @map("upgrade_price") @db.Decimal(10, 2)
+  /// 原会员剩余天数
+  originalRemainingDays Int              @map("original_remaining_days")
+  /// 积分补偿
+  pointCompensation     Int?             @default(0) @map("point_compensation")
+  /// 关联的支付订单ID
+  paymentOrderId        Int?             @map("payment_order_id")
+  /// 状态：0-失败，1-成功，2-待支付
+  status                Int?             @default(1)
+  /// 创建时间
+  createdAt             DateTime?        @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 更新时间
+  updatedAt             DateTime?        @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间
+  deletedAt             DateTime?        @map("deleted_at") @db.Timestamptz(6)
+  toMembership          userMemberships? @relation("ToMembership", fields: [toMembershipId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "membershipUpgradeRecords_toMembershipId_fkey")
+  fromLevel             membershipLevels @relation("FromLevel", fields: [fromLevelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  fromMembership        userMemberships  @relation("FromMembership", fields: [fromMembershipId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  paymentOrder          paymentOrders?   @relation(fields: [paymentOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  toLevel               membershipLevels @relation("ToLevel", fields: [toLevelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user                  users            @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([userId], map: "idx_membership_upgrade_records_user_id")
+  @@index([status], map: "idx_membership_upgrade_records_status")
+  @@index([createdAt], map: "idx_membership_upgrade_records_created_at")
+  @@index([fromMembershipId], map: "idx_membership_upgrade_records_from_membership_id")
+  @@index([toMembershipId], map: "idx_membership_upgrade_records_to_membership_id")
+  @@map("membership_upgrade_records")
+}
+
+/// 法条内容嵌入表
+model lawEmbeddings {
+  /// 主键
+  id        String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// 法律内容
+  text      String?
+  /// 法律内容元数据
+  metadata  Json?
+  /// 法律内容嵌入
+  embedding Unsupported("vector")?
+
+  @@map("law_embeddings")
+}
