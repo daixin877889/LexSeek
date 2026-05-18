@@ -46,7 +46,6 @@ export async function verifyRowCounts(
     ['doc_recognition_records', L.docRecognitionRecords, N.docRecognitionRecords, 'docRecognitionRecords'],
     ['image_recognition_records', L.imageRecognitionRecords, N.imageRecognitionRecords, 'imageRecognitionRecords'],
     ['cases', L.cases, N.cases, 'cases'],
-    ['case_sessions', L.caseSessions, N.caseSessions, 'caseSessions'],
     ['case_analyses', L.caseAnalyses, N.caseAnalyses, 'caseAnalyses'],
     ['user_memberships', L.userMemberships, N.userMemberships, 'userMemberships'],
     ['membership_upgrade_records', L.membershipUpgradeRecords, N.membershipUpgradeRecords, 'membershipUpgradeRecords'],
@@ -65,7 +64,14 @@ export async function verifyRowCounts(
     reports.push({ label, status: v.status, detail: v.detail })
   }
 
-  // B 类：info 展示（拆/并/合成导致行数不严格相等）
+  // case_sessions / B 类：info 展示（衍生行 / 拆并 / 合成导致行数不严格相等）
+  const caseSessionsOld = await L.caseSessions.count()
+  const caseSessionsNew = await N.caseSessions.count()
+  reports.push({
+    label: 'case_sessions（含衍生 legacy 会话）',
+    status: 'info',
+    detail: `旧 ${caseSessionsOld} / 新 ${caseSessionsNew}（新 = 旧迁移 + 为无 sessionId 的历史分析衍生的 legacy 会话）`,
+  })
   const caseMaterialsOld = await L.caseMaterials.count()
   const caseMaterialsNew = await N.caseMaterials.count()
   reports.push({
