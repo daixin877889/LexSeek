@@ -22,6 +22,10 @@ export interface MigrationCtx {
   fk: FkRegistry
   migratedAt: Date
   adminRoleId: number
+  /** analysisType 在新 nodes 无对应时的占位节点 id */
+  placeholderNodeId: number
+  /** 新 nodes 的 name → id 映射 */
+  nodeNameToId: Map<string, number>
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -93,7 +97,7 @@ async function ensureLegacySession(next: NewPrismaClient, caseId: number, userId
  * orchestrator 直接顺序执行即满足外键依赖。
  */
 export function buildMigrators(ctx: MigrationCtx): MigratorSpec<unknown, unknown>[] {
-  const { legacy, next, remaps, fk, migratedAt, adminRoleId } = ctx
+  const { legacy, next, remaps, fk, migratedAt, adminRoleId, placeholderNodeId, nodeNameToId } = ctx
   const specs: MigratorSpec<unknown, unknown>[] = []
   const L = legacy as any
   const N = next as any
@@ -186,10 +190,10 @@ export function buildMigrators(ctx: MigrationCtx): MigratorSpec<unknown, unknown
     transform: async (o: any) => {
       const fkErr = fk.requireAll([['cases', o.caseId]])
       if (fkErr) return { skip: fkErr }
-      const node = await N.nodes.findUnique({ where: { name: o.analysisType }, select: { id: true } })
-      if (!node) return { skip: `analysisType '${o.analysisType}' 在新 nodes 无匹配` }
+      // analysisType 匹配新 nodes；无匹配（文书生成等历史记录）→ 挂占位节点
+      const nodeId = nodeNameToId.get(o.analysisType) ?? placeholderNodeId
       const sessionId: string = o.sessionId ?? await ensureLegacySession(next, o.caseId, o.userId)
-      return { unit: mapCaseAnalysis(o, node.id, sessionId, migratedAt) }
+      return { unit: mapCaseAnalysis(o, nodeId, sessionId, migratedAt) }
     },
     writeBatch: async (units: any[]) => { await N.caseAnalyses.createMany({ data: units, skipDuplicates: true }) },
   } as MigratorSpec<unknown, unknown>)

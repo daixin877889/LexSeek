@@ -22,6 +22,60 @@ const SEQUENCE_TABLES = [
   'user_roles',
 ]
 
+/** 确保新库有承载无匹配 analysisType 的占位节点，返回其 id */
+async function ensurePlaceholderNode(next: NewPrismaClient): Promise<number> {
+  const N = next as any
+  const existing = await N.nodes.findUnique({ where: { name: 'legacy_unmapped' }, select: { id: true } })
+  if (existing) return existing.id
+  const model = await N.models.findFirst({ select: { id: true } })
+  if (!model) throw new Error('新库无可用 model，无法创建占位节点')
+  const node = await N.nodes.create({
+    data: {
+      name: 'legacy_unmapped',
+      title: '历史迁移占位节点',
+      description: '承载旧库 analysisType 在新 nodes 无对应的历史 case_analyses（含文书生成记录）',
+      type: 'analysis',
+      modelId: model.id,
+    },
+  })
+  log(`[占位节点] 已创建 legacy_unmapped (id=${node.id})`)
+  return node.id
+}
+
+/**
+ * 把旧库中新库缺失的 point_consumption_items 补齐到新库。
+ * 旧 name（code 串）→ 新 key；旧 description（中文）→ 新 name，使迁移后的积分消耗记录能显示对应信息。
+ * 幂等：按 key 判存在。须在 loadConfigRemaps 之前调用。
+ */
+async function ensurePointConsumptionItems(legacy: LegacyPrismaClient, next: NewPrismaClient): Promise<void> {
+  const L = legacy as any
+  const N = next as any
+  const oldItems = await L.pointConsumptionItems.findMany()
+  const existingKeys = new Set<string>(
+    (await N.pointConsumptionItems.findMany({ select: { key: true } }))
+      .map((p: any) => p.key)
+      .filter((k: any): k is string => k != null),
+  )
+  let added = 0
+  for (const o of oldItems) {
+    if (existingKeys.has(o.name)) continue
+    await N.pointConsumptionItems.create({
+      data: {
+        key: o.name,
+        group: o.group,
+        name: o.description ?? o.name,
+        description: o.description,
+        unit: o.unit,
+        pointAmount: o.pointAmount,
+        status: o.status,
+        discount: o.discount,
+      },
+    })
+    added++
+  }
+  log(`[积分消耗项] 补齐 ${added} 条旧库消耗项到新库`)
+}
+
 export async function runFullMigration(
   legacy: LegacyPrismaClient,
   next: NewPrismaClient,
@@ -34,8 +88,15 @@ export async function runFullMigration(
 
   log('===== 数据迁移开始 =====')
   await ensureProgressTable(next as any)
+  // 补齐文书类积分消耗项到新库（须在 loadConfigRemaps 之前）
+  await ensurePointConsumptionItems(legacy, next)
   const remaps = await loadConfigRemaps(legacy, next)
-  const migrators = buildMigrators({ legacy, next, remaps, fk, migratedAt, adminRoleId })
+  const placeholderNodeId = await ensurePlaceholderNode(next)
+  const nodeNameToId = new Map<string, number>(
+    (await (next as any).nodes.findMany({ select: { id: true, name: true } }))
+      .map((n: any) => [n.name as string, n.id as number]),
+  )
+  const migrators = buildMigrators({ legacy, next, remaps, fk, migratedAt, adminRoleId, placeholderNodeId, nodeNameToId })
 
   const deps = {
     newDb: next as any,

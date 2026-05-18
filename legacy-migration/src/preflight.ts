@@ -71,7 +71,7 @@ async function scanConfigMatch(legacy: LegacyPrismaClient, next: NewPrismaClient
     ['membership_levels', 'name', 'membership_levels', 'name'],
     ['products', 'name', 'products', 'name'],
     ['analysis_modules', 'name', 'nodes', 'name'],
-    ['point_consumption_items', 'name', 'point_consumption_items', 'name'],
+    ['point_consumption_items', 'name', 'point_consumption_items', 'key'],
     ['benefits', 'name', 'benefits', 'name'],
   ]
   const misses: string[] = []
