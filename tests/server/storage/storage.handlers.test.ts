@@ -28,6 +28,9 @@ vi.mock('~~/server/services/membership/userBenefit.service', () => ({
 vi.mock('~~/server/services/files/ossFileVerify.service', () => ({
     verifyAndFixOssFileService: vi.fn(),
 }))
+vi.mock('~~/server/lib/storage/callback', () => ({
+    verifyCallback: vi.fn(),
+}))
 
 ;(globalThis as any).prisma = {
     $transaction: vi.fn(async (fn: any) => fn({})),
@@ -44,6 +47,7 @@ import {
 } from '~~/server/services/storage/storageConfig.dao'
 import { checkStorageQuotaService } from '~~/server/services/membership/userBenefit.service'
 import { verifyAndFixOssFileService } from '~~/server/services/files/ossFileVerify.service'
+import { verifyCallback } from '~~/server/lib/storage/callback'
 
 const mCreateOss = vi.mocked(createOssFileDao)
 const mCreateOssBatch = vi.mocked(createOssFilesDao)
@@ -58,6 +62,7 @@ const mUpdateConfig = vi.mocked(updateStorageConfigDao)
 const mIsNameExist = vi.mocked(isConfigNameExistsDao)
 const mCheckQuota = vi.mocked(checkStorageQuotaService)
 const mVerify = vi.mocked(verifyAndFixOssFileService)
+const mVerifyCallback = vi.mocked(verifyCallback)
 
 const { default: callbackHandler } = await import('../../../server/api/v1/storage/callback/.post')
 const { default: configsListHandler } = await import('../../../server/api/v1/storage/config/.get')
@@ -71,7 +76,10 @@ const { default: presignedConfigHandler } = await import('../../../server/api/v1
 const { default: confirmUploadHandler } = await import('../../../server/api/v1/storage/confirm-upload/.post')
 
 describe('POST /api/v1/storage/callback', () => {
-    beforeEach(() => vi.clearAllMocks())
+    beforeEach(() => {
+        vi.clearAllMocks()
+        mVerifyCallback.mockResolvedValue({ valid: true })
+    })
 
     it('happy path → 更新文件状态为 UPLOADED', async () => {
         const res: any = await callbackHandler(makeEvent({
@@ -108,6 +116,15 @@ describe('POST /api/v1/storage/callback', () => {
             body: { 'x:file_id': '1' },
         }) as any)
         expect(res.success).toBe(false)
+    })
+
+    it('验签失败 → 拒绝处理，不更新文件状态', async () => {
+        mVerifyCallback.mockResolvedValueOnce({ valid: false, error: '签名验证失败' })
+        const res: any = await callbackHandler(makeEvent({
+            body: { 'x:file_id': '42', filename: 'a.txt' },
+        }) as any)
+        expect(res.success).toBe(false)
+        expect(mUpdateOss).not.toHaveBeenCalled()
     })
 })
 

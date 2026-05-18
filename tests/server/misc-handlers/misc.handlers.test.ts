@@ -54,6 +54,9 @@ vi.mock('~~/server/services/users/users.dao', () => ({
 vi.mock('~~/server/services/files/files.service', () => ({
     generateOssDownloadSignaturesService: vi.fn(),
 }))
+vi.mock('~~/server/services/files/ossFiles.dao', () => ({
+    findOssFilesByIdsAndUserIdDao: vi.fn(),
+}))
 vi.mock('~~/server/services/point/pointRecords.service', () => ({
     getUserPointRecords: vi.fn(),
     getUserPointSummary: vi.fn(),
@@ -95,6 +98,7 @@ import { canUseAliyunCaptchaSceneService } from '~~/server/services/security/ali
 import { findSmsRecordByPhoneAndTypeDao, createSmsRecordDao, deleteSmsRecordByIdDao } from '~~/server/services/sms/smsRecord.dao'
 import { findUserByPhoneDao } from '~~/server/services/users/users.dao'
 import { generateOssDownloadSignaturesService } from '~~/server/services/files/files.service'
+import { findOssFilesByIdsAndUserIdDao } from '~~/server/services/files/ossFiles.dao'
 import { getUserPointRecords, getUserPointSummary } from '~~/server/services/point/pointRecords.service'
 import { getUserConsumptionRecords } from '~~/server/services/point/pointConsumptionRecords.service'
 import { getActiveProductsService, getProductByIdService } from '~~/server/services/product/product.service'
@@ -269,7 +273,7 @@ describe('POST /api/v1/proxy/image', () => {
 
     it('happy', async () => {
         const res: any = await proxyImageHandler(makeEvent({
-            userId: 100, body: { url: 'https://img.com/a.png' },
+            userId: 100, body: { url: 'https://93.184.216.34/a.png' },
         }) as any)
         expectSuccess(res, d => expect(d.mimeType).toBe('image/png'))
     })
@@ -298,7 +302,7 @@ describe('POST /api/v1/proxy/image', () => {
             arrayBuffer: async () => new ArrayBuffer(0),
         }))
         const res: any = await proxyImageHandler(makeEvent({
-            userId: 100, body: { url: 'https://img.com/a.png' },
+            userId: 100, body: { url: 'https://93.184.216.34/a.png' },
         }) as any)
         expectError(res, 400)
     })
@@ -310,7 +314,7 @@ describe('POST /api/v1/proxy/image', () => {
             arrayBuffer: async () => new ArrayBuffer(0),
         }))
         const res: any = await proxyImageHandler(makeEvent({
-            userId: 100, body: { url: 'https://img.com/big.png' },
+            userId: 100, body: { url: 'https://93.184.216.34/big.png' },
         }) as any)
         expectError(res, 400, '过大')
     })
@@ -440,7 +444,7 @@ describe('POST /api/v1/sms/send', () => {
 describe('POST /api/v1/oss/image-signed-urls', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        ;(globalThis as any).prisma.ossFiles.findMany.mockResolvedValue([
+        ;(findOssFilesByIdsAndUserIdDao as any).mockResolvedValue([
             { id: 1, bucketName: 'b1' }, { id: 2, bucketName: 'b2' },
         ])
         ;(generateOssDownloadSignaturesService as any).mockResolvedValue([
@@ -471,7 +475,7 @@ describe('POST /api/v1/oss/image-signed-urls', () => {
     })
 
     it('文件不存在 → failed 列表带条目', async () => {
-        ;(globalThis as any).prisma.ossFiles.findMany.mockResolvedValue([])
+        ;(findOssFilesByIdsAndUserIdDao as any).mockResolvedValue([])
         ;(generateOssDownloadSignaturesService as any).mockResolvedValue([])
         const res: any = await ossImageSignedHandler(makeEvent({
             userId: 100, body: { images: [{ bucket: 'b', ossFileId: 1 }] },
@@ -480,12 +484,25 @@ describe('POST /api/v1/oss/image-signed-urls', () => {
     })
 
     it('bucket 不匹配 → failed 列表 bucket 不匹配', async () => {
-        ;(globalThis as any).prisma.ossFiles.findMany.mockResolvedValue([{ id: 1, bucketName: 'other' }])
+        ;(findOssFilesByIdsAndUserIdDao as any).mockResolvedValue([{ id: 1, bucketName: 'other' }])
         ;(generateOssDownloadSignaturesService as any).mockResolvedValue([])
         const res: any = await ossImageSignedHandler(makeEvent({
             userId: 100, body: { images: [{ bucket: 'b1', ossFileId: 1 }] },
         }) as any)
         expectSuccess(res, d => expect(d.failed[0].error).toContain('bucket'))
+    })
+
+    it('请求他人文件的签名 URL → 不签发、进 failed 列表', async () => {
+        // 归属校验：文件不属于当前用户 → 返回空，不签发任何 URL
+        ;(findOssFilesByIdsAndUserIdDao as any).mockResolvedValue([])
+        ;(generateOssDownloadSignaturesService as any).mockResolvedValue([])
+        const res: any = await ossImageSignedHandler(makeEvent({
+            userId: 100, body: { images: [{ bucket: 'b1', ossFileId: 1 }] },
+        }) as any)
+        expectSuccess(res, d => {
+            expect(Object.keys(d.urls)).toHaveLength(0)
+            expect(d.failed).toHaveLength(1)
+        })
     })
 })
 

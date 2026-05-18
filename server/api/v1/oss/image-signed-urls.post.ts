@@ -11,6 +11,7 @@
 
 import { z } from 'zod'
 import { generateOssDownloadSignaturesService } from '~~/server/services/files/files.service'
+import { findOssFilesByIdsAndUserIdDao } from '~~/server/services/files/ossFiles.dao'
 import type { ossFiles } from '~~/generated/prisma/client'
 
 // 请求体验证
@@ -60,13 +61,8 @@ export default defineEventHandler(async (event) => {
         // 提取所有 ossFileId
         const ossFileIds = images.map(img => img.ossFileId)
 
-        // 批量查询 OSS 文件记录
-        const ossFiles = await prisma.ossFiles.findMany({
-            where: {
-                id: { in: ossFileIds },
-                deletedAt: null,
-            },
-        })
+        // 批量查询 OSS 文件记录（owner-only：只返回属于当前用户的文件）
+        const ossFiles = await findOssFilesByIdsAndUserIdDao(ossFileIds, user.id)
 
         // 创建 ossFileId 到文件记录的映射
         const fileMap = new Map(ossFiles.map(f => [f.id, f]))

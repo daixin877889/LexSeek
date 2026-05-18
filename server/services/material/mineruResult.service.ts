@@ -9,6 +9,7 @@
 
 import JSZip from 'jszip'
 import { marked } from 'marked'
+import { sanitizeRichHtml } from '~~/server/utils/htmlSanitizer'
 import { v7 as uuidv7 } from 'uuid'
 import { $fetch } from 'ofetch'
 import { FileSource, OssFileStatus } from '#shared/types/file'
@@ -346,7 +347,9 @@ export async function markdownToHtmlService(markdown: string): Promise<string> {
         breaks: true,
     })
 
-    return marked.parse(markdown)
+    // 净化 marked 输出，剔除 script / 事件属性等，防止存储型 XSS
+    const rawHtml = await marked.parse(markdown)
+    return sanitizeRichHtml(rawHtml)
 }
 
 /**

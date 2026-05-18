@@ -63,6 +63,7 @@ import {
     updateOssFileDao,
     findOssFilesByUserIdDao,
     markOssFileUploadedByVerifyDao,
+    findOssFilesByIdsAndUserIdDao,
 } from '~~/server/services/files/ossFiles.dao'
 import { OssFileStatus } from '#shared/types/file'
 import {
@@ -446,5 +447,73 @@ describe('markOssFileUploadedByVerifyDao', () => {
             markOssFileUploadedByVerifyDao(row.id),
         ])
         expect(a + b).toBe(1)
+    })
+})
+
+// ──────────────────────────────────────────────────────────────────────────────
+// 集成测试：findOssFilesByIdsAndUserIdDao（使用真实 worker DB）
+// 越权修复（doc/status、doc/save、image-signed-urls）的共用归属校验基础
+// ──────────────────────────────────────────────────────────────────────────────
+describe('findOssFilesByIdsAndUserIdDao - 按 ID 批量查询并按归属过滤', () => {
+    const testIds = createEmptyTestIds()
+    let userAId: number
+    let userBId: number
+
+    beforeAll(async () => {
+        vi.stubGlobal('prisma', getTestPrisma())
+        const userA = await createTestUser()
+        const userB = await createTestUser()
+        userAId = userA.id
+        userBId = userB.id
+        testIds.userIds.push(userA.id, userB.id)
+    })
+
+    afterEach(async () => {
+        if (testIds.ossFileIds.length) {
+            await getTestPrisma().ossFiles.deleteMany({
+                where: { id: { in: testIds.ossFileIds } },
+            })
+            testIds.ossFileIds = []
+        }
+    })
+
+    afterAll(async () => {
+        await cleanupTestData(testIds)
+    })
+
+    it('混入他人文件 ID 时只返回属于指定用户的文件', async () => {
+        const a1 = await createTestOssFile(userAId)
+        const a2 = await createTestOssFile(userAId)
+        const b1 = await createTestOssFile(userBId)
+        testIds.ossFileIds.push(a1.id, a2.id, b1.id)
+
+        const result = await findOssFilesByIdsAndUserIdDao([a1.id, a2.id, b1.id], userAId)
+
+        const resultIds = result.map((f) => f.id).sort((x, y) => x - y)
+        expect(resultIds).toEqual([a1.id, a2.id].sort((x, y) => x - y))
+        expect(result.some((f) => f.id === b1.id)).toBe(false)
+    })
+
+    it('软删除的文件不返回', async () => {
+        const file = await createTestOssFile(userAId)
+        testIds.ossFileIds.push(file.id)
+        await getTestPrisma().ossFiles.update({
+            where: { id: file.id },
+            data: { deletedAt: new Date() },
+        })
+
+        const result = await findOssFilesByIdsAndUserIdDao([file.id], userAId)
+
+        expect(result).toHaveLength(0)
+    })
+
+    it('不存在的文件 ID 被静默忽略，不抛错', async () => {
+        const result = await findOssFilesByIdsAndUserIdDao([999_999_999], userAId)
+        expect(result).toEqual([])
+    })
+
+    it('传入空 ID 数组返回空数组', async () => {
+        const result = await findOssFilesByIdsAndUserIdDao([], userAId)
+        expect(result).toEqual([])
     })
 })

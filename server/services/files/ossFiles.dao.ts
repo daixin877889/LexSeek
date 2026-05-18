@@ -116,6 +116,36 @@ export async function findOssFileByIdsDao(id: number[], tx?: Prisma.TransactionC
 }
 
 /**
+ * 根据文件 ID 批量查找属于指定用户的 OSS 文件记录
+ *
+ * 用于用户端接口的归属校验：只返回 id 在列表中、属于该 userId、未删除的文件。
+ * 他人文件、不存在的 id、已软删除的文件均被静默过滤。
+ */
+export async function findOssFilesByIdsAndUserIdDao(
+    ids: number[],
+    userId: number,
+    tx?: Prisma.TransactionClient
+): Promise<ossFiles[]> {
+    try {
+        const result = await (tx || prisma).ossFiles.findMany({
+            where: {
+                id: { in: ids },
+                userId,
+                deletedAt: null
+            }
+        })
+
+        return result.map((file: ossFiles) => ({
+            ...file,
+            source: file.source as FileSource,
+        }))
+    } catch (error) {
+        logger.error(`根据文件 ID 与用户 ID 批量查找 OSS 文件记录失败: ${error}`)
+        throw error
+    }
+}
+
+/**
  * 软删除文件记录
  */
 export async function deleteFileDao(id: number, tx?: Prisma.TransactionClient): Promise<boolean> {

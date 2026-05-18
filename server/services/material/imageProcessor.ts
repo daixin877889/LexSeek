@@ -10,6 +10,7 @@
 import { uploadFileService } from '../storage/storage.service'
 import { FileSource, OssFileStatus } from '#shared/types/file'
 import { buildStorageDir } from '~~/server/utils/storagePath'
+import { assertSafeOutboundUrl } from '~~/server/utils/outboundUrlGuard'
 import { v4 as uuidv4 } from 'uuid'
 import { $fetch as ofetch } from 'ofetch'
 
@@ -28,6 +29,9 @@ interface ImageUploadResult {
  */
 async function downloadImageFromUrl(imageUrl: string): Promise<{ buffer: Buffer; mimeType: string }> {
     try {
+        // SSRF 防护：拒绝指向内网/保留地址的图片 URL
+        await assertSafeOutboundUrl(imageUrl)
+
         const response = await ofetch(imageUrl, {
             responseType: 'arrayBuffer',
         })

@@ -1,6 +1,9 @@
 import { OssFileStatus } from '#shared/types/file'
 import { createLogger } from '#shared/utils/logger'
 import { updateOssFileDao } from '~~/server/services/files/ossFiles.dao'
+import { verifyCallback } from '~~/server/lib/storage/callback'
+import { StorageProviderType } from '~~/server/lib/storage/types'
+import type { StorageConfig } from '~~/server/lib/storage/types'
 /**
  * 通用存储回调处理 API
  *
@@ -14,6 +17,18 @@ export default defineEventHandler(async (event) => {
     const log = createLogger('storage-callback')
 
     try {
+        // 验签：确认回调确实来自阿里云 OSS，拒绝未授权的伪造请求
+        // 注：AliyunCallbackValidator 按 urlencoded 重建 body 参与验签，标准回调可无损还原；
+        // verifyCallback 仅依据 config.type 选择验证器，故此处无需完整 StorageConfig
+        const verifyResult = await verifyCallback(
+            event,
+            { type: StorageProviderType.ALIYUN_OSS } as StorageConfig,
+        )
+        if (!verifyResult.valid) {
+            log.warn('存储回调验签失败，拒绝处理', { error: verifyResult.error })
+            return { success: false, error: 'callback verification failed' }
+        }
+
         // 获取 OSS 回调的 body（application/x-www-form-urlencoded 格式）
         const body = await readBody(event)
 

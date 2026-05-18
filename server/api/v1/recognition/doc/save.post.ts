@@ -11,8 +11,10 @@
 
 import { z } from 'zod'
 import { embedDocumentService } from '~~/server/services/material/materialEmbedding.service'
+import { sanitizeRichHtml } from '~~/server/utils/htmlSanitizer'
 import { DocRecognitionStatus } from '#shared/types/recognition'
 import { createDocRecognitionRecordDao, findDocRecognitionByOssFileIdDao, updateDocRecognitionRecordDao } from '~~/server/services/material/mineru.dao'
+import { findOssFilesByIdsAndUserIdDao } from '~~/server/services/files/ossFiles.dao'
 
 // 请求体验证
 const bodySchema = z.object({
@@ -52,13 +54,14 @@ export default defineEventHandler(async (event) => {
         return resError(event, 400, bodyResult.error.issues[0]!?.message || '参数错误')
     }
 
-    const { ossFileId, htmlContent, markdownContent, fileName } = bodyResult.data
+    const { ossFileId, markdownContent, fileName } = bodyResult.data
+    // 净化客户端提交的 HTML，防止存储型 XSS
+    const htmlContent = sanitizeRichHtml(bodyResult.data.htmlContent)
 
     try {
-        // 查询 OSS 文件信息
-        const ossFile = await prisma.ossFiles.findFirst({
-            where: { id: ossFileId, deletedAt: null },
-        })
+        // owner-only：仅允许向属于当前用户的 OSS 文件写入识别结果
+        const ownedFiles = await findOssFilesByIdsAndUserIdDao([ossFileId], user.id)
+        const ossFile = ownedFiles[0]
 
         if (!ossFile) {
             return resError(event, 404, '文件不存在')

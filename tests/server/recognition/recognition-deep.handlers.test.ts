@@ -26,6 +26,9 @@ vi.mock('~~/server/services/material/materialEmbedding.service', () => ({
 vi.mock('~~/server/services/files/files.service', () => ({
     generateOssDownloadSignaturesService: vi.fn(async () => []),
 }))
+vi.mock('~~/server/services/files/ossFiles.dao', () => ({
+    findOssFilesByIdsAndUserIdDao: vi.fn(),
+}))
 vi.mock('ofetch', () => ({
     $fetch: vi.fn(async () => ({ code: 0, data: { batch_id: 'B', file_urls: ['https://upload.url/1'] } })),
 }))
@@ -41,6 +44,7 @@ import { findDocRecognitionByOssFileIdDao, createDocRecognitionRecordDao, update
 import { findImageRecognitionByOssFileIdDao } from '~~/server/services/material/ocr.dao'
 import { embedDocumentService } from '~~/server/services/material/materialEmbedding.service'
 import { generateOssDownloadSignaturesService } from '~~/server/services/files/files.service'
+import { findOssFilesByIdsAndUserIdDao } from '~~/server/services/files/ossFiles.dao'
 import { createMineruTaskService } from '~~/server/services/material/mineruTask.service'
 
 const { default: docStatusHandler } = await import('../../../server/api/v1/recognition/doc/status/[ossFileId].get')
@@ -50,6 +54,13 @@ const { default: mineruUploadUrlHandler } = await import('../../../server/api/v1
 beforeEach(() => vi.clearAllMocks())
 
 describe('GET /api/v1/recognition/doc/status/:ossFileId deep', () => {
+    beforeEach(() => {
+        // owner-only：默认 ossFile（含内嵌图片）均属于当前用户
+        ;(findOssFilesByIdsAndUserIdDao as any).mockImplementation(
+            async (ids: number[]) => ids.map((id) => ({ id, userId: 100, bucketName: 'bucket-1' })),
+        )
+    })
+
     it('docRecord 不存在但 imageRecord 命中', async () => {
         ;(findDocRecognitionByOssFileIdDao as any).mockResolvedValue(null)
         ;(findImageRecognitionByOssFileIdDao as any).mockResolvedValue({
@@ -101,6 +112,13 @@ describe('GET /api/v1/recognition/doc/status/:ossFileId deep', () => {
 })
 
 describe('POST /api/v1/recognition/doc/save deep', () => {
+    beforeEach(() => {
+        // owner-only：默认 ossFile 属于当前用户
+        ;(findOssFilesByIdsAndUserIdDao as any).mockResolvedValue([
+            { id: 1, userId: 100, fileName: 'a.docx' },
+        ])
+    })
+
     it('happy path - 新记录', async () => {
         ;(findDocRecognitionByOssFileIdDao as any).mockResolvedValue(null)
         ;(createDocRecognitionRecordDao as any).mockResolvedValue({ id: 1 })
@@ -151,7 +169,7 @@ describe('POST /api/v1/recognition/doc/save deep', () => {
     })
 
     it('文件不存在 → 404', async () => {
-        ;(globalThis as any).prisma.ossFiles.findFirst.mockResolvedValueOnce(null)
+        ;(findOssFilesByIdsAndUserIdDao as any).mockResolvedValue([])
         const res: any = await docSaveHandler(makeEvent({
             userId: 100,
             body: {
@@ -210,5 +228,26 @@ describe('POST /api/v1/recognition/mineru/upload-url deep', () => {
             ] },
         }) as any)
         expectError(res, 500)
+    })
+})
+
+describe('doc/status & doc/save 越权防护（owner-only）', () => {
+    it('doc/status：查询他人文件的识别状态 → 404', async () => {
+        // 归属校验：ossFile 不属于当前用户 → 直接 404，不泄露识别结果
+        ;(findOssFilesByIdsAndUserIdDao as any).mockResolvedValue([])
+        const res: any = await docStatusHandler(makeEvent({
+            userId: 100, params: { ossFileId: '1' },
+        }) as any)
+        expectError(res, 404)
+    })
+
+    it('doc/save：向他人文件写入识别结果 → 404', async () => {
+        // 归属校验：ossFile 不属于当前用户 → 直接 404，不写入
+        ;(findOssFilesByIdsAndUserIdDao as any).mockResolvedValue([])
+        const res: any = await docSaveHandler(makeEvent({
+            userId: 100,
+            body: { ossFileId: 1, htmlContent: '<p>x</p>', markdownContent: 'x' },
+        }) as any)
+        expectError(res, 404)
     })
 })
