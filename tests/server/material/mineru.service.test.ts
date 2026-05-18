@@ -327,7 +327,7 @@ describe('MinerU 服务 - 工具函数行为测试', () => {
             const result = await processConversionResultService('task-br', 'https://example.com/result.zip', 1)
 
             expect(result.success).toBe(true)
-            expect(result.htmlContent).toContain('<br>')
+            expect(result.htmlContent).toMatch(/<br\s*\/?>/)
         })
     })
 

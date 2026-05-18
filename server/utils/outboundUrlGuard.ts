@@ -72,7 +72,8 @@ export async function assertSafeOutboundUrl(
         throw new Error('仅允许 http/https 协议')
     }
 
-    const host = url.hostname
+    // IPv6 字面量在 URL.hostname 中带方括号（如 [::1]），剥离后才能被 net.isIP 识别
+    const host = url.hostname.replace(/^\[|\]$/g, '')
     // 主机名本身是 IP 字面量：直接判断
     if (net.isIP(host)) {
         if (isBlockedIp(host)) throw new Error(REJECT_RESERVED)

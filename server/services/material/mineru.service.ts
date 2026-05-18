@@ -6,6 +6,7 @@
  */
 
 import type { mineruTasks, docRecognitionRecords, Prisma } from '~~/generated/prisma/client'
+import { sanitizeRichHtml } from '~~/server/utils/htmlSanitizer'
 import {
     getActiveTokenValueService,
     getTokenForExistingTaskService,
@@ -252,7 +253,8 @@ async function markdownToHtml(markdown: string): Promise<string> {
         breaks: true,     // 将换行符转换为 <br>
     })
 
-    return marked.parse(markdown)
+    // 净化 marked 输出，防止存储型 XSS
+    return sanitizeRichHtml(await marked.parse(markdown))
 }
 
 // ==================== 服务层 ====================

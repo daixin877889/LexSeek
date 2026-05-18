@@ -18,12 +18,18 @@ export default defineEventHandler(async (event) => {
 
     try {
         // 验签：确认回调确实来自阿里云 OSS，拒绝未授权的伪造请求
-        // 注：AliyunCallbackValidator 按 urlencoded 重建 body 参与验签，标准回调可无损还原；
-        // verifyCallback 仅依据 config.type 选择验证器，故此处无需完整 StorageConfig
-        const verifyResult = await verifyCallback(
-            event,
-            { type: StorageProviderType.ALIYUN_OSS } as StorageConfig,
-        )
+        // 注：AliyunCallbackValidator 按 urlencoded 重建 body 参与验签，标准回调可无损还原
+        const ossConfig = useRuntimeConfig().storage.aliyunOss
+        const storageConfig: StorageConfig = {
+            type: StorageProviderType.ALIYUN_OSS,
+            name: 'aliyun-oss',
+            bucket: ossConfig.bucket,
+            region: ossConfig.region,
+            enabled: true,
+            accessKeyId: ossConfig.accessKeyId,
+            accessKeySecret: ossConfig.accessKeySecret,
+        }
+        const verifyResult = await verifyCallback(event, storageConfig)
         if (!verifyResult.valid) {
             log.warn('存储回调验签失败，拒绝处理', { error: verifyResult.error })
             return { success: false, error: 'callback verification failed' }
