@@ -234,67 +234,67 @@ describe('canPreviewFile 文件预览判断', () => {
 
 describe('getFileIconBg 文件图标背景色', () => {
     it('图片类型应返回紫色背景', () => {
-        expect(getFileIconBg('image/jpeg')).toBe('bg-purple-100')
-        expect(getFileIconBg('image/png')).toBe('bg-purple-100')
+        expect(getFileIconBg('image/jpeg')).toBe('bg-violet-500/15')
+        expect(getFileIconBg('image/png')).toBe('bg-violet-500/15')
     })
 
     it('音频类型应返回绿色背景', () => {
-        expect(getFileIconBg('audio/mp3')).toBe('bg-green-100')
+        expect(getFileIconBg('audio/mp3')).toBe('bg-emerald-500/15')
     })
 
     it('视频类型应返回红色背景', () => {
-        expect(getFileIconBg('video/mp4')).toBe('bg-red-100')
+        expect(getFileIconBg('video/mp4')).toBe('bg-red-500/15')
     })
 
     it('PDF 类型应返回蓝色背景', () => {
-        expect(getFileIconBg('application/pdf')).toBe('bg-blue-100')
+        expect(getFileIconBg('application/pdf')).toBe('bg-blue-500/15')
     })
 
     it('文档类型应返回蓝色背景', () => {
-        expect(getFileIconBg('application/msword')).toBe('bg-blue-100')
-        expect(getFileIconBg('text/plain')).toBe('bg-blue-100')
+        expect(getFileIconBg('application/msword')).toBe('bg-blue-500/15')
+        expect(getFileIconBg('text/plain')).toBe('bg-blue-500/15')
     })
 
     it('JSON 类型应返回黄色背景', () => {
-        expect(getFileIconBg('application/json')).toBe('bg-yellow-100')
+        expect(getFileIconBg('application/json')).toBe('bg-amber-500/15')
     })
 
     it('未知类型应返回灰色背景', () => {
-        expect(getFileIconBg('application/octet-stream')).toBe('bg-gray-100')
+        expect(getFileIconBg('application/octet-stream')).toBe('bg-muted')
     })
 
     it('空字符串应返回灰色背景', () => {
-        expect(getFileIconBg('')).toBe('bg-gray-100')
+        expect(getFileIconBg('')).toBe('bg-muted')
     })
 })
 
 describe('getFileIconColor 文件图标颜色', () => {
     it('图片类型应返回紫色', () => {
-        expect(getFileIconColor('image/jpeg')).toBe('text-purple-600')
+        expect(getFileIconColor('image/jpeg')).toBe('text-violet-600 dark:text-violet-400')
     })
 
     it('音频类型应返回绿色', () => {
-        expect(getFileIconColor('audio/mp3')).toBe('text-green-600')
+        expect(getFileIconColor('audio/mp3')).toBe('text-emerald-600 dark:text-emerald-400')
     })
 
     it('视频类型应返回红色', () => {
-        expect(getFileIconColor('video/mp4')).toBe('text-red-600')
+        expect(getFileIconColor('video/mp4')).toBe('text-red-600 dark:text-red-400')
     })
 
     it('PDF 类型应返回蓝色', () => {
-        expect(getFileIconColor('application/pdf')).toBe('text-blue-600')
+        expect(getFileIconColor('application/pdf')).toBe('text-blue-600 dark:text-blue-400')
     })
 
     it('JSON 类型应返回黄色', () => {
-        expect(getFileIconColor('application/json')).toBe('text-yellow-600')
+        expect(getFileIconColor('application/json')).toBe('text-amber-600 dark:text-amber-400')
     })
 
     it('未知类型应返回灰色', () => {
-        expect(getFileIconColor('application/octet-stream')).toBe('text-gray-500')
+        expect(getFileIconColor('application/octet-stream')).toBe('text-muted-foreground')
     })
 
     it('空字符串应返回灰色', () => {
-        expect(getFileIconColor('')).toBe('text-gray-500')
+        expect(getFileIconColor('')).toBe('text-muted-foreground')
     })
 })
 
@@ -341,8 +341,8 @@ describe('Property: 图标背景色和颜色一致性', () => {
                     const bg = getFileIconBg(mimeType)
                     const color = getFileIconColor(mimeType)
                     // 背景色和文字颜色应该是同一色系
-                    expect(bg).toContain('purple')
-                    expect(color).toContain('purple')
+                    expect(bg).toContain('violet')
+                    expect(color).toContain('violet')
                 }
             ),
             { numRuns: 20 }
@@ -356,8 +356,8 @@ describe('Property: 图标背景色和颜色一致性', () => {
                 (mimeType) => {
                     const bg = getFileIconBg(mimeType)
                     const color = getFileIconColor(mimeType)
-                    expect(bg).toContain('green')
-                    expect(color).toContain('green')
+                    expect(bg).toContain('emerald')
+                    expect(color).toContain('emerald')
                 }
             ),
             { numRuns: 20 }
@@ -466,8 +466,8 @@ describe('Property: getFileIcon 与 getFileIconBg/getFileIconColor 一致性', (
                 fc.stringMatching(/^image\/[a-z]+$/),
                 (mimeType) => {
                     expect(getFileIcon(mimeType)).toBe(ImageIcon)
-                    expect(getFileIconBg(mimeType)).toContain('purple')
-                    expect(getFileIconColor(mimeType)).toContain('purple')
+                    expect(getFileIconBg(mimeType)).toContain('violet')
+                    expect(getFileIconColor(mimeType)).toContain('violet')
                 }
             ),
             { numRuns: 20 }
@@ -480,8 +480,8 @@ describe('Property: getFileIcon 与 getFileIconBg/getFileIconColor 一致性', (
                 fc.stringMatching(/^audio\/[a-z]+$/),
                 (mimeType) => {
                     expect(getFileIcon(mimeType)).toBe(MusicIcon)
-                    expect(getFileIconBg(mimeType)).toContain('green')
-                    expect(getFileIconColor(mimeType)).toContain('green')
+                    expect(getFileIconBg(mimeType)).toContain('emerald')
+                    expect(getFileIconColor(mimeType)).toContain('emerald')
                 }
             ),
             { numRuns: 20 }

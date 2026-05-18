@@ -9,6 +9,7 @@ import { makeEvent, expectSuccess, expectError } from '../_helpers/handler-test'
 
 vi.mock('~~/server/services/case/case.service', () => ({
     getUserCasesService: vi.fn(),
+    getCaseStatusSummaryService: vi.fn(),
     getActiveCasesService: vi.fn(),
     createCaseService: vi.fn(),
     getCaseByIdService: vi.fn(),
@@ -145,7 +146,7 @@ vi.mock('~~/server/utils/chat-branch-utils', () => ({
     $queryRawUnsafe: vi.fn(async () => []),
 }
 
-import { getUserCasesService, getActiveCasesService, createCaseService, getCaseByIdService, validateCaseAccessService, updateCaseService, deleteCaseService, getSessionByIdService, getCaseBySessionIdService } from '~~/server/services/case/case.service'
+import { getUserCasesService, getCaseStatusSummaryService, getActiveCasesService, createCaseService, getCaseByIdService, validateCaseAccessService, updateCaseService, deleteCaseService, getSessionByIdService, getCaseBySessionIdService } from '~~/server/services/case/case.service'
 import { findCaseBySessionIdService } from '~~/server/services/case/caseSession.service'
 import { getSessionAnalysesService, getCaseAnalysisHistoryService, switchActiveVersionService } from '~~/server/services/case/analysis.service'
 import { getFirstEnabledCaseTypeService } from '~~/server/services/case/caseType.service'
@@ -163,6 +164,7 @@ import { getThreadValuesService, loadSubAgentThreads } from '~~/server/services/
 import { getNodeByNameService, getValidNodeConfig } from '~~/server/services/node/node.service'
 
 const mGetCases = vi.mocked(getUserCasesService)
+const mGetCaseStatusSummary = vi.mocked(getCaseStatusSummaryService)
 const mActiveCases = vi.mocked(getActiveCasesService)
 const mCreateCase = vi.mocked(createCaseService)
 const mGetCaseById = vi.mocked(getCaseByIdService)
@@ -234,14 +236,17 @@ const { default: memListHandler } = await import('../../../server/api/v1/cases/m
 const { default: memCreateHandler } = await import('../../../server/api/v1/cases/memories/by-case/[caseId].post')
 
 describe('GET /api/v1/cases', () => {
-    beforeEach(() => vi.clearAllMocks())
+    beforeEach(() => {
+        vi.clearAllMocks()
+        mGetCaseStatusSummary.mockResolvedValue({ total: 0, inProgress: 0, closed: 0 } as any)
+    })
     it('happy', async () => {
         mGetCases.mockResolvedValue({ list: [{ id: 1, title: 'A', content: 'C', caseTypeId: 1, status: 1, isDemo: false, createdAt: new Date(), updatedAt: new Date(), caseType: { id: 1, name: 'X' }, caseSessions: [{ sessionId: 'S', status: 1, createdAt: new Date() }] }], total: 1 } as any)
         const res: any = await listHandler(makeEvent({ userId: 100, query: {} }) as any)
         expectSuccess(res)
     })
     it('未登录 → 401', async () => { expectError(await listHandler(makeEvent({ query: {} }) as any), 401) })
-    it('参数非法 → 400', async () => { expectError(await listHandler(makeEvent({ userId: 100, query: { status: '99' } }) as any), 400) })
+    it('参数非法 → 400', async () => { expectError(await listHandler(makeEvent({ userId: 100, query: { status: 'abc' } }) as any), 400) })
     it('service 抛错 → 500', async () => { mGetCases.mockRejectedValue(new Error('db')); expectError(await listHandler(makeEvent({ userId: 100, query: {} }) as any), 500) })
 })
 
@@ -316,6 +321,7 @@ describe('PUT /api/v1/cases/:caseId', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         mValidateAccess.mockResolvedValue(undefined as any)
+        mUpdateCase.mockResolvedValue({ id: 1 } as any)
         mGetCaseById.mockResolvedValue({
             id: 1, title: 'A', plaintiff: [], defendant: [],
             extractedInfo: null, summary: '', caseType: { name: 'X' },
@@ -325,7 +331,10 @@ describe('PUT /api/v1/cases/:caseId', () => {
     it('未登录 → 401', async () => { expectError(await putHandler(makeEvent({ params: { caseId: '1' }, body: { title: '新' } }) as any), 401) })
     it('id 非法 → 400', async () => { expectError(await putHandler(makeEvent({ userId: 100, params: { caseId: 'x' }, body: { title: '新' } }) as any), 400) })
     it('参数非法（无字段）→ 400', async () => { expectError(await putHandler(makeEvent({ userId: 100, params: { caseId: '1' }, body: {} }) as any), 400) })
-    it('案件不存在 → 404', async () => { mGetCaseById.mockResolvedValue(null as any); expectError(await putHandler(makeEvent({ userId: 100, params: { caseId: '1' }, body: { title: '新' } }) as any), 404) })
+    it('案件不存在 → 404', async () => {
+        mValidateAccess.mockRejectedValue(new Error('案件不存在'))
+        expectError(await putHandler(makeEvent({ userId: 100, params: { caseId: '1' }, body: { title: '新' } }) as any), 404)
+    })
     it('无权访问 → 403', async () => {
         mValidateAccess.mockRejectedValue(new Error('无权访问该案件'))
         expectError(await putHandler(makeEvent({ userId: 100, params: { caseId: '1' }, body: { title: '新' } }) as any), 403)

@@ -9,7 +9,7 @@
  * （单条风险更新）路由再次冲突。
  *
  * 约束（对齐 spec §8.3）：
- *   - 仅 status='completed' 可编辑（REVIEW_EDITABLE_STATUSES），其它状态 409
+ *   - 仅 REVIEW_EDITABLE_STATUSES 可编辑，其它状态 409
  *   - body 只接受 risks；.strict() 拒绝 summary 等额外字段（YAGNI，UI 无 summary 编辑入口）
  *   - risks 经 z.array(RISK_SHAPE).max(200) 校验（RISK_SHAPE refine 含 high/medium 必填 suggestedClauseText）
  *   - 不触发批注重生（需用户显式调 /rebuild-docx）

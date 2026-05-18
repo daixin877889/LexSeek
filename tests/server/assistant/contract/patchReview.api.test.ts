@@ -15,7 +15,7 @@
  *   - 403 跨用户
  *   - 409 status=pending
  *   - 409 status=rebuilding
- *   - 409 status=failed
+ *   - 200 status=failed（允许用户手动补救风险清单）
  *   - 200 status=completed 全量替换 risks 返回 { reviewId }
  *
  * 策略：纯 mock 风格——vi.mock 替换 DAO / schema 模块，直接调用 handler default export。
@@ -325,8 +325,9 @@ describe('PATCH /api/v1/assistant/contract/reviews/:id', () => {
         expect(mockPatchRisks).not.toHaveBeenCalled()
     })
 
-    it('status=failed 返回 409', async () => {
+    it('status=failed 允许编辑', async () => {
         mockGetReview.mockResolvedValue(review({ status: 'failed' }))
+        mockPatchRisks.mockResolvedValue({ id: 42 } as any)
         const res: any = await patchHandler(
             makeEvent({
                 userId: USER_A,
@@ -334,8 +335,8 @@ describe('PATCH /api/v1/assistant/contract/reviews/:id', () => {
                 body: { risks: [validLowRisk()] },
             }) as any,
         )
-        expect(res.code).toBe(409)
-        expect(mockPatchRisks).not.toHaveBeenCalled()
+        expect(res.code).toBe(0)
+        expect(mockPatchRisks).toHaveBeenCalled()
     })
 
     it('status=completed 全量替换 risks 返回 { reviewId }', async () => {

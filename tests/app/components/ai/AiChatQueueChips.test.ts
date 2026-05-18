@@ -82,14 +82,14 @@ describe('AiChatQueueChips', () => {
     expect(w.find('[data-testid="queue-brain-icon"]').exists()).toBe(true)
   })
 
-  it('chip 文本超长截断（超过 24 字符以 … 结尾）', () => {
+  it('chip 文本超长时使用 CSS 截断，保留原始文本', () => {
     const longText = 'a'.repeat(30)
     const item = makeItem(longText)
     const w = mount(AiChatQueueChips, {
       props: { queue: [item], max: 5, paused: false, pauseReason: null },
     })
-    const chipText = w.find('span.line-clamp-1').text()
-    expect(chipText.endsWith('…')).toBe(true)
-    expect(chipText.length).toBeLessThanOrEqual(25) // 24 chars + ellipsis
+    const chipText = w.find('span.truncate')
+    expect(chipText.text()).toBe(longText)
+    expect(chipText.classes()).toContain('truncate')
   })
 })

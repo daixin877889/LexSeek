@@ -328,11 +328,11 @@ describe('OSS 文件 DAO 单元测试', () => {
             await findOssFilesByUserIdDao(1, {
                 page: 1,
                 pageSize: 10,
-                source: 'ASR' as any,
+                source: ['ASR'] as any,
             })
 
             const callArgs = mockFindMany.mock.calls[0][0]
-            expect(callArgs.where.source).toBe('ASR')
+            expect(callArgs.where.source).toEqual({ in: ['ASR'] })
         })
 
         it('支持自定义排序', async () => {

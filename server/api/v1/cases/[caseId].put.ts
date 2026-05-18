@@ -59,6 +59,7 @@ export default defineEventHandler(async (event) => {
     }
     catch (error: any) {
         logger.error('更新案件基本信息失败', { caseId, error: error.message })
+        if (error.message === '案件不存在') return resError(event, 404, error.message)
         if (error.message === '无权访问该案件') return resError(event, 403, error.message)
         if (error.message === '案件已归档，不可编辑') return resError(event, 403, error.message)
         return resError(event, 500, '更新失败')

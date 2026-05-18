@@ -42,6 +42,7 @@ const pauseReasonText = computed(() => {
       <span class="flex-1" />
       <button
         type="button"
+        data-testid="queue-resume"
         title="恢复队列"
         class="inline-flex size-5 items-center justify-center rounded-[5px] transition-colors hover:bg-amber-500/25"
         @click="emit('resume')">
@@ -49,6 +50,7 @@ const pauseReasonText = computed(() => {
       </button>
       <button
         type="button"
+        data-testid="queue-clear"
         title="清空队列"
         class="inline-flex size-5 items-center justify-center rounded-[5px] transition-colors hover:bg-amber-500/25"
         @click="emit('clear')">
@@ -99,11 +101,15 @@ const pauseReasonText = computed(() => {
         </span>
 
         <!-- 深度思考标记 -->
-        <BrainIcon v-if="item.thinking" class="size-3 shrink-0 text-primary" />
+        <BrainIcon
+          v-if="item.thinking"
+          data-testid="queue-brain-icon"
+          class="size-3 shrink-0 text-primary" />
 
         <!-- 取消 -->
         <button
           type="button"
+          data-testid="queue-remove"
           aria-label="取消发送"
           title="取消发送"
           class="inline-flex size-5 shrink-0 items-center justify-center rounded-[4px] text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
