@@ -994,7 +994,7 @@ export interface ScanResult {
 
 /** 在旧库统计某 SQL 的计数（SQL 须返回单列单行 bigint） */
 async function legacyCount(legacy: LegacyPrismaClient, sql: string): Promise<number> {
-  const rows = await legacy.$queryRawUnsafe<{ n: bigint | number }>(sql)
+  const rows = await legacy.$queryRawUnsafe<{ n: bigint | number }[]>(sql)
   return rows[0] ? Number(rows[0].n) : 0
 }
 
@@ -1061,10 +1061,10 @@ async function scanConfigMatch(legacy: LegacyPrismaClient, next: NewPrismaClient
   ]
   const misses: string[] = []
   for (const [oldTable, oldCol, newTable, newCol] of pairs) {
-    const oldRows = await legacy.$queryRawUnsafe<{ v: string }>(
+    const oldRows = await legacy.$queryRawUnsafe<{ v: string }[]>(
       `SELECT DISTINCT ${oldCol} AS v FROM "${oldTable}" WHERE deleted_at IS NULL`,
     )
-    const newRows = await next.$queryRawUnsafe<{ v: string }>(
+    const newRows = await next.$queryRawUnsafe<{ v: string }[]>(
       `SELECT DISTINCT ${newCol} AS v FROM "${newTable}" WHERE deleted_at IS NULL`,
     )
     const newSet = new Set(newRows.map(r => r.v))
@@ -1093,10 +1093,10 @@ async function scanUpgradeNullFk(legacy: LegacyPrismaClient): Promise<ScanResult
 /** 6. case_analyses 缺口：sessionId 为空；analysisType 在新 nodes 无匹配 */
 async function scanCaseAnalysesGap(legacy: LegacyPrismaClient, next: NewPrismaClient): Promise<ScanResult> {
   const nullSession = await legacyCount(legacy, `SELECT count(*)::bigint AS n FROM case_analyses WHERE session_id IS NULL`)
-  const oldTypes = await legacy.$queryRawUnsafe<{ v: string }>(
+  const oldTypes = await legacy.$queryRawUnsafe<{ v: string }[]>(
     `SELECT DISTINCT analysis_type AS v FROM case_analyses WHERE deleted_at IS NULL`,
   )
-  const newNodes = await next.$queryRawUnsafe<{ v: string }>(
+  const newNodes = await next.$queryRawUnsafe<{ v: string }[]>(
     `SELECT DISTINCT name AS v FROM nodes WHERE deleted_at IS NULL`,
   )
   const nodeSet = new Set(newNodes.map(r => r.v))

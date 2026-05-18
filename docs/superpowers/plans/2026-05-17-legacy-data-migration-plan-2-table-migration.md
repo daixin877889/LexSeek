@@ -60,29 +60,29 @@ legacy-migration/src/
 re-export 全部需要的旧库模型类型。导出路径以 `legacy-client` 生成产物为准——先 `ls legacy-migration/legacy-client/` 确认模型类型文件（Prisma 7 `prisma-client` 生成器通常产出 `models.ts` 或 `models/` 目录）。
 
 ```ts
-// 路径以 legacy-client 实际结构为准；若 tsc 报错，改为 '../legacy-client/client'
+// legacy-client 的 prisma-client 生成器把每个模型导出为 `<model>Model` 类型。
 import type * as Legacy from '../legacy-client/models'
 
-export type LUser = Legacy.users
-export type LCase = Legacy.cases
-export type LCaseSession = Legacy.caseSessions
-export type LCaseMaterial = Legacy.caseMaterials
-export type LCaseAnalysis = Legacy.caseAnalyses
-export type LUserMembership = Legacy.userMemberships
-export type LMembershipUpgradeRecord = Legacy.membershipUpgradeRecords
-export type LPointRecord = Legacy.pointRecords
-export type LPointConsumptionRecord = Legacy.pointConsumptionRecords
-export type LUserBenefit = Legacy.userBenefits
-export type LRedemptionCode = Legacy.redemptionCodes
-export type LRedemptionRecord = Legacy.redemptionRecords
-export type LOssFile = Legacy.ossFiles
-export type LAsrTask = Legacy.asrTasks
-export type LAsrRecord = Legacy.asrRecords
-export type LDocRecognition = Legacy.docRecognitionRecords
-export type LImageRecognition = Legacy.imageRecognitionRecords
-export type LSystemConfig = Legacy.systemConfigs
-export type LPaymentOrder = Legacy.paymentOrders
-export type LPaymentTransaction = Legacy.paymentTransactions
+export type LUser = Legacy.usersModel
+export type LCase = Legacy.casesModel
+export type LCaseSession = Legacy.caseSessionsModel
+export type LCaseMaterial = Legacy.caseMaterialsModel
+export type LCaseAnalysis = Legacy.caseAnalysesModel
+export type LUserMembership = Legacy.userMembershipsModel
+export type LMembershipUpgradeRecord = Legacy.membershipUpgradeRecordsModel
+export type LPointRecord = Legacy.pointRecordsModel
+export type LPointConsumptionRecord = Legacy.pointConsumptionRecordsModel
+export type LUserBenefit = Legacy.userBenefitsModel
+export type LRedemptionCode = Legacy.redemptionCodesModel
+export type LRedemptionRecord = Legacy.redemptionRecordsModel
+export type LOssFile = Legacy.ossFilesModel
+export type LAsrTask = Legacy.asrTasksModel
+export type LAsrRecord = Legacy.asrRecordsModel
+export type LDocRecognition = Legacy.docRecognitionRecordsModel
+export type LImageRecognition = Legacy.imageRecognitionRecordsModel
+export type LSystemConfig = Legacy.systemConfigsModel
+export type LPaymentOrder = Legacy.paymentOrdersModel
+export type LPaymentTransaction = Legacy.paymentTransactionsModel
 ```
 
 - [ ] **Step 2: 写 `helpers.test.ts` 失败测试**
@@ -730,7 +730,7 @@ const now = new Date('2026-05-17T00:00:00Z')
 describe('transformRedemptionCode', () => {
   it('giftPoint=0 → type=1、pointAmount=null', () => {
     const o = { id: 1, code: 'C1', levelId: 3, duration: 30, status: 1, remark: null, giftPoint: 0, createdBy: 1, createdAt: now, updatedAt: now, deletedAt: null } as unknown as LRedemptionCode
-    const r = transformRedemptionCode(o, 8)
+    const r = transformRedemptionCode(o, 8, now)
     expect(r).not.toBeNull()
     expect(r!.type).toBe(1)
     expect(r!.pointAmount).toBeNull()
@@ -738,7 +738,7 @@ describe('transformRedemptionCode', () => {
   })
   it('giftPoint>0 → type=3、pointAmount=giftPoint', () => {
     const o = { id: 2, code: 'C2', levelId: 3, duration: 30, status: 1, remark: null, giftPoint: 500, createdBy: 1, createdAt: now, updatedAt: now, deletedAt: null } as unknown as LRedemptionCode
-    const r = transformRedemptionCode(o, 8)
+    const r = transformRedemptionCode(o, 8, now)
     expect(r!.type).toBe(3)
     expect(r!.pointAmount).toBe(500)
   })
@@ -2006,18 +2006,6 @@ const SEQUENCE_TABLES = [
   'user_roles',
 ]
 
-/** 迁移器内部表名（驼峰）→ Fk 登记/进度用的标准表名 */
-const TABLE_KEY: Record<string, string> = {
-  systemConfigs: 'systemConfigs', users: 'users', ossFiles: 'ossFiles',
-  asrTasks: 'asrTasks', asrRecords: 'asrRecords',
-  docRecognitionRecords: 'docRecognitionRecords', imageRecognitionRecords: 'imageRecognitionRecords',
-  cases: 'cases', caseSessions: 'caseSessions', caseMaterials: 'caseMaterials',
-  caseAnalyses: 'caseAnalyses', userMemberships: 'userMemberships', orders: 'orders',
-  paymentTransactions: 'paymentTransactions', membershipUpgradeRecords: 'membershipUpgradeRecords',
-  pointRecords: 'pointRecords', pointConsumptionRecords: 'pointConsumptionRecords',
-  userBenefits: 'userBenefits', redemptionCodes: 'redemptionCodes', redemptionRecords: 'redemptionRecords',
-}
-
 export async function runFullMigration(
   legacy: LegacyPrismaClient,
   next: NewPrismaClient,
@@ -2038,8 +2026,7 @@ export async function runFullMigration(
   // 阶段 0~5：按 §7 顺序逐表迁移；每张完成后把成功 ID 登记进 FkRegistry 供子表预校验
   for (const spec of migrators) {
     const result = await runMigration(spec as any, deps)
-    const key = TABLE_KEY[spec.table] ?? spec.table
-    fk.record(key, result.migratedIds)
+    fk.record(spec.table, result.migratedIds)
   }
 
   // 阶段 6：序列重置

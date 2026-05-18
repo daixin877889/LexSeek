@@ -406,7 +406,7 @@ export async function verifyReferences(next: NewPrismaClient): Promise<Reference
   const reports: ReferenceReport[] = []
 
   // text_content_records.materialId 应都能在 case_materials 找到
-  const orphanText = await next.$queryRawUnsafe<{ n: bigint }>(`
+  const orphanText = await next.$queryRawUnsafe<{ n: bigint }[]>(`
     SELECT count(*)::bigint AS n FROM text_content_records t
     LEFT JOIN case_materials m ON m.id = t.material_id
     WHERE t.material_id IS NOT NULL AND m.id IS NULL
@@ -420,7 +420,7 @@ export async function verifyReferences(next: NewPrismaClient): Promise<Reference
 
   // 识别记录的 ossFileId 应都能在 oss_files 找到（无 FK 约束）
   for (const t of ['doc_recognition_records', 'image_recognition_records', 'asr_records']) {
-    const r = await next.$queryRawUnsafe<{ n: bigint }>(`
+    const r = await next.$queryRawUnsafe<{ n: bigint }[]>(`
       SELECT count(*)::bigint AS n FROM "${t}" x
       LEFT JOIN oss_files f ON f.id = x.oss_file_id
       WHERE x.oss_file_id IS NOT NULL AND f.id IS NULL
