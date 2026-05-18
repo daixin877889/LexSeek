@@ -9,7 +9,7 @@ import { log } from './logger'
 import { buildMigrators } from './migrators/index'
 import { ensureProgressTable } from './progress'
 import { runMigration } from './runner'
-import { resetSequences } from './sequenceReset'
+import { resetSequence, resetSequences } from './sequenceReset'
 import { synthesizeTransaction } from './transforms/payment'
 
 /** 所有保留旧 ID 插入、需迁移后重置序列的表（按新库表名） */
@@ -50,7 +50,7 @@ async function ensurePlaceholderNode(next: NewPrismaClient): Promise<number> {
 async function ensurePointConsumptionItems(legacy: LegacyPrismaClient, next: NewPrismaClient): Promise<void> {
   const L = legacy as any
   const N = next as any
-  const oldItems = await L.pointConsumptionItems.findMany()
+  const oldItems = await L.pointConsumptionItems.findMany({ orderBy: { id: 'asc' } })
   const existingKeys = new Set<string>(
     (await N.pointConsumptionItems.findMany({ select: { key: true } }))
       .map((p: any) => p.key)
@@ -58,6 +58,7 @@ async function ensurePointConsumptionItems(legacy: LegacyPrismaClient, next: New
   )
   let added = 0
   for (const o of oldItems) {
+    // 旧 point_consumption_items.name 不唯一——重名只补第一条（新表 key 唯一）
     if (existingKeys.has(o.name)) continue
     await N.pointConsumptionItems.create({
       data: {
@@ -71,6 +72,7 @@ async function ensurePointConsumptionItems(legacy: LegacyPrismaClient, next: New
         discount: o.discount,
       },
     })
+    existingKeys.add(o.name)
     added++
   }
   log(`[积分消耗项] 补齐 ${added} 条旧库消耗项到新库`)
@@ -105,10 +107,19 @@ export async function runFullMigration(
     failureRateThreshold: cfg.failureRateThreshold,
   }
 
+  // 预载新库已有的父表 ID——支持 --resume：上次已迁入的父行不会因本次跳过而从 FkRegistry 丢失
+  const N = next as any
+  for (const t of ['users', 'cases', 'asrTasks', 'orders', 'userMemberships', 'pointRecords', 'redemptionCodes']) {
+    const ids: { id: number }[] = await N[t].findMany({ select: { id: true } })
+    fk.record(t, new Set(ids.map(r => r.id)))
+  }
+
   // 阶段 0~5：按 §7 顺序逐表迁移；每张完成后把成功 ID 登记进 FkRegistry 供子表预校验
   for (const spec of migrators) {
     const result = await runMigration(spec as any, deps)
     fk.record(spec.table, result.migratedIds)
+    // case_sessions 之后 caseAnalyses 会衍生 legacy 会话（自增 ID），须先重置序列避免与已迁移旧 ID 冲突
+    if (spec.table === 'caseSessions') await resetSequence(next as any, 'case_sessions')
   }
 
   // 阶段 6：序列重置
