@@ -16,6 +16,8 @@ export interface MigratorSpec<TOld, TUnit> {
   transform: (old: TOld) => Promise<TransformOutput<TUnit>>
   /** 写入一批写入单元（内部决定写入哪些表） */
   writeBatch: (units: TUnit[]) => Promise<void>
+  /** 单表熔断阈值覆盖；不设则用 RunnerDeps.failureRateThreshold。用于预期高跳过率的表 */
+  failureRateThreshold?: number
 }
 
 export interface RunnerDeps {
@@ -107,13 +109,14 @@ export async function runMigration<TOld, TUnit>(
     await setProgress(deps.newDb, spec.table, afterId, 'running')
 
     // ④ 熔断：失败率异常高通常意味脚本 bug，主动中止
+    const threshold = spec.failureRateThreshold ?? deps.failureRateThreshold
     if (
       result.read >= CIRCUIT_MIN_SAMPLE &&
-      result.skipped / result.read > deps.failureRateThreshold
+      result.skipped / result.read > threshold
     ) {
       throw new Error(
         `[${spec.table}] 失败率 ${(result.skipped / result.read * 100).toFixed(1)}% ` +
-        `超过阈值 ${(deps.failureRateThreshold * 100).toFixed(0)}%，疑似脚本 bug，已中止`,
+        `超过阈值 ${(threshold * 100).toFixed(0)}%，疑似脚本 bug，已中止`,
       )
     }
   }

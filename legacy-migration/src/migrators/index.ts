@@ -242,9 +242,13 @@ export function buildMigrators(ctx: MigrationCtx): MigratorSpec<unknown, unknown
     (o: any) => transformPointConsumptionRecord(o, remaps.pointConsumptionItems.get(o.itemId) ?? null),
     (o: any) => [['users', o.userId], ['pointRecords', o.pointRecordId]] as [string, number][], fk, 'itemId 无法重映射'))
 
-  specs.push(remapSpec('userBenefits', L.userBenefits, N.userBenefits,
-    (o: any) => transformUserBenefit(o, remaps.benefits.get(o.benefitId) ?? null, migratedAt),
-    (o: any) => [['users', o.userId]] as [string, number][], fk, 'benefitId 无法重映射'))
+  // user_benefits 约 76% 引用新项目已删除的限额类 benefit（预期跳过），放宽熔断阈值
+  specs.push({
+    ...remapSpec('userBenefits', L.userBenefits, N.userBenefits,
+      (o: any) => transformUserBenefit(o, remaps.benefits.get(o.benefitId) ?? null, migratedAt),
+      (o: any) => [['users', o.userId]] as [string, number][], fk, 'benefitId 无法重映射'),
+    failureRateThreshold: 0.95,
+  } as MigratorSpec<unknown, unknown>)
 
   // —— 阶段 5：兑换 ——
   specs.push(remapSpec('redemptionCodes', L.redemptionCodes, N.redemptionCodes,
