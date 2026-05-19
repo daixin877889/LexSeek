@@ -120,7 +120,7 @@ describe('findMaterialsByCaseOrDraftIdDao', () => {
     })
 
     it('两者都无时返回空数组', async () => {
-        const r = await findMaterialsByCaseOrDraftIdDao(null, null)
+        const r = await findMaterialsByCaseOrDraftIdDao({ caseId: null, draftId: null })
         expect(r).toEqual([])
     })
 
@@ -140,7 +140,7 @@ describe('findMaterialsByCaseOrDraftIdDao', () => {
             name: 'b',
             type: CaseMaterialType.DOCUMENT,
         })
-        const r = await findMaterialsByCaseOrDraftIdDao(caseRow.id, null)
+        const r = await findMaterialsByCaseOrDraftIdDao({ caseId: caseRow.id, draftId: null })
         expect(r).toHaveLength(1)
         expect(r[0]!.ossFileId).toBe(oss1.id)
     })
@@ -155,7 +155,7 @@ describe('findMaterialsByCaseOrDraftIdDao', () => {
             name: 'dual',
             type: CaseMaterialType.DOCUMENT,
         })
-        const r = await findMaterialsByCaseOrDraftIdDao(caseRow.id, draft.id)
+        const r = await findMaterialsByCaseOrDraftIdDao({ caseId: caseRow.id, draftId: draft.id })
         expect(r).toHaveLength(1)
     })
 
@@ -172,7 +172,7 @@ describe('findMaterialsByCaseOrDraftIdDao', () => {
             where: { id: m.id },
             data: { deletedAt: new Date() },
         })
-        const r = await findMaterialsByCaseOrDraftIdDao(caseRow.id, null)
+        const r = await findMaterialsByCaseOrDraftIdDao({ caseId: caseRow.id, draftId: null })
         expect(r).toEqual([])
     })
 })
