@@ -136,4 +136,14 @@ describe('cacheInvalidationBus 订阅接线', () => {
         messageCb('other:channel', JSON.stringify({ cacheName: 'nodeConfig' }))
         expect(calls).toEqual([])
     })
+
+    it('on(ready) 重订阅 + subscribe reject 均不抛错', () => {
+        redisMock.subSubscribe.mockReset().mockRejectedValue(new Error('redis down'))
+        // 启动：初次 subscribe reject → .catch 兜住，不抛
+        expect(() => startCacheInvalidationSubscriber()).not.toThrow()
+        // 触发 ready 回调：重订阅，subscribe 仍 reject → .catch 兜住
+        const readyCb = redisMock.subOn.mock.calls.find(c => c[0] === 'ready')![1] as () => void
+        expect(() => readyCb()).not.toThrow()
+        expect(redisMock.subSubscribe).toHaveBeenCalledWith(CACHE_INVALIDATION_CHANNEL)
+    })
 })
