@@ -7,7 +7,15 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "types": ["node"]
+    "types": ["node"],
+    "baseUrl": ".",
+    // 别名映射供根目录 reembed.ts 解析新项目服务层的别名导入；src/ 自身不用别名
+    "paths": {
+      "~~/*": ["../*"],
+      "@@/*": ["../*"],
+      "#shared": ["../shared"],
+      "#shared/*": ["../shared/*"]
+    }
   },
   "include": ["src/**/*.ts", "tests/**/*.ts"]
 }

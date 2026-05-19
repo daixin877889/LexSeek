@@ -85,17 +85,18 @@ export async function verifyRowCounts(
   })
   const caseMaterialsOld = await L.caseMaterials.count()
   const caseMaterialsNew = await N.caseMaterials.count()
+  const derivedContentMaterials = await N.caseMaterials.count({ where: { type: 1, name: '案件描述' } })
   reports.push({
     label: 'case_materials（B 类）',
     status: 'info',
-    detail: `旧 ${caseMaterialsOld} / 新 ${caseMaterialsNew}（跳过 type=5 视频 + 外键失配）`,
+    detail: `旧 ${caseMaterialsOld} / 新 ${caseMaterialsNew}（= 旧迁移 + 派生「案件描述」材料 ${derivedContentMaterials}；跳过 type=5 视频）`,
   })
   const textNew = await N.textContentRecords.count()
   const textTypeOneOld = await L.caseMaterials.count({ where: { type: 1 } })
   reports.push({
     label: 'text_content_records（B 类衍生）',
     status: 'info',
-    detail: `新 ${textNew} ≈ 旧 type=1 材料 ${textTypeOneOld}`,
+    detail: `新 ${textNew}（≈ 旧 type=1 材料 ${textTypeOneOld} + 派生「案件描述」${derivedContentMaterials}）`,
   })
   const ordersOld = await L.paymentOrders.count()
   const ordersNew = await N.orders.count()

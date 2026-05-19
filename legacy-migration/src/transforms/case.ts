@@ -5,13 +5,16 @@ import type { LCase, LCaseSession } from '../legacyTypes'
  * 重映射失败时返回 null，迁移器据此跳过或兜底。
  * status：旧 3 态（1-进行中/2-已完成/3-已关闭）与新 6 阶段 CaseStatus 无法对应，
  * 全部统一映射为 1（CaseStatus.CONSULTING 咨询阶段）。
+ * content：新项目约定案情描述以「案件描述」材料形式存在（createCaseService 把 content
+ * 转成 CASE_CONTENT 材料并把 cases.content 置空）。故此处置 null，案情描述由
+ * orchestrator 的 deriveCaseContentMaterials 派生为 case_materials 材料。
  */
 export function transformCase(o: LCase, newCaseTypeId: number | null) {
   if (newCaseTypeId === null) return null
   return {
     id: o.id,
     title: o.title,
-    content: o.content,
+    content: null,
     userId: o.userId,
     caseTypeId: newCaseTypeId,
     plaintiff: o.plaintiff ?? undefined,

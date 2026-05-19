@@ -165,6 +165,12 @@ export async function runFullMigration(
   // 阶段 6：合成缺失的支付交易（须在 payment_transactions 序列重置之后）
   await synthesizeMissingTransactions(legacy, next, migratedAt, exceptions)
 
+  // 阶段 6：派生「案件描述」材料（须在 case_materials / text_content_records 序列重置之后）
+  await deriveCaseContentMaterials(legacy, next)
+
+  // 阶段 6：回填案件原被告（用旧「当事人提取」分析记录补空字段）
+  await backfillCaseParties(legacy, next)
+
   // 阶段 6：管理员角色补绑
   log('--- 管理员角色补绑 ---')
   await bindAdminRoles(next)
@@ -217,4 +223,146 @@ async function synthesizeMissingTransactions(
     after = orders[orders.length - 1].id
   }
   log(`--- 合成交易完成：新增 ${synthesized} 条 ---`)
+}
+
+/**
+ * 为有案情描述（旧 cases.content）的案件派生一条「案件描述」CASE_CONTENT 材料 +
+ * text_content_records。新项目约定案情描述以材料形式存在（createCaseService 把 content
+ * 转成 CASE_CONTENT 材料、cases.content 置空），迁移须对齐，否则迁移案件的案情描述
+ * 既不出现在材料列表、分析时也读不到。
+ * 须在 case_materials / text_content_records 序列重置之后执行——派生行用自增 ID。
+ * 去重 + 幂等：案情多已作为 type=1「案情描述」材料存在（旧 cases.content 与之重复），
+ * 仅为完全没有 type=1 文本材料的案件派生。
+ */
+async function deriveCaseContentMaterials(
+  legacy: LegacyPrismaClient,
+  next: NewPrismaClient,
+): Promise<void> {
+  log('--- 派生「案件描述」材料 ---')
+  const L = legacy as any
+  const N = next as any
+  let after = 0
+  let derived = 0
+  for (;;) {
+    const cases = await L.cases.findMany({
+      where: { id: { gt: after }, content: { not: null } },
+      orderBy: { id: 'asc' },
+      take: 500,
+      select: { id: true, userId: true, content: true, createdAt: true, updatedAt: true },
+    })
+    if (cases.length === 0) break
+    for (const c of cases) {
+      if (!(c.content ?? '').trim()) continue
+      // 仅为迁移成功的案件派生
+      const caseExists = await N.cases.findUnique({ where: { id: c.id }, select: { id: true } })
+      if (!caseExists) continue
+      // 案情多已作为 type=1「案情描述」材料存在（旧 cases.content 与之重复）；
+      // 仅为无任何 type=1 文本材料的案件派生，避免重复。re-run 幂等亦由此保证。
+      const existing = await N.caseMaterials.findFirst({
+        where: { caseId: c.id, type: 1, deletedAt: null },
+        select: { id: true },
+      })
+      if (existing) continue
+      const material = await N.caseMaterials.create({
+        data: {
+          caseId: c.id,
+          name: '案件描述',
+          type: 1,
+          isEncrypted: false,
+          status: 3,
+          createdAt: c.createdAt,
+          updatedAt: c.updatedAt,
+        },
+      })
+      await N.textContentRecords.create({
+        data: {
+          userId: c.userId,
+          caseId: c.id,
+          materialId: material.id,
+          content: c.content,
+          status: 2,
+          vectorIds: [],
+          lastEmbeddingAt: null,
+          createdAt: c.createdAt,
+          updatedAt: c.updatedAt,
+        },
+      })
+      derived++
+    }
+    after = cases[cases.length - 1].id
+  }
+  log(`--- 「案件描述」材料派生完成：新增 ${derived} 条 ---`)
+}
+
+/** 解析旧「当事人提取」记录的 analysisResult（JSON 字符串数组 / 对象数组）为当事人名列表 */
+function parsePartyNames(raw: string | null): string[] {
+  if (!raw) return []
+  try {
+    const v = JSON.parse(raw)
+    if (!Array.isArray(v)) return []
+    const names: string[] = []
+    for (const item of v) {
+      if (typeof item === 'string' && item.trim()) names.push(item.trim())
+      else if (item && typeof item === 'object' && typeof item.name === 'string' && item.name.trim()) {
+        names.push(item.name.trim())
+      }
+    }
+    return names
+  } catch {
+    return []
+  }
+}
+
+/** 判断 cases.plaintiff/defendant 这类 JSON 值是否为空（null / 空数组 / 空对象） */
+function isEmptyPartyJson(v: unknown): boolean {
+  if (v == null) return true
+  if (Array.isArray(v)) return v.length === 0
+  if (typeof v === 'object') return Object.keys(v as object).length === 0
+  return false
+}
+
+/**
+ * 用旧 case_analyses 的「当事人提取」记录（analysisType=plaintiff/defendant）回填
+ * 新 cases.plaintiff / defendant——仅当该字段当前为空时（不覆盖已有数据）。
+ * 同一 (caseId, analysisType) 多版本：isActive 优先、否则取最大 id。
+ */
+async function backfillCaseParties(
+  legacy: LegacyPrismaClient,
+  next: NewPrismaClient,
+): Promise<void> {
+  log('--- 回填案件原被告 ---')
+  const L = legacy as any
+  const N = next as any
+  const rows: { id: number; caseId: number; analysisType: string; analysisResult: string | null; isActive: number }[]
+    = await L.caseAnalyses.findMany({
+      where: { analysisType: { in: ['plaintiff', 'defendant'] } },
+      select: { id: true, caseId: true, analysisType: true, analysisResult: true, isActive: true },
+      orderBy: { id: 'asc' },
+    })
+  // 按 (caseId, analysisType) 选一条：isActive 优先，否则取最大 id
+  const picked = new Map<string, typeof rows[number]>()
+  for (const r of rows) {
+    const key = `${r.caseId}:${r.analysisType}`
+    const prev = picked.get(key)
+    if (!prev) { picked.set(key, r); continue }
+    const rActive = r.isActive === 1
+    const prevActive = prev.isActive === 1
+    if (rActive && !prevActive) picked.set(key, r)
+    else if (rActive === prevActive && r.id > prev.id) picked.set(key, r)
+  }
+  let filled = 0
+  for (const r of picked.values()) {
+    const names = parsePartyNames(r.analysisResult)
+    if (names.length === 0) continue
+    const caseRow = await N.cases.findUnique({
+      where: { id: r.caseId },
+      select: { id: true, plaintiff: true, defendant: true },
+    })
+    if (!caseRow) continue
+    const field = r.analysisType as 'plaintiff' | 'defendant'
+    if (!isEmptyPartyJson(caseRow[field])) continue // 已有数据不覆盖
+    await N.cases.update({ where: { id: r.caseId }, data: { [field]: names } })
+    filled++
+  }
+  log(`--- 原被告回填完成：${filled} 个案件字段已补 ---`)
 }
