@@ -22,6 +22,7 @@ export const createMaterialDao = async (
             data: {
                 caseId: data.caseId ?? null,
                 draftId: data.draftId ?? null,
+                sessionId: data.sessionId ?? null,
                 name: data.name,
                 type: data.type,
                 ossFileId: data.ossFileId ?? null,
@@ -121,6 +122,24 @@ export const findMaterialsByCaseIdDao = async (
         return materials
     } catch (error) {
         logger.error('通过案件ID查询材料失败：', error)
+        throw error
+    }
+}
+
+/**
+ * 按对话会话标识查询材料（通用问答场景）
+ */
+export const findMaterialsBySessionIdDao = async (
+    sessionId: string,
+    tx?: Prisma.TransactionClient,
+): Promise<caseMaterials[]> => {
+    try {
+        return await (tx || prisma).caseMaterials.findMany({
+            where: { sessionId, deletedAt: null },
+            orderBy: { createdAt: 'asc' },
+        })
+    } catch (error) {
+        logger.error('通过会话标识查询材料失败：', error)
         throw error
     }
 }
@@ -346,27 +365,34 @@ export const findActiveMaterialByOssFileIdDao = async (
     }
 }
 
+/** 材料归属维度：caseId / draftId / sessionId 至少一个非空 */
+export interface MaterialOwnerFilter {
+    caseId: number | null
+    draftId: number | null
+    sessionId?: string | null
+}
+
 /**
- * 按 caseId 或 draftId 合并查询活跃材料（search_case_materials 工具用）
+ * 按归属维度（案件 / 草稿 / 会话）OR 合并查询活跃材料（search_case_materials 工具用）
  *
- * OR 条件：返回 caseId 命中 ∪ draftId 命中的全部材料，Prisma 天然去重
+ * OR 条件：返回各维度命中材料的并集，Prisma 天然去重
  */
 export const findMaterialsByCaseOrDraftIdDao = async (
-    caseId: number | null,
-    draftId: number | null,
+    owner: MaterialOwnerFilter,
     tx?: Prisma.TransactionClient,
 ): Promise<caseMaterials[]> => {
-    if (caseId == null && draftId == null) return []
     const orBranches: Prisma.caseMaterialsWhereInput[] = []
-    if (caseId != null) orBranches.push({ caseId })
-    if (draftId != null) orBranches.push({ draftId })
+    if (owner.caseId != null) orBranches.push({ caseId: owner.caseId })
+    if (owner.draftId != null) orBranches.push({ draftId: owner.draftId })
+    if (owner.sessionId != null) orBranches.push({ sessionId: owner.sessionId })
+    if (orBranches.length === 0) return []
     try {
         return await (tx || prisma).caseMaterials.findMany({
             where: { OR: orBranches, deletedAt: null },
             orderBy: { createdAt: 'asc' },
         })
     } catch (error) {
-        logger.error('按 caseId/draftId 合并查询材料失败：', error)
+        logger.error('按归属维度合并查询材料失败：', error)
         throw error
     }
 }
