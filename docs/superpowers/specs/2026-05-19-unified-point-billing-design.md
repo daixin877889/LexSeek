@@ -32,7 +32,7 @@
 | 2 | `case_analysis_token` | 案件智能分析 | 按 token | 启用 | 直接扣 | token 计费中间件 | 已接入，改走统一服务 |
 | 3 | `document_draft_token` | AI 文书起草 | 按 token | 启用 | 直接扣 | token 计费中间件 | 已接入，改走统一服务 |
 | 4 | `contract_review_token` | 合同智能审查 | 按 token | 启用 | 直接扣 | token 计费中间件 | 已接入，改走统一服务 |
-| 5 | `doc_parse` | PDF 文档解析 | 按次量（页） | 启用 | 预扣→结算/回滚 | `mineru.service` | 改造：现为回调里直接扣，统一为提交时预扣、回调结算 |
+| 5 | `doc_parse` | PDF 文档解析 | 按次量（页） | 启用 | 直接扣 | `mineru.service` | 改造：维持回调里按真实页数扣减，改走统一计费服务（页数须 MinerU 解析后才可知） |
 | 6 | `asr_transcribe` | 录音转文字 | 按次量（分钟） | 启用 | 预扣→结算/回滚 | `asr.service` | 已是预扣，改走统一服务 |
 | 7 | `ocr_recognize` | 图片文字识别 | 按次量（张） | **停用** | 直接扣 | `ocr.service` | 新接入 |
 | 8 | `summary_generate`（新增配置项） | 文件智能摘要 | 按 token | **停用** | 直接扣（best-effort） | `summaryService` | 新增 |
@@ -114,11 +114,12 @@ billRollback(batchId)                              → { releasedAmount }
 
 ### 5.2 PDF 解析（场景 5）
 
-改为标准异步预扣流程，与 ASR 对齐：
+PDF 页数须等 MinerU 解析完成才能拿到，提交时无法预扣，维持回调里直接扣减：
 
-- 提交解析任务时 `billReserve`（按页数预扣，页数未知时以预估页数预扣）。
-- 回调成功 → `billSettle`（传实际页数，多退少补）。
-- 回调失败 → `billRollback`。
+- `completeConversionService` 回调中，解析成功后按真实页数 `billDirect`，改走统一计费服务。
+- 解析失败不扣。
+
+> 预扣→结算/回滚机制由录音转文字（ASR）场景代表，依然保留可用。
 
 ### 5.3 录音转文字（场景 6）
 
@@ -198,5 +199,4 @@ billRollback(batchId)                              → { releasedAmount }
 ## 10. 风险与注意
 
 - token 中间件改造涉及 interrupt/resume 路径，需保证停用态下不误触发 interrupt。
-- PDF 解析从"回调直接扣"改为"提交预扣"，需覆盖预估页数与实际页数差异的多退少补；提交失败需回滚预扣。
 - `operationId` 必须在一次操作内稳定复用，否则聚合失效——agent 场景靠中间件 state 持有，异步任务靠 `batchId` 兜底。
