@@ -113,7 +113,7 @@ async function seedAssistantMainNode(prismaClient: PrismaClient): Promise<void> 
  * 独立于 assistantMain，用于会话标题生成：
  * - 运营可单独调整温度/模型/提示词，不影响主对话体验
  * - 模型优先复用 assistantMain 的 modelId（保持语言风格一致），缺失时回退首个启用 model
- * - 提示词支持 `{{firstUserMessage}}` / `{{firstAssistantReply}}` 模板变量
+ * - 提示词支持 `{{firstUserMessage}}` 模板变量
  */
 async function seedAssistantTitleGenNode(prismaClient: PrismaClient): Promise<void> {
     // 1. 选模型：优先复用 assistantMain
@@ -147,17 +147,15 @@ async function seedAssistantTitleGenNode(prismaClient: PrismaClient): Promise<vo
     })
 
     // 3. upsert 系统提示词 v1
-    const systemPromptContent = `你是一个会话标题生成助手。请根据下面的首轮对话，生成一个简洁的会话标题。
+    const systemPromptContent = `你是一个会话标题生成助手。请根据用户的首个提问，生成一个简洁的会话标题。
 
 要求：
 - 长度不超过 20 字
 - 用中文
 - 不要加引号、标点结尾、换行或任何前后缀
-- 概括对话主题，不要重复问题原文
+- 概括提问主题，不要重复问题原文
 
 用户提问：{{firstUserMessage}}
-
-助手回复：{{firstAssistantReply}}
 
 请直接输出标题（不要包含"标题："或其他前缀）：`
 
@@ -170,7 +168,7 @@ async function seedAssistantTitleGenNode(prismaClient: PrismaClient): Promise<vo
                 name: 'assistantTitleGen_system',
                 title: '会话标题生成系统提示词 v1',
                 content: systemPromptContent,
-                variables: ['firstUserMessage', 'firstAssistantReply'],
+                variables: ['firstUserMessage'],
                 version: 'v1',
                 type: 'system',
                 status: 1,

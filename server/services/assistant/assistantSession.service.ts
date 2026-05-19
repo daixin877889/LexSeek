@@ -2,8 +2,8 @@
  * AssistantSession Service
  *
  * 薄封装层：5 个 service 函数转发到 DAO + 1 个异步标题生成函数。
- * 标题生成函数在首轮对话完成后被触发（fire-and-forget），失败吞异常
- * 不影响核心对话路径。
+ * 标题生成函数在用户发送首条消息时被触发（fire-and-forget），与 agent 回答
+ * 并行执行，失败吞异常不影响核心对话路径。
  *
  * 参见 spec §5.6.1-3 与 plan §1494-1578。
  */
@@ -102,11 +102,12 @@ function sanitizeTitle(raw: string): string {
 /**
  * 异步生成会话标题（fire-and-forget）。
  *
- * 触发条件：首轮对话完成后调用。全程 try/catch 吞异常，非核心路径。
+ * 触发条件：用户发送首条消息、run 启动时调用，与 agent 回答并行。
+ * 全程 try/catch 吞异常，非核心路径。
  *
  * 节点化管理（参考 spec §5.3）：
  * - 提示词 / 模型 / 温度 / maxTokens 全部由 `assistantTitleGen` 节点管理（nodes + prompts 表）
- * - 提示词支持 `{{firstUserMessage}}` / `{{firstAssistantReply}}` 变量
+ * - 提示词支持 `{{firstUserMessage}}` 变量
  * - `assistantTitleGen` 不可用时降级到 `assistantMain`，仍然从 nodes 表取模型（保证向前兼容）
  *
  * 步骤：
@@ -114,24 +115,22 @@ function sanitizeTitle(raw: string): string {
  * 2. 已有 title → 跳过（不覆盖）
  * 3. 读节点配置：无 API key → 跳过
  * 4. 用 createChatModel 构造 model（streaming=false，参数来自节点）
- * 5. 渲染 system 提示词（替换首轮消息变量）并调 invoke
+ * 5. 渲染 system 提示词（替换首条用户消息变量）并调 invoke
  * 6. 清洗 + 截断 20 字
  * 7. 调 renameAssistantSessionDAO 写回
  *
  * @param sessionId 会话 ID
  * @param userId 用户 ID
  * @param firstUserMessage 首条用户消息
- * @param firstAssistantReply 首条助手回复
  */
 export async function generateSessionTitleAsync(
     sessionId: string,
     userId: number,
     firstUserMessage: string,
-    firstAssistantReply: string,
 ): Promise<void> {
     return withLangfuseContext(
         { sessionId, threadId: sessionId, userId, vertical: 'legal-assistant' },
-        () => generateSessionTitleInner(sessionId, userId, firstUserMessage, firstAssistantReply),
+        () => generateSessionTitleInner(sessionId, userId, firstUserMessage),
     )
 }
 
@@ -139,7 +138,6 @@ async function generateSessionTitleInner(
     sessionId: string,
     userId: number,
     firstUserMessage: string,
-    firstAssistantReply: string,
 ): Promise<void> {
     try {
         // 1. 校验 session 存在且归属当前用户
@@ -201,7 +199,6 @@ async function generateSessionTitleInner(
         }
         const prompt = renderContent(systemPromptRaw, {
             firstUserMessage,
-            firstAssistantReply,
         })
 
         let response

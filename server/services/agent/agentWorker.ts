@@ -207,6 +207,19 @@ export class AgentWorker {
         throw new Error(`case session ${run.sessionId} 缺失 caseId（scope 与 caseId 不一致，数据损坏）`)
       }
 
+      // 首条用户消息一发即并行生成会话标题（与 agent 回答并行，不阻塞）
+      // 触发条件：assistant 会话 + 尚无标题 + 本轮带用户消息。
+      // 失败/中断都不影响——它在 agent 执行前就已触发；下一轮带消息的 run 会自动重试。
+      if (
+        scope === SessionScope.ASSISTANT
+        && !session.title
+        && session.userId != null
+        && typeof input.message === 'string'
+        && input.message.trim().length > 0
+      ) {
+        void generateSessionTitleAsync(run.sessionId, session.userId, input.message)
+      }
+
       const type = session.type ?? null
       const meta = session.metadata as Record<string, unknown> | null
 
@@ -231,60 +244,20 @@ export class AgentWorker {
         },
       )
 
-      // 遍历 SSE stream 并发布事件到 Redis
-      const reader = stream.getReader()
-      const decoder = new TextDecoder()
-      // 缓冲最后一个 values 事件，stream 结束后可能需要注入 __interrupt__
-      let lastValuesData: unknown = null
-
-      try {
-        while (!abortController.signal.aborted) {
-          const { done, value } = await reader.read()
-          if (done) break
-
-          const text = decoder.decode(value, { stream: true })
-          // 解析 SSE 事件并发布
-          const events = parseSSEEvents(text)
-          for (const evt of events) {
-            // 剥离 system 消息（防止系统提示词泄露）
-            const sanitized = stripSystemMessages(evt.event, evt.data)
-            if (sanitized === null) continue
-
-            // 缓冲最后一个 values 事件数据（用于 interrupt 检测后合并）
-            if (evt.event === 'values') {
-              lastValuesData = sanitized
-            }
-            await publishAgentEvent({
-              type: 'stream_event',
-              runId: run.id,
-              sessionId: run.sessionId,
-              event: evt.event as 'values' | 'messages' | 'updates',
-              data: sanitized,
-            })
-          }
-        }
-        // flush decoder 缓冲区中可能残留的数据
-        const remaining = decoder.decode()
-        if (remaining) {
-          const events = parseSSEEvents(remaining)
-          for (const evt of events) {
-            const sanitized = stripSystemMessages(evt.event, evt.data)
-            if (sanitized === null) continue
-
-            if (evt.event === 'values') lastValuesData = sanitized
-            await publishAgentEvent({
-              type: 'stream_event',
-              runId: run.id,
-              sessionId: run.sessionId,
-              event: evt.event as 'values' | 'messages' | 'updates',
-              data: sanitized,
-            })
-          }
-        }
-      }
-      finally {
-        reader.releaseLock()
-      }
+      // 遍历 SSE stream 并发布事件到 Redis。
+      // 中断时由 consumeAgentStream 内部 cancel() 把取消透传到上游 LangGraph 流，
+      // 确保图层级运行收到结束回调（否则 Langfuse 会留下无根的无名 trace）。
+      const { lastValuesData } = await consumeAgentStream(
+        stream,
+        abortController.signal,
+        (event, data) => publishAgentEvent({
+          type: 'stream_event',
+          runId: run.id,
+          sessionId: run.sessionId,
+          event: event as 'values' | 'messages' | 'updates',
+          data,
+        }),
+      )
 
       if (abortController.signal.aborted) {
         throw abortController.signal.reason ?? new Error('Run was aborted')
@@ -353,43 +326,6 @@ export class AgentWorker {
         sessionId: run.sessionId,
         status: AGENT_RUN_STATUS.COMPLETED,
       })
-
-      // 异步生成 assistant 会话标题（非阻塞，失败吞异常）
-      // spec §5.6.1：首条对话完成后根据首轮消息自动生成 ≤20 字标题
-      // 使用 lastValuesData 缓冲避免重新调 checkpointer，规避 commit 与 completedAt 时序竞态
-      if (
-        session.scope === SessionScope.ASSISTANT
-        && !session.title
-        && session.userId != null
-        && lastValuesData
-        && typeof lastValuesData === 'object'
-      ) {
-        const msgs = (lastValuesData as { messages?: unknown[] }).messages ?? []
-        const firstUser = msgs.find((m) => {
-          if (!m || typeof m !== 'object') return false
-          const msg = m as { _getType?: () => string; type?: string }
-          return msg._getType?.() === 'human' || msg.type === 'human'
-        }) as { content?: unknown } | undefined
-        const firstAI = msgs.find((m) => {
-          if (!m || typeof m !== 'object') return false
-          const msg = m as { _getType?: () => string; type?: string }
-          return msg._getType?.() === 'ai' || msg.type === 'ai'
-        }) as { content?: unknown } | undefined
-        if (firstUser?.content && firstAI?.content) {
-          const userText = typeof firstUser.content === 'string'
-            ? firstUser.content
-            : JSON.stringify(firstUser.content)
-          const aiText = typeof firstAI.content === 'string'
-            ? firstAI.content
-            : JSON.stringify(firstAI.content)
-          void generateSessionTitleAsync(
-            run.sessionId,
-            session.userId,
-            userText,
-            aiText,
-          )
-        }
-      }
     }
     catch (err: any) {
       const errorMessage = err?.message ?? '未知错误'
@@ -549,6 +485,65 @@ export class AgentWorker {
   get shuttingDown(): boolean {
     return this.isShuttingDown
   }
+}
+
+/**
+ * 消费 Agent 的 SSE ReadableStream，逐事件回调投递。
+ *
+ * 中断时必须 `reader.cancel()` 把取消透传到上游 LangGraph 流：仅 `releaseLock()`
+ * 不会取消上游，图层级运行收不到结束回调，Langfuse 根 span 永不 end、永不上报，
+ * 只剩无根的孤儿子观测——在 Langfuse 列表里表现为「无名」trace。
+ *
+ * @param stream  agentRegistry.dispatch 返回的 SSE 流
+ * @param signal  本次 run 的中断信号（取消 / 超时 / 心跳丢失 / worker 关停均会 abort）
+ * @param onEvent 每条 SSE 事件的投递回调（已剥离 system / internal 消息）
+ * @returns lastValuesData 最后一个 values 事件的数据（用于流结束后的 interrupt 检测）
+ */
+export async function consumeAgentStream(
+  stream: ReadableStream,
+  signal: AbortSignal,
+  onEvent: (event: string, data: unknown) => Promise<void>,
+): Promise<{ lastValuesData: unknown }> {
+  const reader = stream.getReader()
+  const decoder = new TextDecoder()
+  // 缓冲最后一个 values 事件，stream 结束后可能需要注入 __interrupt__
+  let lastValuesData: unknown = null
+
+  const dispatch = async (text: string): Promise<void> => {
+    for (const evt of parseSSEEvents(text)) {
+      // 剥离 system 消息（防止系统提示词泄露）
+      const sanitized = stripSystemMessages(evt.event, evt.data)
+      if (sanitized === null) continue
+      if (evt.event === 'values') lastValuesData = sanitized
+      await onEvent(evt.event, sanitized)
+    }
+  }
+
+  let completed = false
+  try {
+    while (!signal.aborted) {
+      const { done, value } = await reader.read()
+      if (done) break
+      await dispatch(decoder.decode(value, { stream: true }))
+    }
+    // flush decoder 缓冲区中可能残留的数据
+    const remaining = decoder.decode()
+    if (remaining) await dispatch(remaining)
+    completed = true
+  }
+  finally {
+    if (completed && !signal.aborted) {
+      reader.releaseLock()
+    }
+    else {
+      // 中断 / 异常退出（如 onEvent 投递抛错）：cancel() 把取消透传到上游
+      // LangGraph 流，触发其结束回调，让 Langfuse 图层级 span 正常 end ——
+      // 否则上游流被遗弃，留下无根的无名孤儿 trace。
+      await reader.cancel(signal.reason).catch(() => { /* 忽略 cancel 清理异常 */ })
+    }
+  }
+
+  return { lastValuesData }
 }
 
 /**

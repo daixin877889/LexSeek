@@ -25,11 +25,13 @@ const props = defineProps<{
 }>()
 
 /**
- * run 完成时触发：
- * - worker 会在首条对话完成后异步生成 ≤20 字标题（spec §5.6.1），
- * - 父页可据此刷新侧栏列表把"未命名对话"替换为生成后的标题。
+ * 事件：
+ * - `message-sent`：用户发送/入队一条消息时触发。worker 在首条消息发送、
+ *   run 启动时即并行生成 ≤20 字标题（spec §5.6.1），父页据此轮询侧栏标题。
+ * - `run-complete`：run 完成时触发，父页据此做一次兜底刷新。
  */
 const emit = defineEmits<{
+  'message-sent': []
   'run-complete': []
 }>()
 
@@ -108,6 +110,8 @@ function handleSubmit(data: AiPromptSubmitData) {
   } else {
     sendMessage(data, { thinking: thinking.value })
   }
+  // 通知父页：标题在后端与 run 并行生成，父页据此轮询侧栏标题
+  emit('message-sent')
   // 发送 / 入队落定后立即清空输入框（含已选文件 chip + 文本），
   // 与小索保持一致，避免下一轮发送时附件残留导致重复发送。
   aiChatRef.value?.resetPrompt()

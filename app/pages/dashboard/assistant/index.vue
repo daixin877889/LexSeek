@@ -17,6 +17,7 @@ import type { LocationQueryRaw } from 'vue-router'
 import type { AssistantSession } from '#shared/types/assistant'
 import AssistantChatPanel from '~/components/assistant/AssistantChatPanel.vue'
 import AssistantSessionList from '~/components/assistant/AssistantSessionList.vue'
+import AssistantSessionTitle from '~/components/assistant/AssistantSessionTitle.vue'
 import IconXiaosuoIcon from '~/components/icon/XiaosuoIcon.vue'
 import { useFormatters } from '~/composables/useFormatters'
 
@@ -43,6 +44,7 @@ const drawerOpen = ref(false)
 watch(sessionId, (sid) => {
     editingTitle.value = false
     drawerOpen.value = false
+    stopTitlePolling()
     const nextQuery: LocationQueryRaw = { ...route.query }
     if (sid) nextQuery.sid = sid
     else delete nextQuery.sid
@@ -63,14 +65,58 @@ function startNewConversation() {
 }
 
 /**
- * run 完成后触发：worker 会在首轮对话完成后异步生成标题（spec §5.6.1），
- * 一般 ~1-2s 内落库。延迟 2.5s 再刷新侧栏列表以拿到新标题。
+ * 标题轮询：用户发送首条消息后，worker 会在 run 启动时与回答并行生成标题
+ * （spec §5.6.1），一般 ~1-2s 内落库。轮询侧栏列表直到当前会话标题出现，
+ * 让标题在回答还在流式输出时就刷到侧栏。
  */
-function handleRunComplete() {
-    setTimeout(() => {
-        sessionListRef.value?.refresh()
-    }, 2500)
+let titlePollTimer: ReturnType<typeof setTimeout> | null = null
+
+function stopTitlePolling() {
+    if (titlePollTimer) {
+        clearTimeout(titlePollTimer)
+        titlePollTimer = null
+    }
 }
+
+/** 当前会话是否已有标题 */
+function sessionHasTitle(sid: string): boolean {
+    return !!sessionListRef.value?.sessions?.find(s => s.sessionId === sid)?.title
+}
+
+/** 发送消息后触发：会话尚无标题时启动有限次轮询 */
+function handleMessageSent() {
+    const sid = sessionId.value
+    if (!sid || sessionHasTitle(sid)) return
+    stopTitlePolling()
+
+    const MAX_ATTEMPTS = 8
+    const INTERVAL = 2000
+    let attempts = 0
+
+    const poll = async () => {
+        attempts += 1
+        await sessionListRef.value?.refresh()
+        // 标题已出现 → 停止轮询（AssistantSessionTitle 会自动以打字机效果渲染）
+        if (sessionHasTitle(sid)) {
+            stopTitlePolling()
+            return
+        }
+        // 达上限 / 会话已切换 → 停止
+        if (sessionId.value !== sid || attempts >= MAX_ATTEMPTS) {
+            stopTitlePolling()
+            return
+        }
+        titlePollTimer = setTimeout(poll, INTERVAL)
+    }
+    titlePollTimer = setTimeout(poll, INTERVAL)
+}
+
+/** run 完成后做一次兜底刷新（标题一般已在轮询期间刷出） */
+function handleRunComplete() {
+    sessionListRef.value?.refresh()
+}
+
+onBeforeUnmount(stopTitlePolling)
 
 /** 当前选中会话（用于会话顶栏展示标题 / 创建时间） */
 const activeSession = computed<AssistantSession | null>(() => {
@@ -149,7 +195,7 @@ function deleteActiveSession() {
                         <!-- 标题 + 创建时间 -->
                         <div v-if="!editingTitle" class="min-w-0">
                             <h2 class="truncate text-[15px] font-semibold leading-tight">
-                                {{ activeSession?.title ?? '未命名对话' }}
+                                <AssistantSessionTitle :title="activeSession?.title" />
                             </h2>
                             <p class="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
                                 <ClockIcon class="size-3 shrink-0" />
@@ -213,6 +259,7 @@ function deleteActiveSession() {
                     :key="sessionId"
                     :session-id="sessionId"
                     class="flex-1 min-h-0"
+                    @message-sent="handleMessageSent"
                     @run-complete="handleRunComplete"
                 />
             </template>

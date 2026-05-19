@@ -21,6 +21,7 @@ import type {
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useFormatters } from '~/composables/useFormatters'
 import { useAlertDialogStore } from '~/store/alertDialog'
+import AssistantSessionTitle from '~/components/assistant/AssistantSessionTitle.vue'
 
 const selectedId = defineModel<string | null>('selectedId')
 
@@ -166,7 +167,7 @@ defineExpose({ refresh: loadSessions, createSession, sessions, renameSession, re
                         <p class="truncate text-[13px] leading-snug" :class="selectedId === s.sessionId
                             ? 'font-semibold text-primary'
                             : 'font-medium text-foreground'">
-                            {{ s.title ?? '未命名对话' }}
+                            <AssistantSessionTitle :title="s.title" />
                         </p>
                         <p class="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
                             <ClockIcon class="size-3 shrink-0" />
