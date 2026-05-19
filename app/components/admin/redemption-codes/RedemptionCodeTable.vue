@@ -15,6 +15,7 @@
                         <TableHead class="px-4 py-3 text-center">时长/积分</TableHead>
                         <TableHead class="px-4 py-3 text-center">状态</TableHead>
                         <TableHead class="px-4 py-3">备注</TableHead>
+                        <TableHead class="px-4 py-3">创建人</TableHead>
                         <TableHead class="px-4 py-3">过期时间</TableHead>
                         <TableHead class="w-24 px-4 py-3 text-center">操作</TableHead>
                     </TableRow>
@@ -46,6 +47,9 @@
                         <TableCell class="px-4 py-3 text-sm text-muted-foreground max-w-32 truncate"
                             :title="code.remark || ''">
                             {{ code.remark || '-' }}
+                        </TableCell>
+                        <TableCell class="px-4 py-3 text-sm text-muted-foreground">
+                            {{ code.createdByName || '-' }}
                         </TableCell>
                         <TableCell class="px-4 py-3 text-sm text-muted-foreground">
                             {{ code.expiredAt || '永不过期' }}

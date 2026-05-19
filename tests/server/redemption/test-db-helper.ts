@@ -177,6 +177,7 @@ export const createTestRedemptionCode = async (
         status: RedemptionCodeStatus
         expiredAt: Date
         remark: string
+        createdBy: number
     }>
 ): Promise<{
     id: number
@@ -186,6 +187,7 @@ export const createTestRedemptionCode = async (
     levelId: number | null
     duration: number | null
     pointAmount: number | null
+    createdBy: number | null
 }> => {
     const prisma = getTestPrisma()
     const code = await prisma.redemptionCodes.create({
@@ -198,6 +200,7 @@ export const createTestRedemptionCode = async (
             status: data?.status ?? RedemptionCodeStatus.ACTIVE,
             expiredAt: data?.expiredAt || null,
             remark: data?.remark || null,
+            createdBy: data?.createdBy ?? null,
             createdAt: new Date(),
             updatedAt: new Date(),
         },
@@ -210,6 +213,7 @@ export const createTestRedemptionCode = async (
         levelId: code.levelId,
         duration: code.duration,
         pointAmount: code.pointAmount,
+        createdBy: code.createdBy,
     }
 }
 

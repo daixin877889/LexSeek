@@ -12,6 +12,7 @@ describe('transformRedemptionCode', () => {
     expect(r!.type).toBe(1)
     expect(r!.pointAmount).toBeNull()
     expect(r!.levelId).toBe(8)
+    expect(r!.createdBy).toBe(1)
   })
   it('giftPoint>0 → type=3、pointAmount=giftPoint', () => {
     const o = { id: 2, code: 'C2', levelId: 3, duration: 30, status: 1, remark: null, giftPoint: 500, createdBy: 1, createdAt: now, updatedAt: now, deletedAt: null } as unknown as LRedemptionCode

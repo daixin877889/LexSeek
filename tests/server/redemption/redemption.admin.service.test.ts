@@ -32,6 +32,7 @@ import {
     getRedemptionCodesAdminService,
     getRedemptionRecordsAdminService,
     exportRedemptionCodesService,
+    generateRedemptionCodesService,
     generateUniqueCode,
 } from '~~/server/services/redemption/redemptionCode.admin.service'
 
@@ -416,6 +417,76 @@ describe('兑换码管理员服务测试（补充覆盖）', () => {
                 const code = generateUniqueCode()
                 expect(code.length).toBe(17)
             }
+        })
+    })
+
+    describe('createdBy 创建人（D 功能）', () => {
+        it('generateRedemptionCodesService 应把传入的管理员 ID 记录为 createdBy', async () => {
+            if (!dbAvailable) return
+
+            const admin = await createTestUser({ name: '建码管理员' })
+            testIds.userIds.push(admin.id)
+
+            const result = await generateRedemptionCodesService({
+                type: RedemptionCodeType.POINTS_ONLY,
+                quantity: 3,
+                pointAmount: 100,
+                createdBy: admin.id,
+            })
+
+            const created = await prisma.redemptionCodes.findMany({
+                where: { code: { in: result.codes } },
+            })
+            created.forEach(c => testIds.redemptionCodeIds.push(c.id))
+
+            expect(created).toHaveLength(3)
+            created.forEach(c => expect(c.createdBy).toBe(admin.id))
+        })
+
+        it('getRedemptionCodesAdminService 应带出 createdBy 与解析后的 createdByName', async () => {
+            if (!dbAvailable) return
+
+            const admin = await createTestUser({ name: '建码管理员_列表' })
+            testIds.userIds.push(admin.id)
+
+            const code = await createTestRedemptionCode({ createdBy: admin.id })
+            testIds.redemptionCodeIds.push(code.id)
+
+            const result = await getRedemptionCodesAdminService({ code: code.code })
+            const item = result.items.find(i => i.id === code.id)
+
+            expect(item).toBeDefined()
+            expect(item!.createdBy).toBe(admin.id)
+            expect(item!.createdByName).toBe('建码管理员_列表')
+        })
+
+        it('createdBy 为空时 createdByName 应为 null', async () => {
+            if (!dbAvailable) return
+
+            const code = await createTestRedemptionCode()
+            testIds.redemptionCodeIds.push(code.id)
+
+            const result = await getRedemptionCodesAdminService({ code: code.code })
+            const item = result.items.find(i => i.id === code.id)
+
+            expect(item).toBeDefined()
+            expect(item!.createdBy).toBeNull()
+            expect(item!.createdByName).toBeNull()
+        })
+
+        it('exportRedemptionCodesService 的 CSV 应含「创建人」列并填入姓名', async () => {
+            if (!dbAvailable) return
+
+            const admin = await createTestUser({ name: '建码管理员_导出' })
+            testIds.userIds.push(admin.id)
+
+            const code = await createTestRedemptionCode({ createdBy: admin.id })
+            testIds.redemptionCodeIds.push(code.id)
+
+            const csv = await exportRedemptionCodesService({ ids: [code.id] })
+
+            expect(csv).toContain('创建人')
+            expect(csv).toContain('建码管理员_导出')
         })
     })
 })

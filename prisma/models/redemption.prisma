@@ -18,6 +18,8 @@ model redemptionCodes {
   status      Int       @default(1)
   /// 备注
   remark      String?   @db.VarChar(255)
+  /// 创建该兑换码的管理员用户 ID（不建外键，与 orders.adminRemarkUpdatedBy 同惯例）
+  createdBy   Int?      @map("created_by")
   /// 创建时间
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   /// 最后更新时间

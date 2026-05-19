@@ -24,6 +24,7 @@
                 <span v-if="code.pointAmount">{{ code.pointAmount }}积分</span>
             </div>
             <div v-if="code.remark" class="text-xs text-muted-foreground">备注：{{ code.remark }}</div>
+            <div v-if="code.createdByName" class="text-xs text-muted-foreground">创建人：{{ code.createdByName }}</div>
             <div class="text-xs text-muted-foreground">
                 过期：{{ code.expiredAt || '永不过期' }} | 创建：{{ code.createdAt }}
             </div>

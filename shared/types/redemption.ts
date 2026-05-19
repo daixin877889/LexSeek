@@ -78,6 +78,10 @@ export interface RedemptionCodeAdminInfo extends RedemptionCodeInfo {
     typeName: string
     /** 状态名称 */
     statusName: string
+    /** 创建人（管理员）用户 ID */
+    createdBy: number | null
+    /** 创建人姓名 */
+    createdByName: string | null
     /** 创建时间 */
     createdAt: string
     /** 更新时间 */
@@ -110,6 +114,8 @@ export interface GenerateCodesParams {
     expiredAt?: Date
     /** 备注 */
     remark?: string
+    /** 创建人（管理员）用户 ID，由服务端按当前登录管理员填入 */
+    createdBy?: number
 }
 
 /** 批量生成兑换码结果 */

@@ -3,7 +3,7 @@ import { tsFallback } from './helpers'
 
 /**
  * §8.1 redemption_codes：levelId 重映射；giftPoint>0 → type=3、pointAmount=giftPoint，
- * 否则 type=1、pointAmount=null；丢弃 createdBy。
+ * 否则 type=1、pointAmount=null；createdBy 透传（新库已加 created_by 列）。
  */
 export function transformRedemptionCode(o: LRedemptionCode, newLevelId: number | null, migratedAt: Date) {
   if (newLevelId === null) return null
@@ -19,6 +19,7 @@ export function transformRedemptionCode(o: LRedemptionCode, newLevelId: number |
     expiredAt: null,
     status: o.status,
     remark: o.remark,
+    createdBy: o.createdBy,
     createdAt: ts.createdAt,
     updatedAt: ts.updatedAt,
     deletedAt: o.deletedAt,
