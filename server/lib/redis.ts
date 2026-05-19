@@ -31,6 +31,17 @@ export function getRedisSubscriber(): Redis {
   return redisSubscriber
 }
 
+let cacheBusSubscriber: Redis | null = null
+
+/** 获取缓存失效总线专用订阅连接（独立于 agentWorker 占用的 redisSubscriber，避免频道串台） */
+export function getCacheBusSubscriber(): Redis {
+  if (!cacheBusSubscriber) {
+    cacheBusSubscriber = new Redis(getRedisUrl(), { maxRetriesPerRequest: 3, lazyConnect: true })
+    cacheBusSubscriber.on('error', (err) => logger.error('Redis cache-bus subscriber error:', err))
+  }
+  return cacheBusSubscriber
+}
+
 /** 创建新的独立订阅连接（用于 SSE 端点，每个客户端一个） */
 export function createRedisSubscription(): Redis {
   const sub = new Redis(getRedisUrl(), { maxRetriesPerRequest: 3, lazyConnect: true })
@@ -43,9 +54,11 @@ export async function closeRedisConnections(): Promise<void> {
   await Promise.all([
     redisClient?.quit(),
     redisSubscriber?.quit(),
+    cacheBusSubscriber?.quit(),
   ])
   redisClient = null
   redisSubscriber = null
+  cacheBusSubscriber = null
 }
 
 // ==================== Agent 专用数据库连接池 ====================
