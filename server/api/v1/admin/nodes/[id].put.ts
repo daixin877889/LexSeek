@@ -67,7 +67,6 @@ export default defineEventHandler(async (event) => {
 
     try {
         const node = await updateNodeService(paramsResult.data.id, bodyResult.data)
-        // 节点配置已变更，失效 nodeConfig 缓存（本地清 + 广播给其它实例）
         invalidateNodeConfigCache(node.name)
         return resSuccess(event, '更新节点成功', node)
     } catch (error: any) {

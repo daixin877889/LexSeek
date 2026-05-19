@@ -31,7 +31,6 @@ export default defineEventHandler(async (event) => {
 
         await deleteNodeService(result.data.id)
 
-        // 节点已删除，失效 nodeConfig 缓存（本地清 + 广播给其它实例）
         if (node) invalidateNodeConfigCache(node.name)
 
         return resSuccess(event, '删除节点成功', null)
