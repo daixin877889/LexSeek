@@ -4,6 +4,8 @@
 > 状态：待评审
 >
 > 2026-05-19 修订（数据丢失评审后）：`redemption_codes.createdBy` 由"丢弃"改为迁移，并在新产品补「创建人」功能；`payment_transactions` 的 `tradeState`/`bankType`/`payerInfo`/`notifyTime` 由"丢弃"改为并入 `callbackData` JSON 保留；`user_benefits.sourceType` 映射按 LexSeekApi 源码核实修正。详见 §8.1、§8.2 B-3、§9。
+>
+> 2026-05-19 修订（user_roles 评审后）：原"旧 role='user' 不产生 user_roles"会导致迁移用户无菜单、无接口权限（新项目菜单/权限由 user_roles 解析）。改为每个用户都绑基础角色 `user`，旧 `admin` 额外绑 `admin`/`super_admin`，角色按 `code` 解析。详见 §6.4。
 
 ## 1. 背景与目标
 
@@ -122,10 +124,10 @@ legacy-migration/
 - 幂等：保留旧 ID 的表用 `createMany({ skipDuplicates: true })`，按主键冲突跳过；衍生表（`text_content_records` / `user_roles` / 合成的 `payment_transactions`）用各自的自然唯一键去重。
 
 ### 6.4 用户角色衍生
-旧库用 `users.role`（VARCHAR）表达管理员；新库用 RBAC。迁移时：
-- 旧 `users.role='admin'` → 衍生一条 `user_roles`，绑定到新库基础 admin 角色。
-- 旧 `users.role='user'` → 不产生 `user_roles`。
-- 关键账号（dx/Leslie 等需要 super_admin/多角色）→ 迁移末尾按手机号配置补绑（小型映射配置）。
+旧库用 `users.role`（VARCHAR）表达管理员；新库用 RBAC。新项目每个注册用户都被分配「普通用户」角色（`register.post.ts` 固定 `roleIds:[1]`），用户菜单与接口权限均由 `user_roles` 解析——因此**每个迁移用户都必须有角色绑定**。迁移时角色按 `code` 解析：
+- 每个用户 → 衍生一条 `user_roles`，绑定基础角色 `user`（普通用户）。
+- 旧 `users.role='admin'` → 额外再绑 `admin`、`super_admin` 角色。
+- 关键账号如需更细的角色组合 → 迁移末尾经 `src/adminRoles.ts` 的 `ADMIN_BINDINGS` 按手机号补绑（小型映射配置）。
 
 ## 7. 迁移顺序（阶段 0–6）
 

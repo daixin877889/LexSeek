@@ -5,7 +5,7 @@ import type { MigrationConfig } from './config'
 import { ExceptionCollector } from './exceptions'
 import { FkRegistry } from './fkRegistry'
 import { loadConfigRemaps } from './idRemapLoader'
-import { log } from './logger'
+import { log, warn } from './logger'
 import { buildMigrators } from './migrators/index'
 import { ensureProgressTable } from './progress'
 import { runMigration } from './runner'
@@ -82,7 +82,6 @@ export async function runFullMigration(
   legacy: LegacyPrismaClient,
   next: NewPrismaClient,
   cfg: MigrationConfig,
-  adminRoleId: number,
 ): Promise<void> {
   const migratedAt = new Date()
   const exceptions = new ExceptionCollector()
@@ -106,7 +105,36 @@ export async function runFullMigration(
       select: { ossFileId: true },
     })).map((m: any) => m.ossFileId as number),
   )
-  const migrators = buildMigrators({ legacy, next, remaps, fk, migratedAt, adminRoleId, placeholderNodeId, nodeNameToId, materialOssFileIds })
+  // 旧 analysis_modules：name → type（1=案件分析模块，2=文书生成模块）+ 中文标题
+  const moduleRows: { name: string; type: number; title: string }[]
+    = await (legacy as any).analysisModules.findMany({ select: { name: true, type: true, title: true } })
+  const moduleTypeByName = new Map<string, number>()
+  const moduleTitleByName = new Map<string, string>()
+  for (const m of moduleRows) {
+    if (!moduleTypeByName.has(m.name)) moduleTypeByName.set(m.name, m.type)
+    if (m.title && !moduleTitleByName.has(m.name)) moduleTitleByName.set(m.name, m.title)
+  }
+  // 旧 case_analyses 混装三类数据，按 analysisType 分流到不同目标表
+  const PARTY_ANALYSIS_TYPES = new Set(['plaintiff', 'defendant'])
+  const classifyAnalysis = (analysisType: string): 'analysis' | 'document' | 'party' => {
+    if (PARTY_ANALYSIS_TYPES.has(analysisType)) return 'party'
+    // type=1 才是真·案件分析；type=2 文书生成、或模块已下线（不在表中）→ 文书
+    return moduleTypeByName.get(analysisType) === 1 ? 'analysis' : 'document'
+  }
+  // 文书标题：优先用旧 analysis_modules 的中文名；缺失（模块已下线）回退英文 analysisType
+  const documentTitleOf = (analysisType: string): string => moduleTitleByName.get(analysisType) ?? analysisType
+  // 角色按 code 解析：user=每个用户的基础角色；admin/super_admin=旧 admin 额外绑定
+  const roleRows: { id: number; code: string | null }[] = await (next as any).roles.findMany({ select: { id: true, code: true } })
+  const roleByCode = new Map<string, number>(
+    roleRows.filter(r => r.code != null).map(r => [r.code as string, r.id]),
+  )
+  const baseRoleId = roleByCode.get('user')
+  if (baseRoleId == null) throw new Error('新库 roles 表缺少 code=user 的基础角色，无法迁移 user_roles')
+  const adminExtraRoleIds = (['admin', 'super_admin'] as const)
+    .map(c => roleByCode.get(c))
+    .filter((id): id is number => id != null)
+  if (adminExtraRoleIds.length === 0) warn('[user_roles] 新库 roles 缺少 admin/super_admin，旧 admin 将只绑基础角色')
+  const migrators = buildMigrators({ legacy, next, remaps, fk, migratedAt, baseRoleId, adminExtraRoleIds, placeholderNodeId, nodeNameToId, materialOssFileIds, classifyAnalysis, documentTitleOf })
 
   const deps = {
     newDb: next as any,

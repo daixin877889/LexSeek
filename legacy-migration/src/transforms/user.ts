@@ -25,7 +25,16 @@ export function transformUser(o: LUser) {
   }
 }
 
-/** §6.4：旧 role='admin' → 衍生一条 user_roles，绑定 adminRoleId；其余不衍生 */
-export function deriveUserRoles(o: LUser, adminRoleId: number): { userId: number; roleId: number }[] {
-  return o.role === 'admin' ? [{ userId: o.id, roleId: adminRoleId }] : []
+/**
+ * §6.4：每个用户都绑基础角色「普通用户」；旧 role='admin' 额外绑管理类角色。
+ * 新项目每个注册用户都有「普通用户」角色（register.post.ts 固定 roleIds:[1]），
+ * 用户菜单 / 接口权限均由 user_roles 解析，迁移须保持一致，否则迁移用户无菜单无权限。
+ */
+export function deriveUserRoles(
+  o: LUser,
+  baseRoleId: number,
+  adminExtraRoleIds: number[],
+): { userId: number; roleId: number }[] {
+  const roleIds = o.role === 'admin' ? [baseRoleId, ...adminExtraRoleIds] : [baseRoleId]
+  return roleIds.map(roleId => ({ userId: o.id, roleId }))
 }

@@ -44,7 +44,7 @@ export async function verifyAggregates(
   reports.push({
     label: '案件分析记录数',
     status: oldAnalyses >= newAnalyses ? 'ok' : 'mismatch',
-    detail: `旧 ${oldAnalyses} / 新 ${newAnalyses}（新 ≤ 旧；差额为 analysisType 无匹配节点而跳过的）`,
+    detail: `旧 ${oldAnalyses} / 新 ${newAnalyses}（新 ≤ 旧；差额为分流到 documentDrafts 的文书与丢弃的当事人记录，详见行数校验）`,
   })
 
   log('--- 业务聚合校验 ---')

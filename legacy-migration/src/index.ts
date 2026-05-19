@@ -24,12 +24,10 @@ async function cmdPreflight(): Promise<void> {
 
 async function cmdMigrate(): Promise<void> {
   const cfg = loadConfig()
-  const adminRoleId = Number(process.env.MIGRATION_ADMIN_ROLE_ID ?? 0)
-  if (!adminRoleId) throw new Error('缺少 MIGRATION_ADMIN_ROLE_ID（新库基础 admin 角色的 id）')
   const legacy = createLegacyClient(cfg.legacyDatabaseUrl)
   const next = createNewClient(cfg.newDatabaseUrl)
   try {
-    await runFullMigration(legacy, next, cfg, adminRoleId)
+    await runFullMigration(legacy, next, cfg)
   } finally {
     await legacy.$disconnect()
     await next.$disconnect()

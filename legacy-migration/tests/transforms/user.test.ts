@@ -25,11 +25,18 @@ describe('transformUser', () => {
 })
 
 describe('deriveUserRoles', () => {
-  it('role=admin 衍生一条 user_roles，绑定传入的 adminRoleId', () => {
-    const rows = deriveUserRoles({ ...base, role: 'admin' } as LUser, 2)
-    expect(rows).toEqual([{ userId: 1, roleId: 2 }])
+  it('普通用户绑基础角色「普通用户」', () => {
+    expect(deriveUserRoles(base, 1, [2, 3])).toEqual([{ userId: 1, roleId: 1 }])
   })
-  it('role=user 不衍生', () => {
-    expect(deriveUserRoles(base, 2)).toEqual([])
+  it('role=admin 额外绑管理类角色（基础 + admin + super_admin）', () => {
+    const rows = deriveUserRoles({ ...base, role: 'admin' } as LUser, 1, [2, 3])
+    expect(rows).toEqual([
+      { userId: 1, roleId: 1 },
+      { userId: 1, roleId: 2 },
+      { userId: 1, roleId: 3 },
+    ])
+  })
+  it('admin 无额外管理角色时仅绑基础角色', () => {
+    expect(deriveUserRoles({ ...base, role: 'admin' } as LUser, 1, [])).toEqual([{ userId: 1, roleId: 1 }])
   })
 })

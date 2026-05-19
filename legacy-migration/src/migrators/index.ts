@@ -3,6 +3,7 @@ import type { FkRegistry } from '../fkRegistry'
 import type { ConfigRemaps } from '../idRemapLoader'
 import type { MigratorSpec } from '../runner'
 import { mapCaseAnalysis } from '../transforms/caseAnalysis'
+import { mapFreeformDraft } from '../transforms/document'
 import { mapCaseMaterial, mapTextContentRecord } from '../transforms/caseMaterial'
 import { transformCase, transformCaseSession } from '../transforms/case'
 import { transformUserBenefit } from '../transforms/benefit'
@@ -21,13 +22,20 @@ export interface MigrationCtx {
   remaps: ConfigRemaps
   fk: FkRegistry
   migratedAt: Date
-  adminRoleId: number
+  /** 每个用户都绑定的基础角色 id（roles.code='user'） */
+  baseRoleId: number
+  /** 旧 role='admin' 额外绑定的管理类角色 id（roles.code='admin'/'super_admin'） */
+  adminExtraRoleIds: number[]
   /** analysisType 在新 nodes 无对应时的占位节点 id */
   placeholderNodeId: number
   /** 新 nodes 的 name → id 映射 */
   nodeNameToId: Map<string, number>
   /** 被 case_materials 引用的旧 oss_file id 集合（用于 oss_files.source 重标记为 caseAnalysis） */
   materialOssFileIds: Set<number>
+  /** 旧 case_analyses 分类：analysis-真分析 / document-文书生成 / party-当事人提取 */
+  classifyAnalysis: (analysisType: string) => 'analysis' | 'document' | 'party'
+  /** 文书 analysisType → 中文标题（旧 analysis_modules.title） */
+  documentTitleOf: (analysisType: string) => string
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -99,7 +107,7 @@ async function ensureLegacySession(next: NewPrismaClient, caseId: number, userId
  * orchestrator 直接顺序执行即满足外键依赖。
  */
 export function buildMigrators(ctx: MigrationCtx): MigratorSpec<unknown, unknown>[] {
-  const { legacy, next, remaps, fk, migratedAt, adminRoleId, placeholderNodeId, nodeNameToId, materialOssFileIds } = ctx
+  const { legacy, next, remaps, fk, migratedAt, baseRoleId, adminExtraRoleIds, placeholderNodeId, nodeNameToId, materialOssFileIds, classifyAnalysis, documentTitleOf } = ctx
   const specs: MigratorSpec<unknown, unknown>[] = []
   const L = legacy as any
   const N = next as any
@@ -112,7 +120,7 @@ export function buildMigrators(ctx: MigrationCtx): MigratorSpec<unknown, unknown
     table: 'users',
     readBatch: pagedRead(L.users),
     oldId: (o: any) => o.id,
-    transform: async (o: any) => ({ unit: { user: transformUser(o), roles: deriveUserRoles(o, adminRoleId) } }),
+    transform: async (o: any) => ({ unit: { user: transformUser(o), roles: deriveUserRoles(o, baseRoleId, adminExtraRoleIds) } }),
     writeBatch: async (units: any[]) => {
       await N.users.createMany({ data: units.map((u: any) => u.user), skipDuplicates: true })
       const roles = units.flatMap((u: any) => u.roles)
@@ -190,14 +198,31 @@ export function buildMigrators(ctx: MigrationCtx): MigratorSpec<unknown, unknown
     readBatch: pagedRead(L.caseAnalyses),
     oldId: (o: any) => o.id,
     transform: async (o: any) => {
+      // 文书生成类 → documentDrafts 自由文书；当事人提取类 → 丢弃。本表只收真·案件分析
+      if (classifyAnalysis(o.analysisType) !== 'analysis') return { ignore: true }
       const fkErr = fk.requireAll([['cases', o.caseId]])
       if (fkErr) return { skip: fkErr }
-      // analysisType 匹配新 nodes；无匹配（文书生成等历史记录）→ 挂占位节点
+      // analysisType 匹配新 nodes；旧分析模块在新库已下线的 → 挂占位节点
       const nodeId = nodeNameToId.get(o.analysisType) ?? placeholderNodeId
       const sessionId: string = o.sessionId ?? await ensureLegacySession(next, o.caseId, o.userId)
       return { unit: mapCaseAnalysis(o, nodeId, sessionId, migratedAt) }
     },
     writeBatch: async (units: any[]) => { await N.caseAnalyses.createMany({ data: units, skipDuplicates: true }) },
+  } as MigratorSpec<unknown, unknown>)
+
+  // —— 阶段 3：历史文书生成记录 → documentDrafts 自由文书草稿 ——
+  // 与 caseAnalyses 同读 legacy.caseAnalyses，按 classifyAnalysis 各取所需子集（互不重叠）
+  specs.push({
+    table: 'documentDrafts',
+    readBatch: pagedRead(L.caseAnalyses),
+    oldId: (o: any) => o.id,
+    transform: async (o: any) => {
+      if (classifyAnalysis(o.analysisType) !== 'document') return { ignore: true }
+      const fkErr = fk.requireAll([['cases', o.caseId]])
+      if (fkErr) return { skip: fkErr }
+      return { unit: mapFreeformDraft(o, migratedAt, documentTitleOf(o.analysisType)) }
+    },
+    writeBatch: async (units: any[]) => { await N.documentDrafts.createMany({ data: units, skipDuplicates: true }) },
   } as MigratorSpec<unknown, unknown>)
 
   // —— 阶段 4：会员与交易 ——

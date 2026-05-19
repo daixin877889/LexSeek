@@ -2,8 +2,8 @@ import type { ExceptionCollector } from './exceptions'
 import { log } from './logger'
 import { getLastId, type RawDb, setProgress } from './progress'
 
-/** 转换输出：写入单元，或带原因的跳过 */
-export type TransformOutput<TUnit> = { unit: TUnit } | { skip: string }
+/** 转换输出：写入单元 / 带原因跳过（记入异常清单）/ 分流（由其它迁移器处理，不计跳过） */
+export type TransformOutput<TUnit> = { unit: TUnit } | { skip: string } | { ignore: true }
 
 export interface MigratorSpec<TOld, TUnit> {
   /** 目标表名（同时作为进度 key 与异常清单分类名） */
@@ -36,6 +36,8 @@ export interface MigrationResult {
   read: number
   succeeded: number
   skipped: number
+  /** 被分流到其它迁移器、本表不处理的行数（不计入跳过/异常） */
+  ignored: number
   /** 成功迁移的旧行 id 集合（供子表外键预校验，仅本次运行内有效） */
   migratedIds: Set<number>
 }
@@ -52,6 +54,7 @@ export async function runMigration<TOld, TUnit>(
     read: 0,
     succeeded: 0,
     skipped: 0,
+    ignored: 0,
     migratedIds: new Set<number>(),
   }
 
@@ -70,7 +73,10 @@ export async function runMigration<TOld, TUnit>(
       const id = spec.oldId(old)
       try {
         const out = await spec.transform(old)
-        if ('skip' in out) {
+        if ('ignore' in out) {
+          // 该行由其它迁移器负责（如文书类 case_analyses 归 documentDrafts），本表不处理
+          result.ignored++
+        } else if ('skip' in out) {
           result.skipped++
           deps.exceptions.add(spec.table, id, out.skip)
         } else {
@@ -109,19 +115,21 @@ export async function runMigration<TOld, TUnit>(
     await setProgress(deps.newDb, spec.table, afterId, 'running')
 
     // ④ 熔断：失败率异常高通常意味脚本 bug，主动中止
+    // 分母剔除"分流"行（它们本就不该由本表处理），避免大量分流稀释真实失败率
     const threshold = spec.failureRateThreshold ?? deps.failureRateThreshold
+    const effectiveRead = result.read - result.ignored
     if (
-      result.read >= CIRCUIT_MIN_SAMPLE &&
-      result.skipped / result.read > threshold
+      effectiveRead >= CIRCUIT_MIN_SAMPLE &&
+      result.skipped / effectiveRead > threshold
     ) {
       throw new Error(
-        `[${spec.table}] 失败率 ${(result.skipped / result.read * 100).toFixed(1)}% ` +
+        `[${spec.table}] 失败率 ${(result.skipped / effectiveRead * 100).toFixed(1)}% ` +
         `超过阈值 ${(threshold * 100).toFixed(0)}%，疑似脚本 bug，已中止`,
       )
     }
   }
 
   await setProgress(deps.newDb, spec.table, afterId, 'done')
-  log(`[${spec.table}] 完成：读取 ${result.read} / 成功 ${result.succeeded} / 跳过 ${result.skipped}`)
+  log(`[${spec.table}] 完成：读取 ${result.read} / 成功 ${result.succeeded} / 跳过 ${result.skipped} / 分流 ${result.ignored}`)
   return result
 }

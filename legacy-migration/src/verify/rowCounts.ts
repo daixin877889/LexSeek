@@ -46,7 +46,6 @@ export async function verifyRowCounts(
     ['doc_recognition_records', L.docRecognitionRecords, N.docRecognitionRecords, 'docRecognitionRecords'],
     ['image_recognition_records', L.imageRecognitionRecords, N.imageRecognitionRecords, 'imageRecognitionRecords'],
     ['cases', L.cases, N.cases, 'cases'],
-    ['case_analyses', L.caseAnalyses, N.caseAnalyses, 'caseAnalyses'],
     ['user_memberships', L.userMemberships, N.userMemberships, 'userMemberships'],
     ['membership_upgrade_records', L.membershipUpgradeRecords, N.membershipUpgradeRecords, 'membershipUpgradeRecords'],
     ['point_records', L.pointRecords, N.pointRecords, 'pointRecords'],
@@ -71,6 +70,18 @@ export async function verifyRowCounts(
     label: 'case_sessions（含衍生 legacy 会话）',
     status: 'info',
     detail: `旧 ${caseSessionsOld} / 新 ${caseSessionsNew}（新 = 旧迁移 + 为无 sessionId 的历史分析衍生的 legacy 会话）`,
+  })
+  // case_analyses 分流：真·分析留 case_analyses，文书生成 → documentDrafts 自由文书，当事人提取记录丢弃
+  const analysesOld = await L.caseAnalyses.count()
+  const analysesNew = await N.caseAnalyses.count()
+  const freeformNew = await N.documentDrafts.count({ where: { mode: 'freeform' } })
+  const partyOld = await L.caseAnalyses.count({ where: { analysisType: { in: ['plaintiff', 'defendant'] } } })
+  const analysesDiff = analysesOld - analysesNew - freeformNew - partyOld
+  reports.push({
+    label: 'case_analyses（分流：真分析 / 文书 / 当事人）',
+    status: analysesDiff === 0 ? 'ok' : 'info',
+    detail: `旧 ${analysesOld} = 新 case_analyses ${analysesNew} + 文书自由稿 ${freeformNew} + 当事人记录(丢弃) ${partyOld}`
+      + (analysesDiff === 0 ? '' : `，差额 ${analysesDiff}（外键失配跳过，见异常清单）`),
   })
   const caseMaterialsOld = await L.caseMaterials.count()
   const caseMaterialsNew = await N.caseMaterials.count()
