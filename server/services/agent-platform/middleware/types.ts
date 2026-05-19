@@ -58,6 +58,7 @@ export const MIDDLEWARE_NAMES = {
     SCOPE_GUARD: 'scopeGuard',
     TOOL_CALL_LIMIT: 'toolCallLimit',
     PROCESS_MATERIAL: 'caseProcessMaterial',
+    ASSISTANT_PROCESS_MATERIAL: 'assistantProcessMaterial',
     POINT_CONSUMPTION: 'pointConsumption',
     MODULE_CONTEXT: 'caseContext',
     SUMMARIZATION: 'summarization',

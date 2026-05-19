@@ -6,7 +6,10 @@
  * - agentType: createAgent（ReAct 循环）
  * - nodeName: assistantMain（静态节点，所有助手会话共用）
  *
- * 无业务私有中间件、无业务私有工具。
+ * 业务私有中间件：
+ * - assistantProcessMaterial：Agent 启动前解析用户上传附件、按会话建材料并跑识别流水线，
+ *   让 process_materials / search_case_materials 可读到内容。
+ *
  * 平台工厂负责：
  * - 系统提示词：renderSystemPrompt(nodeConfig, ctx)
  * - 中间件：messageIntegrity + scopeGuard + pointConsumption(assistant_token)
@@ -19,10 +22,29 @@
 
 import { defineDomainAgent } from '~~/server/services/agent-platform/factory/defineDomainAgent'
 import { SessionScope } from '#shared/types/agentEvent'
+import {
+    MIDDLEWARE_PRIORITY,
+    MIDDLEWARE_NAMES,
+} from '~~/server/services/agent-platform/middleware/types'
+import { assistantProcessMaterialMiddleware } from '~~/server/agents/legal-assistant/assistantProcessMaterial.middleware'
 
 export const legalAssistantAgent = defineDomainAgent({
     scope: SessionScope.ASSISTANT,
     agentType: 'createAgent',
     nodeName: 'assistantMain',
     description: '通用问答（assistantMain 节点）',
+
+    /**
+     * 业务私有中间件：
+     * - assistantProcessMaterial（priority=PROCESS_MATERIAL=10）：Agent 启动前解析用户
+     *   上传附件、按会话建材料并跑识别流水线，让 process_materials /
+     *   search_case_materials 可读到内容。
+     */
+    customMiddlewares: async (ctx) => [
+        {
+            middleware: assistantProcessMaterialMiddleware(ctx.userId, ctx.sessionId, ctx.runId),
+            priority: MIDDLEWARE_PRIORITY.PROCESS_MATERIAL,
+            name: MIDDLEWARE_NAMES.ASSISTANT_PROCESS_MATERIAL,
+        },
+    ],
 })
