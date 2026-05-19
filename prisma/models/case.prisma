@@ -151,10 +151,12 @@ model caseSessions {
 model caseMaterials {
   /// 材料ID，主键，自增
   id          Int       @id @default(autoincrement())
-  /// 关联的案件ID（文书生成场景下可为 NULL，此时由 draftId 关联）
+  /// 关联的案件ID（通用问答 / 文书生成场景下可为 NULL，由 draftId / sessionId 关联）
   caseId      Int?      @map("case_id")
-  /// 关联的文书草稿ID（文书生成场景使用，与 caseId 互斥）
+  /// 关联的文书草稿ID（文书生成场景使用）
   draftId     Int?      @map("draft_id")
+  /// 关联的对话会话标识（通用问答场景使用，对应 caseSessions.sessionId / LangGraph thread_id）
+  sessionId   String?   @map("session_id") @db.VarChar(100)
   /// 材料名称
   name        String    @db.VarChar(255)
   /// 材料类型：1-文本，2-文档，3-图片，4-音频
@@ -179,6 +181,7 @@ model caseMaterials {
 
   @@index([caseId], map: "idx_case_materials_case_id")
   @@index([draftId], map: "idx_case_materials_draft")
+  @@index([sessionId], map: "idx_case_materials_session_id")
   @@index([type], map: "idx_case_materials_type")
   @@index([status], map: "idx_case_materials_status")
   @@index([deletedAt], map: "idx_case_materials_deleted_at")

@@ -323,6 +323,7 @@ export const CaseMaterialsScalarFieldEnum = {
   id: 'id',
   caseId: 'caseId',
   draftId: 'draftId',
+  sessionId: 'sessionId',
   name: 'name',
   type: 'type',
   ossFileId: 'ossFileId',
