@@ -37,7 +37,7 @@ export function mapOrder(o: LPaymentOrder, newProductId: number | null, isUpgrad
  * §8.2 B-3：旧 payment_transactions → 新 payment_transactions。
  * 生成必填 transactionNo='LEGACY'+id；transactionId→outTradeNo；rawData→callbackData；
  * successTime→paidAt；paymentType→paymentChannel、paymentWay→paymentMethod；expiredAt=createdAt；
- * 丢弃 tradeState/bankType/payerInfo/notifyTime。旧 createdAt/updatedAt 为 NOT NULL。
+ * tradeState/bankType/payerInfo/notifyTime 新库无独立列，并入 callbackData JSON 保留。旧 createdAt/updatedAt 为 NOT NULL。
  */
 export function mapPaymentTransaction(o: LPaymentTransaction) {
   return {
@@ -52,7 +52,14 @@ export function mapPaymentTransaction(o: LPaymentTransaction) {
     status: o.status,
     paidAt: o.successTime,
     expiredAt: o.createdAt,
-    callbackData: o.rawData ?? undefined,
+    // 旧库回调明细拆成独立列，新库无对应列，并入 callbackData JSON 保留
+    callbackData: {
+      rawData: o.rawData ?? null,
+      tradeState: o.tradeState ?? null,
+      bankType: o.bankType ?? null,
+      payerInfo: o.payerInfo ?? null,
+      notifyTime: o.notifyTime ? o.notifyTime.toISOString() : null,
+    },
     errorMessage: null,
     remark: null,
     adminRemark: null,

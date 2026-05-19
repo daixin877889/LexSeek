@@ -19,8 +19,15 @@ describe('tsFallback', () => {
 })
 
 describe('mapUserBenefitSourceType', () => {
-  it('按对照表把旧数字码映射为新字符串枚举', () => {
+  it('按 LexSeekApi BenefitSourceType 对照表映射旧数字码', () => {
     expect(mapUserBenefitSourceType(1)).toBe('membership_gift')
+    expect(mapUserBenefitSourceType(2)).toBe('redemption_code')
+    expect(mapUserBenefitSourceType(3)).toBe('benefit_package')
+    expect(mapUserBenefitSourceType(4)).toBe('admin_gift')
+  })
+  it('新库无对应的旧值（5 活动/6 试用/99 其他）回退 admin_gift', () => {
+    expect(mapUserBenefitSourceType(5)).toBe('admin_gift')
+    expect(mapUserBenefitSourceType(6)).toBe('admin_gift')
     expect(mapUserBenefitSourceType(99)).toBe('admin_gift')
   })
 })

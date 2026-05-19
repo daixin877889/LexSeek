@@ -24,6 +24,11 @@ describe('transformCase', () => {
     expect(r!.summary).toBeNull()
     expect('caseNumber' in r!).toBe(false)
   })
+  it('status 统一映射为 1（咨询阶段），不论旧值', () => {
+    expect(transformCase(oldCase, 50)!.status).toBe(1)
+    expect(transformCase({ ...oldCase, status: 2 }, 50)!.status).toBe(1)
+    expect(transformCase({ ...oldCase, status: 0 }, 50)!.status).toBe(1)
+  })
   it('caseTypeId 重映射失败（传 null）返回 null（由迁移器跳过/兜底）', () => {
     expect(transformCase(oldCase, null)).toBeNull()
   })

@@ -44,6 +44,13 @@ describe('mapPaymentTransaction', () => {
     expect(r.paymentMethod).toBe('wap')
     expect(r.expiredAt).toEqual(now)
     expect(r.paidAt).toEqual(now)
+    expect(r.callbackData).toEqual({
+      rawData: { raw: 1 },
+      tradeState: 'SUCCESS',
+      bankType: 'ICBC',
+      payerInfo: {},
+      notifyTime: now.toISOString(),
+    })
   })
 })
 

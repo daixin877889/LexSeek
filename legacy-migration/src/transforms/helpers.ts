@@ -11,14 +11,16 @@ export function tsFallback(
 
 /**
  * user_benefits.sourceType：旧 Int → 新 String 枚举。
- * 对照表在演练阶段查旧项目代码核对（设计文档 §9 枚举映射表）；
- * 此处为初版假设，若 preflight/演练发现不符须修正。
+ * 已对照 LexSeekApi BenefitSourceType 核实：
+ * 1=会员额度 2=兑换码 3=直接购买 4=管理员赠送 5=活动奖励 6=试用 99=其他。
+ * 新库枚举仅 membership_gift/redemption_code/benefit_package/admin_gift 四值，
+ * 旧 5/6/99 无对应，统一回退 admin_gift。
  */
 const USER_BENEFIT_SOURCE_TYPE: Record<number, string> = {
   1: 'membership_gift',
-  2: 'benefit_package',
-  3: 'redemption_code',
-  99: 'admin_gift',
+  2: 'redemption_code',
+  3: 'benefit_package',
+  4: 'admin_gift',
 }
 export function mapUserBenefitSourceType(old: number): string {
   return USER_BENEFIT_SOURCE_TYPE[old] ?? 'admin_gift'

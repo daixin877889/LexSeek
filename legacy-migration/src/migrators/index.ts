@@ -26,6 +26,8 @@ export interface MigrationCtx {
   placeholderNodeId: number
   /** 新 nodes 的 name → id 映射 */
   nodeNameToId: Map<string, number>
+  /** 被 case_materials 引用的旧 oss_file id 集合（用于 oss_files.source 重标记为 caseAnalysis） */
+  materialOssFileIds: Set<number>
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -97,7 +99,7 @@ async function ensureLegacySession(next: NewPrismaClient, caseId: number, userId
  * orchestrator 直接顺序执行即满足外键依赖。
  */
 export function buildMigrators(ctx: MigrationCtx): MigratorSpec<unknown, unknown>[] {
-  const { legacy, next, remaps, fk, migratedAt, adminRoleId, placeholderNodeId, nodeNameToId } = ctx
+  const { legacy, next, remaps, fk, migratedAt, adminRoleId, placeholderNodeId, nodeNameToId, materialOssFileIds } = ctx
   const specs: MigratorSpec<unknown, unknown>[] = []
   const L = legacy as any
   const N = next as any
@@ -119,7 +121,7 @@ export function buildMigrators(ctx: MigrationCtx): MigratorSpec<unknown, unknown
   } as MigratorSpec<unknown, unknown>)
 
   // —— 阶段 2：oss_files / asr_tasks / asr_records / doc / image ——
-  specs.push(simpleSpec('ossFiles', L.ossFiles, N.ossFiles, (o: any) => transformOssFile(o)))
+  specs.push(simpleSpec('ossFiles', L.ossFiles, N.ossFiles, (o: any) => transformOssFile(o, materialOssFileIds)))
   specs.push(simpleSpec('asrTasks', L.asrTasks, N.asrTasks, (o: any) => transformAsrTask(o, migratedAt)))
   specs.push(fkSpec('asrRecords', L.asrRecords, N.asrRecords,
     (o: any) => transformAsrRecord(o, migratedAt),

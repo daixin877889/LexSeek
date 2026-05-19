@@ -98,7 +98,15 @@ export async function runFullMigration(
     (await (next as any).nodes.findMany({ select: { id: true, name: true } }))
       .map((n: any) => [n.name as string, n.id as number]),
   )
-  const migrators = buildMigrators({ legacy, next, remaps, fk, migratedAt, adminRoleId, placeholderNodeId, nodeNameToId })
+  // 被 case_materials 引用的旧 oss_file id —— 这些是用户上传的案件材料，
+  // 其 oss_files.source 须重标记为 caseAnalysis（详见 transformOssFile）
+  const materialOssFileIds = new Set<number>(
+    (await (legacy as any).caseMaterials.findMany({
+      where: { ossFileId: { not: null } },
+      select: { ossFileId: true },
+    })).map((m: any) => m.ossFileId as number),
+  )
+  const migrators = buildMigrators({ legacy, next, remaps, fk, migratedAt, adminRoleId, placeholderNodeId, nodeNameToId, materialOssFileIds })
 
   const deps = {
     newDb: next as any,
