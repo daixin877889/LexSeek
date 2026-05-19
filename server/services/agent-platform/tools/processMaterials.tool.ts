@@ -15,6 +15,7 @@ import type { ToolDefinition, ToolContext } from './types'
 import {
     ensureMaterialsReadyService,
     ensureMaterialsReadyByDraftService,
+    ensureMaterialsReadyBySessionService,
     getMaterialContextService,
     estimateTokens,
     getSourceId,
@@ -47,7 +48,7 @@ export const toolDefinition: ToolDefinition<typeof schema> = {
 }
 
 export function createTool(context: ToolContext) {
-    const { userId, caseId, draftId } = context
+    const { userId, caseId, draftId, sessionId } = context
 
     return tool(
         async (input) => {
@@ -55,14 +56,16 @@ export function createTool(context: ToolContext) {
             logger.info('执行材料处理工具', { userId, caseId, draftId, fileIds })
 
             try {
-                if (caseId == null && draftId == null) {
-                    throw new Error('process_materials 工具需要 caseId 或 draftId，当前上下文均缺失')
+                if (caseId == null && draftId == null && !sessionId) {
+                    throw new Error('process_materials 工具需要 caseId / draftId / sessionId，当前上下文均缺失')
                 }
 
-                // 1. 按优先级选择批处理入口（draftId 优先，保持小索/案件路径原样）
+                // 1. 按优先级选择批处理入口：draftId > caseId > sessionId（通用问答）
                 const ready = draftId != null
                     ? await ensureMaterialsReadyByDraftService(draftId, userId, { fileIds, caseId: caseId ?? null })
-                    : await ensureMaterialsReadyService(caseId!, userId)
+                    : caseId != null
+                        ? await ensureMaterialsReadyService(caseId, userId)
+                        : await ensureMaterialsReadyBySessionService(sessionId!, userId, { fileIds })
                 const { materials, embeddedMap } = ready
 
                 if (materials.length === 0) {
@@ -70,7 +73,9 @@ export function createTool(context: ToolContext) {
                         mode: 'empty',
                         message: draftId != null
                             ? '当前文书草稿还没有材料，请先在输入框里上传/选择文件。'
-                            : '当前案件没有任何材料，请先上传案件材料。',
+                            : caseId != null
+                                ? '当前案件没有任何材料，请先上传案件材料。'
+                                : '本对话还没有上传任何文件，请先在输入框上传后再提问。',
                         materials: [],
                     })
                 }
