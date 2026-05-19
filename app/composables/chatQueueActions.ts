@@ -8,6 +8,7 @@
  */
 
 import type { OssFileItem } from '~/store/file'
+import { ATTACH_SENTINEL, type AttachmentPayloadItem } from '#shared/utils/attachmentSentinel'
 
 export interface QueueItem {
   /** nanoid()，仅用于 UI key 和删除定位 */
@@ -30,24 +31,12 @@ export type QueuePauseReason = 'stopped' | 'failed' | null
 /** 队列容量上限（spec §3 决策） */
 export const QUEUE_MAX_SIZE = 5
 
-/** wrappedChat.sendMessage 可消费的最小轻量附件元数据（与前端解析 / 后端 metadata 同口径） */
-export interface AttachmentPayloadItem {
-  id: number
-  fileName: string
-  fileType: string
-  fileSize: number
-  encrypted: boolean
-}
-
 export interface AttachmentsPayloadResult {
   /** 最终发给 wrappedChat 的 message content（含 sentinel） */
   content: string
   /** message.additional_kwargs；无附件时省略 */
   additionalKwargs?: Record<string, any>
 }
-
-/** content sentinel 前缀（与 useMessageParser ATTACH_SENTINEL 完全一致，禁止漂移） */
-const ATTACH_SENTINEL = '__ATTACHMENTS__\n'
 
 /**
  * 把"用户输入文本 + 附件列表"统一构造成 wrappedChat.sendMessage 需要的双轨载体：
