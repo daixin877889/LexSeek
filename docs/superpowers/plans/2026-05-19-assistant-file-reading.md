@@ -16,6 +16,8 @@
 - 数据库变更只走 `bun run prisma:migrate`，禁止手写 SQL / 改 migrations 目录。
 - 服务端 Prisma 单例：`import { prisma } from '~~/server/utils/db'`。
 
+**已知技术债（不在本计划范围内处理）:** `server/services/material/materialPipeline.service.ts` 现已约 970 行，超出 `main.md`「单文件超 500 行需拆分」红线。本计划 Task 5-7 会在其中新增约 30-40 行（会话 pipeline 函数与 draft 版对偶、就近放置以保持一致性）。**该文件的完整拆分是独立的重构事项，应另立专门任务处理，不在本功能计划内强行拆分**（强拆属 scope creep 且有回归风险）。实施者执行 Task 5-7 时知悉此债即可。
+
 ---
 
 ## Task 1: `case_materials` 新增 `sessionId` 归属列
@@ -71,15 +73,15 @@ git commit -m "feat(db): case_materials 新增 sessionId 归属列"
 
 ---
 
-## Task 2: 下沉附件 sentinel 常量与解析函数到 shared
+## Task 2: 下沉附件 sentinel 常量与解析到 shared（前端解析一并收敛）
 
-**背景:** `__ATTACHMENTS__` sentinel 常量目前在 `app/composables/chatQueueActions.ts`（`ATTACH_SENTINEL`）和 `app/components/ai/composables/useMessageParser.ts`（`ATTACH_SENTINEL`）各存一份。服务端中间件也要解析它。下沉到 `shared/` 作为单一数据源。
+**背景:** `__ATTACHMENTS__` sentinel 当前有三处实现：`chatQueueActions.ts` 的 `ATTACH_SENTINEL` 常量（"写"端）、`useMessageParser.ts` 的 `ATTACH_SENTINEL` 常量 + `parseHumanContent` 内一段内联解析（前端"读"端），服务端中间件还要再"读"一次。本任务把 sentinel 常量 **与解析逻辑** 一起下沉 `shared/`，让写端、前端读端、服务端读端引用同一份——**前端 `parseHumanContent` 必须改用 shared 解析**，否则解析逻辑仍是两份，spec §8「消除三份漂移」名不副实。
 
 **Files:**
 - Create: `shared/utils/attachmentSentinel.ts`
 - Create: `tests/shared/utils/attachmentSentinel.test.ts`
-- Modify: `app/composables/chatQueueActions.ts:50`
-- Modify: `app/components/ai/composables/useMessageParser.ts:51`
+- Modify: `app/composables/chatQueueActions.ts`（删本地 `ATTACH_SENTINEL`，改 import）
+- Modify: `app/components/ai/composables/useMessageParser.ts`（删本地 `ATTACH_SENTINEL` + `parseHumanContent` 内联解析，改用 shared `splitAttachmentSentinel`）
 
 - [ ] **Step 1: 写失败测试**
 
@@ -87,7 +89,7 @@ git commit -m "feat(db): case_materials 新增 sessionId 归属列"
 
 ```ts
 import { describe, it, expect } from 'vitest'
-import { ATTACH_SENTINEL, parseAttachmentFileIds } from '#shared/utils/attachmentSentinel'
+import { ATTACH_SENTINEL, parseAttachmentFileIds, splitAttachmentSentinel } from '#shared/utils/attachmentSentinel'
 
 describe('parseAttachmentFileIds', () => {
   it('从带 sentinel 的内容解析出 ossFileId 列表', () => {
@@ -111,6 +113,21 @@ describe('parseAttachmentFileIds', () => {
       { id: 5 }, { id: 0 }, { id: -1 }, { id: 'x' }, {},
     ])}`
     expect(parseAttachmentFileIds(content)).toEqual([5])
+  })
+})
+
+describe('splitAttachmentSentinel', () => {
+  it('分离附件清单与去 sentinel 后的正文', () => {
+    const content = `${ATTACH_SENTINEL}${JSON.stringify([
+      { id: 3, fileName: 'c.jpg', fileType: 'image/jpeg', fileSize: 1, encrypted: false },
+    ])}\n\n正文内容`
+    const r = splitAttachmentSentinel(content)
+    expect(r.attachments.map(a => a.id)).toEqual([3])
+    expect(r.rawContent).toBe('正文内容')
+  })
+
+  it('无 sentinel 时 attachments 为空、rawContent 原样返回', () => {
+    expect(splitAttachmentSentinel('普通文本')).toEqual({ attachments: [], rawContent: '普通文本' })
   })
 })
 ```
@@ -145,35 +162,48 @@ export interface AttachmentPayloadItem {
   encrypted: boolean
 }
 
-/**
- * 从 message content 字符串里取出 sentinel JSON 段。
- * @returns sentinel JSON 文本；无 sentinel 返回 null
- */
-function extractSentinelJson(content: string): string | null {
-  if (!content.startsWith(ATTACH_SENTINEL)) return null
-  const newlineIdx = content.indexOf('\n', ATTACH_SENTINEL.length)
-  return newlineIdx === -1
-    ? content.slice(ATTACH_SENTINEL.length)
-    : content.slice(ATTACH_SENTINEL.length, newlineIdx)
+function isAttachmentPayloadItem(a: unknown): a is AttachmentPayloadItem {
+  return !!a && typeof a === 'object'
+    && Number.isInteger((a as AttachmentPayloadItem).id)
+    && (a as AttachmentPayloadItem).id > 0
 }
 
 /**
- * 解析 message content 里的附件清单。
- * @returns AttachmentPayloadItem[]；无附件或解析失败返回 []
+ * 解析 message content：分离附件清单与去掉 sentinel 后的正文。
+ *
+ * 这是唯一的 sentinel 解析核心——前端 useMessageParser 与服务端中间件都基于它，
+ * 禁止再各写一份。
+ *
+ * @returns attachments 附件清单（无附件 / 解析失败为 []）；rawContent 去掉 sentinel 后的正文
  */
-export function parseAttachments(content: string): AttachmentPayloadItem[] {
-  const json = extractSentinelJson(content)
-  if (json == null) return []
+export function splitAttachmentSentinel(
+  content: string,
+): { attachments: AttachmentPayloadItem[]; rawContent: string } {
+  if (!content.startsWith(ATTACH_SENTINEL)) {
+    return { attachments: [], rawContent: content }
+  }
+  const newlineIdx = content.indexOf('\n', ATTACH_SENTINEL.length)
+  const json = newlineIdx === -1
+    ? content.slice(ATTACH_SENTINEL.length)
+    : content.slice(ATTACH_SENTINEL.length, newlineIdx)
+  const rawContent = newlineIdx === -1
+    ? ''
+    : content.slice(newlineIdx + 1).replace(/^\n+/, '')
+  let attachments: AttachmentPayloadItem[] = []
   try {
     const arr = JSON.parse(json)
-    if (!Array.isArray(arr)) return []
-    return arr.filter(
-      (a): a is AttachmentPayloadItem =>
-        !!a && typeof a === 'object' && Number.isInteger(a.id) && a.id > 0,
-    )
+    if (Array.isArray(arr)) attachments = arr.filter(isAttachmentPayloadItem)
   } catch {
-    return []
+    // sentinel JSON 解析失败，忽略
   }
+  return { attachments, rawContent }
+}
+
+/**
+ * 解析 message content 里的附件清单。无附件 / 解析失败返回 []。
+ */
+export function parseAttachments(content: string): AttachmentPayloadItem[] {
+  return splitAttachmentSentinel(content).attachments
 }
 
 /**
@@ -187,25 +217,44 @@ export function parseAttachmentFileIds(content: string): number[] {
 - [ ] **Step 4: 运行测试确认通过**
 
 Run: `npx vitest run tests/shared/utils/attachmentSentinel.test.ts`
-Expected: PASS（4 项）。
+Expected: PASS（6 项）。
 
-- [ ] **Step 5: 前端 `chatQueueActions.ts` 改用 shared 常量**
+- [ ] **Step 5: 前端 `chatQueueActions.ts` 改用 shared 常量与类型**
 
-`app/composables/chatQueueActions.ts`：删除第 49-50 行本地 `ATTACH_SENTINEL` 定义，改为顶部 import：
+`app/composables/chatQueueActions.ts`：
 
-```ts
-import { ATTACH_SENTINEL } from '#shared/utils/attachmentSentinel'
-```
-
-（`buildAttachmentsPayload` 内对 `ATTACH_SENTINEL` 的引用不变。）
-
-- [ ] **Step 6: 前端 `useMessageParser.ts` 改用 shared 常量**
-
-`app/components/ai/composables/useMessageParser.ts`：删除第 51 行本地 `const ATTACH_SENTINEL = '__ATTACHMENTS__\n'`，在文件顶部 import 区加：
+1. 删除本地 `ATTACH_SENTINEL` 注释与定义（约 49-50 行）。
+2. 删除本地 `interface AttachmentPayloadItem`（约 34 行）——它与 shared 的同名接口字段完全一致，统一到 shared 一处。
+3. 顶部 import：
 
 ```ts
-import { ATTACH_SENTINEL } from '#shared/utils/attachmentSentinel'
+import { ATTACH_SENTINEL, type AttachmentPayloadItem } from '#shared/utils/attachmentSentinel'
 ```
+
+（`buildAttachmentsPayload` 内对 `ATTACH_SENTINEL`、`AttachmentPayloadItem` 的引用不变。`chatQueueActions.ts` 是"写"端，只用常量与类型。若本地 `AttachmentPayloadItem` 与 shared 字段有出入，以 shared 为准对齐。）
+
+- [ ] **Step 6: 前端 `useMessageParser.ts` 改用 shared 解析**
+
+`app/components/ai/composables/useMessageParser.ts`：
+
+1. 删除本地 `const ATTACH_SENTINEL = '__ATTACHMENTS__\n'`（约 51 行），文件顶部 import 区加：
+
+```ts
+import { splitAttachmentSentinel } from '#shared/utils/attachmentSentinel'
+```
+
+2. 把 `parseHumanContent` 里那段内联 sentinel 解析（约 132-150 行：`rawContent.startsWith(ATTACH_SENTINEL)` 的整个 `if` 块）替换为调用 shared 解析，保留"附件优先取 `additional_kwargs`，无则回退 sentinel"的原有优先级：
+
+```ts
+  let rawContent = typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
+  const split = splitAttachmentSentinel(rawContent)
+  rawContent = split.rawContent
+  if (!attachments && split.attachments.length > 0) {
+    attachments = split.attachments
+  }
+```
+
+3. `splitAttachmentSentinel` 返回的 `attachments` 类型为 shared 的 `AttachmentPayloadItem[]`。核对它与本文件原 `ParsedAttachment` 类型（约 30 行）字段是否一致：一致则把 `ParsedAttachment` 改为 `import type { AttachmentPayloadItem as ParsedAttachment }`（或直接用 `AttachmentPayloadItem`），原本地 `isParsedAttachment` 过滤函数若仅服务于此处可一并删除；若 `ParsedAttachment` 有额外字段，以 shared 类型为准对齐，不得让两份类型再分叉。
 
 - [ ] **Step 7: 类型检查 + 跑受影响的前端测试**
 
@@ -298,6 +347,8 @@ export interface CreateMaterialInput {
 ```
 
 - [ ] **Step 4: 新增 `findMaterialsBySessionIdDao`**
+
+> 命名说明：`api.md` 规定 DAO 方法以 `DAO` 结尾，但现网 `material.dao.ts` 全部用小写 `*Dao`（`createMaterialDao` 等）。新增函数**跟随本文件局部约定用 `*Dao`**（文件内一致优先于全局规范字面）；这与现状一致，无需改名。
 
 在 `findMaterialsByCaseIdDao`（约 112 行）之后插入：
 
@@ -1432,17 +1483,23 @@ import { ensureMaterialsReadyBySessionService } from '~~/server/services/materia
 import { createMaterialPrepareEmitter } from '~~/server/agents/_shared/material-prepare/materialPrepareProgress'
 import { parseAttachmentFileIds } from '#shared/utils/attachmentSentinel'
 
-/** 从 messages 数组取最后一条 human 消息的纯字符串 content */
+/**
+ * 从 messages 数组取最后一条 human 消息的纯字符串 content。
+ *
+ * 类型判定：LangChain 消息实例用 `getType()`（当前公开方法）；`_getType()` 是
+ * 旧版兜底。不再判 `m.type`——真实 BaseMessage 实例上 `type` 是泛型参数而非运行时
+ * 字段，恒为 undefined（属 dead 分支）。
+ */
 function lastHumanContent(messages: unknown): string {
     if (!Array.isArray(messages)) return ''
     for (let i = messages.length - 1; i >= 0; i--) {
-        const m = messages[i] as { getType?: () => string; _getType?: () => string; type?: string; content?: unknown } | undefined
+        const m = messages[i] as { getType?: () => string; _getType?: () => string; content?: unknown } | undefined
         if (!m) continue
         const type = typeof m.getType === 'function'
             ? m.getType()
             : typeof m._getType === 'function'
                 ? m._getType()
-                : m.type
+                : ''
         if (type === 'human') {
             return typeof m.content === 'string' ? m.content : ''
         }
@@ -1494,7 +1551,14 @@ export const assistantProcessMaterialMiddleware = (
 Run: `npx vitest run tests/server/agents/assistantProcessMaterial.test.ts`
 Expected: PASS（3 项）。
 
-- [ ] **Step 5: 提交**
+- [ ] **Step 5: 验证前端「材料处理」卡片与 scope 无关（确认无需改前端）**
+
+spec §8 与本计划假设：前端 `useStreamChat` 已能据 `PREPARE_MATERIALS` 事件合成「材料处理」卡片，通用问答 scope 复用此能力无需改前端。**核实该假设**——读 `app/composables/useStreamChat.ts` 中处理 `prepare_materials` / 合成 `process_materials` 工具卡片的逻辑（约 470-506 行），确认它只依赖事件 payload、不按 case/assistant scope 分流。
+
+Run: `grep -n "prepare_materials\|PREPARE_MATERIALS\|caseId\|scope" app/composables/useStreamChat.ts | sed -n '1,40p'`
+Expected: `prepare_materials` 合成卡片逻辑不含 scope/caseId 判分。若发现确实按 scope 分流——停下，把"前端适配"补为新任务后再继续。
+
+- [ ] **Step 6: 提交**
 
 ```bash
 git add server/agents/legal-assistant/assistantProcessMaterial.middleware.ts tests/server/agents/assistantProcessMaterial.test.ts
@@ -1506,9 +1570,20 @@ git commit -m "feat(agents): 新增通用问答材料预处理中间件"
 ## Task 13: 把中间件挂载到 legal-assistant Agent
 
 **Files:**
+- Modify: `server/services/agent-platform/middleware/types.ts`（`MIDDLEWARE_NAMES`）
 - Modify: `server/agents/legal-assistant/agent.config.ts`
 
-- [ ] **Step 1: 给 `defineDomainAgent` 加 `customMiddlewares`**
+- [ ] **Step 1: `MIDDLEWARE_NAMES` 新增 `ASSISTANT_PROCESS_MATERIAL`**
+
+`MIDDLEWARE_NAMES.PROCESS_MATERIAL` 的字面量是 `'caseProcessMaterial'`（案件域专用）。通用问答中间件复用该名会让日志显示 `caseProcessMaterial`、语义错位。在 `server/services/agent-platform/middleware/types.ts` 的 `MIDDLEWARE_NAMES` 里、`PROCESS_MATERIAL` 那行之后加：
+
+```ts
+    ASSISTANT_PROCESS_MATERIAL: 'assistantProcessMaterial',
+```
+
+（`MIDDLEWARE_PRIORITY` 不新增——通用问答中间件复用 `PROCESS_MATERIAL: 10` 优先级即可，priority 仅决定栈内排序，与名称无关。）
+
+- [ ] **Step 2: 给 `defineDomainAgent` 加 `customMiddlewares`**
 
 把 `legal-assistant/agent.config.ts` 的 `defineDomainAgent({...})` 调用替换为：
 
@@ -1529,14 +1604,15 @@ export const legalAssistantAgent = defineDomainAgent({
 
     /**
      * 业务私有中间件：
-     * - assistantProcessMaterial（PROCESS_MATERIAL=10）：Agent 启动前解析用户上传附件、
-     *   按会话建材料并跑识别流水线，让 process_materials / search_case_materials 可读到内容。
+     * - assistantProcessMaterial（priority=PROCESS_MATERIAL=10）：Agent 启动前解析用户
+     *   上传附件、按会话建材料并跑识别流水线，让 process_materials /
+     *   search_case_materials 可读到内容。
      */
     customMiddlewares: async (ctx) => [
         {
             middleware: assistantProcessMaterialMiddleware(ctx.userId, ctx.sessionId, ctx.runId),
             priority: MIDDLEWARE_PRIORITY.PROCESS_MATERIAL,
-            name: MIDDLEWARE_NAMES.PROCESS_MATERIAL,
+            name: MIDDLEWARE_NAMES.ASSISTANT_PROCESS_MATERIAL,
         },
     ],
 })
@@ -1544,15 +1620,15 @@ export const legalAssistantAgent = defineDomainAgent({
 
 > 保留文件原有的顶部注释块。
 
-- [ ] **Step 2: 类型检查**
+- [ ] **Step 3: 类型检查**
 
 Run: `bun run typecheck`
 Expected: 通过。
 
-- [ ] **Step 3: 提交**
+- [ ] **Step 4: 提交**
 
 ```bash
-git add server/agents/legal-assistant/agent.config.ts
+git add server/services/agent-platform/middleware/types.ts server/agents/legal-assistant/agent.config.ts
 git commit -m "feat(agents): legal-assistant 挂载材料预处理中间件"
 ```
 
@@ -1643,12 +1719,14 @@ git commit -m "feat(assistant): 删除通用问答会话时级联软删其材料
 **背景:** 材料处理已由中间件确定性完成，提示词只需让模型知道"用户上传的材料已自动识别，用 `process_materials` 读取、`search_case_materials` 检索"。属数据级变更：改 dev 库 + 同步 `seedData.sql`，不写 migration。
 
 **Files:**
-- Modify: dev 数据库 `prompts` 表 id=49 行（`assistantMain_system`）
-- Modify: `prisma/seeds/seedData.sql`（id=49 的 INSERT 行）
+- Modify: dev 数据库 `prompts` 表中**启用的** `assistantMain_system` 行
+- Modify: `prisma/seeds/seedData.sql`（同一行的 INSERT）
+
+> ⚠️ `seedData.sql` 里 `assistantMain_system` 有**两行**：`id=18`（title 含 `v1`）与 `id=49`（title 无 v1、`version='v5'`、`status=1`）。`node_prompts`(node_id=15) 按 **name** 关联，运行时取 `status=1` 的那条。**先确认哪条 `status=1`**——经核查为 `id=49`（v5）；若实施时数据已变，以 dev 库 `SELECT id,version,status FROM prompts WHERE name='assistantMain_system'` 实际结果为准，改启用的那条。下文 Step 1-3 的"id=49"均指"启用行"。
 
 - [ ] **Step 1: 定稿提示词改动**
 
-在 prompts id=49 内容的「能力边界」工具清单里，把 `process_materials` / `search_case_materials` 两条描述明确为通用问答语境：
+在启用行（id=49）内容的「能力边界」工具清单里，把 `process_materials` / `search_case_materials` 两条描述明确为通用问答语境：
 
 - `process_materials：读取用户在本对话中上传的材料内容（图片/文档/音频已自动识别，调用即可获取全文或摘要）`
 - `search_case_materials：在本对话已上传的材料里按关键字/语义检索片段`
@@ -1659,11 +1737,11 @@ git commit -m "feat(assistant): 删除通用问答会话时级联软删其材料
 
 - [ ] **Step 2: 改 dev 库**
 
-用 `prisma studio`（`bun run prisma:studio`）或直接连 dev 库，把 `prompts` 表 id=49 的 `content` 改成 Step 1 定稿内容。
+用 `prisma studio`（`bun run prisma:studio`）或直接连 dev 库，把 `prompts` 表启用行（id=49）的 `content` 改成 Step 1 定稿内容。
 
 - [ ] **Step 3: 同步 `seedData.sql`**
 
-在 `prisma/seeds/seedData.sql` 里定位 id=49 的 `INSERT INTO "public"."prompts" ... VALUES (49, 'assistantMain_system', ...)` 行，把其 `content` 字段值改成与 dev 库一致的定稿内容。**只改这一条 INSERT 的 VALUES，不新增 UPDATE 语句。**
+在 `prisma/seeds/seedData.sql` 里定位启用行的 `INSERT INTO "public"."prompts" ... VALUES (49, 'assistantMain_system', ...)`，把其 `content` 字段值改成与 dev 库一致的定稿内容。**只改这一条 INSERT 的 VALUES，不动 id=18 那行，不新增 UPDATE 语句。**
 
 - [ ] **Step 4: 提交**
 
@@ -1702,7 +1780,9 @@ Expected: 全部 PASS。
    - 预期：助手仍能引用该图片内容（会话级记忆生效）。
 4. 上传一份多页 PDF，问一个只在某页出现的细节。
    - 预期：助手通过 `search_case_materials` 检索到对应片段并正确回答。
-5. 删除该对话后，确认 dev 库中对应 `case_materials` 行 `deleted_at` 已置上。
+5. 上传一个音频文件（验证 ASR 路径），问其中提到的内容。
+   - 预期：助手能复述音频转写出的关键信息（spec 目标含音频材料，须实测 ASR 链路）。
+6. 删除该对话后，确认 dev 库中对应 `case_materials` 行 `deleted_at` 已置上。
 
 - [ ] **Step 5: 最终提交（如 simplify 有改动）**
 
