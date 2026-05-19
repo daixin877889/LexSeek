@@ -134,17 +134,24 @@ export async function softDeleteAssistantSessionDAO(
     sessionId: string,
     userId: number,
 ): Promise<{ success: boolean; error?: string }> {
-    const result = await prisma.caseSessions.updateMany({
-        where: {
-            sessionId,
-            scope: 'assistant',
-            userId,
-            deletedAt: null,
-        },
-        data: { deletedAt: new Date() },
+    return prisma.$transaction(async (tx) => {
+        const result = await tx.caseSessions.updateMany({
+            where: {
+                sessionId,
+                scope: 'assistant',
+                userId,
+                deletedAt: null,
+            },
+            data: { deletedAt: new Date() },
+        })
+        if (result.count === 0) {
+            return { success: false, error: '会话不存在或无权操作' }
+        }
+        // 级联软删该会话归属的材料（通用问答上传的文件）
+        await tx.caseMaterials.updateMany({
+            where: { sessionId, deletedAt: null },
+            data: { deletedAt: new Date() },
+        })
+        return { success: true }
     })
-    if (result.count === 0) {
-        return { success: false, error: '会话不存在或无权操作' }
-    }
-    return { success: true }
 }
