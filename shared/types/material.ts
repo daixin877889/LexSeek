@@ -71,6 +71,16 @@ export interface MaterialUploadResult {
 // ==================== 服务端材料操作接口 ====================
 
 /**
+ * 材料归属维度：caseId（案件）/ draftId（文书草稿）/ sessionId（通用问答会话）。
+ * 按场景填其一或多个；用于材料的查询过滤与单文件就绪保障。
+ */
+export interface MaterialOwner {
+    caseId?: number | null
+    draftId?: number | null
+    sessionId?: string | null
+}
+
+/**
  * 创建材料输入（服务端使用）
  */
 export interface CreateMaterialInput {

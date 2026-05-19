@@ -8,7 +8,7 @@ import { getMaterialByIdService, getMaterialsByCaseIdService, getMaterialsByCase
 import { batchCheckMaterialEmbeddedService, embedMaterialUnifiedService } from './materialEmbedding.service'
 import { processMaterialService, batchCheckMaterialRecognizedService, MaterialProcessError } from './materialProcess.service'
 import { CaseMaterialType, getMaterialTypeFromMime } from '#shared/types/case'
-import { MaterialStatus } from '#shared/types/material'
+import { MaterialStatus, type MaterialOwner } from '#shared/types/material'
 import { createMaterialDao, findMaterialByIdDao, findActiveMaterialByOssFileIdDao } from './material.dao'
 import { extractTextFromAsrResult } from './asr.service'
 import { countTokensSync } from '~~/server/utils/tokenCounter'
@@ -850,13 +850,6 @@ export async function searchMaterialsByCaseOrDraftService(
     return searchWithinMaterialsService(userId, allMaterials, options)
 }
 
-/** 单文件材料的归属维度（至少一个非空） */
-interface SingleMaterialOwner {
-    caseId?: number | null
-    draftId?: number | null
-    sessionId?: string | null
-}
-
 /**
  * 单文件材料就绪保障（归属无关核心）
  *
@@ -867,7 +860,7 @@ interface SingleMaterialOwner {
 async function ensureSingleMaterialReady(
     ossFileId: number,
     userId: number,
-    owner: SingleMaterialOwner,
+    owner: MaterialOwner,
 ): Promise<{ id: number; status: number; ossFileId: number | null }> {
     // 查重：按 ossFileId 找活跃记录，避免同一 ossFile 产生多条记录
     // 安全性由 ossFiles.userId 单 owner 保证（调用方传入的 ossFileId 必属当前 user）

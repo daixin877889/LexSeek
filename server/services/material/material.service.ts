@@ -17,13 +17,12 @@ import {
     findMaterialsByIdsDao,
     updateMaterialDao,
     deleteMaterialDao,
-    type MaterialOwnerFilter,
 } from './material.dao'
 import {
     findTextContentRecordByMaterialIdDAO,
 } from './textContentRecords.dao'
 import { findRecognitionRecordsByOssFileIdsDao } from './material.dao'
-import type { CreateMaterialInput, UpdateMaterialInput, MaterialQueryOptions } from '#shared/types/material'
+import type { CreateMaterialInput, UpdateMaterialInput, MaterialQueryOptions, MaterialOwner } from '#shared/types/material'
 import { MaterialStatus } from '#shared/types/material'
 import { CaseMaterialType } from '#shared/types/case'
 import { createChatModel } from '../node/chatModelFactory'
@@ -285,7 +284,7 @@ export const getMaterialsByCaseIdWithStatusService = async (
  * OR 合并：caseId 命中 ∪ draftId 命中，DAO 层走 Prisma OR 天然去重。
  */
 export const getMaterialsByCaseOrDraftIdService = async (
-    owner: MaterialOwnerFilter,
+    owner: MaterialOwner,
 ): Promise<MaterialWithFile[]> => {
     const materials = await findMaterialsByCaseOrDraftIdDao(owner)
     return attachOssFileInfo(materials)

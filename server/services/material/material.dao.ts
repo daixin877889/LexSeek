@@ -6,7 +6,7 @@
  */
 
 import type { caseMaterials, Prisma } from '~~/generated/prisma/client'
-import type { CreateMaterialInput, UpdateMaterialInput, MaterialQueryOptions } from '#shared/types/material'
+import type { CreateMaterialInput, UpdateMaterialInput, MaterialQueryOptions, MaterialOwner } from '#shared/types/material'
 import { MaterialStatus } from '#shared/types/material'
 import type { asrRecords } from '~~/generated/prisma/client'
 
@@ -365,20 +365,13 @@ export const findActiveMaterialByOssFileIdDao = async (
     }
 }
 
-/** 材料归属维度：caseId / draftId / sessionId 至少一个非空 */
-export interface MaterialOwnerFilter {
-    caseId: number | null
-    draftId: number | null
-    sessionId?: string | null
-}
-
 /**
  * 按归属维度（案件 / 草稿 / 会话）OR 合并查询活跃材料（search_case_materials 工具用）
  *
  * OR 条件：返回各维度命中材料的并集，Prisma 天然去重
  */
 export const findMaterialsByCaseOrDraftIdDao = async (
-    owner: MaterialOwnerFilter,
+    owner: MaterialOwner,
     tx?: Prisma.TransactionClient,
 ): Promise<caseMaterials[]> => {
     const orBranches: Prisma.caseMaterialsWhereInput[] = []
