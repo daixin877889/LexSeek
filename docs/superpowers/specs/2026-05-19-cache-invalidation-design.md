@@ -72,6 +72,8 @@
 2. **可序列化缓存迁 Redis 当共享存储，filesystemBackend 单独走 pub/sub** —— 两套机制；RBAC 热路径每请求多一次 Redis 往返；密钥落 Redis。
 3. **仅缩短 TTL，不建 pub/sub** —— 最简单，但达不到 RBAC「近乎实时」要求。
 
+> Nitro 原生缓存（`cachedFunction` + storage 驱动）已评估并排除：它本质等同方案 2——memory 驱动无跨实例失效，Redis 驱动则要求缓存值进 Redis（filesystemBackend 持有文件句柄不可序列化、RBAC 热路径不容每请求一次往返、密钥不出进程），且 Nitro 缓存无任何 pub/sub 失效广播机制。项目当前亦未使用 Nitro 原生缓存。
+
 **采纳方案 1。** 关键论据：filesystemBackend 不可序列化、RBAC 要求近乎实时——pub/sub 失效广播无论如何都必须建。方案 2 是在它之上再加一套 Redis 存储，复杂度翻倍而无实质收益。方案 1 顺带消除三件事：RBAC 热路径不增延迟、API 密钥不出进程内存、Redis 非硬依赖。代价（各实例各存一份副本、失效时各自回源 DB）对「小数据 + 低频失效」场景完全可接受。
 
 需求确认要点：
@@ -105,13 +107,14 @@
 
 | 文件 | 动作 | 职责 |
 |------|------|------|
-| `server/services/cache/cacheInvalidationBus.ts` | 新增 | 总线核心：`publishInvalidation(name, keys?)`、`registerInvalidationHandler(name, handler)`、订阅消息并分发到 handler；导出 `CACHE_NAMES` 常量避免字符串拼错 |
-| `server/plugins/cache-invalidation.ts` | 新增 | Nitro 插件：启动时 `SUBSCRIBE cache:invalidate`，`close` hook 优雅关闭（照搬 `agent-worker.ts` 插件模式） |
+| `server/utils/cacheInvalidationBus.ts` | 新增 | 总线核心：`publishInvalidation(name, keys?)`、`registerInvalidationHandler(name, handler)`、订阅消息并分发到 handler；导出 `CACHE_NAMES` 常量避免字符串拼错。放 `server/utils/` 对标同为「Redis 跨进程协调原语」的 `server/utils/cron.ts`（`CronScheduler`） |
+| `server/lib/redis.ts` | 改 | 新增 `getCacheBusSubscriber()` —— 总线专用订阅连接单例（与现有 `redisSubscriber` 同模式），并纳入 `closeRedisConnections()` 统一关闭。**不复用 `getRedisSubscriber()`**（详见 §5.3） |
+| `server/plugins/cache-invalidation.ts` | 新增 | Nitro 插件：启动时用 `getCacheBusSubscriber()` 订阅 `cache:invalidate`，并挂 `on('ready')` 幂等重订阅（详见 §7）。订阅连接的关闭由 `closeRedisConnections()` 统一负责，插件本身不管 Redis 生命周期（与 `agent-worker.ts` 一致） |
 | `agent-platform/nodeConfig/loader.ts` | 改 | import 时注册失效 handler；为缓存项加 10min 兜底 TTL；`invalidateNodeConfigCache` 改为「清本地 + `publishInvalidation`」 |
 | `agent-platform/skills/filesystemBackendCache.ts` | 改 | 同上；加 10min 兜底 TTL；`invalidateBackendCache` 改为「清本地 + `publishInvalidation`」 |
 | `rbac/cache.service.ts` | 改 | import 时注册 handler；`clearUserPermissionCache` / `clearAllUserPermissionCache` / `clearUserPermissionCacheBatch` / `clearPublicApiPermissionCache` 改为「清本地 + `publishInvalidation`」；TTL 保持 60s |
 | `server/api/v1/admin/nodes/[id].put.ts` | 改 | 更新成功后补 `invalidateNodeConfigCache(node.name)` —— 修复 1.1 原始 bug |
-| `server/api/v1/admin/nodes/[id].delete.ts` | 改 | 删除成功后补 `invalidateNodeConfigCache(node.name)` |
+| `server/api/v1/admin/nodes/[id].delete.ts` | 改 | 删除成功后补 `invalidateNodeConfigCache(node.name)`。注意：该 handler 仅有节点 `id`，需在删除前（或事务内）取出 `name`，照搬 `prompts/[id].delete.ts` 已有写法 |
 
 ### 5.1 现有失效调用点几乎不动
 
@@ -121,9 +124,17 @@ RBAC 的十余个 admin 接口、`permission.service.ts`、`skillSync.service.ts
 
 缓存模块在被 import 时调用 `registerInvalidationHandler` 注册 handler。若某实例从未 import 过某缓存模块（即从未用过该缓存），收到对应失效消息时分发表查不到 handler → no-op；此时该实例本来也没有该缓存数据，无害。
 
-### 5.3 总线放置位置
+各 cache 模块（`loader.ts` / `filesystemBackendCache.ts` / `cache.service.ts`）按项目惯例**显式 `import` 总线**，不依赖自动导入。
 
-`cacheInvalidationBus.ts` 放在新目录 `server/services/cache/`。它是跨域基础设施（同时服务于 agent-platform 与 rbac），不归属任何单一业务域；依赖 `server/lib/redis` 的 `getRedisClient` / `getRedisSubscriber`。
+### 5.3 总线放置位置与 Redis 连接
+
+**放置位置**：`cacheInvalidationBus.ts` 放在 `server/utils/`。它是跨域基础设施（同时服务于 agent-platform 与 rbac），不归属任何业务域，也不是 `*.service.ts`；项目里最贴切的先例是 `server/utils/cron.ts` 的 `CronScheduler`——同为「基于 Redis 的跨进程协调原语 + 被 Nitro 插件消费」，结构完全同构。
+
+**Redis 连接**：
+
+- 发布用 `getRedisClient()`（共享单例，PUBLISH 不独占连接，与 `agentEventBridge` 一致）。
+- 订阅**必须用专用连接**，在 `server/lib/redis.ts` 新增 `getCacheBusSubscriber()` 单例。**不复用 `getRedisSubscriber()`**：该单例已被 `agentWorker` 占用（`subscribe('agent_tasks')` + `psubscribe('run_cancel:*')`），且 agentWorker 的 `on('message')` 回调不判断 channel——若总线在同一连接上订阅，每次缓存失效广播都会触发各实例一次多余的 `processNextTask()`，总线 handler 也会反收到 `agent_tasks` 消息。专用连接彻底避免串台，handler 也无需按 channel 过滤。
+- 该专用连接纳入 `closeRedisConnections()`（由 `cron-scheduler.ts` 的 close hook 统一调用），与现有两个 Redis 单例的关闭路径一致。
 
 ## 6. 数据流与消息格式
 
@@ -149,9 +160,9 @@ interface CacheInvalidationMessage {
 | `rbacUserPermission` | 清这些 userId | 全清（批量改 API 权限时） |
 | `rbacPublicApi` | （不使用，单例，handler 忽略 keys）| 全清 |
 
-### 6.2 读路径不变
+### 6.2 读路径
 
-`getNodeConfigCached` 等读取函数逻辑不变：读本地内存 → 未命中则回源 DB → 回填本地并记 `expiredAt`。TTL 仅作兜底。
+`getNodeConfigCached` 等读取函数的 read-through 模式不变（读本地内存 → 未命中则回源 DB → 回填本地）；新增一处 TTL 过期检查：命中后若 `Date.now() > expiredAt` 视为未命中并回源。为承载 TTL，nodeConfig / filesystemBackend 的缓存项结构需从「直接存值」改为 `{ value, expiredAt }`（RBAC 的 `cache.service.ts` 已是该结构）。TTL 仅作兜底，主失效路径是 pub/sub 广播。
 
 ### 6.3 发布者自收
 
@@ -163,8 +174,8 @@ interface CacheInvalidationMessage {
 
 | 场景 | 处理 |
 |------|------|
-| 发布时 Redis 不可用 | `publishInvalidation` 内部 catch + log，**不抛出**（写库 API 不得因 Redis 挂掉而失败）；本地已清，其它实例靠 TTL 自愈 |
-| 启动时订阅连不上 | 插件 log；ioredis 自动重连并自动重订阅；断连期间该实例靠 TTL |
+| 发布时 Redis 不可用 | `publishInvalidation` 对 `redisClient.publish(...)` 做 fire-and-forget + `.catch(log)`——调用方（写库 API）不 `await` 它，本地缓存已同步清除，绝不因 Redis 挂掉或 `maxRetriesPerRequest` 重试而阻塞或失败；其它实例靠 TTL 自愈 |
+| 启动时订阅连不上 | 插件启动时**先显式调用一次 `sub.subscribe('cache:invalidate')`**——既点火 `lazyConnect` 惰性连接、又完成首次订阅（该次调用在 Redis 不可用时会因 `maxRetriesPerRequest:3` 被 reject，用 `.catch(log)` 兜住）。**另给连接挂 `on('ready', () => sub.subscribe('cache:invalidate'))`** 负责其后每次（重）连接的（重）订阅——不能只依赖 ioredis 的 `autoResubscribe`，它只重订「曾成功订阅过」的频道，覆盖不到冷启动初次订阅就失败的场景。SUBSCRIBE 幂等，重复订阅无害；冷启动失败与后续断线重连都能自愈。断连期间该实例靠 TTL |
 | 收到畸形消息 | catch JSON 解析错误，log，忽略该消息 |
 | handler 执行抛错 | catch 包裹，不影响订阅连接与其它 handler |
 
@@ -174,10 +185,10 @@ interface CacheInvalidationMessage {
 
 - **总线单测**：`publishInvalidation` 生成的消息格式正确（单条/批量/全清）；收到消息分发到对应 handler 并正确传入 keys；未知 cacheName 为 no-op；畸形消息被忽略；handler 抛错被包住不影响后续。
 - **各缓存单测**：`invalidate` → 本地清除 + 触发总线发布；TTL 过期生效；nodeConfig 的「缓存 null 哨兵」（节点不存在时缓存 null 仍快速返回）。
-- **pub/sub 链路集成测试**：通过真实（测试）Redis 验证 `publishInvalidation` 发出的消息能被订阅端收到并触发对应 handler——单进程内「自发自收」即可验证整条 pub/sub 链路，无需真起多进程。
+- **pub/sub 链路集成测试**：通过真实（测试）Redis 验证 `publishInvalidation` 发出的消息能被订阅端收到并触发对应 handler——单进程内「自发自收」即可验证整条链路，无需真起多进程。
+  - ⚠️ **测试隔离**：vitest 多 worker 并行且共用同一 Redis 库（`.env.testing` 的 `NUXT_REDIS_URL` 指向单库），而 `cache:invalidate` 是单一全局频道，并行 worker 的订阅者会互收消息导致 flaky。`agentEventBridge` 测试靠 per-run 唯一 channel 天然隔离，本设计单频道无此保护——实现计划须显式解决：测试时给频道加 worker/test 唯一后缀，或在消息体带测试 nonce 由 handler 过滤。
 - **原始 bug 回归**：`PUT /admin/nodes/:id` 与 `DELETE /admin/nodes/:id` → 验证 `nodeConfig` 缓存被失效。
-- **覆盖率**：`agent-platform/**` 有 ≥90% 分目录覆盖率阈值，nodeConfig / filesystemBackend 改动一并补齐。
-- Redis 在测试环境的接入方式沿用现有 `agentEventBridge` 相关测试的做法，实现计划阶段核对具体接法。
+- **覆盖率**：`agent-platform/**` 分目录阈值为 lines/statements/functions ≥90%、branches ≥75%，nodeConfig / filesystemBackend 改动一并补齐。新增的 `server/utils/cacheInvalidationBus.ts` 不在该 glob 内（仅受全局阈值约束），仍按项目规范自律补测到 ~90%。
 
 ## 9. 不做的事（YAGNI）
 
@@ -185,7 +196,4 @@ interface CacheInvalidationMessage {
 - 不做 origin 过滤、不做消息去重、不做投递确认——TTL 兜底已覆盖丢失场景。
 - 不为类 C 缓存做任何改动。
 - 不在本设计内处理 Agent Registry 与 API Key DB 加密（见 2.2）。
-
-## 10. 可选调优（非本设计强制）
-
-RBAC 的 60s TTL 当初是因「无主动失效」而从 5min 缩短。本设计引入主动失效后，撤权即时生效已由 pub/sub 保证，TTL 退化为纯兜底，可考虑放宽回 5min 以降低 DB 负载。默认先保持 60s，作为后续独立调优项。
+- **不改动 RBAC 的 60s TTL。** 该值是用户出于安全考量从 5min 缩短而来；本设计引入主动失效后理论上 TTL 可放宽，但放宽属安全相关参数调整，须单独评审，不在本设计范围内顺带变更。
