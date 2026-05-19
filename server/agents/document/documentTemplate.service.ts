@@ -109,19 +109,12 @@ async function uploadAndCreate(opts: {
     const { params, placeholders, tx } = opts
 
     const timestamp = Date.now()
-    const ossPath =
-        params.scope === 'user'
-            ? buildStorageKey({
-                  scope: 'user',
-                  userId: params.ownerUserId!,
-                  source: FileSource.DOCUMENT_TEMPLATE,
-                  fileName: `${timestamp}_${params.fileName}`,
-              })
-            : buildStorageKey({
-                  scope: 'system',
-                  source: FileSource.DOCUMENT_TEMPLATE,
-                  fileName: `${timestamp}_${params.fileName}`,
-              })
+    const ossPath = buildStorageKey({
+        scope: params.scope === 'user' ? 'user' : 'system',
+        userId: params.ownerUserId ?? undefined,
+        source: FileSource.DOCUMENT_TEMPLATE,
+        fileName: `${timestamp}_${params.fileName}`,
+    })
 
     // ownerUserId=null（scope='global'）走系统默认存储配置
     const userIdForStorage = params.ownerUserId ?? undefined

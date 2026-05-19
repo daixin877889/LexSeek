@@ -109,8 +109,6 @@ export async function runAnnotateAndUpload(reviewId: number): Promise<void> {
         )
     }
 
-    // OSS 路径与 contractReviewRebuild.service 保持同构：
-    // （统一路径函数构造，{env}/user<id>/caseAnalysis/）
     // CORE-R3：上传 + 落 ossFiles + 失败清孤儿统一走 uploadAndRegisterOssFile。
     const ossPath = buildStorageKey({
         scope: 'user',

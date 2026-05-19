@@ -384,7 +384,6 @@ export async function downloadContractReviewVersionService(
         versionNumber: version.versionNumber,
     })
 
-    // 上传到 OSS（统一路径函数构造，{env}/user<id>/caseAnalysis/）
     // CORE-R3：上传 + 落 ossFiles + 失败清孤儿统一走 uploadAndRegisterOssFile。
     const ossPath = buildStorageKey({
         scope: 'user',

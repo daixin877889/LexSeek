@@ -146,6 +146,7 @@ async function main() {
                 if (!filePath || !filePath.startsWith(basePath)) continue
                 const oldKey = filePath.slice(basePath.length)
                 if (!oldKey) continue
+                hit++
                 try {
                     const oldSize = await getObjectSize(client, oldKey)
                     if (oldSize === null) { skipped++; continue }

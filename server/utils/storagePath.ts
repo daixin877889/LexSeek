@@ -25,9 +25,8 @@ export interface StoragePathParams {
 
 /** 规范化环境前缀：空值 → ''；非空 → 保证以 / 结尾。纯函数，便于单测。 */
 export function normalizeBasePath(raw: string | null | undefined): string {
-    const basePath = raw || ''
-    if (!basePath) return ''
-    return basePath.endsWith('/') ? basePath : `${basePath}/`
+    if (!raw) return ''
+    return raw.endsWith('/') ? raw : `${raw}/`
 }
 
 /** 取环境前缀（从 runtimeConfig 读取并规范化） */

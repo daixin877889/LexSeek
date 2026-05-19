@@ -155,7 +155,6 @@ export async function rebuildDocxService(
 
     const buffer = finalBuffer
 
-    // OSS 路径与 contractReview.service 保持同构
     const ossPath = buildStorageKey({
         scope: 'user',
         userId: review.userId,

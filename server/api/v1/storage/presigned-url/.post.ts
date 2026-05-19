@@ -30,7 +30,7 @@ interface FileInfo {
 
 /** 批量签名请求体 */
 interface BatchPresignedUrlRequest {
-    source: string
+    source: FileSource
     files: FileInfo[]
     encrypted?: boolean
     /** 存储配置 ID（可选，不传则使用默认配置） */
@@ -82,7 +82,7 @@ export default defineEventHandler(async (event) => {
         }
 
         // 获取场景配置
-        const sourceConfig = getFileSourceAccept(source as FileSource)
+        const sourceConfig = getFileSourceAccept(source)
         if (!sourceConfig) {
             return resError(event, 400, `不支持的上传场景: ${source}`)
         }
@@ -120,7 +120,7 @@ export default defineEventHandler(async (event) => {
         const storageConfig = config.storage
         const ossConfig = storageConfig.aliyunOss
         const bucket = ossConfig.bucket
-        const dir = buildStorageDir({ scope: 'user', userId: user.id, source: source as FileSource })
+        const dir = buildStorageDir({ scope: 'user', userId: user.id, source })
         const callbackUrl = storageConfig.callbackUrl
 
         // 预处理文件信息
@@ -149,7 +149,7 @@ export default defineEventHandler(async (event) => {
                     filePath: `${dir}${saveName}`,
                     fileSize: file.fileSize,
                     fileType: file.mimeType,
-                    source: source as FileSource,
+                    source,
                     status: OssFileStatus.PENDING,
                     encrypted: encrypted,
                     originalMimeType: encrypted ? file.mimeType : null,
