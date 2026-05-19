@@ -1,6 +1,5 @@
-import { OssFileStatus } from '#shared/types/file'
 import { createLogger } from '#shared/utils/logger'
-import { updateOssFileDao } from '~~/server/services/files/ossFiles.dao'
+import { confirmOssFileByStorageCallbackService } from '~~/server/services/files/ossFileVerify.service'
 import { verifyCallback } from '~~/server/lib/storage/callback'
 import { StorageProviderType } from '~~/server/lib/storage/types'
 import type { StorageConfig } from '~~/server/lib/storage/types'
@@ -45,7 +44,28 @@ export default defineEventHandler(async (event) => {
         const encrypted = body?.['x:encrypted'] === '1'
         const originalMimeType = body?.['x:original_mime_type'] || ''
 
-        const result = {
+        if (!fileId) {
+            log.error('回调缺少 fileId', { body })
+            return { success: false, error: 'fileId is required' }
+        }
+
+        // 核对回调声明的对象路径、上传用户与登记记录一致，并条件更新（仅 PENDING，防回调重放）
+        const confirmResult = await confirmOssFileByStorageCallbackService({
+            fileId,
+            filePath: String(body?.filename ?? ''),
+            userId: Number(body?.['x:user_id']),
+            encrypted,
+            originalMimeType: encrypted ? originalMimeType : null,
+        })
+        if (!confirmResult.ok) {
+            log.warn('存储回调核对未通过，拒绝处理', { fileId, reason: confirmResult.reason })
+            return { success: false, error: `callback rejected: ${confirmResult.reason}` }
+        }
+
+        log.info('存储回调处理成功', { fileId, encrypted })
+
+        // OSS 回调必须返回 JSON 格式，且状态码为 200；返回内容会透传给客户端
+        return {
             success: true,
             filename: body?.filename || '',
             size: body?.size || 0,
@@ -57,27 +77,6 @@ export default defineEventHandler(async (event) => {
             encrypted,
             originalMimeType: encrypted ? originalMimeType : null,
         }
-
-        if (!fileId) {
-            log.error('回调缺少 fileId', { body })
-            return {
-                success: false,
-                error: 'fileId is required'
-            }
-        }
-
-        // 更新文件记录
-        await updateOssFileDao(fileId, {
-            status: OssFileStatus.UPLOADED,
-            encrypted,
-            originalMimeType: encrypted ? originalMimeType : null,
-        })
-
-        log.info('存储回调处理成功', { fileId, encrypted })
-
-        // OSS 回调必须返回 JSON 格式，且状态码为 200
-        // 返回的内容会透传给客户端
-        return result
     } catch (error) {
         log.error('存储回调处理错误', { error })
         // 即使出错也返回 200，避免 OSS 报错

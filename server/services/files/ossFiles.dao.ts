@@ -424,3 +424,27 @@ export async function markOssFileUploadedByVerifyDao(
     }
     return result.count
 }
+
+/**
+ * 存储回调专用：仅在 status=PENDING 时标记为 UPLOADED 并写入加密元信息（条件更新，幂等防重放）
+ *
+ * @returns 实际改动行数（0 表示文件已非 PENDING——回调重放或已被兜底处理）
+ */
+export async function markOssFileUploadedByCallbackDao(
+    fileId: number,
+    data: { encrypted: boolean; originalMimeType: string | null }
+): Promise<number> {
+    const result = await prisma.ossFiles.updateMany({
+        where: {
+            id: fileId,
+            status: OssFileStatus.PENDING,
+            deletedAt: null,
+        },
+        data: {
+            status: OssFileStatus.UPLOADED,
+            encrypted: data.encrypted,
+            originalMimeType: data.originalMimeType,
+        },
+    })
+    return result.count
+}

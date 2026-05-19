@@ -63,6 +63,7 @@ import {
     updateOssFileDao,
     findOssFilesByUserIdDao,
     markOssFileUploadedByVerifyDao,
+    markOssFileUploadedByCallbackDao,
     findOssFilesByIdsAndUserIdDao,
 } from '~~/server/services/files/ossFiles.dao'
 import { OssFileStatus } from '#shared/types/file'
@@ -515,5 +516,62 @@ describe('findOssFilesByIdsAndUserIdDao - 按 ID 批量查询并按归属过滤'
     it('传入空 ID 数组返回空数组', async () => {
         const result = await findOssFilesByIdsAndUserIdDao([], userAId)
         expect(result).toEqual([])
+    })
+})
+
+// ──────────────────────────────────────────────────────────────────────────────
+// 集成测试：markOssFileUploadedByCallbackDao（使用真实 worker DB）
+// 存储回调专用的条件更新（仅 PENDING），防回调重放
+// ──────────────────────────────────────────────────────────────────────────────
+describe('markOssFileUploadedByCallbackDao - 存储回调条件更新', () => {
+    const testIds = createEmptyTestIds()
+    let userId: number
+
+    beforeAll(async () => {
+        vi.stubGlobal('prisma', getTestPrisma())
+        const user = await createTestUser()
+        userId = user.id
+        testIds.userIds.push(user.id)
+    })
+
+    afterEach(async () => {
+        if (testIds.ossFileIds.length) {
+            await getTestPrisma().ossFiles.deleteMany({
+                where: { id: { in: testIds.ossFileIds } },
+            })
+            testIds.ossFileIds = []
+        }
+    })
+
+    afterAll(async () => {
+        await cleanupTestData(testIds)
+    })
+
+    async function makeRow(status: number) {
+        const file = await createTestOssFile(userId, { status })
+        testIds.ossFileIds.push(file.id)
+        return file
+    }
+
+    it('PENDING 时标记为 UPLOADED 并写入加密元信息，count=1', async () => {
+        const row = await makeRow(OssFileStatus.PENDING)
+        const count = await markOssFileUploadedByCallbackDao(row.id, {
+            encrypted: true,
+            originalMimeType: 'image/png',
+        })
+        expect(count).toBe(1)
+        const fresh = await getTestPrisma().ossFiles.findUnique({ where: { id: row.id } })
+        expect(fresh!.status).toBe(OssFileStatus.UPLOADED)
+        expect(fresh!.encrypted).toBe(true)
+        expect(fresh!.originalMimeType).toBe('image/png')
+    })
+
+    it('已 UPLOADED 不改，count=0（防回调重放）', async () => {
+        const row = await makeRow(OssFileStatus.UPLOADED)
+        const count = await markOssFileUploadedByCallbackDao(row.id, {
+            encrypted: false,
+            originalMimeType: null,
+        })
+        expect(count).toBe(0)
     })
 })

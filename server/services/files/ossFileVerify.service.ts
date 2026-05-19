@@ -11,6 +11,7 @@ import { getStorageAdapterService } from '~~/server/services/storage/storage.ser
 import {
     findOssFileByIdDao,
     markOssFileUploadedByVerifyDao,
+    markOssFileUploadedByCallbackDao,
 } from './ossFiles.dao'
 
 const log = createLogger('ossFileVerify')
@@ -74,4 +75,49 @@ export async function verifyAndFixOssFileService(
         return { ok: false, reason: 'invalid' }
     }
     return { ok: true, status: 'uploaded' }
+}
+
+/** 存储回调核对入参 */
+export interface StorageCallbackConfirmInput {
+    /** 回调声明的 ossFiles 记录 ID（来自 x:file_id） */
+    fileId: number
+    /** 回调声明的实际上传对象路径（来自 filename） */
+    filePath: string
+    /** 回调声明的上传用户 ID（来自 x:user_id） */
+    userId: number
+    /** 是否加密上传 */
+    encrypted: boolean
+    /** 加密文件的原始 MIME 类型 */
+    originalMimeType: string | null
+}
+
+export type StorageCallbackConfirmResult =
+    | { ok: true }
+    | { ok: false; reason: 'not_found' | 'path_mismatch' | 'user_mismatch' | 'rejected' }
+
+/**
+ * 校验存储回调并标记文件为已上传。
+ *
+ * 验签已确认回调来自存储服务商；本服务进一步把回调声明的对象路径、上传用户
+ * 与登记的 ossFiles 记录对账，再通过条件更新（仅 PENDING）防止回调重放。
+ * 文件已是 UPLOADED 时视为幂等成功。
+ */
+export async function confirmOssFileByStorageCallbackService(
+    input: StorageCallbackConfirmInput
+): Promise<StorageCallbackConfirmResult> {
+    const file = await findOssFileByIdDao(input.fileId)
+    if (!file) return { ok: false, reason: 'not_found' }
+    if (file.filePath !== input.filePath) return { ok: false, reason: 'path_mismatch' }
+    if (file.userId !== input.userId) return { ok: false, reason: 'user_mismatch' }
+
+    const updated = await markOssFileUploadedByCallbackDao(input.fileId, {
+        encrypted: input.encrypted,
+        originalMimeType: input.originalMimeType,
+    })
+    if (updated > 0) return { ok: true }
+
+    // 条件更新未命中：文件已非 PENDING（回调重放视为幂等成功，其余视为拒绝）
+    const fresh = await findOssFileByIdDao(input.fileId)
+    if (fresh && fresh.status === OssFileStatus.UPLOADED) return { ok: true }
+    return { ok: false, reason: 'rejected' }
 }

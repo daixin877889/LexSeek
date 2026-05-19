@@ -13,7 +13,7 @@ vi.mock('~~/server/services/storage/storage.service', () => ({
     getStorageAdapterService: vi.fn(async () => ({ head: adapterHeadMock })),
 }))
 
-import { verifyAndFixOssFileService } from '~~/server/services/files/ossFileVerify.service'
+import { verifyAndFixOssFileService, confirmOssFileByStorageCallbackService } from '~~/server/services/files/ossFileVerify.service'
 import {
     getTestPrisma,
     createTestUser,
@@ -135,5 +135,84 @@ describe('verifyAndFixOssFileService', () => {
         const file = await makeFile(OssFileStatus.PENDING)
         adapterHeadMock.mockRejectedValueOnce(new Error('OSS 5xx'))
         await expect(verifyAndFixOssFileService(file.id, userId)).rejects.toThrow('OSS 5xx')
+    })
+})
+
+describe('confirmOssFileByStorageCallbackService - 存储回调核对', () => {
+    const testIds = createEmptyTestIds()
+    let userId: number
+
+    beforeAll(async () => {
+        const user = await createTestUser()
+        userId = user.id
+        testIds.userIds.push(user.id)
+    })
+
+    afterEach(async () => {
+        if (testIds.ossFileIds.length) {
+            await getTestPrisma().ossFiles.deleteMany({
+                where: { id: { in: testIds.ossFileIds } },
+            })
+            testIds.ossFileIds = []
+        }
+    })
+
+    afterAll(async () => {
+        await cleanupTestData(testIds)
+    })
+
+    async function makeFile(status: number, filePath: string) {
+        const file = await createTestOssFile(userId, { status, filePath })
+        testIds.ossFileIds.push(file.id)
+        return file
+    }
+
+    it('文件不存在 → not_found', async () => {
+        const r = await confirmOssFileByStorageCallbackService({
+            fileId: 99999999, filePath: 'u/x.pdf', userId, encrypted: false, originalMimeType: null,
+        })
+        expect(r).toEqual({ ok: false, reason: 'not_found' })
+    })
+
+    it('回调路径与登记路径不符 → path_mismatch', async () => {
+        const file = await makeFile(OssFileStatus.PENDING, 'u/real.pdf')
+        const r = await confirmOssFileByStorageCallbackService({
+            fileId: file.id, filePath: 'u/forged.pdf', userId, encrypted: false, originalMimeType: null,
+        })
+        expect(r).toEqual({ ok: false, reason: 'path_mismatch' })
+    })
+
+    it('回调用户与文件归属不符 → user_mismatch', async () => {
+        const file = await makeFile(OssFileStatus.PENDING, 'u/a.pdf')
+        const r = await confirmOssFileByStorageCallbackService({
+            fileId: file.id, filePath: 'u/a.pdf', userId: 99999999, encrypted: false, originalMimeType: null,
+        })
+        expect(r).toEqual({ ok: false, reason: 'user_mismatch' })
+    })
+
+    it('核对通过 → ok，文件标记为 UPLOADED', async () => {
+        const file = await makeFile(OssFileStatus.PENDING, 'u/ok.pdf')
+        const r = await confirmOssFileByStorageCallbackService({
+            fileId: file.id, filePath: 'u/ok.pdf', userId, encrypted: false, originalMimeType: null,
+        })
+        expect(r).toEqual({ ok: true })
+        const fresh = await getTestPrisma().ossFiles.findUnique({ where: { id: file.id } })
+        expect(fresh!.status).toBe(OssFileStatus.UPLOADED)
+    })
+
+    it('回调重放（文件已 UPLOADED）→ 幂等 ok', async () => {
+        const file = await makeFile(OssFileStatus.UPLOADED, 'u/dup.pdf')
+        const r = await confirmOssFileByStorageCallbackService({
+            fileId: file.id, filePath: 'u/dup.pdf', userId, encrypted: false, originalMimeType: null,
+        })
+        expect(r).toEqual({ ok: true })
+    })
+
+    it('文件已 FAILED → rejected', async () => {
+        const file = await makeFile(OssFileStatus.FAILED, 'u/failed.pdf')
+        const r = await confirmOssFileByStorageCallbackService({
+            fileId: file.id, filePath: 'u/failed.pdf', userId, encrypted: false, originalMimeType: null,
+        })
+        expect(r).toEqual({ ok: false, reason: 'rejected' })
     })
 })

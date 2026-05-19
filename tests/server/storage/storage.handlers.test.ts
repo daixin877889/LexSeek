@@ -8,7 +8,6 @@ import { makeEvent, expectSuccess, expectError } from '../_helpers/handler-test'
 vi.mock('~~/server/services/files/ossFiles.dao', () => ({
     createOssFileDao: vi.fn(),
     createOssFilesDao: vi.fn(),
-    updateOssFileDao: vi.fn(),
 }))
 vi.mock('~~/server/services/storage/storage.service', () => ({
     generatePostSignatureService: vi.fn(),
@@ -27,6 +26,7 @@ vi.mock('~~/server/services/membership/userBenefit.service', () => ({
 }))
 vi.mock('~~/server/services/files/ossFileVerify.service', () => ({
     verifyAndFixOssFileService: vi.fn(),
+    confirmOssFileByStorageCallbackService: vi.fn(),
 }))
 vi.mock('~~/server/lib/storage/callback', () => ({
     verifyCallback: vi.fn(),
@@ -36,7 +36,7 @@ vi.mock('~~/server/lib/storage/callback', () => ({
     $transaction: vi.fn(async (fn: any) => fn({})),
 }
 
-import { createOssFileDao, createOssFilesDao, updateOssFileDao } from '~~/server/services/files/ossFiles.dao'
+import { createOssFileDao, createOssFilesDao } from '~~/server/services/files/ossFiles.dao'
 import { generatePostSignatureService, testStorageConnectionService, clearAdapterCacheService } from '~~/server/services/storage/storage.service'
 import {
     getStorageConfigsDao,
@@ -46,12 +46,11 @@ import {
     isConfigNameExistsDao,
 } from '~~/server/services/storage/storageConfig.dao'
 import { checkStorageQuotaService } from '~~/server/services/membership/userBenefit.service'
-import { verifyAndFixOssFileService } from '~~/server/services/files/ossFileVerify.service'
+import { verifyAndFixOssFileService, confirmOssFileByStorageCallbackService } from '~~/server/services/files/ossFileVerify.service'
 import { verifyCallback } from '~~/server/lib/storage/callback'
 
 const mCreateOss = vi.mocked(createOssFileDao)
 const mCreateOssBatch = vi.mocked(createOssFilesDao)
-const mUpdateOss = vi.mocked(updateOssFileDao)
 const mGenSign = vi.mocked(generatePostSignatureService)
 const mTestConn = vi.mocked(testStorageConnectionService)
 const mClearCache = vi.mocked(clearAdapterCacheService)
@@ -63,6 +62,7 @@ const mIsNameExist = vi.mocked(isConfigNameExistsDao)
 const mCheckQuota = vi.mocked(checkStorageQuotaService)
 const mVerify = vi.mocked(verifyAndFixOssFileService)
 const mVerifyCallback = vi.mocked(verifyCallback)
+const mConfirmCallback = vi.mocked(confirmOssFileByStorageCallbackService)
 
 const { default: callbackHandler } = await import('../../../server/api/v1/storage/callback/.post')
 const { default: configsListHandler } = await import('../../../server/api/v1/storage/config/.get')
@@ -79,52 +79,68 @@ describe('POST /api/v1/storage/callback', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         mVerifyCallback.mockResolvedValue({ valid: true })
+        mConfirmCallback.mockResolvedValue({ ok: true })
     })
 
-    it('happy path → 更新文件状态为 UPLOADED', async () => {
+    it('happy path → 核对通过并返回成功', async () => {
         const res: any = await callbackHandler(makeEvent({
-            body: { 'x:file_id': '42', filename: 'a.txt', size: 100, mimeType: 'text/plain' },
+            body: { 'x:file_id': '42', 'x:user_id': '100', filename: 'u/a.txt', size: 100, mimeType: 'text/plain' },
         }) as any)
         expect(res.success).toBe(true)
-        expect(mUpdateOss).toHaveBeenCalledWith(42, expect.objectContaining({ encrypted: false }))
+        expect(mConfirmCallback).toHaveBeenCalledWith(expect.objectContaining({
+            fileId: 42, filePath: 'u/a.txt', userId: 100, encrypted: false,
+        }))
     })
 
-    it('加密文件 → 保留 originalMimeType', async () => {
+    it('加密文件 → originalMimeType 传入核对服务', async () => {
         const res: any = await callbackHandler(makeEvent({
             body: {
                 'x:file_id': '43',
+                'x:user_id': '100',
                 'x:encrypted': '1',
                 'x:original_mime_type': 'image/png',
-                filename: 'a.age',
+                filename: 'u/a.age',
             },
         }) as any)
         expect(res.success).toBe(true)
-        expect(mUpdateOss).toHaveBeenCalledWith(43, expect.objectContaining({ encrypted: true, originalMimeType: 'image/png' }))
+        expect(mConfirmCallback).toHaveBeenCalledWith(expect.objectContaining({
+            encrypted: true, originalMimeType: 'image/png',
+        }))
     })
 
-    it('缺 fileId → 失败', async () => {
+    it('缺 fileId → 失败，不进入核对', async () => {
         const res: any = await callbackHandler(makeEvent({
             body: { filename: 'a.txt' },
         }) as any)
         expect(res.success).toBe(false)
         expect(res.error).toContain('fileId')
+        expect(mConfirmCallback).not.toHaveBeenCalled()
     })
 
-    it('DAO 抛错 → 返回 callback processing failed', async () => {
-        mUpdateOss.mockRejectedValueOnce(new Error('db'))
+    it('核对未通过（路径不符）→ 拒绝', async () => {
+        mConfirmCallback.mockResolvedValueOnce({ ok: false, reason: 'path_mismatch' })
         const res: any = await callbackHandler(makeEvent({
-            body: { 'x:file_id': '1' },
+            body: { 'x:file_id': '42', 'x:user_id': '100', filename: 'u/forged.txt' },
+        }) as any)
+        expect(res.success).toBe(false)
+        expect(res.error).toContain('path_mismatch')
+    })
+
+    it('核对服务抛错 → 返回 callback processing failed', async () => {
+        mConfirmCallback.mockRejectedValueOnce(new Error('db'))
+        const res: any = await callbackHandler(makeEvent({
+            body: { 'x:file_id': '1', 'x:user_id': '100', filename: 'u/x.txt' },
         }) as any)
         expect(res.success).toBe(false)
     })
 
-    it('验签失败 → 拒绝处理，不更新文件状态', async () => {
+    it('验签失败 → 拒绝处理，不进入核对', async () => {
         mVerifyCallback.mockResolvedValueOnce({ valid: false, error: '签名验证失败' })
         const res: any = await callbackHandler(makeEvent({
             body: { 'x:file_id': '42', filename: 'a.txt' },
         }) as any)
         expect(res.success).toBe(false)
-        expect(mUpdateOss).not.toHaveBeenCalled()
+        expect(mConfirmCallback).not.toHaveBeenCalled()
     })
 })
 

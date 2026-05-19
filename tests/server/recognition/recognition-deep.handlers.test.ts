@@ -12,6 +12,7 @@ vi.mock('~~/server/services/material/mineru.dao', () => ({
     findDocRecognitionByOssFileIdDao: vi.fn(),
     createDocRecognitionRecordDao: vi.fn(),
     updateDocRecognitionRecordDao: vi.fn(),
+    updateDocRecognitionRecordByIdAndUserIdDao: vi.fn(),
 }))
 vi.mock('~~/server/services/material/mineruTask.service', () => ({
     createMineruTaskService: vi.fn(),
@@ -40,7 +41,7 @@ vi.mock('ofetch', () => ({
     },
 }
 
-import { findDocRecognitionByOssFileIdDao, createDocRecognitionRecordDao, updateDocRecognitionRecordDao } from '~~/server/services/material/mineru.dao'
+import { findDocRecognitionByOssFileIdDao, createDocRecognitionRecordDao, updateDocRecognitionRecordByIdAndUserIdDao } from '~~/server/services/material/mineru.dao'
 import { findImageRecognitionByOssFileIdDao } from '~~/server/services/material/ocr.dao'
 import { embedDocumentService } from '~~/server/services/material/materialEmbedding.service'
 import { generateOssDownloadSignaturesService } from '~~/server/services/files/files.service'
@@ -122,8 +123,8 @@ describe('POST /api/v1/recognition/doc/save deep', () => {
     it('happy path - 新记录', async () => {
         ;(findDocRecognitionByOssFileIdDao as any).mockResolvedValue(null)
         ;(createDocRecognitionRecordDao as any).mockResolvedValue({ id: 1 })
-        ;(embedDocumentService as any).mockResolvedValue({ vectorIds: ['v1'], lastEmbeddingAt: new Date() })
-        ;(updateDocRecognitionRecordDao as any).mockResolvedValue({ id: 1, vectorIds: ['v1'], lastEmbeddingAt: new Date() })
+        ;(embedDocumentService as any).mockResolvedValue({ ids: ['v1'], chunkCount: 1, lastEmbeddingAt: new Date() })
+        ;(updateDocRecognitionRecordByIdAndUserIdDao as any).mockResolvedValue({ id: 1, vectorIds: ['v1'], lastEmbeddingAt: new Date() })
         const res: any = await docSaveHandler(makeEvent({
             userId: 100,
             body: {
@@ -137,9 +138,9 @@ describe('POST /api/v1/recognition/doc/save deep', () => {
     })
 
     it('happy path - 已存在记录则更新', async () => {
-        ;(findDocRecognitionByOssFileIdDao as any).mockResolvedValue({ id: 1 })
-        ;(updateDocRecognitionRecordDao as any).mockResolvedValue({ id: 1, vectorIds: ['v1'], lastEmbeddingAt: new Date() })
-        ;(embedDocumentService as any).mockResolvedValue({ vectorIds: ['v1'], lastEmbeddingAt: new Date() })
+        ;(findDocRecognitionByOssFileIdDao as any).mockResolvedValue({ id: 1, userId: 100 })
+        ;(updateDocRecognitionRecordByIdAndUserIdDao as any).mockResolvedValue({ id: 1, vectorIds: ['v1'], lastEmbeddingAt: new Date() })
+        ;(embedDocumentService as any).mockResolvedValue({ ids: ['v1'], chunkCount: 1, lastEmbeddingAt: new Date() })
         const res: any = await docSaveHandler(makeEvent({
             userId: 100,
             body: {
@@ -151,10 +152,31 @@ describe('POST /api/v1/recognition/doc/save deep', () => {
         expectSuccess(res)
     })
 
+    it('已有记录归属不是当前用户 → 409 且不写入', async () => {
+        ;(findDocRecognitionByOssFileIdDao as any).mockResolvedValue({
+            id: 9,
+            userId: 200,
+            ossFileId: 1,
+        })
+        const res: any = await docSaveHandler(makeEvent({
+            userId: 100,
+            body: {
+                ossFileId: 1,
+                htmlContent: '<p>X</p>',
+                markdownContent: 'X',
+            },
+        }) as any)
+
+        expectError(res, 409, '识别记录归属异常')
+        expect(updateDocRecognitionRecordByIdAndUserIdDao).not.toHaveBeenCalled()
+        expect(createDocRecognitionRecordDao).not.toHaveBeenCalled()
+        expect(embedDocumentService).not.toHaveBeenCalled()
+    })
+
     it('embed 失败 → 仍 success（向量嵌入容错）', async () => {
         ;(findDocRecognitionByOssFileIdDao as any).mockResolvedValue(null)
         ;(createDocRecognitionRecordDao as any).mockResolvedValue({ id: 1 })
-        ;(updateDocRecognitionRecordDao as any).mockResolvedValue({ id: 1 })
+        ;(updateDocRecognitionRecordByIdAndUserIdDao as any).mockResolvedValue({ id: 1 })
         ;(embedDocumentService as any).mockRejectedValue(new Error('embed fail'))
         const res: any = await docSaveHandler(makeEvent({
             userId: 100,
