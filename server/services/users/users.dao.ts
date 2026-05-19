@@ -160,3 +160,21 @@ export const findUserExportSignatureDao = async (
         select: { name: true, contractExportSignature: true },
     })
 }
+
+/**
+ * 通过 apiKey 反查用户（对外开放接口 apiKey 鉴权用）。
+ * apiKey 唯一，但需排除软删用户，故用 findFirst；仅取鉴权所需的最小字段。
+ */
+export const findUserByApiKeyDao = async (
+    apiKey: string,
+): Promise<{ id: number; status: number } | null> => {
+    try {
+        return await prisma.users.findFirst({
+            where: { apiKey, deletedAt: null },
+            select: { id: true, status: true },
+        })
+    } catch (error) {
+        logger.error('通过 apiKey 查询用户失败：', error)
+        throw error
+    }
+}

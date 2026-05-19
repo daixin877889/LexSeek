@@ -13,14 +13,14 @@ const base = {
 } as unknown as LUser
 
 describe('transformUser', () => {
-  it('直拷字段、丢弃 role/apiKey、contractExportSignature 置 null', () => {
+  it('直拷字段、丢弃 role、apiKey 平移、contractExportSignature 置 null', () => {
     const r = transformUser(base)
     expect(r.id).toBe(1)
     expect(r.phone).toBe('13800000000')
     expect(r.inviteCode).toBe('ABC123')
     expect(r.contractExportSignature).toBeNull()
     expect('role' in r).toBe(false)
-    expect('apiKey' in r).toBe(false)
+    expect(r.apiKey).toBe('uuid')
   })
 })
 

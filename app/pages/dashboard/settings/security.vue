@@ -49,6 +49,20 @@
       </div>
     </form>
 
+    <!-- API Key -->
+    <div class="mt-8 pt-8 border-t">
+      <h3 class="text-lg font-medium mb-1">API Key</h3>
+      <p class="text-sm text-muted-foreground mb-4">用于调用开放接口（如法条搜索）的鉴权凭证，请妥善保管、不要泄露给他人。</p>
+      <div class="flex items-center gap-3">
+        <span class="font-mono text-sm break-all">{{ userStore.userInfo.apiKey || '—' }}</span>
+        <Button v-if="userStore.userInfo.apiKey" type="button" variant="ghost" size="sm"
+          class="shrink-0" @click="copyApiKey">
+          <copy-icon class="h-4 w-4 mr-1" />
+          复制
+        </Button>
+      </div>
+    </div>
+
     <!-- <div class="mt-8 pt-8 border-t">
       <h3 class="text-lg font-medium mb-4">登录设备</h3>
       <div class="space-y-4">
@@ -85,7 +99,7 @@ definePageMeta({
   layout: "dashboard-layout",
   userMenu: { group: 'settings', title: '安全设置', icon: 'Lock', order: 2 },
 });
-import { Loader2Icon, SaveIcon, SmartphoneIcon, LaptopIcon, TabletIcon, XIcon, RefreshCwIcon } from "lucide-vue-next";
+import { Loader2Icon, SaveIcon, SmartphoneIcon, LaptopIcon, TabletIcon, XIcon, RefreshCwIcon, CopyIcon } from "lucide-vue-next";
 const userStore = useUserStore();
 const authStore = useAuthStore();
 const roleStore = useRoleStore();
@@ -156,4 +170,21 @@ const changePassword = async () => {
     toast.error("修改密码失败", error.message || "修改密码失败，请稍后重试");
   }
 };
+
+// 复制 API Key 到剪贴板
+const copyApiKey = async () => {
+  const key = userStore.userInfo.apiKey;
+  if (!key) return;
+  try {
+    await navigator.clipboard.writeText(key);
+    toast.success("已复制", "API Key 已复制到剪贴板");
+  } catch {
+    toast.error("复制失败", "请手动选择文本复制");
+  }
+};
+
+// 进入页面刷新用户信息，确保 API Key 等字段为最新
+onMounted(() => {
+  userStore.refreshUserInfo();
+});
 </script>

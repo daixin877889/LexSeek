@@ -1,10 +1,11 @@
+import { z } from 'zod'
 import { UserStatus } from '#shared/types/user'
 import type { tokenBlacklist } from '~~/generated/prisma/client'
 import { clearAuthCookiesService } from '~~/server/services/auth/authToken.service'
 import { findMatchingPermission } from '~~/server/services/rbac/pathMatcher'
 import { getPublicApiPermissions } from '~~/server/services/rbac/permission.service'
 import { findTokenBlacklistByTokenDao } from '~~/server/services/users/tokenBlacklist.dao'
-import { findUserByIdDao } from '~~/server/services/users/users.dao'
+import { findUserByApiKeyDao, findUserByIdDao } from '~~/server/services/users/users.dao'
 // 鉴权中间件
 
 /**
@@ -47,6 +48,24 @@ export default defineEventHandler(async (event) => {
     if (isPublicApi(publicApis, url.pathname, requestMethod)) {
         // 标记为公开 API，供后续中间件使用
         event.context.isPublicApi = true
+        return; // 放行
+    }
+
+    // 2.5 对外开放 API（/api/open/**）：用 apikey 请求头鉴权，不走 JWT。
+    // 鉴权通过后标记 isOpenApi，03.permission 据此跳过 RBAC（由 apiKey 管控）。
+    if (url.pathname.startsWith('/api/open/')) {
+        const apiKey = getHeader(event, 'apikey')
+        if (!apiKey) return resError(event, 401, '未提供 API Key')
+        // api_key 是 uuid 列：格式不合法的 key 不可能命中用户，提前判定无效，
+        // 避免脏输入打到数据库触发 uuid 类型错误（500）。
+        if (!z.string().uuid().safeParse(apiKey).success) {
+            return resError(event, 401, 'API Key 无效')
+        }
+        const apiUser = await findUserByApiKeyDao(apiKey)
+        if (!apiUser) return resError(event, 401, 'API Key 无效')
+        if (apiUser.status === UserStatus.INACTIVE) return resError(event, 401, '用户被禁用')
+        event.context.auth = { user: { id: apiUser.id, roles: [] }, type: 'apikey', token: apiKey }
+        event.context.isOpenApi = true
         return; // 放行
     }
 

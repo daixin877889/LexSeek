@@ -24,6 +24,7 @@ export default defineEventHandler(async (event) => {
             profile: userInfo.profile,
             inviteCode: userInfo.inviteCode,
             contractExportSignature: userInfo.contractExportSignature,
+            apiKey: userInfo.apiKey,
         })
 
     } catch (error) {

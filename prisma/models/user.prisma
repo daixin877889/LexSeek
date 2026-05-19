@@ -30,6 +30,8 @@ model users {
   unionid         String?   @map("unionid") @db.VarChar(100)
   /// 用户注册渠道
   registerChannel String?   @map("register_channel") @db.VarChar(100)
+  /// 对外 API Key —— 第三方调用开放接口（如法条搜索）的鉴权凭证，注册时自动生成
+  apiKey          String?   @unique @default(dbgenerated("gen_random_uuid()")) @map("api_key") @db.Uuid
   /// 创建时间
   createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamptz()
   /// 最后更新时间

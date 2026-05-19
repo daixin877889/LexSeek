@@ -35,6 +35,8 @@ export interface SafeUserInfo {
     inviteCode: string | null
     /** 合同导出署名 */
     contractExportSignature: string | null
+    /** 对外 API Key（仅查询用户自己信息时返回，其它场景不下发） */
+    apiKey?: string | null
 }
 
 /**

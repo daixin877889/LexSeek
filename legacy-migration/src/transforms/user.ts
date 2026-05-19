@@ -1,6 +1,6 @@
 import type { LUser } from '../legacyTypes'
 
-/** §8.1 users：直拷大部分字段，丢弃 role/apiKey，新增 contractExportSignature=null */
+/** §8.1 users：直拷大部分字段；丢弃 role（→衍生 user_roles）；apiKey 平移到新库；新增 contractExportSignature=null */
 export function transformUser(o: LUser) {
   return {
     id: o.id,
@@ -18,6 +18,7 @@ export function transformUser(o: LUser) {
     openid: o.openid,
     unionid: o.unionid,
     registerChannel: o.registerChannel,
+    apiKey: o.apiKey,
     createdAt: o.createdAt,
     updatedAt: o.updatedAt,
     deletedAt: o.deletedAt,

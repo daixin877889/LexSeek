@@ -54,6 +54,7 @@ export type UsersMinAggregateOutputType = {
   openid: string | null
   unionid: string | null
   registerChannel: string | null
+  apiKey: string | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -75,6 +76,7 @@ export type UsersMaxAggregateOutputType = {
   openid: string | null
   unionid: string | null
   registerChannel: string | null
+  apiKey: string | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -96,6 +98,7 @@ export type UsersCountAggregateOutputType = {
   openid: number
   unionid: number
   registerChannel: number
+  apiKey: number
   createdAt: number
   updatedAt: number
   deletedAt: number
@@ -131,6 +134,7 @@ export type UsersMinAggregateInputType = {
   openid?: true
   unionid?: true
   registerChannel?: true
+  apiKey?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -152,6 +156,7 @@ export type UsersMaxAggregateInputType = {
   openid?: true
   unionid?: true
   registerChannel?: true
+  apiKey?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -173,6 +178,7 @@ export type UsersCountAggregateInputType = {
   openid?: true
   unionid?: true
   registerChannel?: true
+  apiKey?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -281,6 +287,7 @@ export type UsersGroupByOutputType = {
   openid: string | null
   unionid: string | null
   registerChannel: string | null
+  apiKey: string | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -325,6 +332,7 @@ export type usersWhereInput = {
   openid?: Prisma.StringNullableFilter<"users"> | string | null
   unionid?: Prisma.StringNullableFilter<"users"> | string | null
   registerChannel?: Prisma.StringNullableFilter<"users"> | string | null
+  apiKey?: Prisma.UuidNullableFilter<"users"> | string | null
   createdAt?: Prisma.DateTimeNullableFilter<"users"> | Date | string | null
   updatedAt?: Prisma.DateTimeNullableFilter<"users"> | Date | string | null
   deletedAt?: Prisma.DateTimeNullableFilter<"users"> | Date | string | null
@@ -366,6 +374,7 @@ export type usersOrderByWithRelationInput = {
   openid?: Prisma.SortOrderInput | Prisma.SortOrder
   unionid?: Prisma.SortOrderInput | Prisma.SortOrder
   registerChannel?: Prisma.SortOrderInput | Prisma.SortOrder
+  apiKey?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrderInput | Prisma.SortOrder
   updatedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -397,6 +406,7 @@ export type usersWhereUniqueInput = Prisma.AtLeast<{
   email?: string
   phone?: string
   inviteCode?: string
+  apiKey?: string
   AND?: Prisma.usersWhereInput | Prisma.usersWhereInput[]
   OR?: Prisma.usersWhereInput[]
   NOT?: Prisma.usersWhereInput | Prisma.usersWhereInput[]
@@ -433,7 +443,7 @@ export type usersWhereUniqueInput = Prisma.AtLeast<{
   contractReviews?: Prisma.ContractReviewsListRelationFilter
   contractReviewVersions?: Prisma.ContractReviewVersionsListRelationFilter
   contractAnnotations?: Prisma.ContractAnnotationsListRelationFilter
-}, "id" | "username" | "email" | "phone" | "inviteCode">
+}, "id" | "username" | "email" | "phone" | "inviteCode" | "apiKey">
 
 export type usersOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -451,6 +461,7 @@ export type usersOrderByWithAggregationInput = {
   openid?: Prisma.SortOrderInput | Prisma.SortOrder
   unionid?: Prisma.SortOrderInput | Prisma.SortOrder
   registerChannel?: Prisma.SortOrderInput | Prisma.SortOrder
+  apiKey?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrderInput | Prisma.SortOrder
   updatedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -480,6 +491,7 @@ export type usersScalarWhereWithAggregatesInput = {
   openid?: Prisma.StringNullableWithAggregatesFilter<"users"> | string | null
   unionid?: Prisma.StringNullableWithAggregatesFilter<"users"> | string | null
   registerChannel?: Prisma.StringNullableWithAggregatesFilter<"users"> | string | null
+  apiKey?: Prisma.UuidNullableWithAggregatesFilter<"users"> | string | null
   createdAt?: Prisma.DateTimeNullableWithAggregatesFilter<"users"> | Date | string | null
   updatedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"users"> | Date | string | null
   deletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"users"> | Date | string | null
@@ -500,6 +512,7 @@ export type usersCreateInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -541,6 +554,7 @@ export type usersUncheckedCreateInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -581,6 +595,7 @@ export type usersUpdateInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -622,6 +637,7 @@ export type usersUncheckedUpdateInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -663,6 +679,7 @@ export type usersCreateManyInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -683,6 +700,7 @@ export type usersUpdateManyMutationInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -704,6 +722,7 @@ export type usersUncheckedUpdateManyInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -735,6 +754,7 @@ export type usersCountOrderByAggregateInput = {
   openid?: Prisma.SortOrder
   unionid?: Prisma.SortOrder
   registerChannel?: Prisma.SortOrder
+  apiKey?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -762,6 +782,7 @@ export type usersMaxOrderByAggregateInput = {
   openid?: Prisma.SortOrder
   unionid?: Prisma.SortOrder
   registerChannel?: Prisma.SortOrder
+  apiKey?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -783,6 +804,7 @@ export type usersMinOrderByAggregateInput = {
   openid?: Prisma.SortOrder
   unionid?: Prisma.SortOrder
   registerChannel?: Prisma.SortOrder
+  apiKey?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -1095,6 +1117,7 @@ export type usersCreateWithoutPermissionAuditLogsInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -1135,6 +1158,7 @@ export type usersUncheckedCreateWithoutPermissionAuditLogsInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -1190,6 +1214,7 @@ export type usersUpdateWithoutPermissionAuditLogsInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1230,6 +1255,7 @@ export type usersUncheckedUpdateWithoutPermissionAuditLogsInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1269,6 +1295,7 @@ export type usersCreateWithoutCasesInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -1309,6 +1336,7 @@ export type usersUncheckedCreateWithoutCasesInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -1364,6 +1392,7 @@ export type usersUpdateWithoutCasesInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1404,6 +1433,7 @@ export type usersUncheckedUpdateWithoutCasesInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1443,6 +1473,7 @@ export type usersCreateWithoutCaseSessionsInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -1483,6 +1514,7 @@ export type usersUncheckedCreateWithoutCaseSessionsInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -1538,6 +1570,7 @@ export type usersUpdateWithoutCaseSessionsInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1578,6 +1611,7 @@ export type usersUncheckedUpdateWithoutCaseSessionsInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1617,6 +1651,7 @@ export type usersCreateWithoutContractReviewsInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -1657,6 +1692,7 @@ export type usersUncheckedCreateWithoutContractReviewsInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -1712,6 +1748,7 @@ export type usersUpdateWithoutContractReviewsInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1752,6 +1789,7 @@ export type usersUncheckedUpdateWithoutContractReviewsInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1791,6 +1829,7 @@ export type usersCreateWithoutContractReviewVersionsInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -1831,6 +1870,7 @@ export type usersUncheckedCreateWithoutContractReviewVersionsInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -1886,6 +1926,7 @@ export type usersUpdateWithoutContractReviewVersionsInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1926,6 +1967,7 @@ export type usersUncheckedUpdateWithoutContractReviewVersionsInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1965,6 +2007,7 @@ export type usersCreateWithoutContractAnnotationsInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -2005,6 +2048,7 @@ export type usersUncheckedCreateWithoutContractAnnotationsInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -2060,6 +2104,7 @@ export type usersUpdateWithoutContractAnnotationsInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2100,6 +2145,7 @@ export type usersUncheckedUpdateWithoutContractAnnotationsInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2139,6 +2185,7 @@ export type usersCreateWithoutDocumentTemplatesInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -2179,6 +2226,7 @@ export type usersUncheckedCreateWithoutDocumentTemplatesInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -2234,6 +2282,7 @@ export type usersUpdateWithoutDocumentTemplatesInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2274,6 +2323,7 @@ export type usersUncheckedUpdateWithoutDocumentTemplatesInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2313,6 +2363,7 @@ export type usersCreateWithoutDocumentDraftsInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -2353,6 +2404,7 @@ export type usersUncheckedCreateWithoutDocumentDraftsInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -2408,6 +2460,7 @@ export type usersUpdateWithoutDocumentDraftsInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2448,6 +2501,7 @@ export type usersUncheckedUpdateWithoutDocumentDraftsInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2487,6 +2541,7 @@ export type usersCreateWithoutUserMembershipsInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -2527,6 +2582,7 @@ export type usersUncheckedCreateWithoutUserMembershipsInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -2582,6 +2638,7 @@ export type usersUpdateWithoutUserMembershipsInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2622,6 +2679,7 @@ export type usersUncheckedUpdateWithoutUserMembershipsInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2661,6 +2719,7 @@ export type usersCreateWithoutUserBenefitsInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -2701,6 +2760,7 @@ export type usersUncheckedCreateWithoutUserBenefitsInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -2756,6 +2816,7 @@ export type usersUpdateWithoutUserBenefitsInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2796,6 +2857,7 @@ export type usersUncheckedUpdateWithoutUserBenefitsInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2835,6 +2897,7 @@ export type usersCreateWithoutOrdersInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -2875,6 +2938,7 @@ export type usersUncheckedCreateWithoutOrdersInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -2930,6 +2994,7 @@ export type usersUpdateWithoutOrdersInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2970,6 +3035,7 @@ export type usersUncheckedUpdateWithoutOrdersInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -3009,6 +3075,7 @@ export type usersCreateWithoutMembershipUpgradeRecordsInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -3049,6 +3116,7 @@ export type usersUncheckedCreateWithoutMembershipUpgradeRecordsInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -3104,6 +3172,7 @@ export type usersUpdateWithoutMembershipUpgradeRecordsInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -3144,6 +3213,7 @@ export type usersUncheckedUpdateWithoutMembershipUpgradeRecordsInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -3183,6 +3253,7 @@ export type usersCreateWithoutPointRecordsInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -3223,6 +3294,7 @@ export type usersUncheckedCreateWithoutPointRecordsInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -3278,6 +3350,7 @@ export type usersUpdateWithoutPointRecordsInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -3318,6 +3391,7 @@ export type usersUncheckedUpdateWithoutPointRecordsInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -3357,6 +3431,7 @@ export type usersCreateWithoutPointConsumptionRecordsInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -3397,6 +3472,7 @@ export type usersUncheckedCreateWithoutPointConsumptionRecordsInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -3452,6 +3528,7 @@ export type usersUpdateWithoutPointConsumptionRecordsInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -3492,6 +3569,7 @@ export type usersUncheckedUpdateWithoutPointConsumptionRecordsInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -3531,6 +3609,7 @@ export type usersCreateWithoutUserRolesInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -3571,6 +3650,7 @@ export type usersUncheckedCreateWithoutUserRolesInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -3626,6 +3706,7 @@ export type usersUpdateWithoutUserRolesInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -3666,6 +3747,7 @@ export type usersUncheckedUpdateWithoutUserRolesInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -3705,6 +3787,7 @@ export type usersCreateWithoutDocRecognitionRecordsInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -3745,6 +3828,7 @@ export type usersUncheckedCreateWithoutDocRecognitionRecordsInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -3800,6 +3884,7 @@ export type usersUpdateWithoutDocRecognitionRecordsInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -3840,6 +3925,7 @@ export type usersUncheckedUpdateWithoutDocRecognitionRecordsInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -3879,6 +3965,7 @@ export type usersCreateWithoutImageRecognitionRecordsInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -3919,6 +4006,7 @@ export type usersUncheckedCreateWithoutImageRecognitionRecordsInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -3974,6 +4062,7 @@ export type usersUpdateWithoutImageRecognitionRecordsInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -4014,6 +4103,7 @@ export type usersUncheckedUpdateWithoutImageRecognitionRecordsInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -4053,6 +4143,7 @@ export type usersCreateWithoutAsrRecordsInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -4093,6 +4184,7 @@ export type usersUncheckedCreateWithoutAsrRecordsInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -4148,6 +4240,7 @@ export type usersUpdateWithoutAsrRecordsInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -4188,6 +4281,7 @@ export type usersUncheckedUpdateWithoutAsrRecordsInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -4227,6 +4321,7 @@ export type usersCreateWithoutMineruTasksInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -4267,6 +4362,7 @@ export type usersUncheckedCreateWithoutMineruTasksInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -4322,6 +4418,7 @@ export type usersUpdateWithoutMineruTasksInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -4362,6 +4459,7 @@ export type usersUncheckedUpdateWithoutMineruTasksInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -4401,6 +4499,7 @@ export type usersCreateWithoutRedemptionRecordsInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -4441,6 +4540,7 @@ export type usersUncheckedCreateWithoutRedemptionRecordsInput = {
   openid?: string | null
   unionid?: string | null
   registerChannel?: string | null
+  apiKey?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -4496,6 +4596,7 @@ export type usersUpdateWithoutRedemptionRecordsInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -4536,6 +4637,7 @@ export type usersUncheckedUpdateWithoutRedemptionRecordsInput = {
   openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  apiKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -4778,6 +4880,7 @@ export type usersSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   openid?: boolean
   unionid?: boolean
   registerChannel?: boolean
+  apiKey?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -4820,6 +4923,7 @@ export type usersSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   openid?: boolean
   unionid?: boolean
   registerChannel?: boolean
+  apiKey?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -4841,6 +4945,7 @@ export type usersSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   openid?: boolean
   unionid?: boolean
   registerChannel?: boolean
+  apiKey?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -4862,12 +4967,13 @@ export type usersSelectScalar = {
   openid?: boolean
   unionid?: boolean
   registerChannel?: boolean
+  apiKey?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
 }
 
-export type usersOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "username" | "email" | "phone" | "password" | "status" | "company" | "profile" | "contractExportSignature" | "inviteCode" | "invitedBy" | "openid" | "unionid" | "registerChannel" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["users"]>
+export type usersOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "username" | "email" | "phone" | "password" | "status" | "company" | "profile" | "contractExportSignature" | "inviteCode" | "invitedBy" | "openid" | "unionid" | "registerChannel" | "apiKey" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["users"]>
 export type usersInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   userRoles?: boolean | Prisma.users$userRolesArgs<ExtArgs>
   pointRecords?: boolean | Prisma.users$pointRecordsArgs<ExtArgs>
@@ -5039,6 +5145,10 @@ export type $usersPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
      * 用户注册渠道
      */
     registerChannel: string | null
+    /**
+     * 对外 API Key —— 第三方调用开放接口（如法条搜索）的鉴权凭证，注册时自动生成
+     */
+    apiKey: string | null
     /**
      * 创建时间
      */
@@ -5509,6 +5619,7 @@ export interface usersFieldRefs {
   readonly openid: Prisma.FieldRef<"users", 'String'>
   readonly unionid: Prisma.FieldRef<"users", 'String'>
   readonly registerChannel: Prisma.FieldRef<"users", 'String'>
+  readonly apiKey: Prisma.FieldRef<"users", 'String'>
   readonly createdAt: Prisma.FieldRef<"users", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"users", 'DateTime'>
   readonly deletedAt: Prisma.FieldRef<"users", 'DateTime'>

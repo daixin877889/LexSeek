@@ -21,6 +21,7 @@ export const useUserStore = defineStore("user", () => {
     profile: "",
     inviteCode: "",
     contractExportSignature: null,
+    apiKey: null,
   });
 
   const pending = ref(false);
@@ -132,6 +133,7 @@ export const useUserStore = defineStore("user", () => {
       profile: "",
       inviteCode: "",
       contractExportSignature: null,
+      apiKey: null,
     });
     fetchError.value = null;
   };
