@@ -4,7 +4,7 @@
  * 确保案件所有材料已完成识别和嵌入，供中间件和工具复用。
  * 只对未识别的触发识别，只对未嵌入的触发嵌入，避免重复处理。
  */
-import { getMaterialByIdService, getMaterialsByCaseIdService, getMaterialsByCaseOrDraftIdService, getMaterialsByDraftIdService, updateMaterialStatusService, generateMaterialSummaryService, getMaterialSummariesByMaterials, type MaterialWithFile } from './material.service'
+import { getMaterialByIdService, getMaterialsByCaseIdService, getMaterialsByCaseOrDraftIdService, getMaterialsByDraftIdService, getMaterialsBySessionIdService, updateMaterialStatusService, generateMaterialSummaryService, getMaterialSummariesByMaterials, type MaterialWithFile } from './material.service'
 import { batchCheckMaterialEmbeddedService, embedMaterialUnifiedService } from './materialEmbedding.service'
 import { processMaterialService, batchCheckMaterialRecognizedService, MaterialProcessError } from './materialProcess.service'
 import { CaseMaterialType, getMaterialTypeFromMime } from '#shared/types/case'
@@ -336,6 +336,49 @@ export async function ensureMaterialsReadyByDraftService(
         : allMaterials
 
     return runRecognitionAndEmbeddingPipeline(materials, userId, initialFailed)
+}
+
+/**
+ * 通用问答会话批处理：按 sessionId 扫描关联材料并确保识别+嵌入。
+ *
+ * 与 ensureMaterialsReadyByDraftService 对偶（后者按 draftId）。
+ * - 传 fileIds → 先对每个文件走单文件 pipeline 建 (sessionId, ossFileId) 记录，
+ *   再按会话全量材料补齐识别/嵌入。
+ * - 不传 fileIds → 直接扫 sessionId 下已有 caseMaterials 全部。
+ *
+ * @param sessionId 对话会话标识（LangGraph thread_id）
+ * @param userId 调用用户
+ * @param options.fileIds 可选：仅处理这些 OSS 文件
+ * @param onProgress 可选：材料就绪进度回调
+ */
+export async function ensureMaterialsReadyBySessionService(
+    sessionId: string,
+    userId: number,
+    options: { fileIds?: number[] } = {},
+    onProgress?: (snapshot: MaterialReadinessSnapshot[]) => void | Promise<void>,
+): Promise<MaterialReadyResult> {
+    const initialFailed: MaterialFailedItem[] = []
+
+    // 1. 对用户新选的 fileIds，先走单文件 pipeline 保证 (sessionId, ossFileId) 记录存在且跑完
+    if (options.fileIds && options.fileIds.length > 0) {
+        const perFileResults = await Promise.allSettled(
+            options.fileIds.map(fid => ensureMaterialsReadyForSessionService(fid, sessionId, userId)),
+        )
+        for (let i = 0; i < perFileResults.length; i++) {
+            const r = perFileResults[i]!
+            if (r.status === 'rejected') {
+                initialFailed.push({
+                    materialId: 0,
+                    name: `ossFile_${options.fileIds[i]}`,
+                    error: r.reason instanceof Error ? r.reason.message : String(r.reason),
+                })
+            }
+        }
+    }
+
+    // 2. 拉取会话全量材料，交给共享流水线补齐识别/嵌入/摘要
+    const materials = await getMaterialsBySessionIdService(sessionId)
+    return runRecognitionAndEmbeddingPipeline(materials, userId, initialFailed, onProgress)
 }
 
 // ==================== 材料上下文服务 ====================
@@ -795,61 +838,68 @@ export async function searchMaterialsByDraftService(
  */
 export async function searchMaterialsByCaseOrDraftService(
     userId: number,
-    ids: { caseId: number | null; draftId: number | null },
+    ids: { caseId: number | null; draftId: number | null; sessionId?: string | null },
     options: { query?: string; sourceId?: number; k?: number },
 ): Promise<MaterialSearchToolResult[]> {
-    if (ids.caseId == null && ids.draftId == null) return []
-    const allMaterials = await getMaterialsByCaseOrDraftIdService(ids.caseId, ids.draftId)
+    if (ids.caseId == null && ids.draftId == null && ids.sessionId == null) return []
+    const allMaterials = await getMaterialsByCaseOrDraftIdService({
+        caseId: ids.caseId,
+        draftId: ids.draftId,
+        sessionId: ids.sessionId ?? null,
+    })
     return searchWithinMaterialsService(userId, allMaterials, options)
 }
 
+/** 单文件材料的归属维度（至少一个非空） */
+interface SingleMaterialOwner {
+    caseId?: number | null
+    draftId?: number | null
+    sessionId?: string | null
+}
+
 /**
- * 单文件材料就绪保障（文书草稿场景）
+ * 单文件材料就绪保障（归属无关核心）
  *
- * 1. 按 (draftId, ossFileId) 去重查询或创建 caseMaterials 记录
- *    - 新建时按 ossFiles.fileType(MIME) 推断 materialType，避免硬编码 DOCUMENT 导致音频/图片走错分支
- * 2. 调用 processMaterialService 触发完整识别 + 嵌入 + 状态机
- *    - 已识别文件会命中幂等分支（如 PDF 的 taskId==='existing'），同步完成
- *    - 异步场景（MinerU/ASR）返回 PROCESSING，由下方轮询等待
- * 3. 轮询 caseMaterials.status 直至 COMPLETED(3) / FAILED(4)；超时抛错
+ * 1. 按 ossFileId 查/建 case_materials 记录，按需补齐 caseId/draftId/sessionId 归属列
+ * 2. 已识别+已嵌入 → 直接置 COMPLETED，跳过重复识别/嵌入
+ * 3. 否则触发 processMaterialService（识别+嵌入），轮询至终态
  */
-export async function ensureMaterialsReadyForDraftService(
+async function ensureSingleMaterialReady(
     ossFileId: number,
-    draftId: number,
     userId: number,
-    caseId?: number | null,
-): Promise<{ id: number; status: number; draftId: number | null; ossFileId: number | null }> {
+    owner: SingleMaterialOwner,
+): Promise<{ id: number; status: number; ossFileId: number | null }> {
     // 查重：按 ossFileId 找活跃记录，避免同一 ossFile 产生多条记录
     // 安全性由 ossFiles.userId 单 owner 保证（调用方传入的 ossFileId 必属当前 user）
     const existing = await findActiveMaterialByOssFileIdDao(ossFileId)
-
     let materialId: number
 
     if (existing) {
         materialId = existing.id
 
-        // 按需补齐缺失字段：case-only → 补 draftId；draft-only → 补 caseId；双绑 → 无变更
-        const patch: Partial<{ caseId: number; draftId: number }> = {}
-        if (caseId != null && existing.caseId == null) {
-            patch.caseId = caseId
-        } else if (caseId != null && existing.caseId != null && existing.caseId !== caseId) {
-            // 异常场景：ossFile 已绑定到另一 case（当前业务不会发生），记警告但不覆盖
-            logger.warn('case_materials caseId 冲突，保留原值不覆盖', {
+        // 按需补齐缺失的归属列；已有值与入参不同时仅告警不覆盖（caseId/draftId）
+        const patch: Partial<{ caseId: number; draftId: number; sessionId: string }> = {}
+        if (owner.caseId != null && existing.caseId == null) {
+            patch.caseId = owner.caseId
+        } else if (owner.caseId != null && existing.caseId != null && existing.caseId !== owner.caseId) {
+            logger.warn('case_materials caseId 冲突，保留原值', {
                 materialId: existing.id,
                 existingCaseId: existing.caseId,
-                incomingCaseId: caseId,
+                incomingCaseId: owner.caseId,
             })
         }
-        if (existing.draftId !== draftId) {
+        if (owner.draftId != null && existing.draftId !== owner.draftId) {
             if (existing.draftId != null) {
-                // 异常场景：同 case 下两个活跃 draft 用同文件，后写赢
                 logger.warn('case_materials draftId 被覆盖', {
                     materialId: existing.id,
                     oldDraftId: existing.draftId,
-                    newDraftId: draftId,
+                    newDraftId: owner.draftId,
                 })
             }
-            patch.draftId = draftId
+            patch.draftId = owner.draftId
+        }
+        if (owner.sessionId != null && existing.sessionId == null) {
+            patch.sessionId = owner.sessionId
         }
         if (Object.keys(patch).length > 0) {
             await prisma.caseMaterials.update({ where: { id: existing.id }, data: patch })
@@ -857,11 +907,8 @@ export async function ensureMaterialsReadyForDraftService(
 
         // 已 COMPLETED 直接返回（跳过识别）
         if (existing.status === MaterialStatus.COMPLETED) {
-            // 历史数据兜底：若该 COMPLETED 材料 summary 仍为空（历史 pipeline 未触发摘要生成），
-            // 在这条幂等路径上补触发一次摘要生成（fire-and-forget；generateMaterialSummaryService
-            // 内部已有 `material.summary` 非空早返保护，重复调用 0 副作用）。
-            generateMaterialSummaryService(existing.id).catch(() => { /* 已在内部 catch */ })
-            return { id: existing.id, status: existing.status, draftId, ossFileId: existing.ossFileId }
+            generateMaterialSummaryService(existing.id).catch(() => { /* 内部已 catch */ })
+            return { id: existing.id, status: existing.status, ossFileId: existing.ossFileId }
         }
     } else {
         const ossFile = await prisma.ossFiles.findFirst({
@@ -873,8 +920,9 @@ export async function ensureMaterialsReadyForDraftService(
         }
         const materialType = getMaterialTypeFromMime(ossFile.fileType)
         const newMaterial = await createMaterialDao({
-            caseId: caseId ?? null,
-            draftId,
+            caseId: owner.caseId ?? null,
+            draftId: owner.draftId ?? null,
+            sessionId: owner.sessionId ?? null,
             ossFileId,
             name: ossFile.fileName ?? `材料_${ossFileId}`,
             type: materialType,
@@ -882,9 +930,7 @@ export async function ensureMaterialsReadyForDraftService(
         materialId = newMaterial.id
     }
 
-    // 跨 draft 复用：该 ossFile 已识别且已嵌入（lastEmbeddingAt 命中），
-    // 直接置当前 caseMaterial 为 COMPLETED，跳过 processMaterialService，
-    // 避免重复识别 + 重复写向量。
+    // 跨归属复用：该 ossFile 已识别且已嵌入，直接置 COMPLETED，跳过重复识别 + 重复写向量。
     const materialDetail = await getMaterialByIdService(materialId)
     if (materialDetail) {
         const [recognizedMap, embeddedMap] = await Promise.all([
@@ -895,14 +941,8 @@ export async function ensureMaterialsReadyForDraftService(
             if (materialDetail.status !== MaterialStatus.COMPLETED) {
                 await updateMaterialStatusService(materialId, MaterialStatus.COMPLETED)
             }
-            // 异步触发摘要生成（fire-and-forget，失败不阻塞）
-            generateMaterialSummaryService(materialId).catch(() => { /* 已在内部 catch */ })
-            return {
-                id: materialId,
-                status: MaterialStatus.COMPLETED,
-                draftId: materialDetail.draftId,
-                ossFileId: materialDetail.ossFileId,
-            }
+            generateMaterialSummaryService(materialId).catch(() => { /* 内部已 catch */ })
+            return { id: materialId, status: MaterialStatus.COMPLETED, ossFileId: materialDetail.ossFileId }
         }
     }
 
@@ -920,12 +960,8 @@ export async function ensureMaterialsReadyForDraftService(
     for (let i = 0; i < MAX_POLLS; i++) {
         const updated = await findMaterialByIdDao(materialId)
         if (updated?.status === MaterialStatus.COMPLETED) {
-            // 异步触发摘要生成（fire-and-forget，失败不阻塞）
-            // 与上面"跨 draft 复用"路径（line 771）保持一致：识别+嵌入完成后即时生成 100 字摘要写回。
-            // 历史 bug：仅"跨 draft 复用"路径触发本调用，主流程（材料首次上传 → processMaterialService
-            // → 轮询 COMPLETED）未触发，导致线上所有首次上传的材料 summary 永远为 null。
-            generateMaterialSummaryService(materialId).catch(() => { /* 已在内部 catch */ })
-            return { id: updated.id, status: updated.status, draftId: updated.draftId, ossFileId: updated.ossFileId }
+            generateMaterialSummaryService(materialId).catch(() => { /* 内部已 catch */ })
+            return { id: updated.id, status: updated.status, ossFileId: updated.ossFileId }
         }
         if (updated?.status === MaterialStatus.FAILED) {
             throw new Error(`材料处理失败: ${materialId}`)
@@ -934,6 +970,30 @@ export async function ensureMaterialsReadyForDraftService(
     }
 
     throw new Error(`材料处理超时: ${materialId}`)
+}
+
+/**
+ * 单文件材料就绪保障（文书草稿场景）—— 薄包装，保持既有调用方签名不变。
+ */
+export async function ensureMaterialsReadyForDraftService(
+    ossFileId: number,
+    draftId: number,
+    userId: number,
+    caseId?: number | null,
+): Promise<{ id: number; status: number; draftId: number | null; ossFileId: number | null }> {
+    const r = await ensureSingleMaterialReady(ossFileId, userId, { caseId, draftId })
+    return { id: r.id, status: r.status, draftId, ossFileId: r.ossFileId }
+}
+
+/**
+ * 单文件材料就绪保障（通用问答会话场景）。
+ */
+export async function ensureMaterialsReadyForSessionService(
+    ossFileId: number,
+    sessionId: string,
+    userId: number,
+): Promise<{ id: number; status: number; ossFileId: number | null }> {
+    return ensureSingleMaterialReady(ossFileId, userId, { sessionId })
 }
 
 /**
