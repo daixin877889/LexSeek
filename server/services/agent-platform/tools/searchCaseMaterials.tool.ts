@@ -33,7 +33,7 @@ export const toolDefinition: ToolDefinition<typeof schema> = {
 export const createTool = createSimpleTool(
     toolDefinition,
     async (input, ctx) => {
-        const { userId, caseId, draftId: ctxDraftId } = ctx
+        const { userId, caseId, draftId: ctxDraftId, sessionId } = ctx
         const { query, sourceId, draftId: inputDraftId, k = 5 } = input
 
         // input 中的 draftId 覆盖 context 中的 draftId
@@ -42,22 +42,22 @@ export const createTool = createSimpleTool(
         // 模型传入的 k 值 clamp 到 [1, MAX_K]，避免因超限报错
         const safeK = Math.min(Math.max(1, Math.floor(k)), MAX_K)
 
-        logger.info('执行材料检索工作流工具', { userId, caseId, draftId: effectiveDraftId, query, sourceId, k: safeK })
+        logger.info('执行材料检索工作流工具', { userId, caseId, draftId: effectiveDraftId, sessionId, query, sourceId, k: safeK })
 
-        if (caseId == null && !effectiveDraftId) {
-            throw new Error('search_case_materials 需要 caseId 或 draftId')
+        if (caseId == null && !effectiveDraftId && !sessionId) {
+            throw new Error('search_case_materials 需要 caseId / draftId / sessionId')
         }
 
-        // 合并检索：同时传 caseId/draftId 由服务层 OR 查询 + 天然去重
+        // 合并检索：caseId / draftId / sessionId 由服务层 OR 查询 + 天然去重
         const results = await searchMaterialsByCaseOrDraftService(
             userId,
-            { caseId: caseId ?? null, draftId: effectiveDraftId ?? null },
+            { caseId: caseId ?? null, draftId: effectiveDraftId ?? null, sessionId: sessionId ?? null },
             { query, sourceId, k: safeK },
         )
 
         if (results.length === 0) return { error: '未找到指定材料' }
 
-        logger.info('材料检索完成', { caseId, draftId: effectiveDraftId, resultCount: results.length })
+        logger.info('材料检索完成', { caseId, draftId: effectiveDraftId, sessionId, resultCount: results.length })
         return truncateToolResults(results)
     },
     { errorLabel: '材料检索' },
