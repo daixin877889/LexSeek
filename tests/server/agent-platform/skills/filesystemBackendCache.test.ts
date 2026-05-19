@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
     getFilesystemBackend,
     invalidateBackendCache,
 } from '~~/server/services/agent-platform/skills/filesystemBackendCache'
+import { dispatchInvalidationMessage } from '~~/server/utils/cacheInvalidationBus'
 
 describe('FilesystemBackendCache', () => {
     beforeEach(() => {
@@ -44,5 +45,26 @@ describe('FilesystemBackendCache', () => {
         const a = getFilesystemBackend(['x'], new Set(['a', 'b', 'c']))
         const b = getFilesystemBackend(['x'], new Set(['c', 'b', 'a']))
         expect(a).toBe(b)
+    })
+
+    it('缓存项超过 10min TTL 后重建实例', () => {
+        vi.useFakeTimers({ toFake: ['Date'] })
+        try {
+            const t0 = new Date('2026-05-19T00:00:00Z')
+            vi.setSystemTime(t0)
+            const a = getFilesystemBackend(['x'], new Set(['skill_a']))
+            vi.setSystemTime(new Date(t0.getTime() + 11 * 60 * 1000))
+            const b = getFilesystemBackend(['x'], new Set(['skill_a']))
+            expect(a).not.toBe(b)   // TTL 过期，重建
+        } finally {
+            vi.useRealTimers()
+        }
+    })
+
+    it('收到 filesystemBackend 失效广播时清空缓存', () => {
+        const a = getFilesystemBackend(['x'], new Set(['skill_a']))
+        dispatchInvalidationMessage(JSON.stringify({ cacheName: 'filesystemBackend' }))
+        const b = getFilesystemBackend(['x'], new Set(['skill_a']))
+        expect(a).not.toBe(b)
     })
 })
