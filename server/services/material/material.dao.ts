@@ -346,7 +346,11 @@ export const findRecognitionRecordsByOssFileIdsDao = async (
 }
 
 /**
- * 按 ossFileId 查活跃材料记录（upsert 用）
+ * 按 ossFileId 查活跃的 **案件 / 草稿归属** 材料记录（案件/草稿场景 upsert 用）
+ *
+ * 仅匹配 `sessionId IS NULL` 的行——会话归属材料按 (sessionId, ossFileId) 独立查/建
+ * （见 findActiveMaterialBySessionAndOssFileDao），不能被案件/草稿全局查重误抓：
+ * 否则案件/草稿会"借用"某会话的材料行，该会话被删除级联软删时会连带搞丢案件/草稿材料。
  *
  * 业务约束：ossFiles.userId 是单一 owner，调用方传入的 ossFileId 必属当前 user，
  * 所以查到的 existing 必然归属同一用户，无需 DAO 层做 user 过滤。
@@ -357,10 +361,32 @@ export const findActiveMaterialByOssFileIdDao = async (
 ): Promise<caseMaterials | null> => {
     try {
         return await (tx || prisma).caseMaterials.findFirst({
-            where: { ossFileId, deletedAt: null },
+            where: { ossFileId, deletedAt: null, sessionId: null },
         })
     } catch (error) {
         logger.error('按 ossFileId 查活跃材料失败：', error)
+        throw error
+    }
+}
+
+/**
+ * 按 (会话标识, ossFileId) 查活跃材料（通用问答会话场景）
+ *
+ * 与 findActiveMaterialByOssFileIdDao（全局按 ossFileId 去重）不同：通用问答里
+ * 同一份云盘文件会被多个会话各自引用，必须按会话维度独立查/建记录——否则第二个
+ * 会话会复用到第一个会话的记录、却因 sessionId 不匹配而查不到归属自己的材料。
+ */
+export const findActiveMaterialBySessionAndOssFileDao = async (
+    sessionId: string,
+    ossFileId: number,
+    tx?: Prisma.TransactionClient,
+): Promise<caseMaterials | null> => {
+    try {
+        return await (tx || prisma).caseMaterials.findFirst({
+            where: { sessionId, ossFileId, deletedAt: null },
+        })
+    } catch (error) {
+        logger.error('按会话标识与 ossFileId 查活跃材料失败：', error)
         throw error
     }
 }

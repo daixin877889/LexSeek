@@ -77,6 +77,18 @@ describe('ensureMaterialsReadyForSessionService', () => {
         await ensureMaterialsReadyForSessionService(oss.id, sid, user.id)
         expect(await findMaterialsBySessionIdDao(sid)).toHaveLength(1)
     })
+
+    it('两个会话引用同一文件时各自都能查到归属自己的材料', async () => {
+        const user = await createTestUser()
+        const oss = await createTestOssFile({ userId: user.id })
+        const sidA = `sess-shareA-${Date.now()}`
+        const sidB = `sess-shareB-${Date.now()}`
+        await ensureMaterialsReadyForSessionService(oss.id, sidA, user.id)
+        await ensureMaterialsReadyForSessionService(oss.id, sidB, user.id)
+        // 同一份云盘文件被两个会话各自引用，两个会话都应能查到归属自己的材料记录
+        expect(await findMaterialsBySessionIdDao(sidA)).toHaveLength(1)
+        expect(await findMaterialsBySessionIdDao(sidB)).toHaveLength(1)
+    })
 })
 
 describe('ensureMaterialsReadyBySessionService', () => {

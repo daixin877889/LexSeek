@@ -9,7 +9,7 @@ import { batchCheckMaterialEmbeddedService, embedMaterialUnifiedService } from '
 import { processMaterialService, batchCheckMaterialRecognizedService, MaterialProcessError } from './materialProcess.service'
 import { CaseMaterialType, getMaterialTypeFromMime } from '#shared/types/case'
 import { MaterialStatus, type MaterialOwner } from '#shared/types/material'
-import { createMaterialDao, findMaterialByIdDao, findActiveMaterialByOssFileIdDao } from './material.dao'
+import { createMaterialDao, findMaterialByIdDao, findActiveMaterialByOssFileIdDao, findActiveMaterialBySessionAndOssFileDao } from './material.dao'
 import { extractTextFromAsrResult } from './asr.service'
 import { countTokensSync } from '~~/server/utils/tokenCounter'
 
@@ -862,9 +862,13 @@ async function ensureSingleMaterialReady(
     userId: number,
     owner: MaterialOwner,
 ): Promise<{ id: number; status: number; ossFileId: number | null }> {
-    // 查重：按 ossFileId 找活跃记录，避免同一 ossFile 产生多条记录
-    // 安全性由 ossFiles.userId 单 owner 保证（调用方传入的 ossFileId 必属当前 user）
-    const existing = await findActiveMaterialByOssFileIdDao(ossFileId)
+    // 查重：会话场景按 (sessionId, ossFileId) 独立查/建——同一份云盘文件可被多个会话
+    // 各自引用，必须按会话维度建归属自己的记录；案件/草稿场景按 ossFileId 全局去重
+    // （一文件一记录、归属列叠加）。识别记录与向量均按 ossFileId 存储，跨记录天然共享。
+    // 安全性由 ossFiles.userId 单 owner 保证（调用方传入的 ossFileId 必属当前 user）。
+    const existing = owner.sessionId != null
+        ? await findActiveMaterialBySessionAndOssFileDao(owner.sessionId, ossFileId)
+        : await findActiveMaterialByOssFileIdDao(ossFileId)
     let materialId: number
 
     if (existing) {

@@ -109,6 +109,20 @@ describe('findActiveMaterialByOssFileIdDao', () => {
         const r = await findActiveMaterialByOssFileIdDao(oss.id)
         expect(r).toBeNull()
     })
+
+    it('会话归属的材料不被按 ossFileId 的案件/草稿查重命中', async () => {
+        const user = await createTestUser()
+        const oss = await createTestOssFile({ userId: user.id })
+        await createMaterialDao({
+            sessionId: `sess-${Date.now()}`,
+            ossFileId: oss.id,
+            name: 's.pdf',
+            type: CaseMaterialType.DOCUMENT,
+        })
+        // 会话归属行不应被案件/草稿全局查重命中，避免案件/草稿误借用会话材料行
+        const r = await findActiveMaterialByOssFileIdDao(oss.id)
+        expect(r).toBeNull()
+    })
 })
 
 describe('findMaterialsByCaseOrDraftIdDao', () => {
