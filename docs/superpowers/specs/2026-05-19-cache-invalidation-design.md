@@ -174,7 +174,7 @@ interface CacheInvalidationMessage {
 
 | 场景 | 处理 |
 |------|------|
-| 发布时 Redis 不可用 | `publishInvalidation` 对 `redisClient.publish(...)` 做 fire-and-forget + `.catch(log)`——调用方（写库 API）不 `await` 它，本地缓存已同步清除，绝不因 Redis 挂掉或 `maxRetriesPerRequest` 重试而阻塞或失败；其它实例靠 TTL 自愈 |
+| 发布时 Redis 不可用 | `publishInvalidation` **整体包 try/catch**：既兜住 `.publish(...)` 的异步 reject（`.catch(log)`），也兜住 `getRedisClient()` 在 `NUXT_REDIS_URL` 未配置时的**同步抛错**（`getRedisClient → getRedisUrl` 会同步 `throw`）。调用方（写库 API）不 `await` 它，本地缓存已同步清除，绝不因 Redis 挂掉/未配置或 `maxRetriesPerRequest` 重试而阻塞或失败；其它实例靠 TTL 自愈 |
 | 启动时订阅连不上 | 插件启动时**先显式调用一次 `sub.subscribe('cache:invalidate')`**——既点火 `lazyConnect` 惰性连接、又完成首次订阅（该次调用在 Redis 不可用时会因 `maxRetriesPerRequest:3` 被 reject，用 `.catch(log)` 兜住）。**另给连接挂 `on('ready', () => sub.subscribe('cache:invalidate'))`** 负责其后每次（重）连接的（重）订阅——不能只依赖 ioredis 的 `autoResubscribe`，它只重订「曾成功订阅过」的频道，覆盖不到冷启动初次订阅就失败的场景。SUBSCRIBE 幂等，重复订阅无害；冷启动失败与后续断线重连都能自愈。断连期间该实例靠 TTL |
 | 收到畸形消息 | catch JSON 解析错误，log，忽略该消息 |
 | handler 执行抛错 | catch 包裹，不影响订阅连接与其它 handler |
@@ -185,8 +185,7 @@ interface CacheInvalidationMessage {
 
 - **总线单测**：`publishInvalidation` 生成的消息格式正确（单条/批量/全清）；收到消息分发到对应 handler 并正确传入 keys；未知 cacheName 为 no-op；畸形消息被忽略；handler 抛错被包住不影响后续。
 - **各缓存单测**：`invalidate` → 本地清除 + 触发总线发布；TTL 过期生效；nodeConfig 的「缓存 null 哨兵」（节点不存在时缓存 null 仍快速返回）。
-- **pub/sub 链路集成测试**：通过真实（测试）Redis 验证 `publishInvalidation` 发出的消息能被订阅端收到并触发对应 handler——单进程内「自发自收」即可验证整条链路，无需真起多进程。
-  - ⚠️ **测试隔离**：vitest 多 worker 并行且共用同一 Redis 库（`.env.testing` 的 `NUXT_REDIS_URL` 指向单库），而 `cache:invalidate` 是单一全局频道，并行 worker 的订阅者会互收消息导致 flaky。`agentEventBridge` 测试靠 per-run 唯一 channel 天然隔离，本设计单频道无此保护——实现计划须显式解决：测试时给频道加 worker/test 唯一后缀，或在消息体带测试 nonce 由 handler 过滤。
+- **总线 pub/sub 测试**：与项目既有 Redis 测试惯例一致——全部 mock `server/lib/redis`，不连真实 Redis。原因：测试环境下 `useRuntimeConfig().redis.url` 不会被 `NUXT_REDIS_URL` 填充（全项目 20+ 个 Redis 测试均 mock，`redis.test.ts` 即靠 mock `nuxt/app` 注入 url），且 CI 不提供 Redis 容器。`publishInvalidation` 用 mock 的 `getRedisClient` 断言「发布到正确频道与载荷」及「Redis 不可用（同步抛错 / 异步 reject）时不抛」；`startCacheInvalidationSubscriber` 用 mock 的 `getCacheBusSubscriber` 断言「订阅 `cache:invalidate` 频道」并「`on('message')` 回调正确接到 `dispatchInvalidationMessage`」。
 - **原始 bug 回归**：`PUT /admin/nodes/:id` 与 `DELETE /admin/nodes/:id` → 验证 `nodeConfig` 缓存被失效。
 - **覆盖率**：`agent-platform/**` 分目录阈值为 lines/statements/functions ≥90%、branches ≥75%，nodeConfig / filesystemBackend 改动一并补齐。新增的 `server/utils/cacheInvalidationBus.ts` 不在该 glob 内（仅受全局阈值约束），仍按项目规范自律补测到 ~90%。
 

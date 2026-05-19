@@ -25,7 +25,7 @@
 | `server/api/v1/admin/nodes/[id].put.ts` | 改 | 补 `invalidateNodeConfigCache` —— 修复原始 bug |
 | `server/api/v1/admin/nodes/[id].delete.ts` | 改 | 补 `invalidateNodeConfigCache` |
 
-测试文件：`tests/server/utils/redis.test.ts`（扩展）、`tests/server/utils/cacheInvalidationBus.test.ts`（新增）、`tests/server/agent-platform/nodeConfig/loader.test.ts`（扩展）、`tests/server/agent-platform/skills/filesystemBackendCache.test.ts`（扩展）、`tests/server/rbac/cacheService.bus.test.ts`（新增）、`tests/server/api/admin/nodesCacheInvalidation.test.ts`（新增）。
+测试文件：`tests/server/utils/redis.test.ts`（扩展）、`tests/server/utils/cacheInvalidationBus.test.ts`（新增）、`tests/server/agent-platform/nodeConfig/loader.test.ts`（扩展）、`tests/server/agent-platform/skills/filesystemBackendCache.test.ts`（扩展）、`tests/server/rbac/cacheService.bus.test.ts`（新增）、`tests/server/admin/nodesCacheInvalidation.test.ts`（新增）。
 
 任务依赖：Task 1 → Task 2 → Task 3 / 4 / 5 / 6（并行）→ Task 7 → Task 8。
 
@@ -130,11 +130,33 @@ git commit -m "feat(cache): redis.ts 新增总线专用订阅连接 getCacheBusS
 /**
  * 缓存失效总线测试
  *
+ * 与项目既有 Redis 测试惯例一致：mock server/lib/redis，不连真实 Redis
+ * （测试环境 useRuntimeConfig().redis.url 不可靠、CI 也不提供 Redis 容器）。
+ *
  * **Feature: cache-invalidation**
  */
-import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest'
-import { randomUUID } from 'node:crypto'
-import {
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+
+// logger 全局桩（与 tests/server/admin/nodes.create.api.test.ts 同风格）
+;(globalThis as any).logger = { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() }
+
+// 可变 mock 持有器（vi.hoisted 让被提升的 vi.mock 工厂可引用它）
+const redisMock = vi.hoisted(() => ({
+    throwOnGetClient: false,
+    publish: vi.fn(),
+    subOn: vi.fn(),
+    subSubscribe: vi.fn(),
+}))
+
+vi.mock('~~/server/lib/redis', () => ({
+    getRedisClient: () => {
+        if (redisMock.throwOnGetClient) throw new Error('Redis URL 未配置')
+        return { publish: redisMock.publish }
+    },
+    getCacheBusSubscriber: () => ({ on: redisMock.subOn, subscribe: redisMock.subSubscribe }),
+}))
+
+const {
     CACHE_INVALIDATION_CHANNEL,
     CACHE_NAMES,
     registerInvalidationHandler,
@@ -142,12 +164,7 @@ import {
     publishInvalidation,
     startCacheInvalidationSubscriber,
     _resetBusForTests,
-} from '~~/server/utils/cacheInvalidationBus'
-import {
-    getRedisClient,
-    getCacheBusSubscriber,
-    closeRedisConnections,
-} from '~~/server/lib/redis'
+} = await import('~~/server/utils/cacheInvalidationBus')
 
 describe('cacheInvalidationBus 分发逻辑', () => {
     beforeEach(() => _resetBusForTests())
@@ -171,7 +188,7 @@ describe('cacheInvalidationBus 分发逻辑', () => {
             .not.toThrow()
     })
 
-    it('畸形 JSON 被忽略，不抛错', () => {
+    it('畸形消息被忽略，不抛错', () => {
         expect(() => dispatchInvalidationMessage('not-json{')).not.toThrow()
         expect(() => dispatchInvalidationMessage('null')).not.toThrow()
         expect(() => dispatchInvalidationMessage('123')).not.toThrow()
@@ -184,29 +201,69 @@ describe('cacheInvalidationBus 分发逻辑', () => {
     })
 })
 
-describe('cacheInvalidationBus pub/sub 链路（真实 Redis）', () => {
-    afterAll(async () => {
+describe('cacheInvalidationBus 发布', () => {
+    beforeEach(() => {
         _resetBusForTests()
-        await closeRedisConnections()
+        redisMock.throwOnGetClient = false
+        redisMock.publish.mockReset().mockResolvedValue(1)
     })
 
-    it('publish 的消息经 Redis 被订阅端 dispatch 到 handler', async () => {
-        _resetBusForTests()
-        // 用测试唯一 cacheName 隔离并行 worker 共用单频道导致的串台
-        const testCacheName = `__test_${randomUUID()}`
-        const received: (string[] | undefined)[] = []
-        registerInvalidationHandler(testCacheName as never, keys => received.push(keys))
-
-        startCacheInvalidationSubscriber()
-        // 显式等待订阅完成后再发布（SUBSCRIBE 幂等）
-        await getCacheBusSubscriber().subscribe(CACHE_INVALIDATION_CHANNEL)
-
-        await getRedisClient().publish(
+    it('publishInvalidation 带 keys 时发布到正确频道与载荷', () => {
+        publishInvalidation(CACHE_NAMES.NODE_CONFIG, ['n1'])
+        expect(redisMock.publish).toHaveBeenCalledWith(
             CACHE_INVALIDATION_CHANNEL,
-            JSON.stringify({ cacheName: testCacheName, keys: ['k1'] }),
+            JSON.stringify({ cacheName: 'nodeConfig', keys: ['n1'] }),
         )
+    })
 
-        await vi.waitFor(() => expect(received).toEqual([['k1']]), { timeout: 3000 })
+    it('publishInvalidation 不带 keys 时载荷不含 keys 字段', () => {
+        publishInvalidation(CACHE_NAMES.NODE_CONFIG)
+        expect(redisMock.publish).toHaveBeenCalledWith(
+            CACHE_INVALIDATION_CHANNEL,
+            JSON.stringify({ cacheName: 'nodeConfig' }),
+        )
+    })
+
+    it('getRedisClient 同步抛错（Redis URL 未配置）时 publishInvalidation 不抛', () => {
+        redisMock.throwOnGetClient = true
+        expect(() => publishInvalidation(CACHE_NAMES.NODE_CONFIG, ['n1'])).not.toThrow()
+    })
+
+    it('publish 异步 reject 时 publishInvalidation 不抛', () => {
+        redisMock.publish.mockReset().mockRejectedValue(new Error('redis down'))
+        expect(() => publishInvalidation(CACHE_NAMES.NODE_CONFIG)).not.toThrow()
+    })
+})
+
+describe('cacheInvalidationBus 订阅接线', () => {
+    beforeEach(() => {
+        _resetBusForTests()
+        redisMock.subOn.mockReset()
+        redisMock.subSubscribe.mockReset().mockResolvedValue(undefined)
+    })
+
+    it('startCacheInvalidationSubscriber 订阅频道并接线 message → dispatch', () => {
+        startCacheInvalidationSubscriber()
+
+        // 启动时显式订阅一次 cache:invalidate
+        expect(redisMock.subSubscribe).toHaveBeenCalledWith(CACHE_INVALIDATION_CHANNEL)
+        // 接线了 message 与 ready 事件
+        const events = redisMock.subOn.mock.calls.map(c => c[0])
+        expect(events).toContain('message')
+        expect(events).toContain('ready')
+
+        // message 回调收到本频道消息时触发 dispatch
+        const calls: (string[] | undefined)[] = []
+        registerInvalidationHandler(CACHE_NAMES.NODE_CONFIG, keys => calls.push(keys))
+        const messageCb = redisMock.subOn.mock.calls.find(c => c[0] === 'message')![1] as
+            (channel: string, message: string) => void
+        messageCb(CACHE_INVALIDATION_CHANNEL, JSON.stringify({ cacheName: 'nodeConfig', keys: ['x'] }))
+        expect(calls).toEqual([['x']])
+
+        // 非本频道消息被忽略
+        calls.length = 0
+        messageCb('other:channel', JSON.stringify({ cacheName: 'nodeConfig' }))
+        expect(calls).toEqual([])
     })
 })
 ```
@@ -264,14 +321,20 @@ export function registerInvalidationHandler(cacheName: CacheName, handler: Inval
 
 /**
  * 发布失效通知。fire-and-forget——调用方不应 await。
- * Redis 不可用时仅记日志，绝不阻塞或拖垮写库 API。
+ * 整体 try/catch：既兜住 publish 的异步 reject，也兜住 getRedisClient() 在
+ * NUXT_REDIS_URL 未配置时的同步抛错（getRedisClient → getRedisUrl 会同步 throw）。
+ * Redis 不可用仅记日志，绝不阻塞或拖垮写库 API。
  */
 export function publishInvalidation(cacheName: CacheName, keys?: string[]): void {
-  const message: CacheInvalidationMessage =
-    keys && keys.length > 0 ? { cacheName, keys } : { cacheName }
-  getRedisClient()
-    .publish(CACHE_INVALIDATION_CHANNEL, JSON.stringify(message))
-    .catch((err) => logger.warn('cacheInvalidationBus: 发布失效消息失败', err))
+  try {
+    const message: CacheInvalidationMessage =
+      keys && keys.length > 0 ? { cacheName, keys } : { cacheName }
+    getRedisClient()
+      .publish(CACHE_INVALIDATION_CHANNEL, JSON.stringify(message))
+      .catch((err) => logger.warn('cacheInvalidationBus: 发布失效消息失败', err))
+  } catch (err) {
+    logger.warn('cacheInvalidationBus: 发布失效消息失败（同步异常）', err)
+  }
 }
 
 /** 解析并分发收到的失效消息。导出供测试。 */
@@ -326,16 +389,17 @@ export function startCacheInvalidationSubscriber(): void {
     .catch((err) => logger.warn('cacheInvalidationBus: 初次订阅失败，将由 on(ready) 重试', err))
 }
 
-/** 仅测试用：清空 handler 注册表。 */
+/** 仅测试用：清空 handler 注册表并重置订阅启动标志。 */
 export function _resetBusForTests(): void {
   handlers.clear()
+  started = false
 }
 ```
 
 - [ ] **Step 4: 运行测试确认通过**
 
 Run: `npx vitest run tests/server/utils/cacheInvalidationBus.test.ts --reporter=verbose`
-Expected: PASS（6 个用例全过；pub/sub 链路用例需测试环境 Redis 可用）。
+Expected: PASS（分发逻辑 5 + 发布 4 + 订阅接线 1，共 10 个用例全过；全程 mock Redis，无需真实 Redis）。
 
 - [ ] **Step 5: 提交**
 
@@ -351,7 +415,7 @@ git commit -m "feat(cache): 新增跨进程缓存失效总线"
 **Files:**
 - Create: `server/plugins/cache-invalidation.ts`
 
-> 说明：Nitro 插件难以独立单测，其行为已由 Task 2 的「pub/sub 链路」集成测试覆盖（该测试直接调用 `startCacheInvalidationSubscriber`）。本任务只新增一个薄封装文件。
+> 说明：Nitro 插件难以独立单测，其核心 `startCacheInvalidationSubscriber` 已由 Task 2 的「订阅接线」用例覆盖。本任务只新增一个薄封装文件。
 
 - [ ] **Step 1: 实现插件**
 
@@ -864,62 +928,121 @@ git commit -m "feat(cache): RBAC 权限缓存接入失效总线"
 **Files:**
 - Modify: `server/api/v1/admin/nodes/[id].put.ts`
 - Modify: `server/api/v1/admin/nodes/[id].delete.ts`
-- Test: `tests/server/api/admin/nodesCacheInvalidation.test.ts`
+- Test: `tests/server/admin/nodesCacheInvalidation.test.ts`
 
 - [ ] **Step 1: 写失败测试**
 
-创建 `tests/server/api/admin/nodesCacheInvalidation.test.ts`：
+创建 `tests/server/admin/nodesCacheInvalidation.test.ts`（照搬同目录 `nodes.create.api.test.ts` 的 handler 测试范式）：
 
 ```ts
 /**
  * 节点 PUT/DELETE 缓存失效回归测试
  *
  * 回归原始 bug：后台改节点模型后，nodeConfig 缓存未被失效，运行中分析仍用旧模型。
+ * 范式沿用 tests/server/admin/nodes.create.api.test.ts：spy-through 包住
+ * invalidateNodeConfigCache、模块顶层注入 h3 全局、直接 import handler default、
+ * 真实 prisma 直连 worker DB、真跑 handler。
  *
  * **Feature: cache-invalidation**
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-// 用 spy 验证 handler 是否调用了缓存失效函数（handler 的职责就是「调用 invalidate」）
-const invalidateSpy = vi.fn()
-vi.mock('~~/server/services/agent-platform/nodeConfig/loader', () => ({
-    invalidateNodeConfigCache: (...args: unknown[]) => invalidateSpy(...args),
-}))
+// spy-through：保留 loader 其它真实导出，只把 invalidateNodeConfigCache 包成 spy
+vi.mock('~~/server/services/agent-platform/nodeConfig/loader', async () => {
+    const actual = await vi.importActual<typeof import('~~/server/services/agent-platform/nodeConfig/loader')>(
+        '~~/server/services/agent-platform/nodeConfig/loader',
+    )
+    return {
+        ...actual,
+        invalidateNodeConfigCache: vi.fn(actual.invalidateNodeConfigCache),
+    }
+})
 
-describe('节点 PUT 接口缓存失效', () => {
-    beforeEach(() => invalidateSpy.mockClear())
+import { prisma } from '~~/server/utils/db'
+import { invalidateNodeConfigCache } from '~~/server/services/agent-platform/nodeConfig/loader'
+
+// h3 / logger 全局桩（模块顶层注入，import handler 前就位）
+const resError = (_e: any, code: number, message: string) => ({ code, success: false, message, data: null })
+const resSuccess = (_e: any, message: string, data: any) => ({ code: 0, success: true, message, data })
+;(globalThis as any).resError = resError
+;(globalThis as any).resSuccess = resSuccess
+;(globalThis as any).defineEventHandler = (h: any) => h
+;(globalThis as any).readBody = async (event: any) => event.__body
+;(globalThis as any).getRouterParam = (event: any, key: string) => event.__params?.[key]
+;(globalThis as any).logger = { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() }
+
+const { default: putHandler } = await import('~~/server/api/v1/admin/nodes/[id].put')
+const { default: deleteHandler } = await import('~~/server/api/v1/admin/nodes/[id].delete')
+
+function makeEvent(params: Record<string, string>, body?: any) {
+    return { context: {}, __params: params, __body: body, node: { req: { socket: {} } } }
+}
+
+describe('节点 PUT/DELETE 缓存失效回归', () => {
+    const createdNodeIds: number[] = []
+    const createdModelIds: number[] = []
+    const createdProviderIds: number[] = []
+    let nodeName: string
+    let nodeId: number
+
+    beforeEach(async () => {
+        vi.mocked(invalidateNodeConfigCache).mockClear()
+        const suffix = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+
+        const provider = await prisma.modelProviders.create({
+            data: { name: `prov_${suffix}`, baseUrl: 'https://api.test.com' },
+        })
+        createdProviderIds.push(provider.id)
+        const model = await prisma.models.create({
+            data: {
+                name: `model_${suffix}`, displayName: 'M',
+                providerId: provider.id, modelType: 'chat', status: 1,
+            },
+        })
+        createdModelIds.push(model.id)
+        nodeName = `cinv_node_${suffix}`
+        const node = await prisma.nodes.create({
+            data: {
+                name: nodeName, title: '回归测试节点', type: 'analysis',
+                priority: 100, modelId: model.id, tools: [], status: 1,
+            },
+        })
+        nodeId = node.id
+        createdNodeIds.push(node.id)
+    })
+
+    afterEach(async () => {
+        await prisma.nodes.deleteMany({ where: { id: { in: createdNodeIds } } })
+        await prisma.models.deleteMany({ where: { id: { in: createdModelIds } } })
+        await prisma.modelProviders.deleteMany({ where: { id: { in: createdProviderIds } } })
+        createdNodeIds.length = 0
+        createdModelIds.length = 0
+        createdProviderIds.length = 0
+    })
 
     it('PUT /admin/nodes/:id 更新成功后调用 invalidateNodeConfigCache(node.name)', async () => {
-        const { updateNodeService } = await import('~~/server/services/node/node.service')
-        const updateSpy = vi.spyOn(
-            await import('~~/server/services/node/node.service'), 'updateNodeService',
-        ).mockResolvedValue({ id: 1, name: 'test_node_x' } as never)
+        const r: any = await putHandler(makeEvent({ id: String(nodeId) }, { priority: 200 }))
+        expect(r.code).toBe(0)
+        expect(vi.mocked(invalidateNodeConfigCache)).toHaveBeenCalledWith(nodeName)
+        // DB 确实被更新
+        const updated = await prisma.nodes.findUnique({ where: { id: nodeId } })
+        expect(updated?.priority).toBe(200)
+    })
 
-        const handler = (await import('~~/server/api/v1/admin/nodes/[id].put')).default
-        const event = {
-            context: { params: { id: '1' } },
-            node: { req: {}, res: {} },
-        } as never
-        // readBody/getRouterParam 由 h3 自动导入；构造最小合法请求体
-        vi.stubGlobal('readBody', vi.fn().mockResolvedValue({ priority: 5 }))
-        vi.stubGlobal('getRouterParam', vi.fn().mockReturnValue('1'))
-
-        await handler(event)
-
-        expect(updateSpy).toHaveBeenCalled()
-        expect(invalidateSpy).toHaveBeenCalledWith('test_node_x')
-        updateSpy.mockRestore()
-        void updateNodeService
+    it('DELETE /admin/nodes/:id 删除成功后调用 invalidateNodeConfigCache(node.name)', async () => {
+        const r: any = await deleteHandler(makeEvent({ id: String(nodeId) }))
+        expect(r.code).toBe(0)
+        expect(vi.mocked(invalidateNodeConfigCache)).toHaveBeenCalledWith(nodeName)
     })
 })
 ```
 
-> 实现说明：上面这个 spy 风格的 handler 测试若因 h3 自动导入（`defineEventHandler` / `resSuccess` 等）在单测环境不可用而无法运行，改用下面这条**等价的真实集成回归测试**替代（二选一，最终留一条能跑通的）：seed 一个真实节点 → `getNodeConfigCached(name)` 预热缓存 → 走 `updateNodeService` + `invalidateNodeConfigCache(name)`（即 handler 的两步）→ 断言 `getNodeConfigCached` 返回新对象引用。执行计划阶段先试 spy 版，失败则切真实集成版，二者都验证「更新后缓存被失效」这一回归点。
+> 说明：`vi.fn(actual.invalidateNodeConfigCache)` 是 spy-through——既记录调用、又执行真实 invalidate（其内部 `publishInvalidation` 在测试环境因 Redis URL 未配置被 try/catch 安全吞掉，见 Task 2）。该测试真实跑 handler、真连 worker DB，已删除原计划「spy 版 / 集成版二选一」对冲。
 
 - [ ] **Step 2: 运行测试确认失败**
 
-Run: `npx vitest run tests/server/api/admin/nodesCacheInvalidation.test.ts --reporter=verbose`
-Expected: FAIL —— `invalidateSpy` 未被调用（put.ts 尚未补失效调用）。
+Run: `npx vitest run tests/server/admin/nodesCacheInvalidation.test.ts --reporter=verbose`
+Expected: FAIL —— `invalidateNodeConfigCache` spy 未被调用（put.ts / delete.ts 尚未补失效调用）。
 
 - [ ] **Step 3: 实现 —— put.ts**
 
@@ -1002,13 +1125,13 @@ export default defineEventHandler(async (event) => {
 
 - [ ] **Step 5: 运行测试确认通过**
 
-Run: `npx vitest run tests/server/api/admin/nodesCacheInvalidation.test.ts --reporter=verbose`
+Run: `npx vitest run tests/server/admin/nodesCacheInvalidation.test.ts --reporter=verbose`
 Expected: PASS。
 
 - [ ] **Step 6: 提交**
 
 ```bash
-git add server/api/v1/admin/nodes/[id].put.ts server/api/v1/admin/nodes/[id].delete.ts tests/server/api/admin/nodesCacheInvalidation.test.ts
+git add server/api/v1/admin/nodes/[id].put.ts server/api/v1/admin/nodes/[id].delete.ts tests/server/admin/nodesCacheInvalidation.test.ts
 git commit -m "fix(api): 节点 PUT/DELETE 补 nodeConfig 缓存失效"
 ```
 
@@ -1027,7 +1150,7 @@ Expected: 无新增类型错误（关注本计划涉及的 8 个文件）。
 
 Run:
 ```bash
-npx vitest run tests/server/utils/redis.test.ts tests/server/utils/cacheInvalidationBus.test.ts tests/server/agent-platform/nodeConfig/loader.test.ts tests/server/agent-platform/skills/filesystemBackendCache.test.ts tests/server/rbac/cacheService.bus.test.ts tests/server/api/admin/nodesCacheInvalidation.test.ts --reporter=verbose
+npx vitest run tests/server/utils/redis.test.ts tests/server/utils/cacheInvalidationBus.test.ts tests/server/agent-platform/nodeConfig/loader.test.ts tests/server/agent-platform/skills/filesystemBackendCache.test.ts tests/server/rbac/cacheService.bus.test.ts tests/server/admin/nodesCacheInvalidation.test.ts --reporter=verbose
 ```
 Expected: 全部 PASS。
 
@@ -1051,6 +1174,7 @@ git commit -m "refactor(cache): simplify 优化缓存失效总线实现"
 
 ## 自检记录
 
-- **Spec 覆盖**：spec §5 组件表 8 个文件 → Task 1（redis.ts）、Task 2（bus）、Task 3（plugin）、Task 4（loader）、Task 5（filesystemBackendCache）、Task 6（cache.service）、Task 7（put/delete）逐一对应。spec §6 消息格式 `{cacheName, keys?}`、§7 错误处理（fire-and-forget publish / on('ready') 重订阅 / 畸形消息 / handler 抛错）、§8 测试策略（含 pub/sub 链路用唯一 cacheName 隔离、TTL、原始 bug 回归）均落到 Task 2/4/7 的具体步骤与用例。
-- **占位符**：无 TBD/TODO；Task 7 的「spy 版 vs 真实集成版」是明确的二选一执行指引并各自给了验证点，非占位符。
-- **类型一致性**：`CacheName` / `CacheInvalidationMessage` / `InvalidationHandler` 在 Task 2 定义，Task 4/5/6 一致引用；`registerInvalidationHandler` / `publishInvalidation` / `dispatchInvalidationMessage` / `_resetBusForTests` 签名跨任务一致；`CACHE_NAMES` 四个键 `NODE_CONFIG` / `FILESYSTEM_BACKEND` / `RBAC_USER_PERMISSION` / `RBAC_PUBLIC_API` 全程一致。
+- **Spec 覆盖**：spec §5 组件表 8 个文件 → Task 1（redis.ts）、Task 2（bus）、Task 3（plugin）、Task 4（loader）、Task 5（filesystemBackendCache）、Task 6（cache.service）、Task 7（put/delete）逐一对应。spec §6 消息格式 `{cacheName, keys?}`、§7 错误处理（publishInvalidation 整体 try/catch / 启动显式 subscribe + on('ready') 重订阅 / 畸形消息 / handler 抛错）、§8 测试策略（总线全 mock Redis、各缓存 TTL+dispatch、原始 bug 回归）均落到 Task 2/4/5/6/7 的具体步骤与用例。
+- **占位符**：无 TBD/TODO；无二选一对冲——Task 7 测试已定死照搬 `nodes.create.api.test.ts` 范式。
+- **类型一致性**：`CacheName` / `CacheInvalidationMessage` / `InvalidationHandler` 在 Task 2 定义，Task 4/5/6 一致引用；`registerInvalidationHandler` / `publishInvalidation` / `dispatchInvalidationMessage` / `startCacheInvalidationSubscriber` / `_resetBusForTests` 签名跨任务一致；`CACHE_NAMES` 四个键 `NODE_CONFIG` / `FILESYSTEM_BACKEND` / `RBAC_USER_PERMISSION` / `RBAC_PUBLIC_API` 全程一致。
+- **5 维度审查修订（plan 第二轮）**：① Task 7 测试改为照搬项目现成 `tests/server/admin/nodes.create.api.test.ts` 范式（spy-through loader + 模块顶层注入 h3 全局 + 真 prisma + 真跑 handler），文件移至 `tests/server/admin/`（原 `tests/server/api/**` 被 vitest exclude）；② Task 2 总线测试改为全 mock `server/lib/redis`，与项目 20+ 个 Redis 测试惯例一致，去除真实 Redis 依赖（测试环境 `useRuntimeConfig().redis.url` 不可靠、CI 无 Redis 容器）；③ `publishInvalidation` 整体包 try/catch，兜住 `getRedisClient()` 在 Redis URL 未配置时的同步抛错，避免拖垮写库 API；④ `_resetBusForTests` 一并重置 `started` 标志。
