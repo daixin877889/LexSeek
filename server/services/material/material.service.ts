@@ -12,10 +12,12 @@ import {
     findManyMaterialsDao,
     findMaterialsByCaseIdDao,
     findMaterialsByCaseOrDraftIdDao,
+    findMaterialsBySessionIdDao,
     findMaterialsByDraftIdDao,
     findMaterialsByIdsDao,
     updateMaterialDao,
     deleteMaterialDao,
+    type MaterialOwnerFilter,
 } from './material.dao'
 import {
     findTextContentRecordByMaterialIdDAO,
@@ -178,6 +180,16 @@ export const getMaterialsByDraftIdService = async (
     return attachOssFileInfo(materials)
 }
 
+/**
+ * 获取对话会话的所有材料（通用问答场景）
+ */
+export const getMaterialsBySessionIdService = async (
+    sessionId: string,
+): Promise<MaterialWithFile[]> => {
+    const materials = await findMaterialsBySessionIdDao(sessionId)
+    return attachOssFileInfo(materials)
+}
+
 /** 带真实状态的材料项 */
 export interface MaterialWithRealStatus extends MaterialWithFile {
     /** 真实状态：1=待处理, 2=处理中, 3=已完成, 4=失败 */
@@ -273,10 +285,9 @@ export const getMaterialsByCaseIdWithStatusService = async (
  * OR 合并：caseId 命中 ∪ draftId 命中，DAO 层走 Prisma OR 天然去重。
  */
 export const getMaterialsByCaseOrDraftIdService = async (
-    caseId: number | null,
-    draftId: number | null,
+    owner: MaterialOwnerFilter,
 ): Promise<MaterialWithFile[]> => {
-    const materials = await findMaterialsByCaseOrDraftIdDao(caseId, draftId)
+    const materials = await findMaterialsByCaseOrDraftIdDao(owner)
     return attachOssFileInfo(materials)
 }
 
@@ -287,7 +298,7 @@ export const getMaterialsByCaseOrDraftIdWithStatusService = async (
     caseId: number | null,
     draftId: number | null,
 ): Promise<MaterialWithRealStatus[]> => {
-    const materials = await getMaterialsByCaseOrDraftIdService(caseId, draftId)
+    const materials = await getMaterialsByCaseOrDraftIdService({ caseId, draftId })
     return computeRealStatusForMaterials(materials)
 }
 
