@@ -118,6 +118,7 @@ function fakeParsed(paragraphs: string[]) {
 
 describe('uploadClientVersionService（关键失败路径补充）', () => {
     let userId: number
+    let otherUserId: number | null = null
     let reviewId: number
     let ossFileId: number
     const createdOssFileIds: number[] = []
@@ -174,6 +175,10 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
         if (createdOssFileIds.length > 0) {
             await prisma.ossFiles.deleteMany({ where: { id: { in: createdOssFileIds } } })
             createdOssFileIds.length = 0
+        }
+        if (otherUserId != null) {
+            await prisma.users.deleteMany({ where: { id: otherUserId } })
+            otherUserId = null
         }
         await prisma.users.deleteMany({ where: { id: userId } })
     })
@@ -247,6 +252,39 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
             )
             const err = events.find(e => e.type === 'error')
             expect(err?.data.code).toBe('PARSE_FAILED')
+        })
+
+        it('OSS 文件属于其他用户 → PARSE_FAILED 且不下载文件', async () => {
+            const other = await prisma.users.create({
+                data: {
+                    phone: `198${`${Date.now()}${Math.floor(Math.random() * 100000)}`.slice(-8)}`,
+                    name: '合同回传越权测试用户',
+                    password: 'test_hash',
+                    status: 1,
+                },
+            })
+            otherUserId = other.id
+            const foreignOss = await createOssFileDao({
+                userId: other.id,
+                bucketName: 'test-bucket',
+                fileName: 'foreign.docx',
+                filePath: `users/${other.id}/foreign-${Date.now()}.docx`,
+                fileSize: 1024,
+                fileType: DOCX_MIME,
+                status: 1,
+            })
+            createdOssFileIds.push(foreignOss.id)
+
+            const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+            const events = await collectEvents(
+                uploadClientVersionService({ review, ossFileId: foreignOss.id, userId }),
+            )
+
+            const err = events.find(e => e.type === 'error')
+            expect(err?.data.step).toBe('parse')
+            expect(err?.data.code).toBe('PARSE_FAILED')
+            expect(err?.data.message).toContain('无权访问')
+            expect(mockDownload).not.toHaveBeenCalled()
         })
 
         it('Buffer 不含 ZIP 头 → PARSE_FAILED', async () => {

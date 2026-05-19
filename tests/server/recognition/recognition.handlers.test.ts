@@ -461,10 +461,24 @@ describe('POST /api/v1/recognition/audio', () => {
     })
 
     it('tempFilePath 路径不合法 → 400', async () => {
+        ;(globalThis as any).prisma.ossFiles.findFirst.mockResolvedValue({
+            id: 1, userId: 100, fileType: 'audio/mpeg', encrypted: true, fileName: 'x.mp3',
+        })
         const res: any = await audioPostHandler(makeEvent({
             userId: 100, body: { ossFileId: 1, tempFilePath: 'evil/path' },
         }) as any)
         expectError(res, 400, '路径')
+    })
+
+    it('tempFilePath 与当前用户和文件绑定时允许提交', async () => {
+        ;(globalThis as any).prisma.ossFiles.findFirst.mockResolvedValue({
+            id: 1, userId: 100, fileType: 'audio/mpeg', encrypted: true, fileName: 'x.mp3',
+        })
+        const res: any = await audioPostHandler(makeEvent({
+            userId: 100,
+            body: { ossFileId: 1, tempFilePath: 'temp/asr/user100/file1/2026/05/19/a.mp3' },
+        }) as any)
+        expectSuccess(res)
     })
 
     it('service 失败 → 400', async () => {
@@ -523,17 +537,24 @@ describe('GET /api/v1/recognition/audio/task/:taskId', () => {
     beforeEach(() => vi.clearAllMocks())
 
     it('happy', async () => {
-        ;(getAsrTaskByTaskIdService as any).mockResolvedValue({ id: 1, taskId: 'T', status: 1 })
-        ;(findAsrRecordsByTaskIdDao as any).mockResolvedValue([{ id: 5, status: 2 }])
+        ;(getAsrTaskByTaskIdService as any).mockResolvedValue({ id: 1, taskId: 'T', status: 1, taskRawData: { userId: 100 } })
+        ;(findAsrRecordsByTaskIdDao as any).mockResolvedValue([{ id: 5, userId: 100, status: 2 }])
         const res: any = await audioTaskHandler(makeEvent({ userId: 100, params: { taskId: 'T' } }) as any)
         expectSuccess(res, d => expect(d.recordId).toBe(5))
     })
 
     it('happy path 无记录', async () => {
-        ;(getAsrTaskByTaskIdService as any).mockResolvedValue({ id: 1, taskId: 'T', status: 1 })
+        ;(getAsrTaskByTaskIdService as any).mockResolvedValue({ id: 1, taskId: 'T', status: 1, taskRawData: { userId: 100 } })
         ;(findAsrRecordsByTaskIdDao as any).mockResolvedValue([])
         const res: any = await audioTaskHandler(makeEvent({ userId: 100, params: { taskId: 'T' } }) as any)
         expectSuccess(res, d => expect(d.recordId).toBeNull())
+    })
+
+    it('非本人任务 → 404', async () => {
+        ;(getAsrTaskByTaskIdService as any).mockResolvedValue({ id: 1, taskId: 'T', status: 1, taskRawData: { userId: 999 } })
+        ;(findAsrRecordsByTaskIdDao as any).mockResolvedValue([])
+        const res: any = await audioTaskHandler(makeEvent({ userId: 100, params: { taskId: 'T' } }) as any)
+        expectError(res, 404)
     })
 
     it('未登录 → 401', async () => {
@@ -566,7 +587,7 @@ describe('POST /api/v1/recognition/audio/temp-upload', () => {
             userId: 100,
             body: { ossFileId: 1, fileName: 'a.mp3', fileSize: 1024, mimeType: 'audio/mpeg' },
         }) as any)
-        expectSuccess(res)
+        expectSuccess(res, d => expect(d.key).toContain('temp/asr/user100/file1/'))
     })
 
     it('未登录 → 401', async () => {

@@ -45,6 +45,7 @@ const mocksMaterialDao = vi.hoisted(() => ({
     createMaterialDao: vi.fn(),
     findMaterialsByCaseIdDao: vi.fn(),
     findActiveMaterialByOssFileIdDao: vi.fn(),
+    findActiveMaterialBySessionAndOssFileDao: vi.fn(),
 }))
 
 vi.mock('../../../server/services/material/material.dao', () => ({
@@ -53,6 +54,7 @@ vi.mock('../../../server/services/material/material.dao', () => ({
     createMaterialDao: mocksMaterialDao.createMaterialDao,
     findMaterialsByCaseIdDao: mocksMaterialDao.findMaterialsByCaseIdDao,
     findActiveMaterialByOssFileIdDao: mocksMaterialDao.findActiveMaterialByOssFileIdDao,
+    findActiveMaterialBySessionAndOssFileDao: mocksMaterialDao.findActiveMaterialBySessionAndOssFileDao,
 }))
 
 vi.mock('~~/server/services/material/material.dao', () => ({
@@ -61,6 +63,7 @@ vi.mock('~~/server/services/material/material.dao', () => ({
     createMaterialDao: mocksMaterialDao.createMaterialDao,
     findMaterialsByCaseIdDao: mocksMaterialDao.findMaterialsByCaseIdDao,
     findActiveMaterialByOssFileIdDao: mocksMaterialDao.findActiveMaterialByOssFileIdDao,
+    findActiveMaterialBySessionAndOssFileDao: mocksMaterialDao.findActiveMaterialBySessionAndOssFileDao,
 }))
 
 // ===========================================================
@@ -234,6 +237,12 @@ describe('ensureMaterialsReadyForDraftService', () => {
         vi.clearAllMocks()
         // prisma 在 nitro 中通过 server/utils/db 自动注入为全局，测试需 stubGlobal
         vi.stubGlobal('prisma', prismaMock)
+        prismaMock.ossFiles.findFirst.mockResolvedValue({
+            id: ossFileId,
+            userId,
+            fileName: `材料_${ossFileId}`,
+            fileType: 'application/pdf',
+        })
     })
 
     it('已有 draftId + ossFileId 记录且已处理完成时直接返回', async () => {
@@ -338,5 +347,15 @@ describe('ensureMaterialsReadyForDraftService', () => {
         expect(mocksProcess.processMaterialService).not.toHaveBeenCalled()
         expect(mocksMaterialDao.findMaterialByIdDao).not.toHaveBeenCalled()
     })
-})
 
+    it('ossFile 不属于当前用户时拒绝绑定到草稿', async () => {
+        prismaMock.ossFiles.findFirst.mockResolvedValue(null)
+
+        await expect(
+            ensureMaterialsReadyForDraftService(ossFileId, draftId, userId)
+        ).rejects.toThrow('OSS 文件不存在或无权访问')
+
+        expect(mocksMaterialDao.findActiveMaterialByOssFileIdDao).not.toHaveBeenCalled()
+        expect(mocksMaterialDao.createMaterialDao).not.toHaveBeenCalled()
+    })
+})

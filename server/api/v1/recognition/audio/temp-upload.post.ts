@@ -109,7 +109,6 @@ export default defineEventHandler(async (event) => {
         }
 
         // 7. 生成临时文件路径
-        // 格式：temp/asr/{年}/{月}/{日}/{uuid}.{ext}
         const now = dayjs()
         const year = now.format('YYYY')
         const month = now.format('MM')
@@ -121,7 +120,7 @@ export default defineEventHandler(async (event) => {
         const tempDir = buildStorageDir({
             scope: 'temp',
             source: FileSource.ASR,
-            subDir: `${year}/${month}/${day}`,
+            subDir: `user${user.id}/file${ossFileId}/${year}/${month}/${day}`,
         })
         const tempFilePath = `${tempDir}${tempFileName}`
 

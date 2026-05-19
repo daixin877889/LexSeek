@@ -47,6 +47,15 @@ const bodySchema = z.object({
     }),
 })
 
+function isTempFilePathBoundToRequest(
+    tempFilePath: string,
+    userId: number,
+    ossFileId: number,
+): boolean {
+    const normalized = tempFilePath.replace(/^\/+/, '')
+    return new RegExp(`(^|/)temp/asr/user${userId}/file${ossFileId}/`).test(normalized)
+}
+
 export default defineEventHandler(async (event) => {
     try {
         // 1. 验证用户登录
@@ -104,9 +113,13 @@ export default defineEventHandler(async (event) => {
         }
 
         // 5. 验证临时文件路径格式（如果提供）
-        // 临时文件路径必须以 temp/asr/ 开头，防止恶意路径注入
+        // 临时文件路径必须绑定当前用户和原始文件，防止复用他人的临时对象
         if (tempFilePath) {
-            if (!tempFilePath.startsWith('temp/asr/')) {
+            if (!ossFile.encrypted) {
+                logger.warn('音频识别 API 非加密文件不允许使用临时路径', { ossFileId })
+                return resError(event, 400, '该文件未加密，请直接识别原文件')
+            }
+            if (!isTempFilePathBoundToRequest(tempFilePath, user.id, ossFileId)) {
                 logger.warn('音频识别 API 临时文件路径格式错误', { tempFilePath })
                 return resError(event, 400, '临时文件路径格式错误')
             }

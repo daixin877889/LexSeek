@@ -170,7 +170,7 @@ async function rollbackStep4Mutations(
  *
  * @param params.review    合同审查记录（含 id 和 currentVersionId）
  * @param params.ossFileId 客户回传的 docx 在 OSS 的文件 ID
- * @param params.userId    操作人 userId（owner 校验由 handler 层负责，service 不重复校验）
+ * @param params.userId    操作人 userId（用于校验回传文件归属）
  */
 export async function* uploadClientVersionService(params: {
     review: contractReviews
@@ -248,7 +248,10 @@ export async function* uploadClientVersionService(params: {
         let rejectNewDocxText = ''
         try {
             const ossFile = await findOssFileByIdDao(ossFileId)
-            if (!ossFile?.filePath) throw new Error('OSS 文件记录不存在或已删除')
+            if (!ossFile || ossFile.userId !== userId) {
+                throw new Error('文件不存在或无权访问')
+            }
+            if (!ossFile.filePath) throw new Error('OSS 文件记录不存在或已删除')
             if (ossFile.fileType && ossFile.fileType !== DOCX_MIME) {
                 throw new Error(`上传文件类型 ${ossFile.fileType} 不是 docx`)
             }

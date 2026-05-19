@@ -28,6 +28,20 @@ export interface MaterialReadyResult {
     failed: MaterialFailedItem[]
 }
 
+async function getOwnedOssFileForMaterial(
+    ossFileId: number,
+    userId: number,
+): Promise<{ id: number; fileName: string | null; fileType: string | null }> {
+    const ossFile = await prisma.ossFiles.findFirst({
+        where: { id: ossFileId, userId, deletedAt: null },
+        select: { id: true, fileName: true, fileType: true },
+    })
+    if (!ossFile) {
+        throw new Error('OSS 文件不存在或无权访问')
+    }
+    return ossFile
+}
+
 /** 从 Promise.allSettled 结果中收集失败项 */
 function collectSettledFailures<T>(
     results: PromiseSettledResult<T>[],
@@ -862,6 +876,8 @@ async function ensureSingleMaterialReady(
     userId: number,
     owner: MaterialOwner,
 ): Promise<{ id: number; status: number; ossFileId: number | null }> {
+    const ownedOssFile = await getOwnedOssFileForMaterial(ossFileId, userId)
+
     // 查重：会话场景按 (sessionId, ossFileId) 独立查/建——同一份云盘文件可被多个会话
     // 各自引用，必须按会话维度建归属自己的记录；案件/草稿场景按 ossFileId 全局去重
     // （一文件一记录、归属列叠加）。识别记录与向量均按 ossFileId 存储，跨记录天然共享。
@@ -908,20 +924,13 @@ async function ensureSingleMaterialReady(
             return { id: existing.id, status: existing.status, ossFileId: existing.ossFileId }
         }
     } else {
-        const ossFile = await prisma.ossFiles.findFirst({
-            where: { id: ossFileId, deletedAt: null },
-            select: { fileName: true, fileType: true },
-        })
-        if (!ossFile) {
-            throw new Error(`OSS 文件不存在: ${ossFileId}`)
-        }
-        const materialType = getMaterialTypeFromMime(ossFile.fileType)
+        const materialType = getMaterialTypeFromMime(ownedOssFile.fileType)
         const newMaterial = await createMaterialDao({
             caseId: owner.caseId ?? null,
             draftId: owner.draftId ?? null,
             sessionId: owner.sessionId ?? null,
             ossFileId,
-            name: ossFile.fileName ?? `材料_${ossFileId}`,
+            name: ownedOssFile.fileName ?? `材料_${ossFileId}`,
             type: materialType,
         })
         materialId = newMaterial.id
