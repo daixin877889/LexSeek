@@ -28,7 +28,7 @@ export const createTool = createSimpleTool(
             return { error: '案件已归档，不可修改记忆' }
         }
 
-        await updateMemoryService(id, { text, invalidate })
+        await updateMemoryService(id, { text, invalidate }, { expectedCaseId: ctx.caseId, userId: ctx.userId })
         return { ok: true }
     },
     { errorLabel: '记忆更新' },

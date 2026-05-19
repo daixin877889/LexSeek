@@ -181,4 +181,82 @@ describe('updateMemoryService', () => {
     )
     expect(rows[0].metadata.invalidatedAt).toBeTruthy()
   })
+
+  it('指定当前案件时拒绝更新其他案件记忆', async () => {
+    const { updateMemoryService } = await import('~~/server/services/memory/memory.service')
+    const otherCase = await prisma.cases.create({
+      data: { title: 'other case for update memory', userId: testUserId, caseTypeId: testCaseTypeId },
+    })
+
+    try {
+      const { id } = await writeMemoryService({
+        caseId: otherCase.id,
+        kind: 'fact',
+        text: '其他案件原文本',
+        source: 'manual',
+      })
+
+      await expect(updateMemoryService(
+        id,
+        { text: '不应写入' },
+        { expectedCaseId: testCaseId, userId: testUserId },
+      )).rejects.toThrow('记忆不属于当前案件')
+
+      const rows: any[] = await prisma.$queryRawUnsafe(
+        `SELECT text FROM case_memories WHERE id = $1::uuid`,
+        id,
+      )
+      expect(rows[0].text).toBe('其他案件原文本')
+    } finally {
+      await prisma.$executeRawUnsafe(
+        `DELETE FROM case_memories WHERE metadata->>'caseId' = $1`,
+        otherCase.id.toString(),
+      )
+      await prisma.cases.delete({ where: { id: otherCase.id } }).catch(() => {})
+    }
+  })
+
+  it('指定当前用户时拒绝更新他人案件记忆', async () => {
+    const { updateMemoryService } = await import('~~/server/services/memory/memory.service')
+    const suffix = `${Date.now().toString().slice(-8)}_${Math.random().toString(36).slice(2, 6)}`
+    const otherUser = await prisma.users.create({
+      data: {
+        name: `test_memory_other_user_${suffix}`,
+        phone: `198${Date.now().toString().slice(-8)}`,
+        password: 'test_hash',
+        status: 1,
+      },
+    })
+    const otherCase = await prisma.cases.create({
+      data: { title: 'other user case for update memory', userId: otherUser.id, caseTypeId: testCaseTypeId },
+    })
+
+    try {
+      const { id } = await writeMemoryService({
+        caseId: otherCase.id,
+        kind: 'fact',
+        text: '他人案件原文本',
+        source: 'manual',
+      })
+
+      await expect(updateMemoryService(
+        id,
+        { invalidate: true },
+        { expectedCaseId: otherCase.id, userId: testUserId },
+      )).rejects.toThrow('无权访问该案件')
+
+      const rows: any[] = await prisma.$queryRawUnsafe(
+        `SELECT metadata FROM case_memories WHERE id = $1::uuid`,
+        id,
+      )
+      expect(rows[0].metadata.invalidatedAt).toBeUndefined()
+    } finally {
+      await prisma.$executeRawUnsafe(
+        `DELETE FROM case_memories WHERE metadata->>'caseId' = $1`,
+        otherCase.id.toString(),
+      )
+      await prisma.cases.delete({ where: { id: otherCase.id } }).catch(() => {})
+      await prisma.users.delete({ where: { id: otherUser.id } }).catch(() => {})
+    }
+  })
 })

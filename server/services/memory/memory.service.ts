@@ -1,7 +1,7 @@
 import crypto from 'node:crypto'
 import type { Document } from '@langchain/core/documents'
 import { addDocumentsToVectorStore } from '../legal/vectorStore.service'
-import { assertCaseWritableService } from '../case/case.service'
+import { assertCaseWritableService, validateCaseAccessService } from '../case/case.service'
 import type { CaseMemoryMetadata, MemoryHit, MemoryKind, MemorySource } from '#shared/types/memory'
 import { retrieveWithReranking } from './retrieveWithReranking'
 import { findActiveMemoryBySubjectDAO } from './memory.dao'
@@ -15,6 +15,11 @@ export interface MemoryWriteInput {
   source?: MemorySource
   /** 透传到 PGVectorStore.metadata 的额外字段（如 calculation 计算历史） */
   extraMetadata?: Partial<Pick<CaseMemoryMetadata, 'calculation'>>
+}
+
+export interface MemoryUpdateScope {
+  expectedCaseId?: number
+  userId?: number
 }
 
 /**
@@ -80,6 +85,7 @@ export async function writeMemoryService(input: MemoryWriteInput): Promise<{ id:
 export async function updateMemoryService(
   id: string,
   patch: { text?: string; invalidate?: boolean },
+  scope: MemoryUpdateScope = {},
 ): Promise<void> {
   // 先查记忆所在 caseId，再走统一守卫（合并为 1 次 join 可以省 1 次 round trip，
   // 但记忆元数据存 metadata->>'caseId' 不便建外键 / 关联，保留 2 次查询换可读性）
@@ -88,9 +94,16 @@ export async function updateMemoryService(
     id,
   )
   const caseId = memRow[0]?.caseId
-  if (caseId) {
-    await assertCaseWritableService(caseId, 'UPDATE_MEMORY')
+  if (caseId == null) {
+    throw new Error('记忆不存在或数据异常')
   }
+  if (scope.expectedCaseId !== undefined && caseId !== scope.expectedCaseId) {
+    throw new Error('记忆不属于当前案件')
+  }
+  if (scope.userId !== undefined) {
+    await validateCaseAccessService(caseId, scope.userId)
+  }
+  await assertCaseWritableService(caseId, 'UPDATE_MEMORY')
 
   if (patch.text !== undefined) {
     await prisma.$executeRawUnsafe(
