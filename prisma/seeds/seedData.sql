@@ -3922,9 +3922,9 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 
   - update_document_draft：修改已有草稿的字段(用户改某字段时调用)
 
-  - process_materials：识别并嵌入用户本轮新提供的材料
+  - process_materials：读取用户在本对话中上传的材料内容（图片/文档/音频已自动识别，调用即可获取全文或摘要）
 
-  - search_case_materials：检索关联草稿/案件的材料内容
+  - search_case_materials：在本对话已上传的材料里按关键字/语义检索片段
 
   - review_contract：审查合同（必须先有用户已上传的 docx 文件 ossFileId；会自动弹出立场选择卡片让用户选甲/乙/中立）。若用户取消立场选择，即 success=false， **不得再次调用 review_contract** ， **不得重复推荐审查** ，应立即以 Markdown 格式直接输出合同审查意见
 
