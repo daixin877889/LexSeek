@@ -33,6 +33,7 @@ export type RedemptionCodesAvgAggregateOutputType = {
   duration: number | null
   pointAmount: number | null
   status: number | null
+  createdBy: number | null
 }
 
 export type RedemptionCodesSumAggregateOutputType = {
@@ -42,6 +43,7 @@ export type RedemptionCodesSumAggregateOutputType = {
   duration: number | null
   pointAmount: number | null
   status: number | null
+  createdBy: number | null
 }
 
 export type RedemptionCodesMinAggregateOutputType = {
@@ -54,6 +56,7 @@ export type RedemptionCodesMinAggregateOutputType = {
   expiredAt: Date | null
   status: number | null
   remark: string | null
+  createdBy: number | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -69,6 +72,7 @@ export type RedemptionCodesMaxAggregateOutputType = {
   expiredAt: Date | null
   status: number | null
   remark: string | null
+  createdBy: number | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -84,6 +88,7 @@ export type RedemptionCodesCountAggregateOutputType = {
   expiredAt: number
   status: number
   remark: number
+  createdBy: number
   createdAt: number
   updatedAt: number
   deletedAt: number
@@ -98,6 +103,7 @@ export type RedemptionCodesAvgAggregateInputType = {
   duration?: true
   pointAmount?: true
   status?: true
+  createdBy?: true
 }
 
 export type RedemptionCodesSumAggregateInputType = {
@@ -107,6 +113,7 @@ export type RedemptionCodesSumAggregateInputType = {
   duration?: true
   pointAmount?: true
   status?: true
+  createdBy?: true
 }
 
 export type RedemptionCodesMinAggregateInputType = {
@@ -119,6 +126,7 @@ export type RedemptionCodesMinAggregateInputType = {
   expiredAt?: true
   status?: true
   remark?: true
+  createdBy?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -134,6 +142,7 @@ export type RedemptionCodesMaxAggregateInputType = {
   expiredAt?: true
   status?: true
   remark?: true
+  createdBy?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -149,6 +158,7 @@ export type RedemptionCodesCountAggregateInputType = {
   expiredAt?: true
   status?: true
   remark?: true
+  createdBy?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -251,6 +261,7 @@ export type RedemptionCodesGroupByOutputType = {
   expiredAt: Date | null
   status: number
   remark: string | null
+  createdBy: number | null
   createdAt: Date
   updatedAt: Date
   deletedAt: Date | null
@@ -289,6 +300,7 @@ export type redemptionCodesWhereInput = {
   expiredAt?: Prisma.DateTimeNullableFilter<"redemptionCodes"> | Date | string | null
   status?: Prisma.IntFilter<"redemptionCodes"> | number
   remark?: Prisma.StringNullableFilter<"redemptionCodes"> | string | null
+  createdBy?: Prisma.IntNullableFilter<"redemptionCodes"> | number | null
   createdAt?: Prisma.DateTimeFilter<"redemptionCodes"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"redemptionCodes"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"redemptionCodes"> | Date | string | null
@@ -306,6 +318,7 @@ export type redemptionCodesOrderByWithRelationInput = {
   expiredAt?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   remark?: Prisma.SortOrderInput | Prisma.SortOrder
+  createdBy?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -326,6 +339,7 @@ export type redemptionCodesWhereUniqueInput = Prisma.AtLeast<{
   expiredAt?: Prisma.DateTimeNullableFilter<"redemptionCodes"> | Date | string | null
   status?: Prisma.IntFilter<"redemptionCodes"> | number
   remark?: Prisma.StringNullableFilter<"redemptionCodes"> | string | null
+  createdBy?: Prisma.IntNullableFilter<"redemptionCodes"> | number | null
   createdAt?: Prisma.DateTimeFilter<"redemptionCodes"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"redemptionCodes"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"redemptionCodes"> | Date | string | null
@@ -343,6 +357,7 @@ export type redemptionCodesOrderByWithAggregationInput = {
   expiredAt?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   remark?: Prisma.SortOrderInput | Prisma.SortOrder
+  createdBy?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -366,6 +381,7 @@ export type redemptionCodesScalarWhereWithAggregatesInput = {
   expiredAt?: Prisma.DateTimeNullableWithAggregatesFilter<"redemptionCodes"> | Date | string | null
   status?: Prisma.IntWithAggregatesFilter<"redemptionCodes"> | number
   remark?: Prisma.StringNullableWithAggregatesFilter<"redemptionCodes"> | string | null
+  createdBy?: Prisma.IntNullableWithAggregatesFilter<"redemptionCodes"> | number | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"redemptionCodes"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"redemptionCodes"> | Date | string
   deletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"redemptionCodes"> | Date | string | null
@@ -379,6 +395,7 @@ export type redemptionCodesCreateInput = {
   expiredAt?: Date | string | null
   status?: number
   remark?: string | null
+  createdBy?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -396,6 +413,7 @@ export type redemptionCodesUncheckedCreateInput = {
   expiredAt?: Date | string | null
   status?: number
   remark?: string | null
+  createdBy?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -410,6 +428,7 @@ export type redemptionCodesUpdateInput = {
   expiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -427,6 +446,7 @@ export type redemptionCodesUncheckedUpdateInput = {
   expiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -443,6 +463,7 @@ export type redemptionCodesCreateManyInput = {
   expiredAt?: Date | string | null
   status?: number
   remark?: string | null
+  createdBy?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -456,6 +477,7 @@ export type redemptionCodesUpdateManyMutationInput = {
   expiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -471,6 +493,7 @@ export type redemptionCodesUncheckedUpdateManyInput = {
   expiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -496,6 +519,7 @@ export type redemptionCodesCountOrderByAggregateInput = {
   expiredAt?: Prisma.SortOrder
   status?: Prisma.SortOrder
   remark?: Prisma.SortOrder
+  createdBy?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -508,6 +532,7 @@ export type redemptionCodesAvgOrderByAggregateInput = {
   duration?: Prisma.SortOrder
   pointAmount?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  createdBy?: Prisma.SortOrder
 }
 
 export type redemptionCodesMaxOrderByAggregateInput = {
@@ -520,6 +545,7 @@ export type redemptionCodesMaxOrderByAggregateInput = {
   expiredAt?: Prisma.SortOrder
   status?: Prisma.SortOrder
   remark?: Prisma.SortOrder
+  createdBy?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -535,6 +561,7 @@ export type redemptionCodesMinOrderByAggregateInput = {
   expiredAt?: Prisma.SortOrder
   status?: Prisma.SortOrder
   remark?: Prisma.SortOrder
+  createdBy?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -547,6 +574,7 @@ export type redemptionCodesSumOrderByAggregateInput = {
   duration?: Prisma.SortOrder
   pointAmount?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  createdBy?: Prisma.SortOrder
 }
 
 export type RedemptionCodesScalarRelationFilter = {
@@ -618,6 +646,7 @@ export type redemptionCodesCreateWithoutLevelInput = {
   expiredAt?: Date | string | null
   status?: number
   remark?: string | null
+  createdBy?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -633,6 +662,7 @@ export type redemptionCodesUncheckedCreateWithoutLevelInput = {
   expiredAt?: Date | string | null
   status?: number
   remark?: string | null
+  createdBy?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -678,6 +708,7 @@ export type redemptionCodesScalarWhereInput = {
   expiredAt?: Prisma.DateTimeNullableFilter<"redemptionCodes"> | Date | string | null
   status?: Prisma.IntFilter<"redemptionCodes"> | number
   remark?: Prisma.StringNullableFilter<"redemptionCodes"> | string | null
+  createdBy?: Prisma.IntNullableFilter<"redemptionCodes"> | number | null
   createdAt?: Prisma.DateTimeFilter<"redemptionCodes"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"redemptionCodes"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"redemptionCodes"> | Date | string | null
@@ -691,6 +722,7 @@ export type redemptionCodesCreateWithoutRedemptionRecordsInput = {
   expiredAt?: Date | string | null
   status?: number
   remark?: string | null
+  createdBy?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -707,6 +739,7 @@ export type redemptionCodesUncheckedCreateWithoutRedemptionRecordsInput = {
   expiredAt?: Date | string | null
   status?: number
   remark?: string | null
+  createdBy?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -736,6 +769,7 @@ export type redemptionCodesUpdateWithoutRedemptionRecordsInput = {
   expiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -752,6 +786,7 @@ export type redemptionCodesUncheckedUpdateWithoutRedemptionRecordsInput = {
   expiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -766,6 +801,7 @@ export type redemptionCodesCreateManyLevelInput = {
   expiredAt?: Date | string | null
   status?: number
   remark?: string | null
+  createdBy?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -779,6 +815,7 @@ export type redemptionCodesUpdateWithoutLevelInput = {
   expiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -794,6 +831,7 @@ export type redemptionCodesUncheckedUpdateWithoutLevelInput = {
   expiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -809,6 +847,7 @@ export type redemptionCodesUncheckedUpdateManyWithoutLevelInput = {
   expiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -855,6 +894,7 @@ export type redemptionCodesSelect<ExtArgs extends runtime.Types.Extensions.Inter
   expiredAt?: boolean
   status?: boolean
   remark?: boolean
+  createdBy?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -873,6 +913,7 @@ export type redemptionCodesSelectCreateManyAndReturn<ExtArgs extends runtime.Typ
   expiredAt?: boolean
   status?: boolean
   remark?: boolean
+  createdBy?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -889,6 +930,7 @@ export type redemptionCodesSelectUpdateManyAndReturn<ExtArgs extends runtime.Typ
   expiredAt?: boolean
   status?: boolean
   remark?: boolean
+  createdBy?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -905,12 +947,13 @@ export type redemptionCodesSelectScalar = {
   expiredAt?: boolean
   status?: boolean
   remark?: boolean
+  createdBy?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
 }
 
-export type redemptionCodesOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "code" | "type" | "levelId" | "duration" | "pointAmount" | "expiredAt" | "status" | "remark" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["redemptionCodes"]>
+export type redemptionCodesOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "code" | "type" | "levelId" | "duration" | "pointAmount" | "expiredAt" | "status" | "remark" | "createdBy" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["redemptionCodes"]>
 export type redemptionCodesInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   level?: boolean | Prisma.redemptionCodes$levelArgs<ExtArgs>
   redemptionRecords?: boolean | Prisma.redemptionCodes$redemptionRecordsArgs<ExtArgs>
@@ -972,6 +1015,10 @@ export type $redemptionCodesPayload<ExtArgs extends runtime.Types.Extensions.Int
      * 备注
      */
     remark: string | null
+    /**
+     * 创建该兑换码的管理员用户 ID（不建外键，与 orders.adminRemarkUpdatedBy 同惯例）
+     */
+    createdBy: number | null
     /**
      * 创建时间
      */
@@ -1418,6 +1465,7 @@ export interface redemptionCodesFieldRefs {
   readonly expiredAt: Prisma.FieldRef<"redemptionCodes", 'DateTime'>
   readonly status: Prisma.FieldRef<"redemptionCodes", 'Int'>
   readonly remark: Prisma.FieldRef<"redemptionCodes", 'String'>
+  readonly createdBy: Prisma.FieldRef<"redemptionCodes", 'Int'>
   readonly createdAt: Prisma.FieldRef<"redemptionCodes", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"redemptionCodes", 'DateTime'>
   readonly deletedAt: Prisma.FieldRef<"redemptionCodes", 'DateTime'>

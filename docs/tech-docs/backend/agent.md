@@ -75,13 +75,14 @@ Redis 订阅失败不阻塞启动，仅依赖轮询。
 
 1. 创建 `AbortController` 用于超时和取消控制
 2. 发布 `running` 状态
-3. 根据 session 类型路由到不同的 Agent/Workflow：
-   - `session.type === 2`（初始化分析）→ `startCaseAnalysisV2`
-   - `session.type === 3`（模块对话）→ `runModuleChat`
-   - 其他（普通案件对话）→ `runCaseChat`
-4. 遍历 SSE stream，解析事件并发布到 Redis
-5. 检查工作流是否被 interrupt（LangGraph human-in-the-loop）
-6. 更新最终状态（completed / interrupted / failed / cancelled）
+3. 读取 `caseSessions` 记录，校验 `scope` / `userId` / `caseId` 一致性；session 不存在直接抛错
+4. 调用 `repairOrphanToolUseCheckpoint`，兜底修复上一轮遗留的 orphan tool_use
+5. 通过 `agentRegistry.dispatch({ scope, type, caseId, userId }, ctx)` 统一派发到注册的 runner，拿到 SSE `ReadableStream`
+6. 遍历 SSE stream，解析事件并发布到 Redis
+7. 检查工作流是否被 interrupt（LangGraph human-in-the-loop）
+8. 更新最终状态（completed / interrupted / failed / cancelled）
+
+**路由说明**：Worker 不再按 `session.type` 写死 if-else 分支。`agentRegistry`（`server/services/agent-platform/registry/agentRegistry.ts`）以 `(scope, type)` 元组为 key 注册各业务 vertical 的 runner；`dispatch` 先精确匹配 `(scope, type)`，未命中再降级匹配 `(scope, null)` 默认 entry。`session.scope` 为 null 的早期数据按 `CASE` 域处理。runner 内部仍有最终校验，Worker 侧的提前抛错只为让错误带上 `sessionId` 便于排查。
 
 执行完成后自动尝试取下一个任务。
 
@@ -247,17 +248,16 @@ pending → cancelled
 
 ## 与 Workflow 的协作
 
-Worker 根据 `session.type` 路由到不同的执行入口：
+Worker 不直接持有任何执行入口，而是把 `(scope, type, caseId, userId)` 交给 `agentRegistry.dispatch` 统一派发：
 
-| session.type | 入口 | 模块 |
-|-------------|------|------|
-| 2 | `startCaseAnalysisV2` | `workflow/caseAnalysisV2.executor` |
-| 3 | `runModuleChat` | `workflow/agents/moduleAgent` |
-| 其他 | `runCaseChat` | `workflow/agents` |
+- `agentRegistry`（`server/services/agent-platform/registry/agentRegistry.ts`）以 `(scope, type)` 元组为 key 维护一张 runner 注册表
+- 各业务 vertical 通过 `defineDomainAgent` 工厂自动把自己的 runner 注册进来（案件分析 / 模块对话 / 通用问答 / 合同审查 / 文书生成等）
+- `dispatch` 先精确匹配 `(scope, type)`，未命中再降级匹配 `(scope, null)` 默认 entry；都没有则抛错
+- 所有 runner 返回 `ReadableStream`（SSE 格式），Worker 统一遍历并发布事件
 
-所有执行入口返回 `ReadableStream`（SSE 格式），Worker 统一遍历并发布事件。
+Session 不存在、或 `scope` 与 `userId` / `caseId` 不一致时直接抛错，不做静默降级（避免路由错乱）。
 
-Session 不存在时直接抛错，不做静默降级（避免路由错乱）。
+> vertical 注册机制与中间件栈详见 [tech-docs/patterns/workflow-middleware.md](../patterns/workflow-middleware.md)，以及 `agent-platform/factory/defineDomainAgent.ts`、`registry/agentRegistry.ts` 源码。
 
 ## 相关文档
 

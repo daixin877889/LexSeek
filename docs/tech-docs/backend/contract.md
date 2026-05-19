@@ -136,7 +136,7 @@ export const contractAgent = defineDomainAgent({
 
 > 走 `stateGraph` 而非 `createAgent` 是因为合同审查有自定义 `resume` 路径（首轮 `parseAndAskStance` interrupt → resume 后直接执行 `runAnalyzeLoop`，不再过 `agent.stream`）。详见 `agent-platform.md` 中 vertical 注册章节。
 
-业务侧 service / DAO 全部位于 `server/agents/contract/`（不是 `server/services/contract/`），与 vertical 同目录便于内聚。
+业务侧 service / DAO 大部分位于 `server/agents/contract/`，与 vertical 同目录便于内聚；stateGraph 主图 `contractReviewMainAgent.ts` 仍在 `server/services/workflow/agents/`。
 
 ---
 
@@ -161,6 +161,7 @@ export const contractAgent = defineDomainAgent({
 | GET | `/reviews/versions/download/:versionId` | 下载某版本 docx |
 | POST | `/reviews/upload-version/:id` | 上传客户回传版本（diff + AI 标注） |
 | POST | `/reviews/add-annotation/:id` | 新增批注 |
+| POST | `/reviews/add-risk/:id` | 手动新增风险 |
 | PATCH / DELETE | `/reviews/annotations/:annotationId` | 编辑 / 软删批注 |
 | PATCH | `/reviews/annotations/restore/:annotationId` | 恢复客户端删除的批注（取消 `suppressInExport`） |
 | PATCH | `/reviews/risks/:riskId` | 单条 risk 处置（`handled` / `ignored`） |

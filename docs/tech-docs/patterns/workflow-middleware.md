@@ -1,20 +1,19 @@
 # Workflow 中间件管道
 
-LexSeek 使用 LangChain/LangGraph 中间件机制为 Agent 工作流注入横切关注点，通过声明式优先级排序和互斥校验保证中间件执行顺序的正确性。
+LexSeek 使用 LangChain/LangGraph 中间件机制为 Agent 工作流注入横切关注点，通过声明式优先级排序保证中间件执行顺序的正确性。
 
 ## 架构概览
 
 ```
 Agent 工作流启动
     │
-    ▼ buildMiddlewareStack(items) → 优先级排序 + 互斥校验
+    ▼ buildMiddlewareStack(items) → 按 priority 升序排序
     │
     ▼ beforeAgent 钩子按优先级升序执行
     │
     ├── [10] caseProcessMaterial    ── 材料预处理（OCR、向量化）
     ├── [20] pointConsumption       ── 积分预检（会员 + 余额）
-    ├── [30] caseMaterialContext    ── 案件材料上下文注入 ─┐ 互斥
-    ├── [30] moduleContext          ── 模块上下文注入     ─┘
+    ├── [30] caseContextSync        ── 案件上下文同步注入
     ├── [50] safetyTrim             ── 消息安全截断
     │
     ▼ Agent 执行（LLM 调用）
@@ -28,10 +27,14 @@ Agent 工作流启动
     └── [90] analysisResultPersistence ── 分析结果持久化
 ```
 
+> `caseContextSyncMiddleware` 于 2026-05-05 统一接管案件上下文管线，取代了原先各自为政的 `caseMaterialContext` / `moduleContext`（前者已于 2026-04-30 删除）。
+
 ## 类型定义
 
+`MIDDLEWARE_PRIORITY` / `MIDDLEWARE_NAMES` / `buildMiddlewareStack` 的实体定义在 `server/services/agent-platform/middleware/types.ts`；`server/services/workflow/middleware/index.ts` 仅做 re-export 保持兼容。
+
 ```typescript
-// server/services/workflow/middleware/types.ts
+// server/services/agent-platform/middleware/types.ts
 
 import type { AgentMiddleware } from 'langchain'
 
@@ -39,37 +42,62 @@ import type { AgentMiddleware } from 'langchain'
 export interface MiddlewareWithPriority {
     middleware: AgentMiddleware
     priority: number      // 越小越先执行
-    name: string          // 用于日志和互斥校验
+    name: string          // 用于日志
 }
 
-/** 优先级常量（间隔 10，方便插入） */
+/** 优先级常量（间隔 10，方便插入；数值越小越先执行） */
 export const MIDDLEWARE_PRIORITY = {
+    MESSAGE_INTEGRITY: 1,     // 消息完整性兜底（必须最最前）
+    SCOPE_GUARD: 5,           // Agent 安全：scope 校验
+    TOOL_CALL_LIMIT: 7,       // Agent 安全：工具调用次数熔断
     PROCESS_MATERIAL: 10,     // 材料预处理
     POINT_CONSUMPTION: 20,    // 积分消耗
-    MATERIAL_CONTEXT: 30,     // 案件材料上下文（与 MODULE_CONTEXT 互斥）
-    MODULE_CONTEXT: 30,       // 模块上下文（与 MATERIAL_CONTEXT 互斥）
+    MODULE_CONTEXT: 30,       // 案件上下文注入
     SUMMARIZATION: 40,        // 摘要压缩
     SAFETY_TRIM: 50,          // 安全截断
+    SKILLS_DISCOVERY: 60,     // Skills 发现和加载
+    USER_INJECTION: 70,       // 用户每轮注入
     TODO_LIST: 80,            // 待办列表
     RESULT_PERSISTENCE: 90,   // 结果持久化（最后执行）
+    AUDIT: 100,               // Agent 安全：审计归档（必须最后）
+} as const
+
+/** 中间件名称常量，统一命名避免硬编码 */
+export const MIDDLEWARE_NAMES = {
+    MESSAGE_INTEGRITY: 'messageIntegrity',
+    SCOPE_GUARD: 'scopeGuard',
+    TOOL_CALL_LIMIT: 'toolCallLimit',
+    PROCESS_MATERIAL: 'caseProcessMaterial',
+    POINT_CONSUMPTION: 'pointConsumption',
+    MODULE_CONTEXT: 'caseContext',          // 案件上下文同步中间件
+    SUMMARIZATION: 'summarization',
+    SAFETY_TRIM: 'safetyTrim',
+    SKILLS_DISCOVERY: 'skillsDiscovery',
+    USER_INJECTION: 'userInjection',
+    TODO_LIST: 'todoList',
+    RESULT_PERSISTENCE: 'analysisResultPersistence',
+    REVIEW_RESULT_PERSISTENCE: 'reviewResultPersistence',  // 合同审查结果持久化
+    AUDIT: 'audit',
 } as const
 ```
 
+> 旧的 `MATERIAL_CONTEXT` 常量已随 `caseMaterialContext` 中间件一并移除；案件上下文统一走 `MODULE_CONTEXT: 30`，且 `MIDDLEWARE_NAMES.MODULE_CONTEXT` 的值为 `'caseContext'`。
+
 ## 中间件栈构建
 
+`buildMiddlewareStack` 只做 priority 升序排序并打一条 debug 日志，不做任何互斥校验：
+
 ```typescript
-// server/services/workflow/middleware/types.ts
+// server/services/agent-platform/middleware/types.ts
 
 export function buildMiddlewareStack(items: MiddlewareWithPriority[]): AgentMiddleware[] {
-    // 互斥校验
-    const hasMaterial = items.some(i => i.name === 'caseMaterialContext')
-    const hasModule = items.some(i => i.name === 'moduleContext')
-    if (hasMaterial && hasModule) {
-        throw new Error('caseMaterialContext 和 moduleContext 不能同时挂载')
-    }
-
-    // 按 priority 升序排列
+    // 按 priority 升序排列（相同优先级保持注册顺序）
     const sorted = [...items].sort((a, b) => a.priority - b.priority)
+
+    logger.debug('中间件执行顺序', {
+        order: sorted.map(i => `${i.name}(${i.priority})`),
+    })
+
     return sorted.map(i => i.middleware)
 }
 ```
@@ -153,107 +181,73 @@ export const pointConsumptionMiddleware = (userId: number, itemKey: string, sess
 - `_resumingFromAfterModel`：从 afterModel interrupt 恢复时跳过 beforeAgent 预检
 - Token 估算：优先使用 `usage_metadata.total_tokens`，缺失时按字符数保底估算
 
-### 3. caseMaterialContext（优先级 30）
+### 3. caseContextSync（优先级 30）
 
-**职责**：将案件材料内容注入到 Agent 消息列表中，支持首次全量注入和后续增量注入。
-
-**钩子**：`beforeAgent`
-
-```typescript
-export const caseMaterialContextMiddleware = (userId: number, caseId: number) => {
-    return createMiddleware({
-        name: 'CaseMaterialContextMiddleware',
-        stateSchema: z.object({
-            _injectedSourceIds: z.array(z.number()).default([]),  // 持久化到 checkpoint
-        }),
-        beforeAgent: {
-            hook: async (state) => {
-                const materials = await getMaterialsByCaseIdService(caseId)
-                const prevSourceIds = state._injectedSourceIds ?? []
-                const currentSourceIds = materials.map(m => getSourceId(m))
-
-                const isFirstInjection = prevSourceIds.length === 0
-                const newSourceIds = currentSourceIds.filter(id => !new Set(prevSourceIds).has(id))
-
-                if (isFirstInjection) {
-                    // 首次：按 token 阈值判断 full/summary 模式
-                    const context = await getMaterialContextService(materials)
-                    // 插入到 SystemMessage 之后
-                    state.messages.splice(systemIdx + 1, 0, new HumanMessage({ content: messageText }))
-                } else if (newSourceIds.length > 0) {
-                    // 增量：仅新增材料，固定 summary 模式
-                    // 插入到用户最新消息之前
-                }
-
-                return { _injectedSourceIds: currentSourceIds }
-            }
-        }
-    })
-}
-```
-
-**与 moduleContext 互斥**：两者都提供上下文注入但策略不同，不能同时挂载。
-
-### 4. moduleContext（优先级 30）
-
-**职责**：为模块对话注入四种维度的上下文，使用变更检测实现增量注入。
+**职责**：统一三个 Agent（小索 / 模块对话 / 文书生成）的「案件相关上下文」管线。每轮 Agent 启动时实时拉取案件 4 段上下文，拼成单一 `HumanMessage` 原地插入到本轮 user message 之前。
 
 **钩子**：`beforeAgent`
 
-检测的四种上下文维度：
+**实现位置**：`server/agents/_shared/case-context/caseContextSync.middleware.ts`
 
-| 维度 | 检测方式 | 首次行为 | 增量行为 |
-|---|---|---|---|
-| 案件材料 | sourceId 列表对比 | 全量注入 | 仅新增材料 |
-| 长期记忆 | MD5 hash 对比 | 注入 | 变更时重新注入 |
-| 其他模块分析结果 | 逐模块 MD5 hash | 注入 | 变更时重新注入 |
-| 当前模块分析结果 | MD5 hash 对比 | 注入（作为基线） | 变更时重新注入 |
+> `caseContextSyncMiddleware` 于 2026-05-05 取代了原先的 `caseContextMiddleware`，并合并掉了 2026-04-30 删除的 `caseMaterialContextMiddleware`——三个 Agent 不再走 SystemMessage 拼装，统一改为 HumanMessage 注入 + 双轨 metadata + splice 模式。
 
 ```typescript
-export const moduleContextMiddleware = (caseId: number, moduleName: string) => {
-    return createMiddleware({
-        name: 'ModuleContextMiddleware',
-        stateSchema: z.object({
-            _injectedSourceIds: z.array(z.number()).default([]),
-            _lastMemoryHash: z.string().nullable().default(null),
-            _injectedResultVersions: z.record(z.string(), z.string()).optional().default({}),
-            _currentModuleResultHash: z.string().nullable().default(null),
-        }),
+// server/agents/_shared/case-context/caseContextSync.middleware.ts
+
+export const caseContextSyncMiddleware = (options: CaseContextSyncOptions) =>
+    createMiddleware({
+        name: 'CaseContextSyncMiddleware',
         beforeAgent: {
             hook: async (state) => {
-                const sections: string[] = []
+                const messages = state.messages ?? []
+                const lastHumanIdx = messages.findLastIndex(/* 末尾 HumanMessage */)
+                const userQuery = /* 取末尾 HumanMessage 文本 */
 
-                // 并发加载 4 种上下文
-                const [materials, memory, completedResults] = await Promise.all([
-                    getMaterialsByCaseIdService(caseId),
-                    getCaseMemory(caseId),
-                    loadCompletedResultsService(caseId),
-                ])
+                const lines: string[] = []
 
-                // 1. 材料增量检测
-                // 2. 长期记忆变更检测（MD5 hash）
-                // 3. 其他模块分析结果变更检测（逐模块 MD5）
-                // 4. 当前模块结果变更检测
-
-                if (sections.length === 0) return
-
-                // 拼接为 HumanMessage，插入最新 HumanMessage 之前
-                const contextMessage = new HumanMessage({ content: sections.join('\n\n') })
-                state.messages.splice(lastHumanIdx, 0, contextMessage)
-
-                return {
-                    _injectedSourceIds: newSourceIds,
-                    _lastMemoryHash: newMemoryHash,
-                    _injectedResultVersions: newResultVersions,
-                    _currentModuleResultHash: newCurrentHash,
+                // 案件 4 段：caseProfile + moduleSummaries + materialList + memoryRecall
+                if (options.caseId !== null) {
+                    const segs = await buildContextSegments({
+                        caseId: options.caseId,
+                        agentName: options.agentName,
+                        userQuery,
+                    })
+                    if (segs.caseProfile) lines.push(segs.caseProfile)
+                    if (segs.moduleSummaries) lines.push(segs.moduleSummaries)
+                    if (segs.dynamicContext) lines.push(segs.dynamicContext)
                 }
+
+                // 文书 Agent 额外 2 段：当前已填字段 + 模板待填占位符
+                if (options.draftLoader) { /* ... 拉草稿 draft.values + placeholders */ }
+
+                if (lines.length === 0) return {}
+
+                // 拼成单一 HumanMessage，双轨打 injectedBy metadata
+                const contextMsg = new HumanMessage({
+                    content: lines.join('\n\n'),
+                    response_metadata: { injectedBy: 'CaseContextSyncMiddleware' },
+                    additional_kwargs: { injectedBy: 'CaseContextSyncMiddleware' },
+                })
+
+                // splice 原地插入：插到末尾 HumanMessage 之前
+                const insertIdx = lastHumanIdx >= 0 ? lastHumanIdx : messages.length
+                messages.splice(insertIdx, 0, contextMsg)
+
+                // 显式 return {} 触发 LangGraph state merge 路径
+                return {}
             },
         },
     })
-}
 ```
 
-### 5. safetyTrim（优先级 50）
+**设计要点**：
+- **每轮实时拉取**：`beforeAgent` 每轮调用 `buildContextSegments` 实时拉案件 4 段；文书 Agent 还会通过 `draftLoader` 额外拉草稿当前字段 + 模板占位符 2 段。
+- **splice 原地插入**：构造单一 `HumanMessage` 原地 splice 到本轮 user message 之前，不依赖 `add_messages` reducer 的重排能力。
+- **双轨 metadata**：同时打 `response_metadata` 与 `additional_kwargs`，兜底 SDK 序列化丢字段。
+- **显式 `return {}`**：触发 LangGraph state merge 路径；`return undefined` 会让框架走早退分支跳过 state merge。
+- **容错**：`draftLoader` 整体抛错跳过文书段；`draftValuesJSON` 抛错仅置空 `currentValues`，仍展示 placeholders。
+
+### 4. safetyTrim（优先级 50）
 
 **职责**：确保消息列表不超过模型上下文窗口预算，作为最后一道防线。
 
@@ -291,7 +285,7 @@ export function safetyTrimMiddleware(options: {
 1. LLM 摘要压缩（`compressMessages`）：智能保留重要上下文
 2. 强制截断（`safetyTrimMessages`）：降级兜底
 
-### 6. analysisResultPersistence（优先级 90）
+### 5. analysisResultPersistence（优先级 90）
 
 **职责**：在 Agent 前创建分析记录（IN_PROGRESS），Agent 后提取结果并更新为 COMPLETED。
 
@@ -386,9 +380,9 @@ const middlewareStack = buildMiddlewareStack([
         name: MIDDLEWARE_NAMES.POINT_CONSUMPTION,
     },
     {
-        middleware: caseMaterialContextMiddleware(userId, caseId),
-        priority: MIDDLEWARE_PRIORITY.MATERIAL_CONTEXT,
-        name: MIDDLEWARE_NAMES.MATERIAL_CONTEXT,
+        middleware: caseContextSyncMiddleware({ caseId, agentName }),
+        priority: MIDDLEWARE_PRIORITY.MODULE_CONTEXT,
+        name: MIDDLEWARE_NAMES.MODULE_CONTEXT,
     },
     {
         middleware: safetyTrimMiddleware({ model, maxTokens: contextWindow * 0.8 }),

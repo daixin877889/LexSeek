@@ -2,120 +2,117 @@
   <form class="px-4 py-6 sm:px-6 md:px-10 lg:py-8" @submit.prevent="handleSubmit">
     <div class="rounded-[14px] border border-border bg-card p-5 sm:p-6">
       <div class="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-10">
-      <!-- 左栏：案件信息 -->
-      <div class="space-y-5">
-        <!-- 案件标题 -->
-        <div class="space-y-2">
-          <label class="text-[13px] font-semibold">
-            案件标题 <span class="text-destructive">*</span>
-          </label>
-          <Input v-model="form.title" placeholder="请输入案件标题" @blur="touched.title = true" class="mt-1" />
-          <p v-if="touched.title && !form.title.trim()" class="text-sm text-destructive">
-            请输入案件标题
-          </p>
-        </div>
+        <!-- 左栏：案件信息 -->
+        <div class="space-y-5">
+          <!-- 案件标题 -->
+          <div class="space-y-2">
+            <label class="text-[13px] font-semibold">
+              案件标题 <span class="text-destructive">*</span>
+            </label>
+            <Input v-model="form.title" placeholder="请输入案件标题" @blur="touched.title = true" class="mt-1" />
+            <p v-if="touched.title && !form.title.trim()" class="text-sm text-destructive">
+              请输入案件标题
+            </p>
+          </div>
 
-        <!-- 案件类型 -->
-        <div class="space-y-2">
-          <label class="text-[13px] font-semibold">
-            案件类型 <span class="text-destructive">*</span>
-          </label>
-          <Select v-model="form.caseTypeId" @update:model-value="touched.caseTypeId = true" class="mt-1">
-            <SelectTrigger class="w-full">
-              <SelectValue placeholder="请选择案件类型" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem v-for="ct in caseTypes" :key="ct.id" :value="String(ct.id)">
-                {{ ct.name }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <p v-if="touched.caseTypeId && !form.caseTypeId" class="text-sm text-destructive">
-            请选择案件类型
-          </p>
-        </div>
+          <!-- 案件类型 -->
+          <div class="space-y-2">
+            <label class="text-[13px] font-semibold">
+              案件类型 <span class="text-destructive">*</span>
+            </label>
+            <Select v-model="form.caseTypeId" @update:model-value="touched.caseTypeId = true" class="mt-1">
+              <SelectTrigger class="w-full">
+                <SelectValue placeholder="请选择案件类型" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="ct in caseTypes" :key="ct.id" :value="String(ct.id)">
+                  {{ ct.name }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <p v-if="touched.caseTypeId && !form.caseTypeId" class="text-sm text-destructive">
+              请选择案件类型
+            </p>
+          </div>
 
-        <!-- 分析立场 -->
-        <div class="space-y-2">
-          <label class="text-[13px] font-semibold">分析立场</label>
-          <StanceToggleGroup v-model="form.stance" class="mt-1" />
-        </div>
+          <!-- 分析立场 -->
+          <div class="space-y-2">
+            <label class="text-[13px] font-semibold mr-2">分析立场</label>
+            <StanceToggleGroup v-model="form.stance" class="mt-1" />
+          </div>
 
-        <!-- 原告 -->
-        <CaseCreationPartyInput v-model="form.plaintiff" label="原告" placeholder="请输入原告姓名或名称" />
+          <!-- 原告 -->
+          <CaseCreationPartyInput v-model="form.plaintiff" label="原告" placeholder="请输入原告姓名或名称" />
 
-        <!-- 被告 -->
-        <CaseCreationPartyInput v-model="form.defendant" label="被告" placeholder="请输入被告姓名或名称" />
+          <!-- 被告 -->
+          <CaseCreationPartyInput v-model="form.defendant" label="被告" placeholder="请输入被告姓名或名称" />
 
-        <!-- 案件状态 -->
-        <div class="space-y-2">
-          <label class="text-[13px] font-semibold">案件状态</label>
-          <Select
-            :model-value="String(form.status)"
-            @update:model-value="(v: any) => form.status = Number(v)"
-            class="mt-1"
-          >
-            <SelectTrigger class="w-full">
-              <SelectValue placeholder="选择案件状态" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="1">咨询阶段</SelectItem>
-              <SelectItem value="2">准备阶段</SelectItem>
-              <SelectItem value="3">一审阶段</SelectItem>
-              <SelectItem value="4">二审阶段</SelectItem>
-              <SelectItem value="99">结案</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+          <!-- 案件状态 -->
+          <div class="space-y-2">
+            <label class="text-[13px] font-semibold">案件状态</label>
+            <Select :model-value="String(form.status)" @update:model-value="(v: any) => form.status = Number(v)"
+              class="mt-1">
+              <SelectTrigger class="w-full">
+                <SelectValue placeholder="选择案件状态" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">咨询阶段</SelectItem>
+                <SelectItem value="2">准备阶段</SelectItem>
+                <SelectItem value="3">一审阶段</SelectItem>
+                <SelectItem value="4">二审阶段</SelectItem>
+                <SelectItem value="99">结案</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-        <!-- 诉讼信息（选填） -->
-        <div class="space-y-3">
-          <h3 class="border-b border-border pb-2 text-[13px] font-semibold text-foreground">
-            诉讼信息<span class="font-normal text-muted-foreground">（选填）</span>
-          </h3>
+          <!-- 诉讼信息（选填） -->
           <div class="space-y-3">
-            <div>
-              <label class="text-xs font-medium text-muted-foreground mb-1 block">法院名称</label>
-              <Input v-model="form.courtName" placeholder="如：北京市朝阳区人民法院" />
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <h3 class="border-b border-border pb-2 text-[13px] font-semibold text-foreground">
+              诉讼信息<span class="font-normal text-muted-foreground">（选填）</span>
+            </h3>
+            <div class="space-y-3">
               <div>
-                <label class="text-xs font-medium text-muted-foreground mb-1 block">一审案号</label>
-                <Input v-model="form.firstInstanceCaseNo" placeholder="如：(2023)京0105民初12345号" />
+                <label class="text-xs font-medium text-muted-foreground mb-1 block">法院名称</label>
+                <Input v-model="form.courtName" placeholder="如：北京市朝阳区人民法院" />
               </div>
-              <div>
-                <label class="text-xs font-medium text-muted-foreground mb-1 block">二审案号</label>
-                <Input v-model="form.secondInstanceCaseNo" placeholder="如：(2024)京03民终6789号" />
-              </div>
-              <div>
-                <label class="text-xs font-medium text-muted-foreground mb-1 block">一审法官</label>
-                <Input v-model="form.firstInstanceJudge" placeholder="承办法官姓名" />
-              </div>
-              <div>
-                <label class="text-xs font-medium text-muted-foreground mb-1 block">二审法官</label>
-                <Input v-model="form.secondInstanceJudge" placeholder="承办法官姓名" />
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="text-xs font-medium text-muted-foreground mb-1 block">一审案号</label>
+                  <Input v-model="form.firstInstanceCaseNo" placeholder="如：(2023)京0105民初12345号" />
+                </div>
+                <div>
+                  <label class="text-xs font-medium text-muted-foreground mb-1 block">二审案号</label>
+                  <Input v-model="form.secondInstanceCaseNo" placeholder="如：(2024)京03民终6789号" />
+                </div>
+                <div>
+                  <label class="text-xs font-medium text-muted-foreground mb-1 block">一审法官</label>
+                  <Input v-model="form.firstInstanceJudge" placeholder="承办法官姓名" />
+                </div>
+                <div>
+                  <label class="text-xs font-medium text-muted-foreground mb-1 block">二审法官</label>
+                  <Input v-model="form.secondInstanceJudge" placeholder="承办法官姓名" />
+                </div>
               </div>
             </div>
           </div>
+
+          <!-- 案件描述 -->
+          <div class="space-y-2">
+            <label class="text-[13px] font-semibold">案件描述</label>
+            <Textarea v-model="form.content" placeholder="请输入案件描述" :rows="6" @blur="touched.content = true"
+              class="mt-1" />
+            <p v-if="touched.content && !form.content.trim() && form.materials.length === 0"
+              class="text-sm text-destructive">
+              案件描述和案件材料至少填写一项
+            </p>
+          </div>
         </div>
 
-        <!-- 案件描述 -->
-        <div class="space-y-2">
-          <label class="text-[13px] font-semibold">案件描述</label>
-          <Textarea v-model="form.content" placeholder="请输入案件描述" :rows="6" @blur="touched.content = true"
-            class="mt-1" />
-          <p v-if="touched.content && !form.content.trim() && form.materials.length === 0"
-            class="text-sm text-destructive">
-            案件描述和案件材料至少填写一项
-          </p>
+        <!-- 右栏：案件材料 -->
+        <div class="flex flex-col gap-2.5">
+          <label class="text-[13px] font-semibold">案件材料</label>
+          <CaseCreationMaterialUploader v-model="form.materials" />
         </div>
-      </div>
-
-      <!-- 右栏：案件材料 -->
-      <div class="flex flex-col gap-2.5">
-        <label class="text-[13px] font-semibold">案件材料</label>
-        <CaseCreationMaterialUploader v-model="form.materials" />
-      </div>
       </div>
     </div>
   </form>

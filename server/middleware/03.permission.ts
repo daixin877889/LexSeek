@@ -27,6 +27,11 @@ export default defineEventHandler(async (event) => {
         return
     }
 
+    // 2.5 对外开放 API：已由 02.auth 完成 apiKey 鉴权，不走 RBAC
+    if (event.context.isOpenApi) {
+        return
+    }
+
     // 3. 获取当前用户（可能为 null）
     const userId = event.context.auth?.user?.id ?? null
 

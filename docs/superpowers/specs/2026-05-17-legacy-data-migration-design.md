@@ -2,6 +2,8 @@
 
 > 设计日期：2026-05-17
 > 状态：待评审
+>
+> 2026-05-19 修订（数据丢失评审后）：`redemption_codes.createdBy` 由"丢弃"改为迁移，并在新产品补「创建人」功能；`payment_transactions` 的 `tradeState`/`bankType`/`payerInfo`/`notifyTime` 由"丢弃"改为并入 `callbackData` JSON 保留；`user_benefits.sourceType` 映射按 LexSeekApi 源码核实修正。详见 §8.1、§8.2 B-3、§9。
 
 ## 1. 背景与目标
 
@@ -172,17 +174,17 @@ legacy-migration/
 
 | 表 | 转换规则 |
 |---|---|
-| `users` | 直拷大部分字段；丢弃 `role`（→衍生 `user_roles`）、`apiKey`；`contractExportSignature`=null |
-| `cases` | 丢弃 `caseNumber`/`completedAt`/`closedAt`；`caseTypeId` 走配置重映射；新增字段 `summary`/`extractedInfo`/`courtName`/`firstInstanceCaseNo`/`secondInstanceCaseNo`/`firstInstanceJudge`/`secondInstanceJudge`=null、`isDemo`=false、`stance`='plaintiff' |
+| `users` | 直拷大部分字段；丢弃 `role`（→衍生 `user_roles`）；`apiKey` 平移到新库（新项目已补对外 API 鉴权能力）；`contractExportSignature`=null |
+| `cases` | 丢弃 `caseNumber`/`completedAt`/`closedAt`；`caseTypeId` 走配置重映射；新增字段 `summary`/`extractedInfo`/`courtName`/`firstInstanceCaseNo`/`secondInstanceCaseNo`/`firstInstanceJudge`/`secondInstanceJudge`=null、`isDemo`=false、`stance`='plaintiff'；`status` 统一映射为 1（咨询阶段，旧 3 态与新 6 阶段 `CaseStatus` 无法对应） |
 | `case_sessions` | 直拷 `id`/`sessionId`/`caseId`/时间戳；`scope`='case'、`userId`=反查 `cases.userId`、`status`=2、`type`=1、`title`/`metadata`=null |
 | `user_memberships` | `levelId` 走配置重映射；`autoRenew` null→false；`sourceType` null→99；丢弃 `upgradedFromId`/`upgradedToId`/`upgradePrice`/`isUpgrade`；`settlementAt`/`remark`=null |
 | `point_records` | 直拷全部；新增 `transferOut`=0、`transferToRecordId`=null |
 | `point_consumption_records` | `itemId` 走配置重映射；新增 `batchId`=null；`status` 值直拷 |
 | `user_benefits` | `benefitId` 走配置重映射；`benefitValue` Decimal→BigInt（四舍五入取整）；`sourceType` Int→String（枚举映射表，见 §9）；`effectiveAt` null→`createdAt`、`expiredAt` null→`2099-12-31`；丢弃 `consumedValue`/`remainingValue`/`unit` |
-| `redemption_codes` | `levelId` 走配置重映射；`code` 长度 50→32（见 §16 扫描）；`type`：旧 `giftPoint`>0 → 3（会员+积分），否则 → 1（仅会员）；`pointAmount`：旧 `giftPoint`>0 → `giftPoint`，否则 null；`expiredAt`=null；丢弃 `createdBy` |
+| `redemption_codes` | `levelId` 走配置重映射；`code` 长度 50→32（见 §16 扫描）；`type`：旧 `giftPoint`>0 → 3（会员+积分），否则 → 1（仅会员）；`pointAmount`：旧 `giftPoint`>0 → `giftPoint`，否则 null；`expiredAt`=null；`createdBy` 透传（新库已加 `created_by` 列，并配套补了管理端「创建人」记录与展示）|
 | `redemption_records` | 仅保留 `id`/`userId`/`codeId`/时间戳；丢弃 `redeemedAt`/`expiresAt`/`status`/`membershipId` |
 | `membership_upgrade_records` | `paymentOrderId`→`orderId`（旧值保留可用）；`toMembershipId`/`orderId` 为 null 的行进异常清单跳过；`pointCompensation` 旧可空→新必填，null→0；丢弃 `fromLevelId`/`toLevelId`/`originalRemainingDays`/`status`；`transferPoints`=0、`details`=null |
-| `oss_files` | 直拷全部；新增 `encrypted`=false、`originalMimeType`=null |
+| `oss_files` | 直拷全部；新增 `encrypted`=false、`originalMimeType`=null；被 `case_materials` 引用的文件 `source` 改为 `caseAnalysis`（旧 doc/image/asr 来源体系与新产品不一致，否则材料选择器看不到迁移材料） |
 | `asr_records` | 直拷其余字段；新增 `tempFilePath`=null；`vectorIds` 重置为 `[]`、`lastEmbeddingAt` 重置为 null（见 §11） |
 | `asr_tasks` | 直拷其余字段；新增 `isEncrypted`=false |
 | `doc_recognition_records` | 直拷其余字段；`vectorIds`=`[]`、`lastEmbeddingAt`=null |
@@ -231,13 +233,13 @@ legacy-migration/
 `payment_transactions`（源 旧 `payment_transactions`）：
 - 直拷 `id`/`orderId`/`amount`/时间戳
 - `transactionNo`（旧无→新必填唯一）= `'LEGACY' + 左补零 id`（≤32 字符）
-- `transactionId`→`outTradeNo`（注意 100→64 收窄）、`rawData`→`callbackData`、`successTime`→`paidAt`
+- `transactionId`→`outTradeNo`（注意 100→64 收窄）、`successTime`→`paidAt`
 - `paymentChannel` ← `paymentType`（1→`wechat`、2→`alipay`）
 - `paymentMethod` ← `paymentWay`（1→`mini_program`、2→`wap`、3→`app`，对照表实施时按旧项目代码确认）
 - `status`：旧 0/1/2 → 新 0/1/2
 - `expiredAt`（旧无→新必填）= `createdAt`
 - `prepayId`/`errorMessage`/`remark`/`adminRemark*`=null
-- 丢弃 `tradeState`/`bankType`/`payerInfo`/`notifyTime`
+- `callbackData` 写入 `{ rawData, tradeState, bankType, payerInfo, notifyTime }`——新库无这 4 个独立列，旧 `rawData` 与 4 个回调明细字段并入 `callbackData` JSON 一起保留（后台支付详情可查）
 
 合成 `payment_transactions`：
 - 遍历已支付（`status=1`）但无对应旧 `payment_transactions` 的 `orders`，用 `payment_order` 自身的 `paymentType`/`paymentWay`/`prepayId`/`paymentTime` 合成一条
@@ -267,9 +269,9 @@ legacy-migration/
 | `membership_upgrade_records.pointCompensation` | null → 0 |
 | 多张表 `createdAt` / `updatedAt` | 旧可空、新必填，见 §8 时间戳兜底规则 |
 
-**枚举映射表**（实施时查旧项目代码确认）：
-- `user_benefits.sourceType`：旧 Int → 新 String（`membership_gift`/`benefit_package`/`redemption_code`/`admin_gift`）
-- `payment_transactions.paymentMethod`：旧 `paymentWay` Int（1-JSAPI/2-H5/3-APP）→ 新 String（`mini_program`/`wap`/`app`）
+**枚举映射表**（已对照 LexSeekApi 源码核实）：
+- `user_benefits.sourceType`：旧 Int → 新 String。旧 `BenefitSourceType` 1=会员额度→`membership_gift`、2=兑换码→`redemption_code`、3=直接购买→`benefit_package`、4=管理员赠送→`admin_gift`；旧 5=活动/6=试用/99=其他在新库无对应，回退 `admin_gift`（生产库实测 `sourceType` 全为 1）。
+- `payment_transactions`：`paymentChannel` ← `paymentType`（1→`wechat`、2→`alipay`）；`paymentMethod` ← `paymentWay`（1-JSAPI→`mini_program`、2-H5→`wap`、3-APP→`app`）。旧项目仅微信小程序支付通道，生产库实测 `paymentType`/`paymentWay` 全为 1。
 
 ## 10. 配置外键重映射明细
 

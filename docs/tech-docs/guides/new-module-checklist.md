@@ -176,8 +176,7 @@ export default defineEventHandler(async (event) => {
 
 - [ ] 使用特定前缀标记测试数据（如 `测试_`、`TEST_`、`199` 手机号前缀）
 - [ ] 创建 `TestIds` 追踪对象，记录所有创建的测试记录 ID
-- [ ] 清理函数按外键依赖的反序删除
-- [ ] 在 `global-teardown.ts` 中添加新模块的清理 SQL（如需要）
+- [ ] 清理函数按外键依赖的反序删除（worker 级 DB 隔离已自动 DROP 每个 worker 库，无需注册全局清理）
 
 ### 4. 运行测试
 

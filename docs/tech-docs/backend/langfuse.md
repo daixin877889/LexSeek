@@ -48,11 +48,13 @@ HTTP 请求
 
 | 路径 | 职责 |
 |------|------|
-| `server/lib/langfuse/types.ts` | 类型定义 + `LangfuseVertical` (12 种) + `deriveScope(vertical)` 映射 |
+| `server/lib/langfuse/types.ts` | 类型定义 + `LangfuseVertical` (14 种) + `deriveScope(vertical)` 映射 |
 | `server/lib/langfuse/redactPII.ts` | PII 脱敏纯函数（4 类正则）|
 | `server/lib/langfuse/context.ts` | ALS store + `withLangfuseContext / enterLangfuseContext / getLangfuseContext` |
 | `server/lib/langfuse/client.ts` | `CallbackHandler` 单例 + `NoopCallbackHandler` 兜底 + `getLangfuseRuntimeConfig` 缓存 |
 | `server/lib/langfuse/modelProxy.ts` | `wrapWithLangfuse(model)` ES Proxy 拦截器 |
+| `server/lib/langfuse/runnableConfig.ts` | `buildLangfuseTopLevelConfig` + `LangfuseConfigOverride`（注入 Runnable 顶层 config） |
+| `server/lib/langfuse/_metadata.ts` | `buildEntityMetadata` / `buildEnvTags`（实体 metadata 与环境标签构造） |
 | `server/lib/langfuse/index.ts` | barrel 导出 |
 | `server/middleware/04.langfuseContext.ts` | HTTP 入口起 ALS 根上下文 |
 | `server/plugins/langfuse-otel.ts` | NodeSDK + LangfuseSpanProcessor + close hook |

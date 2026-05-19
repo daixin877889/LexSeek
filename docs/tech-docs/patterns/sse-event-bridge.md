@@ -415,7 +415,8 @@ export async function sendInterruptEventService(
 
 ```
 1. 前端发起分析请求
-   POST /api/v1/cases/analysis/agents → 创建 agentRuns 记录（status=PENDING）
+   POST /api/v1/cases/analysis/chat（及 init-session 等）
+   → 经 agentRun.service（enqueueRunService）创建 agentRuns 记录（status=PENDING）
    → Redis publish('agent_tasks', runId)
 
 2. Worker 接收任务

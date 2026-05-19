@@ -7223,6 +7223,7 @@ export const RedemptionCodesScalarFieldEnum = {
   expiredAt: 'expiredAt',
   status: 'status',
   remark: 'remark',
+  createdBy: 'createdBy',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'
@@ -7366,6 +7367,7 @@ export const UsersScalarFieldEnum = {
   openid: 'openid',
   unionid: 'unionid',
   registerChannel: 'registerChannel',
+  apiKey: 'apiKey',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'

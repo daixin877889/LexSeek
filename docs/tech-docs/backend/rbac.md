@@ -69,11 +69,11 @@ apiPermissions (N) ──→ (1) apiPermissionGroups
 |------|------|
 | `createApiPermissionDao` | 创建 API 权限 |
 | `findApiPermissionByIdDao` | 按 ID 查询 |
-| `findApiPermissionByPathAndMethodDao` | 按路径+方法查询 |
+| `findApiPermissionByPathMethodDao` | 按路径+方法查询 |
 | `findApiPermissionsDao` | 分页列表（支持 path/method/groupId/isPublic/keyword 筛选） |
 | `findPublicApiPermissionsDao` | 查询所有公共 API 权限（isPublic=true, status=1） |
 | `updateApiPermissionDao` | 更新 |
-| `softDeleteApiPermissionDao` | 软删除 |
+| `deleteApiPermissionDao` | 软删除 |
 
 API 权限核心字段：
 - `path` — API 路径（支持通配符，如 `/api/v1/users/:id`）
@@ -109,11 +109,11 @@ interface PermissionCheckResult {
 | 方法 | 说明 |
 |------|------|
 | `checkIsSuperAdmin` | 检查用户是否为超级管理员 |
-| `checkApiPermission` | 检查用户是否有 API 访问权限 |
+| `validateUserApiPermission` | 检查用户是否有 API 访问权限 |
 | `getUserPermissions` | 获取用户完整权限数据（API 权限 + 路由权限 + 是否超管） |
-| `clearUserPermissions` | 清除用户权限缓存 |
+| `refreshUserPermissions` | 刷新用户权限缓存 |
 
-**API 权限校验流程**（`checkApiPermission`）：
+**API 权限校验流程**（`validateUserApiPermission`）：
 
 ```
 1. 检查缓存中是否有用户权限数据
@@ -174,7 +174,7 @@ interface PublicApiPermissionCache {
 | `clearUserPermissionCacheBatch` | 批量清除用户缓存 |
 | `getPublicApiPermissionCache` / `setPublicApiPermissionCache` | 公共 API 权限缓存（全局单例） |
 | `clearPublicApiPermissionCache` | 清除公共权限缓存 |
-| `clearAllPermissionCache` | 清除所有缓存 |
+| `clearAllCache` | 清除所有缓存 |
 
 **缓存失效时机**：
 - 角色创建/更新/删除 → 清除相关用户缓存
@@ -202,8 +202,8 @@ interface PublicApiPermissionCache {
 | 方法（Service） | 说明 |
 |--------|------|
 | `logRoleCreate` / `logRoleUpdate` / `logRoleDelete` | 角色操作日志 |
-| `logUserRoleAssign` / `logUserRoleRemove` | 用户角色日志 |
-| `logPermissionCreate` / `logPermissionUpdate` | 权限操作日志 |
+| `logUserAssignRole` / `logUserRemoveRole` | 用户角色日志 |
+| `logApiPermissionCreate` / `logApiPermissionUpdate` | 权限操作日志 |
 
 审计日志自动记录 `oldValue`、`newValue`（JSON 格式）和客户端 IP（从 `X-Forwarded-For` / `X-Real-IP` 获取）。
 

@@ -1,42 +1,46 @@
 # 前端组件体系
 
-LexSeek 前端组件采用按业务域划分的目录结构，共约 770 个 `.vue` 文件，分布在 24 个顶层目录中，覆盖管理后台、AI 交互、案件管理、会员支付等核心业务场景。
+LexSeek 前端组件采用按业务域划分的目录结构，共约 884 个 `.vue` 文件，分布在 28 个顶层目录中，覆盖管理后台、AI 交互、案件管理、会员支付等核心业务场景。
 
 ## 目录总览
 
 ```
 app/components/
-├── admin/            # 32 个组件 - 管理后台
-├── ai/               # 18 个组件 - AI 功能入口
-├── ai-elements/      # 381 个组件 - AI 交互元素库（50 子目录）
-├── auth/             # 1 个组件 - 认证相关
-├── case/             # 16 个组件 - 案件通用组件
-├── caseAnalysis/     # 12 个组件 - 案件分析
-├── caseCreation/     # 3 个组件 - 案件创建
-├── caseDetail/       # 8 个组件 - 案件详情
-├── cases/            # 6 个组件 - 案件列表
-├── dashboard/        # 5 个组件 - 仪表盘
-├── diskSpace/        # 6 个组件 - 磁盘空间管理
-├── general/          # 14 个组件 - 通用业务组件
+├── admin/            # 53 个组件 - 管理后台
+├── agents/           # 8 个组件 - 业务 vertical Agent UI（合同 / 文书）
+├── ai/               # 38 个组件 - AI 功能入口
+├── ai-elements/      # 381 个组件 - AI 交互元素库（48 子目录）
+├── assistant/        # 33 个组件 - 通用问答 / 合同审查 / 文书面板
+├── auth/             # 2 个组件 - 认证相关
+├── case/             # 14 个组件 - 案件通用组件
+├── caseAnalysis/     # 8 个组件 - 案件分析
+├── caseCreation/     # 4 个组件 - 案件创建
+├── caseDetail/       # 14 个组件 - 案件详情
+├── cases/            # 9 个组件 - 案件列表
+├── dashboard/        # 6 个组件 - 仪表盘
+├── diskSpace/        # 7 个组件 - 磁盘空间管理
+├── general/          # 20 个组件 - 通用业务组件
 ├── icon/             # 2 个组件 - 图标组件
 ├── icons/            # 9 个组件 - 业务图标集
 ├── initAnalysis/     # 5 个组件 - 初始分析
-├── legal/            # 5 个组件 - 法律知识
-├── legal-search/     # 6 个组件 - 法律搜索
+├── landing/          # 7 个组件 - 邀请落地页
+├── legal/            # 7 个组件 - 法律知识
+├── legal-search/     # 7 个组件 - 法律搜索
 ├── membership/       # 8 个组件 - 会员管理
 ├── order/            # 4 个组件 - 订单管理
 ├── payment/          # 1 个组件 - 支付组件
 ├── points/           # 9 个组件 - 积分系统
 ├── purchase/         # 1 个组件 - 购买流程
 ├── redeem/           # 4 个组件 - 兑换码
-└── ui/               # 214 个组件 - shadcn-vue 基础组件（40 子目录）
+├── tools/            # 4 个组件 - 法律工具
+└── ui/               # 217 个组件 - shadcn-vue 基础组件（42 子目录）
 ```
 
 ## 组件分类详解
 
 ### 1. ui/ - shadcn-vue 基础组件（禁止修改）
 
-`ui/` 目录包含 214 个由 shadcn-vue 管理的基础 UI 组件，分布在 40 个子目录中：
+`ui/` 目录包含 217 个由 shadcn-vue 管理的基础 UI 组件，分布在 42 个子目录中：
 
 ```
 ui/
@@ -89,7 +93,7 @@ ui/
 
 ### 2. ai-elements/ - AI 交互元素库
 
-`ai-elements/` 是项目中最大的组件模块，包含 381 个组件，分布在 50 个子目录中。这是一套完整的 AI 对话和交互 UI 组件库：
+`ai-elements/` 是项目中最大的组件模块，包含 381 个组件，分布在 48 个子目录中。这是一套完整的 AI 对话和交互 UI 组件库：
 
 ```
 ai-elements/
@@ -167,11 +171,11 @@ import { cn } from '@repo/shadcn-vue/lib/utils'
 
 | 目录 | 数量 | 职责 |
 |------|------|------|
-| `case/` | 16 | 案件通用组件（类型选择、状态展示等） |
-| `caseCreation/` | 3 | 案件创建流程 |
-| `caseDetail/` | 8 | 案件详情页展示 |
-| `caseAnalysis/` | 12 | 案件分析结果展示 |
-| `cases/` | 6 | 案件列表和筛选 |
+| `case/` | 14 | 案件通用组件（类型选择、状态展示等） |
+| `caseCreation/` | 4 | 案件创建流程 |
+| `caseDetail/` | 14 | 案件详情页展示 |
+| `caseAnalysis/` | 8 | 案件分析结果展示 |
+| `cases/` | 9 | 案件列表和筛选 |
 | `initAnalysis/` | 5 | 初始化分析流程 |
 
 #### 会员与支付组件群
@@ -185,23 +189,32 @@ import { cn } from '@repo/shadcn-vue/lib/utils'
 | `points/` | 9 | 积分展示和使用 |
 | `redeem/` | 4 | 兑换码输入和验证 |
 
+#### AI 对话与 Agent 组件群
+
+| 目录 | 数量 | 职责 |
+|------|------|------|
+| `ai/` | 38 | AI 消息渲染、流式输出、工具调用可视化 |
+| `agents/` | 8 | 业务 vertical 的 Agent UI（合同 / 文书的 source bar、interrupt 卡片、工具卡片） |
+| `assistant/` | 33 | 通用问答面板、合同审查面板、文书起草面板 |
+
 #### 管理后台组件
 
 | 目录 | 数量 | 职责 |
 |------|------|------|
-| `admin/` | 32 | 后台管理界面（用户管理、系统配置等） |
-| `dashboard/` | 5 | 数据概览仪表盘 |
+| `admin/` | 53 | 后台管理界面（用户管理、系统配置等） |
+| `dashboard/` | 6 | 数据概览仪表盘 |
 
 #### 其他业务组件
 
 | 目录 | 数量 | 职责 |
 |------|------|------|
-| `general/` | 14 | 通用业务组件（页头、页脚、导航等） |
-| `legal/` | 5 | 法律知识展示 |
-| `legal-search/` | 6 | 法律条文搜索 |
-| `diskSpace/` | 6 | 文件存储空间管理 |
-| `ai/` | 18 | AI 功能入口和配置 |
-| `auth/` | 1 | 认证相关 UI |
+| `general/` | 20 | 通用业务组件（页头、页脚、导航等） |
+| `legal/` | 7 | 法律知识展示 |
+| `legal-search/` | 7 | 法律条文搜索 |
+| `diskSpace/` | 7 | 文件存储空间管理 |
+| `tools/` | 4 | 法律计算工具页组件 |
+| `landing/` | 7 | 邀请注册落地页 |
+| `auth/` | 2 | 认证相关 UI |
 
 ## 组件命名约定
 
@@ -286,7 +299,7 @@ definePageMeta({
 
 ```typescript
 import { useApiFetch } from '~/composables/useApiFetch'
-import { useCaseChat } from '~/composables/useCaseChat'
+import { useCaseMainAgent } from '~/composables/agents'
 ```
 
 
@@ -294,14 +307,15 @@ import { useCaseChat } from '~/composables/useCaseChat'
 |-----------|------|
 | `useApi` | SSR 兼容的数据请求 |
 | `useApiFetch` | 客户端数据请求（自动提取 data 字段） |
-| `useCaseChat` | 案件对话管理 |
+| `agents/useCaseMainAgent` | 案件小索对话（薄包装，基于 `useDomainAgentSession`） |
+| `agents/useCaseModuleAgent` | 案件模块对话多实例池 |
 | `useCaseCreation` | 案件创建流程 |
 | `useCaseDetail` | 案件详情数据 |
 | `useFileReader` | 文件读取 |
 | `useFileRecognition` | 文件识别 |
 | `useFileUploadWorker` | 文件上传 Worker |
 | `useLegalParser` | 法律文档解析 |
-| `useInitAnalysis` | 初始分析流程 |
+| `initAnalysis/useInitAnalysisRuntime` | 初始分析流程编排 |
 | `useColorMode` | 颜色模式切换 |
 | `useFormatters` | 格式化工具 |
 | `useDraggableResize` | 拖拽调整大小 |

@@ -37,6 +37,7 @@
 | `fullTextSearch.service.ts` | 全文搜索（BM25 + zhparser） |
 | `hybridSearch.service.ts` | 混合检索（BM25 + Vector + RRF） |
 | `exactSearch.service.ts` | 精确检索（法律名 + 条文号） |
+| `queryNormalizer.ts` | 查询归一化处理 |
 | `rerank.service.ts` | Rerank 精排服务 |
 | `postFilter.service.ts` | 后处理过滤（日期/有效性） |
 
@@ -176,7 +177,7 @@ RRF_score(d) = Σ 1/(k + rank + 1)
 ### 表名白名单
 
 ```typescript
-const ALLOWED_TABLES = new Set(['law_embeddings', 'case_material_embeddings'])
+const ALLOWED_TABLES = new Set(['law_embeddings', 'case_material_embeddings', 'case_memories', 'case_analysis_embeddings'])
 ```
 
 ### Metadata 过滤字段白名单
@@ -185,6 +186,7 @@ const ALLOWED_TABLES = new Set(['law_embeddings', 'case_material_embeddings'])
 const ALLOWED_METADATA_KEYS = new Set([
   'legal_id', 'legal_name', 'legal_type', 'article_type',
   'userId', 'sourceId', 'source',
+  'caseId', 'kind', 'subjectKey', 'confidence', 'supersedes', 'invalidatedAt', 'isActive', 'analysisId', 'analysisType',
 ])
 ```
 
