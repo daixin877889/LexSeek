@@ -619,3 +619,51 @@ function getReasoningText(message: any): string {
 - plan 阶段必须执行项目记忆里的"嵌套 Dialog 8 项测试清单"
 
 **参考实现**：`app/components/admin/prompts/PromptFormDialog.vue`（含 nestedZIndex prop 的样板代码）
+
+## 二十一、OSS 上传回调验签必须用原始请求体
+
+### 问题
+
+文件上传到 OSS 成功，但 OSS 回调（callback）失败：PostObject 返回 `203 Non-Authoritative Information` + `x-oss-ec: 0007-00000203`，dev server 日志出现 `存储回调验签失败 {"error":"签名验证失败"}`。文件状态只能靠 confirm-upload 兜底链路修复，回调直连链路实际失效。
+
+### 根因
+
+`AliyunCallbackValidator.getRawBody` 原先用 `readBody(event)` 把请求体解析成对象，再用 `URLSearchParams` 重建成字符串参与 RSA 验签。`URLSearchParams.toString()` 会对 **key** 也做 percent-encoding，把 OSS 自定义变量 key（`x:user_id`、`x:file_id` 等）里的冒号 `:` 编码成 `%3A`：
+
+```
+OSS 原始 body：  ...&x:user_id=1&x:file_id=27690&...
+重建后的 body：  ...&x%3Auser_id=1&x%3Afile_id=27690&...
+```
+
+OSS 回调验签算法是 `RSA 验证(stringToSign)`，`stringToSign = path + "\n" + 回调请求体原文`。重建后的 body 与 OSS 签名时用的原文不一致 → `stringToSign` 不匹配 → RSA 验签恒失败。任何对请求体的 `解析 → 重建`（decode→encode）往返都可能破坏字节一致性，验签必须用原文。
+
+### 影响范围
+
+所有走 OSS PostObject + callback 的上传（案件素材、合同、文档等）。
+
+### 正确做法
+
+用 `readRawBody(event)` 取未经解析的原始请求体：
+
+```typescript
+// ❌ 错误：readBody 解析后 URLSearchParams 重建，会编码 x: 的冒号
+const body = await readBody(event)
+const params = new URLSearchParams()
+for (const [k, v] of Object.entries(body)) params.append(k, String(v))
+return params.toString()
+
+// ✅ 正确：直接取原始字节
+const raw = await readRawBody(event)
+return typeof raw === 'string' ? raw : Buffer.from(raw).toString('utf-8')
+```
+
+### 排查要点
+
+- 上传请求返回 `203` + `x-oss-ec: 0007-00000203` → callback 失败（区别于上传本身失败）。
+- 看 dev server 有无 `[storage-callback]` 日志：完全没有 → callback 没到达 handler（回调地址公网不可达等）；有 `验签失败` → 走到了 handler 但验签没过。
+- `error: 签名验证失败` → RSA 验签 `stringToSign` 不匹配（body 或 path 对不上）。
+
+### 相关文件
+
+- `server/lib/storage/callback/validators/aliyun.ts`（`getRawBody`）
+- 回归测试：`tests/server/storage/aliyun-callback-validator.test.ts`（`getRawBody` 一节，锁定 `x:` key 冒号不被编码）

@@ -7,8 +7,15 @@
  * **Validates: 阿里云回调验证器**
  */
 
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+
+vi.mock('h3', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('h3')>()),
+    readRawBody: vi.fn(),
+}))
+
 import { AliyunCallbackValidator, clearPublicKeyCache } from '../../../server/lib/storage/callback/validators/aliyun'
+import { readRawBody } from 'h3'
 import type { H3Event } from 'h3'
 
 describe('AliyunCallbackValidator', () => {
@@ -117,6 +124,30 @@ describe('AliyunCallbackValidator', () => {
     describe('clearPublicKeyCache 缓存清理', () => {
         it('clearPublicKeyCache 应执行成功', () => {
             expect(() => clearPublicKeyCache()).not.toThrow()
+        })
+    })
+
+    describe('getRawBody 原始请求体', () => {
+        it('返回 readRawBody 原文，自定义变量 key 的冒号不被编码（验签回归点）', async () => {
+            const rawBody = 'filename=dev%2Fa.docx&size=14501&x:user_id=1&x:file_id=27690'
+            ;(readRawBody as any).mockResolvedValue(rawBody)
+            const result = await (validator as any).getRawBody({} as H3Event)
+            expect(result).toBe(rawBody)
+            // 关键：x: 前缀的冒号必须保持原样，不能被编码成 %3A
+            expect(result).toContain('x:user_id=1')
+            expect(result).not.toContain('x%3A')
+        })
+
+        it('Buffer 原始体转为 utf-8 字符串', async () => {
+            ;(readRawBody as any).mockResolvedValue(Buffer.from('filename=a&x:k=v', 'utf-8'))
+            const result = await (validator as any).getRawBody({} as H3Event)
+            expect(result).toBe('filename=a&x:k=v')
+        })
+
+        it('原始体为空时返回空字符串', async () => {
+            ;(readRawBody as any).mockResolvedValue(undefined)
+            const result = await (validator as any).getRawBody({} as H3Event)
+            expect(result).toBe('')
         })
     })
 })
