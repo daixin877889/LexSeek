@@ -171,7 +171,9 @@ export async function recommendDocumentTemplatesService(
         select: { templateId: true },
         distinct: ['templateId'],
     })
-    const recentTemplateIds = new Set<number>(recentDrafts.map(d => d.templateId))
+    const recentTemplateIds = new Set<number>(
+        recentDrafts.map(d => d.templateId).filter((id): id is number => id != null),
+    )
 
     // 第一层：categoryHint 缩范围
     let pool: documentTemplates[] = []

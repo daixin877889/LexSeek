@@ -6476,7 +6476,9 @@ export const DocumentDraftsScalarFieldEnum = {
   caseId: 'caseId',
   sessionId: 'sessionId',
   templateId: 'templateId',
+  mode: 'mode',
   values: 'values',
+  content: 'content',
   sourceRef: 'sourceRef',
   metadata: 'metadata',
   outputFileId: 'outputFileId',
@@ -6497,6 +6499,7 @@ export const DocumentDraftSnapshotsScalarFieldEnum = {
   draftId: 'draftId',
   source: 'source',
   values: 'values',
+  content: 'content',
   aiTitle: 'aiTitle',
   createdAt: 'createdAt'
 } as const
@@ -6510,6 +6513,7 @@ export const DocumentDraftVersionsScalarFieldEnum = {
   versionNo: 'versionNo',
   name: 'name',
   values: 'values',
+  content: 'content',
   titleAt: 'titleAt',
   createdAt: 'createdAt'
 } as const

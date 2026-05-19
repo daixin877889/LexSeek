@@ -170,7 +170,8 @@ export async function getDraftService(
 
     // 补查模板名：DAO 只 SELECT documentDrafts 表自身字段（不含 template join），
     // 前端文书页（如 autoAi=1 的启动指令需要拼"请根据当前案件信息生成《{模板名}》"）需要 templateName。
-    const template = await getDocumentTemplateDAO(draft.templateId)
+    // 自由文书（mode=freeform）无模板，templateId 为 null
+    const template = draft.templateId != null ? await getDocumentTemplateDAO(draft.templateId) : null
 
     return {
         draft: {
@@ -211,7 +212,8 @@ export async function patchDraftService(
         return { error: '草稿正在生成中，请稍后再修改', code: 409 }
     }
 
-    const template = await getDocumentTemplateDAO(draft.templateId)
+    // 自由文书（mode=freeform）无模板，templateId 为 null
+    const template = draft.templateId != null ? await getDocumentTemplateDAO(draft.templateId) : null
     const rawPlaceholders = Array.isArray(template?.placeholders) ? template.placeholders as Array<{ name: unknown }> : []
     const allowedKeys = new Set(rawPlaceholders.map(p => String(p.name ?? '')))
 

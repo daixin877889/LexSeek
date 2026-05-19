@@ -127,7 +127,10 @@ export interface DocumentDraftVersion {
 export interface DraftRow {
     id: number
     title: string
-    templateId: number
+    /** 文书模式：template-模板文书 / freeform-自由文书（无模板，正文直接存 content） */
+    mode: string
+    /** 模板 ID；自由文书（mode=freeform）为 null */
+    templateId: number | null
     templateName: string | null
     caseId: number | null
     /** 关联案件标题（后端 join cases.title 注入，列表展示用，无关联时为 null） */

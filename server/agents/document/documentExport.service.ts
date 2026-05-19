@@ -138,6 +138,9 @@ export async function exportDraftService(
     const draft = await getDocumentDraftDAO(draftId)
     if (!draft) return { error: '草稿不存在', code: 404 }
     if (draft.userId !== userId) return { error: '无权导出此草稿', code: 403 }
+    if (draft.templateId == null) {
+        return { error: '自由文书暂不支持导出为 docx', code: 400 }
+    }
     if (draft.status !== 'ready' && draft.status !== 'exported') {
         return { error: '草稿未就绪，无法导出', code: 400 }
     }
@@ -180,6 +183,9 @@ export async function exportVersionByIdService(
     const draft = await getDocumentDraftDAO(version.draftId)
     if (!draft) return { error: '草稿不存在', code: 404 }
     if (draft.userId !== userId) return { error: '无权导出此版本', code: 403 }
+    if (draft.templateId == null) {
+        return { error: '自由文书暂不支持导出为 docx', code: 400 }
+    }
 
     // 3. 渲染 + 上传（文件名：titleAt-name）
     return renderAndUploadDocx({

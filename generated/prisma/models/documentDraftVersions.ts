@@ -43,6 +43,7 @@ export type DocumentDraftVersionsMinAggregateOutputType = {
   draftId: number | null
   versionNo: number | null
   name: string | null
+  content: string | null
   titleAt: string | null
   createdAt: Date | null
 }
@@ -52,6 +53,7 @@ export type DocumentDraftVersionsMaxAggregateOutputType = {
   draftId: number | null
   versionNo: number | null
   name: string | null
+  content: string | null
   titleAt: string | null
   createdAt: Date | null
 }
@@ -62,6 +64,7 @@ export type DocumentDraftVersionsCountAggregateOutputType = {
   versionNo: number
   name: number
   values: number
+  content: number
   titleAt: number
   createdAt: number
   _all: number
@@ -85,6 +88,7 @@ export type DocumentDraftVersionsMinAggregateInputType = {
   draftId?: true
   versionNo?: true
   name?: true
+  content?: true
   titleAt?: true
   createdAt?: true
 }
@@ -94,6 +98,7 @@ export type DocumentDraftVersionsMaxAggregateInputType = {
   draftId?: true
   versionNo?: true
   name?: true
+  content?: true
   titleAt?: true
   createdAt?: true
 }
@@ -104,6 +109,7 @@ export type DocumentDraftVersionsCountAggregateInputType = {
   versionNo?: true
   name?: true
   values?: true
+  content?: true
   titleAt?: true
   createdAt?: true
   _all?: true
@@ -201,6 +207,7 @@ export type DocumentDraftVersionsGroupByOutputType = {
   versionNo: number
   name: string
   values: runtime.JsonValue
+  content: string | null
   titleAt: string
   createdAt: Date
   _count: DocumentDraftVersionsCountAggregateOutputType | null
@@ -234,6 +241,7 @@ export type documentDraftVersionsWhereInput = {
   versionNo?: Prisma.IntFilter<"documentDraftVersions"> | number
   name?: Prisma.StringFilter<"documentDraftVersions"> | string
   values?: Prisma.JsonFilter<"documentDraftVersions">
+  content?: Prisma.StringNullableFilter<"documentDraftVersions"> | string | null
   titleAt?: Prisma.StringFilter<"documentDraftVersions"> | string
   createdAt?: Prisma.DateTimeFilter<"documentDraftVersions"> | Date | string
   draft?: Prisma.XOR<Prisma.DocumentDraftsScalarRelationFilter, Prisma.documentDraftsWhereInput>
@@ -245,6 +253,7 @@ export type documentDraftVersionsOrderByWithRelationInput = {
   versionNo?: Prisma.SortOrder
   name?: Prisma.SortOrder
   values?: Prisma.SortOrder
+  content?: Prisma.SortOrderInput | Prisma.SortOrder
   titleAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   draft?: Prisma.documentDraftsOrderByWithRelationInput
@@ -260,6 +269,7 @@ export type documentDraftVersionsWhereUniqueInput = Prisma.AtLeast<{
   versionNo?: Prisma.IntFilter<"documentDraftVersions"> | number
   name?: Prisma.StringFilter<"documentDraftVersions"> | string
   values?: Prisma.JsonFilter<"documentDraftVersions">
+  content?: Prisma.StringNullableFilter<"documentDraftVersions"> | string | null
   titleAt?: Prisma.StringFilter<"documentDraftVersions"> | string
   createdAt?: Prisma.DateTimeFilter<"documentDraftVersions"> | Date | string
   draft?: Prisma.XOR<Prisma.DocumentDraftsScalarRelationFilter, Prisma.documentDraftsWhereInput>
@@ -271,6 +281,7 @@ export type documentDraftVersionsOrderByWithAggregationInput = {
   versionNo?: Prisma.SortOrder
   name?: Prisma.SortOrder
   values?: Prisma.SortOrder
+  content?: Prisma.SortOrderInput | Prisma.SortOrder
   titleAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   _count?: Prisma.documentDraftVersionsCountOrderByAggregateInput
@@ -289,6 +300,7 @@ export type documentDraftVersionsScalarWhereWithAggregatesInput = {
   versionNo?: Prisma.IntWithAggregatesFilter<"documentDraftVersions"> | number
   name?: Prisma.StringWithAggregatesFilter<"documentDraftVersions"> | string
   values?: Prisma.JsonWithAggregatesFilter<"documentDraftVersions">
+  content?: Prisma.StringNullableWithAggregatesFilter<"documentDraftVersions"> | string | null
   titleAt?: Prisma.StringWithAggregatesFilter<"documentDraftVersions"> | string
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"documentDraftVersions"> | Date | string
 }
@@ -297,6 +309,7 @@ export type documentDraftVersionsCreateInput = {
   versionNo: number
   name: string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: string | null
   titleAt: string
   createdAt?: Date | string
   draft: Prisma.documentDraftsCreateNestedOneWithoutVersionsInput
@@ -308,6 +321,7 @@ export type documentDraftVersionsUncheckedCreateInput = {
   versionNo: number
   name: string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: string | null
   titleAt: string
   createdAt?: Date | string
 }
@@ -316,6 +330,7 @@ export type documentDraftVersionsUpdateInput = {
   versionNo?: Prisma.IntFieldUpdateOperationsInput | number
   name?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   titleAt?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   draft?: Prisma.documentDraftsUpdateOneRequiredWithoutVersionsNestedInput
@@ -327,6 +342,7 @@ export type documentDraftVersionsUncheckedUpdateInput = {
   versionNo?: Prisma.IntFieldUpdateOperationsInput | number
   name?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   titleAt?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -337,6 +353,7 @@ export type documentDraftVersionsCreateManyInput = {
   versionNo: number
   name: string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: string | null
   titleAt: string
   createdAt?: Date | string
 }
@@ -345,6 +362,7 @@ export type documentDraftVersionsUpdateManyMutationInput = {
   versionNo?: Prisma.IntFieldUpdateOperationsInput | number
   name?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   titleAt?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -355,6 +373,7 @@ export type documentDraftVersionsUncheckedUpdateManyInput = {
   versionNo?: Prisma.IntFieldUpdateOperationsInput | number
   name?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   titleAt?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -380,6 +399,7 @@ export type documentDraftVersionsCountOrderByAggregateInput = {
   versionNo?: Prisma.SortOrder
   name?: Prisma.SortOrder
   values?: Prisma.SortOrder
+  content?: Prisma.SortOrder
   titleAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
@@ -395,6 +415,7 @@ export type documentDraftVersionsMaxOrderByAggregateInput = {
   draftId?: Prisma.SortOrder
   versionNo?: Prisma.SortOrder
   name?: Prisma.SortOrder
+  content?: Prisma.SortOrder
   titleAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
@@ -404,6 +425,7 @@ export type documentDraftVersionsMinOrderByAggregateInput = {
   draftId?: Prisma.SortOrder
   versionNo?: Prisma.SortOrder
   name?: Prisma.SortOrder
+  content?: Prisma.SortOrder
   titleAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
@@ -460,6 +482,7 @@ export type documentDraftVersionsCreateWithoutDraftInput = {
   versionNo: number
   name: string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: string | null
   titleAt: string
   createdAt?: Date | string
 }
@@ -469,6 +492,7 @@ export type documentDraftVersionsUncheckedCreateWithoutDraftInput = {
   versionNo: number
   name: string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: string | null
   titleAt: string
   createdAt?: Date | string
 }
@@ -508,6 +532,7 @@ export type documentDraftVersionsScalarWhereInput = {
   versionNo?: Prisma.IntFilter<"documentDraftVersions"> | number
   name?: Prisma.StringFilter<"documentDraftVersions"> | string
   values?: Prisma.JsonFilter<"documentDraftVersions">
+  content?: Prisma.StringNullableFilter<"documentDraftVersions"> | string | null
   titleAt?: Prisma.StringFilter<"documentDraftVersions"> | string
   createdAt?: Prisma.DateTimeFilter<"documentDraftVersions"> | Date | string
 }
@@ -517,6 +542,7 @@ export type documentDraftVersionsCreateManyDraftInput = {
   versionNo: number
   name: string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: string | null
   titleAt: string
   createdAt?: Date | string
 }
@@ -525,6 +551,7 @@ export type documentDraftVersionsUpdateWithoutDraftInput = {
   versionNo?: Prisma.IntFieldUpdateOperationsInput | number
   name?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   titleAt?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -534,6 +561,7 @@ export type documentDraftVersionsUncheckedUpdateWithoutDraftInput = {
   versionNo?: Prisma.IntFieldUpdateOperationsInput | number
   name?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   titleAt?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -543,6 +571,7 @@ export type documentDraftVersionsUncheckedUpdateManyWithoutDraftInput = {
   versionNo?: Prisma.IntFieldUpdateOperationsInput | number
   name?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   titleAt?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -555,6 +584,7 @@ export type documentDraftVersionsSelect<ExtArgs extends runtime.Types.Extensions
   versionNo?: boolean
   name?: boolean
   values?: boolean
+  content?: boolean
   titleAt?: boolean
   createdAt?: boolean
   draft?: boolean | Prisma.documentDraftsDefaultArgs<ExtArgs>
@@ -566,6 +596,7 @@ export type documentDraftVersionsSelectCreateManyAndReturn<ExtArgs extends runti
   versionNo?: boolean
   name?: boolean
   values?: boolean
+  content?: boolean
   titleAt?: boolean
   createdAt?: boolean
   draft?: boolean | Prisma.documentDraftsDefaultArgs<ExtArgs>
@@ -577,6 +608,7 @@ export type documentDraftVersionsSelectUpdateManyAndReturn<ExtArgs extends runti
   versionNo?: boolean
   name?: boolean
   values?: boolean
+  content?: boolean
   titleAt?: boolean
   createdAt?: boolean
   draft?: boolean | Prisma.documentDraftsDefaultArgs<ExtArgs>
@@ -588,11 +620,12 @@ export type documentDraftVersionsSelectScalar = {
   versionNo?: boolean
   name?: boolean
   values?: boolean
+  content?: boolean
   titleAt?: boolean
   createdAt?: boolean
 }
 
-export type documentDraftVersionsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "draftId" | "versionNo" | "name" | "values" | "titleAt" | "createdAt", ExtArgs["result"]["documentDraftVersions"]>
+export type documentDraftVersionsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "draftId" | "versionNo" | "name" | "values" | "content" | "titleAt" | "createdAt", ExtArgs["result"]["documentDraftVersions"]>
 export type documentDraftVersionsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   draft?: boolean | Prisma.documentDraftsDefaultArgs<ExtArgs>
 }
@@ -620,9 +653,13 @@ export type $documentDraftVersionsPayload<ExtArgs extends runtime.Types.Extensio
      */
     name: string
     /**
-     * 版本的 values 全量拷贝
+     * 版本的 values 全量拷贝（mode=template 时使用）
      */
     values: runtime.JsonValue
+    /**
+     * 版本的自由文书正文快照（mode=freeform 时使用）
+     */
+    content: string | null
     /**
      * 版本创建时 draft 的标题（用于导出文件名 / 历史显示）
      */
@@ -1057,6 +1094,7 @@ export interface documentDraftVersionsFieldRefs {
   readonly versionNo: Prisma.FieldRef<"documentDraftVersions", 'Int'>
   readonly name: Prisma.FieldRef<"documentDraftVersions", 'String'>
   readonly values: Prisma.FieldRef<"documentDraftVersions", 'Json'>
+  readonly content: Prisma.FieldRef<"documentDraftVersions", 'String'>
   readonly titleAt: Prisma.FieldRef<"documentDraftVersions", 'String'>
   readonly createdAt: Prisma.FieldRef<"documentDraftVersions", 'DateTime'>
 }

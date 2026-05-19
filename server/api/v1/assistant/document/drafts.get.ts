@@ -35,6 +35,7 @@ export default defineEventHandler(async (event) => {
     const items = result.list.map((draft: any) => ({
         id: draft.id,
         title: draft.title ?? '',
+        mode: draft.mode,
         templateId: draft.templateId,
         templateName: draft.template?.name ?? null,
         caseId: draft.caseId,

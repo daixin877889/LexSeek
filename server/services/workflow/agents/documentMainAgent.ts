@@ -73,6 +73,10 @@ export async function runDocumentChat(
     if (!draft) {
         throw new Error(`未找到 sessionId=${sessionId} 对应的文书草稿`)
     }
+    // 自由文书（mode=freeform）无模板，不走模板生成对话
+    if (draft.templateId == null) {
+        throw new Error(`文书草稿 ${draft.id} 为自由文书，不支持模板生成对话`)
+    }
 
     const template = await getDocumentTemplateDAO(draft.templateId)
     if (!template) {

@@ -40,6 +40,7 @@ export type DocumentDraftSnapshotsMinAggregateOutputType = {
   id: number | null
   draftId: number | null
   source: string | null
+  content: string | null
   aiTitle: string | null
   createdAt: Date | null
 }
@@ -48,6 +49,7 @@ export type DocumentDraftSnapshotsMaxAggregateOutputType = {
   id: number | null
   draftId: number | null
   source: string | null
+  content: string | null
   aiTitle: string | null
   createdAt: Date | null
 }
@@ -57,6 +59,7 @@ export type DocumentDraftSnapshotsCountAggregateOutputType = {
   draftId: number
   source: number
   values: number
+  content: number
   aiTitle: number
   createdAt: number
   _all: number
@@ -77,6 +80,7 @@ export type DocumentDraftSnapshotsMinAggregateInputType = {
   id?: true
   draftId?: true
   source?: true
+  content?: true
   aiTitle?: true
   createdAt?: true
 }
@@ -85,6 +89,7 @@ export type DocumentDraftSnapshotsMaxAggregateInputType = {
   id?: true
   draftId?: true
   source?: true
+  content?: true
   aiTitle?: true
   createdAt?: true
 }
@@ -94,6 +99,7 @@ export type DocumentDraftSnapshotsCountAggregateInputType = {
   draftId?: true
   source?: true
   values?: true
+  content?: true
   aiTitle?: true
   createdAt?: true
   _all?: true
@@ -190,6 +196,7 @@ export type DocumentDraftSnapshotsGroupByOutputType = {
   draftId: number
   source: string
   values: runtime.JsonValue
+  content: string | null
   aiTitle: string | null
   createdAt: Date
   _count: DocumentDraftSnapshotsCountAggregateOutputType | null
@@ -222,6 +229,7 @@ export type documentDraftSnapshotsWhereInput = {
   draftId?: Prisma.IntFilter<"documentDraftSnapshots"> | number
   source?: Prisma.StringFilter<"documentDraftSnapshots"> | string
   values?: Prisma.JsonFilter<"documentDraftSnapshots">
+  content?: Prisma.StringNullableFilter<"documentDraftSnapshots"> | string | null
   aiTitle?: Prisma.StringNullableFilter<"documentDraftSnapshots"> | string | null
   createdAt?: Prisma.DateTimeFilter<"documentDraftSnapshots"> | Date | string
   draft?: Prisma.XOR<Prisma.DocumentDraftsScalarRelationFilter, Prisma.documentDraftsWhereInput>
@@ -232,6 +240,7 @@ export type documentDraftSnapshotsOrderByWithRelationInput = {
   draftId?: Prisma.SortOrder
   source?: Prisma.SortOrder
   values?: Prisma.SortOrder
+  content?: Prisma.SortOrderInput | Prisma.SortOrder
   aiTitle?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   draft?: Prisma.documentDraftsOrderByWithRelationInput
@@ -245,6 +254,7 @@ export type documentDraftSnapshotsWhereUniqueInput = Prisma.AtLeast<{
   draftId?: Prisma.IntFilter<"documentDraftSnapshots"> | number
   source?: Prisma.StringFilter<"documentDraftSnapshots"> | string
   values?: Prisma.JsonFilter<"documentDraftSnapshots">
+  content?: Prisma.StringNullableFilter<"documentDraftSnapshots"> | string | null
   aiTitle?: Prisma.StringNullableFilter<"documentDraftSnapshots"> | string | null
   createdAt?: Prisma.DateTimeFilter<"documentDraftSnapshots"> | Date | string
   draft?: Prisma.XOR<Prisma.DocumentDraftsScalarRelationFilter, Prisma.documentDraftsWhereInput>
@@ -255,6 +265,7 @@ export type documentDraftSnapshotsOrderByWithAggregationInput = {
   draftId?: Prisma.SortOrder
   source?: Prisma.SortOrder
   values?: Prisma.SortOrder
+  content?: Prisma.SortOrderInput | Prisma.SortOrder
   aiTitle?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   _count?: Prisma.documentDraftSnapshotsCountOrderByAggregateInput
@@ -272,6 +283,7 @@ export type documentDraftSnapshotsScalarWhereWithAggregatesInput = {
   draftId?: Prisma.IntWithAggregatesFilter<"documentDraftSnapshots"> | number
   source?: Prisma.StringWithAggregatesFilter<"documentDraftSnapshots"> | string
   values?: Prisma.JsonWithAggregatesFilter<"documentDraftSnapshots">
+  content?: Prisma.StringNullableWithAggregatesFilter<"documentDraftSnapshots"> | string | null
   aiTitle?: Prisma.StringNullableWithAggregatesFilter<"documentDraftSnapshots"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"documentDraftSnapshots"> | Date | string
 }
@@ -279,6 +291,7 @@ export type documentDraftSnapshotsScalarWhereWithAggregatesInput = {
 export type documentDraftSnapshotsCreateInput = {
   source: string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: string | null
   aiTitle?: string | null
   createdAt?: Date | string
   draft: Prisma.documentDraftsCreateNestedOneWithoutSnapshotsInput
@@ -289,6 +302,7 @@ export type documentDraftSnapshotsUncheckedCreateInput = {
   draftId: number
   source: string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: string | null
   aiTitle?: string | null
   createdAt?: Date | string
 }
@@ -296,6 +310,7 @@ export type documentDraftSnapshotsUncheckedCreateInput = {
 export type documentDraftSnapshotsUpdateInput = {
   source?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   aiTitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   draft?: Prisma.documentDraftsUpdateOneRequiredWithoutSnapshotsNestedInput
@@ -306,6 +321,7 @@ export type documentDraftSnapshotsUncheckedUpdateInput = {
   draftId?: Prisma.IntFieldUpdateOperationsInput | number
   source?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   aiTitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -315,6 +331,7 @@ export type documentDraftSnapshotsCreateManyInput = {
   draftId: number
   source: string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: string | null
   aiTitle?: string | null
   createdAt?: Date | string
 }
@@ -322,6 +339,7 @@ export type documentDraftSnapshotsCreateManyInput = {
 export type documentDraftSnapshotsUpdateManyMutationInput = {
   source?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   aiTitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -331,6 +349,7 @@ export type documentDraftSnapshotsUncheckedUpdateManyInput = {
   draftId?: Prisma.IntFieldUpdateOperationsInput | number
   source?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   aiTitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -350,6 +369,7 @@ export type documentDraftSnapshotsCountOrderByAggregateInput = {
   draftId?: Prisma.SortOrder
   source?: Prisma.SortOrder
   values?: Prisma.SortOrder
+  content?: Prisma.SortOrder
   aiTitle?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
@@ -363,6 +383,7 @@ export type documentDraftSnapshotsMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   draftId?: Prisma.SortOrder
   source?: Prisma.SortOrder
+  content?: Prisma.SortOrder
   aiTitle?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
@@ -371,6 +392,7 @@ export type documentDraftSnapshotsMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   draftId?: Prisma.SortOrder
   source?: Prisma.SortOrder
+  content?: Prisma.SortOrder
   aiTitle?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
@@ -425,6 +447,7 @@ export type documentDraftSnapshotsUncheckedUpdateManyWithoutDraftNestedInput = {
 export type documentDraftSnapshotsCreateWithoutDraftInput = {
   source: string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: string | null
   aiTitle?: string | null
   createdAt?: Date | string
 }
@@ -433,6 +456,7 @@ export type documentDraftSnapshotsUncheckedCreateWithoutDraftInput = {
   id?: number
   source: string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: string | null
   aiTitle?: string | null
   createdAt?: Date | string
 }
@@ -471,6 +495,7 @@ export type documentDraftSnapshotsScalarWhereInput = {
   draftId?: Prisma.IntFilter<"documentDraftSnapshots"> | number
   source?: Prisma.StringFilter<"documentDraftSnapshots"> | string
   values?: Prisma.JsonFilter<"documentDraftSnapshots">
+  content?: Prisma.StringNullableFilter<"documentDraftSnapshots"> | string | null
   aiTitle?: Prisma.StringNullableFilter<"documentDraftSnapshots"> | string | null
   createdAt?: Prisma.DateTimeFilter<"documentDraftSnapshots"> | Date | string
 }
@@ -479,6 +504,7 @@ export type documentDraftSnapshotsCreateManyDraftInput = {
   id?: number
   source: string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: string | null
   aiTitle?: string | null
   createdAt?: Date | string
 }
@@ -486,6 +512,7 @@ export type documentDraftSnapshotsCreateManyDraftInput = {
 export type documentDraftSnapshotsUpdateWithoutDraftInput = {
   source?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   aiTitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -494,6 +521,7 @@ export type documentDraftSnapshotsUncheckedUpdateWithoutDraftInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   source?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   aiTitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -502,6 +530,7 @@ export type documentDraftSnapshotsUncheckedUpdateManyWithoutDraftInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   source?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   aiTitle?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -513,6 +542,7 @@ export type documentDraftSnapshotsSelect<ExtArgs extends runtime.Types.Extension
   draftId?: boolean
   source?: boolean
   values?: boolean
+  content?: boolean
   aiTitle?: boolean
   createdAt?: boolean
   draft?: boolean | Prisma.documentDraftsDefaultArgs<ExtArgs>
@@ -523,6 +553,7 @@ export type documentDraftSnapshotsSelectCreateManyAndReturn<ExtArgs extends runt
   draftId?: boolean
   source?: boolean
   values?: boolean
+  content?: boolean
   aiTitle?: boolean
   createdAt?: boolean
   draft?: boolean | Prisma.documentDraftsDefaultArgs<ExtArgs>
@@ -533,6 +564,7 @@ export type documentDraftSnapshotsSelectUpdateManyAndReturn<ExtArgs extends runt
   draftId?: boolean
   source?: boolean
   values?: boolean
+  content?: boolean
   aiTitle?: boolean
   createdAt?: boolean
   draft?: boolean | Prisma.documentDraftsDefaultArgs<ExtArgs>
@@ -543,11 +575,12 @@ export type documentDraftSnapshotsSelectScalar = {
   draftId?: boolean
   source?: boolean
   values?: boolean
+  content?: boolean
   aiTitle?: boolean
   createdAt?: boolean
 }
 
-export type documentDraftSnapshotsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "draftId" | "source" | "values" | "aiTitle" | "createdAt", ExtArgs["result"]["documentDraftSnapshots"]>
+export type documentDraftSnapshotsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "draftId" | "source" | "values" | "content" | "aiTitle" | "createdAt", ExtArgs["result"]["documentDraftSnapshots"]>
 export type documentDraftSnapshotsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   draft?: boolean | Prisma.documentDraftsDefaultArgs<ExtArgs>
 }
@@ -571,9 +604,13 @@ export type $documentDraftSnapshotsPayload<ExtArgs extends runtime.Types.Extensi
      */
     source: string
     /**
-     * 快照时的 values 全量拷贝
+     * 快照时的 values 全量拷贝（mode=template 时使用）
      */
     values: runtime.JsonValue
+    /**
+     * 快照时的自由文书正文（mode=freeform 时使用）
+     */
+    content: string | null
     /**
      * AI 本轮产出的推断标题（可空）
      */
@@ -1007,6 +1044,7 @@ export interface documentDraftSnapshotsFieldRefs {
   readonly draftId: Prisma.FieldRef<"documentDraftSnapshots", 'Int'>
   readonly source: Prisma.FieldRef<"documentDraftSnapshots", 'String'>
   readonly values: Prisma.FieldRef<"documentDraftSnapshots", 'Json'>
+  readonly content: Prisma.FieldRef<"documentDraftSnapshots", 'String'>
   readonly aiTitle: Prisma.FieldRef<"documentDraftSnapshots", 'String'>
   readonly createdAt: Prisma.FieldRef<"documentDraftSnapshots", 'DateTime'>
 }

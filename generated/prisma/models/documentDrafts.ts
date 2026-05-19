@@ -50,6 +50,8 @@ export type DocumentDraftsMinAggregateOutputType = {
   caseId: number | null
   sessionId: string | null
   templateId: number | null
+  mode: string | null
+  content: string | null
   outputFileId: number | null
   status: string | null
   title: string | null
@@ -66,6 +68,8 @@ export type DocumentDraftsMaxAggregateOutputType = {
   caseId: number | null
   sessionId: string | null
   templateId: number | null
+  mode: string | null
+  content: string | null
   outputFileId: number | null
   status: string | null
   title: string | null
@@ -82,7 +86,9 @@ export type DocumentDraftsCountAggregateOutputType = {
   caseId: number
   sessionId: number
   templateId: number
+  mode: number
   values: number
+  content: number
   sourceRef: number
   metadata: number
   outputFileId: number
@@ -121,6 +127,8 @@ export type DocumentDraftsMinAggregateInputType = {
   caseId?: true
   sessionId?: true
   templateId?: true
+  mode?: true
+  content?: true
   outputFileId?: true
   status?: true
   title?: true
@@ -137,6 +145,8 @@ export type DocumentDraftsMaxAggregateInputType = {
   caseId?: true
   sessionId?: true
   templateId?: true
+  mode?: true
+  content?: true
   outputFileId?: true
   status?: true
   title?: true
@@ -153,7 +163,9 @@ export type DocumentDraftsCountAggregateInputType = {
   caseId?: true
   sessionId?: true
   templateId?: true
+  mode?: true
   values?: true
+  content?: true
   sourceRef?: true
   metadata?: true
   outputFileId?: true
@@ -258,8 +270,10 @@ export type DocumentDraftsGroupByOutputType = {
   userId: number
   caseId: number | null
   sessionId: string
-  templateId: number
+  templateId: number | null
+  mode: string
   values: runtime.JsonValue
+  content: string | null
   sourceRef: runtime.JsonValue | null
   metadata: runtime.JsonValue | null
   outputFileId: number | null
@@ -300,8 +314,10 @@ export type documentDraftsWhereInput = {
   userId?: Prisma.IntFilter<"documentDrafts"> | number
   caseId?: Prisma.IntNullableFilter<"documentDrafts"> | number | null
   sessionId?: Prisma.StringFilter<"documentDrafts"> | string
-  templateId?: Prisma.IntFilter<"documentDrafts"> | number
+  templateId?: Prisma.IntNullableFilter<"documentDrafts"> | number | null
+  mode?: Prisma.StringFilter<"documentDrafts"> | string
   values?: Prisma.JsonFilter<"documentDrafts">
+  content?: Prisma.StringNullableFilter<"documentDrafts"> | string | null
   sourceRef?: Prisma.JsonNullableFilter<"documentDrafts">
   metadata?: Prisma.JsonNullableFilter<"documentDrafts">
   outputFileId?: Prisma.IntNullableFilter<"documentDrafts"> | number | null
@@ -314,7 +330,7 @@ export type documentDraftsWhereInput = {
   deletedAt?: Prisma.DateTimeNullableFilter<"documentDrafts"> | Date | string | null
   user?: Prisma.XOR<Prisma.UsersScalarRelationFilter, Prisma.usersWhereInput>
   case?: Prisma.XOR<Prisma.CasesNullableScalarRelationFilter, Prisma.casesWhereInput> | null
-  template?: Prisma.XOR<Prisma.DocumentTemplatesScalarRelationFilter, Prisma.documentTemplatesWhereInput>
+  template?: Prisma.XOR<Prisma.DocumentTemplatesNullableScalarRelationFilter, Prisma.documentTemplatesWhereInput> | null
   materials?: Prisma.CaseMaterialsListRelationFilter
   snapshots?: Prisma.DocumentDraftSnapshotsListRelationFilter
   versions?: Prisma.DocumentDraftVersionsListRelationFilter
@@ -325,8 +341,10 @@ export type documentDraftsOrderByWithRelationInput = {
   userId?: Prisma.SortOrder
   caseId?: Prisma.SortOrderInput | Prisma.SortOrder
   sessionId?: Prisma.SortOrder
-  templateId?: Prisma.SortOrder
+  templateId?: Prisma.SortOrderInput | Prisma.SortOrder
+  mode?: Prisma.SortOrder
   values?: Prisma.SortOrder
+  content?: Prisma.SortOrderInput | Prisma.SortOrder
   sourceRef?: Prisma.SortOrderInput | Prisma.SortOrder
   metadata?: Prisma.SortOrderInput | Prisma.SortOrder
   outputFileId?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -353,8 +371,10 @@ export type documentDraftsWhereUniqueInput = Prisma.AtLeast<{
   NOT?: Prisma.documentDraftsWhereInput | Prisma.documentDraftsWhereInput[]
   userId?: Prisma.IntFilter<"documentDrafts"> | number
   caseId?: Prisma.IntNullableFilter<"documentDrafts"> | number | null
-  templateId?: Prisma.IntFilter<"documentDrafts"> | number
+  templateId?: Prisma.IntNullableFilter<"documentDrafts"> | number | null
+  mode?: Prisma.StringFilter<"documentDrafts"> | string
   values?: Prisma.JsonFilter<"documentDrafts">
+  content?: Prisma.StringNullableFilter<"documentDrafts"> | string | null
   sourceRef?: Prisma.JsonNullableFilter<"documentDrafts">
   metadata?: Prisma.JsonNullableFilter<"documentDrafts">
   outputFileId?: Prisma.IntNullableFilter<"documentDrafts"> | number | null
@@ -367,7 +387,7 @@ export type documentDraftsWhereUniqueInput = Prisma.AtLeast<{
   deletedAt?: Prisma.DateTimeNullableFilter<"documentDrafts"> | Date | string | null
   user?: Prisma.XOR<Prisma.UsersScalarRelationFilter, Prisma.usersWhereInput>
   case?: Prisma.XOR<Prisma.CasesNullableScalarRelationFilter, Prisma.casesWhereInput> | null
-  template?: Prisma.XOR<Prisma.DocumentTemplatesScalarRelationFilter, Prisma.documentTemplatesWhereInput>
+  template?: Prisma.XOR<Prisma.DocumentTemplatesNullableScalarRelationFilter, Prisma.documentTemplatesWhereInput> | null
   materials?: Prisma.CaseMaterialsListRelationFilter
   snapshots?: Prisma.DocumentDraftSnapshotsListRelationFilter
   versions?: Prisma.DocumentDraftVersionsListRelationFilter
@@ -378,8 +398,10 @@ export type documentDraftsOrderByWithAggregationInput = {
   userId?: Prisma.SortOrder
   caseId?: Prisma.SortOrderInput | Prisma.SortOrder
   sessionId?: Prisma.SortOrder
-  templateId?: Prisma.SortOrder
+  templateId?: Prisma.SortOrderInput | Prisma.SortOrder
+  mode?: Prisma.SortOrder
   values?: Prisma.SortOrder
+  content?: Prisma.SortOrderInput | Prisma.SortOrder
   sourceRef?: Prisma.SortOrderInput | Prisma.SortOrder
   metadata?: Prisma.SortOrderInput | Prisma.SortOrder
   outputFileId?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -405,8 +427,10 @@ export type documentDraftsScalarWhereWithAggregatesInput = {
   userId?: Prisma.IntWithAggregatesFilter<"documentDrafts"> | number
   caseId?: Prisma.IntNullableWithAggregatesFilter<"documentDrafts"> | number | null
   sessionId?: Prisma.StringWithAggregatesFilter<"documentDrafts"> | string
-  templateId?: Prisma.IntWithAggregatesFilter<"documentDrafts"> | number
+  templateId?: Prisma.IntNullableWithAggregatesFilter<"documentDrafts"> | number | null
+  mode?: Prisma.StringWithAggregatesFilter<"documentDrafts"> | string
   values?: Prisma.JsonWithAggregatesFilter<"documentDrafts">
+  content?: Prisma.StringNullableWithAggregatesFilter<"documentDrafts"> | string | null
   sourceRef?: Prisma.JsonNullableWithAggregatesFilter<"documentDrafts">
   metadata?: Prisma.JsonNullableWithAggregatesFilter<"documentDrafts">
   outputFileId?: Prisma.IntNullableWithAggregatesFilter<"documentDrafts"> | number | null
@@ -421,7 +445,9 @@ export type documentDraftsScalarWhereWithAggregatesInput = {
 
 export type documentDraftsCreateInput = {
   sessionId: string
+  mode?: string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: number | null
@@ -434,7 +460,7 @@ export type documentDraftsCreateInput = {
   deletedAt?: Date | string | null
   user: Prisma.usersCreateNestedOneWithoutDocumentDraftsInput
   case?: Prisma.casesCreateNestedOneWithoutDocumentDraftsInput
-  template: Prisma.documentTemplatesCreateNestedOneWithoutDraftsInput
+  template?: Prisma.documentTemplatesCreateNestedOneWithoutDraftsInput
   materials?: Prisma.caseMaterialsCreateNestedManyWithoutDraftInput
   snapshots?: Prisma.documentDraftSnapshotsCreateNestedManyWithoutDraftInput
   versions?: Prisma.documentDraftVersionsCreateNestedManyWithoutDraftInput
@@ -445,8 +471,10 @@ export type documentDraftsUncheckedCreateInput = {
   userId: number
   caseId?: number | null
   sessionId: string
-  templateId: number
+  templateId?: number | null
+  mode?: string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: number | null
@@ -464,7 +492,9 @@ export type documentDraftsUncheckedCreateInput = {
 
 export type documentDraftsUpdateInput = {
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -477,7 +507,7 @@ export type documentDraftsUpdateInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   user?: Prisma.usersUpdateOneRequiredWithoutDocumentDraftsNestedInput
   case?: Prisma.casesUpdateOneWithoutDocumentDraftsNestedInput
-  template?: Prisma.documentTemplatesUpdateOneRequiredWithoutDraftsNestedInput
+  template?: Prisma.documentTemplatesUpdateOneWithoutDraftsNestedInput
   materials?: Prisma.caseMaterialsUpdateManyWithoutDraftNestedInput
   snapshots?: Prisma.documentDraftSnapshotsUpdateManyWithoutDraftNestedInput
   versions?: Prisma.documentDraftVersionsUpdateManyWithoutDraftNestedInput
@@ -488,8 +518,10 @@ export type documentDraftsUncheckedUpdateInput = {
   userId?: Prisma.IntFieldUpdateOperationsInput | number
   caseId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.IntFieldUpdateOperationsInput | number
+  templateId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -510,8 +542,10 @@ export type documentDraftsCreateManyInput = {
   userId: number
   caseId?: number | null
   sessionId: string
-  templateId: number
+  templateId?: number | null
+  mode?: string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: number | null
@@ -526,7 +560,9 @@ export type documentDraftsCreateManyInput = {
 
 export type documentDraftsUpdateManyMutationInput = {
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -544,8 +580,10 @@ export type documentDraftsUncheckedUpdateManyInput = {
   userId?: Prisma.IntFieldUpdateOperationsInput | number
   caseId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.IntFieldUpdateOperationsInput | number
+  templateId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -579,7 +617,9 @@ export type documentDraftsCountOrderByAggregateInput = {
   caseId?: Prisma.SortOrder
   sessionId?: Prisma.SortOrder
   templateId?: Prisma.SortOrder
+  mode?: Prisma.SortOrder
   values?: Prisma.SortOrder
+  content?: Prisma.SortOrder
   sourceRef?: Prisma.SortOrder
   metadata?: Prisma.SortOrder
   outputFileId?: Prisma.SortOrder
@@ -607,6 +647,8 @@ export type documentDraftsMaxOrderByAggregateInput = {
   caseId?: Prisma.SortOrder
   sessionId?: Prisma.SortOrder
   templateId?: Prisma.SortOrder
+  mode?: Prisma.SortOrder
+  content?: Prisma.SortOrder
   outputFileId?: Prisma.SortOrder
   status?: Prisma.SortOrder
   title?: Prisma.SortOrder
@@ -623,6 +665,8 @@ export type documentDraftsMinOrderByAggregateInput = {
   caseId?: Prisma.SortOrder
   sessionId?: Prisma.SortOrder
   templateId?: Prisma.SortOrder
+  mode?: Prisma.SortOrder
+  content?: Prisma.SortOrder
   outputFileId?: Prisma.SortOrder
   status?: Prisma.SortOrder
   title?: Prisma.SortOrder
@@ -819,7 +863,9 @@ export type documentDraftsUncheckedUpdateManyWithoutUserNestedInput = {
 
 export type documentDraftsCreateWithoutCaseInput = {
   sessionId: string
+  mode?: string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: number | null
@@ -831,7 +877,7 @@ export type documentDraftsCreateWithoutCaseInput = {
   updatedAt?: Date | string
   deletedAt?: Date | string | null
   user: Prisma.usersCreateNestedOneWithoutDocumentDraftsInput
-  template: Prisma.documentTemplatesCreateNestedOneWithoutDraftsInput
+  template?: Prisma.documentTemplatesCreateNestedOneWithoutDraftsInput
   materials?: Prisma.caseMaterialsCreateNestedManyWithoutDraftInput
   snapshots?: Prisma.documentDraftSnapshotsCreateNestedManyWithoutDraftInput
   versions?: Prisma.documentDraftVersionsCreateNestedManyWithoutDraftInput
@@ -841,8 +887,10 @@ export type documentDraftsUncheckedCreateWithoutCaseInput = {
   id?: number
   userId: number
   sessionId: string
-  templateId: number
+  templateId?: number | null
+  mode?: string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: number | null
@@ -892,8 +940,10 @@ export type documentDraftsScalarWhereInput = {
   userId?: Prisma.IntFilter<"documentDrafts"> | number
   caseId?: Prisma.IntNullableFilter<"documentDrafts"> | number | null
   sessionId?: Prisma.StringFilter<"documentDrafts"> | string
-  templateId?: Prisma.IntFilter<"documentDrafts"> | number
+  templateId?: Prisma.IntNullableFilter<"documentDrafts"> | number | null
+  mode?: Prisma.StringFilter<"documentDrafts"> | string
   values?: Prisma.JsonFilter<"documentDrafts">
+  content?: Prisma.StringNullableFilter<"documentDrafts"> | string | null
   sourceRef?: Prisma.JsonNullableFilter<"documentDrafts">
   metadata?: Prisma.JsonNullableFilter<"documentDrafts">
   outputFileId?: Prisma.IntNullableFilter<"documentDrafts"> | number | null
@@ -908,7 +958,9 @@ export type documentDraftsScalarWhereInput = {
 
 export type documentDraftsCreateWithoutMaterialsInput = {
   sessionId: string
+  mode?: string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: number | null
@@ -921,7 +973,7 @@ export type documentDraftsCreateWithoutMaterialsInput = {
   deletedAt?: Date | string | null
   user: Prisma.usersCreateNestedOneWithoutDocumentDraftsInput
   case?: Prisma.casesCreateNestedOneWithoutDocumentDraftsInput
-  template: Prisma.documentTemplatesCreateNestedOneWithoutDraftsInput
+  template?: Prisma.documentTemplatesCreateNestedOneWithoutDraftsInput
   snapshots?: Prisma.documentDraftSnapshotsCreateNestedManyWithoutDraftInput
   versions?: Prisma.documentDraftVersionsCreateNestedManyWithoutDraftInput
 }
@@ -931,8 +983,10 @@ export type documentDraftsUncheckedCreateWithoutMaterialsInput = {
   userId: number
   caseId?: number | null
   sessionId: string
-  templateId: number
+  templateId?: number | null
+  mode?: string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: number | null
@@ -965,7 +1019,9 @@ export type documentDraftsUpdateToOneWithWhereWithoutMaterialsInput = {
 
 export type documentDraftsUpdateWithoutMaterialsInput = {
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -978,7 +1034,7 @@ export type documentDraftsUpdateWithoutMaterialsInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   user?: Prisma.usersUpdateOneRequiredWithoutDocumentDraftsNestedInput
   case?: Prisma.casesUpdateOneWithoutDocumentDraftsNestedInput
-  template?: Prisma.documentTemplatesUpdateOneRequiredWithoutDraftsNestedInput
+  template?: Prisma.documentTemplatesUpdateOneWithoutDraftsNestedInput
   snapshots?: Prisma.documentDraftSnapshotsUpdateManyWithoutDraftNestedInput
   versions?: Prisma.documentDraftVersionsUpdateManyWithoutDraftNestedInput
 }
@@ -988,8 +1044,10 @@ export type documentDraftsUncheckedUpdateWithoutMaterialsInput = {
   userId?: Prisma.IntFieldUpdateOperationsInput | number
   caseId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.IntFieldUpdateOperationsInput | number
+  templateId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -1006,7 +1064,9 @@ export type documentDraftsUncheckedUpdateWithoutMaterialsInput = {
 
 export type documentDraftsCreateWithoutTemplateInput = {
   sessionId: string
+  mode?: string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: number | null
@@ -1029,7 +1089,9 @@ export type documentDraftsUncheckedCreateWithoutTemplateInput = {
   userId: number
   caseId?: number | null
   sessionId: string
+  mode?: string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: number | null
@@ -1073,7 +1135,9 @@ export type documentDraftsUpdateManyWithWhereWithoutTemplateInput = {
 
 export type documentDraftsCreateWithoutSnapshotsInput = {
   sessionId: string
+  mode?: string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: number | null
@@ -1086,7 +1150,7 @@ export type documentDraftsCreateWithoutSnapshotsInput = {
   deletedAt?: Date | string | null
   user: Prisma.usersCreateNestedOneWithoutDocumentDraftsInput
   case?: Prisma.casesCreateNestedOneWithoutDocumentDraftsInput
-  template: Prisma.documentTemplatesCreateNestedOneWithoutDraftsInput
+  template?: Prisma.documentTemplatesCreateNestedOneWithoutDraftsInput
   materials?: Prisma.caseMaterialsCreateNestedManyWithoutDraftInput
   versions?: Prisma.documentDraftVersionsCreateNestedManyWithoutDraftInput
 }
@@ -1096,8 +1160,10 @@ export type documentDraftsUncheckedCreateWithoutSnapshotsInput = {
   userId: number
   caseId?: number | null
   sessionId: string
-  templateId: number
+  templateId?: number | null
+  mode?: string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: number | null
@@ -1130,7 +1196,9 @@ export type documentDraftsUpdateToOneWithWhereWithoutSnapshotsInput = {
 
 export type documentDraftsUpdateWithoutSnapshotsInput = {
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -1143,7 +1211,7 @@ export type documentDraftsUpdateWithoutSnapshotsInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   user?: Prisma.usersUpdateOneRequiredWithoutDocumentDraftsNestedInput
   case?: Prisma.casesUpdateOneWithoutDocumentDraftsNestedInput
-  template?: Prisma.documentTemplatesUpdateOneRequiredWithoutDraftsNestedInput
+  template?: Prisma.documentTemplatesUpdateOneWithoutDraftsNestedInput
   materials?: Prisma.caseMaterialsUpdateManyWithoutDraftNestedInput
   versions?: Prisma.documentDraftVersionsUpdateManyWithoutDraftNestedInput
 }
@@ -1153,8 +1221,10 @@ export type documentDraftsUncheckedUpdateWithoutSnapshotsInput = {
   userId?: Prisma.IntFieldUpdateOperationsInput | number
   caseId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.IntFieldUpdateOperationsInput | number
+  templateId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -1171,7 +1241,9 @@ export type documentDraftsUncheckedUpdateWithoutSnapshotsInput = {
 
 export type documentDraftsCreateWithoutVersionsInput = {
   sessionId: string
+  mode?: string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: number | null
@@ -1184,7 +1256,7 @@ export type documentDraftsCreateWithoutVersionsInput = {
   deletedAt?: Date | string | null
   user: Prisma.usersCreateNestedOneWithoutDocumentDraftsInput
   case?: Prisma.casesCreateNestedOneWithoutDocumentDraftsInput
-  template: Prisma.documentTemplatesCreateNestedOneWithoutDraftsInput
+  template?: Prisma.documentTemplatesCreateNestedOneWithoutDraftsInput
   materials?: Prisma.caseMaterialsCreateNestedManyWithoutDraftInput
   snapshots?: Prisma.documentDraftSnapshotsCreateNestedManyWithoutDraftInput
 }
@@ -1194,8 +1266,10 @@ export type documentDraftsUncheckedCreateWithoutVersionsInput = {
   userId: number
   caseId?: number | null
   sessionId: string
-  templateId: number
+  templateId?: number | null
+  mode?: string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: number | null
@@ -1228,7 +1302,9 @@ export type documentDraftsUpdateToOneWithWhereWithoutVersionsInput = {
 
 export type documentDraftsUpdateWithoutVersionsInput = {
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -1241,7 +1317,7 @@ export type documentDraftsUpdateWithoutVersionsInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   user?: Prisma.usersUpdateOneRequiredWithoutDocumentDraftsNestedInput
   case?: Prisma.casesUpdateOneWithoutDocumentDraftsNestedInput
-  template?: Prisma.documentTemplatesUpdateOneRequiredWithoutDraftsNestedInput
+  template?: Prisma.documentTemplatesUpdateOneWithoutDraftsNestedInput
   materials?: Prisma.caseMaterialsUpdateManyWithoutDraftNestedInput
   snapshots?: Prisma.documentDraftSnapshotsUpdateManyWithoutDraftNestedInput
 }
@@ -1251,8 +1327,10 @@ export type documentDraftsUncheckedUpdateWithoutVersionsInput = {
   userId?: Prisma.IntFieldUpdateOperationsInput | number
   caseId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.IntFieldUpdateOperationsInput | number
+  templateId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -1269,7 +1347,9 @@ export type documentDraftsUncheckedUpdateWithoutVersionsInput = {
 
 export type documentDraftsCreateWithoutUserInput = {
   sessionId: string
+  mode?: string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: number | null
@@ -1281,7 +1361,7 @@ export type documentDraftsCreateWithoutUserInput = {
   updatedAt?: Date | string
   deletedAt?: Date | string | null
   case?: Prisma.casesCreateNestedOneWithoutDocumentDraftsInput
-  template: Prisma.documentTemplatesCreateNestedOneWithoutDraftsInput
+  template?: Prisma.documentTemplatesCreateNestedOneWithoutDraftsInput
   materials?: Prisma.caseMaterialsCreateNestedManyWithoutDraftInput
   snapshots?: Prisma.documentDraftSnapshotsCreateNestedManyWithoutDraftInput
   versions?: Prisma.documentDraftVersionsCreateNestedManyWithoutDraftInput
@@ -1291,8 +1371,10 @@ export type documentDraftsUncheckedCreateWithoutUserInput = {
   id?: number
   caseId?: number | null
   sessionId: string
-  templateId: number
+  templateId?: number | null
+  mode?: string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: number | null
@@ -1338,8 +1420,10 @@ export type documentDraftsCreateManyCaseInput = {
   id?: number
   userId: number
   sessionId: string
-  templateId: number
+  templateId?: number | null
+  mode?: string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: number | null
@@ -1354,7 +1438,9 @@ export type documentDraftsCreateManyCaseInput = {
 
 export type documentDraftsUpdateWithoutCaseInput = {
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -1366,7 +1452,7 @@ export type documentDraftsUpdateWithoutCaseInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   user?: Prisma.usersUpdateOneRequiredWithoutDocumentDraftsNestedInput
-  template?: Prisma.documentTemplatesUpdateOneRequiredWithoutDraftsNestedInput
+  template?: Prisma.documentTemplatesUpdateOneWithoutDraftsNestedInput
   materials?: Prisma.caseMaterialsUpdateManyWithoutDraftNestedInput
   snapshots?: Prisma.documentDraftSnapshotsUpdateManyWithoutDraftNestedInput
   versions?: Prisma.documentDraftVersionsUpdateManyWithoutDraftNestedInput
@@ -1376,8 +1462,10 @@ export type documentDraftsUncheckedUpdateWithoutCaseInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   userId?: Prisma.IntFieldUpdateOperationsInput | number
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.IntFieldUpdateOperationsInput | number
+  templateId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -1397,8 +1485,10 @@ export type documentDraftsUncheckedUpdateManyWithoutCaseInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   userId?: Prisma.IntFieldUpdateOperationsInput | number
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.IntFieldUpdateOperationsInput | number
+  templateId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -1416,7 +1506,9 @@ export type documentDraftsCreateManyTemplateInput = {
   userId: number
   caseId?: number | null
   sessionId: string
+  mode?: string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: number | null
@@ -1431,7 +1523,9 @@ export type documentDraftsCreateManyTemplateInput = {
 
 export type documentDraftsUpdateWithoutTemplateInput = {
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -1454,7 +1548,9 @@ export type documentDraftsUncheckedUpdateWithoutTemplateInput = {
   userId?: Prisma.IntFieldUpdateOperationsInput | number
   caseId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -1475,7 +1571,9 @@ export type documentDraftsUncheckedUpdateManyWithoutTemplateInput = {
   userId?: Prisma.IntFieldUpdateOperationsInput | number
   caseId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -1492,8 +1590,10 @@ export type documentDraftsCreateManyUserInput = {
   id?: number
   caseId?: number | null
   sessionId: string
-  templateId: number
+  templateId?: number | null
+  mode?: string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: number | null
@@ -1508,7 +1608,9 @@ export type documentDraftsCreateManyUserInput = {
 
 export type documentDraftsUpdateWithoutUserInput = {
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -1520,7 +1622,7 @@ export type documentDraftsUpdateWithoutUserInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   case?: Prisma.casesUpdateOneWithoutDocumentDraftsNestedInput
-  template?: Prisma.documentTemplatesUpdateOneRequiredWithoutDraftsNestedInput
+  template?: Prisma.documentTemplatesUpdateOneWithoutDraftsNestedInput
   materials?: Prisma.caseMaterialsUpdateManyWithoutDraftNestedInput
   snapshots?: Prisma.documentDraftSnapshotsUpdateManyWithoutDraftNestedInput
   versions?: Prisma.documentDraftVersionsUpdateManyWithoutDraftNestedInput
@@ -1530,8 +1632,10 @@ export type documentDraftsUncheckedUpdateWithoutUserInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   caseId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.IntFieldUpdateOperationsInput | number
+  templateId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -1551,8 +1655,10 @@ export type documentDraftsUncheckedUpdateManyWithoutUserInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   caseId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
-  templateId?: Prisma.IntFieldUpdateOperationsInput | number
+  templateId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  mode?: Prisma.StringFieldUpdateOperationsInput | string
   values?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sourceRef?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   outputFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -1620,7 +1726,9 @@ export type documentDraftsSelect<ExtArgs extends runtime.Types.Extensions.Intern
   caseId?: boolean
   sessionId?: boolean
   templateId?: boolean
+  mode?: boolean
   values?: boolean
+  content?: boolean
   sourceRef?: boolean
   metadata?: boolean
   outputFileId?: boolean
@@ -1633,7 +1741,7 @@ export type documentDraftsSelect<ExtArgs extends runtime.Types.Extensions.Intern
   deletedAt?: boolean
   user?: boolean | Prisma.usersDefaultArgs<ExtArgs>
   case?: boolean | Prisma.documentDrafts$caseArgs<ExtArgs>
-  template?: boolean | Prisma.documentTemplatesDefaultArgs<ExtArgs>
+  template?: boolean | Prisma.documentDrafts$templateArgs<ExtArgs>
   materials?: boolean | Prisma.documentDrafts$materialsArgs<ExtArgs>
   snapshots?: boolean | Prisma.documentDrafts$snapshotsArgs<ExtArgs>
   versions?: boolean | Prisma.documentDrafts$versionsArgs<ExtArgs>
@@ -1646,7 +1754,9 @@ export type documentDraftsSelectCreateManyAndReturn<ExtArgs extends runtime.Type
   caseId?: boolean
   sessionId?: boolean
   templateId?: boolean
+  mode?: boolean
   values?: boolean
+  content?: boolean
   sourceRef?: boolean
   metadata?: boolean
   outputFileId?: boolean
@@ -1659,7 +1769,7 @@ export type documentDraftsSelectCreateManyAndReturn<ExtArgs extends runtime.Type
   deletedAt?: boolean
   user?: boolean | Prisma.usersDefaultArgs<ExtArgs>
   case?: boolean | Prisma.documentDrafts$caseArgs<ExtArgs>
-  template?: boolean | Prisma.documentTemplatesDefaultArgs<ExtArgs>
+  template?: boolean | Prisma.documentDrafts$templateArgs<ExtArgs>
 }, ExtArgs["result"]["documentDrafts"]>
 
 export type documentDraftsSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1668,7 +1778,9 @@ export type documentDraftsSelectUpdateManyAndReturn<ExtArgs extends runtime.Type
   caseId?: boolean
   sessionId?: boolean
   templateId?: boolean
+  mode?: boolean
   values?: boolean
+  content?: boolean
   sourceRef?: boolean
   metadata?: boolean
   outputFileId?: boolean
@@ -1681,7 +1793,7 @@ export type documentDraftsSelectUpdateManyAndReturn<ExtArgs extends runtime.Type
   deletedAt?: boolean
   user?: boolean | Prisma.usersDefaultArgs<ExtArgs>
   case?: boolean | Prisma.documentDrafts$caseArgs<ExtArgs>
-  template?: boolean | Prisma.documentTemplatesDefaultArgs<ExtArgs>
+  template?: boolean | Prisma.documentDrafts$templateArgs<ExtArgs>
 }, ExtArgs["result"]["documentDrafts"]>
 
 export type documentDraftsSelectScalar = {
@@ -1690,7 +1802,9 @@ export type documentDraftsSelectScalar = {
   caseId?: boolean
   sessionId?: boolean
   templateId?: boolean
+  mode?: boolean
   values?: boolean
+  content?: boolean
   sourceRef?: boolean
   metadata?: boolean
   outputFileId?: boolean
@@ -1703,11 +1817,11 @@ export type documentDraftsSelectScalar = {
   deletedAt?: boolean
 }
 
-export type documentDraftsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "caseId" | "sessionId" | "templateId" | "values" | "sourceRef" | "metadata" | "outputFileId" | "status" | "title" | "titleOverridden" | "maxVersionNo" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["documentDrafts"]>
+export type documentDraftsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "caseId" | "sessionId" | "templateId" | "mode" | "values" | "content" | "sourceRef" | "metadata" | "outputFileId" | "status" | "title" | "titleOverridden" | "maxVersionNo" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["documentDrafts"]>
 export type documentDraftsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.usersDefaultArgs<ExtArgs>
   case?: boolean | Prisma.documentDrafts$caseArgs<ExtArgs>
-  template?: boolean | Prisma.documentTemplatesDefaultArgs<ExtArgs>
+  template?: boolean | Prisma.documentDrafts$templateArgs<ExtArgs>
   materials?: boolean | Prisma.documentDrafts$materialsArgs<ExtArgs>
   snapshots?: boolean | Prisma.documentDrafts$snapshotsArgs<ExtArgs>
   versions?: boolean | Prisma.documentDrafts$versionsArgs<ExtArgs>
@@ -1716,12 +1830,12 @@ export type documentDraftsInclude<ExtArgs extends runtime.Types.Extensions.Inter
 export type documentDraftsIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.usersDefaultArgs<ExtArgs>
   case?: boolean | Prisma.documentDrafts$caseArgs<ExtArgs>
-  template?: boolean | Prisma.documentTemplatesDefaultArgs<ExtArgs>
+  template?: boolean | Prisma.documentDrafts$templateArgs<ExtArgs>
 }
 export type documentDraftsIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.usersDefaultArgs<ExtArgs>
   case?: boolean | Prisma.documentDrafts$caseArgs<ExtArgs>
-  template?: boolean | Prisma.documentTemplatesDefaultArgs<ExtArgs>
+  template?: boolean | Prisma.documentDrafts$templateArgs<ExtArgs>
 }
 
 export type $documentDraftsPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1736,9 +1850,9 @@ export type $documentDraftsPayload<ExtArgs extends runtime.Types.Extensions.Inte
      */
     case: Prisma.$casesPayload<ExtArgs> | null
     /**
-     * 关联的模板
+     * 关联的模板（mode=freeform 自由文书时为 null）
      */
-    template: Prisma.$documentTemplatesPayload<ExtArgs>
+    template: Prisma.$documentTemplatesPayload<ExtArgs> | null
     /**
      * 关联的素材（文书生成时上传的附件材料）
      */
@@ -1767,13 +1881,21 @@ export type $documentDraftsPayload<ExtArgs extends runtime.Types.Extensions.Inte
      */
     sessionId: string
     /**
-     * 关联的模板ID
+     * 关联的模板ID（自由文书 mode=freeform 时为 null）
      */
-    templateId: number
+    templateId: number | null
     /**
-     * 占位符填充值（JSON 对象）
+     * 文书模式：template-模板文书 / freeform-自由文书（无模板，正文直接存 content）
+     */
+    mode: string
+    /**
+     * 占位符填充值（JSON 对象，mode=template 时使用）
      */
     values: runtime.JsonValue
+    /**
+     * 自由文书正文（Markdown，mode=freeform 时使用；模板文书为 null）
+     */
+    content: string | null
     /**
      * 来源素材引用（JSON，记录引用的材料 ID 等）
      */
@@ -2210,7 +2332,7 @@ export interface Prisma__documentDraftsClient<T, Null = never, ExtArgs extends r
   readonly [Symbol.toStringTag]: "PrismaPromise"
   user<T extends Prisma.usersDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.usersDefaultArgs<ExtArgs>>): Prisma.Prisma__usersClient<runtime.Types.Result.GetResult<Prisma.$usersPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   case<T extends Prisma.documentDrafts$caseArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.documentDrafts$caseArgs<ExtArgs>>): Prisma.Prisma__casesClient<runtime.Types.Result.GetResult<Prisma.$casesPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
-  template<T extends Prisma.documentTemplatesDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.documentTemplatesDefaultArgs<ExtArgs>>): Prisma.Prisma__documentTemplatesClient<runtime.Types.Result.GetResult<Prisma.$documentTemplatesPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  template<T extends Prisma.documentDrafts$templateArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.documentDrafts$templateArgs<ExtArgs>>): Prisma.Prisma__documentTemplatesClient<runtime.Types.Result.GetResult<Prisma.$documentTemplatesPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   materials<T extends Prisma.documentDrafts$materialsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.documentDrafts$materialsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$caseMaterialsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   snapshots<T extends Prisma.documentDrafts$snapshotsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.documentDrafts$snapshotsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$documentDraftSnapshotsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   versions<T extends Prisma.documentDrafts$versionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.documentDrafts$versionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$documentDraftVersionsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -2248,7 +2370,9 @@ export interface documentDraftsFieldRefs {
   readonly caseId: Prisma.FieldRef<"documentDrafts", 'Int'>
   readonly sessionId: Prisma.FieldRef<"documentDrafts", 'String'>
   readonly templateId: Prisma.FieldRef<"documentDrafts", 'Int'>
+  readonly mode: Prisma.FieldRef<"documentDrafts", 'String'>
   readonly values: Prisma.FieldRef<"documentDrafts", 'Json'>
+  readonly content: Prisma.FieldRef<"documentDrafts", 'String'>
   readonly sourceRef: Prisma.FieldRef<"documentDrafts", 'Json'>
   readonly metadata: Prisma.FieldRef<"documentDrafts", 'Json'>
   readonly outputFileId: Prisma.FieldRef<"documentDrafts", 'Int'>
@@ -2676,6 +2800,25 @@ export type documentDrafts$caseArgs<ExtArgs extends runtime.Types.Extensions.Int
    */
   include?: Prisma.casesInclude<ExtArgs> | null
   where?: Prisma.casesWhereInput
+}
+
+/**
+ * documentDrafts.template
+ */
+export type documentDrafts$templateArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the documentTemplates
+   */
+  select?: Prisma.documentTemplatesSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the documentTemplates
+   */
+  omit?: Prisma.documentTemplatesOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.documentTemplatesInclude<ExtArgs> | null
+  where?: Prisma.documentTemplatesWhereInput
 }
 
 /**
