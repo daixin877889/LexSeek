@@ -87,7 +87,18 @@ vi.mock('~~/server/services/storage/storage.service', () => ({
 
 vi.mock('~~/server/services/point/pointConsumption.service', () => ({
     checkPointsService: vi.fn().mockResolvedValue({ sufficient: true, required: 1, available: 100 }),
-    consumePointsService: vi.fn().mockResolvedValue(undefined),
+    consumePointsService: vi.fn().mockResolvedValue({ consumedAmount: 0, consumptionRecords: [] }),
+}))
+
+// 让 billDirectService 转发到 consumePointsService mock，保留原有断言能力
+vi.mock('~~/server/services/point/pointBilling.service', () => ({
+    billDirectService: vi.fn(async (userId: number, itemKey: string, usage: any, _ctx?: any) => {
+        const { consumePointsService } = await import('~~/server/services/point/pointConsumption.service')
+        const quantity = usage?.units ?? Math.ceil((usage?.tokens ?? 0) / 1000)
+        const r = await (consumePointsService as any)(userId, itemKey, quantity, _ctx)
+        return { skipped: false, consumedAmount: r?.consumedAmount ?? 0, operationId: 'mock-op' }
+    }),
+    billCheckService: vi.fn().mockResolvedValue({ skipped: false, sufficient: true, required: 0, available: 100 }),
 }))
 
 vi.mock('~~/server/services/files/ossFiles.dao', () => ({
