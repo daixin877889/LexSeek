@@ -87,3 +87,56 @@ export async function recordSearchService(params: RecordSearchParams): Promise<v
         logger.warn('[legal-trending] recordSearchService 失败', err)
     }
 }
+
+const CACHE_TTL = 60
+const WINDOW_DAYS = 7
+
+export interface TrendingItem {
+    keyword: string
+    count: number
+}
+
+/**
+ * 取近 7 天 top N 热搜，60s 缓存；失败返回空数组让前端兜底
+ */
+export async function getTrendingKeywordsService(
+    scope: TrendingScope,
+    limit = 5,
+): Promise<TrendingItem[]> {
+    try {
+        const redis = getRedisClient()
+        const cacheK = `trending:cache:${scope}`
+        const cached = await redis.get(cacheK)
+        if (cached) {
+            return JSON.parse(cached) as TrendingItem[]
+        }
+
+        // 7 天滑动窗口桶 key（今天 + 过去 6 天）
+        const today = dayjs()
+        const buckets: string[] = []
+        for (let i = 0; i < WINDOW_DAYS; i++) {
+            buckets.push(bucketKey(scope, today.subtract(i, 'day').toDate()))
+        }
+
+        const tmpK = `trending:tmp:${scope}:${Date.now()}`
+        await redis.zunionstore(tmpK, buckets.length, ...buckets, 'AGGREGATE', 'SUM')
+        const raw = await redis.zrevrange(tmpK, 0, limit - 1, 'WITHSCORES')
+        await redis.del(tmpK)
+
+        // raw 形如 [keyword, score, keyword, score, ...]
+        const items: TrendingItem[] = []
+        for (let i = 0; i < raw.length; i += 2) {
+            const kw = raw[i]
+            const sc = raw[i + 1]
+            if (typeof kw === 'string' && typeof sc === 'string') {
+                items.push({ keyword: kw, count: Number(sc) })
+            }
+        }
+
+        await redis.set(cacheK, JSON.stringify(items), 'EX', CACHE_TTL)
+        return items
+    } catch (err) {
+        logger.warn('[legal-trending] getTrendingKeywordsService 失败', err)
+        return []
+    }
+}

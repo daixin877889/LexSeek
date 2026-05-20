@@ -140,3 +140,65 @@ describe('recordSearchService', () => {
         ).resolves.toBeUndefined()
     })
 })
+
+describe('getTrendingKeywordsService', () => {
+    it('缓存命中时直接返回，不打 Redis 聚合', async () => {
+        redisGet.mockResolvedValueOnce(JSON.stringify([
+            { keyword: '民法典', count: 5 },
+            { keyword: '劳动合同法', count: 3 },
+        ]))
+        const { getTrendingKeywordsService } = await import('~~/server/services/legal/trending.service')
+        const out = await getTrendingKeywordsService('legal', 5)
+        expect(out).toEqual([
+            { keyword: '民法典', count: 5 },
+            { keyword: '劳动合同法', count: 3 },
+        ])
+        expect(redisZunionstore).not.toHaveBeenCalled()
+    })
+
+    it('缓存未命中时 ZUNIONSTORE 合并 7 个桶并 ZREVRANGE 取 top N', async () => {
+        redisGet.mockResolvedValueOnce(null)
+        redisZunionstore.mockResolvedValueOnce(2)
+        redisZrevrange.mockResolvedValueOnce(['民法典', '7', '公司法', '4'])
+        redisDel.mockResolvedValueOnce(1)
+        redisSet.mockResolvedValueOnce('OK')
+
+        const { getTrendingKeywordsService } = await import('~~/server/services/legal/trending.service')
+        const out = await getTrendingKeywordsService('legal', 5)
+
+        expect(redisZunionstore).toHaveBeenCalledWith(
+            expect.stringMatching(/^trending:tmp:legal:/),
+            7,
+            ...Array.from({ length: 7 }, () => expect.stringMatching(/^trending:bucket:legal:\d{8}$/)),
+            'AGGREGATE',
+            'SUM',
+        )
+        expect(redisZrevrange).toHaveBeenCalledWith(
+            expect.stringMatching(/^trending:tmp:legal:/),
+            0,
+            4,
+            'WITHSCORES',
+        )
+        expect(redisDel).toHaveBeenCalled()
+        expect(redisSet).toHaveBeenCalledWith(
+            'trending:cache:legal',
+            JSON.stringify([
+                { keyword: '民法典', count: 7 },
+                { keyword: '公司法', count: 4 },
+            ]),
+            'EX',
+            60,
+        )
+        expect(out).toEqual([
+            { keyword: '民法典', count: 7 },
+            { keyword: '公司法', count: 4 },
+        ])
+    })
+
+    it('Redis 抛错时返回空数组', async () => {
+        redisGet.mockRejectedValueOnce(new Error('redis down'))
+        const { getTrendingKeywordsService } = await import('~~/server/services/legal/trending.service')
+        const out = await getTrendingKeywordsService('legal', 5)
+        expect(out).toEqual([])
+    })
+})
