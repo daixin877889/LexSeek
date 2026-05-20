@@ -1,26 +1,19 @@
 <template>
-  <div class="relative hidden overflow-hidden bg-gradient-brand px-14 py-12 text-white lg:flex lg:flex-col lg:justify-between">
+  <div
+    class="relative hidden overflow-hidden bg-gradient-brand px-14 py-12 text-white lg:flex lg:flex-col lg:justify-between">
     <!-- 装饰光晕 -->
-    <div
-      aria-hidden="true"
-      class="pointer-events-none absolute -left-[100px] -top-20 h-[400px] w-[400px] rounded-full"
-      style="background: #1EEDC4; opacity: 0.35; filter: blur(70px);"
-    />
-    <div
-      aria-hidden="true"
+    <div aria-hidden="true" class="pointer-events-none absolute -left-[100px] -top-20 h-[400px] w-[400px] rounded-full"
+      style="background: #1EEDC4; opacity: 0.35; filter: blur(70px);" />
+    <div aria-hidden="true"
       class="pointer-events-none absolute -bottom-[100px] -right-[50px] h-[380px] w-[380px] rounded-full"
-      style="background: #090380; opacity: 0.6; filter: blur(60px);"
-    />
-    <img
-      src="/logo-white.svg"
-      alt=""
-      aria-hidden="true"
-      class="pointer-events-none absolute -bottom-20 -left-10 h-[360px] w-[360px] opacity-[0.06]"
-    >
+      style="background: #090380; opacity: 0.6; filter: blur(60px);" />
+    <img src="/logo-white.svg" alt="" aria-hidden="true"
+      class="pointer-events-none absolute -bottom-20 -left-10 h-[360px] w-[360px] opacity-[0.06]">
 
     <!-- logo lockup -->
     <div class="relative z-[1] flex items-center gap-3">
-      <div class="flex size-11 items-center justify-center rounded-[12px] bg-white shadow-[0_8px_22px_-6px_rgba(0,0,0,0.25)]">
+      <div
+        class="flex size-11 items-center justify-center rounded-[12px] bg-white shadow-[0_8px_22px_-6px_rgba(0,0,0,0.25)]">
         <img src="/logo.svg" alt="" class="size-[30px]">
       </div>
       <h1 translate="no" class="text-[22px] font-bold">
@@ -52,8 +45,8 @@
 
 <script setup lang="ts">
 const STATS = [
-  { value: "3万+", label: "注册律师" },
-  { value: "120万", label: "累计案件" },
-  { value: "98%", label: "用户满意度" },
+  // { value: "3万+", label: "注册律师" },
+  // { value: "120万", label: "累计案件" },
+  // { value: "98%", label: "用户满意度" },
 ]
 </script>

@@ -30,7 +30,7 @@
         <div v-if="!authStore.isAuthenticated" class="hidden md:flex items-center gap-1">
           <NuxtLink :to="loginLink"
             class="px-3.5 py-2 text-sm font-medium text-foreground hover:text-primary transition-colors">登录</NuxtLink>
-          <NuxtLink :to="loginLink"
+          <NuxtLink :to="registerLink"
             class="px-[18px] py-2 text-sm font-medium text-white rounded-md bg-linear-to-br from-[#1E9EED] to-[#090380] shadow-[0_6px_16px_-6px_rgba(9,3,128,0.4)] hover:brightness-110 active:scale-[0.98] transition">
             免费注册</NuxtLink>
         </div>
@@ -101,7 +101,7 @@
                 <NuxtLink :to="loginLink"
                   class="px-4 py-2.5 rounded-md text-center text-sm font-medium border text-foreground hover:bg-muted transition-colors"
                   @click="mobileMenuOpen = false">登录</NuxtLink>
-                <NuxtLink :to="loginLink"
+                <NuxtLink :to="registerLink"
                   class="px-4 py-2.5 rounded-md text-center text-sm font-semibold text-white bg-linear-to-br from-[#1E9EED] to-[#090380] shadow-[0_8px_20px_-8px_rgba(9,3,128,0.4)]"
                   @click="mobileMenuOpen = false">免费注册</NuxtLink>
               </div>
@@ -152,6 +152,7 @@ const userStore = useUserStore()
 const mobileMenuOpen = ref(false)
 
 const loginLink = computed(() => `/login?redirect=${route.path}`)
+const registerLink = computed(() => `/register?redirect=${route.path}`)
 
 // 首页只在精确匹配时高亮；其它链接命中自身或其子路径时高亮
 const isActive = (to: string) => {
