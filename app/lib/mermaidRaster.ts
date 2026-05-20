@@ -14,10 +14,16 @@
 /** canvas 最大边长，iOS Safari 上限 16384，留余量 */
 const MAX_CANVAS_SIDE = 16000
 
+/** mermaid 主题：浅色 / 暗色。Word 导出与页面渲染共享，避免两边漂移失色。 */
+export type MermaidTheme = 'default' | 'dark'
+
+/** vue-stream-markdown 的 vanilla mermaid 渲染器要的 [亮, 暗] 主题对。 */
+export const MERMAID_THEME_PAIR: [MermaidTheme, MermaidTheme] = ['default', 'dark']
+
 /** mermaid 渲染选项 */
 export interface MermaidPngOptions {
     /** mermaid 主题，默认 'default'（浅色） */
-    theme?: 'default' | 'dark'
+    theme?: MermaidTheme
     /** 栅格倍率（相对 viewBox 尺寸），实际像素再乘 devicePixelRatio */
     scale: number
     /**

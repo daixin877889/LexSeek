@@ -12,12 +12,23 @@
 
 import type { CodeNodeRendererProps, Control, ControlTransformer, SelectOption } from 'vue-stream-markdown'
 import { toast } from 'vue-sonner'
-import { mermaidToPng } from '~/lib/mermaidRaster'
+import { MERMAID_THEME_PAIR, mermaidToPng } from '~/lib/mermaidRaster'
 import { triggerBrowserDownloadUrl } from '~/utils/browserDownload'
 import { useColorMode } from '~/composables/useColorMode'
 
 /** 默认栅格倍率（相对 viewBox 尺寸），实际像素还会再乘 devicePixelRatio */
 export const DEFAULT_PNG_SCALE = 5
+
+/**
+ * 提到模块作用域：mermaid 主题对在 isDark 变化时也保持同一引用，
+ * 避免 `<Markdown>` 因 mermaidOptions 身份漂移触发多余的 mermaid 重 init。
+ *
+ * 之所以要显式设置：vue-stream-markdown 的 vanilla 渲染器默认主题是
+ * `['neutral', 'dark']`——`neutral` 是黑白灰单色主题，会让页面里的 mermaid 全部失色，
+ * 而 Word 导出走 `mermaidToPng` 默认 `default` / `dark` 是彩色的。两边在 mermaidRaster.ts
+ * 共享 MERMAID_THEME_PAIR 常量，保证页面与 Word 永远一致。
+ */
+const MERMAID_OPTIONS = { theme: MERMAID_THEME_PAIR }
 
 export function useMermaidHdPng() {
     const { isDark } = useColorMode()
@@ -66,5 +77,17 @@ export function useMermaidHdPng() {
         code: { customize: customizeCode },
     }
 
-    return { exportHd, markdownControls }
+    /**
+     * 一次性 v-bind 到 `<Markdown>` 的 props。
+     *
+     * ⚠️ 调用方不要在 `v-bind="markdownMermaidProps"` 之后再写 `:controls="..."`，
+     * 否则会覆盖掉 PNG 下载的高清接管逻辑。
+     */
+    const markdownMermaidProps = computed(() => ({
+        mermaidOptions: MERMAID_OPTIONS,
+        isDark: isDark.value,
+        controls: markdownControls,
+    }))
+
+    return { exportHd, markdownMermaidProps }
 }
