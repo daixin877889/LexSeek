@@ -747,6 +747,7 @@ INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "descrip
 INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (390, '/api/v1/tools/rates/pboc-loan', 'GET', 'GET tools / rates / pboc loan', NULL, 'f', NULL, 1, '2026-05-14 09:57:17.642+00', '2026-05-14 09:57:17.642+00', NULL);
 INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (391, '/api/v1/admin/rates/lpr/sync', 'POST', 'POST admin / rates / lpr / sync', NULL, 'f', NULL, 1, '2026-05-14 13:22:33.586+00', '2026-05-14 13:22:33.586+00', NULL);
 INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (392, '/api/v1/admin/rates/lpr/sync-status', 'GET', 'GET admin / rates / lpr / sync status', NULL, 'f', NULL, 1, '2026-05-14 13:22:33.586+00', '2026-05-14 13:22:33.586+00', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (395, '/api/v1/legal/trending-keywords', 'GET', 'GET legal / trending keywords', NULL, 'f', NULL, 1, '2026-05-20 16:08:44.146+00', '2026-05-20 16:08:44.146+00', NULL);
 
 
 -- 角色 API
@@ -1312,6 +1313,8 @@ INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (560, 2, 371, '2026-05-11 00:02:09.238+08', '2026-05-11 00:02:09.238+08', NULL);
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (561, 2, 370, '2026-05-11 00:02:09.238+08', '2026-05-11 00:02:09.238+08', NULL);
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (562, 2, 372, '2026-05-11 00:02:09.238+08', '2026-05-11 00:02:09.238+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (563, 1, 395, '2026-05-21 00:08:44.146+08', '2026-05-21 00:08:44.146+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (564, 2, 395, '2026-05-21 00:08:44.146+08', '2026-05-21 00:08:44.146+08', NULL);
 
 -- ==================== 案件类型种子数据 ====================
 INSERT INTO "public"."case_types" ("id", "name", "description", "icon", "priority", "status", "created_at", "updated_at", "deleted_at") VALUES (1, '民商事案件', '包括合同纠纷、侵权纠纷、婚姻家庭纠纷等民事案件', 'ScaleIcon', 10, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
