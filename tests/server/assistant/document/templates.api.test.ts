@@ -425,12 +425,12 @@ describe('文书模板 CRUD API', () => {
             const user = await createTestUser()
             userIds.push(user.id)
 
-            mockCreateService.mockResolvedValue({ error: '文件不能超过 20MB', code: 413 })
+            mockCreateService.mockResolvedValue({ error: '文件不能超过 100MB', code: 413 })
 
             const res: any = await createHandler(
                 makeEvent({
                     userId: user.id,
-                    formData: makeDocxFormData({ fileSize: 20 * 1024 * 1024 + 1 }),
+                    formData: makeDocxFormData({ fileSize: 100 * 1024 * 1024 + 1 }),
                 }) as any,
             )
             expect(res.code).toBe(413)

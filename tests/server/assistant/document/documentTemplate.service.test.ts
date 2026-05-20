@@ -110,22 +110,22 @@ describe('createDocumentTemplateService', () => {
     // ==================== 文件格式/大小校验 ====================
 
     describe('文件格式校验', () => {
-        it('文件大小 > 20MB 拒绝，返回 { error, code: 413 }', async () => {
+        it('文件大小 > 100MB 拒绝，返回 { error, code: 413 }', async () => {
             const result = await createDocumentTemplateService({
                 ...BASE_PARAMS,
-                fileSize: 20 * 1024 * 1024 + 1, // 超出 1 字节
+                fileSize: 100 * 1024 * 1024 + 1, // 超出 1 字节
             })
 
-            expect(result).toEqual({ error: '文件不能超过 20MB', code: 413 })
+            expect(result).toEqual({ error: '文件不能超过 100MB', code: 413 })
             // 不应调用后续逻辑
             expect(mockScanPlaceholders).not.toHaveBeenCalled()
             expect(mockUploadFileService).not.toHaveBeenCalled()
         })
 
-        it('文件恰好等于 20MB 时允许通过', async () => {
+        it('文件恰好等于 100MB 时允许通过', async () => {
             const result = await createDocumentTemplateService({
                 ...BASE_PARAMS,
-                fileSize: 20 * 1024 * 1024,
+                fileSize: 100 * 1024 * 1024,
             })
 
             // 应该进入后续流程（由于其他 mock 设置成功，结果是 templateId）

@@ -184,19 +184,19 @@ describe('upload_workspace_file 工具 - 文件存在性和大小校验', () => 
         expect(result).toContain('Error')
     })
 
-    it('应拒绝超过 50MB 的文件', async () => {
+    it('应拒绝超过 180MB 的文件', async () => {
         const bigFileName = 'big-file.bin'
         await writeFile(resolve(testWorkspaceDir, bigFileName), Buffer.alloc(1))
 
-        // 注入 mock stat 函数模拟 51MB 文件，避免真实创建大文件
+        // 注入 mock stat 函数模拟 181MB 文件，避免真实创建大文件
         const uploadTool = createTool(
             testContext,
             testWorkspaceBase,
-            async (_path: string) => ({ size: 51 * 1024 * 1024 })
+            async (_path: string) => ({ size: 181 * 1024 * 1024 })
         )
         const result = await uploadTool.invoke({ filePath: bigFileName })
         expect(result).toContain('Error')
-        expect(result).toContain('50MB')
+        expect(result).toContain('180MB')
     })
 })
 

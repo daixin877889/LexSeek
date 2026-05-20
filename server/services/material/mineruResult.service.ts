@@ -205,7 +205,7 @@ async function uploadSingleImageToOssService(
                 },
             },
             conditions: {
-                contentLengthRange: [0, 50 * 1024 * 1024], // 50MB
+                contentLengthRange: [0, 180 * 1024 * 1024], // 180MB
                 contentType: [mimeType],
             },
             userId,

@@ -24,8 +24,8 @@ import type { DocumentCategoryKey, Placeholder } from '#shared/types/document'
 /** 个人模板数量上限 */
 export const MAX_PRIVATE_TEMPLATES = 20
 
-/** 最大文件大小（20MB） */
-const MAX_FILE_SIZE = 20 * 1024 * 1024
+/** 最大文件大小（100MB） */
+const MAX_FILE_SIZE = 100 * 1024 * 1024
 
 // ==================== 类型 ====================
 
@@ -65,7 +65,7 @@ export async function createDocumentTemplateService(
     }
 
     if (params.fileSize > MAX_FILE_SIZE) {
-        return { error: '文件不能超过 20MB', code: 413 }
+        return { error: '文件不能超过 100MB', code: 413 }
     }
 
     if (!params.fileName.endsWith('.docx')) {

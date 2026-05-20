@@ -21,8 +21,8 @@ import { FileSource, OssFileStatus } from '#shared/types/file'
 import { StorageProviderType } from '~~/server/lib/storage/types'
 import { buildStorageKey } from '~~/server/utils/storagePath'
 
-/** 文件大小上限：50MB */
-const MAX_FILE_SIZE = 50 * 1024 * 1024
+/** 文件大小上限：180MB */
+const MAX_FILE_SIZE = 180 * 1024 * 1024
 
 /** 临时文件有效期：24小时（OSS 生命周期规则需配套配置） */
 const TEMP_FILE_TTL_MS = 24 * 60 * 60 * 1000
@@ -163,7 +163,7 @@ export function createTool(context: ToolContext, workspaceBase?: string, statFn?
             }
 
             if (fileSize > MAX_FILE_SIZE) {
-                return `Error: 文件超过大小限制（最大 50MB），当前文件大小 ${(fileSize / 1024 / 1024).toFixed(2)}MB`
+                return `Error: 文件超过大小限制（最大 180MB），当前文件大小 ${(fileSize / 1024 / 1024).toFixed(2)}MB`
             }
 
             const mimeType = inferMimeType(fileName)

@@ -1,6 +1,14 @@
-import { mime } from './mime'
 import type { FileSourceAccept } from '../types/file'
-import { FileSource, FileSourceName } from '../types/file'
+import { FileSource } from '../types/file'
+import {
+  ASR_ACCEPT,
+  AUDIO_EXTENSIONS,
+  DOC_ACCEPT,
+  DOC_EXTENSIONS,
+  IMAGE_ACCEPT,
+  IMAGE_EXTENSIONS,
+  getFileSourceAcceptFromPolicies,
+} from './uploadPolicy'
 
 /**
  * 从文件名中提取后缀名
@@ -20,83 +28,18 @@ export const getExtensionFromFileName = (fileName: string): string => {
   return ''
 }
 
-/**
- * 语音识别允许的文件类型及最大大小
- */
-export const ASR_ACCEPT = {
-  m4a: 200 * 1024 * 1024,
-  mp3: 200 * 1024 * 1024,
-  wav: 500 * 1024 * 1024,
+export {
+  ASR_ACCEPT,
+  AUDIO_EXTENSIONS,
+  DOC_ACCEPT,
+  DOC_EXTENSIONS,
+  IMAGE_ACCEPT,
+  IMAGE_EXTENSIONS,
 }
-
-
-/**
- * 文档识别允许的文件类型及最大大小
- */
-export const DOC_ACCEPT = {
-  pdf: 50 * 1024 * 1024,
-  md: 20 * 1024 * 1024,
-  mkd: 20 * 1024 * 1024,
-  txt: 1 * 1024 * 1024,
-  docx: 20 * 1024 * 1024,
-  doc: 20 * 1024 * 1024
-}
-
-/**
- * 图片文件扩展名列表
- */
-export const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'heif']
-
-/**
- * 音频文件扩展名列表
- */
-export const AUDIO_EXTENSIONS = ['mp3', 'wav', 'm4a', 'aac', 'flac', 'ogg', 'webm', 'amr', 'opus']
-
-/**
- * 文档文件扩展名列表（支持识别的类型）
- */
-export const DOC_EXTENSIONS = ['docx', 'doc', 'pdf', 'md', 'mkd', 'markdown', 'txt']
-
-/**
- * 图片识别允许的文件类型及最大大小
- */
-export const IMAGE_ACCEPT = {
-  png: 10 * 1024 * 1024,
-  jpg: 10 * 1024 * 1024,
-  jpeg: 10 * 1024 * 1024,
-  gif: 10 * 1024 * 1024,
-  webp: 10 * 1024 * 1024,
-  heic: 10 * 1024 * 1024,
-  heif: 10 * 1024 * 1024
-}
-/**
- * 将扩展名/大小映射转换为统一结构
- */
-const mapAccept = (source: Record<string, number>) =>
-  Object.entries(source).map(([name, maxSize]) => ({
-    name,
-    mime: mime.getType(name) ?? '',
-    maxSize,
-  }))
 
 /**
  * 获取文件来源允许的文件类型及最大大小
  */
 export const getFileSourceAccept = (source?: FileSource): FileSourceAccept[] => {
-  const acceptList: FileSourceAccept[] = [
-    { name: FileSourceName[FileSource.ASR], accept: mapAccept(ASR_ACCEPT) },
-    { name: FileSourceName[FileSource.DOC], accept: mapAccept(DOC_ACCEPT) },
-    { name: FileSourceName[FileSource.IMAGE], accept: mapAccept(IMAGE_ACCEPT) },
-    { name: FileSourceName[FileSource.FILE], accept: mapAccept({ ...ASR_ACCEPT, ...DOC_ACCEPT, ...IMAGE_ACCEPT }) },
-    { name: FileSourceName[FileSource.VIDEO], accept: [] },
-    { name: FileSourceName[FileSource.CASE_ANALYSIS], accept: mapAccept({ ...ASR_ACCEPT, ...DOC_ACCEPT, ...IMAGE_ACCEPT }) },
-    { name: FileSourceName[FileSource.DEMO_CASE], accept: mapAccept({ ...ASR_ACCEPT, ...DOC_ACCEPT, ...IMAGE_ACCEPT }) },
-  ]
-
-  if (source) {
-    const targetName = FileSourceName[source]
-    return acceptList.filter(item => item.name === targetName)
-  }
-
-  return acceptList
+  return getFileSourceAcceptFromPolicies(source)
 }

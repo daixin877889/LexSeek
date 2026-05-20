@@ -98,8 +98,8 @@ describe('uploadWorkspaceFile 文件检查', () => {
         expect(text).toMatch(/文件不存在或无法访问/)
     })
 
-    it('文件超过 50MB 限制', async () => {
-        const bigStat = async () => ({ size: 60 * 1024 * 1024 })
+    it('文件超过 180MB 限制', async () => {
+        const bigStat = async () => ({ size: 181 * 1024 * 1024 })
         const t = createTool(baseCtx, '/tmp/ws', bigStat)
         const out: any = await t.invoke({ filePath: 'big.bin' })
         const text = typeof out === 'string' ? out : out.content

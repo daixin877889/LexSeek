@@ -43,7 +43,7 @@ export const FileSourceName = {
 // 文件来源允许的文件类型及最大大小
 export type FileSourceAccept = {
     name: (typeof FileSourceName)[FileSource]
-    accept: { name: string, mime: string, maxSize: number }[]
+    accept: { name: string, mime: string, maxSize: number, riskLevel?: string }[]
 }
 
 

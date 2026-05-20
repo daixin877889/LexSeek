@@ -112,8 +112,8 @@ describe('文件常量验证', () => {
     })
 
     it('DOC_ACCEPT 应定义文件大小', () => {
-        expect(DOC_ACCEPT.pdf).toBe(50 * 1024 * 1024)
-        expect(DOC_ACCEPT.docx).toBe(20 * 1024 * 1024)
+        expect(DOC_ACCEPT.pdf).toBe(180 * 1024 * 1024)
+        expect(DOC_ACCEPT.docx).toBe(100 * 1024 * 1024)
         expect(DOC_ACCEPT.txt).toBe(1 * 1024 * 1024)
     })
 

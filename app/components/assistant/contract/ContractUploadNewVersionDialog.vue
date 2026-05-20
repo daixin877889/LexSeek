@@ -115,8 +115,8 @@ function processFile(file: File) {
         toast.warning('仅支持 .docx 文件')
         return
     }
-    if (file.size > 20 * 1024 * 1024) {
-        toast.warning('文件不得超过 20 MB')
+    if (file.size > 100 * 1024 * 1024) {
+        toast.warning('文件不得超过 100 MB')
         return
     }
     selectedFile.value = file

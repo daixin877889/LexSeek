@@ -5,7 +5,7 @@
  *
  * 组件职责：
  * - 支持 v-model:open 控制显示/隐藏
- * - 文件选择（仅 .docx，≤20 MB）
+ * - 文件选择（仅 .docx，≤100 MB）
  * - OSS 上传后调用 uploadNewVersion(ossFileId) 获得 SSE 响应式状态
  * - 渲染 5 个步骤（backup/parse/diff/ai/merge）及其 idle/progress/done/error 四态
  * - SSE complete 后 emit complete(payload)
