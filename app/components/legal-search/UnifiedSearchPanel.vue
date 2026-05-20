@@ -1,25 +1,25 @@
 <template>
-    <div class="bg-card rounded-xl border overflow-hidden">
+    <div class="panel-brand-tint rounded-xl border border-border/70 overflow-hidden">
         <!-- 模式切换 Tab（下划线式） -->
-        <div class="flex gap-1 px-4 pt-3.5">
+        <div class="flex gap-1 px-5 pt-4">
             <button v-for="t in TAB_OPTIONS" :key="t.value" type="button"
-                class="mr-3.5 border-b-2 px-1 pb-2 text-sm transition-colors"
+                class="mr-3.5 border-b-2 px-1 pb-2.5 text-sm transition-colors"
                 :class="activeTab === t.value
                     ? 'border-primary text-primary font-semibold'
-                    : 'border-transparent text-muted-foreground font-medium hover:text-foreground'"
+                    : 'border-transparent text-muted-foreground/80 font-medium hover:text-foreground'"
                 @click="emit('update:activeTab', t.value)">
                 {{ t.label }}
             </button>
         </div>
 
-        <!-- 搜索输入行 -->
-        <div class="flex items-center gap-2.5 border-t px-4 py-3.5">
+        <!-- 搜索输入行（主区，透明以露出外层品牌渐变） -->
+        <div class="flex items-center gap-3 border-t border-border/60 px-5 py-4">
             <Search class="h-5 w-5 shrink-0 text-muted-foreground" />
             <input :value="activeTab === 'legal' ? keyword : articleQuery" :disabled="loading"
                 :placeholder="activeTab === 'legal'
                     ? '输入法律名称或文号进行检索，例如：建设工程、民法典…'
                     : '输入法条内容或相关描述进行语义检索，例如：违约金过高如何调整…'"
-                class="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground disabled:opacity-60"
+                class="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground/70 disabled:opacity-60"
                 @input="handleInput" @keyup.enter="handleSearch" />
             <Button class="shrink-0 bg-gradient-brand-button text-white" :disabled="!canSearch || loading"
                 @click="handleSearch">
@@ -28,16 +28,16 @@
             </Button>
         </div>
 
-        <!-- 筛选条件 -->
-        <div class="border-t bg-muted/40 px-4 py-3">
+        <!-- 筛选条件（次区，加深底色 + 弱化文本） -->
+        <div class="border-t border-border/60 bg-muted/50 px-5 py-3.5">
             <!-- 法律类型胶囊组 -->
             <div class="flex flex-wrap items-center gap-2">
-                <span class="text-xs font-semibold text-muted-foreground">法律类型</span>
+                <span class="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">法律类型</span>
                 <button v-for="lt in LEGAL_TYPE_OPTIONS" :key="lt.value" type="button"
                     class="rounded-md px-3 py-1 text-[13px] transition-colors"
                     :class="internalType === lt.value
                         ? 'bg-primary/10 text-primary font-semibold'
-                        : 'text-foreground font-medium hover:bg-muted'"
+                        : 'bg-background text-foreground/85 font-medium hover:bg-background hover:text-foreground'"
                     @click="handleTypeChange(lt.value)">
                     {{ lt.label }}
                 </button>
@@ -47,11 +47,11 @@
             <div class="mt-3 flex flex-wrap items-center gap-4">
                 <!-- 发文机关（仅搜全文） -->
                 <div v-if="activeTab === 'legal'" class="flex items-center gap-2">
-                    <span class="whitespace-nowrap text-xs font-semibold text-muted-foreground">发文机关</span>
+                    <span class="whitespace-nowrap text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">发文机关</span>
                     <Popover v-model:open="authorityPopoverOpen">
                         <PopoverTrigger as-child>
                             <Button variant="outline" role="combobox" size="sm"
-                                class="w-[200px] justify-between px-3 font-normal">
+                                class="w-[200px] justify-between bg-background px-3 font-normal">
                                 <span class="truncate" :class="!issuingAuthority ? 'text-muted-foreground' : ''">
                                     {{ issuingAuthority || '全部机关' }}
                                 </span>
@@ -89,10 +89,10 @@
 
                 <!-- 生效状态 -->
                 <div class="flex items-center gap-2">
-                    <span class="whitespace-nowrap text-xs font-semibold text-muted-foreground">生效状态</span>
+                    <span class="whitespace-nowrap text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">生效状态</span>
                     <Select :model-value="internalValidityStatus"
                         @update:model-value="handleValidityStatusChange($event as string)">
-                        <SelectTrigger class="w-[140px]">
+                        <SelectTrigger class="w-[140px] bg-background">
                             <SelectValue placeholder="选择状态..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -104,7 +104,7 @@
                     </Select>
                 </div>
 
-                <Button variant="outline" size="sm" class="ml-auto" @click="handleReset">
+                <Button variant="ghost" size="sm" class="ml-auto text-muted-foreground hover:text-foreground" @click="handleReset">
                     重置筛选
                 </Button>
             </div>

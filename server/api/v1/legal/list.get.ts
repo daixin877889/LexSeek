@@ -124,9 +124,11 @@ export default defineEventHandler(async (event) => {
             }
         }
 
-        // 构建排序条件
-        const orderBy: any = {}
-        orderBy[sortBy] = sortOrder
+        // 构建排序条件：可空日期字段统一 NULLS LAST，避免缺日期的记录排到最前
+        const NULLABLE_DATE_FIELDS = new Set(['publishDate', 'effectiveDate'])
+        const orderBy: any = NULLABLE_DATE_FIELDS.has(sortBy)
+            ? { [sortBy]: { sort: sortOrder, nulls: 'last' } }
+            : { [sortBy]: sortOrder }
 
         // 查询总数
         const total = await prisma.legalMain.count({ where })

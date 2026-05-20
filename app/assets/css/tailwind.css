@@ -239,6 +239,14 @@
     color-mix(in srgb, var(--brand-sky) 5%, var(--card)) 100%);
 }
 
+/* 检索 / 筛选面板的极淡品牌染色（同配方，sky→mint，明暗自适应） */
+@utility panel-brand-tint {
+  background-image: linear-gradient(135deg,
+    color-mix(in srgb, var(--brand-sky) 7%, var(--card)) 0%,
+    var(--card) 55%,
+    color-mix(in srgb, var(--brand-mint) 7%, var(--card)) 100%);
+}
+
 /* ===== 合同审查 · quote 字符级高亮（AI 定位的问题语句） =====
  * 用 CSS Custom Highlight API（baseline 2025/06）；不支持的浏览器静默退化为段落级。
  * 注册侧见 app/utils/quoteHighlight.ts 的 decorateQuoteRanges。
