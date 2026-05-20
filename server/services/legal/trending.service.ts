@@ -79,7 +79,7 @@ export async function recordSearchService(params: RecordSearchParams): Promise<v
                     keyword,
                     userId: params.userId,
                     resultCount: params.resultCount ?? null,
-                    resultIds: params.resultIds ?? null,
+                    resultIds: params.resultIds ?? undefined,
                 },
             }),
         ])

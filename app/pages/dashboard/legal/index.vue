@@ -28,7 +28,7 @@
                 <Flame class="h-3.5 w-3.5" />
                 热门检索
             </span>
-            <button v-for="kw in TRENDING_KEYWORDS" :key="kw" type="button"
+            <button v-for="kw in trending.keywords.value" :key="kw" type="button"
                 class="bg-card rounded-full border px-3 py-1 text-[12.5px] text-foreground transition-colors hover:bg-muted"
                 @click="handleTrendingClick(kw)">
                 {{ kw }}
@@ -36,7 +36,7 @@
         </div>
 
         <!-- 搜全文结果区域 -->
-        <template v-if="activeTab === 'legal' && hasSearchResults">
+        <template v-if="activeTab === 'legal'">
             <!-- 加载状态 -->
             <div v-if="legalSearch.loading.value" class="flex justify-center py-12">
                 <Loader2 class="h-10 w-10 animate-spin text-muted-foreground" />
@@ -46,15 +46,17 @@
             <div v-else-if="legalSearch.legalList.value.length === 0"
                 class="bg-card rounded-xl border p-12 text-center">
                 <FileText class="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-                <h3 class="mb-2 text-lg font-medium">未找到相关法律法规</h3>
+                <h3 class="mb-2 text-lg font-medium">
+                    {{ searchKeyword.trim() ? '未找到相关法律法规' : '当前筛选条件下没有法律法规' }}
+                </h3>
                 <p class="mb-4 text-sm text-muted-foreground">请尝试调整搜索条件</p>
                 <Button variant="outline" @click="handleReset">重置筛选</Button>
             </div>
 
             <!-- 结果列表 -->
             <template v-else>
-                <!-- 结果标题行 -->
-                <div class="mb-3 flex flex-wrap items-baseline justify-between gap-3">
+                <!-- 结果标题行（仅在有 keyword 时显示） -->
+                <div v-if="searchKeyword.trim()" class="mb-3 flex flex-wrap items-baseline justify-between gap-3">
                     <h2 class="text-base font-semibold">
                         找到 {{ legalSearch.pagination.value.total.toLocaleString() }} 部法律法规（耗时
                         {{ legalSearch.searchElapsed.value.toFixed(2) }} 秒）
@@ -178,6 +180,7 @@ import type { BadgeTone } from '~/components/legal-search/legalDisplay'
 import { useArticleSearch } from '~/composables/useArticleSearch'
 import { useLegalSearch } from '~/composables/useLegalSearch'
 import { useSiteSeo } from '~/composables/useSiteSeo'
+import { useTrendingKeywords } from '~/composables/useTrendingKeywords'
 
 // ==================== 页面元数据 ====================
 
@@ -196,15 +199,6 @@ useSiteSeo({
 })
 
 // ==================== 常量 ====================
-
-/** 热门检索词（前端固定词表） */
-const TRENDING_KEYWORDS = [
-    '中华人民共和国民法典',
-    '劳动合同法',
-    '公司法',
-    '工程施工',
-    '招标投标法',
-]
 
 /** 搜全文结果排序选项（仅保留后端支持的字段） */
 const SORT_OPTIONS = [
@@ -230,6 +224,7 @@ const route = useRoute()
 const router = useRouter()
 const legalSearch = useLegalSearch()
 const articleSearch = useArticleSearch()
+const trending = useTrendingKeywords()
 
 // ==================== 响应式状态 ====================
 
@@ -263,9 +258,6 @@ const articleDialogOpen = ref(false)
 
 /** 选中的法条（用于弹框显示） */
 const selectedArticle = ref<LawSearchResultItem | null>(null)
-
-/** 是否已执行过搜索（有搜索结果） */
-const hasSearchResults = ref(false)
 
 /** 法条搜索是否已执行过 */
 const hasArticleSearched = ref(false)
@@ -384,7 +376,6 @@ const restoreFromUrl = () => {
 
     // 如果有搜全文的关键词，自动执行搜索
     if (searchKeyword.value || searchFilters.value.type || searchFilters.value.issuingAuthority) {
-        hasSearchResults.value = true
         legalSearch.setFilters({
             keyword: searchKeyword.value,
             ...searchFilters.value,
@@ -410,13 +401,30 @@ onMounted(async () => {
     nextTick(() => {
         isRestoring.value = false
     })
+
+    // 搜全文 tab 默认列表：URL 未带任何过滤条件时，主动拉一次默认列表
+    if (
+        activeTab.value === 'legal'
+        && !searchKeyword.value
+        && !searchFilters.value.type
+        && !searchFilters.value.issuingAuthority
+    ) {
+        await legalSearch.search()
+    }
+
+    // 拉当前 tab 的热搜词
+    await trending.load(activeTab.value)
 })
 
 // ==================== 监听器 ====================
 
-/** 监听 Tab 切换，同步到 URL */
-watch(activeTab, () => {
+/** 监听 Tab 切换，同步到 URL、刷新热搜、兜底加载默认列表 */
+watch(activeTab, async (val) => {
     syncToUrl()
+    await trending.load(val)
+    if (val === 'legal' && legalSearch.legalList.value.length === 0 && !searchKeyword.value) {
+        await legalSearch.search()
+    }
 })
 
 /** 监听搜全文分页变化，同步到 URL */
@@ -474,7 +482,6 @@ const highlightContent = (content: string): string => {
 /** 处理搜索 */
 const handleSearch = () => {
     if (activeTab.value === 'legal') {
-        hasSearchResults.value = true
         legalSearch.setFilters({
             keyword: searchKeyword.value,
             ...searchFilters.value,
@@ -496,7 +503,6 @@ const handleReset = () => {
             validityStatus: 'valid',
         }
         selectedLegalId.value = null
-        hasSearchResults.value = false
         legalSearch.resetFilters()
     } else {
         articleQuery.value = ''
