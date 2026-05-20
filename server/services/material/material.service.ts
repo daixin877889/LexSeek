@@ -29,6 +29,7 @@ import { createChatModel } from '../node/chatModelFactory'
 import { getValidNodeConfig } from '../node/node.service'
 import { assembleSystemPromptTemplate } from '../agent-platform/nodeConfig/promptRenderer'
 import { generateSummaryService } from '../ai/summaryService'
+import { billDirectService } from '../point/pointBilling.service'
 import { findDocRecognitionByOssFileIdDao, updateDocRecognitionRecordDao } from './mineru.dao'
 import { findImageRecognitionByOssFileIdDao, updateImageRecognitionRecordDao } from './ocr.dao'
 import { findAsrRecordByOssFileIdDao, updateAsrRecordDao } from './asr.dao'
@@ -703,6 +704,52 @@ async function persistSummary(
  * 抽出供 generateMaterialSummary / generateOssFileSummary 共用，避免重复实现。
  * @returns summary 字符串；重试穷尽返回 null（调用方决定后续动作）
  */
+/**
+ * best-effort 文件摘要扣费：ossFile 与 material 两条路径都计费；
+ * 任何异常只记日志、绝不抛出（抛出会被 callSummaryLlm 的重试循环误判为 LLM 失败）。
+ */
+async function chargeSummaryBilling(
+    identifier: { ossFileId?: number; materialId?: number },
+    summary: string,
+): Promise<void> {
+    try {
+        let userId: number | null = null
+        let sourceId: number | undefined
+        let contextLabel: string | undefined
+
+        if (identifier.ossFileId) {
+            const file = await prisma.ossFiles.findUnique({
+                where: { id: identifier.ossFileId },
+                select: { userId: true, fileName: true },
+            })
+            if (file?.userId) {
+                userId = file.userId
+                sourceId = identifier.ossFileId
+                contextLabel = file.fileName ?? `文件_${identifier.ossFileId}`
+            }
+        } else if (identifier.materialId) {
+            // 纯文本材料（CASE_CONTENT）只走此路径：caseMaterials 经 caseId 解析归属用户
+            const material = await prisma.caseMaterials.findUnique({
+                where: { id: identifier.materialId },
+                select: { caseId: true, case: { select: { userId: true, title: true } } },
+            })
+            if (material?.case?.userId) {
+                userId = material.case.userId
+                sourceId = identifier.materialId
+                contextLabel = material.case.title ?? `材料_${identifier.materialId}`
+            }
+        }
+
+        if (userId == null) return // 解析不到归属用户，best-effort 跳过
+        await billDirectService(userId, 'summary_generate', { tokens: summary.length * 2 }, {
+            sourceId,
+            contextLabel,
+        })
+    } catch (billError) {
+        logger.warn('文件摘要积分扣减跳过', { ...identifier, error: billError })
+    }
+}
+
 async function callSummaryLlm(
     content: string,
     identifier: { ossFileId?: number; materialId?: number },
@@ -730,10 +777,12 @@ async function callSummaryLlm(
     let lastErr: unknown = null
     for (let attempt = 0; attempt < RETRY_DELAYS_MS.length + 1; attempt++) {
         try {
-            return await generateSummaryService(model, content, {
+            const summary = await generateSummaryService(model, content, {
                 maxChars: SUMMARY_MAX_CHARS,
                 systemPrompt,
             })
+            await chargeSummaryBilling(identifier, summary)
+            return summary
         } catch (e) {
             lastErr = e
             logger.warn(`摘要 LLM 调用第 ${attempt + 1} 次失败`, { ...identifier, error: e })

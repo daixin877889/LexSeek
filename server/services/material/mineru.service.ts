@@ -27,6 +27,7 @@ import {
 } from './mineru.dao'
 import { generateSignedUrlService, uploadFileService } from '../storage/storage.service'
 import { checkPointsService, consumePointsService } from '../point/pointConsumption.service'
+import { billDirectService } from '../point/pointBilling.service'
 import {
     findOssFileByIdDao,
     findOssFileByIdIncludeDeletedDao,
@@ -578,16 +579,18 @@ export const completeConversionService = async (
             }
         }
 
-        // 5. 扣减积分
+        // 5. 扣减积分（按真实页数；停用态自动跳过；失败不阻断已完成的解析）
         // Requirements: 3.1.17, 3.1.18
         try {
-            await consumePointsService(task.userId, DOC_PARSE_ITEM_KEY, pageCount, { sourceId: task.id })
+            await billDirectService(task.userId, DOC_PARSE_ITEM_KEY, { units: pageCount }, {
+                sourceId: task.id,
+                contextLabel: `文档_${task.ossFileId}`,
+            })
             logger.info(`PDF 转换积分扣减成功：userId=${task.userId}, pages=${pageCount}`)
         } catch (pointError) {
             // 积分扣减失败不影响转换结果，但需要记录日志
             // 识别已经完成，结果已经保存，不应该因为积分问题而标记为失败
             logger.error('PDF 转换积分扣减失败：', pointError)
-            // TODO: 可以考虑创建一个"待支付"记录，让用户充值后补扣积分
         }
 
         // 6. fire-and-forget 按 OssFile 触发摘要生成
