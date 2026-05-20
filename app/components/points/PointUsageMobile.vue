@@ -18,9 +18,9 @@
         <!-- 数据列表 -->
         <div v-else class="space-y-4">
             <div v-for="usage in list" :key="usage.key" class="border rounded-lg p-4 space-y-3">
-                <div class="flex justify-between items-start">
-                    <div>
-                        <h3 class="font-medium text-sm mb-1">
+                <div class="flex justify-between items-start gap-2">
+                    <div class="flex-1 min-w-0">
+                        <h3 class="font-medium text-sm mb-1 break-words">
                             <span>{{ usage.sceneName }}</span>
                             <span v-if="usage.contextLabel" class="text-muted-foreground">
                                 · {{ usage.contextLabel }}
@@ -30,11 +30,11 @@
                     </div>
                     <!-- 状态标签 -->
                     <span v-if="usage.status === 0"
-                        class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">异常</span>
+                        class="shrink-0 whitespace-nowrap inline-flex items-center px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">异常</span>
                     <span v-else-if="usage.status === 1"
-                        class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">处理中</span>
+                        class="shrink-0 whitespace-nowrap inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">处理中</span>
                     <span v-else-if="usage.status === 2"
-                        class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">已完成</span>
+                        class="shrink-0 whitespace-nowrap inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">已完成</span>
                 </div>
                 <!-- 计费用量（仅按次量模式） -->
                 <div v-if="usage.usageText" class="text-sm">
