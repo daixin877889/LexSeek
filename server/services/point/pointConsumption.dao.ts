@@ -136,6 +136,9 @@ export const createConsumptionRecordDao = async (
         status: number
         sourceId?: number | null
         remark?: string | null
+        operationId?: string | null
+        contextLabel?: string | null
+        usageAmount?: number | null
     },
     tx?: TxClient
 ): Promise<pointConsumptionRecords> => {
@@ -150,6 +153,9 @@ export const createConsumptionRecordDao = async (
                 status: data.status,
                 sourceId: data.sourceId,
                 remark: data.remark,
+                operationId: data.operationId ?? null,
+                contextLabel: data.contextLabel ?? null,
+                usageAmount: data.usageAmount ?? null,
                 createdAt: new Date(),
                 updatedAt: new Date(),
             },
