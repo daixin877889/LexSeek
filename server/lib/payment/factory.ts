@@ -12,6 +12,16 @@ import { PaymentConfigError } from './errors'
 /** 适配器缓存 */
 const adapterCache = new Map<PaymentChannel, IPaymentAdapter>()
 
+/**
+ * 归一化 PEM 字符串
+ *
+ * docker-compose / k8s 等环境注入多行 PEM 时常被压成单行 `\n` 字面转义，
+ * Node crypto 拿到后会报 `PEM routines:OPENSSL_internal:NO_START_LINE`。
+ * 这里做一次兜底还原：发现字面 `\n` 就替换为真实换行。
+ */
+const normalizePem = (raw: string): string =>
+    raw.includes('\\n') ? raw.replace(/\\n/g, '\n') : raw
+
 /** 获取微信支付配置 */
 const getWechatPayConfig = (): WechatPayConfig => {
     const config = useRuntimeConfig()
@@ -22,8 +32,8 @@ const getWechatPayConfig = (): WechatPayConfig => {
         mchId: config.wechatPay?.mchId || '',
         apiV3Key: config.wechatPay?.apiV3Key || '',
         serialNo: config.wechatPay?.serialNo || '',
-        privateKey: config.wechatPay?.privateKey || '',
-        platformCert: config.wechatPay?.platformCert || '',
+        privateKey: normalizePem(config.wechatPay?.privateKey || ''),
+        platformCert: normalizePem(config.wechatPay?.platformCert || ''),
     }
 }
 
