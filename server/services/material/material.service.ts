@@ -741,7 +741,9 @@ async function chargeSummaryBilling(
         }
 
         if (userId == null) return // 解析不到归属用户，best-effort 跳过
-        await billDirectService(userId, 'summary_generate', { tokens: summary.length * 2 }, {
+        // 同时传 tokens 和 units：billing_mode=1 时计费服务取 tokens，=2 时取 units（=1 表示"一次摘要"）
+        // 这样运营可在后台一键切换计费模式，无需改代码
+        await billDirectService(userId, 'summary_generate', { tokens: summary.length * 2, units: 1 }, {
             sourceId,
             contextLabel,
         })

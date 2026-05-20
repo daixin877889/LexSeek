@@ -87,7 +87,9 @@ export async function runMemoryExtractionService(params: MemoryExtractionParams)
             })
             if (caseRow) {
                 const extractedChars = result.memories.reduce((sum, m) => sum + m.text.length, 0)
-                await billDirectService(caseRow.userId, 'memory_extract', { tokens: extractedChars * 2 }, {
+                // 同时传 tokens 和 units：billing_mode=1 时计费服务取 tokens，=2 时取 units（=1 表示"一次记忆提取"）
+                // 这样运营可在后台一键切换计费模式，无需改代码
+                await billDirectService(caseRow.userId, 'memory_extract', { tokens: extractedChars * 2, units: 1 }, {
                     sourceId: caseId,
                     contextLabel: caseRow.title,
                 })
