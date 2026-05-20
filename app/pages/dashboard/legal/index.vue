@@ -22,15 +22,28 @@
             @search="handleSearch" @reset="handleReset" class="mb-4" />
 
         <!-- 热门检索 -->
-        <div class="mb-6 flex flex-wrap items-center gap-2">
-            <span
-                class="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                <Flame class="h-3.5 w-3.5" />
+        <div class="mb-6 flex flex-wrap items-center gap-2.5">
+            <span class="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                <Flame class="h-4 w-4 fill-orange-400 text-orange-500 animate-pulse" />
                 热门检索
             </span>
-            <button v-for="kw in trending.keywords.value" :key="kw" type="button"
-                class="bg-card rounded-full border px-3 py-1 text-[12.5px] text-foreground transition-colors hover:bg-muted"
+            <button v-for="(kw, idx) in trending.keywords.value" :key="kw" type="button"
+                :class="[
+                    'group inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-[12.5px] transition-all',
+                    idx === 0
+                        ? 'bg-gradient-brand-button text-white font-semibold shadow-sm hover:shadow-md'
+                        : 'bg-card border border-border/70 text-foreground/85 hover:border-primary/40 hover:text-primary'
+                ]"
                 @click="handleTrendingClick(kw)">
+                <span v-if="idx < 3"
+                    :class="[
+                        'inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold leading-none',
+                        idx === 0 ? 'bg-white/25 text-white'
+                        : idx === 1 ? 'bg-orange-100 text-orange-600'
+                        : 'bg-amber-100 text-amber-600'
+                    ]">
+                    {{ idx + 1 }}
+                </span>
                 {{ kw }}
             </button>
         </div>
