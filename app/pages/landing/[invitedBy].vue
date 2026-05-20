@@ -5,7 +5,7 @@
       <div class="nav-container">
         <div class="nav-logo">
           <img src="/logo.svg" alt="logo" class="logo-img" />
-          <span class="logo-text" :class="{ 'text-dark': scrolled }">LexSeek | 法索 AI</span>
+          <span class="logo-text" :class="{ 'text-dark': scrolled }">法索 AI | LexSeek</span>
         </div>
         <button @click="goToRegister" class="nav-btn" :class="{ 'nav-btn-scrolled': scrolled }">
           免费注册
@@ -241,7 +241,7 @@
 
     <!-- 页脚 -->
     <footer class="footer-section">
-      <p class="footer-text">© 2025 LexSeek | 法索 AI. 版权所有 — 法律科技的未来，已然到来。</p>
+      <p class="footer-text">© 2025 法索 AI | LexSeek . 版权所有 — 法律科技的未来，已然到来。</p>
     </footer>
 
     <!-- 移动端固定注册按钮 -->

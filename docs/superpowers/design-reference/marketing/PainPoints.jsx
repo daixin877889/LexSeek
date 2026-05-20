@@ -8,7 +8,7 @@ function PainPoints() {
   ];
   const ACCENT = {
     mint: { stroke: 'linear-gradient(90deg, #1EEDC4, #1E9EED)', tint: '#1EEDC4' },
-    sky:  { stroke: 'linear-gradient(90deg, #1E9EED, #0A4DA8)', tint: '#1E9EED' },
+    sky: { stroke: 'linear-gradient(90deg, #1E9EED, #0A4DA8)', tint: '#1E9EED' },
     navy: { stroke: 'linear-gradient(90deg, #0A4DA8, #090380)', tint: '#4A45B0' },
   };
   return (
@@ -17,7 +17,7 @@ function PainPoints() {
         <div style={{ textAlign: 'center', marginBottom: 48 }}>
           <p style={{ font: '500 13px/1 var(--font-sans)', color: 'var(--primary)', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 12px' }}>THE PROBLEM · 行业痛点</p>
           <h2 data-resp="section-h2" style={{ font: '700 36px/1.2 var(--font-sans)', letterSpacing: '-0.02em', margin: '0 0 16px' }}>
-            资源受限的<span style={{ background: 'linear-gradient(135deg, #1E9EED, #090380)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>"大多数"</span>
+            通用 AI 在法律实务中的<span style={{ background: 'linear-gradient(135deg, #1E9EED, #090380)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>"三大硬伤"</span>
           </h2>
         </div>
         <div data-resp="pain-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20, textAlign: 'left' }}>

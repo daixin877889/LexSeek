@@ -19,15 +19,14 @@
       <!-- 使用 flex 布局，header 固定高度，内容区域可滚动 -->
       <div class="flex h-full flex-col">
         <!-- 头部 - 固定在顶部，支持页面级隐藏 -->
-        <header
-          v-show="!hideDashboardHeader"
+        <header v-show="!hideDashboardHeader"
           class="flex h-12 shrink-0 items-center justify-between gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 bg-background/70 backdrop-blur-md border-b z-50">
           <div class="flex gap-2 px-4">
             <!-- logo -->
             <div class="flex items-center gap-2 md:hidden">
               <NuxtLink to="/dashboard" class="flex items-center gap-2">
                 <BrandLogo size="md" />
-                <h1 class="text-xl font-bold">LexSeek｜法索 AI</h1>
+                <h1 class="text-xl font-bold">法索 AI｜LexSeek</h1>
               </NuxtLink>
             </div>
 

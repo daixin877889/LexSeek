@@ -19,12 +19,12 @@
         </div>
 
         <h1 class="mb-4 text-[36px] font-bold leading-[1.15] tracking-[-0.025em] md:text-[46px]">
-          专为法律人打造的<br>
-          <span class="bg-gradient-brand bg-clip-text text-transparent">案情分析与诉讼辅助 AI 平台</span>
+          为执业律师打造的<br>
+          <span class="bg-gradient-brand bg-clip-text text-transparent">专AI 办案智能体工作台</span>
         </h1>
 
         <p class="mb-8 max-w-[500px] text-[19px] leading-[1.65] text-muted-foreground">
-          LexSeek 帮助律师精炼案件信息，洞悉复杂案情脉络，提供从概要梳理到策略预判的深度分析，助您高效决策，掌控全局。
+          法索 AI拒绝套壳对话，深度贴合诉讼研判逻辑。提供从多模态案情梳理到“双层记忆”长效跟进的专家级深度分析，助您高效决策，掌控全局。
         </p>
 
         <div class="flex flex-wrap gap-3">

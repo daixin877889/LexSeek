@@ -244,7 +244,7 @@ git commit -m "feat(ui): 营销页导航与页脚组件化并套品牌新设计"
 - `<section>` 背景 `bg-[image:var(--wash-page)]`、`relative overflow-hidden`、padding `pt-16 px-4 pb-20`（移动端可 `pt-12 pb-14`）。
 - 两团装饰光晕（`aria-hidden` 的绝对定位 div，径向渐变 + `blur`）。
 - 两栏 grid（`lg:grid-cols-[1.05fr_1fr]` gap `lg:gap-14`），移动端单栏堆叠。
-- 左栏：NEW 徽章 pill（`rounded-full`、`bg-card/70 backdrop-blur`、`border-primary/20`，内含品牌渐变「NEW」chip + 文字「合同审查 · quote 字符级高亮已上线」）；H1（首行「专为法律人打造的」+ `<br>` + 渐变行「案情分析与诉讼辅助 AI 平台」用 `bg-gradient-brand bg-clip-text text-transparent`）；副文案 `text-muted-foreground`；双按钮；信任行 3 项（小渐变圆点 + 文字）。
+- 左栏：NEW 徽章 pill（`rounded-full`、`bg-card/70 backdrop-blur`、`border-primary/20`，内含品牌渐变「NEW」chip + 文字「合同审查 · quote 字符级高亮已上线」）；H1（首行「专为执业律师打造的」+ `<br>` + 渐变行「AI 办案智能体工作台」用 `bg-gradient-brand bg-clip-text text-transparent`）；副文案 `text-muted-foreground`；双按钮；信任行 3 项（小渐变圆点 + 文字）。
 - 右栏：视频井——外层 `rounded-[18px] p-0.5 bg-gradient-brand`，内层 `rounded-2xl overflow-hidden aspect-video bg-card`，内嵌 `<video src="https://lexseek.cn/video/vcr.mp4" poster="https://lexseek.cn/video/cover.png" controls playsinline webkit-playsinline class="w-full h-full object-cover">`。
 - 主按钮：品牌渐变（`bg-gradient-to-br from-[#1E9EED] to-[#090380] text-white`），文案 `btnText`，`<NuxtLink to="/dashboard/cases/create">`；次按钮「了解更多」`<NuxtLink to="/features">`（`border-primary/20 bg-card/70`）。
 - `<script setup lang="ts">`：`import { useAuthStore } from '~/store/auth'`；`const authStore = useAuthStore()`；`const btnText = computed(() => authStore.isAuthenticated ? '开始分析' : '免费体验')`。
@@ -281,7 +281,7 @@ git commit -m "feat(ui): 首页 Hero 区块品牌重设计"
 
 按全局规则移植 `PainPoints.jsx`。结构：
 - `<section>` `bg-background`、padding `py-20 px-4`。
-- 居中标题区：小标题「THE PROBLEM · 行业痛点」（`text-primary`、`uppercase`、`tracking-[0.08em]`、13px）+ H2「资源受限的"大多数"」（「大多数」三字用品牌渐变文字 clip）。
+- 居中标题区：小标题「THE PROBLEM · 行业痛点」（`text-primary`、`uppercase`、`tracking-[0.08em]`、13px）+ H2「通用 AI 在法律实务中的"」（「三大硬伤」三字用品牌渐变文字 clip）。
 - 3 列卡片 grid（`md:grid-cols-3` gap 5），移动端单列。每卡 `data` 数组驱动 `v-for`：3 项 `{stat,title,body,accent}`，`accent` 为 `mint`/`sky`/`navy`。
 - 卡片：`bg-card rounded-2xl p-8 pt-9 border shadow-sm relative overflow-hidden`，`hover:-translate-y-1 hover:shadow-md transition`；顶部 3px 渐变描边条（accent 对应渐变）；顶部 60% 高度淡色晕（accent 色 12% 透明度→透明）；渐变大数字（64px，accent 渐变 clip）；标题 + 描述。
 - 文案沿用现有首页（`index.vue` 第 38-55 行）：50% 时间浪费 / 75% 经验鸿沟 / 50% 人才困局，描述照抄。
@@ -307,7 +307,7 @@ git commit -m "feat(ui): 首页行业痛点区块品牌重设计"
 
 ### Task 5: LandingSolutions 区块（保留区块，重做配色）
 
-设计稿无此屏——这是产品方明确要求保留的「一站式智慧法律AI」区块。**不自创新样式**：复用 Task 4/6 的卡片视觉语言（小标题 eyebrow + 渐变 H2 + 色调图标井卡片）。
+设计稿无此屏——这是产品方明确要求保留的「AI 原生办案工作台」区块。**不自创新样式**：复用 Task 4/6 的卡片视觉语言（小标题 eyebrow + 渐变 H2 + 色调图标井卡片）。
 
 **Files:**
 - Create: `app/components/landing/LandingSolutions.vue`
@@ -320,7 +320,7 @@ git commit -m "feat(ui): 首页行业痛点区块品牌重设计"
 
 结构：
 - `<section>` `bg-muted/30`、padding `py-20 px-4`，`max-w-[1200px]` 居中。
-- 居中标题区：小标题「THE SOLUTION · 解决方案」（`text-primary uppercase tracking-[0.08em] text-[13px]`）+ H2「一站式智慧法律AI」（「智慧法律AI」用品牌渐变文字 clip）+ 副文案「我们用一个平台，三大支柱，彻底解决行业痛点，将法律工作化繁为简。」
+- 居中标题区：小标题「THE SOLUTION · 解决方案」（`text-primary uppercase tracking-[0.08em] text-[13px]`）+ H2「AI 原生办案工作台」（「智慧法律AI」用品牌渐变文字 clip）+ 副文案「我们用一个平台，三大支柱，彻底解决行业痛点，将法律工作化繁为简。」
 - 3 列卡片 grid（`md:grid-cols-3` gap 5），移动端单列。`data` 数组 3 项：
   1. `{title:'分析引擎', body:'多模态AI驱动，深度分析案情与合同，提供数据驱动的决策洞见。', icon: Cpu, tint:'mint'}`
   2. `{title:'智能生成系统', body:'一键生成标准化法律文书，将律师从重复性写作中解放，效率倍增。', icon: FileText, tint:'sky'}`

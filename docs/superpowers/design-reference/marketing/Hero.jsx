@@ -50,14 +50,14 @@ function Hero({ onCtaClick }) {
               background: 'linear-gradient(135deg, #1EEDC4 0%, #1E9EED 55%, #090380 100%)',
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
               backgroundClip: 'text', color: 'transparent',
-            }}>案情分析与诉讼辅助 AI 平台</span>
+            }}>专为执业律师打造的AI 办案智能体工作台</span>
           </h1>
           <p style={{
             font: '400 19px/1.65 var(--font-sans)',
             color: 'var(--muted-foreground)', margin: '0 0 32px',
             maxWidth: 500,
           }}>
-            LexSeek 帮助律师精炼案件信息，洞悉复杂案情脉络，提供从概要梳理到策略预判的深度分析，助您高效决策，掌控全局。
+            法索 AI拒绝套壳对话，深度贴合诉讼研判逻辑。提供从多模态案情梳理到“双层记忆”长效跟进的专家级深度分析，助您高效决策，掌控全局。
           </p>
           <div style={{ display: 'flex', gap: 12 }}>
             <button onClick={onCtaClick} data-hover="press" style={{

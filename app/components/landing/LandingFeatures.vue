@@ -9,28 +9,20 @@
           强大的功能，<GradientText>简化您的工作流程</GradientText>
         </h2>
         <p class="mx-auto max-w-[640px] text-[18px] leading-[1.6] text-muted-foreground">
-          LexSeek 提供全面的案件分析工具，帮助您更高效地处理法律案件
+          法索 AI提供全面的案件分析工具，帮助您高效地处理法律实务案件
         </p>
       </div>
 
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div
-          v-for="item in FEATURES"
-          :key="item.title"
-          class="rounded-[14px] border bg-card p-6 transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-md"
-        >
-          <div
-            class="mb-4 flex size-12 items-center justify-center rounded-[12px]"
-            :style="{ background: item.tintBg }"
-          >
-            <div
-              class="size-[26px]"
-              :style="{
-                backgroundColor: item.tintFg,
-                WebkitMask: `url(/images/module_icon/${item.icon}.svg) center / contain no-repeat`,
-                mask: `url(/images/module_icon/${item.icon}.svg) center / contain no-repeat`,
-              }"
-            />
+        <div v-for="item in FEATURES" :key="item.title"
+          class="rounded-[14px] border bg-card p-6 transition hover:-translate-y-1 hover:border-primary/30 hover:shadow-md">
+          <div class="mb-4 flex size-12 items-center justify-center rounded-[12px]"
+            :style="{ background: item.tintBg }">
+            <div class="size-[26px]" :style="{
+              backgroundColor: item.tintFg,
+              WebkitMask: `url(/images/module_icon/${item.icon}.svg) center / contain no-repeat`,
+              mask: `url(/images/module_icon/${item.icon}.svg) center / contain no-repeat`,
+            }" />
           </div>
           <h3 class="mb-1.5 text-[17px] font-semibold leading-[1.3]">{{ item.title }}</h3>
           <p class="text-[13.5px] leading-[1.65] text-muted-foreground">{{ item.body }}</p>
@@ -49,13 +41,13 @@ const SKY = { tintBg: "var(--tint-sky-bg)", tintFg: "var(--tint-sky-fg)" }
 const NAVY = { tintBg: "var(--tint-navy-bg)", tintFg: "var(--tint-navy-fg)" }
 
 const FEATURES = [
-  { icon: "summary", title: "案情概要生成", body: "自动分析案件材料，生成简洁明了的案情概要，帮助您快速把握案件要点。", ...MINT },
-  { icon: "chronicle", title: "案件大事记", body: "自动整理案件时间线，按时间顺序呈现关键事件，便于您全面了解案件发展过程。", ...SKY },
-  { icon: "cause", title: "案由确认", body: "智能识别案件类型和案由，提供法律依据，帮助您准确定位案件性质。", ...SKY },
-  { icon: "claim", title: "请求权生成与分析", body: "根据案情自动生成可能的请求权，并提供详细分析和法律依据。", ...NAVY },
-  { icon: "defense", title: "对方抗辩预测", body: "预测对方可能的抗辩理由和策略，帮助您提前准备应对方案。", ...MINT },
-  { icon: "evidence", title: "证据清单", body: "分析并整理案件所需证据清单建议，让您胸有成竹。", ...SKY },
-  { icon: "trend", title: "判决趋势预测", body: "案件法律合理性审查、预测判决趋势，助您及时调整诉讼策略。", ...NAVY },
-  { icon: "lawyerLetter", title: "律师函生成", body: "一键生成专业律师函，自定义抬头与签章。", ...SKY },
+  { icon: "summary", title: "案情概要生成", body: "智能解构复杂案卷与多模态碎料，秒级生成结构化事实概要，快速建立全局认知。", ...MINT },
+  { icon: "chronicle", title: "案件大事记", body: "自动梳理案情时序脉络，精准锚定争议焦点、诉讼时效等关键程序性节点。", ...SKY },
+  { icon: "cause", title: "核心案由甄别", body: "深度关联国家标准案由规定，智能推荐并判定最符合案件事实的法定诉讼案由。", ...SKY },
+  { icon: "claim", title: "请求权基础研判", body: "系统级拆解支持诉求的核心构成要件，自动匹配对应实体法规范，夯实诉讼根基。", ...NAVY },
+  { icon: "defense", title: "对方抗辩预测", body: "模拟复盘对方当事人可能的答辩思路与抗辩焦点，辅助代理人提前筹备反驳论据。", ...MINT },
+  { icon: "evidence", title: "证据清单构建", body: "依据诉讼请求与争议要件，智能推荐符合法定证明标准的关键证据并梳理证明链条。", ...SKY },
+  { icon: "trend", title: "诉请法律合理性审查", body: "深度对齐法官裁判要素，无需依赖实体证据，从法律逻辑维度研判当事人陈述的合理性与支持概率。", ...NAVY },
+  { icon: "lawyerLetter", title: "法律文书初稿起草", body: "一键快速适配标准格式起草专业律师函、起诉状及答辩状初稿，沉淀核心法律事实要点。", ...SKY },
 ]
 </script>
