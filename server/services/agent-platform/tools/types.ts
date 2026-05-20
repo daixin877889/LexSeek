@@ -6,11 +6,51 @@
  */
 
 import { tool, type StructuredTool } from '@langchain/core/tools'
-import type { ZodObject, ZodType, z } from 'zod'
+import { z, type ZodObject, type ZodType } from 'zod'
 import type { ToolContext, ToolDefinition, ToolModule } from '#shared/types/agentTools'
 
 /** @deprecated 已迁至 shared/types/agentTools.ts，此文件保留兼容旧引用 */
 export type { ToolContext, ToolDefinition, ToolModule } from '#shared/types/agentTools'
+
+/**
+ * LLM 偶尔把对象参数 JSON.stringify 后整段当字符串回传(例如 fieldValues="{\"原告\":\"X\"}")。
+ * z.record 直接校验会报 "expected record, received string"，被 LangChain ToolNode 包成
+ * ToolMessage 让 LLM "fix and retry"，LLM 修复无效就会陷入循环 → SSE 流不结束 → 前端 loading 不停。
+ *
+ * 这里把 schema 改成 union(record | string),让 LangChain 的工具 JSON Schema 能描述这种容错
+ * (z.preprocess/transform 无法表示成 JSON Schema 会被拒绝)。handler 端通过 normalizeJsonRecord
+ * 把 string 形态 JSON.parse 还原成 record。与既有的 z.coerce.number() 容错策略对齐。
+ */
+export function jsonRecord<V extends ZodType>(valueSchema: V) {
+    return z.union([
+        z.record(z.string(), valueSchema),
+        z.string(),
+    ])
+}
+
+/**
+ * 配合 jsonRecord 使用:在 handler 内把 LLM 偶发回传的 JSON 字符串归一化为对象。
+ * - 输入是对象 → 原样返回
+ * - 输入是合法的对象 JSON 字符串 → JSON.parse 后返回
+ * - 输入是非法字符串 → 退回空对象,后续业务校验"至少有一个非 null"等逻辑会自然失败
+ *
+ * 不在这里抛错的原因:LangChain ToolNode 抛错会让 LLM "fix and retry",反而陷入循环;
+ * 让业务校验出"无字段"返回 success:false,LLM 会改 prompt 重传而不是死磕同一个字符串。
+ */
+export function normalizeJsonRecord<V>(
+    raw: Record<string, V> | string | undefined,
+): Record<string, V> | undefined {
+    if (raw == null) return undefined
+    if (typeof raw !== 'string') return raw
+    try {
+        const parsed = JSON.parse(raw)
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            return parsed as Record<string, V>
+        }
+    }
+    catch { /* fallthrough */ }
+    return {}
+}
 
 /** 工具参数定义（用于 API 返回） */
 export interface ToolParameter {

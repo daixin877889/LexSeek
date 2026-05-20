@@ -11,7 +11,7 @@
 
 import { z } from 'zod'
 import type { ToolContext, ToolDefinition } from './types'
-import { createSimpleTool } from './types'
+import { createSimpleTool, jsonRecord, normalizeJsonRecord } from './types'
 import { SSECustomEventType } from '#shared/types/agentEvent'
 import { publishCustomEvent } from '~~/server/services/agent/agentEventBridge'
 import {
@@ -27,12 +27,12 @@ import { normalizeAIInitialFieldValues } from '~~/server/agents/document/aiField
 // 用 z.coerce.number() 自动转换增强鲁棒性（与 reviewContract.tool / updateDocumentDraft.tool 对齐）。
 const schema = z.object({
     templateId: z.coerce.number().int().positive().describe('模板 ID,从 recommend_template 工具的返回值取'),
-    fieldValues: z.record(z.string(), z.string().nullable()).describe(
+    fieldValues: jsonRecord(z.string().nullable()).describe(
         '占位符名 → 值的映射;**不知道的字段必须传 null**(后端会过滤),'
         + '严禁回传"【待补充:xxx】"/"【未提供】"/"【暂无】"等占位字符串(会被自动转 null)。'
         + '至少一个字段非 null,否则视为没提取到任何信息、应继续向用户提问。',
     ),
-    suggestions: z.record(z.string(), z.string()).optional().describe(
+    suggestions: jsonRecord(z.string()).optional().describe(
         '建议用户补充的内容(占位符名 → 一句问句),会写入 metadata.suggestions',
     ),
     aiTitle: z.string().min(1).max(200).optional().describe(
@@ -61,9 +61,13 @@ export const createTool = createSimpleTool(
             throw new Error('save_document_draft: ToolContext 缺少 userId/sessionId')
         }
 
-        // 0. 兜底过滤 LLM 输出的占位字符串(「【待补充:xxx】」「【未提供】」等):
+        // 0.a LLM 偶尔把对象 JSON.stringify 整段当字符串传,先归一化成 record(jsonRecord schema 的容错对应处理)
+        const rawFieldValues = normalizeJsonRecord(input.fieldValues) ?? {}
+        const rawSuggestions = normalizeJsonRecord(input.suggestions)
+
+        // 0.b 兜底过滤 LLM 输出的占位字符串(「【待补充:xxx】」「【未提供】」等):
         //    转 null 后再走后续流程,避免占位串被当成"已填"算进字段统计、避免渲染到文书正文
-        const fieldValues = normalizeAIInitialFieldValues(input.fieldValues)
+        const fieldValues = normalizeAIInitialFieldValues(rawFieldValues)
 
         // 校验:normalize 后至少一个非 null(占位符已转 null,真值才算)
         const hasAnyValue = Object.values(fieldValues).some(v => v !== null && v !== '')
@@ -92,7 +96,7 @@ export const createTool = createSimpleTool(
         // 2. 立刻写 values + status='ready'(同步事务式)
         await updateDocumentDraftDAO(draftId, {
             values: fieldValues as any,
-            metadata: input.suggestions ? { suggestions: input.suggestions } as any : undefined,
+            metadata: rawSuggestions ? { suggestions: rawSuggestions } as any : undefined,
             status: 'ready',
         })
 

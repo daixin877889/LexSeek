@@ -120,6 +120,30 @@ describe('update_document_draft tool', () => {
         }))
     })
 
+    // 回归：截图 bug——LLM 偶尔把 fieldUpdates 整体 JSON.stringify 当字符串传(同 saveDocumentDraft)。
+    // jsonRecord schema + normalizeJsonRecord handler 联合容错：字符串自动 JSON.parse 还原成对象,避免
+    // schema 校验失败 → LangChain "fix and retry" → 死循环 → 前端 loading 不停。
+    it('LLM 把 fieldUpdates / suggestions JSON.stringify 当字符串传入时自动 JSON.parse 兜底', async () => {
+        ;(patchDraftService as any).mockResolvedValue({
+            draft: { id: 100, values: { 被告: '李四' } },
+        })
+
+        const tool = createTool({ userId: 1, sessionId: 'sess-x', runId: 'run-x' })
+        const result = await tool.invoke({
+            draftId: 100,
+            fieldUpdates: JSON.stringify({ 被告: '李四' }) as unknown as Record<string, string | null>,
+            suggestions: JSON.stringify({ 被告住址: '请补充' }) as unknown as Record<string, string>,
+        })
+
+        const parsed = JSON.parse(result as string)
+        expect(parsed.success).toBe(true)
+        expect(parsed.changedFields).toEqual(['被告'])
+        expect(patchDraftService).toHaveBeenCalledWith(1, 100, expect.objectContaining({
+            values: { 被告: '李四' },
+            metadata: { suggestions: { 被告住址: '请补充' } },
+        }))
+    })
+
     it('LLM 全部回传占位字符串时,patchDraftService 收到空对象,changedFields 为空', async () => {
         ;(patchDraftService as any).mockResolvedValue({ draft: { id: 100, values: {} } })
 
