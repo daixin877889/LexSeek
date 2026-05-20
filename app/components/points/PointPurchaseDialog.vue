@@ -11,8 +11,11 @@
                     class="border rounded-lg p-4 hover:border-primary transition-colors cursor-pointer relative">
                     <div class="flex justify-between items-start mb-2">
                         <h4 class="font-semibold">{{ product.name }}</h4>
-                        <Button size="sm" :disabled="!agreeToAgreement" class="absolute top-2 right-2 bg-gradient-brand-button text-white"
+                        <Button size="sm"
+                            :disabled="!agreeToAgreement || pendingProductId !== null"
+                            class="absolute top-2 right-2 bg-gradient-brand-button text-white"
                             @click.stop="handleBuy(product)">
+                            <Loader2 v-if="pendingProductId === product.id" class="h-3.5 w-3.5 mr-1 animate-spin" />
                             购买
                         </Button>
                     </div>
@@ -45,6 +48,8 @@
 </template>
 
 <script lang="ts" setup>
+import { Loader2 } from 'lucide-vue-next'
+
 // ==================== 类型定义 ====================
 
 /** 积分商品 */
@@ -64,6 +69,8 @@ interface Props {
     open: boolean;
     /** 商品列表 */
     productList: PointProduct[];
+    /** 当前正在发起支付的商品 ID；非空时所有购买按钮禁用，当前按钮显示加载圈 */
+    pendingProductId?: number | null;
 }
 
 const props = defineProps<Props>();

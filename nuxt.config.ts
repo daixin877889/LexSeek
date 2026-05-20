@@ -45,8 +45,8 @@ export default defineNuxtConfig({
         // 服务端默认渲染 light 主题，客户端脚本会立即修正
         class: ''
       },
-      titleTemplate: '%s | LexSeek 法索 AI',
-      title: 'LexSeek 法索 AI - 法律人专属 AI 案件分析与诉讼辅助平台',
+      titleTemplate: '%s | 法索 AI - LexSeek',
+      title: '法索 AI ｜ LexSeek  - 法律人专属 AI 案件分析与诉讼辅助平台',
       meta: [
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },

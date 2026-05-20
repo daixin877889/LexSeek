@@ -45,22 +45,22 @@ const btnText = useCtaText()
 const PILLARS = [
   {
     icon: Cpu,
-    title: "分析引擎 (多模态AI驱动...)",
-    body: "「小索」全流程研判引擎 / 深度复刻资深律师思维，支持从复杂案卷、图片到多模态录音输入，秒级重构 7 大诉讼研判要件。",
+    title: "「小索」全流程研判引擎",
+    body: "深度复刻资深律师思维，支持从复杂案卷、图片到多模态录音输入，秒级重构 7 大诉讼研判要件。",
     tintBg: "var(--tint-mint-bg)",
     tintFg: "var(--tint-mint-fg)",
   },
   {
     icon: FileText,
-    title: "智能生成系统 (一键生成标准化...)",
-    body: "90+ 标杆诉讼文书生成 / 深度融合最高院裁判规范与事实要件，一键自动适配生成起诉状、答辩状及核心抗辩思路。",
+    title: "90+ 标杆诉讼文书生成",
+    body: "深度融合最高院裁判规范与事实要件，一键自动适配生成起诉状、答辩状及核心抗辩思路。",
     tintBg: "var(--tint-sky-bg)",
     tintFg: "var(--tint-sky-fg)",
   },
   {
     icon: Users,
-    title: "协同管理平台 (即将上线...)",
-    body: "“一案一项目”双层记忆空间 / 行业首发工作记忆与案件记忆并行方案，彻底终结通用 AI 对话中的易失忆缺陷，实现案件全生命周期动态协同。",
+    title: "“一案一项目”双层记忆空间",
+    body: "行业首发工作记忆与案件记忆并行方案，彻底终结通用 AI 对话中的易失忆缺陷，实现案件全生命周期动态协同。",
     tintBg: "var(--tint-navy-bg)",
     tintFg: "var(--tint-navy-fg)",
   },

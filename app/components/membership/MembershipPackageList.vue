@@ -9,18 +9,27 @@
                 <div class="flex justify-between items-start mb-2">
                     <h4 class="font-semibold">{{ plan.name }}</h4>
                     <!-- 免费用户显示购买按钮 -->
-                    <Button v-if="isFreeUser" size="sm" :disabled="!agreeToAgreement" @click.stop="emit('buy', plan)"
+                    <Button v-if="isFreeUser" size="sm"
+                        :disabled="!agreeToAgreement || pendingProductId !== null"
+                        @click.stop="emit('buy', plan)"
                         class="absolute top-2 right-2 bg-gradient-brand-button text-white">
+                        <Loader2 v-if="pendingProductId === plan.id" class="h-3.5 w-3.5 mr-1 animate-spin" />
                         购买
                     </Button>
                     <!-- 限购商品显示购买按钮（不能升级） -->
-                    <Button v-else-if="isLimitedPurchasePlan(plan)" size="sm" :disabled="!agreeToAgreement"
-                        @click.stop="emit('buy', plan)" class="absolute top-2 right-2 bg-gradient-brand-button text-white">
+                    <Button v-else-if="isLimitedPurchasePlan(plan)" size="sm"
+                        :disabled="!agreeToAgreement || pendingProductId !== null"
+                        @click.stop="emit('buy', plan)"
+                        class="absolute top-2 right-2 bg-gradient-brand-button text-white">
+                        <Loader2 v-if="pendingProductId === plan.id" class="h-3.5 w-3.5 mr-1 animate-spin" />
                         购买
                     </Button>
                     <!-- 付费用户显示升级按钮 -->
-                    <Button v-else-if="canUpgradeToPlan(plan)" size="sm" :disabled="!agreeToAgreement"
-                        @click.stop="emit('upgrade', plan)" class="absolute top-2 right-2 bg-gradient-brand-button text-white">
+                    <Button v-else-if="canUpgradeToPlan(plan)" size="sm"
+                        :disabled="!agreeToAgreement || pendingProductId !== null"
+                        @click.stop="emit('upgrade', plan)"
+                        class="absolute top-2 right-2 bg-gradient-brand-button text-white">
+                        <Loader2 v-if="pendingProductId === plan.id" class="h-3.5 w-3.5 mr-1 animate-spin" />
                         升级
                     </Button>
                 </div>
@@ -62,6 +71,8 @@
 </template>
 
 <script lang="ts" setup>
+import { Loader2 } from 'lucide-vue-next'
+
 // 类型定义
 interface MembershipPlan {
     id: number;
@@ -94,6 +105,8 @@ const props = defineProps<{
     membershipLevels: MembershipLevel[];
     isFreeUser: boolean;
     agreeToAgreement?: boolean;
+    /** 当前正在发起支付/升级请求的商品 ID；非空时所有购买/升级按钮禁用，当前按钮显示加载圈 */
+    pendingProductId?: number | null;
 }>();
 
 // 定义 emits

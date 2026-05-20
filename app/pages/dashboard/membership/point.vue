@@ -52,7 +52,8 @@
     </div>
 
     <!-- 购买积分弹框 -->
-    <PointsPointPurchaseDialog v-model:open="showPointProducts" :product-list="pointProductList" @buy="buyPoints" />
+    <PointsPointPurchaseDialog v-model:open="showPointProducts" :product-list="pointProductList"
+      :pending-product-id="pendingProductId" @buy="buyPoints" />
 
     <!-- 微信支付弹框（支持扫码和 JSAPI） -->
     <PointsPointQRCodeDialog v-model:open="showQRCode" :qr-code-url="qrCodeUrl" :loading="paymentLoading"
@@ -488,6 +489,11 @@ const paymentPaid = ref(false);
 const currentTransactionNo = ref("");
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 
+/**
+ * 正在发起支付请求的积分商品 ID，用于按钮 loading + 禁用，避免网络延迟期间用户重复点击下单。
+ */
+const pendingProductId = ref<number | null>(null);
+
 // JSAPI 支付相关状态
 const { isInWechat, openId, ensureOpenId, redirectToAuth } = useWechatPayment();
 const useJsapiPayment = ref(false);
@@ -538,6 +544,20 @@ const onUsagePageChange = async (page: number) => {
  * 购买积分
  */
 const buyPoints = async (product: PointProduct) => {
+  // 已有正在发起的支付请求时，吞掉重复点击
+  if (pendingProductId.value !== null) return;
+  pendingProductId.value = product.id;
+  try {
+    await runBuyPoints(product);
+  } finally {
+    pendingProductId.value = null;
+  }
+};
+
+/**
+ * 实际发起积分商品支付请求，buyPoints 已用 pendingProductId 保护
+ */
+const runBuyPoints = async (product: PointProduct) => {
   // 关闭商品列表弹框
   showPointProducts.value = false;
 

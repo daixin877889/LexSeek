@@ -68,6 +68,9 @@ export function usePurchaseFlow(options?: UsePurchaseFlowOptions) {
     /** 待购买的商品 ID（用于登录后继续购买） */
     const pendingProductId = ref<number | null>(null);
 
+    /** 待购买的商品对应购买周期（与 pendingProductId 配对，用于登录后继续购买） */
+    const pendingDurationUnit = ref<DurationUnit | null>(null);
+
     /** 当前支付单号 */
     const currentTransactionNo = ref('');
 
@@ -79,8 +82,9 @@ export function usePurchaseFlow(options?: UsePurchaseFlowOptions) {
     /**
      * 发起购买
      * @param productId 商品 ID
+     * @param durationUnit 购买周期（MONTH/YEAR）；不传时按 productId===10 走月、其余走年的旧默认逻辑兜底
      */
-    const buy = async (productId: number) => {
+    const buy = async (productId: number, durationUnit?: DurationUnit) => {
         // 移除当前焦点，避免 aria-hidden 警告
         if (document.activeElement instanceof HTMLElement) {
             document.activeElement.blur();
@@ -94,33 +98,34 @@ export function usePurchaseFlow(options?: UsePurchaseFlowOptions) {
 
         // 检测登录状态
         if (!authStore.isAuthenticated) {
-            // 未登录：保存商品 ID，显示认证弹框
+            // 未登录：保存商品 ID + 周期，显示认证弹框
             pendingProductId.value = productId;
+            pendingDurationUnit.value = durationUnit ?? null;
             showAuthModal.value = true;
             return;
         }
 
         // 已登录：直接创建订单
-        await createPayment(productId);
+        await createPayment(productId, durationUnit);
     };
 
     /**
      * 创建支付订单
      * @param productId 商品 ID
+     * @param durationUnit 购买周期；不传走旧硬编码兜底（productId===10 走月，其它走年）
      */
-    const createPayment = async (productId: number) => {
+    const createPayment = async (productId: number, durationUnit?: DurationUnit) => {
         paymentLoading.value = true;
 
-        // 根据产品 ID 决定购买周期
-        // productId 10 是新手旗舰套餐，按月购买；其他产品按年购买
-        const durationUnit = productId === 10 ? DurationUnit.MONTH : DurationUnit.YEAR;
+        // 优先用调用方传入的 durationUnit；缺省时退回旧逻辑保持兼容
+        const finalDurationUnit = durationUnit ?? (productId === 10 ? DurationUnit.MONTH : DurationUnit.YEAR);
 
         const result = await useApiFetch<PaymentCreateResponse>("/api/v1/payments/create", {
             method: "POST",
             body: {
                 productId,
                 duration: 1,
-                durationUnit,
+                durationUnit: finalDurationUnit,
                 paymentChannel: PaymentChannel.WECHAT,
                 paymentMethod: PaymentMethod.SCAN_CODE,
             },
@@ -151,11 +156,13 @@ export function usePurchaseFlow(options?: UsePurchaseFlowOptions) {
     const handleAuthSuccess = () => {
         showAuthModal.value = false;
 
-        // 如果有待购买的商品，继续购买流程
+        // 如果有待购买的商品，带上发起购买时记下的 durationUnit 继续购买
         if (pendingProductId.value) {
             const productId = pendingProductId.value;
+            const durationUnit = pendingDurationUnit.value ?? undefined;
             pendingProductId.value = null;
-            createPayment(productId);
+            pendingDurationUnit.value = null;
+            createPayment(productId, durationUnit);
         }
     };
 
@@ -165,6 +172,7 @@ export function usePurchaseFlow(options?: UsePurchaseFlowOptions) {
     const handleAuthCancel = () => {
         showAuthModal.value = false;
         pendingProductId.value = null;
+        pendingDurationUnit.value = null;
         options?.onCancel?.();
     };
 

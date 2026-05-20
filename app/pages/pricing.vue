@@ -17,18 +17,13 @@
     <!-- 套餐卡片 -->
     <section class="bg-background px-4 pt-10 pb-20">
       <div class="mx-auto max-w-[1240px]">
-        <div class="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-4">
-          <div
-            v-for="plan in PLANS"
-            :key="plan.productId"
+        <div :class="planGridClass">
+          <div v-for="plan in visiblePlans" :key="plan.productId"
             class="relative flex flex-col overflow-hidden rounded-[18px] bg-card p-7 transition hover:-translate-y-1"
-            :class="CARD_CLASS[plan.variant]"
-          >
-            <div
-              v-if="plan.badge"
+            :class="CARD_CLASS[plan.variant]">
+            <div v-if="plan.badge"
               class="absolute right-0 top-0 rounded-bl-[10px] px-3 py-[5px] text-[11px] font-semibold tracking-[0.04em] text-white"
-              :class="BADGE_CLASS[plan.variant]"
-            >{{ plan.badge }}</div>
+              :class="BADGE_CLASS[plan.variant]">{{ plan.badge }}</div>
 
             <h3 class="mb-3.5 text-[22px] font-bold leading-[1.2]">{{ plan.name }}</h3>
             <div class="mb-2 flex items-baseline gap-1.5">
@@ -38,7 +33,8 @@
             <div v-if="plan.strike" class="mb-2 text-[12.5px] text-muted-foreground">
               原价 <span class="line-through">{{ plan.strike }}</span>
             </div>
-            <div class="mb-3.5 inline-flex w-fit rounded-full bg-primary/10 px-2.5 py-1 text-[11.5px] font-semibold text-primary">
+            <div
+              class="mb-3.5 inline-flex w-fit rounded-full bg-primary/10 px-2.5 py-1 text-[11.5px] font-semibold text-primary">
               {{ plan.bonus }}
             </div>
             <p class="mb-[18px] text-[13.5px] leading-[1.5] text-muted-foreground">{{ plan.flavor }}</p>
@@ -48,25 +44,28 @@
                 <Check class="mt-[3px] size-4 shrink-0 text-green-500" />
                 <span>{{ p.label }}<span v-if="p.soon" class="text-muted-foreground"> (即将上线)</span></span>
               </li>
-              <li v-for="c in plan.crossed" :key="c" class="flex items-start gap-2 text-[13.5px] leading-[1.5] text-muted-foreground">
+              <li v-for="c in plan.crossed" :key="c"
+                class="flex items-start gap-2 text-[13.5px] leading-[1.5] text-muted-foreground">
                 <X class="mt-[3px] size-4 shrink-0 opacity-50" />
                 <span>{{ c }}</span>
               </li>
             </ul>
 
-            <button
-              type="button"
-              class="rounded-md px-4 py-3 text-[14px] font-semibold transition hover:brightness-105 active:scale-[0.98]"
+            <button type="button"
+              class="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-3 text-[14px] font-semibold transition hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
               :class="BTN_CLASS[plan.variant]"
-              @click="buy(plan.productId)"
-            >{{ plan.cta }}</button>
+              :disabled="pendingProductId !== null"
+              @click="buy(plan)">
+              <Loader2 v-if="pendingProductId === plan.productId" class="h-4 w-4 animate-spin" />
+              {{ plan.cta }}
+            </button>
             <p class="mt-3.5 text-center text-[11.5px] font-medium" :class="FOOTNOTE_CLASS[plan.variant]">
               {{ plan.footnote }}
             </p>
           </div>
         </div>
         <p class="mt-7 text-center text-[14px] font-medium text-muted-foreground">
-          注册享 7 天全功能免费试用，<NuxtLink to="/register" class="font-bold text-primary hover:underline">立即注册</NuxtLink>体验
+          注册享 1 天全功能免费试用，<NuxtLink to="/register" class="font-bold text-primary hover:underline">立即注册</NuxtLink>体验
         </p>
       </div>
     </section>
@@ -87,20 +86,23 @@
                 <tr class="bg-primary/[0.06]">
                   <th class="w-28 px-4 py-3.5 text-left text-[13px] font-semibold">分类</th>
                   <th class="w-60 px-4 py-3.5 text-left text-[13px] font-semibold">功能名称</th>
-                  <th v-for="n in PLAN_NAMES" :key="n" class="px-4 py-3.5 text-center text-[13px] font-semibold">{{ n }}</th>
+                  <th v-for="col in visibleComparisonColumns" :key="col.name"
+                    class="px-4 py-3.5 text-center text-[13px] font-semibold">{{ col.name }}</th>
                 </tr>
               </thead>
               <tbody>
                 <template v-for="group in COMPARISON" :key="group.group">
                   <tr v-for="(row, ri) in group.rows" :key="row.label" class="border-t">
-                    <td v-if="ri === 0" :rowspan="group.rows.length" class="px-4 py-3 align-middle text-[13px] font-semibold">
+                    <td v-if="ri === 0" :rowspan="group.rows.length"
+                      class="px-4 py-3 align-middle text-[13px] font-semibold">
                       {{ group.group }}
                     </td>
                     <td class="px-4 py-3 text-[13.5px]">{{ row.label }}</td>
-                    <td v-for="(c, ci) in row.cells" :key="ci" class="px-4 py-3 text-center">
-                      <Check v-if="c === true" class="mx-auto size-4 text-green-600" />
-                      <X v-else-if="c === false" class="mx-auto size-4 text-red-500 opacity-55" />
-                      <span v-else class="text-[13px] font-medium">{{ c }}</span>
+                    <td v-for="col in visibleComparisonColumns" :key="col.name" class="px-4 py-3 text-center">
+                      <Check v-if="row.cells[col.cellIndex] === true" class="mx-auto size-4 text-green-600" />
+                      <X v-else-if="row.cells[col.cellIndex] === false"
+                        class="mx-auto size-4 text-red-500 opacity-55" />
+                      <span v-else class="text-[13px] font-medium">{{ row.cells[col.cellIndex] }}</span>
                     </td>
                   </tr>
                 </template>
@@ -130,11 +132,8 @@
           </h2>
         </div>
         <div class="flex flex-col gap-3.5">
-          <div
-            v-for="it in FAQ"
-            :key="it.q"
-            class="rounded-xl border bg-card px-[22px] py-5 transition hover:-translate-y-1 hover:shadow-md"
-          >
+          <div v-for="it in FAQ" :key="it.q"
+            class="rounded-xl border bg-card px-[22px] py-5 transition hover:-translate-y-1 hover:shadow-md">
             <h3 class="mb-1.5 text-[16px] font-semibold leading-[1.3]">{{ it.q }}</h3>
             <p class="text-[14px] leading-[1.65] text-muted-foreground">{{ it.a }}</p>
           </div>
@@ -142,29 +141,34 @@
       </div>
     </section>
 
+    <!-- 行动号召：复用首页底部品牌渐变样式；副按钮唤起客服弹窗 -->
+    <LandingCta primary-text="免费注册" primary-to="/register" secondary-text="联系客服"
+      :secondary-handler="() => wxSupportStore.showQrCode()">
+      <template #title>开始免费试用</template>
+      <template #description>立即注册并获得 7 天全功能免费试用</template>
+    </LandingCta>
+
     <!-- 购买流程组件（包含认证弹框和支付二维码弹框） -->
-    <PurchaseFlow
-      v-model:show-auth-modal="purchaseFlow.showAuthModal.value"
+    <PurchaseFlow v-model:show-auth-modal="purchaseFlow.showAuthModal.value"
       :auth-modal-tab="purchaseFlow.authModalTab.value"
-      v-model:show-q-r-code-dialog="purchaseFlow.showQRCodeDialog.value"
-      :qr-code-url="purchaseFlow.qrCodeUrl.value"
-      :payment-loading="purchaseFlow.paymentLoading.value"
-      :payment-paid="purchaseFlow.paymentPaid.value"
-      @auth-success="purchaseFlow.handleAuthSuccess"
-      @auth-cancel="purchaseFlow.handleAuthCancel"
-      @close-q-r-code="purchaseFlow.closeQRCodeDialog"
-    />
+      v-model:show-q-r-code-dialog="purchaseFlow.showQRCodeDialog.value" :qr-code-url="purchaseFlow.qrCodeUrl.value"
+      :payment-loading="purchaseFlow.paymentLoading.value" :payment-paid="purchaseFlow.paymentPaid.value"
+      @auth-success="purchaseFlow.handleAuthSuccess" @auth-cancel="purchaseFlow.handleAuthCancel"
+      @close-q-r-code="purchaseFlow.closeQRCodeDialog" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { Check, X, ShieldX } from "lucide-vue-next"
+import { Check, X, ShieldX, Loader2 } from "lucide-vue-next"
 import BrandEyebrow from "~/components/general/BrandEyebrow.vue"
 import GradientText from "~/components/general/GradientText.vue"
 import HeroGlow from "~/components/general/HeroGlow.vue"
+import LandingCta from "~/components/landing/LandingCta.vue"
 import PurchaseFlow from "~/components/purchase/PurchaseFlow.vue"
 import { usePurchaseFlow } from "~/composables/usePurchaseFlow"
 import { useSiteSeo } from "~/composables/useSiteSeo"
+import { useWxSupportStore } from "~/store/wxSupport"
+import { DurationUnit } from "#shared/types/payment"
 import { breadcrumbLd, faqLd } from "#shared/utils/seo/jsonLd"
 
 definePageMeta({
@@ -172,10 +176,16 @@ definePageMeta({
   title: "价格方案",
 })
 
+const wxSupportStore = useWxSupportStore()
+
 type Variant = "amber" | "sky" | "plain"
 
 interface Plan {
   productId: number
+  // hidden: true 表示该方案在售卖页隐藏，但数据仍保留，方便后续按需开放
+  hidden?: boolean
+  // 购买周期：1=按月，2=按年。决定下单时 durationUnit 字段，必须与 admin 后台该商品的配置一致
+  defaultDuration: 1 | 2
   variant: Variant
   badge: string | null
   name: string
@@ -213,23 +223,23 @@ const FOOTNOTE_CLASS: Record<Variant, string> = {
 
 const PLANS: Plan[] = [
   {
-    productId: 10, variant: "amber", badge: "新手专享",
+    productId: 10, defaultDuration: 1, variant: "amber", badge: "新手专享",
     name: "新手旗舰套餐", price: "¥9.9", cycle: "/月", strike: null,
     bonus: "赠送 300 积分", flavor: "旗舰版会员，限购 1 次", cta: "立即抢购", footnote: "每人限购一次",
     perks: [
       { label: "5GB 云盘存储空间" },
-      { label: "专业版所有功能" },
+      { label: "无功能限制" },
       { label: "录音智能转写" },
-      { label: "全部案件可视化工具", soon: true },
-      { label: "起诉状答辩状撰写" },
-      { label: "案件复盘", soon: true },
+      { label: "全部案件可视化工具" },
+      { label: "文书生成" },
+      { label: "合同审查" },
       { label: "后续更新的所有功能" },
       { label: "专属客服服务" },
     ],
     crossed: [],
   },
   {
-    productId: 1, variant: "plain", badge: null,
+    productId: 1, hidden: true, defaultDuration: 2, variant: "plain", badge: null,
     name: "基础版", price: "¥365", cycle: "/年", strike: "¥780",
     bonus: "赠送 3,650 积分", flavor: "适合做简单的案件分析", cta: "订阅基础版会员", footnote: "功能存在部份限制",
     perks: [
@@ -240,7 +250,7 @@ const PLANS: Plan[] = [
     crossed: ["案由确认功能", "请求权分析功能", "对方抗辩预测功能", "证据清单建议", "案件可视化工具"],
   },
   {
-    productId: 2, variant: "sky", badge: "推荐方案",
+    productId: 2, hidden: true, defaultDuration: 2, variant: "sky", badge: "推荐方案",
     name: "专业版", price: "¥680", cycle: "/年", strike: "¥1,280",
     bonus: "赠送 6,800 积分", flavor: "适合做专业的案件分析", cta: "订阅专业版会员", footnote: "最受欢迎的选择",
     perks: [
@@ -256,16 +266,33 @@ const PLANS: Plan[] = [
     crossed: [],
   },
   {
-    productId: 3, variant: "plain", badge: null,
-    name: "旗舰版", price: "¥1,280", cycle: "/年", strike: "¥2,480",
-    bonus: "赠送 12,800 积分", flavor: "适合做案件深度分析及案例研究", cta: "订阅旗舰版会员", footnote: "功能无限制",
+    productId: 11, defaultDuration: 1, variant: "plain", badge: null,
+    name: "旗舰版(包月)", price: "¥199", cycle: "/月", strike: "¥ 299",
+    bonus: "赠送 1990 积分", flavor: "适合短期案件深度分析及案例研究", cta: "订阅旗舰版会员", footnote: "功能无限制",
     perks: [
       { label: "5GB 云盘存储空间" },
-      { label: "专业版所有功能" },
+      { label: "无功能限制" },
       { label: "录音智能转写" },
-      { label: "全部案件可视化工具", soon: true },
-      { label: "起诉状答辩状撰写" },
-      { label: "案件复盘", soon: true },
+      { label: "全部案件可视化工具" },
+      { label: "文书生成" },
+      { label: "合同审查" },
+      { label: "后续更新的所有功能" },
+      { label: "专属客服服务" },
+    ],
+    crossed: [],
+  },
+
+  {
+    productId: 3, defaultDuration: 2, variant: "sky", badge: "年度订阅更划算",
+    name: "旗舰版(包年)", price: "¥1,280", cycle: "/年", strike: "¥2,480",
+    bonus: "赠送 12,800 积分", flavor: "适合短期案件深度分析及案例研究", cta: "订阅旗舰版会员", footnote: "功能无限制",
+    perks: [
+      { label: "5GB 云盘存储空间" },
+      { label: "无功能限制" },
+      { label: "录音智能转写" },
+      { label: "全部案件可视化工具" },
+      { label: "文书生成" },
+      { label: "合同审查" },
       { label: "后续更新的所有功能" },
       { label: "专属客服服务" },
     ],
@@ -273,7 +300,31 @@ const PLANS: Plan[] = [
   },
 ]
 
-const PLAN_NAMES = ["免费版", "基础版", "专业版", "旗舰版"]
+// 只渲染未隐藏的方案；卡片栅格根据数量动态扩列，让卡片始终占满容器宽度。
+const visiblePlans = computed(() => PLANS.filter(p => !p.hidden))
+const planGridClass = computed(() => {
+  switch (visiblePlans.value.length) {
+    case 1: return 'mx-auto grid max-w-[420px] grid-cols-1'
+    case 2: return 'mx-auto grid max-w-[820px] grid-cols-1 gap-[18px] sm:grid-cols-2'
+    case 3: return 'grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-3'
+    default: return 'grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-4'
+  }
+})
+
+// 功能对比表的列定义：免费版固定显示（不在 PLANS 里），其它列与 PLANS 通过 productId 关联，
+// 当 PLANS 中对应方案设为 hidden 时，对比表的列与单元格一起隐藏。
+// cellIndex 用于在 COMPARISON.rows[].cells 数组中取对应位置的值。
+const COMPARISON_COLUMNS = [
+  { name: "免费版", productId: null as number | null, cellIndex: 0 },
+  { name: "基础版", productId: 1 as number | null, cellIndex: 1 },
+  { name: "专业版", productId: 2 as number | null, cellIndex: 2 },
+  { name: "旗舰版", productId: 3 as number | null, cellIndex: 3 },
+]
+
+const visibleComparisonColumns = computed(() => {
+  const hiddenIds = new Set(PLANS.filter(p => p.hidden).map(p => p.productId))
+  return COMPARISON_COLUMNS.filter(col => col.productId == null || !hiddenIds.has(col.productId))
+})
 
 const COMPARISON = [
   {
@@ -326,8 +377,22 @@ const purchaseFlow = usePurchaseFlow({
   },
 })
 
-const buy = (productId: number) => {
-  purchaseFlow.buy(productId)
+/**
+ * 正在发起支付请求的商品 ID，用于按钮 loading + 禁用，避免网络延迟期间用户重复点击下单。
+ * 已登录走 createPayment 直到 fetch 完成；未登录走认证弹框（return 即释放，弹框已挡住点击）。
+ */
+const pendingProductId = ref<number | null>(null)
+
+// 按 plan.defaultDuration 决定 durationUnit：1=月，其它=年。和 level 页一致，避免下单时落到旧硬编码逻辑里。
+const buy = async (plan: Plan) => {
+  if (pendingProductId.value !== null) return
+  pendingProductId.value = plan.productId
+  try {
+    const durationUnit = plan.defaultDuration === 1 ? DurationUnit.MONTH : DurationUnit.YEAR
+    await purchaseFlow.buy(plan.productId, durationUnit)
+  } finally {
+    pendingProductId.value = null
+  }
 }
 
 const { siteUrl } = useRuntimeConfig().public.seo

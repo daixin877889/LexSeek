@@ -9,7 +9,7 @@
           用 AI 重新定义<span class="bg-gradient-brand bg-clip-text text-transparent">法律服务</span>
         </h1>
         <p class="mx-auto max-w-[680px] text-[19px] leading-[1.6] text-muted-foreground">
-          了解 LexSeek 的使命和团队 — 我们致力于通过 AI 技术革新法律服务
+          了解 法索 AI 的使命和团队 — 我们致力于通过 AI 技术革新法律服务
         </p>
       </div>
     </section>
@@ -23,7 +23,7 @@
             让法律工作<GradientText>更高效、更普惠</GradientText>
           </h2>
           <p class="mb-3.5 text-[15px] leading-[1.75] text-muted-foreground">
-            LexSeek 致力于将人工智能技术与法律专业知识相结合，为法律从业者提供高效、准确的案件分析工具，帮助律师节省时间，提高工作效率，让法律服务更加普惠。
+            法索 AI 致力于将人工智能技术与法律专业知识相结合，为法律从业者提供高效、准确的案件分析工具，帮助律师节省时间，提高工作效率，让法律服务更加普惠。
           </p>
           <p class="mb-3.5 text-[15px] leading-[1.75] text-muted-foreground">
             我们相信，通过技术创新，可以简化法律工作中的繁琐任务，让律师能够更专注于创造性思维和客户服务，从而提供更高质量的法律服务。
@@ -32,7 +32,8 @@
             同时，我们也致力于通过技术降低法律服务的门槛，让更多人能够获得专业、高效的法律帮助。
           </p>
         </div>
-        <div class="relative overflow-hidden rounded-[18px] bg-gradient-brand p-9 text-white shadow-[0_20px_50px_-20px_rgba(9,3,128,0.45)]">
+        <div
+          class="relative overflow-hidden rounded-[18px] bg-gradient-brand p-9 text-white shadow-[0_20px_50px_-20px_rgba(9,3,128,0.45)]">
           <div aria-hidden="true" class="absolute -right-10 -top-10 size-[200px] rounded-full bg-white/[0.08]" />
           <div aria-hidden="true" class="absolute -bottom-12 -left-8 size-[180px] rounded-full bg-white/[0.06]" />
           <Quote class="relative mb-4 size-10 opacity-85" />
@@ -40,12 +41,14 @@
             我们的愿景是打造一个智能法律助手，它不仅能够理解法律语言，还能够像经验丰富的律师一样思考和分析案件。
           </blockquote>
           <div class="relative flex items-center gap-3">
-            <div class="flex size-11 items-center justify-center rounded-full bg-white/[0.18] text-[14px] font-bold backdrop-blur-sm">
-              程
-            </div>
+            <img
+              src="/ceo.jpg"
+              alt="程子洋"
+              class="size-11 shrink-0 rounded-full object-cover ring-2 ring-white/30"
+            />
             <div>
               <div class="text-[15px] font-semibold">程子洋</div>
-              <div class="mt-[3px] text-[12.5px] opacity-85">LexSeek 创始人 &amp; CEO</div>
+              <div class="mt-[3px] text-[12.5px] opacity-85">法索 AI 创始人 &amp; CEO</div>
             </div>
           </div>
         </div>
@@ -65,15 +68,10 @@
           </p>
         </div>
         <div class="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-3">
-          <div
-            v-for="v in VALUES"
-            :key="v.title"
-            class="rounded-2xl border bg-card p-[26px] transition hover:-translate-y-1 hover:shadow-md"
-          >
-            <div
-              class="mb-4 flex size-12 items-center justify-center rounded-[12px]"
-              :style="{ background: v.tintBg, color: v.tintFg }"
-            >
+          <div v-for="v in VALUES" :key="v.title"
+            class="rounded-2xl border bg-card p-[26px] transition hover:-translate-y-1 hover:shadow-md">
+            <div class="mb-4 flex size-12 items-center justify-center rounded-[12px]"
+              :style="{ background: v.tintBg, color: v.tintFg }">
               <component :is="v.icon" class="size-[22px]" />
             </div>
             <h3 class="mb-2 text-[18px] font-semibold leading-[1.3]">{{ v.title }}</h3>
@@ -96,7 +94,8 @@
           </p>
           <div class="flex flex-col gap-3.5">
             <div v-for="c in CONTACTS" :key="c.title" class="flex items-center gap-3.5">
-              <div class="flex size-[42px] items-center justify-center rounded-[11px] bg-[image:var(--tint-sky-bg)] text-[color:var(--tint-sky-fg)]">
+              <div
+                class="flex size-[42px] items-center justify-center rounded-[11px] bg-[image:var(--tint-sky-bg)] text-[color:var(--tint-sky-fg)]">
                 <component :is="c.icon" class="size-[18px]" />
               </div>
               <div>
@@ -110,11 +109,8 @@
           <BrandEyebrow class="mb-3.5">WECHAT</BrandEyebrow>
           <h3 class="mb-[18px] text-[20px] font-bold leading-[1.3]">扫码添加客服微信</h3>
           <div class="mx-auto mb-4 w-fit rounded-[14px] bg-gradient-brand p-1">
-            <img
-              src="/images/mpwxcode.jpg"
-              alt="客服微信二维码"
-              class="block size-[200px] rounded-[11px] bg-card object-contain"
-            >
+            <img src="/images/mpwxcode.jpg" alt="客服微信二维码"
+              class="block size-[200px] rounded-[11px] bg-card object-contain">
           </div>
           <p class="text-[13px] leading-[1.5] text-muted-foreground">7×12 小时在线，节假日除外</p>
         </div>
@@ -123,30 +119,22 @@
 
     <!-- 加入我们 -->
     <section class="relative overflow-hidden bg-gradient-brand px-4 py-20 text-white">
-      <div
-        aria-hidden="true"
+      <div aria-hidden="true"
         class="pointer-events-none absolute -top-[100px] left-[20%] h-[400px] w-[400px] rounded-full"
-        style="background: #1EEDC4; opacity: 0.25; filter: blur(80px);"
-      />
-      <div
-        aria-hidden="true"
+        style="background: #1EEDC4; opacity: 0.25; filter: blur(80px);" />
+      <div aria-hidden="true"
         class="pointer-events-none absolute -bottom-[100px] right-[15%] h-[350px] w-[350px] rounded-full"
-        style="background: #090380; opacity: 0.4; filter: blur(80px);"
-      />
+        style="background: #090380; opacity: 0.4; filter: blur(80px);" />
       <div class="relative z-[1] mx-auto max-w-[880px] text-center">
-        <h2 class="mb-3.5 text-[28px] font-bold leading-[1.2] tracking-[-0.025em] md:text-[36px]">加入 LexSeek 团队</h2>
+        <h2 class="mb-3.5 text-[28px] font-bold leading-[1.2] tracking-[-0.025em] md:text-[36px]">加入 法索 AI 团队</h2>
         <p class="mx-auto mb-8 max-w-[640px] text-[18px] leading-[1.6] opacity-90">
           我们正在寻找对法律科技充满热情的人才加入团队，一起打造未来的法律 AI 工具
         </p>
         <div class="flex flex-wrap justify-center gap-3.5">
-          <a
-            href="mailto:lexseek@lvhong-lawer.com"
-            class="rounded-md bg-white px-7 py-3.5 text-[15px] font-semibold text-[#0A4DA8] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.3)] transition hover:brightness-95 active:scale-[0.98]"
-          >查看职位机会</a>
-          <a
-            href="#contact"
-            class="rounded-md border border-white/30 bg-white/[0.12] px-7 py-3.5 text-[15px] font-semibold text-white backdrop-blur-md transition hover:bg-white/20"
-          >联系我们</a>
+          <a href="mailto:lexseek@lvhong-lawer.com"
+            class="rounded-md bg-white px-7 py-3.5 text-[15px] font-semibold text-[#0A4DA8] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.3)] transition hover:brightness-95 active:scale-[0.98]">联系我们</a>
+          <!-- <a href="#contact"
+            class="rounded-md border border-white/30 bg-white/[0.12] px-7 py-3.5 text-[15px] font-semibold text-white backdrop-blur-md transition hover:bg-white/20">联系我们</a> -->
         </div>
       </div>
     </section>

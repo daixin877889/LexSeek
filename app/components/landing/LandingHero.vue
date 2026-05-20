@@ -19,8 +19,8 @@
         </div>
 
         <h1 class="mb-4 text-[36px] font-bold leading-[1.15] tracking-[-0.025em] md:text-[46px]">
-          为执业律师打造的<br>
-          <span class="bg-gradient-brand bg-clip-text text-transparent">专AI 办案智能体工作台</span>
+          专为执业律师打造的<br>
+          <span class="bg-gradient-brand bg-clip-text text-transparent">AI 办案智能体工作台</span>
         </h1>
 
         <p class="mb-8 max-w-[500px] text-[19px] leading-[1.65] text-muted-foreground">

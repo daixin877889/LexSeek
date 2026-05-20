@@ -18,11 +18,13 @@
           <!-- 套餐列表 -->
           <MembershipPackageList :product-list="productList" :selected-plan-level="selectedPlanLevel"
             :current-membership="currentMembership" :membership-levels="membershipLevels" :is-free-user="isFreeUser"
+            :pending-product-id="pendingProductId"
             v-model:agree-to-agreement="agreeToPurchaseAgreement" @select="selectPlan" @buy="buy"
             @upgrade="upgradeToPlan" />
 
           <!-- 会员权益 -->
-          <MembershipBenefits :key="benefitsLevelName" :selected-level="benefitsLevelName" />
+          <MembershipBenefits :key="benefitsLevelName" :selected-level="benefitsLevelName"
+            :visible-levels="visibleBenefitLevels" />
         </div>
       </TabsContent>
 
@@ -54,7 +56,7 @@
 
     <!-- 续期弹框 -->
     <MembershipRenewalDialog v-model:open="showRenewalDialog" :product-list="productList"
-      v-model:agree-to-agreement="agreeToPurchaseAgreement" @buy="buy" />
+      :pending-product-id="pendingProductId" v-model:agree-to-agreement="agreeToPurchaseAgreement" @buy="buy" />
   </div>
 </template>
 
@@ -229,6 +231,12 @@ const paymentPaid = ref(false);
 const currentTransactionNo = ref("");
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 
+/**
+ * 正在发起支付 / 升级请求的商品 ID，用于按钮 loading + 禁用，避免网络延迟期间用户重复点击下单。
+ * null 表示空闲；非空表示该商品对应卡片正在发请求，所有购买/升级按钮都禁用。
+ */
+const pendingProductId = ref<number | null>(null);
+
 // JSAPI 支付相关状态
 const { isInWechat, openId, ensureOpenId, redirectToAuth } = useWechatPayment();
 const useJsapiPayment = ref(false);
@@ -257,6 +265,23 @@ const benefitsLevelName = computed(() => {
     return getLevelNameByLevelId(selectedPlan.levelId);
   }
   return selectedPlanLevel.value || "免费版";
+});
+
+/**
+ * 权益表显示的级别列：免费版始终显示，付费版按当前在售商品的 levelId 联动过滤
+ * 这样 admin 后台下架某个商品后，对应级别的权益列也跟着隐藏，与套餐卡片保持一致
+ */
+const visibleBenefitLevels = computed<string[]>(() => {
+  const names: string[] = ["免费版"];
+  const seen = new Set<string>(names);
+  for (const plan of productList.value) {
+    const name = getLevelNameByLevelId(plan.levelId);
+    if (!seen.has(name)) {
+      names.push(name);
+      seen.add(name);
+    }
+  }
+  return names;
 });
 
 // ==================== 方法定义 ====================
@@ -290,6 +315,9 @@ const blurActiveElement = () => {
  * 购买会员
  */
 const buy = async (plan: MembershipPlan) => {
+  // 已有正在发起的支付请求时，吞掉重复点击
+  if (pendingProductId.value !== null) return;
+
   // 关闭续期弹框
   showRenewalDialog.value = false;
   blurActiveElement();
@@ -297,6 +325,19 @@ const buy = async (plan: MembershipPlan) => {
   // 根据商品的 defaultDuration 确定购买周期
   // defaultDuration: 1-按月, 2-按年
   const durationUnit = plan.defaultDuration === 1 ? DurationUnit.MONTH : DurationUnit.YEAR;
+
+  pendingProductId.value = plan.id;
+  try {
+    await runBuy(plan, durationUnit);
+  } finally {
+    pendingProductId.value = null;
+  }
+};
+
+/**
+ * 实际发起购买请求，buy 已用 pendingProductId 保护
+ */
+const runBuy = async (plan: MembershipPlan, durationUnit: DurationUnit) => {
 
   // 判断是否使用 JSAPI 支付
   const shouldUseJsapi = isInWechat.value;
@@ -475,11 +516,14 @@ const handleJsapiResult = async (result: WechatPaymentResult) => {
  * 升级到指定套餐
  */
 const upgradeToPlan = async (plan: MembershipPlan) => {
+  // 已有正在发起的请求时，吞掉重复点击
+  if (pendingProductId.value !== null) return;
   blurActiveElement();
 
   // 获取升级选项
   upgradeOptionsLoading.value = true;
   showUpgradeDialog.value = true;
+  pendingProductId.value = plan.id;
 
   // 调用 API 获取升级选项
   const result = await useApiFetch<{
@@ -493,6 +537,9 @@ const upgradeToPlan = async (plan: MembershipPlan) => {
     options: UpgradeOption[];
   }>("/api/v1/memberships/upgrade/options", {
     showError: false,
+  }).finally(() => {
+    // API 请求结束（成功/失败）后释放按钮锁；后续升级弹窗内的支付有自己的 loading 控制
+    pendingProductId.value = null;
   });
 
   if (!result || !result.currentMembership) {

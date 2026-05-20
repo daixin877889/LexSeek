@@ -6,10 +6,10 @@
       <div class="relative z-[1] mx-auto max-w-[900px] text-center">
         <BrandEyebrow class="mb-3.5">FEATURES</BrandEyebrow>
         <h1 class="mb-4 text-[36px] font-bold leading-[1.15] tracking-[-0.025em] md:text-[48px]">
-          全方位<span class="bg-gradient-brand bg-clip-text text-transparent">法律分析工具</span>
+          全方位<span class="bg-gradient-brand bg-clip-text text-transparent">法律实务研判工作台</span>
         </h1>
         <p class="mx-auto max-w-[680px] text-[19px] leading-[1.6] text-muted-foreground">
-          了解 LexSeek 如何通过 AI 技术赋能法律分析，提升您的工作效率
+          了解 法索 AI 如何将专家级办案思维与 AI 智能体融合，重塑诉讼业务效能。
         </p>
       </div>
     </section>
@@ -24,17 +24,12 @@
           </h2>
         </div>
         <div class="flex flex-col gap-6">
-          <div
-            v-for="(f, i) in MAIN_FEATURES"
-            :key="f.title"
-            class="grid items-center gap-9 rounded-[18px] border bg-card p-7 transition hover:-translate-y-1 hover:shadow-md lg:grid-cols-2"
-          >
+          <div v-for="(f, i) in MAIN_FEATURES" :key="f.title"
+            class="grid items-center gap-9 rounded-[18px] border bg-card p-7 transition hover:-translate-y-1 hover:shadow-md lg:grid-cols-2">
             <div :class="i % 2 === 1 ? 'lg:order-2' : ''">
               <div class="mb-3 flex items-center gap-3.5">
-                <div
-                  class="flex size-12 shrink-0 items-center justify-center rounded-[12px]"
-                  :style="{ background: f.tintBg, color: f.tintFg }"
-                >
+                <div class="flex size-12 shrink-0 items-center justify-center rounded-[12px]"
+                  :style="{ background: f.tintBg, color: f.tintFg }">
                   <component :is="f.icon" class="size-[22px]" />
                 </div>
                 <h3 class="text-[24px] font-bold leading-[1.25]">{{ f.title }}</h3>
@@ -47,10 +42,8 @@
                 </li>
               </ul>
             </div>
-            <div
-              class="overflow-hidden rounded-[14px] bg-gradient-brand p-0.5"
-              :class="i % 2 === 1 ? 'lg:order-1' : ''"
-            >
+            <div class="overflow-hidden rounded-[14px] bg-gradient-brand p-0.5"
+              :class="i % 2 === 1 ? 'lg:order-1' : ''">
               <img :src="f.img" :alt="f.title" class="block aspect-[16/10] h-full w-full rounded-[12px] object-cover">
             </div>
           </div>
@@ -68,15 +61,10 @@
           </h2>
         </div>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div
-            v-for="f in EXTRA_FEATURES"
-            :key="f.title"
-            class="rounded-[14px] border bg-card p-[22px] transition hover:-translate-y-1 hover:shadow-md"
-          >
-            <div
-              class="mb-3.5 flex size-11 items-center justify-center rounded-[11px]"
-              :style="{ background: f.tintBg, color: f.tintFg }"
-            >
+          <div v-for="f in EXTRA_FEATURES" :key="f.title"
+            class="rounded-[14px] border bg-card p-[22px] transition hover:-translate-y-1 hover:shadow-md">
+            <div class="mb-3.5 flex size-11 items-center justify-center rounded-[11px]"
+              :style="{ background: f.tintBg, color: f.tintFg }">
               <component :is="f.icon" class="size-[22px]" />
             </div>
             <h3 class="mb-1.5 text-[17px] font-semibold leading-[1.3]">{{ f.title }}</h3>
@@ -96,15 +84,10 @@
           </h2>
         </div>
         <div class="grid grid-cols-1 gap-[18px] md:grid-cols-3">
-          <div
-            v-for="f in TECH"
-            :key="f.title"
-            class="rounded-2xl border bg-card p-7 transition hover:-translate-y-1 hover:shadow-md"
-          >
-            <div
-              class="mb-4 flex size-12 items-center justify-center rounded-[12px]"
-              :style="{ background: f.tintBg, color: f.tintFg }"
-            >
+          <div v-for="f in TECH" :key="f.title"
+            class="rounded-2xl border bg-card p-7 transition hover:-translate-y-1 hover:shadow-md">
+            <div class="mb-4 flex size-12 items-center justify-center rounded-[12px]"
+              :style="{ background: f.tintBg, color: f.tintFg }">
               <component :is="f.icon" class="size-[22px]" />
             </div>
             <h3 class="mb-2 text-[19px] font-semibold leading-[1.3]">{{ f.title }}</h3>
@@ -124,11 +107,8 @@
           </h2>
         </div>
         <div class="grid grid-cols-1 gap-[18px] md:grid-cols-3">
-          <div
-            v-for="t in TESTIMONIALS"
-            :key="t.name"
-            class="flex flex-col gap-3.5 rounded-2xl border bg-card p-6 transition hover:-translate-y-1 hover:shadow-md"
-          >
+          <div v-for="t in TESTIMONIALS" :key="t.name"
+            class="flex flex-col gap-3.5 rounded-2xl border bg-card p-6 transition hover:-translate-y-1 hover:shadow-md">
             <Quote class="size-7 text-primary opacity-40" />
             <p class="text-[15px] font-medium leading-[1.65]">{{ t.quote }}</p>
             <div class="mt-auto">
@@ -139,6 +119,12 @@
         </div>
       </div>
     </section>
+
+    <!-- 行动号召：复用首页底部 LandingCta 品牌渐变样式 -->
+    <LandingCta secondary-text="查看价格方案" secondary-to="/pricing">
+      <template #title>体验 <span translate="no">LexSeek</span> 的强大功能</template>
+      <template #description>立即注册并获得免费试用机会，亲身体验 AI 如何提升您的法律工作效率</template>
+    </LandingCta>
   </div>
 </template>
 
@@ -149,6 +135,7 @@ import { breadcrumbLd, itemListLd } from "#shared/utils/seo/jsonLd"
 import BrandEyebrow from "~/components/general/BrandEyebrow.vue"
 import GradientText from "~/components/general/GradientText.vue"
 import HeroGlow from "~/components/general/HeroGlow.vue"
+import LandingCta from "~/components/landing/LandingCta.vue"
 import summaryImg from "@/assets/features/summary.jpg"
 import timelineImg from "@/assets/features/timeline.jpg"
 import causeImg from "@/assets/features/cause.jpg"

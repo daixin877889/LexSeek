@@ -13,14 +13,9 @@
                         <tr class="border-b bg-muted/50">
                             <th class="px-4 py-3 text-left text-sm font-medium w-28">功能分类</th>
                             <th class="px-4 py-3 text-left text-sm font-medium w-60">功能名称</th>
-                            <th class="px-4 py-3 text-center text-sm font-medium" :class="getColumnHighlight('免费版')">免费版
-                            </th>
-                            <th class="px-4 py-3 text-center text-sm font-medium" :class="getColumnHighlight('基础版')">基础版
-                            </th>
-                            <th class="px-4 py-3 text-center text-sm font-medium" :class="getColumnHighlight('专业版')">专业版
-                            </th>
-                            <th class="px-4 py-3 text-center text-sm font-medium" :class="getColumnHighlight('旗舰版')">旗舰版
-                            </th>
+                            <th v-for="level in levels" :key="level"
+                                class="px-4 py-3 text-center text-sm font-medium"
+                                :class="getColumnHighlight(level)">{{ level }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -122,11 +117,20 @@ import { Check, X } from "lucide-vue-next";
 // 组件属性
 const props = defineProps<{
     selectedLevel?: string;
+    /** 实际要展示的级别列；不传则展示全部 4 个级别。用于跟随 admin 后台下架的商品联动隐藏对应列 */
+    visibleLevels?: string[];
 }>();
 
-// 会员级别列表
-const levels = ["免费版", "基础版", "专业版", "旗舰版"] as const;
-type LevelType = (typeof levels)[number];
+// 全部会员级别（按固定顺序展示）
+const ALL_LEVELS = ["免费版", "基础版", "专业版", "旗舰版"] as const;
+type LevelType = (typeof ALL_LEVELS)[number];
+
+// 当前展示的级别列：按 ALL_LEVELS 顺序过滤 visibleLevels；未传 props 则保持全部 4 个级别
+const levels = computed<readonly LevelType[]>(() => {
+    if (!props.visibleLevels || props.visibleLevels.length === 0) return ALL_LEVELS;
+    const allow = new Set(props.visibleLevels);
+    return ALL_LEVELS.filter((l) => allow.has(l));
+});
 
 // 功能特性类型
 interface Feature {
@@ -191,18 +195,18 @@ const benefitsData: BenefitCategory[] = [
 const normalizedLevel = computed((): LevelType => {
     if (!props.selectedLevel) return "免费版";
 
-    if (levels.includes(props.selectedLevel as LevelType)) {
+    if (ALL_LEVELS.includes(props.selectedLevel as LevelType)) {
         return props.selectedLevel as LevelType;
     }
 
-    for (const level of levels) {
+    for (const level of ALL_LEVELS) {
         if (props.selectedLevel.includes(level) || level.includes(props.selectedLevel)) {
             return level;
         }
     }
 
     const cleanSelected = props.selectedLevel.replace(/[版会员]/g, "");
-    for (const level of levels) {
+    for (const level of ALL_LEVELS) {
         const cleanLevel = level.replace(/[版会员]/g, "");
         if (cleanSelected === cleanLevel) {
             return level;
