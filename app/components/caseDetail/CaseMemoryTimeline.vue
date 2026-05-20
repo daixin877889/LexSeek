@@ -103,14 +103,14 @@ function formatTime(iso: string): string {
     </div>
 
     <div v-else class="relative">
-        <!-- 主竖线（贯穿整个时间轴）：列宽 16px，竖线 left-2 (8px) 让中心 8.5px 与列中心对齐 -->
-        <div class="absolute left-2 top-2 bottom-2 w-px bg-border" />
+        <!-- 主竖线（贯穿整个时间轴）：列宽 16px，竖线 left-2 (8px) 让中心 8.5px 与列中心对齐。z-0 让圆点能浮在线上面 -->
+        <div class="absolute left-2 top-2 bottom-2 w-px bg-border z-0" />
 
         <div v-for="group in groupedByDay" :key="group.date" class="pb-5 last:pb-0">
             <!-- 日期分组头：大圆点 + 日期 + 周几 + 数量 -->
             <div class="flex items-center gap-3">
-                <div class="w-4 flex-shrink-0 flex justify-center">
-                    <div class="relative size-[15px] rounded-full bg-primary/10 border-2 border-primary flex items-center justify-center">
+                <div class="w-4 flex-shrink-0 flex justify-center relative z-10">
+                    <div class="size-[15px] rounded-full bg-primary/10 border-2 border-primary flex items-center justify-center">
                         <div class="size-[5px] rounded-full bg-primary" />
                     </div>
                 </div>
@@ -125,8 +125,8 @@ function formatTime(iso: string): string {
             <div class="mt-2 space-y-2">
                 <div v-for="item in group.items" :key="item.id"
                     class="flex items-start gap-3">
-                    <!-- 小圆点列：宽 16px（与主竖线列同宽），pt-3 让圆点中心对齐卡片内第一行徽章 -->
-                    <div class="w-4 flex-shrink-0 pt-3 flex justify-center">
+                    <!-- 小圆点列：宽 16px（与主竖线列同宽），pt-3 让圆点中心对齐卡片内第一行徽章。relative z-10 让圆点浮在主竖线上面 -->
+                    <div class="w-4 flex-shrink-0 pt-3 flex justify-center relative z-10">
                         <div class="size-2 rounded-full ring-2 ring-background"
                             :class="item.invalidatedAt
                                 ? 'bg-muted-foreground/40'
