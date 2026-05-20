@@ -15,6 +15,9 @@
  *   - pointConsumption（主图步骤 6 自己扣费）
  *   - analysisResultPersistence（主图步骤 5d 自己持久化）
  *
+ * 必须挂的兜底：
+ *   - afterAgentMemoryMiddleware（每个模块跑完异步抽取案件关键事实写入记忆库）
+ *
  * @see docs/superpowers/plans/2026-04-27-ai-unify-stage-8-case-analysis-skills.md Task 1
  */
 
@@ -42,6 +45,7 @@ import {
     createToolCallLimitMiddlewares,
     userInjectionMiddleware,
 } from '~~/server/services/agent-platform/middleware/index'
+import { afterAgentMemoryMiddleware } from '~~/server/services/agent-platform/middleware/afterAgentMemory.middleware'
 
 import { createTool as createReadSkillFileTool } from '~~/server/services/agent-platform/tools/readSkillFile.tool'
 import { createTool as createWriteSkillFileTool } from '~~/server/services/agent-platform/tools/writeSkillFile.tool'
@@ -205,6 +209,11 @@ async function runAnalysisSubAgentInner(
             middleware: createAuditMiddleware(),
             priority: MIDDLEWARE_PRIORITY.AUDIT,
             name: MIDDLEWARE_NAMES.AUDIT,
+        },
+        {
+            middleware: afterAgentMemoryMiddleware({ caseId, sessionId, userId }),
+            priority: MIDDLEWARE_PRIORITY.RESULT_PERSISTENCE,
+            name: 'afterAgentMemory',
         },
     ]
     if (skillsMw) {
