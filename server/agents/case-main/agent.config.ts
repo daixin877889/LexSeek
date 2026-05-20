@@ -94,7 +94,8 @@ export const caseMainAgent = defineDomainAgent({
             caseId: ctx.caseId,
             sessionId: ctx.sessionId,
             runId: ctx.runId,
-            contextLabel: caseRow?.title ?? `案件_${ctx.caseId}`,
+            // 与 case-main 主代理共享同一后缀，确保聚合行的 contextLabel 一致（runtime.ts 内 case-main 也加了 · 小索对话）
+            contextLabel: `${caseRow?.title ?? `案件_${ctx.caseId}`} · 小索对话`,
         })
     },
 })

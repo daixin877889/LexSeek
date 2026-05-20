@@ -179,7 +179,8 @@ async function runModuleChatInner(
         where: { id: caseId },
         select: { title: true },
     }).catch(() => null)
-    const caseTitle = caseRow?.title ?? `案件_${caseId}`
+    // 后缀「· 模块对话」与「小索对话 / 初始分析」区分，方便用户在积分明细页识别用法
+    const caseTitle = `${caseRow?.title ?? `案件_${caseId}`} · 模块对话`
 
     const agent: ReactAgent = createAgent({
         model,

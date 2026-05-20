@@ -25,6 +25,7 @@ import { buildSystemPromptForAgent } from '~~/server/services/agent-platform/con
 import { createChatModel } from '~~/server/services/agent-platform/modelFactory'
 import { resolveThinkingFromNodeConfig } from '~~/server/services/node/node.service'
 import { getCheckpointer, getStore } from '~~/server/services/agent-platform/checkpointer'
+import { prisma } from '~~/server/utils/db'
 import { getToolInstancesService } from '~~/server/services/agent-platform/tools/index'
 import { buildSkillsMiddlewareForNode } from '~~/server/services/agent-platform/middleware/skills'
 import { resolveContextWindow } from '~~/server/services/agent-platform/context/messageCompressor'
@@ -201,6 +202,18 @@ async function runDomainAgentInner(
     // 8. 组装中间件栈
     const itemKey = toPointItemKey(def.scope, resolvedNodeName)
 
+    // 解析计费上下文标签：
+    // - case-main（小索）也用 case_analysis_token，与「初始分析 / 模块对话」共用同一项，需要后缀区分
+    // - 其它 vertical 各有独立 itemKey + sceneName，contextLabel 仅给案件名（含会话标题留给各 vertical 自己装配处处理）
+    let billingContextLabel: string | undefined
+    if (itemKey === 'case_analysis_token' && ctx.caseId != null) {
+        const row = await prisma.cases.findUnique({
+            where: { id: ctx.caseId },
+            select: { title: true },
+        }).catch(() => null)
+        billingContextLabel = `${row?.title ?? `案件_${ctx.caseId}`} · 小索对话`
+    }
+
     const middlewareItems = [
         {
             middleware: createMessageIntegrityMiddleware(),
@@ -220,7 +233,7 @@ async function runDomainAgentInner(
         })),
         {
             // operationId 取主 Agent 的 runId，使主代理与子代理（subAgentToolFactory）的扣费聚合到同一条消耗记录
-            middleware: pointConsumptionMiddleware(ctx.userId, itemKey, ctx.sessionId, ctx.runId),
+            middleware: pointConsumptionMiddleware(ctx.userId, itemKey, ctx.sessionId, ctx.runId, billingContextLabel),
             priority: MIDDLEWARE_PRIORITY.POINT_CONSUMPTION,
             name: MIDDLEWARE_NAMES.POINT_CONSUMPTION,
         },

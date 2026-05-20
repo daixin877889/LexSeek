@@ -347,7 +347,8 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
                 where: { id: state.caseId },
                 select: { title: true },
             }).catch(() => null)
-            const caseTitle = caseRowForBilling?.title ?? `案件_${state.caseId}`
+            // 后缀「· 初始分析」与「小索对话 / 模块对话」区分，方便用户在积分明细页识别用法
+            const caseTitle = `${caseRowForBilling?.title ?? `案件_${state.caseId}`} · 初始分析`
             while (tokenQuantity > 0) {
                 try {
                     // 同时传 tokens 和 units=1（每模块计 1 次），让管理后台可在 token/次 两种模式间自由切换
