@@ -66,6 +66,27 @@
                     <p class="text-xs text-muted-foreground">实际消耗 = 积分数量 × 折扣，100% 表示无折扣</p>
                 </div>
 
+                <!-- 计费模式 -->
+                <div class="space-y-2">
+                    <Label>计费模式</Label>
+                    <Select v-model="form.billingMode">
+                        <SelectTrigger :class="['w-full', adminBrandFocusClass]">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent class="theme-brand">
+                            <SelectItem value="2">按次量</SelectItem>
+                            <SelectItem value="1">按 token</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <p class="text-xs text-muted-foreground">按 token 模式下用户端不展示用量；按次量模式下展示「X 单位」</p>
+                </div>
+
+                <!-- 友好场景名 -->
+                <div class="space-y-2">
+                    <Label>用户友好场景名</Label>
+                    <Input v-model="form.displayName" placeholder="如：AI 法律问答（用户端展示用，为空回退用名称）" :class="adminBrandFocusClass" />
+                </div>
+
                 <!-- 状态 -->
                 <div class="space-y-2">
                     <Label>状态</Label>
@@ -148,6 +169,8 @@ function getDefaultForm() {
         pointAmount: 10,
         discountPercent: 100,
         status: '1',
+        billingMode: '2',
+        displayName: '',
     }
 }
 
@@ -183,6 +206,8 @@ const openEdit = (item: PointConsumptionItem) => {
         pointAmount: item.pointAmount,
         discountPercent,
         status: String(item.status),
+        billingMode: String(item.billingMode ?? 2),
+        displayName: item.displayName ?? '',
     }
     open.value = true
 }
@@ -224,6 +249,8 @@ const handleSubmit = async () => {
             pointAmount: form.value.pointAmount,
             discount: form.value.discountPercent / 100,
             status: parseInt(form.value.status),
+            billingMode: parseInt(form.value.billingMode),
+            displayName: form.value.displayName || null,
         }
 
         let result
