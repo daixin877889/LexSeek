@@ -1019,7 +1019,9 @@ export const PointConsumptionItemsScalarFieldEnum = {
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt',
-  discount: 'discount'
+  discount: 'discount',
+  billingMode: 'billingMode',
+  displayName: 'displayName'
 } as const
 
 export type PointConsumptionItemsScalarFieldEnum = (typeof PointConsumptionItemsScalarFieldEnum)[keyof typeof PointConsumptionItemsScalarFieldEnum]
@@ -1035,6 +1037,9 @@ export const PointConsumptionRecordsScalarFieldEnum = {
   status: 'status',
   sourceId: 'sourceId',
   remark: 'remark',
+  operationId: 'operationId',
+  contextLabel: 'contextLabel',
+  usageAmount: 'usageAmount',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'

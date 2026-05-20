@@ -31,6 +31,7 @@ export type PointConsumptionItemsAvgAggregateOutputType = {
   pointAmount: number | null
   status: number | null
   discount: runtime.Decimal | null
+  billingMode: number | null
 }
 
 export type PointConsumptionItemsSumAggregateOutputType = {
@@ -38,6 +39,7 @@ export type PointConsumptionItemsSumAggregateOutputType = {
   pointAmount: number | null
   status: number | null
   discount: runtime.Decimal | null
+  billingMode: number | null
 }
 
 export type PointConsumptionItemsMinAggregateOutputType = {
@@ -53,6 +55,8 @@ export type PointConsumptionItemsMinAggregateOutputType = {
   updatedAt: Date | null
   deletedAt: Date | null
   discount: runtime.Decimal | null
+  billingMode: number | null
+  displayName: string | null
 }
 
 export type PointConsumptionItemsMaxAggregateOutputType = {
@@ -68,6 +72,8 @@ export type PointConsumptionItemsMaxAggregateOutputType = {
   updatedAt: Date | null
   deletedAt: Date | null
   discount: runtime.Decimal | null
+  billingMode: number | null
+  displayName: string | null
 }
 
 export type PointConsumptionItemsCountAggregateOutputType = {
@@ -83,6 +89,8 @@ export type PointConsumptionItemsCountAggregateOutputType = {
   updatedAt: number
   deletedAt: number
   discount: number
+  billingMode: number
+  displayName: number
   _all: number
 }
 
@@ -92,6 +100,7 @@ export type PointConsumptionItemsAvgAggregateInputType = {
   pointAmount?: true
   status?: true
   discount?: true
+  billingMode?: true
 }
 
 export type PointConsumptionItemsSumAggregateInputType = {
@@ -99,6 +108,7 @@ export type PointConsumptionItemsSumAggregateInputType = {
   pointAmount?: true
   status?: true
   discount?: true
+  billingMode?: true
 }
 
 export type PointConsumptionItemsMinAggregateInputType = {
@@ -114,6 +124,8 @@ export type PointConsumptionItemsMinAggregateInputType = {
   updatedAt?: true
   deletedAt?: true
   discount?: true
+  billingMode?: true
+  displayName?: true
 }
 
 export type PointConsumptionItemsMaxAggregateInputType = {
@@ -129,6 +141,8 @@ export type PointConsumptionItemsMaxAggregateInputType = {
   updatedAt?: true
   deletedAt?: true
   discount?: true
+  billingMode?: true
+  displayName?: true
 }
 
 export type PointConsumptionItemsCountAggregateInputType = {
@@ -144,6 +158,8 @@ export type PointConsumptionItemsCountAggregateInputType = {
   updatedAt?: true
   deletedAt?: true
   discount?: true
+  billingMode?: true
+  displayName?: true
   _all?: true
 }
 
@@ -246,6 +262,8 @@ export type PointConsumptionItemsGroupByOutputType = {
   updatedAt: Date
   deletedAt: Date | null
   discount: runtime.Decimal | null
+  billingMode: number
+  displayName: string | null
   _count: PointConsumptionItemsCountAggregateOutputType | null
   _avg: PointConsumptionItemsAvgAggregateOutputType | null
   _sum: PointConsumptionItemsSumAggregateOutputType | null
@@ -284,6 +302,8 @@ export type pointConsumptionItemsWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"pointConsumptionItems"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"pointConsumptionItems"> | Date | string | null
   discount?: Prisma.DecimalNullableFilter<"pointConsumptionItems"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  billingMode?: Prisma.IntFilter<"pointConsumptionItems"> | number
+  displayName?: Prisma.StringNullableFilter<"pointConsumptionItems"> | string | null
   pointConsumptionRecords?: Prisma.PointConsumptionRecordsListRelationFilter
 }
 
@@ -300,6 +320,8 @@ export type pointConsumptionItemsOrderByWithRelationInput = {
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   discount?: Prisma.SortOrderInput | Prisma.SortOrder
+  billingMode?: Prisma.SortOrder
+  displayName?: Prisma.SortOrderInput | Prisma.SortOrder
   pointConsumptionRecords?: Prisma.pointConsumptionRecordsOrderByRelationAggregateInput
 }
 
@@ -319,6 +341,8 @@ export type pointConsumptionItemsWhereUniqueInput = Prisma.AtLeast<{
   updatedAt?: Prisma.DateTimeFilter<"pointConsumptionItems"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"pointConsumptionItems"> | Date | string | null
   discount?: Prisma.DecimalNullableFilter<"pointConsumptionItems"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  billingMode?: Prisma.IntFilter<"pointConsumptionItems"> | number
+  displayName?: Prisma.StringNullableFilter<"pointConsumptionItems"> | string | null
   pointConsumptionRecords?: Prisma.PointConsumptionRecordsListRelationFilter
 }, "id" | "key">
 
@@ -335,6 +359,8 @@ export type pointConsumptionItemsOrderByWithAggregationInput = {
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   discount?: Prisma.SortOrderInput | Prisma.SortOrder
+  billingMode?: Prisma.SortOrder
+  displayName?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.pointConsumptionItemsCountOrderByAggregateInput
   _avg?: Prisma.pointConsumptionItemsAvgOrderByAggregateInput
   _max?: Prisma.pointConsumptionItemsMaxOrderByAggregateInput
@@ -358,6 +384,8 @@ export type pointConsumptionItemsScalarWhereWithAggregatesInput = {
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"pointConsumptionItems"> | Date | string
   deletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"pointConsumptionItems"> | Date | string | null
   discount?: Prisma.DecimalNullableWithAggregatesFilter<"pointConsumptionItems"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  billingMode?: Prisma.IntWithAggregatesFilter<"pointConsumptionItems"> | number
+  displayName?: Prisma.StringNullableWithAggregatesFilter<"pointConsumptionItems"> | string | null
 }
 
 export type pointConsumptionItemsCreateInput = {
@@ -372,6 +400,8 @@ export type pointConsumptionItemsCreateInput = {
   updatedAt?: Date | string
   deletedAt?: Date | string | null
   discount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  billingMode?: number
+  displayName?: string | null
   pointConsumptionRecords?: Prisma.pointConsumptionRecordsCreateNestedManyWithoutPointConsumptionItemsInput
 }
 
@@ -388,6 +418,8 @@ export type pointConsumptionItemsUncheckedCreateInput = {
   updatedAt?: Date | string
   deletedAt?: Date | string | null
   discount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  billingMode?: number
+  displayName?: string | null
   pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedCreateNestedManyWithoutPointConsumptionItemsInput
 }
 
@@ -403,6 +435,8 @@ export type pointConsumptionItemsUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   discount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  billingMode?: Prisma.IntFieldUpdateOperationsInput | number
+  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pointConsumptionRecords?: Prisma.pointConsumptionRecordsUpdateManyWithoutPointConsumptionItemsNestedInput
 }
 
@@ -419,6 +453,8 @@ export type pointConsumptionItemsUncheckedUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   discount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  billingMode?: Prisma.IntFieldUpdateOperationsInput | number
+  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedUpdateManyWithoutPointConsumptionItemsNestedInput
 }
 
@@ -435,6 +471,8 @@ export type pointConsumptionItemsCreateManyInput = {
   updatedAt?: Date | string
   deletedAt?: Date | string | null
   discount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  billingMode?: number
+  displayName?: string | null
 }
 
 export type pointConsumptionItemsUpdateManyMutationInput = {
@@ -449,6 +487,8 @@ export type pointConsumptionItemsUpdateManyMutationInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   discount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  billingMode?: Prisma.IntFieldUpdateOperationsInput | number
+  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 export type pointConsumptionItemsUncheckedUpdateManyInput = {
@@ -464,6 +504,8 @@ export type pointConsumptionItemsUncheckedUpdateManyInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   discount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  billingMode?: Prisma.IntFieldUpdateOperationsInput | number
+  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 export type pointConsumptionItemsCountOrderByAggregateInput = {
@@ -479,6 +521,8 @@ export type pointConsumptionItemsCountOrderByAggregateInput = {
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
   discount?: Prisma.SortOrder
+  billingMode?: Prisma.SortOrder
+  displayName?: Prisma.SortOrder
 }
 
 export type pointConsumptionItemsAvgOrderByAggregateInput = {
@@ -486,6 +530,7 @@ export type pointConsumptionItemsAvgOrderByAggregateInput = {
   pointAmount?: Prisma.SortOrder
   status?: Prisma.SortOrder
   discount?: Prisma.SortOrder
+  billingMode?: Prisma.SortOrder
 }
 
 export type pointConsumptionItemsMaxOrderByAggregateInput = {
@@ -501,6 +546,8 @@ export type pointConsumptionItemsMaxOrderByAggregateInput = {
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
   discount?: Prisma.SortOrder
+  billingMode?: Prisma.SortOrder
+  displayName?: Prisma.SortOrder
 }
 
 export type pointConsumptionItemsMinOrderByAggregateInput = {
@@ -516,6 +563,8 @@ export type pointConsumptionItemsMinOrderByAggregateInput = {
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
   discount?: Prisma.SortOrder
+  billingMode?: Prisma.SortOrder
+  displayName?: Prisma.SortOrder
 }
 
 export type pointConsumptionItemsSumOrderByAggregateInput = {
@@ -523,6 +572,7 @@ export type pointConsumptionItemsSumOrderByAggregateInput = {
   pointAmount?: Prisma.SortOrder
   status?: Prisma.SortOrder
   discount?: Prisma.SortOrder
+  billingMode?: Prisma.SortOrder
 }
 
 export type PointConsumptionItemsScalarRelationFilter = {
@@ -556,6 +606,8 @@ export type pointConsumptionItemsCreateWithoutPointConsumptionRecordsInput = {
   updatedAt?: Date | string
   deletedAt?: Date | string | null
   discount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  billingMode?: number
+  displayName?: string | null
 }
 
 export type pointConsumptionItemsUncheckedCreateWithoutPointConsumptionRecordsInput = {
@@ -571,6 +623,8 @@ export type pointConsumptionItemsUncheckedCreateWithoutPointConsumptionRecordsIn
   updatedAt?: Date | string
   deletedAt?: Date | string | null
   discount?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  billingMode?: number
+  displayName?: string | null
 }
 
 export type pointConsumptionItemsCreateOrConnectWithoutPointConsumptionRecordsInput = {
@@ -601,6 +655,8 @@ export type pointConsumptionItemsUpdateWithoutPointConsumptionRecordsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   discount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  billingMode?: Prisma.IntFieldUpdateOperationsInput | number
+  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 export type pointConsumptionItemsUncheckedUpdateWithoutPointConsumptionRecordsInput = {
@@ -616,6 +672,8 @@ export type pointConsumptionItemsUncheckedUpdateWithoutPointConsumptionRecordsIn
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   discount?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  billingMode?: Prisma.IntFieldUpdateOperationsInput | number
+  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 
@@ -662,6 +720,8 @@ export type pointConsumptionItemsSelect<ExtArgs extends runtime.Types.Extensions
   updatedAt?: boolean
   deletedAt?: boolean
   discount?: boolean
+  billingMode?: boolean
+  displayName?: boolean
   pointConsumptionRecords?: boolean | Prisma.pointConsumptionItems$pointConsumptionRecordsArgs<ExtArgs>
   _count?: boolean | Prisma.PointConsumptionItemsCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["pointConsumptionItems"]>
@@ -679,6 +739,8 @@ export type pointConsumptionItemsSelectCreateManyAndReturn<ExtArgs extends runti
   updatedAt?: boolean
   deletedAt?: boolean
   discount?: boolean
+  billingMode?: boolean
+  displayName?: boolean
 }, ExtArgs["result"]["pointConsumptionItems"]>
 
 export type pointConsumptionItemsSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -694,6 +756,8 @@ export type pointConsumptionItemsSelectUpdateManyAndReturn<ExtArgs extends runti
   updatedAt?: boolean
   deletedAt?: boolean
   discount?: boolean
+  billingMode?: boolean
+  displayName?: boolean
 }, ExtArgs["result"]["pointConsumptionItems"]>
 
 export type pointConsumptionItemsSelectScalar = {
@@ -709,9 +773,11 @@ export type pointConsumptionItemsSelectScalar = {
   updatedAt?: boolean
   deletedAt?: boolean
   discount?: boolean
+  billingMode?: boolean
+  displayName?: boolean
 }
 
-export type pointConsumptionItemsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "key" | "group" | "name" | "description" | "unit" | "pointAmount" | "status" | "createdAt" | "updatedAt" | "deletedAt" | "discount", ExtArgs["result"]["pointConsumptionItems"]>
+export type pointConsumptionItemsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "key" | "group" | "name" | "description" | "unit" | "pointAmount" | "status" | "createdAt" | "updatedAt" | "deletedAt" | "discount" | "billingMode" | "displayName", ExtArgs["result"]["pointConsumptionItems"]>
 export type pointConsumptionItemsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   pointConsumptionRecords?: boolean | Prisma.pointConsumptionItems$pointConsumptionRecordsArgs<ExtArgs>
   _count?: boolean | Prisma.PointConsumptionItemsCountOutputTypeDefaultArgs<ExtArgs>
@@ -773,6 +839,14 @@ export type $pointConsumptionItemsPayload<ExtArgs extends runtime.Types.Extensio
      * 消耗折扣
      */
     discount: runtime.Decimal | null
+    /**
+     * 计费模式：1-按 token，2-按次量
+     */
+    billingMode: number
+    /**
+     * 用户友好场景名（消耗记录展示用），为空时回退用 name
+     */
+    displayName: string | null
   }, ExtArgs["result"]["pointConsumptionItems"]>
   composites: {}
 }
@@ -1209,6 +1283,8 @@ export interface pointConsumptionItemsFieldRefs {
   readonly updatedAt: Prisma.FieldRef<"pointConsumptionItems", 'DateTime'>
   readonly deletedAt: Prisma.FieldRef<"pointConsumptionItems", 'DateTime'>
   readonly discount: Prisma.FieldRef<"pointConsumptionItems", 'Decimal'>
+  readonly billingMode: Prisma.FieldRef<"pointConsumptionItems", 'Int'>
+  readonly displayName: Prisma.FieldRef<"pointConsumptionItems", 'String'>
 }
     
 

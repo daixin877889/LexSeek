@@ -34,6 +34,7 @@ export type PointConsumptionRecordsAvgAggregateOutputType = {
   pointAmount: number | null
   status: number | null
   sourceId: number | null
+  usageAmount: number | null
 }
 
 export type PointConsumptionRecordsSumAggregateOutputType = {
@@ -44,6 +45,7 @@ export type PointConsumptionRecordsSumAggregateOutputType = {
   pointAmount: number | null
   status: number | null
   sourceId: number | null
+  usageAmount: number | null
 }
 
 export type PointConsumptionRecordsMinAggregateOutputType = {
@@ -56,6 +58,9 @@ export type PointConsumptionRecordsMinAggregateOutputType = {
   status: number | null
   sourceId: number | null
   remark: string | null
+  operationId: string | null
+  contextLabel: string | null
+  usageAmount: number | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -71,6 +76,9 @@ export type PointConsumptionRecordsMaxAggregateOutputType = {
   status: number | null
   sourceId: number | null
   remark: string | null
+  operationId: string | null
+  contextLabel: string | null
+  usageAmount: number | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -86,6 +94,9 @@ export type PointConsumptionRecordsCountAggregateOutputType = {
   status: number
   sourceId: number
   remark: number
+  operationId: number
+  contextLabel: number
+  usageAmount: number
   createdAt: number
   updatedAt: number
   deletedAt: number
@@ -101,6 +112,7 @@ export type PointConsumptionRecordsAvgAggregateInputType = {
   pointAmount?: true
   status?: true
   sourceId?: true
+  usageAmount?: true
 }
 
 export type PointConsumptionRecordsSumAggregateInputType = {
@@ -111,6 +123,7 @@ export type PointConsumptionRecordsSumAggregateInputType = {
   pointAmount?: true
   status?: true
   sourceId?: true
+  usageAmount?: true
 }
 
 export type PointConsumptionRecordsMinAggregateInputType = {
@@ -123,6 +136,9 @@ export type PointConsumptionRecordsMinAggregateInputType = {
   status?: true
   sourceId?: true
   remark?: true
+  operationId?: true
+  contextLabel?: true
+  usageAmount?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -138,6 +154,9 @@ export type PointConsumptionRecordsMaxAggregateInputType = {
   status?: true
   sourceId?: true
   remark?: true
+  operationId?: true
+  contextLabel?: true
+  usageAmount?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -153,6 +172,9 @@ export type PointConsumptionRecordsCountAggregateInputType = {
   status?: true
   sourceId?: true
   remark?: true
+  operationId?: true
+  contextLabel?: true
+  usageAmount?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -255,6 +277,9 @@ export type PointConsumptionRecordsGroupByOutputType = {
   status: number
   sourceId: number | null
   remark: string | null
+  operationId: string | null
+  contextLabel: string | null
+  usageAmount: number | null
   createdAt: Date
   updatedAt: Date
   deletedAt: Date | null
@@ -293,6 +318,9 @@ export type pointConsumptionRecordsWhereInput = {
   status?: Prisma.IntFilter<"pointConsumptionRecords"> | number
   sourceId?: Prisma.IntNullableFilter<"pointConsumptionRecords"> | number | null
   remark?: Prisma.StringNullableFilter<"pointConsumptionRecords"> | string | null
+  operationId?: Prisma.StringNullableFilter<"pointConsumptionRecords"> | string | null
+  contextLabel?: Prisma.StringNullableFilter<"pointConsumptionRecords"> | string | null
+  usageAmount?: Prisma.IntNullableFilter<"pointConsumptionRecords"> | number | null
   createdAt?: Prisma.DateTimeFilter<"pointConsumptionRecords"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"pointConsumptionRecords"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"pointConsumptionRecords"> | Date | string | null
@@ -311,6 +339,9 @@ export type pointConsumptionRecordsOrderByWithRelationInput = {
   status?: Prisma.SortOrder
   sourceId?: Prisma.SortOrderInput | Prisma.SortOrder
   remark?: Prisma.SortOrderInput | Prisma.SortOrder
+  operationId?: Prisma.SortOrderInput | Prisma.SortOrder
+  contextLabel?: Prisma.SortOrderInput | Prisma.SortOrder
+  usageAmount?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -332,6 +363,9 @@ export type pointConsumptionRecordsWhereUniqueInput = Prisma.AtLeast<{
   status?: Prisma.IntFilter<"pointConsumptionRecords"> | number
   sourceId?: Prisma.IntNullableFilter<"pointConsumptionRecords"> | number | null
   remark?: Prisma.StringNullableFilter<"pointConsumptionRecords"> | string | null
+  operationId?: Prisma.StringNullableFilter<"pointConsumptionRecords"> | string | null
+  contextLabel?: Prisma.StringNullableFilter<"pointConsumptionRecords"> | string | null
+  usageAmount?: Prisma.IntNullableFilter<"pointConsumptionRecords"> | number | null
   createdAt?: Prisma.DateTimeFilter<"pointConsumptionRecords"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"pointConsumptionRecords"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"pointConsumptionRecords"> | Date | string | null
@@ -350,6 +384,9 @@ export type pointConsumptionRecordsOrderByWithAggregationInput = {
   status?: Prisma.SortOrder
   sourceId?: Prisma.SortOrderInput | Prisma.SortOrder
   remark?: Prisma.SortOrderInput | Prisma.SortOrder
+  operationId?: Prisma.SortOrderInput | Prisma.SortOrder
+  contextLabel?: Prisma.SortOrderInput | Prisma.SortOrder
+  usageAmount?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -373,6 +410,9 @@ export type pointConsumptionRecordsScalarWhereWithAggregatesInput = {
   status?: Prisma.IntWithAggregatesFilter<"pointConsumptionRecords"> | number
   sourceId?: Prisma.IntNullableWithAggregatesFilter<"pointConsumptionRecords"> | number | null
   remark?: Prisma.StringNullableWithAggregatesFilter<"pointConsumptionRecords"> | string | null
+  operationId?: Prisma.StringNullableWithAggregatesFilter<"pointConsumptionRecords"> | string | null
+  contextLabel?: Prisma.StringNullableWithAggregatesFilter<"pointConsumptionRecords"> | string | null
+  usageAmount?: Prisma.IntNullableWithAggregatesFilter<"pointConsumptionRecords"> | number | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"pointConsumptionRecords"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"pointConsumptionRecords"> | Date | string
   deletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"pointConsumptionRecords"> | Date | string | null
@@ -384,6 +424,9 @@ export type pointConsumptionRecordsCreateInput = {
   status?: number
   sourceId?: number | null
   remark?: string | null
+  operationId?: string | null
+  contextLabel?: string | null
+  usageAmount?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -402,6 +445,9 @@ export type pointConsumptionRecordsUncheckedCreateInput = {
   status?: number
   sourceId?: number | null
   remark?: string | null
+  operationId?: string | null
+  contextLabel?: string | null
+  usageAmount?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -413,6 +459,9 @@ export type pointConsumptionRecordsUpdateInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  operationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contextLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usageAmount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -431,6 +480,9 @@ export type pointConsumptionRecordsUncheckedUpdateInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  operationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contextLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usageAmount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -446,6 +498,9 @@ export type pointConsumptionRecordsCreateManyInput = {
   status?: number
   sourceId?: number | null
   remark?: string | null
+  operationId?: string | null
+  contextLabel?: string | null
+  usageAmount?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -457,6 +512,9 @@ export type pointConsumptionRecordsUpdateManyMutationInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  operationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contextLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usageAmount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -472,6 +530,9 @@ export type pointConsumptionRecordsUncheckedUpdateManyInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  operationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contextLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usageAmount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -497,6 +558,9 @@ export type pointConsumptionRecordsCountOrderByAggregateInput = {
   status?: Prisma.SortOrder
   sourceId?: Prisma.SortOrder
   remark?: Prisma.SortOrder
+  operationId?: Prisma.SortOrder
+  contextLabel?: Prisma.SortOrder
+  usageAmount?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -510,6 +574,7 @@ export type pointConsumptionRecordsAvgOrderByAggregateInput = {
   pointAmount?: Prisma.SortOrder
   status?: Prisma.SortOrder
   sourceId?: Prisma.SortOrder
+  usageAmount?: Prisma.SortOrder
 }
 
 export type pointConsumptionRecordsMaxOrderByAggregateInput = {
@@ -522,6 +587,9 @@ export type pointConsumptionRecordsMaxOrderByAggregateInput = {
   status?: Prisma.SortOrder
   sourceId?: Prisma.SortOrder
   remark?: Prisma.SortOrder
+  operationId?: Prisma.SortOrder
+  contextLabel?: Prisma.SortOrder
+  usageAmount?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -537,6 +605,9 @@ export type pointConsumptionRecordsMinOrderByAggregateInput = {
   status?: Prisma.SortOrder
   sourceId?: Prisma.SortOrder
   remark?: Prisma.SortOrder
+  operationId?: Prisma.SortOrder
+  contextLabel?: Prisma.SortOrder
+  usageAmount?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -550,6 +621,7 @@ export type pointConsumptionRecordsSumOrderByAggregateInput = {
   pointAmount?: Prisma.SortOrder
   status?: Prisma.SortOrder
   sourceId?: Prisma.SortOrder
+  usageAmount?: Prisma.SortOrder
 }
 
 export type pointConsumptionRecordsCreateNestedManyWithoutPointRecordsInput = {
@@ -684,6 +756,9 @@ export type pointConsumptionRecordsCreateWithoutPointRecordsInput = {
   status?: number
   sourceId?: number | null
   remark?: string | null
+  operationId?: string | null
+  contextLabel?: string | null
+  usageAmount?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -700,6 +775,9 @@ export type pointConsumptionRecordsUncheckedCreateWithoutPointRecordsInput = {
   status?: number
   sourceId?: number | null
   remark?: string | null
+  operationId?: string | null
+  contextLabel?: string | null
+  usageAmount?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -744,6 +822,9 @@ export type pointConsumptionRecordsScalarWhereInput = {
   status?: Prisma.IntFilter<"pointConsumptionRecords"> | number
   sourceId?: Prisma.IntNullableFilter<"pointConsumptionRecords"> | number | null
   remark?: Prisma.StringNullableFilter<"pointConsumptionRecords"> | string | null
+  operationId?: Prisma.StringNullableFilter<"pointConsumptionRecords"> | string | null
+  contextLabel?: Prisma.StringNullableFilter<"pointConsumptionRecords"> | string | null
+  usageAmount?: Prisma.IntNullableFilter<"pointConsumptionRecords"> | number | null
   createdAt?: Prisma.DateTimeFilter<"pointConsumptionRecords"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"pointConsumptionRecords"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"pointConsumptionRecords"> | Date | string | null
@@ -755,6 +836,9 @@ export type pointConsumptionRecordsCreateWithoutPointConsumptionItemsInput = {
   status?: number
   sourceId?: number | null
   remark?: string | null
+  operationId?: string | null
+  contextLabel?: string | null
+  usageAmount?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -771,6 +855,9 @@ export type pointConsumptionRecordsUncheckedCreateWithoutPointConsumptionItemsIn
   status?: number
   sourceId?: number | null
   remark?: string | null
+  operationId?: string | null
+  contextLabel?: string | null
+  usageAmount?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -808,6 +895,9 @@ export type pointConsumptionRecordsCreateWithoutUsersInput = {
   status?: number
   sourceId?: number | null
   remark?: string | null
+  operationId?: string | null
+  contextLabel?: string | null
+  usageAmount?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -824,6 +914,9 @@ export type pointConsumptionRecordsUncheckedCreateWithoutUsersInput = {
   status?: number
   sourceId?: number | null
   remark?: string | null
+  operationId?: string | null
+  contextLabel?: string | null
+  usageAmount?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -864,6 +957,9 @@ export type pointConsumptionRecordsCreateManyPointRecordsInput = {
   status?: number
   sourceId?: number | null
   remark?: string | null
+  operationId?: string | null
+  contextLabel?: string | null
+  usageAmount?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -875,6 +971,9 @@ export type pointConsumptionRecordsUpdateWithoutPointRecordsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  operationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contextLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usageAmount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -891,6 +990,9 @@ export type pointConsumptionRecordsUncheckedUpdateWithoutPointRecordsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  operationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contextLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usageAmount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -905,6 +1007,9 @@ export type pointConsumptionRecordsUncheckedUpdateManyWithoutPointRecordsInput =
   status?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  operationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contextLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usageAmount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -919,6 +1024,9 @@ export type pointConsumptionRecordsCreateManyPointConsumptionItemsInput = {
   status?: number
   sourceId?: number | null
   remark?: string | null
+  operationId?: string | null
+  contextLabel?: string | null
+  usageAmount?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -930,6 +1038,9 @@ export type pointConsumptionRecordsUpdateWithoutPointConsumptionItemsInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  operationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contextLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usageAmount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -946,6 +1057,9 @@ export type pointConsumptionRecordsUncheckedUpdateWithoutPointConsumptionItemsIn
   status?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  operationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contextLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usageAmount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -960,6 +1074,9 @@ export type pointConsumptionRecordsUncheckedUpdateManyWithoutPointConsumptionIte
   status?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  operationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contextLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usageAmount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -974,6 +1091,9 @@ export type pointConsumptionRecordsCreateManyUsersInput = {
   status?: number
   sourceId?: number | null
   remark?: string | null
+  operationId?: string | null
+  contextLabel?: string | null
+  usageAmount?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -985,6 +1105,9 @@ export type pointConsumptionRecordsUpdateWithoutUsersInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  operationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contextLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usageAmount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1001,6 +1124,9 @@ export type pointConsumptionRecordsUncheckedUpdateWithoutUsersInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  operationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contextLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usageAmount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1015,6 +1141,9 @@ export type pointConsumptionRecordsUncheckedUpdateManyWithoutUsersInput = {
   status?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  operationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contextLabel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  usageAmount?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1032,6 +1161,9 @@ export type pointConsumptionRecordsSelect<ExtArgs extends runtime.Types.Extensio
   status?: boolean
   sourceId?: boolean
   remark?: boolean
+  operationId?: boolean
+  contextLabel?: boolean
+  usageAmount?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -1050,6 +1182,9 @@ export type pointConsumptionRecordsSelectCreateManyAndReturn<ExtArgs extends run
   status?: boolean
   sourceId?: boolean
   remark?: boolean
+  operationId?: boolean
+  contextLabel?: boolean
+  usageAmount?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -1068,6 +1203,9 @@ export type pointConsumptionRecordsSelectUpdateManyAndReturn<ExtArgs extends run
   status?: boolean
   sourceId?: boolean
   remark?: boolean
+  operationId?: boolean
+  contextLabel?: boolean
+  usageAmount?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -1086,12 +1224,15 @@ export type pointConsumptionRecordsSelectScalar = {
   status?: boolean
   sourceId?: boolean
   remark?: boolean
+  operationId?: boolean
+  contextLabel?: boolean
+  usageAmount?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
 }
 
-export type pointConsumptionRecordsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "pointRecordId" | "itemId" | "batchId" | "pointAmount" | "status" | "sourceId" | "remark" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["pointConsumptionRecords"]>
+export type pointConsumptionRecordsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "pointRecordId" | "itemId" | "batchId" | "pointAmount" | "status" | "sourceId" | "remark" | "operationId" | "contextLabel" | "usageAmount" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["pointConsumptionRecords"]>
 export type pointConsumptionRecordsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   pointConsumptionItems?: boolean | Prisma.pointConsumptionItemsDefaultArgs<ExtArgs>
   pointRecords?: boolean | Prisma.pointRecordsDefaultArgs<ExtArgs>
@@ -1161,6 +1302,18 @@ export type $pointConsumptionRecordsPayload<ExtArgs extends runtime.Types.Extens
      * 备注
      */
     remark: string | null
+    /**
+     * 操作关联标识，聚合展示用，一次用户操作内多条记录共享同一值
+     */
+    operationId: string | null
+    /**
+     * 业务上下文快照（如「劳动合同纠纷案」「起诉状.pdf」），展示用
+     */
+    contextLabel: string | null
+    /**
+     * 计费用量（页/分钟/张），仅按次量模式填充
+     */
+    usageAmount: number | null
     /**
      * 创建时间
      */
@@ -1608,6 +1761,9 @@ export interface pointConsumptionRecordsFieldRefs {
   readonly status: Prisma.FieldRef<"pointConsumptionRecords", 'Int'>
   readonly sourceId: Prisma.FieldRef<"pointConsumptionRecords", 'Int'>
   readonly remark: Prisma.FieldRef<"pointConsumptionRecords", 'String'>
+  readonly operationId: Prisma.FieldRef<"pointConsumptionRecords", 'String'>
+  readonly contextLabel: Prisma.FieldRef<"pointConsumptionRecords", 'String'>
+  readonly usageAmount: Prisma.FieldRef<"pointConsumptionRecords", 'Int'>
   readonly createdAt: Prisma.FieldRef<"pointConsumptionRecords", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"pointConsumptionRecords", 'DateTime'>
   readonly deletedAt: Prisma.FieldRef<"pointConsumptionRecords", 'DateTime'>
