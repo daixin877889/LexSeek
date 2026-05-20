@@ -204,6 +204,11 @@ export type legalArticles = Prisma.legalArticlesModel
  */
 export type lawEmbeddings = Prisma.lawEmbeddingsModel
 /**
+ * Model legal_search_logs
+ * 法律法规检索日志（用于热搜聚合 + 后续数据分析）
+ */
+export type legal_search_logs = Prisma.legal_search_logsModel
+/**
  * Model textContentRecords
  * 文本内容记录表
  * 对齐 docRecognitionRecords 结构，为 CASE_CONTENT 类型材料提供独立存储

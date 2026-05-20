@@ -81,6 +81,7 @@ export const ModelName = {
   legalMain: 'legalMain',
   legalArticles: 'legalArticles',
   lawEmbeddings: 'lawEmbeddings',
+  legal_search_logs: 'legal_search_logs',
   textContentRecords: 'textContentRecords',
   membershipLevels: 'membershipLevels',
   userMemberships: 'userMemberships',
@@ -678,6 +679,19 @@ export const LawEmbeddingsScalarFieldEnum = {
 } as const
 
 export type LawEmbeddingsScalarFieldEnum = (typeof LawEmbeddingsScalarFieldEnum)[keyof typeof LawEmbeddingsScalarFieldEnum]
+
+
+export const Legal_search_logsScalarFieldEnum = {
+  id: 'id',
+  scope: 'scope',
+  keyword: 'keyword',
+  userId: 'userId',
+  resultCount: 'resultCount',
+  resultIds: 'resultIds',
+  createdAt: 'createdAt'
+} as const
+
+export type Legal_search_logsScalarFieldEnum = (typeof Legal_search_logsScalarFieldEnum)[keyof typeof Legal_search_logsScalarFieldEnum]
 
 
 export const TextContentRecordsScalarFieldEnum = {

@@ -414,6 +414,7 @@ export const ModelName = {
   legalMain: 'legalMain',
   legalArticles: 'legalArticles',
   lawEmbeddings: 'lawEmbeddings',
+  legal_search_logs: 'legal_search_logs',
   textContentRecords: 'textContentRecords',
   membershipLevels: 'membershipLevels',
   userMemberships: 'userMemberships',
@@ -474,7 +475,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "agentRuns" | "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "agentToolAuditLogs" | "campaigns" | "caseTypes" | "cases" | "caseSessions" | "caseMaterials" | "caseAnalyses" | "demoCases" | "caseMaterialEmbeddings" | "caseMemories" | "caseAnalysisEmbeddings" | "contractPlaybooks" | "contractReviews" | "contractReviewLegacyRisksBackup" | "contractReviewVersions" | "contractRisks" | "contractAnnotations" | "documentTemplates" | "documentDrafts" | "documentDraftSnapshots" | "documentDraftVersions" | "ossFiles" | "legalMain" | "legalArticles" | "lawEmbeddings" | "textContentRecords" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "modelProviders" | "modelApiKeys" | "models" | "nodeGroups" | "nodes" | "prompts" | "levelNodeAccess" | "node_prompts" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "lprRates" | "pbocDepositRates" | "pbocLoanRates" | "lprSyncLogs" | "roles" | "roleRouters" | "userRoles" | "docRecognitionRecords" | "imageRecognitionRecords" | "asrTasks" | "asrRecords" | "mineruTokens" | "mineruTasks" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "skills" | "node_skills" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
+    modelProps: "agentRuns" | "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "agentToolAuditLogs" | "campaigns" | "caseTypes" | "cases" | "caseSessions" | "caseMaterials" | "caseAnalyses" | "demoCases" | "caseMaterialEmbeddings" | "caseMemories" | "caseAnalysisEmbeddings" | "contractPlaybooks" | "contractReviews" | "contractReviewLegacyRisksBackup" | "contractReviewVersions" | "contractRisks" | "contractAnnotations" | "documentTemplates" | "documentDrafts" | "documentDraftSnapshots" | "documentDraftVersions" | "ossFiles" | "legalMain" | "legalArticles" | "lawEmbeddings" | "legal_search_logs" | "textContentRecords" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "modelProviders" | "modelApiKeys" | "models" | "nodeGroups" | "nodes" | "prompts" | "levelNodeAccess" | "node_prompts" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "lprRates" | "pbocDepositRates" | "pbocLoanRates" | "lprSyncLogs" | "roles" | "roleRouters" | "userRoles" | "docRecognitionRecords" | "imageRecognitionRecords" | "asrTasks" | "asrRecords" | "mineruTokens" | "mineruTasks" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "skills" | "node_skills" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -2695,6 +2696,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.lawEmbeddingsCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.LawEmbeddingsCountAggregateOutputType> | number
+        }
+      }
+    }
+    legal_search_logs: {
+      payload: Prisma.$legal_search_logsPayload<ExtArgs>
+      fields: Prisma.legal_search_logsFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.legal_search_logsFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legal_search_logsPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.legal_search_logsFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legal_search_logsPayload>
+        }
+        findFirst: {
+          args: Prisma.legal_search_logsFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legal_search_logsPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.legal_search_logsFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legal_search_logsPayload>
+        }
+        findMany: {
+          args: Prisma.legal_search_logsFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legal_search_logsPayload>[]
+        }
+        create: {
+          args: Prisma.legal_search_logsCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legal_search_logsPayload>
+        }
+        createMany: {
+          args: Prisma.legal_search_logsCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.legal_search_logsCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legal_search_logsPayload>[]
+        }
+        delete: {
+          args: Prisma.legal_search_logsDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legal_search_logsPayload>
+        }
+        update: {
+          args: Prisma.legal_search_logsUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legal_search_logsPayload>
+        }
+        deleteMany: {
+          args: Prisma.legal_search_logsDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.legal_search_logsUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.legal_search_logsUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legal_search_logsPayload>[]
+        }
+        upsert: {
+          args: Prisma.legal_search_logsUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legal_search_logsPayload>
+        }
+        aggregate: {
+          args: Prisma.Legal_search_logsAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateLegal_search_logs>
+        }
+        groupBy: {
+          args: Prisma.legal_search_logsGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.Legal_search_logsGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.legal_search_logsCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.Legal_search_logsCountAggregateOutputType> | number
         }
       }
     }
@@ -6603,6 +6678,19 @@ export const LawEmbeddingsScalarFieldEnum = {
 export type LawEmbeddingsScalarFieldEnum = (typeof LawEmbeddingsScalarFieldEnum)[keyof typeof LawEmbeddingsScalarFieldEnum]
 
 
+export const Legal_search_logsScalarFieldEnum = {
+  id: 'id',
+  scope: 'scope',
+  keyword: 'keyword',
+  userId: 'userId',
+  resultCount: 'resultCount',
+  resultIds: 'resultIds',
+  createdAt: 'createdAt'
+} as const
+
+export type Legal_search_logsScalarFieldEnum = (typeof Legal_search_logsScalarFieldEnum)[keyof typeof Legal_search_logsScalarFieldEnum]
+
+
 export const TextContentRecordsScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
@@ -7682,6 +7770,7 @@ export type GlobalOmitConfig = {
   legalMain?: Prisma.legalMainOmit
   legalArticles?: Prisma.legalArticlesOmit
   lawEmbeddings?: Prisma.lawEmbeddingsOmit
+  legal_search_logs?: Prisma.legal_search_logsOmit
   textContentRecords?: Prisma.textContentRecordsOmit
   membershipLevels?: Prisma.membershipLevelsOmit
   userMemberships?: Prisma.userMembershipsOmit

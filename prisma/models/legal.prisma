@@ -141,3 +141,19 @@ model pgTsCustomWord {
   @@map("pg_ts_custom_word")
   @@ignore
 }
+
+/// 法律法规检索日志（用于热搜聚合 + 后续数据分析）
+model legal_search_logs {
+  id          String   @id @default(cuid())
+  scope       String
+  keyword     String
+  userId      String?
+  resultCount Int?
+  resultIds   Json?
+  createdAt   DateTime @default(now())
+
+  @@index([scope, createdAt])
+  @@index([keyword, scope])
+  @@index([userId, createdAt])
+  @@map("legal_search_logs")
+}
