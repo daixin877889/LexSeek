@@ -53,3 +53,5 @@ update-prompt-*.sql
 
 .playground
 reference
+
+.codegraph
