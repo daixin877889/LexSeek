@@ -98,7 +98,8 @@ function buildAgentLangfuseContext(ctx: AgentRunnerContext, scope: SessionScope)
  */
 function toPointItemKey(scope: SessionScope, nodeName: string): string {
     const mapping: Record<string, string> = {
-        [SessionScope.CASE]: 'case_analysis_token',
+        // CASE scope 默认走小索对话；案件初始化分析 / 模块对话有自己的入口（不经 runtime），分别用 case_analysis_init / case_module_chat
+        [SessionScope.CASE]: 'case_main_chat',
         [SessionScope.ASSISTANT]: 'assistant_token',
         [SessionScope.DOCUMENT]: 'document_token',
         [SessionScope.CONTRACT]: 'contract_token',
@@ -203,15 +204,15 @@ async function runDomainAgentInner(
     const itemKey = toPointItemKey(def.scope, resolvedNodeName)
 
     // 解析计费上下文标签：
-    // - case-main（小索）也用 case_analysis_token，与「初始分析 / 模块对话」共用同一项，需要后缀区分
-    // - 其它 vertical 各有独立 itemKey + sceneName，contextLabel 仅给案件名（含会话标题留给各 vertical 自己装配处处理）
+    // - 各 vertical 的 itemKey 已独立（case_main_chat / assistant_token / document_token / contract_token），sceneName 自带场景信息
+    // - contextLabel 给案件名（case scope），其它 vertical 由 runner 自定（如果需要）
     let billingContextLabel: string | undefined
-    if (itemKey === 'case_analysis_token' && ctx.caseId != null) {
+    if (def.scope === SessionScope.CASE && ctx.caseId != null) {
         const row = await prisma.cases.findUnique({
             where: { id: ctx.caseId },
             select: { title: true },
         }).catch(() => null)
-        billingContextLabel = `${row?.title ?? `案件_${ctx.caseId}`} · 小索对话`
+        billingContextLabel = row?.title ?? `案件_${ctx.caseId}`
     }
 
     const middlewareItems = [

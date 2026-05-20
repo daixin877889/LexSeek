@@ -179,8 +179,7 @@ async function runModuleChatInner(
         where: { id: caseId },
         select: { title: true },
     }).catch(() => null)
-    // 后缀「· 模块对话」与「小索对话 / 初始分析」区分，方便用户在积分明细页识别用法
-    const caseTitle = `${caseRow?.title ?? `案件_${caseId}`} · 模块对话`
+    const caseTitle = caseRow?.title ?? `案件_${caseId}`
 
     const agent: ReactAgent = createAgent({
         model,
@@ -195,7 +194,7 @@ async function runModuleChatInner(
             // 消息完整性兜底必须最先：防止 orphan tool_use 引发 Provider 400
             createMessageIntegrityMiddleware(),
             createScopeGuardMiddleware(),
-            pointConsumptionMiddleware(userId, 'case_analysis_token', sessionId, runId, caseTitle),
+            pointConsumptionMiddleware(userId, 'case_module_chat', sessionId, runId, caseTitle),
             summarizationMiddleware({
                 model,
                 trigger: [{ tokens: triggerTokens }],

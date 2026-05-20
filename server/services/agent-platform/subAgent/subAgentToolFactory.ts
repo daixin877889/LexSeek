@@ -228,7 +228,7 @@ export async function createSubAgentTools(
                             // 消息完整性兜底必须最先：子 agent 独立 thread 同样会遗留 orphan tool_use
                             createMessageIntegrityMiddleware(),
                             createScopeGuardMiddleware(),
-                            pointConsumptionMiddleware(context.userId, 'case_analysis_token', context.sessionId, context.runId, context.contextLabel),
+                            pointConsumptionMiddleware(context.userId, 'case_main_chat', context.sessionId, context.runId, context.contextLabel),
                             summarizationMiddleware({
                                 model,
                                 trigger: [{ tokens: triggerTokens }],
