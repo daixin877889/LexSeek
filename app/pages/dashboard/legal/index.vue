@@ -28,19 +28,14 @@
                 热门检索
             </span>
             <button v-for="(kw, idx) in trending.keywords.value" :key="kw" type="button"
-                :class="[
-                    'group inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-[12.5px] transition-all',
-                    idx === 0
-                        ? 'bg-gradient-brand-button text-white font-semibold shadow-sm hover:shadow-md'
-                        : 'bg-card border border-border/70 text-foreground/85 hover:border-primary/40 hover:text-primary'
-                ]"
+                class="group inline-flex items-center gap-1 rounded-full bg-card border border-border/70 px-3.5 py-1.5 text-[12.5px] text-foreground/85 transition-all hover:border-primary/40 hover:text-primary"
                 @click="handleTrendingClick(kw)">
                 <span v-if="idx < 3"
                     :class="[
                         'inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold leading-none',
-                        idx === 0 ? 'bg-white/25 text-white'
-                        : idx === 1 ? 'bg-orange-100 text-orange-600'
-                        : 'bg-amber-100 text-amber-600'
+                        idx === 0 ? 'bg-[color:var(--brand-sky)]/15 text-[color:var(--brand-sky)]'
+                        : idx === 1 ? 'bg-orange-100 text-orange-600 dark:bg-orange-500/15 dark:text-orange-300'
+                        : 'bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300'
                     ]">
                     {{ idx + 1 }}
                 </span>
