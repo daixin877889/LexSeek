@@ -1,6 +1,6 @@
 import { createLogger } from '#shared/utils/logger'
 import { z } from '#shared/utils/zod'
-import { getUserConsumptionRecords } from '~~/server/services/point/pointConsumptionRecords.service'
+import { getUserAggregatedConsumptionRecordsService } from '~~/server/services/point/pointConsumptionRecords.service'
 /**
  * 获取用户积分消耗记录列表
  * GET /api/v1/points/usage
@@ -21,8 +21,8 @@ export default defineEventHandler(async (event) => {
         const query = getQuery(event)
         const validatedQuery = querySchema.parse(query)
 
-        // 获取积分消耗记录列表
-        const result = await getUserConsumptionRecords(user.id, {
+        // 获取积分消耗记录列表（按操作聚合）
+        const result = await getUserAggregatedConsumptionRecordsService(user.id, {
             page: validatedQuery.page,
             pageSize: validatedQuery.pageSize,
         })
