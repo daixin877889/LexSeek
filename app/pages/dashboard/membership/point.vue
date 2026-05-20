@@ -105,14 +105,15 @@ interface PointHistoryRecord {
   remark?: string;
 }
 
-/** 积分使用记录 */
+/** 积分使用记录（按操作聚合后） */
 interface PointUsageRecord {
-  id: number;
-  itemDescription: string;
-  pointAmount: number;
+  key: string;
+  sceneName: string;
+  contextLabel: string | null;
+  totalPoints: number;
+  usageText: string | null;
   status: number;
-  createdAt: string;
-  remark?: string;
+  time: string;
 }
 
 /** 积分商品 */
@@ -359,17 +360,7 @@ const {
   status: usageStatus,
   execute: executeUsage,
 } = useApi<{
-  list: Array<{
-    id: number;
-    pointAmount: number;
-    status: number;
-    createdAt: string;
-    remark?: string;
-    pointConsumptionItems: {
-      name: string;
-      description?: string;
-    };
-  }>;
+  list: PointUsageRecord[];
   total: number;
   page: number;
   pageSize: number;
@@ -385,17 +376,9 @@ const {
 // 积分使用记录加载状态
 const usageLoading = computed(() => usageStatus.value === "pending");
 
-// 积分使用记录列表（转换格式）
+// 积分使用记录列表（接口已返回聚合后的最终形态，无需再映射）
 const usageList = computed<PointUsageRecord[]>(() => {
-  if (!usageData.value?.list) return [];
-  return usageData.value.list.map((item: any) => ({
-    id: item.id,
-    itemDescription: item.pointConsumptionItems?.description || item.pointConsumptionItems?.name || "未知消耗项",
-    pointAmount: item.pointAmount,
-    status: item.status,
-    createdAt: item.createdAt,
-    remark: item.remark,
-  }));
+  return usageData.value?.list ?? [];
 });
 
 // 积分使用记录分页信息
@@ -442,17 +425,7 @@ const loadMoreUsage = async () => {
 
   try {
     const data = await useApiFetch<{
-      list: Array<{
-        id: number;
-        pointAmount: number;
-        status: number;
-        createdAt: string;
-        remark?: string;
-        pointConsumptionItems: {
-          name: string;
-          description?: string;
-        };
-      }>;
+      list: PointUsageRecord[];
       total: number;
     }>("/api/v1/points/usage", {
       query: {
@@ -462,15 +435,7 @@ const loadMoreUsage = async () => {
     });
 
     if (data?.list) {
-      const newRecords = data.list.map((item) => ({
-        id: item.id,
-        itemDescription: item.pointConsumptionItems?.description || item.pointConsumptionItems?.name || "未知消耗项",
-        pointAmount: item.pointAmount,
-        status: item.status,
-        createdAt: item.createdAt,
-        remark: item.remark,
-      }));
-      usageMobileList.value = [...usageMobileList.value, ...newRecords];
+      usageMobileList.value = [...usageMobileList.value, ...data.list];
     }
   } catch (error) {
     // 加载失败，回退页码
@@ -492,17 +457,7 @@ const refreshUsage = async () => {
 
   try {
     const data = await useApiFetch<{
-      list: Array<{
-        id: number;
-        pointAmount: number;
-        status: number;
-        createdAt: string;
-        remark?: string;
-        pointConsumptionItems: {
-          name: string;
-          description?: string;
-        };
-      }>;
+      list: PointUsageRecord[];
       total: number;
     }>("/api/v1/points/usage", {
       query: {
@@ -512,14 +467,7 @@ const refreshUsage = async () => {
     });
 
     if (data?.list) {
-      usageMobileList.value = data.list.map((item) => ({
-        id: item.id,
-        itemDescription: item.pointConsumptionItems?.description || item.pointConsumptionItems?.name || "未知消耗项",
-        pointAmount: item.pointAmount,
-        status: item.status,
-        createdAt: item.createdAt,
-        remark: item.remark,
-      }));
+      usageMobileList.value = data.list;
     }
   } catch (error) {
     logger.error("刷新积分使用记录失败:", error);

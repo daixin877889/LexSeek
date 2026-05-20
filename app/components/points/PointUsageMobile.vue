@@ -17,29 +17,34 @@
 
         <!-- 数据列表 -->
         <div v-else class="space-y-4">
-            <div v-for="usage in list" :key="usage.id" class="border rounded-lg p-4 space-y-3">
+            <div v-for="usage in list" :key="usage.key" class="border rounded-lg p-4 space-y-3">
                 <div class="flex justify-between items-start">
                     <div>
-                        <h3 class="font-medium text-sm mb-1">{{ usage.itemDescription }}</h3>
-                        <p class="text-lg font-bold text-red-600">-{{ usage.pointAmount }} 积分</p>
+                        <h3 class="font-medium text-sm mb-1">
+                            <span>{{ usage.sceneName }}</span>
+                            <span v-if="usage.contextLabel" class="text-muted-foreground">
+                                · {{ usage.contextLabel }}
+                            </span>
+                        </h3>
+                        <p class="text-lg font-bold text-red-600">-{{ usage.totalPoints }} 积分</p>
                     </div>
                     <!-- 状态标签 -->
                     <span v-if="usage.status === 0"
                         class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">异常</span>
                     <span v-else-if="usage.status === 1"
-                        class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">预扣</span>
+                        class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">处理中</span>
                     <span v-else-if="usage.status === 2"
-                        class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">已结算</span>
+                        class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">已完成</span>
+                </div>
+                <!-- 计费用量（仅按次量模式） -->
+                <div v-if="usage.usageText" class="text-sm">
+                    <p class="text-muted-foreground mb-1">计费用量</p>
+                    <p>{{ usage.usageText }}</p>
                 </div>
                 <!-- 使用时间 -->
                 <div class="text-sm">
                     <p class="text-muted-foreground mb-1">使用时间</p>
-                    <p>{{ dayjs(usage.createdAt).format("YYYY年MM月DD日 HH:mm") }}</p>
-                </div>
-                <!-- 备注 -->
-                <div v-if="usage.remark" class="text-sm">
-                    <p class="text-muted-foreground mb-1">备注</p>
-                    <p>{{ usage.remark }}</p>
+                    <p>{{ dayjs(usage.time).format("YYYY年MM月DD日 HH:mm") }}</p>
                 </div>
             </div>
         </div>
@@ -67,14 +72,15 @@ import { useIntersectionObserver } from "@vueuse/core";
 
 // ==================== 类型定义 ====================
 
-/** 积分使用记录 */
+/** 积分使用记录（聚合后） */
 interface PointUsageRecord {
-    id: number;
-    itemDescription: string;
-    pointAmount: number;
+    key: string;
+    sceneName: string;
+    contextLabel: string | null;
+    totalPoints: number;
+    usageText: string | null;
     status: number;
-    createdAt: string;
-    remark?: string;
+    time: string;
 }
 
 // ==================== Props ====================
