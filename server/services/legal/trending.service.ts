@@ -38,7 +38,8 @@ function dedupeKey(scope: TrendingScope, userId: string, keyword: string): strin
 export interface RecordSearchParams {
     scope: TrendingScope
     rawKeyword: string
-    userId: string | null
+    /** 用户 ID（users.id 是 Int，前端调用方可能传 number；内部统一 String 化） */
+    userId: number | string | null
     resultCount?: number
     resultIds?: { ids: string[]; scores?: number[] }
 }
@@ -54,12 +55,13 @@ export interface RecordSearchParams {
 export async function recordSearchService(params: RecordSearchParams): Promise<void> {
     const keyword = normalizeKeywordService(params.rawKeyword)
     if (!keyword) return
-    if (!params.userId) return
+    if (params.userId === null || params.userId === undefined) return
+    const userIdStr = String(params.userId)
 
     try {
         const redis = getRedisClient()
         const acquired = await redis.set(
-            dedupeKey(params.scope, params.userId, keyword),
+            dedupeKey(params.scope, userIdStr, keyword),
             '1',
             'EX',
             DEDUPE_TTL,
@@ -77,14 +79,18 @@ export async function recordSearchService(params: RecordSearchParams): Promise<v
                 data: {
                     scope: params.scope,
                     keyword,
-                    userId: params.userId,
+                    userId: userIdStr,
                     resultCount: params.resultCount ?? null,
                     resultIds: params.resultIds ?? undefined,
                 },
             }),
         ])
     } catch (err) {
-        logger.warn('[legal-trending] recordSearchService 失败', err)
+        logger.error('[legal-trending] recordSearchService 失败', {
+            message: (err as Error)?.message,
+            stack: (err as Error)?.stack,
+            scope: params.scope,
+        })
     }
 }
 
