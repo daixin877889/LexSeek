@@ -201,7 +201,7 @@ export async function runDocumentChat(
             name: MIDDLEWARE_NAMES.SCOPE_GUARD,
         },
         {
-            middleware: pointConsumptionMiddleware(userId, 'document_draft_token', sessionId),
+            middleware: pointConsumptionMiddleware(userId, 'document_draft_token', sessionId, undefined, draft.title ?? `文书_${draft.id}`),
             priority: MIDDLEWARE_PRIORITY.POINT_CONSUMPTION,
             name: MIDDLEWARE_NAMES.POINT_CONSUMPTION,
         },

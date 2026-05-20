@@ -27,6 +27,7 @@ import { caseProcessMaterialMiddleware } from '~~/server/agents/_shared/case-con
 import { afterAgentMemoryMiddleware } from '~~/server/services/agent-platform/middleware/afterAgentMemory.middleware'
 import { createSubAgentTools } from '~~/server/services/agent-platform/subAgent/subAgentToolFactory'
 import { getNodeConfigsByTypes } from '~~/server/services/node/node.service'
+import { prisma } from '~~/server/utils/db'
 
 /** 子代理节点类型（与 caseMainAgent 保持一致） */
 const SUB_AGENT_NODE_TYPES = ['analysis', 'document']
@@ -83,11 +84,17 @@ export const caseMainAgent = defineDomainAgent({
             return []
         }
         const subAgentConfigs = await getNodeConfigsByTypes(SUB_AGENT_NODE_TYPES)
+        // contextLabel：透传给子代理计费中间件，与主代理共享同一 contextLabel
+        const caseRow = await prisma.cases.findUnique({
+            where: { id: ctx.caseId },
+            select: { title: true },
+        }).catch(() => null)
         return createSubAgentTools(subAgentConfigs, {
             userId: ctx.userId,
             caseId: ctx.caseId,
             sessionId: ctx.sessionId,
             runId: ctx.runId,
+            contextLabel: caseRow?.title ?? `案件_${ctx.caseId}`,
         })
     },
 })

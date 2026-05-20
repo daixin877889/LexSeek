@@ -219,7 +219,8 @@ async function runDomainAgentInner(
             name: `${MIDDLEWARE_NAMES.TOOL_CALL_LIMIT}_${i}`,
         })),
         {
-            middleware: pointConsumptionMiddleware(ctx.userId, itemKey, ctx.sessionId),
+            // operationId 取主 Agent 的 runId，使主代理与子代理（subAgentToolFactory）的扣费聚合到同一条消耗记录
+            middleware: pointConsumptionMiddleware(ctx.userId, itemKey, ctx.sessionId, ctx.runId),
             priority: MIDDLEWARE_PRIORITY.POINT_CONSUMPTION,
             name: MIDDLEWARE_NAMES.POINT_CONSUMPTION,
         },

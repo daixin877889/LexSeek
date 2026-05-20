@@ -424,7 +424,7 @@ export async function runContractReviewChat(
             name: MIDDLEWARE_NAMES.SCOPE_GUARD,
         },
         {
-            middleware: pointConsumptionMiddleware(userId, CONTRACT_REVIEW_POINT_ITEM, sessionId),
+            middleware: pointConsumptionMiddleware(userId, CONTRACT_REVIEW_POINT_ITEM, sessionId, undefined, review.contractType ?? `合同_${review.id}`),
             priority: MIDDLEWARE_PRIORITY.POINT_CONSUMPTION,
             name: MIDDLEWARE_NAMES.POINT_CONSUMPTION,
         },

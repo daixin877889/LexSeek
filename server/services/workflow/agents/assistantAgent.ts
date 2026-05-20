@@ -28,6 +28,7 @@ import {
     safetyTrimMiddleware,
 } from '../middleware'
 import { resolveContextWindow } from '../context/messageCompressor'
+import { prisma } from '~~/server/utils/db'
 
 /** 通用问答主代理节点名称 */
 const ASSISTANT_MAIN_NODE_NAME = 'assistantMain'
@@ -117,6 +118,13 @@ export async function runAssistantChat(
         mainConfig.modelMaxOutputTokens,
     )
 
+    // 取会话标题作为计费消耗记录的业务上下文标签（best-effort）
+    const sessionRow = await prisma.caseSessions.findUnique({
+        where: { sessionId },
+        select: { title: true },
+    }).catch(() => null)
+    const sessionTitle = sessionRow?.title ?? undefined
+
     const agent: ReactAgent = createAgent({
         model,
         systemPrompt,
@@ -129,7 +137,7 @@ export async function runAssistantChat(
             // Agent 安全两层（scope 校验 / 审计归档；工具调用熔断防 DoS 不在威胁模型内）
             createScopeGuardMiddleware(),
             // assistant_token 独立计费（与 case_analysis_token 分开）
-            pointConsumptionMiddleware(userId, 'assistant_token', sessionId),
+            pointConsumptionMiddleware(userId, 'assistant_token', sessionId, undefined, sessionTitle),
             summarizationMiddleware({
                 model,
                 trigger: [{ tokens: triggerTokens }],
