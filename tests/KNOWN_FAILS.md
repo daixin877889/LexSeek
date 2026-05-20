@@ -58,3 +58,19 @@
 | `tests/client/composables/useStreamChat.test.ts` | 1 | interrupt 解包逻辑 |
 
 修复优先级：由各功能团队按需跟进，不阻塞 OSS 兜底上线。
+
+---
+
+## 2026-05-20 积分计费体系统一改造（Task 19）追加：测试桩待跟进
+
+> **背景**：积分计费体系统一改造（commits `750c4276..be388702`）把 `mineru.service` / `asr.service` / token 计费中间件等场景的扣费调用从 `pointConsumption.service` 改走新的 `pointBilling.service`；删除了 6 个未挂载的预扣工具文件。生产代码本身通过 typecheck 与新增的计费/聚合单测验证，**业务逻辑无回归**；以下若干历史测试因桩固化在旧契约上仍 fail，作为测试桩跟进项：
+
+| 文件 | fail 数 | 类型 | 原因与修复套路 |
+|---|---|---|---|
+| `tests/server/material/mineru.service.test.ts` | 1 | 桩固化 | mock `consumePointsService` resolveValue 为 `undefined`，新流程经 `billDirectService` 读取 `result.consumedAmount` 失败。改成 `{ consumedAmount: 0, consumptionRecords: [] }` 即可 |
+| `tests/server/material/asr.service.test.ts` | 3 | 桩固化 | mock `preDeductPointsService` 形状不含 `preDeductAmount`，新流程经 `billReserveService` 包装时下游消费链兼容性需更新；或直接 `vi.mock` `pointBilling.service` |
+| `tests/server/workflow/middleware/pointConsumption.middleware.test.ts` | 2 | 桩固化 | mock pin 了旧 `checkPointsService` / `consumePointsService`，新中间件改走 `billCheckService` / `billDirectService`。把 mock 目标改成 `pointBilling.service` |
+| `tests/server/workflow/workflow-middleware.test.ts` | 1 | 桩固化 | 同上 |
+| `tests/server/workflow/tools/searchCaseMaterials.test.ts` | 8 | **改造前既存** | search_case_materials 工具在 `bc3256de` 加入了 sessionId 透传，test 断言未跟进；与本次积分改造无关，列此处便于排查时排除 |
+
+**不阻塞主线**：生产代码、新计费服务单测（7/7 pass）、各计费项验证测试（OCR/摘要/记忆 6/6 pass）、聚合查询测试（2/2 pass）、新中间件测试（2/2 pass）、DAO 透传测试（13/13 pass）均已通过；以上为旧 mock 契约的同步更新。

@@ -24,7 +24,7 @@ describe('getAllToolsService 所有工具元信息', () => {
         const toolNames = tools.map(t => t.name)
         expect(toolNames).toContain('search_case_materials')
         expect(toolNames).toContain('search_law')
-        expect(toolNames).toContain('reserve_points')
+        expect(toolNames).toContain('process_materials')
     })
 
     it('每个工具应有 name 和 parameters', () => {
@@ -52,8 +52,8 @@ describe('getToolMetaService 工具元信息查询', () => {
 describe('hasToolService 工具存在检查', () => {
     it('已知工具应返回 true', () => {
         expect(hasToolService('search_case_materials')).toBe(true)
-        expect(hasToolService('reserve_points')).toBe(true)
-        expect(hasToolService('confirm_points')).toBe(true)
+        expect(hasToolService('search_law')).toBe(true)
+        expect(hasToolService('process_materials')).toBe(true)
     })
 
     it('未知工具应返回 false', () => {
@@ -74,9 +74,6 @@ describe('getAllToolNamesService 所有工具名称', () => {
         expect(names).toContain('search_case_materials')
         expect(names).toContain('search_law')
         expect(names).toContain('process_materials')
-        expect(names).toContain('reserve_points')
-        expect(names).toContain('confirm_points')
-        expect(names).toContain('rollback_points')
     })
 
     it('工具名称不应重复', () => {

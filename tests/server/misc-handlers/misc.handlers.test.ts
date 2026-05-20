@@ -63,6 +63,7 @@ vi.mock('~~/server/services/point/pointRecords.service', () => ({
 }))
 vi.mock('~~/server/services/point/pointConsumptionRecords.service', () => ({
     getUserConsumptionRecords: vi.fn(),
+    getUserAggregatedConsumptionRecordsService: vi.fn(),
 }))
 vi.mock('~~/server/services/product/product.service', () => ({
     getActiveProductsService: vi.fn(),
@@ -100,7 +101,7 @@ import { findUserByPhoneDao } from '~~/server/services/users/users.dao'
 import { generateOssDownloadSignaturesService } from '~~/server/services/files/files.service'
 import { findOssFilesByIdsAndUserIdDao } from '~~/server/services/files/ossFiles.dao'
 import { getUserPointRecords, getUserPointSummary } from '~~/server/services/point/pointRecords.service'
-import { getUserConsumptionRecords } from '~~/server/services/point/pointConsumptionRecords.service'
+import { getUserConsumptionRecords, getUserAggregatedConsumptionRecordsService } from '~~/server/services/point/pointConsumptionRecords.service'
 import { getActiveProductsService, getProductByIdService } from '~~/server/services/product/product.service'
 import { findAllCampaignsDao, findCampaignByIdDao } from '~~/server/services/campaign/campaign.dao'
 import { getDashboardData } from '~~/server/services/dashboard.service'
@@ -524,7 +525,7 @@ describe('points', () => {
         expectError(res, 500)
     })
     it('GET usage happy', async () => {
-        ;(getUserConsumptionRecords as any).mockResolvedValue({ list: [], total: 0 })
+        ;(getUserAggregatedConsumptionRecordsService as any).mockResolvedValue({ list: [], total: 0, page: 1, pageSize: 10 })
         const res: any = await pointsUsageHandler(makeEvent({ userId: 100, query: {} }) as any)
         expectSuccess(res)
     })

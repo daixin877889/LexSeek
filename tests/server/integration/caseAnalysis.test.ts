@@ -3,28 +3,22 @@ import { getAllToolNamesService } from '~~/server/services/workflow/tools'
 
 describe('Case Analysis Integration', () => {
     describe('Tool Registry', () => {
-        it('should have all 6 required tools registered', () => {
+        it('should have core tools registered', () => {
             const names = getAllToolNamesService()
             expect(names).toContain('search_case_materials')
             expect(names).toContain('search_law')
             expect(names).toContain('process_materials')
-            expect(names).toContain('reserve_points')
-            expect(names).toContain('confirm_points')
-            expect(names).toContain('rollback_points')
         })
 
-        it('should have at least 6 core tools registered', () => {
+        it('should have at least 3 core tools registered', () => {
             const names = getAllToolNamesService()
-            // 注册表随业务演进追加了 skill/file 相关工具（read_skill_file、run_skill_script、
-            // write_skill_file、upload_workspace_file）；6 个核心工具仍然保留
-            expect(names.length).toBeGreaterThanOrEqual(6)
+            // 注册表随业务演进追加了 skill/file 相关工具；3 个核心检索/处理工具仍然保留
+            // （历史 reserve_points/confirm_points/rollback_points 已迁移到 pointBilling 服务）
+            expect(names.length).toBeGreaterThanOrEqual(3)
             const coreTools = [
                 'search_case_materials',
                 'search_law',
                 'process_materials',
-                'reserve_points',
-                'confirm_points',
-                'rollback_points',
             ]
             for (const name of coreTools) {
                 expect(names).toContain(name)
