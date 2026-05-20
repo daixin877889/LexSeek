@@ -14,7 +14,7 @@ export const INIT_ANALYSIS_MODULES: InitAnalysisModule[] = [
   { name: 'summary', title: '生成案件概要', description: '基于案件材料生成结构化案件概要', icon: 'FileText' },
   { name: 'chronicle', title: '提取案件大事记', description: '按时间线提取案件关键事件', icon: 'Calendar' },
   { name: 'claim', title: '预分析案件请求权', description: '分析案件可能的请求权基础', icon: 'Scale' },
-  { name: 'trend', title: '判决趋势预测', description: '基于类案数据预测判决趋势', icon: 'TrendingUp' },
+  { name: 'trend', title: '判决趋势预测', description: '法官视角进行法律合理性审查', icon: 'TrendingUp' },
   { name: 'cause', title: '预选案由', description: '推荐适用的案由分类', icon: 'Tag' },
   { name: 'defense', title: '抗辩分析及应对策略预测', description: '预测对方抗辩策略并制定应对方案', icon: 'Shield' },
   { name: 'evidence', title: '证据清单预梳理', description: '梳理需要准备的证据清单', icon: 'ClipboardList' },
