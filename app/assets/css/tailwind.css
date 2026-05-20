@@ -255,3 +255,15 @@
 ::highlight(quote-high) { text-decoration-color: rgb(220 38 38); }
 ::highlight(quote-medium) { text-decoration-color: rgb(217 119 6); }
 ::highlight(quote-low) { text-decoration-color: rgb(14 165 233); }
+
+/* ===== 按钮光标全站默认手型 =====
+ * Tailwind v4 把 button 的默认 cursor 从 pointer 改成 default（跟最新浏览器规范一致）。
+ * 本项目偏好沿用 v3 / 历史习惯：按钮在非禁用状态下显示手型，提示可点击。
+ * disabled 时浏览器默认会覆盖为 not-allowed，无需在这里额外处理。
+ */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+}

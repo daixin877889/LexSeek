@@ -106,8 +106,12 @@ import DashboardNavUserRight from '~/components/dashboard/navUserRight.vue'
 import GeneralThemeToggle from '~/components/general/ThemeToggle.vue'
 import BrandLogo from '~/components/general/BrandLogo.vue'
 
-// 私密区域，禁止搜索引擎索引
+// 把当前路由的 definePageMeta.title 同步到浏览器标签，
+// 兜底"工作台"，避免子页漏写时被全局 titleTemplate 渲染成 " | LexSeek 法索 AI"。
+// 同时声明私密区域 robots: noindex。
+const route = useRoute()
 useHead({
+  title: () => (route.meta?.title as string | undefined) || '工作台',
   meta: [{ name: 'robots', content: 'noindex,nofollow' }]
 })
 

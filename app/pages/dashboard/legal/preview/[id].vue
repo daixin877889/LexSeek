@@ -270,6 +270,13 @@ const error = ref<string | null>(null)
 /** 法律数据 */
 const legalData = ref<LegalDetailResponse | null>(null)
 
+// 浏览器标签标题：拿到法规名称后用名称，否则兜底"法律全文预览"。
+// 这里 layout: false，dashboardLayout 的 title 注入对本页不生效，需要本地补一遍。
+useHead({
+    title: () => legalData.value?.name || '法律全文预览',
+    meta: [{ name: 'robots', content: 'noindex,nofollow' }],
+})
+
 /** 条文列表 */
 const articles = ref<LegalArticleInfo[]>([])
 

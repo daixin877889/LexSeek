@@ -33,9 +33,14 @@ interface UseApiFetchOptions<T> extends Omit<FetchOptions, 'onResponse' | 'onRes
  * - 自动显示错误 toast（除非 showError: false）
  * - 返回 null，调用方需要检查返回值
  *
+ * 业务成功但后端未返回 data（如删除 / 取消 / 重命名等只确认操作的接口
+ * 返回 resSuccess(event, msg, null)）时：
+ * - 返回 true 作为成功标记，保证调用方 `if (result)` 精确反映业务成功
+ * - 调用方此时不应解构 result 取业务字段（这类接口本就没有业务字段）
+ *
  * @param url 请求地址
  * @param options $fetch 配置选项
- * @returns Promise<T | null> 成功返回 data 字段数据，失败返回 null
+ * @returns Promise<T | null> 业务成功返回 data（data 为 null 时退化为 true 作为成功标记），业务失败返回 null
  *
  * @example
  * ```typescript
@@ -131,6 +136,7 @@ export async function useApiFetch<T = unknown>(
         return userTransform(response)
     }
 
-    // 默认提取 data 字段
-    return response.data as T
+    // 业务成功时若后端未返回 data（resSuccess(..., null) 这类只确认操作的接口），
+    // 退化为 true 作为"成功标记"，避免调用方误用 `if (result)` 把 data=null 当成失败。
+    return (response.data ?? true) as T
 }
