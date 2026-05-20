@@ -72,6 +72,7 @@ describe('interestCalculator - 路径 A/B/C + 边界', () => {
             startDate: '2023-01-01',
             endDate: '2024-01-01',
             lprPeriod: 1,
+            yearDays: '365',
         })
         expect(interruptMock).not.toHaveBeenCalled()
         expect(calcLPRMock).toHaveBeenCalled()
@@ -102,6 +103,42 @@ describe('interestCalculator - 路径 A/B/C + 边界', () => {
             expect.objectContaining({
                 missing: expect.arrayContaining(['annualRate']),
             }),
+        )
+    })
+
+    it('路径 B: lpr 未传 yearDays 必触发 interrupt，prefilled 预选 365', async () => {
+        interruptMock.mockReturnValue({ yearDays: '365' })
+        const toolInstance = createTool({ userId: 1, caseId: 100, sessionId: 's1' })
+        await toolInstance.invoke({
+            mode: 'lpr',
+            amount: 50000,
+            startDate: '2023-01-01',
+            endDate: '2024-01-01',
+            lprPeriod: 1,
+        })
+        expect(interruptMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                missing: expect.arrayContaining(['yearDays']),
+                prefilled: expect.objectContaining({ yearDays: '365' }),
+            }),
+        )
+    })
+
+    it('路径 B: 用户明示 yearDays=360 时 prefilled 不被 365 覆盖', async () => {
+        const toolInstance = createTool({ userId: 1, caseId: 100, sessionId: 's1' })
+        await toolInstance.invoke({
+            mode: 'lpr',
+            amount: 50000,
+            startDate: '2023-01-01',
+            endDate: '2024-01-01',
+            lprPeriod: 1,
+            yearDays: '360',
+        })
+        // 用户已明示 → yearDays 不进 missing，根本不应触发 interrupt
+        expect(interruptMock).not.toHaveBeenCalled()
+        expect(calcLPRMock).toHaveBeenCalledWith(
+            expect.anything(), expect.anything(), expect.anything(), expect.anything(),
+            expect.anything(), expect.anything(), '360',
         )
     })
 

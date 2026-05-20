@@ -155,10 +155,11 @@ export const CALCULATOR_TOOL_META: Record<string, CalcToolMeta> = {
             {
                 name: 'yearDays', label: '一年天数', type: 'select',
                 options: [
-                    { value: '360', label: '360 天（商业惯例）' },
                     { value: '365', label: '365 天（日历年）' },
+                    { value: '360', label: '360 天（商业惯例）' },
                 ],
-                placeholder: '默认 360',
+                placeholder: '默认 365',
+                requiredBy: { lpr: true, pboc: true, auto: true },
             },
         ],
         fieldsByBranch: {

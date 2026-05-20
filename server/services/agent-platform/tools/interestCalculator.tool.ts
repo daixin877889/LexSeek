@@ -41,12 +41,18 @@ const schema = z.object({
     yearDays: z.enum(['365', '360']).optional().describe('年计息天数，可选；365 为日历年，360 为商业惯例（按月 30 天）；用户未明示时留空'),
 })
 
-/** 各分支必填字段（均需显式传入，不能缺省） */
+/** 各分支必填字段（均需显式传入，不能缺省）
+ *
+ * yearDays 在 lpr/pboc/auto 三个走 LPR/央行档位的分支里必填：
+ * 业务上 365 与 360 算出来差约 1.4%，关系到起诉状里的利息数额，必须由用户在 inline 卡片里
+ * 显式确认。卡片打开时预选 365（司法主流，多数法院按 365 折日利率），用户可改 360。
+ * simple 分支走自定义年化利率单利，未用到 yearDays，不必填。
+ */
 const REQUIRED_FIELDS_BY_BRANCH: Record<string, string[]> = {
-    lpr: ['amount', 'startDate', 'endDate', 'lprPeriod'],
-    pboc: ['amount', 'startDate', 'endDate', 'pbocPeriod'],
+    lpr: ['amount', 'startDate', 'endDate', 'lprPeriod', 'yearDays'],
+    pboc: ['amount', 'startDate', 'endDate', 'pbocPeriod', 'yearDays'],
     simple: ['amount', 'startDate', 'endDate', 'annualRate'],
-    auto: ['amount', 'startDate', 'endDate', 'lprPeriod', 'pbocPeriod'],
+    auto: ['amount', 'startDate', 'endDate', 'lprPeriod', 'pbocPeriod', 'yearDays'],
 }
 
 export const toolDefinition: ToolDefinition<typeof schema> = {
@@ -73,11 +79,17 @@ export function createTool(ctx: ToolContext) {
 
         // ③ 信息不足 → interrupt（防御性校验：null=取消，非 object 抛错）
         if (missing.length > 0) {
+            // missing 含 yearDays（用户未明示 360/365）时，给卡片预选 365（司法主流），
+            // 用户可在 inline 卡片里改成 360。merged 已包含值时不覆盖。
+            const prefilled: Record<string, unknown> = { ...merged }
+            if (missing.includes('yearDays') && !prefilled.yearDays) {
+                prefilled.yearDays = '365'
+            }
             const resumedRaw = interrupt({
                 toolCallId: (cfg as any)?.toolCall?.id ?? "",
                 type: InterruptType.CALCULATOR_INPUT,
                 toolName: 'calculate_interest',
-                prefilled: merged,
+                prefilled,
                 missing,
             }) as unknown
 
@@ -106,6 +118,8 @@ export function createTool(ctx: ToolContext) {
         // ④ 调 service 算结果
         let result: Record<string, unknown>
         try {
+            // yearDays 缺省值改用 365（司法主流），与 interrupt 卡片预选保持一致；
+            // 正常路径下 yearDays 必填 + 卡片预选已经会注入值，这里仅作防御兜底。
             const yd = merged.yearDays as string | undefined
             if (merged.mode === 'lpr') {
                 result = calculateLPRInterest(
@@ -115,7 +129,7 @@ export function createTool(ctx: ToolContext) {
                     (merged.lprPeriod as number) ?? 1,
                     ((merged.adjustmentMethod as AdjustmentMethod) ?? '无') as AdjustmentMethod,
                     (merged.adjustmentValue as number) ?? 0,
-                    yd ?? 360,
+                    yd ?? 365,
                 ) as unknown as Record<string, unknown>
             } else if (merged.mode === 'pboc') {
                 result = calculatePBOCInterest(
@@ -125,7 +139,7 @@ export function createTool(ctx: ToolContext) {
                     (merged.pbocPeriod as number) ?? 2,
                     ((merged.adjustmentMethod as AdjustmentMethod) ?? '无') as AdjustmentMethod,
                     (merged.adjustmentValue as number) ?? 0,
-                    yd ?? 360,
+                    yd ?? 365,
                 ) as unknown as Record<string, unknown>
             } else if (merged.mode === 'auto') {
                 result = calculateAutoSegmentInterest(
@@ -136,7 +150,7 @@ export function createTool(ctx: ToolContext) {
                     (merged.pbocPeriod as number) ?? 2,
                     ((merged.adjustmentMethod as AdjustmentMethod) ?? '无') as AdjustmentMethod,
                     (merged.adjustmentValue as number) ?? 0,
-                    yd ?? 360,
+                    yd ?? 365,
                 ) as unknown as Record<string, unknown>
             } else {
                 result = calculateSimpleInterest(
