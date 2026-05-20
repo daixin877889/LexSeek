@@ -81,6 +81,24 @@ export const PointConsumptionItemStatusName = {
 }
 
 /**
+ * 积分计费模式
+ */
+export enum BillingMode {
+    /** 按 token 计费 */
+    TOKEN = 1,
+    /** 按次量计费 */
+    COUNT = 2,
+}
+
+/**
+ * 积分计费模式名称
+ */
+export const BillingModeName = {
+    [BillingMode.TOKEN]: "按 token",
+    [BillingMode.COUNT]: "按次量",
+}
+
+/**
  * 积分消耗记录状态
  */
 export enum PointConsumptionRecordStatus {
@@ -127,6 +145,10 @@ export interface PointConsumptionItem {
     pointAmount: number
     discount: number | string | null
     status: number
+    /** 计费模式：1-按 token，2-按次量 */
+    billingMode: number
+    /** 用户友好场景名，可空 */
+    displayName: string | null
     createdAt: string
     updatedAt: string
 }
