@@ -152,29 +152,29 @@ const NAVY = { tintBg: "var(--tint-navy-bg)", tintFg: "var(--tint-navy-fg)" }
 const AMBER = { tintBg: "var(--tint-amber-bg)", tintFg: "var(--tint-amber-fg)" }
 
 const MAIN_FEATURES = [
-  { icon: FileText, img: summaryImg, title: "案情概要生成", body: "AI 自动分析案件材料，提取关键信息并生成简洁明了的案情概要，帮助您快速把握案件要点。", bullets: ["自动识别关键案情要素", "结构化呈现案件事实与争议", "突出案件中的关键证据"], ...SKY },
+  { icon: FileText, img: summaryImg, title: "案情概要生成", body: "智能解构复杂案卷及多模态碎料，秒级输出高含金量事实概要，快速还原事件全貌并锁定核心争议。", bullets: ["多模态无损解析", "干扰信息精准过滤", "争议焦点秒级捕捉"], ...SKY },
   { icon: Calendar, img: timelineImg, title: "案件大事记", body: "自动整理案件中的重要时间点与事件，按时间顺序呈现关键事件，便于您全面了解案件发展过程。", bullets: ["精准提取时间信息", "清晰的时间线显示", "关联事件与证据材料"], ...MINT },
-  { icon: Gavel, img: causeImg, title: "案由确认", body: "智能识别案件类型与案由，提供法律依据和典型案件参考，帮助您准确定位案件性质。", bullets: ["准确识别案件类型和案由", "提供相关法条参考", "匹配类似案件判例"], ...NAVY },
-  { icon: ClipboardList, img: rightsImg, title: "请求权生成与分析", body: "根据案情自动生成可能的请求权，并提供详细分析和法律依据，帮助您制定更有力的诉讼策略。", bullets: ["智能推荐适用请求权", "分析构成要件的事实支持", "提供法条和判例支持"], ...AMBER },
+  { icon: Gavel, img: causeImg, title: "核心案由甄别", body: "智能解构案件事实与当事人真实诉求，精准匹配现行法定案由，系统性厘清诉讼请求权逻辑基础。", bullets: ["国家标准案由深度关联", "跨法典逻辑智能判定", "显著提升立案效率"], ...NAVY },
+  { icon: ClipboardList, img: rightsImg, title: "请求权基础研判", body: "深度拆解支持诉请的核心构成要件，自动匹配对应实体法规范，跨法条交叉验证诉讼论据，规避实务盲区。", bullets: ["核心支持要件自动拆解", "实体法规范双路映射", "规避实务策略盲区漏诊"], ...AMBER },
 ]
 
 const EXTRA_FEATURES = [
-  { icon: Shield, title: "对方抗辩预测", body: "预测对方可能的抗辩理由和策略，帮助您提前准备应对方案，针对性地加强自身案件准备。", ...SKY },
-  { icon: Layers, title: "证据清单", body: "分析并整理案件所需证据清单建议，让您胸有成竹地走进法庭。", ...MINT },
-  { icon: TrendingUp, title: "判决趋势预测", body: "法律合理性审查、预测判决趋势，助您及时调整诉讼策略。", ...NAVY },
-  { icon: History, title: "分析历史记录", body: "保存所有分析结果，随时查阅和比较，持续跟踪案件进展，支持团队协作共享。", ...AMBER },
+  { icon: Shield, title: "对方抗辩预测", body: "模拟复盘对方当事人可能的答辩思路与抗辩焦点，辅助代理人提前筹备反驳论据。", ...SKY },
+  { icon: Layers, title: "证据清单构建", body: "依据诉请与争议要件，智能推荐符合法定证明标准的关键证据并梳理证明链条。", ...MINT },
+  { icon: TrendingUp, title: "诉请法律合理性审查", body: "深度对齐法官裁判要素，无需依赖实体证据，纯粹从法律逻辑维度研判当事人陈述的合理性与支持概率。", ...NAVY },
+  { icon: History, title: "研判成果一键导出", body: "秒级一键导出高质感诉讼分析报告，自动一键起草 90 余种最高院标准格式文书初稿。", ...AMBER },
 ]
 
 const TECH = [
-  { icon: Cpu, title: "大语言模型", body: "采用最新的大语言模型技术，深度理解法律语言，准确把握案件细节和法律概念。", ...SKY },
-  { icon: Database, title: "法律知识库", body: "内置丰富的法律知识库，涵盖法条、判例和专业文献，为分析提供权威支持。", ...MINT },
-  { icon: Key, title: "安全可靠", body: "端到端加密技术，确保您的案件数据安全，符合法律职业保密要求。", ...NAVY },
+  { icon: Cpu, title: "大模型 Agent 架构", body: "摒弃单次问答式套壳，依托多智能体协同推演，实现系统级、长周期的法律深度办案。", ...SKY },
+  { icon: Database, title: "双路召回与交叉验证", body: "自研“向量语义+关键词”双路智能检索，100% 映射核验国家权威现行法典，确保引证绝对真实、无幻觉。", ...MINT },
+  { icon: Key, title: "多重隐私合规保障", body: "坚持“一案一空间”数据物理隔离，绝不用作任何模型训练。支持本地私有化部署，数据100%本地留存。", ...NAVY },
 ]
 
 const TESTIMONIALS = [
-  { name: "某知名律师事务所", role: "张律师 · 合伙人", quote: "LexSeek 帮我们节省了大量整理和分析案件的时间，让律师可以更专注于策略制定和客户沟通。" },
-  { name: "某企业法务部", role: "李总监 · 法务负责人", quote: "通过 LexSeek 的分析，我们能够更快速地评估法律风险，为公司决策提供更及时的法律支持。" },
-  { name: "独立执业律师", role: "王律师 · 专职律师", quote: "作为独立律师，LexSeek 就像我的虚拟助手，帮助我处理更多案件，提供专业水准的分析支持。" },
+  { name: "上海某合伙人律师", role: "张律师", quote: "法索 AI彻底重塑了我的案头工作流。复杂案卷材料一键导入，大事记与请求权一目了然，让我们把精力真正留给庭审战略。" },
+  { name: "某知名律所高级合伙人律师", role: "李总监", quote: "以往复杂案件的脑力内耗极高。小索助手的对方抗辩预测和证据链梳理极具实战价值，帮我们在开庭前做足了抗辩多手预案。" },
+  { name: "某律所高级合伙人", role: "王律师", quote: "一案一项目的‘双层记忆空间’非常惊艳，长达几个月的办案周期里系统从不失忆。开庭提纲直接基于历史研判报告一键生成。" },
 ]
 
 const { siteUrl } = useRuntimeConfig().public.seo
