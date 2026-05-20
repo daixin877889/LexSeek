@@ -199,7 +199,7 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
 
                 // 步骤 3：积分预检（while 循环，直到积分充足；停用项直接放行）
                 while (true) {
-                    const pointCheck = await billCheckService(state.userId, ANALYSIS_POINT_ITEM_KEY, { tokens: 1000 })
+                    const pointCheck = await billCheckService(state.userId, ANALYSIS_POINT_ITEM_KEY, { tokens: 1000, units: 1 })
                     if (pointCheck.skipped || pointCheck.sufficient) break
                     interrupt({
                         type: InterruptType.INSUFFICIENT_POINTS,
@@ -350,7 +350,8 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
             const caseTitle = caseRowForBilling?.title ?? `案件_${state.caseId}`
             while (tokenQuantity > 0) {
                 try {
-                    await billDirectService(state.userId, ANALYSIS_POINT_ITEM_KEY, { tokens: tokenQuantity * 1000 }, {
+                    // 同时传 tokens 和 units=1（每模块计 1 次），让管理后台可在 token/次 两种模式间自由切换
+                    await billDirectService(state.userId, ANALYSIS_POINT_ITEM_KEY, { tokens: tokenQuantity * 1000, units: 1 }, {
                         sourceId: state.caseId,
                         operationId: billingOperationId,
                         contextLabel: caseTitle,
@@ -364,7 +365,7 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
                 } catch (consumeError: any) {
                     // 扣减失败 → interrupt 弹出购买 UI（结果已安全保存在 DB）
                     logger.warn('积分不足，等待充值', { agentName, tokenQuantity })
-                    const check = await billCheckService(state.userId, ANALYSIS_POINT_ITEM_KEY, { tokens: 1000 })
+                    const check = await billCheckService(state.userId, ANALYSIS_POINT_ITEM_KEY, { tokens: 1000, units: 1 })
                     interrupt({
                         type: InterruptType.INSUFFICIENT_POINTS,
                         message: '积分不足，请充值后继续',

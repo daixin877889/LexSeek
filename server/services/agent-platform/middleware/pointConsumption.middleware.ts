@@ -142,7 +142,7 @@ export const pointConsumptionMiddleware = (
                 }
 
                 // 3. 检查积分（停用项直接放行）
-                const check = await billCheckService(userId, itemKey, { tokens: 1000 })
+                const check = await billCheckService(userId, itemKey, { tokens: 1000, units: 1 })
                 if (!check.skipped && !check.sufficient) {
                     interrupt({
                         type: InterruptType.INSUFFICIENT_POINTS,
@@ -171,14 +171,15 @@ export const pointConsumptionMiddleware = (
                 const pendingQuantity = state._pendingDeductQuantity ?? 0
                 if (pendingQuantity > 0) {
                     try {
-                        await billDirectService(userId, itemKey, { tokens: pendingQuantity * 1000 }, {
+                        // 同时传 tokens 和 units=1，让管理后台可在 token/次 两种模式间自由切换
+                        await billDirectService(userId, itemKey, { tokens: pendingQuantity * 1000, units: 1 }, {
                             operationId: state._billingOperationId || undefined,
                             contextLabel,
                         })
                         logger.info('补扣成功', { userId, quantity: pendingQuantity })
                     } catch {
                         // 补扣仍然失败，interrupt
-                        const check = await billCheckService(userId, itemKey, { tokens: 1000 })
+                        const check = await billCheckService(userId, itemKey, { tokens: 1000, units: 1 })
                         const membership = await getCurrentMembershipService(userId)
                         interrupt({
                             type: InterruptType.INSUFFICIENT_POINTS,
@@ -207,7 +208,8 @@ export const pointConsumptionMiddleware = (
 
                 // 3. 扣减积分
                 try {
-                    const result = await billDirectService(userId, itemKey, { tokens: totalTokens }, {
+                    // 同时传 tokens 和 units=1（每次模型调用记 1 次），让管理后台可在 token/次 两种模式间自由切换
+                    const result = await billDirectService(userId, itemKey, { tokens: totalTokens, units: 1 }, {
                         operationId: state._billingOperationId || undefined,
                         contextLabel,
                     })
@@ -231,7 +233,7 @@ export const pointConsumptionMiddleware = (
                         && error.message.includes('积分不足')
 
                     if (isInsufficientPoints) {
-                        const check = await billCheckService(userId, itemKey, { tokens: 1000 })
+                        const check = await billCheckService(userId, itemKey, { tokens: 1000, units: 1 })
                         const membership = await getCurrentMembershipService(userId)
 
                         interrupt({
