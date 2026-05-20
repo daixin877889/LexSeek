@@ -19,7 +19,7 @@ import { useApiFetch } from '~/composables/useApiFetch'
 
 definePageMeta({
     layout: 'dashboard-layout',
-    title: '文书生成',
+    title: '文书模板',
     icon: 'FileText',
 })
 

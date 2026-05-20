@@ -34,6 +34,8 @@ export interface ListDocumentDraftsInput {
     caseId?: number
     skip: number
     take: number
+    /** 排除从旧库迁移过来的历史文书（mode=freeform 且 sessionId 以 legacy-doc- 开头）；工作台「历史文书」全局列表传 true */
+    excludeLegacy?: boolean
 }
 
 // ==================== DAO 方法 ====================
@@ -135,6 +137,14 @@ export async function listDocumentDraftsDAO(
 
     if (filters.caseId !== undefined) {
         where.caseId = filters.caseId
+    }
+
+    if (filters.excludeLegacy) {
+        // 排除从旧库迁移而来的"legacy 自由文书"——它们本质是 case-bound 的历史文书，不该出现在工作台全局历史列表
+        where.NOT = {
+            mode: 'freeform',
+            sessionId: { startsWith: 'legacy-doc-' },
+        }
     }
 
     const [list, total] = await Promise.all([
