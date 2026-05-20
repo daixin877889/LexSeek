@@ -2,11 +2,11 @@
  * search_case_materials 工具测试
  *
  * 覆盖合并检索 5 场景：
- * 1. 仅 caseId（ctx.draftId 缺失）→ 合并服务传 {caseId, draftId: null}
- * 2. 仅 draftId（ctx.caseId 缺失）→ 合并服务传 {caseId: null, draftId}
- * 3. 双绑 ctx（caseId + draftId 都有）→ 合并服务同时传两者，天然去重
+ * 1. 仅 caseId（ctx.draftId 缺失）→ 合并服务传 {caseId, draftId: null, sessionId}
+ * 2. 仅 draftId（ctx.caseId 缺失）→ 合并服务传 {caseId: null, draftId, sessionId}
+ * 3. 双绑 ctx（caseId + draftId 都有）→ 合并服务同时传两者 + sessionId，天然去重
  * 4. input.draftId 覆盖 ctx.draftId → 使用 input 的 draftId
- * 5. ctx 两者都无 → 抛错，错误消息命中 "需要 caseId 或 draftId"
+ * 5. ctx 三者都无（caseId/draftId/sessionId）→ 抛错命中 "需要 caseId / draftId / sessionId"
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -59,7 +59,7 @@ describe('search_case_materials 工具', () => {
 
             expect(searchMaterialsByCaseOrDraftService).toHaveBeenCalledWith(
                 userId,
-                { caseId: 456, draftId: null },
+                { caseId: 456, draftId: null, sessionId },
                 { query: '证人证言', sourceId: undefined, k: 5 },
             )
             const parsed = JSON.parse(result as string)
@@ -86,7 +86,7 @@ describe('search_case_materials 工具', () => {
 
             expect(searchMaterialsByCaseOrDraftService).toHaveBeenCalledWith(
                 userId,
-                { caseId: null, draftId: 789 },
+                { caseId: null, draftId: 789, sessionId },
                 { query: '法律分析', sourceId: undefined, k: 5 },
             )
             const parsed = JSON.parse(result as string)
@@ -111,7 +111,7 @@ describe('search_case_materials 工具', () => {
 
             expect(searchMaterialsByCaseOrDraftService).toHaveBeenCalledWith(
                 userId,
-                { caseId: 456, draftId: 789 },
+                { caseId: 456, draftId: 789, sessionId },
                 { query: '合并查询', sourceId: undefined, k: 5 },
             )
             const parsed = JSON.parse(result as string)
@@ -132,22 +132,24 @@ describe('search_case_materials 工具', () => {
 
             expect(searchMaterialsByCaseOrDraftService).toHaveBeenCalledWith(
                 userId,
-                { caseId: null, draftId: inputDraftId },
+                { caseId: null, draftId: inputDraftId, sessionId },
                 expect.any(Object),
             )
         })
     })
 
-    describe('场景 5: ctx 两者都无', () => {
-        it('应抛错，错误消息命中 "search_case_materials 需要 caseId 或 draftId"', async () => {
-            const context: ToolContext = { userId, sessionId }
+    describe('场景 5: ctx 三者都无', () => {
+        it('应抛错，错误消息命中 "search_case_materials 需要 caseId / draftId / sessionId"', async () => {
+            // 实现现在接受 caseId / draftId / sessionId 任一为有效维度，
+            // 因此校验失败的前提是三者全部缺失。
+            const context: ToolContext = { userId }
 
             const tool = createTool(context)
             const result = await tool.invoke({ query: '测试查询' })
 
             const parsed = JSON.parse(result as string)
             expect(parsed).toHaveProperty('error')
-            expect(parsed.message).toBe('search_case_materials 需要 caseId 或 draftId')
+            expect(parsed.message).toBe('search_case_materials 需要 caseId / draftId / sessionId')
             // 不允许静默 fallback 为空
             expect(searchMaterialsByCaseOrDraftService).not.toHaveBeenCalled()
         })
@@ -168,7 +170,7 @@ describe('search_case_materials 工具', () => {
 
             expect(searchMaterialsByCaseOrDraftService).toHaveBeenCalledWith(
                 userId,
-                { caseId: 456, draftId: null },
+                { caseId: 456, draftId: null, sessionId },
                 { query: undefined, sourceId: undefined, k: 10 },
             )
             const parsed = JSON.parse(result as string)
@@ -187,7 +189,7 @@ describe('search_case_materials 工具', () => {
 
             expect(searchMaterialsByCaseOrDraftService).toHaveBeenCalledWith(
                 userId,
-                { caseId: 456, draftId: null },
+                { caseId: 456, draftId: null, sessionId },
                 { query: '关键词', sourceId: undefined, k: 10 },
             )
         })
@@ -202,7 +204,7 @@ describe('search_case_materials 工具', () => {
 
             expect(searchMaterialsByCaseOrDraftService).toHaveBeenCalledWith(
                 userId,
-                { caseId: 456, draftId: null },
+                { caseId: 456, draftId: null, sessionId },
                 { query: '关键词', sourceId: undefined, k: 1 },
             )
         })

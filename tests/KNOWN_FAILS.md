@@ -67,6 +67,14 @@
 >
 > **mineru/asr/middleware 测试桩已在 `fa4ee928` 修正完毕**（4 个文件转发到下层 mock）。
 
-| 文件 | fail 数 | 类型 | 备注 |
-|---|---|---|---|
-| `tests/server/workflow/tools/searchCaseMaterials.test.ts` | 8 | **改造前既存** | search_case_materials 工具在 `bc3256de` 加入了 sessionId 透传，test 断言未跟进；与本次积分改造无关 |
+### 2026-05-20 续：剩余 5 个 fail 文件已全部修复
+
+| 文件 | 处理方式 |
+|---|---|
+| `tests/server/tools/confirmPoints.test.ts` | 工具源码已在 `be388702` 删除（死代码），孤儿测试一并移除 |
+| `tests/server/tools/reservePoints.test.ts` | 同上 |
+| `tests/server/tools/rollbackPoints.test.ts` | 同上 |
+| `tests/server/workflow/workflow-tools.test.ts` | 删除 3 个已删工具相关用例与 import，注册表样例改用 `search_law` / `process_materials` |
+| `tests/server/workflow/tools/searchCaseMaterials.test.ts` | 同步 `bc3256de` 引入的 `sessionId` 透传：service 第二参补 `sessionId`；场景 5 改为"三者全无"并对齐新错误信息 |
+
+> 完整 `bun run test` 已 0 failed / 11751 passed / 172 skipped。
