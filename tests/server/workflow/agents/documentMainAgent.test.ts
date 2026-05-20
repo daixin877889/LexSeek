@@ -100,6 +100,7 @@ vi.mock('../../../../server/services/workflow/middleware', () => ({
     pointConsumptionMiddleware: vi.fn(() => ({ name: 'pointConsumption' })),
     safetyTrimMiddleware: vi.fn(() => ({ name: 'safetyTrim' })),
     userInjectionMiddleware: vi.fn(() => ({ name: 'userInjection' })),
+    dateContextMiddleware: vi.fn(() => ({ name: 'dateContext' })),
     buildMiddlewareStack: vi.fn((items: Array<{ middleware: unknown; name: string }>) =>
         items.map(i => i.middleware),
     ),
@@ -111,6 +112,7 @@ vi.mock('../../../../server/services/workflow/middleware', () => ({
         POINT_CONSUMPTION: 20,
         SUMMARIZATION: 40,
         SAFETY_TRIM: 50,
+        DATE_CONTEXT: 65,
         USER_INJECTION: 70,
         RESULT_PERSISTENCE: 90,
         AUDIT: 100,
@@ -123,6 +125,7 @@ vi.mock('../../../../server/services/workflow/middleware', () => ({
         POINT_CONSUMPTION: 'pointConsumption',
         SUMMARIZATION: 'summarization',
         SAFETY_TRIM: 'safetyTrim',
+        DATE_CONTEXT: 'dateContext',
         USER_INJECTION: 'userInjection',
         AUDIT: 'audit',
     },

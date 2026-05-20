@@ -97,6 +97,7 @@ vi.mock('../../../../server/services/workflow/middleware', () => ({
     createScopeGuardMiddleware: vi.fn(() => ({ __mock: 'scopeGuard' })),
     pointConsumptionMiddleware: vi.fn(() => ({ __mock: 'pointConsumption' })),
     userInjectionMiddleware: vi.fn(() => ({ __mock: 'userInjection' })),
+    dateContextMiddleware: vi.fn(() => ({ __mock: 'dateContext' })),
 }))
 
 vi.mock('../../../../server/services/workflow/middleware/safetyTrim.middleware', () => ({

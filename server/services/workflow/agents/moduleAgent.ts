@@ -28,6 +28,7 @@ import {
     createScopeGuardMiddleware,
     pointConsumptionMiddleware,
     userInjectionMiddleware,
+    dateContextMiddleware,
 } from '../middleware'
 import { buildSystemPromptForAgent } from '../context/moduleContextBuilder'
 import { safetyTrimMiddleware } from '../middleware/safetyTrim.middleware'
@@ -214,6 +215,8 @@ async function runModuleChatInner(
                 prompts: nodeConfig.prompts,
                 context: { caseId, moduleName },
             }),
+            // 每轮注入"当前北京时间"，让模块对话理解"上周/今天/还剩几天"等相对时间
+            dateContextMiddleware(),
             afterAgentMemoryMiddleware({ caseId, sessionId, userId }),
             createAuditMiddleware(),
             // 末位兜底：beforeAgent 创建 IN_PROGRESS + 注入 _analysisRecordId；

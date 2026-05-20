@@ -29,6 +29,7 @@ import {
     pointConsumptionMiddleware,
     safetyTrimMiddleware,
     userInjectionMiddleware,
+    dateContextMiddleware,
     buildMiddlewareStack,
     MIDDLEWARE_PRIORITY,
     MIDDLEWARE_NAMES,
@@ -250,6 +251,12 @@ export async function runDocumentChat(
             middleware: createAuditMiddleware(),
             priority: MIDDLEWARE_PRIORITY.AUDIT,
             name: MIDDLEWARE_NAMES.AUDIT,
+        },
+        {
+            // 每轮注入"当前北京时间"——文书起草涉及"立书日期"、合同到期对比、诉讼时效引用等
+            middleware: dateContextMiddleware(),
+            priority: MIDDLEWARE_PRIORITY.DATE_CONTEXT,
+            name: MIDDLEWARE_NAMES.DATE_CONTEXT,
         },
     ])
 

@@ -57,6 +57,7 @@ import {
     createScopeGuardMiddleware,
     createAuditMiddleware,
     userInjectionMiddleware,
+    dateContextMiddleware,
     buildMiddlewareStack,
     MIDDLEWARE_PRIORITY,
     MIDDLEWARE_NAMES,
@@ -484,6 +485,12 @@ export async function runContractReviewChat(
             middleware: createAuditMiddleware(),
             priority: MIDDLEWARE_PRIORITY.AUDIT,
             name: MIDDLEWARE_NAMES.AUDIT,
+        },
+        {
+            // 每轮注入"当前北京时间"——合同审查涉及到期日 / 续约 / 违约时效 / 新法生效对比
+            middleware: dateContextMiddleware(),
+            priority: MIDDLEWARE_PRIORITY.DATE_CONTEXT,
+            name: MIDDLEWARE_NAMES.DATE_CONTEXT,
         },
     ])
 

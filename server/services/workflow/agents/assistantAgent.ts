@@ -26,6 +26,7 @@ import {
     createScopeGuardMiddleware,
     pointConsumptionMiddleware,
     safetyTrimMiddleware,
+    dateContextMiddleware,
 } from '../middleware'
 import { resolveContextWindow } from '../context/messageCompressor'
 import { prisma } from '~~/server/utils/db'
@@ -150,6 +151,8 @@ export async function runAssistantChat(
             }),
             // audit 放最后：能同时捕获 scopeGuard 拒绝 / toolCallLimit 熔断 / 正常执行 / 异常四种情况
             createAuditMiddleware(),
+            // 每轮注入"当前北京时间"，让法律问答理解"现行有效法条"、用户口语化时间等
+            dateContextMiddleware(),
         ],
     })
 

@@ -12,6 +12,9 @@
  * - 多个 user_injection 按 displayOrder 升序拼接，段间空行分隔，作为单条 HumanMessage 插入
  *   （减少 messages 数组长度膨胀）
  * - 模板变量未提供时保留 `{{xxx}}` 字面量，避免吞错（与 renderSystemPrompt 行为一致）
+ * - 工厂层仅做 filter + sort 的静态预筛；变量展平 + 渲染必须放在 wrapModelCall 内每轮重算，
+ *   否则跨午夜运行的 agent 会让 `{{currentDate}}` 等动态变量卡死在启动日（agent 进程
+ *   长期复用同一中间件实例）
  *
  * @see docs/superpowers/plans/2026-05-06-prompts-multi-node-and-anti-jailbreak.md Task 6
  */
@@ -20,6 +23,7 @@ import { createMiddleware } from 'langchain'
 import { HumanMessage } from '@langchain/core/messages'
 import type { BaseMessage } from '@langchain/core/messages'
 import { renderContent } from '~~/server/services/node/prompt.service'
+import { flattenPromptContext } from '~~/server/services/agent-platform/nodeConfig/promptRenderer'
 import type { NodePromptConfig } from '~~/server/services/node/node.service'
 import type { PromptRenderContext } from '~~/server/services/agent-platform/nodeConfig/promptRenderer'
 
@@ -28,26 +32,6 @@ export interface UserInjectionMiddlewareOptions {
     prompts: NodePromptConfig[]
     /** 模板变量上下文（与 renderSystemPrompt 共用类型） */
     context?: PromptRenderContext
-}
-
-/**
- * 把 PromptRenderContext 展平成 renderContent 期望的 Record<string, string>。
- * 与 promptRenderer 内部行为保持一致：仅注入有值的字段。
- */
-function flattenContext(context: PromptRenderContext = {}): Record<string, string> {
-    const variables: Record<string, string> = {}
-    if (context.caseId != null) variables.caseId = String(context.caseId)
-    if (context.moduleName) variables.moduleName = context.moduleName
-    if (context.caseType) variables.caseType = context.caseType
-    if (context.templateName) variables.templateName = context.templateName
-    if (context.templateCategory) variables.templateCategory = context.templateCategory
-    if (context.fileIds) variables.fileIds = context.fileIds
-    if (context.userExtraText) variables.userExtraText = context.userExtraText
-    if (context.draftId != null) variables.draftId = String(context.draftId)
-    if (context.status) variables.status = context.status
-    if (context.reviewId != null) variables.reviewId = String(context.reviewId)
-    if (context.contractType) variables.contractType = context.contractType
-    return variables
 }
 
 /**
@@ -61,20 +45,26 @@ function flattenContext(context: PromptRenderContext = {}): Record<string, strin
  */
 export function userInjectionMiddleware(options: UserInjectionMiddlewareOptions) {
     const allPrompts = options.prompts ?? []
-    const variables = flattenContext(options.context)
+    const context = options.context ?? {}
 
-    // variables 是 closure 捕获的工厂入参，wrapModelCall 之间不变；
-    // 预筛选 + 排序 + 渲染都提到工厂层做一次，避免每轮 LLM 调用重复 renderContent。
-    const injectionContent = allPrompts
+    // 工厂层仅做静态筛选 + 排序；变量展平 + 模板渲染放到 wrapModelCall 内每轮重算
+    const activePrompts = allPrompts
         .filter((p) => p.type === 'user_injection' && p.status === 1)
         .sort((a, b) => (a.displayOrder ?? 100) - (b.displayOrder ?? 100))
-        .map((p) => renderContent(p.content, variables))
-        .join('\n\n')
-        .trim()
 
     return createMiddleware({
         name: 'userInjectionMiddleware',
         wrapModelCall: async (request, handler) => {
+            if (activePrompts.length === 0) {
+                return handler(request)
+            }
+
+            const variables = flattenPromptContext(context)
+            const injectionContent = activePrompts
+                .map((p) => renderContent(p.content, variables))
+                .join('\n\n')
+                .trim()
+
             if (!injectionContent) {
                 return handler(request)
             }

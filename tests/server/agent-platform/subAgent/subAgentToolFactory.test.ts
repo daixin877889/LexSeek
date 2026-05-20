@@ -51,6 +51,7 @@ vi.mock('~~/server/services/agent-platform/middleware', () => ({
     pointConsumptionMiddleware: vi.fn(() => ({ _mw: 'point' })),
     // user_injection middleware 工厂：返回带 _mw 标记的 stub，便于测试断言挂载位置
     userInjectionMiddleware: vi.fn((opts: any) => ({ _mw: 'userInjection', _opts: opts })),
+    dateContextMiddleware: vi.fn(() => ({ _mw: 'dateContext' })),
 }))
 vi.mock('~~/server/services/agent-platform/middleware/safetyTrim.middleware', () => ({
     safetyTrimMiddleware: vi.fn(() => ({ _mw: 'trim' })),

@@ -89,6 +89,7 @@ vi.mock('../../../../server/services/workflow/middleware', () => ({
     createScopeGuardMiddleware: vi.fn(() => ({ __mock: 'scopeGuard' })),
     pointConsumptionMiddleware: vi.fn(() => ({ __mock: 'pointConsumption' })),
     safetyTrimMiddleware: vi.fn(() => ({ __mock: 'safetyTrim' })),
+    dateContextMiddleware: vi.fn(() => ({ __mock: 'dateContext' })),
 }))
 
 // mock messageCompressor（resolveContextWindow）—— 避免读真实模型注册表

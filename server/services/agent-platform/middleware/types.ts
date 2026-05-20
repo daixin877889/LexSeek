@@ -42,6 +42,8 @@ export const MIDDLEWARE_PRIORITY = {
     SAFETY_TRIM: 50,
     /** Skills 发现和加载（wrapModelCall 注入 prompt） */
     SKILLS_DISCOVERY: 60,
+    /** 当前时间注入（hidden HumanMessage，让模型知道今天日期，支持诉讼时效 / 时间线锚定） */
+    DATE_CONTEXT: 65,
     /** 用户每轮注入（user_injection 类型 prompt → wrapModelCall 临时插入 HumanMessage） */
     USER_INJECTION: 70,
     /** 待办列表中间件 */
@@ -64,6 +66,7 @@ export const MIDDLEWARE_NAMES = {
     SUMMARIZATION: 'summarization',
     SAFETY_TRIM: 'safetyTrim',
     SKILLS_DISCOVERY: 'skillsDiscovery',
+    DATE_CONTEXT: 'dateContext',
     USER_INJECTION: 'userInjection',
     TODO_LIST: 'todoList',
     RESULT_PERSISTENCE: 'analysisResultPersistence',

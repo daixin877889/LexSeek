@@ -41,6 +41,7 @@ import {
     createToolCallLimitMiddlewares,
     createMessageIntegrityMiddleware,
     userInjectionMiddleware,
+    dateContextMiddleware,
 } from '~~/server/services/agent-platform/middleware/index'
 
 import { createTool as createReadSkillFileTool } from '~~/server/services/agent-platform/tools/readSkillFile.tool'
@@ -260,6 +261,13 @@ async function runDomainAgentInner(
             middleware: createAuditMiddleware(),
             priority: MIDDLEWARE_PRIORITY.AUDIT,
             name: MIDDLEWARE_NAMES.AUDIT,
+        },
+        {
+            // 每轮在最末 HumanMessage 之前注入"当前北京时间"——所有 vertical 自动获得时间感知，
+            // 不污染 state.messages、不影响 system prompt cache
+            middleware: dateContextMiddleware(),
+            priority: MIDDLEWARE_PRIORITY.DATE_CONTEXT,
+            name: MIDDLEWARE_NAMES.DATE_CONTEXT,
         },
     ]
 

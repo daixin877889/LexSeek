@@ -44,6 +44,7 @@ import {
     createAuditMiddleware,
     createToolCallLimitMiddlewares,
     userInjectionMiddleware,
+    dateContextMiddleware,
 } from '~~/server/services/agent-platform/middleware/index'
 import { afterAgentMemoryMiddleware } from '~~/server/services/agent-platform/middleware/afterAgentMemory.middleware'
 
@@ -214,6 +215,13 @@ async function runAnalysisSubAgentInner(
             middleware: afterAgentMemoryMiddleware({ caseId, sessionId, userId }),
             priority: MIDDLEWARE_PRIORITY.RESULT_PERSISTENCE,
             name: 'afterAgentMemory',
+        },
+        {
+            // 每轮在最末 HumanMessage 之前注入"当前北京时间"——案件分析涉及诉讼时效、
+            // 大事记时间锚定、合同到期判断等场景必须明确知道今天日期
+            middleware: dateContextMiddleware(),
+            priority: MIDDLEWARE_PRIORITY.DATE_CONTEXT,
+            name: MIDDLEWARE_NAMES.DATE_CONTEXT,
         },
     ]
     if (skillsMw) {

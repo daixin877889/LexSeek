@@ -19,6 +19,7 @@ import {
     createScopeGuardMiddleware,
     pointConsumptionMiddleware,
     userInjectionMiddleware,
+    dateContextMiddleware,
 } from '~~/server/services/agent-platform/middleware'
 import { safetyTrimMiddleware } from '~~/server/services/agent-platform/middleware/safetyTrim.middleware'
 import { analysisResultPersistenceMiddleware } from '~~/server/services/workflow/middleware/analysisResultPersistence.middleware'
@@ -260,6 +261,8 @@ export async function createSubAgentTools(
                                 userId: context.userId,
                             }),
                             createAuditMiddleware(),
+                            // 每轮注入"当前北京时间"——子代理与主代理共享时间感知
+                            dateContextMiddleware(),
                         ],
                     })
 
