@@ -362,33 +362,20 @@ function formatRemovedTime(value: string | Date): string {
         <!-- 顶部标签：风险清单 / 审查总览 -->
         <div class="shrink-0 px-2.5 py-2 border-b">
             <div class="flex p-[3px] rounded-lg bg-muted border">
-                <button
-                    type="button"
-                    class="flex-1 py-1.5 rounded-md text-xs transition-colors"
-                    :class="riskTab === 'list'
-                        ? 'bg-card font-semibold text-foreground'
-                        : 'font-medium text-muted-foreground'"
-                    @click="riskTab = 'list'"
-                >风险清单 {{ totalRiskCount }}</button>
-                <button
-                    type="button"
-                    class="flex-1 py-1.5 rounded-md text-xs transition-colors"
-                    :class="riskTab === 'overview'
-                        ? 'bg-card font-semibold text-foreground'
-                        : 'font-medium text-muted-foreground'"
-                    @click="riskTab = 'overview'"
-                >审查总览</button>
+                <button type="button" class="flex-1 py-1.5 rounded-md text-xs transition-colors" :class="riskTab === 'list'
+                    ? 'bg-card font-semibold text-foreground'
+                    : 'font-medium text-muted-foreground'" @click="riskTab = 'list'">风险清单 {{ totalRiskCount
+                    }}</button>
+                <button type="button" class="flex-1 py-1.5 rounded-md text-xs transition-colors" :class="riskTab === 'overview'
+                    ? 'bg-card font-semibold text-foreground'
+                    : 'font-medium text-muted-foreground'" @click="riskTab = 'overview'">审查总览</button>
             </div>
         </div>
 
         <!-- 审查总览标签 -->
         <ScrollArea v-if="riskTab === 'overview'" class="flex-1 min-h-0">
-            <AssistantContractOverviewPanel
-                :risks="risks"
-                :summary="summary"
-                :playbook-snapshot="playbookSnapshot ?? null"
-                @focus-risk="(id: string) => emit('focusRisk', id)"
-            />
+            <AssistantContractOverviewPanel :risks="risks" :summary="summary"
+                :playbook-snapshot="playbookSnapshot ?? null" @focus-risk="(id: string) => emit('focusRisk', id)" />
         </ScrollArea>
 
         <!-- 风险清单标签 -->
@@ -415,10 +402,7 @@ function formatRemovedTime(value: string | Date): string {
                 <div ref="containerRef" class="p-3 space-y-2">
                     <!-- 隐藏已处置开关 -->
                     <div v-if="archivedCount > 0" class="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Switch
-                            :checked="hideArchived"
-                            @update:checked="hideArchived = $event"
-                        />
+                        <Switch :checked="hideArchived" @update:checked="hideArchived = $event" />
                         <span class="flex items-center gap-0.5">
                             <EyeOffIcon class="size-3" />
                             隐藏已处置（{{ archivedCount }}）
@@ -438,98 +422,70 @@ function formatRemovedTime(value: string | Date): string {
                             <UserIcon class="size-3" />
                             外部新增（{{ externalNewRisks.length }}）
                         </div>
-                        <AssistantContractRiskCard
-                            v-for="r in externalNewRisks"
-                            :key="r.id"
-                            :risk="r"
-                            :is-focused="focusedRiskId === r.id"
-                            :is-pinned="pinnedRiskIds.has(r.id)"
-                            :is-hovered="hoveredRiskId === r.id"
-                            :is-just-added="justAddedIds.has(r.id)"
+                        <AssistantContractRiskCard v-for="r in externalNewRisks" :key="r.id" :risk="r"
+                            :is-focused="focusedRiskId === r.id" :is-pinned="pinnedRiskIds.has(r.id)"
+                            :is-hovered="hoveredRiskId === r.id" :is-just-added="justAddedIds.has(r.id)"
                             :archived-status="getArchivedStatus(r)"
                             :not-located="hasLocated !== false && notLocatedIds.has(r.id)"
-                            :playbook-snapshot="playbookSnapshot ?? null"
-                            @focus="(id: string) => emit('focusRisk', id)"
-                            @toggle-pin="(id: string) => emit('togglePin', id)"
-                        />
+                            :playbook-snapshot="playbookSnapshot ?? null" @focus="(id: string) => emit('focusRisk', id)"
+                            @toggle-pin="(id: string) => emit('togglePin', id)" />
                     </template>
 
                     <!-- ===== 主风险清单 ===== -->
-                    <AssistantContractRiskCard
-                        v-for="r in mainRisks"
-                        :key="r.id"
-                        :risk="r"
-                        :is-focused="focusedRiskId === r.id"
-                        :is-pinned="pinnedRiskIds.has(r.id)"
-                        :is-hovered="hoveredRiskId === r.id"
-                        :is-just-added="justAddedIds.has(r.id)"
+                    <AssistantContractRiskCard v-for="r in mainRisks" :key="r.id" :risk="r"
+                        :is-focused="focusedRiskId === r.id" :is-pinned="pinnedRiskIds.has(r.id)"
+                        :is-hovered="hoveredRiskId === r.id" :is-just-added="justAddedIds.has(r.id)"
                         :archived-status="getArchivedStatus(r)"
                         :not-located="hasLocated !== false && notLocatedIds.has(r.id)"
-                        :playbook-snapshot="playbookSnapshot ?? null"
-                        @focus="(id: string) => emit('focusRisk', id)"
-                        @toggle-pin="(id: string) => emit('togglePin', id)"
-                    />
+                        :playbook-snapshot="playbookSnapshot ?? null" @focus="(id: string) => emit('focusRisk', id)"
+                        @toggle-pin="(id: string) => emit('togglePin', id)" />
 
                     <!-- 已处置折叠区（仅 hideArchived=true 且确有已处置时显示）-->
-                    <button
-                        v-if="hideArchived && archivedCount > 0"
-                        type="button"
+                    <button v-if="hideArchived && archivedCount > 0" type="button"
                         class="w-full text-xs text-muted-foreground hover:text-primary hover:bg-muted/60 border border-dashed rounded-md py-1.5 transition-colors"
-                        @click="hideArchived = false"
-                    >
+                        @click="hideArchived = false">
                         已处置（{{ archivedCount }}）· 点击展开
                     </button>
 
                     <!-- ===== 孤立批注区（原文已修改，无法定位） ===== -->
                     <template v-if="orphanedRisks.length">
-                        <div class="flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 pt-1">
+                        <div
+                            class="flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 pt-1">
                             <TriangleAlert class="size-3" />
                             原文已修改 · 无法定位（{{ orphanedRisks.length }}）
                         </div>
-                        <AssistantContractRiskCard
-                            v-for="r in orphanedRisks"
-                            :key="r.id"
-                            :risk="r"
-                            :is-orphaned="true"
-                            :is-focused="focusedRiskId === r.id"
-                            @focus="(id: string) => emit('focusRisk', id)"
-                        />
+                        <AssistantContractRiskCard v-for="r in orphanedRisks" :key="r.id" :risk="r" :is-orphaned="true"
+                            :is-focused="focusedRiskId === r.id" @focus="(id: string) => emit('focusRisk', id)" />
                     </template>
 
                     <!-- ===== 客户已移除分组（底部，默认折叠） ===== -->
                     <template v-if="removedAnnotations.length">
-                        <button
-                            type="button"
+                        <button type="button"
                             class="w-full flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary hover:bg-muted/60 border border-dashed rounded-md py-1.5 px-2 transition-colors"
-                            @click="removedExpanded = !removedExpanded"
-                        >
-                            <ChevronDownIcon class="size-3 transition-transform" :class="{ 'rotate-180': removedExpanded }" />
+                            @click="removedExpanded = !removedExpanded">
+                            <ChevronDownIcon class="size-3 transition-transform"
+                                :class="{ 'rotate-180': removedExpanded }" />
                             客户已移除（{{ removedAnnotations.length }}）· 点击展开
                         </button>
 
                         <div v-if="removedExpanded" class="space-y-2 pl-2 border-l-2 border-muted">
-                            <div
-                                v-for="ann in removedAnnotations"
-                                :key="ann.id"
-                                class="flex gap-2 text-xs items-start"
-                            >
-                                <div class="size-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 bg-muted text-muted-foreground">
+                            <div v-for="ann in removedAnnotations" :key="ann.id" class="flex gap-2 text-xs items-start">
+                                <div
+                                    class="size-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 bg-muted text-muted-foreground">
                                     <UserIcon class="size-3" />
                                 </div>
                                 <div class="flex-1 min-w-0">
                                     <div class="flex items-center gap-1">
                                         <span class="font-medium">{{ ann.authorName }}</span>
-                                        <span class="text-muted-foreground text-[10px]">{{ formatRemovedTime(ann.createdAt) }}</span>
+                                        <span class="text-muted-foreground text-[10px]">{{
+                                            formatRemovedTime(ann.createdAt) }}</span>
                                     </div>
-                                    <div class="mt-0.5 text-muted-foreground leading-relaxed whitespace-pre-wrap break-words line-through opacity-60">{{ ann.content }}</div>
+                                    <div
+                                        class="mt-0.5 text-muted-foreground leading-relaxed whitespace-pre-wrap break-words line-through opacity-60">
+                                        {{ ann.content }}</div>
                                 </div>
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    class="shrink-0 text-xs"
-                                    :disabled="readOnly"
-                                    @click="openRestoreDialog(ann.id)"
-                                >
+                                <Button size="sm" variant="outline" class="shrink-0 text-xs" :disabled="readOnly"
+                                    @click="openRestoreDialog(ann.id)">
                                     <RotateCcwIcon class="size-3 mr-1" />恢复推送
                                 </Button>
                             </div>
@@ -542,19 +498,17 @@ function formatRemovedTime(value: string | Date): string {
         <!-- 底部操作栏 -->
         <div class="shrink-0 p-3 border-t bg-card">
             <div class="flex gap-2">
-                <Button class="flex-1" variant="outline" :disabled="!canDownload || isExportingPdf" @click="openExportPdf">
+                <Button class="flex-1" variant="outline" :disabled="!canDownload || isExportingPdf"
+                    @click="openExportPdf">
                     <Loader2Icon v-if="isExportingPdf" class="size-4 mr-1 animate-spin" />
                     <FileTextIcon v-else class="size-4 mr-1" />
                     {{ isExportingPdf ? '生成中...' : '导出评审报告' }}
                 </Button>
                 <DropdownMenu>
                     <DropdownMenuTrigger as-child>
-                        <Button
-                            class="flex-1 bg-gradient-brand-button text-white"
-                            :disabled="!canDownload || isDownloading"
-                            data-testid="download-trigger"
-                            :title="downloadButtonTitle"
-                        >
+                        <Button class="flex-1 bg-gradient-brand-button text-white"
+                            :disabled="!canDownload || isDownloading" data-testid="download-trigger"
+                            :title="downloadButtonTitle">
                             <Loader2Icon v-if="isDownloading" class="size-4 mr-1 animate-spin" />
                             <DownloadIcon v-else class="size-4 mr-1" />
                             {{ downloadButtonLabel }}
@@ -563,15 +517,12 @@ function formatRemovedTime(value: string | Date): string {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" class="w-56">
                         <DropdownMenuLabel>导出模式</DropdownMenuLabel>
-                        <DropdownMenuRadioGroup
-                            :model-value="exportMode"
-                            @update:model-value="handleSelectMode"
-                        >
+                        <DropdownMenuRadioGroup :model-value="exportMode" @update:model-value="handleSelectMode">
                             <DropdownMenuRadioItem value="comment" data-testid="download-mode-comment">
                                 批注模式
                             </DropdownMenuRadioItem>
                             <DropdownMenuRadioItem value="redline" data-testid="download-mode-redline">
-                                修订模式（Track Changes）
+                                修订模式
                             </DropdownMenuRadioItem>
                             <DropdownMenuRadioItem value="both" data-testid="download-mode-both">
                                 两者并存
@@ -583,37 +534,19 @@ function formatRemovedTime(value: string | Date): string {
         </div>
 
         <!-- 风险详情抽屉（focusedRiskId 命中某条风险时覆盖整个面板） -->
-        <AssistantContractRiskDetailPanel
-            v-if="focusedRisk"
-            :risk="focusedRisk"
-            :annotations="annotationsForRisk(focusedRisk.id)"
-            :index="focusedIndex"
-            :total="displayRisks.length"
-            :read-only="readOnly ?? false"
-            :editable="editable"
-            :current-user-id="currentUserId"
-            :is-pinned="pinnedRiskIds.has(focusedRisk.id)"
-            :playbook-snapshot="playbookSnapshot ?? null"
-            :layout="cardLayout"
-            @close="emit('focusRisk', null)"
-            @prev="goPrevRisk"
-            @next="goNextRisk"
-            @toggle-pin="(id: string) => emit('togglePin', id)"
-            @edit-risk="openEdit"
-            @delete-risk="(r: Risk) => openDelete(r.id)"
-            @archive="handleArchive"
+        <AssistantContractRiskDetailPanel v-if="focusedRisk" :risk="focusedRisk"
+            :annotations="annotationsForRisk(focusedRisk.id)" :index="focusedIndex" :total="displayRisks.length"
+            :read-only="readOnly ?? false" :editable="editable" :current-user-id="currentUserId"
+            :is-pinned="pinnedRiskIds.has(focusedRisk.id)" :playbook-snapshot="playbookSnapshot ?? null"
+            :layout="cardLayout" @close="emit('focusRisk', null)" @prev="goPrevRisk" @next="goNextRisk"
+            @toggle-pin="(id: string) => emit('togglePin', id)" @edit-risk="openEdit"
+            @delete-risk="(r: Risk) => openDelete(r.id)" @archive="handleArchive"
             @add-annotation="(id: string, content: string) => emit('addAnnotation', id, content)"
             @delete-annotation="(annId: number) => emit('deleteAnnotation', annId)"
-            @jump-to-original="(id: string) => emit('jump-to-original', id)"
-            @update:layout="cardLayout = $event"
-        />
+            @jump-to-original="(id: string) => emit('jump-to-original', id)" @update:layout="cardLayout = $event" />
 
-        <AssistantContractRiskEditDialog
-            v-model:open="editDialogOpen"
-            :risk="editingRisk"
-            :prefill="createPrefill"
-            @confirm="handleEditConfirm"
-        />
+        <AssistantContractRiskEditDialog v-model:open="editDialogOpen" :risk="editingRisk" :prefill="createPrefill"
+            @confirm="handleEditConfirm" />
 
         <AssistantContractExportPdfDialog v-model:open="exportPdfDialogOpen" @confirm="handleExportPdfConfirm" />
 
@@ -626,7 +559,8 @@ function formatRemovedTime(value: string | Date): string {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>取消</AlertDialogCancel>
-                    <AlertDialogAction class="bg-destructive text-destructive-foreground" @click="confirmDelete">删除</AlertDialogAction>
+                    <AlertDialogAction class="bg-destructive text-destructive-foreground" @click="confirmDelete">删除
+                    </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
