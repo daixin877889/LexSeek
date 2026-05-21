@@ -1,38 +1,20 @@
 <template>
   <div class="p-4">
-    <div class="flex items-center justify-between mb-2">
-      <h1 class="text-[22px] font-bold truncate">诉讼费用计算</h1>
-      <div class="relative">
-        <Button variant="ghost" size="icon" @click="isHelpOpen = !isHelpOpen" class="rounded-full">
-          <HelpCircle class="h-5 w-5" />
-          <span class="sr-only">帮助</span>
-        </Button>
-        <div v-if="isHelpOpen" class="absolute right-0 z-50 w-80 mt-2 p-4 bg-card rounded-lg border shadow-lg">
-          <div class="flex justify-between items-center mb-3">
-            <h3 class="font-semibold text-base">诉讼费用计算指引</h3>
-            <Button variant="ghost" size="icon" @click="isHelpOpen = false" class="h-6 w-6">
-              <X class="h-5 w-5" />
-              <span class="sr-only">关闭</span>
-            </Button>
-          </div>
-
-          <div class="text-sm space-y-3 max-h-96 overflow-y-auto">
-            <div>
-              <h4 class="font-semibold mb-1">诉讼费用分类：</h4>
-              <ul class="list-disc list-inside space-y-1">
-                <li><strong>受理费</strong>：包括财产案件、非财产案件、知识产权民事案件、劳动争议案件、行政案件等</li>
-                <li><strong>申请费</strong>：包括申请执行、申请保全、申请支付令、申请公示催告等</li>
-                <li><strong>其他费用</strong>：案件管辖权异议费、破产费等</li>
-              </ul>
-            </div>
-
-            <div class="bg-muted/30 p-2 rounded">
-              <p><strong>提示：</strong>本计算器结果仅供参考，实际诉讼费用应以法院收取为准。</p>
-            </div>
-          </div>
+    <ToolsCalculatorPageHeader title="诉讼费用计算" help-title="诉讼费用计算指引">
+      <template #help>
+        <div>
+          <h4 class="font-semibold mb-1">诉讼费用分类：</h4>
+          <ul class="list-disc list-inside space-y-1">
+            <li><strong>受理费</strong>：包括财产案件、非财产案件、知识产权民事案件、劳动争议案件、行政案件等</li>
+            <li><strong>申请费</strong>：包括申请执行、申请保全、申请支付令、申请公示催告等</li>
+            <li><strong>其他费用</strong>：案件管辖权异议费、破产费等</li>
+          </ul>
         </div>
-      </div>
-    </div>
+        <div class="bg-muted/30 p-2 rounded">
+          <p><strong>提示：</strong>本计算器结果仅供参考，实际诉讼费用应以法院收取为准。</p>
+        </div>
+      </template>
+    </ToolsCalculatorPageHeader>
 
     <div class="flex flex-col lg:flex-row gap-6">
       <!-- 左侧：信息输入区 -->
@@ -43,13 +25,12 @@
           </CardHeader>
           <CardContent>
             <div class="space-y-4">
-              <div>
-                <label class="text-sm font-medium leading-none">金额（元）</label>
-                <Input type="number" v-model.number="amount" placeholder="请输入争议金额/执行金额" class="mt-1.5"
-                  @input="convertToChinese" />
-                <small class="text-xs text-muted-foreground mt-1 block" v-if="chineseAmount">大写：{{ chineseAmount
-                  }}</small>
-              </div>
+              <ToolsMoneyInput
+                v-model="amount"
+                label="金额（元）"
+                placeholder="请输入争议金额/执行金额"
+                :show-chinese="true"
+              />
 
               <div>
                 <label class="text-sm font-medium leading-none">费用类型</label>
@@ -208,7 +189,7 @@
               </Alert>
 
               <div class="mt-2">
-                <Button class="w-full h-10" @click="calculateFee">计算诉讼费用</Button>
+                <Button class="w-full h-10 bg-gradient-brand-button text-white shadow-[0_10px_20px_-8px_rgba(30,158,237,0.42)]" @click="calculateFee">计算诉讼费用</Button>
               </div>
             </div>
           </CardContent>
@@ -217,12 +198,9 @@
 
       <!-- 右侧：计算结果区 -->
       <div class="w-full lg:w-7/12">
-        <Card v-if="result" class="shadow-none border">
-          <CardHeader>
-            <CardTitle>诉讼费用计算结果</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Alert class="mb-4 block">
+        <ToolsResultCard v-if="result" title="诉讼费用计算结果" :show-export="false">
+          <template #summary>
+            <Alert class="block">
               <div class="flex justify-between items-center mb-1">
                 <span>争议/执行金额：</span>
                 <span class="font-semibold">{{ formatCurrency(amount) }} 元</span>
@@ -232,30 +210,21 @@
                 <span class="font-semibold">{{ getCurrentSelectionText() }}</span>
               </div>
             </Alert>
-
-            <Alert variant="success" class="mb-4 border border-primary block">
+            <Alert variant="success" class="border border-primary block">
               <div class="flex justify-between items-center">
                 <span class="text-lg font-bold">应缴纳诉讼费用：</span>
                 <span class="text-lg font-bold">{{ formatCurrency(result.totalFee) }} 元</span>
               </div>
             </Alert>
-
-            <Accordion type="single" collapsible class="w-full">
-              <AccordionItem value="calculation-details">
-                <AccordionTrigger>
-                  <h3 class="text-lg font-semibold">计算明细</h3>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <div class="bg-muted/50 p-4 rounded text-sm">
-                    <div v-for="(detail, index) in result.details" :key="index" class="mb-1">
-                      {{ detail }}
-                    </div>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-          </CardContent>
-        </Card>
+          </template>
+          <template #details>
+            <div class="bg-muted/50 p-4 rounded text-sm">
+              <div v-for="(detail, index) in result.details" :key="index" class="mb-1">
+                {{ detail }}
+              </div>
+            </div>
+          </template>
+        </ToolsResultCard>
 
         <div v-if="!result" class="h-full flex items-center justify-center rounded-lg border border-dashed p-8">
           <div class="text-center">
@@ -292,6 +261,9 @@
 </template>
 
 <script setup>
+import ToolsCalculatorPageHeader from '~/components/tools/CalculatorPageHeader.vue'
+import ToolsMoneyInput from '~/components/tools/MoneyInput.vue'
+import ToolsResultCard from '~/components/tools/ResultCard.vue'
 definePageMeta({
   title: "诉讼费用计算",
   layout: "dashboard-layout",
@@ -300,7 +272,6 @@ import { calculateCourtFee } from "#shared/utils/tools/courtFeeService";
 
 // 基本数据
 const amount = ref(10000);
-const chineseAmount = ref("");
 const feeTypeLevel1 = ref("caseFee");
 const caseFeeType = ref("property");
 const applicationFeeType = ref("execution");
@@ -386,52 +357,6 @@ function getCurrentSelectionText() {
   }
 }
 
-// 转换为中文大写金额
-function convertToChinese() {
-  if (!amount.value) {
-    chineseAmount.value = "";
-    return;
-  }
-
-  chineseAmount.value = toChineseBig(amount.value);
-}
-
-function toChineseBig(num) {
-  if (num >= 1000000000000) {
-    return "大于一万亿";
-  }
-
-  const strNum = String(num);
-  const unit = ["", "拾", "佰", "仟", "万", "拾", "佰", "仟", "亿", "拾", "佰", "仟"];
-  const chineseBigNum = ["零", "壹", "贰", "叁", "肆", "伍", "陆", "柒", "捌", "玖"];
-
-  let result = [];
-  let unitNo = 0;
-  let zeroCount = 0;
-
-  for (let i = strNum.length - 1; i >= 0; i--) {
-    const currentNum = strNum[i];
-    if (currentNum === "0") {
-      zeroCount++;
-    } else {
-      if (zeroCount > 0) {
-        result.unshift("零");
-        zeroCount = 0;
-      }
-      result.unshift(unit[unitNo]);
-      result.unshift(chineseBigNum[parseInt(currentNum, 10)]);
-    }
-    unitNo++;
-  }
-
-  return result
-    .join("")
-    .replace(/零{2,}/g, "零")
-    .replace(/零([万亿])/g, "$1")
-    .replace(/亿万/g, "亿")
-    .replace(/零+$/g, "")
-    .replace(/^壹拾/, "拾");
-}
 
 // 重置子类型
 function resetSubTypes() {
@@ -537,10 +462,6 @@ function calculateApplicationFee() {
   result.value = calculateCourtFee("applicationFee", applicationFeeType.value, amount.value, options);
 }
 
-// 初始化
-convertToChinese();
-
-import { X, HelpCircle } from "lucide-vue-next";
 </script>
 
 <style scoped>

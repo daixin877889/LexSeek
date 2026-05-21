@@ -43,6 +43,8 @@ body (可选)
 - `analysis` - 法律分析
 - `contract` - 合同审查
 - `observability` - 可观测性 / Langfuse / OTel
+- `seo` - SEO 优化（meta / robots / sitemap / JSON-LD / 站长验证 / OG）
+- `cache` - 缓存与失效广播
 
 ## 示例
 

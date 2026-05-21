@@ -72,6 +72,42 @@ describe('invokeNodeJson · 不触发 retry 的快路径', () => {
     })
 })
 
+describe('invokeNodeJson · onTokenUsage 上报（V1）', () => {
+    it('每次 model.invoke 成功后回调本次 token 用量', async () => {
+        mockInvoke.mockResolvedValueOnce({
+            content: VALID_RESPONSE,
+            usage_metadata: { total_tokens: 1500 },
+        })
+        const tokenReports: number[] = []
+        const data = await invokeNodeJson({
+            nodeName: 'testNode',
+            temperature: 0,
+            schema: TestSchema,
+            buildPrompt: t => t.replace('{{var}}', 'X'),
+            errorPrefix: 'test',
+            onTokenUsage: t => tokenReports.push(t),
+        })
+        expect(data).toEqual({ text: 'ok' })
+        expect(tokenReports).toEqual([1500])
+    })
+
+    it('schema 重试时每次调用各上报一次 token', async () => {
+        mockInvoke
+            .mockResolvedValueOnce({ content: INVALID_RESPONSE, usage_metadata: { total_tokens: 800 } })
+            .mockResolvedValueOnce({ content: VALID_RESPONSE, usage_metadata: { total_tokens: 900 } })
+        const tokenReports: number[] = []
+        await invokeNodeJson({
+            nodeName: 'testNode',
+            temperature: 0,
+            schema: TestSchema,
+            buildPrompt: t => t.replace('{{var}}', 'X'),
+            errorPrefix: 'test',
+            onTokenUsage: t => tokenReports.push(t),
+        })
+        expect(tokenReports).toEqual([800, 900])
+    })
+})
+
 describe('invokeNodeJson · schema fail 触发 retry', () => {
     it('首次 fail + 第 2 次 PASS：retry 触发 1 次 + "retry 第 2 次成功" warn', async () => {
         mockInvoke

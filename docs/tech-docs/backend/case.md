@@ -21,7 +21,7 @@ server/services/case/
 ├── demoCase.service.ts      # 演示案件管理
 └── demoCase.dao.ts          # 演示案件数据访问层
 
-server/api/v1/cases/
+server/api/v1/cases/                    # （非完整清单）
 ├── create.post.ts                     # 创建案件
 ├── extract.post.ts                    # AI 信息提取
 ├── [caseId].get.ts                    # 获取案件详情
@@ -33,7 +33,6 @@ server/api/v1/cases/
 ├── materials/delete/[caseId].delete.ts # 删除材料
 ├── session/[sessionId].get.ts         # 获取会话详情
 ├── analysis/
-│   ├── agents.post.ts                 # 提交 Agent 分析任务
 │   ├── chat.post.ts                   # 对话式分析
 │   ├── init-session.post.ts           # 创建初始分析会话
 │   ├── module-session.post.ts         # 创建模块对话会话
@@ -107,13 +106,13 @@ POST /api/v1/cases/extract
 
 ```
 POST /api/v1/cases/analysis/init-session  # 创建 type=2 会话
-POST /api/v1/cases/analysis/agents        # 提交分析任务
+POST /api/v1/cases/init-analysis          # 提交初始分析任务并接收 SSE
 GET  /api/v1/cases/init-analysis-status/[caseId]  # 查询状态
 ```
 
 **流程**：
 1. 前端选择分析模块 → 创建 type=2 会话（metadata 存储 selectedModules）
-2. 通过 `agents.post.ts` 提交到 `agentRun` 队列
+2. 通过 `init-analysis.post.ts` 提交到 `agentRun` 队列
 3. Worker 路由到 `caseAnalysisV2.executor.ts` 执行 StateGraph
 4. 前端通过 SSE 接收实时进度
 
@@ -128,7 +127,7 @@ GET  /api/v1/cases/init-analysis-status/[caseId]  # 查询状态
 
 ```
 POST /api/v1/cases/analysis/module-session   # 创建 type=3 会话
-POST /api/v1/cases/analysis/agents           # 提交对话任务
+POST /api/v1/cases/analysis/chat             # 提交对话任务
 ```
 
 创建 type=3 会话（metadata 包含 moduleName 和 nodeId），Worker 路由到 `moduleAgent.ts`。

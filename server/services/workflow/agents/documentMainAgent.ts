@@ -29,6 +29,7 @@ import {
     pointConsumptionMiddleware,
     safetyTrimMiddleware,
     userInjectionMiddleware,
+    dateContextMiddleware,
     buildMiddlewareStack,
     MIDDLEWARE_PRIORITY,
     MIDDLEWARE_NAMES,
@@ -72,6 +73,10 @@ export async function runDocumentChat(
 
     if (!draft) {
         throw new Error(`未找到 sessionId=${sessionId} 对应的文书草稿`)
+    }
+    // 自由文书（mode=freeform）无模板，不走模板生成对话
+    if (draft.templateId == null) {
+        throw new Error(`文书草稿 ${draft.id} 为自由文书，不支持模板生成对话`)
     }
 
     const template = await getDocumentTemplateDAO(draft.templateId)
@@ -197,7 +202,7 @@ export async function runDocumentChat(
             name: MIDDLEWARE_NAMES.SCOPE_GUARD,
         },
         {
-            middleware: pointConsumptionMiddleware(userId, 'document_draft_token', sessionId),
+            middleware: pointConsumptionMiddleware(userId, 'document_draft_token', sessionId, undefined, draft.title ?? `文书_${draft.id}`),
             priority: MIDDLEWARE_PRIORITY.POINT_CONSUMPTION,
             name: MIDDLEWARE_NAMES.POINT_CONSUMPTION,
         },
@@ -246,6 +251,12 @@ export async function runDocumentChat(
             middleware: createAuditMiddleware(),
             priority: MIDDLEWARE_PRIORITY.AUDIT,
             name: MIDDLEWARE_NAMES.AUDIT,
+        },
+        {
+            // 每轮注入"当前北京时间"——文书起草涉及"立书日期"、合同到期对比、诉讼时效引用等
+            middleware: dateContextMiddleware(),
+            priority: MIDDLEWARE_PRIORITY.DATE_CONTEXT,
+            name: MIDDLEWARE_NAMES.DATE_CONTEXT,
         },
     ])
 

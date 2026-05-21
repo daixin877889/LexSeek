@@ -15,46 +15,14 @@ import type {
     InterestDetail,
     AdjustmentMethod
 } from '#shared/types/tools'
+import { getLPRRates } from '#shared/utils/tools/data'
 import { daysBetween, formatDate } from './utils/date'
 import { logger } from '#shared/utils/logger'
+import { roundToCents } from './algorithms'
 
 
-// 利率数据 (从interest.sql导入的数据)
-const interestRates: InterestRateData[] = [
-    // LPR利率 (type=2)
-    // 1年期LPR (period=1)
-    { sTime: '2019-08-20', rate: 4.25, type: 2, period: 1 },
-    { sTime: '2019-09-20', rate: 4.2, type: 2, period: 1 },
-    { sTime: '2019-11-20', rate: 4.15, type: 2, period: 1 },
-    { sTime: '2020-02-20', rate: 4.05, type: 2, period: 1 },
-    { sTime: '2020-04-20', rate: 3.85, type: 2, period: 1 },
-    { sTime: '2021-12-20', rate: 3.8, type: 2, period: 1 },
-    { sTime: '2022-01-20', rate: 3.7, type: 2, period: 1 },
-    { sTime: '2022-08-22', rate: 3.65, type: 2, period: 1 },
-    { sTime: '2023-06-20', rate: 3.55, type: 2, period: 1 },
-    { sTime: '2023-08-21', rate: 3.45, type: 2, period: 1 },
-    { sTime: '2023-09-20', rate: 3.45, type: 2, period: 1 },
-    { sTime: '2024-07-20', rate: 3.35, type: 2, period: 1 },
-    { sTime: '2024-10-21', rate: 3.10, type: 2, period: 1 },
-    { sTime: '2025-05-20', rate: 3.00, type: 2, period: 1 },
-    { sTime: '2025-06-20', rate: 3.00, type: 2, period: 1 },
-    { sTime: '2025-07-21', rate: 3.00, type: 2, period: 1 },
-    // 5年期以上LPR (period=2)
-    { sTime: '2019-08-20', rate: 4.85, type: 2, period: 2 },
-    { sTime: '2019-11-20', rate: 4.8, type: 2, period: 2 },
-    { sTime: '2020-02-20', rate: 4.75, type: 2, period: 2 },
-    { sTime: '2020-04-20', rate: 4.65, type: 2, period: 2 },
-    { sTime: '2022-01-20', rate: 4.6, type: 2, period: 2 },
-    { sTime: '2022-05-20', rate: 4.45, type: 2, period: 2 },
-    { sTime: '2022-08-22', rate: 4.3, type: 2, period: 2 },
-    { sTime: '2023-06-20', rate: 4.2, type: 2, period: 2 },
-    { sTime: '2023-08-21', rate: 4.2, type: 2, period: 2 },
-    { sTime: '2024-02-20', rate: 3.95, type: 2, period: 2 },
-    { sTime: '2024-07-22', rate: 3.85, type: 2, period: 2 },
-    { sTime: '2024-10-21', rate: 3.60, type: 2, period: 2 },
-    { sTime: '2025-05-20', rate: 3.50, type: 2, period: 2 },
-    { sTime: '2025-06-20', rate: 3.50, type: 2, period: 2 },
-    { sTime: '2025-07-21', rate: 3.50, type: 2, period: 2 },
+// 中国人民银行基准利率数据 (type=1)
+const pbocRates: InterestRateData[] = [
     // 中国人民银行基准利率 (type=1)
     // 六个月以内 (period=1)
     { sTime: '1991-04-21', rate: 8.1, type: 1, period: 1 },
@@ -268,17 +236,44 @@ const interestRates: InterestRateData[] = [
 ]
 
 /**
+ * 将 LPRRate 格式转换为 InterestRateData 格式
+ * - period=1：1年期 LPR（oneYear）
+ * - period=2：5年期以上 LPR（fiveYear）
+ * - 其他 period：返回空数组（无效期限）
+ */
+function lprRatesToInterestRateData(period: number): InterestRateData[] {
+    if (period !== 1 && period !== 2) {
+        return []
+    }
+    // getLPRRates() 返回按日期降序排列，转换为升序
+    const lprRates = [...getLPRRates()].sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    )
+    return lprRates.map(r => ({
+        sTime: r.date,
+        rate: period === 1 ? r.oneYear : r.fiveYear,
+        type: 2,
+        period
+    }))
+}
+
+/**
  * 获取利率数据
  * @param type 类型（1：基准利率，2：LPR）
  * @param period 期限
- * @returns 利率数据
+ * @returns 利率数据（按日期升序排列）
  */
 export function getInterestRates(type: number | string, period: number | string): InterestRateData[] {
-    // 确保将type和period转换为数字类型
     const numType = Number(type)
     const numPeriod = Number(period)
 
-    return interestRates.filter(rate => rate.type === numType && rate.period === numPeriod)
+    // LPR 数据从 data 层动态读取
+    if (numType === 2) {
+        return lprRatesToInterestRateData(numPeriod)
+    }
+
+    // PBOC 基准利率从本地常量读取
+    return pbocRates.filter(rate => rate.type === numType && rate.period === numPeriod)
         .sort((a, b) => new Date(a.sTime).getTime() - new Date(b.sTime).getTime())
 }
 
@@ -302,30 +297,24 @@ export function getRateForDate(type: number | string, period: number | string, d
     }
 
     // 如果目标日期早于第一个利率日期，使用第一个利率
-    const firstRate = sortedRates[0]
-    if (!firstRate) return 0
+    // 上方已 early return 处理 length===0，此处 sortedRates[0] 必存在
+    const firstRate = sortedRates[0]!
     const firstRateDate = new Date(firstRate.sTime)
     if (targetDate < firstRateDate) {
         return firstRate.rate
     }
 
     // 找到最后一个早于或等于目标日期的利率
+    // sortedRates 来自 getInterestRates 返回的常量过滤结果，遍历元素必存在
+    // 由于上方已处理 targetDate < firstRateDate 情况，此处至少 firstRate.sTime ≤ targetDate
+    // 因此循环至少会赋值 applicableRate 一次（不会保持为 0）
     for (let i = 0; i < sortedRates.length; i++) {
-        const rate = sortedRates[i]
-        if (!rate) continue
+        const rate = sortedRates[i]!
         const rateDate = new Date(rate.sTime)
         if (rateDate <= targetDate) {
             applicableRate = rate.rate
         } else {
             break
-        }
-    }
-
-    // 如果没有找到适用的利率（可能是未来日期），使用最新的利率
-    if (applicableRate === 0 && sortedRates.length > 0) {
-        const lastRate = sortedRates[sortedRates.length - 1]
-        if (lastRate) {
-            applicableRate = lastRate.rate
         }
     }
 
@@ -388,10 +377,10 @@ export function calculateCustomRateInterest(
     const annualRate = rateNum / 100
     const interestExact = principalNum * annualRate * days / yearDaysNum
     // 最后再四舍五入到分
-    const interest = Math.round(interestExact * 100) / 100
+    const interest = roundToCents(interestExact)
 
     // 总额 = 本金 + 利息
-    const totalAmount = Math.round((principalNum + interest) * 100) / 100
+    const totalAmount = roundToCents(principalNum + interest)
 
     // 计算过程描述
     const process = `本金 ${principalNum.toFixed(2)} 元 × 年利率 ${rateNum.toFixed(4)}% ÷ 100 × ${days} 天 ÷ ${yearDaysNum} 天 = 利息 ${interest.toFixed(2)} 元`
@@ -551,7 +540,7 @@ export function calculatePeriodInterest(
 
     // 计算利息 (本金 * 年利率% / 100 * 天数 / 年天数)
     const annualRate = Number((adjustedRate / 100).toFixed(10))
-    const interest = Math.round(principalNum * annualRate * daysNum / yearDaysNum * 100) / 100
+    const interest = roundToCents(principalNum * annualRate * daysNum / yearDaysNum)
 
     logger.debug('期间利息计算结果', {
         principal: principalNum,
@@ -679,21 +668,12 @@ export function calculateLPRInterest(
         }
     }
 
-    // 如果没有找到适用的利率（可能是因为开始日期早于第一个利率发布日期）
-    if (currentRateIndex < 0) {
-        logger.error('没有找到适用的LPR利率, currentRateIndex=', currentRateIndex)
-        return {
-            error: "NO_APPLICABLE_RATE",
-            message: "没有找到适用的LPR利率"
-        } as LPRInterestResult
-    }
-
+    // currentRateIndex 初始化为 0 且只递增，必在 [0, rates.length-1] 内；rates[currentRateIndex] 必存在
     let segmentStart = new Date(startDate)
 
     while (segmentStart < end) {
         let segmentEnd: Date
-        const currentRateData = rates[currentRateIndex]
-        if (!currentRateData) break
+        const currentRateData = rates[currentRateIndex]!
         const currentRate = currentRateData.rate // 先获取当前索引的利率
 
         // 如果有下一个利率变动点，且该点在结束日期之前
@@ -741,7 +721,7 @@ export function calculateLPRInterest(
         // 使用高精度计算
         const segmentInterest = principalNum * adjustedRate / 100 * segmentDays / yearDaysNum
         // 四舍五入保留两位小数
-        const roundedSegmentInterest = Math.round(segmentInterest * 100) / 100
+        const roundedSegmentInterest = roundToCents(segmentInterest)
 
         logger.debug('分段利息计算:', {
             segmentStart: formatDate(segmentStart),
@@ -767,15 +747,16 @@ export function calculateLPRInterest(
     }
 
     // 判断是否使用了估计利率（即结束日期超过了最新利率）
-    const latestRate = rates[rates.length - 1]
-    const latestRateDate = latestRate ? new Date(latestRate.sTime) : new Date()
+    // rates 在前置 `if (rates.length === 0) return error` 后必非空，latestRate 必存在
+    const latestRate = rates[rates.length - 1]!
+    const latestRateDate = new Date(latestRate.sTime)
     const usedEstimatedRate = end > latestRateDate
 
     // 判断是否调整了开始日期
     const dateAdjusted = startDate !== startDateOriginal
 
     // 四舍五入总利息，保留两位小数
-    totalInterest = Math.round(totalInterest * 100) / 100
+    totalInterest = roundToCents(totalInterest)
 
     logger.debug('LPR计算结果:', {
         totalInterest,
@@ -798,7 +779,7 @@ export function calculateLPRInterest(
             `计息结束日期：${endDate}`,
             `计息天数：${daysCount}天`,
             `利率类型：${lprPeriodNum === 1 ? 'LPR 1年期' : 'LPR 5年期以上'}`,
-            adjustmentMethod !== '无' ? `利率调整方式：${adjustmentMethod} ${adjustmentValueNum}${adjustmentMethod === '加点' || adjustmentMethod === '减点' ? 'BP' : (adjustmentMethod === '倍数' || adjustmentMethod === '倍率' ? '倍' : (adjustmentMethod === '上浮' || adjustmentMethod === '下浮' ? '%' : '%'))}` : '无利率调整',
+            adjustmentMethod !== '无' ? `利率调整方式：${adjustmentMethod} ${adjustmentValueNum}${adjustmentMethod === '加点' || adjustmentMethod === '减点' ? 'BP' : (adjustmentMethod === '倍数' || adjustmentMethod === '倍率' ? '倍' : '%')}` : '无利率调整',
             usedEstimatedRate ? `注意：您选择的结束日期(${endDate})晚于最新LPR公布日期(${formatDate(latestRateDate)})，此期间使用了最新的LPR利率作为估计值。` : '',
             `总利息：${totalInterest.toFixed(2)}元`,
             `本息合计：${(principalNum + totalInterest).toFixed(2)}元`
@@ -860,19 +841,8 @@ export function calculatePBOCInterest(
     }
 
     // 获取所有该类型的利率并按日期排序
+    // 注：period=1..5 对应模块内常量数据均存在，allPbocRates 必非空
     const allPbocRates = getInterestRates(1, periodNum).sort((a, b) => new Date(a.sTime).getTime() - new Date(b.sTime).getTime())
-
-    // 如果没有任何基准利率数据，返回错误信息
-    if (allPbocRates.length === 0) {
-        logger.error('没有找到适用的基准利率数据, period=', periodNum)
-        return {
-            amount: amountNum,
-            totalInterest: 0,
-            days: daysBetween(startDate, endDate),
-            total: amountNum,
-            details: ['没有找到适用的基准利率数据']
-        }
-    }
 
     logger.debug('获取到基准利率数据:', allPbocRates)
 
@@ -882,32 +852,18 @@ export function calculatePBOCInterest(
         return rateDate <= end
     })
 
-    // 如果结束日期大于最新的基准利率日期，添加最后一个利率作为延伸
-    const lastRate = allPbocRates[allPbocRates.length - 1]
-    if (lastRate) {
-        const lastRateDate = new Date(lastRate.sTime)
-        if (end > lastRateDate && !pbocRates.includes(lastRate)) {
-            pbocRates.push(lastRate)
-        }
-    }
+    // 由 filter 条件可推导出：若 end > lastRateDate 则 lastRate 必在 pbocRates 中
+    // 因此原 !pbocRates.includes(lastRate) 永远为 false，此处不再需要 push
 
     logger.debug('筛选后基准利率数据:', pbocRates)
 
     let totalInterest = 0
     const interestDetails: InterestDetail[] = []
 
-    // 如果筛选后没有适用的基准利率，使用最早的基准利率计算整个期间
+    // 如果筛选后没有适用的基准利率（end 早于第一个利率日期），使用最早的基准利率计算整个期间
     if (pbocRates.length === 0) {
-        const earliestRate = allPbocRates[0]
-        if (!earliestRate) {
-            return {
-                amount: amountNum,
-                totalInterest: 0,
-                days: daysBetween(startDate, endDate),
-                total: amountNum,
-                details: ['没有找到适用的基准利率数据']
-            }
-        }
+        // allPbocRates 必非空（period=1..5 有常量数据），allPbocRates[0] 必存在
+        const earliestRate = allPbocRates[0]!
         const periodDays = daysBetween(startDate, endDate)
 
         // 直接计算天数而不是传递日期字符串，并传递调整方式和值
@@ -925,16 +881,18 @@ export function calculatePBOCInterest(
             startDate: startDate,
             endDate: endDate,
             rate: earliestRate.rate,
-            adjustedRate: periodResult.adjustedRate || earliestRate.rate,
+            // calculatePeriodInterest 总返回 adjustedRate（PeriodInterestResult.adjustedRate 类型为 number 非可选）
+            adjustedRate: periodResult.adjustedRate,
             days: periodResult.days,
             interest: periodResult.interest
         })
     } else {
         // 遍历每个基准利率变动，计算该利率适用期间的利息
+        // pbocRates 是过滤后数组，遍历元素必存在
         for (let i = 0; i < pbocRates.length; i++) {
-            const currentRate = pbocRates[i]
-            if (!currentRate) continue
-            const nextRate: InterestRateData | null = (i < pbocRates.length - 1) ? (pbocRates[i + 1] ?? null) : null
+            const currentRate = pbocRates[i]!
+            // i < pbocRates.length - 1 时 pbocRates[i+1] 必存在
+            const nextRate: InterestRateData | null = (i < pbocRates.length - 1) ? pbocRates[i + 1]! : null
 
             const periodStart = new Date(Math.max(start.getTime(), new Date(currentRate.sTime).getTime()))
             const periodEnd = nextRate
@@ -943,8 +901,9 @@ export function calculatePBOCInterest(
 
             // 如果计息期间在该利率区间内
             if (periodStart <= periodEnd) {
-                const startDateStr = periodStart.toISOString().split('T')[0] ?? ''
-                const endDateStr = periodEnd.toISOString().split('T')[0] ?? ''
+                // toISOString 返回包含 'T' 的字符串，split('T')[0] 必存在
+                const startDateStr = periodStart.toISOString().split('T')[0]!
+                const endDateStr = periodEnd.toISOString().split('T')[0]!
                 const periodDays = daysBetween(startDateStr, endDateStr)
 
                 // 计算利息时传递调整方式和值
@@ -962,7 +921,7 @@ export function calculatePBOCInterest(
                     startDate: startDateStr,
                     endDate: endDateStr,
                     rate: currentRate.rate,
-                    adjustedRate: periodResult.adjustedRate || currentRate.rate,
+                    adjustedRate: periodResult.adjustedRate,
                     days: periodDays,
                     interest: periodResult.interest
                 })
@@ -971,29 +930,17 @@ export function calculatePBOCInterest(
     }
 
     // 四舍五入总利息，保留两位小数
-    totalInterest = Math.round(totalInterest * 100) / 100
+    totalInterest = roundToCents(totalInterest)
 
-    // 如果计算结果为0，可能是日期问题，给出更明确的提示
-    if (totalInterest === 0 && interestDetails.length === 0) {
-        return {
-            amount: amountNum,
-            totalInterest: 0,
-            days: daysBetween(startDate, endDate),
-            total: amountNum,
-            details: ['计算期间没有适用的基准利率，请检查日期设置']
-        }
+    // 获取期限的文字描述（period 由 1-5 枚举驱动）
+    const periodTextMap: Record<number, string> = {
+        1: '六个月以内',
+        2: '六个月至一年',
+        3: '一至三年',
+        4: '三至五年',
+        5: '五年以上',
     }
-
-    // 获取期限的文字描述
-    let periodText = ''
-    switch (Number(periodNum)) {
-        case 1: periodText = '六个月以内'; break
-        case 2: periodText = '六个月至一年'; break
-        case 3: periodText = '一至三年'; break
-        case 4: periodText = '三至五年'; break
-        case 5: periodText = '五年以上'; break
-        default: periodText = `未知期限(${periodNum})`
-    }
+    const periodText = periodTextMap[Number(periodNum)]!
 
     return {
         amount: amountNum,
@@ -1008,11 +955,11 @@ export function calculatePBOCInterest(
             `计息开始日期：${startDate}`,
             `计息结束日期：${endDate}`,
             `基准利率期限：${periodText}`,
-            `调整方式：${adjustmentMethod}${adjustmentMethod !== '无' ? ` ${adjustmentValueNum}${adjustmentMethod === '加点' || adjustmentMethod === '减点' ? 'BP' : (adjustmentMethod === '倍率' || adjustmentMethod === '倍数' ? '倍' : (adjustmentMethod === '上浮' || adjustmentMethod === '下浮' ? '%' : '%'))}` : ''}`,
+            `调整方式：${adjustmentMethod}${adjustmentMethod !== '无' ? ` ${adjustmentValueNum}${adjustmentMethod === '加点' || adjustmentMethod === '减点' ? 'BP' : (adjustmentMethod === '倍率' || adjustmentMethod === '倍数' ? '倍' : '%')}` : ''}`,
             ...interestDetails.map(detail => {
-                // 安全地使用 toFixed，确保 adjustedRate 存在
-                const rateDisplay = detail.adjustedRate !== undefined ? detail.adjustedRate.toFixed(4) : detail.rate.toFixed(4)
-                const interestDisplay = detail.interest !== undefined ? detail.interest.toFixed(2) : '0.00'
+                // push detail 时总传入 adjustedRate（line 891 / 929）；interest 在 InterestDetail 类型中为必填
+                const rateDisplay = detail.adjustedRate!.toFixed(4)
+                const interestDisplay = detail.interest.toFixed(2)
                 return `${detail.startDate}至${detail.endDate}（${detail.days}天）：利率${rateDisplay}%，利息${interestDisplay}元`
             }),
             `总利息：${totalInterest.toFixed(2)}元`,
@@ -1171,13 +1118,17 @@ export function calculateLoanInterest(
         // 总还款额
         const totalPayment = principal + totalInterest
 
+        // months > 0 是调用前提，monthlyPayments 必非空
+        const firstMonthPayment = monthlyPayments[0]!
+        const lastMonthPayment = monthlyPayments[monthlyPayments.length - 1]!
+
         return {
             principal,
             rate,
             months,
             monthlyPrincipal,
-            firstMonthPayment: monthlyPayments[0] ?? 0,
-            lastMonthPayment: monthlyPayments[monthlyPayments.length - 1] ?? 0,
+            firstMonthPayment,
+            lastMonthPayment,
             totalPayment,
             totalInterest,
             details: [
@@ -1186,11 +1137,123 @@ export function calculateLoanInterest(
                 `贷款期限：${months}个月`,
                 `还款方式：等额本金`,
                 `每月本金：${monthlyPrincipal.toFixed(2)}元`,
-                `首月还款额：${(monthlyPayments[0] ?? 0).toFixed(2)}元`,
-                `末月还款额：${(monthlyPayments[monthlyPayments.length - 1] ?? 0).toFixed(2)}元`,
+                `首月还款额：${firstMonthPayment.toFixed(2)}元`,
+                `末月还款额：${lastMonthPayment.toFixed(2)}元`,
                 `总还款额：${totalPayment.toFixed(2)}元`,
                 `总利息：${totalInterest.toFixed(2)}元`
             ]
         }
+    }
+}
+
+/**
+ * 自动分段利息计算：以 2019-08-20（LPR 实施日）为分界，
+ * 早段用 PBOC 基准利率、晚段用 LPR 利率，跨段时合并两段结果。
+ * @param principal 本金
+ * @param startDate 开始日期 YYYY-MM-DD
+ * @param endDate 结束日期 YYYY-MM-DD
+ * @param lprPeriod LPR 期限档（1=一年期，2=五年期以上）
+ * @param pbocPeriod PBOC 期限档（1-5）
+ * @param adjustmentMethod 利率调整方式（'无'/'上浮'/'下浮'/'倍率'/'加点'/'减点'）
+ * @param adjustmentValue 利率调整值
+ * @param yearDays 年计息天数（默认 360）
+ */
+export interface AutoSegmentInterestResult {
+    amount: number
+    startDate: string
+    endDate: string
+    days: number
+    totalInterest: number
+    total: number
+    details: string[]
+    interestDetails: InterestDetail[]
+    pbocResult?: PBOCInterestResult
+    lprResult?: LPRInterestResult
+}
+
+export function calculateAutoSegmentInterest(
+    principal: number | string,
+    startDate: string,
+    endDate: string,
+    lprPeriod: number | string,
+    pbocPeriod: number | string,
+    adjustmentMethod: AdjustmentMethod = '无',
+    adjustmentValue: number | string = 0,
+    yearDays: number | string = 360
+): AutoSegmentInterestResult {
+    const principalNum = parseFloat(String(principal))
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    const lprStartDate = new Date('2019-08-20')
+
+    // PBOC 期限到 LPR 期限的映射（一至三年/三至五年/五年以上 → LPR 5 年期以上）
+    const mappedLprPeriod = parseInt(String(pbocPeriod)) >= 3 ? '2' : '1'
+
+    if (end < lprStartDate) {
+        // 全部使用 PBOC 基准利率
+        const pbocResult = calculatePBOCInterest(
+            principalNum, startDate, endDate, pbocPeriod,
+            adjustmentMethod, adjustmentValue, yearDays,
+        )
+        return {
+            amount: principalNum,
+            startDate,
+            endDate,
+            days: pbocResult.days,
+            totalInterest: pbocResult.totalInterest,
+            total: principalNum + pbocResult.totalInterest,
+            details: ['自动分段：全部使用基准利率（早于 LPR 实施日 2019-08-20）', ...(pbocResult.details ?? [])],
+            interestDetails: pbocResult.interestDetails ?? [],
+        }
+    }
+
+    if (start >= lprStartDate) {
+        // 全部使用 LPR
+        const lprResult = calculateLPRInterest(
+            principalNum, startDate, endDate, mappedLprPeriod,
+            adjustmentMethod, adjustmentValue, yearDays,
+        )
+        return {
+            amount: principalNum,
+            startDate,
+            endDate,
+            days: lprResult.days,
+            totalInterest: lprResult.totalInterest,
+            total: principalNum + lprResult.totalInterest,
+            details: ['自动分段：全部使用 LPR 利率（晚于 LPR 实施日 2019-08-20）', ...(lprResult.details ?? [])],
+            interestDetails: lprResult.interestDetails ?? [],
+        }
+    }
+
+    // 跨段：startDate ~ 2019-08-19 用 PBOC；2019-08-20 ~ endDate 用 LPR
+    const pbocEndDate = new Date(lprStartDate)
+    pbocEndDate.setDate(pbocEndDate.getDate() - 1)
+    const pbocResult = calculatePBOCInterest(
+        principalNum, startDate, formatDate(pbocEndDate), pbocPeriod,
+        adjustmentMethod, adjustmentValue, yearDays,
+    )
+    const lprResult = calculateLPRInterest(
+        principalNum, formatDate(lprStartDate), endDate, mappedLprPeriod,
+        adjustmentMethod, adjustmentValue, yearDays,
+    )
+    const totalInterest = (pbocResult.totalInterest || 0) + (lprResult.totalInterest || 0)
+    const totalDays = (pbocResult.days || 0) + (lprResult.days || 0)
+
+    return {
+        amount: principalNum,
+        startDate,
+        endDate,
+        days: totalDays,
+        totalInterest,
+        total: principalNum + totalInterest,
+        details: [
+            `自动分段：计算期跨越 LPR 实施日 2019-08-20，分两段计算`,
+            `第一段（基准利率，${startDate} 至 2019-08-19）：利息 ${pbocResult.totalInterest.toFixed(2)} 元，${pbocResult.days} 天`,
+            `第二段（LPR 利率，2019-08-20 至 ${endDate}）：利息 ${lprResult.totalInterest.toFixed(2)} 元，${lprResult.days} 天`,
+            `合计：本金 ${principalNum.toFixed(2)} 元，利息 ${totalInterest.toFixed(2)} 元，本息合计 ${(principalNum + totalInterest).toFixed(2)} 元`,
+        ],
+        interestDetails: [...(pbocResult.interestDetails ?? []), ...(lprResult.interestDetails ?? [])],
+        pbocResult,
+        lprResult,
     }
 }

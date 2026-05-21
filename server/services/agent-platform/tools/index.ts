@@ -13,9 +13,6 @@ import { getToolMetaFromDefinition } from './types'
 import * as searchCaseMaterialsTool from './searchCaseMaterials.tool'
 import * as searchLawTool from './searchLaw.tool'
 import * as processMaterialsTool from './processMaterials.tool'
-import * as reservePointsTool from './reservePoints.tool'
-import * as confirmPointsTool from './confirmPoints.tool'
-import * as rollbackPointsTool from './rollbackPoints.tool'
 import * as readSkillFileTool from './readSkillFile.tool'
 import * as runSkillScriptTool from './runSkillScript.tool'
 import * as runSkillCommandTool from './runSkillCommand.tool'
@@ -29,15 +26,22 @@ import * as reviewContractTool from './reviewContract.tool'
 import * as recommendTemplateTool from './recommendTemplate.tool'
 import * as saveDocumentDraftTool from './saveDocumentDraft.tool'
 import * as updateDocumentDraftTool from './updateDocumentDraft.tool'
+import * as compensationCalculatorTool from './compensationCalculator.tool'
+import * as interestCalculatorTool from './interestCalculator.tool'
+import * as delayInterestCalculatorTool from './delayInterestCalculator.tool'
+import * as courtFeeCalculatorTool from './courtFeeCalculator.tool'
+import * as lawyerFeeCalculatorTool from './lawyerFeeCalculator.tool'
+import * as overtimePayCalculatorTool from './overtimePayCalculator.tool'
+import * as socialInsuranceCalculatorTool from './socialInsuranceCalculator.tool'
+import * as divorcePropertyCalculatorTool from './divorcePropertyCalculator.tool'
+import * as dateCalculatorTool from './dateCalculator.tool'
+import * as bankRateQueryTool from './bankRateQuery.tool'
 
 /** 通用工具模块映射 */
 const toolModules: Record<string, ToolModule> = {
     search_case_materials: searchCaseMaterialsTool,
     search_law: searchLawTool,
     process_materials: processMaterialsTool,
-    reserve_points: reservePointsTool,
-    confirm_points: confirmPointsTool,
-    rollback_points: rollbackPointsTool,
     read_skill_file: readSkillFileTool,
     run_skill_script: runSkillScriptTool,
     run_skill_command: runSkillCommandTool,
@@ -52,6 +56,17 @@ const toolModules: Record<string, ToolModule> = {
     save_document_draft: saveDocumentDraftTool,
     update_document_draft: updateDocumentDraftTool,
     review_contract: reviewContractTool,
+    // 办案计算器工具
+    calculate_compensation: compensationCalculatorTool,
+    calculate_interest: interestCalculatorTool,
+    calculate_delay_interest: delayInterestCalculatorTool,
+    calculate_court_fee: courtFeeCalculatorTool,
+    calculate_lawyer_fee: lawyerFeeCalculatorTool,
+    calculate_overtime_pay: overtimePayCalculatorTool,
+    calculate_social_insurance_backpay: socialInsuranceCalculatorTool,
+    calculate_divorce_property: divorcePropertyCalculatorTool,
+    calculate_date: dateCalculatorTool,
+    query_bank_rate: bankRateQueryTool,
 }
 
 /**

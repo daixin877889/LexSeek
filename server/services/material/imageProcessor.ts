@@ -9,6 +9,8 @@
 
 import { uploadFileService } from '../storage/storage.service'
 import { FileSource, OssFileStatus } from '#shared/types/file'
+import { buildStorageDir } from '~~/server/utils/storagePath'
+import { assertSafeOutboundUrl } from '~~/server/utils/outboundUrlGuard'
 import { v4 as uuidv4 } from 'uuid'
 import { $fetch as ofetch } from 'ofetch'
 
@@ -27,6 +29,9 @@ interface ImageUploadResult {
  */
 async function downloadImageFromUrl(imageUrl: string): Promise<{ buffer: Buffer; mimeType: string }> {
     try {
+        // SSRF 防护：拒绝指向内网/保留地址的图片 URL
+        await assertSafeOutboundUrl(imageUrl)
+
         const response = await ofetch(imageUrl, {
             responseType: 'arrayBuffer',
         })
@@ -80,10 +85,8 @@ async function uploadImageToOss(
     const storageConfig = config.storage
     const ossConfig = storageConfig.aliyunOss
     const bucket = ossConfig.bucket
-    const basePath = storageConfig.basePath
-
     // 使用自定义路径或生成默认路径
-    const dir = customPath || `${basePath}user${userId}/${FileSource.CASE_ANALYSIS}/`
+    const dir = customPath || buildStorageDir({ scope: 'user', userId, source: FileSource.DOC_EMBEDDED_IMAGE })
 
     const ext = mimeType.split('/').pop() || 'png'
     const saveName = `${uuidv4()}.${ext}`
@@ -98,7 +101,7 @@ async function uploadImageToOss(
                 filePath: `${dir}${saveName}`,
                 fileSize: imageBuffer.length,
                 fileType: mimeType,
-                source: FileSource.CASE_ANALYSIS,
+                source: FileSource.DOC_EMBEDDED_IMAGE,
                 status: OssFileStatus.PENDING,
                 encrypted: false,
             },

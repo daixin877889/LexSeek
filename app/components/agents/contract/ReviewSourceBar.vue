@@ -2,7 +2,7 @@
 /**
  * 合同审查工作台顶部「来源条」（阶段 5 · Task 13）
  *
- * 与 DraftSourceBar.vue 行为一致：当用户从法律助手 / 小索（阶段 6）
+ * 与 DraftSourceBar.vue 行为一致：当用户从通用问答 / 小索（阶段 6）
  * 跳转到合同工作台时，提供"返回入口对话 + 关联案件"入口。
  *
  * 详细约定参见 DraftSourceBar.vue 的注释。两个组件结构一致，
@@ -11,7 +11,7 @@
 import { ArrowLeftIcon, LinkIcon, CheckCircle2Icon } from 'lucide-vue-next'
 
 interface Props {
-    /** 来源入口：'assistant' = 法律助手；'xiaosuo' = 小索（阶段 6 接入） */
+    /** 来源入口：'assistant' = 通用问答；'xiaosuo' = 小索（阶段 6 接入） */
     from: 'assistant' | 'xiaosuo' | string
     /** 入口对话的 session id */
     sessionId?: string | null
@@ -29,7 +29,7 @@ const emit = defineEmits<{
 }>()
 
 const sourceLabel = computed(() => {
-    if (props.from === 'assistant') return '法律助手'
+    if (props.from === 'assistant') return '通用问答'
     if (props.from === 'xiaosuo') return '小索'
     return ''
 })

@@ -114,7 +114,7 @@ membershipUpgradeRecords: fromMembership → toMembership + order
 ```
 
 **来源类型**（`UserMembershipSourceType`）：
-- 兑换码兑换 / 直接购买 / 管理员赠送 / 活动奖励 / 试用 / 注册赠送 / 邀请注册 / 会员升级
+- 兑换码兑换 / 直接购买 / 管理员赠送 / 活动奖励 / 试用 / 注册赠送 / 邀请注册 / 会员升级 / 其他
 
 ## 4. 用户权益
 

@@ -48,6 +48,47 @@ async function buildMinimalDocxWithDecimalNumbering(paragraphTexts: string[]): P
     return zip.generateAsync({ type: 'nodebuffer' }) as Promise<Buffer>
 }
 
+/**
+ * M8 测试 helper：合成含表格的 docx。2 个带 numbering 的 body 直接段落，中间夹一个
+ * 2 行表格（每行 1 单元格 1 段落）。numbering 确保 parseContractDocx 走确定的 AST 路径。
+ */
+async function buildMinimalDocxWithTable(): Promise<Buffer> {
+    const zip = new JSZip()
+    zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+    <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+    <Default Extension="xml" ContentType="application/xml"/>
+    <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+    <Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>
+</Types>`)
+    zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+    <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`)
+    zip.file('word/_rels/document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+    <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>
+</Relationships>`)
+    const numberedP = (t: string) => `<w:p><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr></w:pPr><w:r><w:t>${t}</w:t></w:r></w:p>`
+    const cellP = (t: string) => `<w:tr><w:tc><w:p><w:r><w:t>${t}</w:t></w:r></w:p></w:tc></w:tr>`
+    zip.file('word/document.xml', `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+    <w:body>
+        ${numberedP('正文段落一的内容')}
+        <w:tbl>${cellP('表格内段落甲')}${cellP('表格内段落乙')}</w:tbl>
+        ${numberedP('正文段落二的内容')}
+    </w:body>
+</w:document>`)
+    zip.file('word/numbering.xml', `<?xml version="1.0" encoding="UTF-8"?>
+<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+    <w:abstractNum w:abstractNumId="0">
+        <w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/></w:lvl>
+    </w:abstractNum>
+    <w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>
+</w:numbering>`)
+    return zip.generateAsync({ type: 'nodebuffer' }) as Promise<Buffer>
+}
+
 export { buildMinimalDocxWithDecimalNumbering }
 
 const SAMPLES = ['labor', 'lease', 'sale', 'service', 'loan'] as const
@@ -141,5 +182,36 @@ describe('PR10 e2e：parseContractDocx → segmentClauses 子项级切分', () =
             expect(s.textWithoutNumber).not.toMatch(/^\d+\./)
             expect(s.text).toMatch(/^\d+\./)
         }
+    })
+})
+
+describe('M8：parseContractDocx 段落口径（bodyParagraphs / bodyParagraphIndex）', () => {
+    it('含表格合同：paragraphs 递归含表格段落，bodyParagraphs 仅 body 直接段落，bodyParagraphIndex 表格段落为 null', async () => {
+        const buf = await buildMinimalDocxWithTable()
+        const { paragraphs, bodyParagraphs, bodyParagraphIndex } = await parseContractDocx(buf)
+
+        // 分析口径 paragraphs 递归含表格内段落（DOCX-H4：表格条款仍参与审查）
+        expect(paragraphs.length).toBe(4)
+        expect(paragraphs.some(p => p.includes('表格内段落甲'))).toBe(true)
+        expect(paragraphs.some(p => p.includes('表格内段落乙'))).toBe(true)
+
+        // 批注注入口径 bodyParagraphs 仅含 body 直接子段落，不含表格内段落
+        expect(bodyParagraphs.length).toBe(2)
+        expect(bodyParagraphs.some(p => p.includes('表格内段落'))).toBe(false)
+        expect(bodyParagraphs[0]).toContain('正文段落一')
+        expect(bodyParagraphs[1]).toContain('正文段落二')
+
+        // bodyParagraphIndex：paragraphs[i] → bodyParagraphs 下标；表格内段落映射为 null
+        expect(bodyParagraphIndex).toEqual([0, null, null, 1])
+    })
+
+    it('无表格合同：bodyParagraphs == paragraphs（去前缀），bodyParagraphIndex 为 identity', async () => {
+        const buf = await buildMinimalDocxWithDecimalNumbering(['条款一内容', '条款二内容', '条款三内容'])
+        const { paragraphs, bodyParagraphs, bodyParagraphIndex } = await parseContractDocx(buf)
+
+        expect(paragraphs.length).toBe(3)
+        expect(bodyParagraphs.length).toBe(3)
+        // 无表格 → 每段都是 body 直接段落 → identity 映射
+        expect(bodyParagraphIndex).toEqual([0, 1, 2])
     })
 })

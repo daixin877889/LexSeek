@@ -67,9 +67,9 @@ return createSkillsMiddleware({ backend, sources })
 | `caseMain` / `caseModule` | **必挂**（`caseId` 一定有） |
 | `caseAnalysis` 子代理 | **必挂** |
 | `documentMain` / `contractReviewMain` | `caseId` 非空时挂，否则跳过 |
-| `legalAssistant`（法律助手） | **永不挂**（`caseId` 永远 null） |
+| `legalAssistant`（通用问答） | **永不挂**（`caseId` 永远 null） |
 
-> 法律助手不挂的原因：法律助手是全局通用对话（跨案件），未来挂的是用户记忆/偏好/历史案件等不同维度，不是案件记忆。两套不能混用。详见项目记忆 `project_xiaosuo_vs_legal_assistant.md`。
+> 通用问答不挂的原因：通用问答是全局通用对话（跨案件），未来挂的是用户记忆/偏好/历史案件等不同维度，不是案件记忆。两套不能混用。详见项目记忆 `project_xiaosuo_vs_legal_assistant.md`。
 
 挂载示例：
 

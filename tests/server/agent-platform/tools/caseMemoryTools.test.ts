@@ -117,6 +117,7 @@ describe('update_case_memory', () => {
         expect(updateMemoryServiceMock).toHaveBeenCalledWith(
             '00000000-0000-4000-8000-000000000000',
             { text: '新文本', invalidate: false },
+            { expectedCaseId: 100, userId: 1 },
         )
     })
 })

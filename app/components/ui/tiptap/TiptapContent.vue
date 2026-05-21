@@ -103,7 +103,7 @@ onMounted(() => {
 }
 
 .tiptap-editor-wrapper .component-selected {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid var(--brand-sky);
   outline-offset: 2px;
 }
 
@@ -128,7 +128,7 @@ onMounted(() => {
 
 /* Node selection styles */
 .tiptap-editor-wrapper .ProseMirror .is-node-selected {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid var(--brand-sky);
   outline-offset: 2px;
 }
 

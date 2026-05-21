@@ -1,5 +1,5 @@
 <template>
-  <SidebarProvider v-model:open="sidebarOpen">
+  <SidebarProvider v-model:open="sidebarOpen" class="theme-brand">
     <!-- 侧边栏 -->
     <Sidebar collapsible="icon">
       <!-- 顶部logo -->
@@ -19,15 +19,14 @@
       <!-- 使用 flex 布局，header 固定高度，内容区域可滚动 -->
       <div class="flex h-full flex-col">
         <!-- 头部 - 固定在顶部，支持页面级隐藏 -->
-        <header
-          v-show="!hideDashboardHeader"
-          class="flex h-12 shrink-0 items-center justify-between gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 bg-background border-b z-50">
+        <header v-show="!hideDashboardHeader"
+          class="flex h-12 shrink-0 items-center justify-between gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 bg-background/70 backdrop-blur-md border-b z-50">
           <div class="flex gap-2 px-4">
             <!-- logo -->
             <div class="flex items-center gap-2 md:hidden">
               <NuxtLink to="/dashboard" class="flex items-center gap-2">
                 <BrandLogo size="md" />
-                <h1 class="text-xl font-bold">LexSeek｜法索 AI</h1>
+                <h1 class="text-xl font-bold">法索 AI｜LexSeek</h1>
               </NuxtLink>
             </div>
 
@@ -51,7 +50,7 @@
             </ClientOnly>
 
             <!-- 移动端菜单按钮 -->
-            <button class="p-2 rounded-md hover:bg-muted transition-colors focus:outline-none md:hidden"
+            <button class="p-2 rounded-md hover:bg-primary/[0.08] transition-colors focus:outline-none md:hidden"
               @click="toggleSidebar">
               <MenuIcon class="h-6 w-6" />
             </button>
@@ -106,6 +105,15 @@ import DashboardNavUser from '~/components/dashboard/navUser.vue'
 import DashboardNavUserRight from '~/components/dashboard/navUserRight.vue'
 import GeneralThemeToggle from '~/components/general/ThemeToggle.vue'
 import BrandLogo from '~/components/general/BrandLogo.vue'
+
+// 把当前路由的 definePageMeta.title 同步到浏览器标签，
+// 兜底"工作台"，避免子页漏写时被全局 titleTemplate 渲染成 " | LexSeek 法索 AI"。
+// 同时声明私密区域 robots: noindex。
+const route = useRoute()
+useHead({
+  title: () => (route.meta?.title as string | undefined) || '工作台',
+  meta: [{ name: 'robots', content: 'noindex,nofollow' }]
+})
 
 const sidebarTriggerRef = ref<InstanceType<typeof import("@/components/ui/sidebar").SidebarTrigger> | null>(null);
 

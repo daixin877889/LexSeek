@@ -1,7 +1,7 @@
 /**
  * 文书模板推荐 Service
  *
- * 服务于阶段 5 法律助手 → 文书生成「模板选择卡片」推荐：助手 LLM 把用户意图
+ * 服务于阶段 5 通用问答 → 文书生成「模板选择卡片」推荐：助手 LLM 把用户意图
  * 转成 `{ intent, keywords?, categoryHint? }`，本服务负责在用户可见模板池
  * （scope=global ∪ scope=user 当前用户私人）中召回 + 评分 + 取 top 5。
  *
@@ -48,6 +48,8 @@ export interface TemplateRecommendItem {
     priority: number
     /** 评分（用于调试 / 透传到前端做次序解释） */
     score: number
+    /** 当前查看用户最近 30 天内是否用过该模板（rerank 阶段会读） */
+    recentlyUsed: boolean
 }
 
 export interface TemplateRecommendResult {
@@ -152,7 +154,7 @@ export async function recommendDocumentTemplatesService(
     input: TemplateRecommendInput,
 ): Promise<TemplateRecommendResult> {
     const { userId, keywords, categoryHint } = input
-    const limit = Math.max(1, Math.min(20, input.limit ?? 5))
+    const limit = Math.max(1, Math.min(50, input.limit ?? 5))
 
     const cleanedKeywords = normalizeKeywords(keywords)
     const validCategoryHint = isValidCategory(categoryHint) ? categoryHint : undefined
@@ -169,7 +171,9 @@ export async function recommendDocumentTemplatesService(
         select: { templateId: true },
         distinct: ['templateId'],
     })
-    const recentTemplateIds = new Set<number>(recentDrafts.map(d => d.templateId))
+    const recentTemplateIds = new Set<number>(
+        recentDrafts.map(d => d.templateId).filter((id): id is number => id != null),
+    )
 
     // 第一层：categoryHint 缩范围
     let pool: documentTemplates[] = []
@@ -232,6 +236,7 @@ export async function recommendDocumentTemplatesService(
         description: tpl.description ?? null,
         priority: tpl.priority,
         score,
+        recentlyUsed: recentTemplateIds.has(tpl.id),
     }))
 
     return {

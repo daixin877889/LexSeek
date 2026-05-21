@@ -1,0 +1,3214 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LexSeek 品牌色组件规范确认稿</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --brand-mint: #1EEDC4;
+      --brand-sky: #1E9EED;
+      --brand-navy: #090380;
+      --brand-gradient: linear-gradient(135deg, #1EEDC4 0%, #1E9EED 50%, #090380 100%);
+      --brand-button: linear-gradient(135deg, #1E9EED 0%, #090380 100%);
+      --brand-soft: linear-gradient(97deg, #E0F8F1 0%, #E1F1FE 50%, #E5E4F2 100%);
+      --brand-soft-dark: linear-gradient(135deg, #06363B 0%, #062847 50%, #050340 100%);
+      --wash-page: linear-gradient(180deg, #FFFFFF 0%, #F2FBFD 35%, #ECF3FE 100%);
+      --wash-sidebar: linear-gradient(180deg, #F2FBFD 0%, #FFFFFF 35%, #FFFFFF 100%);
+
+      --primary: #1E9EED;
+      --primary-strong: #090380;
+      --primary-foreground: #ffffff;
+      --background: #ffffff;
+      --foreground: #18181b;
+      --card: #ffffff;
+      --card-foreground: #18181b;
+      --muted: #f4f4f5;
+      --muted-2: #fafafa;
+      --muted-foreground: #71717a;
+      --border: #e4e4e7;
+      --input: #d4d4d8;
+      --ring: rgba(30, 158, 237, 0.36);
+
+      --default-bg: #f4f4f5;
+      --default-fg: #27272a;
+      --info-bg: rgba(30, 158, 237, 0.1);
+      --info-fg: #0A78D8;
+      --info-bd: rgba(30, 158, 237, 0.24);
+      --success-bg: rgba(34, 197, 94, 0.1);
+      --success-fg: #15803d;
+      --success-bd: rgba(34, 197, 94, 0.24);
+      --warning-bg: rgba(245, 158, 11, 0.12);
+      --warning-fg: #b45309;
+      --warning-bd: rgba(245, 158, 11, 0.32);
+      --danger-bg: rgba(220, 38, 38, 0.1);
+      --danger-fg: #dc2626;
+      --danger-bd: rgba(220, 38, 38, 0.28);
+
+      --tint-mint-bg: linear-gradient(135deg, #C8F7EA, #9DEDD3);
+      --tint-mint-fg: #0BA47C;
+      --tint-sky-bg: linear-gradient(135deg, #CFE9FE, #94CBFA);
+      --tint-sky-fg: #0A78D8;
+      --tint-navy-bg: linear-gradient(135deg, #D7D5EE, #B0AADE);
+      --tint-navy-fg: #5048C0;
+      --tint-amber-bg: linear-gradient(135deg, #FFE7C7, #FFCF8F);
+      --tint-amber-fg: #E07A0A;
+
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --radius-lg: 10px;
+      --radius-xl: 14px;
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 10px 26px -18px rgba(9, 3, 128, 0.36);
+      --shadow-hover: 0 18px 42px -28px rgba(9, 3, 128, 0.42);
+      --font-sans: Inter, "Noto Sans SC", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+      --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    .dark-sample {
+      color-scheme: dark;
+      --background: #0F1115;
+      --foreground: #f4f4f5;
+      --card: #18181b;
+      --card-foreground: #f4f4f5;
+      --muted: #27272a;
+      --muted-2: #111827;
+      --muted-foreground: #a1a1aa;
+      --border: rgba(255, 255, 255, 0.12);
+      --input: rgba(255, 255, 255, 0.16);
+      --primary: #82CCFF;
+      --primary-strong: #BEB8FF;
+      --primary-foreground: #18181b;
+      --ring: rgba(130, 204, 255, 0.42);
+      --wash-page: linear-gradient(180deg, #0F1115 0%, #0E1822 50%, #0B0F2A 100%);
+      --wash-sidebar: linear-gradient(180deg, #0E1822 0%, #0A0E18 50%, #0A0E18 100%);
+      --info-bg: rgba(30, 158, 237, 0.18);
+      --info-fg: #82CCFF;
+      --info-bd: rgba(130, 204, 255, 0.34);
+      --success-bg: rgba(34, 197, 94, 0.16);
+      --success-fg: #86efac;
+      --success-bd: rgba(134, 239, 172, 0.28);
+      --warning-bg: rgba(245, 158, 11, 0.18);
+      --warning-fg: #fbbf24;
+      --warning-bd: rgba(251, 191, 36, 0.34);
+      --danger-bg: rgba(220, 38, 38, 0.18);
+      --danger-fg: #f87171;
+      --danger-bd: rgba(248, 113, 113, 0.34);
+      --tint-mint-bg: linear-gradient(135deg, rgba(30, 237, 196, 0.22), rgba(30, 237, 196, 0.1));
+      --tint-mint-fg: #5BFCD4;
+      --tint-sky-bg: linear-gradient(135deg, rgba(30, 158, 237, 0.26), rgba(30, 158, 237, 0.12));
+      --tint-sky-fg: #82CCFF;
+      --tint-navy-bg: linear-gradient(135deg, rgba(148, 140, 255, 0.26), rgba(148, 140, 255, 0.12));
+      --tint-navy-fg: #BEB8FF;
+      --tint-amber-bg: linear-gradient(135deg, rgba(245, 158, 11, 0.24), rgba(245, 158, 11, 0.1));
+      --tint-amber-fg: #FCBF6F;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--foreground);
+      background:
+        radial-gradient(circle at 8% -8%, rgba(30, 237, 196, 0.14), transparent 34%),
+        radial-gradient(circle at 88% 0%, rgba(30, 158, 237, 0.15), transparent 28%),
+        linear-gradient(180deg, #ffffff 0%, #f7fbff 45%, #ffffff 100%);
+      font-family: var(--font-sans);
+      line-height: 1.5;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    code {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--muted);
+      padding: 1px 6px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    .page {
+      display: grid;
+      grid-template-columns: 276px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      border-right: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(242, 251, 253, 0.94), rgba(255, 255, 255, 0.96));
+      padding: 24px 18px;
+      overflow: auto;
+    }
+
+    .brand-lockup {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    .logo-mark {
+      display: grid;
+      place-items: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 11px;
+      background: var(--brand-gradient);
+      color: #fff;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      box-shadow: 0 14px 28px -18px rgba(9, 3, 128, 0.7);
+    }
+
+    .brand-title {
+      font-size: 16px;
+      font-weight: 800;
+      line-height: 1.1;
+    }
+
+    .brand-subtitle {
+      color: var(--muted-foreground);
+      font-size: 12px;
+      margin-top: 2px;
+    }
+
+    .nav {
+      display: grid;
+      gap: 4px;
+    }
+
+    .nav a {
+      border-radius: 8px;
+      color: #3f3f46;
+      display: flex;
+      font-size: 13px;
+      font-weight: 600;
+      justify-content: space-between;
+      padding: 8px 10px;
+    }
+
+    .nav a:hover,
+    .nav a.active {
+      background: rgba(30, 158, 237, 0.1);
+      color: #0A78D8;
+    }
+
+    .content {
+      min-width: 0;
+      padding: 32px;
+    }
+
+    .hero {
+      border: 1px solid rgba(30, 158, 237, 0.18);
+      border-radius: 18px;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.94)),
+        var(--brand-soft);
+      box-shadow: var(--shadow-md);
+      margin-bottom: 24px;
+      overflow: hidden;
+      padding: 34px;
+      position: relative;
+    }
+
+    .hero::after {
+      background: radial-gradient(circle, rgba(30, 237, 196, 0.2), transparent 68%);
+      content: "";
+      height: 280px;
+      pointer-events: none;
+      position: absolute;
+      right: -110px;
+      top: -120px;
+      width: 280px;
+    }
+
+    .eyebrow {
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      margin: 0 0 10px;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin-top: 0;
+    }
+
+    h1 {
+      font-size: clamp(30px, 4vw, 48px);
+      letter-spacing: -0.02em;
+      line-height: 1.12;
+      margin-bottom: 12px;
+    }
+
+    h2 {
+      font-size: 24px;
+      letter-spacing: -0.01em;
+      margin-bottom: 14px;
+    }
+
+    h3 {
+      font-size: 17px;
+      margin-bottom: 8px;
+    }
+
+    .lead {
+      color: #52525b;
+      font-size: 15px;
+      max-width: 820px;
+    }
+
+    .gradient-text {
+      background: var(--brand-button);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .section {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.88);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+      margin-bottom: 24px;
+      padding: 24px;
+    }
+
+    .section-header {
+      align-items: flex-start;
+      display: flex;
+      gap: 18px;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+
+    .section-desc {
+      color: var(--muted-foreground);
+      font-size: 13px;
+      margin-bottom: 0;
+      max-width: 720px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .cols-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .cols-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .cols-4 {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .swatch {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--card);
+      overflow: hidden;
+    }
+
+    .swatch-color {
+      min-height: 84px;
+      padding: 12px;
+    }
+
+    .swatch-body {
+      padding: 12px;
+    }
+
+    .swatch-name {
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .swatch-value {
+      color: var(--muted-foreground);
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    .component-demo {
+      align-items: center;
+      border: 1px dashed var(--border);
+      border-radius: 14px;
+      background: linear-gradient(180deg, var(--muted-2), #fff);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 12px 0;
+      padding: 16px;
+    }
+
+    .demo-column {
+      align-items: stretch;
+      display: grid;
+      gap: 10px;
+      width: 100%;
+    }
+
+    .btn {
+      align-items: center;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      cursor: default;
+      display: inline-flex;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      gap: 8px;
+      height: 36px;
+      justify-content: center;
+      padding: 0 14px;
+      transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+      white-space: nowrap;
+    }
+
+    .btn-primary,
+    .btn-default,
+    .btn-danger {
+      border: 0;
+    }
+
+    .btn-primary {
+      background: var(--brand-button);
+      box-shadow: 0 10px 20px -12px rgba(30, 158, 237, 0.72);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      filter: brightness(1.05);
+      transform: translateY(-1px);
+    }
+
+    .btn-default {
+      background: var(--foreground);
+      color: var(--background);
+    }
+
+    .btn-secondary {
+      background: var(--muted);
+      color: var(--foreground);
+    }
+
+    .btn-outline {
+      background: var(--background);
+      border-color: var(--border);
+      color: var(--foreground);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--foreground);
+    }
+
+    .btn-ghost:hover,
+    .btn-outline:hover,
+    .btn-secondary:hover {
+      background: rgba(30, 158, 237, 0.08);
+      color: var(--primary);
+    }
+
+    .btn-danger {
+      background: var(--danger-fg);
+      color: #fff;
+    }
+
+    .btn-warning {
+      background: var(--warning-bg);
+      border-color: var(--warning-bd);
+      color: var(--warning-fg);
+    }
+
+    .btn[aria-disabled="true"] {
+      opacity: 0.5;
+    }
+
+    .btn-sm {
+      height: 32px;
+      padding: 0 11px;
+      font-size: 13px;
+    }
+
+    .btn-lg {
+      height: 42px;
+      padding: 0 20px;
+      font-size: 15px;
+    }
+
+    .icon {
+      display: inline-block;
+      height: 15px;
+      position: relative;
+      width: 15px;
+    }
+
+    .icon::before,
+    .icon::after {
+      background: currentColor;
+      border-radius: 999px;
+      content: "";
+      position: absolute;
+    }
+
+    .icon.plus::before {
+      height: 2px;
+      left: 2px;
+      top: 6.5px;
+      width: 11px;
+    }
+
+    .icon.plus::after {
+      height: 11px;
+      left: 6.5px;
+      top: 2px;
+      width: 2px;
+    }
+
+    .icon.arrow::before {
+      height: 2px;
+      left: 2px;
+      top: 6.5px;
+      width: 10px;
+    }
+
+    .icon.arrow::after {
+      background: transparent;
+      border-right: 2px solid currentColor;
+      border-top: 2px solid currentColor;
+      height: 7px;
+      right: 2px;
+      top: 3.5px;
+      transform: rotate(45deg);
+      width: 7px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+      min-width: min(280px, 100%);
+    }
+
+    .label {
+      color: var(--foreground);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .hint {
+      color: var(--muted-foreground);
+      font-size: 12px;
+    }
+
+    .input,
+    .textarea,
+    .select {
+      background: var(--background);
+      border: 1px solid var(--input);
+      border-radius: 8px;
+      color: var(--foreground);
+      font: inherit;
+      font-size: 14px;
+      outline: none;
+      padding: 9px 11px;
+      transition: border-color 120ms ease, box-shadow 120ms ease;
+      width: 100%;
+    }
+
+    .input:focus,
+    .textarea:focus,
+    .select:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--ring);
+    }
+
+    .input[aria-invalid="true"],
+    .textarea[aria-invalid="true"] {
+      border-color: var(--danger-fg);
+      box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.16);
+    }
+
+    .textarea {
+      min-height: 92px;
+      resize: vertical;
+    }
+
+    .input-row {
+      align-items: center;
+      display: flex;
+      gap: 10px;
+      width: min(540px, 100%);
+    }
+
+    .input-row .input {
+      flex: 1;
+    }
+
+    .checkbox-row {
+      align-items: center;
+      display: flex;
+      gap: 10px;
+      font-size: 14px;
+    }
+
+    .checkbox {
+      align-items: center;
+      background: var(--brand-button);
+      border-radius: 5px;
+      color: #fff;
+      display: inline-flex;
+      font-size: 12px;
+      font-weight: 900;
+      height: 18px;
+      justify-content: center;
+      width: 18px;
+    }
+
+    .switch {
+      align-items: center;
+      background: var(--brand-button);
+      border-radius: 999px;
+      display: inline-flex;
+      height: 24px;
+      justify-content: flex-end;
+      padding: 2px;
+      width: 44px;
+    }
+
+    .switch::after {
+      background: #fff;
+      border-radius: 999px;
+      box-shadow: var(--shadow-sm);
+      content: "";
+      height: 20px;
+      width: 20px;
+    }
+
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--card);
+      color: var(--card-foreground);
+      padding: 16px;
+      transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+    }
+
+    .card.hoverable:hover {
+      border-color: rgba(30, 158, 237, 0.32);
+      box-shadow: var(--shadow-hover);
+      transform: translateY(-2px);
+    }
+
+    .metric {
+      align-items: flex-start;
+      display: flex;
+      gap: 14px;
+      justify-content: space-between;
+    }
+
+    .metric-label {
+      color: var(--muted-foreground);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .metric-value {
+      font-size: 28px;
+      font-weight: 850;
+      letter-spacing: -0.02em;
+      margin-top: 2px;
+    }
+
+    .tint {
+      align-items: center;
+      border-radius: 11px;
+      display: inline-flex;
+      font-weight: 850;
+      height: 42px;
+      justify-content: center;
+      width: 42px;
+    }
+
+    .tint.mint {
+      background-image: var(--tint-mint-bg);
+      color: var(--tint-mint-fg);
+    }
+
+    .tint.sky {
+      background-image: var(--tint-sky-bg);
+      color: var(--tint-sky-fg);
+    }
+
+    .tint.navy {
+      background-image: var(--tint-navy-bg);
+      color: var(--tint-navy-fg);
+    }
+
+    .tint.amber {
+      background-image: var(--tint-amber-bg);
+      color: var(--tint-amber-fg);
+    }
+
+    .alert {
+      border: 1px solid var(--info-bd);
+      border-radius: 12px;
+      background: var(--info-bg);
+      color: var(--info-fg);
+      display: grid;
+      gap: 3px;
+      padding: 13px 14px;
+    }
+
+    .alert-title {
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .alert-body {
+      font-size: 13px;
+      margin: 0;
+    }
+
+    .alert.default {
+      background: var(--default-bg);
+      border-color: var(--border);
+      color: var(--default-fg);
+    }
+
+    .alert.success {
+      background: var(--success-bg);
+      border-color: var(--success-bd);
+      color: var(--success-fg);
+    }
+
+    .alert.warning {
+      background: var(--warning-bg);
+      border-color: var(--warning-bd);
+      color: var(--warning-fg);
+    }
+
+    .alert.danger {
+      background: var(--danger-bg);
+      border-color: var(--danger-bd);
+      color: var(--danger-fg);
+    }
+
+    .badge {
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      display: inline-flex;
+      font-size: 12px;
+      font-weight: 750;
+      gap: 6px;
+      line-height: 1;
+      padding: 6px 9px;
+      white-space: nowrap;
+    }
+
+    .badge.primary {
+      background: var(--info-bg);
+      border-color: var(--info-bd);
+      color: var(--info-fg);
+    }
+
+    .badge.success {
+      background: var(--success-bg);
+      border-color: var(--success-bd);
+      color: var(--success-fg);
+    }
+
+    .badge.warning {
+      background: var(--warning-bg);
+      border-color: var(--warning-bd);
+      color: var(--warning-fg);
+    }
+
+    .badge.danger {
+      background: var(--danger-bg);
+      border-color: var(--danger-bd);
+      color: var(--danger-fg);
+    }
+
+    .badge.muted {
+      background: var(--muted);
+      color: var(--muted-foreground);
+    }
+
+    .tabs,
+    .segmented {
+      align-items: center;
+      display: inline-flex;
+      gap: 4px;
+    }
+
+    .tabs {
+      border-bottom: 1px solid var(--border);
+      width: 100%;
+    }
+
+    .tab {
+      border-bottom: 2px solid transparent;
+      color: var(--muted-foreground);
+      font-size: 14px;
+      font-weight: 750;
+      padding: 10px 4px 9px;
+      margin-right: 18px;
+    }
+
+    .tab.active {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    .segmented {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--muted);
+      padding: 4px;
+    }
+
+    .segment {
+      border-radius: 7px;
+      color: var(--muted-foreground);
+      font-size: 13px;
+      font-weight: 750;
+      padding: 7px 12px;
+    }
+
+    .segment.active {
+      background: var(--card);
+      box-shadow: var(--shadow-sm);
+      color: var(--foreground);
+    }
+
+    .table-wrap {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--border);
+      padding: 12px 14px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--muted);
+      color: var(--muted-foreground);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    td {
+      font-size: 13px;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    tbody tr:hover {
+      background: rgba(30, 158, 237, 0.05);
+    }
+
+    .dialog {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: var(--card);
+      box-shadow: 0 30px 70px -44px rgba(9, 3, 128, 0.5);
+      max-width: 560px;
+      padding: 20px;
+    }
+
+    .dialog-header {
+      margin-bottom: 14px;
+    }
+
+    .dialog-title {
+      font-size: 18px;
+      font-weight: 850;
+      margin: 0 0 4px;
+    }
+
+    .dialog-desc {
+      color: var(--muted-foreground);
+      font-size: 13px;
+      margin: 0;
+    }
+
+    .dialog-footer {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 18px;
+    }
+
+    .toast {
+      align-items: start;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--card);
+      box-shadow: 0 18px 42px -30px rgba(0, 0, 0, 0.36);
+      display: grid;
+      gap: 4px;
+      max-width: 360px;
+      padding: 13px 14px;
+    }
+
+    .toast-title {
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .toast-body {
+      color: var(--muted-foreground);
+      font-size: 12px;
+      margin: 0;
+    }
+
+    .search-panel {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--card);
+      overflow: hidden;
+      width: 100%;
+    }
+
+    .search-main {
+      align-items: center;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 12px;
+      padding: 14px;
+    }
+
+    .search-input {
+      border: 0;
+      flex: 1;
+      font: inherit;
+      font-size: 15px;
+      outline: none;
+    }
+
+    .filter-row {
+      align-items: center;
+      background: var(--muted-2);
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 12px 14px;
+    }
+
+    .chip {
+      border-radius: 7px;
+      color: var(--foreground);
+      font-size: 13px;
+      font-weight: 700;
+      padding: 6px 10px;
+    }
+
+    .chip.active {
+      background: rgba(30, 158, 237, 0.1);
+      color: var(--primary);
+    }
+
+    .upload-zone {
+      border: 2px dashed rgba(30, 158, 237, 0.28);
+      border-radius: 14px;
+      background:
+        linear-gradient(135deg, rgba(30, 237, 196, 0.05), transparent 50%, rgba(30, 158, 237, 0.06)),
+        var(--card);
+      padding: 26px;
+      text-align: center;
+    }
+
+    .progress {
+      background: var(--muted);
+      border-radius: 999px;
+      height: 8px;
+      overflow: hidden;
+      width: 100%;
+    }
+
+    .progress > span {
+      background: var(--brand-button);
+      border-radius: inherit;
+      display: block;
+      height: 100%;
+      width: 64%;
+    }
+
+    .pagination {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .page-btn {
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--foreground);
+      display: inline-flex;
+      font-size: 13px;
+      font-weight: 700;
+      height: 34px;
+      justify-content: center;
+      min-width: 34px;
+      padding: 0 10px;
+      text-align: center;
+    }
+
+    .page-btn.active {
+      background: var(--brand-button);
+      border: 0;
+      color: #fff;
+    }
+
+    .example-shell {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background:
+        linear-gradient(180deg, rgba(250, 250, 250, 0.88), rgba(255, 255, 255, 0.96)),
+        var(--card);
+      padding: 16px;
+    }
+
+    .example-header {
+      align-items: flex-start;
+      display: flex;
+      gap: 14px;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .example-title {
+      font-size: 16px;
+      font-weight: 850;
+      margin: 0 0 3px;
+    }
+
+    .example-desc {
+      color: var(--muted-foreground);
+      font-size: 12px;
+      margin: 0;
+    }
+
+    .app-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .app-grid.cols-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .app-grid.cols-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .case-row {
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--card);
+      display: flex;
+      gap: 14px;
+      justify-content: space-between;
+      padding: 14px;
+      transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+    }
+
+    .case-row:hover,
+    .case-card:hover,
+    .file-tile:hover {
+      border-color: rgba(30, 158, 237, 0.34);
+      box-shadow: var(--shadow-hover);
+      transform: translateY(-1px);
+    }
+
+    .case-main {
+      min-width: 0;
+    }
+
+    .case-title {
+      color: var(--foreground);
+      font-size: 14px;
+      font-weight: 800;
+      margin-bottom: 5px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .meta-row {
+      align-items: center;
+      color: var(--muted-foreground);
+      display: flex;
+      flex-wrap: wrap;
+      font-size: 12px;
+      gap: 8px;
+    }
+
+    .action-row {
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .icon-btn {
+      align-items: center;
+      border-radius: 8px;
+      color: var(--muted-foreground);
+      display: inline-flex;
+      font-size: 13px;
+      font-weight: 800;
+      height: 32px;
+      justify-content: center;
+      width: 32px;
+    }
+
+    .icon-btn:hover {
+      background: var(--muted);
+      color: var(--foreground);
+    }
+
+    .case-card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--card);
+      display: flex;
+      flex-direction: column;
+      min-height: 154px;
+      overflow: hidden;
+      transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+    }
+
+    .case-card-body {
+      display: grid;
+      flex: 1;
+      gap: 10px;
+      padding: 16px;
+    }
+
+    .case-card-footer {
+      align-items: center;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      padding: 11px 14px;
+    }
+
+    .mini-table {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+
+    .mini-table table {
+      min-width: 640px;
+    }
+
+    .legal-result-card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--card);
+      padding: 16px;
+      transition: background 120ms ease, border-color 120ms ease;
+    }
+
+    .legal-result-card:hover {
+      background: rgba(30, 158, 237, 0.04);
+      border-color: rgba(30, 158, 237, 0.28);
+    }
+
+    .order-mobile-card,
+    .point-card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--card);
+      display: grid;
+      gap: 12px;
+      padding: 15px;
+    }
+
+    .kv-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .kv-label {
+      color: var(--muted-foreground);
+      font-size: 12px;
+      margin-bottom: 2px;
+    }
+
+    .kv-value {
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .file-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+    }
+
+    .file-tile {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--card);
+      min-height: 152px;
+      padding: 14px;
+      position: relative;
+      text-align: center;
+      transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+    }
+
+    .file-tile.selected {
+      background: rgba(30, 158, 237, 0.05);
+      border-color: rgba(30, 158, 237, 0.6);
+    }
+
+    .file-check {
+      align-items: center;
+      background: var(--brand-button);
+      border-radius: 6px;
+      color: #fff;
+      display: inline-flex;
+      font-size: 11px;
+      font-weight: 900;
+      height: 20px;
+      justify-content: center;
+      left: 12px;
+      position: absolute;
+      top: 12px;
+      width: 20px;
+    }
+
+    .file-name {
+      font-size: 13px;
+      font-weight: 800;
+      margin: 10px 0 4px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .source-map {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .source-item {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--card);
+      padding: 12px;
+    }
+
+    .source-title {
+      color: var(--foreground);
+      font-size: 13px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .source-path {
+      color: var(--muted-foreground);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      line-height: 1.7;
+    }
+
+    .structure-map {
+      display: grid;
+      gap: 10px;
+    }
+
+    .structure-node {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--card);
+      display: grid;
+      gap: 6px;
+      padding: 12px;
+    }
+
+    .structure-node-title {
+      align-items: center;
+      color: var(--foreground);
+      display: flex;
+      font-size: 13px;
+      font-weight: 800;
+      gap: 8px;
+    }
+
+    .structure-node-title::before {
+      background: var(--brand-button);
+      border-radius: 999px;
+      content: "";
+      display: inline-block;
+      height: 7px;
+      width: 7px;
+    }
+
+    .structure-node-copy {
+      color: var(--muted-foreground);
+      font-size: 12px;
+      margin: 0;
+    }
+
+    .color-spec-list {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+    }
+
+    .color-spec-list li {
+      align-items: flex-start;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      display: grid;
+      gap: 3px;
+      list-style: none;
+      padding: 10px 12px;
+    }
+
+    .color-spec-list strong {
+      color: var(--foreground);
+      font-size: 13px;
+    }
+
+    .color-spec-list span {
+      color: var(--muted-foreground);
+      font-size: 12px;
+    }
+
+    .token-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .token-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--card);
+      padding: 14px;
+    }
+
+    .token-head {
+      align-items: center;
+      display: flex;
+      gap: 10px;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .token-name {
+      color: var(--foreground);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .token-chip {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--muted-foreground);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 2px 8px;
+      white-space: nowrap;
+    }
+
+    .token-preview {
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      min-height: 46px;
+    }
+
+    .token-note {
+      color: var(--muted-foreground);
+      font-size: 12px;
+      margin: 9px 0 0;
+    }
+
+    .dark-layout {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      display: grid;
+      grid-template-columns: 210px minmax(0, 1fr);
+      overflow: hidden;
+    }
+
+    .dark-sidebar-demo {
+      background: var(--wash-sidebar, linear-gradient(180deg, #0E1822, #0A0E18));
+      border-right: 1px solid var(--border);
+      display: grid;
+      gap: 8px;
+      padding: 14px;
+    }
+
+    .dark-main-demo {
+      background: var(--wash-page, var(--background));
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+    }
+
+    .sidebar-demo-item {
+      align-items: center;
+      border-radius: 10px;
+      color: var(--muted-foreground);
+      display: flex;
+      font-size: 13px;
+      font-weight: 700;
+      gap: 8px;
+      min-height: 36px;
+      padding: 8px 10px;
+    }
+
+    .sidebar-demo-item.active {
+      background: rgba(30, 158, 237, 0.16);
+      color: var(--primary);
+    }
+
+    .sidebar-demo-dot {
+      border-radius: 999px;
+      background: var(--tint-sky-bg);
+      height: 8px;
+      width: 8px;
+    }
+
+    .dark-toolbar {
+      align-items: center;
+      display: flex;
+      gap: 10px;
+      justify-content: space-between;
+    }
+
+    .dark-search {
+      align-items: center;
+      border: 1px solid var(--input);
+      border-radius: 10px;
+      color: var(--muted-foreground);
+      display: flex;
+      flex: 1;
+      font-size: 13px;
+      min-height: 38px;
+      padding: 0 12px;
+    }
+
+    .dark-page-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--card);
+      padding: 14px;
+    }
+
+    .dark-stat-row {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .dark-stat {
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      background: color-mix(in srgb, var(--card) 86%, var(--primary) 14%);
+      padding: 12px;
+    }
+
+    .dark-rule-list {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+    }
+
+    .dark-rule-list li {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      display: grid;
+      gap: 4px;
+      list-style: none;
+      padding: 12px;
+    }
+
+    .rule-label {
+      color: var(--foreground);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .rule-copy {
+      color: var(--muted-foreground);
+      font-size: 12px;
+      margin: 0;
+    }
+
+    .rules {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    .rules li {
+      padding-left: 3px;
+    }
+
+    .spec-table td:first-child {
+      color: var(--foreground);
+      font-weight: 800;
+      white-space: nowrap;
+      width: 150px;
+    }
+
+    .dark-sample {
+      border-radius: 16px;
+      background:
+        radial-gradient(circle at 8% -8%, rgba(30, 237, 196, 0.12), transparent 35%),
+        var(--background);
+      color: var(--foreground);
+      padding: 18px;
+    }
+
+    .dark-sample .component-demo {
+      background: linear-gradient(180deg, #141821, #0f1115);
+    }
+
+    .dark-sample .lead {
+      color: var(--muted-foreground);
+    }
+
+    .dark-sample .section,
+    .dark-sample .card,
+    .dark-sample .example-shell,
+    .dark-sample .case-row,
+    .dark-sample .case-card,
+    .dark-sample .legal-result-card,
+    .dark-sample .order-mobile-card,
+    .dark-sample .point-card,
+    .dark-sample .file-tile,
+    .dark-sample .source-item,
+    .dark-sample .structure-node,
+    .dark-sample .search-panel,
+    .dark-sample .dialog,
+    .dark-sample .toast,
+    .dark-sample .swatch {
+      background: var(--card);
+      color: var(--foreground);
+    }
+
+    .dark-sample .mini-table th {
+      background: var(--muted);
+      color: var(--muted-foreground);
+    }
+
+    .dark-sample .mini-table td,
+    .dark-sample .mini-table table {
+      background: var(--card);
+      color: var(--foreground);
+    }
+
+    .dark-sample .search-input {
+      background: transparent;
+      color: var(--foreground);
+    }
+
+    .dark-sample .btn-default {
+      background: var(--foreground);
+      color: var(--background);
+    }
+
+    .footer-note {
+      color: var(--muted-foreground);
+      font-size: 13px;
+      margin: 22px 0 0;
+    }
+
+    @media (max-width: 980px) {
+      .page {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        height: auto;
+        position: static;
+      }
+
+      .content {
+        padding: 20px;
+      }
+
+      .cols-2,
+      .cols-3,
+      .cols-4 {
+        grid-template-columns: 1fr;
+      }
+
+      .app-grid.cols-2,
+      .app-grid.cols-3,
+      .source-map,
+      .token-grid,
+      .dark-layout,
+      .dark-stat-row {
+        grid-template-columns: 1fr;
+      }
+
+      .dark-sidebar-demo {
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .case-row,
+      .example-header {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .action-row {
+        justify-content: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <aside class="sidebar">
+      <div class="brand-lockup">
+        <div class="logo-mark">LS</div>
+        <div>
+          <div class="brand-title">LexSeek 法索 AI</div>
+          <div class="brand-subtitle">品牌色组件规范确认稿</div>
+        </div>
+      </div>
+      <nav class="nav" aria-label="文档目录">
+        <a class="active" href="#overview">总览</a>
+        <a href="#palette">颜色系统</a>
+        <a href="#type-space">字体与布局</a>
+        <a href="#buttons">按钮</a>
+        <a href="#feedback">提示与状态</a>
+        <a href="#forms">表单</a>
+        <a href="#cards">卡片</a>
+        <a href="#navigation">导航与切换</a>
+        <a href="#data">表格与列表</a>
+        <a href="#overlays">弹窗与通知</a>
+        <a href="#business">业务组件</a>
+        <a href="#real-ui">实际 UI 示例</a>
+        <a href="#dark">暗色模式</a>
+        <a href="#ai-guardrails">AI 执行约束</a>
+        <a href="#rules">落地规则</a>
+      </nav>
+    </aside>
+
+    <main class="content">
+      <section class="hero" id="overview">
+        <p class="eyebrow">Brand Component Guideline</p>
+        <h1>LexSeek <span class="gradient-text">品牌色组件规范</span></h1>
+        <p class="lead">
+          本稿用于确认全站品牌主题的视觉边界：品牌色负责主行动、焦点、导航选中和重点展示；成功、警告、错误等业务状态继续使用语义颜色。后续落地时，主题切换只保留亮色和暗色。
+        </p>
+        <div class="component-demo" style="border-style: solid; background: rgba(255,255,255,0.62);">
+          <span class="badge primary">品牌主色</span>
+          <span class="badge success">成功</span>
+          <span class="badge warning">警告</span>
+          <span class="badge danger">错误</span>
+          <span class="badge muted">默认</span>
+        </div>
+      </section>
+
+      <section class="section" id="palette">
+        <div class="section-header">
+          <div>
+            <h2>颜色系统</h2>
+            <p class="section-desc">品牌色只承担品牌识别和主操作，不替代业务状态色。错误、警告、成功等颜色必须保留语义。</p>
+          </div>
+        </div>
+
+        <h3>品牌核心色</h3>
+        <div class="grid cols-4">
+          <div class="swatch">
+            <div class="swatch-color" style="background:#1EEDC4;"></div>
+            <div class="swatch-body">
+              <div class="swatch-name">Brand Mint</div>
+              <div class="swatch-value">#1EEDC4</div>
+              <div class="hint">用于渐变起点、图标淡彩、轻量装饰。</div>
+            </div>
+          </div>
+          <div class="swatch">
+            <div class="swatch-color" style="background:#1E9EED;"></div>
+            <div class="swatch-body">
+              <div class="swatch-name">Brand Sky / Primary</div>
+              <div class="swatch-value">#1E9EED</div>
+              <div class="hint">主品牌色、链接、焦点、当前项。</div>
+            </div>
+          </div>
+          <div class="swatch">
+            <div class="swatch-color" style="background:#090380;"></div>
+            <div class="swatch-body">
+              <div class="swatch-name">Brand Navy</div>
+              <div class="swatch-value">#090380</div>
+              <div class="hint">渐变终点、深色强调、品牌沉稳感。</div>
+            </div>
+          </div>
+          <div class="swatch">
+            <div class="swatch-color" style="background:var(--brand-gradient);"></div>
+            <div class="swatch-body">
+              <div class="swatch-name">Brand Gradient</div>
+              <div class="swatch-value">Mint -> Sky -> Navy</div>
+              <div class="hint">Hero、头像底、品牌展示面。</div>
+            </div>
+          </div>
+        </div>
+
+        <h3 style="margin-top:22px;">语义颜色</h3>
+        <div class="grid cols-4">
+          <div class="swatch">
+            <div class="swatch-color" style="background:var(--default-bg);"></div>
+            <div class="swatch-body">
+              <div class="swatch-name">默认 / 中性</div>
+              <div class="swatch-value">Zinc neutral</div>
+              <div class="hint">普通信息、未激活、次要容器。</div>
+            </div>
+          </div>
+          <div class="swatch">
+            <div class="swatch-color" style="background:var(--warning-bg); color:var(--warning-fg);">警告</div>
+            <div class="swatch-body">
+              <div class="swatch-name">警告</div>
+              <div class="swatch-value">Amber</div>
+              <div class="hint">即将过期、预扣、需要注意但可继续。</div>
+            </div>
+          </div>
+          <div class="swatch">
+            <div class="swatch-color" style="background:var(--danger-bg); color:var(--danger-fg);">错误</div>
+            <div class="swatch-body">
+              <div class="swatch-name">错误 / 危险</div>
+              <div class="swatch-value">Red</div>
+              <div class="hint">失败、删除、不可恢复、校验错误。</div>
+            </div>
+          </div>
+          <div class="swatch">
+            <div class="swatch-color" style="background:var(--success-bg); color:var(--success-fg);">成功</div>
+            <div class="swatch-body">
+              <div class="swatch-name">成功</div>
+              <div class="swatch-value">Green</div>
+              <div class="hint">支付成功、已完成、已生效。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-wrap" style="margin-top:18px;">
+          <table class="spec-table">
+            <tbody>
+              <tr>
+                <td>主要色</td>
+                <td>用于页面主行动、链接、焦点环、当前导航项、分页选中态。不要用于错误或警告。</td>
+              </tr>
+              <tr>
+                <td>默认色</td>
+                <td>用于普通按钮、背景、边框、未激活标签、次要状态。默认色要保持安静，不抢主行动。</td>
+              </tr>
+              <tr>
+                <td>警告色</td>
+                <td>用于风险提示、预扣、即将过期、余额不足等“需要处理但不是失败”的状态。</td>
+              </tr>
+              <tr>
+                <td>错误色</td>
+                <td>用于表单错误、支付失败、删除、撤销、不可恢复操作。错误色不使用品牌渐变。</td>
+              </tr>
+              <tr>
+                <td>成功色</td>
+                <td>用于完成、可用、已生效、支付成功。不要把成功按钮做成品牌蓝，以免用户误解为普通主操作。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section" id="type-space">
+        <h2>字体、圆角与布局</h2>
+        <div class="grid cols-3">
+          <div class="card">
+            <h3>字体层级</h3>
+            <p class="hint">页面标题 24-30px，卡片标题 16-18px，正文 14-15px，辅助说明 12-13px。业务后台不使用营销页超大标题。</p>
+          </div>
+          <div class="card">
+            <h3>圆角</h3>
+            <p class="hint">按钮和输入框 8px，卡片 12-14px，弹窗 14-16px。避免过度圆润，保持法律工具的专业感。</p>
+          </div>
+          <div class="card">
+            <h3>间距</h3>
+            <p class="hint">表单项 12-16px，卡片内边距 16-24px，页面边距桌面 24-32px，移动端 16px。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="buttons">
+        <h2>按钮规范</h2>
+        <p class="section-desc">每个操作区最多一个品牌主按钮。取消、关闭、刷新、复制、详情、重置等次要动作使用 outline 或 ghost。</p>
+        <div class="component-demo">
+          <button class="btn btn-primary"><span class="icon plus"></span>主要操作</button>
+          <button class="btn btn-outline">次要操作</button>
+          <button class="btn btn-ghost">轻量操作</button>
+          <button class="btn btn-secondary">默认操作</button>
+          <button class="btn btn-warning">警告操作</button>
+          <button class="btn btn-danger">删除</button>
+          <button class="btn btn-primary" aria-disabled="true">禁用</button>
+        </div>
+        <div class="component-demo">
+          <button class="btn btn-primary btn-sm">小按钮</button>
+          <button class="btn btn-primary">默认按钮</button>
+          <button class="btn btn-primary btn-lg">大按钮</button>
+        </div>
+        <div class="table-wrap">
+          <table class="spec-table">
+            <tbody>
+              <tr>
+                <td>主按钮</td>
+                <td>提交、支付、购买、开始审查、创建案件、执行检索。使用品牌按钮渐变，白字。</td>
+              </tr>
+              <tr>
+                <td>次按钮</td>
+                <td>取消、关闭、返回、复制、下载、刷新、查看详情。使用 outline 或 ghost，不使用品牌渐变。</td>
+              </tr>
+              <tr>
+                <td>危险按钮</td>
+                <td>删除、作废、取消订单等可能造成损失的操作。使用红色，并必须配确认弹窗。</td>
+              </tr>
+              <tr>
+                <td>加载态</td>
+                <td>按钮文字保留用户动作，如“创建中...”“支付中...”，左侧显示 loading 图标，按钮不可重复点击。</td>
+              </tr>
+              <tr>
+                <td>移动端</td>
+                <td>底部或表单尾部主按钮可以全宽；同一行多个按钮时，主按钮优先在左或右需按页面上下文统一。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section" id="feedback">
+        <h2>提示、状态与徽章</h2>
+        <p class="section-desc">提示组件用于告诉用户“发生了什么、是否需要处理、下一步是什么”。错误提示必须明确可恢复动作。</p>
+        <div class="grid cols-2">
+          <div class="alert default">
+            <div class="alert-title">默认提示</div>
+            <p class="alert-body">用于普通说明、空状态补充、流程解释。</p>
+          </div>
+          <div class="alert">
+            <div class="alert-title">主要提示</div>
+            <p class="alert-body">用于品牌相关引导、当前步骤说明、可继续操作的信息。</p>
+          </div>
+          <div class="alert warning">
+            <div class="alert-title">警告提示</div>
+            <p class="alert-body">积分即将不足，继续操作可能产生预扣。</p>
+          </div>
+          <div class="alert danger">
+            <div class="alert-title">错误提示</div>
+            <p class="alert-body">支付失败，请检查网络后重试，或联系客服处理。</p>
+          </div>
+          <div class="alert success">
+            <div class="alert-title">成功提示</div>
+            <p class="alert-body">订单已支付成功，权益将在数秒内到账。</p>
+          </div>
+        </div>
+        <div class="component-demo">
+          <span class="badge primary">现行有效</span>
+          <span class="badge success">已完成</span>
+          <span class="badge warning">预扣</span>
+          <span class="badge danger">异常</span>
+          <span class="badge muted">已关闭</span>
+        </div>
+        <ul class="rules">
+          <li>徽章只承载状态，不承载长句；长说明放在正文或 Tooltip。</li>
+          <li>业务状态色不跟随品牌色变化，避免“蓝色既是品牌又是失败/成功”的误读。</li>
+          <li>同一列表内的状态命名要稳定，例如“有效 / 已结算 / 已作废”，不要同义词混用。</li>
+        </ul>
+      </section>
+
+      <section class="section" id="forms">
+        <h2>表单组件</h2>
+        <p class="section-desc">表单优先清晰和可恢复。焦点环使用品牌主色，错误使用红色，必填星号使用错误色。</p>
+        <div class="component-demo">
+          <div class="field">
+            <label class="label">手机号 <span style="color:var(--danger-fg);">*</span></label>
+            <input class="input" value="138 0000 0000">
+            <div class="hint">用于登录、注册、找回密码。</div>
+          </div>
+          <div class="field">
+            <label class="label">验证码</label>
+            <div class="input-row">
+              <input class="input" placeholder="请输入验证码">
+              <button class="btn btn-outline">发送</button>
+            </div>
+          </div>
+          <div class="field">
+            <label class="label">合同类型</label>
+            <select class="select">
+              <option>请选择合同类型</option>
+              <option>买卖合同</option>
+              <option>服务合同</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="label">错误示例</label>
+            <input class="input" aria-invalid="true" value="123">
+            <div class="hint" style="color:var(--danger-fg);">手机号格式不正确</div>
+          </div>
+          <div class="field" style="width:100%;">
+            <label class="label">补充说明</label>
+            <textarea class="textarea" placeholder="请输入补充说明，支持换行。"></textarea>
+          </div>
+          <label class="checkbox-row"><span class="checkbox">✓</span> 我已阅读并同意相关协议</label>
+          <label class="checkbox-row"><span class="switch"></span> 启用通知</label>
+        </div>
+        <div class="table-wrap">
+          <table class="spec-table">
+            <tbody>
+              <tr>
+                <td>输入框</td>
+                <td>默认白底、细边框；聚焦时品牌色边框和 3px 柔和焦点环。</td>
+              </tr>
+              <tr>
+                <td>勾选框</td>
+                <td>选中态使用品牌按钮渐变 <code>bg-gradient-brand-button</code>，未选中保持中性边框；不要退回单色 <code>primary</code>。</td>
+              </tr>
+              <tr>
+                <td>校验错误</td>
+                <td>红色边框、红色说明。错误说明要说明如何修正，不只写“错误”。</td>
+              </tr>
+              <tr>
+                <td>选择器</td>
+                <td>短选项使用 Select；长列表和可搜索项使用 Combobox / Popover。</td>
+              </tr>
+              <tr>
+                <td>开关</td>
+                <td>启用态使用品牌按钮渐变 <code>bg-gradient-brand-button</code>，关闭态使用 muted/input；焦点环使用品牌色，不使用单色主题色。</td>
+              </tr>
+              <tr>
+                <td>禁用态</td>
+                <td>降低透明度，不改变布局，不隐藏字段。需要告诉用户为什么不可用。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section" id="cards">
+        <h2>卡片规范</h2>
+        <p class="section-desc">卡片用于组织信息，不做过重装饰。可点击卡片 hover 时轻微上浮和品牌边框即可。</p>
+        <div class="grid cols-3">
+          <div class="card hoverable">
+            <div class="metric">
+              <div>
+                <div class="metric-label">累计案件</div>
+                <div class="metric-value">128</div>
+                <div class="hint">+12 本月</div>
+              </div>
+              <span class="tint sky">案</span>
+            </div>
+          </div>
+          <div class="card hoverable">
+            <div class="metric">
+              <div>
+                <div class="metric-label">可用积分</div>
+                <div class="metric-value">8,420</div>
+                <div class="hint">购买 6,000，赠送 2,420</div>
+              </div>
+              <span class="tint navy">分</span>
+            </div>
+          </div>
+          <div class="card hoverable">
+            <div class="metric">
+              <div>
+                <div class="metric-label">会员等级</div>
+                <div class="metric-value" style="font-size:22px;">专业版</div>
+                <div class="hint">有效期至 2026-12-31</div>
+              </div>
+              <span class="tint amber">权</span>
+            </div>
+          </div>
+        </div>
+        <div class="component-demo">
+          <div class="card hoverable" style="width:min(520px,100%);">
+            <div style="display:flex; gap:14px; align-items:flex-start;">
+              <span class="tint mint">文</span>
+              <div style="min-width:0;">
+                <h3 style="margin-bottom:4px;">建设工程施工合同纠纷</h3>
+                <p class="hint" style="margin-bottom:10px;">当前状态：分析中 · 创建于 2026-05-17</p>
+                <span class="badge primary">继续分析</span>
+                <span class="badge muted">民商事</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <ul class="rules">
+          <li>卡片内不要再嵌套完整卡片；需要分组时使用分隔线或轻量背景。</li>
+          <li>统计图标使用四色淡彩 tint，不使用大面积纯品牌色。</li>
+          <li>列表卡片首行必须可扫读：标题、核心状态、关键时间。</li>
+        </ul>
+      </section>
+
+      <section class="section" id="navigation">
+        <h2>导航、Tab 与筛选</h2>
+        <div class="component-demo">
+          <div class="tabs">
+            <span class="tab active">搜全文</span>
+            <span class="tab">搜法条</span>
+            <span class="tab">历史记录</span>
+          </div>
+          <div class="segmented">
+            <span class="segment active">列表视图</span>
+            <span class="segment">卡片视图</span>
+          </div>
+          <div class="filter-row" style="border:1px solid var(--border); border-radius:12px;">
+            <span class="hint" style="font-weight:800;">法律类型</span>
+            <span class="chip active">全部</span>
+            <span class="chip">法律</span>
+            <span class="chip">行政法规</span>
+            <span class="chip">司法解释</span>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="spec-table">
+            <tbody>
+              <tr>
+                <td>主导航</td>
+                <td>当前项用品牌色文字、浅品牌底、必要时加左侧品牌竖条。</td>
+              </tr>
+              <tr>
+                <td>Tab</td>
+                <td>同一页面内切换内容区域时使用下划线 Tab；弹窗内双模式使用 segmented。</td>
+              </tr>
+              <tr>
+                <td>筛选胶囊</td>
+                <td>选中态使用 <code>primary/10</code> 背景和品牌文字，未选中保持中性。</td>
+              </tr>
+              <tr>
+                <td>主题切换</td>
+                <td>只保留亮色和暗色两项，不展示多色主题色盘。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section" id="data">
+        <h2>表格、列表与分页</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>名称</th>
+                <th>类型</th>
+                <th>状态</th>
+                <th>更新时间</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>中华人民共和国民法典</strong><div class="hint">主席令第45号</div></td>
+                <td><span class="badge primary">法律</span></td>
+                <td><span class="badge success">现行有效</span></td>
+                <td>2026-05-17</td>
+                <td><button class="btn btn-ghost btn-sm">详情</button></td>
+              </tr>
+              <tr>
+                <td><strong>合同审查订单</strong><div class="hint">ORD-20260517001</div></td>
+                <td><span class="badge muted">订单</span></td>
+                <td><span class="badge warning">待支付</span></td>
+                <td>2026-05-17</td>
+                <td><button class="btn btn-primary btn-sm">支付</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="component-demo">
+          <div class="pagination">
+            <span class="page-btn">上一页</span>
+            <span class="page-btn active">1</span>
+            <span class="page-btn">2</span>
+            <span class="page-btn">3</span>
+            <span class="page-btn">下一页</span>
+          </div>
+        </div>
+        <ul class="rules">
+          <li>表头使用 muted 背景，正文行 hover 使用低透明品牌底。</li>
+          <li>分页当前页使用品牌按钮渐变；上一页/下一页用 outline。</li>
+          <li>表格内操作按钮按优先级排列，最多一个主按钮，其余使用 ghost 或 outline。</li>
+        </ul>
+      </section>
+
+      <section class="section" id="overlays">
+        <h2>弹窗、抽屉与通知</h2>
+        <div class="grid cols-2">
+          <div class="dialog">
+            <div class="dialog-header">
+              <div class="dialog-title">确认取消订单</div>
+              <p class="dialog-desc">取消后该订单将无法继续支付，如需购买请重新下单。</p>
+            </div>
+            <div class="alert warning">
+              <div class="alert-title">操作提醒</div>
+              <p class="alert-body">该操作不会扣除积分，但会关闭当前支付二维码。</p>
+            </div>
+            <div class="dialog-footer">
+              <button class="btn btn-outline">返回</button>
+              <button class="btn btn-danger">确认取消</button>
+            </div>
+          </div>
+          <div style="display:grid; gap:12px; align-content:start;">
+            <div class="toast">
+              <div class="toast-title" style="color:var(--success-fg);">保存成功</div>
+              <p class="toast-body">账户安全设置已更新。</p>
+            </div>
+            <div class="toast">
+              <div class="toast-title" style="color:var(--danger-fg);">保存失败</div>
+              <p class="toast-body">网络异常，请稍后重试。</p>
+            </div>
+          </div>
+        </div>
+        <div class="table-wrap" style="margin-top:16px;">
+          <table class="spec-table">
+            <tbody>
+              <tr>
+                <td>确认弹窗</td>
+                <td>删除、作废、取消订单、不可恢复操作必须使用确认弹窗，不能使用浏览器原生 confirm。</td>
+              </tr>
+              <tr>
+                <td>弹窗标题</td>
+                <td>说明用户将要做什么，如“确认删除案件”，不要只写“提示”。</td>
+              </tr>
+              <tr>
+                <td>弹窗说明</td>
+                <td>必须包含后果和可恢复性。shadcn Dialog 需要 Description，视觉上可见或 sr-only。</td>
+              </tr>
+              <tr>
+                <td>Toast</td>
+                <td>用于轻量反馈，不承载复杂决策。错误 toast 要给下一步，例如“重试”或“联系客服”。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section" id="business">
+        <h2>业务高频组件</h2>
+        <h3>统一搜索面板</h3>
+        <div class="search-panel">
+          <div class="tabs" style="padding:0 14px;">
+            <span class="tab active">搜全文</span>
+            <span class="tab">搜法条</span>
+          </div>
+          <div class="search-main">
+            <input class="search-input" value="民法典 合同编">
+            <button class="btn btn-primary"><span class="icon arrow"></span>检索</button>
+          </div>
+          <div class="filter-row">
+            <span class="hint" style="font-weight:800;">法律类型</span>
+            <span class="chip active">全部</span>
+            <span class="chip">法律</span>
+            <span class="chip">行政法规</span>
+            <span class="chip">司法解释</span>
+            <button class="btn btn-outline btn-sm" style="margin-left:auto;">重置筛选</button>
+          </div>
+        </div>
+
+        <h3 style="margin-top:20px;">文件上传区</h3>
+        <div class="upload-zone">
+          <span class="tint sky">传</span>
+          <h3 style="margin:12px 0 4px;">把合同 .docx 拖到这里</h3>
+          <p class="hint">或点击选择本地文件，支持单文件不超过 20 MB。</p>
+          <div class="progress" aria-label="上传进度"><span></span></div>
+        </div>
+
+        <h3 style="margin-top:20px;">空状态与加载</h3>
+        <div class="grid cols-2">
+          <div class="card" style="text-align:center;">
+            <span class="tint navy">空</span>
+            <h3 style="margin-top:12px;">暂无相关数据</h3>
+            <p class="hint">请尝试调整筛选条件，或新建一条记录。</p>
+            <button class="btn btn-outline">重置筛选</button>
+          </div>
+          <div class="card">
+            <div style="height:14px; width:70%; background:var(--muted); border-radius:999px; margin-bottom:12px;"></div>
+            <div style="height:14px; width:92%; background:var(--muted); border-radius:999px; margin-bottom:12px;"></div>
+            <div style="height:14px; width:54%; background:var(--muted); border-radius:999px;"></div>
+            <p class="hint" style="margin-top:16px;">骨架屏用于列表、表格、卡片加载，不使用大面积转圈占位。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="real-ui">
+        <h2>项目实际 UI 示例</h2>
+        <p class="section-desc">下面这些示例只规范配色，不重新定义组件结构。AI 重构时必须保留项目现有组件层级、交互状态、移动端/桌面端拆分和业务动作，只替换颜色、状态色、边框、hover、focus、选中态和主按钮规则。</p>
+
+        <div class="example-shell">
+          <div class="example-header">
+            <div>
+              <h3 class="example-title">结构基准：以现有项目实现为准</h3>
+              <p class="example-desc">这些路径是结构来源。后续 AI 只能按本规范调整配色，不应把现有组件改造成文档里的静态示意结构。</p>
+            </div>
+          </div>
+          <div class="source-map">
+            <div class="source-item">
+              <div class="source-title">案件列表 / 卡片</div>
+              <div class="source-path">app/components/cases/CasesList.vue<br>app/components/cases/CasesGrid.vue<br>app/components/cases/CasesMobile.vue</div>
+            </div>
+            <div class="source-item">
+              <div class="source-title">法规检索</div>
+              <div class="source-path">app/components/legal-search/UnifiedSearchPanel.vue<br>app/components/legal-search/LegalList.vue<br>app/pages/dashboard/legal/index.vue</div>
+            </div>
+            <div class="source-item">
+              <div class="source-title">订单 / 积分</div>
+              <div class="source-path">app/components/order/OrderTable.vue<br>app/components/order/OrderMobile.vue<br>app/components/points/PointHistoryMobile.vue</div>
+            </div>
+            <div class="source-item">
+              <div class="source-title">文件库</div>
+              <div class="source-path">app/pages/dashboard/disk-space.vue<br>app/components/diskSpace/fileListGrid.vue<br>app/components/diskSpace/fileListTable.vue</div>
+            </div>
+            <div class="source-item">
+              <div class="source-title">AI 对话</div>
+              <div class="source-path">app/pages/dashboard/assistant/index.vue<br>app/components/assistant/AssistantSessionList.vue<br>app/components/assistant/AssistantChatPanel.vue<br>app/components/ai/AiChat.vue<br>app/components/ai/AiPromptInput.vue</div>
+            </div>
+            <div class="source-item">
+              <div class="source-title">全局工作台框架</div>
+              <div class="source-path">app/layouts/dashboardLayout.vue<br>app/components/dashboard/navMain.vue<br>app/components/general/ThemeToggle.vue<br>app/components/ViewModeToggle.vue</div>
+            </div>
+            <div class="source-item">
+              <div class="source-title">案件详情 / 分析</div>
+              <div class="source-path">app/pages/dashboard/cases/[id].vue<br>app/components/caseDetail/CaseDetailSidebar.vue<br>app/components/case/AnalysisResults.vue<br>app/components/caseDetail/CaseDetailXiaosuo.vue</div>
+            </div>
+            <div class="source-item">
+              <div class="source-title">合同审查</div>
+              <div class="source-path">app/pages/dashboard/contract/index.vue<br>app/components/assistant/contract/ContractReviewPanel.vue<br>app/components/assistant/contract/RiskCard.vue<br>app/components/assistant/contract/ReviewProgress.vue</div>
+            </div>
+            <div class="source-item">
+              <div class="source-title">文书草稿 / 模板</div>
+              <div class="source-path">app/pages/dashboard/document/drafts/[id].vue<br>app/components/assistant/document/DocumentPreview.vue<br>app/components/assistant/document/DraftCardList.vue<br>app/pages/dashboard/document/templates.vue</div>
+            </div>
+            <div class="source-item">
+              <div class="source-title">会员 / 支付</div>
+              <div class="source-path">app/components/membership/MembershipPackageList.vue<br>app/components/points/PointPurchaseDialog.vue<br>app/components/payment/PaymentQRCodeDialog.vue<br>app/components/order/OrderDetailDialog.vue</div>
+            </div>
+            <div class="source-item">
+              <div class="source-title">管理端财务列表</div>
+              <div class="source-path">app/pages/admin/orders/index.vue<br>app/pages/admin/payments/index.vue<br>app/components/admin/orders/OrderFilters.vue<br>app/components/admin/payments/PaymentFilters.vue<br>app/components/admin/shared/StatusBadge.vue</div>
+            </div>
+            <div class="source-item">
+              <div class="source-title">办案工具</div>
+              <div class="source-path">app/pages/dashboard/tools/index.vue<br>app/components/tools/CalculatorPageHeader.vue<br>app/components/tools/ResultCard.vue<br>app/pages/dashboard/tools/*.vue</div>
+            </div>
+            <div class="source-item">
+              <div class="source-title">通用规则</div>
+              <div class="source-path">结构不新增，语义不改名，图标不替换为 emoji；只调整品牌色、语义色、边框、底色、hover/focus/active/disabled。</div>
+            </div>
+          </div>
+          <h3 style="margin-top:16px;">覆盖审计结论</h3>
+          <ul class="color-spec-list">
+            <li><strong>已对齐</strong><span>工作台统计卡、案件列表/卡片、法规检索、订单积分、文件库、通用 AI 对话的结构来源已经补到文档里；这些示例只用于配色，不作为重构结构。</span></li>
+            <li><strong>已修正</strong><span>AI 对话不再使用简化“左会话 + 消息气泡 + 输入框”示意；现在锁定现有 AssistantSessionList、AssistantChatPanel、AiChat、AiPromptInput 等结构。</span></li>
+            <li><strong>需要补强</strong><span>案件详情/分析、小索浮窗、合同审查、文书草稿、会员/支付、办案工具、全局工作台框架是关键页面族，下面新增配色规范。</span></li>
+            <li><strong>管理端补充</strong><span>管理端若纳入品牌主题，只能按现有 admin-layout、筛选、表格、移动卡片和详情抽屉结构换色；不得新增顶部渐变面板、筛选外框、表格阴影或额外信息层级。</span></li>
+          </ul>
+        </div>
+
+        <div class="example-shell" style="margin-top:18px;">
+          <div class="example-header">
+            <div>
+              <h3 class="example-title">工作台概览：统计卡 + 最新案件</h3>
+              <p class="example-desc">结构以工作台首页现有卡片、横幅和列表为准；配色上统计卡使用品牌淡彩，主入口使用品牌渐变。</p>
+            </div>
+            <button class="btn btn-primary btn-sm">新建案件</button>
+          </div>
+          <div class="app-grid cols-3">
+            <div class="card hoverable">
+              <div class="metric">
+                <div>
+                  <div class="metric-label">总案件数</div>
+                  <div class="metric-value">42</div>
+                  <div class="hint">+6 本月</div>
+                </div>
+                <span class="tint sky">案</span>
+              </div>
+            </div>
+            <div class="card hoverable">
+              <div class="metric">
+                <div>
+                  <div class="metric-label">分析次数</div>
+                  <div class="metric-value">186</div>
+                  <div class="hint">+24 本月</div>
+                </div>
+                <span class="tint mint">析</span>
+              </div>
+            </div>
+            <div class="card hoverable">
+              <div class="metric">
+                <div>
+                  <div class="metric-label">可用积分</div>
+                  <div class="metric-value">8,420</div>
+                  <div class="hint">购买 6,000，赠送 2,420</div>
+                </div>
+                <span class="tint navy">分</span>
+              </div>
+            </div>
+          </div>
+          <div class="case-row" style="margin-top:12px;">
+            <div class="case-main">
+              <div class="case-title">建设工程施工合同纠纷证据梳理</div>
+              <div class="meta-row">
+                <span>#1024</span>
+                <span class="badge primary">进行中</span>
+                <span>民商事</span>
+                <span>创建于 2026-05-17</span>
+              </div>
+            </div>
+            <div class="action-row">
+              <button class="btn btn-outline btn-sm">查看详情</button>
+            </div>
+          </div>
+          <ul class="rules" style="margin-top:12px;">
+            <li>统计卡只展示一个核心数字，副信息不超过一行。</li>
+            <li>首页“最新案件”以信息扫读为主，操作入口保持轻量。</li>
+          </ul>
+        </div>
+
+        <div class="example-shell" style="margin-top:18px;">
+          <div class="example-header">
+            <div>
+              <h3 class="example-title">我的案件：列表行与卡片视图</h3>
+              <p class="example-desc">结构以 CasesList、CasesGrid、CasesMobile 为准；配色只规定卡片底色、hover 品牌边框、演示标签和危险操作颜色。</p>
+            </div>
+            <div class="segmented">
+              <span class="segment active">列表</span>
+              <span class="segment">卡片</span>
+            </div>
+          </div>
+          <div class="demo-column">
+            <div class="case-row">
+              <div class="case-main">
+                <div class="case-title">买卖合同价款支付争议分析</div>
+                <div class="meta-row">
+                  <span>#1008</span>
+                  <span class="badge success">已完成</span>
+                  <span class="badge warning">演示</span>
+                  <span>合同纠纷</span>
+                  <span>创建于 2026-05-12</span>
+                </div>
+              </div>
+              <div class="action-row">
+                <span class="icon-btn" title="归档">归</span>
+                <span class="icon-btn" title="删除">删</span>
+                <button class="btn btn-outline btn-sm">查看详情</button>
+              </div>
+            </div>
+            <div class="case-row">
+              <div class="case-main">
+                <div class="case-title">劳动争议仲裁材料补强</div>
+                <div class="meta-row">
+                  <span>#1009</span>
+                  <span class="badge primary">分析中</span>
+                  <span>劳动争议</span>
+                  <span>创建于 2026-05-14</span>
+                </div>
+              </div>
+              <div class="action-row">
+                <span class="icon-btn" title="归档">归</span>
+                <span class="icon-btn" title="删除">删</span>
+                <button class="btn btn-outline btn-sm">查看详情</button>
+              </div>
+            </div>
+          </div>
+          <div class="app-grid cols-3" style="margin-top:12px;">
+            <div class="case-card">
+              <div class="case-card-body">
+                <div class="case-title" style="white-space:normal;">建设工程施工合同质量争议</div>
+                <div class="meta-row"><span class="badge primary">进行中</span><span class="badge warning">演示</span></div>
+                <div class="meta-row"><span>#1010</span><span>建设工程</span><span>2026-05-15</span></div>
+              </div>
+              <div class="case-card-footer">
+                <div class="action-row"><span class="icon-btn">归</span><span class="icon-btn">删</span></div>
+                <button class="btn btn-outline btn-sm">查看详情</button>
+              </div>
+            </div>
+            <div class="case-card">
+              <div class="case-card-body">
+                <div class="case-title" style="white-space:normal;">公司股权转让协议审查</div>
+                <div class="meta-row"><span class="badge success">已完成</span></div>
+                <div class="meta-row"><span>#1011</span><span>公司法</span><span>2026-05-15</span></div>
+              </div>
+              <div class="case-card-footer">
+                <div class="action-row"><span class="icon-btn">归</span><span class="icon-btn">删</span></div>
+                <button class="btn btn-outline btn-sm">查看详情</button>
+              </div>
+            </div>
+            <div class="case-card">
+              <div class="case-card-body">
+                <div class="case-title" style="white-space:normal;">离婚财产分割证据目录</div>
+                <div class="meta-row"><span class="badge muted">已归档</span></div>
+                <div class="meta-row"><span>#1012</span><span>婚姻家事</span><span>2026-05-16</span></div>
+              </div>
+              <div class="case-card-footer">
+                <div class="action-row"><span class="icon-btn">归</span><span class="icon-btn">删</span></div>
+                <button class="btn btn-outline btn-sm">查看详情</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="example-shell" style="margin-top:18px;">
+          <div class="example-header">
+            <div>
+              <h3 class="example-title">法规检索：表格结果 + 法条卡片</h3>
+              <p class="example-desc">结构以 UnifiedSearchPanel、LegalList、法条结果卡片为准；配色只规定 tab、检索按钮、筛选选中、表格选中和分页高亮。</p>
+            </div>
+            <button class="btn btn-outline btn-sm">重置筛选</button>
+          </div>
+          <div class="mini-table" style="overflow-x:auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>法律名称</th>
+                  <th>类型</th>
+                  <th>发文机关</th>
+                  <th>生效日期</th>
+                  <th>生效状态</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>中华人民共和国民法典</strong><div class="hint">主席令第45号</div></td>
+                  <td><span class="badge primary">法律</span></td>
+                  <td>全国人民代表大会</td>
+                  <td>2021-01-01</td>
+                  <td><span class="badge success">现行有效</span></td>
+                </tr>
+                <tr>
+                  <td><strong>最高人民法院关于适用合同编通则若干问题的解释</strong></td>
+                  <td><span class="badge warning">司法解释</span></td>
+                  <td>最高人民法院</td>
+                  <td>2023-12-05</td>
+                  <td><span class="badge success">现行有效</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="legal-result-card" style="margin-top:12px;">
+            <div class="meta-row" style="margin-bottom:8px;">
+              <span class="badge primary">法律</span>
+              <strong style="color:var(--primary);">第五百八十五条</strong>
+              <span style="margin-left:auto;">相似度 92%</span>
+            </div>
+            <div class="case-title" style="white-space:normal;">中华人民共和国民法典</div>
+            <p class="hint" style="margin-bottom:8px;">第三编 合同 · 第一分编 通则 · 第八章 违约责任</p>
+            <p style="font-size:13px; margin:0;">当事人可以约定一方违约时应当根据违约情况向对方支付一定数额的违约金，也可以约定因违约产生的损失赔偿额的计算方法。</p>
+          </div>
+        </div>
+
+        <div class="example-shell" style="margin-top:18px;">
+          <div class="example-header">
+            <div>
+              <h3 class="example-title">订单与积分：表格操作 + 移动卡片</h3>
+              <p class="example-desc">结构以 OrderTable、OrderMobile、PointHistoryMobile 为准；配色只规定待支付、支付按钮、状态标签和移动卡片底色。</p>
+            </div>
+          </div>
+          <div class="mini-table" style="overflow-x:auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>订单号</th>
+                  <th>商品名称</th>
+                  <th>金额</th>
+                  <th>状态</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span style="font-family:var(--font-mono);">ORD-20260517001</span></td>
+                  <td>专业版月度套餐</td>
+                  <td><strong>¥299.00</strong></td>
+                  <td><span class="badge warning">待支付</span></td>
+                  <td>
+                    <div class="action-row" style="justify-content:flex-start;">
+                      <button class="btn btn-primary btn-sm">支付</button>
+                      <button class="btn btn-outline btn-sm">取消</button>
+                      <button class="btn btn-ghost btn-sm">详情</button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="app-grid cols-2" style="margin-top:12px;">
+            <div class="point-card">
+              <div style="display:flex; justify-content:space-between; gap:12px;">
+                <div>
+                  <div class="case-title">邀请奖励</div>
+                  <div class="metric-value" style="color:var(--primary); font-size:22px;">300 积分</div>
+                </div>
+                <div class="action-row"><span class="badge success">有效</span><span class="badge success">可用</span></div>
+              </div>
+              <div class="kv-grid">
+                <div><div class="kv-label">已使用</div><div class="kv-value">0</div></div>
+                <div><div class="kv-label">剩余</div><div class="kv-value">300</div></div>
+              </div>
+              <div><div class="kv-label">有效期</div><div class="kv-value">2026-05-17 - 2026-06-17</div></div>
+            </div>
+            <div class="order-mobile-card">
+              <div style="display:flex; justify-content:space-between; gap:12px;">
+                <div>
+                  <div class="case-title">合同审查积分包</div>
+                  <div class="hint">ORD-20260517002</div>
+                </div>
+                <span class="badge muted">已关闭</span>
+              </div>
+              <div class="kv-grid">
+                <div><div class="kv-label">金额</div><div class="kv-value">¥99.00</div></div>
+                <div><div class="kv-label">下单时间</div><div class="kv-value">2026-05-16</div></div>
+              </div>
+              <button class="btn btn-ghost btn-sm" style="justify-self:start;">查看详情</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="example-shell" style="margin-top:18px;">
+          <div class="example-header">
+            <div>
+              <h3 class="example-title">文件库：网格卡片与选择态</h3>
+              <p class="example-desc">结构以磁盘空间页的视图切换、批量工具条、文件网格和文件表格为准；配色只规定选择态、hover、文件类型淡彩和危险删除。</p>
+            </div>
+            <button class="btn btn-primary btn-sm">上传文件</button>
+          </div>
+          <div class="file-grid">
+            <div class="file-tile selected">
+              <span class="file-check">✓</span>
+              <span class="tint navy" style="margin-top:10px;">合</span>
+              <div class="file-name">施工合同.docx</div>
+              <div class="hint">2.36 MB · 案件材料</div>
+              <div style="margin-top:10px;"><span class="badge muted">已加密</span></div>
+            </div>
+            <div class="file-tile">
+              <span class="tint sky" style="margin-top:10px;">证</span>
+              <div class="file-name">付款凭证.pdf</div>
+              <div class="hint">842 KB · 案件材料</div>
+              <div style="margin-top:10px;"><span class="badge muted">普通文件</span></div>
+            </div>
+            <div class="file-tile">
+              <span class="tint mint" style="margin-top:10px;">图</span>
+              <div class="file-name">现场照片.jpg</div>
+              <div class="hint">1.12 MB · 上传文件</div>
+              <div style="margin-top:10px;"><span class="badge muted">图片</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="example-shell" style="margin-top:18px;">
+          <div class="example-header">
+            <div>
+              <h3 class="example-title">AI 对话：现有结构锁定 + 配色规范</h3>
+              <p class="example-desc">结构以通用问答当前实现为准：页面外层、会话列表、会话顶栏、AssistantChatPanel、AiChat、虚拟消息列表、工具卡、队列条、输入框头部/正文/底部工具栏都不能被简化重画。</p>
+            </div>
+          </div>
+          <div class="structure-map">
+            <div class="structure-node">
+              <div class="structure-node-title">页面外层</div>
+              <p class="structure-node-copy">保留 <code>relative isolate flex flex-1 min-h-0 gap-4 overflow-hidden p-3 sm:p-4</code>、移动端会话抽屉遮罩和桌面停靠侧栏。配色只调整遮罩、页面底、卡片边框。</p>
+            </div>
+            <div class="structure-node">
+              <div class="structure-node-title">AssistantSessionList</div>
+              <p class="structure-node-copy">保留“新会话按钮、搜索框、loading 骨架、空状态、会话列表、选中态左侧品牌色条”。配色只规定新会话按钮渐变、搜索框 muted 底、选中项品牌渐隐底纹和普通项 hover。</p>
+            </div>
+            <div class="structure-node">
+              <div class="structure-node-title">会话顶栏</div>
+              <p class="structure-node-copy">保留移动端菜单、小索头像、标题/创建时间、标题内联编辑、编辑和删除图标按钮。配色只规定头像品牌外圈、确认用 primary、取消用 muted、删除用 destructive。</p>
+            </div>
+            <div class="structure-node">
+              <div class="structure-node-title">AssistantChatPanel / AiChat</div>
+              <p class="structure-node-copy">保留队列暂停横幅、AiChatQueueChips、InterruptDispatcher、材料选择器、单/双面板能力、ClientOnly 和虚拟消息列表。配色只规定队列 amber、工具卡 card/border、加载 primary、错误 destructive。</p>
+            </div>
+            <div class="structure-node">
+              <div class="structure-node-title">消息列表</div>
+              <p class="structure-node-copy">保留 Conversation、ConversationEmptyState、AiMessageListVirtual、Message/MessageContent、Reasoning、MessageResponse、AiToolRenderer。配色只规定用户消息、助手正文、推理块、附件气泡和工具结果卡的明暗适配。</p>
+            </div>
+            <div class="structure-node">
+              <div class="structure-node-title">AiPromptInput</div>
+              <p class="structure-node-copy">保留文件 chip 头部、拖拽覆盖层、textarea、底部工具栏、上传按钮、深度思考开关、发送/停止/加入队列按钮。配色只规定 focus ring、文件状态徽章、思考开关、发送按钮、停止按钮和队列角标。</p>
+            </div>
+          </div>
+          <ul class="color-spec-list" style="margin-top:12px;">
+            <li><strong>主动作</strong><span>“新会话”“开始新对话”“发送”使用品牌渐变；“停止”使用 destructive；“加入队列”按现有 Button 结构，可用 primary，但不能改结构。</span></li>
+            <li><strong>会话选中</strong><span>保持左侧品牌渐变色条和横向渐隐底纹；普通会话 hover 使用 <code>primary/8</code>，不把每条会话都做成强蓝块。</span></li>
+            <li><strong>输入框</strong><span>PromptInput 外框使用 <code>border-primary/35</code>、<code>shadow-primary/15</code>，拖拽态使用 <code>bg-primary/10 border-primary</code>。</span></li>
+            <li><strong>消息与工具</strong><span>保留 MessageContent 的用户/助手分支；附件消息继续透明承载附件卡，工具卡统一 card + border，不用大面积品牌渐变。</span></li>
+            <li><strong>队列与中断</strong><span>排队、暂停、余额、失败等业务状态按 amber / red / green 语义色，不用品牌蓝替代。</span></li>
+          </ul>
+        </div>
+
+        <div class="example-shell" style="margin-top:18px;">
+          <div class="example-header">
+            <div>
+              <h3 class="example-title">全局工作台框架：侧边栏、顶栏、视图切换</h3>
+              <p class="example-desc">结构以 dashboardLayout、navMain、ThemeToggle、ViewModeToggle 为准。这里补的是全站页面骨架配色，避免只改内容区而漏掉导航态。</p>
+            </div>
+          </div>
+          <ul class="color-spec-list">
+            <li><strong>侧边栏背景</strong><span>工作台根容器保持 <code>theme-brand</code>；侧边栏使用 <code>var(--wash-sidebar)</code>，不要在菜单项内写死白底或深色背景。</span></li>
+            <li><strong>菜单选中态</strong><span>保留左侧 3px 品牌竖条和青蓝渐隐底纹；文字使用 <code>text-primary</code>，普通项 hover 用 <code>bg-primary/[0.08]</code>。</span></li>
+            <li><strong>顶栏</strong><span>使用 <code>bg-background/70 backdrop-blur-md border-b</code>，主题切换只呈现亮色/暗色，不再出现多色主题入口。</span></li>
+            <li><strong>视图切换</strong><span>保留图标按钮结构；激活项为 <code>bg-background shadow-sm text-primary</code>，未激活项为 muted 文字。</span></li>
+          </ul>
+        </div>
+
+        <div class="example-shell" style="margin-top:18px;">
+          <div class="example-header">
+            <div>
+              <h3 class="example-title">案件详情：侧栏、底部 Tab、分析模块、小索浮窗</h3>
+              <p class="example-desc">结构以 CaseDetail 页面族为准，不能把它改成普通卡片页。关键是多视图容器、桌面侧栏、移动端底部 Tab、模块对话、小索浮窗共存时的配色一致。</p>
+            </div>
+          </div>
+          <div class="structure-map">
+            <div class="structure-node">
+              <div class="structure-node-title">案件详情框架</div>
+              <p class="structure-node-copy">保留顶部返回/导出/小索入口、桌面左侧 CaseDetailSidebar、移动端 CaseDetailBottomTabs、内容区 Transition 和多个详情视图。</p>
+            </div>
+            <div class="structure-node">
+              <div class="structure-node-title">分析结果四态卡片</div>
+              <p class="structure-node-copy">保留 AnalysisResults 的 dashboard/detail 双模式、grid/list 切换、complete / in_progress / idle / failed 四态、BatchAnalysisPopover 和版本 Sheet。</p>
+            </div>
+            <div class="structure-node">
+              <div class="structure-node-title">小索浮窗</div>
+              <p class="structure-node-copy">保留 ChatWindowShell 的桌面全屏、小窗拖拽缩放、移动端底部 Sheet，以及 SessionListPopover、队列条、材料选择器、中断弹窗。</p>
+            </div>
+          </div>
+          <ul class="color-spec-list" style="margin-top:12px;">
+            <li><strong>侧栏/底部 Tab</strong><span>当前视图使用 <code>bg-primary/10 text-primary</code>；未选项用 muted，禁用项用 <code>text-muted-foreground/50</code>。</span></li>
+            <li><strong>分析四态</strong><span>完成态用 primary 淡底；运行态用 primary 边框和 spinner；待生成用 dashed muted；失败用 destructive 淡底和边框。</span></li>
+            <li><strong>运行/中断提示</strong><span>工作流运行条用 <code>bg-primary/10 border-primary/20 text-primary</code>；积分不足和中断处理用 amber 语义色。</span></li>
+            <li><strong>浮窗外壳</strong><span>ChatWindowShell 使用 <code>bg-background border shadow-xl</code>；标题栏用 <code>bg-muted/30 border-b</code>，小索入口保持原图标，不替换结构。</span></li>
+          </ul>
+        </div>
+
+        <div class="example-shell" style="margin-top:18px;">
+          <div class="example-header">
+            <div>
+              <h3 class="example-title">合同审查：创建卡、历史卡、审查面板、风险卡</h3>
+              <p class="example-desc">结构以合同审查列表和 ContractReviewPanel 为准。合同审查是高风险高密度页面，配色必须服务阅读、定位和风险等级。</p>
+            </div>
+          </div>
+          <ul class="color-spec-list">
+            <li><strong>列表页</strong><span>新建审查卡使用 <code>rounded-xl border bg-card</code>；高亮进入态用 <code>ring-primary ring-offset-background</code>；历史卡 hover 用 <code>border-primary/50 shadow-md</code>。</span></li>
+            <li><strong>状态标签</strong><span>reviewing / awaiting_stance / rebuilding 使用 primary 淡底；completed 使用 emerald；failed 使用 rose/destructive；pending 使用 muted。</span></li>
+            <li><strong>审查阶段进度</strong><span>wait 灰、running amber + pulse 光晕、done emerald；进度条当前仍为 blue，品牌化时应改为 primary，但不改变 5 段结构。</span></li>
+            <li><strong>风险等级</strong><span>保留现有 high=red、medium=orange、low=slate 的实色徽章；DOCX 段落高亮保留 red/amber/sky 语义，不用品牌蓝覆盖风险等级。</span></li>
+            <li><strong>风险卡交互</strong><span>focused / pinned / hovered / just-added / orphaned 使用现有黄橙琥珀系状态，不用统一品牌色替换。</span></li>
+          </ul>
+        </div>
+
+        <div class="example-shell" style="margin-top:18px;">
+          <div class="example-header">
+            <div>
+              <h3 class="example-title">文书草稿：字段表单、预览、历史版本、AI 生成助手</h3>
+              <p class="example-desc">结构以文书草稿详情、DocumentPreview、DraftCardList、模板页为准。文书预览区域的“纸面”不能随暗色模式反转。</p>
+            </div>
+          </div>
+          <ul class="color-spec-list">
+            <li><strong>顶部工具栏</strong><span>历史、材料、保存版本使用 outline；AI 生成和导出是当前操作区强动作，但同屏需要按业务主次控制主按钮数量。</span></li>
+            <li><strong>分栏编辑</strong><span>字段表单容器用 <code>bg-card border</code>；预览外壳用 <code>bg-muted/40 border</code>，ResizableHandle 保持轻量。</span></li>
+            <li><strong>DOCX 纸面</strong><span>DocumentPreview 的 docx 根保持 <code>bg-background</code> 或纸面白底规则；暗色模式只暗化外层工作区，不能把合同/文书纸面反成黑底。</span></li>
+            <li><strong>版本预览</strong><span>预览条使用 amber 语义，退出预览为 ghost；错误提示使用 destructive 淡底。</span></li>
+            <li><strong>草稿卡片</strong><span>drafting/filling/pending 用 sky，ready 用 emerald，exported 用 amber，failed 用 rose；图标块当前是 indigo，可保留为文书类辅助色。</span></li>
+          </ul>
+        </div>
+
+        <div class="example-shell" style="margin-top:18px;">
+          <div class="example-header">
+            <div>
+              <h3 class="example-title">会员与支付：套餐卡、积分购买、二维码/JSAPI 支付</h3>
+              <p class="example-desc">结构以 MembershipPackageList、PointPurchaseDialog、PaymentQRCodeDialog、订单详情弹窗为准。支付链路必须清楚区分购买动作、协议、支付中和支付成功。</p>
+            </div>
+          </div>
+          <ul class="color-spec-list">
+            <li><strong>套餐/积分卡</strong><span>卡片保持 <code>border rounded-lg</code>；选中或 hover 用 primary 边框；购买/升级按钮使用品牌渐变，协议未勾选时禁用。</span></li>
+            <li><strong>支付二维码</strong><span>支付弹窗使用正常 Dialog 结构和 z-index；二维码区域保持清晰白底展示，暗色模式只影响弹窗外层和文字。</span></li>
+            <li><strong>JSAPI 支付</strong><span>准备支付用 primary 淡底圆形图标块；立即支付用品牌按钮；支付中用 primary spinner。</span></li>
+            <li><strong>支付成功</strong><span>成功状态使用 green 语义圆形图标和文字，不使用品牌蓝表示成功。</span></li>
+            <li><strong>未同意协议</strong><span>占位区使用 dashed muted 边框和 muted 文案，不展示二维码或支付主按钮。</span></li>
+          </ul>
+        </div>
+
+        <div class="example-shell" style="margin-top:18px;">
+          <div class="example-header">
+            <div>
+              <h3 class="example-title">办案工具：工具入口、计算表单、结果卡、帮助弹层</h3>
+              <p class="example-desc">结构以 tools/index、各工具页、CalculatorPageHeader、ResultCard 为准。工具页是高频表单，不应做成营销页。</p>
+            </div>
+          </div>
+          <ul class="color-spec-list">
+            <li><strong>工具入口</strong><span>工具卡保持 <code>rounded-xl border bg-card</code>，hover 用 <code>border-primary/30 shadow-md</code>；图标块使用四组 tint token。</span></li>
+            <li><strong>计算表单</strong><span>输入区使用 shadcn Card、Input、Select、RadioGroup；主计算按钮使用品牌渐变，其它切换/查看数据来源用 ghost/link/outline。</span></li>
+            <li><strong>帮助弹层</strong><span>帮助按钮是 ghost icon；弹层用 <code>bg-card border shadow-lg</code>，警示段落用 destructive 淡底。</span></li>
+            <li><strong>结果卡</strong><span>ResultCard 保留 CardHeader、summary、Accordion details、footer；导出 Excel 使用 outline，结果中的核心金额可用 primary 强调。</span></li>
+            <li><strong>法规/明细表</strong><span>相关法规和明细表保持表格/折叠结构，暗色下表头 muted、边框可见、长数字不被品牌色淹没。</span></li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section" id="dark">
+        <h2>暗色模式完整规范</h2>
+        <p class="section-desc">本节用于直接交给 AI 执行页面重构：暗色模式只改变明暗层级，不改变品牌主题。全站保留 <code>theme-brand</code> 品牌主题和 <code>dark</code> 明暗切换，不再保留多色主题入口。</p>
+
+        <div class="dark-sample">
+          <h3>一、暗色模式的产品原则</h3>
+          <p class="lead">暗色不是“黑色版本”，而是低亮度工作台。用户需要长时间阅读法律文本、表格和 AI 输出，所以暗色要降低眩光，同时保留足够的边界、层级和状态识别。</p>
+
+          <div class="grid cols-2">
+            <div class="card">
+              <h3>必须保持一致</h3>
+              <ul class="rules">
+                <li>页面根部仍使用品牌主题容器，暗色只通过 <code>html.dark</code> 触发。</li>
+                <li>主操作仍使用品牌按钮渐变，不能改成灰色、绿色或其它主题色。</li>
+                <li>链接、焦点、选中、当前导航使用暗色抬亮后的品牌蓝。</li>
+                <li>成功、警告、错误继续使用语义色，不被品牌蓝替代。</li>
+                <li>卡片、表格、弹窗、侧边栏都必须有可见边界，不能只靠阴影分层。</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>必须避免</h3>
+              <ul class="rules">
+                <li>不要写死 <code>bg-white</code>、<code>text-zinc-900</code>、<code>border-zinc-200</code> 作为暗色页面主体。</li>
+                <li>不要使用 <code>theme-blue</code>、<code>theme-green</code>、<code>theme-rose</code> 等多色主题类。</li>
+                <li>不要在暗色下扩大阴影来表达悬浮，优先使用边框、背景透明度和轻微亮度变化。</li>
+                <li>不要让红、黄、绿状态色饱和成荧光块，使用低透明背景加亮色文字。</li>
+                <li>不要让多个强品牌按钮同时出现在一个操作区。</li>
+              </ul>
+            </div>
+          </div>
+
+          <h3 style="margin-top:22px;">二、暗色 token 对照</h3>
+          <p class="lead">AI 重构页面时优先使用语义 token，而不是直接写颜色。下面的色值是视觉目标，项目实现应落到全局 token 和 Tailwind 语义类上。</p>
+          <div class="token-grid">
+            <div class="token-card">
+              <div class="token-head">
+                <span class="token-name">页面背景</span>
+                <span class="token-chip">bg-background</span>
+              </div>
+              <div class="token-preview" style="background:#0F1115;"></div>
+              <p class="token-note">用于页面根背景。品牌工作台可叠加 <code>var(--wash-page)</code>，但不能直接用纯黑。</p>
+            </div>
+            <div class="token-card">
+              <div class="token-head">
+                <span class="token-name">卡片/弹窗</span>
+                <span class="token-chip">bg-card</span>
+              </div>
+              <div class="token-preview" style="background:#18181B;"></div>
+              <p class="token-note">用于卡片、弹窗、表格单元格。和页面背景之间必须有边框或背景差。</p>
+            </div>
+            <div class="token-card">
+              <div class="token-head">
+                <span class="token-name">弱背景</span>
+                <span class="token-chip">bg-muted</span>
+              </div>
+              <div class="token-preview" style="background:#27272A;"></div>
+              <p class="token-note">用于表头、hover、输入框辅助底、AI 助手消息。不要用于主按钮。</p>
+            </div>
+            <div class="token-card">
+              <div class="token-head">
+                <span class="token-name">边框/分割线</span>
+                <span class="token-chip">border-border</span>
+              </div>
+              <div class="token-preview" style="background:linear-gradient(180deg,#0F1115 0 44%,rgba(255,255,255,.12) 44% 56%,#0F1115 56%);"></div>
+              <p class="token-note">暗色边框必须可见但不刺眼，常用 <code>rgba(255,255,255,.10-.14)</code>。</p>
+            </div>
+            <div class="token-card">
+              <div class="token-head">
+                <span class="token-name">品牌主色</span>
+                <span class="token-chip">text-primary</span>
+              </div>
+              <div class="token-preview" style="background:#82CCFF;"></div>
+              <p class="token-note">用于链接、焦点、当前项、重点数字。暗色下要比亮色更亮。</p>
+            </div>
+            <div class="token-card">
+              <div class="token-head">
+                <span class="token-name">品牌辅助强调</span>
+                <span class="token-chip">tint / strong</span>
+              </div>
+              <div class="token-preview" style="background:#BEB8FF;"></div>
+              <p class="token-note">用于深蓝品牌延展、图标块前景、少量辅助强调，不用于错误或警告。</p>
+            </div>
+          </div>
+
+          <h3 style="margin-top:22px;">三、组件暗色规则</h3>
+          <div class="table-wrap">
+            <table class="spec-table">
+              <thead>
+                <tr>
+                  <th>组件</th>
+                  <th>暗色做法</th>
+                  <th>AI 重构指令</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>页面根容器</td>
+                  <td>使用 <code>bg-background text-foreground</code>，品牌页面可用 <code>var(--wash-page)</code> 做低亮渐变。</td>
+                  <td>把硬编码白底替换成语义背景；不要把整页设成纯黑。</td>
+                </tr>
+                <tr>
+                  <td>侧边栏</td>
+                  <td>使用 <code>var(--wash-sidebar)</code>，当前导航为 <code>bg-primary/10 text-primary</code>。</td>
+                  <td>只高亮当前项；普通菜单保持 muted 文字。</td>
+                </tr>
+                <tr>
+                  <td>卡片</td>
+                  <td><code>bg-card border-border</code>，hover 改边框或 <code>bg-primary/5</code>。</td>
+                  <td>暗色卡片不要依赖大阴影；同屏多卡片要保持相同圆角和内边距。</td>
+                </tr>
+                <tr>
+                  <td>主按钮</td>
+                  <td><code>bg-gradient-brand-button text-white border-0</code>，暗色下仍是唯一强行动。</td>
+                  <td>同一操作组最多一个主按钮；禁用态降透明度，不换颜色。</td>
+                </tr>
+                <tr>
+                  <td>次按钮</td>
+                  <td><code>variant="outline"</code> 或 <code>ghost</code>，边框使用暗色 input/border。</td>
+                  <td>取消、返回、详情、刷新、复制都不能使用品牌渐变。</td>
+                </tr>
+                <tr>
+                  <td>输入框</td>
+                  <td>背景透明或 card，边框 input，focus 使用品牌 ring。</td>
+                  <td>placeholder 用 muted，不要和正文同色；错误提示用红色语义。</td>
+                </tr>
+                <tr>
+                  <td>表格</td>
+                  <td>表头 muted，正文 card，行 hover 使用 <code>bg-muted/50</code>。</td>
+                  <td>表格线在暗色必须保留；操作列主动作仍遵守唯一主按钮规则。</td>
+                </tr>
+                <tr>
+                  <td>标签</td>
+                  <td>品牌标签 <code>bg-primary/15 text-primary</code>；状态标签用绿/黄/红语义。</td>
+                  <td>不要用品牌色表达成功、等待、失败；它们是不同业务状态。</td>
+                </tr>
+                <tr>
+                  <td>弹窗/抽屉</td>
+                  <td>弹层使用 card，遮罩保持深色透明，危险动作使用 destructive。</td>
+                  <td>弹层内主按钮只放确认动作；删除、关闭、取消分开表达。</td>
+                </tr>
+                <tr>
+                  <td>AI 消息区</td>
+                  <td>沿用现有 Message / MessageContent / Reasoning / ToolRenderer 结构；用户消息、助手正文、附件消息按现有分支适配暗色，工具结果用 card + border。</td>
+                  <td>长文本区域优先保证阅读对比，不重画消息结构，不把附件、工具卡或推理块改成大面积品牌渐变。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 style="margin-top:22px;">四、暗色页面骨架示例</h3>
+          <p class="lead">下面是 AI 重构工作台、列表页、检索页时应对齐的暗色结构：深色画布、品牌侧边栏、卡片容器、清晰边框、唯一主按钮。</p>
+          <div class="dark-layout">
+            <div class="dark-sidebar-demo">
+              <div class="sidebar-demo-item active"><span class="sidebar-demo-dot"></span>工作台</div>
+              <div class="sidebar-demo-item"><span class="sidebar-demo-dot"></span>我的案件</div>
+              <div class="sidebar-demo-item"><span class="sidebar-demo-dot"></span>法规检索</div>
+              <div class="sidebar-demo-item"><span class="sidebar-demo-dot"></span>文件库</div>
+            </div>
+            <div class="dark-main-demo">
+              <div class="dark-toolbar">
+                <div class="dark-search">搜索案件、法规或文档</div>
+                <button class="btn btn-primary btn-sm">新建案件</button>
+              </div>
+              <div class="dark-stat-row">
+                <div class="dark-stat">
+                  <div class="metric-label">案件数量</div>
+                  <div class="metric-value">42</div>
+                </div>
+                <div class="dark-stat">
+                  <div class="metric-label">分析次数</div>
+                  <div class="metric-value">186</div>
+                </div>
+                <div class="dark-stat">
+                  <div class="metric-label">可用积分</div>
+                  <div class="metric-value">8,420</div>
+                </div>
+              </div>
+              <div class="dark-page-card">
+                <div class="case-row">
+                  <div class="case-main">
+                    <div class="case-title">建设工程施工合同纠纷证据梳理</div>
+                    <div class="meta-row">
+                      <span>#1024</span>
+                      <span class="badge primary">进行中</span>
+                      <span>创建于 2026-05-17</span>
+                    </div>
+                  </div>
+                  <div class="action-row">
+                    <button class="btn btn-outline btn-sm">查看详情</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <h3 style="margin-top:22px;">五、实际业务暗色示例</h3>
+          <div class="app-grid cols-2">
+            <div class="example-shell">
+              <div class="example-header">
+                <div>
+                  <h3 class="example-title">法规检索结果</h3>
+                  <p class="example-desc">表格、分页、法条卡片都要使用暗色表面和品牌选中态。</p>
+                </div>
+                <button class="btn btn-outline btn-sm">重置筛选</button>
+              </div>
+              <div class="mini-table" style="overflow-x:auto;">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>名称</th>
+                      <th>类型</th>
+                      <th>状态</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><strong>中华人民共和国民法典</strong><div class="hint">主席令第45号</div></td>
+                      <td><span class="badge primary">法律</span></td>
+                      <td><span class="badge success">现行有效</span></td>
+                      <td><button class="btn btn-outline btn-sm">详情</button></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="legal-result-card" style="margin-top:12px;">
+                <div class="meta-row" style="margin-bottom:8px;">
+                  <span class="badge primary">法律</span>
+                  <strong style="color:var(--primary);">第五百八十五条</strong>
+                </div>
+                <p style="font-size:13px; margin:0;">当事人可以约定一方违约时支付违约金，暗色下正文必须保持稳定可读。</p>
+              </div>
+            </div>
+
+            <div class="example-shell">
+              <div class="example-header">
+                <div>
+                  <h3 class="example-title">订单与支付</h3>
+                  <p class="example-desc">支付是主按钮；取消、详情、返回都保持 outline 或 ghost。</p>
+                </div>
+              </div>
+              <div class="order-mobile-card">
+                <div style="display:flex; justify-content:space-between; gap:12px;">
+                  <div>
+                    <div class="case-title">专业版月度套餐</div>
+                    <div class="hint">ORD-20260517001</div>
+                  </div>
+                  <span class="badge warning">待支付</span>
+                </div>
+                <div class="kv-grid">
+                  <div><div class="kv-label">金额</div><div class="kv-value">¥299.00</div></div>
+                  <div><div class="kv-label">下单时间</div><div class="kv-value">2026-05-17</div></div>
+                </div>
+                <div class="action-row" style="justify-content:flex-start;">
+                  <button class="btn btn-primary btn-sm">支付</button>
+                  <button class="btn btn-outline btn-sm">取消</button>
+                  <button class="btn btn-ghost btn-sm">详情</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="example-shell">
+              <div class="example-header">
+                <div>
+                  <h3 class="example-title">文件库选择态</h3>
+                  <p class="example-desc">选中态使用品牌边框和低透明底，不使用实心蓝块覆盖内容。</p>
+                </div>
+                <button class="btn btn-primary btn-sm">上传文件</button>
+              </div>
+              <div class="file-grid">
+                <div class="file-tile selected">
+                  <span class="file-check">✓</span>
+                  <span class="tint navy" style="margin-top:10px;">合</span>
+                  <div class="file-name">施工合同.docx</div>
+                  <div class="hint">2.36 MB · 已选择</div>
+                </div>
+                <div class="file-tile">
+                  <span class="tint sky" style="margin-top:10px;">证</span>
+                  <div class="file-name">付款凭证.pdf</div>
+                  <div class="hint">842 KB · 普通文件</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="example-shell">
+              <div class="example-header">
+                <div>
+                  <h3 class="example-title">AI 对话暗色配色覆盖点</h3>
+                  <p class="example-desc">结构必须沿用现有 AssistantSessionList、AssistantChatPanel、AiChat、AiMessageList、AiPromptInput。这里仅列暗色配色规则。</p>
+                </div>
+              </div>
+              <ul class="color-spec-list">
+                <li><strong>会话容器</strong><span><code>bg-card border-border</code>，移动端遮罩保持 <code>bg-black/40</code>，不要改变抽屉/桌面停靠结构。</span></li>
+                <li><strong>会话列表</strong><span>新会话按钮保留品牌渐变；搜索框用 <code>bg-muted</code>；选中会话保留左侧品牌渐变条和横向渐隐底纹。</span></li>
+                <li><strong>消息列表</strong><span>Conversation 背景跟随容器；助手正文使用 <code>text-foreground</code>，用户消息沿用 MessageContent 现有分支，附件消息继续透明承载附件卡。</span></li>
+                <li><strong>输入框</strong><span>PromptInput 外框保留品牌边框/阴影；文件 chip 用 <code>border-border</code>、状态徽章用 blue/green/red 语义色；深度思考开关启用态用 <code>bg-gradient-brand-button</code>，不要退回单色 primary。</span></li>
+                <li><strong>队列/中断/停止</strong><span>QueuePausedBanner 和 AiChatQueueChips 使用 amber；停止按钮使用 destructive；工具卡、中断弹窗使用 card + border。</span></li>
+              </ul>
+            </div>
+          </div>
+
+          <h3 style="margin-top:22px;">六、关键页面暗色特例</h3>
+          <ul class="color-spec-list">
+            <li><strong>案件详情</strong><span>桌面侧栏、移动端底部 Tab、模块对话、小索浮窗都跟随 <code>bg-background / bg-card / border-border</code>；分析四态和中断条保留各自语义色。</span></li>
+            <li><strong>合同审查</strong><span>风险等级不品牌化：高=red，中=orange，低=slate/sky；DOCX 风险段落高亮保持浅底 + 左边线，纸面内容不要反成黑底。</span></li>
+            <li><strong>文书草稿</strong><span>工作区暗色化，DOCX 预览纸面保持可读纸张效果；版本预览条用 amber，错误条用 destructive。</span></li>
+            <li><strong>会员支付</strong><span>二维码和协议区域保持清晰边界；支付成功用 green，待支付/协议未确认用 amber 或 muted，不用品牌蓝表达支付结果。</span></li>
+            <li><strong>办案工具</strong><span>计算表单保持紧凑 Card 布局；结果卡、折叠明细和法规表格使用暗色边框，不用大面积渐变背景。</span></li>
+          </ul>
+
+          <h3 style="margin-top:22px;">七、AI 重构检查清单</h3>
+          <ul class="dark-rule-list">
+            <li>
+              <span class="rule-label">先识别页面角色</span>
+              <p class="rule-copy">判断页面是工作台、列表、详情、表单、支付、AI 对话还是文档阅读；再套用对应结构，不要把所有页面做成同一种卡片堆叠。</p>
+            </li>
+            <li>
+              <span class="rule-label">结构以项目现有组件为准</span>
+              <p class="rule-copy">本 HTML 的静态示意只表达配色和状态规则，不是组件结构蓝图；重构时不得把现有复杂组件替换成文档里的简化 div 结构。</p>
+            </li>
+            <li>
+              <span class="rule-label">替换硬编码颜色</span>
+              <p class="rule-copy">把主体区域的白底、黑字、灰边替换成 <code>background/card/foreground/muted/border/input</code> 等语义 token。</p>
+            </li>
+            <li>
+              <span class="rule-label">保留业务语义色</span>
+              <p class="rule-copy">成功用绿，警告和待支付用 amber，错误和删除用 red/destructive，品牌蓝只用于品牌和主行动。</p>
+            </li>
+            <li>
+              <span class="rule-label">控制主按钮数量</span>
+              <p class="rule-copy">一个操作区域只能有一个品牌渐变按钮；其它按钮必须降级为 outline、ghost 或图标按钮。</p>
+            </li>
+            <li>
+              <span class="rule-label">检查可读性和边界</span>
+              <p class="rule-copy">暗色下正文、表格、输入框、弹窗、下拉菜单、toast、分页、选中态都必须有足够对比和明确边界。</p>
+            </li>
+            <li>
+              <span class="rule-label">同时验收亮色和暗色</span>
+              <p class="rule-copy">任何页面重构完成后，都要检查亮色不丢品牌感，暗色不残留白底、黑字、低对比文字或不可见边框。</p>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section" id="ai-guardrails">
+        <h2>AI 执行约束</h2>
+        <p class="section-desc">本章节是给 AI 的硬性验收协议。执行品牌主题迁移时，不能只看静态示意图，必须先对照项目现有实现，再用浏览器验证真实样式。</p>
+
+        <h3>一、任务边界</h3>
+        <ul class="color-spec-list">
+          <li><strong>只改配色</strong><span>允许调整品牌色、语义状态色、焦点、hover、active、selected、disabled、链接和主按钮；不允许改页面信息架构。</span></li>
+          <li><strong>结构不重画</strong><span>不得新增顶部渐变面板、筛选卡片外框、表格阴影、移动卡片重排、详情区卡片包裹、营销式 hero 或额外统计信息。</span></li>
+          <li><strong>以现有组件为准</strong><span>先阅读目标页面和子组件，保留现有布局、按钮位置、表格列、移动端结构、抽屉/弹窗结构和业务文案。</span></li>
+          <li><strong>只在必要处补作用域</strong><span>页面根节点、Sheet、Dialog、Dropdown、SelectContent 等可能脱离父级作用域的区域，需要确认品牌 token 是否实际生效。</span></li>
+        </ul>
+
+        <h3 style="margin-top:20px;">二、禁止变更清单</h3>
+        <div class="table-wrap">
+          <table class="spec-table">
+            <tbody>
+              <tr>
+                <td>后台标题区</td>
+                <td>保持原有紧凑标题 + 说明 + 右侧动作，不加渐变背景、不加统计块、不增加高度。</td>
+              </tr>
+              <tr>
+                <td>筛选表单</td>
+                <td>保持原有横向裸排，不额外包卡片、不加标题说明、不改变控件顺序。</td>
+              </tr>
+              <tr>
+                <td>表格</td>
+                <td>保持原有边框和表头样式，不加 shadow，不把表格改成卡片堆叠；只改必要的状态色和交互色。</td>
+              </tr>
+              <tr>
+                <td>移动卡片</td>
+                <td>保持现有信息顺序和密度，不新增 hover 阴影或拆分金额/标题结构，除非原组件已经如此设计。</td>
+              </tr>
+              <tr>
+                <td>详情抽屉</td>
+                <td>保持现有 section 和间距，不把每段内容重新包成带阴影卡片。</td>
+              </tr>
+              <tr>
+                <td>业务状态</td>
+                <td>成功、警告、错误、取消、过期等状态使用语义色，不随品牌蓝或当前主题色漂移。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 style="margin-top:20px;">三、焦点态验收</h3>
+        <ul class="dark-rule-list">
+          <li>
+            <span class="rule-label">不要只看 class</span>
+            <p class="rule-copy">表单控件可能同时带有 <code>focus-visible:border-ring</code>、<code>focus-visible:ring-ring/50</code> 和品牌覆盖类；必须读取浏览器最终计算样式。</p>
+          </li>
+          <li>
+            <span class="rule-label">品牌焦点标准</span>
+            <p class="rule-copy">输入框、日期框、下拉触发器、Textarea 聚焦后，边框应为品牌蓝 <code>rgb(30, 158, 237)</code>，光晕应为 <code>rgba(30, 158, 237, 0.36)</code>，不能显示 green / rose / orange / violet 等旧主题色。</p>
+          </li>
+          <li>
+            <span class="rule-label">必须用非品牌主题反测</span>
+            <p class="rule-copy">验收时先切到 green、rose 或其它旧主题色，再刷新目标页面并聚焦表单；如果焦点仍跟随旧主题色，说明迁移失败。</p>
+          </li>
+          <li>
+            <span class="rule-label">Portal 组件单独验收</span>
+            <p class="rule-copy">Select 下拉、Sheet、Dialog、DropdownMenu 可能渲染在页面根节点之外，不能假设父级 <code>theme-brand</code> 一定覆盖到它们。</p>
+          </li>
+        </ul>
+
+        <h3 style="margin-top:20px;">四、浏览器验收步骤</h3>
+        <div class="table-wrap">
+          <table class="spec-table">
+            <tbody>
+              <tr>
+                <td>1. 打开真实页面</td>
+                <td>使用已登录浏览器打开目标路由，不用静态 HTML 推断效果。</td>
+              </tr>
+              <tr>
+                <td>2. 聚焦关键控件</td>
+                <td>依次点击输入框、日期框、下拉框、Textarea、主按钮、分页当前项。</td>
+              </tr>
+              <tr>
+                <td>3. 读取计算样式</td>
+                <td>用 <code>getComputedStyle</code> 检查 <code>borderColor</code>、<code>boxShadow</code>、<code>--tw-ring-color</code>、文字色和背景色。</td>
+              </tr>
+              <tr>
+                <td>4. 对照禁止清单</td>
+                <td>确认没有新增渐变面板、筛选卡片、表格阴影、卡片嵌套、额外文案或结构重排。</td>
+              </tr>
+              <tr>
+                <td>5. 亮暗色双测</td>
+                <td>同一页面必须检查亮色和暗色；暗色不能残留白底黑字，亮色不能丢失品牌焦点。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 style="margin-top:20px;">五、失败示例</h3>
+        <ul class="rules">
+          <li>把后台标题区改成大面积品牌渐变面板。</li>
+          <li>给原本裸排的筛选表单新增外框、标题或说明。</li>
+          <li>给原本无阴影的表格新增阴影。</li>
+          <li>只在页面根节点加 <code>theme-brand</code>，但没有验证 Select、Sheet、Dialog 里的控件是否生效。</li>
+          <li>只检查 DOM class，不检查最终 <code>borderColor</code> 和 <code>boxShadow</code>。</li>
+          <li>在默认主题下看起来正确，但切到 green / rose / violet 后焦点色仍跟随旧主题。</li>
+        </ul>
+      </section>
+
+      <section class="section" id="rules">
+        <h2>全站落地规则</h2>
+        <div class="grid cols-2">
+          <div class="card">
+            <h3>应该做</h3>
+            <ul class="rules">
+              <li>全站默认使用品牌主题，只保留亮色和暗色切换。</li>
+              <li>主操作使用品牌渐变，次要操作使用 outline / ghost。</li>
+              <li>焦点、链接、导航当前项使用品牌主色。</li>
+              <li>成功、警告、错误保持语义颜色，不跟随品牌色。</li>
+              <li>所有图标按钮使用可识别图标，并提供 hover / focus 状态。</li>
+              <li>弹窗必须有标题和说明，危险操作必须说明后果。</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>不应该做</h3>
+            <ul class="rules">
+              <li>同一操作区放多个品牌渐变按钮。</li>
+              <li>把取消、关闭、刷新、复制做成主按钮。</li>
+              <li>用品牌蓝表示错误或失败。</li>
+              <li>在业务系统里使用过大的营销页标题。</li>
+              <li>使用 emoji 图标；项目内应统一使用 lucide 图标。</li>
+              <li>用原生 confirm / alert 处理业务确认。</li>
+              <li>把本 HTML 的静态示意结构直接替换项目现有组件结构。</li>
+            </ul>
+          </div>
+        </div>
+
+        <h3 style="margin-top:20px;">组件落地映射</h3>
+        <div class="table-wrap">
+          <table class="spec-table">
+            <tbody>
+              <tr>
+                <td>主按钮</td>
+                <td><code>bg-gradient-brand-button text-white</code>，只用于页面最关键动作。</td>
+              </tr>
+              <tr>
+                <td>次按钮</td>
+                <td><code>variant="outline"</code> 或 <code>variant="ghost"</code>，用于取消、详情、刷新、复制。</td>
+              </tr>
+              <tr>
+                <td>品牌强调</td>
+                <td><code>text-primary</code>、<code>bg-primary/10</code>、<code>border-primary/20</code>。</td>
+              </tr>
+              <tr>
+                <td>图标底</td>
+                <td><code>var(--tint-sky-bg)</code>、<code>var(--tint-mint-bg)</code>、<code>var(--tint-navy-bg)</code>、<code>var(--tint-amber-bg)</code>。</td>
+              </tr>
+              <tr>
+                <td>卡片</td>
+                <td><code>rounded-xl border bg-card</code>，hover 使用品牌边框和轻阴影。</td>
+              </tr>
+              <tr>
+                <td>错误</td>
+                <td><code>text-destructive</code> 或红色语义 token，不使用品牌渐变。</td>
+              </tr>
+              <tr>
+                <td>警告</td>
+                <td>使用 amber 语义色，适合余额、过期、预扣、风险提示。</td>
+              </tr>
+              <tr>
+                <td>深浅色</td>
+                <td>组件必须同时检查亮色和暗色，尤其是渐变按钮白字、淡彩底和红/黄状态。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="footer-note">确认后建议把本规范拆成全局 token、按钮规范、业务状态规范、页面巡检清单四个执行项，再逐模块落地。</p>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

@@ -62,12 +62,12 @@
                         </div>
 
                         <!-- 类型 Badge -->
-                        <Badge variant="outline" class="shrink-0">
+                        <Badge variant="outline" class="shrink-0" :class="adminBrandChipClass">
                             {{ getPromptTypeLabel(p.type) }}
                         </Badge>
 
                         <!-- 状态 Badge -->
-                        <Badge :variant="p.status === 1 ? 'default' : 'secondary'" class="shrink-0">
+                        <Badge variant="outline" class="shrink-0" :class="getAdminStatusBadgeClass(p.status === 1)">
                             {{ p.status === 1 ? '生效' : '未生效' }}
                         </Badge>
 
@@ -75,7 +75,7 @@
                         <Button
                             variant="ghost"
                             size="sm"
-                            class="shrink-0"
+                            :class="['shrink-0', adminBrandFocusClass]"
                             title="在新窗口查看 / 编辑该提示词"
                             @click="openPromptDetail(p.id)"
                         >
@@ -84,7 +84,7 @@
                         <Button
                             variant="ghost"
                             size="sm"
-                            class="shrink-0 text-destructive hover:text-destructive"
+                            :class="['shrink-0 text-destructive hover:text-destructive', adminBrandFocusClass]"
                             title="从该节点移除"
                             @click="onRemove(p)"
                         >
@@ -97,7 +97,7 @@
 
         <!-- 底部按钮 -->
         <div class="flex flex-wrap items-center gap-2 shrink-0">
-            <Button size="sm" @click="showSelector = true">
+            <Button size="sm" :class="adminBrandPrimaryButtonClass" @click="showSelector = true">
                 <Plus class="size-4 mr-1" />
                 添加
             </Button>
@@ -105,6 +105,7 @@
                 ref="createBtnRef"
                 variant="outline"
                 size="sm"
+                :class="adminBrandFocusClass"
                 @click="onClickCreate"
             >
                 <FilePlus class="size-4 mr-1" />
@@ -113,7 +114,7 @@
             <Button
                 variant="outline"
                 size="sm"
-                class="ml-auto"
+                :class="['ml-auto', adminBrandFocusClass]"
                 @click="openPreview"
             >
                 <Eye class="size-4 mr-1" />
@@ -140,7 +141,7 @@
         <!-- 完整 prompt 预览 Sheet（4 类分组动态展示） -->
         <Sheet v-model:open="showPreview">
             <SheetContent
-                class="w-full sm:max-w-[800px] flex flex-col gap-0 z-[200]"
+                class="theme-brand w-full sm:max-w-[800px] flex flex-col gap-0 z-[200]"
                 overlay-class="z-[200]"
             >
                 <SheetHeader class="border-b pb-4">
@@ -242,6 +243,12 @@ import type { NodePromptRef, NodePromptsPreview, PromptType } from '#shared/type
 import NodePromptSelector from '~/components/admin/nodes/NodePromptSelector.vue'
 import PromptFormDialog from '~/components/admin/prompts/PromptFormDialog.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
+import {
+    adminBrandChipClass,
+    adminBrandFocusClass,
+    adminBrandPrimaryButtonClass,
+    getAdminStatusBadgeClass,
+} from '~/utils/adminNodeBrandStyles'
 
 const props = defineProps<{
     /** 当前节点 ID（用于预览接口、嵌套对话框上下文） */

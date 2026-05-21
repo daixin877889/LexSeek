@@ -14,18 +14,13 @@ const props = withDefaults(defineProps<PersonaProps>(), {
 const emits = defineEmits<PersonaEmits>()
 
 function getCurrentTheme(): 'light' | 'dark' {
-  if (typeof window !== 'undefined') {
-    if (document.documentElement.classList.contains('dark')) {
-      return 'dark'
-    }
-    if (window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
-      return 'dark'
-    }
+  if (typeof document !== 'undefined' && document.documentElement.classList.contains('dark')) {
+    return 'dark'
   }
   return 'light'
 }
 
-function useTheme() {
+function usePersonaTheme() {
   const theme = ref<'light' | 'dark'>(getCurrentTheme())
 
   onMounted(() => {
@@ -38,21 +33,8 @@ function useTheme() {
       attributes: true,
     })
 
-    let mql: MediaQueryList | null = null
-    const handleMediaChange = () => {
-      theme.value = getCurrentTheme()
-    }
-
-    if (window.matchMedia) {
-      mql = window.matchMedia('(prefers-color-scheme: dark)')
-      mql.addEventListener('change', handleMediaChange)
-    }
-
     onBeforeUnmount(() => {
       observer.disconnect()
-      if (mql) {
-        mql.removeEventListener('change', handleMediaChange)
-      }
     })
   })
 
@@ -124,7 +106,7 @@ const canvasRef = ref<HTMLCanvasElement | null>(null)
 const riveInstance = shallowRef<Rive | null>(null)
 
 const source = computed(() => sources[props.variant])
-const theme = useTheme()
+const theme = usePersonaTheme()
 
 useResizeObserver(canvasRef, () => {
   if (riveInstance.value) {

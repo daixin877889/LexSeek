@@ -68,6 +68,28 @@ export async function createDraftService(
         return { error: '无权使用此模板', code: 403 }
     }
 
+    // owner-only：caseId 必须属于当前用户
+    if (caseId !== undefined && caseId !== null) {
+        const ownedCase = await prisma.cases.findFirst({
+            where: { id: caseId, userId, deletedAt: null },
+            select: { id: true },
+        })
+        if (!ownedCase) {
+            return { error: '案件不存在', code: 404 }
+        }
+    }
+
+    // owner-only：sourceFileIds 必须全部属于当前用户
+    if (sourceFileIds?.length) {
+        const ownedFiles = await prisma.ossFiles.findMany({
+            where: { id: { in: sourceFileIds }, userId, deletedAt: null },
+            select: { id: true },
+        })
+        if (ownedFiles.length !== sourceFileIds.length) {
+            return { error: '存在不属于当前用户的文件', code: 404 }
+        }
+    }
+
     // 直接创建 scope='document' 的 caseSession（不复用 createAssistantSessionDAO，后者会硬编码 scope='assistant'
     // 导致 agentWorker 错误路由到 runAssistantChat 通用助手）
     const session = await prisma.caseSessions.create({
@@ -132,7 +154,7 @@ export async function createDraftService(
 
 // ==================== getDraftService ====================
 
-/** 查询草稿详情，校验归属权后返回 draft 记录。 */
+/** 查询草稿详情，校验归属权后返回 draft 记录（附 templateName，供前端展示与 autoAi 启动指令用）。 */
 export async function getDraftService(
     userId: number,
     draftId: number,
@@ -146,7 +168,17 @@ export async function getDraftService(
         return { error: '无权访问此草稿', code: 403 }
     }
 
-    return { draft }
+    // 补查模板名：DAO 只 SELECT documentDrafts 表自身字段（不含 template join），
+    // 前端文书页（如 autoAi=1 的启动指令需要拼"请根据当前案件信息生成《{模板名}》"）需要 templateName。
+    // 自由文书（mode=freeform）无模板，templateId 为 null
+    const template = draft.templateId != null ? await getDocumentTemplateDAO(draft.templateId) : null
+
+    return {
+        draft: {
+            ...draft,
+            templateName: template?.name ?? null,
+        },
+    }
 }
 
 // ==================== patchDraftService ====================
@@ -180,7 +212,8 @@ export async function patchDraftService(
         return { error: '草稿正在生成中，请稍后再修改', code: 409 }
     }
 
-    const template = await getDocumentTemplateDAO(draft.templateId)
+    // 自由文书（mode=freeform）无模板，templateId 为 null
+    const template = draft.templateId != null ? await getDocumentTemplateDAO(draft.templateId) : null
     const rawPlaceholders = Array.isArray(template?.placeholders) ? template.placeholders as Array<{ name: unknown }> : []
     const allowedKeys = new Set(rawPlaceholders.map(p => String(p.name ?? '')))
 
@@ -211,7 +244,7 @@ export async function patchDraftService(
 /**
  * 关联 / 解绑文书草稿到案件。
  *
- * 阶段 5 · 法律助手「+ 关联案件」入口：用户在文书页顶部"来源条"点关联，
+ * 阶段 5 · 通用问答「+ 关联案件」入口：用户在文书页顶部"来源条"点关联，
  * 选定案件后调用此接口写入 draft.caseId；caseId=null 表示解绑。
  *
  * 校验：

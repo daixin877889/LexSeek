@@ -1,6 +1,6 @@
 <template>
     <Dialog v-model:open="open">
-        <DialogContent class="max-w-md" @interactOutside="(e) => e.preventDefault()">
+        <DialogContent class="theme-brand max-w-md" @interactOutside="(e) => e.preventDefault()">
             <DialogHeader>
                 <DialogTitle>编辑中文名</DialogTitle>
                 <DialogDescription class="sr-only">编辑 skill 中文展示名</DialogDescription>
@@ -8,7 +8,7 @@
             <div class="space-y-4 py-2">
                 <div class="space-y-2">
                     <Label>英文标识</Label>
-                    <Input :model-value="skillName" disabled class="font-mono" />
+                    <Input :model-value="skillName" disabled :class="['font-mono', adminBrandFocusClass]" />
                 </div>
                 <div class="space-y-2">
                     <Label>中文名</Label>
@@ -16,6 +16,7 @@
                         v-model="form.customTitle"
                         placeholder="留空使用代码预设"
                         :maxlength="200"
+                        :class="adminBrandFocusClass"
                     />
                     <p class="text-xs text-muted-foreground">
                         留空 / 全空白会清除自定义，回退到 SKILL.md 里的代码默认值。
@@ -23,8 +24,8 @@
                 </div>
             </div>
             <DialogFooter>
-                <Button variant="outline" @click="open = false">取消</Button>
-                <Button @click="handleSubmit" :disabled="submitting">
+                <Button variant="outline" :class="adminBrandFocusClass" @click="open = false">取消</Button>
+                <Button :class="adminBrandPrimaryButtonClass" @click="handleSubmit" :disabled="submitting">
                     <Loader2 v-if="submitting" class="h-4 w-4 mr-2 animate-spin" />
                     保存
                 </Button>
@@ -38,6 +39,10 @@ import { ref } from 'vue'
 import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useApiFetch } from '~/composables/useApiFetch'
+import {
+    adminBrandFocusClass,
+    adminBrandPrimaryButtonClass,
+} from '~/utils/adminBrandStyles'
 
 const emit = defineEmits<{ success: [] }>()
 const open = defineModel<boolean>('open', { default: false })

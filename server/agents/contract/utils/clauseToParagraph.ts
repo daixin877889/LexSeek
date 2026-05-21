@@ -29,6 +29,15 @@ export function buildClauseToParagraphMap(
     const map = new Map<number, number>()
     if (segments.length === 0 || paragraphs.length === 0) return map
 
+    // L5：本映射依赖「paragraphs[i] 内部不含换行符」隐含前提——segment.offsetStart 与
+    // paragraphStarts 须同口径才成立。某 <w:t> 字面含 \n 时偏移会漂移导致映射失准，
+    // 属理论边界；一旦出现至少 warn 让其可观测，而非静默错挂段落。
+    if (paragraphs.some(p => p.includes('\n'))) {
+        logger.warn('[clauseToParagraph] 段落文本含内部换行符，clauseIndex→段落映射可能漂移', {
+            paragraphCount: paragraphs.length,
+        })
+    }
+
     // 预计算每段起始偏移；fullTextLen 标记最后一段 end 之外的越界阈值
     const paragraphStarts: number[] = []
     let cursor = 0
@@ -57,4 +66,31 @@ export function buildClauseToParagraphMap(
         map.set(seg.index, lo)
     }
     return map
+}
+
+/**
+ * M8：把条款序号映射到「批注注入口径」的 body 直接段落序号。
+ *
+ * buildClauseToParagraphMap 产出的是「分析口径」段落序号（递归含表格内段落），而
+ * commentInjector / parseWordComments 期望的是 collectNonEmptyParagraphs 口径（仅
+ * body 直接子 <w:p>）。两口径在含表格合同上不一致——本函数经 parseContractDocx 产出的
+ * `bodyParagraphIndex` 把分析口径序号换算成注入口径序号。
+ *
+ * 条款落在表格等容器内时映射为 `null`：这类条款的批注无法注入 docx（与 global_review
+ * 风险同口径，rebuildDocx 注入时按 null 过滤），但风险本身仍在工作区清单中展示。
+ *
+ * 首次审查（contractReviewMainAgent）与回传增量审查（uploadClientVersion）均须复用
+ * 本函数写 `clauseParagraphIndex`，保证两条链路落库口径一致。
+ */
+export function buildClauseToBodyParagraphMap(
+    segments: ReadonlyArray<ClauseSegment | ClauseSnapshotItem>,
+    paragraphs: string[],
+    bodyParagraphIndex: ReadonlyArray<number | null>,
+): Map<number, number | null> {
+    const analysisMap = buildClauseToParagraphMap(segments, paragraphs)
+    const result = new Map<number, number | null>()
+    for (const [segIndex, recursiveIdx] of analysisMap) {
+        result.set(segIndex, bodyParagraphIndex[recursiveIdx] ?? null)
+    }
+    return result
 }

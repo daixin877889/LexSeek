@@ -57,6 +57,7 @@ import {
     createScopeGuardMiddleware,
     createAuditMiddleware,
     userInjectionMiddleware,
+    dateContextMiddleware,
     buildMiddlewareStack,
     MIDDLEWARE_PRIORITY,
     MIDDLEWARE_NAMES,
@@ -72,18 +73,19 @@ import { listEnabledPlaybookPointsDAO } from '../../assistant/contract/contractP
 import { loadContractFullText } from '../../assistant/contract/docx/loadContractFullText'
 import { segmentClauses } from '../../assistant/contract/docx/clauseSegmenter'
 import { analyzeSingleClause } from '../../assistant/contract/analyzeSingleClause'
-import { summarizeOverview } from '../../assistant/contract/summarizeOverview'
+import { summarizeOverview, remapHighlightRiskIds } from '../../assistant/contract/summarizeOverview'
 import {
     emitContractReviewEvent,
     type ContractReviewEmitterCtx,
 } from '../nodes/contractReviewStageEmitter'
 import { persistAiRisksAsContractRows, type PersistAiRiskRow } from '../../assistant/contract/contractRisk.service'
+import { consumePointsService } from '~~/server/services/point/pointConsumption.service'
 import { createContractAnnotationDAO } from '../../assistant/contract/contractAnnotation.dao'
 import { saveContractReviewVersionService } from '../../assistant/contract/contractReviewVersion.service'
-import { buildClauseToParagraphMap } from '../../assistant/contract/utils/clauseToParagraph'
+import { buildClauseToBodyParagraphMap } from '../../assistant/contract/utils/clauseToParagraph'
 import type { CallbackHandlerMethods } from '@langchain/core/callbacks/base'
 import type { Prisma } from '~~/generated/prisma/client'
-import type { Risk, Stance, ClauseSegment, ClauseSnapshotItem, PlaybookSnapshot } from '#shared/types/contract'
+import type { Risk, Stance, ClauseSegment, ClauseSnapshotItem, PlaybookSnapshot, ContractOverview } from '#shared/types/contract'
 import { resolveContextWindow } from '../context/messageCompressor'
 
 import { renderRiskAsAnnotationText } from '~~/server/services/assistant/contract/contractRiskRender'
@@ -102,6 +104,7 @@ async function persistRisksAndCreateV1Snapshot(
     clauses: ClauseSnapshotItem[],
     segments: ClauseSegment[],
     paragraphs: string[],
+    bodyParagraphIndex: (number | null)[],
 ): Promise<void> {
     // 幂等守卫：已有 currentVersionId 说明 v1 快照已存在，跳过
     const current = await prisma.contractReviews.findUnique({
@@ -113,12 +116,11 @@ async function persistRisksAndCreateV1Snapshot(
         return
     }
 
-    // Bug 修复：clauseIndex（segmentClauses 产出的"条款序号"）≠ clauseParagraphIndex
-    // （commentInjector / parseWordComments 使用的"非空段落序号"）。
-    // 先构造 clauseIndex → 非空段落序号 的映射：segment.offsetStart 落在哪一段，
-    // 该条款就归属哪一段。docxText 是 paragraphs.join('\n')，所以累加段落长度
-    // + 1 (for '\n') 就能找到对应段落序号。
-    const clauseIndexToParagraphIndex = buildClauseToParagraphMap(segments, paragraphs)
+    // clauseIndex（segmentClauses 产出的"条款序号"）≠ clauseParagraphIndex
+    // （commentInjector / parseWordComments 使用的"批注注入口径段落序号"）。
+    // M8：buildClauseToBodyParagraphMap 把条款序号换算成 body 直接段落序号；
+    // 条款落在表格内时为 null（其批注无法注入 docx，与 global_review 风险同口径）。
+    const clauseIndexToParagraphIndex = buildClauseToBodyParagraphMap(segments, paragraphs, bodyParagraphIndex)
 
     // PR10：用 segment.textWithoutNumber 作 anchor 字段（覆盖 LLM 自填的含编号 clauseText）
     const segmentByIndex = new Map(segments.map(s => [s.index, s]))
@@ -142,6 +144,25 @@ async function persistRisksAndCreateV1Snapshot(
         })
     }
 
+    // V2：summarizeOverview 生成 highlights 时只有内存 UUID（Risk.id），而前端风险卡片
+    // 用 contractRisks 表的整型 id。落库拿到整型 id 后回写 summary，使总览要点点击能
+    // 联动定位到风险卡片。createManyAndReturn 保序，createdRisks[i] 对应 risks[i]。
+    const uuidToIntId = new Map<string, number>()
+    for (let i = 0; i < createdRisks.length; i++) {
+        const uuid = risks[i]?.id
+        if (uuid) uuidToIntId.set(uuid, createdRisks[i]!.id)
+    }
+    if (uuidToIntId.size > 0) {
+        const reviewRow = await prisma.contractReviews.findUnique({
+            where: { id: reviewId },
+            select: { summary: true },
+        })
+        const summary = reviewRow?.summary as unknown as ContractOverview | null
+        if (summary && remapHighlightRiskIds(summary, uuidToIntId)) {
+            await updateContractReviewDAO(reviewId, { summary: summary as unknown as Prisma.InputJsonValue })
+        }
+    }
+
     // 创建 v1 initial_upload 快照（显式传 docxText + clauses）
     await saveContractReviewVersionService({
         reviewId,
@@ -153,11 +174,14 @@ async function persistRisksAndCreateV1Snapshot(
     logger.info('persistRisksAndCreateV1Snapshot: v1 快照已创建', { reviewId, risksCount: risks.length })
 }
 
-// buildClauseToParagraphMap 已抽到 utils/clauseToParagraph.ts，
-// uploadClientVersion Step 4 也复用同一份映射逻辑（DOCX-C1/C2 修复）。
+// buildClauseToBodyParagraphMap 已抽到 utils/clauseToParagraph.ts，
+// uploadClientVersion Step 4 也复用同一份映射逻辑（DOCX-C1/C2 + M8 修复）。
 
 /** 合同审查主代理节点名称 */
 const CONTRACT_MAIN_NODE_NAME = 'contractReviewMain'
+
+/** 合同审查按 token 扣费的积分消耗项 key（首轮 pointConsumptionMiddleware 与 V1 resume 分支扣费同口径） */
+const CONTRACT_REVIEW_POINT_ITEM = 'contract_review_token'
 
 /**
  * Agent 首轮启动指令。
@@ -188,7 +212,7 @@ export interface ContractReviewAgentOptions {
     /**
      * 阶段 5 新增：跳过 stance interrupt 直接走 resume 分支。
      *
-     * 法律助手 `review_contract` 子代理工具调用本函数前，已在工具内部完成
+     * 通用问答 `review_contract` 子代理工具调用本函数前，已在工具内部完成
      * "立场选择 interrupt + 落库 stance/partyA/partyB" 的工作；此时调用方
      * 传 `skipStanceInterrupt: true`，本函数从 review 表读取已落库的立场，
      * 直接走 resume 分支（不再创建 createAgent / 不再 invoke parseAndAskStance）。
@@ -199,7 +223,7 @@ export interface ContractReviewAgentOptions {
     /**
      * 子流事件转发到主流的 callbacks（首轮 agent.stream 路径生效）。
      *
-     * 法律助手 reviewContract.tool 调用本函数时走 skipStanceInterrupt=true 路径，
+     * 通用问答 reviewContract.tool 调用本函数时走 skipStanceInterrupt=true 路径，
      * 该路径不调 agent.stream → callbacks **不会触发**（设计上可接受）。
      * 跑中反馈通过现有 stage 事件（segment / detect / stance / analyze progress / summarize）
      * + 前端 ReviewContractCard 实现。
@@ -219,6 +243,10 @@ export interface AnalyzeLoopContext {
     /** M7 Playbook 快照；null/undefined 表示无清单，analyzeSingleClause 内部回退到无清单 prompt */
     playbookSnapshot?: PlaybookSnapshot | null
     emitterCtx: ContractReviewEmitterCtx
+    /** M11：透传取消信号到逐条分析的 LLM 调用，用户取消 / 超时时中断逐条分析 */
+    signal?: AbortSignal
+    /** V1：回调每条款 LLM 调用的 token 用量，供调用方累计后按积分扣费 */
+    onTokenUsage?: (tokens: number) => void
 }
 
 /** 单合同条款分析的并发上限：保守取 8，对 DeepSeek/Anthropic API 友好且单合同 30 条款 4 轮搞定。 */
@@ -259,6 +287,8 @@ export async function runAnalyzeLoop(ctx: AnalyzeLoopContext): Promise<{ risks: 
                 partyB: ctx.partyB,
                 contractType: ctx.contractType,
                 playbookSnapshot: ctx.playbookSnapshot,
+                signal: ctx.signal,
+                onTokenUsage: ctx.onTokenUsage,
             })
             await emitContractReviewEvent(ctx.emitterCtx, {
                 type: 'progress', current: seg.index, total,
@@ -395,7 +425,7 @@ export async function runContractReviewChat(
             name: MIDDLEWARE_NAMES.SCOPE_GUARD,
         },
         {
-            middleware: pointConsumptionMiddleware(userId, 'contract_review_token', sessionId),
+            middleware: pointConsumptionMiddleware(userId, CONTRACT_REVIEW_POINT_ITEM, sessionId, undefined, review.contractType ?? `合同_${review.id}`),
             priority: MIDDLEWARE_PRIORITY.POINT_CONSUMPTION,
             name: MIDDLEWARE_NAMES.POINT_CONSUMPTION,
         },
@@ -456,6 +486,12 @@ export async function runContractReviewChat(
             priority: MIDDLEWARE_PRIORITY.AUDIT,
             name: MIDDLEWARE_NAMES.AUDIT,
         },
+        {
+            // 每轮注入"当前北京时间"——合同审查涉及到期日 / 续约 / 违约时效 / 新法生效对比
+            middleware: dateContextMiddleware(),
+            priority: MIDDLEWARE_PRIORITY.DATE_CONTEXT,
+            name: MIDDLEWARE_NAMES.DATE_CONTEXT,
+        },
     ])
 
     // 8. 组装 Agent（首轮使用，resume 分支绕过此 agent）
@@ -478,12 +514,15 @@ export async function runContractReviewChat(
     // paragraphs：非空段落数组（parseContractDocx 产出），用于把 segment.offsetStart
     // 映射到 commentInjector 使用的"非空段落序号"空间。
     let paragraphs: string[] = []
+    // M8：paragraphs[i] → 批注注入口径段落序号映射，写 clauseParagraphIndex 时换算用。
+    let bodyParagraphIndex: (number | null)[] = []
     try {
         await emitContractReviewEvent(emitterCtx, {
             type: 'stage', stage: 'segment', status: 'running',
         })
         const loaded = await loadContractFullText(review.originalFileId)
         paragraphs = loaded.paragraphs
+        bodyParagraphIndex = loaded.bodyParagraphIndex
         const segmentResult = await segmentClauses(loaded.fullText)
         segments = segmentResult.segments
         normalizedText = segmentResult.normalizedText
@@ -508,7 +547,7 @@ export async function runContractReviewChat(
     //
     // 触发条件（任一即进 resume 分支）：
     //   A. command 存在：合同 vertical 自身的 /stance 端点 enqueue resume run（向后兼容）
-    //   B. skipStanceInterrupt && review.stance：法律助手 review_contract 子代理工具
+    //   B. skipStanceInterrupt && review.stance：通用问答 review_contract 子代理工具
     //      在工具内部已完成 stance 选择 interrupt + 落库，调本函数时直接跳过 stance 流程
     //      （DOCX-S5 子代理工具走 skipStanceInterrupt 路径）
     const shouldRunResumeBranch = !!command || (skipStanceInterrupt && !!review.stance)
@@ -610,7 +649,11 @@ export async function runContractReviewChat(
                     }
 
                     // 执行 analyze loop（发 analyze:running / progress / risk / analyze:done）
-                    const { risks } = await runAnalyzeLoop({
+                    // M11：透传 signal——用户在逐条分析阶段取消 / 超时时，底层 LLM 调用随之中断。
+                    // V1：累计 resume 分支（逐条分析 + 总览）的 LLM token 用量，结束后统一扣积分。
+                    let resumeBranchTokens = 0
+                    const onTokenUsage = (tokens: number) => { resumeBranchTokens += tokens }
+                    const { risks, warnings } = await runAnalyzeLoop({
                         segments,
                         stance,
                         partyA: finalPartyA,
@@ -618,26 +661,70 @@ export async function runContractReviewChat(
                         contractType: review.contractType,
                         playbookSnapshot,
                         emitterCtx,
+                        signal,
+                        onTokenUsage,
                     })
+
+                    // S1：切分成功但全部条款分析失败（risks 空、warnings 非空）——合同根本没被
+                    // AI 分析过，不能继续走 summarize/persist/annotate 误判「审查完成·无风险」，
+                    // 直接置 failed。与上方 segments.length===0 的 fail-fast 同构。
+                    if (risks.length === 0 && warnings.length > 0) {
+                        logger.warn('runContractReviewChat resume: 全部条款分析失败，置 failed', {
+                            reviewId: review.id, sessionId,
+                            failedClauseCount: warnings.length, totalClauses: segments.length,
+                        })
+                        await updateContractReviewDAO(review.id, { status: 'failed' })
+                        // analyze:done（含 warnings）已由 runAnalyzeLoop 内部发出；补 summarize
+                        // running+done，否则前端 5 段进度条 allDone 永远不为真。
+                        await emitContractReviewEvent(emitterCtx, { type: 'stage', stage: 'summarize', status: 'running' })
+                        await emitContractReviewEvent(emitterCtx, { type: 'stage', stage: 'summarize', status: 'done' })
+                        controller.close()
+                        return
+                    }
 
                     // 写 risks 到 DB（一次性落库）
                     await updateContractReviewDAO(review.id, {
                         risks: risks as unknown as Prisma.InputJsonValue,
                     })
 
+                    // S1：部分条款分析失败（仍有风险产出）——审查可继续，但在总评末尾标注
+                    // 失败条款数，避免律师误以为审查已完整覆盖全部条款。
+                    const incompleteNote = warnings.length > 0
+                        ? `（另有 ${warnings.length} 条条款未能完成分析，建议重新审查）`
+                        : ''
+
                     // 生成结构化总览（summarize 阶段）
                     await emitContractReviewEvent(emitterCtx, { type: 'stage', stage: 'summarize', status: 'running' })
                     try {
-                        const overview = await summarizeOverview(risks, stance, review.contractType)
+                        const overview = await summarizeOverview(risks, stance, review.contractType, signal, onTokenUsage)
+                        overview.overall = `${overview.overall}${incompleteNote}`
                         await updateContractReviewDAO(review.id, { summary: overview as unknown as Prisma.InputJsonValue })
                         await emitContractReviewEvent(emitterCtx, { type: 'overview', overview })
                         await emitContractReviewEvent(emitterCtx, { type: 'stage', stage: 'summarize', status: 'done' })
                     } catch (err) {
                         logger.warn('summarizeOverview 失败，降级为仅 overall', { reviewId: review.id, err })
                         await updateContractReviewDAO(review.id, {
-                            summary: { highlights: null, overall: `本合同识别到 ${risks.length} 条风险。` } as unknown as Prisma.InputJsonValue,
+                            summary: { highlights: null, overall: `本合同识别到 ${risks.length} 条风险。${incompleteNote}` } as unknown as Prisma.InputJsonValue,
                         })
                         await emitContractReviewEvent(emitterCtx, { type: 'stage', stage: 'summarize', status: 'done' })
+                    }
+
+                    // V1：resume 分支逐条分析 + 总览的 LLM token 用量在此统一按积分扣费。
+                    // 首轮 agent 的 pointConsumptionMiddleware 只覆盖 detect/stance（token 极少），
+                    // 最贵的逐条分析此前完全漏计。扣费失败不阻断审查——token 已实际消耗、审查
+                    // 结果已产出，回滚已发生的分析无意义；记 warn 供运维核对即可。
+                    if (resumeBranchTokens > 0) {
+                        try {
+                            await consumePointsService(userId, CONTRACT_REVIEW_POINT_ITEM, Math.ceil(resumeBranchTokens / 1000), {
+                                remark: `合同审查逐条分析 reviewId=${review.id}`,
+                            })
+                        } catch (err) {
+                            logger.warn('合同审查逐条分析阶段积分扣减失败', {
+                                reviewId: review.id,
+                                tokens: resumeBranchTokens,
+                                err: err instanceof Error ? err.message : String(err),
+                            })
+                        }
                     }
 
                     // Phase A：写 ContractRisk + ContractAnnotation + 创建 v1 initial_upload 快照
@@ -658,6 +745,7 @@ export async function runContractReviewChat(
                             clausesForSnapshot,
                             segments,
                             paragraphs,
+                            bodyParagraphIndex,
                         )
                     } catch (err) {
                         // v1 快照写入失败：后续 rebuild-docx / 版本时间线都依赖 ContractRisk + 快照，

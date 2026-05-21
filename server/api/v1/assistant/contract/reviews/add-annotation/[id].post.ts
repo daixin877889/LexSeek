@@ -18,6 +18,7 @@
 import { z } from 'zod'
 import { loadOwnedReview } from '~~/server/services/assistant/contract/reviewGuard'
 import { createLawyerAnnotationService } from '~~/server/services/assistant/contract/contractAnnotation.service'
+import { resolveContractExportSignatureService } from '~~/server/services/users/contractSignature.service'
 
 const bodySchema = z.object({
     riskId: z.number().int().positive(),
@@ -31,16 +32,19 @@ export default defineEventHandler(async (event) => {
 
     const { user, review } = guard
 
-    const raw = await readBody(event)
+    const raw = await readBody(event).catch(() => null)
     const parsed = bodySchema.safeParse(raw)
     if (!parsed.success) return resError(event, 400, parsed.error.issues[0]?.message ?? '参数错误')
 
+    // 批注署名与 docx 导出口径统一：优先用户配置的「合同导出署名」，否则用户名，
+    // 最终兜底「审查人」——不再用通用的「律师」。
+    const signature = await resolveContractExportSignatureService(user.id)
     const result = await createLawyerAnnotationService({
         reviewId: review.id,
         riskId: parsed.data.riskId,
         content: parsed.data.content,
         parentAnnotationId: parsed.data.parentAnnotationId ?? null,
-        user: { id: user.id, name: (user as { name?: string }).name ?? '律师' },
+        user: { id: user.id, name: signature },
     })
 
     if ('error' in result) {

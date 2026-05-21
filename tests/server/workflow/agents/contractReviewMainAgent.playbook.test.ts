@@ -78,3 +78,62 @@ describe('runAnalyzeLoop · playbook snapshot', () => {
         expect(analyzeSingleClauseMock.mock.calls[0]![0].playbookSnapshot).toBeUndefined()
     })
 })
+
+describe('runAnalyzeLoop · signal 透传 (M11)', () => {
+    beforeEach(() => {
+        analyzeSingleClauseMock.mockReset()
+    })
+
+    it('ctx.signal 透传给每次 analyzeSingleClause 调用', async () => {
+        analyzeSingleClauseMock.mockResolvedValue([])
+        const controller = new AbortController()
+        await runAnalyzeLoop({
+            segments: [
+                { index: 1, number: '1', text: 'x' },
+                { index: 2, number: '2', text: 'y' },
+            ],
+            stance: 'partyB',
+            partyA: 'A', partyB: 'B', contractType: '劳动合同',
+            emitterCtx: { runId: 'run1', sessionId: 'sess1' },
+            signal: controller.signal,
+        })
+        expect(analyzeSingleClauseMock).toHaveBeenCalledTimes(2)
+        expect(analyzeSingleClauseMock.mock.calls[0]![0]).toMatchObject({ signal: controller.signal })
+        expect(analyzeSingleClauseMock.mock.calls[1]![0]).toMatchObject({ signal: controller.signal })
+    })
+
+    it('不传 signal 时下游 ctx.signal 为 undefined', async () => {
+        analyzeSingleClauseMock.mockResolvedValue([])
+        await runAnalyzeLoop({
+            segments: [{ index: 1, number: '1', text: 'x' }],
+            stance: 'neutral',
+            partyA: null, partyB: null, contractType: '其他',
+            emitterCtx: { runId: '', sessionId: 'sess3' },
+        })
+        expect(analyzeSingleClauseMock.mock.calls[0]![0].signal).toBeUndefined()
+    })
+})
+
+describe('runAnalyzeLoop · onTokenUsage 透传 (V1)', () => {
+    beforeEach(() => {
+        analyzeSingleClauseMock.mockReset()
+    })
+
+    it('onTokenUsage 透传给每次 analyzeSingleClause 调用', async () => {
+        analyzeSingleClauseMock.mockResolvedValue([])
+        const onTokenUsage = vi.fn()
+        await runAnalyzeLoop({
+            segments: [
+                { index: 1, number: '1', text: 'x' },
+                { index: 2, number: '2', text: 'y' },
+            ],
+            stance: 'partyB',
+            partyA: 'A', partyB: 'B', contractType: '劳动合同',
+            emitterCtx: { runId: 'run1', sessionId: 'sess1' },
+            onTokenUsage,
+        })
+        expect(analyzeSingleClauseMock).toHaveBeenCalledTimes(2)
+        expect(analyzeSingleClauseMock.mock.calls[0]![0]).toMatchObject({ onTokenUsage })
+        expect(analyzeSingleClauseMock.mock.calls[1]![0]).toMatchObject({ onTokenUsage })
+    })
+})

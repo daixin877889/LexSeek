@@ -8,7 +8,7 @@
  */
 
 import { z } from 'zod'
-import { getUserCasesService } from '~~/server/services/case/case.service'
+import { getUserCasesService, getCaseStatusSummaryService } from '~~/server/services/case/case.service'
 import { parseErrorMessage } from '#shared/utils/apiResponse'
 
 // 查询参数验证
@@ -17,8 +17,8 @@ const querySchema = z.object({
     page: z.coerce.number().int().positive().optional().default(1),
     /** 每页数量 */
     pageSize: z.coerce.number().int().positive().max(100).optional().default(10),
-    /** 案件状态：1-进行中，2-已完成，3-已关闭 */
-    status: z.coerce.number().int().min(1).max(3).optional(),
+    /** 案件状态（CaseStatus 枚举值：1 咨询 / 2 准备 / 3 一审 / 4 二审 / 99 结案 / 999 归档） */
+    status: z.coerce.number().int().positive().optional(),
     /** 案件类型 ID */
     caseTypeId: z.coerce.number().int().positive().optional(),
     /** 搜索关键词（标题） */
@@ -47,16 +47,19 @@ export default defineEventHandler(async (event) => {
     const { page, pageSize, status, caseTypeId, keyword, orderBy, orderDir } = result.data
 
     try {
-        // 获取用户案件列表
-        const { list, total } = await getUserCasesService(user.id, {
-            page,
-            pageSize,
-            status,
-            caseTypeId,
-            keyword,
-            orderBy,
-            orderDir,
-        })
+        // 获取用户案件列表 + 状态概览（概览跨全部案件，不受筛选 / 分页影响）
+        const [{ list, total }, statusSummary] = await Promise.all([
+            getUserCasesService(user.id, {
+                page,
+                pageSize,
+                status,
+                caseTypeId,
+                keyword,
+                orderBy,
+                orderDir,
+            }),
+            getCaseStatusSummaryService(user.id),
+        ])
 
         // 格式化返回数据
         const items = list.map(c => ({
@@ -93,6 +96,7 @@ export default defineEventHandler(async (event) => {
             page,
             pageSize,
             totalPages: Math.ceil(total / pageSize),
+            statusSummary,
         })
     } catch (error: any) {
         logger.error('获取用户案件列表失败', {

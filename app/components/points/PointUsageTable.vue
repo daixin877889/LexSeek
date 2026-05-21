@@ -26,56 +26,51 @@
                     <td colspan="5" class="px-4 py-8 text-center text-muted-foreground">暂无积分使用记录</td>
                 </tr>
                 <!-- 数据列表 - 可展开行 -->
-                <TooltipProvider v-else>
-                    <template v-for="usage in list" :key="usage.id">
-                        <!-- 主行 -->
-                        <Tooltip>
-                            <TooltipTrigger as-child>
-                                <tr class="border-b hover:bg-primary/5 cursor-pointer transition-colors group"
-                                    @click="toggleRow(usage.id)">
-                                    <!-- 展开图标 -->
-                                    <td class="px-2 py-3 text-center">
-                                        <div
-                                            class="w-6 h-6 rounded flex items-center justify-center bg-muted/50 group-hover:bg-primary/10 transition-colors">
-                                            <ChevronDownIcon v-if="expandedRows.has(usage.id)"
-                                                class="w-4 h-4 text-primary transition-transform" />
-                                            <ChevronRightIcon v-else
-                                                class="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                                        </div>
-                                    </td>
-                                    <td class="px-4 py-3 text-sm font-medium">{{ usage.itemDescription }}</td>
-                                    <td class="px-4 py-3 text-sm text-red-600">-{{ usage.pointAmount }}</td>
-                                    <td class="px-4 py-3 text-sm">
-                                        <span v-if="usage.status === 0"
-                                            class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">异常</span>
-                                        <span v-else-if="usage.status === 1"
-                                            class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">预扣</span>
-                                        <span v-else-if="usage.status === 2"
-                                            class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">已结算</span>
-                                    </td>
-                                    <td class="px-4 py-3 text-sm">{{ dayjs(usage.createdAt).format("YYYY/MM/DD HH:mm")
-                                    }}
-                                    </td>
-                                </tr>
-                            </TooltipTrigger>
-                            <!-- Tooltip 显示备注内容 -->
-                            <TooltipContent side="top" class="max-w-xs">
-                                <div class="text-xs">
-                                    <p><span class="text-muted-foreground">备注：</span>{{ usage.remark || "无" }}</p>
-                                </div>
-                            </TooltipContent>
-                        </Tooltip>
-                        <!-- 展开详情行 -->
-                        <tr v-if="expandedRows.has(usage.id)" class="bg-primary/5 border-b">
-                            <td colspan="5" class="px-4 py-4">
-                                <div class="text-sm pl-8">
-                                    <p class="text-muted-foreground mb-1">备注</p>
-                                    <p>{{ usage.remark || "-" }}</p>
-                                </div>
-                            </td>
-                        </tr>
-                    </template>
-                </TooltipProvider>
+                <template v-for="usage in list" :key="usage.key">
+                    <!-- 主行 -->
+                    <tr class="border-b hover:bg-primary/5 cursor-pointer transition-colors group"
+                        @click="toggleRow(usage.key)">
+                        <!-- 展开图标 -->
+                        <td class="px-2 py-3 text-center">
+                            <div
+                                class="w-6 h-6 rounded flex items-center justify-center bg-muted/50 group-hover:bg-primary/10 transition-colors">
+                                <ChevronDownIcon v-if="expandedRows.has(usage.key)"
+                                    class="w-4 h-4 text-primary transition-transform" />
+                                <ChevronRightIcon v-else
+                                    class="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 text-sm font-medium">
+                            <span>{{ usage.sceneName }}</span>
+                            <span v-if="usage.contextLabel" class="text-muted-foreground">
+                                · {{ usage.contextLabel }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-red-600">-{{ usage.totalPoints }}</td>
+                        <td class="px-4 py-3 text-sm">
+                            <span v-if="usage.status === 0"
+                                class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">异常</span>
+                            <span v-else-if="usage.status === 1"
+                                class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">处理中</span>
+                            <span v-else-if="usage.status === 2"
+                                class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">已完成</span>
+                        </td>
+                        <td class="px-4 py-3 text-sm">{{ dayjs(usage.time).format("YYYY/MM/DD HH:mm") }}</td>
+                    </tr>
+                    <!-- 展开详情行 -->
+                    <tr v-if="expandedRows.has(usage.key)" class="bg-primary/5 border-b">
+                        <td colspan="5" class="px-4 py-4">
+                            <div class="text-sm pl-8 space-y-1">
+                                <p v-if="usage.usageText">
+                                    <span class="text-muted-foreground">计费用量：</span>{{ usage.usageText }}
+                                </p>
+                                <p>
+                                    <span class="text-muted-foreground">消耗积分：</span>{{ usage.totalPoints }}
+                                </p>
+                            </div>
+                        </td>
+                    </tr>
+                </template>
             </tbody>
         </table>
     </div>
@@ -83,18 +78,26 @@
 
 <script lang="ts" setup>
 import dayjs from "dayjs";
-import { ChevronRightIcon, ChevronDownIcon, InfoIcon } from "lucide-vue-next";
+import { ChevronRightIcon, ChevronDownIcon } from "lucide-vue-next";
 
 // ==================== 类型定义 ====================
 
-/** 积分使用记录 */
+/** 积分使用记录（聚合后） */
 interface PointUsageRecord {
-    id: number;
-    itemDescription: string;
-    pointAmount: number;
+    /** 稳定行键 */
+    key: string;
+    /** 友好场景名 */
+    sceneName: string;
+    /** 业务上下文标签 */
+    contextLabel: string | null;
+    /** 合计积分 */
+    totalPoints: number;
+    /** 按次量模式的用量描述；token 模式为 null */
+    usageText: string | null;
+    /** 状态：0-异常，1-处理中，2-已完成 */
     status: number;
-    createdAt: string;
-    remark?: string;
+    /** 时间 */
+    time: string;
 }
 
 // ==================== Props ====================
@@ -110,17 +113,17 @@ defineProps<Props>();
 
 // ==================== 展开状态管理 ====================
 
-/** 已展开的行 ID 集合 */
-const expandedRows = ref<Set<number>>(new Set());
+/** 已展开的行 key 集合（聚合后无 id，用接口返回的稳定 key） */
+const expandedRows = ref<Set<string>>(new Set());
 
 /**
  * 切换行的展开/收起状态
  */
-const toggleRow = (id: number) => {
-    if (expandedRows.value.has(id)) {
-        expandedRows.value.delete(id);
+const toggleRow = (key: string) => {
+    if (expandedRows.value.has(key)) {
+        expandedRows.value.delete(key);
     } else {
-        expandedRows.value.add(id);
+        expandedRows.value.add(key);
     }
     // 触发响应式更新
     expandedRows.value = new Set(expandedRows.value);

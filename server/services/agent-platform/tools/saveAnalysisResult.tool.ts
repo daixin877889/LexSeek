@@ -34,6 +34,7 @@ import { completeAnalysisWithRAG } from '~~/server/services/case/initAnalysis.se
 import { publishCustomEvent } from '~~/server/services/agent/agentEventBridge'
 import { SSECustomEventType } from '#shared/types/agentEvent'
 import type { AnalysisSummaryPayload } from '#shared/types/agentEvent'
+import { stripContentBeforeFirstH1 } from '#shared/utils/markdown'
 
 /**
  * 参数 schema：空对象。
@@ -149,6 +150,8 @@ export function createTool(context: ModuleToolContext) {
                 if (!lastAi) {
                     throw new Error('未找到带文本内容的 AI 消息，请先以纯文本形式输出完整的分析报告，再调用此工具')
                 }
+                // 清洗 LLM 偶发的前言说明文字，落库前必须去掉一级标题之前的内容
+                const analysisResult = stripContentBeforeFirstH1(lastAi.text)
 
                 // ── 3. 读取 token 消耗（与改造前同口径）──
                 let tokenCount: number | null = null
@@ -202,7 +205,7 @@ export function createTool(context: ModuleToolContext) {
                     // completeAnalysisWithRAG 第 7 步会再 update 一次（叠加 summary），
                     // 同字段重写无副作用。
                     await updateAndActivateAnalysisService(analysisId, {
-                        analysisResult: lastAi.text,
+                        analysisResult,
                         tokens,
                         tokenCount,
                     })
@@ -212,7 +215,7 @@ export function createTool(context: ModuleToolContext) {
                         sessionId: context.sessionId,
                         nodeId: context.nodeId,
                         analysisType: context.moduleName,
-                        analysisResult: lastAi.text,
+                        analysisResult,
                         tokenCount,
                         tokens,
                     })
@@ -263,7 +266,7 @@ export function createTool(context: ModuleToolContext) {
                 try {
                     const summary = await completeAnalysisWithRAG({
                         analysisId,
-                        analysisResult: lastAi.text,
+                        analysisResult,
                         tokens,
                         tokenCount,
                     })

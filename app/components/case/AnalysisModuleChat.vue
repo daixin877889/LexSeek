@@ -17,10 +17,12 @@ import { RefreshCw as RefreshCwIcon } from 'lucide-vue-next'
 import { QUEUE_MAX_SIZE } from '~/composables/chatQueueActions'
 import AiChat from '~/components/ai/AiChat.vue'
 import AiChatQueueChips from '~/components/ai/AiChatQueueChips.vue'
+import QueuePausedBanner from '~/components/ai/QueuePausedBanner.vue'
 import InterruptDispatcher from '~/components/InterruptDispatcher.vue'
 import CaseChatWindowShell from '~/components/case/ChatWindowShell.vue'
 import CaseSessionListPopover from '~/components/case/SessionListPopover.vue'
 import { useInterruptToast } from '~/composables/useInterruptToast'
+import { usePanelMessageStreamContext } from '~/composables/agent-platform/usePanelMessageStreamContext'
 
 const props = defineProps<{
     caseId: number
@@ -151,6 +153,20 @@ function handleResumeInterrupt(data: unknown) {
     props.chatInstance.resumeInterrupt(data)
 }
 
+const { resolveInterrupt } = usePanelMessageStreamContext({
+    interruptData,
+    resumeInterrupt: (value) => props.chatInstance.resumeInterrupt(value),
+    sessionRef: () => props.chatInstance.currentSessionId.value,
+})
+
+async function handleCancel() {
+    try {
+        await resolveInterrupt(null)
+    } catch (err) {
+        console.error('[analysis-module] interrupt cancel failed', err)
+    }
+}
+
 // 中断出现时 toast 提示，工具卡片从"运行中"切到"已暂停"（:is-interrupted 透传）
 useInterruptToast(interruptData)
 </script>
@@ -178,6 +194,13 @@ useInterruptToast(interruptData)
       />
     </template>
 
+    <!-- 队列残留提示条：停止/放弃中断后队列有未发送消息时显示 -->
+    <QueuePausedBanner
+      v-if="queueLen > 0 && isQueuePaused"
+      :queue-length="queueLen"
+      @resume="() => props.chatInstance.resumeQueue()"
+      @clear="() => props.chatInstance.clearQueue()"
+    />
     <!-- 对话内容 -->
     <!-- :extra-tool-calls 把 saveAnalysisResult 工具发出的"生成结果摘要"合成卡片
          注入到对应 AIMessage 的 toolCalls 末尾（紧跟 save_analysis_result 卡片渲染） -->
@@ -235,7 +258,7 @@ useInterruptToast(interruptData)
         <InterruptDispatcher
           :interrupt="interruptData as any"
           @submit="handleResumeInterrupt"
-          @cancel="() => {}"
+          @cancel="handleCancel"
         />
       </div>
     </DialogContent>

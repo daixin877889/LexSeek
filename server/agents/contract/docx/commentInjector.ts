@@ -20,8 +20,9 @@ import {
     readTextFromZip,
     writeTextToZip,
     zipToBuffer,
+    findMaxSharedIdInDocx,
 } from './zipRewriter'
-import { generateWordCommentRef, buildAuthorField } from '../utils/wordCommentRef'
+import { generateWordCommentRef } from '../utils/wordCommentRef'
 import { normalizeForMatch } from '../utils/textSimilarity'
 import {
     parseOoxml,
@@ -40,10 +41,12 @@ import {
     paragraphText,
     hasRunChild,
     collectNonEmptyParagraphs,
+    stripIllegalXmlChars,
     type Node,
     type NodeArray,
 } from './xmlAst'
-import type { RedlineWrapTarget } from './redlineInjector'
+import { REDLINE_REFS_PATH, type RedlineWrapTarget } from './redlineInjector'
+import { removeCustomXmlPart } from './customXmlRegistrar'
 
 const LEVEL_LABEL: Record<RiskLevel, string> = {
     high: '高风险',
@@ -337,6 +340,15 @@ export interface InjectAnnotationsOptions {
      * - 未命中：维持现状按 anchorParagraphIndex 在段落首/尾插 commentRange
      */
     wrapTargetByRiskId?: Map<number, RedlineWrapTarget>
+    /** AI 批注的作者署名（spec §4.3）；不传时回退 'AI' */
+    signature?: string
+    /**
+     * M15：comment-only 模式导出时，清理 base（可能是客户回传件）残留的陈旧
+     * redlineRefs.xml + 其 [Content_Types].xml / rels 登记。
+     * both / redline 模式下 injectRedlineMarks 已写好本轮新鲜 redlineRefs，
+     * 这些模式**不传**此项（默认 false），避免误删本轮修订身份证。
+     */
+    purgeRedlineRefs?: boolean
 }
 
 /**
@@ -362,9 +374,8 @@ export async function injectAnnotations(
     reviewId: number,
     opts?: InjectAnnotationsOptions,
 ): Promise<InjectAnnotationsResult> {
-    const idStart = opts?.idStart ?? 0
     const wrapTargetByRiskId = opts?.wrapTargetByRiskId ?? new Map<number, RedlineWrapTarget>()
-    const nextIdAfter = idStart + annotations.length
+    const signature = opts?.signature?.trim() || 'AI'
     const refsByAnnotationId = new Map<number, string>()
 
     if (annotations.length === 0) {
@@ -374,9 +385,11 @@ export async function injectAnnotations(
         zip.remove('word/customXml/annotationRefs.xml')
         // DOCX-H6：clean 残留的 customXml part rels 文件（极少存在但理论可能有）
         zip.remove('word/customXml/_rels/annotationRefs.xml.rels')
+        // M15：comment-only 导出清理 base 残留的陈旧 redlineRefs.xml
+        if (opts?.purgeRedlineRefs) await removeCustomXmlPart(zip, { partPath: REDLINE_REFS_PATH })
         await ensureContentTypesRegistered(zip, { comments: false, customXml: false })
         await ensureDocumentRelsRegistered(zip, { comments: false, customXml: false })
-        return { buffer: await zipToBuffer(zip), refsByAnnotationId, nextIdAfter }
+        return { buffer: await zipToBuffer(zip), refsByAnnotationId, nextIdAfter: opts?.idStart ?? 0 }
     }
 
     for (const a of annotations) {
@@ -384,7 +397,17 @@ export async function injectAnnotations(
     }
 
     const zip = await loadDocxZip(docxBuffer)
+    // M15：comment-only 导出清理 base（可能是客户回传件）残留的陈旧 redlineRefs.xml
+    if (opts?.purgeRedlineRefs) await removeCustomXmlPart(zip, { partPath: REDLINE_REFS_PATH })
     const documentAst = parseOoxml(await readTextFromZip(zip, 'word/document.xml'))
+    // S2 + M16：idStart 未显式传入（comment 默认模式）时，扫全文 w:id 共享池取 max+1，
+    // 避免注入的 commentRange w:id 从 0 起撞原文档既有 bookmarkStart 等元素 → Word 报损坏。
+    const idStart = opts?.idStart ?? (await findMaxSharedIdInDocx(zip)) + 1
+    const nextIdAfter = idStart + annotations.length
+    // M14：原文档可能带客户原生批注。先记基线——原生 <w:comment> 节点 + document.xml
+    // 里原生 commentRange/Reference 计数；注入后保留原生批注、整体计数核对都带上基线。
+    const nativeComments = await readNativeComments(zip)
+    const nativeMarkers = countCommentMarkers(documentAst)
     const nonEmpty = collectNonEmptyParagraphs(documentAst)
     const nonEmptyCount = nonEmpty.length
     // 段落归一化结果一次算清，下面"精确优先"和 fuzzy 都复用，省 N×M 次 normalize。
@@ -406,7 +429,11 @@ export async function injectAnnotations(
     const validAnnotations: ContractAnnotationForExport[] = []
     for (const a of annotations) {
         const paraIdx = a.anchorParagraphIndex
-        const paraValid = paraIdx >= 0 && paraIdx < nonEmptyCount
+        // M9：anchorParagraphIndex 上游可能因越界 clauseIndex 导致 clauseParagraphIndex 落
+        // null，再被 `a.risk.clauseParagraphIndex!` 断言成 number 实则 null 传进来。Number.isInteger
+        // 兜底——null / undefined / NaN / 非整数一律视为无效段落锚点，退回 quote fuzzy 定位，
+        // 避免 normalizedParas[null] 得 undefined → .includes() 抛 TypeError 把整份审查置 failed。
+        const paraValid = Number.isInteger(paraIdx) && paraIdx >= 0 && paraIdx < nonEmptyCount
 
         let resolved = -1
         if (paraValid) {
@@ -447,7 +474,9 @@ export async function injectAnnotations(
     }
 
     if (validAnnotations.length === 0) {
-        return { buffer: Buffer.from(docxBuffer), refsByAnnotationId, nextIdAfter }
+        // M15：purgeRedlineRefs 已就地修改 zip，必须回写 zip 而非返回未改的 docxBuffer
+        const buffer = opts?.purgeRedlineRefs ? await zipToBuffer(zip) : Buffer.from(docxBuffer)
+        return { buffer, refsByAnnotationId, nextIdAfter }
     }
 
     // 按段落分组注入 range markers
@@ -481,9 +510,9 @@ export async function injectAnnotations(
     }
     writeTextToZip(zip, 'word/document.xml', stringifyOoxml(documentAst))
 
-    // comments.xml：全 annotations（含越界的）以保持 w:id 连续
+    // comments.xml：全 annotations（含越界的）以保持 w:id 连续；M14：保留原文档原生批注
     writeTextToZip(zip, 'word/comments.xml',
-        buildCommentsXmlFromAnnotations(annotations, refsByAnnotationId, wordIdByAnnotationId, reviewId),
+        buildCommentsXmlFromAnnotations(annotations, wordIdByAnnotationId, signature, nativeComments),
     )
     // 移除原文件残留的 comments.xml.rels（我们生成的 comments 无外部关系；
     // 原 rels 的悬空引用会让 Word 报"文件损坏"）
@@ -498,7 +527,7 @@ export async function injectAnnotations(
     await ensureDocumentRelsRegistered(zip, { comments: true, customXml: true })
 
     // 产物一致性自检（同段落多 comment 孤儿、AST round-trip 意外丢节点都会被抓到）
-    await assertCommentIntegrity(zip, validAnnotations.length, annotations.length)
+    await assertCommentIntegrity(zip, validAnnotations.length, annotations.length, nativeComments.length, nativeMarkers)
 
     return { buffer: await zipToBuffer(zip), refsByAnnotationId, nextIdAfter }
 }
@@ -511,6 +540,8 @@ async function assertCommentIntegrity(
     zip: Awaited<ReturnType<typeof loadDocxZip>>,
     validCount: number,
     totalCount: number,
+    nativeCommentCount: number,
+    nativeMarkers: { rangeStart: number; rangeEnd: number; reference: number },
 ): Promise<void> {
     const docAst = parseOoxml(await readTextFromZip(zip, 'word/document.xml'))
     const commentsAst = parseOoxml(await readTextFromZip(zip, 'word/comments.xml'))
@@ -520,20 +551,50 @@ async function assertCommentIntegrity(
     const rangeEndCount = findAll(docAst, 'w:commentRangeEnd').length
     const referenceCount = findAll(docAst, 'w:commentReference').length
 
+    // M14：保留了原文档原生批注，预期计数 = 我方注入 + 原生基线
+    const expectedComment = totalCount + nativeCommentCount
+    const expectedRangeStart = validCount + nativeMarkers.rangeStart
+    const expectedRangeEnd = validCount + nativeMarkers.rangeEnd
+    const expectedReference = validCount + nativeMarkers.reference
+
     const fail = (reason: string) => {
         throw new Error(
             `[commentInjector] 产物一致性检查失败：${reason}。`
             + ` comments.xml w:comment=${commentCount}，`
             + ` document.xml rangeStart=${rangeStartCount} / rangeEnd=${rangeEndCount} / reference=${referenceCount}，`
-            + ` 期望 ${totalCount} / ${validCount} / ${validCount} / ${validCount}。`
+            + ` 期望 ${expectedComment} / ${expectedRangeStart} / ${expectedRangeEnd} / ${expectedReference}（已含原生批注基线）。`
             + ' 这会让 Word 报"文件损坏"，拒绝产出。',
         )
     }
 
-    if (commentCount !== totalCount) fail('comments.xml 的 w:comment 数与 annotations 不符')
-    if (rangeStartCount !== validCount) fail('document.xml 的 commentRangeStart 数与 validAnnotations 不符')
-    if (rangeEndCount !== validCount) fail('document.xml 的 commentRangeEnd 数与 validAnnotations 不符')
-    if (referenceCount !== validCount) fail('document.xml 的 commentReference 数与 validAnnotations 不符')
+    if (commentCount !== expectedComment) fail('comments.xml 的 w:comment 数与 annotations + 原生批注不符')
+    if (rangeStartCount !== expectedRangeStart) fail('document.xml 的 commentRangeStart 数与 validAnnotations + 原生不符')
+    if (rangeEndCount !== expectedRangeEnd) fail('document.xml 的 commentRangeEnd 数与 validAnnotations + 原生不符')
+    if (referenceCount !== expectedReference) fail('document.xml 的 commentReference 数与 validAnnotations + 原生不符')
+}
+
+/**
+ * M14：读原文档 comments.xml 里既有的 <w:comment>（客户原生批注）。
+ * comment 模式整体覆盖 comments.xml 时，原生批注须保留并合并进新文件，否则丢失客户内容、
+ * 且 document.xml 里残留的原生 commentRange 会让 assertCommentIntegrity 计数对不上而抛错。
+ */
+async function readNativeComments(zip: Awaited<ReturnType<typeof loadDocxZip>>): Promise<NodeArray> {
+    const file = zip.file('word/comments.xml')
+    if (!file) return []
+    try {
+        return findAll(parseOoxml(await file.async('string')), 'w:comment')
+    } catch {
+        return []
+    }
+}
+
+/** M14：数 document.xml AST 里的原生 commentRange/Reference 标记基线。 */
+function countCommentMarkers(docAst: NodeArray): { rangeStart: number; rangeEnd: number; reference: number } {
+    return {
+        rangeStart: findAll(docAst, 'w:commentRangeStart').length,
+        rangeEnd: findAll(docAst, 'w:commentRangeEnd').length,
+        reference: findAll(docAst, 'w:commentReference').length,
+    }
 }
 
 /**
@@ -586,23 +647,25 @@ function buildAnnotationRefsXml(
 }
 
 /**
- * 构造 Phase C+ comments.xml。身份证三重防线：
- *   1. customXml（另文件，不在这里）
- *   2. w:author 尾 [#id-rand8]
- *   3. w:initials 写短头像缩写，不承载身份证
+ * 构造 Phase C+ comments.xml。spec §4.3：作者名一律去 LS: 前缀；
+ * AI 内容用署名，律师/客户用各自姓名。
+ *
+ * 身份证已移到 customXml/annotationRefs.xml，comments.xml 本身不承载 reviewId。
  */
 function buildCommentsXmlFromAnnotations(
     annotations: ContractAnnotationForExport[],
-    refs: Map<number, string>,
     wordIds: Map<number, number>,
-    reviewId: number,
+    signature: string,
+    nativeComments: NodeArray = [],
 ): string {
     const fallbackNow = new Date().toISOString()
     const children = annotations.map(a => {
         const wId = wordIds.get(a.id)!
-        const ref = refs.get(a.id)!
-        const author = buildAuthorField(a.authorName, reviewId, ref)
-        const initials = initialsFor(a.authorType)
+        // spec §4.3：作者名一律去 LS: 前缀；AI 内容用署名，律师/客户用各自姓名
+        // S3：作者名 / 缩写统一过 stripIllegalXmlChars——authorName / signature 可能
+        // 来自剪贴板粘贴，混入 U+0008 等非法 XML 1.0 字符会让 Word 拒绝打开。
+        const author = stripIllegalXmlChars(a.authorType === 'ai' ? signature : a.authorName)
+        const initials = stripIllegalXmlChars(initialsFor(a.authorType, signature))
         // M7：优先用 annotation.createdAt，回落到当前时间兜底
         const dateIso = a.createdAt ? a.createdAt.toISOString() : fallbackNow
 
@@ -615,26 +678,24 @@ function buildCommentsXmlFromAnnotations(
         if (a.parentAnnotationId !== null && wordIds.has(a.parentAnnotationId)) {
             attrs['w:parentId'] = String(wordIds.get(a.parentAnnotationId))
         }
-        const body: NodeArray = [
-            makeElement('w:p', {}, [
-                makeElement('w:r', {}, [
-                    makeElement('w:t', { 'xml:space': 'preserve' }, [makeText(a.content)]),
-                ]),
-            ]),
-        ]
+        // L12：a.content 是多段批注文本（renderRiskAsAnnotationText 用 \n 连接【法律依据】
+        // 【条款分析】等段）。塞进单个 <w:t> 时 Word 不渲染 \n 换行、气泡挤成一行；
+        // 按行拆成多个 <w:p> 才能正确换行。
+        const body: NodeArray = buildCommentParagraphs(stripIllegalXmlChars(a.content))
         return makeElement('w:comment', attrs, body)
     })
     const ast: NodeArray = [
         makeXmlDecl(),
-        makeElement('w:comments', { 'xmlns:w': W_NS }, children),
+        // M14：原生批注在前、我方批注在后，合并进同一个 <w:comments>
+        makeElement('w:comments', { 'xmlns:w': W_NS }, [...nativeComments, ...children]),
     ]
     return stringifyOoxml(ast)
 }
 
-/** 批注头像缩写：Word UI 在批注圆形头像里显示此两字符 */
-function initialsFor(authorType: AnnotationAuthorType): string {
+/** 批注头像缩写：AI 用署名前 2 字，律师/客户用角色字 */
+function initialsFor(authorType: AnnotationAuthorType, signature: string): string {
     switch (authorType) {
-        case 'ai': return 'AI'
+        case 'ai': return signature.slice(0, 2) || 'AI'
         case 'lawyer': return '律'
         case 'external': return '客'
         default: return 'LS'

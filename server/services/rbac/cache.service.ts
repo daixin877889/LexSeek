@@ -5,6 +5,12 @@
  * 默认缓存过期时间为 5 分钟
  */
 
+import {
+    CACHE_NAMES,
+    publishInvalidation,
+    registerInvalidationHandler,
+} from '~~/server/utils/cacheInvalidationBus'
+
 // ==================== 类型定义 ====================
 
 /** 缓存项 */
@@ -85,27 +91,42 @@ export const setUserPermissionCache = (
     })
 }
 
+/** 本地清除用户权限缓存（不广播）。keys 为 userId 字符串数组；空 → 全清。 */
+function clearUserPermissionLocal(keys?: string[]): void {
+    if (!keys || keys.length === 0) {
+        userPermissionCache.clear()
+    } else {
+        for (const k of keys) userPermissionCache.delete(Number(k))
+    }
+}
+
+// 注册到缓存失效总线：收到广播时只清本地
+registerInvalidationHandler(CACHE_NAMES.RBAC_USER_PERMISSION, clearUserPermissionLocal)
+
 /**
- * 清除指定用户的权限缓存
+ * 清除指定用户的权限缓存。本地清 + 经总线广播给其它实例。
  */
 export const clearUserPermissionCache = (userId: number): void => {
-    userPermissionCache.delete(userId)
+    clearUserPermissionLocal([String(userId)])
+    publishInvalidation(CACHE_NAMES.RBAC_USER_PERMISSION, [String(userId)])
 }
 
 /**
- * 清除所有用户权限缓存
+ * 清除所有用户权限缓存。本地清 + 经总线广播给其它实例。
  */
 export const clearAllUserPermissionCache = (): void => {
-    userPermissionCache.clear()
+    clearUserPermissionLocal()
+    publishInvalidation(CACHE_NAMES.RBAC_USER_PERMISSION)
 }
 
 /**
- * 批量清除用户权限缓存
+ * 批量清除用户权限缓存。本地清 + 经总线广播给其它实例。
  */
 export const clearUserPermissionCacheBatch = (userIds: number[]): void => {
-    for (const userId of userIds) {
-        userPermissionCache.delete(userId)
-    }
+    if (userIds.length === 0) return
+    const keys = userIds.map(String)
+    clearUserPermissionLocal(keys)
+    publishInvalidation(CACHE_NAMES.RBAC_USER_PERMISSION, keys)
 }
 
 // ==================== 公共 API 权限缓存 ====================
@@ -140,11 +161,20 @@ export const setPublicApiPermissionCache = (
     }
 }
 
+/** 本地清除公共 API 权限缓存（不广播）。 */
+function clearPublicApiPermissionLocal(): void {
+    publicApiPermissionCache = null
+}
+
+// 注册到缓存失效总线：收到广播时只清本地
+registerInvalidationHandler(CACHE_NAMES.RBAC_PUBLIC_API, clearPublicApiPermissionLocal)
+
 /**
- * 清除公共 API 权限缓存
+ * 清除公共 API 权限缓存。本地清 + 经总线广播给其它实例。
  */
 export const clearPublicApiPermissionCache = (): void => {
-    publicApiPermissionCache = null
+    clearPublicApiPermissionLocal()
+    publishInvalidation(CACHE_NAMES.RBAC_PUBLIC_API)
 }
 
 // ==================== 缓存统计 ====================

@@ -23,6 +23,7 @@ import { completeAnalysisWithRAG } from '~~/server/services/case/initAnalysis.se
 import { getNodeByNameService } from '~~/server/services/node/node.service'
 import { publishCustomEvent } from '~~/server/services/agent/agentEventBridge'
 import { SSECustomEventType } from '#shared/types/agentEvent'
+import { stripContentBeforeFirstH1 } from '#shared/utils/markdown'
 
 /** 中间件参数 */
 interface AnalysisResultPersistenceOptions {
@@ -170,6 +171,8 @@ export const analysisResultPersistenceMiddleware = (
                         logger.warn('分析持久化：未找到 AIMessage 内容，跳过落库', { analysisRecordId, agentName })
                         return
                     }
+                    // 清洗 LLM 偶发的前言说明文字，落库前必须去掉一级标题之前的内容
+                    const cleanedResultText = stripContentBeforeFirstH1(resultText)
 
                     // 提取 token 用量。两条路双保险：
                     //   1) 优先遍历 state.messages 累加 AIMessage.usage_metadata.total_tokens
@@ -200,7 +203,7 @@ export const analysisResultPersistenceMiddleware = (
 
                     await completeAnalysisWithRAG({
                         analysisId: analysisRecordId,
-                        analysisResult: resultText,
+                        analysisResult: cleanedResultText,
                         tokens,
                         tokenCount,
                     })
@@ -208,7 +211,7 @@ export const analysisResultPersistenceMiddleware = (
                     logger.info('分析持久化：完成分析记录', {
                         analysisId: analysisRecordId,
                         agentName,
-                        resultLength: resultText.length,
+                        resultLength: cleanedResultText.length,
                         tokens,
                         tokenCount,
                     })

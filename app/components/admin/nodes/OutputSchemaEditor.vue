@@ -7,6 +7,7 @@
                     v-if="activeTab === 'json'"
                     variant="ghost"
                     size="sm"
+                    :class="adminBrandFocusClass"
                     @click="formatJson"
                 >
                     <WrapText class="h-4 w-4 mr-1" />
@@ -15,6 +16,7 @@
                 <Button
                     variant="ghost"
                     size="sm"
+                    :class="adminBrandFocusClass"
                     @click="clearSchema"
                 >
                     <Trash2 class="h-4 w-4 mr-1" />
@@ -45,7 +47,7 @@
                     </div>
 
                     <!-- 添加字段按钮 -->
-                    <Button variant="outline" size="sm" class="w-full" @click="addField(fields)">
+                    <Button variant="outline" size="sm" :class="['w-full', adminBrandFocusClass]" @click="addField(fields)">
                         <Plus class="h-4 w-4 mr-1" />
                         添加字段
                     </Button>
@@ -83,6 +85,7 @@
 import { Plus, WrapText, Trash2 } from 'lucide-vue-next'
 import AdminNodesSchemaFieldList from '~/components/admin/nodes/SchemaFieldList.vue'
 import { useColorMode } from '~/composables/useColorMode'
+import { adminBrandFocusClass } from '~/utils/adminNodeBrandStyles'
 
 // 延迟导入避免 SSR 问题
 const JsonEditorVue = defineAsyncComponent(() =>

@@ -101,23 +101,25 @@ const handleUpload = (message: UploadMessage) => {
     // 上传完成
     xhr.addEventListener('load', () => {
         uploadTasks.delete(id)
-        // OSS 上传成功返回 200（有回调）或 204（无回调）
-        if (xhr.status === 200 || xhr.status === 204) {
-            try {
-                // 204 No Content 没有响应体
-                if (xhr.status === 204 || !xhr.responseText) {
-                    const response: SuccessResponse = { type: 'success', id, data: {} }
-                    self.postMessage(response)
-                    return
+        // OSS callback 协议：HTTP 203 = 文件已上传成功但 callback 失败。
+        // 必须透传 __callbackFailed 给主线程走 confirm-upload 兜底，
+        // 否则 ossFiles 记录会卡在 PENDING 永不释放。
+        if (xhr.status >= 200 && xhr.status < 300) {
+            let body: Record<string, unknown> = {}
+            if (xhr.status !== 204 && xhr.responseText) {
+                try {
+                    body = JSON.parse(xhr.responseText) as Record<string, unknown>
+                } catch {
+                    // 203 响应常是几 KB HTML 错误页，截断防止占满主线程内存
+                    body = { raw: xhr.responseText.slice(0, 1000) }
                 }
-                const data = JSON.parse(xhr.responseText)
-                const response: SuccessResponse = { type: 'success', id, data }
-                self.postMessage(response)
-            } catch {
-                // 响应不是 JSON，返回空对象
-                const response: SuccessResponse = { type: 'success', id, data: { raw: xhr.responseText } }
-                self.postMessage(response)
             }
+            const data: Record<string, unknown> = {
+                ...body,
+                __httpStatus: xhr.status,
+                ...(xhr.status === 203 && { __callbackFailed: true }),
+            }
+            self.postMessage({ type: 'success', id, data } satisfies SuccessResponse)
         } else {
             const response: ErrorResponse = {
                 type: 'error',

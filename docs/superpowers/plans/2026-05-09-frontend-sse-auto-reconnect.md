@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 让所有走 `useStreamChat` 的 SSE 业务（法律助手 / 合同审查 / 文档起草 / 案件分析对话 / 案件初始化分析）在网络抖动时无感自愈，重连耗尽后给出友好失败提示并支持"续跑优先"的重新分析。
+**Goal:** 让所有走 `useStreamChat` 的 SSE 业务（通用问答 / 合同审查 / 文档起草 / 案件分析对话 / 案件初始化分析）在网络抖动时无感自愈，重连耗尽后给出友好失败提示并支持"续跑优先"的重新分析。
 
 **Architecture:** 在 `useStreamChat` 底层一刀切：`onError` 接入"指数退避调度器（5 次 / 1·2·4·8·16s + ±20% jitter）"，监听 `online` / `visibilitychange` 主动唤醒；`isLoading` 由 `coverIsLoading` computed 在重连等待期间兜底维持 true；耗尽后置 `runStatus='failed'` + 友好文案。`useInitAnalysisRuntime` 新增 `restartAnalysis()`：先查后端状态决定续跑 (`stream.submit(undefined)`) 还是重起 (`startAnalysis()`)，不调 cancel API。后端基础设施（Redis Stream replay + PostgresSaver checkpoint + active run 重连）已就位，本次不动。
 

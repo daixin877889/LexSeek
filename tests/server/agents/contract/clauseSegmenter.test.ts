@@ -185,6 +185,48 @@ describe('segmentClausesByRegex', () => {
             expect(r.segments[1]?.text).toContain('详细说明 B')
         })
     })
+
+    describe('M20：「第X条」行首锚定', () => {
+        it('正文中段引用「第X条」（如「根据第3条约定」）不被误判为新条款起点', () => {
+            const text = [
+                '第一条 总则',
+                '本合同自双方签字之日起生效。',
+                '第二条 付款',
+                '甲方应当根据第3条约定的方式支付款项。', // 正文引用，非条款起点
+                '第三条 交付',
+                '乙方应当按时交付货物。',
+            ].join('\n')
+            const r = segmentClausesByRegex(text)
+            // 只应切出 3 个条款（第一/二/三条），中段引用行不算
+            expect(r.segments).toHaveLength(3)
+            expect(r.segments.map(s => s.number)).toEqual(['第一条', '第二条', '第三条'])
+            // 引用行归入第二条正文
+            expect(r.segments[1]?.text).toContain('根据第3条约定')
+        })
+
+        it('行首允许前导空白的「第X条」仍识别为条款起点', () => {
+            const text = '  第一条 总则\n正文 A\n   第二条 付款\n正文 B'
+            const r = segmentClausesByRegex(text)
+            expect(r.segments).toHaveLength(2)
+            expect(r.segments.map(s => s.number)).toEqual(['第一条', '第二条'])
+        })
+    })
+
+    describe('L3：「第X.Y条」多级编号提取序号', () => {
+        it('「第3.1条」能提取整数序号，使后续多级子项 3.x 正确识别', () => {
+            const text = [
+                '第3.1条 交付条款',
+                '甲方应当按时交付。',
+                '3.2 验收子项内容',
+                '乙方按约验收。',
+            ].join('\n')
+            const r = segmentClausesByRegex(text)
+            // 「第3.1条」提取出序号 3 → 后续多级子项「3.2」匹配父序号成立、独立成段。
+            // 旧实现 extractDiTiaoIndex 对「第3.1条」返回 null，3.2 并入正文 → 仅 1 段。
+            expect(r.segments).toHaveLength(2)
+            expect(r.segments.map(s => s.number)).toEqual(['第3.1条', '3.2'])
+        })
+    })
 })
 
 describe('segmentClauses（async 入口）', () => {

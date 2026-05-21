@@ -5,7 +5,7 @@
  */
 
 import type { H3Event } from 'h3'
-import { getHeader, readBody } from 'h3'
+import { getHeader, readBody, readRawBody } from 'h3'
 import crypto from 'crypto'
 import type { StorageConfig } from '../../types'
 import type {
@@ -181,26 +181,17 @@ export class AliyunCallbackValidator implements CallbackHandler {
 
     /**
      * 获取原始请求体
+     *
+     * 必须返回 OSS 发送的原始字节：OSS 验签的 stringToSign 用的是回调请求体原文。
+     * 不能用 readBody 解析后再重建——URLSearchParams 会把自定义变量 key 里的冒号
+     * （如 x:user_id）编码成 %3A，与原始 body 不一致，导致 RSA 验签恒失败。
      */
     private async getRawBody(event: H3Event): Promise<string> {
-        // 尝试从已解析的 body 重建
-        const body = await readBody(event)
-        if (typeof body === 'string') {
-            return body
+        const raw = await readRawBody(event)
+        if (raw === undefined || raw === null) {
+            return ''
         }
-
-        // 如果是对象，转换为 URL 编码格式
-        if (typeof body === 'object' && body !== null) {
-            const params = new URLSearchParams()
-            for (const [key, value] of Object.entries(body)) {
-                if (value !== undefined && value !== null) {
-                    params.append(key, String(value))
-                }
-            }
-            return params.toString()
-        }
-
-        return ''
+        return typeof raw === 'string' ? raw : Buffer.from(raw).toString('utf-8')
     }
 }
 

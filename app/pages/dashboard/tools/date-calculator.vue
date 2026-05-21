@@ -1,39 +1,21 @@
 <template>
   <div class="p-4">
-    <div class="flex items-center justify-between mb-2">
-      <h1 class="text-[22px] font-bold truncate">日期推算</h1>
-      <div class="relative">
-        <Button variant="ghost" size="icon" @click="isHelpOpen = !isHelpOpen" class="rounded-full">
-          <HelpCircle class="h-5 w-5" />
-          <span class="sr-only">帮助</span>
-        </Button>
-        <div v-if="isHelpOpen" class="absolute right-0 z-50 w-80 mt-2 p-4 bg-card rounded-lg border shadow-lg">
-          <div class="flex justify-between items-center mb-3">
-            <h3 class="font-semibold text-base">日期推算指引</h3>
-            <Button variant="ghost" size="icon" @click="isHelpOpen = false" class="h-6 w-6">
-              <X class="h-5 w-5" />
-              <span class="sr-only">关闭</span>
-            </Button>
-          </div>
-
-          <div class="text-sm space-y-3 max-h-96 overflow-y-auto">
-            <div>
-              <h4 class="font-semibold mb-1">功能说明：</h4>
-              <ul class="list-disc list-inside space-y-1">
-                <li><strong>目标日期推算</strong>：从起始日期推算指定天数/月数/年数后的日期</li>
-                <li><strong>日期间隔推算</strong>：推算两个日期之间的间隔天数</li>
-                <li><strong>工作日推算</strong>：推算两个日期之间的工作日天数（不含周末）</li>
-                <li><strong>诉讼时效推算</strong>：根据不同案件类型推算诉讼时效到期日</li>
-              </ul>
-            </div>
-
-            <div class="bg-muted/30 p-2 rounded">
-              <p><strong>提示：</strong>推算结果仅供参考，实际法律效力以相关法律法规为准。</p>
-            </div>
-          </div>
+    <ToolsCalculatorPageHeader title="日期推算" help-title="日期推算指引">
+      <template #help>
+        <div>
+          <h4 class="font-semibold mb-1">功能说明：</h4>
+          <ul class="list-disc list-inside space-y-1">
+            <li><strong>目标日期推算</strong>：从起始日期推算指定天数/月数/年数后的日期</li>
+            <li><strong>日期间隔推算</strong>：推算两个日期之间的间隔天数</li>
+            <li><strong>工作日推算</strong>：推算两个日期之间的工作日天数（不含周末）</li>
+            <li><strong>诉讼时效推算</strong>：根据不同案件类型推算诉讼时效到期日</li>
+          </ul>
         </div>
-      </div>
-    </div>
+        <div class="bg-muted/30 p-2 rounded">
+          <p><strong>提示：</strong>推算结果仅供参考，实际法律效力以相关法律法规为准。</p>
+        </div>
+      </template>
+    </ToolsCalculatorPageHeader>
 
     <div class="flex flex-col lg:flex-row gap-6">
       <!-- 左侧：信息输入区 -->
@@ -60,16 +42,7 @@
               </div>
 
               <!-- 起始日期选择（所有功能都需要） -->
-              <div>
-                <label class="text-sm font-medium leading-none">起始日期</label>
-                <div class="relative mt-1.5">
-                  <div class="date-input-wrapper">
-                    <CalendarIcon
-                      class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                    <Input type="date" v-model="startDate" class="w-full pl-10" />
-                  </div>
-                </div>
-              </div>
+              <ToolsDateInput v-model="startDate" label="起始日期" />
 
               <!-- 目标日期推算 -->
               <div v-if="selectedFunction === 'targetDate'" class="space-y-4">
@@ -94,16 +67,11 @@
               </div>
 
               <!-- 日期间隔推算和工作日推算 -->
-              <div v-if="selectedFunction === 'dateInterval' || selectedFunction === 'workingDays'">
-                <label class="text-sm font-medium leading-none">结束日期</label>
-                <div class="relative mt-1.5">
-                  <div class="date-input-wrapper">
-                    <CalendarIcon
-                      class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                    <Input type="date" v-model="endDate" class="w-full pl-10" />
-                  </div>
-                </div>
-              </div>
+              <ToolsDateInput
+                v-if="selectedFunction === 'dateInterval' || selectedFunction === 'workingDays'"
+                v-model="endDate"
+                label="结束日期"
+              />
 
               <!-- 诉讼时效推算 -->
               <div v-if="selectedFunction === 'limitationPeriod'">
@@ -121,7 +89,7 @@
               </div>
 
               <div class="mt-2">
-                <Button class="w-full h-10" @click="calculate">推算</Button>
+                <Button class="w-full h-10 bg-gradient-brand-button text-white shadow-[0_10px_20px_-8px_rgba(30,158,237,0.42)]" @click="calculate">推算</Button>
               </div>
             </div>
           </CardContent>
@@ -130,11 +98,8 @@
 
       <!-- 右侧：推算结果区 -->
       <div class="w-full lg:w-7/12">
-        <Card v-if="result" class="shadow-none border">
-          <CardHeader>
-            <CardTitle>推算结果</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <ToolsResultCard v-if="result" title="推算结果" :show-export="false">
+          <template #summary>
             <Alert class="block">
               <div class="flex justify-between items-center mb-1">
                 <span>起始日期：</span>
@@ -145,28 +110,25 @@
                 <span class="font-semibold">{{ result.endDate }}</span>
               </div>
             </Alert>
-
-            <Alert variant="success" class="mt-4 border border-primary block">
+            <Alert variant="success" class="border border-primary block">
               <div class="flex justify-between items-center">
                 <span class="font-bold">{{ result.details }}</span>
               </div>
             </Alert>
-
-            <div v-if="result.resultDate" class="mt-4 p-4 bg-muted/30 rounded">
+            <div v-if="result.resultDate" class="p-4 bg-muted/30 rounded">
               <div class="flex justify-between items-center">
                 <span>结果日期：</span>
                 <span class="font-semibold">{{ result.resultDate }}</span>
               </div>
             </div>
-
-            <div v-if="result.workingDays !== undefined" class="mt-4 p-4 bg-muted/30 rounded">
+            <div v-if="result.workingDays !== undefined" class="p-4 bg-muted/30 rounded">
               <div class="flex justify-between items-center">
                 <span>工作日天数：</span>
                 <span class="font-semibold">{{ result.workingDays }} 天</span>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </template>
+        </ToolsResultCard>
 
         <div v-if="!result" class="h-full flex items-center justify-center rounded-lg border border-dashed p-8">
           <div class="text-center">
@@ -190,16 +152,17 @@
 </template>
 
 <script setup>
+import ToolsCalculatorPageHeader from '~/components/tools/CalculatorPageHeader.vue'
+import ToolsDateInput from '~/components/tools/DateInput.vue'
+import ToolsResultCard from '~/components/tools/ResultCard.vue'
 definePageMeta({
   title: "日期推算",
   layout: "dashboard-layout",
 });
 import { calculateDateAfterDays, calculateDateAfterMonths, calculateDateAfterYears, calculateWorkingDays, calculateLimitationPeriod } from "#shared/utils/tools/dateCalculatorService";
 import { formatDate } from "#shared/utils/tools/utils/date";
-import { CalendarIcon, X, HelpCircle } from "lucide-vue-next";
 
 // 基本数据
-const isHelpOpen = ref(false);
 const selectedFunction = ref("targetDate");
 const startDate = ref(formatDate(new Date()));
 const endDate = ref(formatDate(new Date(new Date().setDate(new Date().getDate() + 30))));
@@ -292,28 +255,3 @@ onMounted(() => {
   endDate.value = formatDate(new Date(new Date().setDate(new Date().getDate() + 30)));
 });
 </script>
-
-<style scoped>
-/* 自定义样式 */
-.date-input-wrapper {
-  position: relative;
-  cursor: pointer;
-}
-
-.date-input-wrapper input {
-  cursor: pointer;
-}
-
-/* 隐藏原生日期输入框的日历图标（Chrome） */
-input[type="date"]::-webkit-calendar-picker-indicator {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  cursor: pointer;
-}
-</style>

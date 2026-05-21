@@ -37,11 +37,14 @@ export interface DashboardMembership {
 export interface DashboardRecentCase {
     id: number
     title: string
-    /** 格式: YYYY-MM-DD HH:mm */
+    /** 案件创建日期，格式 YYYY-MM-DD */
     date: string
     /** 案件类型名称 */
     type: string
-    status: 'in_progress' | 'completed'
+    /** 案件状态值（CaseStatus 枚举值） */
+    status: number
+    /** 是否演示案件 */
+    isDemo: boolean
 }
 
 /** Dashboard 聚合响应 */

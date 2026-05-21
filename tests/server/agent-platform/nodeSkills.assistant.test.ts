@@ -1,5 +1,5 @@
 /**
- * 阶段 5 · 法律助手节点配置防回退测试
+ * 阶段 5 · 通用问答节点配置防回退测试
  *
  * 锁定 prisma/seeds/seedData.sql 两件事:
  *   1. assistantMain (id=15) 的 tools 数组包含核心工具(2026-05-05 重构后:

@@ -549,9 +549,9 @@ export type documentTemplatesSumOrderByAggregateInput = {
   status?: Prisma.SortOrder
 }
 
-export type DocumentTemplatesScalarRelationFilter = {
-  is?: Prisma.documentTemplatesWhereInput
-  isNot?: Prisma.documentTemplatesWhereInput
+export type DocumentTemplatesNullableScalarRelationFilter = {
+  is?: Prisma.documentTemplatesWhereInput | null
+  isNot?: Prisma.documentTemplatesWhereInput | null
 }
 
 export type DocumentTemplatesListRelationFilter = {
@@ -570,10 +570,12 @@ export type documentTemplatesCreateNestedOneWithoutDraftsInput = {
   connect?: Prisma.documentTemplatesWhereUniqueInput
 }
 
-export type documentTemplatesUpdateOneRequiredWithoutDraftsNestedInput = {
+export type documentTemplatesUpdateOneWithoutDraftsNestedInput = {
   create?: Prisma.XOR<Prisma.documentTemplatesCreateWithoutDraftsInput, Prisma.documentTemplatesUncheckedCreateWithoutDraftsInput>
   connectOrCreate?: Prisma.documentTemplatesCreateOrConnectWithoutDraftsInput
   upsert?: Prisma.documentTemplatesUpsertWithoutDraftsInput
+  disconnect?: Prisma.documentTemplatesWhereInput | boolean
+  delete?: Prisma.documentTemplatesWhereInput | boolean
   connect?: Prisma.documentTemplatesWhereUniqueInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.documentTemplatesUpdateToOneWithWhereWithoutDraftsInput, Prisma.documentTemplatesUpdateWithoutDraftsInput>, Prisma.documentTemplatesUncheckedUpdateWithoutDraftsInput>
 }

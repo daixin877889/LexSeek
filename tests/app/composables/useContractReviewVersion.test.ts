@@ -16,6 +16,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ref, nextTick } from 'vue'
+import { CONTRACT_UPLOAD_VERSION_SSE_EVENT } from '#shared/types/contract'
 
 // ── mock @vueuse/core：默认取消 debounce，让调用立即生效 ──────────────────────
 // debounce 真实节流用 vi.useFakeTimers 的单独 describe 块验证。
@@ -408,6 +409,20 @@ describe('useContractReviewVersion.updateVersionNote', () => {
 
         expect(c.versions.value[0].lawyerNote).toBe('发张三法务审阅')
     })
+
+    it('L11：PATCH 失败时回滚到原备注（乐观更新失败后不残留新值）', async () => {
+        // useApiFetch 失败返回 null
+        mockFetch.mockResolvedValueOnce(null)
+
+        const c = useContractReviewVersion(ref(1))
+        c.versions.value = [makeVersion(1)]
+        c.versions.value[0].lawyerNote = '原备注'
+
+        await c.updateVersionNote(1, '改坏了的新备注')
+
+        // 失败 → 回滚到原备注，而非残留乐观更新的新值
+        expect(c.versions.value[0].lawyerNote).toBe('原备注')
+    })
 })
 
 // ── debounce 真实 500ms 验证（不 mock @vueuse/core）──────────────────────────
@@ -493,5 +508,89 @@ describe('useContractReviewVersion.lastUploadResult & dismissUploadBanner', () =
 
         c.dismissUploadBanner()
         expect(c.lastUploadResult.value).toBeNull()
+    })
+})
+
+// ── uploadNewVersion：SSE 流消费 & 业务错误识别（S6）─────────────────────────
+
+describe('useContractReviewVersion.uploadNewVersion', () => {
+    afterEach(() => { vi.unstubAllGlobals() })
+
+    /** 构造 resError 的响应：服务端开流前失败时返回 HTTP 200 + application/json 业务错误体 */
+    function makeResErrorResponse(message: string): Response {
+        return {
+            ok: true,
+            status: 200,
+            headers: { get: (k: string) => (k.toLowerCase() === 'content-type' ? 'application/json' : null) },
+            body: {},
+            json: async () => ({ code: 401, success: false, message }),
+        } as unknown as Response
+    }
+
+    /** 构造真正的 SSE 流响应：text/event-stream + ReadableStream */
+    function makeSseResponse(sseText: string): Response {
+        const encoder = new TextEncoder()
+        return {
+            ok: true,
+            status: 200,
+            headers: { get: (k: string) => (k.toLowerCase() === 'content-type' ? 'text/event-stream' : null) },
+            body: new ReadableStream<Uint8Array>({
+                start(controller) {
+                    controller.enqueue(encoder.encode(sseText))
+                    controller.close()
+                },
+            }),
+        } as unknown as Response
+    }
+
+    it('S6：服务端开流前失败（resError 返回 HTTP 200 + JSON）→ 识别为业务错误而非卡转圈', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => makeResErrorResponse('会话已过期，请重新登录')))
+
+        const c = useContractReviewVersion(ref(1))
+        const { error, done } = await c.uploadNewVersion(123)
+
+        await vi.waitFor(() => {
+            expect(error.value).not.toBeNull()
+        })
+        // resError 是 HTTP 200，resp.ok 恒 true；必须靠 content-type 识别出 JSON 业务错误体，
+        // 并把其中的 message 写入 error.value，否则对话框永久停在"处理中"。
+        expect(error.value?.message).toBe('会话已过期，请重新登录')
+        expect(done.value).toBe(false)
+    })
+
+    it('正常 SSE 流（text/event-stream）→ 正常消费 progress / complete 事件', async () => {
+        const sse =
+            `event: ${CONTRACT_UPLOAD_VERSION_SSE_EVENT.PROGRESS}\n`
+            + `data: ${JSON.stringify({ step: 'backup', status: 'done' })}\n\n`
+            + `event: ${CONTRACT_UPLOAD_VERSION_SSE_EVENT.COMPLETE}\n`
+            + `data: ${JSON.stringify({ newVersionId: 7, summary: '完成' })}\n\n`
+        vi.stubGlobal('fetch', vi.fn(async () => makeSseResponse(sse)))
+
+        const c = useContractReviewVersion(ref(1))
+        const { done, result, error } = await c.uploadNewVersion(123)
+
+        await vi.waitFor(() => {
+            expect(done.value).toBe(true)
+        })
+        expect(error.value).toBeNull()
+        expect(result.value).toEqual({ newVersionId: 7, summary: '完成' })
+    })
+
+    it('真正的 HTTP 错误（非 2xx）→ error.value 写入兜底信息', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => ({
+            ok: false,
+            status: 502,
+            headers: { get: () => null },
+            body: null,
+            json: async () => { throw new Error('no json') },
+        } as unknown as Response)))
+
+        const c = useContractReviewVersion(ref(1))
+        const { error } = await c.uploadNewVersion(123)
+
+        await vi.waitFor(() => {
+            expect(error.value).not.toBeNull()
+        })
+        expect(error.value?.message).toContain('502')
     })
 })

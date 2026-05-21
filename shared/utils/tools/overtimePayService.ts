@@ -3,6 +3,7 @@
  */
 
 import type { OvertimePayResult, CompensatoryTimeResult } from '#shared/types/tools'
+import { OVERTIME_RATES, COMPENSATORY_RATES } from './data/overtimeRules'
 
 /**
  * 计算加班费
@@ -26,10 +27,10 @@ export function calculateOvertimePay(
     const hourlyRate = baseSalary / (workdaysPerMonth * hoursPerDay)
     const hourlyRateFormatted = hourlyRate.toFixed(2)
 
-    // 计算各类加班费
-    const workdayOvertimePay = hourlyRate * 1.5 * workdayOvertimeHours
-    const weekendOvertimePay = hourlyRate * 2 * weekendOvertimeHours
-    const holidayOvertimePay = hourlyRate * 3 * holidayOvertimeHours
+    // 计算各类加班费（倍率引用 data 层常量）
+    const workdayOvertimePay = hourlyRate * OVERTIME_RATES.workday * workdayOvertimeHours
+    const weekendOvertimePay = hourlyRate * OVERTIME_RATES.weekend * weekendOvertimeHours
+    const holidayOvertimePay = hourlyRate * OVERTIME_RATES.holiday * holidayOvertimeHours
 
     // 计算总加班费
     const totalOvertimePay = workdayOvertimePay + weekendOvertimePay + holidayOvertimePay
@@ -39,15 +40,15 @@ export function calculateOvertimePay(
     details.push(`小时工资：${baseSalary} ÷ (${workdaysPerMonth} × ${hoursPerDay}) = ${hourlyRateFormatted} 元/小时`)
 
     if (workdayOvertimeHours > 0) {
-        details.push(`工作日加班费：${hourlyRateFormatted} × 1.5 × ${workdayOvertimeHours} = ${workdayOvertimePay.toFixed(2)} 元`)
+        details.push(`工作日加班费：${hourlyRateFormatted} × ${OVERTIME_RATES.workday} × ${workdayOvertimeHours} = ${workdayOvertimePay.toFixed(2)} 元`)
     }
 
     if (weekendOvertimeHours > 0) {
-        details.push(`休息日加班费：${hourlyRateFormatted} × 2 × ${weekendOvertimeHours} = ${weekendOvertimePay.toFixed(2)} 元`)
+        details.push(`休息日加班费：${hourlyRateFormatted} × ${OVERTIME_RATES.weekend} × ${weekendOvertimeHours} = ${weekendOvertimePay.toFixed(2)} 元`)
     }
 
     if (holidayOvertimeHours > 0) {
-        details.push(`法定节假日加班费：${hourlyRateFormatted} × 3 × ${holidayOvertimeHours} = ${holidayOvertimePay.toFixed(2)} 元`)
+        details.push(`法定节假日加班费：${hourlyRateFormatted} × ${OVERTIME_RATES.holiday} × ${holidayOvertimeHours} = ${holidayOvertimePay.toFixed(2)} 元`)
     }
 
     details.push(`总加班费：${workdayOvertimePay.toFixed(2)} + ${weekendOvertimePay.toFixed(2)} + ${holidayOvertimePay.toFixed(2)} = ${totalOvertimePay.toFixed(2)} 元`)
@@ -76,14 +77,10 @@ export function calculateCompensatoryTime(
     holidayOvertimeHours: number,
     hoursPerDay: number = 8
 ): CompensatoryTimeResult {
-    // 工作日加班按1:1计算
-    const workdayCompensatoryHours = workdayOvertimeHours
-
-    // 休息日加班按1:1计算
-    const weekendCompensatoryHours = weekendOvertimeHours
-
-    // 法定节假日加班按1:3计算
-    const holidayCompensatoryHours = holidayOvertimeHours * 3
+    // 调休时间（倍率引用 data 层常量）
+    const workdayCompensatoryHours = workdayOvertimeHours * COMPENSATORY_RATES.workday
+    const weekendCompensatoryHours = weekendOvertimeHours * COMPENSATORY_RATES.weekend
+    const holidayCompensatoryHours = holidayOvertimeHours * COMPENSATORY_RATES.holiday
 
     // 计算总调休时间
     const totalCompensatoryHours = workdayCompensatoryHours + weekendCompensatoryHours + holidayCompensatoryHours
@@ -95,15 +92,15 @@ export function calculateCompensatoryTime(
     const details: string[] = []
 
     if (workdayOvertimeHours > 0) {
-        details.push(`工作日加班调休：${workdayOvertimeHours} × 1 = ${workdayCompensatoryHours} 小时`)
+        details.push(`工作日加班调休：${workdayOvertimeHours} × ${COMPENSATORY_RATES.workday} = ${workdayCompensatoryHours} 小时`)
     }
 
     if (weekendOvertimeHours > 0) {
-        details.push(`休息日加班调休：${weekendOvertimeHours} × 1 = ${weekendCompensatoryHours} 小时`)
+        details.push(`休息日加班调休：${weekendOvertimeHours} × ${COMPENSATORY_RATES.weekend} = ${weekendCompensatoryHours} 小时`)
     }
 
     if (holidayOvertimeHours > 0) {
-        details.push(`法定节假日加班调休：${holidayOvertimeHours} × 3 = ${holidayCompensatoryHours} 小时`)
+        details.push(`法定节假日加班调休：${holidayOvertimeHours} × ${COMPENSATORY_RATES.holiday} = ${holidayCompensatoryHours} 小时`)
     }
 
     details.push(`总调休时间：${workdayCompensatoryHours} + ${weekendCompensatoryHours} + ${holidayCompensatoryHours} = ${totalCompensatoryHours} 小时`)

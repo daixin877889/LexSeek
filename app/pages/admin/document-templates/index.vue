@@ -1,12 +1,12 @@
 <template>
-    <div class="space-y-6">
+    <div class="theme-brand space-y-6">
         <!-- 页面标题 -->
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
                 <h1 class="text-2xl md:text-3xl font-bold mb-1">文书模板管理</h1>
                 <p class="text-muted-foreground text-sm">管理全局文书模板，供所有用户使用</p>
             </div>
-            <Button @click="openUploadDialog">
+            <Button :class="adminBrandPrimaryButtonClass" @click="openUploadDialog">
                 <Upload class="h-4 w-4 mr-2" />
                 上传模板
             </Button>
@@ -15,10 +15,10 @@
         <!-- 筛选 -->
         <div class="flex flex-col md:flex-row gap-4">
             <Select v-model="categoryFilter">
-                <SelectTrigger class="w-full md:w-52">
+                <SelectTrigger :class="['w-full md:w-52', adminBrandFocusClass]">
                     <SelectValue placeholder="选择分类" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent class="theme-brand">
                     <SelectItem value="all">全部分类</SelectItem>
                     <SelectItem v-for="cat in DOCUMENT_CATEGORIES" :key="cat.key" :value="cat.key">
                         {{ cat.label }}
@@ -26,20 +26,20 @@
                 </SelectContent>
             </Select>
             <Select v-model="statusFilter">
-                <SelectTrigger class="w-full md:w-32">
+                <SelectTrigger :class="['w-full md:w-32', adminBrandFocusClass]">
                     <SelectValue placeholder="状态" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent class="theme-brand">
                     <SelectItem value="all">全部状态</SelectItem>
                     <SelectItem value="1">启用</SelectItem>
                     <SelectItem value="0">禁用</SelectItem>
                 </SelectContent>
             </Select>
             <div class="flex-1">
-                <Input v-model="keyword" placeholder="搜索模板名称..." class="w-full md:w-64"
+                <Input v-model="keyword" placeholder="搜索模板名称..." :class="['w-full md:w-64', adminBrandFocusClass]"
                     @keyup.enter="handleSearch" />
             </div>
-            <Button variant="outline" @click="handleSearch">
+            <Button variant="outline" :class="adminBrandFocusClass" @click="handleSearch">
                 <Search class="h-4 w-4 mr-2" />
                 筛选
             </Button>
@@ -60,10 +60,10 @@
         <!-- 模板列表 -->
         <template v-else>
             <!-- 桌面：表格 -->
-            <div v-if="isDesktop" class="rounded-md border">
+            <div v-if="isDesktop" class="overflow-hidden rounded-lg border bg-card">
                 <Table class="table-fixed">
                     <TableHeader>
-                        <TableRow>
+                        <TableRow class="bg-muted/50 hover:bg-muted/50">
                             <TableHead class="w-[60px]">ID</TableHead>
                             <TableHead>模板名称</TableHead>
                             <TableHead class="w-[140px]">分类</TableHead>
@@ -87,7 +87,9 @@
                                 </div>
                             </TableCell>
                             <TableCell>
-                                <Badge variant="secondary">{{ getCategoryLabel(tpl.category) }}</Badge>
+                                <Badge variant="outline" :class="adminBrandChipClass">
+                                    {{ getCategoryLabel(tpl.category) }}
+                                </Badge>
                             </TableCell>
                             <TableCell>
                                 <span class="text-sm text-muted-foreground">
@@ -95,7 +97,7 @@
                                 </span>
                             </TableCell>
                             <TableCell>
-                                <Badge :variant="tpl.status === 1 ? 'default' : 'secondary'">
+                                <Badge variant="outline" :class="getAdminStatusBadgeClass(tpl.status === 1)">
                                     {{ tpl.status === 1 ? '启用' : '禁用' }}
                                 </Badge>
                             </TableCell>
@@ -105,11 +107,11 @@
                             <TableCell class="text-right">
                                 <DropdownMenu>
                                     <DropdownMenuTrigger as-child>
-                                        <Button variant="ghost" size="icon">
+                                        <Button variant="ghost" size="icon" :class="adminBrandFocusClass">
                                             <MoreHorizontal class="h-4 w-4" />
                                         </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
+                                    <DropdownMenuContent align="end" class="theme-brand shadow-none">
                                         <DropdownMenuItem @click="openEditDialog(tpl)">
                                             <Pencil class="h-4 w-4 mr-2" />
                                             编辑元信息
@@ -119,7 +121,7 @@
                                             {{ tpl.status === 1 ? '禁用' : '启用' }}
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem class="text-destructive" @click="handleDelete(tpl)">
+                                        <DropdownMenuItem variant="destructive" @click="handleDelete(tpl)">
                                             <Trash2 class="h-4 w-4 mr-2" />
                                             删除
                                         </DropdownMenuItem>
@@ -134,7 +136,7 @@
             <!-- 移动：卡片（对齐用户端 TemplateCard 的视觉规范） -->
             <div v-else class="space-y-3">
                 <div v-for="tpl in templates" :key="tpl.id"
-                    class="group relative flex items-start gap-4 rounded-xl border border-border bg-card p-4 transition-all hover:border-primary/60 hover:shadow-md">
+                    class="group relative flex items-start gap-4 rounded-lg border bg-card p-4 transition-colors hover:bg-muted/30">
                     <div
                         class="flex size-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary/20">
                         <FileText class="size-6" />
@@ -144,8 +146,10 @@
                             <span class="text-sm font-medium leading-tight line-clamp-1 flex-1 min-w-0">
                                 {{ tpl.name }}
                             </span>
-                            <Badge :variant="tpl.status === 1 ? 'default' : 'secondary'"
-                                class="shrink-0 h-5 text-[10px] px-1.5">
+                            <Badge variant="outline" :class="[
+                                'shrink-0 h-5 text-[10px] px-1.5',
+                                getAdminStatusBadgeClass(tpl.status === 1)
+                            ]">
                                 {{ tpl.status === 1 ? '启用' : '禁用' }}
                             </Badge>
                         </div>
@@ -161,11 +165,12 @@
                     <div class="absolute top-3 right-2">
                         <DropdownMenu>
                             <DropdownMenuTrigger as-child>
-                                <Button variant="ghost" size="icon" class="size-7 text-muted-foreground">
+                                <Button variant="ghost" size="icon"
+                                    :class="['size-7 text-muted-foreground', adminBrandFocusClass]">
                                     <MoreHorizontal class="size-4" />
                                 </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent align="end" class="theme-brand shadow-none">
                                 <DropdownMenuItem @click="openEditDialog(tpl)">
                                     <Pencil class="h-4 w-4 mr-2" />
                                     编辑元信息
@@ -175,7 +180,7 @@
                                     {{ tpl.status === 1 ? '禁用' : '启用' }}
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem class="text-destructive" @click="handleDelete(tpl)">
+                                <DropdownMenuItem variant="destructive" @click="handleDelete(tpl)">
                                     <Trash2 class="h-4 w-4 mr-2" />
                                     删除
                                 </DropdownMenuItem>
@@ -193,10 +198,10 @@
 
     <!-- 上传对话框 -->
     <Dialog v-model:open="uploadDialogOpen">
-        <DialogContent class="sm:max-w-[500px]">
+        <DialogContent class="theme-brand sm:max-w-[500px]">
             <DialogHeader>
                 <DialogTitle>上传文书模板</DialogTitle>
-                <DialogDescription>上传 .docx 格式的模板文件（≤ 20MB），系统将自动扫描占位符。</DialogDescription>
+                <DialogDescription>上传 .docx 格式的模板文件（≤ 100MB），系统将自动扫描占位符。</DialogDescription>
             </DialogHeader>
             <div class="space-y-4">
                 <!-- 文件选择 -->
@@ -222,16 +227,17 @@
                 <!-- 名称 -->
                 <div class="space-y-2">
                     <Label for="upload-name">模板名称 <span class="text-destructive">*</span></Label>
-                    <Input id="upload-name" v-model="uploadForm.name" placeholder="请输入模板名称" />
+                    <Input id="upload-name" v-model="uploadForm.name" placeholder="请输入模板名称"
+                        :class="adminBrandFocusClass" />
                 </div>
                 <!-- 分类 -->
                 <div class="space-y-2">
                     <Label>分类 <span class="text-destructive">*</span></Label>
                     <Select v-model="uploadForm.category">
-                        <SelectTrigger class="w-full">
+                        <SelectTrigger :class="['w-full', adminBrandFocusClass]">
                             <SelectValue placeholder="请选择分类" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent class="theme-brand">
                             <SelectItem v-for="cat in DOCUMENT_CATEGORIES" :key="cat.key" :value="cat.key">
                                 {{ cat.label }}
                             </SelectItem>
@@ -242,12 +248,14 @@
                 <div class="space-y-2">
                     <Label for="upload-desc">描述</Label>
                     <Textarea id="upload-desc" v-model="uploadForm.description" placeholder="请输入模板描述（可选）"
-                        :rows="3" />
+                        :rows="3" :class="adminBrandFocusClass" />
                 </div>
             </div>
             <DialogFooter>
-                <Button variant="outline" @click="uploadDialogOpen = false" :disabled="uploading">取消</Button>
-                <Button @click="confirmUpload" :disabled="uploading || !uploadForm.file || !uploadForm.name || !uploadForm.category">
+                <Button variant="outline" :class="adminBrandFocusClass" @click="uploadDialogOpen = false"
+                    :disabled="uploading">取消</Button>
+                <Button :class="adminBrandPrimaryButtonClass" @click="confirmUpload"
+                    :disabled="uploading || !uploadForm.file || !uploadForm.name || !uploadForm.category">
                     <Loader2 v-if="uploading" class="h-4 w-4 mr-2 animate-spin" />
                     {{ uploading ? '上传中...' : '确认上传' }}
                 </Button>
@@ -257,7 +265,7 @@
 
     <!-- 编辑元信息对话框 -->
     <Dialog v-model:open="editDialogOpen">
-        <DialogContent class="sm:max-w-[500px]">
+        <DialogContent class="theme-brand sm:max-w-[500px]">
             <DialogHeader>
                 <DialogTitle>编辑模板元信息</DialogTitle>
                 <DialogDescription>修改模板的名称、分类、描述和状态。</DialogDescription>
@@ -266,16 +274,17 @@
                 <!-- 名称 -->
                 <div class="space-y-2">
                     <Label for="edit-name">模板名称 <span class="text-destructive">*</span></Label>
-                    <Input id="edit-name" v-model="editForm.name" placeholder="请输入模板名称" />
+                    <Input id="edit-name" v-model="editForm.name" placeholder="请输入模板名称"
+                        :class="adminBrandFocusClass" />
                 </div>
                 <!-- 分类 -->
                 <div class="space-y-2">
                     <Label>分类</Label>
                     <Select v-model="editForm.category">
-                        <SelectTrigger class="w-full">
+                        <SelectTrigger :class="['w-full', adminBrandFocusClass]">
                             <SelectValue placeholder="请选择分类" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent class="theme-brand">
                             <SelectItem v-for="cat in DOCUMENT_CATEGORIES" :key="cat.key" :value="cat.key">
                                 {{ cat.label }}
                             </SelectItem>
@@ -286,16 +295,16 @@
                 <div class="space-y-2">
                     <Label for="edit-desc">描述</Label>
                     <Textarea id="edit-desc" v-model="editForm.description" placeholder="请输入模板描述（可选）"
-                        :rows="3" />
+                        :rows="3" :class="adminBrandFocusClass" />
                 </div>
                 <!-- 状态 -->
                 <div class="space-y-2">
                     <Label>状态</Label>
                     <Select v-model="editForm.statusStr">
-                        <SelectTrigger class="w-full">
+                        <SelectTrigger :class="['w-full', adminBrandFocusClass]">
                             <SelectValue placeholder="请选择状态" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent class="theme-brand">
                             <SelectItem value="1">启用</SelectItem>
                             <SelectItem value="0">禁用</SelectItem>
                         </SelectContent>
@@ -303,8 +312,9 @@
                 </div>
             </div>
             <DialogFooter>
-                <Button variant="outline" @click="editDialogOpen = false" :disabled="saving">取消</Button>
-                <Button @click="confirmEdit" :disabled="saving || !editForm.name">
+                <Button variant="outline" :class="adminBrandFocusClass" @click="editDialogOpen = false"
+                    :disabled="saving">取消</Button>
+                <Button :class="adminBrandPrimaryButtonClass" @click="confirmEdit" :disabled="saving || !editForm.name">
                     <Loader2 v-if="saving" class="h-4 w-4 mr-2 animate-spin" />
                     {{ saving ? '保存中...' : '保存' }}
                 </Button>
@@ -314,7 +324,7 @@
 
     <!-- 删除确认对话框 -->
     <AlertDialog v-model:open="deleteDialogOpen">
-        <AlertDialogContent>
+        <AlertDialogContent class="theme-brand">
             <AlertDialogHeader>
                 <AlertDialogTitle>确认删除</AlertDialogTitle>
                 <AlertDialogDescription>
@@ -322,8 +332,9 @@
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-                <AlertDialogCancel>取消</AlertDialogCancel>
-                <AlertDialogAction @click="confirmDelete" :disabled="deleting">
+                <AlertDialogCancel :class="adminBrandFocusClass">取消</AlertDialogCancel>
+                <AlertDialogAction @click="confirmDelete" :disabled="deleting"
+                    :class="adminBrandDestructiveActionClass">
                     <Loader2 v-if="deleting" class="h-4 w-4 mr-2 animate-spin" />
                     确认删除
                 </AlertDialogAction>
@@ -345,6 +356,13 @@ import type { documentTemplates } from '#shared/types/prisma'
 import GeneralPagination from '~/components/general/pagination.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useFormatters } from '~/composables/useFormatters'
+import {
+    adminBrandChipClass,
+    adminBrandDestructiveActionClass,
+    adminBrandFocusClass,
+    adminBrandPrimaryButtonClass,
+    getAdminStatusBadgeClass,
+} from '~/utils/adminBrandStyles'
 
 definePageMeta({ layout: 'admin-layout', title: '文书模板管理' })
 
@@ -497,8 +515,8 @@ const applyFile = (file: File) => {
         toast.error('仅支持 .docx 格式文件')
         return
     }
-    if (file.size > 20 * 1024 * 1024) {
-        toast.error('文件大小不能超过 20MB')
+    if (file.size > 100 * 1024 * 1024) {
+        toast.error('文件大小不能超过 100MB')
         return
     }
     uploadForm.file = file

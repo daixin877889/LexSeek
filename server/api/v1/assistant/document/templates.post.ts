@@ -6,7 +6,7 @@
  * - 上传全局系统模板请走 /api/v1/admin/document-templates（仅超管可访问）
  *
  * Form 字段：
- * - file: .docx 文件（必填，≤ 20MB）
+ * - file: .docx 文件（必填，≤ 100MB）
  * - name: 模板名称（必填，非空）
  * - category: 分类 key（必填）
  * - description: 简介（可选）
@@ -14,7 +14,7 @@
  * 错误码：
  * - 400：格式非 .docx / 无占位符 / 缺少必填字段
  * - 403：配额已满（普通用户上限 20 个）
- * - 413：文件大小 > 20MB
+ * - 413：文件大小 > 100MB
  *
  * 参见 spec §2.3
  */
@@ -55,8 +55,8 @@ export default defineEventHandler(async (event) => {
     const mimeType = fileItem.type ?? 'application/octet-stream'
 
     const result = await createDocumentTemplateService({
-        userId: user.id,
-        isAdmin: false, // 用户端接口：一律按 user scope 处理
+        scope: 'user',
+        ownerUserId: user.id, // 用户端：模板归属当前用户，受配额限制
         file: fileItem.data,
         fileName,
         fileSize,

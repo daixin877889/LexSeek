@@ -189,82 +189,25 @@ describe('POST /api/v1/callback/mineru-batch', () => {
 describe('POST /api/v1/callback/mineru', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        mIsProcessed.mockResolvedValue(false as any)
-        mGetTaskByTaskId.mockResolvedValue({ id: 1, taskId: 'T1', userId: 100 } as any)
     })
 
-    it('happy path: done + 完整 markdownContent → SUCCESS', async () => {
-        mProcessConv.mockResolvedValue({
-            success: true, markdownContent: '# H', htmlContent: '<h1>H</h1>',
-        } as any)
-        const res: any = await mineruHandler(makeEvent({
-            body: { task_id: 'T1', state: 'done', result: { download_url: 'u' } },
-        }) as any)
-        expect(res.code).toBe('SUCCESS')
-        expect(mCompleteConv).toHaveBeenCalled()
-    })
-
-    it('Zod 失败 → FAIL', async () => {
-        const res: any = await mineruHandler(makeEvent({ body: { task_id: '' } }) as any)
-        expect(res.code).toBe('FAIL')
-    })
-
-    it('幂等：已处理 → 跳过', async () => {
-        mIsProcessed.mockResolvedValue(true as any)
-        const res: any = await mineruHandler(makeEvent({
-            body: { task_id: 'T1', state: 'done' },
-        }) as any)
-        expect(res.code).toBe('SUCCESS')
-        expect(mGetTaskByTaskId).not.toHaveBeenCalled()
-    })
-
-    it('任务不存在 → FAIL', async () => {
-        mGetTaskByTaskId.mockResolvedValue(null as any)
-        const res: any = await mineruHandler(makeEvent({
-            body: { task_id: 'T1', state: 'done' },
-        }) as any)
-        expect(res.code).toBe('FAIL')
-    })
-
-    it('done 缺 download_url → FAIL', async () => {
-        const res: any = await mineruHandler(makeEvent({
-            body: { task_id: 'T1', state: 'done' },
-        }) as any)
-        expect(res.code).toBe('FAIL')
-        expect(mFailConv).toHaveBeenCalled()
-    })
-
-    it('done 但 processConversion 返 success=false → FAIL', async () => {
-        mProcessConv.mockResolvedValue({ success: false, error: '处理错' } as any)
+    it('单文件回调已废弃：任何请求都返回 FAIL', async () => {
         const res: any = await mineruHandler(makeEvent({
             body: { task_id: 'T1', state: 'done', result: { download_url: 'u' } },
         }) as any)
         expect(res.code).toBe('FAIL')
-        expect(mFailConv).toHaveBeenCalled()
+        expect(res.message).toContain('/api/v1/callback/mineru-batch')
     })
 
-    it('done 但 processConversion 抛错 → FAIL', async () => {
-        mProcessConv.mockRejectedValueOnce(new Error('boom'))
-        const res: any = await mineruHandler(makeEvent({
-            body: { task_id: 'T1', state: 'done', result: { download_url: 'u' } },
-        }) as any)
-        expect(res.code).toBe('FAIL')
-        expect(mFailConv).toHaveBeenCalled()
-    })
-
-    it('failed 状态 → 记录失败 SUCCESS', async () => {
+    it('废弃接口不再触发旧单文件处理链路', async () => {
         const res: any = await mineruHandler(makeEvent({
             body: { task_id: 'T1', state: 'failed', err_msg: '内核挂' },
         }) as any)
-        expect(res.code).toBe('SUCCESS')
-        expect(mFailConv).toHaveBeenCalledWith('T1', '内核挂')
-    })
-
-    it('外层 catch 异常 → FAIL', async () => {
-        mIsProcessed.mockRejectedValueOnce(new Error('redis down'))
-        const res: any = await mineruHandler(makeEvent({
-            body: { task_id: 'T1', state: 'done' },
-        }) as any)
         expect(res.code).toBe('FAIL')
+        expect(mIsProcessed).not.toHaveBeenCalled()
+        expect(mGetTaskByTaskId).not.toHaveBeenCalled()
+        expect(mProcessConv).not.toHaveBeenCalled()
+        expect(mCompleteConv).not.toHaveBeenCalled()
+        expect(mFailConv).not.toHaveBeenCalled()
     })
 })

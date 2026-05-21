@@ -2260,7 +2260,7 @@ Expected: dev server 启动,无 startup 错误。
 - [ ] 草稿创建成功(status='ready',不是 failed)
 - [ ] 关键字段(原告/被告/事实和理由/诉讼请求)非 null
 
-- [ ] **Step 5:手动验证法律助手路径(原始 bug 场景)**
+- [ ] **Step 5:手动验证通用问答路径(原始 bug 场景)**
 
 访问 `http://localhost:3000/dashboard/assistant` → 创建新对话 → 输入完整案情(参考 commit 5c01203d 之前的 dev 库 ed8b94cc 失败案例:房东卖房+租客提前解约+希望继续居住或赔偿) → "帮我起草起诉状" → 选模板 → 验证字段填得对。
 
@@ -2279,7 +2279,7 @@ Expected: dev server 启动,无 startup 错误。
 
 - [ ] **Step 7:跑 5 次起诉状起草定量验收**
 
-按 spec §10.2 要求,通过法律助手起草起诉状 5 次,记录:
+按 spec §10.2 要求,通过通用问答起草起诉状 5 次,记录:
 - [ ] ≥ 4 次 status='ready'(占比 ≥ 80%)
 - [ ] 每次成功草稿字段非 null 比例 ≥ 80%
 - [ ] 事实和理由 / 诉讼请求 / 原告 三个核心字段必非 null
@@ -2320,7 +2320,7 @@ pkill -f "nuxt dev" || true
 - [ ] **Step 9:Commit 验证记录**
 
 ```bash
-git commit --allow-empty -m "test(manual): 三入口手动验证通过,法律助手起诉状 5 次 ≥ 4 次 ready"
+git commit --allow-empty -m "test(manual): 三入口手动验证通过,通用问答起诉状 5 次 ≥ 4 次 ready"
 ```
 
 ---
@@ -2393,10 +2393,10 @@ git commit --allow-empty -m "spike(C2): 失败 - LLM 跨轮次看不到最新 va
 
 ```typescript
 /**
- * 端到端:法律助手起草起诉状(原始 bug 路径)
+ * 端到端:通用问答起草起诉状(原始 bug 路径)
  *
  * 用 chrome-devtools MCP 跑真实浏览器,验证三入口共享同一组工具的行为一致。
- * 主要覆盖法律助手对话 → 调起草 → 选模板 → 字段被填好的全流程。
+ * 主要覆盖通用问答对话 → 调起草 → 选模板 → 字段被填好的全流程。
  */
 
 import { describe, it, expect } from 'vitest'
@@ -2404,7 +2404,7 @@ import { describe, it, expect } from 'vitest'
 // 注:具体 e2e 框架如何调用 chrome-devtools MCP 工具,参考项目其他 e2e spec
 // 这里给出测试逻辑骨架,实施时按现有 e2e 范式补充
 
-describe.skip('e2e: 法律助手起草起诉状', () => {
+describe.skip('e2e: 通用问答起草起诉状', () => {
     it('完整流程:对话讲案情 → 起草 → 选模板 → 草稿 ready', async () => {
         // 1. 启动浏览器,登录测试账号
         // 2. 访问 /dashboard/assistant
@@ -2437,7 +2437,7 @@ Expected: 1 个 skipped。
 
 ```bash
 git add tests/e2e/document-draft-via-assistant.spec.ts
-git commit -m "test(e2e): 法律助手起草起诉状 e2e 骨架(待 chrome-devtools MCP 基建到位后填充)"
+git commit -m "test(e2e): 通用问答起草起诉状 e2e 骨架(待 chrome-devtools MCP 基建到位后填充)"
 ```
 
 ---
@@ -2692,7 +2692,7 @@ Expected: `Database schema is up to date!`
 
 跟 Task 2.11 一样启动 dev server,跑三入口端到端各一次,确认:
 - 小索 → 起诉状 ✓
-- 法律助手 → 起诉状(原始 bug 场景) ✓
+- 通用问答 → 起诉状(原始 bug 场景) ✓
 - 文书入口 → 跟 documentMain 对话 ✓
 
 - [ ] **Step 6:验证前端零改动(spec §12.3 要求)**

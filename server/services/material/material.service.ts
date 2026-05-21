@@ -12,6 +12,7 @@ import {
     findManyMaterialsDao,
     findMaterialsByCaseIdDao,
     findMaterialsByCaseOrDraftIdDao,
+    findMaterialsBySessionIdDao,
     findMaterialsByDraftIdDao,
     findMaterialsByIdsDao,
     updateMaterialDao,
@@ -21,13 +22,14 @@ import {
     findTextContentRecordByMaterialIdDAO,
 } from './textContentRecords.dao'
 import { findRecognitionRecordsByOssFileIdsDao } from './material.dao'
-import type { CreateMaterialInput, UpdateMaterialInput, MaterialQueryOptions } from '#shared/types/material'
+import type { CreateMaterialInput, UpdateMaterialInput, MaterialQueryOptions, MaterialOwner } from '#shared/types/material'
 import { MaterialStatus } from '#shared/types/material'
 import { CaseMaterialType } from '#shared/types/case'
 import { createChatModel } from '../node/chatModelFactory'
 import { getValidNodeConfig } from '../node/node.service'
 import { assembleSystemPromptTemplate } from '../agent-platform/nodeConfig/promptRenderer'
 import { generateSummaryService } from '../ai/summaryService'
+import { billDirectService } from '../point/pointBilling.service'
 import { findDocRecognitionByOssFileIdDao, updateDocRecognitionRecordDao } from './mineru.dao'
 import { findImageRecognitionByOssFileIdDao, updateImageRecognitionRecordDao } from './ocr.dao'
 import { findAsrRecordByOssFileIdDao, updateAsrRecordDao } from './asr.dao'
@@ -178,6 +180,16 @@ export const getMaterialsByDraftIdService = async (
     return attachOssFileInfo(materials)
 }
 
+/**
+ * 获取对话会话的所有材料（通用问答场景）
+ */
+export const getMaterialsBySessionIdService = async (
+    sessionId: string,
+): Promise<MaterialWithFile[]> => {
+    const materials = await findMaterialsBySessionIdDao(sessionId)
+    return attachOssFileInfo(materials)
+}
+
 /** 带真实状态的材料项 */
 export interface MaterialWithRealStatus extends MaterialWithFile {
     /** 真实状态：1=待处理, 2=处理中, 3=已完成, 4=失败 */
@@ -273,10 +285,9 @@ export const getMaterialsByCaseIdWithStatusService = async (
  * OR 合并：caseId 命中 ∪ draftId 命中，DAO 层走 Prisma OR 天然去重。
  */
 export const getMaterialsByCaseOrDraftIdService = async (
-    caseId: number | null,
-    draftId: number | null,
+    owner: MaterialOwner,
 ): Promise<MaterialWithFile[]> => {
-    const materials = await findMaterialsByCaseOrDraftIdDao(caseId, draftId)
+    const materials = await findMaterialsByCaseOrDraftIdDao(owner)
     return attachOssFileInfo(materials)
 }
 
@@ -287,7 +298,7 @@ export const getMaterialsByCaseOrDraftIdWithStatusService = async (
     caseId: number | null,
     draftId: number | null,
 ): Promise<MaterialWithRealStatus[]> => {
-    const materials = await getMaterialsByCaseOrDraftIdService(caseId, draftId)
+    const materials = await getMaterialsByCaseOrDraftIdService({ caseId, draftId })
     return computeRealStatusForMaterials(materials)
 }
 
@@ -586,7 +597,7 @@ async function generateMaterialSummaryInner(materialId: number): Promise<void> {
         if (!material) return
 
         // 跨命名空间防重：若同 ossFile 已有 OSS 级摘要任务在跑，等它完成再判定
-        // （typical 场景：用户在小索/法律助手输入框上传文件触发 OSS 级摘要，
+        // （typical 场景：用户在小索/通用问答输入框上传文件触发 OSS 级摘要，
         //   随后点发送创建 caseMaterials 行，中间件再走一次 Material 级；
         //   这里 await 一下让 Material 级直接命中防重早返）
         if (material.ossFileId) {
@@ -693,6 +704,54 @@ async function persistSummary(
  * 抽出供 generateMaterialSummary / generateOssFileSummary 共用，避免重复实现。
  * @returns summary 字符串；重试穷尽返回 null（调用方决定后续动作）
  */
+/**
+ * best-effort 文件摘要扣费：ossFile 与 material 两条路径都计费；
+ * 任何异常只记日志、绝不抛出（抛出会被 callSummaryLlm 的重试循环误判为 LLM 失败）。
+ */
+async function chargeSummaryBilling(
+    identifier: { ossFileId?: number; materialId?: number },
+    summary: string,
+): Promise<void> {
+    try {
+        let userId: number | null = null
+        let sourceId: number | undefined
+        let contextLabel: string | undefined
+
+        if (identifier.ossFileId) {
+            const file = await prisma.ossFiles.findUnique({
+                where: { id: identifier.ossFileId },
+                select: { userId: true, fileName: true },
+            })
+            if (file?.userId) {
+                userId = file.userId
+                sourceId = identifier.ossFileId
+                contextLabel = file.fileName ?? `文件_${identifier.ossFileId}`
+            }
+        } else if (identifier.materialId) {
+            // 纯文本材料（CASE_CONTENT）只走此路径：caseMaterials 经 caseId 解析归属用户
+            const material = await prisma.caseMaterials.findUnique({
+                where: { id: identifier.materialId },
+                select: { caseId: true, case: { select: { userId: true, title: true } } },
+            })
+            if (material?.case?.userId) {
+                userId = material.case.userId
+                sourceId = identifier.materialId
+                contextLabel = material.case.title ?? `材料_${identifier.materialId}`
+            }
+        }
+
+        if (userId == null) return // 解析不到归属用户，best-effort 跳过
+        // 同时传 tokens 和 units：billing_mode=1 时计费服务取 tokens，=2 时取 units（=1 表示"一次摘要"）
+        // 这样运营可在后台一键切换计费模式，无需改代码
+        await billDirectService(userId, 'summary_generate', { tokens: summary.length * 2, units: 1 }, {
+            sourceId,
+            contextLabel,
+        })
+    } catch (billError) {
+        logger.warn('文件摘要积分扣减跳过', { ...identifier, error: billError })
+    }
+}
+
 async function callSummaryLlm(
     content: string,
     identifier: { ossFileId?: number; materialId?: number },
@@ -720,10 +779,12 @@ async function callSummaryLlm(
     let lastErr: unknown = null
     for (let attempt = 0; attempt < RETRY_DELAYS_MS.length + 1; attempt++) {
         try {
-            return await generateSummaryService(model, content, {
+            const summary = await generateSummaryService(model, content, {
                 maxChars: SUMMARY_MAX_CHARS,
                 systemPrompt,
             })
+            await chargeSummaryBilling(identifier, summary)
+            return summary
         } catch (e) {
             lastErr = e
             logger.warn(`摘要 LLM 调用第 ${attempt + 1} 次失败`, { ...identifier, error: e })
@@ -801,7 +862,7 @@ async function persistOssFileSummary(
  * 按 ossFileId 生成识别记录表的 200 字摘要（不依赖 caseMaterials 行）
  *
  * 与 generateMaterialSummaryService 的差异：
- * - 不依赖 caseMaterials 行（小索/法律助手输入框选文件即触发场景）
+ * - 不依赖 caseMaterials 行（小索/通用问答输入框选文件即触发场景）
  * - 自动判断 ossFile 对应识别记录类型（doc / image / audio）
  * - 失败穷尽时不写 caseMaterials.status=FAILED（可能没有 caseMaterials 行；
  *   后续 generateMaterialSummaryService 会兜底标记）

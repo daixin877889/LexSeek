@@ -18,6 +18,14 @@ import {
 import type { ContractTypeCategory, StancePreference, RiskLevel } from '#shared/types/contract'
 import { toast } from 'vue-sonner'
 import { useApiFetch } from '~/composables/useApiFetch'
+import {
+    adminBrandFocusClass,
+    adminBrandListItemFocusClass,
+    adminBrandPrimaryButtonClass,
+    adminBrandSelectedListItemClass,
+    adminBrandSwitchClass,
+    adminBrandUnselectedListItemClass,
+} from '~/utils/adminBrandStyles'
 
 definePageMeta({
     layout: 'admin-layout',
@@ -142,6 +150,18 @@ async function toggleEnabled(p: Playbook) {
     }
 }
 
+function getCategoryButtonClass(cat: ContractTypeCategory): string {
+    return activeCategory.value === cat
+        ? adminBrandSelectedListItemClass
+        : adminBrandUnselectedListItemClass
+}
+
+function getSubtypeButtonClass(sub: string): string {
+    return activeType.value === sub
+        ? 'border-l-primary bg-primary/10 text-primary hover:bg-primary/15'
+        : 'border-l-transparent text-muted-foreground hover:bg-muted/30'
+}
+
 watch(activeType, loadList)
 
 // 切换大类：自动选中该大类下的第一个细分（触发 loadList）
@@ -158,7 +178,7 @@ onMounted(async () => {
 </script>
 
 <template>
-    <div class="flex flex-col h-full gap-4">
+    <div class="theme-brand flex flex-col h-full gap-4">
         <!-- 页面标题 -->
         <div>
             <h1 class="text-2xl md:text-3xl font-bold mb-1">审查清单管理</h1>
@@ -173,8 +193,12 @@ onMounted(async () => {
                 <template v-for="cat in CATEGORIES" :key="cat">
                     <!-- 一级（大类） -->
                     <button
-                        class="w-full flex items-center justify-between px-3 py-2 rounded text-sm transition"
-                        :class="activeCategory === cat ? 'bg-muted font-semibold text-foreground' : 'hover:bg-muted/60 text-foreground/80'"
+                        :class="[
+                            'w-full flex items-center justify-between border-l-2 px-3 py-2 rounded text-sm transition',
+                            adminBrandListItemFocusClass,
+                            getCategoryButtonClass(cat),
+                            activeCategory === cat ? 'font-semibold' : 'text-foreground/80',
+                        ]"
                         @click="activeCategory = cat"
                     >
                         <span>{{ cat }}</span>
@@ -185,8 +209,12 @@ onMounted(async () => {
                         <button
                             v-for="sub in CATEGORY_TO_SUBTYPES[cat]"
                             :key="sub"
-                            class="w-full flex items-center justify-between px-2 py-1.5 rounded text-xs transition"
-                            :class="activeType === sub ? 'bg-accent text-accent-foreground font-semibold' : 'hover:bg-muted text-muted-foreground'"
+                            :class="[
+                                'w-full flex items-center justify-between border-l-2 px-2 py-1.5 rounded text-xs transition',
+                                adminBrandListItemFocusClass,
+                                getSubtypeButtonClass(sub),
+                                activeType === sub && 'font-semibold',
+                            ]"
                             @click="activeType = sub"
                         >
                             <span class="truncate">{{ sub }}</span>
@@ -200,16 +228,16 @@ onMounted(async () => {
         <!-- 右侧列表 -->
         <div class="flex-1 flex flex-col min-w-0">
             <div class="p-4 border-b flex items-center gap-3 bg-card">
-                <Input v-model="searchQ" placeholder="按标题搜索" class="w-64" />
+                <Input v-model="searchQ" placeholder="按标题搜索" :class="['w-64', adminBrandFocusClass]" />
                 <Select v-model="enabledFilter">
-                    <SelectTrigger class="w-40"><SelectValue /></SelectTrigger>
-                    <SelectContent>
+                    <SelectTrigger :class="['w-40', adminBrandFocusClass]"><SelectValue /></SelectTrigger>
+                    <SelectContent class="theme-brand">
                         <SelectItem value="all">全部</SelectItem>
                         <SelectItem value="on">仅启用</SelectItem>
                         <SelectItem value="off">仅停用</SelectItem>
                     </SelectContent>
                 </Select>
-                <Button class="ml-auto" @click="openCreate">+ 新增要点</Button>
+                <Button :class="['ml-auto', adminBrandPrimaryButtonClass]" @click="openCreate">+ 新增要点</Button>
             </div>
 
             <div class="flex-1 overflow-auto p-4">
@@ -219,7 +247,7 @@ onMounted(async () => {
                 </div>
                 <Table v-else>
                     <TableHeader>
-                        <TableRow>
+                        <TableRow class="bg-muted/50 hover:bg-muted/50">
                             <TableHead class="w-24">code</TableHead>
                             <TableHead>标题</TableHead>
                             <TableHead class="w-20">等级</TableHead>
@@ -230,19 +258,20 @@ onMounted(async () => {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        <TableRow v-for="p in list" :key="p.id">
+                        <TableRow v-for="p in list" :key="p.id" class="hover:bg-muted/30">
                             <TableCell class="font-mono text-xs">{{ p.code }}</TableCell>
                             <TableCell>{{ p.title }}</TableCell>
                             <TableCell>{{ RISK_LEVEL_LABEL[p.defaultLevel] }}</TableCell>
                             <TableCell>{{ STANCE_PREFERENCE_LABEL[p.stancePreference] }}</TableCell>
                             <TableCell>
-                                <Switch :model-value="p.enabled" @update:model-value="toggleEnabled(p)" />
+                                <Switch :model-value="p.enabled" :class="adminBrandSwitchClass"
+                                    @update:model-value="toggleEnabled(p)" />
                             </TableCell>
                             <TableCell class="text-xs text-muted-foreground">
                                 {{ new Date(p.updatedAt).toLocaleDateString() }}
                             </TableCell>
                             <TableCell>
-                                <Button size="sm" variant="outline" @click="openEdit(p)">编辑</Button>
+                                <Button size="sm" variant="outline" :class="adminBrandFocusClass" @click="openEdit(p)">编辑</Button>
                             </TableCell>
                         </TableRow>
                     </TableBody>
@@ -253,7 +282,7 @@ onMounted(async () => {
 
         <!-- 编辑抽屉 -->
         <Sheet v-model:open="drawerOpen">
-            <SheetContent class="w-[520px] sm:max-w-[520px] overflow-y-auto">
+            <SheetContent class="theme-brand w-[520px] sm:max-w-[520px] overflow-y-auto">
                 <SheetHeader>
                     <SheetTitle>{{ isEdit ? '编辑要点' : '新增要点' }}</SheetTitle>
                 </SheetHeader>
@@ -264,18 +293,19 @@ onMounted(async () => {
                     </div>
                     <div v-if="!isEdit">
                         <Label>code（稳定标识，创建后不可改）</Label>
-                        <Input v-model="editing.code" placeholder="如 probation；只能小写字母、数字、下划线" class="mt-1" />
+                        <Input v-model="editing.code" placeholder="如 probation；只能小写字母、数字、下划线"
+                            :class="['mt-1', adminBrandFocusClass]" />
                     </div>
                     <div>
                         <Label>标题</Label>
-                        <Input v-model="editing.title" :maxlength="30" class="mt-1" />
+                        <Input v-model="editing.title" :maxlength="30" :class="['mt-1', adminBrandFocusClass]" />
                     </div>
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <Label>默认等级</Label>
                             <Select v-model="editing.defaultLevel">
-                                <SelectTrigger class="mt-1"><SelectValue /></SelectTrigger>
-                                <SelectContent>
+                                <SelectTrigger :class="['mt-1', adminBrandFocusClass]"><SelectValue /></SelectTrigger>
+                                <SelectContent class="theme-brand">
                                     <SelectItem value="high">高</SelectItem>
                                     <SelectItem value="medium">中</SelectItem>
                                     <SelectItem value="low">低</SelectItem>
@@ -285,8 +315,8 @@ onMounted(async () => {
                         <div>
                             <Label>立场偏好</Label>
                             <Select v-model="editing.stancePreference">
-                                <SelectTrigger class="mt-1"><SelectValue /></SelectTrigger>
-                                <SelectContent>
+                                <SelectTrigger :class="['mt-1', adminBrandFocusClass]"><SelectValue /></SelectTrigger>
+                                <SelectContent class="theme-brand">
                                     <SelectItem value="strict">严格</SelectItem>
                                     <SelectItem value="balanced">中性</SelectItem>
                                     <SelectItem value="lenient">宽松</SelectItem>
@@ -296,20 +326,25 @@ onMounted(async () => {
                     </div>
                     <div>
                         <Label>检查内容（给 AI 的指导语）</Label>
-                        <Textarea v-model="editing.checkContent" :rows="4" :maxlength="500" class="mt-1" />
+                        <Textarea v-model="editing.checkContent" :rows="4" :maxlength="500"
+                            :class="['mt-1', adminBrandFocusClass]" />
                     </div>
                     <div>
                         <Label>法律依据（可选）</Label>
-                        <Textarea :model-value="editing.legalBasis ?? ''" :rows="2" :maxlength="300" class="mt-1" @update:model-value="editing.legalBasis = $event ? String($event) : null" />
+                        <Textarea :model-value="editing.legalBasis ?? ''" :rows="2" :maxlength="300"
+                            :class="['mt-1', adminBrandFocusClass]"
+                            @update:model-value="editing.legalBasis = $event ? String($event) : null" />
                     </div>
                     <div>
                         <Label>标准建议（可选）</Label>
-                        <Textarea :model-value="editing.suggestion ?? ''" :rows="3" :maxlength="500" class="mt-1" @update:model-value="editing.suggestion = $event ? String($event) : null" />
+                        <Textarea :model-value="editing.suggestion ?? ''" :rows="3" :maxlength="500"
+                            :class="['mt-1', adminBrandFocusClass]"
+                            @update:model-value="editing.suggestion = $event ? String($event) : null" />
                     </div>
                 </div>
                 <SheetFooter>
-                    <Button variant="outline" @click="drawerOpen = false">取消</Button>
-                    <Button @click="saveDrawer">保存</Button>
+                    <Button variant="outline" :class="adminBrandFocusClass" @click="drawerOpen = false">取消</Button>
+                    <Button :class="adminBrandPrimaryButtonClass" @click="saveDrawer">保存</Button>
                 </SheetFooter>
             </SheetContent>
         </Sheet>

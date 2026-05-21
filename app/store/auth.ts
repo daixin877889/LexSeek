@@ -122,17 +122,19 @@ export const useAuthStore = defineStore("auth", () => {
   const resetPassword = async ({ phone, code, newPassword }: { phone: string; code: string; newPassword: string }): Promise<boolean> => {
     loading.value = true;
     error.value = null;
+    const capture = useBusinessErrorCapture();
 
     const data = await useApiFetch<any>("/api/v1/auth/reset-password", {
       method: "POST",
       body: { phone, code, newPassword },
       showError: false,
+      onBusinessError: capture.onBusinessError,
     });
 
     loading.value = false;
 
     if (!data) {
-      error.value = "重置密码失败";
+      error.value = capture.message.value || "重置密码失败";
       return false;
     }
 
@@ -193,6 +195,7 @@ export const useAuthStore = defineStore("auth", () => {
   const register = async ({ phone, code, name, password, invitedBy }: { phone: string; code: string; name: string; password: string; invitedBy?: string }): Promise<boolean> => {
     loading.value = true;
     error.value = null;
+    const capture = useBusinessErrorCapture();
 
     const params: Record<string, string> = { phone, code, name, password };
     if (invitedBy) {
@@ -205,13 +208,14 @@ export const useAuthStore = defineStore("auth", () => {
         method: "POST",
         body: params,
         showError: false,
+        onBusinessError: capture.onBusinessError,
       }
     );
 
     loading.value = false;
 
     if (!data || !data.token) {
-      error.value = "注册失败";
+      error.value = capture.message.value || "注册失败";
       return false;
     }
 

@@ -1167,7 +1167,7 @@ EOF
 | 1 | `server/services/workflow/agents/caseMainAgent.ts` | 案件分析主 Agent |
 | 2 | `server/services/workflow/agents/contractReviewMainAgent.ts` | 合同审查主 Agent |
 | 3 | `server/services/workflow/agents/documentMainAgent.ts` | 文书草稿主 Agent |
-| 4 | `server/services/workflow/agents/assistantAgent.ts` | 通用法律助手 |
+| 4 | `server/services/workflow/agents/assistantAgent.ts` | 通用问答 |
 | 5 | `server/services/workflow/agents/moduleAgent.ts` | 模块对话 Agent |
 | 6 | `server/services/workflow/agents/subAgentToolFactory.ts` | Sub-agent 工厂 |
 

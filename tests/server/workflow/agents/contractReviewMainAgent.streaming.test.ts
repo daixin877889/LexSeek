@@ -92,6 +92,21 @@ vi.mock('~~/server/services/workflow/middleware/reviewResultPersistence.middlewa
     runAnnotateAndUpload: vi.fn().mockResolvedValue(undefined),
 }))
 
+// S1：persistRisksAndCreateV1Snapshot 内部依赖，mock 掉避免 resume 分支测试触达真实 DB 写
+vi.mock('~~/server/services/assistant/contract/contractRisk.service', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('~~/server/services/assistant/contract/contractRisk.service')>()
+    return { ...actual, persistAiRisksAsContractRows: vi.fn().mockResolvedValue([]) }
+})
+vi.mock('~~/server/services/assistant/contract/contractReviewVersion.service', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('~~/server/services/assistant/contract/contractReviewVersion.service')>()
+    return { ...actual, saveContractReviewVersionService: vi.fn().mockResolvedValue({ id: 1 }) }
+})
+// V1：mock 积分扣费服务，断言 resume 分支逐条分析阶段确实扣费
+vi.mock('~~/server/services/point/pointConsumption.service', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('~~/server/services/point/pointConsumption.service')>()
+    return { ...actual, consumePointsService: vi.fn().mockResolvedValue({ consumedAmount: 6 }) }
+})
+
 const mockStream = vi.hoisted(() => vi.fn(() => new ReadableStream<Uint8Array>({ start(c) { c.close() } })))
 
 vi.mock('langchain', async () => {
@@ -107,12 +122,14 @@ import { runAnalyzeLoop, runContractReviewChat } from '~~/server/services/workfl
 import { emitContractReviewEvent } from '~~/server/services/workflow/nodes/contractReviewStageEmitter'
 import { getValidNodeConfig } from '~~/server/services/node/node.service'
 import { analyzeSingleClause } from '~~/server/agents/contract/analyzeSingleClause'
+import { summarizeOverview } from '~~/server/agents/contract/summarizeOverview'
 import {
     findContractReviewBySessionIdDAO,
     updateContractReviewDAO,
 } from '~~/server/agents/contract/contractReview.dao'
 import { segmentClauses } from '~~/server/agents/contract/docx/clauseSegmenter'
 import { runAnnotateAndUpload } from '~~/server/services/workflow/middleware/reviewResultPersistence.middleware'
+import { consumePointsService } from '~~/server/services/point/pointConsumption.service'
 import type { ClauseSegment, Risk } from '#shared/types/contract'
 
 const emitterCtx = { runId: 'run-1', sessionId: 'sess-1' }
@@ -315,6 +332,50 @@ describe('runContractReviewChat resume 分支 - segments fail-fast', () => {
     })
 })
 
+describe('runContractReviewChat resume 分支 - V1 逐条分析阶段计费', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('逐条分析 + 总览的 token 用量按 contract_review_token 扣积分', async () => {
+        ;(findContractReviewBySessionIdDAO as any).mockResolvedValueOnce({
+            id: 777,
+            userId: 7,
+            sessionId: 'sess-billing',
+            originalFileId: 99,
+            partyA: '甲方',
+            partyB: '乙方',
+            contractType: '服务合同',
+            stance: 'partyA',
+            status: 'reviewing',
+        })
+        ;(segmentClauses as any).mockResolvedValueOnce({ segments: mockSegments, normalizedText: '全文' })
+        // analyzeSingleClause：每条款返回 1 条风险并上报 2000 token
+        ;(analyzeSingleClause as any).mockImplementation(async (ctx: any) => {
+            ctx.onTokenUsage?.(2000)
+            return [riskHigh]
+        })
+
+        const stream = await runContractReviewChat('sess-billing', {
+            userId: 7,
+            runId: 'run-billing',
+            command: { stance: 'partyA' },
+        })
+        const reader = stream.getReader()
+        while (true) {
+            const { done } = await reader.read()
+            if (done) break
+        }
+
+        // 3 条款 × 2000 token = 6000 token → ceil(6000 / 1000) = 6 个计费单位
+        expect(consumePointsService).toHaveBeenCalledTimes(1)
+        const call = (consumePointsService as any).mock.calls[0]
+        expect(call[0]).toBe(7)                      // userId
+        expect(call[1]).toBe('contract_review_token') // itemKey
+        expect(call[2]).toBe(6)                       // quantity
+    })
+})
+
 describe('阶段 5 · skipStanceInterrupt 路径（review_contract 子代理工具）', () => {
     beforeEach(() => {
         vi.clearAllMocks()
@@ -466,5 +527,81 @@ describe('callbacks 选项透传', () => {
         })
         // skip 分支返回手工构造的 ReadableStream，不调用 agent.stream
         expect(mockStream).not.toHaveBeenCalled()
+    })
+})
+
+describe('runContractReviewChat resume 分支 - 全/部分条款分析失败（S1）', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    /** resume 分支测试公共准备：review + 切分成功的 3 条 segments */
+    function setupResumeReview(id: number, sessionId: string) {
+        ;(findContractReviewBySessionIdDAO as any).mockResolvedValueOnce({
+            id, userId: 7, sessionId,
+            originalFileId: 99,
+            partyA: '甲方', partyB: '乙方',
+            contractType: null, stance: null,
+            status: 'reviewing', currentVersionId: null,
+        })
+        ;(segmentClauses as any).mockResolvedValueOnce({ segments: mockSegments, normalizedText: '正文' })
+    }
+
+    async function drain(stream: ReadableStream<Uint8Array>) {
+        const reader = stream.getReader()
+        while (true) {
+            const { done } = await reader.read()
+            if (done) break
+        }
+    }
+
+    it('全部条款分析失败 → 置 failed，不走 summarize / annotate（不误判完成无风险）', async () => {
+        setupResumeReview(777, 'sess-allfail')
+        // 3 条 analyzeSingleClause 全部抛错
+        ;(analyzeSingleClause as any).mockRejectedValue(new Error('LLM 全线故障'))
+
+        const stream = await runContractReviewChat('sess-allfail', {
+            userId: 7, runId: 'run-allfail', command: { stance: 'partyA' },
+        })
+        await drain(stream)
+
+        // 确实尝试分析过全部 3 条
+        expect(analyzeSingleClause).toHaveBeenCalledTimes(3)
+        // 全失败 → 不得进入 summarize / 注入上传，否则会误判"审查完成·无风险"
+        expect(summarizeOverview).not.toHaveBeenCalled()
+        expect(runAnnotateAndUpload).not.toHaveBeenCalled()
+        // 置 failed
+        const failedCall = (updateContractReviewDAO as any).mock.calls.find(
+            (call: any[]) => call[1]?.status === 'failed',
+        )
+        expect(failedCall).toBeDefined()
+        expect(failedCall![0]).toBe(777)
+    })
+
+    it('部分条款分析失败 → 审查继续，总评里标注失败条款数', async () => {
+        setupResumeReview(778, 'sess-partfail')
+        // 第 1 条失败，第 2、3 条成功
+        ;(analyzeSingleClause as any)
+            .mockRejectedValueOnce(new Error('单条 LLM 故障'))
+            .mockResolvedValueOnce([riskHigh])
+            .mockResolvedValueOnce([riskMedium])
+        ;(summarizeOverview as any).mockResolvedValueOnce({
+            highlights: { high: [], medium: [], low: [] },
+            overall: '本合同总体风险可控',
+        })
+
+        const stream = await runContractReviewChat('sess-partfail', {
+            userId: 7, runId: 'run-partfail', command: { stance: 'partyA' },
+        })
+        await drain(stream)
+
+        // 部分失败：审查继续，summarize 被调用
+        expect(summarizeOverview).toHaveBeenCalledTimes(1)
+        // 总评里应标注失败条款数，避免律师误以为已完整覆盖全部条款
+        const summaryCall = (updateContractReviewDAO as any).mock.calls.find(
+            (call: any[]) => call[1]?.summary,
+        )
+        expect(summaryCall).toBeDefined()
+        expect((summaryCall![1].summary as { overall: string }).overall).toContain('1 条条款')
     })
 })

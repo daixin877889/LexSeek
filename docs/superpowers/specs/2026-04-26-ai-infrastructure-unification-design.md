@@ -3,8 +3,8 @@
 - **日期**：2026-04-26
 - **作者**：戴鑫（产品定位）+ Claude（架构设计）
 - **背景头脑风暴会话**：本文档基于 2026-04-26 全程 brainstorming 产出，所有产品决策点均经用户确认
-- **范围**：把 LexSeek 当前 6 个 AI 业务（小索 / 案件初始化分析 / 模块对话 / 法律助手 / 文书生成 / 合同审查）统一到一套通用 AI 平台基建上；启用业务互调能力；Skills 系统从模块单例改为按节点配置驱动并入库管理
-- **不涉及**：用户记忆机制（法律助手未来规划，下个迭代）；模块对话 → 文书生成 协作链路；skills 上传 API（数据模型预留 source 字段，本期不实现）；skills 在线编辑（文件系统为权威源）；合同审查 docx 处理代码迁到 docx skill（下个迭代）
+- **范围**：把 LexSeek 当前 6 个 AI 业务（小索 / 案件初始化分析 / 模块对话 / 通用问答 / 文书生成 / 合同审查）统一到一套通用 AI 平台基建上；启用业务互调能力；Skills 系统从模块单例改为按节点配置驱动并入库管理
+- **不涉及**：用户记忆机制（通用问答未来规划，下个迭代）；模块对话 → 文书生成 协作链路；skills 上传 API（数据模型预留 source 字段，本期不实现）；skills 在线编辑（文件系统为权威源）；合同审查 docx 处理代码迁到 docx skill（下个迭代）
 
 ---
 
@@ -13,7 +13,7 @@
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
 │  第 1 层 · 用户界面（基本不动）                                       │
-│  小索浮窗 · 模块对话 · 法律助手页 · 案件初分页 · 文书生成页 · 合同工作台│
+│  小索浮窗 · 模块对话 · 通用问答页 · 案件初分页 · 文书生成页 · 合同工作台│
 └──────────────┬───────────────────────────────────────────────────────┘
                │ HTTP/SSE
 ┌──────────────▼───────────────────────────────────────────────────────┐
@@ -54,7 +54,7 @@
 **核心收益**：
 
 - 加新 AI 业务：从 6-7 处目录、800-1200 行代码、3-5 天 → 1 个目录、200-400 行代码、~1 天
-- 业务能力调用关系：从"全是孤岛"→"小索 / 法律助手能调起文书生成 / 合同审查"
+- 业务能力调用关系：从"全是孤岛"→"小索 / 通用问答能调起文书生成 / 合同审查"
 - Skills 从模块全局单例 → 按节点配置驱动 + 入库管理 + 后台可控
 - 合同审查的"游离形态"（绕过 agent.stream 的 resume 路径）回归主线
 - 前端 6 个业务 composable 各写一份 → 统一 useDomainAgentSession 工厂
@@ -75,11 +75,11 @@
 | D2 | 案件初分形态 | 保留 StateGraph，底层基建尽量复用 |
 | D3 | 合同审查形态 | 独立工作台 UI 完全保留，底层基建统一 |
 | D4 | 互调用户体验形态 | 嵌入式 + 自定义工具卡片（沿用现状已有 16 张卡片体系） |
-| D5 | 协作链路 P0 | search_law 普及（模块对话/文书/合同 三处加工具）+ 法律助手→文书/合同（无 caseId 启动） |
+| D5 | 协作链路 P0 | search_law 普及（模块对话/文书/合同 三处加工具）+ 通用问答→文书/合同（无 caseId 启动） |
 | D6 | 协作链路 P1 | 小索→文书/合同（带 caseId 透传）|
-| D7 | 不在范围 | 模块对话→文书生成；法律助手→其他 Agent 的反向链路（避免与小索定位重叠）|
-| D8 | 法律助手 vs 小索定位 | 小索=案件维度（caseId 绑定）；法律助手=全局通用（caseId=NULL，未来加用户记忆/偏好/办过案子/日程）|
-| D9 | 无 caseId 启动模式 | 法律助手→文书/合同 时 caseId=NULL；用户在结果独立页通过"+ 关联案件"按钮补绑 |
+| D7 | 不在范围 | 模块对话→文书生成；通用问答→其他 Agent 的反向链路（避免与小索定位重叠）|
+| D8 | 通用问答 vs 小索定位 | 小索=案件维度（caseId 绑定）；通用问答=全局通用（caseId=NULL，未来加用户记忆/偏好/办过案子/日程）|
+| D9 | 无 caseId 启动模式 | 通用问答→文书/合同 时 caseId=NULL；用户在结果独立页通过"+ 关联案件"按钮补绑 |
 | D10 | 互调执行模式 | 同步执行（工具卡片实时更新进度，复用已有 SSE 渲染）|
 | D11 | 跳转协议 | URL 参数 `?from=<xiaosuo|assistant>&caseId=<optional>&sessionId=<parentSessionId>` |
 | D12 | Skills 真理来源 | 文件系统为权威源（`.deepagents/skills/`），数据库做注册册 + 元数据缓存 |
@@ -115,7 +115,7 @@ server/agents/<business>/
 | 小索 | `server/services/workflow/agents/caseMainAgent.ts` | `server/agents/case-main/` |
 | 模块对话 | `server/services/workflow/agents/moduleAgent.ts` | `server/agents/case-module/` |
 | 案件初分 | `server/services/workflow/caseAnalysisV2.workflow.ts`<br>`caseAnalysisV2.executor.ts` | `server/agents/case-analysis/` |
-| 法律助手 | `server/services/workflow/agents/assistantAgent.ts` | `server/agents/legal-assistant/` |
+| 通用问答 | `server/services/workflow/agents/assistantAgent.ts` | `server/agents/legal-assistant/` |
 | 文书生成 | `server/services/workflow/agents/documentMainAgent.ts`<br>`server/services/assistant/document/**` | `server/agents/document/` |
 | 合同审查 | `server/services/workflow/agents/contractReviewMainAgent.ts`<br>`server/services/assistant/contract/**` | `server/agents/contract/` |
 
@@ -467,7 +467,7 @@ if (skillsForNode.length > 0) {
 |---|---|
 | caseMain（小索）| 全部 6 个：docx, pptx, minimax-pdf, minimax-xlsx, evidence-defense, litigation-visualization |
 | caseModule（模块对话）| 全部 6 个（同小索）|
-| assistantMain（法律助手）| 全部 6 个 |
+| assistantMain（通用问答）| 全部 6 个 |
 | documentMain（文书生成）| docx |
 | contractReviewMain（合同审查）| docx |
 | 案件初分各分析子模块 | 按模块语义配（举例：诉讼策略→evidence-defense；证据清单→docx；案情可视化→litigation-visualization）。具体清单 §6 阶段 8 制订 |
@@ -729,7 +729,7 @@ const from = computed(() => route.query.from as 'xiaosuo' | 'assistant' | undefi
 const caseId = computed(() => route.query.caseId ? Number(route.query.caseId) : null)
 const parentSessionId = computed(() => route.query.sessionId as string | undefined)
 
-const fromLabel = computed(() => from.value === 'xiaosuo' ? '小索' : '法律助手')
+const fromLabel = computed(() => from.value === 'xiaosuo' ? '小索' : '通用问答')
 
 function returnToParent() {
     if (from.value === 'xiaosuo') {
@@ -751,7 +751,7 @@ async function openCaseLinker() {
 
 子代理工具的 `ctx.caseId` 来自父 Agent 的 `ToolContext`：
 - 小索（caseMain）的 `ctx.caseId` 由 session.caseId 提供（非空）
-- 法律助手（assistant）的 `ctx.caseId` 为 `null`（session.caseId 必为 null）
+- 通用问答（assistant）的 `ctx.caseId` 为 `null`（session.caseId 必为 null）
 
 工具内部以此判断带不带 caseId。
 
@@ -844,7 +844,7 @@ async function openCaseLinker() {
 - 合同审查 4 个测试文件（streaming/contextSegments/playbook/stage）回归全 PASS
 - 新增平台 stateGraph 路径单测（runStateGraphAgent ctx 注入正确性）
 
-### 阶段 5 · 法律助手 → 文书 / 合同（无 caseId）
+### 阶段 5 · 通用问答 → 文书 / 合同（无 caseId）
 
 **工程量**：1-2 周（用户可见）
 
@@ -852,8 +852,8 @@ async function openCaseLinker() {
 
 - `server/services/agent-platform/tools/draftDocument.tool.ts` + `reviewContract.tool.ts` 实现
 - 两工具注册到工具注册表
-- 法律助手节点配置（assistantMain）的 nodes.tools 加 `draft_document` 和 `review_contract`
-- 法律助手节点配置接入全部 6 个 skills
+- 通用问答节点配置（assistantMain）的 nodes.tools 加 `draft_document` 和 `review_contract`
+- 通用问答节点配置接入全部 6 个 skills
 - `app/components/agents/document/tools/DraftDocumentCard.vue` 实现
 - `app/components/agents/contract/tools/ReviewContractCard.vue` 实现
 - 跳转协议落地：`?from=&caseId=&sessionId=`
@@ -862,9 +862,9 @@ async function openCaseLinker() {
 - `PATCH /api/v1/assistant/contract/reviews/:id { caseId }` 接口
 
 **验证**：
-- E2E 1：法律助手输入"帮我起草起诉状" → 工具卡片"已完成" → 跳文书页 → "+关联案件"成功
-- E2E 2：法律助手输入"审一下这份合同"（拖入 docx） → 工具卡片含 Top 风险 → 跳工作台 → "+关联案件"成功
-- 验证返回链接能回到法律助手并继续对话
+- E2E 1：通用问答输入"帮我起草起诉状" → 工具卡片"已完成" → 跳文书页 → "+关联案件"成功
+- E2E 2：通用问答输入"审一下这份合同"（拖入 docx） → 工具卡片含 Top 风险 → 跳工作台 → "+关联案件"成功
+- 验证返回链接能回到通用问答并继续对话
 
 ### 阶段 6 · 小索 → 文书 / 合同（带 caseId）
 
@@ -962,8 +962,8 @@ async function openCaseLinker() {
 - 小索：发起对话 → 工具调用 → search_law / search_case_materials 卡片 → interrupt（积分不足）→ 充值 → resume → 完成
 - 模块对话：进入模块 → 多轮对话 → save_analysis_result → 历史可见
 - 案件初分：选模块 → 启动 → 多模块顺序 → 中断 → 充值 → 完成
-- 法律助手：发起对话 → "起草起诉状" → 工具卡片 → 跳文书页 → 关联案件
-- 法律助手：发起对话 → "审合同" → 工具卡片 → 跳工作台 → 关联案件
+- 通用问答：发起对话 → "起草起诉状" → 工具卡片 → 跳文书页 → 关联案件
+- 通用问答：发起对话 → "审合同" → 工具卡片 → 跳工作台 → 关联案件
 - 文书生成：发起对话 → 草稿生成 → 编辑 → 保存版本 → 导出 docx
 - 合同审查：上传合同 → 立场选择 interrupt → resume → 分析 → 风险编辑 → 导出
 - 小索 → 文书：caseId 透传链路
@@ -997,12 +997,12 @@ async function openCaseLinker() {
 
 - skills 上传 API（数据模型预留 source 字段，下个迭代）
 - skills 在线编辑 SKILL.md 内容（数据库为权威源的方向，下个迭代）
-- 用户记忆机制（法律助手未来规划：偏好 / 办过的案子 / 在办的案子 / 日程）
+- 用户记忆机制（通用问答未来规划：偏好 / 办过的案子 / 在办的案子 / 日程）
 - 模块对话 → 文书生成（按业务需求确定，本期不做）
 - 合同审查 docx 处理代码迁到 docx skill（下个迭代）
 - skills 按业务可见的进一步细化（如"docx 只给文书看"）— 当前默认全部 status=1 的 skill 在节点编辑时都可见，未来可加 visibility 字段
 - 异步子代理调用（当前同步执行；如未来用户体验上有"主对话不阻塞"刚需再做）
-- 法律助手 → 文书 / 合同的反向链路与小索定位重叠风险监控（看用户反馈，必要时调整）
+- 通用问答 → 文书 / 合同的反向链路与小索定位重叠风险监控（看用户反馈，必要时调整）
 
 ---
 

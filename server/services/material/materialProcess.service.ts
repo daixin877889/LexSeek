@@ -144,10 +144,10 @@ export const processMaterialService = async (
 
     // 5. 获取 OSS 文件信息
     const ossFile = await prisma.ossFiles.findFirst({
-        where: { id: material.ossFileId, deletedAt: null },
+        where: { id: material.ossFileId, userId, deletedAt: null },
     })
     if (!ossFile) {
-        throw new MaterialProcessError('关联的文件不存在', 404)
+        throw new MaterialProcessError('关联的文件不存在或无权访问', 404)
     }
 
     // 6. 更新状态为处理中

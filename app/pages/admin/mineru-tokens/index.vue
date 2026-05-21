@@ -1,12 +1,12 @@
 <template>
-        <div class="space-y-6">
+        <div class="theme-brand space-y-6">
             <!-- 页面标题 -->
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                     <h1 class="text-2xl md:text-3xl font-bold mb-1">MinerU Token 管理</h1>
                     <p class="text-muted-foreground text-sm">管理 MinerU PDF 转换服务的 API Token</p>
                 </div>
-                <Button @click="formDialogRef?.openCreate()">
+                <Button :class="adminBrandPrimaryButtonClass" @click="formDialogRef?.openCreate()">
                     <Plus class="h-4 w-4 mr-2" />
                     新增 Token
                 </Button>
@@ -15,20 +15,20 @@
             <!-- 筛选 -->
             <div class="flex flex-col md:flex-row gap-4">
                 <Select v-model="statusFilter">
-                    <SelectTrigger class="w-full md:w-32">
+                    <SelectTrigger :class="['w-full md:w-32', adminBrandFocusClass]">
                         <SelectValue placeholder="状态" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent class="theme-brand">
                         <SelectItem value="all">全部状态</SelectItem>
                         <SelectItem value="1">启用</SelectItem>
                         <SelectItem value="0">禁用</SelectItem>
                     </SelectContent>
                 </Select>
                 <div class="flex-1">
-                    <Input v-model="keyword" placeholder="搜索 Token 名称/备注..." class="w-full md:w-64"
+                    <Input v-model="keyword" placeholder="搜索 Token 名称/备注..." :class="['w-full md:w-64', adminBrandFocusClass]"
                         @keyup.enter="handleSearch" />
                 </div>
-                <Button variant="outline" @click="handleSearch">
+                <Button variant="outline" :class="adminBrandFocusClass" @click="handleSearch">
                     <Search class="h-4 w-4 mr-2" />
                     筛选
                 </Button>
@@ -48,10 +48,10 @@
 
             <!-- Token 列表 -->
             <template v-else>
-                <div class="rounded-md border">
+                <div class="bg-card rounded-lg border overflow-hidden">
                     <Table>
                         <TableHeader>
-                            <TableRow>
+                            <TableRow class="bg-muted/50 hover:bg-muted/50">
                                 <TableHead class="w-[60px]">ID</TableHead>
                                 <TableHead>Token 名称</TableHead>
                                 <TableHead>Token 值</TableHead>
@@ -64,7 +64,7 @@
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            <TableRow v-for="item in items" :key="item.id">
+                            <TableRow v-for="item in items" :key="item.id" class="hover:bg-muted/30">
                                 <TableCell class="font-medium">{{ item.id }}</TableCell>
                                 <TableCell class="font-medium">{{ item.name }}</TableCell>
                                 <TableCell>
@@ -77,10 +77,10 @@
                                 </TableCell>
                                 <TableCell>
                                     <div class="flex flex-col gap-1">
-                                        <Badge :variant="item.status === 1 ? 'default' : 'secondary'">
+                                        <Badge variant="outline" :class="getAdminStatusBadgeClass(item.status === 1)">
                                             {{ item.status === 1 ? '启用' : '禁用' }}
                                         </Badge>
-                                        <Badge v-if="item.expired" variant="destructive" class="w-fit">已过期</Badge>
+                                        <Badge v-if="item.expired" variant="outline" :class="['w-fit', adminBrandErrorBadgeClass]">已过期</Badge>
                                     </div>
                                 </TableCell>
                                 <TableCell class="text-muted-foreground">
@@ -95,11 +95,11 @@
                                 <TableCell class="text-right">
                                     <DropdownMenu>
                                         <DropdownMenuTrigger as-child>
-                                            <Button variant="ghost" size="icon">
+                                            <Button variant="ghost" size="icon" :class="adminBrandFocusClass">
                                                 <MoreHorizontal class="h-4 w-4" />
                                             </Button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
+                                        <DropdownMenuContent align="end" class="theme-brand shadow-none">
                                             <DropdownMenuItem @click="formDialogRef?.openEdit(item)">
                                                 <Pencil class="h-4 w-4 mr-2" />
                                                 编辑
@@ -109,7 +109,7 @@
                                                 {{ item.status === 1 ? '禁用' : '启用' }}
                                             </DropdownMenuItem>
                                             <DropdownMenuSeparator />
-                                            <DropdownMenuItem class="text-destructive" @click="handleDelete(item)">
+                                            <DropdownMenuItem class="text-destructive focus:text-destructive" @click="handleDelete(item)">
                                                 <Trash2 class="h-4 w-4 mr-2" />
                                                 删除
                                             </DropdownMenuItem>
@@ -132,7 +132,7 @@
 
         <!-- 删除确认对话框 -->
         <AlertDialog v-model:open="deleteDialogOpen">
-            <AlertDialogContent>
+            <AlertDialogContent class="theme-brand">
                 <AlertDialogHeader>
                     <AlertDialogTitle>确认删除</AlertDialogTitle>
                     <AlertDialogDescription>
@@ -140,8 +140,9 @@
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>取消</AlertDialogCancel>
-                    <AlertDialogAction @click="confirmDelete" :disabled="deleting">
+                    <AlertDialogCancel :class="adminBrandFocusClass">取消</AlertDialogCancel>
+                    <AlertDialogAction @click="confirmDelete" :disabled="deleting"
+                        :class="adminBrandDestructiveActionClass">
                         <Loader2 v-if="deleting" class="h-4 w-4 mr-2 animate-spin" />
                         确认删除
                     </AlertDialogAction>
@@ -157,6 +158,13 @@ import dayjs from 'dayjs'
 import AdminMineruTokensFormDialog from '~/components/admin/mineru-tokens/FormDialog.vue'
 import GeneralPagination from '~/components/general/pagination.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
+import {
+    adminBrandDestructiveActionClass,
+    adminBrandErrorBadgeClass,
+    adminBrandFocusClass,
+    adminBrandPrimaryButtonClass,
+    getAdminStatusBadgeClass,
+} from '~/utils/adminBrandStyles'
 
 // MinerU Token 接口（脱敏版本）
 interface MineruTokenMasked {

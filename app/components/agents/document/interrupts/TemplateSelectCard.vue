@@ -143,7 +143,7 @@ async function fetchBrowseList() {
         }
         const kw = debouncedKeyword.value.trim()
         if (kw) query.q = kw
-        // 法律助手默认混合显示 global + user 模板（不传 scope）
+        // 通用问答默认混合显示 global + user 模板（不传 scope）
         const data = await useApiFetch<BrowseResponse>(
             '/api/v1/assistant/document/templates',
             { query },
@@ -267,7 +267,7 @@ onMounted(() => {
     <div
         ref="cardRef"
         :class="[
-            'not-prose my-2 w-full max-w-lg rounded-lg border p-4 shadow-sm',
+            'not-prose my-2 w-full max-w-lg rounded-lg border p-4',
             isSnapshot
                 ? 'border-muted bg-muted/20 opacity-70 dark:border-muted dark:bg-muted/10'
                 : 'border-amber-300/60 bg-amber-50/60 dark:border-amber-700/60 dark:bg-amber-950/30',

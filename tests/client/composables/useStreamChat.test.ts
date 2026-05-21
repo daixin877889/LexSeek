@@ -50,7 +50,7 @@ vi.mock('@langchain/vue', () => ({
 
 // ── 动态导入（确保 mock 先完成）─────────────────────────────────────────────
 
-const { useStreamChat } = await import('~/composables/useStreamChat')
+const { useStreamChat, ensureSseResponse } = await import('~/composables/useStreamChat')
 
 // ── 测试工具 ─────────────────────────────────────────────────────────────────
 
@@ -262,6 +262,48 @@ describe('useStreamChat', () => {
             const chat = buildChat()
             chat.stop()
             expect(mockStop).toHaveBeenCalled()
+        })
+    })
+
+    describe('ensureSseResponse (V3)', () => {
+        it('正常 SSE 响应（text/event-stream）原样返回', async () => {
+            const resp = new Response('data: hi\n\n', {
+                status: 200,
+                headers: { 'content-type': 'text/event-stream' },
+            })
+            await expect(ensureSseResponse(resp)).resolves.toBe(resp)
+        })
+
+        it('V3 回归：HTTP 200 + JSON 错误体（resError 包装）→ 抛 StreamPreflightError 并取 message', async () => {
+            const resp = new Response(JSON.stringify({ code: 404, success: false, message: '合同审查会话不存在' }), {
+                status: 200,
+                headers: { 'content-type': 'application/json' },
+            })
+            await expect(ensureSseResponse(resp)).rejects.toThrowError('合同审查会话不存在')
+            await ensureSseResponse(
+                new Response(JSON.stringify({ message: 'x' }), {
+                    status: 200,
+                    headers: { 'content-type': 'application/json' },
+                }),
+            ).catch((e: Error) => {
+                expect(e.name).toBe('StreamPreflightError')
+            })
+        })
+
+        it('JSON 错误体无 message 字段时用兜底文案', async () => {
+            const resp = new Response('{}', {
+                status: 200,
+                headers: { 'content-type': 'application/json' },
+            })
+            await expect(ensureSseResponse(resp)).rejects.toThrowError('请求失败，请稍后重试')
+        })
+
+        it('真正的非 200 响应原样返回（交给 transport 自身的 !response.ok 分支）', async () => {
+            const resp = new Response('Internal Error', {
+                status: 500,
+                headers: { 'content-type': 'text/plain' },
+            })
+            await expect(ensureSseResponse(resp)).resolves.toBe(resp)
         })
     })
 })

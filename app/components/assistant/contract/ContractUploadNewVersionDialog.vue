@@ -115,8 +115,8 @@ function processFile(file: File) {
         toast.warning('仅支持 .docx 文件')
         return
     }
-    if (file.size > 20 * 1024 * 1024) {
-        toast.warning('文件不得超过 20 MB')
+    if (file.size > 100 * 1024 * 1024) {
+        toast.warning('文件不得超过 100 MB')
         return
     }
     selectedFile.value = file
@@ -232,7 +232,7 @@ function stepColorClass(status: StepStatus) {
                         :class="[
                             isDragging
                                 ? 'border-primary bg-primary/5 dark:bg-primary/15'
-                                : 'border-muted-foreground/25 dark:border-muted-foreground/40 hover:border-primary/50'
+                                : 'border-primary/30 hover:border-primary/60'
                         ]"
                         @dragover.prevent="isDragging = true"
                         @dragleave="isDragging = false"
@@ -263,7 +263,7 @@ function stepColorClass(status: StepStatus) {
 
                 <DialogFooter>
                     <Button variant="outline" @click="emit('update:open', false)">取消</Button>
-                    <Button :disabled="!selectedFile" @click="handleUpload">
+                    <Button :disabled="!selectedFile" class="bg-gradient-brand-button text-white" @click="handleUpload">
                         <UploadIcon class="size-4 mr-1" />
                         上传
                     </Button>
@@ -276,7 +276,7 @@ function stepColorClass(status: StepStatus) {
                     <p class="text-sm text-center text-muted-foreground">正在上传文件...</p>
                     <div class="w-full bg-muted rounded-full h-2">
                         <div
-                            class="bg-primary h-2 rounded-full transition-all"
+                            class="bg-gradient-brand-button h-2 rounded-full transition-all"
                             :style="{ width: `${ossProgress}%` }"
                         />
                     </div>
@@ -329,7 +329,7 @@ function stepColorClass(status: StepStatus) {
                 </div>
 
                 <DialogFooter>
-                    <Button v-if="uploadDone || uploadError" @click="handleClose">
+                    <Button v-if="uploadDone || uploadError" class="bg-gradient-brand-button text-white" @click="handleClose">
                         完成
                     </Button>
                     <span v-else class="text-xs text-muted-foreground">处理中，请稍候...</span>

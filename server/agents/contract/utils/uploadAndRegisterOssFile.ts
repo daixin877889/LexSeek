@@ -24,7 +24,7 @@ import { StorageProviderType } from '~~/server/lib/storage/types'
 import { OssFileStatus, type FileSource } from '#shared/types/file'
 
 export interface UploadAndRegisterOssFileInput {
-    /** OSS 内的对象路径，如 `contract-review/<userId>/<uuid>.docx` */
+    /** OSS object key，由调用方经 buildStorageKey 构造，格式如 `{env}/user{id}/caseAnalysis/{uuid}.docx` */
     ossPath: string
     buffer: Buffer
     /** 给 createOssFileDao 用的展示文件名（非 OSS path） */

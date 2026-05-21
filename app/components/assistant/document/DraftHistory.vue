@@ -56,11 +56,16 @@ async function loadDrafts() {
     innerLoading.value = true
     try {
         const skip = (pagination.value.page - 1) * pagination.value.pageSize
-        const query: Record<string, number> = {
+        const query: Record<string, number | boolean> = {
             skip,
             take: pagination.value.pageSize,
         }
-        if (props.caseId != null) query.caseId = props.caseId
+        if (props.caseId != null) {
+            query.caseId = props.caseId
+        } else {
+            // 工作台「历史文书」全局列表语义：排除旧库迁移而来的 legacy 自由文书
+            query.excludeLegacy = true
+        }
         const result = await useApiFetch<{ items: DraftRow[]; total: number }>(
             '/api/v1/assistant/document/drafts',
             { query },

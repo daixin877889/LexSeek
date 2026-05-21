@@ -25,12 +25,14 @@ import { getNodeConfigsByTypes, getNodeByNameService } from '../node/node.servic
 import { findAnalysisBySessionAndNodeDao, findLatestAnalysisBySessionAndNodeDao, AnalysisStatus } from '../case/analysis.dao'
 import { markAnalysisFailedById } from './middleware/analysisResultPersistence.middleware'
 import { deactivateVersionsDao, updateAnalysisDao, createAnalysisDao } from '../case/analysis.dao'
-import { checkPointsService, consumePointsService } from '../point/pointConsumption.service'
+import { billCheckService, billDirectService } from '../point/pointBilling.service'
+import { prisma } from '~~/server/utils/db'
 import { getCurrentMembershipService } from '../membership/userMembership.service'
 import { InterruptType } from '#shared/types/case'
 import { runAnalysisSubAgent } from '~~/server/agents/case-analysis/runAnalysisSubAgent'
 import { completeAnalysisWithRAG } from '../case/initAnalysis.service'
 import { getLangfuseContext } from '~~/server/lib/langfuse'
+import { stripContentBeforeFirstH1 } from '#shared/utils/markdown'
 
 
 /**
@@ -126,8 +128,8 @@ function calculateTotalTokens(messages: any[]): number {
 }
 
 
-/** 分析模块统一使用的积分消耗项目 key */
-const ANALYSIS_POINT_ITEM_KEY = 'case_analysis_token'
+/** 分析模块统一使用的积分消耗项目 key（案件初始化分析独占一项，与小索对话 / 模块对话区分） */
+const ANALYSIS_POINT_ITEM_KEY = 'case_analysis_init'
 
 /**
  * 创建分析节点
@@ -195,10 +197,10 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
                     // resume 后 interrupt() 返回，循环继续重新检查
                 }
 
-                // 步骤 3：积分预检（while 循环，直到积分充足）
+                // 步骤 3：积分预检（while 循环，直到积分充足；停用项直接放行）
                 while (true) {
-                    const pointCheck = await checkPointsService(state.userId, ANALYSIS_POINT_ITEM_KEY, 1)
-                    if (pointCheck.sufficient) break
+                    const pointCheck = await billCheckService(state.userId, ANALYSIS_POINT_ITEM_KEY, { tokens: 1000, units: 1 })
+                    if (pointCheck.skipped || pointCheck.sufficient) break
                     interrupt({
                         type: InterruptType.INSUFFICIENT_POINTS,
                         message: '积分不足，请充值后继续',
@@ -259,7 +261,7 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
                     thinking: state.thinking ?? true,
                 })
                 responseMessages = sub.messages
-                resultText = sub.resultText
+                resultText = stripContentBeforeFirstH1(sub.resultText)
 
                 // 步骤 5c：计算 token
                 totalTokens = calculateTotalTokens(responseMessages)
@@ -338,11 +340,21 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
             }
 
             // ====== 步骤 6：扣减积分（while 循环，直到扣减成功）======
+            // operationId 用 Langfuse 注入的 runId（一次"开始分析"的所有模块扣费聚合成一行）
+            const billingOperationId = getLangfuseContext()?.runId ?? undefined
+            // contextLabel 取案件名作为消耗记录的业务上下文标签
+            const caseRowForBilling = await prisma.cases.findUnique({
+                where: { id: state.caseId },
+                select: { title: true },
+            }).catch(() => null)
+            const caseTitle = caseRowForBilling?.title ?? `案件_${state.caseId}`
             while (tokenQuantity > 0) {
                 try {
-                    await consumePointsService(state.userId, ANALYSIS_POINT_ITEM_KEY, tokenQuantity, {
+                    // 同时传 tokens 和 units=1（每模块计 1 次），让管理后台可在 token/次 两种模式间自由切换
+                    await billDirectService(state.userId, ANALYSIS_POINT_ITEM_KEY, { tokens: tokenQuantity * 1000, units: 1 }, {
                         sourceId: state.caseId,
-                        remark: `案件分析：${moduleTitle}（${totalTokens} tokens）`,
+                        operationId: billingOperationId,
+                        contextLabel: caseTitle,
                     })
                     // 扣减成功 → 标记已扣费
                     if (analysisRecordId) {
@@ -353,7 +365,7 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
                 } catch (consumeError: any) {
                     // 扣减失败 → interrupt 弹出购买 UI（结果已安全保存在 DB）
                     logger.warn('积分不足，等待充值', { agentName, tokenQuantity })
-                    const check = await checkPointsService(state.userId, ANALYSIS_POINT_ITEM_KEY, 1)
+                    const check = await billCheckService(state.userId, ANALYSIS_POINT_ITEM_KEY, { tokens: 1000, units: 1 })
                     interrupt({
                         type: InterruptType.INSUFFICIENT_POINTS,
                         message: '积分不足，请充值后继续',

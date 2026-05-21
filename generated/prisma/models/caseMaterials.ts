@@ -48,6 +48,7 @@ export type CaseMaterialsMinAggregateOutputType = {
   id: number | null
   caseId: number | null
   draftId: number | null
+  sessionId: string | null
   name: string | null
   type: number | null
   ossFileId: number | null
@@ -62,6 +63,7 @@ export type CaseMaterialsMaxAggregateOutputType = {
   id: number | null
   caseId: number | null
   draftId: number | null
+  sessionId: string | null
   name: string | null
   type: number | null
   ossFileId: number | null
@@ -76,6 +78,7 @@ export type CaseMaterialsCountAggregateOutputType = {
   id: number
   caseId: number
   draftId: number
+  sessionId: number
   name: number
   type: number
   ossFileId: number
@@ -110,6 +113,7 @@ export type CaseMaterialsMinAggregateInputType = {
   id?: true
   caseId?: true
   draftId?: true
+  sessionId?: true
   name?: true
   type?: true
   ossFileId?: true
@@ -124,6 +128,7 @@ export type CaseMaterialsMaxAggregateInputType = {
   id?: true
   caseId?: true
   draftId?: true
+  sessionId?: true
   name?: true
   type?: true
   ossFileId?: true
@@ -138,6 +143,7 @@ export type CaseMaterialsCountAggregateInputType = {
   id?: true
   caseId?: true
   draftId?: true
+  sessionId?: true
   name?: true
   type?: true
   ossFileId?: true
@@ -239,6 +245,7 @@ export type CaseMaterialsGroupByOutputType = {
   id: number
   caseId: number | null
   draftId: number | null
+  sessionId: string | null
   name: string
   type: number
   ossFileId: number | null
@@ -276,6 +283,7 @@ export type caseMaterialsWhereInput = {
   id?: Prisma.IntFilter<"caseMaterials"> | number
   caseId?: Prisma.IntNullableFilter<"caseMaterials"> | number | null
   draftId?: Prisma.IntNullableFilter<"caseMaterials"> | number | null
+  sessionId?: Prisma.StringNullableFilter<"caseMaterials"> | string | null
   name?: Prisma.StringFilter<"caseMaterials"> | string
   type?: Prisma.IntFilter<"caseMaterials"> | number
   ossFileId?: Prisma.IntNullableFilter<"caseMaterials"> | number | null
@@ -292,6 +300,7 @@ export type caseMaterialsOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   caseId?: Prisma.SortOrderInput | Prisma.SortOrder
   draftId?: Prisma.SortOrderInput | Prisma.SortOrder
+  sessionId?: Prisma.SortOrderInput | Prisma.SortOrder
   name?: Prisma.SortOrder
   type?: Prisma.SortOrder
   ossFileId?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -311,6 +320,7 @@ export type caseMaterialsWhereUniqueInput = Prisma.AtLeast<{
   NOT?: Prisma.caseMaterialsWhereInput | Prisma.caseMaterialsWhereInput[]
   caseId?: Prisma.IntNullableFilter<"caseMaterials"> | number | null
   draftId?: Prisma.IntNullableFilter<"caseMaterials"> | number | null
+  sessionId?: Prisma.StringNullableFilter<"caseMaterials"> | string | null
   name?: Prisma.StringFilter<"caseMaterials"> | string
   type?: Prisma.IntFilter<"caseMaterials"> | number
   ossFileId?: Prisma.IntNullableFilter<"caseMaterials"> | number | null
@@ -327,6 +337,7 @@ export type caseMaterialsOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   caseId?: Prisma.SortOrderInput | Prisma.SortOrder
   draftId?: Prisma.SortOrderInput | Prisma.SortOrder
+  sessionId?: Prisma.SortOrderInput | Prisma.SortOrder
   name?: Prisma.SortOrder
   type?: Prisma.SortOrder
   ossFileId?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -349,6 +360,7 @@ export type caseMaterialsScalarWhereWithAggregatesInput = {
   id?: Prisma.IntWithAggregatesFilter<"caseMaterials"> | number
   caseId?: Prisma.IntNullableWithAggregatesFilter<"caseMaterials"> | number | null
   draftId?: Prisma.IntNullableWithAggregatesFilter<"caseMaterials"> | number | null
+  sessionId?: Prisma.StringNullableWithAggregatesFilter<"caseMaterials"> | string | null
   name?: Prisma.StringWithAggregatesFilter<"caseMaterials"> | string
   type?: Prisma.IntWithAggregatesFilter<"caseMaterials"> | number
   ossFileId?: Prisma.IntNullableWithAggregatesFilter<"caseMaterials"> | number | null
@@ -360,6 +372,7 @@ export type caseMaterialsScalarWhereWithAggregatesInput = {
 }
 
 export type caseMaterialsCreateInput = {
+  sessionId?: string | null
   name: string
   type: number
   ossFileId?: number | null
@@ -376,6 +389,7 @@ export type caseMaterialsUncheckedCreateInput = {
   id?: number
   caseId?: number | null
   draftId?: number | null
+  sessionId?: string | null
   name: string
   type: number
   ossFileId?: number | null
@@ -387,6 +401,7 @@ export type caseMaterialsUncheckedCreateInput = {
 }
 
 export type caseMaterialsUpdateInput = {
+  sessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.IntFieldUpdateOperationsInput | number
   ossFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -403,6 +418,7 @@ export type caseMaterialsUncheckedUpdateInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   caseId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   draftId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  sessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.IntFieldUpdateOperationsInput | number
   ossFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -417,6 +433,7 @@ export type caseMaterialsCreateManyInput = {
   id?: number
   caseId?: number | null
   draftId?: number | null
+  sessionId?: string | null
   name: string
   type: number
   ossFileId?: number | null
@@ -428,6 +445,7 @@ export type caseMaterialsCreateManyInput = {
 }
 
 export type caseMaterialsUpdateManyMutationInput = {
+  sessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.IntFieldUpdateOperationsInput | number
   ossFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -442,6 +460,7 @@ export type caseMaterialsUncheckedUpdateManyInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   caseId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   draftId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  sessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.IntFieldUpdateOperationsInput | number
   ossFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -466,6 +485,7 @@ export type caseMaterialsCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   caseId?: Prisma.SortOrder
   draftId?: Prisma.SortOrder
+  sessionId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   type?: Prisma.SortOrder
   ossFileId?: Prisma.SortOrder
@@ -489,6 +509,7 @@ export type caseMaterialsMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   caseId?: Prisma.SortOrder
   draftId?: Prisma.SortOrder
+  sessionId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   type?: Prisma.SortOrder
   ossFileId?: Prisma.SortOrder
@@ -503,6 +524,7 @@ export type caseMaterialsMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   caseId?: Prisma.SortOrder
   draftId?: Prisma.SortOrder
+  sessionId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   type?: Prisma.SortOrder
   ossFileId?: Prisma.SortOrder
@@ -607,6 +629,7 @@ export type caseMaterialsUncheckedUpdateManyWithoutDraftNestedInput = {
 }
 
 export type caseMaterialsCreateWithoutCaseInput = {
+  sessionId?: string | null
   name: string
   type: number
   ossFileId?: number | null
@@ -621,6 +644,7 @@ export type caseMaterialsCreateWithoutCaseInput = {
 export type caseMaterialsUncheckedCreateWithoutCaseInput = {
   id?: number
   draftId?: number | null
+  sessionId?: string | null
   name: string
   type: number
   ossFileId?: number | null
@@ -664,6 +688,7 @@ export type caseMaterialsScalarWhereInput = {
   id?: Prisma.IntFilter<"caseMaterials"> | number
   caseId?: Prisma.IntNullableFilter<"caseMaterials"> | number | null
   draftId?: Prisma.IntNullableFilter<"caseMaterials"> | number | null
+  sessionId?: Prisma.StringNullableFilter<"caseMaterials"> | string | null
   name?: Prisma.StringFilter<"caseMaterials"> | string
   type?: Prisma.IntFilter<"caseMaterials"> | number
   ossFileId?: Prisma.IntNullableFilter<"caseMaterials"> | number | null
@@ -675,6 +700,7 @@ export type caseMaterialsScalarWhereInput = {
 }
 
 export type caseMaterialsCreateWithoutDraftInput = {
+  sessionId?: string | null
   name: string
   type: number
   ossFileId?: number | null
@@ -689,6 +715,7 @@ export type caseMaterialsCreateWithoutDraftInput = {
 export type caseMaterialsUncheckedCreateWithoutDraftInput = {
   id?: number
   caseId?: number | null
+  sessionId?: string | null
   name: string
   type: number
   ossFileId?: number | null
@@ -728,6 +755,7 @@ export type caseMaterialsUpdateManyWithWhereWithoutDraftInput = {
 export type caseMaterialsCreateManyCaseInput = {
   id?: number
   draftId?: number | null
+  sessionId?: string | null
   name: string
   type: number
   ossFileId?: number | null
@@ -739,6 +767,7 @@ export type caseMaterialsCreateManyCaseInput = {
 }
 
 export type caseMaterialsUpdateWithoutCaseInput = {
+  sessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.IntFieldUpdateOperationsInput | number
   ossFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -753,6 +782,7 @@ export type caseMaterialsUpdateWithoutCaseInput = {
 export type caseMaterialsUncheckedUpdateWithoutCaseInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   draftId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  sessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.IntFieldUpdateOperationsInput | number
   ossFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -766,6 +796,7 @@ export type caseMaterialsUncheckedUpdateWithoutCaseInput = {
 export type caseMaterialsUncheckedUpdateManyWithoutCaseInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   draftId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  sessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.IntFieldUpdateOperationsInput | number
   ossFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -779,6 +810,7 @@ export type caseMaterialsUncheckedUpdateManyWithoutCaseInput = {
 export type caseMaterialsCreateManyDraftInput = {
   id?: number
   caseId?: number | null
+  sessionId?: string | null
   name: string
   type: number
   ossFileId?: number | null
@@ -790,6 +822,7 @@ export type caseMaterialsCreateManyDraftInput = {
 }
 
 export type caseMaterialsUpdateWithoutDraftInput = {
+  sessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.IntFieldUpdateOperationsInput | number
   ossFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -804,6 +837,7 @@ export type caseMaterialsUpdateWithoutDraftInput = {
 export type caseMaterialsUncheckedUpdateWithoutDraftInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   caseId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  sessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.IntFieldUpdateOperationsInput | number
   ossFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -817,6 +851,7 @@ export type caseMaterialsUncheckedUpdateWithoutDraftInput = {
 export type caseMaterialsUncheckedUpdateManyWithoutDraftInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   caseId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  sessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   type?: Prisma.IntFieldUpdateOperationsInput | number
   ossFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -833,6 +868,7 @@ export type caseMaterialsSelect<ExtArgs extends runtime.Types.Extensions.Interna
   id?: boolean
   caseId?: boolean
   draftId?: boolean
+  sessionId?: boolean
   name?: boolean
   type?: boolean
   ossFileId?: boolean
@@ -849,6 +885,7 @@ export type caseMaterialsSelectCreateManyAndReturn<ExtArgs extends runtime.Types
   id?: boolean
   caseId?: boolean
   draftId?: boolean
+  sessionId?: boolean
   name?: boolean
   type?: boolean
   ossFileId?: boolean
@@ -865,6 +902,7 @@ export type caseMaterialsSelectUpdateManyAndReturn<ExtArgs extends runtime.Types
   id?: boolean
   caseId?: boolean
   draftId?: boolean
+  sessionId?: boolean
   name?: boolean
   type?: boolean
   ossFileId?: boolean
@@ -881,6 +919,7 @@ export type caseMaterialsSelectScalar = {
   id?: boolean
   caseId?: boolean
   draftId?: boolean
+  sessionId?: boolean
   name?: boolean
   type?: boolean
   ossFileId?: boolean
@@ -891,7 +930,7 @@ export type caseMaterialsSelectScalar = {
   deletedAt?: boolean
 }
 
-export type caseMaterialsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "caseId" | "draftId" | "name" | "type" | "ossFileId" | "isEncrypted" | "status" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["caseMaterials"]>
+export type caseMaterialsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "caseId" | "draftId" | "sessionId" | "name" | "type" | "ossFileId" | "isEncrypted" | "status" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["caseMaterials"]>
 export type caseMaterialsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   case?: boolean | Prisma.caseMaterials$caseArgs<ExtArgs>
   draft?: boolean | Prisma.caseMaterials$draftArgs<ExtArgs>
@@ -923,13 +962,17 @@ export type $caseMaterialsPayload<ExtArgs extends runtime.Types.Extensions.Inter
      */
     id: number
     /**
-     * 关联的案件ID（文书生成场景下可为 NULL，此时由 draftId 关联）
+     * 关联的案件ID（通用问答 / 文书生成场景下可为 NULL，由 draftId / sessionId 关联）
      */
     caseId: number | null
     /**
-     * 关联的文书草稿ID（文书生成场景使用，与 caseId 互斥）
+     * 关联的文书草稿ID（文书生成场景使用）
      */
     draftId: number | null
+    /**
+     * 关联的对话会话标识（通用问答场景使用，对应 caseSessions.sessionId / LangGraph thread_id）
+     */
+    sessionId: string | null
     /**
      * 材料名称
      */
@@ -1390,6 +1433,7 @@ export interface caseMaterialsFieldRefs {
   readonly id: Prisma.FieldRef<"caseMaterials", 'Int'>
   readonly caseId: Prisma.FieldRef<"caseMaterials", 'Int'>
   readonly draftId: Prisma.FieldRef<"caseMaterials", 'Int'>
+  readonly sessionId: Prisma.FieldRef<"caseMaterials", 'String'>
   readonly name: Prisma.FieldRef<"caseMaterials", 'String'>
   readonly type: Prisma.FieldRef<"caseMaterials", 'Int'>
   readonly ossFileId: Prisma.FieldRef<"caseMaterials", 'Int'>

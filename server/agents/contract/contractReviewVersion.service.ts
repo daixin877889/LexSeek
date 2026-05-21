@@ -20,11 +20,9 @@ import { isAnnotationExportable } from './contractAnnotation.service'
 import {
     injectAnnotations,
     injectRedlineMarks,
-    findMaxSharedId,
+    findMaxSharedIdInDocx,
     loadDocxZip,
-    readTextFromZip,
 } from './docx'
-import { parseOoxml } from './docx/xmlAst'
 import type {
     ContractAnnotationForExport,
     RedlineRisk,
@@ -38,7 +36,9 @@ import {
 } from '~~/server/services/storage/storage.service'
 import { uploadAndRegisterOssFile } from './utils/uploadAndRegisterOssFile'
 import { FileSource } from '#shared/types/file'
+import { buildStorageKey } from '~~/server/utils/storagePath'
 import { DOCX_MIME } from '#shared/utils/mime'
+import { resolveContractExportSignatureService } from '~~/server/services/users/contractSignature.service'
 import {
     buildContractReviewFilename,
     buildContentDispositionForFilename,
@@ -86,17 +86,23 @@ export class ReviewNotFoundError extends Error {
  * 入口先 findFirst 校验避免事务白白递增 maxVersionNo，事务内 update 用
  * updateMany + count 复核避免与软删并发竞态写出僵尸版本。
  */
-export async function saveContractReviewVersionService(input: SaveVersionInput) {
+export async function saveContractReviewVersionService(
+    input: SaveVersionInput,
+    txClient?: Prisma.TransactionClient,
+) {
     const { reviewId, systemLabel, lawyerNote, createdById } = input
+    // M2：已在外层事务内时（回传 Step 5）复用同一 tx 句柄，使版本快照与工作区写入原子化；
+    // 否则用全局 prisma 自开事务，与历史调用方（首次审查 / auto_backup）行为一致。
+    const db = txClient ?? prisma
 
     // 入口快速校验：review 不存在或已软删 → 直接抛错，避免进入事务
-    const existing = await prisma.contractReviews.findFirst({
+    const existing = await db.contractReviews.findFirst({
         where: { id: reviewId, deletedAt: null },
         select: { id: true },
     })
     if (!existing) throw new ReviewNotFoundError(reviewId)
 
-    return prisma.$transaction(async (tx) => {
+    const run = async (tx: Prisma.TransactionClient) => {
         // 1. 原子递增 + 读当前 currentVersionId 用于继承 docxText
         // 用 updateMany 而非 update，可在事务内复核 deletedAt 仍为 null（防并发软删竞态）
         const incrementResult = await tx.contractReviews.updateMany({
@@ -158,7 +164,8 @@ export async function saveContractReviewVersionService(input: SaveVersionInput) 
         if (finalUpdate.count !== 1) throw new ReviewNotFoundError(reviewId)
 
         return version
-    })
+    }
+    return txClient ? run(txClient) : prisma.$transaction(run)
 }
 
 /**
@@ -311,15 +318,17 @@ export async function downloadContractReviewVersionService(
     }
 
     let injectedBuffer: Buffer
+    const signature = await resolveContractExportSignatureService(review.userId)
     try {
         if (mode === 'comment') {
-            const result = await injectAnnotations(baseBuffer, exportable, review.id)
+            // M15：comment 模式不注入 redline；清理 base（可能是客户回传件）残留的陈旧 redlineRefs.xml
+            const result = await injectAnnotations(baseBuffer, exportable, review.id, { signature, purgeRedlineRefs: true })
             injectedBuffer = Buffer.isBuffer(result.buffer) ? result.buffer : Buffer.from(result.buffer)
         }
         else {
             // PR6 §8.2 历史版本下载也支持 redline / both 三模式
-            const docAst = parseOoxml(await readTextFromZip(await loadDocxZip(baseBuffer), 'word/document.xml'))
-            const idStart = findMaxSharedId(docAst) + 1
+            // M16：扫全文 w:id 共享池（含页眉/页脚/原生批注）取 max+1，避免新 w:id 撞车致 Word 报损坏。
+            const idStart = await findMaxSharedIdInDocx(await loadDocxZip(baseBuffer)) + 1
 
             // snapshot 里的 risks 已含 PR2/PR3 的 quote 字段
             const redlineRisks: RedlineRisk[] = snapshot.risks.map(r => ({
@@ -332,7 +341,7 @@ export async function downloadContractReviewVersionService(
                 suggestedClauseText: r.suggestedClauseText ?? null,
             }))
             const redlineResult = await injectRedlineMarks(baseBuffer, redlineRisks, {
-                reviewId: review.id, idStart,
+                reviewId: review.id, idStart, signature,
             })
 
             if (mode === 'redline') {
@@ -341,6 +350,7 @@ export async function downloadContractReviewVersionService(
                 if (fallback.length > 0) {
                     const cr = await injectAnnotations(redlineResult.buffer, fallback, review.id, {
                         idStart: redlineResult.nextIdAfter,
+                        signature,
                     })
                     injectedBuffer = Buffer.isBuffer(cr.buffer) ? cr.buffer : Buffer.from(cr.buffer)
                 }
@@ -353,6 +363,7 @@ export async function downloadContractReviewVersionService(
                 const cr = await injectAnnotations(redlineResult.buffer, exportable, review.id, {
                     idStart: redlineResult.nextIdAfter,
                     wrapTargetByRiskId: redlineResult.spansByRiskId,
+                    signature,
                 })
                 injectedBuffer = Buffer.isBuffer(cr.buffer) ? cr.buffer : Buffer.from(cr.buffer)
             }
@@ -373,9 +384,13 @@ export async function downloadContractReviewVersionService(
         versionNumber: version.versionNumber,
     })
 
-    // 上传到 OSS：contract-review/<userId>/version-<versionId>-<uuid>.docx
     // CORE-R3：上传 + 落 ossFiles + 失败清孤儿统一走 uploadAndRegisterOssFile。
-    const ossPath = `contract-review/${review.userId}/version-${versionId}-${randomUUID()}.docx`
+    const ossPath = buildStorageKey({
+        scope: 'user',
+        userId: review.userId,
+        source: FileSource.CASE_ANALYSIS,
+        fileName: `version-${versionId}-${randomUUID()}.docx`,
+    })
     let uploadName: string
     try {
         const result = await uploadAndRegisterOssFile({

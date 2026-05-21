@@ -74,6 +74,8 @@ describe('contractRisk.service · persistAiRisksAsContractRows', () => {
         expect(created!.problem).toBe('试用期超长')
         expect(created!.legalBasis).toBe('《劳动合同法》第19条')
         expect(created!.analysis).toBe('超过法定最长 6 个月违反规定')
+        // M12：立场专属法律风险持久化到 contractRisks.risk 列
+        expect(created!.risk).toBe('试用期超长可能导致违法')
         expect(created!.suggestion).toBe('调整为不超过 6 个月')
         expect(created!.clauseText).toBe('试用期为 6 个月。')
         expect(created!.clauseParagraphIndex).toBe(7)

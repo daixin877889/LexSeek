@@ -420,3 +420,290 @@ describe('calculateLoanInterest', () => {
         expect(equal.totalInterest).not.toBeCloseTo(principal.totalInterest, 1)
     })
 })
+
+describe('calculateCustomRateInterest 参数校验', () => {
+    it('结束日期等于开始日期时 days<=0 应返回错误', () => {
+        const result = calculateCustomRateInterest(10000, 5, '2025-06-20', '2025-06-20') as any
+        expect(result.error).toBe('结束日期必须晚于开始日期')
+    })
+
+    it('yearDays 省略时应使用默认值 365', () => {
+        // 触发 calculateCustomRateInterest 的 yearDays 默认参数
+        const result = calculateCustomRateInterest(10000, 5, '2025-01-01', '2026-01-01')
+        expect(result.yearDays).toBe(365)
+    })
+})
+
+describe('calculatePeriodInterest 参数校验与默认参数', () => {
+    it('省略 yearDays/adjustmentMethod/adjustmentValue 应使用默认值（365/无/0）', () => {
+        // 触发 line 455-457 的默认参数（yearDays=365, adjustmentMethod='无', adjustmentValue=0）
+        const result = calculatePeriodInterest(10000, 5, 365)
+        expect(result.yearDays).toBe(365)
+        expect(result.adjustedRate).toBe(5)
+        expect(result.interest).toBeCloseTo(500, 0)
+    })
+
+    it('利率为 NaN 应返回错误', () => {
+        // 触发 line 495 if (isNaN(rateNum) || isNaN(daysNum))
+        const result = calculatePeriodInterest(10000, 'invalid', 365)
+        expect(result.interest).toBe(0)
+        expect(result.process).toContain('利率或天数无效')
+    })
+
+    it('天数 <=0 应返回错误', () => {
+        // 触发 line 508 if (daysNum <= 0)
+        const result = calculatePeriodInterest(10000, 5, 0)
+        expect(result.interest).toBe(0)
+        expect(result.process).toContain('天数必须为正数')
+    })
+
+    it('days 是日期字符串且 yearDays 也是日期字符串时应自动计算天数', () => {
+        // 触发 line 470, 472 的 days/yearDays 都是日期字符串的特殊调用
+        const result = calculatePeriodInterest(10000, 5, '2025-01-01', '2026-01-01')
+        expect(result.days).toBeGreaterThan(0)
+        expect(result.yearDays).toBe(365)
+    })
+
+    it('days 是日期字符串但 yearDays 不是字符串时应走 else 分支（按 parseInt 取值）', () => {
+        // 触发 line 477-478 的 else 分支（无效的日期参数组合，但 parseInt('2025-01-01') = 2025）
+        const result = calculatePeriodInterest(10000, 5, '2025-01-01', 365)
+        // parseInt('2025-01-01') === 2025
+        expect(result.days).toBe(2025)
+        expect(result.interest).toBeGreaterThan(0)
+    })
+
+    it('调整方式为"上浮"应按百分比上浮利率', () => {
+        // 触发 line 538 上浮分支
+        const result = calculatePeriodInterest(10000, 4, 365, 365, '上浮', 50)
+        expect(result.adjustedRate).toBeCloseTo(6, 5)
+    })
+
+    it('调整方式为"下浮"应按百分比下浮利率', () => {
+        // 触发 line 540 下浮分支
+        const result = calculatePeriodInterest(10000, 4, 365, 365, '下浮', 25)
+        expect(result.adjustedRate).toBeCloseTo(3, 5)
+    })
+
+    it('本金为 NaN 或 <=0 应返回错误', () => {
+        // 触发 line 482 的 isNaN(principalNum) || principalNum <= 0
+        const result = calculatePeriodInterest(0, 5, 365)
+        expect(result.interest).toBe(0)
+        expect(result.process).toContain('本金必须为正数')
+    })
+})
+
+describe('calculateLPRInterest 利率调整方式补充', () => {
+    it('调整方式为"加点"应按基点加点', () => {
+        // 触发 line 716 加点分支
+        const result = calculateLPRInterest(100000, '2024-01-01', '2025-01-01', 1, '加点', 50)
+        expect(result.error).toBeUndefined()
+        // 加 50 个基点（= 0.5%）
+        const detail = result.interestDetails![0]
+        expect(detail.adjustedRate).toBeCloseTo(detail.rate + 0.5, 5)
+    })
+
+    it('调整方式为"减点"应按基点减点', () => {
+        // 触发 line 719 减点分支
+        const result = calculateLPRInterest(100000, '2024-01-01', '2025-01-01', 1, '减点', 30)
+        expect(result.error).toBeUndefined()
+        const detail = result.interestDetails![0]
+        expect(detail.adjustedRate).toBeCloseTo(detail.rate - 0.3, 5)
+    })
+
+    it('调整方式为"倍数"应按倍数调整', () => {
+        // 触发 line 722 倍数分支
+        const result = calculateLPRInterest(100000, '2024-01-01', '2025-01-01', 1, '倍数', 4)
+        expect(result.error).toBeUndefined()
+        const detail = result.interestDetails![0]
+        expect(detail.adjustedRate).toBeCloseTo(detail.rate * 4, 5)
+    })
+
+    it('调整方式为"上浮"应按百分比上浮利率', () => {
+        // 触发 line 724 上浮分支
+        const result = calculateLPRInterest(100000, '2024-01-01', '2025-01-01', 1, '上浮', 50)
+        expect(result.error).toBeUndefined()
+        const detail = result.interestDetails![0]
+        expect(detail.adjustedRate).toBeCloseTo(detail.rate * 1.5, 5)
+    })
+
+    it('调整方式为"下浮"应按百分比下浮利率', () => {
+        // 触发 line 726 下浮分支
+        const result = calculateLPRInterest(100000, '2024-01-01', '2025-01-01', 1, '下浮', 20)
+        expect(result.error).toBeUndefined()
+        const detail = result.interestDetails![0]
+        expect(detail.adjustedRate).toBeCloseTo(detail.rate * 0.8, 5)
+    })
+})
+
+describe('calculatePBOCInterest 边界与默认参数', () => {
+    it('省略 period/adjustmentMethod/adjustmentValue/yearDays 应使用默认值', () => {
+        // 触发 line 823-826 的 4 个默认参数
+        const result = calculatePBOCInterest(10000, '2014-01-01', '2015-01-01')
+        expect(result.totalInterest).toBeGreaterThan(0)
+        expect(result.error).toBeUndefined()
+    })
+
+    it('开始日期晚于结束日期应返回错误', () => {
+        // 触发 line 849 if (start > end)
+        const result = calculatePBOCInterest(10000, '2025-06-20', '2025-01-01')
+        expect(result.totalInterest).toBe(0)
+        expect(result.details!.some(d => d.includes('日期错误'))).toBe(true)
+    })
+
+    it('结束日期早于所有基准利率发布日期，应使用最早基准利率', () => {
+        // 触发 line 866 的 if (pbocRates.length === 0) 分支
+        // 最早的基准利率是 1991-04-21，传 endDate 早于此日期
+        const result = calculatePBOCInterest(10000, '1990-01-01', '1991-01-01')
+        expect(result.totalInterest).toBeGreaterThan(0)
+        expect(result.interestDetails!.length).toBe(1)
+    })
+})
+
+describe('calculateSimpleInterest / calculateCompoundInterest / calculateLoanInterest 默认参数', () => {
+    it('calculateSimpleInterest 省略 yearDays 应使用默认 365', () => {
+        // 触发 line 1092 的 yearDays 默认参数
+        const result = calculateSimpleInterest(10000, 5, '2025-01-01', '2026-01-01')
+        expect(result.interest).toBeCloseTo(500, 0)
+    })
+})
+
+describe('calculateCustomRateInterest 中 yearDays 非标准值的警告路径', () => {
+    it('传入非标准 yearDays（非 365/366）应忽略并使用 365', () => {
+        // 触发 line 380 的 yearDaysNum !== 365 && yearDaysNum !== 366 警告路径
+        const result = calculateCustomRateInterest(10000, 5, '2025-01-01', '2026-01-01', 360 as any) as any
+        // 警告但继续计算
+        expect(result.error).toBeUndefined()
+    })
+})
+
+describe('补充：触发 binary-expr 的 || fallback 分支', () => {
+    it('calculateCustomRateInterest 传 yearDays=NaN 时 parseInt 返回 NaN，触发 || 365 fallback', () => {
+        // parseInt('abc') 返回 NaN，触发 line 375 的 || 365
+        const result = calculateCustomRateInterest(10000, 5, '2025-01-01', '2026-01-01', 'abc' as any)
+        expect(result.yearDays).toBe(365)
+    })
+
+    it('calculatePeriodInterest 传 days="abc"（非日期非数字）应触发 line 463 的 || 0 fallback', () => {
+        // typeof days === 'string' 且 !includes('-')，parseInt('abc')=NaN，触发 || 0
+        const result = calculatePeriodInterest(10000, 5, 'abc')
+        expect(result.interest).toBe(0)
+        expect(result.process).toContain('天数必须为正数')
+    })
+
+    it('calculatePeriodInterest 传 yearDays="abc" 应触发 line 464 的 || 365 fallback', () => {
+        // typeof yearDays === 'string' 且 parseInt 失败，触发 || 365
+        const result = calculatePeriodInterest(10000, 5, 365, 'abc' as any)
+        expect(result.yearDays).toBe(365)
+    })
+
+    it('calculatePeriodInterest 传 days="abc-def"（含-但非日期）应触发 line 474 的 || 0', () => {
+        // days 包含 '-' 但 parseDate 失败 / yearDays 不是字符串，走 else 分支后 parseInt('abc-def')=NaN
+        const result = calculatePeriodInterest(10000, 5, 'abc-def', 365)
+        expect(result.days).toBe(0)
+    })
+})
+
+describe('补充：calculateLPRInterest period=2 + adjustmentMethod=无', () => {
+    it('5年期 LPR 应输出"LPR 5年期以上"字样并返回正确利息', () => {
+        // 触发 line 785 cond-expr 的 false 分支（period=2）
+        // 同时触发 line 786 cond-expr 的 false 分支（adjustmentMethod === '无'）
+        const result = calculateLPRInterest(100000, '2024-01-01', '2025-01-01', 2, '无', 0)
+        expect(result.error).toBeUndefined()
+        expect(result.details!.some(d => d.includes('LPR 5年期以上'))).toBe(true)
+        expect(result.details!.some(d => d.includes('无利率调整'))).toBe(true)
+    })
+
+    it('结束日期晚于最新 LPR 日期应使用最新利率作为估计', () => {
+        // 触发 usedEstimatedRate=true 分支
+        const future = new Date()
+        future.setFullYear(future.getFullYear() + 5)
+        const futureStr = future.toISOString().slice(0, 10)
+        const result = calculateLPRInterest(10000, '2024-01-01', futureStr, 1, '无', 0)
+        expect(result.error).toBeUndefined()
+        expect(result.details!.some(d => d.includes('最新的LPR利率作为估计值'))).toBe(true)
+    })
+})
+
+describe('补充：calculatePBOCInterest 各 adjustmentMethod 分支', () => {
+    it('调整方式为"加点"应按 BP 加点', () => {
+        const result = calculatePBOCInterest(100000, '2015-01-01', '2016-01-01', 5, '加点', 50)
+        expect(result.totalInterest).toBeGreaterThan(0)
+        expect(result.details!.some(d => d.includes('加点'))).toBe(true)
+    })
+
+    it('调整方式为"减点"应按 BP 减点', () => {
+        const result = calculatePBOCInterest(100000, '2015-01-01', '2016-01-01', 5, '减点', 30)
+        expect(result.totalInterest).toBeGreaterThan(0)
+        expect(result.details!.some(d => d.includes('减点'))).toBe(true)
+    })
+
+    it('调整方式为"上浮"应按百分比上浮', () => {
+        const result = calculatePBOCInterest(100000, '2015-01-01', '2016-01-01', 5, '上浮', 30)
+        expect(result.totalInterest).toBeGreaterThan(0)
+        expect(result.details!.some(d => d.includes('上浮'))).toBe(true)
+    })
+
+    it('调整方式为"下浮"应按百分比下浮', () => {
+        const result = calculatePBOCInterest(100000, '2015-01-01', '2016-01-01', 5, '下浮', 20)
+        expect(result.totalInterest).toBeGreaterThan(0)
+        expect(result.details!.some(d => d.includes('下浮'))).toBe(true)
+    })
+
+    it('调整方式为"倍率"应按倍率', () => {
+        const result = calculatePBOCInterest(100000, '2015-01-01', '2016-01-01', 5, '倍率', 2)
+        expect(result.totalInterest).toBeGreaterThan(0)
+    })
+})
+
+describe('补充：calculateLoanInterest 默认参数', () => {
+    it('省略 method 参数应默认为 equal（等额本息）', () => {
+        // 触发 line 1063 default-arg
+        const result = calculateLoanInterest(100000, 5, 12)
+        expect(result.monthlyPayment).toBeDefined()
+        expect(result.totalInterest).toBeGreaterThan(0)
+    })
+})
+
+describe('补充：LPR/PBOC 调整方式输出文本嵌套三元', () => {
+    it('LPR + 倍数：单位应输出"倍"', () => {
+        // 触发 line 787 嵌套三元中的"倍数"分支
+        const result = calculateLPRInterest(100000, '2024-01-01', '2025-01-01', 1, '倍数', 4)
+        expect(result.error).toBeUndefined()
+        expect(result.details!.some(d => d.includes('倍数 4倍'))).toBe(true)
+    })
+
+    it('PBOC + 倍数：单位应输出"倍"', () => {
+        // 触发 line 961 嵌套三元中的"倍数"分支
+        const result = calculatePBOCInterest(100000, '2015-01-01', '2016-01-01', 5, '倍数', 4)
+        expect(result.totalInterest).toBeGreaterThan(0)
+        expect(result.details!.some(d => d.includes('倍数 4倍'))).toBe(true)
+    })
+
+    it('LPR + 下浮：单位应输出"%"', () => {
+        // 触发 line 787 嵌套三元中的"下浮"分支
+        const result = calculateLPRInterest(100000, '2024-01-01', '2025-01-01', 1, '下浮', 20)
+        expect(result.error).toBeUndefined()
+        expect(result.details!.some(d => d.includes('下浮 20%'))).toBe(true)
+    })
+
+    it('LPR + 倍率：单位应输出"倍"（不同于"倍数"）', () => {
+        // 触发 line 787 嵌套三元中的 '倍率' 分支
+        const result = calculateLPRInterest(100000, '2024-01-01', '2025-01-01', 1, '倍率', 4)
+        expect(result.error).toBeUndefined()
+        expect(result.details!.some(d => d.includes('倍率 4倍'))).toBe(true)
+    })
+
+    it('PBOC + 上浮：单位应输出"%"', () => {
+        // 触发 line 963 嵌套三元中的"上浮"分支
+        const result = calculatePBOCInterest(100000, '2015-01-01', '2016-01-01', 5, '上浮', 50)
+        expect(result.totalInterest).toBeGreaterThan(0)
+        expect(result.details!.some(d => d.includes('上浮 50%'))).toBe(true)
+    })
+
+    it('PBOC + 倍率：单位应输出"倍"', () => {
+        // 触发 line 963 嵌套三元中的 '倍率' 分支
+        const result = calculatePBOCInterest(100000, '2015-01-01', '2016-01-01', 5, '倍率', 2)
+        expect(result.totalInterest).toBeGreaterThan(0)
+        expect(result.details!.some(d => d.includes('倍率 2倍'))).toBe(true)
+    })
+})

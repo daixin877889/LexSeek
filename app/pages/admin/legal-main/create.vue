@@ -1,8 +1,8 @@
 <template>
-        <div class="space-y-6">
+        <div class="theme-brand space-y-6">
             <!-- 页面标题 -->
             <div class="flex items-center gap-4">
-                <Button variant="ghost" size="icon" @click="navigateTo('/admin/legal-main')">
+                <Button variant="ghost" size="icon" :class="adminBrandFocusClass" @click="navigateTo('/admin/legal-main')">
                     <ArrowLeft class="h-4 w-4" />
                 </Button>
                 <div>
@@ -22,6 +22,7 @@ import { toast } from 'vue-sonner'
 import type { CreateLegalMainRequest, UpdateLegalMainRequest } from '#shared/types/legal'
 import LegalMainForm from '~/components/legal/LegalMainForm.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { adminBrandFocusClass } from '~/utils/adminBrandStyles'
 
 definePageMeta({
     layout: 'admin-layout',

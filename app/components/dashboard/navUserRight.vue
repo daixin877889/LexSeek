@@ -1,16 +1,21 @@
 <template>
   <DropdownMenu>
     <DropdownMenuTrigger as-child>
-      <button class="p-2 rounded-md hover:bg-gray-100 transition-colors focus:outline-none">
+      <button class="p-2 rounded-md hover:bg-primary/[0.08] transition-colors focus:outline-none">
         <User class="h-6 w-6" />
       </button>
     </DropdownMenuTrigger>
-    <!-- 用户菜单 -->
-    <DropdownMenuContent class="min-w-56 rounded-lg" side="bottom" align="end" :side-offset="8">
+
+    <DropdownMenuContent
+      class="theme-brand min-w-56 rounded-lg"
+      side="bottom"
+      align="end"
+      :side-offset="8"
+    >
       <DropdownMenuLabel class="p-0 font-normal">
         <div class="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
           <Avatar class="h-8 w-8 rounded-lg">
-            <AvatarFallback class="rounded-lg"> LS </AvatarFallback>
+            <AvatarFallback class="rounded-lg bg-gradient-brand text-white font-semibold">LS</AvatarFallback>
           </Avatar>
           <div class="grid flex-1 text-left text-sm leading-tight">
             <span class="truncate font-semibold">{{ displayName }}</span>
@@ -19,32 +24,18 @@
         </div>
       </DropdownMenuLabel>
       <DropdownMenuSeparator />
-      <DropdownMenuGroup>
-        <!-- TODO: 获取用户菜单 -->
-        <NuxtLink v-for="route in [{ url: '/dashboard', title: '首页', icon: HomeIcon }]" :to="route.url"
-          :key="route.title" class="my-3">
-          <DropdownMenuItem>
-            <component :is="route.icon" />
-            {{ route.title }}
-          </DropdownMenuItem>
-        </NuxtLink>
-      </DropdownMenuGroup>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem @click="handleLogout"
-        class="text-red-500 data-highlighted:bg-red-50 data-highlighted:text-red-600 group cursor-pointer">
-        <LogOut class="mr-2 h-4 w-4 group-hover:text-red-600" />
-        <span class="group-hover:text-red-600">退出登录</span>
-      </DropdownMenuItem>
+
+      <UserMenuList :items="items" />
     </DropdownMenuContent>
   </DropdownMenu>
 </template>
 
 <script setup lang="ts">
-import { User, HomeIcon, LogOut } from "lucide-vue-next";
+import { User } from 'lucide-vue-next'
+import UserMenuList from '~/components/dashboard/UserMenuList.vue'
 import { useUserNavigation } from '~/composables/useUserNavigation'
+import { useUserMenu } from '~/composables/useUserMenu'
 
-// 使用共享的用户导航逻辑
-const { displayName, maskedPhone, handleLogout } = useUserNavigation();
-
-// TODO: 菜单栏需要根据用户角色动态生成
+const { displayName, maskedPhone } = useUserNavigation()
+const { items } = useUserMenu()
 </script>

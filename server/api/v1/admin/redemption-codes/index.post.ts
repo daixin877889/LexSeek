@@ -45,6 +45,7 @@ export default defineEventHandler(async (event) => {
             pointAmount,
             expiredAt: expiredAt ? new Date(expiredAt) : undefined,
             remark,
+            createdBy: user.id,
         })
 
         logger.info(`用户 ${user.id} 生成了 ${data.count} 个兑换码`, { type, quantity })

@@ -37,6 +37,16 @@ export default defineEventHandler(async (event) => {
         const records = await findAsrRecordsByTaskIdDao(task.id)
         const record = records.length > 0 ? records[0] : null
 
+        const taskRawData = task.taskRawData as Record<string, unknown> | null
+        const taskUserId = typeof taskRawData?.userId === 'number' ? taskRawData.userId : null
+        if (record) {
+            if (record.userId !== user.id) {
+                return resError(event, 404, '任务不存在')
+            }
+        } else if (taskUserId !== user.id) {
+            return resError(event, 404, '任务不存在')
+        }
+
         // 5. 返回任务状态
         return resSuccess(event, '查询成功', {
             taskId: task.taskId,

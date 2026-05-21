@@ -83,7 +83,7 @@ const subtitle = computed<string>(() => {
 
 <template>
     <div
-        class="not-prose group my-2 inline-flex w-full max-w-sm items-center gap-3 rounded-lg border bg-card px-3 py-2.5 shadow-sm transition-colors"
+        class="not-prose group my-2 inline-flex w-full max-w-sm items-center gap-3 rounded-lg border bg-card px-3 py-2.5 transition-colors"
         :class="[
             isRunning && 'border-primary/40 bg-primary/5',
             isError && 'border-destructive/40 bg-destructive/5',

@@ -23,7 +23,7 @@
                 <Label class="text-sm font-medium">邀请链接</Label>
                 <div class="flex items-center space-x-2 mt-1">
                   <Input :model-value="inviteLink" readonly class="flex-1" :placeholder="inviteLink ? '' : '正在获取邀请链接...'" />
-                  <Button variant="outline" size="sm" @click="copyInviteLink" :disabled="!inviteLink">
+                  <Button size="sm" variant="outline" @click="copyInviteLink" :disabled="!inviteLink">
                     <Copy class="h-4 w-4 mr-1" />
                     复制
                   </Button>
@@ -39,11 +39,11 @@
                   </div>
                 </div>
                 <div class="flex gap-2">
-                  <Button variant="outline" size="sm" @click="downloadQRCode" :disabled="!qrCodeGenerated">
+                  <Button size="sm" variant="outline" @click="downloadQRCode" :disabled="!qrCodeGenerated">
                     <Download class="h-4 w-4 mr-1" />
                     下载二维码
                   </Button>
-                  <Button variant="outline" size="sm" @click="regenerateQRCode">
+                  <Button size="sm" variant="outline" @click="regenerateQRCode">
                     <RefreshCw class="h-4 w-4 mr-1" />
                     重新生成
                   </Button>
@@ -78,7 +78,7 @@
         <div class="border rounded-lg p-6 bg-card">
           <div class="flex items-center justify-between mb-4">
             <h4 class="text-base font-medium">邀请记录</h4>
-            <Button variant="outline" size="sm" @click="fetchInvitees" :disabled="loading">
+            <Button size="sm" variant="outline" @click="fetchInvitees" :disabled="loading">
               <RefreshCw class="h-4 w-4 mr-2" :class="{ 'animate-spin': loading }" />
               刷新
             </Button>
@@ -137,6 +137,7 @@ dayjs.locale("zh-cn");
 definePageMeta({
   layout: "dashboard-layout",
   title: "邀请注册",
+  userMenu: { group: 'membership', title: '邀请注册', icon: 'UserPlus', order: 4 },
 });
 
 // 获取用户 store

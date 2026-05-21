@@ -13,11 +13,11 @@
                 </p>
             </div>
             <div class="flex flex-col sm:flex-row gap-2">
-                <Button variant="outline" @click="navigateTo('/dashboard/membership/redeem')" class="h-10 px-4 py-2">
+                <Button @click="navigateTo('/dashboard/membership/redeem')" class="h-10 px-4 py-2 bg-gradient-brand-button text-white">
                     兑换会员
                 </Button>
                 <Button v-if="!isFreeUser" @click="emit('renew')"
-                    class="h-10 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors">
+                    class="h-10 px-4 py-2 bg-gradient-brand-button text-white rounded-md transition-colors">
                     续期
                 </Button>
             </div>

@@ -1,5 +1,6 @@
 import type { ClauseSnapshotItem } from '#shared/types/contract'
-import { calcSimilarity, fuzzyLocateInText } from './textSimilarity'
+import { calcSimilarity, fuzzyLocateInText, normalizeForMatch } from './textSimilarity'
+import type { ParsedRedlineMarks } from '../docx/redlineParser'
 
 export interface AnchorMigrateResult {
     newClauseIndex: number
@@ -26,6 +27,9 @@ interface MigrateAnchorParams {
     newClauses: ClauseSnapshotItem[]
     similarityThreshold?: number
 }
+
+/** S7：findBestSubstring fallback 全文扫描的格点数上限，超过则放弃（避免长条款分钟级耗时） */
+const MAX_FALLBACK_SCAN_CELLS = 80_000
 
 /**
  * 在 [startLo, startHi] 区间内，用 [minWin, maxWin] 不同窗长扫一遍 clauseText，
@@ -96,7 +100,13 @@ function findBestSubstring(
         if (fast) return fast
     }
 
-    // fallback：fuzzyLocateInText 失败或精扫窗口为空，全文扫描兜底
+    // fallback：fuzzyLocateInText 失败或精扫窗口为空，全文扫描兜底。
+    // S7：全文扫描格点数 = 位置数 × 窗长档数，复杂度 O(格点数 × calcSimilarity)，长条款 +
+    // 长 anchor 可达分钟级。fuzzy（O(N) 指纹匹配）都没锚到，全文暴力扫命中率也极低——
+    // 格点数超预算直接放弃（返回 null，调用方按 orphaned 处理）。
+    const positionCount = Math.max(0, clauseText.length - minWin + 1)
+    const winLenCount = Math.max(0, maxWin - minWin + 1)
+    if (positionCount * winLenCount > MAX_FALLBACK_SCAN_CELLS) return null
     return scanWindowRange(clauseText, anchor, 0, clauseText.length - minWin, minWin, maxWin)
 }
 
@@ -105,13 +115,19 @@ export function migrateAnchor(params: MigrateAnchorParams): AnchorMigrateResult 
 
     if (!oldAnchorQuote || newClauses.length === 0) return null
 
-    // fast-path：调用方已知"这条 risk 应该落在新 clauses[preferredIdx] 上"时优先扫该条
+    let globalBestSim = -1
+    let globalBestResult: AnchorMigrateResult | null = null
+
+    // L1：优先扫 preferredNewClauseArrayIdx（调用方先验），但结果纳入全局取 max——
+    // 不再「首个达标即返回」。否则 preferredNewClauseArrayIdx 错配时会锁定一个达标
+    // 但非全局最优的条款。先扫 preferred 让相似度相同时优先归属于它（保留先验权重）。
     if (preferredNewClauseArrayIdx !== null) {
         const sameClause = newClauses[preferredNewClauseArrayIdx]
         if (sameClause) {
             const match = findBestSubstring(sameClause.text, oldAnchorQuote)
-            if (match && match.similarity >= similarityThreshold) {
-                return {
+            if (match && match.similarity > globalBestSim) {
+                globalBestSim = match.similarity
+                globalBestResult = {
                     newClauseIndex: preferredNewClauseArrayIdx,
                     newCharStart: match.charStart,
                     newCharEnd: match.charEnd,
@@ -121,12 +137,9 @@ export function migrateAnchor(params: MigrateAnchorParams): AnchorMigrateResult 
         }
     }
 
-    // 全局扫描所有条款（fast-path 未命中或调用方没有先验信息时）
-    let globalBestSim = -1
-    let globalBestResult: AnchorMigrateResult | null = null
-
+    // 全局扫描其余条款
     for (let i = 0; i < newClauses.length; i++) {
-        if (i === preferredNewClauseArrayIdx) continue // 已在 fast-path 试过
+        if (i === preferredNewClauseArrayIdx) continue // 已在上方先扫过
         const clause = newClauses[i]
         if (!clause) continue
         const match = findBestSubstring(clause.text, oldAnchorQuote)
@@ -204,8 +217,13 @@ export interface DualAnchorMigrateResult {
     newQuoteCharEnd: number | null
 }
 
-/** quote 字符数太短时跳过档 1 的最小阈值（与 resolveQuoteAnchor 档 2 同口径） */
-const MIN_QUOTE_LEN_FOR_TIER1 = 4
+/**
+ * quote 字符数太短时跳过档 1 的最小阈值。
+ * L2：旧值 4 偏低——4~7 字 quote 在 fuzzyLocateInText（Match_Threshold=0.3）下误命中率高，
+ * 抬到 8（与 commentInjector「strongLines >= 8 才算可靠匹配」同口径）。短 quote 直接走
+ * 档 2 clauseText 整段匹配，更稳。
+ */
+const MIN_QUOTE_LEN_FOR_TIER1 = 8
 /** 档 1 命中后相似度二次校验阈值（与 migrateAnchor 默认 similarityThreshold=0.6 同口径） */
 const TIER1_SIMILARITY_THRESHOLD = 0.6
 
@@ -272,5 +290,65 @@ export function migrateRiskWithDualAnchor(input: DualAnchorMigrateInput): DualAn
     }
 
     // ===== 档 3：orphaned =====
+    return null
+}
+
+/** redline-aware 确定性迁移结果（S5） */
+export interface RedlineRefMigrateResult {
+    /** 命中的 newClauses 数组下标 */
+    newClauseArrayIdx: number
+    /** 新 clauseText（segment.text 全段） */
+    newClauseText: string
+    /** 新 clauseText 在文档全文 normalizedText 内的 offset */
+    newClauseCharStart: number
+    newClauseCharEnd: number
+}
+
+/** redline 段落文本太短时跳过 redline-aware（短文易跨条款误命中），落回模糊匹配 */
+const REDLINE_PARA_MIN_LEN = 8
+
+/**
+ * S5 · redline-aware 确定性锚点迁移。
+ *
+ * 客户回传的修订稿里，每条 redline 风险都在 redlineRefs.xml 登记了 paraIdxs
+ * （风险所在的非空段落序号）。据此可确定性地把风险定位到回传 docx 的段落、
+ * 再映射到对应的 newClauses 条款——不依赖「原文锚点 vs 定稿态语料」的模糊匹配
+ * （那正是 orphaned 大批误判的根因：原问题片段随 <w:del> 丢失，原文锚点必然失配）。
+ *
+ * 命中条件：风险在 redline.refs 有登记、非跨审查，且其某个 paraIdx 段落的最终态
+ * 文本能在某条 newClauses 条款内找到。任一条件不满足 → 返回 null，由调用方回落
+ * 既有的 migrateRiskWithDualAnchor 模糊匹配。
+ */
+export function migrateRiskByRedlineRef(params: {
+    riskId: number
+    /** parseRedlineMarks 的解析结果；回传 docx 无修订标记时为 null */
+    redline: ParsedRedlineMarks | null
+    /** 当前审查 id，用于排除跨审查回传 */
+    reviewId: number
+    /** 客户回传 docx 重切的新条款数组 */
+    newClauses: ClauseSnapshotItem[]
+}): RedlineRefMigrateResult | null {
+    const { riskId, redline, reviewId, newClauses } = params
+    if (!redline || redline.reviewId !== reviewId || newClauses.length === 0) return null
+
+    const ref = redline.refs.find(rf => rf.riskId === riskId)
+    if (!ref) return null
+
+    const normalizedClauses = newClauses.map(s => normalizeForMatch(s.text))
+    for (const pIdx of ref.paraIdxs) {
+        const para = redline.paragraphs[pIdx]
+        if (!para) continue
+        const paraText = para.tNorm
+        if (paraText.length < REDLINE_PARA_MIN_LEN) continue
+        const segIdx = normalizedClauses.findIndex(c => c.includes(paraText))
+        if (segIdx === -1) continue
+        const segment = newClauses[segIdx]!
+        return {
+            newClauseArrayIdx: segIdx,
+            newClauseText: segment.text,
+            newClauseCharStart: segment.offsetStart,
+            newClauseCharEnd: segment.offsetEnd,
+        }
+    }
     return null
 }

@@ -4,7 +4,9 @@
  * 输入：每条 risk 的 quote 锚点（PR3 落地）+ suggestedClauseText（risksSchema 已强制单段）。
  * 输出：原 docx 内 quote 范围内所有 run 被 wrap 进 `<w:del>`（保留原 `<w:rPr>` 副本，
  *   `<w:t>` → `<w:delText>`），紧邻插入 `<w:ins>` 包裹 suggestedClauseText（继承 quote
- *   起始 run 的 rPr）。整段被删时段落标记同步加 `<w:pPr><w:rPr><w:del/></w:rPr></w:pPr>`。
+ *   起始 run 的 rPr）。段落标记符（pilcrow）始终保留——每条 redline 必带
+ *   suggestedClauseText（属"整段/部分替换"而非"整段删除"），删除段落标记符会让 Word
+ *   把该段与下一段合并显示（ECMA-376 §17.13.5.15），下一条款标题被吸进正文末尾。
  *
  * 跳过条件（risk 不参与 redline，记入 skippedRiskIds，调用方可走 comment fallback）：
  *  - problematicQuote == null（无锚点）
@@ -15,7 +17,7 @@
  *
  * ID 协调（spec §8.3.1）：
  *  - 入参 idStart 必须 ≥ findMaxSharedId(原 docx) + 1
- *  - 每条 redline 占 2 个 ID（w:del + w:ins）；整段删除时多占 1 个（pPr/rPr/del）
+ *  - 每条 redline 占 2 个 ID（w:del + w:ins）
  *  - 返回 nextIdAfter = idStart + 已分配数，供 both 模式接力 commentInjector
  */
 import {
@@ -25,8 +27,9 @@ import {
     tagOf,
     textOf,
     makeElement,
-    makeLeaf,
     makeText,
+    makeLeaf,
+    makeXmlDecl,
     collectNonEmptyParagraphs,
     stripIllegalXmlChars,
     type Node,
@@ -38,14 +41,14 @@ import {
     writeTextToZip,
     zipToBuffer,
 } from './zipRewriter'
+import { registerCustomXmlPart, removeCustomXmlPart } from './customXmlRegistrar'
 import {
     locateQuoteInParagraphs,
     computeRunLength,
-    paragraphTextLengthByRunRule,
     type RunSplit,
 } from './redlineLocate'
 
-const REDLINE_AUTHOR = 'LexSeek AI'
+export const REDLINE_REFS_PATH = 'word/customXml/redlineRefs.xml'
 
 export interface RedlineRisk {
     /** contractRisks.id（数据库主键），仅用于 skippedRiskIds 回报 */
@@ -93,15 +96,40 @@ export interface InjectRedlineResult {
     warnings: string[]
 }
 
+/** 用 spansByRiskId 构造 redlineRefs.xml 身份证（spec §5.1） */
+function buildRedlineRefsXml(reviewId: number, spansByRiskId: Map<number, RedlineWrapTarget>): string {
+    const children: NodeArray = []
+    for (const [riskId, target] of spansByRiskId) {
+        const delIds = target.paragraphSpans.map(s => s.delId)
+        const insId = target.paragraphSpans.find(s => s.insId !== null)?.insId
+        const paraIdxs = target.paragraphSpans.map(s => s.paraIdx)
+        if (insId == null || delIds.length === 0) continue
+        children.push(makeLeaf('ref', {
+            riskId: String(riskId),
+            delIds: delIds.join(','),
+            insId: String(insId),
+            paraIdxs: paraIdxs.join(','),
+        }))
+    }
+    return stringifyOoxml([
+        makeXmlDecl(),
+        makeElement('lexseekRedlineRefs', {
+            xmlns: 'urn:lexseek:contract-review-redline:v1',
+            reviewId: String(reviewId),
+        }, children),
+    ])
+}
+
 export async function injectRedlineMarks(
     docxBuffer: Buffer,
     risks: RedlineRisk[],
-    options: { reviewId: number, idStart: number },
+    options: { reviewId: number, idStart: number, signature?: string },
 ): Promise<InjectRedlineResult> {
     const skippedRiskIds: number[] = []
     const warnings: string[] = []
     const spansByRiskId = new Map<number, RedlineWrapTarget>()
     let cursorId = options.idStart
+    const redlineAuthor = options.signature?.trim() || '审查人'
 
     // 先过滤掉前置 invalid 的 risk（不解 zip 也能判断）
     const candidates: RedlineRisk[] = []
@@ -119,9 +147,15 @@ export async function injectRedlineMarks(
         candidates.push(r)
     }
 
+    const zip = await loadDocxZip(docxBuffer)
+
     if (candidates.length === 0) {
+        // M15：无 redline 候选，本轮不产生新 redlineRefs.xml。base 可能是客户回传件，
+        // 带着上一轮导出残留的陈旧 redlineRefs.xml——若原样带进产物，再回传时回传识别
+        // 会读到陈旧 delIds/insIds 致识别错乱。显式清理掉。
+        await removeCustomXmlPart(zip, { partPath: REDLINE_REFS_PATH })
         return {
-            buffer: Buffer.from(docxBuffer),
+            buffer: await zipToBuffer(zip),
             skippedRiskIds,
             spansByRiskId,
             nextIdAfter: cursorId,
@@ -129,7 +163,6 @@ export async function injectRedlineMarks(
         }
     }
 
-    const zip = await loadDocxZip(docxBuffer)
     const documentAst = parseOoxml(await readTextFromZip(zip, 'word/document.xml'))
     const nonEmptyParagraphs = collectNonEmptyParagraphs(documentAst)
     const dateIso = new Date().toISOString()
@@ -148,9 +181,6 @@ export async function injectRedlineMarks(
             continue
         }
 
-        // 整段删除判定：startParaIdx == endParaIdx 且 quote 覆盖该段所有 textContent
-        const wholeParagraphDeletion = isWholeParagraphDeletion(loc, nonEmptyParagraphs, risk)
-
         if (loc.startParaIdx === loc.endParaIdx) {
             const split = loc.splits[0]!.runSplit!
             const delId = cursorId
@@ -162,12 +192,9 @@ export async function injectRedlineMarks(
                 delId,
                 insId,
                 dateIso,
+                author: redlineAuthor,
             })
             cursorId += 2
-            if (wholeParagraphDeletion) {
-                addParagraphDeleteMark(nonEmptyParagraphs[loc.startParaIdx]!, cursorId, dateIso)
-                cursorId += 1
-            }
             spansByRiskId.set(risk.id, {
                 paragraphSpans: [{ paraIdx: loc.startParaIdx, delId, insId }],
             })
@@ -180,6 +207,9 @@ export async function injectRedlineMarks(
                 const para = nonEmptyParagraphs[seg.paraIdx]!
                 const isEnd = i === loc.splits.length - 1
                 const split = seg.runSplit ?? wholeParagraphRunSplit(para)
+                // L13：无直接 w:r 子节点的中间段无文字可删，跳过（中间段不承载 w:ins，
+                // 跳过不影响 suggestedClauseText 的插入）。
+                if (!split) continue
                 const delId = cursorId
                 const insId = isEnd ? cursorId + 1 : null
                 applyRedlineToParagraph({
@@ -189,6 +219,7 @@ export async function injectRedlineMarks(
                     delId,
                     insId,
                     dateIso,
+                    author: redlineAuthor,
                 })
                 cursorId += isEnd ? 2 : 1
                 paragraphSpans.push({ paraIdx: seg.paraIdx, delId, insId })
@@ -198,6 +229,18 @@ export async function injectRedlineMarks(
     }
 
     writeTextToZip(zip, 'word/document.xml', stringifyOoxml(documentAst))
+
+    // 写修订身份证 customXml（供回传识别，spec §5）
+    if (spansByRiskId.size > 0) {
+        writeTextToZip(zip, REDLINE_REFS_PATH, buildRedlineRefsXml(options.reviewId, spansByRiskId))
+        await registerCustomXmlPart(zip, { partPath: REDLINE_REFS_PATH, relId: 'rIdLexseekRedlineRefs' })
+    }
+    else {
+        // M15：候选全部定位失败，本轮无新 redline 标记。同 candidates 为空的分支，
+        // 清理 base 残留的陈旧 redlineRefs.xml，避免陈旧身份证带进产物。
+        await removeCustomXmlPart(zip, { partPath: REDLINE_REFS_PATH })
+    }
+
     return {
         buffer: await zipToBuffer(zip),
         skippedRiskIds,
@@ -213,27 +256,6 @@ export async function injectRedlineMarks(
  */
 function deepClone<T>(node: T): T {
     return structuredClone(node)
-}
-
-/**
- * 判断 quote 是否完整覆盖一段所有 textContent（同段 + 起止 run 都在边界 + 段长 == quote 长）。
- * 命中时调用方需要给段落加 <w:pPr><w:rPr><w:del/></w:rPr></w:pPr> 段尾标记。
- */
-function isWholeParagraphDeletion(
-    loc: { startParaIdx: number; endParaIdx: number; splits: Array<{ runSplit: RunSplit | null }> },
-    nonEmptyParagraphs: Node[],
-    risk: { quoteCharStart: number | null; quoteCharEnd: number | null },
-): boolean {
-    if (loc.startParaIdx !== loc.endParaIdx) return false
-    const split = loc.splits[0]!.runSplit
-    if (!split) return false
-    const para = nonEmptyParagraphs[loc.startParaIdx]!
-    const paraLen = paragraphTextLengthByRunRule(para)
-    return split.startRunIdx === firstRunIdx(para)
-        && split.startRunOffset === 0
-        && split.endRunOffset === computeRunLength(childrenOf(para)[split.endRunIdx]!)
-        && split.endRunIdx === lastRunIdx(para)
-        && paraLen === risk.quoteCharEnd! - risk.quoteCharStart!
 }
 
 function getRPr(runNode: Node): Node | null {
@@ -344,8 +366,9 @@ function applyRedlineToParagraph(input: {
     delId: number
     insId: number | null
     dateIso: string
+    author: string
 }): void {
-    const { paraNode, runSplit, suggestedClauseText, delId, insId, dateIso } = input
+    const { paraNode, runSplit, suggestedClauseText, delId, insId, dateIso, author } = input
     const tag = tagOf(paraNode)
     if (!tag) return
     const kids = paraNode[tag] as NodeArray
@@ -380,7 +403,7 @@ function applyRedlineToParagraph(input: {
             if (delChildren.length > 0) {
                 newRuns.push(makeElement('w:del', {
                     'w:id': String(delId),
-                    'w:author': REDLINE_AUTHOR,
+                    'w:author': author,
                     'w:date': dateIso,
                 }, delChildren))
             }
@@ -392,6 +415,7 @@ function applyRedlineToParagraph(input: {
                     inheritedRpr: inheritRpr ? deepClone(inheritRpr) : null,
                     insId,
                     dateIso,
+                    author,
                 }))
             }
             if (after) newRuns.push(after)
@@ -399,14 +423,30 @@ function applyRedlineToParagraph(input: {
             kids.splice(runSplit.startRunIdx, 1, ...newRuns)
             return
         }
+        // L14：upToEnd.left 落空 = quote 区间为空（endRunOffset=0 的退化情形；
+        // locateQuoteInParagraphs 已保证 quoteCharEnd>quoteCharStart，理论不可达）。
+        // 显式 return——不能 fall-through 到跨 run 分支对同一 run 二次切分产出双删。
+        logger.warn('[redlineInjector] applyRedlineToParagraph: same-run quote 区间为空，跳过', {
+            startRunIdx: runSplit.startRunIdx,
+            startRunOffset: runSplit.startRunOffset,
+            endRunOffset: runSplit.endRunOffset,
+        })
+        return
     }
 
     // 跨 run（startRunIdx < endRunIdx）
     const beforeStartRun = startSplit.left // 外
     const startInnerRun = startSplit.right // quote 起始
-    const middleRuns = kids.slice(runSplit.startRunIdx + 1, runSplit.endRunIdx)
-        .filter(k => tagOf(k) === 'w:r')
-        .map(k => deepClone(k))
+    // M13：区间 (startRunIdx, endRunIdx) 内除 w:r 外还可能夹着 bookmarkStart/End、
+    // commentRangeStart/End、proofErr 等零宽结构节点。旧实现 .filter(tagOf==='w:r')
+    // 只留 run，splice 整段替换后这些配对标记被切断一半 → 悬空 → Word 报"可读性内容
+    // 有问题"修复提示甚至损坏。这里把非 run 节点单独收集，删除区构造后原样补回。
+    const middleRuns: NodeArray = []
+    const preservedStructuralNodes: NodeArray = []
+    for (const node of kids.slice(runSplit.startRunIdx + 1, runSplit.endRunIdx)) {
+        if (tagOf(node) === 'w:r') middleRuns.push(deepClone(node))
+        else preservedStructuralNodes.push(deepClone(node))
+    }
     const endInnerRun = endSplit.left // quote 结尾
     const afterEndRun = endSplit.right // 外
 
@@ -420,7 +460,7 @@ function applyRedlineToParagraph(input: {
     if (delChildren.length > 0) {
         newRuns.push(makeElement('w:del', {
             'w:id': String(delId),
-            'w:author': REDLINE_AUTHOR,
+            'w:author': author,
             'w:date': dateIso,
         }, delChildren))
     }
@@ -431,8 +471,12 @@ function applyRedlineToParagraph(input: {
             inheritedRpr: inheritRpr ? deepClone(inheritRpr) : null,
             insId,
             dateIso,
+            author,
         }))
     }
+    // M13：区间内的非 run 结构节点在删除区/插入区之后、外段之前原样补回，
+    // 保证 bookmark/commentRange 等配对标记不悬空。
+    newRuns.push(...preservedStructuralNodes)
     if (afterEndRun) newRuns.push(afterEndRun)
 
     // 替换 [startRunIdx..endRunIdx] 区间为 newRuns
@@ -444,8 +488,9 @@ function buildInsertNode(input: {
     inheritedRpr: Node | null
     insId: number
     dateIso: string
+    author: string
 }): Node {
-    const { text, inheritedRpr, insId, dateIso } = input
+    const { text, inheritedRpr, insId, dateIso, author } = input
     // spec §8.3.8：LLM 输出可能含 U+0008 等非法 XML 控制字符，写入 OOXML 前过滤
     const safeText = stripIllegalXmlChars(text)
     const runChildren: NodeArray = []
@@ -453,7 +498,7 @@ function buildInsertNode(input: {
     runChildren.push(makeElement('w:t', { 'xml:space': 'preserve' }, [makeText(safeText)]))
     return makeElement('w:ins', {
         'w:id': String(insId),
-        'w:author': REDLINE_AUTHOR,
+        'w:author': author,
         'w:date': dateIso,
     }, [makeElement('w:r', {}, runChildren)])
 }
@@ -471,47 +516,18 @@ function lastRunIdx(paraNode: Node): number {
     return -1
 }
 
-function wholeParagraphRunSplit(paraNode: Node): RunSplit {
+function wholeParagraphRunSplit(paraNode: Node): RunSplit | null {
     const kids = childrenOf(paraNode)
     const startIdx = firstRunIdx(paraNode)
     const endIdx = lastRunIdx(paraNode)
+    // L13：段落无直接 w:r 子节点（run 全嵌在 hyperlink / sdt 内）时 firstRunIdx /
+    // lastRunIdx 返回 -1，computeRunLength(kids[-1]!) 会对 undefined 取 tagOf 崩溃。
+    // 此类段落无可删除 run，返回 null 让调用方跳过。
+    if (startIdx < 0 || endIdx < 0) return null
     return {
         startRunIdx: startIdx,
         startRunOffset: 0,
         endRunIdx: endIdx,
         endRunOffset: computeRunLength(kids[endIdx]!),
     }
-}
-
-/**
- * 段落整段被删时同步加 <w:pPr><w:rPr><w:del/></w:rPr></w:pPr>。
- * 已存在 w:pPr 时复用，否则新建放到段落首位。
- */
-function addParagraphDeleteMark(paraNode: Node, delId: number, dateIso: string): void {
-    const tag = tagOf(paraNode)
-    if (!tag) return
-    const kids = paraNode[tag] as NodeArray
-    if (!Array.isArray(kids)) return
-
-    let pPr = kids.find(k => tagOf(k) === 'w:pPr')
-    if (!pPr) {
-        pPr = makeElement('w:pPr', {}, [])
-        kids.unshift(pPr)
-    }
-
-    const pPrTag = tagOf(pPr)!
-    const pPrKids = pPr[pPrTag] as NodeArray
-
-    let rPr = pPrKids.find(k => tagOf(k) === 'w:rPr')
-    if (!rPr) {
-        rPr = makeElement('w:rPr', {}, [])
-        pPrKids.unshift(rPr)
-    }
-    const rPrTag = tagOf(rPr)!
-    const rPrKids = rPr[rPrTag] as NodeArray
-    rPrKids.push(makeLeaf('w:del', {
-        'w:id': String(delId),
-        'w:author': REDLINE_AUTHOR,
-        'w:date': dateIso,
-    }))
 }

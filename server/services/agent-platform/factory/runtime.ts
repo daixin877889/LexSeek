@@ -25,6 +25,7 @@ import { buildSystemPromptForAgent } from '~~/server/services/agent-platform/con
 import { createChatModel } from '~~/server/services/agent-platform/modelFactory'
 import { resolveThinkingFromNodeConfig } from '~~/server/services/node/node.service'
 import { getCheckpointer, getStore } from '~~/server/services/agent-platform/checkpointer'
+import { prisma } from '~~/server/utils/db'
 import { getToolInstancesService } from '~~/server/services/agent-platform/tools/index'
 import { buildSkillsMiddlewareForNode } from '~~/server/services/agent-platform/middleware/skills'
 import { resolveContextWindow } from '~~/server/services/agent-platform/context/messageCompressor'
@@ -40,6 +41,7 @@ import {
     createToolCallLimitMiddlewares,
     createMessageIntegrityMiddleware,
     userInjectionMiddleware,
+    dateContextMiddleware,
 } from '~~/server/services/agent-platform/middleware/index'
 
 import { createTool as createReadSkillFileTool } from '~~/server/services/agent-platform/tools/readSkillFile.tool'
@@ -97,7 +99,8 @@ function buildAgentLangfuseContext(ctx: AgentRunnerContext, scope: SessionScope)
  */
 function toPointItemKey(scope: SessionScope, nodeName: string): string {
     const mapping: Record<string, string> = {
-        [SessionScope.CASE]: 'case_analysis_token',
+        // CASE scope 默认走小索对话；案件初始化分析 / 模块对话有自己的入口（不经 runtime），分别用 case_analysis_init / case_module_chat
+        [SessionScope.CASE]: 'case_main_chat',
         [SessionScope.ASSISTANT]: 'assistant_token',
         [SessionScope.DOCUMENT]: 'document_token',
         [SessionScope.CONTRACT]: 'contract_token',
@@ -201,6 +204,18 @@ async function runDomainAgentInner(
     // 8. 组装中间件栈
     const itemKey = toPointItemKey(def.scope, resolvedNodeName)
 
+    // 解析计费上下文标签：
+    // - 各 vertical 的 itemKey 已独立（case_main_chat / assistant_token / document_token / contract_token），sceneName 自带场景信息
+    // - contextLabel 给案件名（case scope），其它 vertical 由 runner 自定（如果需要）
+    let billingContextLabel: string | undefined
+    if (def.scope === SessionScope.CASE && ctx.caseId != null) {
+        const row = await prisma.cases.findUnique({
+            where: { id: ctx.caseId },
+            select: { title: true },
+        }).catch(() => null)
+        billingContextLabel = row?.title ?? `案件_${ctx.caseId}`
+    }
+
     const middlewareItems = [
         {
             middleware: createMessageIntegrityMiddleware(),
@@ -219,7 +234,8 @@ async function runDomainAgentInner(
             name: `${MIDDLEWARE_NAMES.TOOL_CALL_LIMIT}_${i}`,
         })),
         {
-            middleware: pointConsumptionMiddleware(ctx.userId, itemKey, ctx.sessionId),
+            // operationId 取主 Agent 的 runId，使主代理与子代理（subAgentToolFactory）的扣费聚合到同一条消耗记录
+            middleware: pointConsumptionMiddleware(ctx.userId, itemKey, ctx.sessionId, ctx.runId, billingContextLabel),
             priority: MIDDLEWARE_PRIORITY.POINT_CONSUMPTION,
             name: MIDDLEWARE_NAMES.POINT_CONSUMPTION,
         },
@@ -245,6 +261,13 @@ async function runDomainAgentInner(
             middleware: createAuditMiddleware(),
             priority: MIDDLEWARE_PRIORITY.AUDIT,
             name: MIDDLEWARE_NAMES.AUDIT,
+        },
+        {
+            // 每轮在最末 HumanMessage 之前注入"当前北京时间"——所有 vertical 自动获得时间感知，
+            // 不污染 state.messages、不影响 system prompt cache
+            middleware: dateContextMiddleware(),
+            priority: MIDDLEWARE_PRIORITY.DATE_CONTEXT,
+            name: MIDDLEWARE_NAMES.DATE_CONTEXT,
         },
     ]
 

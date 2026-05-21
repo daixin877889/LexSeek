@@ -3,6 +3,8 @@
  */
 
 import type { RegionType, ArbitrationFeeResult } from '#shared/types/tools'
+import { ARBITRATION_BRACKETS } from './data/feeBrackets'
+import { applyBrackets } from './algorithms'
 
 /**
  * 计算仲裁费用
@@ -43,25 +45,7 @@ export function calculateArbitrationFee(disputeAmount: number, region: RegionTyp
  * @returns 基础仲裁费用
  */
 function calculateBaseArbitrationFee(amount: number): number {
-    let fee = 0
-
-    if (amount <= 10000) {
-        fee = 100
-    } else if (amount <= 50000) {
-        fee = 100 + (amount - 10000) * 0.005
-    } else if (amount <= 100000) {
-        fee = 100 + 40000 * 0.005 + (amount - 50000) * 0.004
-    } else if (amount <= 200000) {
-        fee = 100 + 40000 * 0.005 + 50000 * 0.004 + (amount - 100000) * 0.003
-    } else if (amount <= 500000) {
-        fee = 100 + 40000 * 0.005 + 50000 * 0.004 + 100000 * 0.003 + (amount - 200000) * 0.002
-    } else if (amount <= 1000000) {
-        fee = 100 + 40000 * 0.005 + 50000 * 0.004 + 100000 * 0.003 + 300000 * 0.002 + (amount - 500000) * 0.001
-    } else {
-        fee = 100 + 40000 * 0.005 + 50000 * 0.004 + 100000 * 0.003 + 300000 * 0.002 + 500000 * 0.001 + (amount - 1000000) * 0.0005
-    }
-
-    return Math.round(fee)
+    return Math.round(applyBrackets(amount, ARBITRATION_BRACKETS))
 }
 
 /**

@@ -17,14 +17,13 @@ import { randomUUID } from 'node:crypto'
 import type { contractReviews } from '~~/generated/prisma/client'
 import { findOssFileByIdDao, createOssFileDao } from '~~/server/services/files/ossFiles.dao'
 import { setCompletedAfterRebuildDAO } from './contractReview.dao'
+import { resolveContractExportSignatureService } from '~~/server/services/users/contractSignature.service'
 import {
     injectAnnotations,
     injectRedlineMarks,
-    findMaxSharedId,
+    findMaxSharedIdInDocx,
     loadDocxZip,
-    readTextFromZip,
 } from './docx'
-import { parseOoxml } from './docx/xmlAst'
 import { listAnnotationsForExportDAO } from './contractAnnotation.dao'
 import { filterExportableDbAnnotations } from './contractAnnotation.service'
 import { listContractRisksDAO } from './contractRisk.dao'
@@ -37,6 +36,7 @@ import {
 import { getDefaultStorageConfigDao } from '~~/server/services/storage/storageConfig.dao'
 import { StorageProviderType } from '~~/server/lib/storage/types'
 import { FileSource, OssFileStatus } from '#shared/types/file'
+import { buildStorageKey } from '~~/server/utils/storagePath'
 import { DOCX_MIME } from '#shared/utils/mime'
 import type {
     ContractAnnotationForExport,
@@ -87,16 +87,18 @@ export async function rebuildDocxService(
 
     let finalBuffer: Buffer
     const writeRefs = new Map<number, string>()
+    const signature = await resolveContractExportSignatureService(review.userId)
 
     if (mode === 'comment') {
-        const r = await injectAnnotations(origBuffer, annotations, review.id)
+        // M15：comment 模式不注入 redline；清理 base 残留的陈旧 redlineRefs.xml
+        const r = await injectAnnotations(origBuffer, annotations, review.id, { signature, purgeRedlineRefs: true })
         finalBuffer = Buffer.isBuffer(r.buffer) ? r.buffer : Buffer.from(r.buffer)
         for (const [k, v] of r.refsByAnnotationId) writeRefs.set(k, v)
     }
     else {
         // redline / both 都需要先扫 ID 池底数
-        const docAst = parseOoxml(await readTextFromZip(await loadDocxZip(origBuffer), 'word/document.xml'))
-        const idStart = findMaxSharedId(docAst) + 1
+        // M16：扫全文 w:id 共享池（含页眉/页脚/原生批注）取 max+1，避免新 w:id 撞车致 Word 报损坏。
+        const idStart = await findMaxSharedIdInDocx(await loadDocxZip(origBuffer)) + 1
 
         const risks = await listContractRisksDAO(review.id)
         const redlineRisks: RedlineRisk[] = risks.map(r => ({
@@ -109,7 +111,7 @@ export async function rebuildDocxService(
             suggestedClauseText: r.suggestedClauseText,
         }))
         const redlineResult = await injectRedlineMarks(origBuffer, redlineRisks, {
-            reviewId: review.id, idStart,
+            reviewId: review.id, idStart, signature,
         })
 
         if (mode === 'redline') {
@@ -117,7 +119,7 @@ export async function rebuildDocxService(
             const skippedSet = new Set(redlineResult.skippedRiskIds)
             const fallback = annotations.filter(a => skippedSet.has(a.riskId))
             if (fallback.length > 0) {
-                const cr = await injectAnnotations(redlineResult.buffer, fallback, review.id, { idStart: redlineResult.nextIdAfter })
+                const cr = await injectAnnotations(redlineResult.buffer, fallback, review.id, { idStart: redlineResult.nextIdAfter, signature })
                 finalBuffer = Buffer.isBuffer(cr.buffer) ? cr.buffer : Buffer.from(cr.buffer)
                 for (const [k, v] of cr.refsByAnnotationId) writeRefs.set(k, v)
             }
@@ -131,6 +133,7 @@ export async function rebuildDocxService(
             const cr = await injectAnnotations(redlineResult.buffer, annotations, review.id, {
                 idStart: redlineResult.nextIdAfter,
                 wrapTargetByRiskId: redlineResult.spansByRiskId,
+                signature,
             })
             finalBuffer = Buffer.isBuffer(cr.buffer) ? cr.buffer : Buffer.from(cr.buffer)
             for (const [k, v] of cr.refsByAnnotationId) writeRefs.set(k, v)
@@ -152,8 +155,12 @@ export async function rebuildDocxService(
 
     const buffer = finalBuffer
 
-    // OSS 路径与 M3 contractReview.service 保持同构：contract-review/<userId>/<uuid>.docx
-    const ossPath = `contract-review/${review.userId}/rebuild-${randomUUID()}.docx`
+    const ossPath = buildStorageKey({
+        scope: 'user',
+        userId: review.userId,
+        source: FileSource.CASE_ANALYSIS,
+        fileName: `rebuild-${randomUUID()}.docx`,
+    })
     const [uploadResult, storageConfig] = await Promise.all([
         uploadFileService(ossPath, buffer, {
             contentType: DOCX_MIME,

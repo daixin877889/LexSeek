@@ -1,7 +1,7 @@
 <template>
     <!-- 积分消耗项目创建/编辑对话框 -->
     <Dialog v-model:open="open">
-        <DialogContent class="max-w-lg max-h-[85vh] flex flex-col" @interactOutside="(e) => e.preventDefault()">
+        <DialogContent class="theme-brand max-w-lg max-h-[85vh] flex flex-col" @interactOutside="(e) => e.preventDefault()">
             <DialogHeader class="shrink-0">
                 <DialogTitle>{{ isEdit ? '编辑积分消耗项目' : '新增积分消耗项目' }}</DialogTitle>
                 <DialogDescription>{{ isEdit ? '修改积分消耗项目配置' : '创建新的积分消耗项目' }}</DialogDescription>
@@ -10,14 +10,14 @@
                 <!-- Key（必填，用于代码引用） -->
                 <div v-if="!isEdit" class="space-y-2">
                     <Label>Key <span class="text-destructive">*</span></Label>
-                    <Input v-model="form.key" placeholder="如：doc_parse" />
+                    <Input v-model="form.key" placeholder="如：doc_parse" :class="adminBrandFocusClass" />
                     <p class="text-xs text-muted-foreground">用于代码中引用的唯一标识符，只能包含小写字母、数字和下划线，创建后不可修改</p>
                 </div>
 
                 <!-- 项目名称（创建时必填，编辑时不可修改） -->
                 <div v-if="!isEdit" class="space-y-2">
                     <Label>项目名称 <span class="text-destructive">*</span></Label>
-                    <Input v-model="form.name" placeholder="如：PDF 解析" />
+                    <Input v-model="form.name" placeholder="如：PDF 解析" :class="adminBrandFocusClass" />
                     <p class="text-xs text-muted-foreground">显示名称，创建后不可修改</p>
                 </div>
 
@@ -25,10 +25,10 @@
                 <div class="space-y-2">
                     <Label>分组 <span class="text-destructive">*</span></Label>
                     <Select v-model="form.group">
-                        <SelectTrigger class="w-full">
+                        <SelectTrigger :class="['w-full', adminBrandFocusClass]">
                             <SelectValue placeholder="选择分组" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent class="theme-brand">
                             <SelectItem v-for="g in groupOptions" :key="g.value" :value="g.value">
                                 {{ g.label }}
                             </SelectItem>
@@ -39,18 +39,18 @@
                 <!-- 描述 -->
                 <div class="space-y-2">
                     <Label>描述</Label>
-                    <Input v-model="form.description" placeholder="如：PDF 文档解析" />
+                    <Input v-model="form.description" placeholder="如：PDF 文档解析" :class="adminBrandFocusClass" />
                 </div>
 
                 <!-- 单位和积分数量 -->
                 <div class="grid grid-cols-2 gap-4">
                     <div class="space-y-2">
                         <Label>单位 <span class="text-destructive">*</span></Label>
-                        <Input v-model="form.unit" placeholder="如：次、页、分钟、千tokens" />
+                        <Input v-model="form.unit" placeholder="如：次、页、分钟、千tokens" :class="adminBrandFocusClass" />
                     </div>
                     <div class="space-y-2">
                         <Label>积分数量 <span class="text-destructive">*</span></Label>
-                        <Input v-model.number="form.pointAmount" type="number" min="0" placeholder="10" />
+                        <Input v-model.number="form.pointAmount" type="number" min="0" placeholder="10" :class="adminBrandFocusClass" />
                     </div>
                 </div>
                 <p class="text-xs text-muted-foreground -mt-2">每个单位消耗的积分数量。如 unit=千tokens 且积分数量=5，则每 1000 tokens 消耗 5 积分</p>
@@ -60,20 +60,41 @@
                     <Label>折扣</Label>
                     <div class="flex items-center gap-2">
                         <Input v-model.number="form.discountPercent" type="number" min="0" max="100" placeholder="100"
-                            class="w-24" />
+                            :class="['w-24', adminBrandFocusClass]" />
                         <span class="text-muted-foreground">%</span>
                     </div>
                     <p class="text-xs text-muted-foreground">实际消耗 = 积分数量 × 折扣，100% 表示无折扣</p>
+                </div>
+
+                <!-- 计费模式 -->
+                <div class="space-y-2">
+                    <Label>计费模式</Label>
+                    <Select v-model="form.billingMode">
+                        <SelectTrigger :class="['w-full', adminBrandFocusClass]">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent class="theme-brand">
+                            <SelectItem value="2">按次量</SelectItem>
+                            <SelectItem value="1">按 token</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <p class="text-xs text-muted-foreground">按 token 模式下用户端不展示用量；按次量模式下展示「X 单位」</p>
+                </div>
+
+                <!-- 友好场景名 -->
+                <div class="space-y-2">
+                    <Label>用户友好场景名</Label>
+                    <Input v-model="form.displayName" placeholder="如：AI 法律问答（用户端展示用，为空回退用名称）" :class="adminBrandFocusClass" />
                 </div>
 
                 <!-- 状态 -->
                 <div class="space-y-2">
                     <Label>状态</Label>
                     <Select v-model="form.status">
-                        <SelectTrigger class="w-full">
+                        <SelectTrigger :class="['w-full', adminBrandFocusClass]">
                             <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent class="theme-brand">
                             <SelectItem value="1">启用</SelectItem>
                             <SelectItem value="0">禁用</SelectItem>
                         </SelectContent>
@@ -81,8 +102,8 @@
                 </div>
             </div>
             <DialogFooter class="shrink-0">
-                <Button variant="outline" @click="open = false">取消</Button>
-                <Button @click="handleSubmit" :disabled="submitting">
+                <Button variant="outline" :class="adminBrandFocusClass" @click="open = false">取消</Button>
+                <Button :class="adminBrandPrimaryButtonClass" @click="handleSubmit" :disabled="submitting">
                     <Loader2 v-if="submitting" class="h-4 w-4 mr-2 animate-spin" />
                     {{ isEdit ? '保存' : '创建' }}
                 </Button>
@@ -96,6 +117,7 @@ import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { PointConsumptionItem } from '#shared/types/point.types'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { adminBrandFocusClass, adminBrandPrimaryButtonClass } from '~/utils/adminBrandStyles'
 
 // 定义 props
 const props = defineProps<{
@@ -147,6 +169,8 @@ function getDefaultForm() {
         pointAmount: 10,
         discountPercent: 100,
         status: '1',
+        billingMode: '2',
+        displayName: '',
     }
 }
 
@@ -182,6 +206,8 @@ const openEdit = (item: PointConsumptionItem) => {
         pointAmount: item.pointAmount,
         discountPercent,
         status: String(item.status),
+        billingMode: String(item.billingMode ?? 2),
+        displayName: item.displayName ?? '',
     }
     open.value = true
 }
@@ -223,6 +249,8 @@ const handleSubmit = async () => {
             pointAmount: form.value.pointAmount,
             discount: form.value.discountPercent / 100,
             status: parseInt(form.value.status),
+            billingMode: parseInt(form.value.billingMode),
+            displayName: form.value.displayName || null,
         }
 
         let result

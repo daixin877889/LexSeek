@@ -32,6 +32,10 @@ export interface LegalSearchFilters {
     publishDateFrom: string | null
     /** 发布日期结束 */
     publishDateTo: string | null
+    /** 排序字段 */
+    sortBy: 'publishDate' | 'effectiveDate' | 'name' | 'createdAt'
+    /** 排序方向 */
+    sortOrder: 'asc' | 'desc'
 }
 
 /** 法条搜索筛选条件 */

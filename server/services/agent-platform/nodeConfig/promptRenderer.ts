@@ -7,6 +7,7 @@
 
 import { logger } from '#shared/utils/logger'
 import { renderContent } from '~~/server/services/node/prompt.service'
+import { formatCurrentDate } from '~~/server/services/agent-platform/middleware/dateContext.middleware'
 import type { NodeConfig } from '~~/server/services/node/node.service'
 
 /** 渲染系统提示词时可传入的上下文变量 */
@@ -33,6 +34,40 @@ export interface PromptRenderContext {
     draftId?: number
     /** 草稿当前状态('drafting' / 'filling' / 'ready' / 'exported' / 'failed') */
     status?: string
+    /**
+     * 当前日期（YYYY-MM-DD，北京时区）。renderSystemPrompt 内部默认填充，
+     * 业务侧无需传；调用方可显式传值用于测试锚定。
+     *
+     * 日级粒度选择：放进 system prompt 仍命中 prompt cache（同一天值不变），
+     * 秒级时间走 dateContextMiddleware 在 user 消息侧注入。
+     */
+    currentDate?: string
+}
+
+/**
+ * 把 PromptRenderContext 展平为 renderContent 期望的 Record<string, string>。
+ *
+ * 抽出来共享给 renderSystemPrompt 与 userInjectionMiddleware——避免新增字段时
+ * 两边各加一份导致漂移（如 currentDate 最初就是两处独立 fallback）。
+ *
+ * currentDate 在调用层每次现算（dayjs 当前时间），不能 closure 捕获——
+ * userInjectionMiddleware 是 createAgent 时一次性构造、agent 进程内长期复用，
+ * 跨午夜运行会让"今天"卡死在启动日。
+ */
+export function flattenPromptContext(context: PromptRenderContext = {}): Record<string, string> {
+    const variables: Record<string, string> = {}
+    if (context.caseId != null) variables.caseId = String(context.caseId)
+    if (context.moduleName) variables.moduleName = context.moduleName
+    if (context.caseType) variables.caseType = context.caseType
+    if (context.templateName) variables.templateName = context.templateName
+    if (context.templateCategory) variables.templateCategory = context.templateCategory
+    if (context.fileIds) variables.fileIds = context.fileIds
+    if (context.userExtraText) variables.userExtraText = context.userExtraText
+    if (context.draftId != null) variables.draftId = String(context.draftId)
+    if (context.status) variables.status = context.status
+    if (context.contractType) variables.contractType = context.contractType
+    variables.currentDate = context.currentDate ?? formatCurrentDate()
+    return variables
 }
 
 /**
@@ -56,34 +91,7 @@ export function renderSystemPrompt(
         return ''
     }
 
-    const variables: Record<string, string> = {}
-    if (context.caseId != null) {
-        variables.caseId = String(context.caseId)
-    }
-    if (context.moduleName) {
-        variables.moduleName = context.moduleName
-    }
-    if (context.caseType) {
-        variables.caseType = context.caseType
-    }
-    if (context.templateName) {
-        variables.templateName = context.templateName
-    }
-    if (context.templateCategory) {
-        variables.templateCategory = context.templateCategory
-    }
-    if (context.fileIds) {
-        variables.fileIds = context.fileIds
-    }
-    if (context.userExtraText) {
-        variables.userExtraText = context.userExtraText
-    }
-    if (context.draftId != null) {
-        variables.draftId = String(context.draftId)
-    }
-    if (context.status) {
-        variables.status = context.status
-    }
+    const variables = flattenPromptContext(context)
 
     const rendered = systemPrompts
         .map(p => renderContent(p.content, variables))

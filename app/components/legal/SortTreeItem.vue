@@ -12,7 +12,7 @@
             </div>
 
             <!-- 展开/折叠按钮 -->
-            <button v-if="node.childCount > 0" class="p-0.5 rounded hover:bg-muted transition-colors"
+            <button v-if="node.childCount > 0" :class="['p-0.5 rounded hover:bg-muted transition-colors', adminBrandFocusClass]"
                 :disabled="loadingKeys.has(node.id)" @click.stop="$emit('toggle', node)">
                 <Loader2 v-if="loadingKeys.has(node.id)" class="h-4 w-4 animate-spin text-muted-foreground" />
                 <ChevronDown v-else-if="expandedKeys.has(node.id)" class="h-4 w-4 text-primary" />
@@ -55,6 +55,7 @@ import { GripVertical, ChevronRight, ChevronDown, Loader2 } from 'lucide-vue-nex
 import { VueDraggable } from 'vue-draggable-plus'
 import type { SortTreeNode, ArticleType } from '#shared/types/legal'
 import LegalSortTreeItem from '~/components/legal/SortTreeItem.vue'
+import { adminBrandDisabledBadgeClass, adminBrandFocusClass, getAdminLegalArticleTypeBadgeClass } from '~/utils/adminBrandStyles'
 
 /** Props */
 const props = defineProps<{
@@ -88,14 +89,7 @@ const getTypeName = (type: ArticleType): string => {
 /** 获取类型样式 */
 const getTypeClass = (type: ArticleType): string => {
     const baseClass = 'inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium shrink-0'
-    const typeClasses: Record<string, string> = {
-        l1: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-        l2: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-        l3: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
-        l4: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
-        l5: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-    }
-    return `${baseClass} ${typeClasses[type] || 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'}`
+    return `${baseClass} ${getAdminLegalArticleTypeBadgeClass(type) || adminBrandDisabledBadgeClass}`
 }
 
 /** 获取标题样式 */
@@ -113,10 +107,10 @@ const getTitleClass = (type: ArticleType): string => {
 /** 获取节点背景样式 */
 const getNodeBgClass = (type: ArticleType): string => {
     const classes: Record<string, string> = {
-        l1: 'bg-red-50/30 dark:bg-red-950/10',
-        l2: 'bg-green-50/20 dark:bg-green-950/10',
-        l3: 'bg-orange-50/20 dark:bg-orange-950/10',
-        l4: 'bg-purple-50/10 dark:bg-purple-950/5',
+        l1: 'bg-indigo-500/5',
+        l2: 'bg-cyan-500/5',
+        l3: 'bg-emerald-500/5',
+        l4: 'bg-amber-500/5',
         l5: 'bg-background',
     }
     return classes[type] || 'bg-background'

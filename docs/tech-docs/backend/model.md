@@ -146,7 +146,7 @@ interface FullModelConfig {
 interface EmbeddingConfig {
     apiKey: string
     baseUrl: string
-    model: string      // 默认 'text-embedding-v3'
+    model: string      // 默认 'text-embedding-v4'
     dimensions: number  // 默认 1536
     batchSize: number   // 默认 5
     source: 'database' | 'environment'

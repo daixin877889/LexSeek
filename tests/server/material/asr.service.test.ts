@@ -543,10 +543,26 @@ vi.mock('~~/server/services/storage/storage.service', () => ({
 
 vi.mock('~~/server/services/point/pointConsumption.service', () => ({
     checkPointsService: vi.fn(),
-    consumePointsService: vi.fn().mockResolvedValue(undefined),
+    consumePointsService: vi.fn().mockResolvedValue({ consumedAmount: 0, consumptionRecords: [] }),
     preDeductPointsService: vi.fn(),
-    settlePointsService: vi.fn().mockResolvedValue(undefined),
-    rollbackPreDeductService: vi.fn().mockResolvedValue(undefined),
+    settlePointsService: vi.fn().mockResolvedValue({ consumedAmount: 0, consumptionRecords: [] }),
+    rollbackPreDeductService: vi.fn().mockResolvedValue({ releasedAmount: 0 }),
+}))
+
+// 统一计费服务包装了底层消耗服务，asr.service 现在直调它而非底层；
+// billReserve 直接 mock 结果；billSettle/billRollback 转发到底层 mock 以保留原有断言能力
+vi.mock('~~/server/services/point/pointBilling.service', () => ({
+    billReserveService: vi.fn().mockResolvedValue({ skipped: false, batchId: 'mock-batch', preDeductAmount: 10 }),
+    billSettleService: vi.fn(async (batchId: string, actualUnits?: number) => {
+        const { settlePointsService } = await import('~~/server/services/point/pointConsumption.service')
+        const r = await (settlePointsService as any)(batchId, actualUnits)
+        return { consumedAmount: r?.consumedAmount ?? 0 }
+    }),
+    billRollbackService: vi.fn(async (batchId: string) => {
+        const { rollbackPreDeductService } = await import('~~/server/services/point/pointConsumption.service')
+        const r = await (rollbackPreDeductService as any)(batchId)
+        return { releasedAmount: r?.releasedAmount ?? 0 }
+    }),
 }))
 
 vi.mock('~~/server/services/node/node.service', () => ({
@@ -702,8 +718,8 @@ describe('ASR 服务 - 服务层函数', () => {
 
             ;(globalThis as any).getAudioDuration = vi.fn().mockResolvedValue(120) // 2 分钟
 
-            const { preDeductPointsService } = await import('~~/server/services/point/pointConsumption.service')
-            vi.mocked(preDeductPointsService).mockRejectedValue(new Error('积分不足'))
+            const { billReserveService } = await import('~~/server/services/point/pointBilling.service')
+            vi.mocked(billReserveService).mockRejectedValueOnce(new Error('积分不足'))
 
             const { submitAsrTaskService } = await import('~~/server/services/material/asr.service')
             const result = await submitAsrTaskService(1, 1)
@@ -734,8 +750,8 @@ describe('ASR 服务 - 服务层函数', () => {
 
             ;(globalThis as any).getAudioDuration = vi.fn().mockResolvedValue(120)
 
-            const { preDeductPointsService } = await import('~~/server/services/point/pointConsumption.service')
-            vi.mocked(preDeductPointsService).mockResolvedValue({ batchId: 'batch-123' } as any)
+            const { billReserveService } = await import('~~/server/services/point/pointBilling.service')
+            vi.mocked(billReserveService).mockResolvedValueOnce({ skipped: false, batchId: 'batch-123', preDeductAmount: 1 })
 
             const { $fetch } = await import('ofetch')
             vi.mocked($fetch).mockResolvedValue({
@@ -781,8 +797,8 @@ describe('ASR 服务 - 服务层函数', () => {
 
             ;(globalThis as any).getAudioDuration = vi.fn().mockResolvedValue(60)
 
-            const { preDeductPointsService } = await import('~~/server/services/point/pointConsumption.service')
-            vi.mocked(preDeductPointsService).mockResolvedValue({ batchId: 'batch-456' } as any)
+            const { billReserveService } = await import('~~/server/services/point/pointBilling.service')
+            vi.mocked(billReserveService).mockResolvedValueOnce({ skipped: false, batchId: 'batch-456', preDeductAmount: 1 })
 
             const { $fetch } = await import('ofetch')
             vi.mocked($fetch).mockResolvedValue({

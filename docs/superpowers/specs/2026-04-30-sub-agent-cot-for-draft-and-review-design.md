@@ -582,7 +582,7 @@ documentMain graph 抛错 → handleChainError → publishStatusChange status='f
 
 - 子流 token-level 流式渲染优化（当前 thinking delta 累积到完整 chunk 后才出现于 messages 帧；如需 token-by-token 滚动需要前端额外处理 SUB_AGENT_TOKEN delta）
 - 子流嵌套（documentMain 内部又调子代理工具）的多级 CoT 展示
-- 跨 panel 通用化：法律助手（assistantChat）走 draft_document / review_contract 时的 CoT 接入（路径相似，本次先聚焦小索）
+- 跨 panel 通用化：通用问答（assistantChat）走 draft_document / review_contract 时的 CoT 接入（路径相似，本次先聚焦小索）
 
 ## 决策记录
 

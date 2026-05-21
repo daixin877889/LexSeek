@@ -10,7 +10,7 @@
 import { z } from 'zod'
 import { createCaseService } from '~~/server/services/case/case.service'
 import type { PartyInfo, CaseMaterialParam } from '#shared/types/case'
-import { CaseMaterialType } from '#shared/types/case'
+import { CaseMaterialType, CaseStance } from '#shared/types/case'
 import { parseErrorMessage } from '#shared/utils/apiResponse'
 import { getFirstEnabledCaseTypeService } from '~~/server/services/case/caseType.service'
 
@@ -100,6 +100,20 @@ const createCaseSchema = z.object({
         title: z.string(),
         value: z.string(),
     })).optional(),
+    /** 案件状态（前端创建表单可填，默认咨询阶段） */
+    status: z.number().int().positive().optional(),
+    /** 法院名称 */
+    courtName: z.string().trim().max(200).optional(),
+    /** 一审案件编号 */
+    firstInstanceCaseNo: z.string().trim().max(100).optional(),
+    /** 一审法官姓名 */
+    firstInstanceJudge: z.string().trim().max(100).optional(),
+    /** 二审案件编号 */
+    secondInstanceCaseNo: z.string().trim().max(100).optional(),
+    /** 二审法官姓名 */
+    secondInstanceJudge: z.string().trim().max(100).optional(),
+    /** 分析立场 */
+    stance: z.nativeEnum(CaseStance).default(CaseStance.PLAINTIFF),
 }).superRefine((data, ctx) => {
     // 验证 content 和 materials 至少提供一个
     const hasContent = data.content && data.content.trim().length > 0
@@ -130,7 +144,22 @@ export default defineEventHandler(async (event) => {
         return resError(event, 400, parseErrorMessage(result.error, '参数验证失败'))
     }
 
-    const { title, content, plaintiff, defendant, materials, summary, extractedInfo } = result.data
+    const {
+        title,
+        content,
+        plaintiff,
+        defendant,
+        materials,
+        summary,
+        extractedInfo,
+        status,
+        courtName,
+        firstInstanceCaseNo,
+        firstInstanceJudge,
+        secondInstanceCaseNo,
+        secondInstanceJudge,
+        stance,
+    } = result.data
 
     // 如果未提供 caseTypeId，取第一条可用记录
     let caseTypeId = result.data.caseTypeId
@@ -154,6 +183,16 @@ export default defineEventHandler(async (event) => {
             materials: materials as CaseMaterialParam[] | undefined,
             summary: summary ?? null,
             extractedInfo: extractedInfo ?? null,
+            stance,
+            // 状态 / 诉讼信息 字段透传给 createCaseService（service 已透传到 createCaseDao）
+            // 注意：spec §3.2 误判这些字段已接收，实际此前 zod 没接，
+            // 用户在表单里填了也不会入库；此处一并修正。
+            ...(status !== undefined ? { status } : {}),
+            ...(courtName !== undefined ? { courtName } : {}),
+            ...(firstInstanceCaseNo !== undefined ? { firstInstanceCaseNo } : {}),
+            ...(firstInstanceJudge !== undefined ? { firstInstanceJudge } : {}),
+            ...(secondInstanceCaseNo !== undefined ? { secondInstanceCaseNo } : {}),
+            ...(secondInstanceJudge !== undefined ? { secondInstanceJudge } : {}),
         })
 
         logger.info('案件创建成功', {

@@ -884,7 +884,7 @@ git tag -a ai-unify-stage-2-done -m "AI 基建统一改造 阶段 2 完成：Age
 4. skills 自动按 NodeConfig 关联挂 middleware + 4 个 skill 工具自动跟随
 5. 后台可在线管理 skills 和节点-skill 关联
 6. typecheck 全绿
-7. 5 业务行为等同阶段 1（小索/模块对话/法律助手/文书生成/合同审查）
+7. 5 业务行为等同阶段 1（小索/模块对话/通用问答/文书生成/合同审查）
 
 ---
 

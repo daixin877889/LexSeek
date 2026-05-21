@@ -147,3 +147,34 @@ export const updateUserProfileDao = async (id: number, data: Prisma.usersUpdateI
         throw error
     }
 }
+
+/**
+ * 读取用户合同导出署名所需字段（name + contractExportSignature）。
+ * 仅 select 必要列，不带角色 include。
+ */
+export const findUserExportSignatureDao = async (
+    id: number,
+): Promise<{ name: string; contractExportSignature: string | null } | null> => {
+    return prisma.users.findFirst({
+        where: { id, deletedAt: null },
+        select: { name: true, contractExportSignature: true },
+    })
+}
+
+/**
+ * 通过 apiKey 反查用户（对外开放接口 apiKey 鉴权用）。
+ * apiKey 唯一，但需排除软删用户，故用 findFirst；仅取鉴权所需的最小字段。
+ */
+export const findUserByApiKeyDao = async (
+    apiKey: string,
+): Promise<{ id: number; status: number } | null> => {
+    try {
+        return await prisma.users.findFirst({
+            where: { apiKey, deletedAt: null },
+            select: { id: true, status: true },
+        })
+    } catch (error) {
+        logger.error('通过 apiKey 查询用户失败：', error)
+        throw error
+    }
+}

@@ -1,12 +1,12 @@
 <template>
-        <div class="space-y-6">
+        <div class="theme-brand space-y-6">
             <!-- 页面标题 -->
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                     <h1 class="text-2xl md:text-3xl font-bold mb-1">模型提供商</h1>
                     <p class="text-muted-foreground text-sm">管理 AI 模型服务提供商</p>
                 </div>
-                <Button @click="formDialogRef?.openCreate()">
+                <Button :class="adminBrandPrimaryButtonClass" @click="formDialogRef?.openCreate()">
                     <Plus class="h-4 w-4 mr-2" />
                     新增提供商
                 </Button>
@@ -46,11 +46,11 @@
                                 <TableCell class="text-right">
                                     <DropdownMenu>
                                         <DropdownMenuTrigger as-child>
-                                            <Button variant="ghost" size="icon">
+                                            <Button variant="ghost" size="icon" :class="adminBrandFocusClass">
                                                 <MoreHorizontal class="h-4 w-4" />
                                             </Button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
+                                        <DropdownMenuContent align="end" class="theme-brand shadow-none">
                                             <DropdownMenuItem @click="navigateToDetail(provider)">
                                                 <Eye class="h-4 w-4 mr-2" />
                                                 查看详情
@@ -82,7 +82,7 @@
 
         <!-- 删除确认对话框 -->
         <AlertDialog v-model:open="deleteDialogOpen">
-            <AlertDialogContent>
+            <AlertDialogContent class="theme-brand">
                 <AlertDialogHeader>
                     <AlertDialogTitle>确认删除</AlertDialogTitle>
                     <AlertDialogDescription>
@@ -90,8 +90,8 @@
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>取消</AlertDialogCancel>
-                    <AlertDialogAction @click="confirmDelete" :disabled="deleting">
+                    <AlertDialogCancel :class="adminBrandFocusClass">取消</AlertDialogCancel>
+                    <AlertDialogAction :class="adminBrandDestructiveActionClass" @click="confirmDelete" :disabled="deleting">
                         <Loader2 v-if="deleting" class="h-4 w-4 mr-2 animate-spin" />
                         确认删除
                     </AlertDialogAction>
@@ -107,6 +107,7 @@ import type { ModelProvider } from '#shared/types/model'
 import AdminModelProvidersProviderFormDialog from '~/components/admin/model-providers/ProviderFormDialog.vue'
 import GeneralPagination from '~/components/general/pagination.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { adminBrandDestructiveActionClass, adminBrandFocusClass, adminBrandPrimaryButtonClass } from '~/utils/adminBrandStyles'
 
 definePageMeta({ layout: 'admin-layout', title: '模型提供商' })
 

@@ -1,12 +1,12 @@
 <template>
-    <div class="space-y-6">
+    <div class="theme-brand space-y-6">
       <!-- 页面标题 -->
-      <div class="flex items-center justify-between">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 class="text-2xl md:text-3xl font-bold mb-1">路由权限管理</h1>
           <p class="text-muted-foreground text-sm">管理前端路由权限资源</p>
         </div>
-        <Button @click="openScanDialog">
+        <Button :class="['w-full md:w-auto', adminBrandPrimaryButtonClass]" @click="openScanDialog">
           <ScanLine class="h-4 w-4 mr-2" />
           扫描路由
         </Button>
@@ -14,27 +14,27 @@
 
       <!-- 搜索和筛选 -->
       <div class="flex flex-col md:flex-row gap-4">
-        <Input v-model="searchKeyword" placeholder="搜索路由名称或路径..." class="md:max-w-sm" @keyup.enter="handleSearch" />
+        <Input v-model="searchKeyword" placeholder="搜索路由名称或路径..." :class="['md:max-w-sm', adminBrandFocusClass]" @keyup.enter="handleSearch" />
         <Select v-model="groupFilter">
-          <SelectTrigger class="w-full md:w-40">
+          <SelectTrigger :class="['w-full md:w-40', adminBrandFocusClass]">
             <SelectValue placeholder="路由组" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent class="theme-brand">
             <SelectItem value="all">全部分组</SelectItem>
             <SelectItem v-for="group in groups" :key="group.id" :value="String(group.id)">{{ group.name }}</SelectItem>
           </SelectContent>
         </Select>
         <Select v-model="menuFilter">
-          <SelectTrigger class="w-full md:w-32">
+          <SelectTrigger :class="['w-full md:w-32', adminBrandFocusClass]">
             <SelectValue placeholder="菜单类型" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent class="theme-brand">
             <SelectItem value="all">全部</SelectItem>
             <SelectItem value="true">菜单</SelectItem>
             <SelectItem value="false">非菜单</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline" @click="handleSearch">
+        <Button variant="outline" :class="adminBrandFocusClass" @click="handleSearch">
           <Search class="h-4 w-4 mr-2" />
           搜索
         </Button>
@@ -50,7 +50,7 @@
         <Route class="h-12 w-12 text-muted-foreground/50 mb-4" />
         <h3 class="text-lg font-medium mb-1">暂无路由权限数据</h3>
         <p class="text-muted-foreground text-sm mb-4">请先扫描并导入路由权限</p>
-        <Button @click="openScanDialog">
+        <Button :class="adminBrandPrimaryButtonClass" @click="openScanDialog">
           <ScanLine class="h-4 w-4 mr-2" />
           扫描路由
         </Button>
@@ -59,53 +59,51 @@
       <!-- 路由列表 -->
       <template v-else>
         <div class="bg-card rounded-lg border overflow-hidden">
-          <div class="overflow-x-auto">
-            <table class="w-full">
-              <thead>
-                <tr class="border-b bg-muted/50">
-                  <th class="px-4 py-3 text-left text-sm font-medium">路由名称</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium">标题</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium">路径</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium w-24">分组</th>
-                  <th class="px-4 py-3 text-center text-sm font-medium w-20">菜单</th>
-                  <th class="px-4 py-3 text-center text-sm font-medium w-24">排序</th>
-                  <th class="px-4 py-3 text-center text-sm font-medium w-20">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="router in routers" :key="router.id"
-                  class="border-b last:border-b-0 hover:bg-muted/30 transition-colors">
-                  <td class="px-4 py-3">
-                    <div class="flex items-center gap-2">
-                      <component v-if="router.icon" :is="getIcon(router.icon) as any" />
-                      <span class="font-medium">{{ router.name }}</span>
-                    </div>
-                  </td>
-                  <td class="px-4 py-3 text-sm">{{ router.title }}</td>
-                  <td class="px-4 py-3">
-                    <code class="text-xs bg-muted px-1.5 py-0.5 rounded">{{ router.path }}</code>
-                  </td>
-                  <td class="px-4 py-3">
-                    <Badge variant="outline">{{ router.routerGroups?.name || '-' }}</Badge>
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <Switch :model-value="router.isMenu"
-                      @update:model-value="(checked: boolean) => handleToggleMenu(router, checked)" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <Input type="number" :model-value="router.sort" min="0" class="w-16 h-8 text-center text-sm"
-                      @change="(e: Event) => handleUpdateSort(router, (e.target as HTMLInputElement).value)" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <Button variant="ghost" size="icon" class="h-8 w-8 text-destructive hover:text-destructive"
-                      @click="handleDelete(router)">
-                      <Trash2 class="h-4 w-4" />
-                    </Button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow class="bg-muted/50 hover:bg-muted/50">
+                <TableHead class="px-4 py-3">路由名称</TableHead>
+                <TableHead class="px-4 py-3">标题</TableHead>
+                <TableHead class="px-4 py-3">路径</TableHead>
+                <TableHead class="w-24 px-4 py-3">分组</TableHead>
+                <TableHead class="w-20 px-4 py-3 text-center">菜单</TableHead>
+                <TableHead class="w-24 px-4 py-3 text-center">排序</TableHead>
+                <TableHead class="w-20 px-4 py-3 text-center">操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow v-for="router in routers" :key="router.id" class="hover:bg-muted/30">
+                <TableCell class="px-4 py-3">
+                  <div class="flex items-center gap-2">
+                    <component v-if="router.icon" :is="getIcon(router.icon) as any" />
+                    <span class="font-medium">{{ router.name }}</span>
+                  </div>
+                </TableCell>
+                <TableCell class="px-4 py-3 text-sm">{{ router.title }}</TableCell>
+                <TableCell class="px-4 py-3">
+                  <code class="text-xs bg-muted px-1.5 py-0.5 rounded">{{ router.path }}</code>
+                </TableCell>
+                <TableCell class="px-4 py-3">
+                  <Badge variant="outline" :class="adminBrandChipClass">{{ router.routerGroups?.name || '-' }}</Badge>
+                </TableCell>
+                <TableCell class="px-4 py-3 text-center">
+                  <Switch :model-value="router.isMenu"
+                    :class="adminBrandSwitchClass"
+                    @update:model-value="(checked: boolean) => handleToggleMenu(router, checked)" />
+                </TableCell>
+                <TableCell class="px-4 py-3 text-center">
+                  <Input type="number" :model-value="router.sort" min="0" :class="['w-16 h-8 text-center text-sm', adminBrandFocusClass]"
+                    @change="(e: Event) => handleUpdateSort(router, (e.target as HTMLInputElement).value)" />
+                </TableCell>
+                <TableCell class="px-4 py-3 text-center">
+                  <Button variant="ghost" size="icon" :class="['h-8 w-8 text-destructive hover:text-destructive', adminBrandFocusClass]"
+                    @click="handleDelete(router)">
+                    <Trash2 class="h-4 w-4" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
         </div>
 
         <!-- 分页 -->
@@ -116,7 +114,7 @@
 
     <!-- 扫描路由对话框 -->
     <Dialog v-model:open="scanDialogOpen">
-      <DialogContent class="!max-w-5xl w-[95vw] max-h-[80vh] flex flex-col">
+      <DialogContent class="theme-brand !max-w-5xl w-[95vw] max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>扫描路由</DialogTitle>
           <DialogDescription>
@@ -135,53 +133,55 @@
           <!-- 统计信息 -->
           <div class="flex items-center gap-4 text-sm text-muted-foreground mb-4">
             <span>共扫描到 {{ scanStats.total }} 个路由</span>
-            <span class="text-green-600">新增 {{ scanStats.new }} 个</span>
-            <span class="text-gray-500">已存在 {{ scanStats.existing }} 个</span>
+            <span class="text-primary">新增 {{ scanStats.new }} 个</span>
+            <span class="text-muted-foreground">已存在 {{ scanStats.existing }} 个</span>
           </div>
 
           <!-- 全选操作 -->
           <div class="flex items-center gap-4 mb-2">
             <Checkbox :model-value="isAllSelected" :indeterminate="isIndeterminate"
+              :class="adminBrandCheckboxClass"
               @update:model-value="toggleSelectAll" />
             <span class="text-sm">全选新路由</span>
             <span class="text-xs text-muted-foreground">(已选 {{ selectedCount }} 个)</span>
           </div>
 
           <!-- 路由列表 -->
-          <div class="flex-1 overflow-auto border rounded-lg">
-            <table class="w-full">
-              <thead class="sticky top-0 bg-card z-10">
-                <tr class="border-b bg-muted/50">
-                  <th class="px-3 py-2 text-left text-sm font-medium w-10"></th>
-                  <th class="px-3 py-2 text-left text-sm font-medium">路径</th>
-                  <th class="px-3 py-2 text-left text-sm font-medium">标题</th>
-                  <th class="px-3 py-2 text-left text-sm font-medium w-24">分组</th>
-                  <th class="px-3 py-2 text-center text-sm font-medium w-20">状态</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="item in scanResults" :key="item.path"
-                  class="border-b last:border-b-0 hover:bg-muted/30 transition-colors"
-                  :class="{ 'opacity-50': item.exists }">
-                  <td class="px-3 py-2">
+          <div class="min-h-0 flex-1 overflow-auto rounded-lg border">
+            <Table>
+              <TableHeader class="sticky top-0 z-10 bg-card">
+                <TableRow class="bg-muted/50 hover:bg-muted/50">
+                  <TableHead class="w-10 px-3 py-2"></TableHead>
+                  <TableHead class="px-3 py-2">路径</TableHead>
+                  <TableHead class="px-3 py-2">标题</TableHead>
+                  <TableHead class="w-24 px-3 py-2">分组</TableHead>
+                  <TableHead class="w-20 px-3 py-2 text-center">状态</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow v-for="item in scanResults" :key="item.path"
+                  class="border-l-2"
+                  :class="getScanResultRowClass(item)">
+                  <TableCell class="px-3 py-2">
                     <Checkbox :model-value="selectedPaths.has(item.path)" :disabled="item.exists"
+                      :class="adminBrandCheckboxClass"
                       @update:model-value="(v) => toggleSelect(item.path, v as boolean)" />
-                  </td>
-                  <td class="px-3 py-2">
+                  </TableCell>
+                  <TableCell class="px-3 py-2">
                     <code class="text-xs bg-muted px-1.5 py-0.5 rounded">{{ item.path }}</code>
-                  </td>
-                  <td class="px-3 py-2 text-sm">{{ item.title }}</td>
-                  <td class="px-3 py-2">
-                    <Badge variant="outline" class="text-xs">{{ item.group }}</Badge>
-                  </td>
-                  <td class="px-3 py-2 text-center">
-                    <Badge :variant="item.exists ? 'secondary' : 'default'" class="text-xs">
+                  </TableCell>
+                  <TableCell class="px-3 py-2 text-sm">{{ item.title }}</TableCell>
+                  <TableCell class="px-3 py-2">
+                    <Badge variant="outline" :class="['text-xs', adminBrandChipClass]">{{ item.group }}</Badge>
+                  </TableCell>
+                  <TableCell class="px-3 py-2 text-center">
+                    <Badge variant="outline" :class="['text-xs', getScanStatusBadgeClass(item.exists)]">
                       {{ item.exists ? '已存在' : '新增' }}
                     </Badge>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
           </div>
         </template>
 
@@ -192,8 +192,8 @@
         </div>
 
         <DialogFooter>
-          <Button variant="outline" @click="scanDialogOpen = false">取消</Button>
-          <Button @click="handleImport" :disabled="selectedCount === 0 || importing">
+          <Button variant="outline" :class="adminBrandFocusClass" @click="scanDialogOpen = false">取消</Button>
+          <Button :class="adminBrandPrimaryButtonClass" @click="handleImport" :disabled="selectedCount === 0 || importing">
             <Loader2 v-if="importing" class="h-4 w-4 mr-2 animate-spin" />
             导入选中 ({{ selectedCount }})
           </Button>
@@ -203,14 +203,14 @@
 
     <!-- 删除确认对话框 -->
     <AlertDialog v-model:open="deleteDialogOpen">
-      <AlertDialogContent>
+      <AlertDialogContent class="theme-brand">
         <AlertDialogHeader>
           <AlertDialogTitle>确认删除</AlertDialogTitle>
           <AlertDialogDescription>确定要删除路由「{{ routerToDelete?.path }}」吗？此操作不可撤销。</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>取消</AlertDialogCancel>
-          <AlertDialogAction @click="confirmDelete" class="bg-destructive text-white hover:bg-destructive/90">删除
+          <AlertDialogCancel :class="adminBrandFocusClass">取消</AlertDialogCancel>
+          <AlertDialogAction :class="adminBrandDestructiveActionClass" @click="confirmDelete">删除
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -223,7 +223,18 @@ import * as icons from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import GeneralPagination from '~/components/general/pagination.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
-import type { routers } from '~~/generated/prisma/client'
+import {
+  adminBrandActiveBadgeClass,
+  adminBrandCheckboxClass,
+  adminBrandChipClass,
+  adminBrandDestructiveActionClass,
+  adminBrandDisabledBadgeClass,
+  adminBrandFocusClass,
+  adminBrandPrimaryButtonClass,
+  adminBrandSelectedListItemClass,
+  adminBrandSwitchClass,
+  adminBrandUnselectedListItemClass,
+} from '~/utils/adminBrandStyles'
 
 definePageMeta({
   layout: 'admin-layout',
@@ -316,12 +327,15 @@ const getIcon = (iconName: string) => {
   return icons[iconKey] || FileText
 }
 
-const getMenuClass = (isMenu: boolean): string => {
-  const baseClass = 'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium'
-  return isMenu
-    ? `${baseClass} bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400`
-    : `${baseClass} bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400`
+const getScanResultRowClass = (item: ScannedRouter): string => {
+  if (item.exists) return `${adminBrandUnselectedListItemClass} opacity-50`
+  return selectedPaths.value.has(item.path)
+    ? adminBrandSelectedListItemClass
+    : adminBrandUnselectedListItemClass
 }
+
+const getScanStatusBadgeClass = (exists: boolean): string =>
+  exists ? adminBrandDisabledBadgeClass : adminBrandActiveBadgeClass
 
 /** 加载路由组 */
 const loadGroups = async () => {

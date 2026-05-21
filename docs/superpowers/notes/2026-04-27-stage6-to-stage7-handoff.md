@@ -8,7 +8,7 @@
 - **阶段 2** (tag `ai-unify-stage-2-done`)：Agent 工厂化 + 业务 vertical + Skills 入网。
 - **阶段 3** (tag `ai-unify-stage-3-done`)：search_law 普及。
 - **阶段 4** (tag `ai-unify-stage-4-done`)：合同审查接入底座（C+ 方案）。
-- **阶段 5** (tag `ai-unify-stage-5-done`)：法律助手 → 文书 / 合同（无 caseId）。
+- **阶段 5** (tag `ai-unify-stage-5-done`)：通用问答 → 文书 / 合同（无 caseId）。
 - **阶段 6** (tag `ai-unify-stage-6-done`)：小索 → 文书 / 合同（带 caseId）。
 
 ## 阶段 6 执行模式
@@ -97,12 +97,12 @@ handoff 阶段 5 → 阶段 6 中记录的 7 个 issue（interrupt 卡 Dialog vs
 
 - **caseMain 节点**（id=5）tools 含 `draft_document` + `review_contract`（共 9 个工具）；prompt 升级到 v4（v3 status=0），增加工具调用规则段（参考 assistantMain v4 但适配 caseId 必非空场景）
 - **documentMain 节点**（id=17）关联 `docx` skill（修补"docx skill 本是为文书造的，但文书没接"的产品缺位）
-- **小索 vs 法律助手 from 区分**：`draftDocument.tool.ts` / `reviewContract.tool.ts` 用 `caseId ? 'xiaosuo' : 'assistant'` 决定 href 中的 `?from=` 参数
+- **小索 vs 通用问答 from 区分**：`draftDocument.tool.ts` / `reviewContract.tool.ts` 用 `caseId ? 'xiaosuo' : 'assistant'` 决定 href 中的 `?from=` 参数
 - **小索 ?focus=xiaosuo 自动闭环**：`/dashboard/cases/[id].vue:onMounted` 检查 `route.query.focus === 'xiaosuo'` 时 `xiaosuoOpen.value = true` + watch xiaosuoChat.sessions 就绪后调 switchSession 定位 `xiaosuoSessionId`。`CaseDetailXiaosuo.vue` 的 watch(isOpen) 必须 `{ immediate: true }`
 - **useCaseChat.sendMessage 双轨承载**：阶段 6 给 `useCaseChat.ts:24` 的 sendMessage 加了 `additional_kwargs` opt 字段；`useChatSessionManager.ts:232` 的 sendMessage 加了 `files` opt 字段并在 manager 层做 sentinel + additional_kwargs 双轨拼接，向后兼容旧 `(text, opts)` 调用
 - **CaseDetailXiaosuo Dialog z-index**：从 z-[70] 提到 **z-[200]**（已踩坑 3 次的同款 fix）
 - **interrupt 分发链**：`interruptType === 'template_select'` 走 TemplateSelectCard、`'stance_select'` 走 StanceSelectCard，其他保留 CaseInterruptConfirmation（v-if/v-else-if/v-else 链）
-- **resolveInterrupt 包 toolCallId 路由**：`{ [toolCallId]: value }` 包装，与法律助手对齐
+- **resolveInterrupt 包 toolCallId 路由**：`{ [toolCallId]: value }` 包装，与通用问答对齐
 - **来源条 xiaosuo 路径行为**：`<template v-if="from !== 'xiaosuo'">` 包住右侧关联区，xiaosuo 路径完全隐藏（决策 D3）；返回路径 `/dashboard/cases/${caseId}?focus=xiaosuo&xiaosuoSessionId=${sessionId}`（决策 D2）
 
 ## 阶段 6 沉淀的工具

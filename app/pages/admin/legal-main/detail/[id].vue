@@ -1,9 +1,9 @@
 <template>
-        <div class="space-y-6">
+        <div class="theme-brand space-y-6">
             <!-- 页面头部 -->
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div class="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" @click="navigateTo('/admin/legal-main')">
+                    <Button variant="ghost" size="icon" :class="adminBrandFocusClass" @click="navigateTo('/admin/legal-main')">
                         <ArrowLeft class="h-4 w-4" />
                     </Button>
                     <div>
@@ -12,11 +12,11 @@
                     </div>
                 </div>
                 <div class="flex gap-2 w-full md:w-auto flex-wrap">
-                    <Button variant="outline" @click="navigateToEdit" class="flex-1 md:flex-none">
+                    <Button variant="outline" @click="navigateToEdit" :class="['flex-1 md:flex-none', adminBrandFocusClass]">
                         <Pencil class="h-4 w-4 mr-2" />
                         编辑
                     </Button>
-                    <Button variant="outline" @click="handleBatchEmbed" class="flex-1 md:flex-none"
+                    <Button variant="outline" @click="handleBatchEmbed" :class="['flex-1 md:flex-none', adminBrandFocusClass]"
                         :disabled="batchEmbedding">
                         <Loader2 v-if="batchEmbedding" class="h-4 w-4 mr-2 animate-spin" />
                         <Zap v-else class="h-4 w-4 mr-2" />
@@ -35,7 +35,7 @@
                 <AlertCircle class="h-12 w-12 text-destructive mb-4" />
                 <h3 class="text-lg font-medium mb-1">未找到该法律法规</h3>
                 <p class="text-muted-foreground text-sm mb-4">该法律法规可能已被删除或不存在</p>
-                <Button @click="navigateTo('/admin/legal-main')">
+                <Button :class="adminBrandPrimaryButtonClass" @click="navigateTo('/admin/legal-main')">
                     返回列表
                 </Button>
             </div>
@@ -125,7 +125,7 @@
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <!-- 查看条文 -->
-                        <Button variant="outline" class="h-auto py-4 flex-col items-start gap-2"
+                        <Button variant="outline" :class="['h-auto py-4 flex-col items-start gap-2', adminBrandFocusClass]"
                             @click="navigateTo(`/admin/legal-main/articles/${legalId}`)">
                             <div class="flex items-center gap-2 w-full">
                                 <FileText class="h-5 w-5" />
@@ -137,7 +137,7 @@
                         </Button>
 
                         <!-- 编辑法律法规 -->
-                        <Button variant="outline" class="h-auto py-4 flex-col items-start gap-2"
+                        <Button variant="outline" :class="['h-auto py-4 flex-col items-start gap-2', adminBrandFocusClass]"
                             @click="navigateToEdit">
                             <div class="flex items-center gap-2 w-full">
                                 <Pencil class="h-5 w-5" />
@@ -149,7 +149,7 @@
                         </Button>
 
                         <!-- 全量更新 -->
-                        <Button variant="outline" class="h-auto py-4 flex-col items-start gap-2"
+                        <Button variant="outline" :class="['h-auto py-4 flex-col items-start gap-2', adminBrandFocusClass]"
                             @click="navigateTo(`/admin/legal-main/full-update/${legalId}`)">
                             <div class="flex items-center gap-2 w-full">
                                 <RefreshCw class="h-5 w-5" />
@@ -161,7 +161,7 @@
                         </Button>
 
                         <!-- 嵌入记录 -->
-                        <Button variant="outline" class="h-auto py-4 flex-col items-start gap-2"
+                        <Button variant="outline" :class="['h-auto py-4 flex-col items-start gap-2', adminBrandFocusClass]"
                             @click="navigateTo(`/admin/legal-main/embeddings/${legalId}`)">
                             <div class="flex items-center gap-2 w-full">
                                 <Database class="h-5 w-5" />
@@ -196,6 +196,7 @@ import GeneralLegalStatisticsCard from '~/components/general/legal/LegalStatisti
 import GeneralLegalStatusBadge from '~/components/general/legal/LegalStatusBadge.vue'
 import GeneralLegalTypeBadge from '~/components/general/legal/LegalTypeBadge.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { adminBrandFocusClass, adminBrandPrimaryButtonClass } from '~/utils/adminBrandStyles'
 
 definePageMeta({
     layout: 'admin-layout',

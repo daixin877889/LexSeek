@@ -75,8 +75,7 @@ describe('GET /api/v1/memberships/benefits', () => {
 
     it('happy path', async () => {
         mBenefits.mockResolvedValue([{ code: 'B' }] as any)
-        // 注：handler 用的是 event.context.auth?.userId（非 user.id）
-        const res: any = await benefitsHandler({ context: { auth: { userId: 100 } } } as any)
+        const res: any = await benefitsHandler(makeEvent({ userId: 100 }) as any)
         expectSuccess(res)
     })
 
@@ -87,7 +86,7 @@ describe('GET /api/v1/memberships/benefits', () => {
 
     it('service 抛错 → 500', async () => {
         mBenefits.mockRejectedValueOnce(new Error('svc'))
-        const res: any = await benefitsHandler({ context: { auth: { userId: 100 } } } as any)
+        const res: any = await benefitsHandler(makeEvent({ userId: 100 }) as any)
         expectError(res, 500)
     })
 })

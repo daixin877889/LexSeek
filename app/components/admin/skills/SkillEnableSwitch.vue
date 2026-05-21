@@ -3,6 +3,7 @@
     <Switch
         :model-value="modelValue === 1"
         :disabled="loading"
+        :class="adminBrandSwitchClass"
         @update:model-value="handleChange"
     />
 </template>
@@ -10,6 +11,7 @@
 <script setup lang="ts">
 import { toast } from 'vue-sonner'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { adminBrandSwitchClass } from '~/utils/adminBrandStyles'
 
 const props = defineProps<{
     /** 当前状态：1=启用，0=停用 */

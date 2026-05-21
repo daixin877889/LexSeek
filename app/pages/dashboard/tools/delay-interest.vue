@@ -1,39 +1,20 @@
 <template>
   <div class="p-4">
-    <div class="flex items-center justify-between mb-2">
-      <h1 class="text-[22px] font-bold truncate">迟延履行利息计算器</h1>
-      <div class="relative">
-        <Button variant="ghost" size="icon" @click="isHelpOpen = !isHelpOpen" class="rounded-full">
-          <HelpCircle class="h-5 w-5" />
-          <span class="sr-only">帮助</span>
-        </Button>
-        <div v-if="isHelpOpen" class="absolute right-0 z-50 w-80 mt-2 p-4 bg-card rounded-lg border shadow-lg">
-          <div class="flex justify-between items-center mb-3">
-            <h3 class="font-semibold text-base">功能说明</h3>
-            <Button variant="ghost" size="icon" @click="isHelpOpen = false" class="h-6 w-6">
-              <X class="h-5 w-5" />
-              <span class="sr-only">关闭</span>
-            </Button>
-          </div>
-
-          <div class="text-sm space-y-3 max-h-96 overflow-y-auto">
-            <div>
-              <h4 class="font-semibold mb-1">迟延履行利息说明：</h4>
-              <ul class="list-disc list-inside space-y-1">
-                <li><strong>自动分段计算</strong>：系统将根据日期自动采用对应的计算标准</li>
-                <li><strong>LPR利率</strong>：2019年8月20日后按照一年期贷款市场报价利率(LPR)的4倍计算</li>
-                <li><strong>基准利率</strong>：2019年8月20日前按照中国人民银行同期同类贷款基准利率的1.5倍计算</li>
-              </ul>
-            </div>
-
-            <div class="bg-destructive/10 p-2 rounded text-destructive">
-              <p><strong>注意：</strong>根据《最高人民法院关于审理民间借贷案件适用法律若干问题的规定》，2019年8月20日前后的迟延履行利息计算标准有所不同。系统会自动判断日期并应用相应的计算标准。
-              </p>
-            </div>
-          </div>
+    <ToolsCalculatorPageHeader title="迟延履行利息计算器" help-title="功能说明">
+      <template #help>
+        <div>
+          <h4 class="font-semibold mb-1">迟延履行利息说明：</h4>
+          <ul class="list-disc list-inside space-y-1">
+            <li><strong>自动分段计算</strong>：系统将根据日期自动采用对应的计算标准</li>
+            <li><strong>LPR利率</strong>：2019年8月20日后按照一年期贷款市场报价利率(LPR)的4倍计算</li>
+            <li><strong>基准利率</strong>：2019年8月20日前按照中国人民银行同期同类贷款基准利率的1.5倍计算</li>
+          </ul>
         </div>
-      </div>
-    </div>
+        <div class="bg-destructive/10 p-2 rounded text-destructive">
+          <p><strong>注意：</strong>根据《最高人民法院关于审理民间借贷案件适用法律若干问题的规定》，2019年8月20日前后的迟延履行利息计算标准有所不同。系统会自动判断日期并应用相应的计算标准。</p>
+        </div>
+      </template>
+    </ToolsCalculatorPageHeader>
 
     <div class="flex flex-col lg:flex-row gap-6">
       <!-- 左侧：信息输入区 -->
@@ -45,43 +26,25 @@
           <CardContent>
             <div class="space-y-4">
               <!-- 本金输入 -->
-              <div>
-                <label class="text-sm font-medium leading-none">本金（元）</label>
-                <Input type="number" v-model="principal" placeholder="请输入本金金额" class="mt-1.5"
-                  @input="convertToChinese" />
-                <p v-if="chineseAmount" class="text-xs text-muted-foreground mt-1">大写：{{ chineseAmount }}</p>
-              </div>
+              <ToolsMoneyInput
+                v-model="principal"
+                label="本金（元）"
+                placeholder="请输入本金金额"
+                :show-chinese="true"
+              />
 
               <!-- 日期选择 -->
-              <div>
-                <label class="text-sm font-medium leading-none">计息开始日期</label>
-                <div class="relative mt-1.5">
-                  <div class="date-input-wrapper">
-                    <CalendarIcon
-                      class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                    <Input type="date" v-model="startDate" class="w-full pl-10" />
-                  </div>
-                </div>
-                <p v-if="startDate && new Date(startDate) < new Date('2014-01-01')"
-                  class="text-xs text-yellow-500 mt-1">
-                  <AlertTriangleIcon class="h-3 w-3 inline-block mr-1" />您选择的日期较早，请确认是否需要从这个日期开始计算。
-                </p>
-              </div>
+              <ToolsDateInput
+                v-model="startDate"
+                label="计息开始日期"
+                :hint="startDate && new Date(startDate) < new Date('2014-01-01') ? '您选择的日期较早，请确认是否需要从这个日期开始计算。' : undefined"
+              />
 
-              <div>
-                <label class="text-sm font-medium leading-none">计息结束日期</label>
-                <div class="relative mt-1.5">
-                  <div class="date-input-wrapper">
-                    <CalendarIcon
-                      class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                    <Input type="date" v-model="endDate" class="w-full pl-10" />
-                  </div>
-                </div>
-                <p v-if="endDate && new Date(endDate) > new Date(new Date().setFullYear(new Date().getFullYear() + 3))"
-                  class="text-xs text-yellow-500 mt-1">
-                  <AlertTriangleIcon class="h-3 w-3 inline-block mr-1" />您选择的结束日期较远，系统将使用最新利率进行估算。
-                </p>
-              </div>
+              <ToolsDateInput
+                v-model="endDate"
+                label="计息结束日期"
+                :hint="endDate && new Date(endDate) > new Date(new Date().setFullYear(new Date().getFullYear() + 3)) ? '您选择的结束日期较远，系统将使用最新利率进行估算。' : undefined"
+              />
 
               <!-- 年天数选择 -->
               <div>
@@ -98,7 +61,7 @@
               </div>
 
               <div class="pt-4">
-                <Button class="w-full" @click="calculateInterest">计算利息</Button>
+                <Button class="w-full bg-gradient-brand-button text-white shadow-[0_10px_20px_-8px_rgba(30,158,237,0.42)]" @click="calculateInterest">计算利息</Button>
               </div>
             </div>
           </CardContent>
@@ -107,19 +70,11 @@
 
       <!-- 右侧：结果显示区域 -->
       <div class="w-full lg:w-7/12">
-        <Card v-if="result" class="shadow-none border">
-          <CardHeader>
-            <div class="flex justify-between items-center">
-              <CardTitle>计算结果</CardTitle>
-              <Button variant="outline" @click="exportToExcel" class="flex items-center gap-1">
-                <span>导出Excel</span>
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
+        <ToolsResultCard v-if="result" title="计算结果" @export="exportToExcel">
+          <template #summary>
             <!-- 计算说明提示 -->
             <Alert v-if="result.details && result.details.length > 0 && result.details[2]?.includes('跨越')"
-              class="mb-4 block">
+              class="block">
               <p class="mb-1">
                 <strong>计算说明：</strong>本次计算从<strong>{{ result.startDate }}</strong>开始，跨越了2019年8月20日的利率政策变更点，系统自动分段计算：
               </p>
@@ -132,7 +87,7 @@
               <p class="text-xs text-muted-foreground mt-1">注：根据《最高人民法院关于审理民间借贷案件适用法律若干问题的规定》进行计算</p>
             </Alert>
 
-            <Alert v-else class="mb-4 block">
+            <Alert v-else class="block">
               <p>
                 <strong>计算说明：</strong>
                 本次计算使用
@@ -143,7 +98,7 @@
             </Alert>
 
             <!-- 结果概览 -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div class="space-y-2">
                 <div class="flex justify-between items-center">
                   <span>本金:</span>
@@ -170,6 +125,8 @@
               </div>
             </div>
 
+          </template>
+          <template #extra-accordion>
             <!-- 详细结果 -->
             <Accordion type="single" collapsible class="w-full">
               <!-- 计息明细 -->
@@ -267,8 +224,8 @@
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
-          </CardContent>
-        </Card>
+          </template>
+        </ToolsResultCard>
 
         <!-- 空状态 -->
         <div v-if="!result" class="h-full flex items-center justify-center rounded-lg border border-dashed p-8">
@@ -293,25 +250,34 @@
 </template>
 
 <script setup>
+import ToolsCalculatorPageHeader from '~/components/tools/CalculatorPageHeader.vue'
+import ToolsDateInput from '~/components/tools/DateInput.vue'
+import ToolsMoneyInput from '~/components/tools/MoneyInput.vue'
+import ToolsResultCard from '~/components/tools/ResultCard.vue'
 import toast from '#shared/utils/toast'
 definePageMeta({
   title: "延迟履行利息",
   layout: "dashboard-layout",
 });
 
-import { CalendarIcon, AlertTriangleIcon, X, HelpCircle } from "lucide-vue-next";
 import { calculateDelayInterest } from "#shared/utils/tools/delayInterestService";
 import { formatDate, daysBetween } from "#shared/utils/tools/utils/date";
 import { exportDelayInterestToExcel } from "#shared/utils/tools/utils/excelExport";
+import { useToolsRates } from '~/composables/useToolsRates'
+
+const { ensureLoaded } = useToolsRates()
 
 // 状态管理
-const isHelpOpen = ref(false);
 const principal = ref(100000);
 const yearDays = ref(365);
-const chineseAmount = ref("");
 const startDate = ref(formatDate(new Date(new Date().setFullYear(new Date().getFullYear() - 1))));
 const endDate = ref(formatDate(new Date()));
 const result = ref(null);
+
+// 组件挂载时从接口拉取最新利率（失败时回退到内置默认快照）
+onMounted(async () => {
+  await ensureLoaded();
+});
 
 // 检查日期是否在LPR起始日期之后
 function isAfterLPRDate(dateStr) {
@@ -319,50 +285,6 @@ function isAfterLPRDate(dateStr) {
 }
 
 // 方法
-function convertToChinese() {
-  if (!principal.value) return;
-  chineseAmount.value = toChineseBig(principal.value);
-}
-
-function toChineseBig(num) {
-  if (num >= 1000000000000) {
-    return "大于一万亿....";
-  } else {
-    var strNum = String(num);
-    var unit = ["", "拾", "佰", "仟", "万", "拾", "佰", "仟", "亿", "拾", "佰", "仟"];
-    var result = [];
-    var unitNo = 0;
-    var zeroCount = 0; // 记录连续的零的个数
-
-    for (let i = strNum.length - 1; i >= 0; i--) {
-      var currentNum = strNum[i];
-      if (currentNum === "0") {
-        zeroCount++;
-      } else {
-        if (zeroCount > 0) {
-          result.unshift("零");
-          zeroCount = 0;
-        }
-        result.unshift(unit[unitNo]);
-        result.unshift(numToChinese(currentNum));
-      }
-      unitNo++;
-    }
-
-    return result
-      .join("")
-      .replace(/零{2,}/g, "零") // 多个连续的零替换为一个零
-      .replace(/零([万亿])/g, "$1") // 零万或零亿去掉零
-      .replace(/亿万/g, "亿") // 亿后面不应有万
-      .replace(/零+$/g, "") // 去掉末尾的零
-      .replace(/^壹拾/, "拾"); // 去掉开头的"壹拾"
-  }
-}
-
-function numToChinese(n) {
-  var chineseBigNum = ["零", "壹", "贰", "叁", "肆", "伍", "陆", "柒", "捌", "玖"];
-  return chineseBigNum[parseInt(n, 10)];
-}
 
 function calculateInterest() {
   if (!startDate.value || !endDate.value || !principal.value) {
@@ -569,41 +491,5 @@ function mergeDetailsByRate(details) {
   return mergedDetails;
 }
 
-// 监听变化
-watch(
-  () => principal.value,
-  () => {
-    convertToChinese();
-  }
-);
-
-// 组件挂载时执行
-onMounted(() => {
-  convertToChinese();
-});
 </script>
 
-<style scoped>
-/* 日期选择器样式 */
-.date-input-wrapper {
-  position: relative;
-  cursor: pointer;
-}
-
-.date-input-wrapper input {
-  cursor: pointer;
-}
-
-/* 隐藏原生日期输入框的日历图标（Chrome） */
-input[type="date"]::-webkit-calendar-picker-indicator {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  cursor: pointer;
-}
-</style>

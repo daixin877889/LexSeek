@@ -248,4 +248,84 @@ describe('calculateCourtFee - 申请费', () => {
             expect(result.totalFee).toBe(0)
         })
     })
+
+    describe('函数默认参数兜底', () => {
+        it('calculateCourtFee 省略 amount 参数应默认为 0', () => {
+            // 触发 calculateCourtFee 的 amount 默认参数（=0）
+            // 也连带触发内部 calculateCaseFee 的 amount 默认参数
+            const result = calculateCourtFee('caseFee', 'labor' as any)
+            expect(result.totalFee).toBe(10)
+        })
+
+        it('calculateCourtFee 省略 options 参数应默认为 {}', () => {
+            // 触发 calculateCourtFee 的 options 默认参数
+            // 也连带触发内部 calculateApplicationFee 的 options 默认参数
+            const result = calculateCourtFee('applicationFee', 'publicNotice' as any, 0)
+            expect(result.totalFee).toBe(100)
+        })
+
+        it('海事案件省略 amount 应默认为 0（针对 calculateMaritimeFee）', () => {
+            // 触发 calculateMaritimeFee 的 amount 默认参数（=0）
+            // 通过传 maritimeType=order（不依赖 amount）触发，但实际 amount 也会被默认为 0
+            const result = calculateCourtFee('applicationFee', 'maritime', undefined as any, { maritimeType: 'order' })
+            expect(result.totalFee).toBe(1000)
+        })
+    })
+
+    describe('受理费默认分支兜底', () => {
+        it('未指定有效受理费类型应返回 0 并附说明', () => {
+            // 使用 as any 触发 switch 的 default 分支（业务上不会发生但作为契约保护）
+            const result = calculateCourtFee('caseFee', 'unknown_type' as any, 1000)
+            expect(result.totalFee).toBe(0)
+            expect(result.details.some(d => d.includes('未指定有效的受理费类型'))).toBe(true)
+        })
+    })
+
+    describe('申请费默认分支兜底', () => {
+        it('未指定有效申请费类型应返回 0 并附说明', () => {
+            const result = calculateCourtFee('applicationFee', 'unknown_type' as any, 1000)
+            expect(result.totalFee).toBe(0)
+            expect(result.details.some(d => d.includes('未指定有效的申请费类型'))).toBe(true)
+        })
+    })
+
+    describe('申请执行费 - 各金额档位', () => {
+        it('amount <= 0 应返回 0', () => {
+            const result = calculateCourtFee('applicationFee', 'execution', 0, { hasExecutionAmount: true })
+            expect(result.totalFee).toBe(0)
+        })
+
+        it('amount <= 1 万：固定 50 元', () => {
+            const result = calculateCourtFee('applicationFee', 'execution', 5000, { hasExecutionAmount: true })
+            expect(result.totalFee).toBe(50)
+            expect(result.details.some(d => d.includes('不超过1万元的，每件交纳50元'))).toBe(true)
+        })
+
+        it('1 万 - 50 万：50 元 + (amount - 10000) × 1%', () => {
+            const result = calculateCourtFee('applicationFee', 'execution', 100000, { hasExecutionAmount: true })
+            expect(result.totalFee).toBe(Math.round(50 + (100000 - 10000) * 0.01))
+            expect(result.details.some(d => d.includes('× 1%'))).toBe(true)
+        })
+
+        it('50 万 - 500 万：累进至 0.5% 段', () => {
+            const result = calculateCourtFee('applicationFee', 'execution', 1000000, { hasExecutionAmount: true })
+            const expected = Math.round(50 + (500000 - 10000) * 0.01 + (1000000 - 500000) * 0.005)
+            expect(result.totalFee).toBe(expected)
+            expect(result.details.some(d => d.includes('× 0.5%'))).toBe(true)
+        })
+
+        it('500 万 - 1000 万：累进至 0.1% 段', () => {
+            const result = calculateCourtFee('applicationFee', 'execution', 8000000, { hasExecutionAmount: true })
+            const expected = Math.round(50 + (500000 - 10000) * 0.01 + (5000000 - 500000) * 0.005 + (8000000 - 5000000) * 0.001)
+            expect(result.totalFee).toBe(expected)
+            expect(result.details.some(d => d.includes('× 0.1%'))).toBe(true)
+        })
+
+        it('1000 万以上：累进至 0.05% 段', () => {
+            const result = calculateCourtFee('applicationFee', 'execution', 20000000, { hasExecutionAmount: true })
+            const expected = Math.round(50 + (500000 - 10000) * 0.01 + (5000000 - 500000) * 0.005 + (10000000 - 5000000) * 0.001 + (20000000 - 10000000) * 0.0005)
+            expect(result.totalFee).toBe(expected)
+            expect(result.details.some(d => d.includes('× 0.05%'))).toBe(true)
+        })
+    })
 })

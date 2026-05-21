@@ -2,7 +2,7 @@
     <!-- "+ 添加" 嵌套选择对话框（带 type chip 筛选） -->
     <Dialog v-model:open="open">
         <DialogContent
-            class="w-full! h-full! max-w-none! max-h-none! md:w-[70vw]! md:max-h-[80vh]! flex flex-col rounded-non!e md:rounded-lg!"
+            class="theme-brand w-full! h-full! max-w-none! max-h-none! md:w-[70vw]! md:max-h-[80vh]! flex flex-col rounded-non!e md:rounded-lg!"
             :class="contentClass"
             :overlay-class="overlayClass"
             @interactOutside="(e) => e.preventDefault()"
@@ -22,8 +22,8 @@
                     type="button"
                     class="px-3 py-1 rounded-full border text-xs cursor-pointer transition"
                     :class="typeFilter === chip.value
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-background hover:bg-muted border-input'"
+                        ? `bg-primary text-primary-foreground border-primary ${adminBrandFocusClass}`
+                        : `bg-background hover:bg-primary/10 hover:text-primary border-input ${adminBrandFocusClass}`"
                     @click="typeFilter = chip.value"
                 >
                     {{ chip.label }}
@@ -34,7 +34,7 @@
             <!-- 搜索框 -->
             <div class="relative shrink-0 mt-2">
                 <Search class="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input v-model="search" placeholder="按名称 / 标题 / 类型 搜索" class="pl-8" />
+                <Input v-model="search" placeholder="按名称 / 标题 / 类型 搜索" :class="['pl-8', adminBrandFocusClass]" />
             </div>
 
             <!-- 已选 chip -->
@@ -42,8 +42,9 @@
                 <Badge
                     v-for="p in selectedItems"
                     :key="p.id"
-                    variant="secondary"
+                    variant="outline"
                     class="cursor-pointer"
+                    :class="adminBrandChipClass"
                     @click="toggle(p.id)"
                 >
                     {{ p.title || p.name }}
@@ -70,7 +71,7 @@
                     <!-- 勾选框 -->
                     <div
                         class="size-4 shrink-0 mt-0.5 flex items-center justify-center rounded border"
-                        :class="selected.has(p.id) ? 'bg-primary border-primary text-primary-foreground' : 'border-input'"
+                        :class="selected.has(p.id) ? adminBrandSelectedBoxClass : adminBrandUnselectedBoxClass"
                     >
                         <Check v-if="selected.has(p.id)" class="size-3" />
                     </div>
@@ -84,18 +85,18 @@
                     </div>
 
                     <!-- 类型 / 状态 -->
-                    <Badge variant="outline" class="shrink-0">
+                    <Badge variant="outline" class="shrink-0" :class="adminBrandChipClass">
                         {{ getPromptTypeLabel(p.type) }}
                     </Badge>
-                    <Badge :variant="p.status === 1 ? 'default' : 'secondary'" class="shrink-0">
+                    <Badge variant="outline" class="shrink-0" :class="getAdminStatusBadgeClass(p.status === 1)">
                         {{ p.status === 1 ? '生效' : '未生效' }}
                     </Badge>
                 </div>
             </div>
 
             <DialogFooter class="shrink-0">
-                <Button variant="outline" @click="open = false">取消</Button>
-                <Button :disabled="selected.size === 0" @click="onConfirm">
+                <Button variant="outline" :class="adminBrandFocusClass" @click="open = false">取消</Button>
+                <Button :class="adminBrandPrimaryButtonClass" :disabled="selected.size === 0" @click="onConfirm">
                     添加 {{ selected.size }} 项
                 </Button>
             </DialogFooter>
@@ -107,6 +108,14 @@
 import { Check, Loader2, Search, X } from 'lucide-vue-next'
 import type { NodePromptRef, PromptType } from '#shared/types/node'
 import { useApiFetch } from '~/composables/useApiFetch'
+import {
+    adminBrandChipClass,
+    adminBrandFocusClass,
+    adminBrandPrimaryButtonClass,
+    adminBrandSelectedBoxClass,
+    adminBrandUnselectedBoxClass,
+    getAdminStatusBadgeClass,
+} from '~/utils/adminNodeBrandStyles'
 
 /** 后端 GET /admin/prompts 返回的列表条目类型（不带 displayOrder，挂到节点时再分配） */
 interface PromptListItem {

@@ -81,6 +81,36 @@ export function findByParagraphIndex(container: Element, paragraphIndex: number)
     return null
 }
 
+/**
+ * 判断元素是否为「合同正文段落」。docx-preview 把正文段落渲染为 `section.docx > article`
+ * 的直接子级非空 <p>（section 直接子级是 header/article/footer），页眉/页脚、表格 td 内
+ * 段落均不属于此列。hover 新增判断与段落序号反查共用此谓词，保证两端口径一致。
+ */
+export function isBodyParagraph(el: Element | null): el is HTMLElement {
+    return !!el && el instanceof HTMLElement && el.tagName === 'P'
+        && (el.textContent ?? '').trim().length > 0
+        && el.parentElement?.tagName === 'ARTICLE'
+}
+
+/**
+ * 取元素在「合同正文段落」序列中的 0-based 序号，供手动新增风险落库 clauseParagraphIndex。
+ *
+ * 口径对齐后端 buildClauseToParagraphMap（w:body 直接子级段落）——只统计各 section 的
+ * article 直接子级非空 <p>，按出现顺序连续编号；页眉/页脚、表格 td 内段落返回 -1。
+ */
+export function paragraphIndexOfElement(container: Element, target: Element): number {
+    const articles = container.querySelectorAll('section.docx > article')
+    let count = 0
+    for (const article of articles) {
+        for (const el of Array.from(article.children)) {
+            if (!isBodyParagraph(el)) continue
+            if (el === target) return count
+            count++
+        }
+    }
+    return -1
+}
+
 function findParagraphByText(container: Element, text: string): Element | null {
     const blocks = container.querySelectorAll(BLOCK_SELECTOR)
     for (const el of blocks) {

@@ -74,8 +74,8 @@ describe('useBatchUpload validateFile 文件验证', () => {
     const mockScene = {
         name: '文档识别',
         accept: [
-            { name: 'pdf', mime: 'application/pdf', maxSize: 50 * 1024 * 1024 },
-            { name: 'docx', mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', maxSize: 20 * 1024 * 1024 },
+            { name: 'pdf', mime: 'application/pdf', maxSize: 180 * 1024 * 1024 },
+            { name: 'docx', mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', maxSize: 100 * 1024 * 1024 },
             { name: 'doc', mime: 'application/msword', maxSize: 20 * 1024 * 1024 },
             { name: 'txt', mime: 'text/plain', maxSize: 1 * 1024 * 1024 },
             { name: 'md', mime: 'text/markdown', maxSize: 1 * 1024 * 1024 },
@@ -96,10 +96,9 @@ describe('useBatchUpload validateFile 文件验证', () => {
     })
 
     it('超过大小限制的文件应返回无效', () => {
-        // 创建 60MB 的文件内容（使用 60MB 字符串）来超过 50MB 限制
-        const largeContent = new Uint8Array(60 * 1024 * 1024)
-        const file = new File([largeContent], 'test.pdf', { type: 'application/pdf' })
-        expect(file.size).toBeGreaterThan(50 * 1024 * 1024)
+        const file = new File([''], 'test.pdf', { type: 'application/pdf' })
+        Object.defineProperty(file, 'size', { value: 181 * 1024 * 1024 })
+        expect(file.size).toBeGreaterThan(180 * 1024 * 1024)
         const result = validateFile(file, mockScene)
         expect(result.valid).toBe(false)
         expect(result.message).toContain('超出限制')

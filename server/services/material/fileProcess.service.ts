@@ -62,9 +62,9 @@ export async function processFileMaterials(
     ossFileIds: number[],
     userId: number,
 ): Promise<FileProcessContext[]> {
-    // 1. 批量查询 OSS 文件信息
+    // 1. 批量查询 OSS 文件信息（owner-only：仅允许处理当前用户拥有的文件）
     const ossFiles = await prisma.ossFiles.findMany({
-        where: { id: { in: ossFileIds }, deletedAt: null },
+        where: { id: { in: ossFileIds }, userId, deletedAt: null },
         select: { id: true, fileName: true, fileType: true, filePath: true },
     })
     const fileMap = new Map(ossFiles.map(f => [f.id, f]))

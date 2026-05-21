@@ -60,7 +60,7 @@ function handleCancel() {
 
             <DialogFooter>
                 <Button variant="outline" @click="handleCancel">取消</Button>
-                <Button @click="handleConfirm">确认</Button>
+                <Button class="bg-gradient-brand-button text-white" @click="handleConfirm">确认</Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>

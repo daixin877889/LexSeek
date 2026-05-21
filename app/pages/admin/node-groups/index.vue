@@ -1,12 +1,12 @@
 <template>
-        <div class="space-y-6">
+        <div class="theme-brand space-y-6">
             <!-- 页面标题 -->
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                     <h1 class="text-2xl md:text-3xl font-bold mb-1">节点分组管理</h1>
                     <p class="text-muted-foreground text-sm">管理工作流节点的分组配置</p>
                 </div>
-                <Button @click="formDialogRef?.openCreate()">
+                <Button :class="adminBrandPrimaryButtonClass" @click="formDialogRef?.openCreate()">
                     <Plus class="h-4 w-4 mr-2" />
                     新增分组
                 </Button>
@@ -15,10 +15,10 @@
             <!-- 筛选 -->
             <div class="flex flex-col md:flex-row gap-4">
                 <div class="flex-1">
-                    <Input v-model="keyword" placeholder="搜索分组名称..." class="w-full md:w-64"
+                    <Input v-model="keyword" placeholder="搜索分组名称..." :class="['w-full md:w-64', adminBrandFocusClass]"
                         @keyup.enter="handleSearch" />
                 </div>
-                <Button variant="outline" @click="handleSearch">
+                <Button variant="outline" :class="adminBrandFocusClass" @click="handleSearch">
                     <Search class="h-4 w-4 mr-2" />
                     搜索
                 </Button>
@@ -59,7 +59,7 @@
                                     {{ group.description || '-' }}
                                 </TableCell>
                                 <TableCell>
-                                    <Badge variant="secondary">
+                                    <Badge variant="outline" :class="adminBrandChipClass">
                                         {{ group._count?.nodes ?? 0 }} 个节点
                                     </Badge>
                                 </TableCell>
@@ -70,11 +70,11 @@
                                 <TableCell class="text-right">
                                     <DropdownMenu>
                                         <DropdownMenuTrigger as-child>
-                                            <Button variant="ghost" size="icon">
+                                            <Button variant="ghost" size="icon" :class="adminBrandFocusClass">
                                                 <MoreHorizontal class="h-4 w-4" />
                                             </Button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
+                                        <DropdownMenuContent align="end" class="theme-brand">
                                             <DropdownMenuItem @click="formDialogRef?.openEdit(group)">
                                                 <Pencil class="h-4 w-4 mr-2" />
                                                 编辑
@@ -108,7 +108,7 @@
 
         <!-- 删除确认对话框 -->
         <AlertDialog v-model:open="deleteDialogOpen">
-            <AlertDialogContent>
+            <AlertDialogContent class="theme-brand">
                 <AlertDialogHeader>
                     <AlertDialogTitle>确认删除</AlertDialogTitle>
                     <AlertDialogDescription>
@@ -117,7 +117,7 @@
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>取消</AlertDialogCancel>
-                    <AlertDialogAction @click="confirmDelete" :disabled="deleting">
+                    <AlertDialogAction :class="adminBrandDestructiveActionClass" @click="confirmDelete" :disabled="deleting">
                         <Loader2 v-if="deleting" class="h-4 w-4 mr-2 animate-spin" />
                         确认删除
                     </AlertDialogAction>
@@ -134,6 +134,12 @@ import type { NodeGroupWithCount } from '#shared/types/node'
 import AdminNodeGroupsNodeGroupFormDialog from '~/components/admin/node-groups/NodeGroupFormDialog.vue'
 import GeneralPagination from '~/components/general/pagination.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
+import {
+    adminBrandChipClass,
+    adminBrandDestructiveActionClass,
+    adminBrandFocusClass,
+    adminBrandPrimaryButtonClass,
+} from '~/utils/adminBrandStyles'
 
 definePageMeta({ layout: 'admin-layout', title: '节点分组' })
 
@@ -160,7 +166,7 @@ const formatDate = (date: Date | string) => {
 const loadGroups = async () => {
     loading.value = true
     try {
-        const params: Record<string, any> = {
+        const params: Record<string, string | number> = {
             page: pagination.value.page,
             pageSize: pagination.value.pageSize,
             orderBy: 'createdAt',

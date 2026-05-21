@@ -1,5 +1,5 @@
 <template>
-        <div class="space-y-6">
+        <div class="theme-brand space-y-6">
             <!-- 页面标题 -->
             <div>
                 <h1 class="text-2xl md:text-3xl font-bold mb-1">用户权益发放</h1>
@@ -8,9 +8,9 @@
 
             <!-- 用户搜索 -->
             <div class="flex gap-4">
-                <Input v-model="searchKeyword" placeholder="输入用户ID、手机号或姓名搜索..." class="max-w-xs"
+                <Input v-model="searchKeyword" placeholder="输入用户ID、手机号或姓名搜索..." :class="['max-w-xs', adminBrandFocusClass]"
                     @keyup.enter="handleSearch" />
-                <Button @click="handleSearch" :disabled="searching">
+                <Button :class="adminBrandPrimaryButtonClass" @click="handleSearch" :disabled="searching">
                     <Loader2 v-if="searching" class="h-4 w-4 mr-2 animate-spin" />
                     <Search v-else class="h-4 w-4 mr-2" />
                     搜索
@@ -34,7 +34,7 @@
                                 }}</div>
                             </div>
                         </div>
-                        <Button variant="outline" size="sm">选择</Button>
+                        <Button variant="outline" size="sm" :class="adminBrandFocusClass">选择</Button>
                     </div>
                 </div>
             </div>
@@ -42,7 +42,7 @@
             <!-- 已选用户信息 -->
             <div v-if="selectedUser" class="space-y-6">
                 <!-- 用户信息卡片 -->
-                <Card>
+                <Card class="rounded-lg">
                     <CardHeader class="pb-3">
                         <div class="flex items-center justify-between">
                             <div class="flex items-center gap-3">
@@ -56,7 +56,7 @@
                                         maskPhone(selectedUser.phone) }}</p>
                                 </div>
                             </div>
-                            <Button variant="ghost" size="sm" @click="clearSelection">
+                            <Button variant="ghost" size="sm" :class="adminBrandFocusClass" @click="clearSelection">
                                 <X class="h-4 w-4" />
                             </Button>
                         </div>
@@ -79,7 +79,7 @@
                 </Card>
 
                 <!-- 发放权益表单 -->
-                <Card>
+                <Card class="rounded-lg">
                     <CardHeader>
                         <CardTitle>发放权益</CardTitle>
                     </CardHeader>
@@ -88,10 +88,10 @@
                             <div class="space-y-2">
                                 <Label>权益类型 <span class="text-destructive">*</span></Label>
                                 <Select v-model="grantForm.benefitId">
-                                    <SelectTrigger>
+                                    <SelectTrigger :class="['w-full', adminBrandFocusClass]">
                                         <SelectValue placeholder="选择权益类型" />
                                     </SelectTrigger>
-                                    <SelectContent>
+                                    <SelectContent class="theme-brand">
                                         <SelectItem v-for="benefit in availableBenefits" :key="benefit.id"
                                             :value="String(benefit.id)">
                                             {{ benefit.name }}
@@ -102,13 +102,13 @@
                             <div class="space-y-2">
                                 <Label>权益值 <span class="text-destructive">*</span></Label>
                                 <div class="flex gap-2">
-                                    <Input v-model.number="grantForm.inputValue" type="number" min="1" class="flex-1" />
+                                    <Input v-model.number="grantForm.inputValue" type="number" min="1" :class="['min-w-0 flex-1', adminBrandFocusClass]" />
                                     <Select v-model="grantForm.unit" class="w-24"
                                         v-if="selectedBenefitUnitType === 'byte'">
-                                        <SelectTrigger>
+                                        <SelectTrigger :class="['w-24 shrink-0', adminBrandFocusClass]">
                                             <SelectValue />
                                         </SelectTrigger>
-                                        <SelectContent>
+                                        <SelectContent class="theme-brand">
                                             <SelectItem value="MB">MB</SelectItem>
                                             <SelectItem value="GB">GB</SelectItem>
                                             <SelectItem value="TB">TB</SelectItem>
@@ -127,7 +127,8 @@
                                     <PopoverTrigger as-child>
                                         <Button variant="outline" :class="[
                                             'w-full justify-start text-left font-normal',
-                                            !grantForm.effectiveAt && 'text-muted-foreground'
+                                            !grantForm.effectiveAt && 'text-muted-foreground',
+                                            adminBrandFocusClass
                                         ]">
                                             <CalendarIcon class="mr-2 h-4 w-4" />
                                             {{ grantForm.effectiveAt ? formatDisplayDate(grantForm.effectiveAt) :
@@ -135,7 +136,7 @@
                                             }}
                                         </Button>
                                     </PopoverTrigger>
-                                    <PopoverContent class="w-auto p-0" align="start">
+                                    <PopoverContent class="theme-brand w-auto p-0" align="start">
                                         <Calendar v-model="(grantForm.effectiveAt as any)" locale="zh-CN" initial-focus
                                             @update:model-value="effectiveDateOpen = false" />
                                     </PopoverContent>
@@ -147,14 +148,15 @@
                                     <PopoverTrigger as-child>
                                         <Button variant="outline" :class="[
                                             'w-full justify-start text-left font-normal',
-                                            !grantForm.expiredAt && 'text-muted-foreground'
+                                            !grantForm.expiredAt && 'text-muted-foreground',
+                                            adminBrandFocusClass
                                         ]">
                                             <CalendarIcon class="mr-2 h-4 w-4" />
                                             {{ grantForm.expiredAt ? formatDisplayDate(grantForm.expiredAt) : '选择过期日期'
                                             }}
                                         </Button>
                                     </PopoverTrigger>
-                                    <PopoverContent class="w-auto p-0" align="start">
+                                    <PopoverContent class="theme-brand w-auto p-0" align="start">
                                         <Calendar v-model="(grantForm.expiredAt as any)" locale="zh-CN" initial-focus
                                             @update:model-value="expiredDateOpen = false" />
                                     </PopoverContent>
@@ -163,9 +165,9 @@
                         </div>
                         <div class="space-y-2">
                             <Label>备注</Label>
-                            <Input v-model="grantForm.remark" placeholder="可选备注" />
+                            <Input v-model="grantForm.remark" placeholder="可选备注" :class="adminBrandFocusClass" />
                         </div>
-                        <Button @click="handleGrant" :disabled="granting" class="w-full md:w-auto">
+                        <Button :class="['w-full md:w-auto', adminBrandPrimaryButtonClass]" @click="handleGrant" :disabled="granting">
                             <Loader2 v-if="granting" class="h-4 w-4 mr-2 animate-spin" />
                             <Gift v-else class="h-4 w-4 mr-2" />
                             发放权益
@@ -174,16 +176,16 @@
                 </Card>
 
                 <!-- 权益记录 -->
-                <Card>
+                <Card class="rounded-lg">
                     <CardHeader>
                         <div class="flex items-center justify-between">
                             <CardTitle>权益记录</CardTitle>
                             <div class="flex gap-2">
                                 <Select v-model="recordFilter.benefitCode">
-                                    <SelectTrigger class="w-32">
+                                    <SelectTrigger :class="['w-32', adminBrandFocusClass]">
                                         <SelectValue placeholder="权益类型" />
                                     </SelectTrigger>
-                                    <SelectContent>
+                                    <SelectContent class="theme-brand">
                                         <SelectItem value="all">全部类型</SelectItem>
                                         <SelectItem v-for="benefit in availableBenefits" :key="benefit.code"
                                             :value="benefit.code">
@@ -192,10 +194,10 @@
                                     </SelectContent>
                                 </Select>
                                 <Select v-model="recordFilter.status">
-                                    <SelectTrigger class="w-24">
+                                    <SelectTrigger :class="['w-24', adminBrandFocusClass]">
                                         <SelectValue placeholder="状态" />
                                     </SelectTrigger>
-                                    <SelectContent>
+                                    <SelectContent class="theme-brand">
                                         <SelectItem value="all">全部</SelectItem>
                                         <SelectItem value="1">有效</SelectItem>
                                         <SelectItem value="0">无效</SelectItem>
@@ -213,49 +215,47 @@
                             <FileText class="h-10 w-10 text-muted-foreground/50 mb-2" />
                             <p class="text-muted-foreground text-sm">暂无权益记录</p>
                         </div>
-                        <div v-else class="overflow-x-auto">
-                            <table class="w-full">
-                                <thead>
-                                    <tr class="border-b">
-                                        <th class="px-4 py-3 text-left text-sm font-medium">权益名称</th>
-                                        <th class="px-4 py-3 text-center text-sm font-medium">权益值</th>
-                                        <th class="px-4 py-3 text-center text-sm font-medium">来源</th>
-                                        <th class="px-4 py-3 text-center text-sm font-medium">生效时间</th>
-                                        <th class="px-4 py-3 text-center text-sm font-medium">过期时间</th>
-                                        <th class="px-4 py-3 text-center text-sm font-medium">状态</th>
-                                        <th class="px-4 py-3 text-center text-sm font-medium w-20">操作</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr v-for="record in filteredRecords" :key="record.id"
-                                        class="border-b last:border-b-0 hover:bg-muted/30">
-                                        <td class="px-4 py-3 text-sm">{{ record.benefitName }}</td>
-                                        <td class="px-4 py-3 text-center text-sm">{{ record.formattedValue }}</td>
-                                        <td class="px-4 py-3 text-center">
-                                            <Badge variant="outline">{{ record.sourceTypeName }}</Badge>
-                                        </td>
-                                        <td class="px-4 py-3 text-center text-sm text-muted-foreground">
-                                            {{ formatDate(record.effectiveAt) }}
-                                        </td>
-                                        <td class="px-4 py-3 text-center text-sm text-muted-foreground">
-                                            {{ formatDate(record.expiredAt) }}
-                                        </td>
-                                        <td class="px-4 py-3 text-center">
-                                            <Badge :variant="record.status === 1 ? 'default' : 'secondary'">
-                                                {{ record.statusName }}
-                                            </Badge>
-                                        </td>
-                                        <td class="px-4 py-3 text-center">
-                                            <Button v-if="record.status === 1" variant="ghost" size="sm"
-                                                @click="handleDisable(record)">
-                                                <Ban class="h-4 w-4" />
-                                            </Button>
-                                            <span v-else class="text-muted-foreground">-</span>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
+                        <Table v-else>
+                            <TableHeader>
+                                <TableRow class="bg-muted/50 hover:bg-muted/50">
+                                    <TableHead class="px-4 py-3">权益名称</TableHead>
+                                    <TableHead class="px-4 py-3 text-center">权益值</TableHead>
+                                    <TableHead class="px-4 py-3 text-center">来源</TableHead>
+                                    <TableHead class="px-4 py-3 text-center">生效时间</TableHead>
+                                    <TableHead class="px-4 py-3 text-center">过期时间</TableHead>
+                                    <TableHead class="px-4 py-3 text-center">状态</TableHead>
+                                    <TableHead class="w-20 px-4 py-3 text-center">操作</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                <TableRow v-for="record in filteredRecords" :key="record.id" class="hover:bg-muted/30">
+                                    <TableCell class="px-4 py-3 text-sm">{{ record.benefitName }}</TableCell>
+                                    <TableCell class="px-4 py-3 text-center text-sm">{{ record.formattedValue }}</TableCell>
+                                    <TableCell class="px-4 py-3 text-center">
+                                        <Badge variant="outline" :class="adminBrandChipClass">{{ record.sourceTypeName }}</Badge>
+                                    </TableCell>
+                                    <TableCell class="px-4 py-3 text-center text-sm text-muted-foreground">
+                                        {{ formatDate(record.effectiveAt) }}
+                                    </TableCell>
+                                    <TableCell class="px-4 py-3 text-center text-sm text-muted-foreground">
+                                        {{ formatDate(record.expiredAt) }}
+                                    </TableCell>
+                                    <TableCell class="px-4 py-3 text-center">
+                                        <Badge variant="outline" :class="getAdminStatusBadgeClass(record.status === 1)">
+                                            {{ record.statusName }}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell class="px-4 py-3 text-center">
+                                        <Button v-if="record.status === 1" variant="ghost" size="sm"
+                                            :class="['text-destructive hover:text-destructive', adminBrandFocusClass]"
+                                            @click="handleDisable(record)">
+                                            <Ban class="h-4 w-4" />
+                                        </Button>
+                                        <span v-else class="text-muted-foreground">-</span>
+                                    </TableCell>
+                                </TableRow>
+                            </TableBody>
+                        </Table>
                     </CardContent>
                 </Card>
             </div>
@@ -263,7 +263,7 @@
 
         <!-- 禁用确认对话框 -->
         <AlertDialog v-model:open="disableDialogOpen">
-            <AlertDialogContent>
+            <AlertDialogContent class="theme-brand">
                 <AlertDialogHeader>
                     <AlertDialogTitle>确认禁用</AlertDialogTitle>
                     <AlertDialogDescription>
@@ -271,9 +271,9 @@
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>取消</AlertDialogCancel>
+                    <AlertDialogCancel :class="adminBrandFocusClass">取消</AlertDialogCancel>
                     <AlertDialogAction @click="confirmDisable" :disabled="disabling"
-                        class="bg-destructive text-white hover:bg-destructive/90">
+                        :class="adminBrandDestructiveActionClass">
                         <Loader2 v-if="disabling" class="h-4 w-4 mr-2 animate-spin" />
                         确认禁用
                     </AlertDialogAction>
@@ -298,7 +298,13 @@ import type {
 } from '#shared/types/benefit'
 import { formatByteSize } from '#shared/utils/unitConverision'
 import { useApiFetch } from '~/composables/useApiFetch'
-import type { userBenefits } from '~~/generated/prisma/client'
+import {
+    adminBrandChipClass,
+    adminBrandDestructiveActionClass,
+    adminBrandFocusClass,
+    adminBrandPrimaryButtonClass,
+    getAdminStatusBadgeClass,
+} from '~/utils/adminBrandStyles'
 
 definePageMeta({ layout: 'admin-layout', title: '用户权益发放' })
 
@@ -403,8 +409,8 @@ const formatDisplayDate = (date: any) => {
 
 // 进度条颜色
 const getProgressColor = (percentage: number) => {
-    if (percentage >= 95) return '[&>div]:bg-red-500'
-    if (percentage >= 80) return '[&>div]:bg-yellow-500'
+    if (percentage >= 95) return '[&>div]:bg-destructive'
+    if (percentage >= 80) return '[&>div]:bg-amber-500'
     return ''
 }
 

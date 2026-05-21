@@ -1,7 +1,7 @@
 <template>
     <!-- 营销活动创建/编辑对话框 -->
     <Dialog v-model:open="open">
-        <DialogContent class="max-w-lg max-h-[85vh] flex flex-col">
+        <DialogContent class="theme-brand max-h-[85vh] max-w-lg flex flex-col">
             <DialogHeader class="shrink-0">
                 <DialogTitle>{{ isEdit ? '编辑活动' : '新增活动' }}</DialogTitle>
                 <DialogDescription>{{ isEdit ? '修改营销活动信息' : '创建新的营销活动' }}</DialogDescription>
@@ -9,15 +9,15 @@
             <div class="flex-1 overflow-y-auto space-y-4 py-4 px-1">
                 <div class="space-y-2">
                     <Label>活动名称 <span class="text-destructive">*</span></Label>
-                    <Input v-model="form.name" placeholder="输入活动名称" />
+                    <Input v-model="form.name" placeholder="输入活动名称" :class="adminBrandFocusClass" />
                 </div>
                 <div class="space-y-2">
                     <Label>活动类型 <span class="text-destructive">*</span></Label>
                     <Select v-model="form.type" :disabled="isEdit">
-                        <SelectTrigger class="w-full">
+                        <SelectTrigger :class="['w-full', adminBrandFocusClass]">
                             <SelectValue placeholder="选择活动类型" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent class="theme-brand">
                             <SelectItem value="1">注册赠送</SelectItem>
                             <SelectItem value="2">邀请奖励</SelectItem>
                             <SelectItem value="3">活动奖励</SelectItem>
@@ -27,10 +27,10 @@
                 <div class="space-y-2">
                     <Label>赠送会员级别</Label>
                     <Select v-model="form.levelId">
-                        <SelectTrigger class="w-full">
+                        <SelectTrigger :class="['w-full', adminBrandFocusClass]">
                             <SelectValue placeholder="选择会员级别（可选）" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent class="theme-brand">
                             <SelectItem value="none">不赠送会员</SelectItem>
                             <SelectItem v-for="level in membershipLevels" :key="level.id" :value="String(level.id)">
                                 {{ level.name }}
@@ -40,11 +40,13 @@
                 </div>
                 <div v-if="form.levelId && form.levelId !== 'none'" class="space-y-2">
                     <Label>会员时长（天） <span class="text-destructive">*</span></Label>
-                    <Input v-model.number="form.duration" type="number" min="1" placeholder="天数" />
+                    <Input v-model.number="form.duration" type="number" min="1" placeholder="天数"
+                        :class="adminBrandFocusClass" />
                 </div>
                 <div class="space-y-2">
                     <Label>赠送积分</Label>
-                    <Input v-model.number="form.giftPoint" type="number" min="0" placeholder="0" />
+                    <Input v-model.number="form.giftPoint" type="number" min="0" placeholder="0"
+                        :class="adminBrandFocusClass" />
                 </div>
                 <div class="space-y-2">
                     <Label>开始时间 <span class="text-destructive">*</span></Label>
@@ -52,13 +54,14 @@
                         <PopoverTrigger as-child>
                             <Button variant="outline" :class="[
                                 'w-full justify-start text-left font-normal',
+                                adminBrandFocusClass,
                                 !form.startAt && 'text-muted-foreground'
                             ]">
                                 <CalendarIcon class="mr-2 h-4 w-4" />
                                 {{ form.startAt ? formatDisplayDate(form.startAt) : '选择开始日期' }}
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent class="w-auto p-0" align="start">
+                        <PopoverContent class="theme-brand w-auto p-0" align="start">
                             <Calendar v-model="(form.startAt as any)" locale="zh-CN" initial-focus
                                 @update:model-value="startDatePickerOpen = false" />
                         </PopoverContent>
@@ -70,28 +73,30 @@
                         <PopoverTrigger as-child>
                             <Button variant="outline" :class="[
                                 'w-full justify-start text-left font-normal',
+                                adminBrandFocusClass,
                                 !form.endAt && 'text-muted-foreground'
                             ]">
                                 <CalendarIcon class="mr-2 h-4 w-4" />
                                 {{ form.endAt ? formatDisplayDate(form.endAt) : '选择结束日期（可选，不选为长期）' }}
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent class="w-auto p-0" align="start">
+                        <PopoverContent class="theme-brand w-auto p-0" align="start">
                             <Calendar v-model="(form.endAt as any)" locale="zh-CN" initial-focus
                                 @update:model-value="endDatePickerOpen = false" />
                         </PopoverContent>
                     </Popover>
-                    <Button v-if="form.endAt" variant="ghost" size="sm" @click="form.endAt = undefined">
+                    <Button v-if="form.endAt" variant="ghost" size="sm" :class="adminBrandFocusClass"
+                        @click="form.endAt = undefined">
                         清除结束时间
                     </Button>
                 </div>
                 <div class="space-y-2">
                     <Label>状态</Label>
                     <Select v-model="form.status">
-                        <SelectTrigger class="w-full">
+                        <SelectTrigger :class="['w-full', adminBrandFocusClass]">
                             <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent class="theme-brand">
                             <SelectItem value="1">启用</SelectItem>
                             <SelectItem value="0">禁用</SelectItem>
                         </SelectContent>
@@ -99,12 +104,12 @@
                 </div>
                 <div class="space-y-2">
                     <Label>备注</Label>
-                    <Input v-model="form.remark" placeholder="可选备注" />
+                    <Input v-model="form.remark" placeholder="可选备注" :class="adminBrandFocusClass" />
                 </div>
             </div>
             <DialogFooter class="shrink-0">
-                <Button variant="outline" @click="open = false">取消</Button>
-                <Button @click="handleSubmit" :disabled="submitting">
+                <Button variant="outline" :class="adminBrandFocusClass" @click="open = false">取消</Button>
+                <Button :class="adminBrandPrimaryButtonClass" @click="handleSubmit" :disabled="submitting">
                     <Loader2 v-if="submitting" class="h-4 w-4 mr-2 animate-spin" />
                     {{ isEdit ? '保存' : '创建' }}
                 </Button>
@@ -122,10 +127,13 @@ import { getLocalTimeZone, parseDate, type DateValue } from '@internationalized/
 import dayjs from 'dayjs'
 import type { CampaignInfo } from '#shared/types/campaign'
 import { useApiFetch } from '~/composables/useApiFetch'
-import type { membershipLevels } from '~~/generated/prisma/client'
+import {
+    adminBrandFocusClass,
+    adminBrandPrimaryButtonClass,
+} from '~/utils/adminBrandStyles'
 
 // 定义 props
-const props = defineProps<{
+defineProps<{
     membershipLevels: Array<{ id: number; name: string }>
 }>()
 

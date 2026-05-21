@@ -1,17 +1,19 @@
 # 中间件链路
 
-三层中间件按文件名顺序执行：requestId → auth → permission，所有 API 请求必经此链路，非 API 请求在每层直接放行。
+四层中间件按文件名顺序执行：requestId → auth → permission → langfuseContext，所有 API 请求必经此链路，非 API 请求在每层直接放行。
 
 ## 执行顺序
 
 ```
 请求进入
   │
-  ├─ 01.requestId.ts ── 生成请求 ID
+  ├─ 01.requestId.ts ────── 生成请求 ID
   │
-  ├─ 02.auth.ts ─────── 身份认证
+  ├─ 02.auth.ts ─────────── 身份认证
   │
-  ├─ 03.permission.ts ── 权限验证
+  ├─ 03.permission.ts ───── 权限验证
+  │
+  ├─ 04.langfuseContext.ts ─ 起 Langfuse ALS 根上下文
   │
   └─ API Handler
 ```
@@ -149,3 +151,20 @@ RBAC 使用 `pathMatcher.ts` 进行路径匹配，支持三种模式：
 ### 超级管理员
 
 角色 code 为 `super_admin` 的用户跳过所有权限检查，直接放行。判定逻辑：查询 userRoles 关联的 role，检查 `code === 'super_admin'` 且 `status === 1` 且 `deletedAt === null`。
+
+## 04.langfuseContext.ts — Langfuse 上下文
+
+**职责**：在 01/02/03 之后用 `enterLangfuseContext` 起 Langfuse 的 AsyncLocalStorage 根上下文，写入 `requestId` 与 `userId`（未登录时为空），供后续业务节点链路追踪使用。
+
+```typescript
+export default defineEventHandler((event) => {
+    enterLangfuseContext({
+        requestId: event.context.requestId ?? '',
+        userId: event.context.auth?.user?.id,
+    })
+})
+```
+
+- 通过 `enterWith` 建立 ALS 根上下文，覆盖整个请求生命周期
+- 后续业务节点用 `withLangfuseContext` 在此根上下文上增量补充 `sessionId` / `runId` / 业务实体 ID / `vertical`
+- 无条件执行，不做放行 / 拦截判断（详见 [tech-docs/backend/langfuse.md](../backend/langfuse.md)）

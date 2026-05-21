@@ -10,11 +10,12 @@
  *
  * runStatus 文案内联（不拆 ContractReviewStatus.vue），见 spec §9.2。
  */
-import { Loader2Icon, SaveIcon, HistoryIcon, UploadIcon, TrendingUpIcon, XIcon } from 'lucide-vue-next'
+import { Loader2Icon, SaveIcon, HistoryIcon, UploadIcon, TrendingUpIcon, XIcon, ArrowLeftIcon } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useMediaQuery, useLocalStorage } from '@vueuse/core'
 import type { Risk, RiskDisplay, RiskDisplayPhaseB, ContractReviewStatus, StanceRequest, PlaybookSnapshot, RiskArchivedStatus, ReviewWithParsedRisks, ContractExportMode } from '#shared/types/contract'
 import InterruptDispatcher from '~/components/InterruptDispatcher.vue'
+import QueuePausedBanner from '~/components/ai/QueuePausedBanner.vue'
 import AssistantContractDocxPreview from '~/components/assistant/contract/ContractDocxPreview.vue'
 import AssistantContractSaveVersionDialog from '~/components/assistant/contract/ContractSaveVersionDialog.vue'
 import AssistantContractUploadNewVersionDialog from '~/components/assistant/contract/ContractUploadNewVersionDialog.vue'
@@ -56,7 +57,12 @@ const sessionIdRef = ref<string | null>(null)
 
 // === 业务态 sub-composable ===
 const stages = useContractReviewStages()
-const risksEditing = useContractReviewRisksEditing({ reviewId, review, hasUnsavedDocxChanges })
+const risksEditing = useContractReviewRisksEditing({
+    reviewId,
+    review,
+    hasUnsavedDocxChanges,
+    onPatchSuccess: () => notifyRiskListChanged('风险清单已更新'),
+})
 const lifecycle = useContractReviewLifecycle({
     reviewId,
     review,
@@ -87,6 +93,10 @@ const contractAgent = useContractAgent(sessionIdRef, {
 
 const isLoading = contractAgent.isLoading
 const interruptData = contractAgent.interruptData
+const currentQueueLen = contractAgent.currentQueueLen
+const isQueuePaused = contractAgent.isQueuePaused
+const resumeQueue = contractAgent.resumeQueue
+const clearQueue = contractAgent.clearQueue
 
 const { resolveInterrupt, isCurrentInterruptToolCard } = usePanelMessageStreamContext({
     interruptData,
@@ -284,7 +294,10 @@ const effectiveRisks = computed<RiskDisplayPhaseB[]>(() => {
             problem: e.problem,
             legalBasis: e.legalBasis ?? undefined,
             analysis: e.analysis ?? '',
-            risk: e.problem,
+            // M12：contractRisks 表已持久化 risk（立场专属法律风险）。新审查取真值；
+            // M12 之前的存量 review 该列为 null，回退到 problem 保持无回归（且 risk 为
+            // Risk 必填字段，回退非空值可避免编辑保存时 PATCH schema 校验失败）。
+            risk: e.risk ?? e.problem,
             suggestion: e.suggestion ?? '',
             suggestedClauseText: e.suggestedClauseText ?? undefined,
             // Playbook 命中：entity 字段名是 code（contract_risks.code），
@@ -292,6 +305,7 @@ const effectiveRisks = computed<RiskDisplayPhaseB[]>(() => {
             // 永远 0/N 命中（即便 LLM 实际写了 code）
             matchedPointCode: e.code ?? undefined,
             archivedStatus: e.archivedStatus,
+            clientRedlineDecision: e.clientRedlineDecision,
             problematicQuote: e.problematicQuote ?? undefined,
             quoteCharStart: e.quoteCharStart ?? null,
             quoteCharEnd: e.quoteCharEnd ?? null,
@@ -417,6 +431,14 @@ async function handleStanceCancel() {
     }
 }
 
+async function handleCancel() {
+    try {
+        await resolveInterrupt(null)
+    } catch (err) {
+        console.error('[contract-review] interrupt cancel failed', err)
+    }
+}
+
 function handleDialogOpenChange(open: boolean) {
     if (!open && !isConfirming.value) handleStanceCancel()
 }
@@ -535,12 +557,60 @@ function handleContainerClick(e: MouseEvent) {
     const targetEl = e.target as HTMLElement | null
     if (!targetEl) return
     if (targetEl.closest('[role="dialog"], [data-state="open"]')) return
-    const target = targetEl.closest('[data-risk-id]')
+    // 卡片用单值 data-risk-id，预览段落用多值 data-risk-ids（取首条）
+    const target = targetEl.closest('[data-risk-id], [data-risk-ids]')
     if (!target) return
-    const id = (target as HTMLElement).dataset.riskId
+    const ds = (target as HTMLElement).dataset
+    const id = ds.riskId ?? (ds.riskIds ?? '').split(' ').filter(Boolean)[0]
     if (id) {
         e.preventDefault()
         togglePin(id)
+    }
+}
+
+// ===== 预览 hover「＋」新增风险 =====
+// 分栏(isSplit)/窄屏 v-if/v-else 互斥，同一时刻只渲染一个 RiskListPanel；
+// 函数式 ref + if(el) 守卫确保 riskPanelRef 始终指向当前挂载实例（离场实例回调传 null 被忽略）。
+const riskPanelRef = ref<{ openCreateWithPrefill: (p: { clauseText: string; clauseParagraphIndex: number }) => void } | null>(null)
+function setRiskPanelRef(el: any) {
+    if (el) riskPanelRef.value = el
+}
+
+function handleAddRiskFromParagraph(payload: { clauseParagraphIndex: number; clauseText: string }) {
+    riskPanelRef.value?.openCreateWithPrefill(payload)
+}
+
+/** 风险清单变更后统一刷新版本工作区（编辑/删除/新增的列表数据源是 versioning.currentView）并提示 */
+function notifyRiskListChanged(message: string) {
+    versioning.refreshWorkspace()
+    toast.success(message)
+}
+
+async function handleCreateRisk(payload: { clauseText: string; clauseParagraphIndex: number; risk: Risk }) {
+    if (!reviewId.value) return
+    const r = payload.risk
+    const resp = await useApiFetch(
+        `/api/v1/assistant/contract/reviews/add-risk/${reviewId.value}`,
+        {
+            method: 'POST',
+            body: {
+                clauseText: payload.clauseText,
+                clauseParagraphIndex: payload.clauseParagraphIndex,
+                level: r.level,
+                category: r.category,
+                problem: r.problem,
+                legalBasis: r.legalBasis ?? null,
+                analysis: r.analysis,
+                suggestion: r.suggestion,
+                suggestedClauseText: r.suggestedClauseText ?? null,
+            },
+            showError: false,
+        },
+    )
+    if (resp != null) {
+        notifyRiskListChanged('风险已新增')
+    } else {
+        toast.error('新增风险失败，请稍后重试')
     }
 }
 </script>
@@ -575,11 +645,19 @@ function handleContainerClick(e: MouseEvent) {
                     <InterruptDispatcher
                         :interrupt="interruptData as any"
                         @submit="resolveInterrupt"
-                        @cancel="() => resolveInterrupt(null)"
+                        @cancel="handleCancel"
                     />
                 </div>
             </DialogContent>
         </Dialog>
+
+        <!-- 队列残留提示条：停止/放弃中断后队列有未发送消息时显示 -->
+        <QueuePausedBanner
+            v-if="currentQueueLen > 0 && isQueuePaused"
+            :queue-length="currentQueueLen"
+            @resume="resumeQueue"
+            @clear="clearQueue"
+        />
 
         <!-- Step 2 结果屏 -->
         <div v-if="review" class="flex-1 min-h-0 flex flex-col">
@@ -588,8 +666,18 @@ function handleContainerClick(e: MouseEvent) {
                 v-if="versioning.isReadOnly.value"
                 class="flex items-center gap-2 px-4 py-2 border-b bg-muted text-muted-foreground text-sm shrink-0"
             >
+                <button
+                    v-if="!caseId"
+                    type="button"
+                    class="inline-flex items-center justify-center size-6 -ml-1 rounded text-muted-foreground hover:bg-background hover:text-foreground transition-colors shrink-0"
+                    aria-label="返回合同列表"
+                    title="返回合同列表"
+                    @click="navigateTo('/dashboard/contract')"
+                >
+                    <ArrowLeftIcon class="size-4" />
+                </button>
                 <HistoryIcon class="size-4 shrink-0" />
-                <span class="font-medium text-foreground">只读模式 — 正在查看历史版本，无法编辑</span>
+                <span class="font-medium text-foreground">只读模式 — 正在查看历史版本 v{{ previewVersionNumber }}，无法编辑</span>
                 <button
                     class="ml-auto text-xs underline hover:opacity-80 text-primary"
                     @click="handleExitPreview"
@@ -603,6 +691,16 @@ function handleContainerClick(e: MouseEvent) {
                 v-else-if="versioning.versions.value.length > 0"
                 class="flex items-center gap-2 px-4 py-1.5 border-b bg-card shrink-0"
             >
+                <button
+                    v-if="!caseId"
+                    type="button"
+                    class="inline-flex items-center justify-center size-6 -ml-1 rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0"
+                    aria-label="返回合同列表"
+                    title="返回合同列表"
+                    @click="navigateTo('/dashboard/contract')"
+                >
+                    <ArrowLeftIcon class="size-4" />
+                </button>
                 <span
                     v-if="versioning.hasUnsavedEdits.value"
                     class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary"
@@ -640,7 +738,7 @@ function handleContainerClick(e: MouseEvent) {
                 class="flex items-center gap-2 px-4 py-2.5 border-b bg-primary/5 border-primary/20 text-sm shrink-0"
             >
                 <TrendingUpIcon class="size-4 shrink-0 text-primary" />
-                <span class="font-medium text-foreground">本轮变化</span>
+                <span class="font-semibold text-foreground">本轮变化</span>
                 <span class="text-xs text-muted-foreground flex-1 truncate">{{ versioning.lastUploadResult.value.summary }}</span>
                 <button
                     data-testid="dismiss-upload-banner"
@@ -687,6 +785,7 @@ function handleContainerClick(e: MouseEvent) {
                                     @focus-risk="focusRisk"
                                     @hover-clause="setHoveredRisk"
                                     @locate-result="markLocated"
+                                    @add-risk-from-paragraph="handleAddRiskFromParagraph"
                                 />
                             </div>
                         </ResizablePanel>
@@ -708,6 +807,7 @@ function handleContainerClick(e: MouseEvent) {
                                     <span class="animate-pulse">{{ statusLabel }}</span>
                                 </div>
                                 <AssistantContractRiskListPanel
+                                    :ref="setRiskPanelRef"
                                     :risks="effectiveRisks"
                                     :annotations="versionedAnnotations"
                                     :read-only="versioning.isReadOnly.value"
@@ -734,6 +834,7 @@ function handleContainerClick(e: MouseEvent) {
                                     @update-annotation="handleUpdateAnnotation"
                                     @delete-annotation="handleDeleteAnnotation"
                                     @restore-annotation="handleRestoreAnnotation"
+                                    @create-risk="handleCreateRisk"
                                 />
                             </div>
                         </ResizablePanel>
@@ -752,6 +853,7 @@ function handleContainerClick(e: MouseEvent) {
                                 @focus-risk="focusRisk"
                                 @hover-clause="setHoveredRisk"
                                 @locate-result="markLocated"
+                                @add-risk-from-paragraph="handleAddRiskFromParagraph"
                             />
                         </div>
                         <div class="flex-1 min-h-0 flex flex-col overflow-hidden rounded-lg border bg-card">
@@ -768,6 +870,7 @@ function handleContainerClick(e: MouseEvent) {
                                 <span class="animate-pulse">{{ statusLabel }}</span>
                             </div>
                             <AssistantContractRiskListPanel
+                                :ref="setRiskPanelRef"
                                 :risks="effectiveRisks"
                                 :annotations="versionedAnnotations"
                                 :read-only="versioning.isReadOnly.value"
@@ -793,6 +896,7 @@ function handleContainerClick(e: MouseEvent) {
                                 @update-annotation="handleUpdateAnnotation"
                                 @delete-annotation="handleDeleteAnnotation"
                                 @restore-annotation="handleRestoreAnnotation"
+                                @create-risk="handleCreateRisk"
                             />
                         </div>
                     </div>

@@ -218,6 +218,51 @@ describe('analyzeSingleClause', () => {
             stance: 'partyA', partyA: 'A', partyB: 'B', contractType: '技服',
         })).rejects.toThrow(/risks\.0\.level/)
     })
+
+    it('M9：服务端强制把 clauseIndex 覆盖为 ctx.clause.index，忽略 LLM 回填的错误值', async () => {
+        // 回归 M9：clauseIndex 完全信任 LLM 回填。LLM 回越界/错误 index 会导致取到错条款、
+        // clauseParagraphIndex 落 null、批注静默挂错条款甚至整份审查崩溃。
+        const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
+        ;(createChatModel as any).mockReturnValueOnce({
+            invoke: vi.fn().mockResolvedValue({
+                content: JSON.stringify({
+                    risks: [{
+                        id: 'x', clauseIndex: 999, clauseText: 'x',
+                        level: 'high', category: 'c', problem: 'p',
+                        analysis: 'a', risk: 'r', suggestion: 's',
+                        suggestedClauseText: 't',
+                    }],
+                    skip: false,
+                }),
+            }),
+        })
+        const { analyzeSingleClause } = await import('~~/server/agents/contract/analyzeSingleClause')
+        const result = await analyzeSingleClause({
+            clause: { index: 5, number: '5', text: 'x' },
+            stance: 'partyB', partyA: 'A', partyB: 'B', contractType: '劳动合同',
+        })
+        expect(result).toHaveLength(1)
+        // LLM 回的 clauseIndex=999（越界）被服务端按当前分析条款强制覆盖为 5
+        expect(result[0]?.clauseIndex).toBe(5)
+    })
+
+    it('M11：ctx.signal 透传到底层 model.invoke 的 RunnableConfig', async () => {
+        // 回归 M11：resume 分支逐条分析阶段最耗时，signal 必须透传到 model.invoke，
+        // 用户取消/超时时才能中断 LLM 调用、停止烧 token。
+        const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
+        const invokeMock = vi.fn().mockResolvedValue({ content: JSON.stringify({ risks: [], skip: true }) })
+        ;(createChatModel as any).mockReturnValueOnce({ invoke: invokeMock })
+        const controller = new AbortController()
+        const { analyzeSingleClause } = await import('~~/server/agents/contract/analyzeSingleClause')
+        await analyzeSingleClause({
+            clause: { index: 1, number: '1', text: 'x' },
+            stance: 'partyB', partyA: 'A', partyB: 'B', contractType: '技服',
+            signal: controller.signal,
+        })
+        expect(invokeMock).toHaveBeenCalled()
+        // model.invoke(prompt, config) 的第二参数 RunnableConfig 必须携带 signal
+        expect(invokeMock.mock.calls[0]?.[1]?.signal).toBe(controller.signal)
+    })
 })
 
 const SNAPSHOT: PlaybookSnapshot = {
@@ -403,6 +448,42 @@ describe('renderPromptTemplate 占位符（PR 3）', () => {
         expect(captured).toContain('工资按月支付')
         expect(captured).toContain('逾期违约')
         expect(captured).toContain('原文（兜底回溯）：工资按月支付。逾期违约。')
+    })
+
+    it('M10：[Sn] 视图用 textWithoutNumber 切句，与落库解析基准一致（条款编号独占首行时不错位）', async () => {
+        // 回归 M10：旧实现 [Sn] 视图来自 splitSentences(text)（含「第X条」编号行），
+        // 而 persistAiRisksAsContractRows 解析 problemSentenceIds 用 splitSentences(textWithoutNumber)。
+        // 条款编号单独占首行时两数组错位一句，每条风险的 problematicQuote / quoteChar 偏移一句。
+        const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
+        const { getValidNodeConfig } = await import('~~/server/services/node/node.service')
+        ;(getValidNodeConfig as any).mockResolvedValueOnce({
+            modelApiKeys: [{ apiKey: 'sk-test', status: 1 }],
+            modelSdkType: 'openai',
+            modelName: 'gpt-4',
+            modelProviderBaseUrl: 'https://api.openai.com/v1',
+            prompts: [{ type: 'system', status: 1, content: '{{sentencesNumbered}}' }],
+        })
+        let captured: string | null = null
+        ;(createChatModel as any).mockReturnValueOnce({
+            invoke: vi.fn(async (prompt: string) => {
+                captured = prompt
+                return { content: JSON.stringify({ risks: [], skip: true }) }
+            }),
+        })
+        const { analyzeSingleClause } = await import('~~/server/agents/contract/analyzeSingleClause')
+        await analyzeSingleClause({
+            clause: {
+                index: 3,
+                number: '第三条',
+                text: '第三条\n甲方应当按时支付工资。逾期承担违约责任。',
+                textWithoutNumber: '甲方应当按时支付工资。逾期承担违约责任。',
+            },
+            stance: 'partyA', partyA: 'A', partyB: 'B', contractType: '劳动合同',
+        })
+        expect(captured).not.toBeNull()
+        // [S1] 必须是去编号后的首句正文，而非编号行「第三条」
+        expect(captured!).toContain('[S1] 甲方应当按时支付工资')
+        expect(captured!).not.toMatch(/\[S1\]\s*第三条/)
     })
 
     it('单句条款（如纯标题）也至少产出 [S1]', async () => {

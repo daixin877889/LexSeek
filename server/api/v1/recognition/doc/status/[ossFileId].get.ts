@@ -17,6 +17,7 @@ import { findImageRecognitionByOssFileIdDao } from '~~/server/services/material/
 import { DocRecognitionStatus } from '#shared/types/recognition'
 import type { ossFiles } from '~~/generated/prisma/client'
 import { findDocRecognitionByOssFileIdDao } from '~~/server/services/material/mineru.dao'
+import { findOssFilesByIdsAndUserIdDao } from '~~/server/services/files/ossFiles.dao'
 
 /** 图片占位符正则表达式 */
 const IMAGE_PLACEHOLDER_REGEX = /\{\{OSS_IMAGE:([^:}]+):(\d+)\}\}/g
@@ -103,6 +104,12 @@ export default defineEventHandler(async (event) => {
     const { ossFileId } = paramsResult.data
 
     try {
+        // owner-only：仅允许查询属于当前用户的 OSS 文件的识别结果
+        const ownedFiles = await findOssFilesByIdsAndUserIdDao([ossFileId], user.id)
+        if (ownedFiles.length === 0) {
+            return resError(event, 404, '文件不存在')
+        }
+
         // 先查询文档识别记录
         let docRecord = await findDocRecognitionByOssFileIdDao(ossFileId)
 
@@ -143,14 +150,9 @@ export default defineEventHandler(async (event) => {
                 const placeholders = parseImagePlaceholders(allContent)
 
                 if (placeholders.length > 0) {
-                    // 查询 OSS 文件记录
+                    // 查询 OSS 文件记录（owner-only：内嵌图片也必须属于当前用户）
                     const ossFileIds = placeholders.map(p => p.ossFileId)
-                    const ossFiles = await prisma.ossFiles.findMany({
-                        where: {
-                            id: { in: ossFileIds },
-                            deletedAt: null,
-                        },
-                    })
+                    const ossFiles = await findOssFilesByIdsAndUserIdDao(ossFileIds, user.id)
 
                     // 过滤出 bucket 匹配的文件
                     const validFiles = ossFiles.filter(f => {

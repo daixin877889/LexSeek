@@ -47,9 +47,16 @@ export const createCaseDao = async (
                 plaintiff: (data.plaintiff ?? undefined) as any,
                 defendant: (data.defendant ?? undefined) as any,
                 isDemo: data.isDemo ?? false,
-                status: CaseStatus.CONSULTING,
+                status: data.status ?? CaseStatus.CONSULTING,
                 summary: data.summary ?? undefined,
                 extractedInfo: (data.extractedInfo ?? undefined) as any,
+                // 显式 fallback 到 'plaintiff'（与 DB DEFAULT 一致），避免 zod default 与 DB default 不一致时的歧义
+                stance: data.stance ?? 'plaintiff',
+                courtName: data.courtName ?? undefined,
+                firstInstanceCaseNo: data.firstInstanceCaseNo ?? undefined,
+                firstInstanceJudge: data.firstInstanceJudge ?? undefined,
+                secondInstanceCaseNo: data.secondInstanceCaseNo ?? undefined,
+                secondInstanceJudge: data.secondInstanceJudge ?? undefined,
             },
         })
         return caseRecord
@@ -259,6 +266,35 @@ export const findManyCasesDao = async (
 }
 
 /**
+ * 按状态聚合统计某用户的案件数
+ *
+ * 跨该用户全部案件（不分页、不受列表筛选影响）。
+ *
+ * @param userId 用户 ID
+ * @returns { 状态值: 数量 } 映射
+ */
+export const countCasesByStatusDao = async (
+    userId: number
+): Promise<Record<number, number>> => {
+    try {
+        const grouped = await prisma.cases.groupBy({
+            by: ['status'],
+            where: { userId, deletedAt: null },
+            _count: { _all: true },
+        })
+
+        const result: Record<number, number> = {}
+        for (const g of grouped) {
+            result[g.status] = g._count._all
+        }
+        return result
+    } catch (error) {
+        logger.error('按状态统计案件数失败：', error)
+        throw error
+    }
+}
+
+/**
  * 更新案件
  * @param id 案件 ID
  * @param data 更新数据
@@ -287,6 +323,8 @@ export const updateCaseDao = async (
         if (data.secondInstanceCaseNo !== undefined) updateData.secondInstanceCaseNo = data.secondInstanceCaseNo
         if (data.firstInstanceJudge !== undefined) updateData.firstInstanceJudge = data.firstInstanceJudge
         if (data.secondInstanceJudge !== undefined) updateData.secondInstanceJudge = data.secondInstanceJudge
+        if (data.stance !== undefined) updateData.stance = data.stance
+        if (data.summary !== undefined) updateData.summary = data.summary
 
         const caseRecord = await client.cases.update({
             where: { id },

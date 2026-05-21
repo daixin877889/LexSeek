@@ -6,7 +6,7 @@
  */
 
 import type { caseMaterials, Prisma } from '~~/generated/prisma/client'
-import type { CreateMaterialInput, UpdateMaterialInput, MaterialQueryOptions } from '#shared/types/material'
+import type { CreateMaterialInput, UpdateMaterialInput, MaterialQueryOptions, MaterialOwner } from '#shared/types/material'
 import { MaterialStatus } from '#shared/types/material'
 import type { asrRecords } from '~~/generated/prisma/client'
 
@@ -22,6 +22,7 @@ export const createMaterialDao = async (
             data: {
                 caseId: data.caseId ?? null,
                 draftId: data.draftId ?? null,
+                sessionId: data.sessionId ?? null,
                 name: data.name,
                 type: data.type,
                 ossFileId: data.ossFileId ?? null,
@@ -121,6 +122,24 @@ export const findMaterialsByCaseIdDao = async (
         return materials
     } catch (error) {
         logger.error('通过案件ID查询材料失败：', error)
+        throw error
+    }
+}
+
+/**
+ * 按对话会话标识查询材料（通用问答场景）
+ */
+export const findMaterialsBySessionIdDao = async (
+    sessionId: string,
+    tx?: Prisma.TransactionClient,
+): Promise<caseMaterials[]> => {
+    try {
+        return await (tx || prisma).caseMaterials.findMany({
+            where: { sessionId, deletedAt: null },
+            orderBy: { createdAt: 'asc' },
+        })
+    } catch (error) {
+        logger.error('通过会话标识查询材料失败：', error)
         throw error
     }
 }
@@ -327,7 +346,11 @@ export const findRecognitionRecordsByOssFileIdsDao = async (
 }
 
 /**
- * 按 ossFileId 查活跃材料记录（upsert 用）
+ * 按 ossFileId 查活跃的 **案件 / 草稿归属** 材料记录（案件/草稿场景 upsert 用）
+ *
+ * 仅匹配 `sessionId IS NULL` 的行——会话归属材料按 (sessionId, ossFileId) 独立查/建
+ * （见 findActiveMaterialBySessionAndOssFileDao），不能被案件/草稿全局查重误抓：
+ * 否则案件/草稿会"借用"某会话的材料行，该会话被删除级联软删时会连带搞丢案件/草稿材料。
  *
  * 业务约束：ossFiles.userId 是单一 owner，调用方传入的 ossFileId 必属当前 user，
  * 所以查到的 existing 必然归属同一用户，无需 DAO 层做 user 过滤。
@@ -338,7 +361,7 @@ export const findActiveMaterialByOssFileIdDao = async (
 ): Promise<caseMaterials | null> => {
     try {
         return await (tx || prisma).caseMaterials.findFirst({
-            where: { ossFileId, deletedAt: null },
+            where: { ossFileId, deletedAt: null, sessionId: null },
         })
     } catch (error) {
         logger.error('按 ossFileId 查活跃材料失败：', error)
@@ -347,26 +370,48 @@ export const findActiveMaterialByOssFileIdDao = async (
 }
 
 /**
- * 按 caseId 或 draftId 合并查询活跃材料（search_case_materials 工具用）
+ * 按 (会话标识, ossFileId) 查活跃材料（通用问答会话场景）
  *
- * OR 条件：返回 caseId 命中 ∪ draftId 命中的全部材料，Prisma 天然去重
+ * 与 findActiveMaterialByOssFileIdDao（全局按 ossFileId 去重）不同：通用问答里
+ * 同一份云盘文件会被多个会话各自引用，必须按会话维度独立查/建记录——否则第二个
+ * 会话会复用到第一个会话的记录、却因 sessionId 不匹配而查不到归属自己的材料。
+ */
+export const findActiveMaterialBySessionAndOssFileDao = async (
+    sessionId: string,
+    ossFileId: number,
+    tx?: Prisma.TransactionClient,
+): Promise<caseMaterials | null> => {
+    try {
+        return await (tx || prisma).caseMaterials.findFirst({
+            where: { sessionId, ossFileId, deletedAt: null },
+        })
+    } catch (error) {
+        logger.error('按会话标识与 ossFileId 查活跃材料失败：', error)
+        throw error
+    }
+}
+
+/**
+ * 按归属维度（案件 / 草稿 / 会话）OR 合并查询活跃材料（search_case_materials 工具用）
+ *
+ * OR 条件：返回各维度命中材料的并集，Prisma 天然去重
  */
 export const findMaterialsByCaseOrDraftIdDao = async (
-    caseId: number | null,
-    draftId: number | null,
+    owner: MaterialOwner,
     tx?: Prisma.TransactionClient,
 ): Promise<caseMaterials[]> => {
-    if (caseId == null && draftId == null) return []
     const orBranches: Prisma.caseMaterialsWhereInput[] = []
-    if (caseId != null) orBranches.push({ caseId })
-    if (draftId != null) orBranches.push({ draftId })
+    if (owner.caseId != null) orBranches.push({ caseId: owner.caseId })
+    if (owner.draftId != null) orBranches.push({ draftId: owner.draftId })
+    if (owner.sessionId != null) orBranches.push({ sessionId: owner.sessionId })
+    if (orBranches.length === 0) return []
     try {
         return await (tx || prisma).caseMaterials.findMany({
             where: { OR: orBranches, deletedAt: null },
             orderBy: { createdAt: 'asc' },
         })
     } catch (error) {
-        logger.error('按 caseId/draftId 合并查询材料失败：', error)
+        logger.error('按归属维度合并查询材料失败：', error)
         throw error
     }
 }

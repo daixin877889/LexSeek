@@ -133,7 +133,7 @@ export default defineEventHandler(async (event) => {
             : 'failed'
 
         // 同步识别成功 → 按 OssFile 触发摘要生成（不依赖 caseMaterials 行存在）
-        // 小索/法律助手输入框上传场景下 caseMaterials 行还没创建，按 OssFile 提前算摘要
+        // 小索/通用问答输入框上传场景下 caseMaterials 行还没创建，按 OssFile 提前算摘要
         // 让用户点发送时摘要已就绪
         if (resultStatus === 'completed') {
             generateOssFileSummaryService(ossFileId).catch(() => { /* 已在内部 catch */ })

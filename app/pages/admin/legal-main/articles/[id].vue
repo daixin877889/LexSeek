@@ -1,9 +1,9 @@
 <template>
-        <div class="space-y-6">
+        <div class="theme-brand space-y-6">
             <!-- 页面标题 -->
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div class="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" @click="navigateTo('/admin/legal-main')">
+                    <Button variant="ghost" size="icon" :class="adminBrandFocusClass" @click="navigateTo('/admin/legal-main')">
                         <ArrowLeft class="h-4 w-4" />
                     </Button>
                     <div>
@@ -13,21 +13,21 @@
                 </div>
                 <div class="flex gap-2 w-full md:w-auto flex-wrap">
                     <Button variant="outline" @click="navigateTo(`/admin/legal-main/embeddings/${legalId}`)"
-                        class="flex-1 md:flex-none" :disabled="sortMode">
+                        :class="['flex-1 md:flex-none', adminBrandFocusClass]" :disabled="sortMode">
                         <Database class="h-4 w-4 mr-2" />
                         嵌入记录
                     </Button>
-                    <Button variant="outline" @click="handleBatchEmbed" class="flex-1 md:flex-none"
+                    <Button variant="outline" @click="handleBatchEmbed" :class="['flex-1 md:flex-none', adminBrandFocusClass]"
                         :disabled="sortMode || batchEmbedding">
                         <Loader2 v-if="batchEmbedding" class="h-4 w-4 mr-2 animate-spin" />
                         <Zap v-else class="h-4 w-4 mr-2" />
                         批量嵌入
                     </Button>
-                    <Button variant="outline" @click="toggleSortMode" class="flex-1 md:flex-none">
+                    <Button variant="outline" @click="toggleSortMode" :class="['flex-1 md:flex-none', adminBrandFocusClass]">
                         <ArrowUpDown class="h-4 w-4 mr-2" />
                         {{ sortMode ? '退出排序' : '排序模式' }}
                     </Button>
-                    <Button @click="showCreateDialog = true" class="flex-1 md:flex-none" :disabled="sortMode">
+                    <Button @click="showCreateDialog = true" :class="['flex-1 md:flex-none', adminBrandPrimaryButtonClass]" :disabled="sortMode">
                         <Plus class="h-4 w-4 mr-2" />
                         添加条文
                     </Button>
@@ -47,10 +47,10 @@
                             <span class="text-sm text-muted-foreground">拖拽条目调整顺序，同级条文之间可排序</span>
                         </div>
                         <div class="flex items-center gap-2">
-                            <Button variant="outline" size="sm" @click="cancelSort" :disabled="sortSaving">
+                            <Button variant="outline" size="sm" :class="adminBrandFocusClass" @click="cancelSort" :disabled="sortSaving">
                                 取消
                             </Button>
-                            <Button size="sm" @click="saveSort" :disabled="sortSaving || !hasSortChanges">
+                            <Button size="sm" :class="adminBrandPrimaryButtonClass" @click="saveSort" :disabled="sortSaving || !hasSortChanges">
                                 <Loader2 v-if="sortSaving" class="h-4 w-4 mr-2 animate-spin" />
                                 <Save v-else class="h-4 w-4 mr-2" />
                                 保存排序
@@ -73,11 +73,11 @@
                     <FileText class="h-12 w-12 text-muted-foreground/50 mb-4" />
                     <h3 class="text-lg font-medium mb-1">{{ hasFilters ? '未找到匹配的条文' : '暂无条文数据' }}</h3>
                     <p class="text-muted-foreground text-sm mb-4">{{ hasFilters ? '尝试调整筛选条件' : '点击上方按钮添加第一条条文' }}</p>
-                    <Button v-if="hasFilters" variant="outline" @click="handleReset">
+                    <Button v-if="hasFilters" variant="outline" :class="adminBrandFocusClass" @click="handleReset">
                         <RotateCcw class="h-4 w-4 mr-2" />
                         重置筛选
                     </Button>
-                    <Button v-else @click="showCreateDialog = true">
+                    <Button v-else :class="adminBrandPrimaryButtonClass" @click="showCreateDialog = true">
                         <Plus class="h-4 w-4 mr-2" />
                         添加条文
                     </Button>
@@ -104,7 +104,7 @@
 
         <!-- 创建/编辑条文对话框 -->
         <Dialog v-model:open="showCreateDialog">
-            <DialogContent class="!w-[90vw] !max-w-5xl !sm:max-w-5xl h-[85vh] flex flex-col p-0">
+            <DialogContent class="theme-brand !w-[90vw] !max-w-5xl !sm:max-w-5xl h-[85vh] flex flex-col p-0">
                 <!-- 固定头部 -->
                 <DialogHeader class="px-6 py-4 border-b shrink-0">
                     <DialogTitle>{{ editingArticle ? '编辑条文' : '添加条文' }}</DialogTitle>
@@ -122,7 +122,7 @@
 
         <!-- 删除确认对话框 -->
         <AlertDialog v-model:open="deleteDialogOpen">
-            <AlertDialogContent>
+            <AlertDialogContent class="theme-brand">
                 <AlertDialogHeader>
                     <AlertDialogTitle>确认删除</AlertDialogTitle>
                     <AlertDialogDescription>
@@ -130,8 +130,8 @@
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>取消</AlertDialogCancel>
-                    <AlertDialogAction @click="confirmDelete" class="bg-destructive text-white hover:bg-destructive/90">
+                    <AlertDialogCancel :class="adminBrandFocusClass">取消</AlertDialogCancel>
+                    <AlertDialogAction @click="confirmDelete" :class="adminBrandDestructiveActionClass">
                         删除
                     </AlertDialogAction>
                 </AlertDialogFooter>
@@ -150,6 +150,7 @@ import GeneralPagination from '~/components/general/pagination.vue'
 import LegalArticleSortTree from '~/components/legal/ArticleSortTree.vue'
 import LegalArticleForm from '~/components/legal/LegalArticleForm.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { adminBrandDestructiveActionClass, adminBrandFocusClass, adminBrandPrimaryButtonClass } from '~/utils/adminBrandStyles'
 
 definePageMeta({
     layout: 'admin-layout',

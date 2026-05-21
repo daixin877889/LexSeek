@@ -45,16 +45,16 @@ pointConsumptionRecords（消耗记录）
 | `findPointRecordByIdDao` | 按 ID 查询 |
 | `findPointRecordsByUserIdDao` | 用户积分记录列表（分页） |
 | `sumUserValidPointsDao` | 汇总用户有效积分（已生效 + 未过期 + 状态正常） |
-| `findValidPointRecordsForConsumeDao` | 查询可消耗的积分记录（按过期时间升序，优先消耗即将过期的） |
+| `findValidPointRecordsByUserIdDao` | 查询可消耗的积分记录（按过期时间升序，优先消耗即将过期的） |
 | `updatePointRecordDao` | 更新记录（usedAmount / status） |
 
 ### pointRecords.service.ts
 
 | 方法 | 说明 |
 |------|------|
-| `getPointSummaryService` | 积分汇总：总量 / 已用 / 剩余 / 购买来源 / 其他来源 |
+| `getUserPointSummary` | 积分汇总：总量 / 已用 / 剩余 / 购买来源 / 其他来源 |
 | `createPointRecordService` | **统一的积分创建入口** |
-| `getUserPointRecordsService` | 用户积分记录列表 |
+| `getUserPointRecords` | 用户积分记录列表 |
 
 **createPointRecordService 参数**：
 

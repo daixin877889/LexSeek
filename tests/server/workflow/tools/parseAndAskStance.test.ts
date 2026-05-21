@@ -43,7 +43,7 @@ describe('parseAndAskStance createTool', () => {
         ;(getContractReviewDAO as any).mockResolvedValueOnce({ id: 1, userId: 7, originalFileId: 99 })
         ;(findOssFileByIdDao as any).mockResolvedValueOnce({ id: 99, filePath: 'users/7/a.docx' })
         ;(downloadFileService as any).mockResolvedValueOnce(Buffer.from('fake'))
-        ;(parseContractDocx as any).mockResolvedValueOnce({ paragraphs: ['P0', 'P1'], rawXml: '<xml/>' })
+        ;(parseContractDocx as any).mockResolvedValueOnce({ paragraphs: ['P0', 'P1'], rawXml: '<xml/>', bodyParagraphs: ['P0', 'P1'], bodyParagraphIndex: [0, 1] })
         ;(detectParties as any).mockResolvedValueOnce({
             partyA: '甲', partyB: '乙', contractType: '劳动合同', source: 'regex',
         })
@@ -86,7 +86,7 @@ describe('parseAndAskStance createTool', () => {
         ;(getContractReviewDAO as any).mockResolvedValueOnce({ id: 1, userId: 7, originalFileId: 99 })
         ;(findOssFileByIdDao as any).mockResolvedValueOnce({ id: 99, filePath: 'p' })
         ;(downloadFileService as any).mockResolvedValueOnce(Buffer.from('x'))
-        ;(parseContractDocx as any).mockResolvedValueOnce({ paragraphs: ['a'], rawXml: '<x/>' })
+        ;(parseContractDocx as any).mockResolvedValueOnce({ paragraphs: ['a'], rawXml: '<x/>', bodyParagraphs: ['a'], bodyParagraphIndex: [0] })
         ;(detectParties as any).mockResolvedValueOnce({
             partyA: '原甲', partyB: '原乙', contractType: null, source: 'llm',
         })

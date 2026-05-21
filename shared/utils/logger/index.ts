@@ -45,7 +45,14 @@ function getDefaultLogger(): Logger {
  */
 export const logger = new Proxy({} as Logger, {
     get(_target, prop) {
-        return (getDefaultLogger() as any)[prop as string]
+        const defaultLogger = getDefaultLogger()
+        const value = (defaultLogger as any)[prop as string]
+        return typeof value === 'function' ? value.bind(defaultLogger) : value
+    },
+    set(_target, prop, value) {
+        const defaultLogger = getDefaultLogger() as any
+        defaultLogger[prop as string] = value
+        return true
     },
 })
 

@@ -83,8 +83,8 @@ const inlineDiffSegments = computed<DiffSegment[] | null>(() => {
 
 const DIFF_CLASS_MAP: Record<DiffSegment['kind'], string> = {
     equal: '',
-    delete: 'bg-red-100 dark:bg-red-900/50 text-red-900 dark:text-red-100 line-through',
-    insert: 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-900 dark:text-emerald-100 font-medium',
+    delete: 'bg-red-600/15 text-red-700 dark:text-red-300 line-through',
+    insert: 'bg-emerald-600/15 text-emerald-700 dark:text-emerald-300 font-semibold',
 }
 
 /** 条款标题：clauseText 第一行（segmentClauses 用 \n 连多行；首行通常是"第三条 工资支付"这类标题） */
@@ -97,31 +97,28 @@ const clauseTitle = computed(() => {
 
 <template>
     <!-- ============================== Layout A · Stacked 三段式 ============================== -->
-    <div v-if="mode === 'stacked'" class="space-y-3 text-sm">
+    <div v-if="mode === 'stacked'" class="flex flex-col gap-3">
         <!-- 条款标题（spec § 6.1 mockup："第三条 工资支付（第 5 段）"） -->
-        <div v-if="clauseTitle" class="flex items-center gap-1.5 min-w-0">
-            <FileText class="size-3 text-muted-foreground shrink-0" />
-            <span class="text-xs text-muted-foreground shrink-0">条款标题</span>
-            <span class="font-medium truncate flex-1 min-w-0">{{ clauseTitle }}</span>
-            <span
-                v-if="clauseParagraphIndex != null"
-                class="text-xs text-muted-foreground shrink-0"
-            >（第 {{ clauseParagraphIndex + 1 }} 段）</span>
+        <div v-if="clauseTitle" class="flex items-center gap-1.5 min-w-0 text-[11px] font-medium text-muted-foreground">
+            <FileText class="size-3 shrink-0" />
+            <span class="shrink-0">条款标题</span>
+            <span class="font-semibold text-foreground truncate flex-1 min-w-0">{{ clauseTitle }}</span>
+            <span v-if="clauseParagraphIndex != null" class="shrink-0 font-normal">（第 {{ clauseParagraphIndex + 1 }} 段）</span>
         </div>
 
-        <!-- 完整原文 + quote 字符段深黄高亮 -->
-        <div class="space-y-1">
-            <div class="flex items-center gap-1.5">
-                <Quote class="size-3 text-muted-foreground shrink-0" />
-                <span class="text-xs text-muted-foreground">完整原文</span>
+        <!-- 完整原文 + quote 字符段高亮 -->
+        <div class="flex flex-col gap-1.5">
+            <div class="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+                <Quote class="size-3 shrink-0" />
+                <span>完整原文</span>
             </div>
-            <div class="p-3 rounded-md bg-muted/40 whitespace-pre-wrap leading-relaxed">
+            <div class="rounded-md px-3 py-2.5 bg-muted text-[12.5px] leading-relaxed whitespace-pre-wrap">
                 <template v-if="stackedClauseSegments">
                     <span>{{ stackedClauseSegments.prefix }}</span>
                     <mark
                         v-if="stackedClauseSegments.quote"
                         aria-label="问题片段"
-                        class="bg-yellow-300 dark:bg-yellow-700/60 text-yellow-950 dark:text-yellow-50 rounded-sm px-0.5"
+                        class="bg-amber-300/60 dark:bg-amber-300/25 text-foreground rounded-sm px-0.5"
                     >{{ stackedClauseSegments.quote }}</mark>
                     <span>{{ stackedClauseSegments.suffix }}</span>
                 </template>
@@ -130,37 +127,37 @@ const clauseTitle = computed(() => {
         </div>
 
         <!-- 问题片段（quote=null 时不渲染） -->
-        <div v-if="problematicQuote" class="space-y-1">
-            <div class="flex items-center gap-1.5">
-                <AlertTriangle class="size-3 text-amber-500 shrink-0" />
-                <span class="text-xs text-muted-foreground">问题片段</span>
+        <div v-if="problematicQuote" class="flex flex-col gap-1.5">
+            <div class="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+                <AlertTriangle class="size-3 shrink-0 text-amber-600" />
+                <span>问题片段</span>
             </div>
-            <div class="p-3 rounded-md bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 italic whitespace-pre-wrap leading-relaxed">
+            <div class="rounded-md px-3 py-2.5 bg-amber-600/8 border border-amber-600/30 text-[12.5px] italic leading-relaxed whitespace-pre-wrap">
                 {{ problematicQuote }}
             </div>
         </div>
 
         <!-- 建议改写 -->
-        <div class="space-y-1">
-            <div class="flex items-center gap-1.5">
-                <PencilLine class="size-3 text-emerald-600 shrink-0" />
-                <span class="text-xs text-muted-foreground">建议改写</span>
+        <div class="flex flex-col gap-1.5">
+            <div class="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+                <PencilLine class="size-3 shrink-0 text-emerald-600" />
+                <span>建议改写</span>
             </div>
             <div
                 v-if="suggestedClauseText"
-                class="p-3 rounded-md bg-emerald-50 dark:bg-emerald-950/40 whitespace-pre-wrap leading-relaxed"
+                class="rounded-md px-3 py-2.5 bg-emerald-600/10 border border-emerald-600/25 text-[12.5px] leading-relaxed whitespace-pre-wrap"
             >{{ suggestedClauseText }}</div>
-            <div v-else class="p-3 rounded-md bg-muted/20 text-muted-foreground italic">无建议改写</div>
+            <div v-else class="rounded-md px-3 py-2.5 bg-muted text-muted-foreground text-[12.5px] italic">无建议改写</div>
         </div>
     </div>
 
     <!-- ============================== Layout C · Inline diff 行内差异 ============================== -->
-    <div v-else class="space-y-1 text-sm">
-        <div class="flex items-center gap-1.5">
-            <PencilLine class="size-3 text-emerald-600 shrink-0" />
-            <span class="text-xs text-muted-foreground">原文 → 建议（行内差异）</span>
+    <div v-else class="flex flex-col gap-1.5">
+        <div class="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+            <PencilLine class="size-3 shrink-0 text-emerald-600" />
+            <span>原文 → 建议（行内差异）</span>
         </div>
-        <div v-if="inlineDiffSegments" class="p-3 rounded-md bg-muted/40 whitespace-pre-wrap leading-relaxed">
+        <div v-if="inlineDiffSegments" class="rounded-md px-3 py-2.5 bg-muted text-[12.5px] leading-relaxed whitespace-pre-wrap">
             <span
                 v-for="(seg, i) in inlineDiffSegments"
                 :key="`d-${i}`"
@@ -168,6 +165,6 @@ const clauseTitle = computed(() => {
             >{{ seg.text }}</span>
         </div>
         <!-- 降级：suggested / clause 任一为空 → 显示纯 clauseText -->
-        <div v-else class="p-3 rounded-md bg-muted/40 whitespace-pre-wrap leading-relaxed">{{ clauseText }}</div>
+        <div v-else class="rounded-md px-3 py-2.5 bg-muted text-[12.5px] leading-relaxed whitespace-pre-wrap">{{ clauseText }}</div>
     </div>
 </template>

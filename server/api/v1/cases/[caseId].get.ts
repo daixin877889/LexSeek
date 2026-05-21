@@ -75,6 +75,14 @@ export default defineEventHandler(async (event) => {
             defendant: caseRecord.defendant,
             status: caseRecord.status,
             isDemo: caseRecord.isDemo,
+            // 基础信息补全（spec §3.2）：详情页 / 编辑信息卡片需要这些字段
+            summary: caseRecord.summary,
+            courtName: caseRecord.courtName,
+            firstInstanceCaseNo: caseRecord.firstInstanceCaseNo,
+            firstInstanceJudge: caseRecord.firstInstanceJudge,
+            secondInstanceCaseNo: caseRecord.secondInstanceCaseNo,
+            secondInstanceJudge: caseRecord.secondInstanceJudge,
+            stance: caseRecord.stance,
             createdAt: caseRecord.createdAt,
             updatedAt: caseRecord.updatedAt,
             caseType: caseRecord.caseType ? {

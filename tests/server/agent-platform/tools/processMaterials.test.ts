@@ -29,6 +29,7 @@ function setEstimateMultiplier(n: number) { estimateMultiplier = n }
 vi.mock('~~/server/services/material/materialPipeline.service', () => ({
     ensureMaterialsReadyService: vi.fn(),
     ensureMaterialsReadyByDraftService: vi.fn(),
+    ensureMaterialsReadyBySessionService: vi.fn(),
     getMaterialContextService: vi.fn(),
     estimateTokens: (text: string) => (text ? text.length * estimateMultiplier : 0),
     getSourceId: (m: any) => m.ossFileId ?? m.id,
@@ -45,6 +46,7 @@ vi.mock('~~/server/utils/tokenCounter', () => ({
 import {
     ensureMaterialsReadyService,
     ensureMaterialsReadyByDraftService,
+    ensureMaterialsReadyBySessionService,
     getMaterialContextService,
 } from '~~/server/services/material/materialPipeline.service'
 import { createTool } from '~~/server/services/agent-platform/tools/processMaterials.tool'
@@ -65,15 +67,16 @@ describe('process_materials 工具', () => {
         vi.clearAllMocks()
     })
 
-    it('缺 caseId 和 draftId 时返回 error JSON', async () => {
-        const tool = createTool({ ...baseCtx })
+    it('caseId / draftId / sessionId 全缺时返回 error JSON', async () => {
+        const tool = createTool({ userId: 1, sessionId: '' } as any)
         const raw: any = await tool.invoke({}, { toolCall: { id: 'c1' } } as any)
         const result = JSON.parse(typeof raw === 'string' ? raw : raw.content)
         expect(result.error).toBe('材料处理失败')
-        expect(result.message).toMatch(/caseId 或 draftId/)
+        expect(result.message).toMatch(/sessionId/)
         // 异常分支不会调下游入口
         expect(ensureMaterialsReadyService).not.toHaveBeenCalled()
         expect(ensureMaterialsReadyByDraftService).not.toHaveBeenCalled()
+        expect(ensureMaterialsReadyBySessionService).not.toHaveBeenCalled()
     })
 
     it('caseId 路径：空材料返回 empty 模式且文案为案件版本', async () => {
@@ -285,5 +288,28 @@ describe('process_materials 工具', () => {
 
         expect(result.error).toBe('材料处理失败')
         expect(result.message).toBe('数据库连接失败')
+    })
+})
+
+describe('process_materials —— 会话归属分支', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('无 caseId/draftId 但有 sessionId 时走 ensureMaterialsReadyBySessionService', async () => {
+        ;(ensureMaterialsReadyBySessionService as any).mockResolvedValue({
+            materials: [],
+            totalMaterials: 0,
+            alreadyEmbedded: 0,
+            newlyProcessed: 0,
+            embeddedMap: new Map(),
+            failed: [],
+        })
+        const tool = createTool({ userId: 1, sessionId: 'sess-1' } as any)
+        const raw: any = await tool.invoke({ fileIds: [9] }, { toolCall: { id: 'c1' } } as any)
+        const result = JSON.parse(typeof raw === 'string' ? raw : raw.content)
+        expect(ensureMaterialsReadyBySessionService).toHaveBeenCalledWith('sess-1', 1, { fileIds: [9] })
+        expect(result.mode).toBe('empty')
+        expect(result.message).toContain('本对话')
     })
 })

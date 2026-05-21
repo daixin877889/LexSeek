@@ -35,6 +35,25 @@ import { isContextOverflowError, logContextOverflow } from '../workflow/context/
 import { getCheckpointer } from '../workflow/checkpointer'
 import { withLangfuseContext } from '~~/server/lib/langfuse'
 
+/**
+ * Worker 主动 abort run 时的语义分类，通过 AbortController.signal.reason 携带：
+ * - Cancelled：用户主动取消 / 心跳丢失被接管 → DB 写 CANCELLED，前端不报错
+ * - Shutdown：Worker 进程关停 → DB 重置回 PENDING 等其他 Worker 接管，前端不收终态
+ * - Timeout：Agent 执行超时 → DB 写 FAILED，前端弹错供用户重试
+ */
+export enum WorkerAbortKind {
+  Cancelled = 'cancelled',
+  Shutdown = 'shutdown',
+  Timeout = 'timeout',
+}
+
+export class WorkerAbortError extends Error {
+  constructor(message: string, readonly kind: WorkerAbortKind) {
+    super(message)
+    this.name = 'WorkerAbortError'
+  }
+}
+
 export interface AgentWorkerConfig {
   maxConcurrent: number
   timeoutMs: number
@@ -147,7 +166,7 @@ export class AgentWorker {
     // 超时计时器
     const timeoutTimer = setTimeout(() => {
       logger.warn(`Run ${run.id} 超时，终止执行`)
-      abortController.abort(new Error('Agent 执行超时'))
+      abortController.abort(new WorkerAbortError('Agent 执行超时', WorkerAbortKind.Timeout))
     }, this.config.timeoutMs)
 
     try {
@@ -207,6 +226,19 @@ export class AgentWorker {
         throw new Error(`case session ${run.sessionId} 缺失 caseId（scope 与 caseId 不一致，数据损坏）`)
       }
 
+      // 首条用户消息一发即并行生成会话标题（与 agent 回答并行，不阻塞）
+      // 触发条件：assistant 会话 + 尚无标题 + 本轮带用户消息。
+      // 失败/中断都不影响——它在 agent 执行前就已触发；下一轮带消息的 run 会自动重试。
+      if (
+        scope === SessionScope.ASSISTANT
+        && !session.title
+        && session.userId != null
+        && typeof input.message === 'string'
+        && input.message.trim().length > 0
+      ) {
+        void generateSessionTitleAsync(run.sessionId, session.userId, input.message)
+      }
+
       const type = session.type ?? null
       const meta = session.metadata as Record<string, unknown> | null
 
@@ -231,60 +263,20 @@ export class AgentWorker {
         },
       )
 
-      // 遍历 SSE stream 并发布事件到 Redis
-      const reader = stream.getReader()
-      const decoder = new TextDecoder()
-      // 缓冲最后一个 values 事件，stream 结束后可能需要注入 __interrupt__
-      let lastValuesData: unknown = null
-
-      try {
-        while (!abortController.signal.aborted) {
-          const { done, value } = await reader.read()
-          if (done) break
-
-          const text = decoder.decode(value, { stream: true })
-          // 解析 SSE 事件并发布
-          const events = parseSSEEvents(text)
-          for (const evt of events) {
-            // 剥离 system 消息（防止系统提示词泄露）
-            const sanitized = stripSystemMessages(evt.event, evt.data)
-            if (sanitized === null) continue
-
-            // 缓冲最后一个 values 事件数据（用于 interrupt 检测后合并）
-            if (evt.event === 'values') {
-              lastValuesData = sanitized
-            }
-            await publishAgentEvent({
-              type: 'stream_event',
-              runId: run.id,
-              sessionId: run.sessionId,
-              event: evt.event as 'values' | 'messages' | 'updates',
-              data: sanitized,
-            })
-          }
-        }
-        // flush decoder 缓冲区中可能残留的数据
-        const remaining = decoder.decode()
-        if (remaining) {
-          const events = parseSSEEvents(remaining)
-          for (const evt of events) {
-            const sanitized = stripSystemMessages(evt.event, evt.data)
-            if (sanitized === null) continue
-
-            if (evt.event === 'values') lastValuesData = sanitized
-            await publishAgentEvent({
-              type: 'stream_event',
-              runId: run.id,
-              sessionId: run.sessionId,
-              event: evt.event as 'values' | 'messages' | 'updates',
-              data: sanitized,
-            })
-          }
-        }
-      }
-      finally {
-        reader.releaseLock()
-      }
+      // 遍历 SSE stream 并发布事件到 Redis。
+      // 中断时由 consumeAgentStream 内部 cancel() 把取消透传到上游 LangGraph 流，
+      // 确保图层级运行收到结束回调（否则 Langfuse 会留下无根的无名 trace）。
+      const { lastValuesData } = await consumeAgentStream(
+        stream,
+        abortController.signal,
+        (event, data) => publishAgentEvent({
+          type: 'stream_event',
+          runId: run.id,
+          sessionId: run.sessionId,
+          event: event as 'values' | 'messages' | 'updates',
+          data,
+        }),
+      )
 
       if (abortController.signal.aborted) {
         throw abortController.signal.reason ?? new Error('Run was aborted')
@@ -353,47 +345,26 @@ export class AgentWorker {
         sessionId: run.sessionId,
         status: AGENT_RUN_STATUS.COMPLETED,
       })
-
-      // 异步生成 assistant 会话标题（非阻塞，失败吞异常）
-      // spec §5.6.1：首条对话完成后根据首轮消息自动生成 ≤20 字标题
-      // 使用 lastValuesData 缓冲避免重新调 checkpointer，规避 commit 与 completedAt 时序竞态
-      if (
-        session.scope === SessionScope.ASSISTANT
-        && !session.title
-        && session.userId != null
-        && lastValuesData
-        && typeof lastValuesData === 'object'
-      ) {
-        const msgs = (lastValuesData as { messages?: unknown[] }).messages ?? []
-        const firstUser = msgs.find((m) => {
-          if (!m || typeof m !== 'object') return false
-          const msg = m as { _getType?: () => string; type?: string }
-          return msg._getType?.() === 'human' || msg.type === 'human'
-        }) as { content?: unknown } | undefined
-        const firstAI = msgs.find((m) => {
-          if (!m || typeof m !== 'object') return false
-          const msg = m as { _getType?: () => string; type?: string }
-          return msg._getType?.() === 'ai' || msg.type === 'ai'
-        }) as { content?: unknown } | undefined
-        if (firstUser?.content && firstAI?.content) {
-          const userText = typeof firstUser.content === 'string'
-            ? firstUser.content
-            : JSON.stringify(firstUser.content)
-          const aiText = typeof firstAI.content === 'string'
-            ? firstAI.content
-            : JSON.stringify(firstAI.content)
-          void generateSessionTitleAsync(
-            run.sessionId,
-            session.userId,
-            userText,
-            aiText,
-          )
-        }
-      }
     }
     catch (err: any) {
       const errorMessage = err?.message ?? '未知错误'
-      const isCancelled = errorMessage.includes('cancelled') || errorMessage.includes('aborted')
+      // 通过 AbortController.signal.reason 而非 errorMessage 子串匹配区分 abort 语义：
+      // 'Worker shutdown' / 'Agent 执行超时' / '心跳丢失' 都不含 cancelled/aborted 关键词，
+      // 旧实现会把它们错标为 FAILED 让用户看到「分析失败」。
+      const abortReason = abortController.signal.aborted ? abortController.signal.reason : null
+      const abortKind = abortReason instanceof WorkerAbortError ? abortReason.kind : null
+
+      // Worker 关停：把 run 重置回 pending 让其他 worker 接管，不写终态、不发 status_change。
+      // 跳过 repairOrphanToolUseCheckpoint —— 下个 worker claim 后 executeRunInner
+      // 开头的 lazy repair（约 188 行）会再扫一次，这里再修是纯重复。
+      if (abortKind === WorkerAbortKind.Shutdown) {
+        await resetStaleRunDAO(run.id, this.workerId).catch(e =>
+          logger.error(`[Shutdown reset] 重置 run=${run.id} 为 pending 失败:`, e),
+        )
+        return
+      }
+
+      const isCancelled = abortKind === WorkerAbortKind.Cancelled
       const status = isCancelled ? AGENT_RUN_STATUS.CANCELLED : AGENT_RUN_STATUS.FAILED
 
       // 识别上下文超限错误并打印结构化日志（含当前 checkpoint 消息分布）
@@ -403,7 +374,7 @@ export class AgentWorker {
         })
       }
 
-      // 只在非取消情况下更新为 failed（取消由 cancelRunService 处理）
+      // 取消由 cancelRunService 处理，这里只在 failed 路径写库
       if (!isCancelled) {
         await updateRunStatusDAO(run.id, status, {
           error: errorMessage,
@@ -413,8 +384,7 @@ export class AgentWorker {
 
       // 修复 checkpoint 中可能的 orphan tool_use
       // LangGraph step-level checkpoint 在工具节点中断时会留下 AIMessage(tool_use)
-      // 没有对应的 ToolMessage，导致用户"继续"对话时 Anthropic API 返回 400
-      // invalid_request_error。cancel 和 fail 路径都可能留下 orphan，都需要修复
+      // 没有对应的 ToolMessage，导致用户"继续"对话时 Anthropic API 返回 400 invalid_request_error
       try {
         const catchResult = await repairOrphanToolUseCheckpoint(run.sessionId, errorMessage)
         if (catchResult.parseFailures > 0) {
@@ -431,7 +401,7 @@ export class AgentWorker {
         runId: run.id,
         sessionId: run.sessionId,
         status,
-        error: isCancelled ? undefined : errorMessage, // 新增
+        error: isCancelled ? undefined : errorMessage,
       }).catch(e => logger.error('发布状态变更失败:', e))
 
       if (!isCancelled) {
@@ -454,7 +424,7 @@ export class AgentWorker {
     const controller = this.activeRuns.get(runId)
     if (controller) {
       logger.info(`收到取消信号: run=${runId}`)
-      controller.abort(new Error('Run cancelled'))
+      controller.abort(new WorkerAbortError('Run cancelled', WorkerAbortKind.Cancelled))
     }
   }
 
@@ -469,7 +439,7 @@ export class AgentWorker {
           // 心跳更新返回 0 但有活跃 run → 可能被其他 Worker 接管了
           logger.warn(`心跳更新返回 0，但仍有 ${this.activeRuns.size} 个活跃 run，终止执行`)
           for (const [runId, controller] of this.activeRuns) {
-            controller.abort(new Error('心跳丢失，任务可能已被接管'))
+            controller.abort(new WorkerAbortError('心跳丢失，任务可能已被接管', WorkerAbortKind.Cancelled))
           }
         }
       }
@@ -528,11 +498,22 @@ export class AgentWorker {
         await new Promise(r => setTimeout(r, 1000))
       }
 
-      // 超时未完成则强制取消
+      // 超时仍未完成则强制中断：abort 后 catch 块走 Shutdown 分支把 run 重置回 pending，
+      // 由其他 worker / 重启后的本 worker 通过任务队列自然接管。
+      // 再等 5 秒让 catch 块跑完 DB reset；否则进程立即退出会留下 status=RUNNING
+      // 的孤儿 run，需要走 crash recovery 兜底（耗时约 2*crashThresholdMs）。
       if (this.activeRuns.size > 0) {
-        logger.warn(`强制取消 ${this.activeRuns.size} 个未完成任务`)
+        logger.warn(`强制中断 ${this.activeRuns.size} 个未完成任务，由 catch 流程重置为 pending`)
         for (const [_runId, controller] of this.activeRuns) {
-          controller.abort(new Error('Worker shutdown'))
+          controller.abort(new WorkerAbortError('Worker shutdown', WorkerAbortKind.Shutdown))
+        }
+
+        const cleanupDeadline = Date.now() + 5_000
+        while (this.activeRuns.size > 0 && Date.now() < cleanupDeadline) {
+          await new Promise(r => setTimeout(r, 100))
+        }
+        if (this.activeRuns.size > 0) {
+          logger.warn(`Worker shutdown: ${this.activeRuns.size} 个任务的 catch 流程未在 5s 内完成，依赖 crash recovery 接管`)
         }
       }
     }
@@ -549,6 +530,65 @@ export class AgentWorker {
   get shuttingDown(): boolean {
     return this.isShuttingDown
   }
+}
+
+/**
+ * 消费 Agent 的 SSE ReadableStream，逐事件回调投递。
+ *
+ * 中断时必须 `reader.cancel()` 把取消透传到上游 LangGraph 流：仅 `releaseLock()`
+ * 不会取消上游，图层级运行收不到结束回调，Langfuse 根 span 永不 end、永不上报，
+ * 只剩无根的孤儿子观测——在 Langfuse 列表里表现为「无名」trace。
+ *
+ * @param stream  agentRegistry.dispatch 返回的 SSE 流
+ * @param signal  本次 run 的中断信号（取消 / 超时 / 心跳丢失 / worker 关停均会 abort）
+ * @param onEvent 每条 SSE 事件的投递回调（已剥离 system / internal 消息）
+ * @returns lastValuesData 最后一个 values 事件的数据（用于流结束后的 interrupt 检测）
+ */
+export async function consumeAgentStream(
+  stream: ReadableStream,
+  signal: AbortSignal,
+  onEvent: (event: string, data: unknown) => Promise<void>,
+): Promise<{ lastValuesData: unknown }> {
+  const reader = stream.getReader()
+  const decoder = new TextDecoder()
+  // 缓冲最后一个 values 事件，stream 结束后可能需要注入 __interrupt__
+  let lastValuesData: unknown = null
+
+  const dispatch = async (text: string): Promise<void> => {
+    for (const evt of parseSSEEvents(text)) {
+      // 剥离 system 消息（防止系统提示词泄露）
+      const sanitized = stripSystemMessages(evt.event, evt.data)
+      if (sanitized === null) continue
+      if (evt.event === 'values') lastValuesData = sanitized
+      await onEvent(evt.event, sanitized)
+    }
+  }
+
+  let completed = false
+  try {
+    while (!signal.aborted) {
+      const { done, value } = await reader.read()
+      if (done) break
+      await dispatch(decoder.decode(value, { stream: true }))
+    }
+    // flush decoder 缓冲区中可能残留的数据
+    const remaining = decoder.decode()
+    if (remaining) await dispatch(remaining)
+    completed = true
+  }
+  finally {
+    if (completed && !signal.aborted) {
+      reader.releaseLock()
+    }
+    else {
+      // 中断 / 异常退出（如 onEvent 投递抛错）：cancel() 把取消透传到上游
+      // LangGraph 流，触发其结束回调，让 Langfuse 图层级 span 正常 end ——
+      // 否则上游流被遗弃，留下无根的无名孤儿 trace。
+      await reader.cancel(signal.reason).catch(() => { /* 忽略 cancel 清理异常 */ })
+    }
+  }
+
+  return { lastValuesData }
 }
 
 /**

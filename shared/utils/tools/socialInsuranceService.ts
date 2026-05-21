@@ -6,16 +6,10 @@ import type {
     SocialInsuranceRates,
     SocialInsuranceBackpayResult
 } from '#shared/types/tools'
+import { DEFAULT_SOCIAL_INSURANCE_RATES } from './data/socialInsuranceRates'
 
-// 默认缴费比例
-const defaultRates: Required<SocialInsuranceRates> = {
-    pension: { employee: 0.08, employer: 0.16 },
-    medical: { employee: 0.02, employer: 0.08 },
-    unemployment: { employee: 0.005, employer: 0.015 },
-    injury: { employee: 0, employer: 0.005 },
-    maternity: { employee: 0, employer: 0.01 },
-    housing: { employee: 0.07, employer: 0.07 }
-}
+// 默认缴费比例（引用 data 层常量）
+const defaultRates: Required<SocialInsuranceRates> = DEFAULT_SOCIAL_INSURANCE_RATES
 
 /**
  * 计算社保追缴金额

@@ -22,6 +22,7 @@ import type { CaseDetailMaterialItem } from '~/composables/useCaseDetail'
 import { CaseMaterialType } from '#shared/types/case'
 import AiChat from '~/components/ai/AiChat.vue'
 import AiChatQueueChips from '~/components/ai/AiChatQueueChips.vue'
+import QueuePausedBanner from '~/components/ai/QueuePausedBanner.vue'
 import { PANEL_TOOL_MAP } from '~/components/agents/panelToolMap'
 import AssistantDocumentAllMaterialsSheet from '~/components/assistant/document/AllMaterialsSheet.vue'
 import AssistantDocumentDraftTitleInput from '~/components/assistant/document/DocumentDraftTitleInput.vue'
@@ -46,6 +47,7 @@ import { useDocumentDraftVersions } from '~/composables/document/useDocumentDraf
 import { useDocumentDraftSnapshots } from '~/composables/document/useDocumentDraftSnapshots'
 import { useDocumentDraftPreview } from '~/composables/document/useDocumentDraftPreview'
 import { useInterruptToast } from '~/composables/useInterruptToast'
+import { usePanelMessageStreamContext } from '~/composables/agent-platform/usePanelMessageStreamContext'
 import { useAlertDialogStore } from '~/store/alertDialog'
 import { triggerBrowserDownloadUrl } from '~/utils/browserDownload'
 
@@ -55,6 +57,7 @@ definePageMeta({
 })
 
 const route = useRoute()
+const router = useRouter()
 const draftId = computed(() => Number(route.params.id))
 
 // 草稿 ID Ref（mountDraft 之后写入；sub-composable 内部 read）
@@ -245,6 +248,46 @@ onMounted(async () => {
         loadError.value = e instanceof Error ? e.message : '加载草稿失败'
     } finally {
         loading.value = false
+    }
+
+    // 自动启动 AI 生成（来自案件详情页跳转，由 cases/[id].vue handleTemplateSelect 加 autoAi=1）
+    //
+    // 设计要点（与 spec §3.3 / Task D2 一致）：
+    //  - 检查放在 onMounted 内（不放 watch(route.query)）：避免后面 router.replace 清除
+    //    autoAi 时产生多余触发；本副作用仅需要触发一次。
+    //  - 草稿可能已加载（走 if 直接 fire），也可能还在异步加载（用 watch 等就绪信号）；
+    //    watch 不监听 route.query，被 router.replace 不会触发。
+    //  - openAgent + nextTick + handleChatSubmit 让浮窗先挂载、再发起对话指令。
+    //
+    // 注意：不要用 `const stopWatch = watch(..., { immediate: true })` 然后在回调里调
+    // `stopWatch()`——immediate 会在 const 赋值前就触发回调，造成 TDZ ReferenceError。
+    if (route.query.autoAi === '1') {
+        const fireAutoAi = (d: { templateName?: string | null }) => {
+            const tplName = d.templateName ?? '本文书'
+            openAgent()
+            nextTick(() => {
+                handleChatSubmit({ text: `请根据当前案件信息生成《${tplName}》` })
+                // 清除 autoAi query 防止刷新重复触发；其他 query 字段保留
+                const { autoAi: _autoAi, ...rest } = route.query
+                router.replace({ query: { ...rest } })
+            })
+        }
+        if (draft.value) {
+            // 草稿已就绪：下一帧立即触发
+            nextTick(() => fireAutoAi(draft.value as { templateName?: string | null }))
+        }
+        else {
+            // 草稿尚在加载：watch 等就绪后单次触发；stop 在 watch 返回后才被调用，无 TDZ
+            const stop = watch(
+                () => draft.value,
+                (d) => {
+                    if (!d) return
+                    stop()
+                    fireAutoAi(d as { templateName?: string | null })
+                },
+                { flush: 'post' },
+            )
+        }
     }
 })
 
@@ -606,6 +649,20 @@ function handleResumeInterrupt(data: unknown) {
     resumeInterrupt(data)
 }
 
+const { resolveInterrupt } = usePanelMessageStreamContext({
+    interruptData,
+    resumeInterrupt,
+    sessionRef: sessionIdRef,
+})
+
+async function handleCancel() {
+    try {
+        await resolveInterrupt(null)
+    } catch (err) {
+        console.error('[document-draft] interrupt cancel failed', err)
+    }
+}
+
 // 失败时显示重试按钮（useDocumentDraft 暴露 runStatus: failed）
 watch(runStatus, (status) => {
     if (status === 'failed') {
@@ -649,7 +706,7 @@ function handlePanelResize(sizes: number[]) {
 
 <template>
     <div class="p-4 md:p-6 flex flex-col gap-4" style="height: calc(100vh - 48px)">
-        <!-- 顶部来源条仅当从法律助手 / 小索跳入时显示 -->
+        <!-- 顶部来源条仅当从通用问答 / 小索跳入时显示 -->
         <AgentsDocumentDraftSourceBar
             v-if="showSourceBar"
             :from="fromSource"
@@ -683,7 +740,7 @@ function handlePanelResize(sizes: number[]) {
                     <SaveIcon class="size-4" />
                     <span class="hidden lg:inline ml-1">保存当前为版本</span>
                 </Button>
-                <Button variant="default" class="shadow-sm" title="AI 生成" @click="openAgent">
+                <Button variant="default" title="AI 生成" @click="openAgent">
                     <SparklesIcon class="size-4" />
                     <span class="hidden sm:inline ml-1">AI 生成</span>
                 </Button>
@@ -770,6 +827,13 @@ function handlePanelResize(sizes: number[]) {
 
         <!-- 悬浮 Agent 窗 -->
         <CaseChatWindowShell v-model:open="agentOpen" title="文书生成助手" :initial-width="420" :initial-height="560">
+            <!-- 队列残留提示条：停止/放弃中断后队列有未发送消息时显示 -->
+            <QueuePausedBanner
+                v-if="queueLen > 0 && isQueuePaused"
+                :queue-length="queueLen"
+                @resume="() => resumeQueue()"
+                @clear="() => clearQueue()"
+            />
             <AiChat ref="aiChatRef" :messages="chatMessages" :loading="chatLoading" :is-interrupted="isInterrupted"
                 :enable-file-upload="true" :queue-length="queueLen" :queue-full="queueFull" :is-stopping="isStopping"
                 prompt-placeholder="告诉 AI 你想怎么填..." :show-header="false" panel-mode="left"
@@ -800,7 +864,7 @@ function handlePanelResize(sizes: number[]) {
                 </DialogHeader>
                 <div v-if="interruptData" class="p-6">
                     <InterruptDispatcher :interrupt="interruptData as any" @submit="handleResumeInterrupt"
-                        @cancel="() => { }" />
+                        @cancel="handleCancel" />
                 </div>
             </DialogContent>
         </Dialog>

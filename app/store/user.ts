@@ -20,6 +20,8 @@ export const useUserStore = defineStore("user", () => {
     company: "",
     profile: "",
     inviteCode: "",
+    contractExportSignature: null,
+    apiKey: null,
   });
 
   const pending = ref(false);
@@ -85,7 +87,7 @@ export const useUserStore = defineStore("user", () => {
   /**
    * 更新用户资料
    */
-  const updateUserProfile = async (data: { name: string, company: string, profile: string }) => {
+  const updateUserProfile = async (data: { name: string, company: string, profile: string, contractExportSignature?: string }) => {
     const updatedData = await useApiFetch<SafeUserInfo>("/api/v1/users/profile", {
       method: "PUT",
       body: data,
@@ -130,6 +132,8 @@ export const useUserStore = defineStore("user", () => {
       company: "",
       profile: "",
       inviteCode: "",
+      contractExportSignature: null,
+      apiKey: null,
     });
     fetchError.value = null;
   };

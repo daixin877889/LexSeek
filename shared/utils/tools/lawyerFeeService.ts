@@ -15,6 +15,8 @@ import type {
     LawyerFeeOptions,
     LawyerFeeResult
 } from '#shared/types/tools'
+import { LAWYER_CIVIL_BRACKETS } from './data/feeBrackets'
+import { applyBrackets } from './algorithms'
 
 /**
  * 计算律师费用
@@ -156,26 +158,11 @@ function calculateCivilLawyerFee(
     amount: number,
     complexity: ComplexityType,
     regionCoefficient: number,
-    hasAppeal: boolean = false,
-    hasExecution: boolean = false,
-    stages: CivilStage[] = []
+    hasAppeal: boolean,
+    hasExecution: boolean,
+    stages: CivilStage[]
 ): number {
-    let baseFee = 0
-
-    // 基础收费阶梯
-    if (amount <= 100000) {
-        baseFee = 5000
-    } else if (amount <= 500000) {
-        baseFee = 5000 + (amount - 100000) * 0.04
-    } else if (amount <= 1000000) {
-        baseFee = 5000 + 400000 * 0.04 + (amount - 500000) * 0.03
-    } else if (amount <= 5000000) {
-        baseFee = 5000 + 400000 * 0.04 + 500000 * 0.03 + (amount - 1000000) * 0.02
-    } else if (amount <= 10000000) {
-        baseFee = 5000 + 400000 * 0.04 + 500000 * 0.03 + 4000000 * 0.02 + (amount - 5000000) * 0.01
-    } else {
-        baseFee = 5000 + 400000 * 0.04 + 500000 * 0.03 + 4000000 * 0.02 + 5000000 * 0.01 + (amount - 10000000) * 0.005
-    }
+    let baseFee = applyBrackets(amount, LAWYER_CIVIL_BRACKETS)
 
     // 复杂度调整
     let complexityFactor = 1.0
@@ -256,8 +243,8 @@ function getCivilFeeDescription(amount: number): string {
 function calculateCriminalLawyerFee(
     complexity: ComplexityType,
     regionCoefficient: number,
-    stages: CriminalStage[] = [],
-    caseDuration: number = 1
+    stages: CriminalStage[],
+    caseDuration: number
 ): number {
     let baseFee = getCriminalBaseFee(complexity)
 
@@ -313,7 +300,7 @@ function getCriminalBaseFee(complexity: ComplexityType): number {
 function calculateAdministrativeLawyerFee(
     type: LawyerAdministrativeType,
     regionCoefficient: number,
-    hasAppeal: boolean = false
+    hasAppeal: boolean
 ): number {
     let baseFee = getAdministrativeBaseFee(type)
 
@@ -364,9 +351,9 @@ function getConsultationHourlyRate(regionCoefficient: number): number {
  * 计算法律文书费用
  */
 function calculateDocumentFee(
-    documentType: DocumentType | undefined = 'contract',
+    documentType: DocumentType | undefined,
     regionCoefficient: number,
-    complexity: ComplexityType | undefined = 'medium'
+    complexity: ComplexityType | undefined
 ): number {
     let baseFee = 0
 
@@ -411,8 +398,8 @@ function calculateDocumentFee(
  * 计算商事法律服务费用
  */
 function calculateCommercialFee(
-    commercialType: CommercialType | undefined = 'contract_review',
-    amount: number = 0,
+    commercialType: CommercialType | undefined,
+    amount: number,
     regionCoefficient: number
 ): number {
     let baseFee = 0
@@ -531,10 +518,7 @@ function getAdministrativeTypeText(type: LawyerAdministrativeType): string {
  * 获取代理阶段文本
  */
 function getStagesText(stages: (CivilStage | CriminalStage)[]): string {
-    if (!stages || stages.length === 0) {
-        return '全程代理'
-    }
-
+    // 调用方 calculateLawyerFee 已通过 `if (stages && stages.length > 0)` 守卫，此处 stages 必非空
     const stageTexts: Record<string, string> = {
         'preparation': '准备阶段',
         'evidence': '举证阶段',

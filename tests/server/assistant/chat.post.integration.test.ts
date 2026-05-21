@@ -51,6 +51,7 @@ const resSuccess = (_event: any, message: string, data: any) => ({
 // Mock SSE stream 避免订阅 Redis / 调 LangGraph
 vi.mock('~~/server/services/sse/agentSseStream', () => ({
     createAgentSseStream: vi.fn(() => new ReadableStream()),
+    createEmptyAgentSseResponse: vi.fn(() => new Response(new ReadableStream())),
 }))
 
 // Mock 积分检查（按每个用例调整返回值）
@@ -346,7 +347,7 @@ describe('POST /api/v1/assistant/chat', () => {
             expect(runs).toHaveLength(1)
         })
 
-        it('分支 6: 无活跃 run + 无消息无 command + 无 latest run → 400', async () => {
+        it('分支 6: 无活跃 run + 无消息无 command + 无 latest run → 返回空 SSE 流（不报错、不建 run）', async () => {
             const user = await createTestUser()
             testIds.userIds.push(user.id)
             const s = await createAssistantSessionDAO({ userId: user.id })
@@ -358,8 +359,12 @@ describe('POST /api/v1/assistant/chat', () => {
                     body: { sessionId: s.sessionId },
                 }) as any,
             )
-            expect(res.code).toBe(400)
-            expect(res.message).toContain('消息不能为空')
+            // 全新空会话拉历史（loadHistory → submit(undefined)）：返回空 SSE 流而非报错，
+            // 修复进入工作区顶部「消息不能为空」警告条 bug
+            expect(res).toBeInstanceOf(Response)
+            // 不应新建 run
+            const runs = await getTestPrisma().agentRuns.findMany({ where: { sessionId: s.sessionId } })
+            expect(runs).toHaveLength(0)
         })
 
         it('分支 2: 活跃 RUNNING + 新消息 → 429', async () => {

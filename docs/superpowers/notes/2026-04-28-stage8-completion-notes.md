@@ -106,7 +106,7 @@ f69fb2b0 docs(stage8): plan v3（含 5 个决策落定 + 实施任务拆解 + 4 
 - 7 个模块对话各开一遍验证 `skillsCount=1`（log 应显示按节点绑定的 1 本手册）
 - 小索发一条消息验证 `skillsCount=14 + skillToolsCount=4`
 - 抽样 5-10 个真实案件人工对比新老提示词输出质量
-- 法律助手 / 文书 / 合同审查回归（确认未受 stage 8 改造影响）
+- 通用问答 / 文书 / 合同审查回归（确认未受 stage 8 改造影响）
 - 生产库 SQL 同步（参考 `/tmp/stage8-final-sync.sql` 内容，由用户在生产环境跑）
 
 ## 阶段 8 沉淀机制

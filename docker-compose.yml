@@ -20,7 +20,7 @@ services:
       # 数据库连接（必填）
       - DATABASE_URL=${DATABASE_URL}
       # JWT 配置
-      - NUXT_JWT_SECRET=${NUXT_JWT_SECRET:-lexseek_jwt_secret}
+      - NUXT_JWT_SECRET=${NUXT_JWT_SECRET:?生产部署必须配置强随机 JWT 密钥}
       - NUXT_JWT_EXPIRES_IN=${NUXT_JWT_EXPIRES_IN:-30d}
       # 认证配置
       - NUXT_AUTH_COOKIE_NAME=${NUXT_AUTH_COOKIE_NAME:-auth_token}

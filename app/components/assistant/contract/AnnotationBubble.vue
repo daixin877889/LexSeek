@@ -32,7 +32,7 @@ function formatTime(value: string | Date): string {
 <template>
     <div class="flex gap-2 text-xs">
         <div
-            class="size-5 rounded-full flex items-center justify-center shrink-0 mt-0.5"
+            class="size-[22px] rounded-full flex items-center justify-center shrink-0 mt-0.5"
             :class="annotation.authorType === 'ai'
                 ? 'bg-primary/10 text-primary'
                 : 'bg-muted text-muted-foreground'"
@@ -41,18 +41,18 @@ function formatTime(value: string | Date): string {
             <UserIcon v-else class="size-3" />
         </div>
         <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-1">
-                <span class="font-medium">
+            <div class="flex items-center gap-1.5">
+                <span class="font-semibold">
                     {{ annotation.authorType === 'ai' ? 'AI' : annotation.authorName }}
                 </span>
-                <span class="text-muted-foreground text-[10px]">{{ formatTime(annotation.createdAt) }}</span>
+                <span class="text-muted-foreground text-[10.5px]">{{ formatTime(annotation.createdAt) }}</span>
                 <button
                     v-if="canDelete"
-                    class="ml-auto text-muted-foreground hover:text-destructive"
+                    class="ml-auto size-5 rounded-[5px] flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                     aria-label="删除批注"
                     @click="emit('delete', annotation.id)"
                 >
-                    <Trash2Icon class="size-3" />
+                    <Trash2Icon class="size-[11px]" />
                 </button>
             </div>
             <div class="mt-0.5 text-muted-foreground leading-relaxed whitespace-pre-wrap break-words">

@@ -2,7 +2,7 @@
 /**
  * 合同审查工具结果卡片（Mockup C）
  *
- * 由法律助手 chat panel 通过 AiToolRenderer.toolMap 注入。
+ * 由通用问答 chat panel 通过 AiToolRenderer.toolMap 注入。
  * - 执行中：spinner + "正在分析合同..."
  * - 已完成：合同名 + 甲乙方 + 风险统计（高/中/低）+ Top 3 风险 + 跳转按钮
  * - 失败：红色边框 + 错误信息
@@ -102,7 +102,7 @@ function handleOpen() {
 
 <template>
     <div
-        class="not-prose group my-2 w-full max-w-md rounded-lg border bg-card p-4 shadow-sm transition-colors"
+        class="not-prose group my-2 w-full max-w-md rounded-lg border bg-card p-4 transition-colors"
         :class="[
             isRunning && 'border-primary/40 bg-primary/5',
             isFailed && 'border-destructive/40 bg-destructive/5',

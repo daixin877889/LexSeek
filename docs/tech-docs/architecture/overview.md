@@ -65,7 +65,7 @@ LexSeek/
 │   │   ├── ui/                  # shadcn-vue 基础组件 (禁止修改)
 │   │   └── */                   # 业务组件 (按功能域组织，约 24 个模块)
 │   ├── composables/              # 组合式函数 (33 个 use*.ts)
-│   ├── pages/                    # 页面路由 (文件系统路由，约 83 个文件)
+│   ├── pages/                    # 页面路由 (文件系统路由，约 105 个文件)
 │   │   ├── admin/               # 管理后台 (20+ 页面)
 │   │   ├── dashboard/           # 用户仪表板 (案件/工具/会员/设置)
 │   │   └── *.vue                # 公共页面 (登录/注册/定价/隐私协议等)
@@ -81,9 +81,9 @@ LexSeek/
 │   ├── lib/                      # 工具函数 (cn, utils)
 │   └── assets/                   # 静态资源 (CSS/图片)
 ├── server/                       # 服务端 (Nitro)
-│   ├── api/v1/                   # REST API 路由 (25 个模块)
+│   ├── api/v1/                   # REST API 路由 (27 个模块)
 │   │   ├── admin/               # 管理接口 (权限/角色/用户/产品/法规/合同/文书/节点/skills 等)
-│   │   ├── assistant/           # 法律助手 / 文书 / 合同 用户端接口
+│   │   ├── assistant/           # 通用问答 / 文书 / 合同 用户端接口
 │   │   ├── auth/                # 认证 (登录/注册/密码)
 │   │   ├── callback/            # 第三方异步回调（含 MinerU）
 │   │   ├── cases/               # 案件分析 (分析运行 / 会话 / init-analysis)
@@ -104,6 +104,7 @@ LexSeek/
 │   │   ├── skills/              # Skill 列表 / labels（用户端）
 │   │   ├── sms/                 # 短信验证码
 │   │   ├── storage/             # 存储 (预签名 / 回调 / confirm-upload 兜底)
+│   │   ├── tools/               # 工具页接口（LPR / 利率等工具数据）
 │   │   ├── users/               # 用户 (个人信息/权限/权益)
 │   │   ├── wechat/              # 微信公众号 OAuth
 │   │   └── campaigns/           # 营销活动
@@ -114,9 +115,9 @@ LexSeek/
 │   │   ├── case-module/          # 案件子模块"小索"（StateGraph，moduleName 路由）
 │   │   ├── contract/             # 合同审查（StateGraph，含 stance interrupt）
 │   │   ├── document/             # 文书起草（StateGraph）
-│   │   └── legal-assistant/      # 全局法律助手（无 caseId，跨案件）
-│   ├── middleware/                # 三层中间件链 (requestId → auth → permission)
-│   ├── services/                  # 业务逻辑层 (29 个子目录 + dashboard.service.ts 顶级文件)
+│   │   └── legal-assistant/      # 全局通用问答（无 caseId，跨案件）
+│   ├── middleware/                # 四层中间件链 (requestId → auth → permission → langfuseContext)
+│   ├── services/                  # 业务逻辑层 (30 个子目录 + dashboard.service.ts 顶级文件)
 │   │   ├── agent-platform/       # 自研 LangGraph 适配层（factory/registry/middleware/skills/tools/sse/state/subAgent/context/diagnostics/nodeConfig/threadState/checkpointer）
 │   │   ├── memory/               # 案件记忆系统（自动提取 + 用户记录）
 │   │   ├── security/             # 风控（验证码、登录风险）
@@ -142,7 +143,7 @@ LexSeek/
 │   └── utils/                     # 共享工具 (apiResponse/logger/uuid 等)
 ├── prisma/                        # 数据库
 │   ├── schema.prisma             # 主 schema (仅 generator + datasource)
-│   └── models/                    # 模块化模型 (28 个 .prisma 文件)
+│   └── models/                    # 模块化模型 (29 个 .prisma 文件)
 └── tests/                         # 测试用例
     ├── _infra/                    # global-setup / worker-prisma / template-db
     ├── server/                    # 服务端测试
@@ -167,6 +168,9 @@ HTTP 请求
   ▼
 03.permission.ts ── 非 API 放行 → 公开 API 放行 → 超级管理员放行
   │                  → RBAC 路径匹配验证
+  ▼
+04.langfuseContext.ts ─ enterWith 起 ALS 根上下文（requestId + userId）
+  │                      供后续业务节点增量补 sessionId / runId / vertical
   ▼
 API Handler ─────── defineEventHandler() 处理业务逻辑
   │                  使用 getQuery/readBody/getRouterParam 获取参数
@@ -265,7 +269,7 @@ SSE 连接特性：
 | ASR | 音频转文字 | 任务配置 | `server/services/material/asr*.ts` |
 | Redis | 缓存 + Agent 事件桥 | `runtimeConfig.redis.url` | `server/lib/redis.ts` |
 | LangChain/LangGraph | AI Agent 工作流 | 模型配置 | `server/services/workflow/`, `server/services/node/` |
-| Embedding | 向量嵌入 | `runtimeConfig.embedding` | text-embedding-v3，维度 1536 |
+| Embedding | 向量嵌入 | `runtimeConfig.embedding` | text-embedding-v4，维度 1536 |
 
 ### 适配器工厂模式
 
@@ -297,7 +301,7 @@ server/lib/
 | agent | services/agent/ | Agent 任务队列 + Redis SSE 事件桥（agentRuns 表 + agentWorker） |
 | agent-platform | services/agent-platform/ | 自研 LangGraph 适配层（middleware/factory/registry/skills/sse/state/subAgent/tools/nodeConfig/context/diagnostics 等） |
 | ai | services/ai/ | AI 通用 helper（如 `generateSummaryService`） |
-| assistant | services/assistant/ | 法律助手 / 文书 / 合同 用户端业务 |
+| assistant | services/assistant/ | 通用问答 / 文书 / 合同 用户端业务 |
 | audit | services/audit/ | 审计日志（订单 / 支付 / 权限变更） |
 | auth | services/auth/ | JWT 认证、Cookie 管理 |
 | campaign | services/campaign/ | 营销活动 |
@@ -313,6 +317,7 @@ server/lib/
 | payment | services/payment/ | 订单、支付事务、微信支付 |
 | point | services/point/ | 积分系统 |
 | product | services/product/ | 产品管理 |
+| rates | services/rates/ | LPR / 央行存贷款基准利率数据及自动同步 |
 | rbac | services/rbac/ | 角色权限、路径匹配、权限缓存 |
 | redemption | services/redemption/ | 兑换码 |
 | retrieval | services/retrieval/ | 检索服务（语义/全文/混合搜索 + rerank） |
@@ -383,14 +388,14 @@ server/lib/
 
 ## 构建与部署
 
-- 构建命令：`bun build`（NODE_OPTIONS='--max-old-space-size=8192'）
+- 构建命令：`bun build`（NODE_OPTIONS='--max-old-space-size=16384'）
 - 类型检查：`npx nuxi typecheck`（不要用 `tsc`）
 - 可选代码混淆：`ENABLE_OBFUSCATOR=true`（rollup-plugin-obfuscator）
 - Prisma 数据库连接使用 `@prisma/adapter-pg`，通过 `-c TimeZone=UTC` 设置会话时区
 
 ## 数据库设计要点
 
-- **模块化 Schema**：`prisma/models/` 下 28 个独立 `.prisma` 文件，按业务域拆分（user / case / materials / file / membership / order / product / point / rbac / apiPermission / router / node / model / recognition / storage / campaign / redemption / sms / system / legal / agentRun / contractReview / contractPlaybook / contractReviewVersion / contractRiskAndAnnotation / contractReviewLegacyBackup / document / skill）
+- **模块化 Schema**：`prisma/models/` 下 29 个独立 `.prisma` 文件，按业务域拆分（user / case / materials / file / membership / order / product / point / rates / rbac / apiPermission / router / node / model / recognition / storage / campaign / redemption / sms / system / legal / agentRun / contractReview / contractPlaybook / contractReviewVersion / contractRiskAndAnnotation / contractReviewLegacyBackup / document / skill）
 - **主 schema**：`prisma/schema.prisma` 仅包含 generator 和 datasource 声明，模型通过 Prisma 的多文件 schema 功能自动合并
 - **生成路径**：Prisma Client 生成到 `generated/prisma/client`，类型导入使用 `~~/generated/prisma/client`
 - **时区处理**：Prisma 连接设置 `TimeZone=UTC`（通过 `@prisma/adapter-pg` 的 connection options），避免 Date 值双偏移 bug

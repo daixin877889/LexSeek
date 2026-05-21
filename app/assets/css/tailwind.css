@@ -4,33 +4,13 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme static {
-  /* 默认主题（Zinc）和 Violet 主题：蓝紫梦幻渐变 */
-  --background-image-gradient-custom: linear-gradient(97deg, #f2f9fe, #f7f3ff);
-  --background-image-gradient-custom-dark: linear-gradient(97deg, #1e293b, #312e4a);
-  
-  /* Rose 主题：玫瑰金到樱花粉渐变 */
-  --background-image-gradient-custom-rose: linear-gradient(97deg, #fff0f3, #ffe9f5);
-  --background-image-gradient-custom-rose-dark: linear-gradient(97deg, #2d1a22, #3d1f32);
-  
-  /* Blue 主题：冰蓝到深海蓝渐变 */
-  --background-image-gradient-custom-blue: linear-gradient(97deg, #e8f4ff, #e0e7ff);
-  --background-image-gradient-custom-blue-dark: linear-gradient(97deg, #1a2942, #1e2550);
-  
-  /* Green 主题：晨露绿到翡翠绿渐变 */
-  --background-image-gradient-custom-green: linear-gradient(97deg, #ecfdf5, #d1fae5);
-  --background-image-gradient-custom-green-dark: linear-gradient(97deg, #1a2e23, #1f3d2e);
-  
-  /* Orange 主题：日出橙到琥珀金渐变 */
-  --background-image-gradient-custom-orange: linear-gradient(97deg, #fff4ed, #ffedd5);
-  --background-image-gradient-custom-orange-dark: linear-gradient(97deg, #2d2318, #3d2d1a);
-  
-  /* Red 主题：晚霞红到珊瑚橙渐变 */
-  --background-image-gradient-custom-red: linear-gradient(97deg, #ffefef, #ffe8e8);
-  --background-image-gradient-custom-red-dark: linear-gradient(97deg, #2d1e1e, #3d2626);
-  
-  /* Yellow 主题：晨光黄到蜜桃金渐变 */
-  --background-image-gradient-custom-yellow: linear-gradient(97deg, #fffbeb, #fef3c7);
-  --background-image-gradient-custom-yellow-dark: linear-gradient(97deg, #2d2a18, #3d341d);
+  /* 品牌渐变（源自 logo：青绿→天蓝→深蓝） */
+  --background-image-gradient-brand: linear-gradient(135deg, #1EEDC4 0%, #1E9EED 50%, #090380 100%);
+  /* 品牌按钮渐变：天蓝→深蓝（去掉薄荷青起点，保证白色文字对比度，用于所有渐变按钮 / 选中态） */
+  --background-image-gradient-brand-button: linear-gradient(135deg, #1E9EED 0%, #090380 100%);
+  --background-image-gradient-brand-soft: linear-gradient(97deg, #E0F8F1 0%, #E1F1FE 50%, #E5E4F2 100%);
+  /* 品牌柔光渐变·深色（hero 横幅深色底，值取自设计稿 colors_and_type.css 的 --gradient-hero 深色值） */
+  --background-image-gradient-brand-soft-dark: linear-gradient(135deg, #06363B 0%, #062847 50%, #050340 100%);
 }
 
 @theme inline {
@@ -71,7 +51,7 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-/* ==================== 默认主题（Zinc） ==================== */
+/* ==================== 固定品牌主题 ==================== */
 :root {
   --radius: 0.625rem;
   --background: oklch(1 0 0);
@@ -80,7 +60,7 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
+  --primary: oklch(0.683 0.158 240);
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
@@ -91,20 +71,28 @@
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
+  --ring: oklch(0.683 0.158 240);
+  --chart-1: #1E9EED;
+  --chart-2: #1EEDC4;
+  --chart-3: #090380;
+  --chart-4: #B0AADE;
+  --chart-5: #E07A0A;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary: oklch(0.683 0.158 240);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.97 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar-ring: oklch(0.683 0.158 240);
+
+  /* 品牌色常量（明暗通用，源自 logo 渐变） */
+  --brand-mint: #1EEDC4;
+  --brand-sky: #1E9EED;
+  --brand-navy: #090380;
+  --brand-mint-soft: #E0F8F1;
+  --brand-sky-soft: #E1F1FE;
+  --brand-navy-soft: #E5E4F2;
 }
 
 .dark {
@@ -114,8 +102,8 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
+  --primary: oklch(0.755 0.155 230);
+  --primary-foreground: oklch(0.145 0 0);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
@@ -125,146 +113,91 @@
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
+  --ring: oklch(0.755 0.155 230);
+  --chart-1: #82CCFF;
+  --chart-2: #5BFCD4;
+  --chart-3: #BEB8FF;
+  --chart-4: #94CBFA;
+  --chart-5: #FCBF6F;
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.45 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.755 0.155 230);
+  --sidebar-primary-foreground: oklch(0.145 0 0);
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar-ring: oklch(0.755 0.155 230);
 }
 
-/* ==================== Rose 主题 ==================== */
-.theme-rose {
-  --primary: oklch(0.645 0.246 16.439);
-  --primary-foreground: oklch(0.985 0.003 247.858);
-  --ring: oklch(0.645 0.246 16.439);
-  --sidebar-primary: oklch(0.645 0.246 16.439);
-  --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
-  --background-image-gradient-custom: var(--background-image-gradient-custom-rose);
+/* ==================== Brand 主题（作用域类，非用户可切换主题） ====================
+ * 挂在布局、无布局页面和 portal 弹层上，保证浮层也固定品牌色。
+ * 根主题已经是品牌色；这里补充页面 / 侧栏 wash 与辅助色 token。
+ * 暗色用 `.dark .theme-brand` 后代选择器匹配 —— .dark 在 <html>，.theme-brand 在布局 div。
+ */
+.theme-brand {
+  --primary: oklch(0.683 0.158 240);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.683 0.158 240);
+  --sidebar-ring: oklch(0.683 0.158 240);
+  --wash-page: linear-gradient(180deg, #FFFFFF 0%, #F2FBFD 35%, #ECF3FE 100%);
+  --wash-sidebar: linear-gradient(180deg, #F2FBFD 0%, #FFFFFF 35%, #FFFFFF 100%);
+  --tint-mint-bg: linear-gradient(135deg, #C8F7EA, #9DEDD3);
+  --tint-mint-fg: #0BA47C;
+  --tint-sky-bg: linear-gradient(135deg, #CFE9FE, #94CBFA);
+  --tint-sky-fg: #0A78D8;
+  --tint-navy-bg: linear-gradient(135deg, #D7D5EE, #B0AADE);
+  --tint-navy-fg: #5048C0;
+  --tint-amber-bg: linear-gradient(135deg, #FFE7C7, #FFCF8F);
+  --tint-amber-fg: #E07A0A;
 }
-.theme-rose.dark {
-  --primary: oklch(0.645 0.246 16.439);
-  --primary-foreground: oklch(0.985 0.003 247.858);
-  --ring: oklch(0.645 0.246 16.439);
-  --sidebar-primary: oklch(0.645 0.246 16.439);
-  --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
-  --background-image-gradient-custom-dark: var(--background-image-gradient-custom-rose-dark);
-}
-
-/* ==================== Blue 主题 ==================== */
-.theme-blue {
-  --primary: oklch(0.546 0.245 262.881);
-  --primary-foreground: oklch(0.985 0.003 247.858);
-  --ring: oklch(0.546 0.245 262.881);
-  --sidebar-primary: oklch(0.546 0.245 262.881);
-  --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
-  --background-image-gradient-custom: var(--background-image-gradient-custom-blue);
-}
-.theme-blue.dark {
-  --primary: oklch(0.546 0.245 262.881);
-  --primary-foreground: oklch(0.985 0.003 247.858);
-  --ring: oklch(0.546 0.245 262.881);
-  --sidebar-primary: oklch(0.546 0.245 262.881);
-  --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
-  --background-image-gradient-custom-dark: var(--background-image-gradient-custom-blue-dark);
-}
-
-/* ==================== Green 主题 ==================== */
-.theme-green {
-  --primary: oklch(0.627 0.194 149.214);
-  --primary-foreground: oklch(0.985 0.003 247.858);
-  --ring: oklch(0.627 0.194 149.214);
-  --sidebar-primary: oklch(0.627 0.194 149.214);
-  --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
-  --background-image-gradient-custom: var(--background-image-gradient-custom-green);
-}
-.theme-green.dark {
-  --primary: oklch(0.627 0.194 149.214);
-  --primary-foreground: oklch(0.985 0.003 247.858);
-  --ring: oklch(0.627 0.194 149.214);
-  --sidebar-primary: oklch(0.627 0.194 149.214);
-  --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
-  --background-image-gradient-custom-dark: var(--background-image-gradient-custom-green-dark);
+.dark .theme-brand {
+  --primary: oklch(0.755 0.155 230);
+  --primary-foreground: oklch(0.145 0 0);
+  --ring: oklch(0.755 0.155 230);
+  --sidebar-ring: oklch(0.755 0.155 230);
+  --wash-page: linear-gradient(180deg, #0F1115 0%, #0E1822 50%, #0B0F2A 100%);
+  --wash-sidebar: linear-gradient(180deg, #0E1822 0%, #0A0E18 50%, #0A0E18 100%);
+  --tint-mint-bg: linear-gradient(135deg, rgba(30,237,196,0.22), rgba(30,237,196,0.1));
+  --tint-mint-fg: #5BFCD4;
+  --tint-sky-bg: linear-gradient(135deg, rgba(30,158,237,0.26), rgba(30,158,237,0.12));
+  --tint-sky-fg: #82CCFF;
+  --tint-navy-bg: linear-gradient(135deg, rgba(148,140,255,0.26), rgba(148,140,255,0.12));
+  --tint-navy-fg: #BEB8FF;
+  --tint-amber-bg: linear-gradient(135deg, rgba(245,158,11,0.24), rgba(245,158,11,0.1));
+  --tint-amber-fg: #FCBF6F;
 }
 
-/* ==================== Orange 主题 ==================== */
-.theme-orange {
-  --primary: oklch(0.705 0.213 47.604);
-  --primary-foreground: oklch(0.985 0.003 247.858);
-  --ring: oklch(0.705 0.213 47.604);
-  --sidebar-primary: oklch(0.705 0.213 47.604);
-  --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
-  --background-image-gradient-custom: var(--background-image-gradient-custom-orange);
-}
-.theme-orange.dark {
-  --primary: oklch(0.705 0.213 47.604);
-  --primary-foreground: oklch(0.985 0.003 247.858);
-  --ring: oklch(0.705 0.213 47.604);
-  --sidebar-primary: oklch(0.705 0.213 47.604);
-  --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
-  --background-image-gradient-custom-dark: var(--background-image-gradient-custom-orange-dark);
+/* 工作台侧边栏品牌微光晕 —— 经作用域规则上色，不改 shadcn ui/sidebar 组件 */
+.theme-brand [data-sidebar="sidebar"] {
+  background-image: var(--wash-sidebar);
 }
 
-/* ==================== Red 主题 ==================== */
-.theme-red {
-  --primary: oklch(0.577 0.245 27.325);
-  --primary-foreground: oklch(0.985 0.003 247.858);
-  --ring: oklch(0.577 0.245 27.325);
-  --sidebar-primary: oklch(0.577 0.245 27.325);
-  --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
-  --background-image-gradient-custom: var(--background-image-gradient-custom-red);
-}
-.theme-red.dark {
-  --primary: oklch(0.577 0.245 27.325);
-  --primary-foreground: oklch(0.985 0.003 247.858);
-  --ring: oklch(0.577 0.245 27.325);
-  --sidebar-primary: oklch(0.577 0.245 27.325);
-  --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
-  --background-image-gradient-custom-dark: var(--background-image-gradient-custom-red-dark);
+/* 品牌主题控件：默认态去掉 shadcn 控件自带的小阴影，焦点态只保留品牌光圈。 */
+.brand-control-focus {
+  box-shadow: none !important;
 }
 
-/* ==================== Violet 主题 ==================== */
-.theme-violet {
-  --primary: oklch(0.606 0.25 292.717);
-  --primary-foreground: oklch(0.985 0.003 247.858);
-  --ring: oklch(0.606 0.25 292.717);
-  --sidebar-primary: oklch(0.606 0.25 292.717);
-  --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
-  /* Violet 主题使用默认的蓝紫渐变 */
-}
-.theme-violet.dark {
-  --primary: oklch(0.606 0.25 292.717);
-  --primary-foreground: oklch(0.985 0.003 247.858);
-  --ring: oklch(0.606 0.25 292.717);
-  --sidebar-primary: oklch(0.606 0.25 292.717);
-  --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
-  /* Violet 主题使用默认的蓝紫渐变 */
+.brand-control-focus:focus,
+.brand-control-focus:focus-visible,
+.brand-control-focus:focus-within {
+  border-color: var(--brand-sky) !important;
+  --tw-ring-color: rgb(30 158 237 / 0.36) !important;
+  --tw-ring-shadow: 0 0 0 3px rgb(30 158 237 / 0.36) !important;
+  box-shadow: 0 0 0 3px rgb(30 158 237 / 0.36) !important;
+  outline: none !important;
 }
 
-/* ==================== Yellow 主题 ==================== */
-.theme-yellow {
-  --primary: oklch(0.795 0.184 86.047);
-  --primary-foreground: oklch(0.253 0.029 58.044);
-  --ring: oklch(0.795 0.184 86.047);
-  --sidebar-primary: oklch(0.795 0.184 86.047);
-  --sidebar-primary-foreground: oklch(0.253 0.029 58.044);
-  --background-image-gradient-custom: var(--background-image-gradient-custom-yellow);
+.theme-brand .rich-text-editor > div {
+  transition: border-color 150ms ease, box-shadow 150ms ease;
 }
-.theme-yellow.dark {
-  --primary: oklch(0.795 0.184 86.047);
-  --primary-foreground: oklch(0.253 0.029 58.044);
-  --ring: oklch(0.795 0.184 86.047);
-  --sidebar-primary: oklch(0.795 0.184 86.047);
-  --sidebar-primary-foreground: oklch(0.253 0.029 58.044);
-  --background-image-gradient-custom-dark: var(--background-image-gradient-custom-yellow-dark);
+
+.theme-brand .rich-text-editor > div:focus-within {
+  border-color: var(--brand-sky);
+  box-shadow: 0 0 0 3px rgb(30 158 237 / 0.36);
+}
+
+.theme-brand .rich-text-editor .ProseMirror:focus {
+  outline: none;
 }
 
 @layer base {
@@ -285,30 +218,60 @@
   50% { translate: 0 -6px; }
 }
 
-/* ===== 合同审查 · quote 字符级高亮（spec § 7.6 三态矩阵 + § 7.5 1 秒衰减） =====
+/* 小索吉祥物动效（welcome 横幅头像盘 / 通用问答空状态吉祥物共用） */
+@keyframes xiaosuoFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-4px); }
+}
+@keyframes xiaosuoWiggle {
+  0%, 100% { rotate: 0deg; }
+  20%      { rotate: -6deg; }
+  40%      { rotate: 6deg; }
+  60%      { rotate: -4deg; }
+  80%      { rotate: 2deg; }
+}
+
+/* 拖拽上传区品牌色微光底纹（用 var(--card) 保证深色模式自适应） */
+@utility dropzone-wash {
+  background-image: linear-gradient(135deg,
+    color-mix(in srgb, var(--brand-mint) 5%, var(--card)) 0%,
+    var(--card) 50%,
+    color-mix(in srgb, var(--brand-sky) 5%, var(--card)) 100%);
+}
+
+/* 检索 / 筛选面板的极淡品牌染色（同配方，sky→mint，明暗自适应） */
+@utility panel-brand-tint {
+  background-image: linear-gradient(135deg,
+    color-mix(in srgb, var(--brand-sky) 7%, var(--card)) 0%,
+    var(--card) 55%,
+    color-mix(in srgb, var(--brand-mint) 7%, var(--card)) 100%);
+}
+
+/* ===== 合同审查 · quote 字符级高亮（AI 定位的问题语句） =====
  * 用 CSS Custom Highlight API（baseline 2025/06）；不支持的浏览器静默退化为段落级。
  * 注册侧见 app/utils/quoteHighlight.ts 的 decorateQuoteRanges。
  * 必须放全局 CSS——Vue scoped [data-v-xxx] 让 ::highlight() 命中失效。
- * 与 RISK_LEVEL_DOCX_BG_CLASS 的 dark 变体并存：浅色态 60/85/70%；深色态降到 35/55/45%。
+ * 设计：问题语句用下划线标出，按风险等级染色（高=红 / 中=琥珀 / 低=天蓝）。
  */
-::highlight(quote-default) {
-    background-color: rgb(252 211 77 / 0.6);
+::highlight(quote-high),
+::highlight(quote-medium),
+::highlight(quote-low) {
+    text-decoration-line: underline;
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 3px;
 }
-::highlight(quote-focused) {
-    background-color: rgb(245 158 11 / 0.85);
-}
-::highlight(quote-pinned) {
-    background-color: rgb(217 119 6 / 0.7);
-}
+::highlight(quote-high) { text-decoration-color: rgb(220 38 38); }
+::highlight(quote-medium) { text-decoration-color: rgb(217 119 6); }
+::highlight(quote-low) { text-decoration-color: rgb(14 165 233); }
 
-@media (prefers-color-scheme: dark) {
-    ::highlight(quote-default) {
-        background-color: rgb(252 211 77 / 0.35);
-    }
-    ::highlight(quote-focused) {
-        background-color: rgb(245 158 11 / 0.55);
-    }
-    ::highlight(quote-pinned) {
-        background-color: rgb(217 119 6 / 0.45);
-    }
+/* ===== 按钮光标全站默认手型 =====
+ * Tailwind v4 把 button 的默认 cursor 从 pointer 改成 default（跟最新浏览器规范一致）。
+ * 本项目偏好沿用 v3 / 历史习惯：按钮在非禁用状态下显示手型，提示可点击。
+ * disabled 时浏览器默认会覆盖为 not-allowed，无需在这里额外处理。
+ */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
 }

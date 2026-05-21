@@ -2,7 +2,7 @@
 /**
  * 文书页顶部「来源条」（阶段 5 · Task 12）
  *
- * 用途：当用户从法律助手 / 小索（阶段 6）跳转到文书工作区时，
+ * 用途：当用户从通用问答 / 小索（阶段 6）跳转到文书工作区时，
  *      在顶部展示"返回入口对话"+「关联/已关联 案件」两个动作。
  *
  * 显示规则：
@@ -20,7 +20,7 @@
 import { ArrowLeftIcon, LinkIcon, CheckCircle2Icon } from 'lucide-vue-next'
 
 interface Props {
-    /** 来源入口：'assistant' = 法律助手；'xiaosuo' = 小索（阶段 6 接入） */
+    /** 来源入口：'assistant' = 通用问答；'xiaosuo' = 小索（阶段 6 接入） */
     from: 'assistant' | 'xiaosuo' | string
     /** 入口对话的 session id；assistant 走 ?sid=，xiaosuo 走 ?sessionId= */
     sessionId?: string | null
@@ -41,7 +41,7 @@ const emit = defineEmits<{
 
 /** 入口标签：决定按钮文案"返回 X" */
 const sourceLabel = computed(() => {
-    if (props.from === 'assistant') return '法律助手'
+    if (props.from === 'assistant') return '通用问答'
     if (props.from === 'xiaosuo') return '小索'
     return ''
 })

@@ -16,7 +16,7 @@
                 </span>
             </Button>
         </PopoverTrigger>
-        <PopoverContent class="w-auto p-0" align="start">
+        <PopoverContent class="theme-brand w-auto p-0" align="start">
             <Calendar v-model="calendarValue" :locale="locale" layout="month-and-year" initial-focus
                 @update:model-value="handleSelect" />
         </PopoverContent>

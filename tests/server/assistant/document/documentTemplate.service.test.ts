@@ -51,6 +51,7 @@ import { createOssFileDao } from '~~/server/services/files/ossFiles.dao'
 import { getDefaultStorageConfigDao } from '~~/server/services/storage/storageConfig.dao'
 import { countUserTemplatesDAO, createDocumentTemplateDAO } from '~~/server/agents/document/documentTemplate.dao'
 import { scanPlaceholders } from '~~/server/agents/document/templateScanner'
+import { FileSource } from '~~/shared/types/file'
 
 // ==================== 类型转换 ====================
 
@@ -67,8 +68,8 @@ const mockScanPlaceholders = scanPlaceholders as ReturnType<typeof vi.fn>
 const makeDocxBuffer = () => Buffer.from('fake-docx-content')
 
 const BASE_PARAMS = {
-    userId: 1,
-    isAdmin: false,
+    scope: 'user' as const,
+    ownerUserId: 1,
     file: makeDocxBuffer(),
     fileName: 'test-template.docx',
     fileSize: 1024 * 100, // 100KB
@@ -109,22 +110,22 @@ describe('createDocumentTemplateService', () => {
     // ==================== 文件格式/大小校验 ====================
 
     describe('文件格式校验', () => {
-        it('文件大小 > 20MB 拒绝，返回 { error, code: 413 }', async () => {
+        it('文件大小 > 100MB 拒绝，返回 { error, code: 413 }', async () => {
             const result = await createDocumentTemplateService({
                 ...BASE_PARAMS,
-                fileSize: 20 * 1024 * 1024 + 1, // 超出 1 字节
+                fileSize: 100 * 1024 * 1024 + 1, // 超出 1 字节
             })
 
-            expect(result).toEqual({ error: '文件不能超过 20MB', code: 413 })
+            expect(result).toEqual({ error: '文件不能超过 100MB', code: 413 })
             // 不应调用后续逻辑
             expect(mockScanPlaceholders).not.toHaveBeenCalled()
             expect(mockUploadFileService).not.toHaveBeenCalled()
         })
 
-        it('文件恰好等于 20MB 时允许通过', async () => {
+        it('文件恰好等于 100MB 时允许通过', async () => {
             const result = await createDocumentTemplateService({
                 ...BASE_PARAMS,
-                fileSize: 20 * 1024 * 1024,
+                fileSize: 100 * 1024 * 1024,
             })
 
             // 应该进入后续流程（由于其他 mock 设置成功，结果是 templateId）
@@ -193,7 +194,7 @@ describe('createDocumentTemplateService', () => {
                     name: BASE_PARAMS.name,
                     category: BASE_PARAMS.category,
                     scope: 'user',
-                    userId: BASE_PARAMS.userId,
+                    userId: BASE_PARAMS.ownerUserId,
                     ossFileId: MOCK_OSS_FILE.id,
                     placeholders: MOCK_PLACEHOLDERS,
                 }),
@@ -206,7 +207,7 @@ describe('createDocumentTemplateService', () => {
 
             const uploadCall = mockUploadFileService.mock.calls[0]
             const ossPath: string = uploadCall[0]
-            expect(ossPath).toContain(`users/${BASE_PARAMS.userId}/`)
+            expect(ossPath).toContain(`test/user${BASE_PARAMS.ownerUserId}/document_template/`)
         })
     })
 
@@ -266,7 +267,7 @@ describe('createDocumentTemplateService', () => {
             await createDocumentTemplateService(BASE_PARAMS)
 
             expect(mockCountUserTemplatesDAO).toHaveBeenCalledWith(
-                BASE_PARAMS.userId,
+                BASE_PARAMS.ownerUserId,
                 expect.anything(), // tx
             )
         })
@@ -276,7 +277,7 @@ describe('createDocumentTemplateService', () => {
 
     describe('Admin 上传（scope=global，不受配额限制）', () => {
         it('admin 上传成功，scope=global，不检查配额', async () => {
-            const adminParams = { ...BASE_PARAMS, isAdmin: true, userId: 99 }
+            const adminParams = { ...BASE_PARAMS, scope: 'global' as const, ownerUserId: null }
 
             const result = await createDocumentTemplateService(adminParams)
 
@@ -286,7 +287,7 @@ describe('createDocumentTemplateService', () => {
         })
 
         it('admin 上传：createDocumentTemplateDAO 调用时 scope=global', async () => {
-            const adminParams = { ...BASE_PARAMS, isAdmin: true, userId: 99 }
+            const adminParams = { ...BASE_PARAMS, scope: 'global' as const, ownerUserId: null }
 
             await createDocumentTemplateService(adminParams)
 
@@ -300,14 +301,80 @@ describe('createDocumentTemplateService', () => {
             )
         })
 
-        it('admin 上传：OSS 路径使用 global-templates 前缀', async () => {
-            const adminParams = { ...BASE_PARAMS, isAdmin: true, userId: 99 }
+        it('admin 上传：OSS 路径使用 system/document_template/ 格式', async () => {
+            const adminParams = { ...BASE_PARAMS, scope: 'global' as const, ownerUserId: null }
 
             await createDocumentTemplateService(adminParams)
 
             const uploadCall = mockUploadFileService.mock.calls[0]
             const ossPath: string = uploadCall[0]
-            expect(ossPath).toContain('global-templates/')
+            expect(ossPath).toContain('test/system/document_template/')
+        })
+    })
+
+    // ==================== 全局模板（scope=global）新参数验证 ====================
+
+    describe('全局模板（scope=global）', () => {
+        it('scope=global 时调用 createOssFileDao 传 userId=null（系统归属）', async () => {
+            await createDocumentTemplateService({
+                ...BASE_PARAMS,
+                scope: 'global',
+                ownerUserId: null,
+            })
+
+            // scope='global' 不走 transaction，第二个参数为 undefined
+            expect(mockCreateOssFileDao).toHaveBeenCalledWith(
+                expect.objectContaining({ userId: null, source: FileSource.DOCUMENT_TEMPLATE }),
+                undefined,
+            )
+        })
+
+        it('scope=global 时跳过配额校验', async () => {
+            mockCountUserTemplatesDAO.mockResolvedValue(MAX_PRIVATE_TEMPLATES)
+
+            const result = await createDocumentTemplateService({
+                ...BASE_PARAMS,
+                scope: 'global',
+                ownerUserId: null,
+            })
+
+            expect(result).toHaveProperty('templateId')
+            expect(mockCountUserTemplatesDAO).not.toHaveBeenCalled()
+        })
+
+        it('scope=global 时 OSS 路径走 system/document_template/ 格式', async () => {
+            await createDocumentTemplateService({
+                ...BASE_PARAMS,
+                scope: 'global',
+                ownerUserId: null,
+            })
+
+            const ossPath = mockUploadFileService.mock.calls[0][0] as string
+            expect(ossPath).toMatch(/^test\/system\/document_template\//)
+            expect(ossPath).not.toContain('users/')
+        })
+
+        it('scope=global 时写 documentTemplates 表 userId=null、scope="global"', async () => {
+            await createDocumentTemplateService({
+                ...BASE_PARAMS,
+                scope: 'global',
+                ownerUserId: null,
+            })
+
+            // scope='global' 不走 transaction，第二个参数为 undefined
+            expect(mockCreateDocumentTemplateDAO).toHaveBeenCalledWith(
+                expect.objectContaining({ scope: 'global', userId: null }),
+                undefined,
+            )
+        })
+
+        it('scope=user 时调用 createOssFileDao 传 userId=ownerUserId', async () => {
+            await createDocumentTemplateService(BASE_PARAMS)
+
+            expect(mockCreateOssFileDao).toHaveBeenCalledWith(
+                expect.objectContaining({ userId: BASE_PARAMS.ownerUserId, source: FileSource.DOCUMENT_TEMPLATE }),
+                expect.anything(),
+            )
         })
     })
 

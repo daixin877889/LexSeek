@@ -1,65 +1,62 @@
 <template>
-  <div class="file-uploader h-full flex flex-col w-full overflow-hidden" :class="statusMessage ? 'gap-2' : 'gap-4'">
+  <div class="file-uploader flex h-full w-full flex-col overflow-hidden" :class="statusMessage ? 'gap-2.5' : 'gap-4'">
     <!-- 拖拽上传区域（上传中或完成时隐藏） -->
     <div v-if="!isUploading && !isUploadComplete"
-      class="relative border-2 border-dashed rounded-lg text-center transition-colors overflow-hidden flex-1 flex flex-col"
-      :class="[
-        {
-          'border-primary bg-primary/5': isDragOver,
-          'border-muted-foreground/25 hover:border-muted-foreground/50': !isDragOver,
-          'cursor-pointer': true,
-        },
-      ]" @dragover.prevent="handleDragOver($event)" @dragleave.prevent="handleDragLeave($event)"
+      class="dropzone group relative flex flex-1 cursor-pointer flex-col overflow-hidden rounded-[14px] border-2 border-dashed transition-colors"
+      :class="isDragOver
+        ? 'border-primary bg-primary/[0.07]'
+        : 'dropzone-wash border-primary/35 hover:border-primary/55'"
+      @dragover.prevent="handleDragOver($event)" @dragleave.prevent="handleDragLeave($event)"
       @drop.prevent="handleDrop($event)" @click="triggerFileInput()">
       <!-- 主要内容区域 -->
-      <div class="flex-1 flex items-center justify-center">
-        <div class="relative px-4 py-4 w-full max-w-sm mx-auto" :class="statusMessage ? 'space-y-2' : 'space-y-4'">
-          <!-- 上传图标 -->
-          <div class="mx-auto rounded-full bg-muted flex items-center justify-center"
-            :class="statusMessage ? 'w-10 h-10' : 'w-16 h-16'">
-            <UploadIcon :class="statusMessage ? 'h-5 w-5' : 'h-8 w-8'" class="text-muted-foreground" />
-          </div>
-
-          <!-- 上传文本 -->
-          <div :class="statusMessage ? 'space-y-1' : 'space-y-2'">
-            <p :class="statusMessage ? 'text-sm' : 'text-lg'" class="font-medium leading-tight">
-              {{ uploadAreaText }}
-            </p>
-            <p :class="statusMessage ? 'text-xs' : 'text-sm'" class="text-muted-foreground leading-tight">
-              {{ uploadAreaSubText }}
-            </p>
-          </div>
-
-          <!-- 隐藏的文件输入 -->
-          <Input ref="fileInputRef" type="file" @change="handleFileChange" :accept="acceptAttribute"
-            :multiple="props.multiple" :disabled="isUploading" class="hidden" />
+      <div class="flex flex-1 flex-col items-center justify-center px-6 text-center"
+        :class="statusMessage ? 'py-5' : 'py-9'">
+        <!-- 品牌渐变上传图标 -->
+        <div class="flex items-center justify-center rounded-full bg-gradient-brand text-white shadow-[0_14px_28px_-10px_rgba(30,158,237,0.4)]"
+          :class="statusMessage ? 'mb-3 size-12' : 'mb-4 size-15'">
+          <UploadIcon :class="statusMessage ? 'size-5' : 'size-6'" />
         </div>
+
+        <!-- 上传文本 -->
+        <p class="font-semibold leading-tight" :class="statusMessage ? 'text-sm' : 'text-[15.5px]'">
+          {{ isDragOver ? "释放以上传文件" : uploadAreaText }}
+        </p>
+        <p class="mt-1.5 leading-snug text-muted-foreground" :class="statusMessage ? 'text-xs' : 'text-[12.5px]'">
+          {{ uploadAreaSubText }}
+        </p>
+
+        <!-- 隐藏的文件输入 -->
+        <Input ref="fileInputRef" type="file" @change="handleFileChange" :accept="acceptAttribute"
+          :multiple="props.multiple" :disabled="isUploading" class="hidden" />
       </div>
 
       <!-- 允许的文件类型（放在上传框底部） -->
       <div v-if="currentScene"
-        class="shrink-0 px-4 py-2 border-t border-dashed text-xs text-muted-foreground bg-muted/30">允许的文件类型：{{
-          formatAcceptTypes(currentScene.accept || []) }}</div>
+        class="shrink-0 border-t border-dashed border-primary/20 bg-muted/40 px-4 py-2 text-center text-[11.5px] leading-snug text-muted-foreground">
+        允许的文件类型：{{ formatAcceptTypes(currentScene.accept || []) }}
+      </div>
     </div>
 
     <!-- 多选模式：已选文件列表（上传前显示清空和删除按钮） -->
-    <div v-if="props.multiple && selectedFiles.length > 0 && !isUploading && !isUploadComplete"
-      class="shrink-0 space-y-2">
-      <div class="flex items-center justify-between text-sm">
-        <span class="text-muted-foreground">已选择 {{ selectedFiles.length }} 个文件</span>
-        <Button variant="ghost" size="sm" @click="clearAllFiles"> 清空 </Button>
+    <div v-if="props.multiple && selectedFiles.length > 0 && !isUploading && !isUploadComplete" class="shrink-0">
+      <div class="mb-2 flex items-center justify-between">
+        <span class="text-[12.5px] text-muted-foreground">已选择 {{ selectedFiles.length }} 个文件</span>
+        <button type="button"
+          class="rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          @click="clearAllFiles">清空</button>
       </div>
-      <div class="max-h-40 overflow-y-auto space-y-1">
+      <div class="max-h-44 space-y-1.5 overflow-y-auto pr-0.5">
         <div v-for="(fileItem, index) in fileUploadStates" :key="index"
-          class="flex items-center justify-between p-2 bg-muted/50 rounded-md text-sm">
-          <div class="flex-1 min-w-0 mr-2">
-            <p class="truncate font-medium">{{ fileItem.file.name }}</p>
-            <div class="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>{{ formatByteSize(fileItem.file.size, 2) }}</span>
-            </div>
+          class="flex items-center gap-2.5 rounded-[9px] border border-border bg-muted px-2.5 py-2">
+          <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-card">
+            <component :is="getFileIcon(fileItem.file.type)" class="size-4" :class="getFileIconColor(fileItem.file.type)" />
           </div>
-          <Button variant="ghost" size="icon" class="h-6 w-6 shrink-0" @click.stop="removeFile(index)">
-            <XIcon class="h-4 w-4" />
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-[12.5px] font-medium">{{ fileItem.file.name }}</p>
+            <p class="mt-0.5 text-[11px] text-muted-foreground">{{ formatByteSize(fileItem.file.size, 2) }}</p>
+          </div>
+          <Button variant="ghost" size="icon" class="size-7 shrink-0 text-muted-foreground" @click.stop="removeFile(index)">
+            <XIcon class="size-3.5" />
           </Button>
         </div>
       </div>
@@ -67,42 +64,46 @@
 
     <!-- 上传中/完成时的文件列表（显示进度，无删除按钮） -->
     <div v-if="(isUploading || isUploadComplete) && fileUploadStates.length > 0"
-      class="shrink-0 space-y-2 flex-1 overflow-hidden">
-      <div class="flex items-center justify-between text-sm">
-        <span class="text-muted-foreground">
-          {{ isUploading ? "正在上传..." : "上传完成" }}
-        </span>
-        <span class="text-xs text-muted-foreground"> {{ uploadedCount }}/{{ fileUploadStates.length }} 个文件 </span>
+      class="flex shrink-0 flex-1 flex-col overflow-hidden">
+      <div class="mb-2 flex items-center justify-between">
+        <span class="text-[13px] font-semibold">{{ isUploading ? "正在上传…" : "上传完成" }}</span>
+        <span class="text-xs text-muted-foreground">{{ uploadedCount }}/{{ fileUploadStates.length }} 个文件</span>
       </div>
-      <div class="max-h-60 overflow-y-auto space-y-1">
+      <div class="max-h-60 space-y-2 overflow-y-auto pr-0.5">
         <div v-for="(fileItem, index) in fileUploadStates" :key="index"
-          class="p-2 bg-muted/50 rounded-md text-sm overflow-hidden">
-          <div class="flex items-center justify-between mb-1 gap-2">
-            <p class="truncate font-medium flex-1 min-w-0">{{ fileItem.file.name }}</p>
-            <span class="text-xs shrink-0 whitespace-nowrap" :class="{
+          class="rounded-[10px] border border-border bg-muted px-3 py-2.5">
+          <div class="mb-1.5 flex items-center gap-2">
+            <component :is="getFileIcon(fileItem.file.type)" class="size-3.5 shrink-0"
+              :class="getFileIconColor(fileItem.file.type)" />
+            <span class="min-w-0 flex-1 truncate text-[12.5px] font-medium">{{ fileItem.file.name }}</span>
+            <span class="shrink-0 whitespace-nowrap text-[11.5px] font-semibold tabular-nums" :class="{
               'text-primary': fileItem.status === 'uploading',
-              'text-green-600': fileItem.status === 'success',
+              'text-green-600 dark:text-green-400': fileItem.status === 'success',
               'text-destructive': fileItem.status === 'error',
               'text-muted-foreground': fileItem.status === 'pending',
             }">
               <template v-if="fileItem.status === 'uploading'">{{ Math.round(fileItem.progress) }}%</template>
-              <template v-else-if="fileItem.status === 'success'">✓ 完成</template>
-              <template v-else-if="fileItem.status === 'error'">✗ 失败</template>
+              <span v-else-if="fileItem.status === 'success'" class="inline-flex items-center gap-0.5">
+                <CheckIcon class="size-3" />完成
+              </span>
+              <span v-else-if="fileItem.status === 'error'" class="inline-flex items-center gap-0.5">
+                <XIcon class="size-3" />失败
+              </span>
               <template v-else>等待中</template>
             </span>
           </div>
           <!-- 进度条 -->
-          <div class="h-1.5 bg-muted rounded-full overflow-hidden">
-            <div class="h-full transition-all duration-300 rounded-full" :class="{
+          <div class="h-1.5 overflow-hidden rounded-full bg-muted-foreground/15">
+            <div class="h-full rounded-full transition-all duration-300" :class="{
               'bg-primary': fileItem.status === 'uploading',
               'bg-green-500': fileItem.status === 'success',
               'bg-destructive': fileItem.status === 'error',
               'bg-muted-foreground/30': fileItem.status === 'pending',
-            }" :style="{ width: (fileItem.status === 'success' ? 100 : fileItem.progress) + '%' }"></div>
+            }" :style="{ width: (fileItem.status === 'success' || fileItem.status === 'error' ? 100 : fileItem.progress) + '%' }"></div>
           </div>
-          <div class="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+          <div class="mt-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
             <span>{{ formatByteSize(fileItem.file.size, 2) }}</span>
-            <span v-if="fileItem.error" class="text-destructive">{{ fileItem.error }}</span>
+            <span v-if="fileItem.error" class="text-destructive">· {{ fileItem.error }}</span>
           </div>
         </div>
       </div>
@@ -110,44 +111,49 @@
 
     <!-- 单选模式：上传中显示进度 -->
     <div v-if="!props.multiple && isUploading && selectedFile"
-      class="shrink-0 space-y-2 flex-1 flex flex-col justify-center">
-      <div class="p-4 bg-muted/50 rounded-lg">
-        <div class="flex items-center justify-between mb-2">
-          <p class="truncate font-medium text-sm">{{ selectedFile.name }}</p>
-          <span class="text-xs shrink-0 text-primary">
+      class="flex shrink-0 flex-1 flex-col justify-center">
+      <div class="rounded-[10px] border border-border bg-muted px-3 py-3">
+        <div class="mb-1.5 flex items-center gap-2">
+          <component :is="getFileIcon(selectedFile.type)" class="size-4 shrink-0"
+            :class="getFileIconColor(selectedFile.type)" />
+          <span class="min-w-0 flex-1 truncate text-[12.5px] font-medium">{{ selectedFile.name }}</span>
+          <span class="shrink-0 text-[11.5px] font-semibold tabular-nums text-primary">
             {{ Math.round(uploadProgress) }}%
           </span>
         </div>
-        <div class="h-2 bg-muted rounded-full overflow-hidden">
-          <div class="h-full transition-all duration-300 rounded-full bg-primary"
-            :style="{ width: uploadProgress + '%' }">
-          </div>
+        <div class="h-1.5 overflow-hidden rounded-full bg-muted-foreground/15">
+          <div class="h-full rounded-full bg-primary transition-all duration-300"
+            :style="{ width: uploadProgress + '%' }"></div>
         </div>
-        <div class="flex items-center justify-between mt-2">
-          <p class="text-xs text-muted-foreground">{{ formatByteSize(selectedFile.size, 2) }}</p>
-        </div>
+        <p class="mt-1.5 text-[11px] text-muted-foreground">{{ formatByteSize(selectedFile.size, 2) }}</p>
       </div>
     </div>
 
     <!-- 单选模式：上传完成显示 -->
     <div v-if="!props.multiple && isUploadComplete && selectedFile"
-      class="shrink-0 space-y-2 flex-1 flex flex-col justify-center">
-      <div class="p-4 bg-green-50 border border-green-200 rounded-lg">
-        <div class="flex items-center justify-between mb-2">
-          <p class="truncate font-medium text-sm">{{ selectedFile.name }}</p>
-          <span class="text-xs text-green-600 shrink-0">✓ 完成</span>
+      class="flex shrink-0 flex-1 flex-col justify-center">
+      <div class="rounded-[10px] border border-green-200 bg-green-50 px-3 py-3 dark:border-green-500/25 dark:bg-green-500/10">
+        <div class="mb-1.5 flex items-center gap-2">
+          <component :is="getFileIcon(selectedFile.type)" class="size-4 shrink-0"
+            :class="getFileIconColor(selectedFile.type)" />
+          <span class="min-w-0 flex-1 truncate text-[12.5px] font-medium">{{ selectedFile.name }}</span>
+          <span class="inline-flex shrink-0 items-center gap-0.5 text-[11.5px] font-semibold text-green-600 dark:text-green-400">
+            <CheckIcon class="size-3" />完成
+          </span>
         </div>
-        <div class="h-2 bg-green-100 rounded-full overflow-hidden">
-          <div class="h-full bg-green-500 rounded-full w-full"></div>
+        <div class="h-1.5 overflow-hidden rounded-full bg-green-200 dark:bg-green-500/20">
+          <div class="h-full w-full rounded-full bg-green-500"></div>
         </div>
-        <p class="text-xs text-muted-foreground mt-2">{{ formatByteSize(selectedFile.size, 2) }}</p>
+        <p class="mt-1.5 text-[11px] text-muted-foreground">{{ formatByteSize(selectedFile.size, 2) }}</p>
       </div>
     </div>
 
-    <!-- 上传按钮（上传前显示） -->
-    <div v-if="!isUploading && !isUploadComplete" class="shrink-0 space-y-2">
-      <Button @click="handleUpload" :disabled="!canUpload" class="w-full" :size="statusMessage ? 'sm' : 'default'">
-        <UploadIcon class="h-4 w-4" />
+    <!-- 上传按钮（上传前显示）：未选文件时点击打开文件选择，已选文件时执行上传 -->
+    <div v-if="!isUploading && !isUploadComplete" class="shrink-0">
+      <Button @click="handleUploadButtonClick" :disabled="hasSelectedFiles && !canUpload"
+        :size="statusMessage ? 'sm' : 'default'"
+        class="w-full bg-gradient-brand-button text-white shadow-[0_10px_20px_-8px_rgba(30,158,237,0.42)]">
+        <UploadIcon class="size-4" />
         {{ uploadButtonText }}
       </Button>
     </div>
@@ -158,25 +164,25 @@
       上传中... </Button>
 
     <!-- 上传完成后显示继续上传按钮 -->
-    <Button v-if="isUploadComplete" @click="handleContinueUpload" class="w-full shrink-0"
-      :size="statusMessage ? 'sm' : 'default'">
-      <UploadIcon class="h-4 w-4 mr-2" />
+    <Button v-if="isUploadComplete" @click="handleContinueUpload" :size="statusMessage ? 'sm' : 'default'"
+      class="w-full shrink-0 bg-gradient-brand-button text-white shadow-[0_10px_20px_-8px_rgba(30,158,237,0.42)]">
+      <UploadIcon class="size-4" />
       继续上传其他文件
     </Button>
 
     <!-- 状态消息 -->
-    <div v-if="statusMessage" class="shrink-0 rounded-md p-2 text-xs" :class="{
-      'bg-destructive/15 text-destructive border border-destructive/20': statusType === 'error',
-      'bg-green-50 text-green-700 border border-green-200': statusType === 'success',
-    }">
+    <div v-if="statusMessage" class="shrink-0 rounded-lg border px-3 py-2 text-xs font-medium" :class="statusType === 'error'
+      ? 'border-destructive/25 bg-destructive/10 text-destructive'
+      : 'border-green-200 bg-green-50 text-green-700 dark:border-green-500/25 dark:bg-green-500/10 dark:text-green-400'">
       {{ statusMessage }}
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { UploadIcon, XIcon } from "lucide-vue-next";
+import { CheckIcon, UploadIcon, XIcon } from "lucide-vue-next";
 import { useBatchUpload } from "~/composables/useBatchUpload";
+import { getFileIcon, getFileIconColor } from "~/utils/file";
 import { FileSource } from '#shared/types/file'
 import type { FileSourceAccept } from '#shared/types/file'
 import type { PostSignatureResult } from '#shared/types/oss'
@@ -285,6 +291,13 @@ const canUpload = computed(() => {
     return selectedFiles.value.length > 0 && fileUploadStates.value.every((f) => f.status === "pending" && validateFile(f.file, currentScene.value as FileSourceAccept).valid);
   }
   return selectedFile.value && validateFile(selectedFile.value, currentScene.value as FileSourceAccept).valid;
+});
+
+/**
+ * 是否已选择文件（多选/单选统一）
+ */
+const hasSelectedFiles = computed(() => {
+  return props.multiple ? selectedFiles.value.length > 0 : !!selectedFile.value;
 });
 
 /**
@@ -712,6 +725,17 @@ const handleUpload = async () => {
     await handleBatchUpload();
   } else {
     await handleSingleUpload();
+  }
+};
+
+/**
+ * 上传按钮点击：未选文件时打开文件选择器，已选文件时执行上传
+ */
+const handleUploadButtonClick = () => {
+  if (hasSelectedFiles.value) {
+    handleUpload();
+  } else {
+    triggerFileInput();
   }
 };
 

@@ -67,6 +67,15 @@ export default defineEventHandler(async (event) => {
         if (!session) {
             return resError(event, 404, '分析会话不存在')
         }
+        if (session.caseId == null) {
+            return resError(event, 400, '无效的会话（非案件域）')
+        }
+
+        try {
+            await validateCaseAccessService(session.caseId, user.id)
+        } catch {
+            return resError(event, 403, '案件不存在或无权访问')
+        }
 
         // 将 interrupted 的 run 标记为 completed，让 enqueueRunService 能创建新 run
         const activeRun = await getActiveRunService(session.sessionId)

@@ -196,6 +196,26 @@ export function paragraphText(paraNode: Node): string {
 }
 
 /**
+ * 从一个 <w:p> AST 节点提取「拒绝所有修订」视图文本（S5）。
+ *
+ * 按文档顺序收集 <w:delText>（被删除的原文）+ 非 <w:ins> 内的 <w:t>（未改动原文），
+ * 整个跳过 <w:ins> 子树（修订后新插入的内容）。还原首轮审查时该段落的原文。
+ * 对照 paragraphText：后者是「接受所有修订」的定稿态（取 <w:t>、丢 <w:delText>）。
+ */
+export function paragraphRejectText(paraNode: Node): string {
+    let s = ''
+    const visit = (node: Node): void => {
+        const tag = tagOf(node)
+        if (tag === 'w:ins') return            // 插入内容属修订后，拒绝视图排除（不递归进去）
+        if (tag === 'w:t') { s += textOf(node); return }
+        if (tag === 'w:delText') { s += textOf(node); return }
+        for (const child of childrenOf(node)) visit(child)
+    }
+    for (const child of childrenOf(paraNode)) visit(child)
+    return s
+}
+
+/**
  * 段落是否含 <w:r>（直接或嵌套在 hyperlink/sdt 等里），即"非空段落"。
  *
  * commentInjector 与 parseWordComments 的非空段落口径必须一致，统一从此处导出。
@@ -268,6 +288,8 @@ const ID_BEARING_TAGS = new Set([
     'w:sectPrChange', 'w:tblPrChange', 'w:tcPrChange', 'w:trPrChange',
     'w:cellIns', 'w:cellDel', 'w:cellMerge', 'w:numberingChange',
     'w:commentRangeStart', 'w:commentRangeEnd', 'w:commentReference',
+    // M16：comments.xml 里 <w:comment w:id> 也占共享池——新分配 w:id 必须避开原生批注 id
+    'w:comment',
     'w:moveFromRangeStart', 'w:moveToRangeStart',
     'w:moveFromRangeEnd', 'w:moveToRangeEnd',
 ])
@@ -277,6 +299,9 @@ const ID_BEARING_TAGS = new Set([
  *
  * 注意：只看 body 直接子段落，不递归 w:tbl 单元格里的段落——保持与 anchorParagraphIndex
  * 历史口径一致。commentInjector 与 redlineInjector 共享。
+ *
+ * M8：parser.ts 的 paragraphsFromAstWithMeta 复刻同口径产出 ParsedContract.bodyParagraphs。
+ * 改本函数判定（如新增过滤条件）须同步那里，否则批注注入口径会再次错位。
  */
 export function collectNonEmptyParagraphs(documentAst: NodeArray): Node[] {
     const body = findFirst(documentAst, 'w:body')

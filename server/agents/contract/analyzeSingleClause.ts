@@ -61,6 +61,10 @@ export interface AnalyzeClauseContext {
     contractType: string | null
     /** M7 Playbook 快照；null/undefined 表示无清单，prompt 里 {{playbookSection}} 渲染为空 */
     playbookSnapshot?: PlaybookSnapshot | null
+    /** M11：透传取消信号到底层 LLM 调用，逐条分析阶段可被用户取消 / 超时中断 */
+    signal?: AbortSignal
+    /** V1：回调本条款 LLM 调用的 token 用量，供调用方累计后按积分扣费 */
+    onTokenUsage?: (tokens: number) => void
 }
 
 /** 返回风险数组；空数组表示该条款无风险 */
@@ -75,6 +79,8 @@ export async function analyzeSingleClause(ctx: AnalyzeClauseContext): Promise<Ri
             clauseIndex: ctx.clause.index,
             clauseLength: ctx.clause.text.length,
         },
+        signal: ctx.signal,
+        onTokenUsage: ctx.onTokenUsage,
     })
 
     if (data.skip || data.risks.length === 0) return []
@@ -104,7 +110,11 @@ export async function analyzeSingleClause(ctx: AnalyzeClauseContext): Promise<Ri
 
         // 服务端强制覆盖 id：LLM 偶发对多条 risk 返回相同 UUID，导致前端 data-risk-id
         // 冲突（多张卡片/文档段被同一 focus/pin 联动）。用 randomUUID 保证唯一。
-        return { ...rawRisk, id: randomUUID(), matchedPointCode } as Risk
+        //
+        // M9：clauseIndex 同样强制覆盖为当前正在分析的 ctx.clause.index。本函数每次只
+        // 分析一条条款，LLM 回填的 clauseIndex 没有任何信息价值，却会因 LLM 回错值（含
+        // 越界值）导致下游取到错条款、clauseParagraphIndex 落 null、批注静默挂错位置。
+        return { ...rawRisk, id: randomUUID(), clauseIndex: ctx.clause.index, matchedPointCode } as Risk
     })
 }
 
@@ -122,15 +132,23 @@ function renderPromptTemplate(template: string, ctx: AnalyzeClauseContext): stri
         : ctx.stance === 'partyB'
             ? '乙方'
             : '中立第三方'
-    const clauseTextRaw = ctx.clause.text.length > MAX_CLAUSE_CHARS
-        ? `${ctx.clause.text.slice(0, MAX_CLAUSE_CHARS)}…(已截断)`
-        : ctx.clause.text
+    const truncate = (s: string) => s.length > MAX_CLAUSE_CHARS
+        ? `${s.slice(0, MAX_CLAUSE_CHARS)}…(已截断)`
+        : s
+    // {{clauseTextRaw}}：完整原文（含编号字符），截断后保留作兜底回溯上下文
+    const clauseTextRaw = truncate(ctx.clause.text)
 
-    // 切句给 LLM 的 [Sn] 编号视图（1-based，与 problemSentenceIds 输出对齐）
-    const sentences = splitSentences(clauseTextRaw)
+    // 切句给 LLM 的 [Sn] 编号视图（1-based，与 problemSentenceIds 输出对齐）。
+    // M10：必须用 textWithoutNumber（去编号文本）切句——落库 persistAiRisksAsContractRows
+    // 解析 problemSentenceIds 时也用 splitSentences(textWithoutNumber)，两边切句基准必须
+    // 一致。否则条款编号单独占首行时（正式合同常见），两个 sentence 数组错位一位，每条
+    // 风险的 problematicQuote / quoteCharStart/End 全部偏移一句。textWithoutNumber 缺失
+    // （历史 snapshot 数据 / 无编号散段）时回退到 text。
+    const sentenceSource = truncate(ctx.clause.textWithoutNumber ?? ctx.clause.text)
+    const sentences = splitSentences(sentenceSource)
     const sentencesNumbered = sentences.length > 0
         ? sentences.map(s => `[S${s.id}] ${s.text}`).join('\n')
-        : clauseTextRaw // 切不出句子的极端兜底（理论上 splitSentences 至少产出 1 个）
+        : sentenceSource // 切不出句子的极端兜底（理论上 splitSentences 至少产出 1 个）
 
     const rendered = renderContent(template, {
         stanceLabel,

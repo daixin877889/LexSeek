@@ -93,6 +93,18 @@ describe('diffClauses', () => {
         expect(result.modified).toHaveLength(0)
     })
 
+    it('M20：仅标点/空白差异（中英文标点、全半角）的条款判为 unchanged 而非 modified', () => {
+        // Word 重存常改写标点格式（中文逗号↔英文逗号、多余空白）。归一化后这类
+        // 条款应判 unchanged，不触发多余的 Step 4 AI 重审。
+        const old = makeClauses(['第一条 甲方应当按时付款，乙方应当交货。'])
+        const newC = makeClauses(['第一条  甲方应当按时付款,乙方应当交货.'])
+        const result = diffClauses(old, newC)
+        expect(result.unchanged).toHaveLength(1)
+        expect(result.modified).toHaveLength(0)
+        expect(result.removed).toHaveLength(0)
+        expect(result.added).toHaveLength(0)
+    })
+
     it('自定义 modifiedThreshold 生效', () => {
         const old = makeClauses(['第一条 甲方应于每月十日前支付货款。'])
         const newC = makeClauses(['第一条 甲方应于每月十五日前支付货款。'])

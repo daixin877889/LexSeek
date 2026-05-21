@@ -40,20 +40,20 @@ export const getFileIcon = (fileType: string): Component => {
  * @returns Tailwind CSS 背景色类名
  */
 export const getFileIconBg = (fileType: string): string => {
-    if (!fileType) return "bg-gray-100";
-    if (fileType.includes("image")) return "bg-purple-100";
-    if (fileType.includes("audio")) return "bg-green-100";
-    if (fileType.includes("video")) return "bg-red-100";
+    if (!fileType) return "bg-muted";
+    if (fileType.includes("image")) return "bg-violet-500/15";
+    if (fileType.includes("audio")) return "bg-emerald-500/15";
+    if (fileType.includes("video")) return "bg-red-500/15";
     if (
         fileType.includes("pdf") ||
         fileType.includes("document") ||
         fileType.includes("text") ||
         fileType.includes("word")
     ) {
-        return "bg-blue-100";
+        return "bg-blue-500/15";
     }
-    if (fileType.includes("json")) return "bg-yellow-100";
-    return "bg-gray-100";
+    if (fileType.includes("json")) return "bg-amber-500/15";
+    return "bg-muted";
 };
 
 /**
@@ -62,20 +62,20 @@ export const getFileIconBg = (fileType: string): string => {
  * @returns Tailwind CSS 文字颜色类名
  */
 export const getFileIconColor = (fileType: string): string => {
-    if (!fileType) return "text-gray-500";
-    if (fileType.includes("image")) return "text-purple-600";
-    if (fileType.includes("audio")) return "text-green-600";
-    if (fileType.includes("video")) return "text-red-600";
+    if (!fileType) return "text-muted-foreground";
+    if (fileType.includes("image")) return "text-violet-600 dark:text-violet-400";
+    if (fileType.includes("audio")) return "text-emerald-600 dark:text-emerald-400";
+    if (fileType.includes("video")) return "text-red-600 dark:text-red-400";
     if (
         fileType.includes("pdf") ||
         fileType.includes("document") ||
         fileType.includes("text") ||
         fileType.includes("word")
     ) {
-        return "text-blue-600";
+        return "text-blue-600 dark:text-blue-400";
     }
-    if (fileType.includes("json")) return "text-yellow-600";
-    return "text-gray-500";
+    if (fileType.includes("json")) return "text-amber-600 dark:text-amber-400";
+    return "text-muted-foreground";
 };
 
 /**

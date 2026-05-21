@@ -11,6 +11,8 @@ import type {
     CourtFeeResult,
     MaritimeType
 } from '#shared/types/tools'
+import { COURT_ACCEPTANCE_BRACKETS } from './data/feeBrackets'
+import { applyBrackets } from './algorithms'
 
 /**
  * 计算诉讼费用
@@ -36,7 +38,7 @@ export function calculateCourtFee(
 /**
  * 计算受理费
  */
-function calculateCaseFee(feeType: CaseFeeType, amount: number = 0, options: CourtFeeOptions = {}): CourtFeeResult {
+function calculateCaseFee(feeType: CaseFeeType, amount: number, options: CourtFeeOptions): CourtFeeResult {
     let fee = 0
     const details: string[] = []
 
@@ -125,7 +127,7 @@ function calculateCaseFee(feeType: CaseFeeType, amount: number = 0, options: Cou
 /**
  * 计算申请费
  */
-function calculateApplicationFee(feeType: ApplicationFeeType, amount: number = 0, options: CourtFeeOptions = {}): CourtFeeResult {
+function calculateApplicationFee(feeType: ApplicationFeeType, amount: number, options: CourtFeeOptions): CourtFeeResult {
     let fee = 0
     const details: string[] = []
 
@@ -196,32 +198,7 @@ function calculateApplicationFee(feeType: ApplicationFeeType, amount: number = 0
  * 计算财产案件受理费
  */
 function calculatePropertyCaseFee(amount: number): number {
-    if (amount <= 0) return 0
-    let fee = 0
-
-    if (amount <= 10000) {
-        fee = 50
-    } else if (amount <= 100000) {
-        fee = 50 + (amount - 10000) * 0.025
-    } else if (amount <= 200000) {
-        fee = 50 + (100000 - 10000) * 0.025 + (amount - 100000) * 0.02
-    } else if (amount <= 500000) {
-        fee = 50 + (100000 - 10000) * 0.025 + (200000 - 100000) * 0.02 + (amount - 200000) * 0.015
-    } else if (amount <= 1000000) {
-        fee = 50 + (100000 - 10000) * 0.025 + (200000 - 100000) * 0.02 + (500000 - 200000) * 0.015 + (amount - 500000) * 0.01
-    } else if (amount <= 2000000) {
-        fee = 50 + (100000 - 10000) * 0.025 + (200000 - 100000) * 0.02 + (500000 - 200000) * 0.015 + (1000000 - 500000) * 0.01 + (amount - 1000000) * 0.009
-    } else if (amount <= 5000000) {
-        fee = 50 + (100000 - 10000) * 0.025 + (200000 - 100000) * 0.02 + (500000 - 200000) * 0.015 + (1000000 - 500000) * 0.01 + (2000000 - 1000000) * 0.009 + (amount - 2000000) * 0.008
-    } else if (amount <= 10000000) {
-        fee = 50 + (100000 - 10000) * 0.025 + (200000 - 100000) * 0.02 + (500000 - 200000) * 0.015 + (1000000 - 500000) * 0.01 + (2000000 - 1000000) * 0.009 + (5000000 - 2000000) * 0.008 + (amount - 5000000) * 0.007
-    } else if (amount <= 20000000) {
-        fee = 50 + (100000 - 10000) * 0.025 + (200000 - 100000) * 0.02 + (500000 - 200000) * 0.015 + (1000000 - 500000) * 0.01 + (2000000 - 1000000) * 0.009 + (5000000 - 2000000) * 0.008 + (10000000 - 5000000) * 0.007 + (amount - 10000000) * 0.006
-    } else {
-        fee = 50 + (100000 - 10000) * 0.025 + (200000 - 100000) * 0.02 + (500000 - 200000) * 0.015 + (1000000 - 500000) * 0.01 + (2000000 - 1000000) * 0.009 + (5000000 - 2000000) * 0.008 + (10000000 - 5000000) * 0.007 + (20000000 - 10000000) * 0.006 + (amount - 20000000) * 0.005
-    }
-
-    return Math.round(fee)
+    return Math.round(applyBrackets(amount, COURT_ACCEPTANCE_BRACKETS))
 }
 
 /**
@@ -232,9 +209,10 @@ function getPropertyCaseFeeDetail(amount: number): string {
         return `计算公式：不超过1万元的，每件交纳50元`
     }
 
+    // 上方已 early return amount <= 10000，此处 amount 必 > 10000
     let details = '计算公式：'
 
-    if (amount > 10000) {
+    {
         if (amount <= 100000) {
             details += `50元 + (${amount} - 10000) × 2.5%`
         } else {
@@ -318,9 +296,10 @@ function getExecutionFeeDetail(amount: number): string {
         return `计算公式：不超过1万元的，每件交纳50元`
     }
 
+    // 上方已 early return amount <= 10000，此处 amount 必 > 10000
     let details = '计算公式：'
 
-    if (amount > 10000) {
+    {
         if (amount <= 500000) {
             details += `50元 + (${amount} - 10000) × 1%`
         } else {
@@ -347,7 +326,7 @@ function getExecutionFeeDetail(amount: number): string {
 /**
  * 计算海事案件申请费
  */
-function calculateMaritimeFee(maritimeType: MaritimeType | undefined, amount: number = 0): number {
+function calculateMaritimeFee(maritimeType: MaritimeType | undefined, amount: number): number {
     switch (maritimeType) {
         case 'fund': // 申请设立海事赔偿责任限制基金
             return Math.round(amount * 0.001)

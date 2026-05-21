@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-2">
-    <label v-if="label" class="text-sm font-medium leading-none">{{ label }}</label>
+    <label v-if="label" class="text-[13px] font-semibold">{{ label }}</label>
 
     <div v-for="(_, index) in modelValue" :key="index" class="flex items-center gap-2">
       <Input :model-value="modelValue[index]" :placeholder="placeholder || `请输入${label}姓名或名称`"

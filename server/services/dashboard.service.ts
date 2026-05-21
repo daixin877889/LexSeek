@@ -102,9 +102,10 @@ export const getDashboardRecentCases = async (userId: number, limit: number = 5)
     return list.map((c: CaseWithRelations) => ({
         id: c.id,
         title: c.title,
-        date: dayjs(c.updatedAt).format('YYYY-MM-DD HH:mm'),
+        date: dayjs(c.createdAt).format('YYYY-MM-DD'),
         type: c.caseType?.name ?? '',
-        status: (c.status >= 1 && c.status <= 4) ? 'in_progress' as const : 'completed' as const,
+        status: c.status,
+        isDemo: c.isDemo,
     }))
 }
 

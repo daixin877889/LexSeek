@@ -20,6 +20,7 @@ import {
     softDeleteAccessByLevelIdDao,
     findDeletedAccessDao,
     restoreAccessDao,
+    restoreAccessByLevelAndNodesDao,
 } from './access.dao'
 import { findNodeByIdDao, findNodesByIdsDao, findAllNodesDao } from './node.dao'
 import { findMembershipLevelByIdDao, findAllActiveMembershipLevelsDao } from '../membership/membershipLevel.dao'
@@ -267,7 +268,7 @@ export const batchUpdateAccessService = async (
         // 计算需要删除的权限（当前有但新列表没有）
         const toDelete = currentAccess.filter((a) => !newNodeIds.has(a.nodeId))
 
-        // 计算需要新增的权限（新列表有但当前没有）
+        // 计算需要新增或恢复的权限（新列表有但当前没有）
         const toAdd = nodeIds.filter((id) => !currentNodeIds.has(id))
 
         // 删除不再需要的权限（单次 updateMany 替代循环逐条）
@@ -279,8 +280,10 @@ export const batchUpdateAccessService = async (
             )
         }
 
-        // 添加新的权限
+        // 添加新的权限；如果之前软删除过同一 level-node 记录，需要恢复而不是新建。
         if (toAdd.length > 0) {
+            await restoreAccessByLevelAndNodesDao(levelId, toAdd, tx as any)
+
             const records = toAdd.map((nodeId) => ({ levelId, nodeId }))
             await createManyAccessDao(records, tx as any)
         }

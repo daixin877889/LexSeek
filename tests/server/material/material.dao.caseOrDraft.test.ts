@@ -109,6 +109,20 @@ describe('findActiveMaterialByOssFileIdDao', () => {
         const r = await findActiveMaterialByOssFileIdDao(oss.id)
         expect(r).toBeNull()
     })
+
+    it('会话归属的材料不被按 ossFileId 的案件/草稿查重命中', async () => {
+        const user = await createTestUser()
+        const oss = await createTestOssFile({ userId: user.id })
+        await createMaterialDao({
+            sessionId: `sess-${Date.now()}`,
+            ossFileId: oss.id,
+            name: 's.pdf',
+            type: CaseMaterialType.DOCUMENT,
+        })
+        // 会话归属行不应被案件/草稿全局查重命中，避免案件/草稿误借用会话材料行
+        const r = await findActiveMaterialByOssFileIdDao(oss.id)
+        expect(r).toBeNull()
+    })
 })
 
 describe('findMaterialsByCaseOrDraftIdDao', () => {
@@ -120,7 +134,7 @@ describe('findMaterialsByCaseOrDraftIdDao', () => {
     })
 
     it('两者都无时返回空数组', async () => {
-        const r = await findMaterialsByCaseOrDraftIdDao(null, null)
+        const r = await findMaterialsByCaseOrDraftIdDao({ caseId: null, draftId: null })
         expect(r).toEqual([])
     })
 
@@ -140,7 +154,7 @@ describe('findMaterialsByCaseOrDraftIdDao', () => {
             name: 'b',
             type: CaseMaterialType.DOCUMENT,
         })
-        const r = await findMaterialsByCaseOrDraftIdDao(caseRow.id, null)
+        const r = await findMaterialsByCaseOrDraftIdDao({ caseId: caseRow.id, draftId: null })
         expect(r).toHaveLength(1)
         expect(r[0]!.ossFileId).toBe(oss1.id)
     })
@@ -155,7 +169,7 @@ describe('findMaterialsByCaseOrDraftIdDao', () => {
             name: 'dual',
             type: CaseMaterialType.DOCUMENT,
         })
-        const r = await findMaterialsByCaseOrDraftIdDao(caseRow.id, draft.id)
+        const r = await findMaterialsByCaseOrDraftIdDao({ caseId: caseRow.id, draftId: draft.id })
         expect(r).toHaveLength(1)
     })
 
@@ -172,7 +186,7 @@ describe('findMaterialsByCaseOrDraftIdDao', () => {
             where: { id: m.id },
             data: { deletedAt: new Date() },
         })
-        const r = await findMaterialsByCaseOrDraftIdDao(caseRow.id, null)
+        const r = await findMaterialsByCaseOrDraftIdDao({ caseId: caseRow.id, draftId: null })
         expect(r).toEqual([])
     })
 })

@@ -33,7 +33,7 @@
                 </div>
             </div>
             <div class="flex gap-2 pt-2 border-t">
-                <Button v-if="order.status === OrderStatus.PENDING" size="sm" class="flex-1"
+                <Button v-if="order.status === OrderStatus.PENDING" size="sm" class="flex-1 bg-gradient-brand-button text-white"
                     @click="emit('pay', order)">
                     支付
                 </Button>

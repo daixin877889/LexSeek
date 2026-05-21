@@ -14,7 +14,7 @@
 - **E2E 1（文书）**：在某劳动合同纠纷案件详情页打开小索 → 输入"帮我起草这个案件的起诉状" → 弹模板选择卡 → 选模板 → 起草完成 → 工具卡片"已完成" → 跳文书页 → 来源条**只显示「← 返回小索」**（无关联按钮 / 无更换） → 点返回回到案件页 + 浮窗自动展开 + 定位对应 session
 - **E2E 2（合同）**：小索浮窗上传 docx → 输入"审一下这份合同" → 弹立场选择卡 → 选乙方 → 分析完成 → 工具卡 Top 3 风险 → 跳合同工作台 → 同款来源条 → 同款返回闭环
 - **数据校验**：`documentDrafts.caseId` 与 `contractReviews.caseId` 在 DB 中确实带上了案件 id
-- **回归**：法律助手（from=assistant）原 E2E 不退化
+- **回归**：通用问答（from=assistant）原 E2E 不退化
 
 ---
 
@@ -30,7 +30,7 @@
 
 ## 三、Mockup（核心变化点）
 
-### M1 · 小索浮窗工具卡（与法律助手同款）
+### M1 · 小索浮窗工具卡（与通用问答同款）
 
 ```
 ┌─ 小索（劳动合同纠纷案 · 朱某 vs 某保安公司）─────────┐
@@ -62,9 +62,9 @@
 
 **对比**：
 
-法律助手路径（阶段 5）：
+通用问答路径（阶段 5）：
 ```
-[← 返回 法律助手]                           [+ 关联案件]   ← 完整两端
+[← 返回 通用问答]                           [+ 关联案件]   ← 完整两端
 ```
 
 **小索路径（阶段 6 决策 C）**：
@@ -168,7 +168,7 @@
 2. 项目级 `npx nuxi typecheck` + `npx vitest run`（仅 lead 跑，teammate 期间不跑）
 3. chrome-devtools E2E 1（小索文书）+ E2E 2（小索合同）
 4. 验证返回闭环：从工作台点「返回小索」→ 案件页 + 浮窗自动展开 + 定位 session
-5. 法律助手 E2E 1+2 不退化
+5. 通用问答 E2E 1+2 不退化
 6. 验证 documentDrafts.caseId / contractReviews.caseId 字段正确
 
 #### Task 20 · 收尾
@@ -190,12 +190,12 @@
 - [ ] documentMain (id=17) 关联 docx skill
 - [ ] caseMain prompt v4 上线（v3 status=0）
 - [ ] 小索浮窗能渲染 DraftDocumentCard / ReviewContractCard 工具卡
-- [ ] 小索浮窗能弹出 TemplateSelectCard / StanceSelectCard 中断卡（暂仍走 Dialog 形态，与法律助手对齐 — 内联化是阶段 7 任务）
+- [ ] 小索浮窗能弹出 TemplateSelectCard / StanceSelectCard 中断卡（暂仍走 Dialog 形态，与通用问答对齐 — 内联化是阶段 7 任务）
 - [ ] 小索浮窗能上传 docx + 走 MaterialSelector
 - [ ] DraftSourceBar / ReviewSourceBar 在 xiaosuo 路径下只剩「← 返回小索」（决策 C）
 - [ ] 案件详情页 `?focus=xiaosuo&xiaosuoSessionId=` 自动展开浮窗 + 定位 session（决策 A）
 - [ ] E2E 1 + E2E 2 全绿
-- [ ] 法律助手 E2E 不退化
+- [ ] 通用问答 E2E 不退化
 - [ ] documentDrafts.caseId / contractReviews.caseId DB 验证正确
 - [ ] tag `ai-unify-stage-6-done` 已打
 - [ ] 阶段 6 → 阶段 7 交接 handoff 已写

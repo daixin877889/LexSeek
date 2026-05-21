@@ -1,11 +1,11 @@
 <template>
-    <div class="legal-full-update h-screen flex flex-col">
+    <div class="theme-brand legal-full-update h-screen flex flex-col">
         <!-- 顶部工具栏 - 响应式布局 -->
         <div class="border-b bg-background">
             <!-- 桌面端：单行布局 -->
             <div v-if="!isMobile" class="px-3 py-3 flex items-center justify-between">
                 <div class="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" class="h-7 w-7" @click="handleCancel">
+                    <Button variant="ghost" size="icon" :class="['h-7 w-7', adminBrandFocusClass]" @click="handleCancel">
                         <ArrowLeft class="h-3.5 w-3.5" />
                     </Button>
                     <div class="flex items-center gap-2">
@@ -22,7 +22,7 @@
                     </div>
 
                     <!-- 保存按钮 -->
-                    <Button size="sm" class="h-7" :disabled="editorState.saving || !editorState.hasUnsavedChanges"
+                    <Button size="sm" :class="['h-7', adminBrandPrimaryButtonClass]" :disabled="editorState.saving || !editorState.hasUnsavedChanges"
                         @click="handleSave">
                         <Loader2 v-if="editorState.saving" class="h-3.5 w-3.5 mr-1.5 animate-spin" />
                         <Save v-else class="h-3.5 w-3.5 mr-1.5" />
@@ -35,7 +35,7 @@
             <div v-else class="px-3 py-2 space-y-2">
                 <!-- 第一行：返回按钮 + 标题 -->
                 <div class="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" class="h-8 w-8 shrink-0" @click="handleCancel">
+                    <Button variant="ghost" size="icon" :class="['h-8 w-8 shrink-0', adminBrandFocusClass]" @click="handleCancel">
                         <ArrowLeft class="h-4 w-4" />
                     </Button>
                     <h1 class="text-sm font-semibold truncate">全量更新法律内容</h1>
@@ -53,14 +53,14 @@
                     <!-- 按钮组 -->
                     <div class="flex items-center gap-2">
                         <!-- 模式切换按钮 -->
-                        <Button variant="outline" size="sm" class="h-8" @click="toggleMobileMode">
+                        <Button variant="outline" size="sm" :class="['h-8', adminBrandFocusClass]" @click="toggleMobileMode">
                             <FileEdit v-if="mobileMode === 'preview'" class="h-3.5 w-3.5 mr-1.5" />
                             <Eye v-else class="h-3.5 w-3.5 mr-1.5" />
                             {{ mobileMode === 'edit' ? '预览' : '编辑' }}
                         </Button>
 
                         <!-- 保存按钮 -->
-                        <Button size="sm" class="h-8" :disabled="editorState.saving || !editorState.hasUnsavedChanges"
+                        <Button size="sm" :class="['h-8', adminBrandPrimaryButtonClass]" :disabled="editorState.saving || !editorState.hasUnsavedChanges"
                             @click="handleSave">
                             <Loader2 v-if="editorState.saving" class="h-3.5 w-3.5 mr-1.5 animate-spin" />
                             <Save v-else class="h-3.5 w-3.5 mr-1.5" />
@@ -136,6 +136,7 @@ import { toast } from 'vue-sonner'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useLegalEditorCache } from '~/composables/useLegalEditorCache'
 import { useLegalParser } from '~/composables/useLegalParser'
+import { adminBrandFocusClass, adminBrandPrimaryButtonClass } from '~/utils/adminBrandStyles'
 
 /**
  * 页面元数据

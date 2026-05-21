@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import JSZip from 'jszip'
 import { parseWordComments } from '~~/server/agents/contract/docx/wordCommentParser'
+import { loadDocxZip } from '~~/server/agents/contract/docx/zipRewriter'
 import { injectAnnotations } from '~~/server/agents/contract/docx/commentInjector'
 import type { ContractAnnotationForExport } from '~~/server/agents/contract/docx/commentInjector'
 import { injectComments } from '~~/server/agents/contract/docx/commentInjector'
@@ -86,19 +87,20 @@ describe('parseWordComments', () => {
         expect(ids).toEqual([0, 1])
     })
 
-    it('wAuthor 只含 LS: 前缀 + 人名（spec §14：身份证依赖 customXml）', async () => {
+    it('律师批注 wAuthor 为纯姓名、无 LS: 前缀（spec §4.3：作者名一律去 LS: 前缀）', async () => {
         const original = await readFile(SAMPLE)
         const { paragraphs } = await parseContractDocx(original)
         const maxIdx = paragraphs.length - 1
 
         const annotations: ContractAnnotationForExport[] = [
-            makeAnnotation({ id: 1, authorName: '张律师', anchorParagraphIndex: Math.min(1, maxIdx) }),
+            makeAnnotation({ id: 1, authorType: 'lawyer', authorName: '张律师', anchorParagraphIndex: Math.min(1, maxIdx) }),
         ]
 
         const { buffer } = await injectAnnotations(original, annotations, 999)
         const { comments } = await parseWordComments(buffer)
 
-        expect(comments[0].wAuthor).toBe('LS:张律师')
+        // spec §4.3：律师批注作者名用律师姓名本身，去掉历史 LS: 前缀
+        expect(comments[0].wAuthor).toBe('张律师')
     })
 
     it('wInitials 写短头像缩写而非 LEXSEEK（Phase C+：避免 Word people.xml 中毒）', async () => {
@@ -367,5 +369,26 @@ describe('parseWordComments', () => {
         expect(annotationRefsByWId.size).toBe(2)
         expect(annotationRefsByWId.get(0)?.annotationId).toBe(101)
         expect(annotationRefsByWId.get(1)?.annotationId).toBe(205)
+    })
+})
+
+describe('parseWordComments · Word 兼容性（customXml 被改名）', () => {
+    it('customXml 被移到包根改名后，仍能解析出批注身份证', async () => {
+        const original = await readFile(SAMPLE)
+        const anns: ContractAnnotationForExport[] = [makeAnnotation({ id: 1, anchorParagraphIndex: 1 })]
+        const { buffer } = await injectAnnotations(original, anns, 777)
+
+        // 模拟 Word 重存：把 word/customXml/annotationRefs.xml 挪到包根 customXml/item9.xml
+        const zip = await loadDocxZip(buffer)
+        const moved = await zip.file('word/customXml/annotationRefs.xml')!.async('string')
+        zip.remove('word/customXml/annotationRefs.xml')
+        zip.file('customXml/item9.xml', moved)
+        const resaved = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' })
+
+        const { annotationRefsByWId } = await parseWordComments(resaved)
+        expect(annotationRefsByWId.size).toBeGreaterThan(0)
+        const entry = [...annotationRefsByWId.values()][0]!
+        expect(entry.annotationId).toBe(1)
+        expect(entry.reviewId).toBe(777)
     })
 })

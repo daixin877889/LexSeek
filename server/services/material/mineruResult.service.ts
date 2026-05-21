@@ -9,9 +9,11 @@
 
 import JSZip from 'jszip'
 import { marked } from 'marked'
+import { sanitizeRichHtml } from '~~/server/utils/htmlSanitizer'
 import { v7 as uuidv7 } from 'uuid'
 import { $fetch } from 'ofetch'
 import { FileSource, OssFileStatus } from '#shared/types/file'
+import { buildStorageDir } from '~~/server/utils/storagePath'
 import { StorageProviderType, type AliyunPostSignatureResult } from '~~/server/lib/storage/types'
 import { embedDocumentService } from '~~/server/services/material/materialEmbedding.service'
 import { getExtensionFromFileName } from '~~/shared/utils/file'
@@ -159,8 +161,7 @@ async function uploadSingleImageToOssService(
     const storageConfig = config.storage
     const ossConfig = storageConfig.aliyunOss
     const bucket = ossConfig.bucket
-    const basePath = storageConfig.basePath
-    const dir = `${basePath}user${userId}/${FileSource.CASE_ANALYSIS}/`
+    const dir = buildStorageDir({ scope: 'user', userId, source: FileSource.DOC_EMBEDDED_IMAGE })
     const callbackUrl = storageConfig.callbackUrl
 
     const saveName = `${uuidv7()}.${getExtensionFromFileName(fileName) || 'png'}`
@@ -175,7 +176,7 @@ async function uploadSingleImageToOssService(
                 filePath: `${dir}${saveName}`,
                 fileSize: imageData.length,
                 fileType: mimeType,
-                source: FileSource.CASE_ANALYSIS,
+                source: FileSource.DOC_EMBEDDED_IMAGE,
                 status: OssFileStatus.PENDING,
                 encrypted: false,
             },
@@ -196,7 +197,7 @@ async function uploadSingleImageToOssService(
                 callbackBodyType: 'application/x-www-form-urlencoded',
                 callbackVar: {
                     user_id: userId,
-                    source: FileSource.CASE_ANALYSIS,
+                    source: FileSource.DOC_EMBEDDED_IMAGE,
                     original_file_name: fileName,
                     file_id: ossFile.id.toString(),
                     encrypted: '0',
@@ -204,7 +205,7 @@ async function uploadSingleImageToOssService(
                 },
             },
             conditions: {
-                contentLengthRange: [0, 50 * 1024 * 1024], // 50MB
+                contentLengthRange: [0, 180 * 1024 * 1024], // 180MB
                 contentType: [mimeType],
             },
             userId,
@@ -346,7 +347,9 @@ export async function markdownToHtmlService(markdown: string): Promise<string> {
         breaks: true,
     })
 
-    return marked.parse(markdown)
+    // 净化 marked 输出，剔除 script / 事件属性等，防止存储型 XSS
+    const rawHtml = await marked.parse(markdown)
+    return sanitizeRichHtml(rawHtml)
 }
 
 /**
@@ -386,7 +389,7 @@ export async function processMineruResultService(
     await markMaterialsByOssFileIdService(ossFileId, MaterialStatus.COMPLETED)
 
     // 8. fire-and-forget 按 OssFile 触发摘要生成
-    // 不依赖 caseMaterials 行存在（小索/法律助手输入框上传场景下还没创建 caseMaterials）
+    // 不依赖 caseMaterials 行存在（小索/通用问答输入框上传场景下还没创建 caseMaterials）
     generateOssFileSummaryService(ossFileId).catch(() => { /* 已在内部 catch */ })
 
     logger.info('MinerU 识别结果处理完成', { ossFileId, imageCount: imageMap.size })

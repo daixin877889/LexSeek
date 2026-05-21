@@ -39,6 +39,10 @@ export async function summarizeOverview(
     risks: Risk[],
     stance: Stance,
     contractType: string | null,
+    /** M11：透传取消信号到底层 LLM 调用，用户取消 / 超时时中断 summarize 阶段 */
+    signal?: AbortSignal,
+    /** V1：回调 summarize LLM 调用的 token 用量，供调用方累计后按积分扣费 */
+    onTokenUsage?: (tokens: number) => void,
 ): Promise<ContractOverview> {
     if (risks.length === 0) {
         return {
@@ -54,6 +58,8 @@ export async function summarizeOverview(
         buildPrompt: (template) => renderPromptTemplate(template, risks, stance, contractType),
         errorPrefix: 'summarizeOverview',
         logContext: { riskCount: risks.length, stance, contractType },
+        signal,
+        onTokenUsage,
     })
 
     // UX-S2：LLM 可能返回空 riskId 或编造不存在的 riskId，前端点击要点时
@@ -89,6 +95,34 @@ export async function summarizeOverview(
     }
 
     return cleaned
+}
+
+/**
+ * V2：把 overview.highlights[].riskId 从内存 UUID（analyzeSingleClause 生成的 Risk.id）
+ * 重映射为 contractRisks 表的整型 id（字符串化，与前端风险卡片 data-risk-id 对齐）。
+ *
+ * 原地修改 overview，返回是否发生过映射。highlights 为 null（summarize 降级）时直接
+ * 返回 false。未在映射表里的 riskId（LLM 编造、已被置空字符串）保持原值不动。
+ *
+ * 背景：summarizeOverview 生成 highlights 时只有内存 UUID，落库 contractRisks 表后才
+ * 拿到整型 id。不回写 summary 的话，总览要点点击会因 riskId 类型不匹配定位不到风险卡片。
+ */
+export function remapHighlightRiskIds(
+    overview: ContractOverview,
+    uuidToIntId: Map<string, number>,
+): boolean {
+    if (!overview.highlights) return false
+    let changed = false
+    for (const level of ['high', 'medium', 'low'] as const) {
+        for (const item of overview.highlights[level]) {
+            const mapped = uuidToIntId.get(item.riskId)
+            if (mapped != null) {
+                item.riskId = String(mapped)
+                changed = true
+            }
+        }
+    }
+    return changed
 }
 
 /**

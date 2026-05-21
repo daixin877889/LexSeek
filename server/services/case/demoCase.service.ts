@@ -246,6 +246,12 @@ export async function ensureSourceFileRecognitionService(sourceOssFileId: number
         return
     }
 
+    // 系统级文件（userId=null）不应出现在示范案例素材里；如有则跳过识别触发
+    if (source.userId == null) {
+        logger.warn('ensureSourceFileRecognitionService: 源文件无归属用户，跳过识别触发', { sourceOssFileId })
+        return
+    }
+
     const ext = getExtensionFromFileName(source.fileName) || ''
     const fileType = detectFileTypeService(source.fileName)
 
@@ -390,13 +396,16 @@ export async function prepareDemoCaseForUserService(
                 })
 
                 // 4. 克隆识别记录（不克隆嵌入向量，由分析启动时延迟生成）
-                await cloneRecognitionService({
-                    tx,
-                    sourceUserId: source.userId,
-                    sourceOssFileId: source.id,
-                    targetUserId: user.id,
-                    targetOssFileId: clone.id,
-                })
+                // 系统级文件（userId=null）无识别记录，跳过克隆
+                if (source.userId != null) {
+                    await cloneRecognitionService({
+                        tx,
+                        sourceUserId: source.userId,
+                        sourceOssFileId: source.id,
+                        targetUserId: user.id,
+                        targetOssFileId: clone.id,
+                    })
+                }
 
                 result.push(toOssFileDto(clone))
             }

@@ -116,6 +116,20 @@ export interface PromptSubmitData {
     materials: CaseMaterialParam[]
 }
 
+/** 案件分析立场 */
+export enum CaseStance {
+  PLAINTIFF = 'plaintiff',
+  DEFENDANT = 'defendant',
+  NEUTRAL = 'neutral',
+}
+
+/** 立场中文文本字典 */
+export const CaseStanceText: Record<CaseStance, string> = {
+  [CaseStance.PLAINTIFF]: '原告',
+  [CaseStance.DEFENDANT]: '被告',
+  [CaseStance.NEUTRAL]: '中立',
+}
+
 /** 案件状态文本映射 */
 export const CaseStatusText: Record<CaseStatus, string> = {
   [CaseStatus.CONSULTING]:   '咨询阶段',
@@ -126,19 +140,39 @@ export const CaseStatusText: Record<CaseStatus, string> = {
   [CaseStatus.ARCHIVED]:     '归档',
 }
 
-/** 徽章 Tailwind 类（固定色系 + dark 变体） */
+/** 徽章 Tailwind 类（六阶段六色相：青→蓝→琥珀→紫→翠→灰 + dark 变体） */
 export const CaseStatusBadgeClass: Record<CaseStatus, string> = {
-  [CaseStatus.CONSULTING]:   'bg-zinc-500/10 text-zinc-700 dark:bg-zinc-500/15 dark:text-zinc-300',
-  [CaseStatus.PREPARING]:    'bg-blue-500/10 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
-  [CaseStatus.FIRST_TRIAL]:  'bg-amber-500/10 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
-  [CaseStatus.SECOND_TRIAL]: 'bg-orange-500/10 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300',
-  [CaseStatus.CLOSED]:       'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
-  [CaseStatus.ARCHIVED]:     'bg-muted text-muted-foreground',
+  [CaseStatus.CONSULTING]:   'bg-cyan-500/10 text-cyan-700 border-cyan-500/30 dark:bg-cyan-400/15 dark:text-cyan-300 dark:border-cyan-400/30',
+  [CaseStatus.PREPARING]:    'bg-blue-500/10 text-blue-700 border-blue-500/30 dark:bg-blue-400/15 dark:text-blue-300 dark:border-blue-400/30',
+  [CaseStatus.FIRST_TRIAL]:  'bg-amber-500/10 text-amber-700 border-amber-500/30 dark:bg-amber-400/15 dark:text-amber-300 dark:border-amber-400/30',
+  [CaseStatus.SECOND_TRIAL]: 'bg-violet-500/10 text-violet-700 border-violet-500/30 dark:bg-violet-400/15 dark:text-violet-300 dark:border-violet-400/30',
+  [CaseStatus.CLOSED]:       'bg-emerald-500/10 text-emerald-700 border-emerald-500/30 dark:bg-emerald-400/15 dark:text-emerald-300 dark:border-emerald-400/30',
+  [CaseStatus.ARCHIVED]:     'bg-muted text-muted-foreground border-border',
 }
 
 /** 判断状态是否只读（UI 禁用编辑/分析/写记忆入口） */
 export function isCaseReadOnly(status: CaseStatus | number): boolean {
   return status === CaseStatus.ARCHIVED
+}
+
+/** 判断案件是否处于「进行中」阶段（咨询 / 准备 / 一审 / 二审，不含结案与归档） */
+export function isCaseInProgress(status: CaseStatus | number): boolean {
+  return (
+    status === CaseStatus.CONSULTING ||
+    status === CaseStatus.PREPARING ||
+    status === CaseStatus.FIRST_TRIAL ||
+    status === CaseStatus.SECOND_TRIAL
+  )
+}
+
+/** 案件状态概览（「我的案件」页统计卡用，跨全部案件聚合） */
+export interface CaseStatusSummary {
+  /** 全部案件数（含归档） */
+  total: number
+  /** 进行中（咨询 / 准备 / 一审 / 二审） */
+  inProgress: number
+  /** 已结案 */
+  closed: number
 }
 
 /** 会话状态枚举 */
@@ -211,6 +245,8 @@ export enum InterruptType {
     INSUFFICIENT_POINTS = 'insufficient_points',
     /** 中断点5：合同审查立场选择 */
     AWAITING_STANCE = 'awaiting_stance',
+    /** 中断点6：办案计算器需要用户补全参数 */
+    CALCULATOR_INPUT = 'calculator_input',
 }
 
 // ==================== 案件基本信息接口 ====================
@@ -358,12 +394,24 @@ export interface InsufficientPointsInterruptData extends InterruptData {
     }
 }
 
+/** 办案计算器参数补全中断数据接口（中断点6） */
+export interface CalculatorInputInterruptData {
+    type: InterruptType.CALCULATOR_INPUT
+    /** 工具名称，如 'calculate_compensation' */
+    toolName: string
+    /** L1+L2 合并后的预填参数 */
+    prefilled: Record<string, unknown>
+    /** 缺失必填字段名列表 */
+    missing: string[]
+}
+
 /** 联合类型：所有中断数据类型 */
 export type TypedInterruptData =
     | CaseInfoCheckInterruptData
     | BasicInfoConfirmInterruptData
     | ModuleSelectInterruptData
     | InsufficientPointsInterruptData
+    | CalculatorInputInterruptData
 
 // ==================== 分析模块接口 ====================
 
@@ -439,6 +487,20 @@ export interface CreateCaseInput {
     summary?: string | null
     /** AI 提取的扩展字段 */
     extractedInfo?: ExtraField[] | null
+    /** 分析立场（默认 plaintiff） */
+    stance?: CaseStance
+    /** 案件状态（前端创建表单可填，未填走 DAO 默认 CONSULTING） */
+    status?: number
+    /** 法院名称 */
+    courtName?: string | null
+    /** 一审案件编号 */
+    firstInstanceCaseNo?: string | null
+    /** 一审法官姓名 */
+    firstInstanceJudge?: string | null
+    /** 二审案件编号 */
+    secondInstanceCaseNo?: string | null
+    /** 二审法官姓名 */
+    secondInstanceJudge?: string | null
 }
 
 /** 更新案件输入 */
@@ -449,10 +511,14 @@ export interface UpdateCaseInput {
     content?: string | null
     /** 案件类型 ID */
     caseTypeId?: number
-    /** 原告信息 */
-    plaintiff?: PartyInfo[] | null
-    /** 被告信息 */
-    defendant?: PartyInfo[] | null
+    /**
+     * 原告信息。
+     * 支持 PartyInfo[] 结构化对象，或纯 string[]（前端编辑表单回填名字数组）。
+     * DAO 把整个 array 写入 cases.plaintiff JSONB 字段。
+     */
+    plaintiff?: (PartyInfo | string)[] | null
+    /** 被告信息（同 plaintiff） */
+    defendant?: (PartyInfo | string)[] | null
     /** 案件状态 */
     status?: number
     /** 法院名称 */
@@ -465,6 +531,10 @@ export interface UpdateCaseInput {
     firstInstanceJudge?: string | null
     /** 二审法官姓名 */
     secondInstanceJudge?: string | null
+    /** 分析立场 */
+    stance?: CaseStance
+    /** 案件概述（可空） */
+    summary?: string | null
 }
 
 /** 案件列表查询参数 */

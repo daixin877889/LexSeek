@@ -26,23 +26,23 @@
 - vertical-integration teammate 顺手修了 3 个 test-db-helper FK 顺序问题（独立 commit）
 - stage4 回归脚本暴露 11 个测试隔离问题，独立 chore(test) commit
 
-## 下一步：阶段 5 法律助手 → 文书 / 合同（无 caseId）
+## 下一步：阶段 5 通用问答 → 文书 / 合同（无 caseId）
 
 **spec 章节**：`docs/superpowers/specs/2026-04-26-ai-infrastructure-unification-design.md` §6 阶段 5
 
 **简述**（1-2 周工程量，**用户可见**）：
 - `server/services/agent-platform/tools/draftDocument.tool.ts` + `reviewContract.tool.ts` 实现（子代理工具）
-- 法律助手节点配置（assistantMain）的 nodes.tools 加 `draft_document` + `review_contract`
-- 法律助手节点接入全部 6 个 skills
+- 通用问答节点配置（assistantMain）的 nodes.tools 加 `draft_document` + `review_contract`
+- 通用问答节点接入全部 6 个 skills
 - `app/components/agents/document/tools/DraftDocumentCard.vue` + `ReviewContractCard.vue` 实现
 - 跳转协议落地：`?from=&caseId=&sessionId=`
 - 文书页 + 合同工作台顶部"来源色彩条 + 返回链接 + 关联案件按钮"
 - `PATCH /api/v1/assistant/document/drafts/:id { caseId }` + `PATCH /api/v1/assistant/contract/reviews/:id { caseId }` 接口
 
 **完成定义**（来自 spec §6 阶段 5）：
-- E2E 1：法律助手输入"帮我起草起诉状" → 工具卡片"已完成" → 跳文书页 → "+关联案件"成功
-- E2E 2：法律助手输入"审一下这份合同"（拖入 docx）→ 工具卡片含 Top 风险 → 跳工作台 → "+关联案件"成功
-- 验证返回链接能回到法律助手并继续对话
+- E2E 1：通用问答输入"帮我起草起诉状" → 工具卡片"已完成" → 跳文书页 → "+关联案件"成功
+- E2E 2：通用问答输入"审一下这份合同"（拖入 docx）→ 工具卡片含 Top 风险 → 跳工作台 → "+关联案件"成功
+- 验证返回链接能回到通用问答并继续对话
 
 ## 阶段 5 启动建议
 
@@ -114,7 +114,7 @@ docs/superpowers/notes/2026-04-27-stage4-to-stage5-handoff.md
 
 | 阶段 | 工程量 | 关键产出 |
 |---|---|---|
-| 5 | 1-2 周 | 法律助手 → 文书 / 合同（无 caseId 启动 + 工具卡片设计 + 跳转协议）|
+| 5 | 1-2 周 | 通用问答 → 文书 / 合同（无 caseId 启动 + 工具卡片设计 + 跳转协议）|
 | 6 | 1 周 | 小索 → 文书 / 合同（带 caseId 透传）|
 | 7 | 1-2 周 | 前端复用收敛（useStreamChat 工厂、interrupt 注册表、6 个业务 composable 收敛）+ stateGraph 路径 skill 工具自动注入修复 |
 | 8 | 1 周 | 案件初分接 skills + 提示词改造 |

@@ -170,8 +170,13 @@ export async function findStaleRunsDAO(thresholdMs: number): Promise<agentRuns[]
 }
 
 /**
- * 重置超时任务为 pending（含 workerId 条件防竞态）
- * 返回是否成功重置
+ * 释放 worker 持有的 RUNNING run 回 pending（含 workerId 条件防竞态）
+ *
+ * 同时服务于两个场景：
+ * - 崩溃恢复：心跳超时被 findStaleRunsDAO 扫到的 stale run
+ * - Worker shutdown：进程关停时把活跃 run 让出来等其他 worker 接管
+ *
+ * 返回是否成功重置。
  */
 export async function resetStaleRunDAO(
   id: string,

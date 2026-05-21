@@ -5,12 +5,12 @@
  * **Validates: Requirements 12.1.1-12.1.5**
  *
  * 覆盖：
- * - confirmPoints.tool - 积分确认工具
- * - rollbackPoints.tool - 积分回滚工具
- * - reservePoints.tool - 积分预扣工具
  * - processMaterials.tool - 材料处理工具
  * - searchLaw.tool - 法律检索工具
  * - index - 工具注册表（getAllToolsService 等）
+ *
+ * 说明：confirmPoints / rollbackPoints / reservePoints 三个预扣工具已在
+ * commit be388702 删除（属未挂载死代码），对应单测同步移除。
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -22,14 +22,6 @@ vi.stubGlobal('logger', {
     error: vi.fn(),
     debug: vi.fn(),
 })
-
-// Mock 积分相关服务
-vi.mock('~~/server/services/point/pointConsumption.service', () => ({
-    settlePointsService: vi.fn(),
-    rollbackPreDeductService: vi.fn(),
-    preDeductPointsService: vi.fn(),
-    checkPointsService: vi.fn(),
-}))
 
 // Mock 材料相关服务
 vi.mock('~~/server/services/material/materialPipeline.service', () => ({
@@ -55,12 +47,6 @@ vi.mock('~~/server/services/legal/searchLaw.tool', () => ({
 }))
 
 import {
-    settlePointsService,
-    rollbackPreDeductService,
-    preDeductPointsService,
-    checkPointsService,
-} from '~~/server/services/point/pointConsumption.service'
-import {
     ensureMaterialsReadyService,
     getMaterialContextService,
 } from '~~/server/services/material/materialPipeline.service'
@@ -69,9 +55,6 @@ import { searchLaw } from '~~/server/services/legal/searchLaw.tool'
 import type { ToolContext } from '~~/server/services/workflow/tools/types'
 
 // 导入工具模块
-import * as confirmPointsTool from '~~/server/services/workflow/tools/confirmPoints.tool'
-import * as rollbackPointsTool from '~~/server/services/workflow/tools/rollbackPoints.tool'
-import * as reservePointsTool from '~~/server/services/workflow/tools/reservePoints.tool'
 import * as processMaterialsTool from '~~/server/services/workflow/tools/processMaterials.tool'
 import * as searchLawTool from '~~/server/services/workflow/tools/searchLaw.tool'
 
@@ -86,171 +69,6 @@ const createTestContext = (overrides: Partial<ToolContext> = {}): ToolContext =>
 describe('工作流工具', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-    })
-
-    // ==================== confirmPoints.tool ====================
-
-    describe('confirmPoints.tool - 积分确认工具', () => {
-        it('toolDefinition 包含正确的名称和描述', () => {
-            expect(confirmPointsTool.toolDefinition.name).toBe('confirm_points')
-            expect(confirmPointsTool.toolDefinition.description).toContain('积分实扣')
-        })
-
-        it('createTool 返回的工具名称与 definition 一致', () => {
-            const tool = confirmPointsTool.createTool(createTestContext())
-            expect(tool.name).toBe('confirm_points')
-        })
-
-        it('成功确认积分返回成功结果', async () => {
-            vi.mocked(settlePointsService).mockResolvedValueOnce({
-                consumedAmount: 10,
-            } as any)
-
-            const tool = confirmPointsTool.createTool(createTestContext())
-            const result = await tool.invoke({ batchId: 'batch_001' })
-            const parsed = JSON.parse(result as string)
-
-            expect(parsed.success).toBe(true)
-            expect(parsed.batchId).toBe('batch_001')
-            expect(parsed.consumedAmount).toBe(10)
-            expect(settlePointsService).toHaveBeenCalledWith('batch_001')
-        })
-
-        it('确认失败返回错误信息', async () => {
-            vi.mocked(settlePointsService).mockRejectedValueOnce(new Error('批次不存在'))
-
-            const tool = confirmPointsTool.createTool(createTestContext())
-            const result = await tool.invoke({ batchId: 'batch_invalid' })
-            const parsed = JSON.parse(result as string)
-
-            expect(parsed.error).toBe('积分确认失败')
-            expect(parsed.message).toBe('批次不存在')
-        })
-    })
-
-    // ==================== rollbackPoints.tool ====================
-
-    describe('rollbackPoints.tool - 积分回滚工具', () => {
-        it('toolDefinition 包含正确的名称和描述', () => {
-            expect(rollbackPointsTool.toolDefinition.name).toBe('rollback_points')
-            expect(rollbackPointsTool.toolDefinition.description).toContain('回滚')
-        })
-
-        it('createTool 返回的工具名称与 definition 一致', () => {
-            const tool = rollbackPointsTool.createTool(createTestContext())
-            expect(tool.name).toBe('rollback_points')
-        })
-
-        it('成功回滚积分返回释放金额', async () => {
-            vi.mocked(rollbackPreDeductService).mockResolvedValueOnce({
-                releasedAmount: 5,
-            } as any)
-
-            const tool = rollbackPointsTool.createTool(createTestContext())
-            const result = await tool.invoke({ batchId: 'batch_002' })
-            const parsed = JSON.parse(result as string)
-
-            expect(parsed.success).toBe(true)
-            expect(parsed.batchId).toBe('batch_002')
-            expect(parsed.releasedAmount).toBe(5)
-            expect(rollbackPreDeductService).toHaveBeenCalledWith('batch_002')
-        })
-
-        it('回滚失败返回错误信息', async () => {
-            vi.mocked(rollbackPreDeductService).mockRejectedValueOnce(new Error('批次已结算'))
-
-            const tool = rollbackPointsTool.createTool(createTestContext())
-            const result = await tool.invoke({ batchId: 'batch_settled' })
-            const parsed = JSON.parse(result as string)
-
-            expect(parsed.error).toBe('积分回滚失败')
-            expect(parsed.message).toBe('批次已结算')
-        })
-    })
-
-    // ==================== reservePoints.tool ====================
-
-    describe('reservePoints.tool - 积分预扣工具', () => {
-        it('toolDefinition 包含正确的名称', () => {
-            expect(reservePointsTool.toolDefinition.name).toBe('reserve_points')
-        })
-
-        it('所有模块预扣成功', async () => {
-            vi.mocked(checkPointsService).mockResolvedValue({
-                sufficient: true,
-                required: 10,
-                available: 100,
-                itemName: '法律分析',
-            } as any)
-            vi.mocked(preDeductPointsService).mockResolvedValue({
-                batchId: 'batch_new',
-                preDeductAmount: 10,
-            } as any)
-
-            const tool = reservePointsTool.createTool(createTestContext())
-            const result = await tool.invoke({
-                modules: ['analysis_summary', 'analysis_defense'],
-            })
-            const parsed = JSON.parse(result as string)
-
-            expect(parsed.success).toBe(true)
-            expect(parsed.reservations).toHaveLength(2)
-            expect(parsed.totalAmount).toBe(20)
-            expect(parsed.errors).toBeUndefined()
-        })
-
-        it('积分不足的模块跳过并记录错误', async () => {
-            vi.mocked(checkPointsService)
-                .mockResolvedValueOnce({
-                    sufficient: true, required: 10, available: 100, itemName: '模块A',
-                } as any)
-                .mockResolvedValueOnce({
-                    sufficient: false, required: 10, available: 5, itemName: '模块B',
-                } as any)
-            vi.mocked(preDeductPointsService).mockResolvedValue({
-                batchId: 'batch_a', preDeductAmount: 10,
-            } as any)
-
-            const tool = reservePointsTool.createTool(createTestContext())
-            const result = await tool.invoke({
-                modules: ['module_a', 'module_b'],
-            })
-            const parsed = JSON.parse(result as string)
-
-            expect(parsed.success).toBe(false)
-            expect(parsed.reservations).toHaveLength(1)
-            expect(parsed.errors).toHaveLength(1)
-            expect(parsed.errors[0].module).toBe('module_b')
-        })
-
-        it('预扣过程中发生异常会被捕获', async () => {
-            vi.mocked(checkPointsService).mockResolvedValueOnce({
-                sufficient: true, required: 10, available: 100, itemName: '模块C',
-            } as any)
-            vi.mocked(preDeductPointsService).mockRejectedValueOnce(new Error('数据库超时'))
-
-            const tool = reservePointsTool.createTool(createTestContext())
-            const result = await tool.invoke({ modules: ['module_c'] })
-            const parsed = JSON.parse(result as string)
-
-            expect(parsed.success).toBe(false)
-            expect(parsed.errors).toHaveLength(1)
-            expect(parsed.errors[0].error).toBe('数据库超时')
-        })
-
-        it('带 sourceId 参数传递给预扣服务', async () => {
-            vi.mocked(checkPointsService).mockResolvedValueOnce({
-                sufficient: true, required: 10, available: 100, itemName: '分析',
-            } as any)
-            vi.mocked(preDeductPointsService).mockResolvedValueOnce({
-                batchId: 'batch_src', preDeductAmount: 10,
-            } as any)
-
-            const tool = reservePointsTool.createTool(createTestContext())
-            await tool.invoke({ modules: ['analysis'], sourceId: 42 })
-
-            expect(preDeductPointsService).toHaveBeenCalledWith(1, 'analysis', 1, { sourceId: 42 })
-        })
     })
 
     // ==================== processMaterials.tool ====================
@@ -423,23 +241,20 @@ describe('工作流工具', () => {
 
         it('getAllToolNamesService 返回所有注册的工具名称', () => {
             const names = toolsIndex.getAllToolNamesService()
-            expect(names).toContain('confirm_points')
-            expect(names).toContain('rollback_points')
-            expect(names).toContain('reserve_points')
-            expect(names).toContain('process_materials')
             expect(names).toContain('search_law')
+            expect(names).toContain('process_materials')
             expect(names).toContain('search_case_materials')
         })
 
         it('hasToolService 正确判断工具是否存在', () => {
-            expect(toolsIndex.hasToolService('confirm_points')).toBe(true)
+            expect(toolsIndex.hasToolService('search_law')).toBe(true)
             expect(toolsIndex.hasToolService('nonexistent_tool')).toBe(false)
         })
 
         it('getToolMetaService 返回工具元信息', () => {
-            const meta = toolsIndex.getToolMetaService('confirm_points')
+            const meta = toolsIndex.getToolMetaService('search_law')
             expect(meta).not.toBeNull()
-            expect(meta!.name).toBe('confirm_points')
+            expect(meta!.name).toBe('search_law')
             expect(meta!.description).toBeDefined()
             expect(meta!.parameters).toBeDefined()
         })
@@ -461,24 +276,24 @@ describe('工作流工具', () => {
         it('getToolInstancesService 创建工具实例', () => {
             const context = createTestContext()
             const instances = toolsIndex.getToolInstancesService(
-                ['confirm_points', 'rollback_points'],
+                ['search_law', 'process_materials'],
                 context
             )
 
             expect(instances).toHaveLength(2)
-            expect(instances[0].name).toBe('confirm_points')
-            expect(instances[1].name).toBe('rollback_points')
+            expect(instances[0].name).toBe('search_law')
+            expect(instances[1].name).toBe('process_materials')
         })
 
         it('getToolInstancesService 跳过不存在的工具', () => {
             const context = createTestContext()
             const instances = toolsIndex.getToolInstancesService(
-                ['confirm_points', 'nonexistent'],
+                ['search_law', 'nonexistent'],
                 context
             )
 
             expect(instances).toHaveLength(1)
-            expect(instances[0].name).toBe('confirm_points')
+            expect(instances[0].name).toBe('search_law')
         })
     })
 })

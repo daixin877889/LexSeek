@@ -194,25 +194,27 @@ describe('recommendDocumentTemplatesService（真打 DB）', () => {
         const user = await createTestUser()
         testIds.userIds.push(user.id)
 
-        // litigation 只 1 条；其余分散在多个 category
-        const tplLit = await createTpl({ name: '民事起诉状', category: 'litigation' })
-        const tplGen = await createTpl({ name: '调解协议', category: 'general', description: '起诉前置' })
-        const tplEvi = await createTpl({ name: '证据起诉清单', category: 'evidence' })
+        // protection_order 在测试种子库中没有启用模板；本用例只放 1 条，
+        // 其余分散在多个 category，稳定触发跨类兜底。
+        const keyword = 'x跨类兜底'
+        const tplHint = await createTpl({ name: '人身安全保护令申请书', category: 'protection_order' })
+        const tplGen = await createTpl({ name: '调解协议', category: 'general', description: `${keyword}前置` })
+        const tplEvi = await createTpl({ name: `证据${keyword}清单`, category: 'evidence' })
 
         const result = await recommendDocumentTemplatesService({
             userId: user.id,
-            intent: '起诉',
-            keywords: ['起诉'],
-            categoryHint: 'litigation',
+            intent: keyword,
+            keywords: [keyword],
+            categoryHint: 'protection_order',
         })
 
         const ids = result.items.map(i => i.id)
         // 第一层只有 1 条，所以兜底合并
-        expect(ids).toContain(tplLit.id)
+        expect(ids).toContain(tplHint.id)
         expect(ids.length).toBeGreaterThan(1)
-        // 跨类的 tplEvi（name 命中 起诉 → +10）必须出现
+        // 跨类的 tplEvi（name 命中 keyword → +10）必须出现
         expect(ids).toContain(tplEvi.id)
-        // tplGen 描述命中 起诉 → +5，应在结果中（如果池子够大）
+        // tplGen 描述命中 keyword → +5，应在结果中
         expect(ids).toContain(tplGen.id)
     })
 
@@ -376,5 +378,26 @@ describe('recommendDocumentTemplatesService（真打 DB）', () => {
         const sMid = r.items.find(i => i.id === middle.id)!.score
         // name 以 "起诉状" 开头的应严格高于 name 中部含的
         expect(sStart).toBeGreaterThan(sMid)
+    })
+
+    it('10. items 中的 recentlyUsed 标记最近 30 天用过的模板', async () => {
+        const user = await createTestUser()
+        testIds.userIds.push(user.id)
+
+        const used = await createTpl({ name: '近期合同', category: 'general' })
+        const unused = await createTpl({ name: '其他合同', category: 'general' })
+        await createDraftWithTemplate(user.id, used.id, 5)
+
+        const r = await recommendDocumentTemplatesService({
+            userId: user.id,
+            intent: '合同',
+            keywords: ['合同'],
+            limit: 20,
+        })
+
+        const usedItem = r.items.find(i => i.id === used.id)
+        const unusedItem = r.items.find(i => i.id === unused.id)
+        expect(usedItem!.recentlyUsed).toBe(true)
+        expect(unusedItem!.recentlyUsed).toBe(false)
     })
 })

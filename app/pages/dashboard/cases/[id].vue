@@ -221,6 +221,11 @@ function handleBatchGenerate() {
   navigateTo(`/dashboard/cases/init-analysis?caseId=${caseId.value}`)
 }
 
+// --- 打开历史批量分析会话（由 BatchAnalysisPopover 列表项点击触发） ---
+function handleOpenInitSession(sessionId: string) {
+  navigateTo(`/dashboard/cases/init-analysis/${sessionId}`)
+}
+
 // --- 前往处理中断 ---
 function handleGoToInterrupt() {
   const sessionId = analysisStatus.value?.sessionId
@@ -276,9 +281,10 @@ async function handleTemplateSelect(templateId: number) {
   // activeView 当前值作为 returnTab（documents 或 overview）
   const returnTab = activeView.value === 'overview' ? 'overview' : 'documents'
   // 先跳转再关 Sheet：页面卸载时 Sheet 自然销毁，避免关闭动画与路由切换并发闪烁
+  // autoAi=1：通知文书页 onMounted 时自动唤起 AI 浮窗并发起生成指令（spec §3.3）
   await navigateTo(
     `/dashboard/document/drafts/${result.draftId}`
-    + `?from=case&caseId=${caseId.value}&returnTab=${returnTab}`,
+    + `?from=case&caseId=${caseId.value}&returnTab=${returnTab}&autoAi=1`,
   )
   documentSheetOpen.value = false
 }
@@ -374,6 +380,7 @@ function handleXiaosuoFocusQuery() {
             @navigate-to-select-mode="navigateToSelectMode"
             @generate-module="handleGenerateModule"
             @batch-generate="handleBatchGenerate"
+            @open-init-session="handleOpenInitSession"
             @go-to-interrupt="handleGoToInterrupt"
             @go-to-running-workflow="handleGoToRunningWorkflow"
             @create-document="handleCreateDocument"
@@ -402,6 +409,7 @@ function handleXiaosuoFocusQuery() {
             @regenerate="handleModuleRegenerate"
             @generate-module="handleGenerateModule"
             @batch-generate="handleBatchGenerate"
+            @open-init-session="handleOpenInitSession"
             @go-to-interrupt="handleGoToInterrupt"
             @go-to-running-workflow="handleGoToRunningWorkflow" />
           <CaseDetailDocuments

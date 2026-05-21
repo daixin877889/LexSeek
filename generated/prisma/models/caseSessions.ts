@@ -15,7 +15,7 @@ import type * as Prisma from "../internal/prismaNamespace.js"
 /**
  * Model caseSessions
  * 案件会话表 - 存储案件分析的会话上下文，对应 LangGraph 的 thread_id
- * 通过 scope 字段扩展为双域：case（案件内）与 assistant（通用法律助手）
+ * 通过 scope 字段扩展为双域：case（案件内）与 assistant（通用问答）
  */
 export type caseSessionsModel = runtime.Types.Result.DefaultSelection<Prisma.$caseSessionsPayload>
 
@@ -1100,7 +1100,7 @@ export type $caseSessionsPayload<ExtArgs extends runtime.Types.Extensions.Intern
      */
     sessionId: string
     /**
-     * 会话归属域：case（案件内）/ assistant（通用法律助手）
+     * 会话归属域：case（案件内）/ assistant（通用问答）
      */
     scope: string
     /**

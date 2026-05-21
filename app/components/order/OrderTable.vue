@@ -44,7 +44,7 @@
                         <td class="px-4 py-3 text-sm">{{ formatDate(order.createdAt) }}</td>
                         <td class="px-4 py-3 text-sm">
                             <div class="flex gap-2">
-                                <Button v-if="order.status === OrderStatus.PENDING" size="sm"
+                                <Button v-if="order.status === OrderStatus.PENDING" size="sm" class="bg-gradient-brand-button text-white"
                                     @click="emit('pay', order)">
                                     支付
                                 </Button>

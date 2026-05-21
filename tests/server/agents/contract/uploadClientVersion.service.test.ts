@@ -10,8 +10,8 @@
  * - Step 2 fileType 不是 docx → PARSE_FAILED
  * - Step 2 ZIP 头校验失败（buffer 不是合法 zip）→ PARSE_FAILED
  * - Step 2 parseWordComments 抛错 → PARSE_FAILED
- * - Step 3 跨 review 身份证 → 标 crossReviewRejected，但仍走 NO_ANNOTATION_MATCH 保护
- * - Step 3 NO_ANNOTATION_MATCH：DB 系统批注 / 上传新 docx 一个都对不上 → 拒绝
+ * - Step 3 跨 review 身份证 → 标 crossReviewRejected，但仍走 NO_CONTENT_MATCH 保护
+ * - Step 3 NO_CONTENT_MATCH：DB 系统批注 / 上传新 docx 一个都对不上 → 拒绝
  * - Step 3 客户回复：父批注是系统批注，子批注是非系统批注 → 升级为 external annotation
  * - Step 3 客户编辑系统批注 → 新建 external 子 annotation
  * - Step 3 客户新增独立批注（无 parent，非系统）→ external_new risk
@@ -41,21 +41,18 @@ vi.mock('~~/server/services/storage/storage.service', () => ({
 
 // 默认 parser：返回固定段落
 vi.mock('~~/server/agents/contract/docx/parser', () => ({
-    parseContractDocx: vi.fn(async () => ({
-        paragraphs: [
-            '第一条 甲方应支付首付款。',
-            '第二条 乙方应交付货物。',
-            '第三条 违约责任。',
-        ],
-        rawXml: '<root/>',
-    })),
+    parseContractDocx: vi.fn(async () => {
+        const paragraphs = ['第一条 甲方应支付首付款。', '第二条 乙方应交付货物。', '第三条 违约责任。']
+        // M8：mock 同样返回 body 段落口径字段（fixture 无表格 → identity 映射）
+        return { paragraphs, rawXml: '<root/>', bodyParagraphs: paragraphs, bodyParagraphIndex: paragraphs.map((_, i) => i) }
+    }),
 }))
 
 // 默认 wordCommentParser：返回空 comments + map（无任何客户批注/系统映射）
 vi.mock('~~/server/agents/contract/docx/wordCommentParser', () => ({
     parseWordComments: vi.fn(async () => ({
         comments: [],
-        annotationRefsByWId: new Map(),
+        annotationRefsByWId: new Map(), customXmlRefEntries: [],
     })),
 }))
 
@@ -114,8 +111,14 @@ async function collectEvents(
     return events
 }
 
+/** M8：构造 parseContractDocx mock 返回值，补全 body 段落口径字段（fixture 无表格 → identity）。 */
+function fakeParsed(paragraphs: string[]) {
+    return { paragraphs, rawXml: '<root/>', bodyParagraphs: paragraphs, bodyParagraphIndex: paragraphs.map((_, i) => i) }
+}
+
 describe('uploadClientVersionService（关键失败路径补充）', () => {
     let userId: number
+    let otherUserId: number | null = null
     let reviewId: number
     let ossFileId: number
     const createdOssFileIds: number[] = []
@@ -125,18 +128,15 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
         mockDownload.mockReset()
         mockDownload.mockResolvedValue(FAKE_DOCX_BUFFER)
         mockParseDocx.mockReset()
-        mockParseDocx.mockResolvedValue({
-            paragraphs: [
-                '第一条 甲方应支付首付款。',
-                '第二条 乙方应交付货物。',
-                '第三条 违约责任。',
-            ],
-            rawXml: '<root/>',
-        })
+        mockParseDocx.mockResolvedValue(fakeParsed([
+            '第一条 甲方应支付首付款。',
+            '第二条 乙方应交付货物。',
+            '第三条 违约责任。',
+        ]))
         mockParseComments.mockReset()
         mockParseComments.mockResolvedValue({
             comments: [],
-            annotationRefsByWId: new Map(),
+            annotationRefsByWId: new Map(), customXmlRefEntries: [],
         })
         mockAnalyzeClause.mockReset()
         mockAnalyzeClause.mockResolvedValue([]) // 默认无新 risk
@@ -175,6 +175,10 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
         if (createdOssFileIds.length > 0) {
             await prisma.ossFiles.deleteMany({ where: { id: { in: createdOssFileIds } } })
             createdOssFileIds.length = 0
+        }
+        if (otherUserId != null) {
+            await prisma.users.deleteMany({ where: { id: otherUserId } })
+            otherUserId = null
         }
         await prisma.users.deleteMany({ where: { id: userId } })
     })
@@ -250,6 +254,39 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
             expect(err?.data.code).toBe('PARSE_FAILED')
         })
 
+        it('OSS 文件属于其他用户 → PARSE_FAILED 且不下载文件', async () => {
+            const other = await prisma.users.create({
+                data: {
+                    phone: `198${`${Date.now()}${Math.floor(Math.random() * 100000)}`.slice(-8)}`,
+                    name: '合同回传越权测试用户',
+                    password: 'test_hash',
+                    status: 1,
+                },
+            })
+            otherUserId = other.id
+            const foreignOss = await createOssFileDao({
+                userId: other.id,
+                bucketName: 'test-bucket',
+                fileName: 'foreign.docx',
+                filePath: `users/${other.id}/foreign-${Date.now()}.docx`,
+                fileSize: 1024,
+                fileType: DOCX_MIME,
+                status: 1,
+            })
+            createdOssFileIds.push(foreignOss.id)
+
+            const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+            const events = await collectEvents(
+                uploadClientVersionService({ review, ossFileId: foreignOss.id, userId }),
+            )
+
+            const err = events.find(e => e.type === 'error')
+            expect(err?.data.step).toBe('parse')
+            expect(err?.data.code).toBe('PARSE_FAILED')
+            expect(err?.data.message).toContain('无权访问')
+            expect(mockDownload).not.toHaveBeenCalled()
+        })
+
         it('Buffer 不含 ZIP 头 → PARSE_FAILED', async () => {
             mockDownload.mockResolvedValueOnce(Buffer.from('NOT-ZIP-CONTENT'))
             const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
@@ -317,6 +354,7 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                         dateIso: new Date().toISOString(), anchorParagraphIndex: 0,
                     },
                 ],
+                customXmlRefEntries: [],
                 annotationRefsByWId: new Map([
                     [1, { reviewId, annotationId: sysAnn.id, source: 'customXml' }],
                 ]),
@@ -350,7 +388,7 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                 data: {
                     reviewId, riskId: risk.id,
                     authorType: 'ai', authorName: 'AI',
-                    content: '原始问题',
+                    content: '第一条甲方应支付首付款的约定缺少明确的支付时间，存在较大履约风险。',
                     wordCommentRef: `LEXSEEK-${1}-abcd1234`,
                 },
             })
@@ -360,10 +398,11 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                 comments: [
                     {
                         wId: 1, wAuthor: 'LS:AI', wInitials: '',
-                        content: '客户改的内容', parentWId: null,
+                        content: '第一条甲方应支付首付款的约定缺少明确的支付时间和方式，存在较大履约风险。', parentWId: null,
                         dateIso: new Date().toISOString(), anchorParagraphIndex: 0,
                     },
                 ],
+                customXmlRefEntries: [],
                 annotationRefsByWId: new Map([
                     [1, { reviewId, annotationId: sysAnn.id, source: 'customXml' }],
                 ]),
@@ -392,7 +431,7 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                         dateIso: new Date().toISOString(), anchorParagraphIndex: 0,
                     },
                 ],
-                annotationRefsByWId: new Map(),
+                annotationRefsByWId: new Map(), customXmlRefEntries: [],
             })
 
             const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
@@ -411,7 +450,7 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
             expect(externalAnns.length).toBeGreaterThanOrEqual(1)
         }, 60000)
 
-        it('NO_ANNOTATION_MATCH 保护：DB 系统批注 / 上传 docx 批注全对不上 → 拒绝', async () => {
+        it('NO_CONTENT_MATCH 保护：DB 系统批注 / 上传 docx 批注全对不上 → 拒绝', async () => {
             // 预置 1 条系统 AI annotation
             const risk = await prisma.contractRisks.create({
                 data: {
@@ -437,6 +476,7 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                         dateIso: new Date().toISOString(), anchorParagraphIndex: 0,
                     },
                 ],
+                customXmlRefEntries: [],
                 annotationRefsByWId: new Map([
                     [1, { reviewId, annotationId: 99999999, source: 'customXml' }], // 不存在的 ann id
                 ]),
@@ -447,12 +487,13 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                 uploadClientVersionService({ review, ossFileId, userId }),
             )
 
-            // ann 99999999 不在 DB → fallbackFailComments 路径，被升级为 external_new；但 systemDbAnnotations=1 且 matched=0 → 触发 NO_ANNOTATION_MATCH
+            // ann 99999999 不在 DB → fallbackFailComments 路径，被升级为 external_new；
+            // 带身份证的风险 1 条、覆盖 0 条 → 统一覆盖率 0 < 0.2 → 触发 NO_CONTENT_MATCH 保护
             const err = events.find(e => e.type === 'error')
-            expect(err?.data.code).toBe('NO_ANNOTATION_MATCH')
+            expect(err?.data.code).toBe('NO_CONTENT_MATCH')
         }, 60000)
 
-        it('跨 review 身份证 → crossReviewRejected + NO_ANNOTATION_MATCH', async () => {
+        it('跨 review 身份证 → crossReviewRejected + NO_CONTENT_MATCH', async () => {
             const risk = await prisma.contractRisks.create({
                 data: {
                     reviewId, source: 'ai', category: '风险',
@@ -463,7 +504,7 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
             const sysAnn = await prisma.contractAnnotations.create({
                 data: {
                     reviewId, riskId: risk.id,
-                    authorType: 'ai', authorName: 'AI', content: 'c',
+                    authorType: 'ai', authorName: 'AI', content: '第三条违约金条款约定金额过高，超过法定上限，可能被认定为无效。',
                     wordCommentRef: `LEXSEEK-${1}-abcd1234`,
                 },
             })
@@ -473,10 +514,11 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                 comments: [
                     {
                         wId: 1, wAuthor: 'LS:AI', wInitials: '',
-                        content: 'cross review 内容', parentWId: null,
+                        content: '第三条违约金条款约定金额过高，超过法定上限，可能被认定为无效。', parentWId: null,
                         dateIso: new Date().toISOString(), anchorParagraphIndex: 0,
                     },
                 ],
+                customXmlRefEntries: [{ reviewId: reviewId + 99999, annotationId: sysAnn.id, source: 'customXml', ref: '' }],
                 annotationRefsByWId: new Map([
                     // declared reviewId !== 当前 reviewId
                     [1, { reviewId: reviewId + 99999, annotationId: sysAnn.id, source: 'customXml' }],
@@ -488,8 +530,8 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                 uploadClientVersionService({ review, ossFileId, userId }),
             )
             const err = events.find(e => e.type === 'error')
-            expect(err?.data.code).toBe('NO_ANNOTATION_MATCH')
-            // message 应提到跨 review
+            expect(err?.data.code).toBe('NO_CONTENT_MATCH')
+            // message 应提到跨 review（跨审查文案含「其他合同审查」）
             expect(err?.data.message).toMatch(/其他合同|reviewId/)
         }, 60000)
     })
@@ -510,7 +552,7 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
                 data: { currentVersionId: v1.id, maxVersionNo: 1 },
             })
             // 让 parseContractDocx 返回新版本段落
-            mockParseDocx.mockResolvedValueOnce({ paragraphs: newDocxParas, rawXml: '<root/>' })
+            mockParseDocx.mockResolvedValueOnce(fakeParsed(newDocxParas))
         }
 
         it('diff modified clause + analyzeSingleClause 返回 risk → 创建新 risk + annotation', async () => {
@@ -770,6 +812,331 @@ describe('uploadClientVersionService（关键失败路径补充）', () => {
             expect(labels).toContain('client_return')
         }, 60000)
     })
+
+    describe('M1：早期失败恢复原始 status（不误砸 failed）', () => {
+        it('Step 2 解析失败（parseContractDocx 抛错）→ status 恢复为原始 completed', async () => {
+            mockParseDocx.mockRejectedValueOnce(new Error('docx 解析崩溃'))
+            const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+            const events = await collectEvents(
+                uploadClientVersionService({ review, ossFileId, userId }),
+            )
+            expect(events.find(e => e.type === 'error')?.data.code).toBe('PARSE_FAILED')
+            // Step 2 失败时尚未发生任何工作区数据变更，status 必须恢复为进入前的 completed，
+            // 否则原本可编辑的审查会被瞬时错误永久锁成 failed。
+            const after = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+            expect(after.status).toBe('completed')
+        })
+
+        it('Step 2 文件类型非 docx → status 恢复为原始 completed', async () => {
+            await prisma.ossFiles.update({
+                where: { id: ossFileId },
+                data: { fileType: 'application/pdf' },
+            })
+            const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+            const events = await collectEvents(
+                uploadClientVersionService({ review, ossFileId, userId }),
+            )
+            expect(events.find(e => e.type === 'error')?.data.code).toBe('PARSE_FAILED')
+            const after = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+            expect(after.status).toBe('completed')
+        })
+
+        it('Step 4a 写库后失败 → status=failed（已发生数据变更，不恢复原始 status）', async () => {
+            // 构造一个会被 diff 判为 modified 的条款，让 Step 4a 真正写库（创建新 risk/annotation）
+            const oldText = '第一条 旧条款 A 内容。\n第二条 旧条款 B。\n第三条 旧条款 C。'
+            const newParas = ['第一条 修改后的全新条款 A 内容。', '第二条 旧条款 B。', '第三条 旧条款 C。']
+            const v1 = await prisma.contractReviewVersions.create({
+                data: {
+                    reviewId, versionNumber: 1, systemLabel: 'lawyer_save',
+                    snapshotData: { docxText: oldText, clauses: [] },
+                    createdById: userId,
+                },
+            })
+            await prisma.contractReviews.update({
+                where: { id: reviewId },
+                data: { currentVersionId: v1.id, maxVersionNo: 1 },
+            })
+            mockParseDocx.mockResolvedValueOnce(fakeParsed(newParas))
+            mockAnalyzeClause.mockResolvedValueOnce([{
+                id: '', clauseIndex: 0, clauseText: '',
+                level: 'high', category: '违约', problem: '修改后的条款问题',
+                analysis: '分析', risk: '风险', suggestion: '建议',
+                legalBasis: '《合同法》第X条',
+            }])
+            // Step 4a 写库完成后，让 Step 6 保存版本快照抛错 → 整体失败
+            const versionMod = await import('~~/server/agents/contract/contractReviewVersion.service')
+            const spy = vi.spyOn(versionMod, 'saveContractReviewVersionService')
+                .mockRejectedValueOnce(new Error('保存版本快照失败'))
+            try {
+                const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+                await collectEvents(uploadClientVersionService({ review, ossFileId, userId }))
+            } finally {
+                spy.mockRestore()
+            }
+            // Step 4a 已写过库（新建 risk/annotation），属"已发生数据变更"，失败必须置 failed
+            const after = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+            expect(after.status).toBe('failed')
+        }, 60000)
+    })
+
+    describe('S4：Step 4a 写库失败 → 错误事件 + 回滚已新建行', () => {
+        it('Step 4a 写库抛错 → yield ai 错误事件，已建 risk/批注被回滚', async () => {
+            // 构造 modified 条款，让 Step 4a 走"创建新 risk"分支
+            const oldText = '第一条 旧条款 A 内容。\n第二条 旧条款 B。\n第三条 旧条款 C。'
+            const newParas = ['第一条 修改后的全新条款 A 内容。', '第二条 旧条款 B。', '第三条 旧条款 C。']
+            const v1 = await prisma.contractReviewVersions.create({
+                data: {
+                    reviewId, versionNumber: 1, systemLabel: 'lawyer_save',
+                    snapshotData: { docxText: oldText, clauses: [] },
+                    createdById: userId,
+                },
+            })
+            await prisma.contractReviews.update({
+                where: { id: reviewId },
+                data: { currentVersionId: v1.id, maxVersionNo: 1 },
+            })
+            mockParseDocx.mockResolvedValueOnce(fakeParsed(newParas))
+            mockAnalyzeClause.mockResolvedValueOnce([{
+                id: '', clauseIndex: 0, clauseText: '',
+                level: 'high', category: '违约', problem: '修改后的条款问题',
+                analysis: '分析', risk: '风险', suggestion: '建议',
+                legalBasis: '《合同法》第X条',
+            }])
+            // Step 4a 在创建 risk + annotation 之后、写 wordCommentRef 时抛错
+            const wordCommentRefMod = await import('~~/server/agents/contract/utils/wordCommentRef')
+            const spy = vi.spyOn(wordCommentRefMod, 'generateWordCommentRef')
+                .mockImplementationOnce(() => { throw new Error('生成批注引用失败') })
+            let events: { type: string; data: any }[]
+            try {
+                const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+                events = await collectEvents(uploadClientVersionService({ review, ossFileId, userId }))
+            } finally {
+                spy.mockRestore()
+            }
+            // 应 yield 出 ai 步的精确错误事件，而非让异常穿出导致前端 ai 步永久转圈
+            const aiError = events.find(e => e.type === 'error' && e.data.step === 'ai')
+            expect(aiError).toBeDefined()
+            expect(aiError!.data.code).toBe('AI_REVIEW_FAILED')
+            // Step 4a 已新建的 risk / annotation 应被补偿回滚，不残留"凭空多出的风险"
+            const aiRisks = await prisma.contractRisks.findMany({ where: { reviewId, source: 'ai' } })
+            expect(aiRisks).toHaveLength(0)
+            const anns = await prisma.contractAnnotations.findMany({ where: { reviewId } })
+            expect(anns).toHaveLength(0)
+        }, 60000)
+    })
+
+    describe('M5：内容匹配失败用作者身份证兜底', () => {
+        it('系统批注被大幅改写（内容匹配失败）+ 作者带身份证 → 回收为编辑而非独立新批注', async () => {
+            const risk = await prisma.contractRisks.create({
+                data: {
+                    reviewId, source: 'ai', category: '风险', level: 'medium',
+                    problem: 'p', clauseText: '第一条 甲方应支付。', clauseParagraphIndex: 0,
+                },
+            })
+            const sysAnn = await prisma.contractAnnotations.create({
+                data: {
+                    reviewId, riskId: risk.id, authorType: 'ai', authorName: 'AI',
+                    content: 'AI 原始审查意见：违约金条款偏高', wordCommentRef: 'LEXSEEK-100-abcd1234',
+                },
+            })
+            // 回传：该系统批注被客户大幅改写（内容相似度低，内容匹配失败），但作者尾部带身份证
+            mockParseComments.mockResolvedValueOnce({
+                comments: [{
+                    wId: 1,
+                    wAuthor: `LS:AI [#${reviewId}-${sysAnn.id}-abcd1234]`,
+                    wInitials: '',
+                    content: '完全不一样的另一段客户重写文字内容占位用',
+                    parentWId: null,
+                }],
+                annotationRefsByWId: new Map(),
+                customXmlRefEntries: [],
+            })
+            const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+            await collectEvents(uploadClientVersionService({ review, ossFileId, userId }))
+            // M5：作者身份证回收 → 改写记为 sysAnn 的 external 子批注，而非无父的 external_new
+            const externals = await prisma.contractAnnotations.findMany({
+                where: { reviewId, authorType: 'external' },
+            })
+            const editedReply = externals.find(a => a.content.includes('客户重写'))
+            expect(editedReply).toBeDefined()
+            expect(editedReply!.parentAnnotationId).toBe(sysAnn.id)
+        }, 60000)
+    })
+
+    describe('M7：customXml 残留时安全网兜底', () => {
+        it('客户剥掉 comments.xml 但 annotationRefs.xml 残留 → 触发 NO_CONTENT_MATCH 保护', async () => {
+            const risk = await prisma.contractRisks.create({
+                data: {
+                    reviewId, source: 'ai', category: '风险', level: 'medium',
+                    problem: 'p', clauseText: 'q', clauseParagraphIndex: 0,
+                },
+            })
+            const sysAnn = await prisma.contractAnnotations.create({
+                data: {
+                    reviewId, riskId: risk.id, authorType: 'ai', authorName: 'AI',
+                    content: 'AI 批注', wordCommentRef: 'LEXSEEK-100-abcd1234',
+                },
+            })
+            // 回传 docx：comments.xml 被整个剥掉（comments 空），annotationRefs.xml 身份证残留
+            mockParseComments.mockResolvedValueOnce({
+                comments: [],
+                annotationRefsByWId: new Map(),
+                customXmlRefEntries: [{ reviewId, annotationId: sysAnn.id, source: 'customXml', ref: '' }],
+            })
+            const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+            const events = await collectEvents(uploadClientVersionService({ review, ossFileId, userId }))
+            // 带身份证的风险一条都没覆盖上 → 安全网必须触发，否则全部已导出批注被误标删除
+            const err = events.find(e => e.type === 'error')
+            expect(err?.data.code).toBe('NO_CONTENT_MATCH')
+        }, 60000)
+    })
+
+    describe('M4：Step 3/3b 异常错误码精度', () => {
+        it('Step 3 差异计算抛错 → yield {step:diff, code:DIFF_FAILED}，异常不穿出', async () => {
+            // Step 3 中段调 diffClauses 识别条款差异。让其抛错模拟差异计算崩溃 → Step 3 抛异常。
+            const clauseDiffMod = await import('~~/server/agents/contract/utils/clauseDiff')
+            const spy = vi.spyOn(clauseDiffMod, 'diffClauses')
+                .mockImplementationOnce(() => { throw new Error('差异计算崩溃') })
+            let events: { type: string; data: any }[]
+            try {
+                const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+                events = await collectEvents(uploadClientVersionService({ review, ossFileId, userId }))
+            } finally {
+                spy.mockRestore()
+            }
+            // 异常被捕获并转成精确的 diff 步错误事件，而非穿出到 handler 兜底 INTERNAL
+            const err = events.find(e => e.type === 'error')
+            expect(err).toBeDefined()
+            expect(err!.data.step).toBe('diff')
+            expect(err!.data.code).toBe('DIFF_FAILED')
+            // Step 3 失败发生在写库阶段之前 → status 恢复为进入前的 completed，不误锁 failed
+            const after = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+            expect(after.status).toBe('completed')
+        }, 60000)
+    })
+
+    describe('M2/M3/M6：回传补偿 / 事务边界', () => {
+        // 建 v1 快照（clauses=[] 触发兜底重切，让 diffClauses 能识别 modified），
+        // 并让首个 parseContractDocx（accept 视图）返回新段落。
+        async function setupV1(oldText: string, newParas: string[]): Promise<void> {
+            const v1 = await prisma.contractReviewVersions.create({
+                data: {
+                    reviewId, versionNumber: 1, systemLabel: 'lawyer_save',
+                    snapshotData: { docxText: oldText, clauses: [] },
+                    createdById: userId,
+                },
+            })
+            await prisma.contractReviews.update({
+                where: { id: reviewId },
+                data: { currentVersionId: v1.id, maxVersionNo: 1 },
+            })
+            mockParseDocx.mockResolvedValueOnce(fakeParsed(newParas))
+        }
+
+        const OLD_TEXT = '第一条 这是旧条款 A 的全文，超过四十个字符方便后续 oldClauseHead 匹配命中。\n第二条 旧 B 条款内容。'
+        const NEW_PARAS = [
+            '第一条 这是旧条款 A 的全文，超过四十个字符方便后续 oldClauseHead 匹配命中。客户追加了一句。',
+            '第二条 旧 B 条款内容。',
+        ]
+
+        it('M6：Step 4a 已 in-place 更新的存量风险，Step 5 锚点迁移跳过它', async () => {
+            await setupV1(OLD_TEXT, NEW_PARAS)
+            // 存量 AI 风险：clauseText = 旧条款 1 全文（含 oldClauseHead），clauseCharStart 留空
+            const existingRisk = await prisma.contractRisks.create({
+                data: {
+                    reviewId, source: 'ai', category: '原分类', level: 'low', stance: 'balanced',
+                    problem: '原 problem', clauseText: OLD_TEXT.split('\n')[0]!,
+                    clauseParagraphIndex: 0,
+                },
+            })
+            // Step 4a 增量审查命中 → in-place 更新存量风险
+            mockAnalyzeClause.mockResolvedValueOnce([{
+                id: '', clauseIndex: 0, clauseText: '',
+                level: 'high', category: '新分类', problem: '新 problem',
+                analysis: '', risk: '', suggestion: '',
+            }])
+            const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+            const events = await collectEvents(uploadClientVersionService({ review, ossFileId, userId }))
+            expect(events.find(e => e.type === 'error')).toBeUndefined()
+
+            const after = await prisma.contractRisks.findUniqueOrThrow({ where: { id: existingRisk.id } })
+            // Step 4a 确实更新过该风险
+            expect(after.category).toBe('新分类')
+            // M6：Step 5 锚点迁移会写 clauseCharStart；跳过该风险则保持创建时的 null
+            expect(after.clauseCharStart).toBeNull()
+        }, 60000)
+
+        it('M3：Step 5 事务失败 → Step 4a in-place 更新的存量风险被补偿还原', async () => {
+            await setupV1(OLD_TEXT, NEW_PARAS)
+            const existingRisk = await prisma.contractRisks.create({
+                data: {
+                    reviewId, source: 'ai', category: '原分类', level: 'low', stance: 'balanced',
+                    problem: '原 problem', legalBasis: '原依据', clauseText: OLD_TEXT.split('\n')[0]!,
+                    clauseParagraphIndex: 0,
+                },
+            })
+            mockAnalyzeClause.mockResolvedValueOnce([{
+                id: '', clauseIndex: 0, clauseText: '',
+                level: 'high', category: '新分类', problem: '新 problem',
+                analysis: '新分析', risk: '', suggestion: '新建议', legalBasis: '新依据',
+            }])
+            // 让 client_return 版本快照创建失败 → Step 5 事务回滚 + 触发补偿
+            const versionMod = await import('~~/server/agents/contract/contractReviewVersion.service')
+            const orig = versionMod.saveContractReviewVersionService
+            const spy = vi.spyOn(versionMod, 'saveContractReviewVersionService')
+                .mockImplementation(async (input, tx) => {
+                    if (input.systemLabel === 'client_return') throw new Error('快照保存失败')
+                    return orig(input, tx)
+                })
+            try {
+                const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+                await collectEvents(uploadClientVersionService({ review, ossFileId, userId }))
+            } finally {
+                spy.mockRestore()
+            }
+            // M3：Step 4a in-place 更新被补偿还原 —— 被覆盖的字段回到更新前的值
+            const after = await prisma.contractRisks.findUniqueOrThrow({ where: { id: existingRisk.id } })
+            expect(after.level).toBe('low')
+            expect(after.category).toBe('原分类')
+            expect(after.legalBasis).toBe('原依据')
+        }, 60000)
+
+        it('M2：client_return 快照失败 → Step 5 事务整体回滚，锚点迁移不残留', async () => {
+            const oldClauseText = '第二条 乙方逾期支付的，每日按 0.05% 加收滞纳金，金额另行约定。'
+            const oldText = `第一条 工资按月支付。\n${oldClauseText}`
+            const newParas = [
+                '第一条 工资按月支付。',
+                '第二条 乙方逾期支付的，每日按 0.05% 加收滞纳金，金额由双方协商确定并写入附件。',
+            ]
+            await setupV1(oldText, newParas)
+            // analyzeSingleClause 返回空 → Step 4a 不动任何风险，锚点迁移完全交给 Step 5
+            mockAnalyzeClause.mockResolvedValue([])
+            const risk = await prisma.contractRisks.create({
+                data: {
+                    reviewId, source: 'ai', category: '违约金', level: 'medium', stance: 'balanced',
+                    problem: '违约金过低', clauseText: oldClauseText, clauseParagraphIndex: 1,
+                },
+            })
+            const versionMod = await import('~~/server/agents/contract/contractReviewVersion.service')
+            const orig = versionMod.saveContractReviewVersionService
+            const spy = vi.spyOn(versionMod, 'saveContractReviewVersionService')
+                .mockImplementation(async (input, tx) => {
+                    if (input.systemLabel === 'client_return') throw new Error('快照保存失败')
+                    return orig(input, tx)
+                })
+            try {
+                const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+                await collectEvents(uploadClientVersionService({ review, ossFileId, userId }))
+            } finally {
+                spy.mockRestore()
+            }
+            // M2：快照在同一事务内 → 快照失败连同锚点迁移一起回滚，clauseText 保持迁移前原值
+            const after = await prisma.contractRisks.findUniqueOrThrow({ where: { id: risk.id } })
+            expect(after.clauseText).toBe(oldClauseText)
+            const afterReview = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+            expect(afterReview.status).toBe('failed')
+        }, 60000)
+    })
 })
 
 // ==================== Phase B 双锚点迁移（PR7） ====================
@@ -789,17 +1156,14 @@ describe('uploadClientVersionService（Phase B 双锚点迁移 spec §9.2）', (
         mockDownload.mockReset()
         mockDownload.mockResolvedValue(FAKE_DOCX_BUFFER)
         mockParseDocx.mockReset()
-        mockParseDocx.mockResolvedValue({
-            paragraphs: [
-                '第一条 工资按月支付。',
-                '第二条 乙方逾期支付的，每日按 0.05% 加收滞纳金。',
-            ],
-            rawXml: '<root/>',
-        })
+        mockParseDocx.mockResolvedValue(fakeParsed([
+            '第一条 工资按月支付。',
+            '第二条 乙方逾期支付的，每日按 0.05% 加收滞纳金。',
+        ]))
         mockParseComments.mockReset()
         mockParseComments.mockResolvedValue({
             comments: [],
-            annotationRefsByWId: new Map(),
+            annotationRefsByWId: new Map(), customXmlRefEntries: [],
         })
         mockAnalyzeClause.mockReset()
         mockAnalyzeClause.mockResolvedValue([])
@@ -901,13 +1265,10 @@ describe('uploadClientVersionService（Phase B 双锚点迁移 spec §9.2）', (
         })
 
         // 客户回传新 docx：把第二条改写但保留 quote 那一句
-        mockParseDocx.mockResolvedValueOnce({
-            paragraphs: [
-                '第一条 工资按月支付，并应在月底前一个工作日完成。',
-                '第二条 乙方应当及时履行付款义务；逾期支付的，每日按 0.05% 加收滞纳金；累计超 30 日的，甲方有权单方解除。',
-            ],
-            rawXml: '<root/>',
-        })
+        mockParseDocx.mockResolvedValueOnce(fakeParsed([
+            '第一条 工资按月支付，并应在月底前一个工作日完成。',
+            '第二条 乙方应当及时履行付款义务；逾期支付的，每日按 0.05% 加收滞纳金；累计超 30 日的，甲方有权单方解除。',
+        ]))
 
         const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
         const events = await collectEvents(uploadClientVersionService({
@@ -969,13 +1330,10 @@ describe('uploadClientVersionService（Phase B 双锚点迁移 spec §9.2）', (
         })
 
         // 客户回传：保留前半条款，把 quote 那一句改成"协商解决"——档 1 fuzzy miss，档 2 sim≈0.625 命中
-        mockParseDocx.mockResolvedValueOnce({
-            paragraphs: [
-                '第一条 工资按月支付。',
-                '第二条 甲乙双方约定货款支付义务，乙方应在收货后 7 日内全额结清，由双方协商决定付款方式与具体争议处理事项。',
-            ],
-            rawXml: '<root/>',
-        })
+        mockParseDocx.mockResolvedValueOnce(fakeParsed([
+            '第一条 工资按月支付。',
+            '第二条 甲乙双方约定货款支付义务，乙方应在收货后 7 日内全额结清，由双方协商决定付款方式与具体争议处理事项。',
+        ]))
 
         const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
         const events = await collectEvents(uploadClientVersionService({
@@ -1028,13 +1386,10 @@ describe('uploadClientVersionService（Phase B 双锚点迁移 spec §9.2）', (
         })
 
         // 客户回传：第二条被微调
-        mockParseDocx.mockResolvedValueOnce({
-            paragraphs: [
-                '第一条 工资按月支付。',
-                '第二条 乙方逾期支付货款的，每日按 0.05% 加收滞纳金。',
-            ],
-            rawXml: '<root/>',
-        })
+        mockParseDocx.mockResolvedValueOnce(fakeParsed([
+            '第一条 工资按月支付。',
+            '第二条 乙方逾期支付货款的，每日按 0.05% 加收滞纳金。',
+        ]))
 
         const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
         const events = await collectEvents(uploadClientVersionService({
@@ -1081,13 +1436,10 @@ describe('uploadClientVersionService（Phase B 双锚点迁移 spec §9.2）', (
         })
 
         // 客户回传：把第二条整段替换成完全不相关的内容（无 第X条 编号 → segmentClauses 并入首段成单一 segment）
-        mockParseDocx.mockResolvedValueOnce({
-            paragraphs: [
-                '第一条 工资按月支付。',
-                'XYZXYZXYZ ABCABC DEF GHIJKL MNOPQRSTUVWXYZ啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊',
-            ],
-            rawXml: '<root/>',
-        })
+        mockParseDocx.mockResolvedValueOnce(fakeParsed([
+            '第一条 工资按月支付。',
+            'XYZXYZXYZ ABCABC DEF GHIJKL MNOPQRSTUVWXYZ啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊啊',
+        ]))
 
         const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
         const events = await collectEvents(uploadClientVersionService({
@@ -1129,13 +1481,10 @@ describe('uploadClientVersionService（Phase B 双锚点迁移 spec §9.2）', (
             },
         })
 
-        mockParseDocx.mockResolvedValueOnce({
-            paragraphs: [
-                '第一条 工资按月支付。',
-                '第二条 乙方应当按时履行付款义务，否则承担违约责任。',
-            ],
-            rawXml: '<root/>',
-        })
+        mockParseDocx.mockResolvedValueOnce(fakeParsed([
+            '第一条 工资按月支付。',
+            '第二条 乙方应当按时履行付款义务，否则承担违约责任。',
+        ]))
 
         const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
         await collectEvents(uploadClientVersionService({
@@ -1174,13 +1523,10 @@ describe('uploadClientVersionService（Phase B 双锚点迁移 spec §9.2）', (
         })
 
         // 这次客户又把那一句加回来了
-        mockParseDocx.mockResolvedValueOnce({
-            paragraphs: [
-                '第一条 工资按月支付。',
-                '第二条 乙方应及时付款；每日按 0.05% 加收滞纳金；累计超 30 日的甲方可解除。',
-            ],
-            rawXml: '<root/>',
-        })
+        mockParseDocx.mockResolvedValueOnce(fakeParsed([
+            '第一条 工资按月支付。',
+            '第二条 乙方应及时付款；每日按 0.05% 加收滞纳金；累计超 30 日的甲方可解除。',
+        ]))
 
         const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
         await collectEvents(uploadClientVersionService({
@@ -1220,14 +1566,11 @@ describe('uploadClientVersionService（Phase B 双锚点迁移 spec §9.2）', (
         })
 
         // 客户只在前面加了一段，没动第二条本身
-        mockParseDocx.mockResolvedValueOnce({
-            paragraphs: [
-                '前言：本合同自双方签字盖章之日起生效。',
-                '第一条 工资按月支付。',
-                '第二条 乙方逾期支付的，每日按 0.05% 加收滞纳金。',
-            ],
-            rawXml: '<root/>',
-        })
+        mockParseDocx.mockResolvedValueOnce(fakeParsed([
+            '前言：本合同自双方签字盖章之日起生效。',
+            '第一条 工资按月支付。',
+            '第二条 乙方逾期支付的，每日按 0.05% 加收滞纳金。',
+        ]))
 
         const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
         await collectEvents(uploadClientVersionService({

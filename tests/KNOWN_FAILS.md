@@ -58,3 +58,23 @@
 | `tests/client/composables/useStreamChat.test.ts` | 1 | interrupt 解包逻辑 |
 
 修复优先级：由各功能团队按需跟进，不阻塞 OSS 兜底上线。
+
+---
+
+## 2026-05-20 积分计费体系统一改造（commits `750c4276..fa4ee928`）
+
+> 改造把 `mineru.service` / `asr.service` / token 计费中间件等场景的扣费调用从 `pointConsumption.service` 改走新的 `pointBilling.service`；删除了 6 个未挂载的预扣工具文件。
+>
+> **mineru/asr/middleware 测试桩已在 `fa4ee928` 修正完毕**（4 个文件转发到下层 mock）。
+
+### 2026-05-20 续：剩余 5 个 fail 文件已全部修复
+
+| 文件 | 处理方式 |
+|---|---|
+| `tests/server/tools/confirmPoints.test.ts` | 工具源码已在 `be388702` 删除（死代码），孤儿测试一并移除 |
+| `tests/server/tools/reservePoints.test.ts` | 同上 |
+| `tests/server/tools/rollbackPoints.test.ts` | 同上 |
+| `tests/server/workflow/workflow-tools.test.ts` | 删除 3 个已删工具相关用例与 import，注册表样例改用 `search_law` / `process_materials` |
+| `tests/server/workflow/tools/searchCaseMaterials.test.ts` | 同步 `bc3256de` 引入的 `sessionId` 透传：service 第二参补 `sessionId`；场景 5 改为"三者全无"并对齐新错误信息 |
+
+> 完整 `bun run test` 已 0 failed / 11751 passed / 172 skipped。

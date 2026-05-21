@@ -64,7 +64,7 @@ export interface FileListParams {
   pageSize?: number
   fileName?: string
   fileType?: string
-  source?: string
+  source?: string | string[]
   sortField?: string
   sortOrder?: string
 }
@@ -112,7 +112,12 @@ export const useFileStore = defineStore('file', () => {
     if (params.pageSize) query.pageSize = params.pageSize
     if (params.fileName) query.fileName = params.fileName
     if (params.fileType && params.fileType !== 'all') query.fileType = params.fileType
-    if (params.source && params.source !== 'all') query.source = params.source
+    if (params.source) {
+      const sources = (Array.isArray(params.source) ? params.source : [params.source])
+        .filter((s) => s && s !== 'all')
+      if (sources.length === 1) query.source = sources[0]
+      else if (sources.length > 1) query.source = sources
+    }
     if (params.sortField) query.sortField = params.sortField
     if (params.sortOrder) query.sortOrder = params.sortOrder
     return query

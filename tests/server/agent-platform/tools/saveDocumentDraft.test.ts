@@ -220,6 +220,36 @@ describe('save_document_draft tool', () => {
         }))
     })
 
+    // 回归：截图 bug——LLM 偶尔把 fieldValues / suggestions 对象整体 JSON.stringify 后当字符串回传,
+    // 走原 z.record schema 会报 "expected record, received string"，LangChain ToolNode 包成 ToolMessage 让 LLM
+    // "fix and retry"，LLM 还是传字符串就死循环 → SSE 流不结束 → 前端 loading 一直转。
+    // jsonRecord schema + normalizeJsonRecord handler 联合容错：字符串自动 JSON.parse 还原成对象。
+    it('LLM 把 fieldValues / suggestions JSON.stringify 当字符串传入时自动 JSON.parse 兜底', async () => {
+        ;(createDraftService as any).mockResolvedValue({ draftId: 100, sessionId: 'session-100' })
+        ;(updateDocumentDraftDAO as any).mockResolvedValue({ id: 100 })
+        ;(getDocumentTemplateDAO as any).mockResolvedValue({
+            id: 1,
+            name: '民事起诉状',
+            placeholders: ['原告', '被告', '诉讼请求'],
+        })
+
+        const tool = createTool({ userId: 1, sessionId: 'sess-x', runId: 'run-x' })
+        const result = await tool.invoke({
+            templateId: 1,
+            fieldValues: JSON.stringify({ 原告: '张三', 被告: '李四', 诉讼请求: '继续履行合同' }) as unknown as Record<string, string | null>,
+            suggestions: JSON.stringify({ 原告: '请确认住址' }) as unknown as Record<string, string>,
+        })
+
+        const parsed = JSON.parse(result as string)
+        expect(parsed.success).toBe(true)
+        expect(parsed.filledFieldCount).toBe(3)
+        expect(updateDocumentDraftDAO).toHaveBeenCalledWith(100, expect.objectContaining({
+            values: { 原告: '张三', 被告: '李四', 诉讼请求: '继续履行合同' },
+            metadata: { suggestions: { 原告: '请确认住址' } },
+            status: 'ready',
+        }))
+    })
+
     it('LLM 全部回传占位字符串时,等同 null 全空,拒绝创建', async () => {
         const tool = createTool({ userId: 1, sessionId: 'sess-x' })
         const result = await tool.invoke({

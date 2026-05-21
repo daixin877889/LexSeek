@@ -23,7 +23,8 @@
 app/components/caseCreation/
 ├── ManualForm.vue          # 手动创建表单
 ├── MaterialUploader.vue    # 材料上传组件
-└── PartyInput.vue          # 原/被告输入（动态数组）
+├── PartyInput.vue          # 原/被告输入（动态数组）
+└── StanceToggleGroup.vue   # 代理立场切换（原告方 / 被告方）
 ```
 
 ### 核心 composable: `useCaseCreation`
@@ -72,11 +73,19 @@ app/components/initAnalysis/
 └── InsufficientPointsCard.vue # 积分不足提示
 ```
 
-### 核心 composable: `useInitAnalysis`
+### 核心 composable 体系：`composables/initAnalysis/`
 
-位置：`app/composables/useInitAnalysis.ts`
+初始分析早期是单文件 `useInitAnalysis.ts`，现已拆分为 `app/composables/initAnalysis/` 目录下的多个 composable：
 
-这是项目中最复杂的 composable（~490 行），管理初始分析的完整生命周期。
+| 文件 | 职责 |
+|------|------|
+| `useInitAnalysisRuntime.ts` | 流程编排核心：`phase` / `moduleStates` / `selectedModules` 状态机，接入 `useStreamChat`，提供 `loadStatus` / `startAnalysis` / `resumeWorkflow` / `retryModule` |
+| `useInitAnalysisProjection.ts` | 把 runtime 状态 + DB 已生成结果投影为 UI 卡片（`mergedResult` / `allModuleCards`） |
+| `useInitAnalysisSyncBridge.ts` | 跨标签页同步：广播 / 监听 `analysis:updated`、`module:generating` |
+| `useInitAnalysisModules.ts` | 纯工具函数：模块状态快照计算 |
+| `types.ts` | `InitAnalysisState` / `AnalysisPhase` / `RuntimeExposed` 等类型 |
+
+页面 `[sessionId].vue` 组合 runtime + projection + syncBridge 三层。下面以 runtime 为主线说明完整生命周期。
 
 #### 三阶段模型
 
@@ -185,10 +194,16 @@ const interruptData = computed(() => {
 app/components/caseDetail/
 ├── CaseDetailOverview.vue        # 案件概览（标题、类型、当事人）
 ├── CaseDetailMaterials.vue       # 材料列表（上传、删除、识别状态轮询）
+├── CaseDetailMaterialPreview.vue # 材料预览弹框
+├── CaseMaterialList.vue          # 材料列表子组件
 ├── CaseDetailAnalysis.vue        # 分析结果（7 模块卡片网格）
 ├── CaseDetailSidebar.vue         # 右侧面板（分析详情/模块对话入口）
 ├── CaseDetailBottomTabs.vue      # 底部标签页
-├── CaseDetailMaterialPreview.vue # 材料预览弹框
+├── CaseDetailContracts.vue       # 案件关联合同审查
+├── CaseDetailDocuments.vue       # 案件关联文书草稿
+├── CaseDetailMemory.vue          # 案件记忆面板
+├── CaseMemoryTimeline.vue        # 案件记忆时间线
+├── AddMemoryDialog.vue           # 新增案件记忆弹框
 ├── CaseDetailXiaosuo.vue         # 小索 AI 助手弹框
 └── CaseExportDialog.vue          # 导出对话框
 ```
@@ -221,16 +236,19 @@ const { data: analysisStatus } = useApi<InitAnalysisStatusResponse>(() => `/api/
 
 ### 架构
 
-每个分析模块支持独立的多轮对话，用于深入探讨该模块的分析结果。
+每个分析模块支持独立的多轮对话，用于深入探讨该模块的分析结果。模块对话与小索对话早期由 `useModuleChatManager` / `useChatSessionManager` / `useCaseChat` / `useXiaosuoChat` 一组 composable 承担，现已统一重构到 `composables/agents/` 体系：
 
-#### 多实例管理: `useModuleChatManager`
+- 统一工厂 `app/composables/agent-platform/useDomainAgentSession.ts` 整合了原 `useChatSessionManager` + `useStreamChat`（会话管理、流处理、消息队列、跨标签同步、竞态防护），并提供 `useDomainAgentSessionPool` 做多 key 池化。
+- `app/composables/agents/` 下是各业务 vertical 的薄包装。
 
-位置：`app/composables/useModuleChatManager.ts`
+#### 模块对话多实例: `agents/useCaseModuleAgent`
 
-每个模块创建独立的 `useChatSessionManager` 实例，封装在 `effectScope` 中：
+位置：`app/composables/agents/useCaseModuleAgent.ts`（替代旧 `useModuleChatManager`）
+
+基于 `useDomainAgentSessionPool`，每个 `moduleName` 一个池化 session（`scope: 'case'`）。`getOrCreateInstance(moduleName, moduleTitle)` 返回一个 augmented factory：
 
 ```typescript
-type ModuleChatInstance = SessionManager & {
+type ModuleAgentInstance = SessionFactory & {
     moduleName: string
     moduleTitle: string
     isExpanded: Ref<boolean>
@@ -238,49 +256,27 @@ type ModuleChatInstance = SessionManager & {
 }
 ```
 
-支持同时展开多个模块对话，通过浮动窗口展示（使用 `useDraggableResize` 实现拖拽和缩放）。
+对外接口与旧 `useModuleChatManager` 对齐：`instances` / `activeModules` / `expandedModule` / `generatingModules` / `getOrCreateInstance` / `expandModule` / `hideModule` / `collapseAll`。支持同时展开多个模块对话，通过浮动窗口展示（使用 `useDraggableResize` 实现拖拽和缩放）。
 
-#### 会话管理: `useChatSessionManager`
+#### 会话与流: `useDomainAgentSession`
 
-位置：`app/composables/useChatSessionManager.ts`
+位置：`app/composables/agent-platform/useDomainAgentSession.ts`
 
-封装多 session 生命周期管理的公共逻辑：
+按 `scope` 区分业务域的统一会话工厂，封装多 session 生命周期管理的公共逻辑：
 - 每个 session 一个 `effectScope`，切换时销毁旧 scope
-- 竞态防护：`switchCounter` 防止快速切换导致的数据错乱
+- 竞态防护：防止快速切换导致的数据错乱
 - 自动重连：`hasActiveRun` 时自动 reconnect
-- 双重取消：SSE stop + 后端 cancel API
+- 双重取消：SSE stop + 后端 cancel API（`stopActiveRun`）
 
-#### 对话通信: `useCaseChat`
+### 小索 AI 助手: `agents/useCaseMainAgent`
 
-位置：`app/composables/useCaseChat.ts`
+位置：`app/composables/agents/useCaseMainAgent.ts`（替代旧 `useXiaosuoChat`）
 
-基于 `useStreamChat` 的特化封装：
-
-```typescript
-const stream = useStreamChat({
-    apiUrl: '/api/v1/cases/analysis/chat',
-    threadId: options.sessionId,
-    messagesKey: 'messages',
-    onCustomEvent: options.onCustomEvent,
-})
-```
-
-暴露的方法：
-- `sendMessage(message, opts)`: 发送用户消息
-- `resumeInterrupt(data)`: 恢复中断
-- `stopGeneration()`: 停止生成
-
-### 小索 AI 助手
-
-位置：`app/composables/useXiaosuoChat.ts`
-
-基于 `useChatSessionManager` 的薄包装，使用独立的 API 端点：
+基于 `useDomainAgentSession` 的薄包装，`scope: 'case'`、`caseId` 必填、多 session（`sessionId: 'auto'` 从后端列表自动选首个）。额外暴露 `generatingModules`——小索调起 `ask_*_expert` 子代理跑模块分析时正在生成的模块名列表，供 `[id].vue` 合并到 `module:generating` 跨标签广播。
 
 ```typescript
-return useChatSessionManager({
-    listUrl: (id) => `/api/v1/cases/analysis/xiaosuo-sessions?caseId=${id}`,
-    createUrl: '/api/v1/cases/analysis/xiaosuo-session',
-    deleteUrl: (sid) => `/api/v1/cases/analysis/xiaosuo-session/${sid}`,
+const xiaosuo = useCaseMainAgent(caseIdRef, {
+    onAnalysisSaved: () => refreshAnalysis(),  // 子代理落库后刷新分析结果卡片
 })
 ```
 

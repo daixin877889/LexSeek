@@ -182,6 +182,7 @@ export interface Risk {
  */
 export type RiskDisplay = Risk & {
     archivedStatus?: RiskArchivedStatus | null
+    clientRedlineDecision?: ClientRedlineDecision | null
     entityId?: number
 }
 
@@ -247,10 +248,11 @@ export type ReviewWithParsedRisks = Omit<contractReviews, 'risks' | 'summary'> &
 }
 
 /**
- * 仅 completed 状态允许编辑 risks / 重生批注。
- * pending / reviewing / awaiting_stance / failed / rebuilding 均返回 409。
+ * completed / failed 状态允许编辑 risks / 重生批注：两者都是终态、数据完整。
+ * failed 多为分析中途某步异常所致，用户需要手动补救风险清单。
+ * pending / reviewing / awaiting_stance / rebuilding 仍返回 409。
  */
-export const REVIEW_EDITABLE_STATUSES: readonly ContractReviewStatus[] = ['completed'] as const
+export const REVIEW_EDITABLE_STATUSES: readonly ContractReviewStatus[] = ['completed', 'failed'] as const
 
 /**
  * 合同审查"忙状态"白名单：HTTP 层快速失败（DELETE / 重新上传等）+ service 层
@@ -510,7 +512,7 @@ export const VERSION_SYSTEM_LABEL_DISPLAY: Record<VersionSystemLabel, string> = 
     auto_backup: '自动备份',
 }
 
-export const RISK_SOURCES = ['ai', 'external_new', 'global_review'] as const
+export const RISK_SOURCES = ['ai', 'external_new', 'global_review', 'manual'] as const
 export type RiskSource = typeof RISK_SOURCES[number]
 
 export const ANNOTATION_AUTHOR_TYPES = ['ai', 'lawyer', 'external'] as const
@@ -518,6 +520,21 @@ export type AnnotationAuthorType = typeof ANNOTATION_AUTHOR_TYPES[number]
 
 export const RISK_ARCHIVED_STATUSES = ['handled', 'ignored'] as const  // Phase B 加 'client_removed'
 export type RiskArchivedStatus = typeof RISK_ARCHIVED_STATUSES[number]
+
+/** 客户对 AI 修订的处置维度（与律师处置状态 archivedStatus 相互独立） */
+export enum ClientRedlineDecision {
+    ACCEPTED = 'accepted',
+    REJECTED = 'rejected',
+    UNTOUCHED = 'untouched',
+    AMBIGUOUS = 'ambiguous',
+}
+
+export const ClientRedlineDecisionText: Record<ClientRedlineDecision, string> = {
+    [ClientRedlineDecision.ACCEPTED]: '客户已采纳',
+    [ClientRedlineDecision.REJECTED]: '客户已拒绝',
+    [ClientRedlineDecision.UNTOUCHED]: '客户未处理',
+    [ClientRedlineDecision.AMBIGUOUS]: '待确认',
+}
 
 // ===== 多版本：实体 =====
 export interface ContractRiskEntity {
@@ -531,6 +548,8 @@ export interface ContractRiskEntity {
     problem: string
     legalBasis: string | null
     analysis: string | null
+    /** M12：AI 生成的「对当前立场方的法律风险」（首次审查 source=ai 才有；manual / global_review / external_new 来源为 null） */
+    risk: string | null
     suggestion: string | null
     /** AI 生成的完整改写后条款（high/medium 必有；low 可空） */
     suggestedClauseText: string | null
@@ -557,6 +576,8 @@ export interface ContractRiskEntity {
     // Phase B 锚点迁移痕迹
     originalClauseText: string | null
     orphaned: boolean
+    /** 客户对该风险对应 AI 修订的处置；null = 未以修订形式导出过 */
+    clientRedlineDecision: ClientRedlineDecision | null
 
     createdAt: string
     updatedAt: string

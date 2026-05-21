@@ -6,7 +6,7 @@
 
 ## 背景与问题
 
-LexSeek 在小索 / 法律助手 / 合同审查面板里调用 LangGraph Agent，agent 在工具内 `interrupt()` 暂停时，前端把 `__interrupt__` payload 通过 `globalInterruptRegistry` 派发到对应 Vue 组件。当前所有 interrupt 都被 `<Dialog>` 包成模态弹窗（含 backdrop、阻止 outside-click），覆盖在对话面板之上。
+LexSeek 在小索 / 通用问答 / 合同审查面板里调用 LangGraph Agent，agent 在工具内 `interrupt()` 暂停时，前端把 `__interrupt__` payload 通过 `globalInterruptRegistry` 派发到对应 Vue 组件。当前所有 interrupt 都被 `<Dialog>` 包成模态弹窗（含 backdrop、阻止 outside-click），覆盖在对话面板之上。
 
 注册表已经按 `isToolCard` 区分两类 interrupt：
 

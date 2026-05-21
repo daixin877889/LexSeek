@@ -17,9 +17,18 @@ const WECHAT_PAY_API_BASE = 'https://api.mch.weixin.qq.com'
 export class WechatPayAdapter extends BasePaymentAdapter<WechatPayConfig> {
     /** 验证配置 */
     protected validateConfig(): void {
-        const { appId, mchId, apiV3Key, serialNo, privateKey } = this.config
-        if (!appId || !mchId || !apiV3Key || !serialNo || !privateKey) {
-            throw new PaymentConfigError('微信支付配置不完整')
+        const required = {
+            appId: 'NUXT_PUBLIC_WECHAT_APP_ID',
+            mchId: 'NUXT_WECHAT_PAY_MCH_ID',
+            apiV3Key: 'NUXT_WECHAT_PAY_API_V3_KEY',
+            serialNo: 'NUXT_WECHAT_PAY_SERIAL_NO',
+            privateKey: 'NUXT_WECHAT_PAY_PRIVATE_KEY',
+        } as const
+        const missing = (Object.keys(required) as Array<keyof typeof required>)
+            .filter((k) => !this.config[k])
+            .map((k) => `${k} (${required[k]})`)
+        if (missing.length > 0) {
+            throw new PaymentConfigError(`微信支付配置不完整，缺失：${missing.join(', ')}`)
         }
     }
 

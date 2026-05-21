@@ -1,11 +1,11 @@
 <template>
   <!-- 全局确认对话框 -->
   <Dialog :open="alertDialogStore.isVisible" @update:open="updateVisibility">
-    <DialogContent class="sm:max-w-lg alert-dialog-content [&>button:last-child]:hidden">
+    <DialogContent class="theme-brand sm:max-w-lg alert-dialog-content [&>button:last-child]:hidden">
       <DialogHeader>
         <DialogTitle class="flex items-center mb-2">
           <check-circle-icon v-if="alertDialogStore.type === 'success'" class="h-5 w-5 text-primary mr-2" />
-          <alert-circle-icon v-else class="h-5 w-5 text-red-500 mr-2" />
+          <alert-circle-icon v-else class="h-5 w-5 text-destructive mr-2" />
           {{ alertDialogStore.title }}
         </DialogTitle>
         <DialogDescription>
@@ -13,11 +13,12 @@
         </DialogDescription>
       </DialogHeader>
       <DialogFooter class="flex justify-end gap-2 mt-2">
-        <Button v-if="alertDialogStore.showCancel" variant="outline" @click="alertDialogStore.handleCancel">
+        <Button v-if="alertDialogStore.showCancel" variant="outline" :class="adminBrandFocusClass"
+          @click="alertDialogStore.handleCancel">
           {{ alertDialogStore.cancelText }}
         </Button>
         <Button
-          :class="alertDialogStore.type === 'success' ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-red-500 hover:bg-red-600 text-white'"
+          :class="alertDialogStore.type === 'success' ? adminBrandPrimaryButtonClass : adminBrandDestructiveActionClass"
           @click="alertDialogStore.handleConfirm">
           {{ alertDialogStore.confirmText }}
         </Button>
@@ -31,6 +32,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from "@/components/ui/button";
 import { CheckCircleIcon, AlertCircleIcon } from "lucide-vue-next";
 import { useAlertDialogStore } from '~/store/alertDialog'
+import {
+  adminBrandDestructiveActionClass,
+  adminBrandFocusClass,
+  adminBrandPrimaryButtonClass,
+} from '~/utils/adminBrandStyles'
 
 /**
  * 全局确认对话框组件

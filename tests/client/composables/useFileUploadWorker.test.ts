@@ -410,4 +410,57 @@ describe('useFileUploadWorker — callback 失败兜底', () => {
         const err = onError.mock.calls[0][0] as Error
         expect(err.message).toContain('网络错误')
     })
+
+    // 关键场景：OSS 把"上传成功但 callback 失败"透传成 HTTP 203。
+    // worker 翻译为 data.__callbackFailed = true 给 composable，
+    // composable 据此触发 confirm-upload 兜底而无需感知 HTTP 状态码。
+    it('worker 透传 __callbackFailed=true + ossFileId 齐 → 触发兜底并恢复', async () => {
+        useApiFetchMock.mockResolvedValueOnce({ status: 'uploaded' })
+        const { upload, destroy } = useFileUploadWorker()
+        destroyFn = destroy
+        const onSuccess = vi.fn()
+        const id = upload(new File(['x'], 'x.pdf'), makeSig(456), { onSuccess })
+        mockWorker.simulateResponse({
+            type: 'success',
+            id,
+            data: { raw: '<html>nginx error</html>', __httpStatus: 203, __callbackFailed: true },
+        })
+        await new Promise((r) => setTimeout(r, 0))
+        expect(useApiFetchMock).toHaveBeenCalledWith(
+            '/api/v1/storage/confirm-upload',
+            expect.objectContaining({ method: 'POST', body: { fileId: 456 } })
+        )
+        expect(onSuccess).toHaveBeenCalledWith({ recovered: true, fileId: 456 })
+    })
+
+    it('__callbackFailed=true + 兜底返 status 非 uploaded（OSS 真未存在）→ onError', async () => {
+        useApiFetchMock.mockResolvedValueOnce({ status: 'not_found' })
+        const { upload, destroy } = useFileUploadWorker()
+        destroyFn = destroy
+        const onError = vi.fn()
+        const id = upload(new File(['x'], 'x.pdf'), makeSig(456), { onError })
+        mockWorker.simulateResponse({
+            type: 'success',
+            id,
+            data: { __httpStatus: 203, __callbackFailed: true },
+        })
+        await new Promise((r) => setTimeout(r, 0))
+        expect(useApiFetchMock).toHaveBeenCalled()
+        expect(onError).toHaveBeenCalled()
+    })
+
+    it('HTTP 200 + callback 响应里恰好 success=true → 不触发兜底（防误伤）', async () => {
+        const { upload, destroy } = useFileUploadWorker()
+        destroyFn = destroy
+        const onSuccess = vi.fn()
+        const id = upload(new File(['x'], 'x.pdf'), makeSig(789), { onSuccess })
+        mockWorker.simulateResponse({
+            type: 'success',
+            id,
+            data: { fileId: 789, filename: 'x.pdf', success: true, __httpStatus: 200 },
+        })
+        await new Promise((r) => setTimeout(r, 0))
+        expect(useApiFetchMock).not.toHaveBeenCalled()
+        expect(onSuccess).toHaveBeenCalledWith(expect.objectContaining({ fileId: 789, __httpStatus: 200 }))
+    })
 })

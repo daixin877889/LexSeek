@@ -89,6 +89,27 @@ describe('Redis 连接管理', () => {
         expect(sub1).not.toBe(sub2)
     })
 
+    it('getCacheBusSubscriber 应返回独立的订阅连接单例', async () => {
+        const { getRedisClient, getRedisSubscriber, getCacheBusSubscriber }
+            = await import('../../../server/lib/redis')
+        const client = getRedisClient()
+        const subscriber = getRedisSubscriber()
+        const cacheBus = getCacheBusSubscriber()
+        expect(cacheBus).toBeDefined()
+        expect(cacheBus).not.toBe(client)
+        expect(cacheBus).not.toBe(subscriber)
+        expect(getCacheBusSubscriber()).toBe(cacheBus)
+    })
+
+    it('closeRedisConnections 应同时关闭 cacheBusSubscriber', async () => {
+        const { getCacheBusSubscriber, closeRedisConnections }
+            = await import('../../../server/lib/redis')
+        const before = getCacheBusSubscriber()
+        await closeRedisConnections()
+        const after = getCacheBusSubscriber()
+        expect(after).not.toBe(before) // 关闭后再获取应为新实例
+    })
+
     it('closeRedisConnections 应关闭所有连接', async () => {
         const { getRedisClient, getRedisSubscriber, closeRedisConnections } = await import('../../../server/lib/redis')
         getRedisClient()

@@ -1,5 +1,5 @@
 /**
- * 法律助手对话 - 薄包装（阶段 7 重写）
+ * 通用问答对话 - 薄包装（阶段 7 重写）
  *
  * 替代 useAssistantChat。基于 useDomainAgentSession 工厂的多 session 配置。
  *

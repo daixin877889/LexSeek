@@ -1,41 +1,52 @@
 <template>
-  <div class="hidden lg:block relative w-0 flex-1">
-    <div class="absolute inset-0 bg-gradient-to-r from-primary to-primary/80 dark:from-slate-900 dark:to-slate-800">
-      <div class="absolute inset-0 bg-[url('/images/login-bg.jpg')] bg-no-repeat bg-cover opacity-10 dark:opacity-5">
+  <div
+    class="relative hidden overflow-hidden bg-gradient-brand px-14 py-12 text-white lg:flex lg:flex-col lg:justify-between">
+    <!-- 装饰光晕 -->
+    <div aria-hidden="true" class="pointer-events-none absolute -left-[100px] -top-20 h-[400px] w-[400px] rounded-full"
+      style="background: #1EEDC4; opacity: 0.35; filter: blur(70px);" />
+    <div aria-hidden="true"
+      class="pointer-events-none absolute -bottom-[100px] -right-[50px] h-[380px] w-[380px] rounded-full"
+      style="background: #090380; opacity: 0.6; filter: blur(60px);" />
+    <img src="/logo-white.svg" alt="" aria-hidden="true"
+      class="pointer-events-none absolute -bottom-20 -left-10 h-[360px] w-[360px] opacity-[0.06]">
+
+    <!-- logo lockup -->
+    <div class="relative z-[1] flex items-center gap-3">
+      <div
+        class="flex size-11 items-center justify-center rounded-[12px] bg-white shadow-[0_8px_22px_-6px_rgba(0,0,0,0.25)]">
+        <img src="/logo.svg" alt="" class="size-[30px]">
       </div>
-      <div class="flex flex-col justify-center h-full max-w-lg mx-auto px-8 text-white space-y-6">
-        <h2 class="text-3xl font-bold">AI辅助法律分析，助力专业决策</h2>
-        <p class="text-lg text-white/90">LexSeek 帮助律师精炼案件信息，洞悉复杂案情脉络，提供从概要梳理到策略预判的深度分析，助您高效决策，掌控全局。</p>
-        <div class="grid grid-cols-2 gap-4 mt-8">
-          <div class="bg-white/10 dark:bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-white/10">
-            <document-chart-icon class="h-6 w-6 mb-2" />
-            <h3 class="font-medium">案情分析</h3>
-            <p class="text-sm text-white/80">智能提取案件关键信息，生成概要与大事记</p>
-          </div>
-          <div class="bg-white/10 dark:bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-white/10">
-            <scale-icon class="h-6 w-6 mb-2" />
-            <h3 class="font-medium">法条匹配</h3>
-            <p class="text-sm text-white/80">精准匹配相关法条，确定案由</p>
-          </div>
-          <div class="bg-white/10 dark:bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-white/10">
-            <lightbulb-icon class="h-6 w-6 mb-2" />
-            <h3 class="font-medium">请求权生成</h3>
-            <p class="text-sm text-white/80">自动识别可能的请求权，并提供法理分析</p>
-          </div>
-          <div class="bg-white/10 dark:bg-white/5 backdrop-blur-sm p-4 rounded-lg border border-white/10">
-            <shield-icon class="h-6 w-6 mb-2" />
-            <h3 class="font-medium">抗辩预测</h3>
-            <p class="text-sm text-white/80">预测对方可能的抗辩，提供应对建议</p>
-          </div>
-        </div>
+      <h1 translate="no" class="text-[22px] font-bold">
+        LexSeek <span class="font-medium opacity-80">｜ 法索 AI</span>
+      </h1>
+    </div>
+
+    <!-- 标语 -->
+    <div class="relative z-[1] max-w-[460px]">
+      <p class="mb-4 text-[13px] font-medium uppercase tracking-[0.08em] opacity-85">FOR LEGAL PROFESSIONALS</p>
+      <h2 class="mb-[18px] text-[38px] font-bold leading-[1.25] tracking-[-0.025em]">
+        让法律工作<br>
+        <span class="bg-linear-to-r from-white to-[#C8E4FB] bg-clip-text text-transparent">更高效、更精准</span>
+      </h2>
+      <p class="text-[16px] leading-[1.65] opacity-90">
+        数万律师与企业法务的选择。从案情概要到判决趋势预测，让 AI 成为您可靠的办案伙伴。
+      </p>
+    </div>
+
+    <!-- 信任数据 -->
+    <div class="relative z-[1] flex gap-8">
+      <div v-for="s in STATS" :key="s.label">
+        <div class="text-[28px] font-bold">{{ s.value }}</div>
+        <div class="mt-1.5 text-[12px] font-medium opacity-85">{{ s.label }}</div>
       </div>
     </div>
   </div>
 </template>
 
-<script setup>
-import { ScaleIcon, ShieldIcon, LightbulbIcon } from "lucide-vue-next";
-
-// 使用一个自定义图标组件替代没有的DocumentChartIcon
-const DocumentChartIcon = ScaleIcon; // 这里用ScaleIcon代替
+<script setup lang="ts">
+const STATS = [
+  // { value: "3万+", label: "注册律师" },
+  // { value: "120万", label: "累计案件" },
+  // { value: "98%", label: "用户满意度" },
+]
 </script>

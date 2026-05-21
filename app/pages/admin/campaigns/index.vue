@@ -1,12 +1,12 @@
 <template>
-        <div class="space-y-6">
+        <div class="theme-brand space-y-6">
             <!-- 页面标题 -->
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                     <h1 class="text-2xl md:text-3xl font-bold mb-1">营销活动管理</h1>
                     <p class="text-muted-foreground text-sm">管理注册赠送、邀请奖励等营销活动</p>
                 </div>
-                <Button @click="formDialogRef?.openCreate()">
+                <Button :class="adminBrandPrimaryButtonClass" @click="formDialogRef?.openCreate()">
                     <Plus class="h-4 w-4 mr-2" />
                     新增活动
                 </Button>
@@ -15,10 +15,10 @@
             <!-- 筛选 -->
             <div class="flex flex-col md:flex-row gap-4">
                 <Select v-model="typeFilter">
-                    <SelectTrigger class="w-full md:w-40">
+                    <SelectTrigger :class="['w-full md:w-40', adminBrandFocusClass]">
                         <SelectValue placeholder="活动类型" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent class="theme-brand">
                         <SelectItem value="all">全部类型</SelectItem>
                         <SelectItem value="1">注册赠送</SelectItem>
                         <SelectItem value="2">邀请奖励</SelectItem>
@@ -26,16 +26,16 @@
                     </SelectContent>
                 </Select>
                 <Select v-model="statusFilter">
-                    <SelectTrigger class="w-full md:w-32">
+                    <SelectTrigger :class="['w-full md:w-32', adminBrandFocusClass]">
                         <SelectValue placeholder="状态" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent class="theme-brand">
                         <SelectItem value="all">全部状态</SelectItem>
                         <SelectItem value="1">启用</SelectItem>
                         <SelectItem value="0">禁用</SelectItem>
                     </SelectContent>
                 </Select>
-                <Button variant="outline" @click="handleSearch">
+                <Button variant="outline" :class="adminBrandFocusClass" @click="handleSearch">
                     <Search class="h-4 w-4 mr-2" />
                     筛选
                 </Button>
@@ -75,7 +75,7 @@
 
         <!-- 删除确认对话框 -->
         <AlertDialog v-model:open="deleteDialogOpen">
-            <AlertDialogContent>
+            <AlertDialogContent class="theme-brand">
                 <AlertDialogHeader>
                     <AlertDialogTitle>确认删除</AlertDialogTitle>
                     <AlertDialogDescription>
@@ -83,8 +83,9 @@
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>取消</AlertDialogCancel>
-                    <AlertDialogAction @click="confirmDelete" :disabled="deleting">
+                    <AlertDialogCancel :class="adminBrandFocusClass">取消</AlertDialogCancel>
+                    <AlertDialogAction @click="confirmDelete" :disabled="deleting"
+                        :class="adminBrandDestructiveActionClass">
                         <Loader2 v-if="deleting" class="h-4 w-4 mr-2 animate-spin" />
                         确认删除
                     </AlertDialogAction>
@@ -102,7 +103,11 @@ import AdminCampaignsCampaignMobile from '~/components/admin/campaigns/CampaignM
 import AdminCampaignsCampaignTable from '~/components/admin/campaigns/CampaignTable.vue'
 import GeneralPagination from '~/components/general/pagination.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
-import type { campaigns, membershipLevels } from '~~/generated/prisma/client'
+import {
+    adminBrandDestructiveActionClass,
+    adminBrandFocusClass,
+    adminBrandPrimaryButtonClass,
+} from '~/utils/adminBrandStyles'
 
 definePageMeta({ layout: 'admin-layout', title: '营销活动管理' })
 

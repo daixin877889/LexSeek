@@ -1,67 +1,55 @@
 <template>
-    <div class="space-y-4">
-        <!-- 头部信息 -->
-        <div class="flex items-center justify-between">
-            <h3 class="text-lg font-semibold">法律法规</h3>
-            <div class="text-sm text-muted-foreground">
-                共 {{ total }} 条
-            </div>
-        </div>
-
-        <!-- 加载状态 -->
+    <div class="space-y-3">
+        <!-- 加载骨架 -->
         <template v-if="loading">
-            <div v-for="i in pageSize" :key="`skeleton-${i}`" class="bg-card rounded-lg border p-4 space-y-3">
+            <div v-for="i in pageSize" :key="`skeleton-${i}`" class="bg-card rounded-xl border p-4 space-y-3">
                 <div class="flex items-start justify-between">
                     <Skeleton class="h-5 w-48" />
                     <Skeleton class="h-6 w-16" />
                 </div>
                 <Skeleton class="h-4 w-32" />
-                <div class="flex items-center justify-between">
-                    <Skeleton class="h-4 w-24" />
-                    <Skeleton class="h-8 w-16" />
-                </div>
+                <Skeleton class="h-4 w-24" />
             </div>
         </template>
 
         <!-- 列表项 -->
         <template v-else-if="items.length > 0">
-            <div v-for="item in items" :key="item.id" class="bg-card rounded-lg border p-4 space-y-3 transition-colors"
+            <div v-for="item in items" :key="item.id"
+                class="bg-card rounded-xl border p-4 space-y-3 cursor-pointer transition-colors hover:bg-muted/40"
                 :class="{ 'ring-2 ring-primary': selectedId === item.id }" @click="handleItemClick(item)">
                 <!-- 标题和类型 -->
                 <div class="flex items-start justify-between gap-3">
-                    <div class="flex-1 min-w-0">
-                        <h4 class="font-medium leading-tight">{{ item.name }}</h4>
-                        <div v-if="item.documentNumber" class="text-sm text-muted-foreground mt-1">
+                    <div class="min-w-0 flex-1">
+                        <h4 class="font-semibold leading-tight">{{ item.name }}</h4>
+                        <div v-if="item.documentNumber" class="mt-1 text-xs text-muted-foreground">
                             {{ item.documentNumber }}
                         </div>
                     </div>
-                    <Badge :variant="getTypeVariant(item.type)" class="shrink-0">
-                        {{ getTypeLabel(item.type) }}
-                    </Badge>
+                    <LegalSearchStatusBadge :tone="getLegalTypeTone(item.type)">
+                        {{ LegalTypeLabels[item.type] }}
+                    </LegalSearchStatusBadge>
                 </div>
 
                 <!-- 发文机关 -->
-                <div v-if="item.issuingAuthority" class="flex flex-wrap gap-1">
-                    <span v-for="(authority, index) in parseIssuingAuthorities(item.issuingAuthority)" :key="index"
-                        class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-muted text-muted-foreground">
-                        {{ authority }}
-                    </span>
+                <div v-if="item.issuingAuthority" class="line-clamp-2 text-sm text-muted-foreground"
+                    :title="formatIssuingAuthorities(item.issuingAuthority)">
+                    {{ formatIssuingAuthorities(item.issuingAuthority) }}
                 </div>
 
                 <!-- 底部信息 -->
-                <div class="flex items-center space-x-3 text-sm text-muted-foreground">
-                    <span>{{ formatDate(item.effectiveDate) }}</span>
-                    <Badge :variant="getValidityVariant(item)" class="text-xs">
+                <div class="flex items-center gap-3 text-sm text-muted-foreground">
+                    <span>{{ formatLegalDate(item.effectiveDate) }}</span>
+                    <LegalSearchStatusBadge :tone="getValidityTone(item)">
                         {{ getValidityLabel(item) }}
-                    </Badge>
+                    </LegalSearchStatusBadge>
                 </div>
             </div>
         </template>
 
         <!-- 空状态 -->
         <template v-else>
-            <div class="bg-card rounded-lg border p-8">
-                <div class="flex flex-col items-center justify-center space-y-3 text-center">
+            <div class="bg-card rounded-xl border p-8">
+                <div class="flex flex-col items-center justify-center gap-3 text-center">
                     <FileText class="h-12 w-12 text-muted-foreground" />
                     <div class="text-muted-foreground">
                         <div class="font-medium">暂无数据</div>
@@ -72,38 +60,37 @@
         </template>
 
         <!-- 分页 -->
-        <div v-if="!loading && items.length > 0" class="bg-card rounded-lg border p-4">
-            <!-- 分页信息 -->
-            <div class="text-center text-sm text-muted-foreground mb-4">
+        <div v-if="!loading && items.length > 0" class="bg-card rounded-xl border p-4">
+            <div class="mb-3 text-center text-sm text-muted-foreground">
                 第 {{ currentPage }} / {{ totalPages }} 页，共 {{ total }} 条记录
             </div>
-
-            <!-- 分页按钮 -->
-            <div class="flex items-center justify-center space-x-2">
-                <Button variant="outline" size="sm" :disabled="currentPage <= 1" @click="handlePageChange(1)">
+            <div class="flex items-center justify-center gap-1.5">
+                <button type="button" :disabled="currentPage <= 1"
+                    class="rounded-md border px-2.5 py-1.5 text-[13px] font-medium transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
+                    @click="handlePageChange(1)">
                     首页
-                </Button>
-                <Button variant="outline" size="sm" :disabled="currentPage <= 1"
+                </button>
+                <button type="button" :disabled="currentPage <= 1"
+                    class="rounded-md border p-1.5 transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
                     @click="handlePageChange(currentPage - 1)">
                     <ChevronLeft class="h-4 w-4" />
-                </Button>
-
-                <!-- 当前页码输入 -->
-                <div class="flex items-center space-x-2">
-                    <Input :model-value="currentPage.toString()" @update:model-value="handlePageInput"
+                </button>
+                <div class="flex items-center gap-2">
+                    <Input :model-value="pageInputValue" @update:model-value="handlePageInput"
                         @keyup.enter="handlePageInputConfirm" type="number" :min="1" :max="totalPages"
                         class="w-16 text-center" />
                     <span class="text-sm text-muted-foreground">/ {{ totalPages }}</span>
                 </div>
-
-                <Button variant="outline" size="sm" :disabled="currentPage >= totalPages"
+                <button type="button" :disabled="currentPage >= totalPages"
+                    class="rounded-md border p-1.5 transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
                     @click="handlePageChange(currentPage + 1)">
                     <ChevronRight class="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="sm" :disabled="currentPage >= totalPages"
+                </button>
+                <button type="button" :disabled="currentPage >= totalPages"
+                    class="rounded-md border px-2.5 py-1.5 text-[13px] font-medium transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
                     @click="handlePageChange(totalPages)">
                     末页
-                </Button>
+                </button>
             </div>
         </div>
 
@@ -125,8 +112,15 @@
 <script lang="ts" setup>
 import { FileText, ChevronLeft, ChevronRight, Loader2 } from 'lucide-vue-next'
 import type { LegalListItemWithValidity } from '~/composables/useLegalSearch'
-import { LegalType } from '#shared/types/legal'
-import dayjs from 'dayjs'
+import { LegalTypeLabels } from '#shared/types/legal'
+import LegalSearchStatusBadge from '~/components/legal-search/StatusBadge.vue'
+import {
+    getLegalTypeTone,
+    getValidityLabel,
+    getValidityTone,
+    formatIssuingAuthorities,
+    formatLegalDate,
+} from '~/components/legal-search/legalDisplay'
 
 // ==================== Props ====================
 
@@ -179,80 +173,6 @@ watch(() => props.currentPage, (newPage) => {
 
 // ==================== 方法 ====================
 
-/** 获取法律类型标签 */
-const getTypeLabel = (type: LegalType): string => {
-    const labels: Record<LegalType, string> = {
-        law: '法律',
-        regulation: '行政法规',
-        judicial_interp: '司法解释',
-        guideline: '指导意见',
-    }
-    return labels[type] || type
-}
-
-/** 获取法律类型徽章样式 */
-const getTypeVariant = (type: LegalType): "default" | "secondary" | "outline" | "destructive" => {
-    const variants: Record<LegalType, "default" | "secondary" | "outline" | "destructive"> = {
-        law: 'default',
-        regulation: 'secondary',
-        judicial_interp: 'outline',
-        guideline: 'destructive',
-    }
-    return variants[type] || 'default'
-}
-
-/** 格式化日期 */
-const formatDate = (date: string | Date | null): string => {
-    if (!date) return '-'
-    return dayjs(date).format('YYYY-MM-DD')
-}
-
-/** 获取生效状态标签 */
-const getValidityLabel = (item: LegalListItemWithValidity): string => {
-    const now = new Date()
-    const effectiveDate = item.effectiveDate ? new Date(item.effectiveDate) : null
-    const invalidDate = item.invalidDate ? new Date(item.invalidDate) : null
-
-    // 已失效：失效日期已过
-    if (invalidDate && invalidDate <= now) {
-        return '已失效'
-    }
-
-    // 尚未生效：生效日期在未来
-    if (effectiveDate && effectiveDate > now) {
-        return '尚未生效'
-    }
-
-    // 现行有效
-    return '现行有效'
-}
-
-/** 获取生效状态徽章样式 */
-const getValidityVariant = (item: LegalListItemWithValidity): "default" | "secondary" | "outline" | "destructive" => {
-    const now = new Date()
-    const effectiveDate = item.effectiveDate ? new Date(item.effectiveDate) : null
-    const invalidDate = item.invalidDate ? new Date(item.invalidDate) : null
-
-    // 已失效
-    if (invalidDate && invalidDate <= now) {
-        return 'secondary'
-    }
-
-    // 尚未生效
-    if (effectiveDate && effectiveDate > now) {
-        return 'outline'
-    }
-
-    // 现行有效
-    return 'default'
-}
-
-/** 解析发文机关（支持全角和半角逗号分隔） */
-const parseIssuingAuthorities = (authority: string): string[] => {
-    // 使用正则匹配全角逗号（，）和半角逗号（,）
-    return authority.split(/[,，]/).map(s => s.trim()).filter(s => s.length > 0)
-}
-
 /** 处理项目点击 */
 const handleItemClick = (item: LegalListItemWithValidity) => {
     emit('itemClick', item)
@@ -276,7 +196,6 @@ const handlePageInputConfirm = () => {
     if (!isNaN(page)) {
         handlePageChange(page)
     } else {
-        // 重置为当前页码
         pageInputValue.value = props.currentPage.toString()
     }
 }

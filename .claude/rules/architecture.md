@@ -20,14 +20,14 @@ LexSeek/
 │   │   ├── ai-elements/        # AI 对话/流式输出组件（自动注册）
 │   │   ├── admin/              # 管理后台组件（NavMain、Breadcrumb、各资源 CRUD 子目录）
 │   │   ├── case/, caseDetail/, caseAnalysis/, caseCreation/, initAnalysis/  # 案件相关
-│   │   ├── assistant/, agents/                                             # 法律助手 / Agent 平台 UI
+│   │   ├── assistant/, agents/                                             # 通用问答 / Agent 平台 UI
 │   │   ├── legal/, legal-search/                                            # 法规检索
 │   │   ├── membership/, order/, payment/, points/, purchase/, redeem/      # 会员 / 交易
 │   │   └── …                   # 其他业务组件
 │   ├── composables/            # 全部需要显式 import（自动扫描已关闭）
 │   ├── pages/
 │   │   ├── dashboard/          # 用户工作台（案件 / 合同 / 文档 / 会员 / 设置 …）
-│   │   ├── admin/              # 管理后台（28+ 子模块：orders、payments、audit、models、roles …）
+│   │   ├── admin/              # 管理后台（29+ 子模块：orders、payments、audit、models、roles …）
 │   │   └── …                   # 公开页（login、register、pricing、reset-password …）
 │   ├── layouts/                # 布局模板（dashboard / admin / blank …）
 │   ├── store/                  # Pinia store（全部需要显式 import）
@@ -46,7 +46,7 @@ LexSeek/
 │   │   ├── memory/             # 案件记忆系统
 │   │   ├── security/           # 风控（验证码、登录风险）
 │   │   ├── case/, material/, workflow/, retrieval/, legal/                  # 核心业务
-│   │   ├── assistant/, agent/                                               # 法律助手 / Agent 任务调度
+│   │   ├── assistant/, agent/                                               # 通用问答 / Agent 任务调度
 │   │   ├── auth/, users/, sms/, rbac/, audit/                               # 身份与权限
 │   │   ├── payment/, membership/, point/, product/, redemption/, campaign/  # 交易
 │   │   ├── model/, node/, sse/, files/, storage/, system/, wechat/          # 平台基础设施
@@ -57,18 +57,18 @@ LexSeek/
 │   │   ├── _shared/            # 跨 vertical 共享上下文/工具
 │   │   ├── case-analysis/, case-main/, case-module/                         # 案件分析 vertical
 │   │   ├── contract/, document/                                             # 合同 / 文档 vertical
-│   │   └── legal-assistant/                                                 # 法律助手 vertical
+│   │   └── legal-assistant/                                                 # 通用问答 vertical
 │   ├── lib/                    # 第三方/基建封装（payment、oss、storage、redis、aliSms）
-│   ├── middleware/             # 三段式：01.requestId → 02.auth → 03.permission
+│   ├── middleware/             # 四段式：01.requestId → 02.auth → 03.permission → 04.langfuseContext
 │   ├── routes/                 # 非 /api 的少量 Nitro 路由
 │   ├── scripts/                # 维护脚本（重建嵌入、初始化检索基建）
 │   ├── plugins/                # Nitro 插件
 │   └── utils/                  # 服务端工具（`db.ts` 是 Prisma 单例，必须显式 import）
 ├── shared/                     # 双端共用
 │   ├── types/                  # 业务类型定义（按领域分文件）
-│   └── utils/                  # 共用工具（含 prisma.ts 重导出）
+│   └── utils/                  # 共用工具（apiResponse / logger / decimalToNumber 等）
 ├── prisma/                     # 数据库
-│   ├── models/                 # 按领域拆分的 .prisma 文件（28 个）
+│   ├── models/                 # 按领域拆分的 .prisma 文件（29 个）
 │   ├── migrations/             # 迁移文件（强制由 prisma migrate dev 生成）
 │   ├── seeds/                  # seedData.sql（唯一权威）+ 模板/合同样本
 │   ├── seed.ts                 # 运行时基础数据补全
@@ -116,7 +116,8 @@ return resError(event, 400, '错误信息')
 
 ## 中间件链路（请求全生命周期）
 
-`01.requestId.ts` → `02.auth.ts` → `03.permission.ts`
+`01.requestId.ts` → `02.auth.ts` → `03.permission.ts` → `04.langfuseContext.ts`
 
 - `02.auth`：解析 cookie/JWT，挂载 `event.context.auth.user`，公开 API 标记 `event.context.isPublicApi`
+- `04.langfuseContext`：为请求建立 Langfuse 可观测性上下文（trace 关联）
 - `03.permission`：基于 RBAC 权限表细粒度判定。**未在权限表登记的接口默认 403**——管理端新增接口必须同步在 RBAC 配置或数据迁移中授权

@@ -94,9 +94,12 @@ describe('injectAnnotations', () => {
         const zip = await loadDocxZip(buffer)
         const commentsXml = await readTextFromZip(zip, 'word/comments.xml')
 
-        expect(commentsXml).toContain('w:author="LS:AI"')
-        expect(commentsXml).toContain('w:author="LS:张律师"')
-        expect(commentsXml).toContain('w:author="LS:客户甲"')
+        // spec §4.3：作者名一律去 LS: 前缀；AI 内容用署名（未传 signature 回退 'AI'），律师/客户用各自姓名
+        expect(commentsXml).toContain('w:author="AI"')
+        expect(commentsXml).toContain('w:author="张律师"')
+        expect(commentsXml).toContain('w:author="客户甲"')
+        // 全文无 LS: 前缀
+        expect(commentsXml).not.toContain('LS:')
         // 反向断言：不应再出现 [#...-...-...] 身份证机器码
         expect(commentsXml).not.toMatch(/w:author="[^"]*\[#\d+-\d+-[a-zA-Z0-9]{8}\]"/)
     })
@@ -196,6 +199,54 @@ describe('injectAnnotations', () => {
         expect(rangeMatches.length).toBe(1)
     })
 
+    it('M9 回归：anchorParagraphIndex 为 null（上游 clauseParagraphIndex 越界落 null）时不抛 TypeError', async () => {
+        // 崩溃路径：越界 clauseIndex → buildClauseToBodyParagraphMap.get 得 undefined →
+        // clauseParagraphIndex 落库 null → runAnnotateAndUpload 用 `a.risk.clauseParagraphIndex!`
+        // 把 null 当 number 传入。旧实现 `null >= 0` 求值为真 → normalizedParas[null] 得 undefined
+        // → paraText.includes() 抛 TypeError → 整份审查置 failed。
+        const original = await readFile(SAMPLE)
+        const annotations: ContractAnnotationForExport[] = [
+            makeAnnotation({
+                id: 1,
+                anchorParagraphIndex: null as unknown as number,
+                anchorQuote: '一段绝不会出现在样本合同里的独特短语ZZZ99887',
+            }),
+        ]
+        // 修复前：抛 TypeError；修复后：quote 未命中 → 跳过该批注，不崩溃
+        const { buffer, refsByAnnotationId } = await injectAnnotations(original, annotations, 999)
+        expect(buffer).toBeInstanceOf(Buffer)
+        expect(refsByAnnotationId.size).toBe(1)
+    })
+
+    it('M9 回归：anchorParagraphIndex 为 null 但 anchorQuote 命中时，仍能按 quote 定位注入', async () => {
+        const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+            `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">` +
+            `<w:body>` +
+            `<w:p><w:r><w:t>合同编号 ABC-001</w:t></w:r></w:p>` +
+            `<w:p><w:r><w:t>第一条 乙方应当按时履行交付义务</w:t></w:r></w:p>` +
+            `<w:p><w:r><w:t>第二条 工作内容与职位</w:t></w:r></w:p>` +
+            `</w:body></w:document>`
+        const zip = new JSZip()
+        zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`)
+        zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`)
+        zip.file('word/_rels/document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`)
+        zip.file('word/document.xml', docXml)
+        const docxBuffer = Buffer.from(await zip.generateAsync({ type: 'nodebuffer' }))
+
+        const annotation = makeAnnotation({
+            id: 1,
+            anchorParagraphIndex: null as unknown as number,
+            anchorQuote: '第一条 乙方应当按时履行交付义务',
+        })
+        const { buffer } = await injectAnnotations(docxBuffer, [annotation], 999)
+        const resultZip = await loadDocxZip(buffer)
+        const resultDocXml = await readTextFromZip(resultZip, 'word/document.xml')
+        const allParas = resultDocXml.match(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g) ?? []
+        const paraWithRange = allParas.find(p => p.includes('<w:commentRangeStart'))
+        expect(paraWithRange).not.toBeUndefined()
+        expect(paraWithRange!).toContain('第一条 乙方应当按时履行交付义务')
+    })
+
     it('[Content_Types].xml 和 rels 含 comments 注册项', async () => {
         const original = await readFile(SAMPLE)
         const { paragraphs } = await parseContractDocx(original)
@@ -212,6 +263,25 @@ describe('injectAnnotations', () => {
 
         const rels = await readTextFromZip(zip, 'word/_rels/document.xml.rels')
         expect(rels).toContain('Target="comments.xml"')
+    })
+
+    it('L12：多行 content 按 \\n 拆成多个 <w:p>，气泡里正确换行', async () => {
+        const original = await readFile(SAMPLE)
+        const { paragraphs } = await parseContractDocx(original)
+        const annotations: ContractAnnotationForExport[] = [
+            makeAnnotation({
+                id: 1,
+                content: '问题：付款期限过短\n【法律依据】《民法典》第577条\n【建议】延长付款期',
+                anchorParagraphIndex: Math.min(1, paragraphs.length - 1),
+            }),
+        ]
+        const { buffer } = await injectAnnotations(original, annotations, 999)
+        const zip = await loadDocxZip(buffer)
+        const commentsXml = await readTextFromZip(zip, 'word/comments.xml')
+        // 3 行 content → w:comment 内 3 个 <w:p>（旧实现塞进单个 <w:t> 只有 1 个）
+        const pCount = (commentsXml.match(/<w:p\b/g) ?? []).length
+        expect(pCount).toBe(3)
+        expect(commentsXml).toContain('【法律依据】《民法典》第577条')
     })
 
     it('内容含特殊字符时正常 XML 转义', async () => {
@@ -381,5 +451,29 @@ describe('injectAnnotations idStart 协调（PR6 §8.3.1）', () => {
         const docXml = await readTextFromZip(zip, 'word/document.xml')
         // 仍按既有逻辑：commentRangeStart 在段首
         expect(docXml).toMatch(/<w:commentRangeStart\s+w:id="0"/)
+    })
+})
+
+describe('injectAnnotations 署名与去 LS: 前缀（Task 5 spec §4.3）', () => {
+    it('AI 批注用署名，律师批注去 LS: 前缀，全文无 LS: 字符串', async () => {
+        const original = await readFile(SAMPLE)
+        const { paragraphs } = await parseContractDocx(original)
+        const idx = Math.min(1, paragraphs.length - 1)
+
+        const annotations: ContractAnnotationForExport[] = [
+            makeAnnotation({ id: 1, authorType: 'ai', authorName: 'AI', anchorParagraphIndex: idx }),
+            makeAnnotation({ id: 2, authorType: 'lawyer', authorName: '陈律师', anchorParagraphIndex: idx }),
+        ]
+
+        const { buffer } = await injectAnnotations(original, annotations, 999, { signature: '王明远' })
+        const zip = await loadDocxZip(buffer)
+        const commentsXml = await readTextFromZip(zip, 'word/comments.xml')
+
+        // AI 批注用署名
+        expect(commentsXml).toContain('w:author="王明远"')
+        // 律师批注去前缀（authorName 直接用，无 LS: 前缀）
+        expect(commentsXml).toContain('w:author="陈律师"')
+        // 全文无 LS: 前缀
+        expect(commentsXml).not.toContain('LS:')
     })
 })

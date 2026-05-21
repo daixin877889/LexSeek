@@ -12,6 +12,23 @@ vi.mock('~~/server/services/point/pointConsumption.service', () => ({
     consumePointsService: vi.fn(),
 }))
 
+// 中间件已改走统一计费服务；这里让 billCheck/billDirect 转发到下层 mock，
+// 保留原有 checkPointsService / consumePointsService 断言能力
+vi.mock('~~/server/services/point/pointBilling.service', () => ({
+    billCheckService: vi.fn(async (userId: number, itemKey: string, usage: any) => {
+        const { checkPointsService } = await import('~~/server/services/point/pointConsumption.service')
+        const quantity = Math.max(1, Math.ceil((usage?.tokens ?? 0) / 1000))
+        const r = await (checkPointsService as any)(userId, itemKey, quantity)
+        return { skipped: false, sufficient: r?.sufficient ?? true, required: r?.required ?? 0, available: r?.available ?? 0 }
+    }),
+    billDirectService: vi.fn(async (userId: number, itemKey: string, usage: any) => {
+        const { consumePointsService } = await import('~~/server/services/point/pointConsumption.service')
+        const quantity = Math.ceil((usage?.tokens ?? 0) / 1000)
+        const r = await (consumePointsService as any)(userId, itemKey, quantity)
+        return { skipped: false, consumedAmount: r?.consumedAmount ?? 0, operationId: 'mock-op' }
+    }),
+}))
+
 // Mock langchain dependencies
 vi.mock('@langchain/langgraph', () => ({
     interrupt: vi.fn(),

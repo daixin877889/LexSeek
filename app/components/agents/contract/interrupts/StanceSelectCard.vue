@@ -120,7 +120,7 @@ onMounted(() => {
     <div
         ref="cardRef"
         :class="[
-            'not-prose my-2 w-full max-w-md rounded-lg border p-4 shadow-sm',
+            'not-prose my-2 w-full max-w-md rounded-lg border p-4',
             isSnapshot
                 ? 'border-muted bg-muted/20 opacity-70 dark:border-muted dark:bg-muted/10'
                 : 'border-amber-300/60 bg-amber-50/60 dark:border-amber-700/60 dark:bg-amber-950/30',

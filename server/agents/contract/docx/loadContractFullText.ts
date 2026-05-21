@@ -12,10 +12,12 @@ import { downloadFileService } from '~~/server/services/storage/storage.service'
 import { parseContractDocx } from './index'
 
 export interface ContractFullTextResult {
-    /** 段落数组（非空行） */
+    /** 段落数组（分析口径，非空行，递归含表格内段落） */
     paragraphs: string[]
     /** 段落以 \n 拼接的全文 */
     fullText: string
+    /** M8：paragraphs[i] → 批注注入口径段落序号映射（见 parseContractDocx.bodyParagraphIndex） */
+    bodyParagraphIndex: (number | null)[]
 }
 
 /**
@@ -29,9 +31,10 @@ export async function loadContractFullText(originalFileId: number): Promise<Cont
     if (!ossFile.filePath) throw new Error(`loadContractFullText: OSS file ${originalFileId} filePath 缺失`)
 
     const buffer = await downloadFileService(ossFile.filePath)
-    const { paragraphs } = await parseContractDocx(buffer)
+    const { paragraphs, bodyParagraphIndex } = await parseContractDocx(buffer)
     return {
         paragraphs,
         fullText: paragraphs.join('\n'),
+        bodyParagraphIndex,
     }
 }

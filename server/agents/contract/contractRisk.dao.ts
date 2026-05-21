@@ -20,6 +20,8 @@ export interface CreateContractRiskInput {
     legalBasis?: string | null
     analysis?: string | null
     suggestion?: string | null
+    /** AI 生成 / 律师填写的完整改写后条款（high/medium 必有；low 可空） */
+    suggestedClauseText?: string | null
     /** 完整条款原文（NOT NULL） */
     clauseText: string
     /** 非空段落序号（commentInjector 期望空间） */

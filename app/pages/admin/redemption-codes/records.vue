@@ -1,5 +1,5 @@
 <template>
-        <div class="space-y-6">
+        <div class="theme-brand space-y-6">
             <!-- 页面标题 -->
             <div>
                 <h1 class="text-2xl md:text-3xl font-bold mb-1">兑换记录</h1>
@@ -8,10 +8,12 @@
 
             <!-- 搜索和筛选 -->
             <div class="flex flex-col md:flex-row gap-4">
-                <Input v-model="searchCode" placeholder="搜索兑换码..." class="md:max-w-sm" @keyup.enter="handleSearch" />
-                <Input v-model="searchUserKeyword" placeholder="用户名/手机号..." class="md:max-w-48"
+                <Input v-model="searchCode" placeholder="搜索兑换码..." :class="['md:max-w-sm', adminBrandFocusClass]"
                     @keyup.enter="handleSearch" />
-                <Button variant="outline" @click="handleSearch">
+                <Input v-model="searchUserKeyword" placeholder="用户名/手机号..."
+                    :class="['md:max-w-48', adminBrandFocusClass]"
+                    @keyup.enter="handleSearch" />
+                <Button variant="outline" :class="adminBrandFocusClass" @click="handleSearch">
                     <Search class="h-4 w-4 mr-2" />
                     搜索
                 </Button>
@@ -32,45 +34,48 @@
             <!-- 兑换记录列表 -->
             <template v-else>
                 <!-- 桌面端表格 -->
-                <div class="bg-card rounded-lg border overflow-hidden hidden md:block">
+                <div class="hidden overflow-hidden rounded-lg border bg-card md:block">
                     <div class="overflow-x-auto">
-                        <table class="w-full">
-                            <thead>
-                                <tr class="border-b bg-muted/50">
-                                    <th class="px-4 py-3 text-left text-sm font-medium">用户</th>
-                                    <th class="px-4 py-3 text-left text-sm font-medium">手机号</th>
-                                    <th class="px-4 py-3 text-left text-sm font-medium">兑换码</th>
-                                    <th class="px-4 py-3 text-left text-sm font-medium">类型</th>
-                                    <th class="px-4 py-3 text-left text-sm font-medium">会员级别</th>
-                                    <th class="px-4 py-3 text-center text-sm font-medium">时长/积分</th>
-                                    <th class="px-4 py-3 text-left text-sm font-medium">兑换时间</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr v-for="record in records" :key="record.id"
-                                    class="border-b last:border-b-0 hover:bg-muted/30 transition-colors">
-                                    <td class="px-4 py-3">
+                        <Table>
+                            <TableHeader>
+                                <TableRow class="bg-muted/50 hover:bg-muted/50">
+                                    <TableHead class="px-4 py-3">用户</TableHead>
+                                    <TableHead class="px-4 py-3">手机号</TableHead>
+                                    <TableHead class="px-4 py-3">兑换码</TableHead>
+                                    <TableHead class="px-4 py-3">类型</TableHead>
+                                    <TableHead class="px-4 py-3">会员级别</TableHead>
+                                    <TableHead class="px-4 py-3 text-center">时长/积分</TableHead>
+                                    <TableHead class="px-4 py-3">兑换时间</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                <TableRow v-for="record in records" :key="record.id" class="hover:bg-muted/30">
+                                    <TableCell class="px-4 py-3">
                                         <div class="flex items-center gap-2">
                                             <User class="h-4 w-4 text-muted-foreground" />
                                             <span class="font-medium">{{ record.userName || '-' }}</span>
                                         </div>
-                                    </td>
-                                    <td class="px-4 py-3 text-sm">{{ record.userPhone }}</td>
-                                    <td class="px-4 py-3 font-mono text-sm">{{ record.code }}</td>
-                                    <td class="px-4 py-3">
-                                        <Badge :variant="getTypeVariant(record.type)">{{ record.typeName }}</Badge>
-                                    </td>
-                                    <td class="px-4 py-3 text-sm">{{ record.levelName || '-' }}</td>
-                                    <td class="px-4 py-3 text-center text-sm">
+                                    </TableCell>
+                                    <TableCell class="px-4 py-3 text-sm">{{ record.userPhone }}</TableCell>
+                                    <TableCell class="px-4 py-3 font-mono text-sm">{{ record.code }}</TableCell>
+                                    <TableCell class="px-4 py-3">
+                                        <Badge variant="outline" :class="getAdminRedemptionTypeBadgeClass(record.type)">
+                                            {{ record.typeName }}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell class="px-4 py-3 text-sm">{{ record.levelName || '-' }}</TableCell>
+                                    <TableCell class="px-4 py-3 text-center text-sm">
                                         <span v-if="record.duration">{{ record.duration }}天</span>
                                         <span v-if="record.duration && record.pointAmount"> / </span>
                                         <span v-if="record.pointAmount">{{ record.pointAmount }}积分</span>
                                         <span v-if="!record.duration && !record.pointAmount">-</span>
-                                    </td>
-                                    <td class="px-4 py-3 text-sm text-muted-foreground">{{ record.createdAt }}</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                                    </TableCell>
+                                    <TableCell class="px-4 py-3 text-sm text-muted-foreground">
+                                        {{ record.createdAt }}
+                                    </TableCell>
+                                </TableRow>
+                            </TableBody>
+                        </Table>
                     </div>
                 </div>
 
@@ -82,7 +87,9 @@
                                 <User class="h-4 w-4 text-muted-foreground" />
                                 <span class="font-medium">{{ record.userName || record.userPhone }}</span>
                             </div>
-                            <Badge :variant="getTypeVariant(record.type)">{{ record.typeName }}</Badge>
+                            <Badge variant="outline" :class="getAdminRedemptionTypeBadgeClass(record.type)">
+                                {{ record.typeName }}
+                            </Badge>
                         </div>
                         <div class="text-sm text-muted-foreground">{{ record.userPhone }}</div>
                         <div class="font-mono text-sm">{{ record.code }}</div>
@@ -110,7 +117,12 @@
 import { Search, Loader2, FileText, User } from 'lucide-vue-next'
 import type { RedemptionRecordAdminInfo } from '#shared/types/redemption'
 import GeneralPagination from '~/components/general/pagination.vue'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '~/components/ui/table'
 import { useApiFetch } from '~/composables/useApiFetch'
+import {
+    adminBrandFocusClass,
+    getAdminRedemptionTypeBadgeClass,
+} from '~/utils/adminBrandStyles'
 
 definePageMeta({ layout: 'admin-layout', title: '兑换记录' })
 
@@ -120,16 +132,6 @@ const records = ref<RedemptionRecordAdminInfo[]>([])
 const pagination = ref({ page: 1, pageSize: 20, total: 0, totalPages: 0 })
 const searchCode = ref('')
 const searchUserKeyword = ref('')
-
-// 获取类型样式
-const getTypeVariant = (type: number) => {
-    const variants: Record<number, 'default' | 'secondary' | 'outline'> = {
-        1: 'default',
-        2: 'secondary',
-        3: 'outline',
-    }
-    return variants[type] || 'default'
-}
 
 // 加载兑换记录
 const loadRecords = async () => {

@@ -1,16 +1,21 @@
 <template>
-  <SidebarProvider>
+  <SidebarProvider class="theme-brand">
     <!-- 侧边栏 -->
     <Sidebar collapsible="icon">
       <!-- 顶部logo -->
-      <SidebarHeader class="border-b">
-        <div
-          class="flex items-center py-3 px-4 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
-          <NuxtLink to="/admin" class="flex items-center gap-2">
-            <BrandLogo size="sm" />
-            <span class="font-semibold text-lg group-data-[collapsible=icon]:hidden">管理后台</span>
-          </NuxtLink>
-        </div>
+      <SidebarHeader class="theme-brand">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton size="lg" class="hover:bg-primary/[0.08]">
+              <NuxtLink to="/admin" class="flex items-center gap-2">
+                <BrandLogo size="md" />
+                <div class="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
+                  <span class="truncate text-base font-semibold text-zinc-900 dark:text-zinc-100">管理后台</span>
+                </div>
+              </NuxtLink>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarHeader>
       <SidebarContent data-sidebar-content>
         <!-- 菜单组 -->
@@ -19,7 +24,8 @@
       <!-- 侧边栏底部 -->
       <SidebarFooter>
         <div class="p-4 group-data-[collapsible=icon]:p-2">
-          <NuxtLink to="/dashboard" class="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary">
+          <NuxtLink to="/dashboard"
+            class="flex items-center gap-2 rounded-md px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-primary/[0.08] hover:text-primary group-data-[collapsible=icon]:justify-center">
             <ArrowLeft class="h-4 w-4" />
             <span class="group-data-[collapsible=icon]:hidden">返回主站</span>
           </NuxtLink>
@@ -62,6 +68,15 @@ import BrandLogo from '~/components/general/BrandLogo.vue'
 import { useApi } from '~/composables/useApi'
 import { useAdminMenuStore } from '~/store/adminMenu'
 import { usePermissionStore } from '~/store/permission'
+
+// 把当前路由的 definePageMeta.title 同步到浏览器标签，
+// 兜底"管理后台"，避免子页漏写时被全局 titleTemplate 渲染成 " | LexSeek 法索 AI"。
+// 同时声明私密区域 robots: noindex。
+const route = useRoute()
+useHead({
+  title: () => (route.meta?.title as string | undefined) || '管理后台',
+  meta: [{ name: 'robots', content: 'noindex,nofollow' }]
+})
 
 const store = useAdminMenuStore()
 const permissionStore = usePermissionStore()

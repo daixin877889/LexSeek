@@ -22,6 +22,8 @@ export interface CreatePointConsumptionItemInput {
     pointAmount: number
     discount?: number
     status?: number
+    billingMode?: number
+    displayName?: string | null
 }
 
 /** 更新积分消耗项目输入 */
@@ -33,6 +35,8 @@ export interface UpdatePointConsumptionItemInput {
     pointAmount?: number
     discount?: number
     status?: number
+    billingMode?: number
+    displayName?: string | null
 }
 
 /** 积分消耗项目列表查询参数 */
@@ -65,6 +69,8 @@ const createPointConsumptionItemDao = async (
                 pointAmount: data.pointAmount,
                 discount: data.discount ?? 1,
                 status: data.status ?? PointConsumptionItemStatus.ENABLED,
+                billingMode: data.billingMode ?? 2,
+                displayName: data.displayName ?? null,
             },
         })
         return item

@@ -3,117 +3,7 @@
  */
 
 import type { LPRRate, DepositRate, LoanRate } from '#shared/types/tools'
-
-// 银行利率数据
-const bankRates: {
-    lpr: LPRRate[]
-    benchmark: DepositRate[]
-    loan: LoanRate[]
-} = {
-    // LPR利率
-    lpr: [
-        { date: '2025-07-21', oneYear: 3.00, fiveYear: 3.50 },
-        { date: '2025-06-20', oneYear: 3.00, fiveYear: 3.50 },
-        { date: '2025-05-20', oneYear: 3.00, fiveYear: 3.50 },
-        { date: '2025-04-20', oneYear: 3.10, fiveYear: 3.60 },
-        { date: '2025-03-20', oneYear: 3.10, fiveYear: 3.60 },
-        { date: '2025-02-20', oneYear: 3.10, fiveYear: 3.60 },
-        { date: '2025-01-20', oneYear: 3.10, fiveYear: 3.60 },
-        { date: '2024-12-20', oneYear: 3.10, fiveYear: 3.60 },
-        { date: '2024-11-20', oneYear: 3.10, fiveYear: 3.60 },
-        { date: '2024-10-21', oneYear: 3.10, fiveYear: 3.60 },
-        { date: '2024-09-20', oneYear: 3.35, fiveYear: 3.85 },
-        { date: '2024-08-20', oneYear: 3.35, fiveYear: 3.85 },
-        { date: '2024-07-22', oneYear: 3.35, fiveYear: 3.85 },
-        { date: '2024-06-20', oneYear: 3.45, fiveYear: 3.95 },
-        { date: '2024-05-20', oneYear: 3.45, fiveYear: 3.95 },
-        { date: '2024-04-22', oneYear: 3.45, fiveYear: 3.95 },
-        { date: '2024-03-20', oneYear: 3.45, fiveYear: 3.95 },
-        { date: '2024-02-20', oneYear: 3.45, fiveYear: 3.95 },
-        { date: '2024-01-22', oneYear: 3.45, fiveYear: 4.20 },
-        { date: '2023-12-20', oneYear: 3.45, fiveYear: 4.20 },
-        { date: '2023-11-20', oneYear: 3.45, fiveYear: 4.20 },
-        { date: '2023-10-20', oneYear: 3.45, fiveYear: 4.20 },
-        { date: '2023-09-20', oneYear: 3.45, fiveYear: 4.20 },
-        { date: '2023-08-21', oneYear: 3.45, fiveYear: 4.20 },
-        { date: '2023-07-20', oneYear: 3.55, fiveYear: 4.20 },
-        { date: '2023-06-20', oneYear: 3.55, fiveYear: 4.20 },
-        { date: '2023-05-22', oneYear: 3.65, fiveYear: 4.3 },
-        { date: '2023-04-20', oneYear: 3.65, fiveYear: 4.3 },
-        { date: '2023-03-20', oneYear: 3.65, fiveYear: 4.3 },
-        { date: '2023-02-20', oneYear: 3.65, fiveYear: 4.3 },
-        { date: '2023-01-20', oneYear: 3.65, fiveYear: 4.3 },
-        { date: '2022-12-20', oneYear: 3.65, fiveYear: 4.3 },
-        { date: '2022-11-21', oneYear: 3.65, fiveYear: 4.3 },
-        { date: '2022-10-20', oneYear: 3.65, fiveYear: 4.3 },
-        { date: '2022-09-20', oneYear: 3.65, fiveYear: 4.3 },
-        { date: '2022-08-22', oneYear: 3.65, fiveYear: 4.3 },
-        { date: '2022-07-20', oneYear: 3.70, fiveYear: 4.45 },
-        { date: '2022-06-20', oneYear: 3.70, fiveYear: 4.45 },
-        { date: '2022-05-20', oneYear: 3.70, fiveYear: 4.45 },
-        { date: '2022-04-20', oneYear: 3.70, fiveYear: 4.60 },
-        { date: '2022-03-21', oneYear: 3.70, fiveYear: 4.60 },
-        { date: '2022-02-21', oneYear: 3.70, fiveYear: 4.60 },
-        { date: '2022-01-20', oneYear: 3.7, fiveYear: 4.6 },
-        { date: '2021-12-20', oneYear: 3.8, fiveYear: 4.65 },
-        { date: '2021-11-22', oneYear: 3.85, fiveYear: 4.65 },
-        { date: '2021-10-20', oneYear: 3.85, fiveYear: 4.65 },
-        { date: '2021-09-22', oneYear: 3.85, fiveYear: 4.65 },
-        { date: '2021-08-20', oneYear: 3.85, fiveYear: 4.65 },
-        { date: '2021-07-20', oneYear: 3.85, fiveYear: 4.65 },
-        { date: '2021-06-21', oneYear: 3.85, fiveYear: 4.65 },
-        { date: '2021-05-20', oneYear: 3.85, fiveYear: 4.65 },
-        { date: '2021-04-20', oneYear: 3.85, fiveYear: 4.65 },
-        { date: '2021-03-22', oneYear: 3.85, fiveYear: 4.65 },
-        { date: '2021-02-20', oneYear: 3.85, fiveYear: 4.65 },
-        { date: '2021-01-20', oneYear: 3.85, fiveYear: 4.65 },
-        { date: '2020-12-21', oneYear: 3.85, fiveYear: 4.65 },
-        { date: '2020-11-20', oneYear: 3.85, fiveYear: 4.65 },
-        { date: '2020-10-20', oneYear: 3.85, fiveYear: 4.65 },
-        { date: '2020-09-21', oneYear: 3.85, fiveYear: 4.65 },
-        { date: '2020-08-20', oneYear: 3.85, fiveYear: 4.65 },
-        { date: '2020-07-20', oneYear: 3.85, fiveYear: 4.65 },
-        { date: '2020-06-22', oneYear: 3.85, fiveYear: 4.65 },
-        { date: '2020-05-20', oneYear: 3.85, fiveYear: 4.65 },
-        { date: '2020-04-20', oneYear: 3.85, fiveYear: 4.65 },
-        { date: '2020-03-20', oneYear: 4.05, fiveYear: 4.75 },
-        { date: '2020-02-20', oneYear: 4.05, fiveYear: 4.75 },
-        { date: '2020-01-20', oneYear: 4.15, fiveYear: 4.8 },
-        { date: '2019-12-20', oneYear: 4.15, fiveYear: 4.8 },
-        { date: '2019-11-20', oneYear: 4.15, fiveYear: 4.8 },
-        { date: '2019-10-21', oneYear: 4.2, fiveYear: 4.85 },
-        { date: '2019-09-20', oneYear: 4.2, fiveYear: 4.85 },
-        { date: '2019-08-20', oneYear: 4.25, fiveYear: 4.85 }
-    ],
-
-    // 基准利率
-    benchmark: [
-        { date: '2015-10-24', demand: 0.35, threeMonths: 1.1, sixMonths: 1.3, oneYear: 1.5, twoYear: 2.1, threeYear: 2.75, fiveYear: 2.75 },
-        { date: '2015-08-26', demand: 0.35, threeMonths: 1.35, sixMonths: 1.55, oneYear: 1.75, twoYear: 2.35, threeYear: 3, fiveYear: 3 },
-        { date: '2015-06-28', demand: 0.35, threeMonths: 1.6, sixMonths: 1.8, oneYear: 2, twoYear: 2.6, threeYear: 3.25, fiveYear: 3.25 },
-        { date: '2015-05-11', demand: 0.35, threeMonths: 1.85, sixMonths: 2.05, oneYear: 2.25, twoYear: 2.85, threeYear: 3.5, fiveYear: 3.5 },
-        { date: '2015-03-01', demand: 0.35, threeMonths: 2.1, sixMonths: 2.3, oneYear: 2.5, twoYear: 3.1, threeYear: 3.75, fiveYear: 3.75 },
-        { date: '2014-11-22', demand: 0.35, threeMonths: 2.35, sixMonths: 2.55, oneYear: 2.75, twoYear: 3.35, threeYear: 4, fiveYear: 4 },
-        { date: '2012-07-06', demand: 0.35, threeMonths: 2.6, sixMonths: 2.8, oneYear: 3, twoYear: 3.75, threeYear: 4.25, fiveYear: 4.25 },
-        { date: '2012-06-08', demand: 0.4, threeMonths: 2.85, sixMonths: 3.05, oneYear: 3.25, twoYear: 4, threeYear: 4.5, fiveYear: 4.5 },
-        { date: '2011-07-07', demand: 0.5, threeMonths: 3.1, sixMonths: 3.3, oneYear: 3.5, twoYear: 4.4, threeYear: 4.9, fiveYear: 5.0 },
-        { date: '2011-04-06', demand: 0.5, threeMonths: 2.85, sixMonths: 3.05, oneYear: 3.25, twoYear: 4.15, threeYear: 4.65, fiveYear: 4.75 }
-    ],
-
-    // 贷款基准利率
-    loan: [
-        { date: '2015-10-24', sixMonths: 4.35, oneYear: 4.35, oneToFiveYear: 4.75, fiveYear: 4.9 },
-        { date: '2015-08-26', sixMonths: 4.6, oneYear: 4.6, oneToFiveYear: 5, fiveYear: 5.15 },
-        { date: '2015-06-28', sixMonths: 4.85, oneYear: 4.85, oneToFiveYear: 5.25, fiveYear: 5.4 },
-        { date: '2015-05-11', sixMonths: 5.1, oneYear: 5.1, oneToFiveYear: 5.5, fiveYear: 5.65 },
-        { date: '2015-03-01', sixMonths: 5.35, oneYear: 5.35, oneToFiveYear: 5.75, fiveYear: 5.9 },
-        { date: '2014-11-22', sixMonths: 5.6, oneYear: 5.6, oneToFiveYear: 6, fiveYear: 6.15 },
-        { date: '2012-07-06', sixMonths: 5.85, oneYear: 6, oneToFiveYear: 6.15, fiveYear: 6.4 },
-        { date: '2012-06-08', sixMonths: 6.1, oneYear: 6.31, oneToFiveYear: 6.4, fiveYear: 6.65 },
-        { date: '2011-07-07', sixMonths: 6.56, oneYear: 6.65, oneToFiveYear: 6.9, fiveYear: 7.05 },
-        { date: '2011-04-06', sixMonths: 6.31, oneYear: 6.4, oneToFiveYear: 6.65, fiveYear: 6.8 }
-    ]
-}
+import { getLPRRates, getDepositRates, getLoanRates } from '#shared/utils/tools/data'
 
 /**
  * 查询LPR利率
@@ -121,18 +11,18 @@ const bankRates: {
  * @returns LPR利率数据
  */
 export function queryLPRRate(date?: string): LPRRate | null {
-    // 如果没有指定日期，返回最新的LPR利率
+    // 如果没有指定日期，返回最新的LPR利率（data 层数组非空，[0] 必存在）
     if (!date) {
-        return bankRates.lpr[0] ?? null
+        return getLPRRates()[0]!
     }
 
     // 将查询日期转换为时间戳
     const queryTimestamp = new Date(date).getTime()
 
     // 查找小于等于查询日期的最近一条记录
-    for (let i = 0; i < bankRates.lpr.length; i++) {
-        const rate = bankRates.lpr[i]
-        if (!rate) continue
+    const lprRates = getLPRRates()
+    for (let i = 0; i < lprRates.length; i++) {
+        const rate = lprRates[i]!
         const rateTimestamp = new Date(rate.date).getTime()
         if (queryTimestamp >= rateTimestamp) {
             return rate
@@ -149,18 +39,18 @@ export function queryLPRRate(date?: string): LPRRate | null {
  * @returns 存款基准利率数据
  */
 export function queryDepositRate(date?: string): DepositRate | null {
-    // 如果没有指定日期，返回最新的存款基准利率
+    // 如果没有指定日期，返回最新的存款基准利率（data 层数组非空，[0] 必存在）
     if (!date) {
-        return bankRates.benchmark[0] ?? null
+        return getDepositRates()[0]!
     }
 
     // 将查询日期转换为时间戳
     const queryTimestamp = new Date(date).getTime()
 
     // 查找小于等于查询日期的最近一条记录
-    for (let i = 0; i < bankRates.benchmark.length; i++) {
-        const rate = bankRates.benchmark[i]
-        if (!rate) continue
+    const depositRates = getDepositRates()
+    for (let i = 0; i < depositRates.length; i++) {
+        const rate = depositRates[i]!
         const rateTimestamp = new Date(rate.date).getTime()
         if (queryTimestamp >= rateTimestamp) {
             return rate
@@ -177,18 +67,18 @@ export function queryDepositRate(date?: string): DepositRate | null {
  * @returns 贷款基准利率数据
  */
 export function queryLoanRate(date?: string): LoanRate | null {
-    // 如果没有指定日期，返回最新的贷款基准利率
+    // 如果没有指定日期，返回最新的贷款基准利率（data 层数组非空，[0] 必存在）
     if (!date) {
-        return bankRates.loan[0] ?? null
+        return getLoanRates()[0]!
     }
 
     // 将查询日期转换为时间戳
     const queryTimestamp = new Date(date).getTime()
 
     // 查找小于等于查询日期的最近一条记录
-    for (let i = 0; i < bankRates.loan.length; i++) {
-        const rate = bankRates.loan[i]
-        if (!rate) continue
+    const loanRates = getLoanRates()
+    for (let i = 0; i < loanRates.length; i++) {
+        const rate = loanRates[i]!
         const rateTimestamp = new Date(rate.date).getTime()
         if (queryTimestamp >= rateTimestamp) {
             return rate
@@ -204,7 +94,7 @@ export function queryLoanRate(date?: string): LoanRate | null {
  * @returns LPR利率历史记录
  */
 export function getLPRHistory(): LPRRate[] {
-    return bankRates.lpr
+    return [...getLPRRates()]
 }
 
 /**
@@ -212,7 +102,7 @@ export function getLPRHistory(): LPRRate[] {
  * @returns 存款基准利率历史记录
  */
 export function getDepositRateHistory(): DepositRate[] {
-    return bankRates.benchmark
+    return [...getDepositRates()]
 }
 
 /**
@@ -220,7 +110,7 @@ export function getDepositRateHistory(): DepositRate[] {
  * @returns 贷款基准利率历史记录
  */
 export function getLoanRateHistory(): LoanRate[] {
-    return bankRates.loan
+    return [...getLoanRates()]
 }
 
 /**
@@ -235,7 +125,7 @@ export function calculateAverageLPR(startDate: string, endDate: string, term: 'o
     const end = new Date(endDate)
 
     // 筛选日期范围内的LPR记录
-    const filteredRates = bankRates.lpr.filter(item => {
+    const filteredRates = getLPRRates().filter(item => {
         const itemDate = new Date(item.date)
         return itemDate >= start && itemDate <= end
     })
@@ -255,7 +145,7 @@ export function calculateAverageLPR(startDate: string, endDate: string, term: 'o
  * @returns 最新的LPR利率数据
  */
 export function getLatestLPR(): LPRRate {
-    return bankRates.lpr[0]!
+    return getLPRRates()[0]!
 }
 
 /**
@@ -263,7 +153,7 @@ export function getLatestLPR(): LPRRate {
  * @returns 最新的存款基准利率数据
  */
 export function getLatestDepositRate(): DepositRate {
-    return bankRates.benchmark[0]!
+    return getDepositRates()[0]!
 }
 
 /**
@@ -271,5 +161,5 @@ export function getLatestDepositRate(): DepositRate {
  * @returns 最新的贷款基准利率数据
  */
 export function getLatestLoanRate(): LoanRate {
-    return bankRates.loan[0]!
+    return getLoanRates()[0]!
 }

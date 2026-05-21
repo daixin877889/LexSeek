@@ -135,13 +135,21 @@ stream.getMessagesMetadata(msg, idx) // 获取消息元数据
 - `extractCaseInfo(message, files)`: AI 提取案件信息 -> 跳转确认表单
 - `createCase(params)`: 创建案件 -> 自动导航到初始分析
 
-### useInitAnalysis
+### 初始分析 composable 体系（`composables/initAnalysis/`）
 
-初始分析全生命周期管理（~490 行）。详见 `case-analysis-ui.md`。
+初始分析早期是单文件 `useInitAnalysis.ts`，现已拆分为 `app/composables/initAnalysis/` 目录下的多个职责单一的 composable，详见 `case-analysis-ui.md`：
 
-**核心状态**：`phase` / `moduleStates` / `allModuleCards` / `mergedResult` / `streamMessages`
+| 文件 | 职责 |
+|------|------|
+| `useInitAnalysisRuntime.ts` | 流程编排核心：`phase` / `moduleStates` / `selectedModules` 状态机，`useStreamChat` 接入，`loadStatus` / `startAnalysis` / `resumeWorkflow` / `retryModule` 等方法 |
+| `useInitAnalysisProjection.ts` | 把 runtime 状态 + DB 结果投影为 UI 卡片（`mergedResult` / `allModuleCards`） |
+| `useInitAnalysisSyncBridge.ts` | 跨标签页同步：广播 / 监听 `analysis:updated`、`module:generating` |
+| `useInitAnalysisModules.ts` | 纯工具函数：模块状态快照计算（`computeModuleStatesFromSnapshot` 等） |
+| `types.ts` | `InitAnalysisState` / `AnalysisPhase` / `RuntimeExposed` 等类型 |
 
-**核心方法**：
+页面 `[sessionId].vue` 组合 runtime + projection + syncBridge 三层。`useCaseAnalysisInitAgent`（见下文「案件相关」）是基于 `useDomainAgentSession` 的对话/流薄包装，runtime 内部直接复用 `useStreamChat`。
+
+**核心方法（runtime）**：
 - `loadStatus()`: 初始化，恢复分析状态
 - `startAnalysis()`: 开始分析（提交选中的模块）
 - `resumeWorkflow()`: 恢复中断的分析
@@ -164,35 +172,40 @@ stream.getMessagesMetadata(msg, idx) // 获取消息元数据
 **操作**：
 - `addMaterials(files)` / `deleteMaterials(ids)` / `retryMaterial(id, ossFileId)`
 
-### useCaseChat
+### Agent 对话体系（`composables/agents/`）
 
-基于 `useStreamChat` 的案件对话特化封装。
+案件对话早期由 `useCaseChat` / `useChatSessionManager` / `useModuleChatManager` / `useXiaosuoChat` 一组 composable 承担，现已统一重构。所有业务对话改由 `app/composables/agent-platform/useDomainAgentSession.ts` 这一统一工厂提供能力（整合了原 `useChatSessionManager` + `useStreamChat`：会话管理、流处理、消息队列、跨标签同步、竞态防护），`app/composables/agents/` 下则是各业务 vertical 的「薄包装」。
+
+#### useDomainAgentSession（统一工厂，agent-platform/）
+
+按 `scope` 区分业务域的会话工厂，单 session 用法：
 
 ```typescript
-const chat = useCaseChat({ sessionId: 'xxx' })
-chat.sendMessage('分析一下合同效力')
-chat.stopGeneration()
-chat.resumeInterrupt(data)
+const session = useDomainAgentSession({
+    scope: 'case',                 // case / legal_assistant / document / contract / case_analysis_init
+    sessionId: 'auto',             // 'auto' = 从后端列表选首个；Ref<string> = 锁定单 session
+    userId: 'xxx',
+    caseId: 123,                   // scope='case' 必填
+    onCustomEvent: (data) => {},
+})
 ```
 
-### useChatSessionManager
+配套的 `useDomainAgentSessionPool` 提供「多 key 池化」，每个 key 对应一个 `SessionFactory` 实例。
 
-多 session 管理基类，封装小索和模块对话共同的多 session 生命周期管理。
+#### agents/ 下的业务薄包装
 
-**功能**：effectScope 管理、竞态防护、hasActiveRun 自动 reconnect、双重取消。
+`app/composables/agents/index.ts` 导出 6 个薄包装，每个绑定一个 `scope`：
 
-### useModuleChatManager
+| 薄包装 | scope | 替代的旧 composable | 说明 |
+|--------|-------|---------------------|------|
+| `useCaseMainAgent` | `case` | `useXiaosuoChat` | 案件小索浮窗对话，多 session；额外暴露 `generatingModules`（子代理跑模块分析时的生成中模块列表） |
+| `useCaseModuleAgent` | `case` | `useModuleChatManager` | 案件模块对话多实例池，每个 `moduleName` 一个池化 session，暴露 `instances` / `activeModules` / `expandedModule` / `getOrCreateInstance` / `expandModule` / `hideModule` |
+| `useCaseAnalysisInitAgent` | `case_analysis_init` | `useInitAnalysis` 的 stream 部分 | 初分流程的对话/流层薄包装，单 session（sessionId 来自路由） |
+| `useLegalAssistantAgent` | `legal_assistant` | `useAssistantChat` | 通用问答对话，跨案件全局 |
+| `useDocumentAgent` | `document` | `useDocumentDraft` 的 stream 部分 | 文书生成对话，draftId 驱动单 session |
+| `useContractAgent` | `contract` | `useContractReview` 的 stream 部分 | 合同审查对话，reviewId 驱动单 session |
 
-模块对话多实例管理器。每个分析模块一个 `useChatSessionManager` 实例。
-
-**特有功能**：
-- `generatingModules`: 正在生成中的模块列表
-- `expandedModule`: 当前展开的模块
-- 跨标签页广播模块生成状态
-
-### useXiaosuoChat
-
-小索 AI 助手，基于 `useChatSessionManager` 的薄包装，使用独立的 session API 端点。
+`useDocumentAgent` / `useContractAgent` 仅负责对话/流，业务方法（versions / snapshots / preview / fields / stages / risks-editing / lifecycle）由调用方页面按需 import `composables/document/` 与 `composables/contract/` 下的 sub-composable 自行组装。
 
 ## 四、文件操作
 

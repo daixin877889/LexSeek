@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { randomUUID } from 'node:crypto'
 import { prisma } from '~~/server/utils/db'
 import {
@@ -7,6 +7,7 @@ import {
     _resetCacheForTests,
 } from '~~/server/services/agent-platform/nodeConfig/loader'
 import { getNodeConfigService } from '~~/server/services/node/node.service'
+import { dispatchInvalidationMessage } from '~~/server/utils/cacheInvalidationBus'
 
 describe('NodeConfig loader 缓存', () => {
     beforeEach(() => {
@@ -51,6 +52,38 @@ describe('NodeConfig loader 缓存', () => {
         expect(r1).toBeNull()
         const r2 = await getNodeConfigCached(fake)
         expect(r2).toBeNull()   // 第二次仍 null（缓存了 null 节省 DB 查询）
+    })
+
+    it('缓存项超过 10min TTL 后重新回源', async () => {
+        vi.useFakeTimers({ toFake: ['Date'] })
+        try {
+            const t0 = new Date('2026-05-19T00:00:00Z')
+            vi.setSystemTime(t0)
+            const first = await getNodeConfigCached('caseMain')
+            if (!first) return
+            // 推进到 TTL（10min）之后
+            vi.setSystemTime(new Date(t0.getTime() + 11 * 60 * 1000))
+            const second = await getNodeConfigCached('caseMain')
+            expect(second).not.toBe(first)   // TTL 过期，重新回源，对象引用不同
+        } finally {
+            vi.useRealTimers()
+        }
+    })
+
+    it('收到 nodeConfig 失效广播时清本地缓存（dispatch 单条）', async () => {
+        const first = await getNodeConfigCached('caseMain')
+        if (!first) return
+        dispatchInvalidationMessage(JSON.stringify({ cacheName: 'nodeConfig', keys: ['caseMain'] }))
+        const second = await getNodeConfigCached('caseMain')
+        expect(second).not.toBe(first)   // 被广播失效，重新回源
+    })
+
+    it('收到 nodeConfig 全清广播时清空本地缓存', async () => {
+        const first = await getNodeConfigCached('caseMain')
+        if (!first) return
+        dispatchInvalidationMessage(JSON.stringify({ cacheName: 'nodeConfig' }))
+        const second = await getNodeConfigCached('caseMain')
+        expect(second).not.toBe(first)
     })
 })
 

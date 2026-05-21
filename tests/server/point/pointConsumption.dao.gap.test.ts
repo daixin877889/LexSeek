@@ -265,4 +265,34 @@ describe('积分消耗 DAO - catch 分支与边界覆盖', () => {
             })
         })
     })
+
+    describe('createConsumptionRecordDao 透传新字段', () => {
+        it('应落库 operationId / contextLabel / usageAmount', async () => {
+            if (!dbAvailable) return
+            const user = await createTestUser()
+            testIds.userIds.push(user.id)
+            const pointRecord = await createTestPointRecord(user.id, {
+                pointAmount: 100,
+                used: 0,
+                remaining: 100,
+                status: PointRecordStatus.VALID,
+            })
+            testIds.pointRecordIds.push(pointRecord.id)
+            const item = await prisma.pointConsumptionItems.findFirstOrThrow({ where: { key: 'doc_parse' } })
+            const rec = await createConsumptionRecordDao({
+                userId: user.id,
+                pointRecordId: pointRecord.id,
+                itemId: item.id,
+                pointAmount: 5,
+                status: PointConsumptionRecordStatus.SETTLED,
+                operationId: 'op-test-1',
+                contextLabel: '起诉状.pdf',
+                usageAmount: 8,
+            })
+            createdRecordIds.push(rec.id)
+            expect(rec.operationId).toBe('op-test-1')
+            expect(rec.contextLabel).toBe('起诉状.pdf')
+            expect(rec.usageAmount).toBe(8)
+        })
+    })
 })

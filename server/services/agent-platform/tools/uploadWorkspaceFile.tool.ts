@@ -19,9 +19,10 @@ import { WORKSPACE_BASE, resolveWorkspaceDir } from './workspace'
 import type { ToolContext, ToolDefinition } from './types'
 import { FileSource, OssFileStatus } from '#shared/types/file'
 import { StorageProviderType } from '~~/server/lib/storage/types'
+import { buildStorageKey } from '~~/server/utils/storagePath'
 
-/** 文件大小上限：50MB */
-const MAX_FILE_SIZE = 50 * 1024 * 1024
+/** 文件大小上限：180MB */
+const MAX_FILE_SIZE = 180 * 1024 * 1024
 
 /** 临时文件有效期：24小时（OSS 生命周期规则需配套配置） */
 const TEMP_FILE_TTL_MS = 24 * 60 * 60 * 1000
@@ -162,7 +163,7 @@ export function createTool(context: ToolContext, workspaceBase?: string, statFn?
             }
 
             if (fileSize > MAX_FILE_SIZE) {
-                return `Error: 文件超过大小限制（最大 50MB），当前文件大小 ${(fileSize / 1024 / 1024).toFixed(2)}MB`
+                return `Error: 文件超过大小限制（最大 180MB），当前文件大小 ${(fileSize / 1024 / 1024).toFixed(2)}MB`
             }
 
             const mimeType = inferMimeType(fileName)
@@ -202,7 +203,13 @@ async function uploadToUserStorage(
     mimeType: string,
 ): Promise<string> {
     try {
-        const ossPath = `users/${userId}/workspace/${sessionId}/${Date.now()}_${fileName}`
+        const ossPath = buildStorageKey({
+            scope: 'user',
+            userId,
+            source: FileSource.CASE_ANALYSIS,
+            subDir: sessionId,
+            fileName: `${Date.now()}_${fileName}`,
+        })
         const stream = createReadStream(filePath)
 
         const uploadResult = await uploadFileService(ossPath, stream, { contentType: mimeType, userId })
@@ -246,7 +253,12 @@ async function uploadToTempStorage(
 ): Promise<string> {
     try {
         const timestamp = Date.now()
-        const ossPath = `temp/${userId}/workspace/${sessionId}/${timestamp}_${fileName}`
+        const ossPath = buildStorageKey({
+            scope: 'temp',
+            source: FileSource.CASE_ANALYSIS,
+            subDir: sessionId,
+            fileName: `${timestamp}_${fileName}`,
+        })
         const stream = createReadStream(filePath)
 
         await uploadFileService(ossPath, stream, { contentType: mimeType })

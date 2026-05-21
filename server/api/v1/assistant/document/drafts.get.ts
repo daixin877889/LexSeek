@@ -18,6 +18,8 @@ const QuerySchema = z.object({
     caseId: z.coerce.number().int().positive().optional(),
     skip: z.coerce.number().int().nonnegative().optional().default(0),
     take: z.coerce.number().int().positive().max(100).optional().default(20),
+    /** 排除旧库迁移过来的历史文书；工作台全局历史列表传 true（前端 DraftHistory 无 caseId 时） */
+    excludeLegacy: z.coerce.boolean().optional(),
 })
 
 export default defineEventHandler(async (event) => {
@@ -29,12 +31,13 @@ export default defineEventHandler(async (event) => {
         return resError(event, 400, parsed.error.issues[0]?.message ?? '参数错误')
     }
 
-    const { caseId, skip, take } = parsed.data
-    const result = await listDocumentDraftsDAO({ userId: user.id, caseId, skip, take })
+    const { caseId, skip, take, excludeLegacy } = parsed.data
+    const result = await listDocumentDraftsDAO({ userId: user.id, caseId, skip, take, excludeLegacy })
 
     const items = result.list.map((draft: any) => ({
         id: draft.id,
         title: draft.title ?? '',
+        mode: draft.mode,
         templateId: draft.templateId,
         templateName: draft.template?.name ?? null,
         caseId: draft.caseId,

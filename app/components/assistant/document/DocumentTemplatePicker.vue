@@ -80,7 +80,7 @@
         'hover:border-primary/60 hover:shadow-md hover:-translate-y-0.5',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         selectedTemplateId === tpl.id
-          ? 'border-primary bg-primary/5 shadow-sm'
+          ? 'border-primary bg-primary/5'
           : 'border-border bg-card',
       ]" @click="selectTemplate(tpl.id)">
         <!-- 右上角：来源徽标 + 已选标记 -->

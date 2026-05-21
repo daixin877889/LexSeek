@@ -1,4 +1,4 @@
-import type { AnalysisResult, AnalysisModuleCard } from '#shared/types/case'
+import type { AnalysisResult, AnalysisModuleCard, CaseStance } from '#shared/types/case'
 import type { DraftRow } from '#shared/types/document'
 import type { InitAnalysisStatusResponse } from '#shared/types/initAnalysis'
 import type { OssFileItem } from '~/store/file'
@@ -35,12 +35,20 @@ export interface CaseDetailMaterialItem {
 export interface CaseDetailInfo {
   id: number
   title: string
-  content: string
+  content: string | null
   caseTypeId: number
   plaintiff: string[] | Array<{ name: string }>
   defendant: string[] | Array<{ name: string }>
   status: number
   isDemo: boolean
+  // 基础信息补全（spec §3.2）
+  summary?: string | null
+  courtName?: string | null
+  firstInstanceCaseNo?: string | null
+  firstInstanceJudge?: string | null
+  secondInstanceCaseNo?: string | null
+  secondInstanceJudge?: string | null
+  stance?: CaseStance | null
   createdAt: string
   updatedAt: string
   caseType: { id: number; name: string; description: string } | null

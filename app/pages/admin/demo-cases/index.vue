@@ -1,12 +1,12 @@
 <template>
-        <div class="space-y-6">
+        <div class="theme-brand space-y-6">
             <!-- 页面标题 -->
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                     <h1 class="text-2xl md:text-3xl font-bold mb-1">示范案例</h1>
                     <p class="text-muted-foreground text-sm">管理预设的示范案例，供用户快速体验分析流程</p>
                 </div>
-                <Button @click="formDialogRef?.openCreate()">
+                <Button :class="adminBrandPrimaryButtonClass" @click="formDialogRef?.openCreate()">
                     <Plus class="h-4 w-4 mr-2" />
                     新增案例
                 </Button>
@@ -15,10 +15,10 @@
             <!-- 筛选 -->
             <div class="flex flex-col md:flex-row gap-4">
                 <Select v-model="caseTypeFilter">
-                    <SelectTrigger class="w-full md:w-48">
+                    <SelectTrigger :class="['w-full md:w-48', adminBrandFocusClass]">
                         <SelectValue placeholder="案件类型" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent class="theme-brand">
                         <SelectItem value="all">全部类型</SelectItem>
                         <SelectItem v-for="t in caseTypes" :key="t.id" :value="String(t.id)">
                             {{ t.name }}
@@ -26,20 +26,20 @@
                     </SelectContent>
                 </Select>
                 <Select v-model="statusFilter">
-                    <SelectTrigger class="w-full md:w-32">
+                    <SelectTrigger :class="['w-full md:w-32', adminBrandFocusClass]">
                         <SelectValue placeholder="状态" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent class="theme-brand">
                         <SelectItem value="all">全部状态</SelectItem>
                         <SelectItem value="1">启用</SelectItem>
                         <SelectItem value="0">禁用</SelectItem>
                     </SelectContent>
                 </Select>
                 <div class="flex-1">
-                    <Input v-model="keyword" placeholder="搜索案例标题/简介..." class="w-full md:w-64"
+                    <Input v-model="keyword" placeholder="搜索案例标题/简介..." :class="['w-full md:w-64', adminBrandFocusClass]"
                         @keyup.enter="handleSearch" />
                 </div>
-                <Button variant="outline" @click="handleSearch">
+                <Button variant="outline" :class="adminBrandFocusClass" @click="handleSearch">
                     <Search class="h-4 w-4 mr-2" />
                     筛选
                 </Button>
@@ -85,23 +85,25 @@
                                     </div>
                                 </TableCell>
                                 <TableCell>
-                                    <Badge variant="outline">{{ getCaseTypeName(item.caseTypeId) }}</Badge>
+                                    <Badge variant="outline" :class="adminBrandChipClass">
+                                        {{ getCaseTypeName(item.caseTypeId) }}
+                                    </Badge>
                                 </TableCell>
                                 <TableCell>{{ getMaterialCount(item.materials) }}</TableCell>
                                 <TableCell>{{ item.priority }}</TableCell>
                                 <TableCell>
-                                    <Badge :variant="item.status === 1 ? 'default' : 'secondary'">
+                                    <Badge variant="outline" :class="getAdminStatusBadgeClass(item.status === 1)">
                                         {{ item.status === 1 ? '启用' : '禁用' }}
                                     </Badge>
                                 </TableCell>
                                 <TableCell class="text-right">
                                     <DropdownMenu>
                                         <DropdownMenuTrigger as-child>
-                                            <Button variant="ghost" size="icon">
+                                            <Button variant="ghost" size="icon" :class="adminBrandFocusClass">
                                                 <MoreHorizontal class="h-4 w-4" />
                                             </Button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
+                                        <DropdownMenuContent align="end" class="theme-brand">
                                             <DropdownMenuItem @click="formDialogRef?.openEdit(item)">
                                                 <Pencil class="h-4 w-4 mr-2" />
                                                 编辑
@@ -134,7 +136,7 @@
 
         <!-- 删除确认对话框 -->
         <AlertDialog v-model:open="deleteDialogOpen">
-            <AlertDialogContent>
+            <AlertDialogContent class="theme-brand">
                 <AlertDialogHeader>
                     <AlertDialogTitle>确认删除</AlertDialogTitle>
                     <AlertDialogDescription>
@@ -143,7 +145,7 @@
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>取消</AlertDialogCancel>
-                    <AlertDialogAction @click="confirmDelete" :disabled="deleting">
+                    <AlertDialogAction :class="adminBrandDestructiveActionClass" @click="confirmDelete" :disabled="deleting">
                         <Loader2 v-if="deleting" class="h-4 w-4 mr-2 animate-spin" />
                         确认删除
                     </AlertDialogAction>
@@ -158,7 +160,13 @@ import { toast } from 'vue-sonner'
 import AdminDemoCasesFormDialog from '~/components/admin/demo-cases/FormDialog.vue'
 import GeneralPagination from '~/components/general/pagination.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
-import type { caseTypes } from '~~/generated/prisma/client'
+import {
+    adminBrandChipClass,
+    adminBrandDestructiveActionClass,
+    adminBrandFocusClass,
+    adminBrandPrimaryButtonClass,
+    getAdminStatusBadgeClass,
+} from '~/utils/adminBrandStyles'
 
 /** 示范案例类型 */
 interface DemoCase {

@@ -28,6 +28,7 @@ import { generateOssFileSummaryService } from './material.service'
 import { markdownToHtmlService } from './mineruResult.service'
 import { ImageType } from '#shared/types/recognition'
 import { withLangfuseContext } from '~~/server/lib/langfuse'
+import { billDirectService } from '~~/server/services/point/pointBilling.service'
 
 /** OCR 节点名称 */
 const OCR_NODE_NAME = 'extractImageInfo'
@@ -395,8 +396,18 @@ async function createImageConversionInner(
             imageType: extractResult.imgType,
         })
 
+        // 7.5 识别成功，扣减积分（停用态自动跳过；失败不阻断已完成的识别）
+        try {
+            await billDirectService(userId, 'ocr_recognize', { units: 1 }, {
+                sourceId: ossFileId,
+                contextLabel: ossFile.fileName ?? `图片_${ossFileId}`,
+            })
+        } catch (billError) {
+            logger.error('OCR 积分扣减失败（识别结果已保存）', { ossFileId, error: billError })
+        }
+
         // 8. fire-and-forget 按 OssFile 触发摘要生成
-        // 不依赖 caseMaterials 行存在（小索/法律助手输入框上传场景下还没创建 caseMaterials）
+        // 不依赖 caseMaterials 行存在（小索/通用问答输入框上传场景下还没创建 caseMaterials）
         generateOssFileSummaryService(ossFileId).catch(() => { /* 已在内部 catch */ })
 
         return {
@@ -612,10 +623,10 @@ export async function createImageRecognitionByBase64Service(
             }
         }
 
-        // 2. 验证 OSS 文件是否存在
+        // 2. 验证 OSS 文件是否存在（owner-only：仅允许识别自己上传的文件）
         // Requirements: 10.1
         const ossFile = await (tx || prisma).ossFiles.findFirst({
-            where: { id: ossFileId, deletedAt: null },
+            where: { id: ossFileId, userId, deletedAt: null },
         })
 
         if (!ossFile) {
@@ -704,6 +715,16 @@ export async function createImageRecognitionByBase64Service(
             imageType: extractResult.imgType,
             contentLength: extractResult.imageInfo.length,
         })
+
+        // 6.5 识别成功，扣减积分（停用态自动跳过；失败不阻断已完成的识别）
+        try {
+            await billDirectService(userId, 'ocr_recognize', { units: 1 }, {
+                sourceId: ossFileId,
+                contextLabel: ossFile.fileName ?? `图片_${ossFileId}`,
+            })
+        } catch (billError) {
+            logger.error('OCR 积分扣减失败（识别结果已保存）', { ossFileId, error: billError })
+        }
 
         // 7. 异步触发向量化嵌入（失败不影响主流程）
         // Requirements: 10.10, 10.11, 10.12, 10.13, 10.14

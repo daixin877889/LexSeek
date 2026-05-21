@@ -172,7 +172,7 @@ describe('提示词 DAO 测试', () => {
             const prompt = await createPromptDao({
                 name: `prompt_${generateTestId()}`,
                 title: '测试提示词',
-                content: '你是一个法律助手',
+                content: '你是一个通用问答',
                 type: 'system',
                 nodeId: 0, // ★ Phase 6 已废弃：dao 不再使用此字段
             }, '1.0.0')

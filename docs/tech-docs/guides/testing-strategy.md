@@ -34,8 +34,8 @@ DATABASE_URL='postgresql://daixin:daixin88@localhost:5432/ls_new_testing' bun ru
 ```typescript
 export default defineVitestConfig({
     test: {
-        // 全局清理脚本
-        globalSetup: ['./tests/global-teardown.ts'],
+        // 套件级 setup：准备模板库 + 预创建 worker 库，结束时统一 DROP
+        globalSetup: ['./tests/_infra/global-setup.ts'],
 
         // Nuxt 环境 + happy-dom
         environment: 'nuxt',
@@ -46,11 +46,11 @@ export default defineVitestConfig({
         // 超时 120 秒
         testTimeout: 120000,
 
-        // 全局 setup 文件（模拟 Nuxt 自动导入）
-        setupFiles: ['./tests/server/membership/test-setup.ts'],
+        // worker 级 setup 文件：注入指向 worker 专属 DB 的全局 prisma
+        setupFiles: ['./tests/_infra/worker-setup.ts'],
 
-        // 禁用文件并行（避免数据库竞态）
-        fileParallelism: false,
+        // 启用文件并行：database-per-worker 隔离已避免数据库竞态
+        fileParallelism: true,
     },
 
     // 覆盖率配置
@@ -72,27 +72,50 @@ export default defineVitestConfig({
 
 ```
 tests/
-├── server/                    # 服务端测试
-│   ├── agent/                # Agent 服务测试
+├── _infra/                   # worker 级 DB 隔离基建（global-setup / template-db / worker-prisma / worker-setup）
+├── server/                   # 服务端测试（按领域分子目录）
+│   ├── _helpers/             # 服务端测试公共助手
+│   ├── admin/                # 管理端服务测试
+│   ├── admin-handlers/       # 管理端 API handler 测试
+│   ├── agent/                # Agent 任务调度测试
+│   ├── agent-platform/       # agent-platform 适配层测试
+│   ├── agents/               # Domain Agent 配置测试
+│   ├── api/                  # API handler 测试
+│   ├── assistant/            # 通用问答测试
+│   ├── audit/                # 审计测试
 │   ├── auth/                 # 认证测试
-│   ├── case/                 # 案件测试
+│   ├── callback/             # 回调（OSS / 支付）测试
+│   ├── case/, cases/         # 案件测试
+│   ├── cron/                 # 定时任务测试
 │   ├── crypto/               # 加密测试
 │   ├── files/                # 文件服务测试
+│   ├── integration/          # 服务端集成测试
+│   ├── langfuse/             # Langfuse 可观测性测试
 │   ├── legal/                # 法律服务测试
 │   ├── material/             # 材料服务测试
 │   ├── membership/           # 会员系统测试
+│   ├── memory/               # 案件记忆测试
+│   ├── middleware/           # 中间件测试
+│   ├── misc-handlers/        # 杂项 handler 测试
 │   ├── model/                # 模型管理测试
 │   ├── node/                 # 节点管理测试
-│   ├── payment/              # 支付系统测试
+│   ├── payment/, payments/   # 支付系统测试
+│   ├── plugins/              # Nitro 插件测试
 │   ├── point/                # 积分系统测试
 │   ├── product/              # 产品测试
 │   ├── rbac/                 # 权限系统测试
+│   ├── recognition/          # 识别（OCR/ASR）测试
 │   ├── redemption/           # 兑换码测试
 │   ├── retrieval/            # 检索测试
+│   ├── scripts/              # 维护脚本测试
+│   ├── security/             # 风控测试
+│   ├── services/             # 服务层测试
+│   ├── skills/               # Agent Skill 测试
 │   ├── sms/                  # 短信测试
 │   ├── sse/                  # SSE 测试
 │   ├── storage/              # 存储系统测试
 │   ├── system/               # 系统配置测试
+│   ├── tools/                # Agent 工具测试
 │   ├── users/                # 用户测试
 │   ├── utils/                # 工具函数测试
 │   ├── wechat/               # 微信测试
@@ -100,9 +123,12 @@ tests/
 ├── shared/                   # 共享代码测试
 ├── app/                      # 前端测试
 ├── client/                   # 客户端测试
+├── integration/              # 跨层集成测试
 ├── e2e/                      # 端到端测试
-├── debug/                    # 调试用测试
-└── global-teardown.ts        # 全局清理脚本
+├── eval/                     # 评测（独立 ls_eval 库）
+├── scripts/                  # 测试脚本
+├── fixtures/                 # 测试夹具
+└── debug/                    # 调试用测试
 ```
 
 ## 测试助手模式
@@ -238,29 +264,19 @@ const validDateArb = fc.date({
 const keyArb = fc.string().filter(k => !['__proto__', 'constructor', 'prototype'].includes(k))
 ```
 
-## 全局清理（global-teardown.ts）
+## 套件级 setup（tests/_infra/global-setup.ts）
 
-在所有测试文件结束后运行，使用原生 SQL 按前缀清理残留数据：
+`vitest.config.ts` 的 `globalSetup` 指向 `tests/_infra/global-setup.ts`，由 master 进程执行一次，负责 worker 级数据库隔离的搭建与拆除：
 
-```typescript
-export async function teardown() {
-    const client = new pg.Client({ connectionString })
-    await client.connect()
+- **setup 阶段**：构建 / 复用测试模板库（schema + seed 快照，指纹缓存命中则跳过重建），再按 worker 数（`maxWorkers`）以 `CREATE DATABASE ... TEMPLATE` 物理拷贝预创建若干 `ls_test_w*` worker 库。
+- **teardown 阶段**：所有测试结束后 DROP 全部 `ls_test_w*` worker 库。
 
-    // 按模块清理
-    await client.query(`DELETE FROM nodes WHERE name LIKE 'test_node_%'`)
-    await client.query(`DELETE FROM models WHERE name LIKE 'test_model_%'`)
-    await client.query(`DELETE FROM case_types WHERE name LIKE '测试类型_%'`)
-    // ...
-
-    await client.end()
-}
-```
+每个 vitest worker 进程通过 `setupFiles`（`tests/_infra/worker-setup.ts`）拿到指向自己专属 worker 库的 `prisma` 单例。
 
 **设计要点**：
-- 使用原生 `pg` 库直接执行 SQL（不依赖 Prisma）
-- 按前缀匹配删除，不需要追踪具体 ID
-- 仅清理公共数据（节点、模型、案件类型等），模块内部数据由各自 `afterAll` 清理
+- 每个 worker 独立物理数据库，测试间天然无数据污染，不再依赖前缀批量清理来隔离并发
+- 模板库一次构建多 worker 复用，避免每个 worker 重复跑 schema + seed
+- 业务测试代码无需手动建库，直接 `import { prisma } from '~~/server/utils/db'` 即指向当前 worker 库
 
 ## 测试编写规范
 

@@ -1,0 +1,428 @@
+/* =====================================================================
+ * LexSeek Design System — Colors & Type
+ * Faithful port of the shadcn-vue + Tailwind v4 tokens shipping in
+ * the LexSeek codebase (app/assets/css/tailwind.css), retuned to the
+ * brand logo's teal → sky → navy gradient.
+ *
+ * Default theme is "Brand" — sky-blue primary on white, with a
+ * teal→sky→navy gradient available for hero / auth / decorative panels.
+ * "Zinc" remains available as `.theme-zinc` for the legal-formal look,
+ * and the six original accent themes (Rose, Green, Orange, Red,
+ * Violet, Yellow) are retained.
+ * Dark mode flips foundations to inky neutrals.
+ *
+ * Usage: import this file once, then use the semantic vars
+ *   var(--background), var(--foreground), var(--primary), …
+ * Or add `.theme-zinc`, `.theme-rose`, etc. to <html> to switch accents,
+ * and `.dark` to flip into dark mode.
+ * ===================================================================== */
+
+/* ---------- Webfonts ---------- */
+/* Sans (Latin): Inter — the de-facto pairing with shadcn-vue. */
+/* CJK: Noto Sans SC — Google Fonts mirror of the system stack         */
+/*       (PingFang SC / Hiragino Sans GB / Microsoft YaHei).            */
+/* Mono: JetBrains Mono. */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+:root {
+  /* ============================================================
+   * BASE TYPE TOKENS
+   * The LexSeek runtime never sets a font-family override —
+   * Tailwind/system stack is in play. We codify the *intent* of
+   * that stack here so the design system can be used outside of
+   * the Nuxt host.
+   * ========================================================== */
+  --font-sans:
+    "Inter", "Noto Sans SC", -apple-system, BlinkMacSystemFont, "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  --font-cjk:
+    "Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    "Source Han Sans CN", sans-serif;
+  --font-mono:
+    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Monaco, Consolas,
+    "Liberation Mono", monospace;
+
+  /* Type scale — tracks Tailwind defaults; LexSeek pages use these classes verbatim. */
+  --text-xs: 0.75rem;     /* 12px — meta, captions, badge labels */
+  --text-sm: 0.875rem;    /* 14px — body / form / nav */
+  --text-base: 1rem;      /* 16px — paragraph default */
+  --text-lg: 1.125rem;    /* 18px — section intro paragraph */
+  --text-xl: 1.25rem;     /* 20px — card titles, h3 */
+  --text-2xl: 1.5rem;     /* 24px — page subtitle */
+  --text-3xl: 1.875rem;   /* 30px — section h2 / hero secondary */
+  --text-4xl: 2.25rem;    /* 36px */
+  --text-5xl: 3rem;       /* 48px — landing hero h1 */
+
+  --leading-tight: 1.25;
+  --leading-snug: 1.375;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+
+  --tracking-tight: -0.025em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.025em;
+
+  /* Semantic type aliases (LexSeek copy patterns) */
+  --h1: 700 var(--text-5xl) / var(--leading-tight) var(--font-sans);   /* 48/1.25 bold */
+  --h2: 700 var(--text-3xl) / var(--leading-snug) var(--font-sans);    /* 30/1.375 bold */
+  --h3: 600 var(--text-xl)  / var(--leading-snug) var(--font-sans);    /* 20/1.375 semibold */
+  --h4: 600 var(--text-lg)  / var(--leading-snug) var(--font-sans);
+  --p:  400 var(--text-base) / var(--leading-relaxed) var(--font-sans);
+  --p-lg: 400 var(--text-lg) / var(--leading-relaxed) var(--font-sans);
+  --p-sm: 400 var(--text-sm) / var(--leading-normal) var(--font-sans);
+  --meta: 500 var(--text-xs) / var(--leading-normal) var(--font-sans);
+  --code: 400 var(--text-sm) / var(--leading-normal) var(--font-mono);
+
+  /* ============================================================
+   * BRAND PALETTE — derived from the logo gradient
+   * (#1EEDC4 mint → #1E9EED sky → #090380 navy)
+   * ========================================================== */
+  --brand-mint: #1EEDC4;   /* logo top-left  (oklch 0.857 0.146 175) */
+  --brand-sky:  #1E9EED;   /* logo mid-tone  (oklch 0.683 0.158 240) — primary */
+  --brand-navy: #090380;   /* logo bottom    (oklch 0.273 0.196 273) */
+  --brand-mint-soft: #E0F8F1;   /* 8 % mint  on white — hero wash */
+  --brand-sky-soft:  #E1F1FE;   /* 8 % sky   on white — hero wash */
+  --brand-navy-soft: #E5E4F2;   /* 8 % navy  on white — hero wash */
+
+  /* ============================================================
+   * COLOR — Default theme (Brand, light mode)
+   * White surface with sky-blue primary. Neutrals stay zinc —
+   * the brand color does the work; the chrome stays calm.
+   * ========================================================== */
+  --radius: 0.625rem;            /* 10px — primary radius */
+  --radius-sm: calc(var(--radius) - 4px);  /* 6px */
+  --radius-md: calc(var(--radius) - 2px);  /* 8px */
+  --radius-lg: var(--radius);              /* 10px */
+  --radius-xl: calc(var(--radius) + 4px);  /* 14px */
+
+  --background: oklch(1 0 0);                /* #ffffff */
+  --foreground: oklch(0.145 0 0);            /* near-black, zinc-950 */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+
+  --primary: oklch(0.683 0.158 240);          /* #1E9EED  brand sky */
+  --primary-foreground: oklch(0.985 0 0);    /* zinc-50 */
+  --secondary: oklch(0.97 0 0);              /* zinc-100 */
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);      /* zinc-500 — body meta */
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+
+  --destructive: oklch(0.577 0.245 27.325);  /* red-600 */
+  --border: oklch(0.922 0 0);                /* zinc-200 */
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.683 0.158 240);            /* brand sky focus halo */
+
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.683 0.158 240);                 /* brand sky for active items */
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.683 0.158 240);
+
+  /* Brand gradients — the new "hero" wash, replacing the old purple */
+  --gradient-brand: linear-gradient(135deg, #1EEDC4 0%, #1E9EED 50%, #090380 100%);
+  --gradient-brand-soft: linear-gradient(97deg, #E0F8F1 0%, #E1F1FE 50%, #E5E4F2 100%);
+  --gradient-hero: var(--gradient-brand-soft);
+
+  /* Legacy theme washes (still available via the corresponding .theme-* class) */
+  --gradient-hero-zinc:   linear-gradient(97deg, #f2f9fe, #f7f3ff);
+  --gradient-hero-rose:   linear-gradient(97deg, #fff0f3, #ffe9f5);
+  --gradient-hero-blue:   linear-gradient(97deg, #e8f4ff, #e0e7ff);
+  --gradient-hero-green:  linear-gradient(97deg, #ecfdf5, #d1fae5);
+  --gradient-hero-orange: linear-gradient(97deg, #fff4ed, #ffedd5);
+  --gradient-hero-red:    linear-gradient(97deg, #ffefef, #ffe8e8);
+  --gradient-hero-yellow: linear-gradient(97deg, #fffbeb, #fef3c7);
+
+  /* Status colors (LexSeek dashboard convention — used inline w/ tailwind classes) */
+  --status-success: oklch(0.627 0.194 149.214); /* green-600 */
+  --status-info:    oklch(0.546 0.245 262.881); /* blue-600 */
+  --status-warning: oklch(0.795 0.184 86.047);  /* yellow-500 */
+  --status-danger:  oklch(0.577 0.245 27.325);  /* red-600 */
+
+  /* Quote-highlight (contract review) — § 7.6 三态矩阵 */
+  --quote-default: rgb(252 211 77 / 0.6);   /* amber-300 60% */
+  --quote-focused: rgb(245 158 11 / 0.85);  /* amber-500 85% */
+  --quote-pinned:  rgb(217 119 6 / 0.7);    /* amber-600 70% */
+
+  /* ============================================================
+   * Tint pairs — light backgrounds with matching foreground colors
+   * Used by stat cards, icon wells, action tiles. Each tint has
+   * a dark-mode variant defined in .dark below.
+   * ========================================================== */
+  --tint-mint-bg: linear-gradient(135deg, #C8F7EA, #9DEDD3);
+  --tint-mint-fg: #0BA47C;
+  --tint-sky-bg:  linear-gradient(135deg, #CFE9FE, #94CBFA);
+  --tint-sky-fg:  #0A78D8;
+  --tint-navy-bg: linear-gradient(135deg, #D7D5EE, #B0AADE);
+  --tint-navy-fg: #5048C0;
+  --tint-amber-bg:linear-gradient(135deg, #FFE7C7, #FFCF8F);
+  --tint-amber-fg:#E07A0A;
+
+  /* Status pill foreground/background pairs */
+  --status-progress-bg: rgba(10,77,168,0.08);
+  --status-progress-fg: #0A4DA8;
+  --status-progress-bd: rgba(10,77,168,0.2);
+  --status-done-bg:     rgba(34,197,94,0.1);
+  --status-done-fg:     rgb(22 163 74);
+  --status-done-bd:     rgba(34,197,94,0.2);
+
+  /* Soft brand washes used as page-level backgrounds */
+  --wash-page: linear-gradient(180deg, #FFFFFF 0%, #F2FBFD 35%, #ECF3FE 100%);
+  --wash-sidebar: linear-gradient(180deg, #F2FBFD 0%, #FFFFFF 35%, #FFFFFF 100%);
+
+  /* Shadow system — LexSeek uses Tailwind's defaults plus a custom dark inset. */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow:    0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-primary: 0 10px 20px -8px oklch(0.683 0.158 240 / 0.35);   /* brand-tinted halo */
+  --shadow-card-dark: 0 8px 30px rgb(0 0 0 / 0.12); /* used inside .dark */
+
+  /* Spacing — Tailwind v4 default (4-px ramp); LexSeek pages use 1/2/3/4/6/8/12. */
+  --space-1: 0.25rem;   /*  4 */
+  --space-2: 0.5rem;    /*  8 */
+  --space-3: 0.75rem;   /* 12 */
+  --space-4: 1rem;      /* 16 */
+  --space-6: 1.5rem;    /* 24 */
+  --space-8: 2rem;      /* 32 */
+  --space-12: 3rem;     /* 48 */
+  --space-16: 4rem;     /* 64 */
+  --space-24: 6rem;     /* 96 */
+}
+
+/* ============================================================
+ * Dark mode (brand)
+ * Activate by adding `.dark` to the document root.
+ * The brand colors stay vibrant on dark surfaces (the gradient
+ * is wide enough that mint and sky remain readable on near-black).
+ * ========================================================== */
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.755 0.155 230);          /* brand sky lifted for dark surfaces */
+  --primary-foreground: oklch(0.145 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.755 0.155 230);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.755 0.155 230);
+  --sidebar-primary-foreground: oklch(0.145 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.755 0.155 230);
+  --gradient-hero: linear-gradient(135deg, #06363B 0%, #062847 50%, #050340 100%);
+
+  /* Dark-mode tint pairs — alpha-based so they read against near-black surfaces */
+  --tint-mint-bg: linear-gradient(135deg, rgba(30,237,196,0.22), rgba(30,237,196,0.1));
+  --tint-mint-fg: #5BFCD4;
+  --tint-sky-bg:  linear-gradient(135deg, rgba(30,158,237,0.26), rgba(30,158,237,0.12));
+  --tint-sky-fg:  #82CCFF;
+  --tint-navy-bg: linear-gradient(135deg, rgba(148,140,255,0.26), rgba(148,140,255,0.12));
+  --tint-navy-fg: #BEB8FF;
+  --tint-amber-bg:linear-gradient(135deg, rgba(245,158,11,0.24), rgba(245,158,11,0.1));
+  --tint-amber-fg:#FCBF6F;
+
+  --status-progress-bg: rgba(125,200,255,0.12);
+  --status-progress-fg: #7DC8FF;
+  --status-progress-bd: rgba(125,200,255,0.3);
+  --status-done-bg:     rgba(74,222,128,0.12);
+  --status-done-fg:     rgb(74 222 128);
+  --status-done-bd:     rgba(74,222,128,0.3);
+
+  --wash-page: linear-gradient(180deg, #0F1115 0%, #0E1822 50%, #0B0F2A 100%);
+  --wash-sidebar: linear-gradient(180deg, #0E1822 0%, #0A0E18 50%, #0A0E18 100%);
+}
+
+/* ============================================================
+ * Alternate themes — swap --primary only.
+ * (Brand-sky is the default; pick `.theme-zinc` for the legacy
+ * formal-legal look or any of the six accents.)
+ * Combine with `.dark` (e.g. `<html class="theme-zinc dark">`).
+ * ========================================================== */
+.theme-zinc   { --primary: oklch(0.205 0 0);           --primary-foreground: oklch(0.985 0 0); --ring: var(--primary); --sidebar-primary: var(--primary); --gradient-hero: var(--gradient-hero-zinc); }
+.theme-rose   { --primary: oklch(0.645 0.246 16.439);  --ring: var(--primary); --sidebar-primary: var(--primary); --gradient-hero: var(--gradient-hero-rose); }
+.theme-blue   { --primary: oklch(0.546 0.245 262.881); --ring: var(--primary); --sidebar-primary: var(--primary); --gradient-hero: var(--gradient-hero-blue); }
+.theme-green  { --primary: oklch(0.627 0.194 149.214); --ring: var(--primary); --sidebar-primary: var(--primary); --gradient-hero: var(--gradient-hero-green); }
+.theme-orange { --primary: oklch(0.705 0.213 47.604);  --ring: var(--primary); --sidebar-primary: var(--primary); --gradient-hero: var(--gradient-hero-orange); }
+.theme-red    { --primary: oklch(0.577 0.245 27.325);  --ring: var(--primary); --sidebar-primary: var(--primary); --gradient-hero: var(--gradient-hero-red); }
+.theme-violet { --primary: oklch(0.606 0.25 292.717);  --ring: var(--primary); --sidebar-primary: var(--primary); }
+.theme-yellow { --primary: oklch(0.795 0.184 86.047);  --primary-foreground: oklch(0.253 0.029 58.044); --ring: var(--primary); --sidebar-primary: var(--primary); --gradient-hero: var(--gradient-hero-yellow); }
+
+/* ============================================================
+ * Base reset (mirrors @layer base in tailwind.css)
+ * ========================================================== */
+*, *::before, *::after { box-sizing: border-box; border-color: var(--border); }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font: var(--p);
+  font-feature-settings: "cv11", "ss01", "ss03";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Semantic type helpers — alias to the tokens above so designers can
+   reach for `<h1 class="h1">` rather than re-typing weights/sizes. */
+.h1   { font: var(--h1); letter-spacing: var(--tracking-tight); }
+.h2   { font: var(--h2); letter-spacing: var(--tracking-tight); }
+.h3   { font: var(--h3); }
+.h4   { font: var(--h4); }
+.p    { font: var(--p); }
+.p-lg { font: var(--p-lg); }
+.p-sm { font: var(--p-sm); }
+.meta { font: var(--meta); color: var(--muted-foreground); }
+.code { font: var(--code); }
+
+/* ============================================================
+ * Responsive + hover layer
+ * Shared by all UI kits — keeps inline-styled JSX honest while
+ * still adapting at mobile breakpoints and giving every clickable
+ * surface a subtle hover state.
+ * ========================================================== */
+
+/* Mobile (< 768px) overrides for inline grid templates */
+@media (max-width: 1023px) {
+  /* Marketing — collapse 2-col grids to one column */
+  [data-resp="hero-grid"]    { grid-template-columns: 1fr !important; gap: 32px !important; }
+  /* Legal pages — TOC drops above content on small screens */
+  [data-resp="legal-grid"]   { grid-template-columns: 1fr !important; }
+  [data-resp="legal-toc"]    { position: static !important; }
+  /* Feature media well drops to its own row, full width */
+  [data-resp="feature-media"] { order: 99 !important; width: 100% !important; }
+  [data-resp="pain-grid"]    { grid-template-columns: 1fr !important; }
+  [data-resp="feature-grid"] { grid-template-columns: repeat(2, 1fr) !important; }
+  [data-resp="workflow-grid"]{ grid-template-columns: 1fr !important; }
+  [data-resp="workflow-grid"] [data-resp="workflow-arrow"] { display: none !important; }
+  /* Marketing nav — hide menu on small screens, surface logo + CTA */
+  [data-resp="nav-links"]    { display: none !important; }
+  /* Dashboard — fully hide the sidebar; surface mobile hamburger + logo */
+  [data-resp="sidebar"]      { display: none !important; }
+  [data-resp="mobile-hamburger"] { display: inline-flex !important; }
+  [data-resp="mobile-lockup"]    { display: inline-flex !important; }
+  [data-resp="desktop-trigger"]  { display: none !important; }
+  [data-resp="desktop-crumb"]    { display: none !important; }
+  /* Dashboard — stat grid to 2 col */
+  [data-resp="stat-grid"]    { grid-template-columns: repeat(2, 1fr) !important; }
+  [data-resp="action-grid"]  { grid-template-columns: 1fr !important; }
+  /* Auth — split-screen to single column */
+  [data-resp="auth-split"]   { grid-template-columns: 1fr !important; }
+  [data-resp="auth-brand"]   { display: none !important; }
+}
+@media (max-width: 640px) {
+  [data-resp="feature-grid"] { grid-template-columns: 1fr !important; }
+  [data-resp="stat-grid"]    { grid-template-columns: 1fr !important; }
+  [data-resp="hero-h1"]      { font-size: 36px !important; }
+  [data-resp="section-h2"]   { font-size: 28px !important; }
+  [data-resp="page-pad"]     { padding: 16px !important; }
+  [data-resp="trust-row"]    { flex-wrap: wrap !important; gap: 12px !important; }
+}
+
+/* Hover layer ------------------------------------------------- */
+
+/* Generic "card" — anything with data-hover="lift" gets a soft elevate */
+[data-hover="lift"] {
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  will-change: transform;
+}
+[data-hover="lift"]:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 32px -16px rgba(9,3,128,0.18), 0 4px 10px -6px rgba(30,158,237,0.12);
+  border-color: color-mix(in srgb, var(--primary) 24%, var(--border));
+}
+
+/* Pressable buttons and CTAs — `data-hover="press"` */
+[data-hover="press"] {
+  transition: transform 140ms ease, box-shadow 180ms ease, filter 180ms ease;
+}
+[data-hover="press"]:hover { filter: brightness(1.06); transform: translateY(-1px); }
+[data-hover="press"]:active { transform: translateY(0) scale(0.985); filter: brightness(0.95); }
+
+/* Subtle nav-item highlight — `data-hover="nav"` */
+[data-hover="nav"] {
+  transition: background 140ms ease, color 140ms ease;
+}
+[data-hover="nav"]:hover {
+  background: color-mix(in srgb, var(--primary) 8%, transparent) !important;
+  color: var(--foreground) !important;
+}
+
+/* Icon-only buttons (top bar / sidebar) — `data-hover="icon-btn"` */
+[data-hover="icon-btn"] {
+  transition: background 140ms ease, color 140ms ease;
+}
+[data-hover="icon-btn"]:hover {
+  background: var(--muted) !important;
+  color: var(--foreground) !important;
+}
+
+/* Anchor underline on hover — `data-hover="underline"` */
+[data-hover="underline"] {
+  transition: color 140ms ease;
+}
+[data-hover="underline"]:hover { color: var(--primary) !important; }
+
+/* Mobile drawer overlay (dashboard) */
+.dashboard-drawer-backdrop {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(0,0,0,0.45);
+  backdrop-filter: blur(2px);
+  opacity: 0; pointer-events: none;
+  transition: opacity 200ms ease;
+}
+.dashboard-drawer-backdrop[data-open="true"] { opacity: 1; pointer-events: auto; }
+.dashboard-drawer {
+  position: fixed; top: 0; bottom: 0; left: 0; z-index: 61;
+  width: 280px; max-width: 85vw;
+  background: var(--wash-sidebar);
+  border-right: 1px solid var(--sidebar-border);
+  transform: translateX(-100%);
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow: 0 16px 40px -16px rgba(0,0,0,0.3);
+  display: flex; flex-direction: column;
+}
+.dashboard-drawer[data-open="true"] { transform: translateX(0); }
+.dashboard-drawer-close {
+  position: absolute; top: 12px; right: 12px;
+  width: 32px; height: 32px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: none; cursor: pointer;
+  color: var(--muted-foreground);
+  z-index: 1;
+}
+.dashboard-drawer-close:hover { background: var(--muted); color: var(--foreground); }
+
+/* Mobile-only show/hide */
+[data-resp="mobile-hamburger"],
+[data-resp="mobile-lockup"],
+[data-resp="mobile-auth-lockup"] { display: none; }
+
+@media (max-width: 1023px) {
+  [data-resp="mobile-auth-lockup"] { display: flex !important; }
+  [data-resp="nav-cta"] { display: none !important; }
+}

@@ -29,7 +29,8 @@ vi.mock('~~/server/services/node/node.service', () => ({
     }),
 }))
 
-import type { Risk } from '#shared/types/contract'
+import type { Risk, ContractOverview } from '#shared/types/contract'
+import { remapHighlightRiskIds } from '~~/server/agents/contract/summarizeOverview'
 
 const makeRisk = (id: string, level: 'high' | 'medium' | 'low'): Risk => ({
     id,
@@ -116,5 +117,58 @@ describe('summarizeOverview', () => {
         await expect(
             summarizeOverview([makeRisk('r1', 'high')], 'partyB', '劳动合同'),
         ).rejects.toThrow(/schema 校验失败/)
+    })
+
+    it('M11：signal 透传到底层 model.invoke 的 RunnableConfig', async () => {
+        const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
+        const invokeMock = vi.fn().mockResolvedValue({
+            content: JSON.stringify({
+                highlights: { high: [], medium: [], low: [] },
+                overall: '总评',
+            }),
+        })
+        ;(createChatModel as any).mockReturnValueOnce({ invoke: invokeMock })
+        const controller = new AbortController()
+        const { summarizeOverview } = await import('~~/server/agents/contract/summarizeOverview')
+        await summarizeOverview([makeRisk('r1', 'high')], 'partyB', '劳动合同', controller.signal)
+        expect(invokeMock).toHaveBeenCalled()
+        expect(invokeMock.mock.calls[0]?.[1]?.signal).toBe(controller.signal)
+    })
+})
+
+describe('remapHighlightRiskIds (V2)', () => {
+    it('把 highlights[].riskId 从内存 UUID 重映射为整型 id 字符串', () => {
+        const overview: ContractOverview = {
+            highlights: {
+                high: [{ text: '风险A', riskId: 'uuid-a' }],
+                medium: [{ text: '风险B', riskId: 'uuid-b' }],
+                low: [],
+            },
+            overall: '总评',
+        }
+        const changed = remapHighlightRiskIds(overview, new Map([['uuid-a', 101], ['uuid-b', 202]]))
+        expect(changed).toBe(true)
+        expect(overview.highlights!.high[0]!.riskId).toBe('101')
+        expect(overview.highlights!.medium[0]!.riskId).toBe('202')
+    })
+
+    it('映射表里没有的 riskId（已被置空 / LLM 编造）保持原值', () => {
+        const overview: ContractOverview = {
+            highlights: {
+                high: [{ text: 'x', riskId: '' }, { text: 'y', riskId: 'unknown-uuid' }],
+                medium: [],
+                low: [],
+            },
+            overall: '',
+        }
+        const changed = remapHighlightRiskIds(overview, new Map([['uuid-a', 1]]))
+        expect(changed).toBe(false)
+        expect(overview.highlights!.high[0]!.riskId).toBe('')
+        expect(overview.highlights!.high[1]!.riskId).toBe('unknown-uuid')
+    })
+
+    it('highlights 为 null（summarize 降级）时返回 false 不抛错', () => {
+        const overview: ContractOverview = { highlights: null, overall: '降级总评' }
+        expect(remapHighlightRiskIds(overview, new Map([['a', 1]]))).toBe(false)
     })
 })

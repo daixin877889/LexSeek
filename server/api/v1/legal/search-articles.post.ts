@@ -10,6 +10,7 @@ import type { ArticleSearchResponse, ValidityStatusFilter } from '#shared/types/
 import { VALIDITY_STATUS_FILTERS } from '#shared/types/legal-search'
 import { LegalType } from '#shared/types/legal'
 import { searchLawService } from '../../../services/legal/searchLaw.tool'
+import { recordSearchService } from '~~/server/services/legal/trending.service'
 
 // 请求参数验证
 const requestSchema = z.object({
@@ -72,6 +73,17 @@ export default defineEventHandler(async (event) => {
             items: searchResult.items,
             total: searchResult.total,
         }
+
+        await recordSearchService({
+            scope: 'article',
+            rawKeyword: query,
+            userId: user.id,
+            resultCount: searchResult.total,
+            resultIds: {
+                ids: searchResult.items.slice(0, 20).map(i => i.articles_id),
+                scores: searchResult.items.slice(0, 20).map(i => i.score ?? 0),
+            },
+        })
 
         return resSuccess(event, '搜索成功', response)
     } catch (error) {

@@ -36,14 +36,32 @@
       </div>
 
       <div class="flex justify-between items-center">
-        <router-link to="/reset-password" class="text-primary hover:underline flex items-center gap-1 text-sm"> 忘记密码？前往 <strong>重置密码</strong> 页面 </router-link>
-        <Button type="submit" class="h-10 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors flex items-center gap-2" :disabled="isSecuritySaving || !isPasswordValid">
+        <div class="flex items-center gap-1 text-sm">
+          <span class="text-muted-foreground">忘记密码？前往</span>
+          <router-link to="/reset-password" class="text-primary hover:underline"><strong>重置密码</strong></router-link>
+          <span class="text-muted-foreground">页面</span>
+        </div>
+        <Button type="submit" class="h-10 px-4 py-2 bg-gradient-brand-button text-white rounded-md transition-colors flex items-center gap-2" :disabled="isSecuritySaving || !isPasswordValid">
           <loader-2-icon v-if="isSecuritySaving" class="h-4 w-4 animate-spin" />
           <save-icon v-else class="h-4 w-4" />
           修改密码
         </Button>
       </div>
     </form>
+
+    <!-- API Key -->
+    <div class="mt-8 pt-8 border-t">
+      <h3 class="text-lg font-medium mb-1">API Key</h3>
+      <p class="text-sm text-muted-foreground mb-4">用于调用开放接口（如法条搜索）的鉴权凭证，请妥善保管、不要泄露给他人。</p>
+      <div class="flex items-center gap-3">
+        <span class="font-mono text-sm break-all">{{ userStore.userInfo.apiKey || '—' }}</span>
+        <Button v-if="userStore.userInfo.apiKey" type="button" variant="ghost" size="sm"
+          class="shrink-0" @click="copyApiKey">
+          <copy-icon class="h-4 w-4 mr-1" />
+          复制
+        </Button>
+      </div>
+    </div>
 
     <!-- <div class="mt-8 pt-8 border-t">
       <h3 class="text-lg font-medium mb-4">登录设备</h3>
@@ -79,8 +97,9 @@ import { resetAllStore } from '~/utils/resetStore'
 definePageMeta({
   title: "安全设置",
   layout: "dashboard-layout",
+  userMenu: { group: 'settings', title: '安全设置', icon: 'Lock', order: 2 },
 });
-import { Loader2Icon, SaveIcon, SmartphoneIcon, LaptopIcon, TabletIcon, XIcon, RefreshCwIcon } from "lucide-vue-next";
+import { Loader2Icon, SaveIcon, SmartphoneIcon, LaptopIcon, TabletIcon, XIcon, RefreshCwIcon, CopyIcon } from "lucide-vue-next";
 const userStore = useUserStore();
 const authStore = useAuthStore();
 const roleStore = useRoleStore();
@@ -151,4 +170,21 @@ const changePassword = async () => {
     toast.error("修改密码失败", error.message || "修改密码失败，请稍后重试");
   }
 };
+
+// 复制 API Key 到剪贴板
+const copyApiKey = async () => {
+  const key = userStore.userInfo.apiKey;
+  if (!key) return;
+  try {
+    await navigator.clipboard.writeText(key);
+    toast.success("已复制", "API Key 已复制到剪贴板");
+  } catch {
+    toast.error("复制失败", "请手动选择文本复制");
+  }
+};
+
+// 进入页面刷新用户信息，确保 API Key 等字段为最新
+onMounted(() => {
+  userStore.refreshUserInfo();
+});
 </script>

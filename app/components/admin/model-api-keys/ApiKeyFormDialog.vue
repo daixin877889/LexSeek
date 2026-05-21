@@ -1,7 +1,7 @@
 <template>
     <!-- API 密钥创建/编辑对话框 -->
     <Dialog v-model:open="open">
-        <DialogContent class="max-w-lg" @interactOutside="(e) => e.preventDefault()">
+        <DialogContent class="theme-brand max-w-lg" @interactOutside="(e) => e.preventDefault()">
             <DialogHeader>
                 <DialogTitle>{{ isEdit ? '编辑 API 密钥' : '新增 API 密钥' }}</DialogTitle>
                 <DialogDescription>{{ isEdit ? '修改 API 密钥信息' : '创建新的 API 密钥' }}</DialogDescription>
@@ -10,10 +10,10 @@
                 <div v-if="!isEdit" class="space-y-2">
                     <Label>提供商 <span class="text-destructive">*</span></Label>
                     <Select v-model="form.providerId">
-                        <SelectTrigger class="w-full">
+                        <SelectTrigger :class="['w-full', adminBrandFocusClass]">
                             <SelectValue placeholder="选择提供商" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent class="theme-brand">
                             <SelectItem v-for="p in providers" :key="p.id" :value="String(p.id)">
                                 {{ p.name }}
                             </SelectItem>
@@ -22,47 +22,47 @@
                 </div>
                 <div class="space-y-2">
                     <Label>名称 <span class="text-destructive">*</span></Label>
-                    <Input v-model="form.name" placeholder="如：主密钥、备用密钥" autocomplete="username" />
+                    <Input v-model="form.name" placeholder="如：主密钥、备用密钥" autocomplete="username" :class="adminBrandFocusClass" />
                 </div>
                 <div class="space-y-2">
                     <Label>API 密钥 <span class="text-destructive">*</span></Label>
                     <form>
                         <Input v-model="form.apiKey" type="password" placeholder="输入 API 密钥"
-                            autocomplete="current-password" />
+                            autocomplete="current-password" :class="adminBrandFocusClass" />
                     </form>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div class="space-y-2">
                         <Label>日调用限制</Label>
-                        <Input v-model.number="form.dailyLimit" type="number" min="0" placeholder="不限" />
+                        <Input v-model.number="form.dailyLimit" type="number" min="0" placeholder="不限" :class="adminBrandFocusClass" />
                     </div>
                     <div class="space-y-2">
                         <Label>月调用限制</Label>
-                        <Input v-model.number="form.monthlyLimit" type="number" min="0" placeholder="不限" />
+                        <Input v-model.number="form.monthlyLimit" type="number" min="0" placeholder="不限" :class="adminBrandFocusClass" />
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div class="space-y-2">
                         <Label>状态</Label>
                         <Select v-model="form.status">
-                            <SelectTrigger class="w-full">
+                            <SelectTrigger :class="['w-full', adminBrandFocusClass]">
                                 <SelectValue />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent class="theme-brand">
                                 <SelectItem value="1">启用</SelectItem>
                                 <SelectItem value="0">禁用</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
                     <div class="flex items-end space-x-2 pb-1">
-                        <Checkbox id="isDefault" v-model="form.isDefault" />
+                        <Checkbox id="isDefault" v-model="form.isDefault" :class="adminBrandCheckboxClass" />
                         <Label for="isDefault" class="cursor-pointer">设为默认</Label>
                     </div>
                 </div>
             </form>
             <DialogFooter>
-                <Button variant="outline" @click="open = false">取消</Button>
-                <Button @click="handleSubmit" :disabled="submitting">
+                <Button variant="outline" :class="adminBrandFocusClass" @click="open = false">取消</Button>
+                <Button :class="adminBrandPrimaryButtonClass" @click="handleSubmit" :disabled="submitting">
                     <Loader2 v-if="submitting" class="h-4 w-4 mr-2 animate-spin" />
                     {{ isEdit ? '保存' : '创建' }}
                 </Button>
@@ -76,6 +76,7 @@ import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { ModelProvider, ModelApiKey } from '#shared/types/model'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { adminBrandCheckboxClass, adminBrandFocusClass, adminBrandPrimaryButtonClass } from '~/utils/adminBrandStyles'
 
 // 定义 props
 const props = defineProps<{

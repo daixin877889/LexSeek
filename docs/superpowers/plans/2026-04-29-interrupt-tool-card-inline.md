@@ -165,7 +165,7 @@ git commit -m "$(cat <<'EOF'
 feat(ui): 新建 useInterruptSnapshot helper
 
 为工具卡 interrupt 内联化提供 reactive Record 数据结构，3 个 Panel
-（小索 / 法律助手 / 合同审查）各自调用，存储用户在 interrupt 卡片
+（小索 / 通用问答 / 合同审查）各自调用，存储用户在 interrupt 卡片
 上的选择，让消息流里对应位置的卡片冻结成 snapshot 视觉常驻显示。
 
 风格与 useStreamChat 同文件 subThreadsMap / syntheticToolCalls 一致
@@ -1470,7 +1470,7 @@ npx vitest run \
 
 - [ ] **同 dev server，操作：**
 
-1. 上传一份合同 docx 到法律助手或合同审查页面
+1. 上传一份合同 docx 到通用问答或合同审查页面
 2. 触发合同审查，**预期**：StanceSelectCard 内联出现（非模态），可看到对话流上下文
 3. 选"甲方"，提交
 4. **预期**：卡片冻结快照"已选立场：甲方"，下方继续审查流程

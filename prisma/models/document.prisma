@@ -46,10 +46,14 @@ model documentDrafts {
   caseId          Int?      @map("case_id")
   /// 会话唯一标识，用于 LangGraph thread_id
   sessionId       String    @map("session_id") @db.VarChar(100)
-  /// 关联的模板ID
-  templateId      Int       @map("template_id")
-  /// 占位符填充值（JSON 对象）
+  /// 关联的模板ID（自由文书 mode=freeform 时为 null）
+  templateId      Int?      @map("template_id")
+  /// 文书模式：template-模板文书 / freeform-自由文书（无模板，正文直接存 content）
+  mode            String    @default("template") @db.VarChar(20)
+  /// 占位符填充值（JSON 对象，mode=template 时使用）
   values          Json      @default("{}") @db.JsonB
+  /// 自由文书正文（Markdown，mode=freeform 时使用；模板文书为 null）
+  content         String?   @db.Text
   /// 来源素材引用（JSON，记录引用的材料 ID 等）
   sourceRef       Json?     @map("source_ref") @db.JsonB
   /// 扩展元数据（JSON）
@@ -75,8 +79,8 @@ model documentDrafts {
   user      users                    @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// 关联的案件（可选）
   case      cases?                   @relation(fields: [caseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  /// 关联的模板
-  template  documentTemplates        @relation(fields: [templateId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// 关联的模板（mode=freeform 自由文书时为 null）
+  template  documentTemplates?       @relation(fields: [templateId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// 关联的素材（文书生成时上传的附件材料）
   materials caseMaterials[]
   /// AI 历史快照与覆盖前自动备份
@@ -97,8 +101,10 @@ model documentDraftSnapshots {
   draftId   Int      @map("draft_id")
   /// 来源：ai-extract（AI 生成后落盘）、workspace-backup（覆盖工作区前自动备份）
   source    String   @db.VarChar(30)
-  /// 快照时的 values 全量拷贝
+  /// 快照时的 values 全量拷贝（mode=template 时使用）
   values    Json     @default("{}") @db.JsonB
+  /// 快照时的自由文书正文（mode=freeform 时使用）
+  content   String?  @db.Text
   /// AI 本轮产出的推断标题（可空）
   aiTitle   String?  @map("ai_title") @db.VarChar(200)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -117,8 +123,10 @@ model documentDraftVersions {
   versionNo Int      @map("version_no")
   /// 用户命名（默认建议"第 X 版"由前端带出）
   name      String   @db.VarChar(100)
-  /// 版本的 values 全量拷贝
+  /// 版本的 values 全量拷贝（mode=template 时使用）
   values    Json     @default("{}") @db.JsonB
+  /// 版本的自由文书正文快照（mode=freeform 时使用）
+  content   String?  @db.Text
   /// 版本创建时 draft 的标题（用于导出文件名 / 历史显示）
   titleAt   String   @map("title_at") @db.VarChar(200)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)

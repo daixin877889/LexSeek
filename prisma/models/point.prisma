@@ -82,6 +82,10 @@ model pointConsumptionItems {
   deletedAt               DateTime?                 @map("deleted_at") @db.Timestamptz(6)
   /// 消耗折扣
   discount                Decimal?                  @default(1) @map("discount") @db.Decimal(3, 2)
+  /// 计费模式：1-按 token，2-按次量
+  billingMode             Int                       @default(2) @map("billing_mode")
+  /// 用户友好场景名（消耗记录展示用），为空时回退用 name
+  displayName             String?                   @map("display_name") @db.VarChar(100)
   pointConsumptionRecords pointConsumptionRecords[]
 
   @@index([key], map: "idx_point_consumption_items_key")
@@ -111,6 +115,12 @@ model pointConsumptionRecords {
   sourceId      Int?      @map("source_id")
   /// 备注
   remark        String?   @map("remark")
+  /// 操作关联标识，聚合展示用，一次用户操作内多条记录共享同一值
+  operationId   String?   @map("operation_id") @db.VarChar(64)
+  /// 业务上下文快照（如「劳动合同纠纷案」「起诉状.pdf」），展示用
+  contextLabel  String?   @map("context_label") @db.VarChar(255)
+  /// 计费用量（页/分钟/张），仅按次量模式填充
+  usageAmount   Int?      @map("usage_amount")
   /// 创建时间
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   /// 最后更新时间
@@ -129,6 +139,7 @@ model pointConsumptionRecords {
   @@index([itemId], map: "idx_point_consumption_records_item_id")
   @@index([batchId], map: "idx_point_consumption_records_batch_id")
   @@index([status], map: "idx_point_consumption_records_status")
+  @@index([operationId], map: "idx_point_consumption_records_operation_id")
   @@index([deletedAt], map: "idx_point_consumption_records_deleted_at")
   @@map("point_consumption_records")
 }

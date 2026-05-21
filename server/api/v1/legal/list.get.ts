@@ -10,6 +10,7 @@ import dayjs from 'dayjs'
 import type { LegalListResponse } from '#shared/types/legal-search'
 import { VALIDITY_STATUS_FILTERS } from '#shared/types/legal-search'
 import { LegalType } from '#shared/types/legal'
+import { recordSearchService } from '~~/server/services/legal/trending.service'
 
 // 请求参数验证
 const querySchema = z.object({
@@ -123,9 +124,11 @@ export default defineEventHandler(async (event) => {
             }
         }
 
-        // 构建排序条件
-        const orderBy: any = {}
-        orderBy[sortBy] = sortOrder
+        // 构建排序条件：可空日期字段统一 NULLS LAST，避免缺日期的记录排到最前
+        const NULLABLE_DATE_FIELDS = new Set(['publishDate', 'effectiveDate'])
+        const orderBy: any = NULLABLE_DATE_FIELDS.has(sortBy)
+            ? { [sortBy]: { sort: sortOrder, nulls: 'last' } }
+            : { [sortBy]: sortOrder }
 
         // 查询总数
         const total = await prisma.legalMain.count({ where })
@@ -169,6 +172,16 @@ export default defineEventHandler(async (event) => {
             page,
             pageSize,
             totalPages: Math.ceil(total / pageSize),
+        }
+
+        if (keyword && keyword.trim()) {
+            await recordSearchService({
+                scope: 'legal',
+                rawKeyword: keyword,
+                userId: user.id,
+                resultCount: total,
+                resultIds: { ids: items.slice(0, 20).map(i => i.id) },
+            })
         }
 
         return resSuccess(event, '获取列表成功', response)

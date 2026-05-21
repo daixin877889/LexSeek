@@ -23,12 +23,12 @@
                         <GeneralLegalStatusBadge :effective-date="article.effectiveDate"
                             :invalid-date="article.invalidDate" />
                         <span v-if="article.isEmbedded"
-                            class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                            :class="['inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium', adminBrandEnabledBadgeClass]">
                             <Check class="h-2.5 w-2.5 mr-0.5" />
                             已嵌入
                         </span>
                         <span v-else
-                            class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400">
+                            :class="['inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium', adminBrandDisabledBadgeClass]">
                             未嵌入
                         </span>
                     </div>
@@ -62,17 +62,17 @@
                 </div>
                 <!-- 操作按钮 -->
                 <div class="flex items-center gap-2 pt-2 border-t">
-                    <Button variant="outline" size="sm" class="flex-1 h-8 text-xs"
+                    <Button variant="outline" size="sm" :class="['flex-1 h-8 text-xs', adminBrandFocusClass]"
                         :disabled="embeddingId === article.id" @click.stop="$emit('embed', article)">
                         <Loader2 v-if="embeddingId === article.id" class="h-3 w-3 mr-1 animate-spin" />
                         <Sparkles v-else class="h-3 w-3 mr-1" />
                         向量化
                     </Button>
-                    <Button variant="outline" size="sm" class="flex-1 h-8 text-xs" @click.stop="$emit('edit', article)">
+                    <Button variant="outline" size="sm" :class="['flex-1 h-8 text-xs', adminBrandFocusClass]" @click.stop="$emit('edit', article)">
                         <Pencil class="h-3 w-3 mr-1" />
                         编辑
                     </Button>
-                    <Button variant="outline" size="sm" class="h-8 text-xs text-destructive hover:text-destructive"
+                    <Button variant="outline" size="sm" :class="['h-8 text-xs text-destructive hover:text-destructive', adminBrandFocusClass]"
                         @click.stop="$emit('delete', article)">
                         <Trash2 class="h-3 w-3" />
                     </Button>
@@ -88,6 +88,7 @@ import dayjs from 'dayjs'
 import type { LegalArticleListItem, ArticleType } from '#shared/types/legal'
 import GeneralLegalArticleTypeBadge from '~/components/general/legal/ArticleTypeBadge.vue'
 import GeneralLegalStatusBadge from '~/components/general/legal/LegalStatusBadge.vue'
+import { adminBrandDisabledBadgeClass, adminBrandEnabledBadgeClass, adminBrandFocusClass } from '~/utils/adminBrandStyles'
 
 // 定义 props
 defineProps<{
@@ -152,11 +153,11 @@ const getTitleClass = (type: ArticleType): string => {
 const getMobileCardClass = (type: ArticleType): string => {
     const baseClass = 'bg-card rounded-lg border overflow-hidden'
     const typeClasses: Record<string, string> = {
-        l1: 'border-l-4 border-l-red-500',
-        l2: 'border-l-4 border-l-green-500',
-        l3: 'border-l-4 border-l-orange-500',
-        l4: 'border-l-4 border-l-purple-500',
-        l5: 'border-l-4 border-l-blue-500',
+        l1: 'border-l-4 border-l-indigo-500',
+        l2: 'border-l-4 border-l-cyan-500',
+        l3: 'border-l-4 border-l-emerald-500',
+        l4: 'border-l-4 border-l-amber-500',
+        l5: 'border-l-4 border-l-primary',
     }
     return `${baseClass} ${typeClasses[type] || ''}`
 }

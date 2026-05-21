@@ -48,14 +48,15 @@ vi.mock('~~/server/services/agent-platform/tools/index', () => ({
 }))
 vi.mock('~~/server/services/agent-platform/middleware/index', () => ({
     buildMiddlewareStack: vi.fn(() => []),
-    MIDDLEWARE_PRIORITY: { MESSAGE_INTEGRITY: 1, SCOPE_GUARD: 5, TOOL_CALL_LIMIT: 7, POINT_CONSUMPTION: 20, SUMMARIZATION: 40, SAFETY_TRIM: 50, SKILLS_DISCOVERY: 60, AUDIT: 100 },
-    MIDDLEWARE_NAMES: { MESSAGE_INTEGRITY: 'mi', SCOPE_GUARD: 'sg', TOOL_CALL_LIMIT: 'tcl', POINT_CONSUMPTION: 'pc', SUMMARIZATION: 'sum', SAFETY_TRIM: 'st', SKILLS_DISCOVERY: 'sk', AUDIT: 'au' },
+    MIDDLEWARE_PRIORITY: { MESSAGE_INTEGRITY: 1, SCOPE_GUARD: 5, TOOL_CALL_LIMIT: 7, POINT_CONSUMPTION: 20, SUMMARIZATION: 40, SAFETY_TRIM: 50, SKILLS_DISCOVERY: 60, DATE_CONTEXT: 65, AUDIT: 100 },
+    MIDDLEWARE_NAMES: { MESSAGE_INTEGRITY: 'mi', SCOPE_GUARD: 'sg', TOOL_CALL_LIMIT: 'tcl', POINT_CONSUMPTION: 'pc', SUMMARIZATION: 'sum', SAFETY_TRIM: 'st', SKILLS_DISCOVERY: 'sk', DATE_CONTEXT: 'dc', AUDIT: 'au' },
     pointConsumptionMiddleware: vi.fn(() => ({})),
     safetyTrimMiddleware: vi.fn(() => ({})),
     createScopeGuardMiddleware: vi.fn(() => ({})),
     createAuditMiddleware: vi.fn(() => ({})),
     createToolCallLimitMiddlewares: vi.fn(() => []),
     createMessageIntegrityMiddleware: vi.fn(() => ({})),
+    dateContextMiddleware: vi.fn(() => ({})),
 }))
 vi.mock('langchain', () => ({
     createAgent: vi.fn(),

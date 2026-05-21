@@ -8,7 +8,7 @@
 - **阶段 2** (tag `ai-unify-stage-2-done`)：Agent 工厂化 + 业务 vertical + Skills 入网（45 commit / 3.7 小时）。
 - **阶段 3** (tag `ai-unify-stage-3-done`)：search_law 普及。
 - **阶段 4** (tag `ai-unify-stage-4-done`)：合同审查接入底座（C+ 方案）。
-- **阶段 5** (tag `ai-unify-stage-5-done`)：法律助手 → 文书 / 合同（无 caseId）。
+- **阶段 5** (tag `ai-unify-stage-5-done`)：通用问答 → 文书 / 合同（无 caseId）。
 - **阶段 6** (tag `ai-unify-stage-6-done`)：小索 → 文书 / 合同（带 caseId）。
 - **阶段 7** (tag `ai-unify-stage-7-done`)：**前端基建统一（工厂化 + 业务字段拆 sub-composable + 8 旧 composable 全删）**。
 
@@ -76,7 +76,7 @@ e4c9f00b feat(stage7-factory): 任务 1.1 - 修 dispatcher 平行路径 bug
   - `/dashboard/cases` ✅
   - `/dashboard/cases/1033`（cases 详情含小索浮窗）✅
   - `/dashboard/cases/1033?focus=xiaosuo`（小索 URL focus）✅
-  - `/dashboard/assistant`（法律助手）✅
+  - `/dashboard/assistant`（通用问答）✅
   - `/dashboard/document/drafts/9`（文书页）✅
   - `/dashboard/contract/878`（合同审查页）✅
   - `/dashboard/cases/init-analysis/[uuid]`（初分页）✅

@@ -8,6 +8,7 @@
 import { z } from 'zod'
 import { NODE_TYPES } from '#shared/types/node'
 import { updateNodeService } from '~~/server/services/node/node.service'
+import { invalidateNodeConfigCache } from '~~/server/services/agent-platform/nodeConfig/loader'
 
 /** 路由参数验证 */
 const paramsSchema = z.object({
@@ -66,6 +67,7 @@ export default defineEventHandler(async (event) => {
 
     try {
         const node = await updateNodeService(paramsResult.data.id, bodyResult.data)
+        invalidateNodeConfigCache(node.name)
         return resSuccess(event, '更新节点成功', node)
     } catch (error: any) {
         // 处理业务逻辑错误

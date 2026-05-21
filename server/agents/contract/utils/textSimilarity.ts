@@ -16,16 +16,32 @@ export function getDmp() {
 }
 
 /**
+ * 单次 diff 的输入字符上限（M19）。
+ *
+ * diff_main 的开销约 O((n+m)·d)（d 为编辑距离）。超长输入会超过 dmp 默认 1s 的
+ * Diff_Timeout，diff_main 随即退化返回"整删+整插"diff → diff_levenshtein ≈ maxLen
+ * → 相似度被误算成 ~0，本应 0.6+ 的相似长条款被误判为孤立 / removed。
+ *
+ * 截断到 2000 字保证最坏情形（2000×2000）也远在超时窗内完成；超长文本用前缀代表
+ * 整体（条款相似度判定对前缀采样已足够，且远胜超时退化得到的 0）。
+ */
+const MAX_DIFF_LEN = 2000
+
+/**
  * 基于 Levenshtein 距离计算两段文本的相似度（0~1）。
  *  - 完全相同返回 1
  *  - 都为空返回 1（无内容差异）
  *  - 否则 1 - distance / maxLen
+ *
+ * M19：超长输入按 MAX_DIFF_LEN 前缀截断后再比对，避免 diff_main 超时退化。
  */
 export function calcSimilarity(a: string, b: string): number {
     if (a === b) return 1
-    const maxLen = Math.max(a.length, b.length)
+    const ta = a.length > MAX_DIFF_LEN ? a.slice(0, MAX_DIFF_LEN) : a
+    const tb = b.length > MAX_DIFF_LEN ? b.slice(0, MAX_DIFF_LEN) : b
+    const maxLen = Math.max(ta.length, tb.length)
     if (maxLen === 0) return 1
-    const diffs = dmp.diff_main(a, b)
+    const diffs = dmp.diff_main(ta, tb)
     dmp.diff_cleanupSemantic(diffs)
     const distance = dmp.diff_levenshtein(diffs)
     return 1 - distance / maxLen

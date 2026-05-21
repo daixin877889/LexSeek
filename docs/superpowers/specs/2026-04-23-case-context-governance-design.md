@@ -986,7 +986,7 @@ async function buildCompletedResultsSection(caseId: number, excludeModule: strin
 
 | 风险 | 缓解 |
 |---|---|
-| **5 段 prompt 结构改动破坏现有 Agent**（主线风险）| 灰度：先在 `initAnalysis` 模块启用 M2，观察 3 天；再推广到小索/法律助手 |
+| **5 段 prompt 结构改动破坏现有 Agent**（主线风险）| 灰度：先在 `initAnalysis` 模块启用 M2，观察 3 天；再推广到小索/通用问答 |
 | **状态迁移 SQL 在生产跑误伤** | 脚本附带 `BEGIN; UPDATE ...; SELECT ... LIMIT 20; ROLLBACK;` 预演；正式执行前 DBA 复核 |
 | **外部依赖降级**（bge-reranker / consolidator LLM 抽取失败） | reranker：跳过 ④ 阶段走 hybrid 分数；consolidator：best-effort logger.warn，下轮 schedule 重试 |
 | **LangChain PGVectorStore 写入约束被后续维护者破坏**（本期新增独特风险）| §12 铁律明示：两张新表严禁新增查询列；代码评审必查 |

@@ -67,6 +67,25 @@ describe('migrateAnchor', () => {
         expect(result!.similarity).toBeGreaterThanOrEqual(0.6)
     })
 
+    it('L1：preferred 条款达标但非全局最优时，返回相似度更高的条款', () => {
+        const anchor = '甲方应当按时付款并承担违约责任'
+        const newClauses = makeClauses([
+            // preferred（idx 0）：轻微改写，相似度达标（≥0.6）但非最优
+            '第一条 甲方应当按时付款并承担相应责任。',
+            // idx 1：含 anchor 原文，相似度 1.0（全局最优）
+            '第三条 甲方应当按时付款并承担违约责任。',
+        ])
+        const result = migrateAnchor({
+            oldAnchorQuote: anchor,
+            preferredNewClauseArrayIdx: 0,
+            newClauses,
+        })
+        expect(result).not.toBeNull()
+        // 旧实现 fast-path「首个达标即返回」会锁定 idx 0；修复后纳入全局取 max → idx 1
+        expect(result!.newClauseIndex).toBe(1)
+        expect(result!.similarity).toBe(1)
+    })
+
     it('空输入（newClauses 为空）：返回 null', () => {
         const result = migrateAnchor({
             oldAnchorQuote: '甲方应按时付款',
@@ -96,5 +115,21 @@ describe('migrateAnchor', () => {
         })
         // 微改导致相似度 < 0.999，期望返回 null
         expect(result).toBeNull()
+    })
+})
+
+describe('migrateAnchor S7：fallback 全文扫描上限保护', () => {
+    it('超长条款 + fuzzy 失配 → 不做无界全文扫描，毫秒级返回', () => {
+        // 2 万字条款 + 400 字 anchor（不在条款里）→ fallback 格点数远超上限 80k
+        const hugeClause = '甲'.repeat(20000)
+        const anchor = '乙'.repeat(400)
+        const newClauses = makeClauses([hugeClause])
+        const t0 = Date.now()
+        const result = migrateAnchor({ oldAnchorQuote: anchor, preferredNewClauseArrayIdx: null, newClauses })
+        const elapsed = Date.now() - t0
+        // anchor 不在条款里 → 无匹配
+        expect(result).toBeNull()
+        // 加上限保护后毫秒级返回；无保护时约 4e6 格点全文扫描会卡数十秒
+        expect(elapsed).toBeLessThan(2000)
     })
 })

@@ -32,10 +32,11 @@ vi.mock('~~/server/services/storage/storage.service', () => ({
 
 // mock parseContractDocx，避免依赖真实 docx 解析库对假 buffer 的处理
 vi.mock('~~/server/agents/contract/docx/parser', () => ({
-    parseContractDocx: vi.fn(async () => ({
-        paragraphs: ['第一条 甲方应在合同签署后 30 日内支付首付款。', '第二条 乙方应提供相应服务。'],
-        rawXml: '<root/>',
-    })),
+    parseContractDocx: vi.fn(async () => {
+        const paragraphs = ['第一条 甲方应在合同签署后 30 日内支付首付款。', '第二条 乙方应提供相应服务。']
+        // M8：mock 同样返回 body 段落口径字段（fixture 无表格 → identity 映射）
+        return { paragraphs, rawXml: '<root/>', bodyParagraphs: paragraphs, bodyParagraphIndex: paragraphs.map((_, i) => i) }
+    }),
 }))
 
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
@@ -102,7 +103,7 @@ describe('uploadClientVersionService（B1 骨架）', () => {
         await prisma.users.deleteMany({ where: { id: userId } })
     })
 
-    it('骨架事件数量：5 个 progress + 1 个 complete', async () => {
+    it('骨架事件：5 步各发 progress + done，外加 1 个 complete', async () => {
         const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
         const events = await collectEvents(
             uploadClientVersionService({ review, ossFileId, userId }),
@@ -113,12 +114,16 @@ describe('uploadClientVersionService（B1 骨架）', () => {
         const errorEvents = events.filter((e) => e.type === 'error')
 
         expect(errorEvents).toHaveLength(0)
-        expect(progressEvents).toHaveLength(5) // backup / parse / diff / ai / merge
         expect(completeEvents).toHaveLength(1)
 
-        // 验证 progress steps 顺序
-        const steps = progressEvents.map((e) => (e.data as { step: string }).step)
-        expect(steps).toEqual(['backup', 'parse', 'diff', 'ai', 'merge'])
+        // 5 个步骤，每步进入发 progress（前端切 loading）、完成发 done
+        for (const step of ['backup', 'parse', 'diff', 'ai', 'merge']) {
+            const statuses = progressEvents
+                .filter((e) => (e.data as { step: string }).step === step)
+                .map((e) => (e.data as { status: string }).status)
+            expect(statuses).toContain('progress')
+            expect(statuses).toContain('done')
+        }
 
         // complete 事件包含 newVersionId
         const completeData = completeEvents[0].data as { newVersionId: number; summary: string }
@@ -234,9 +239,9 @@ describe('uploadClientVersionService（B1 骨架）', () => {
         expect(errData.step).toBe('parse')
         expect(errData.code).toBe('PARSE_FAILED')
 
-        // backup progress 应已产出（backup 先于 parse）
+        // backup 步应已产出 progress（backup 先于 parse）
         const progressEvents = events.filter((e) => e.type === 'progress')
-        expect(progressEvents[0]).toMatchObject({ data: { step: 'backup', status: 'done' } })
+        expect(progressEvents[0]).toMatchObject({ data: { step: 'backup', status: 'progress' } })
     })
 })
 
@@ -249,6 +254,7 @@ vi.mock('~~/server/agents/contract/docx/wordCommentParser', () => ({
     parseWordComments: vi.fn(async (): Promise<ParsedDocxComments> => ({
         comments: [],
         annotationRefsByWId: new Map(),
+        customXmlRefEntries: [],
     })),
 }))
 
@@ -346,6 +352,12 @@ describe('uploadClientVersionService（customXml 映射识别）', () => {
                     ref: `LEXSEEK-${ann.id}-abc12345`,
                 }],
             ]),
+            customXmlRefEntries: [{
+                reviewId,
+                annotationId: ann.id,
+                source: 'customXml',
+                ref: `LEXSEEK-${ann.id}-abc12345`,
+            }],
         } satisfies ParsedDocxComments)
 
         const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })

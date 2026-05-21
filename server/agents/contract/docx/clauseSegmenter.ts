@@ -119,8 +119,10 @@ function extractDiTiaoIndex(number: string): number | null {
         const v = cnNumToInt(cnMatch[1])
         if (v !== null) return v
     }
-    // 匹配「第1条」「第2条」等阿拉伯数字序数
-    const numMatch = number.match(/^第(\d+)条$/)
+    // 匹配「第1条」「第2条」「第3.1条」等阿拉伯数字序数。
+    // L3：允许「第X.Y条」多级编号——取整数前缀 X 作序号，避免 currentDiTiaoIdx 变 null
+    // 导致后续多级编号子项匹配失效。
+    const numMatch = number.match(/^第(\d+)(?:\.\d+)*条$/)
     if (numMatch?.[1]) return parseInt(numMatch[1], 10)
     return null
 }
@@ -129,7 +131,10 @@ function extractDiTiaoIndex(number: string): number | null {
  * 常用条款编号正则（按优先级组合，每组捕获"标号"）
  * `splitSentences` 也复用这三个正则识别行首子项编号作为切句点（spec §5.1）。
  */
-export const RE_DI_TIAO = /(第[一二三四五六七八九十零百千0-9\.]+条)/
+// M20：必须行首锚定（^）。否则正文中段引用「根据第3条约定…」会被误判为新条款起点，
+// 导致后续 segment 的 index/offset 全漂移、间接污染锚点迁移。调用方传入的均是已 trim
+// 的行 / segmentText.slice(lineStart)，^ 即等价于「允许前导空白的行首」。
+export const RE_DI_TIAO = /^(第[一二三四五六七八九十零百千0-9\.]+条)/
 export const RE_NUM_DOT = /^(\d+(?:\.\d+)*\.?)\s/
 export const RE_CN_COMMA = /^([一二三四五六七八九十百千]+、)/
 

@@ -13,6 +13,8 @@ import { invokeNodeJson } from '~~/server/services/agent-platform/tools/invokeNo
 import { writeMemoryService } from './memory.service'
 import { findActiveMemoriesBySubjectKeysDAO } from './memory.dao'
 import { calcSimilarity } from '~~/server/agents/contract/utils/textSimilarity'
+import { prisma } from '~~/server/utils/db'
+import { billDirectService } from '~~/server/services/point/pointBilling.service'
 import type { BaseMessage } from '@langchain/core/messages'
 
 const memoryExtractSchema = z.object({
@@ -75,6 +77,25 @@ export async function runMemoryExtractionService(params: MemoryExtractionParams)
                 subjectKey: m.subject_key,
                 source: 'auto_extract',
             })
+        }
+
+        // best-effort 扣费：后台静默任务，memory_extract 默认停用，积分不足/异常只记日志
+        try {
+            const caseRow = await prisma.cases.findUnique({
+                where: { id: caseId },
+                select: { userId: true, title: true },
+            })
+            if (caseRow) {
+                const extractedChars = result.memories.reduce((sum, m) => sum + m.text.length, 0)
+                // 同时传 tokens 和 units：billing_mode=1 时计费服务取 tokens，=2 时取 units（=1 表示"一次记忆提取"）
+                // 这样运营可在后台一键切换计费模式，无需改代码
+                await billDirectService(caseRow.userId, 'memory_extract', { tokens: extractedChars * 2, units: 1 }, {
+                    sourceId: caseId,
+                    contextLabel: caseRow.title,
+                })
+            }
+        } catch (billError) {
+            logger.warn('案件记忆积分扣减跳过', { caseId, error: billError })
         }
 
         logger.info('memoryExtraction 完成', { caseId, sessionId, candidates: result.memories.length })

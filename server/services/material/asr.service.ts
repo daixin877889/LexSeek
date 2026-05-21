@@ -30,11 +30,14 @@ import { v7 as uuidv7 } from 'uuid'
 import dayjs from 'dayjs'
 import { $fetch as ofetch } from 'ofetch'
 import { checkPointsService, consumePointsService, preDeductPointsService, settlePointsService, rollbackPreDeductService } from '../point/pointConsumption.service'
+import { billReserveService, billSettleService, billRollbackService } from '../point/pointBilling.service'
 import { getValidNodeConfig, getNodeConfigService, type NodeConfig } from '../node/node.service'
 import { embedAudioService as embedAudioToVectorStore, formatAsrResultForEmbedding } from './materialEmbedding.service'
 import { DEFAULT_POLLING_CONFIG, calculateBackoffDelay } from './materialConstants'
 import type { PollingConfig } from './materialConstants'
 import { AsrRecordStatus, AsrTaskStatus } from '#shared/types/recognition'
+import { FileSource, OssFileStatus } from '#shared/types/file'
+import { buildStorageKey } from '~~/server/utils/storagePath'
 
 /** 音频识别节点名称 */
 const ASR_NODE_NAME = 'audioRecognition'
@@ -387,7 +390,13 @@ export async function uploadRawAsrJsonToOssService(
         const month = now.format('MM')
         const day = now.format('DD')
         const uuid = uuidv7()
-        const filePath = `asr/raw/${year}/${month}/${day}/${uuid}.json`
+        const filePath = buildStorageKey({
+            scope: 'user',
+            userId,
+            source: FileSource.ASR,
+            subDir: `raw/${year}/${month}/${day}`,
+            fileName: `${uuid}.json`,
+        })
 
         // 3. 将原始结果转换为 JSON 字符串
         const jsonContent = JSON.stringify(rawResult, null, 2)
@@ -407,7 +416,8 @@ export async function uploadRawAsrJsonToOssService(
                 filePath,
                 fileSize: buffer.length,
                 fileType: 'application/json',
-                status: 1, // 已上传
+                source: FileSource.ASR,
+                status: OssFileStatus.UPLOADED,
             },
         })
 
@@ -539,9 +549,11 @@ export const submitAsrTaskService = async (
         let preDeductBatchId: string | null = null
 
         try {
-            const preDeductResult = await preDeductPointsService(userId, ASR_TRANSCRIBE_ITEM_KEY, durationMinutes)
-            preDeductBatchId = preDeductResult.batchId
-            logger.info(`ASR 任务积分预扣成功：userId=${userId}, minutes=${durationMinutes}, batchId=${preDeductBatchId}`)
+            const preDeductResult = await billReserveService(userId, ASR_TRANSCRIBE_ITEM_KEY, { units: durationMinutes }, {
+                contextLabel: ossFile.fileName ?? `录音_${ossFileId}`,
+            })
+            preDeductBatchId = preDeductResult.skipped ? null : preDeductResult.batchId
+            logger.info(`ASR 任务积分预扣成功：userId=${userId}, minutes=${durationMinutes}, batchId=${preDeductBatchId}, skipped=${preDeductResult.skipped}`)
         } catch (preDeductError) {
             const errorMsg = preDeductError instanceof Error ? preDeductError.message : '积分预扣失败'
             logger.error('ASR 任务积分预扣失败：', preDeductError)
@@ -841,7 +853,7 @@ export const completeTranscriptionService = async (
                 : (submittedAudioDuration ? Math.ceil(submittedAudioDuration / 60) : 1)
 
             try {
-                await settlePointsService(preDeductBatchId, actualDurationMinutes)
+                await billSettleService(preDeductBatchId, actualDurationMinutes)
                 logger.info(`ASR 转录积分结算成功：userId=${userId}, actualMinutes=${actualDurationMinutes}, batchId=${preDeductBatchId}`)
             } catch (settleError: any) {
                 // 结算失败不影响转录结果，但需要记录日志
@@ -882,7 +894,7 @@ export const completeTranscriptionService = async (
         await markMaterialsByOssFileIdService(ossFileId, MaterialStatus.COMPLETED)
 
         // 6.2 fire-and-forget 按 OssFile 触发摘要生成
-        // 不依赖 caseMaterials 行存在（小索/法律助手输入框上传场景下还没创建 caseMaterials）
+        // 不依赖 caseMaterials 行存在（小索/通用问答输入框上传场景下还没创建 caseMaterials）
         // 内部按 ossFileId 自动定位识别记录表写入 summary；防重 + 重试由 service 内部承担
         generateOssFileSummaryService(ossFileId).catch(() => { /* 已在内部 catch */ })
 
@@ -976,7 +988,7 @@ export const failTranscriptionService = async (
         const preDeductBatchId = taskRawData?.preDeductBatchId as string | null
         if (preDeductBatchId) {
             try {
-                await rollbackPreDeductService(preDeductBatchId)
+                await billRollbackService(preDeductBatchId)
                 logger.info(`ASR 转录积分回滚成功：batchId=${preDeductBatchId}`)
             } catch (rollbackError) {
                 logger.error('ASR 转录积分回滚失败：', rollbackError)

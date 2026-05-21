@@ -40,6 +40,7 @@ import {
 } from 'lucide-vue-next'
 import { useMediaQuery } from '@vueuse/core'
 import CaseAnalysisVersionSheet from '~/components/case/AnalysisVersionSheet.vue'
+import BatchAnalysisPopover from '~/components/case/BatchAnalysisPopover.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useFormatters } from '~/composables/useFormatters'
 
@@ -133,6 +134,8 @@ const emit = defineEmits<{
     (e: 'goToRunningWorkflow'): void
     /** 查看全部（跳转分析视图） */
     (e: 'viewAll'): void
+    /** 打开历史批量分析会话（由 BatchAnalysisPopover 列表项点击触发） */
+    (e: 'openInitSession', sessionId: string): void
 }>()
 
 // 版本 Sheet 状态
@@ -423,7 +426,7 @@ function formatAnalyzedAt(dateStr: string): string {
         <!-- 模块对话按钮 - 仅在单模块详情视图显示（关闭模块预览回到仪表盘时隐藏） -->
         <Button v-if="currentViewMode === 'detail' && effectiveShowRegenerate && !isCurrentRegenerating" variant="outline"
             size="sm"
-            class="module-chat-btn absolute top-[88px] right-8 z-50 gap-1.5 rounded-full border-primary/30 text-primary bg-background/80 backdrop-blur-sm shadow-sm hover:shadow-md hover:border-primary/60 hover:text-primary transition-all duration-300"
+            class="module-chat-btn absolute top-[88px] right-8 z-50 gap-1.5 rounded-full border-primary/30 text-primary bg-background/80 backdrop-blur-sm hover:shadow-md hover:border-primary/60 hover:text-primary transition-all duration-300"
             :disabled="isCurrentRegenerating" @click="handleRegenerate">
             <MessageCircleIcon class="size-4" />
             <span>AI 辅助修改</span>
@@ -460,13 +463,13 @@ function formatAnalyzedAt(dateStr: string): string {
                         </h3>
 
                         <div class="flex items-center gap-2">
-                            <button v-if="effectiveShowBatchButton"
-                                class="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors mr-2"
-                                title="批量分析"
-                                @click="emit('batchGenerate')">
-                                <PlusIcon class="size-3" />
-                                <span class="hidden lg:inline">批量分析</span>
-                            </button>
+                            <!-- 批量分析下拉：trigger 始终可见，新建按钮按 showBatchButton 禁用兜底 -->
+                            <BatchAnalysisPopover v-if="caseId"
+                                :case-id="caseId"
+                                :show-batch-button="effectiveShowBatchButton ?? false"
+                                :is-analysis-running="isAnalysisRunning ?? false"
+                                @new-batch="emit('batchGenerate')"
+                                @open-session="sid => emit('openInitSession', sid)" />
                             <button v-if="showViewAll"
                                 class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors mr-2"
                                 title="查看全部"
@@ -476,12 +479,12 @@ function formatAnalyzedAt(dateStr: string): string {
                             </button>
                             <div class="flex items-center bg-muted/50 rounded-lg p-0.5">
                                 <button class="size-7 flex items-center justify-center rounded-md transition-all"
-                                    :class="dashboardViewMode === 'grid' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'"
+                                    :class="dashboardViewMode === 'grid' ? 'bg-background text-primary' : 'text-muted-foreground hover:text-foreground'"
                                     @click="dashboardViewMode = 'grid'">
                                     <LayoutGridIcon class="size-3.5" />
                                 </button>
                                 <button class="size-7 flex items-center justify-center rounded-md transition-all"
-                                    :class="dashboardViewMode === 'list' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'"
+                                    :class="dashboardViewMode === 'list' ? 'bg-background text-primary' : 'text-muted-foreground hover:text-foreground'"
                                     @click="dashboardViewMode = 'list'">
                                     <ListIcon class="size-3.5" />
                                 </button>
@@ -724,11 +727,11 @@ function formatAnalyzedAt(dateStr: string): string {
     border-radius: inherit;
     padding: 2px;
     background: linear-gradient(var(--gradient-angle, 0deg),
-        oklch(0.645 0.246 16.439) 0%,
-        oklch(0.7 0.15 250) 25%,
-        oklch(0.75 0.2 200) 50%,
-        oklch(0.7 0.15 250) 75%,
-        oklch(0.645 0.246 16.439) 100%
+        var(--brand-sky) 0%,
+        var(--brand-navy) 25%,
+        var(--brand-mint) 50%,
+        var(--brand-navy) 75%,
+        var(--brand-sky) 100%
     );
     mask: linear-gradient(#fff 0 0) content-box,
           linear-gradient(#fff 0 0);

@@ -223,7 +223,7 @@
         <DialogContent class="sm:max-w-[500px]">
             <DialogHeader>
                 <DialogTitle>上传文书模板</DialogTitle>
-                <DialogDescription>上传 .docx 格式的模板文件（≤ 20MB），系统将自动扫描占位符。</DialogDescription>
+                <DialogDescription>上传 .docx 格式的模板文件（≤ 100MB），系统将自动扫描占位符。</DialogDescription>
             </DialogHeader>
             <div class="space-y-4">
                 <!-- 文件选择 -->
@@ -538,8 +538,8 @@ const applyFile = (file: File) => {
         toast.error('仅支持 .docx 格式文件')
         return
     }
-    if (file.size > 20 * 1024 * 1024) {
-        toast.error('文件大小不能超过 20MB')
+    if (file.size > 100 * 1024 * 1024) {
+        toast.error('文件大小不能超过 100MB')
         return
     }
     uploadForm.file = file

@@ -27,6 +27,7 @@ import InsufficientPointsCard from '~/components/ai/tools/InsufficientPointsCard
 // ── 工具卡（来自专项模块）──
 import TemplateSelectCard from '~/components/agents/document/interrupts/TemplateSelectCard.vue'
 import StanceSelectCard from '~/components/agents/contract/interrupts/StanceSelectCard.vue'
+import CalculatorInputCard from '~/components/ai/tools/CalculatorInputCard.vue'
 
 // ── 自动注册到全局注册表 ──
 globalInterruptRegistry.register('case_info_check', CaseInfoCheckHandler)
@@ -35,3 +36,4 @@ globalInterruptRegistry.register('module_select', ModuleSelectHandler)
 globalInterruptRegistry.register('insufficient_points', InsufficientPointsCard)
 globalInterruptRegistry.register('template_select', TemplateSelectCard, { isToolCard: true })
 globalInterruptRegistry.register('stance_select', StanceSelectCard, { isToolCard: true })
+globalInterruptRegistry.register('calculator_input', CalculatorInputCard, { isToolCard: true })

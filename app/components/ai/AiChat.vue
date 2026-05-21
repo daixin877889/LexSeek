@@ -199,11 +199,11 @@ defineExpose({
             </ClientOnly>
           </div>
           <AiTaskQueue v-if="showTaskQueue && todos?.length" :todos="todos" />
-          <div v-if="showPrompt" class="shrink-0 border-t flex flex-col min-h-0">
+          <div v-if="showPrompt" class="shrink-0 flex flex-col min-h-0">
             <slot name="prompt-actions" />
             <AiPromptInput ref="promptInputRef" :loading="loading" :disabled="promptDisabled" :placeholder="promptPlaceholder"
               :enable-file-upload="enableFileUpload" :show-thinking-toggle="showThinkingToggle" :thinking="thinking"
-              :queue-length="queueLength" :queue-full="queueFull" :is-stopping="isStopping"
+              :queue-length="queueLength" :queue-full="queueFull" :is-stopping="isStopping" :is-interrupted="isInterrupted"
               :on-file-button-click="onFileButtonClick"
               @submit="handleSubmit" @stop="emit('stop')" @update:thinking="(v) => emit('update:thinking', v)" />
           </div>
@@ -237,12 +237,12 @@ defineExpose({
           </ClientOnly>
         </div>
         <AiTaskQueue v-if="showTaskQueue && todos?.length" :todos="todos" />
-        <div v-if="showPrompt" class="shrink-0 border-t flex flex-col min-h-0">
+        <div v-if="showPrompt" class="shrink-0 flex flex-col min-h-0">
           <slot name="prompt-actions" />
           <!-- 注意：仅左侧面板路径也需要 @stop，否则停止按钮事件无法冒泡到父组件 -->
           <AiPromptInput ref="promptInputRef" :loading="loading" :disabled="promptDisabled" :placeholder="promptPlaceholder"
             :enable-file-upload="enableFileUpload" :show-thinking-toggle="showThinkingToggle" :thinking="thinking"
-            :queue-length="queueLength" :queue-full="queueFull" :is-stopping="isStopping"
+            :queue-length="queueLength" :queue-full="queueFull" :is-stopping="isStopping" :is-interrupted="isInterrupted"
             :on-file-button-click="onFileButtonClick"
             @submit="handleSubmit" @stop="emit('stop')" @update:thinking="(v) => emit('update:thinking', v)" />
         </div>

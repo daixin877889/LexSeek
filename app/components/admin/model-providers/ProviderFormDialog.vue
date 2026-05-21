@@ -1,7 +1,7 @@
 <template>
     <!-- 提供商创建/编辑对话框 -->
     <Dialog v-model:open="open">
-        <DialogContent class="max-w-lg" @interactOutside="(e) => e.preventDefault()">
+        <DialogContent class="theme-brand max-w-lg" @interactOutside="(e) => e.preventDefault()">
             <DialogHeader>
                 <DialogTitle>{{ isEdit ? '编辑提供商' : '新增提供商' }}</DialogTitle>
                 <DialogDescription>{{ isEdit ? '修改模型提供商信息' : '创建新的模型提供商' }}</DialogDescription>
@@ -9,20 +9,20 @@
             <div class="space-y-4 py-4">
                 <div class="space-y-2">
                     <Label>名称 <span class="text-destructive">*</span></Label>
-                    <Input v-model="form.name" placeholder="如：OpenAI、阿里云" />
+                    <Input v-model="form.name" placeholder="如：OpenAI、阿里云" :class="adminBrandFocusClass" />
                 </div>
                 <div class="space-y-2">
                     <Label>API 基础 URL <span class="text-destructive">*</span></Label>
-                    <Input v-model="form.baseUrl" placeholder="如：https://api.openai.com/v1" />
+                    <Input v-model="form.baseUrl" placeholder="如：https://api.openai.com/v1" :class="adminBrandFocusClass" />
                 </div>
                 <div class="space-y-2">
                     <Label>描述</Label>
-                    <Textarea v-model="form.description" placeholder="提供商描述（可选）" rows="3" />
+                    <Textarea v-model="form.description" placeholder="提供商描述（可选）" rows="3" :class="adminBrandFocusClass" />
                 </div>
             </div>
             <DialogFooter>
-                <Button variant="outline" @click="open = false">取消</Button>
-                <Button @click="handleSubmit" :disabled="submitting">
+                <Button variant="outline" :class="adminBrandFocusClass" @click="open = false">取消</Button>
+                <Button :class="adminBrandPrimaryButtonClass" @click="handleSubmit" :disabled="submitting">
                     <Loader2 v-if="submitting" class="h-4 w-4 mr-2 animate-spin" />
                     {{ isEdit ? '保存' : '创建' }}
                 </Button>
@@ -36,6 +36,7 @@ import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { ModelProvider } from '#shared/types/model'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { adminBrandFocusClass, adminBrandPrimaryButtonClass } from '~/utils/adminBrandStyles'
 
 // 定义事件
 const emit = defineEmits<{

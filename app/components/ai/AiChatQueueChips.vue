@@ -1,15 +1,18 @@
 <script setup lang="ts">
-import { PauseIcon, PlayIcon, TrashIcon, Loader2Icon, PaperclipIcon, BrainIcon, XIcon } from 'lucide-vue-next'
+/**
+ * 消息排队条 —— 用户在 AI 回复期间继续发送的消息，在输入框上方排队，
+ * 回复结束后由 dispatcher 依次派发。样式对齐设计稿 AssistantMessages 的 MessageQueue：
+ * 卡片外框 + 可折叠标题栏（N 条消息排队中）+ 条目列表（队头转圈 / 序号、附件数、删除）。
+ */
+import { PauseIcon, PlayIcon, Trash2Icon, ChevronDownIcon, Loader2Icon, PaperclipIcon, BrainIcon, XIcon } from 'lucide-vue-next'
 import type { QueueItem, QueuePauseReason } from '~/composables/chatQueueActions'
 
-interface Props {
+const props = defineProps<{
   queue: readonly QueueItem[]
   max: number
   paused: boolean
   pauseReason: QueuePauseReason
-}
-
-const props = defineProps<Props>()
+}>()
 
 const emit = defineEmits<{
   remove: [itemId: string]
@@ -17,140 +20,103 @@ const emit = defineEmits<{
   clear: []
 }>()
 
-/** 暂停原因的显示文本 */
+/** 列表展开 / 折叠 */
+const open = ref(true)
+
+/** 暂停原因文案 */
 const pauseReasonText = computed(() => {
   if (props.pauseReason === 'stopped') return '已手动停止'
   if (props.pauseReason === 'failed') return '上一条执行失败'
   return ''
 })
-
-/**
- * 截断文本：超过 max 字符时在末尾加 … 号
- * 与 QueueItemContent 的 line-clamp 样式配合使用（视觉截断 + 语义截断双保险）
- */
-function truncate(text: string, max = 24): string {
-  return text.length > max ? `${text.slice(0, max)}…` : text
-}
 </script>
 
 <template>
-  <div v-if="queue.length > 0" class="border-t border-b">
-    <!-- 状态横幅仅在暂停态显示；运行态下由 chip 队头 spinner 指示"即将派发" -->
+  <div v-if="queue.length > 0" class="mx-4 mt-3 shrink-0 overflow-hidden rounded-[10px] border border-border bg-card">
+    <!-- 暂停态横幅 -->
     <div
       v-if="paused"
-      class="px-3 py-1 text-xs flex items-center gap-2 bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
-    >
+      class="flex items-center gap-[7px] bg-amber-500/15 px-3 py-1.5 text-[11.5px] font-medium text-amber-700 dark:text-amber-400">
       <PauseIcon class="size-3.5 shrink-0" />
-      <span>队列已暂停（{{ pauseReasonText }}）</span>
-      <div class="ml-auto flex gap-1">
-        <!--
-          用原生 button 而非 shadcn Button：避免 variant 的默认 border/padding，
-          只保留 hover 背景反馈，横幅高度最小化
-        -->
-        <button
-          type="button"
-          class="inline-flex items-center justify-center size-5 rounded-sm hover:bg-amber-200/60 dark:hover:bg-amber-500/20 transition-colors cursor-pointer"
-          aria-label="恢复队列"
-          title="恢复队列"
-          data-testid="queue-resume"
-          @click="emit('resume')"
-        >
-          <PlayIcon class="size-3" />
-        </button>
-        <button
-          type="button"
-          class="inline-flex items-center justify-center size-5 rounded-sm hover:bg-amber-200/60 dark:hover:bg-amber-500/20 transition-colors cursor-pointer"
-          aria-label="清空队列"
-          title="清空队列"
-          data-testid="queue-clear"
-          @click="emit('clear')"
-        >
-          <TrashIcon class="size-3" />
-        </button>
-      </div>
+      <span>队列已暂停<template v-if="pauseReasonText">（{{ pauseReasonText }}）</template></span>
+      <span class="flex-1" />
+      <button
+        type="button"
+        data-testid="queue-resume"
+        title="恢复队列"
+        class="inline-flex size-5 items-center justify-center rounded-[5px] transition-colors hover:bg-amber-500/25"
+        @click="emit('resume')">
+        <PlayIcon class="size-3" />
+      </button>
+      <button
+        type="button"
+        data-testid="queue-clear"
+        title="清空队列"
+        class="inline-flex size-5 items-center justify-center rounded-[5px] transition-colors hover:bg-amber-500/25"
+        @click="emit('clear')">
+        <Trash2Icon class="size-3" />
+      </button>
     </div>
 
-    <!-- 队列条目列表（方案 A 紧凑化：p-2→p-1, max-h-[120px]→max-h-[88px] 约容纳 3 条紧凑 chip） -->
-    <div class="p-1 max-h-[88px] overflow-y-auto">
-      <!-- Queue 默认 p-2 gap-2 多占 24px，此处用 !p-0 !gap-0 覆盖 -->
-      <Queue class="!p-0 !gap-0">
-        <!--
-          方案 A 紧凑化：!flex-row 覆盖 flex-col + !px-2 !py-0.5 !text-xs 减小每条 chip 高度
-          + !rounded-none 去圆角避免"卡片感"，只保留 hover:bg-muted 的背景反馈（默认行为）
-          原：px-3 py-1 text-sm (~32px) → 现：扁平无圆角 (~24px)
-        -->
-        <QueueItem
-          v-for="(item, index) in queue"
-          :key="item.id"
-          class="!flex-row items-center gap-1.5 !px-2 !py-0.5 !text-xs !rounded-none"
-        >
-          <!--
-            序号 badge / 队头 spinner：
-            - 暂停态或非队头：显示 #N 序号 badge
-            - 运行态队头（index=0）：显示 spinner 指示"即将派发"，代替横幅的派发中信息
-          -->
-          <span
-            v-if="!paused && index === 0"
-            class="inline-flex shrink-0 text-primary"
-            title="即将派发"
-          >
-            <Loader2Icon class="size-3.5 animate-spin" />
-          </span>
-          <Badge
-            v-else
-            variant="secondary"
-            class="shrink-0 text-[9px] h-4 px-1"
-          >
-            #{{ index + 1 }}
-          </Badge>
+    <!-- 折叠标题栏 -->
+    <button
+      type="button"
+      class="flex w-full items-center gap-[7px] px-3 py-[9px] text-left transition-colors hover:bg-muted/40"
+      @click="open = !open">
+      <span
+        class="size-[7px] shrink-0 rounded-full"
+        :class="paused ? 'bg-amber-500' : 'animate-pulse bg-primary'" />
+      <span class="text-xs font-semibold text-foreground">{{ queue.length }} 条消息排队中</span>
+      <span class="text-[11px] text-muted-foreground">· {{ paused ? '恢复后依次发送' : '小索回复后依次发送' }}</span>
+      <span class="flex-1" />
+      <ChevronDownIcon
+        class="size-3.5 shrink-0 text-muted-foreground transition-transform"
+        :class="open ? '' : '-rotate-90'" />
+    </button>
 
-          <!--
-            文本内容与 Tooltip：
-            原计划复用 QueueItemContent，但 reka-ui 的 TooltipTrigger as-child
-            通过 <Slot> primitive 把事件 + DOM ref 注入子元素，要求子元素能 forward DOM ref。
-            Vue 3 自定义组件默认 ref 指向组件实例（非 DOM 节点），QueueItemContent 未做 ref 转发，
-            作为 as-child 子元素时 Tooltip 定位失败。
-            按 spec §6.4 不改第三方 ai-elements 组件，直接用原生 span + 复制 line-clamp 等样式 class。
-          -->
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger as-child>
-                <span class="line-clamp-1 grow break-words text-muted-foreground min-w-0 cursor-default">
-                  {{ truncate(item.text) }}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent class="max-w-md">
-                <div class="text-xs whitespace-pre-wrap">{{ item.text }}</div>
-                <div v-if="item.files?.length" class="mt-1 text-[10px] text-muted-foreground">
-                  附件：{{ item.files.map(f => f.fileName).join('、') }}
-                </div>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+    <!-- 队列条目 -->
+    <ul v-if="open" class="flex list-none flex-col gap-0.5 border-t border-border p-1">
+      <li
+        v-for="(item, index) in queue"
+        :key="item.id"
+        class="flex items-center gap-2 rounded-md px-2 py-[5px] transition-colors hover:bg-muted/45">
+        <!-- 队头转圈（即将派发）/ 序号 -->
+        <Loader2Icon
+          v-if="!paused && index === 0"
+          class="size-3.5 shrink-0 animate-spin text-primary" />
+        <span
+          v-else
+          class="inline-flex h-4 min-w-[22px] shrink-0 items-center justify-center rounded-[4px] bg-secondary px-[5px] text-[9.5px] font-semibold text-muted-foreground">
+          #{{ index + 1 }}
+        </span>
 
-          <!-- 附件数量 badge（紧凑：h-5→h-4） -->
-          <Badge v-if="item.files?.length" variant="outline" class="shrink-0 h-4 text-[9px] px-1">
-            <PaperclipIcon class="size-2.5" />
-            {{ item.files.length }}
-          </Badge>
+        <!-- 文本 -->
+        <span class="min-w-0 flex-1 truncate text-xs text-muted-foreground">{{ item.text }}</span>
 
-          <!-- 深度思考标记（带 testid 供测试选取，放在 wrapper span 上避免依赖 lucide attrs 透传） -->
-          <span v-if="item.thinking" data-testid="queue-brain-icon" class="inline-flex shrink-0">
-            <BrainIcon class="size-3 text-primary" />
-          </span>
+        <!-- 附件数 -->
+        <span
+          v-if="item.files?.length"
+          class="inline-flex shrink-0 items-center gap-0.5 rounded-[4px] border border-border px-[5px] py-px text-[9.5px] font-semibold text-muted-foreground">
+          <PaperclipIcon class="size-2.5" />{{ item.files.length }}
+        </span>
 
-          <!-- 删除按钮：包在 QueueItemActions 里，hover 才显示（QueueItemAction 自带行为） -->
-          <QueueItemActions class="shrink-0">
-            <QueueItemAction
-              class="!size-5"
-              data-testid="queue-remove"
-              @click="emit('remove', item.id)"
-            >
-              <XIcon class="size-2.5" />
-            </QueueItemAction>
-          </QueueItemActions>
-        </QueueItem>
-      </Queue>
-    </div>
+        <!-- 深度思考标记 -->
+        <BrainIcon
+          v-if="item.thinking"
+          data-testid="queue-brain-icon"
+          class="size-3 shrink-0 text-primary" />
+
+        <!-- 取消 -->
+        <button
+          type="button"
+          data-testid="queue-remove"
+          aria-label="取消发送"
+          title="取消发送"
+          class="inline-flex size-5 shrink-0 items-center justify-center rounded-[4px] text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
+          @click="emit('remove', item.id)">
+          <XIcon class="size-3" />
+        </button>
+      </li>
+    </ul>
   </div>
 </template>

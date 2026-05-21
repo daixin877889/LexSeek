@@ -63,7 +63,7 @@ describe('assistantSession.service', () => {
 
     it('generateSessionTitleAsync 失败不抛出', async () => {
         await expect(
-            generateSessionTitleAsync('not-exist', 99999, 'u', 'a'),
+            generateSessionTitleAsync('not-exist', 99999, 'u'),
         ).resolves.not.toThrow()
     })
 
@@ -74,7 +74,7 @@ describe('assistantSession.service', () => {
         const session = await createAssistantSessionService(user.id, '手动设置')
         testIds.sessionIds.push(session.sessionId)
 
-        await generateSessionTitleAsync(session.sessionId, user.id, 'q', 'a')
+        await generateSessionTitleAsync(session.sessionId, user.id, 'q')
 
         const row = await getTestPrisma().caseSessions.findFirst({
             where: { sessionId: session.sessionId },

@@ -13,6 +13,7 @@ import { logContextOverflow } from '~~/server/services/agent-platform/context/co
 import { extractFirstJsonObject, summarizeJsonShape } from '~~/server/services/assistant/contract/utils/llmJson'
 import { assembleSystemPromptTemplate } from '~~/server/services/agent-platform/nodeConfig/promptRenderer'
 import { withLangfuseContext } from '~~/server/lib/langfuse'
+import { getTokenCount } from '~~/server/services/agent-platform/middleware/pointConsumption.middleware'
 
 export interface InvokeNodeJsonOptions<T> {
     /** nodes 表 name 字段 */
@@ -30,6 +31,17 @@ export interface InvokeNodeJsonOptions<T> {
     errorPrefix: string
     /** 透传到 logger.warn / logContextOverflow.extra 的诊断字段 */
     logContext?: Record<string, unknown>
+    /**
+     * M11：透传 AbortSignal 到 model.invoke。用户在最耗时的逐条分析阶段点取消 / 超时时，
+     * 底层 LLM 请求随之中断，不再继续烧 token。缺省时表示该次调用不可取消。
+     */
+    signal?: AbortSignal
+    /**
+     * V1：每次底层 model.invoke 成功后回调本次调用的 token 用量（含 schema 重试时多次
+     * 调用各报一次）。invokeNodeJson 不经过 createAgent 的 pointConsumptionMiddleware，
+     * token 用量必须由此回调透出，调用方累计后扣积分，否则该路径完全漏计。
+     */
+    onTokenUsage?: (tokens: number) => void
 }
 
 /** 顶部 const，不暴露 API（spec §2.2 YAGNI 原则） */
@@ -68,7 +80,7 @@ export async function invokeNodeJson<T>(opts: InvokeNodeJsonOptions<T>): Promise
 }
 
 async function invokeNodeJsonInner<T>(opts: InvokeNodeJsonOptions<T>): Promise<T> {
-    const { nodeName, temperature, schema, buildPrompt, errorPrefix, logContext = {} } = opts
+    const { nodeName, temperature, schema, buildPrompt, errorPrefix, logContext = {}, signal, onTokenUsage } = opts
 
     const config = await getValidNodeConfig(nodeName)
     const activeKey = config.modelApiKeys.find(k => k.status === 1)
@@ -124,6 +136,7 @@ async function invokeNodeJsonInner<T>(opts: InvokeNodeJsonOptions<T>): Promise<T
             // JSON 代码块就是这条路径泄漏的，必须靠 tag 阻断。
             response = await model.invoke(currentPrompt, {
                 tags: ['langsmith:nostream', 'langfuse:nostream', 'internal'],
+                signal,
             })
         } catch (err) {
             // LLM invoke 抛错：不 retry，直接抛
@@ -136,6 +149,9 @@ async function invokeNodeJsonInner<T>(opts: InvokeNodeJsonOptions<T>): Promise<T
             })
             throw err
         }
+
+        // V1：本次模型调用消耗的 token 上报给调用方（schema 重试时每次调用各报一次）
+        onTokenUsage?.(getTokenCount(response))
 
         const content = typeof response.content === 'string' ? response.content : ''
 

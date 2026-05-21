@@ -1,5 +1,5 @@
 <template>
-  <div class="@container/prompt flex size-full flex-col justify-end relative p-4 @max-[500px]:p-0" ref="dropZoneRef">
+  <div class="@container/prompt flex size-full flex-col justify-end relative px-4 pb-4 @max-[500px]:p-0" ref="dropZoneRef">
     <div class="px-0 relative">
       <!-- 全屏拖拽覆盖层 -->
       <Transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0 scale-95"
@@ -19,7 +19,7 @@
       <PromptInputProvider @submit="handleSubmit">
         <InternalStateSync />
         <PromptInput global-drop multiple
-          class="**:data-[slot=input-group]:shadow-none **:data-[slot=input-group]:border-primary **:data-[slot=input-group]:rounded-md transition-all">
+          class="**:data-[slot=input-group]:border-primary/35 **:data-[slot=input-group]:rounded-[14px] **:data-[slot=input-group]:shadow-md **:data-[slot=input-group]:shadow-primary/15 transition-all">
           <!-- 头部：自定义文件列表 -->
           <PromptInputHeader v-if="enableFileUpload && (selectedFiles.length > 0 || uploadingFiles.length > 0)">
             <div class="flex flex-wrap items-center gap-2 pt-3 pb-1 px-1 w-full">
@@ -99,7 +99,10 @@
           </PromptInputHeader>
           <!-- 中间部分 -->
           <PromptInputBody>
-            <PromptInputTextarea :placeholder="placeholder" :min-rows="minRows" :max-rows="maxRows"
+            <PromptInputTextarea
+              :placeholder="props.isInterrupted ? '请先回应上方的请求' : placeholder"
+              :disabled="props.disabled || props.isInterrupted"
+              :min-rows="minRows" :max-rows="maxRows"
               :class="['px-4 @max-[500px]:px-3', selectedFiles.length > 0 ? 'pt-0' : 'pt-6 @max-[500px]:pt-4']" />
           </PromptInputBody>
           <!-- 底部 -->
@@ -118,10 +121,18 @@
                 <Tooltip>
                   <TooltipTrigger as-child>
                     <PromptInputButton variant="ghost"
-                      :class="['transition-colors @max-[500px]:h-7 @max-[500px]:px-2', thinking ? 'text-primary hover:bg-primary/5' : 'text-muted-foreground hover:bg-muted/50']"
+                      :class="['transition-colors @max-[500px]:h-7 @max-[500px]:px-2', thinking ? 'bg-primary/[0.12] text-primary hover:bg-primary/[0.15] hover:text-primary' : 'text-muted-foreground hover:bg-muted/50']"
                       @click="thinking = !thinking">
                       <BrainIcon :size="16" />
                       深度思考
+                      <!-- 深度思考开关（对齐设计稿的滑动开关） -->
+                      <span
+                        class="relative ml-0.5 h-4 w-7 shrink-0 rounded-full transition-colors"
+                        :class="thinking ? 'bg-primary' : 'bg-muted-foreground/35'">
+                        <span
+                          class="absolute top-0.5 size-3 rounded-full bg-white shadow-sm transition-all"
+                          :class="thinking ? 'left-3.5' : 'left-0.5'" />
+                      </span>
                     </PromptInputButton>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -135,7 +146,7 @@
               <!-- 非 loading 态：使用原有 PromptInputSubmit（承担 type=submit 原生提交） -->
               <PromptInputSubmit
                 v-if="!loading"
-                class="h-9 px-4! rounded-md shadow-lg shadow-primary/20 active:scale-95 transition-all @max-[500px]:h-7 @max-[500px]:px-2!"
+                class="h-9 px-4! rounded-md bg-gradient-brand-button text-white shadow-lg shadow-primary/20 active:scale-95 transition-all @max-[500px]:h-7 @max-[500px]:px-2!"
                 :status="submitStatus"
                 :disabled="isSendDisabled"
                 size="xs"
@@ -146,9 +157,10 @@
                 <span v-if="submitLabel" class="ml-1">{{ submitLabel }}</span>
               </PromptInputSubmit>
 
-              <!-- loading 态：独立的停止 + 加入队列双按钮 -->
+              <!-- loading && !isInterrupted：停止 + 加入队列双按钮 -->
               <!-- 原 @stop="emit('stop')" 是死代码（PromptInputSubmit 未声明 stop emit），此处用独立 Button 替代 -->
-              <div v-else class="flex items-center gap-1.5 @max-[500px]:gap-1">
+              <!-- loading && isInterrupted：不显示任何按钮（中断态由卡片自带操作）-->
+              <div v-else-if="!props.isInterrupted" class="flex items-center gap-1.5 @max-[500px]:gap-1">
                 <!-- 停止按钮：destructive 变体（红色突出）+ icon-sm 方形图标按钮
                      让用户一眼识别危险/中止操作；isStopping=true 时禁用防止重复点击 -->
                 <Button
@@ -251,10 +263,18 @@ const props = withDefaults(defineProps<{
   queueFull?: boolean
   /** 停止中状态，true 时停止按钮置灰禁用（防止重复点击） */
   isStopping?: boolean
+  /** 中断态（AI 在等用户回应中断卡片）。true 时:
+   *  - 输入框 disabled
+   *  - 不显示停止按钮 + 加入队列按钮
+   *  - placeholder 切换为 "请先回应上方的请求"
+   *  spec §5.3 / §7.3
+   */
+  isInterrupted?: boolean
 }>(), {
   placeholder: '输入消息...',
   loading: false,
   disabled: false,
+  isInterrupted: false,
   enableFileUpload: true,
   showThinkingToggle: true,
   minRows: 1,

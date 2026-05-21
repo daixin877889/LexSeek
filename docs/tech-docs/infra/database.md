@@ -11,7 +11,7 @@ LexSeek 使用 PostgreSQL 数据库 + Prisma ORM，采用模块化 schema 拆分
 ```
 prisma/
 ├── schema.prisma          # 主配置（generator + datasource）
-├── models/                # 模块化模型（28 个 .prisma 文件）
+├── models/                # 模块化模型（29 个 .prisma 文件）
 │   ├── user.prisma
 │   ├── case.prisma
 │   ├── membership.prisma
@@ -79,27 +79,27 @@ export default defineConfig({
 
 ## 3. 迁移流程
 
-### 开发阶段：`prisma:push`
+### 正式变更唯一入口：`prisma:migrate`
+
+```bash
+bun run prisma:migrate --name <描述性_英文_小写_下划线分隔>
+```
+
+等价于 `prisma migrate dev`。任何数据库结构变更（表 / 列 / 索引 / 枚举 / 约束）**必须**先改 `prisma/models/*.prisma`，再通过此命令生成正式迁移文件——迁移文件落入 `prisma/migrations/<timestamp>_<name>/migration.sql` 并随 git 提交，生产 / 预发用 `bun run prisma:deploy` 自动应用。这是多环境 schema 同步的唯一权威源。
+
+详见 `.claude/rules/database.md` 的强制规则。
+
+### `prisma:push` 仅用于临时验证
 
 ```bash
 bun run prisma:push
 ```
 
-直接将当前 schema 推送到数据库，不生成迁移文件。适用于：
-- 快速原型开发
-- 频繁修改模型
+直接将当前 schema 推送到数据库，不生成迁移文件。**仅允许临时验证 schema 想法**——不可作为正式变更，不可 commit 后让他人跟随。
+
+**禁止**用 `db push` 做正式 schema 变更：它无法被 CI / 生产部署自动识别，会造成 schema 漂移、`prisma migrate status` 报 "drift detected"。正式变更一律走 `prisma migrate dev`。
 
 **注意**：`prisma:push` 可能导致数据丢失（如删除列），使用前确认。
-
-### 生产阶段：`prisma:migrate`
-
-```bash
-bun run prisma:migrate
-```
-
-生成和执行迁移文件，记录变更历史。适用于：
-- 生产环境部署
-- 需要回滚能力的场景
 
 ### 生成客户端
 
@@ -188,36 +188,22 @@ afterEach(async () => {
 })
 ```
 
-#### 全局清理 (`tests/global-teardown.ts`)
+#### worker 级 DB 隔离基建 (`tests/_infra/`)
 
-所有测试文件执行完毕后，全局清理函数使用原生 SQL 按前缀批量删除残留数据：
+测试套件采用 **database-per-worker** 物理隔离，相关基建集中在 `tests/_infra/`：
 
-```typescript
-export async function teardown() {
-    const client = new pg.Client({ connectionString })
-    await client.connect()
+| 文件 | 职责 |
+|------|------|
+| `global-setup.ts` | master 进程执行一次：准备 template DB（指纹缓存命中则跳过）、按 worker 数预创建 `ls_test_w*` 库（`CREATE DATABASE ... TEMPLATE` 物理拷贝）；teardown 阶段 DROP 所有 worker DB |
+| `template-db.ts` | 构建 / 维护测试模板库（schema + seed 快照），供 worker 库拷贝 |
+| `worker-prisma.ts` | 为当前 worker 解析对应的 worker DB 连接串并构造 Prisma 客户端 |
+| `worker-setup.ts` | 每个 worker 进程加载一次（`vitest.config.ts` 的 `setupFiles`），把 `globalThis.prisma` 指向当前 worker 专属 DB |
 
-    // 按 test_ 前缀清理 nodes, prompts, models 等
-    await client.query(`
-        DELETE FROM prompts WHERE node_id IN
-            (SELECT id FROM nodes WHERE name LIKE 'test_node_%');
-        DELETE FROM nodes WHERE name LIKE 'test_node_%';
-        DELETE FROM models WHERE name LIKE 'test_model_%';
-        -- ...
-    `)
-}
-```
-
-清理规则：
-- 节点名称以 `test_node_` 或 `node_test_` 开头
-- 模型名称以 `test_model_` 开头
-- 提供商名称以 `test_provider_` 或 `测试提供商_` 开头
-- 案件类型以 `测试类型_` 开头
-- 提示词以 `test_` 开头
+每个 worker 拥有独立物理数据库，测试间天然无数据污染，无需依赖前缀清理来隔离并发。
 
 #### 测试数据命名约定
 
-为确保全局清理能正确识别测试数据：
+为避免同一 worker 内多个测试文件互相干扰：
 - 测试创建的节点：名称使用 UUID（`crypto.randomUUID()`）或 `test_` 前缀
 - 测试创建的模型/提供商：使用 `test_` 前缀
 - 严禁使用硬编码的短名称（如 `test1`），可能与其他测试冲突
@@ -243,8 +229,9 @@ const createGlobalPrisma = () => {
 - 环境变量通过 `dotenv` 从 `.env.testing` 加载
 - 使用与生产环境相同的 `TimeZone=UTC` 设置
 - `testTimeout` 设置为 120000ms（2 分钟），因为数据库操作可能较慢
-- `fileParallelism: false`，测试文件串行执行，避免数据库并发冲突
-- `globalSetup: ['./tests/global-teardown.ts']`，所有测试完成后执行全局清理
+- `fileParallelism: true`，测试文件并行执行；database-per-worker 隔离已避免数据库并发冲突
+- `globalSetup: ['./tests/_infra/global-setup.ts']`，套件启动时准备模板库与 worker 库，结束时统一 DROP
+- `setupFiles: ['./tests/_infra/worker-setup.ts']`，每个 worker 加载一次，注入指向 worker 专属 DB 的 `prisma`
 
 ---
 

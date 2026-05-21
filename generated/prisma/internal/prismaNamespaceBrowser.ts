@@ -81,6 +81,7 @@ export const ModelName = {
   legalMain: 'legalMain',
   legalArticles: 'legalArticles',
   lawEmbeddings: 'lawEmbeddings',
+  legal_search_logs: 'legal_search_logs',
   textContentRecords: 'textContentRecords',
   membershipLevels: 'membershipLevels',
   userMemberships: 'userMemberships',
@@ -102,6 +103,10 @@ export const ModelName = {
   pointConsumptionItems: 'pointConsumptionItems',
   pointConsumptionRecords: 'pointConsumptionRecords',
   products: 'products',
+  lprRates: 'lprRates',
+  pbocDepositRates: 'pbocDepositRates',
+  pbocLoanRates: 'pbocLoanRates',
+  lprSyncLogs: 'lprSyncLogs',
   roles: 'roles',
   roleRouters: 'roleRouters',
   userRoles: 'userRoles',
@@ -288,6 +293,7 @@ export const CasesScalarFieldEnum = {
   secondInstanceJudge: 'secondInstanceJudge',
   status: 'status',
   isDemo: 'isDemo',
+  stance: 'stance',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'
@@ -318,6 +324,7 @@ export const CaseMaterialsScalarFieldEnum = {
   id: 'id',
   caseId: 'caseId',
   draftId: 'draftId',
+  sessionId: 'sessionId',
   name: 'name',
   type: 'type',
   ossFileId: 'ossFileId',
@@ -479,6 +486,7 @@ export const ContractRisksScalarFieldEnum = {
   problem: 'problem',
   legalBasis: 'legalBasis',
   analysis: 'analysis',
+  risk: 'risk',
   suggestion: 'suggestion',
   suggestedClauseText: 'suggestedClauseText',
   archivedStatus: 'archivedStatus',
@@ -495,7 +503,8 @@ export const ContractRisksScalarFieldEnum = {
   originalClauseText: 'originalClauseText',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  orphaned: 'orphaned'
+  orphaned: 'orphaned',
+  clientRedlineDecision: 'clientRedlineDecision'
 } as const
 
 export type ContractRisksScalarFieldEnum = (typeof ContractRisksScalarFieldEnum)[keyof typeof ContractRisksScalarFieldEnum]
@@ -546,7 +555,9 @@ export const DocumentDraftsScalarFieldEnum = {
   caseId: 'caseId',
   sessionId: 'sessionId',
   templateId: 'templateId',
+  mode: 'mode',
   values: 'values',
+  content: 'content',
   sourceRef: 'sourceRef',
   metadata: 'metadata',
   outputFileId: 'outputFileId',
@@ -567,6 +578,7 @@ export const DocumentDraftSnapshotsScalarFieldEnum = {
   draftId: 'draftId',
   source: 'source',
   values: 'values',
+  content: 'content',
   aiTitle: 'aiTitle',
   createdAt: 'createdAt'
 } as const
@@ -580,6 +592,7 @@ export const DocumentDraftVersionsScalarFieldEnum = {
   versionNo: 'versionNo',
   name: 'name',
   values: 'values',
+  content: 'content',
   titleAt: 'titleAt',
   createdAt: 'createdAt'
 } as const
@@ -666,6 +679,19 @@ export const LawEmbeddingsScalarFieldEnum = {
 } as const
 
 export type LawEmbeddingsScalarFieldEnum = (typeof LawEmbeddingsScalarFieldEnum)[keyof typeof LawEmbeddingsScalarFieldEnum]
+
+
+export const Legal_search_logsScalarFieldEnum = {
+  id: 'id',
+  scope: 'scope',
+  keyword: 'keyword',
+  userId: 'userId',
+  resultCount: 'resultCount',
+  resultIds: 'resultIds',
+  createdAt: 'createdAt'
+} as const
+
+export type Legal_search_logsScalarFieldEnum = (typeof Legal_search_logsScalarFieldEnum)[keyof typeof Legal_search_logsScalarFieldEnum]
 
 
 export const TextContentRecordsScalarFieldEnum = {
@@ -1007,7 +1033,9 @@ export const PointConsumptionItemsScalarFieldEnum = {
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt',
-  discount: 'discount'
+  discount: 'discount',
+  billingMode: 'billingMode',
+  displayName: 'displayName'
 } as const
 
 export type PointConsumptionItemsScalarFieldEnum = (typeof PointConsumptionItemsScalarFieldEnum)[keyof typeof PointConsumptionItemsScalarFieldEnum]
@@ -1023,6 +1051,9 @@ export const PointConsumptionRecordsScalarFieldEnum = {
   status: 'status',
   sourceId: 'sourceId',
   remark: 'remark',
+  operationId: 'operationId',
+  contextLabel: 'contextLabel',
+  usageAmount: 'usageAmount',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'
@@ -1058,6 +1089,73 @@ export const ProductsScalarFieldEnum = {
 } as const
 
 export type ProductsScalarFieldEnum = (typeof ProductsScalarFieldEnum)[keyof typeof ProductsScalarFieldEnum]
+
+
+export const LprRatesScalarFieldEnum = {
+  id: 'id',
+  effectDate: 'effectDate',
+  oneYear: 'oneYear',
+  fiveYear: 'fiveYear',
+  remark: 'remark',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type LprRatesScalarFieldEnum = (typeof LprRatesScalarFieldEnum)[keyof typeof LprRatesScalarFieldEnum]
+
+
+export const PbocDepositRatesScalarFieldEnum = {
+  id: 'id',
+  effectDate: 'effectDate',
+  demand: 'demand',
+  threeMonths: 'threeMonths',
+  sixMonths: 'sixMonths',
+  oneYear: 'oneYear',
+  twoYear: 'twoYear',
+  threeYear: 'threeYear',
+  fiveYear: 'fiveYear',
+  remark: 'remark',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type PbocDepositRatesScalarFieldEnum = (typeof PbocDepositRatesScalarFieldEnum)[keyof typeof PbocDepositRatesScalarFieldEnum]
+
+
+export const PbocLoanRatesScalarFieldEnum = {
+  id: 'id',
+  effectDate: 'effectDate',
+  sixMonths: 'sixMonths',
+  oneYear: 'oneYear',
+  oneToFiveYear: 'oneToFiveYear',
+  fiveYear: 'fiveYear',
+  remark: 'remark',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type PbocLoanRatesScalarFieldEnum = (typeof PbocLoanRatesScalarFieldEnum)[keyof typeof PbocLoanRatesScalarFieldEnum]
+
+
+export const LprSyncLogsScalarFieldEnum = {
+  id: 'id',
+  startedAt: 'startedAt',
+  finishedAt: 'finishedAt',
+  status: 'status',
+  triggeredBy: 'triggeredBy',
+  rangeStart: 'rangeStart',
+  rangeEnd: 'rangeEnd',
+  fetchedCount: 'fetchedCount',
+  insertedCount: 'insertedCount',
+  errorMessage: 'errorMessage',
+  operatorId: 'operatorId',
+  createdAt: 'createdAt'
+} as const
+
+export type LprSyncLogsScalarFieldEnum = (typeof LprSyncLogsScalarFieldEnum)[keyof typeof LprSyncLogsScalarFieldEnum]
 
 
 export const RolesScalarFieldEnum = {
@@ -1226,6 +1324,7 @@ export const RedemptionCodesScalarFieldEnum = {
   expiredAt: 'expiredAt',
   status: 'status',
   remark: 'remark',
+  createdBy: 'createdBy',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'
@@ -1363,11 +1462,13 @@ export const UsersScalarFieldEnum = {
   status: 'status',
   company: 'company',
   profile: 'profile',
+  contractExportSignature: 'contractExportSignature',
   inviteCode: 'inviteCode',
   invitedBy: 'invitedBy',
   openid: 'openid',
   unionid: 'unionid',
   registerChannel: 'registerChannel',
+  apiKey: 'apiKey',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'

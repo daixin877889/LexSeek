@@ -27,6 +27,7 @@ import { getDocumentDraftDAO, updateDocumentDraftDAO } from './documentDraft.dao
 import { getDocumentTemplateDAO } from './documentTemplate.dao'
 import { getVersionByIdDAO } from './documentDraftVersion.dao'
 import { extractDocxtemplaterErrorDetail } from './docxtemplaterError.util'
+import { buildStorageKey } from '~~/server/utils/storagePath'
 import type { ExportDraftResponse } from '#shared/types/document'
 
 /** 导出错误响应 */
@@ -85,7 +86,12 @@ async function renderAndUploadDocx(params: {
     }
 
     // 5. 并行上传 + 获取存储配置
-    const ossPath = `users/${userId}/document-exports/${Date.now()}_${safeBaseName}.docx`
+    const ossPath = buildStorageKey({
+        scope: 'user',
+        userId,
+        source: FileSource.DOCUMENT_EXPORT,
+        fileName: `${Date.now()}_${safeBaseName}.docx`,
+    })
     const [uploadResult, storageConfig] = await Promise.all([
         uploadFileService(ossPath, renderedBuffer, {
             contentType: DOCX_MIME,
@@ -132,6 +138,9 @@ export async function exportDraftService(
     const draft = await getDocumentDraftDAO(draftId)
     if (!draft) return { error: '草稿不存在', code: 404 }
     if (draft.userId !== userId) return { error: '无权导出此草稿', code: 403 }
+    if (draft.templateId == null) {
+        return { error: '自由文书暂不支持导出为 docx', code: 400 }
+    }
     if (draft.status !== 'ready' && draft.status !== 'exported') {
         return { error: '草稿未就绪，无法导出', code: 400 }
     }
@@ -174,6 +183,9 @@ export async function exportVersionByIdService(
     const draft = await getDocumentDraftDAO(version.draftId)
     if (!draft) return { error: '草稿不存在', code: 404 }
     if (draft.userId !== userId) return { error: '无权导出此版本', code: 403 }
+    if (draft.templateId == null) {
+        return { error: '自由文书暂不支持导出为 docx', code: 400 }
+    }
 
     // 3. 渲染 + 上传（文件名：titleAt-name）
     return renderAndUploadDocx({

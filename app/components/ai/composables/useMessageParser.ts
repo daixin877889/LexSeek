@@ -1,6 +1,7 @@
 import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages'
 import type { BaseMessage } from '@langchain/core/messages'
 import type { ExtendedToolState } from '~/components/ai-elements/types'
+import { splitAttachmentSentinel } from '#shared/utils/attachmentSentinel'
 
 // --- Types ---
 
@@ -47,8 +48,6 @@ export interface ParsedMessage {
 }
 
 // --- Helpers ---
-
-const ATTACH_SENTINEL = '__ATTACHMENTS__\n'
 
 interface ParsedHumanContent {
   attachments?: ParsedAttachment[]
@@ -129,24 +128,13 @@ function parseHumanContent(m: any): ParsedHumanContent {
     if (filtered.length) attachments = filtered
   }
 
-  let rawContent = typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
-  if (rawContent.startsWith(ATTACH_SENTINEL)) {
-    const newlineIdx = rawContent.indexOf('\n', ATTACH_SENTINEL.length)
-    const sentinelJson = newlineIdx === -1
-      ? rawContent.slice(ATTACH_SENTINEL.length)
-      : rawContent.slice(ATTACH_SENTINEL.length, newlineIdx)
-    if (!attachments) {
-      try {
-        const arr = JSON.parse(sentinelJson)
-        if (Array.isArray(arr)) {
-          const filtered = arr.filter(isParsedAttachment)
-          if (filtered.length) attachments = filtered
-        }
-      } catch {
-        // sentinel JSON parse 失败，忽略
-      }
-    }
-    rawContent = newlineIdx === -1 ? '' : rawContent.slice(newlineIdx + 1).replace(/^\n+/, '')
+  // sentinel 解析下沉到 shared splitAttachmentSentinel（前端 / 服务端共用一份）。
+  // 优先级：additional_kwargs.attachments 已命中则保留，否则回退 sentinel 解析结果。
+  const rawInput = typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
+  const split = splitAttachmentSentinel(rawInput)
+  const rawContent = split.rawContent
+  if (!attachments && split.attachments.length > 0) {
+    attachments = split.attachments
   }
 
   const result: ParsedHumanContent = { attachments, rawContent }

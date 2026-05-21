@@ -20,6 +20,7 @@ import {
 import { embedDocumentService } from './materialEmbedding.service'
 import mammoth from 'mammoth'
 import { processAllImagesInMarkdown } from './imageProcessor'
+import { sanitizeRichHtml } from '~~/server/utils/htmlSanitizer'
 
 /** DOCX 识别结果 */
 export interface DocxRecognitionResult {
@@ -140,7 +141,8 @@ export const recognizeDocxService = async (
             gfm: true,
             breaks: true,
         })
-        const htmlContent = await marked.parse(markdownContent)
+        // 净化 marked 输出，防止存储型 XSS
+        const htmlContent = sanitizeRichHtml(await marked.parse(markdownContent))
 
         // 7. 创建或更新识别记录
         let docRecord: docRecognitionRecords

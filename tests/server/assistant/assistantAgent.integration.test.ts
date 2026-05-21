@@ -69,7 +69,7 @@ describe('runAssistantChat - 集成', () => {
             update: { modelId: model.id, status: 1 },
             create: {
                 name: 'assistantMain',
-                title: '通用法律助手主Agent',
+                title: '通用问答主Agent',
                 description: '无案件上下文的法律问答与工具调用',
                 type: 'agent',
                 modelId: model.id,
@@ -102,8 +102,8 @@ describe('runAssistantChat - 集成', () => {
                 await prisma.prompts.create({
                     data: {
                         name: 'assistantMain_system',
-                        title: '通用法律助手系统提示词 v1',
-                        content: '你是 LexSeek 的通用法律助手。',
+                        title: '通用问答系统提示词 v1',
+                        content: '你是 LexSeek 的通用问答。',
                         version: '1.0',
                         type: 'system',
                         status: 1,

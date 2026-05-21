@@ -2,7 +2,7 @@
 
 `server/services/agent-platform/` 是 LexSeek 自研的 LangGraph 适配层，承担"业务 vertical 声明配置 → 平台拼装中间件/工具/SSE → 调用 LangChain createAgent 或自定义 StateGraph"的职责。
 
-它是 LexSeek 所有 AI 对话能力（案件分析、合同审查、文书起草、法律助手）共同的基座。
+它是 LexSeek 所有 AI 对话能力（案件分析、合同审查、文书起草、通用问答）共同的基座。
 
 ---
 

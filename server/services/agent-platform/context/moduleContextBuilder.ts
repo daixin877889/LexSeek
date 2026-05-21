@@ -88,6 +88,7 @@ export async function buildContextSegments(params: Params): Promise<ContextSegme
         courtName: true,
         firstInstanceCaseNo: true, secondInstanceCaseNo: true,
         firstInstanceJudge: true, secondInstanceJudge: true,
+        stance: true,
       },
     }),
     prisma.caseAnalyses.findMany({
@@ -109,8 +110,9 @@ export async function buildContextSegments(params: Params): Promise<ContextSegme
     return { roleAndFlow: '', caseProfile: '', moduleSummaries: '', dynamicContext: '' }
   }
 
-  // ② 角色+流程
-  const roleAndFlow = roleAndFlowTemplate ?? ''
+  // ② 角色+流程（追加立场使用说明，让分析子代理按 caseProfile.stance 切换视角）
+  const stanceGuide = `\n\n## 立场约束\n请以案件档案中 \`stance\` 字段作为分析视角：\`plaintiff\`=站在原告角度论证主张并反驳被告抗辩；\`defendant\`=站在被告角度组织抗辩并反驳原告主张；\`neutral\`=客观中立同时分析双方立场。`
+  const roleAndFlow = (roleAndFlowTemplate ?? '') + stanceGuide
 
   // ③ 案件档案（字段字典序 → 稳定 cache）
   const profile = {
@@ -123,6 +125,7 @@ export async function buildContextSegments(params: Params): Promise<ContextSegme
     plaintiff: (caseRecord.plaintiff as string[] | null) ?? [],
     secondInstanceCaseNo: caseRecord.secondInstanceCaseNo ?? '',
     secondInstanceJudge: caseRecord.secondInstanceJudge ?? '',
+    stance: caseRecord.stance ?? 'plaintiff',
     status: caseRecord.status,
     summary: caseRecord.summary ?? '',
     title: caseRecord.title,
@@ -207,7 +210,7 @@ export interface BuiltSystemPrompt {
  * - subAgentToolFactory（ask_*_expert 子 Agent）
  * - runAnalysisSubAgent（案件分析子 Agent）
  * - contractReviewMainAgent（合同审查主 Agent，本次改造非目标范围 spec §2.2）
- * - assistantAgent（法律助手主 Agent，caseId 永远 null，本次改造非目标）
+ * - assistantAgent（通用问答主 Agent，caseId 永远 null，本次改造非目标）
  *
  * 一站式构建 agent 的 SystemMessage：
  * buildContextSegments → toCachedPrompt → 按 sdkType 分流（anthropic content blocks

@@ -81,8 +81,9 @@ tech-docs/
 │   ├── storage-oss.md                 # 存储服务（阿里云 OSS）
 │   └── deployment.md                 # 部署与构建
 └── guides/                            # 开发指南
-    ├── pitfalls.md                    # 常见陷阱
+    ├── contract-m5-manual-validation.md  # 合同审查 M5 人工验收清单
     ├── new-module-checklist.md        # 新模块开发清单
+    ├── pitfalls.md                    # 常见陷阱
     └── testing-strategy.md            # 测试策略
 ```
 

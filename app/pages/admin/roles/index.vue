@@ -1,12 +1,12 @@
 <template>
-    <div class="space-y-6">
+    <div class="theme-brand space-y-6">
       <!-- 页面标题 -->
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 class="text-2xl md:text-3xl font-bold mb-1">角色管理</h1>
           <p class="text-muted-foreground text-sm">管理系统角色，配置角色权限</p>
         </div>
-        <Button @click="navigateTo('/admin/roles/create')" class="w-full md:w-auto">
+        <Button :class="['w-full md:w-auto', adminBrandPrimaryButtonClass]" @click="navigateTo('/admin/roles/create')">
           <Plus class="h-4 w-4 mr-2" />
           创建角色
         </Button>
@@ -14,18 +14,18 @@
 
       <!-- 搜索和筛选 -->
       <div class="flex flex-col md:flex-row gap-4">
-        <Input v-model="searchKeyword" placeholder="搜索角色名称或标识..." class="md:max-w-sm" @keyup.enter="handleSearch" />
+        <Input v-model="searchKeyword" placeholder="搜索角色名称或标识..." :class="['md:max-w-sm', adminBrandFocusClass]" @keyup.enter="handleSearch" />
         <Select v-model="statusFilter">
-          <SelectTrigger class="w-full md:w-32">
+          <SelectTrigger :class="['w-full md:w-32', adminBrandFocusClass]">
             <SelectValue placeholder="状态" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent class="theme-brand">
             <SelectItem value="all">全部状态</SelectItem>
             <SelectItem value="1">启用</SelectItem>
             <SelectItem value="0">禁用</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline" @click="handleSearch">
+        <Button variant="outline" :class="adminBrandFocusClass" @click="handleSearch">
           <Search class="h-4 w-4 mr-2" />
           搜索
         </Button>
@@ -41,7 +41,7 @@
         <Shield class="h-12 w-12 text-muted-foreground/50 mb-4" />
         <h3 class="text-lg font-medium mb-1">暂无角色数据</h3>
         <p class="text-muted-foreground text-sm mb-4">点击上方按钮创建第一个角色</p>
-        <Button @click="navigateTo('/admin/roles/create')">
+        <Button :class="adminBrandPrimaryButtonClass" @click="navigateTo('/admin/roles/create')">
           <Plus class="h-4 w-4 mr-2" />
           创建角色
         </Button>
@@ -51,67 +51,64 @@
       <template v-else>
         <!-- 桌面端表格 -->
         <div class="bg-card rounded-lg border overflow-hidden hidden md:block">
-          <div class="overflow-x-auto">
-            <table class="w-full">
-              <thead>
-                <tr class="border-b bg-muted/50">
-                  <th class="px-4 py-3 text-left text-sm font-medium">角色名称</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium">角色标识</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium">描述</th>
-                  <th class="px-4 py-3 text-center text-sm font-medium">状态</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium">创建时间</th>
-                  <th class="px-4 py-3 text-center text-sm font-medium">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="role in roles" :key="role.id"
-                  class="border-b last:border-b-0 hover:bg-muted/30 transition-colors">
+          <Table>
+            <TableHeader>
+              <TableRow class="bg-muted/50 hover:bg-muted/50">
+                <TableHead class="px-4 py-3">角色名称</TableHead>
+                <TableHead class="px-4 py-3">角色标识</TableHead>
+                <TableHead class="px-4 py-3">描述</TableHead>
+                <TableHead class="px-4 py-3 text-center">状态</TableHead>
+                <TableHead class="px-4 py-3">创建时间</TableHead>
+                <TableHead class="px-4 py-3 text-center">操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow v-for="role in roles" :key="role.id" class="hover:bg-muted/30">
                   <!-- 角色名称 -->
-                  <td class="px-4 py-3">
+                  <TableCell class="px-4 py-3">
                     <div class="flex items-center">
-                      <Shield class="h-4 w-4 text-muted-foreground mr-2 shrink-0" />
+                      <Shield class="h-4 w-4 text-primary mr-2 shrink-0" />
                       <span class="font-medium">{{ role.name }}</span>
                     </div>
-                  </td>
+                  </TableCell>
                   <!-- 角色标识 -->
-                  <td class="px-4 py-3">
+                  <TableCell class="px-4 py-3">
                     <code class="text-xs bg-muted px-1.5 py-0.5 rounded">{{ role.code }}</code>
-                  </td>
+                  </TableCell>
                   <!-- 描述 -->
-                  <td class="px-4 py-3 text-sm text-muted-foreground">
+                  <TableCell class="px-4 py-3 text-sm text-muted-foreground">
                     {{ role.description || '-' }}
-                  </td>
+                  </TableCell>
                   <!-- 状态 -->
-                  <td class="px-4 py-3 text-center">
-                    <span :class="getStatusClass(role.status)">
+                  <TableCell class="px-4 py-3 text-center">
+                    <Badge variant="outline" :class="getAdminStatusBadgeClass(role.status === 1)">
                       {{ role.status === 1 ? '启用' : '禁用' }}
-                    </span>
-                  </td>
+                    </Badge>
+                  </TableCell>
                   <!-- 创建时间 -->
-                  <td class="px-4 py-3 text-sm text-muted-foreground">
+                  <TableCell class="px-4 py-3 text-sm text-muted-foreground">
                     {{ formatDate(role.createdAt) }}
-                  </td>
+                  </TableCell>
                   <!-- 操作 -->
-                  <td class="px-4 py-3 text-center">
+                  <TableCell class="px-4 py-3 text-center">
                     <div class="flex items-center justify-center gap-1">
-                      <Button variant="ghost" size="icon" class="h-8 w-8" title="编辑"
+                      <Button variant="ghost" size="icon" :class="['h-8 w-8', adminBrandFocusClass]" title="编辑"
                         @click="navigateTo(`/admin/roles/${role.id}`)">
                         <Pencil class="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" class="h-8 w-8" title="权限分配"
+                      <Button variant="ghost" size="icon" :class="['h-8 w-8', adminBrandFocusClass]" title="权限分配"
                         @click="navigateTo(`/admin/roles/${role.id}/permissions`)">
                         <Key class="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" class="h-8 w-8 text-destructive hover:text-destructive"
+                      <Button variant="ghost" size="icon" :class="['h-8 w-8 text-destructive hover:text-destructive', adminBrandFocusClass]"
                         title="删除" :disabled="role.code === 'super_admin'" @click="handleDelete(role)">
                         <Trash2 class="h-4 w-4" />
                       </Button>
                     </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+                  </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
         </div>
 
         <!-- 移动端卡片 -->
@@ -119,12 +116,12 @@
           <div v-for="role in roles" :key="role.id" class="bg-card rounded-lg border p-4 space-y-3">
             <div class="flex items-start justify-between">
               <div class="flex items-center gap-2">
-                <Shield class="h-4 w-4 text-muted-foreground shrink-0" />
+                <Shield class="h-4 w-4 text-primary shrink-0" />
                 <span class="font-medium">{{ role.name }}</span>
               </div>
-              <span :class="getStatusClass(role.status)">
+              <Badge variant="outline" :class="getAdminStatusBadgeClass(role.status === 1)">
                 {{ role.status === 1 ? '启用' : '禁用' }}
-              </span>
+              </Badge>
             </div>
             <div class="text-sm">
               <code class="text-xs bg-muted px-1.5 py-0.5 rounded">{{ role.code }}</code>
@@ -136,16 +133,16 @@
               创建于 {{ formatDate(role.createdAt) }}
             </div>
             <div class="flex items-center gap-2 pt-2 border-t">
-              <Button variant="outline" size="sm" class="flex-1" @click="navigateTo(`/admin/roles/${role.id}`)">
+              <Button variant="outline" size="sm" :class="['flex-1', adminBrandFocusClass]" @click="navigateTo(`/admin/roles/${role.id}`)">
                 <Pencil class="h-3 w-3 mr-1" />
                 编辑
               </Button>
-              <Button variant="outline" size="sm" class="flex-1"
+              <Button variant="outline" size="sm" :class="['flex-1', adminBrandFocusClass]"
                 @click="navigateTo(`/admin/roles/${role.id}/permissions`)">
                 <Key class="h-3 w-3 mr-1" />
                 权限
               </Button>
-              <Button variant="outline" size="sm" class="text-destructive hover:text-destructive"
+              <Button variant="outline" size="sm" :class="['text-destructive hover:text-destructive', adminBrandFocusClass]"
                 :disabled="role.code === 'super_admin'" @click="handleDelete(role)">
                 <Trash2 class="h-3 w-3" />
               </Button>
@@ -161,7 +158,7 @@
 
     <!-- 删除确认对话框 -->
     <AlertDialog v-model:open="deleteDialogOpen">
-      <AlertDialogContent>
+      <AlertDialogContent class="theme-brand">
         <AlertDialogHeader>
           <AlertDialogTitle>确认删除</AlertDialogTitle>
           <AlertDialogDescription>
@@ -170,8 +167,7 @@
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>取消</AlertDialogCancel>
-          <AlertDialogAction @click="confirmDelete"
-            class="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+          <AlertDialogAction :class="adminBrandDestructiveActionClass" @click="confirmDelete">
             删除
           </AlertDialogAction>
         </AlertDialogFooter>
@@ -181,12 +177,16 @@
 
 <script setup lang="ts">
 import { Plus, Search, Pencil, Key, Trash2, Loader2, Shield } from 'lucide-vue-next'
-import dayjs from 'dayjs'
 import { toast } from 'vue-sonner'
 import GeneralPagination from '~/components/general/pagination.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useFormatters } from '~/composables/useFormatters'
-import type { roles } from '~~/generated/prisma/client'
+import {
+  adminBrandDestructiveActionClass,
+  adminBrandFocusClass,
+  adminBrandPrimaryButtonClass,
+  getAdminStatusBadgeClass,
+} from '~/utils/adminBrandStyles'
 
 definePageMeta({
   layout: 'admin-layout',
@@ -228,15 +228,6 @@ const deleteDialogOpen = ref(false)
 const roleToDelete = ref<Role | null>(null)
 
 const { formatDate } = useFormatters()
-
-/** 获取状态样式类 */
-const getStatusClass = (status: number): string => {
-  const baseClass = 'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium'
-  if (status === 1) {
-    return `${baseClass} bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400`
-  }
-  return `${baseClass} bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400`
-}
 
 /** 加载角色列表 */
 const loadRoles = async () => {

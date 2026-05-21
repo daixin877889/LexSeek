@@ -1,9 +1,10 @@
 import { createMiddleware } from 'langchain'
 import { interrupt } from '@langchain/langgraph'
 import { z } from 'zod'
+import { v4 as uuidv4 } from 'uuid'
 import { InterruptType } from '#shared/types/case'
 import { getCurrentMembershipService } from '~~/server/services/membership/userMembership.service'
-import { checkPointsService, consumePointsService } from '~~/server/services/point/pointConsumption.service'
+import { billCheckService, billDirectService } from '~~/server/services/point/pointBilling.service'
 import { updateSessionState } from '~~/server/services/workflow/state/storage'
 
 /** 中文文本 token 估算比率（2 字符 ≈ 1 token） */
@@ -62,7 +63,13 @@ export const getTokenCount = (message: any): number => {
  * @param itemKey 消耗项目标识符（不同 Agent 传不同 key）
  * @param sessionId 会话 ID（用于共享状态存储）
  */
-export const pointConsumptionMiddleware = (userId: number, itemKey: string, sessionId?: string) => {
+export const pointConsumptionMiddleware = (
+    userId: number,
+    itemKey: string,
+    sessionId?: string,
+    operationId?: string,
+    contextLabel?: string,
+) => {
     return createMiddleware({
         name: 'PointConsumptionMiddleware',
         stateSchema: z.object({
@@ -70,6 +77,7 @@ export const pointConsumptionMiddleware = (userId: number, itemKey: string, sess
             _totalPointsConsumed: z.number().default(0),
             _pendingDeductQuantity: z.number().default(0),
             _resumingFromAfterModel: z.boolean().default(false),
+            _billingOperationId: z.string().default(''),
         }),
 
         beforeAgent: {
@@ -133,9 +141,9 @@ export const pointConsumptionMiddleware = (userId: number, itemKey: string, sess
                     }
                 }
 
-                // 3. 检查积分最小单元
-                const check = await checkPointsService(userId, itemKey, 1)
-                if (!check.sufficient) {
+                // 3. 检查积分（停用项直接放行）
+                const check = await billCheckService(userId, itemKey, { tokens: 1000, units: 1 })
+                if (!check.skipped && !check.sufficient) {
                     interrupt({
                         type: InterruptType.INSUFFICIENT_POINTS,
                         message: '积分不足，请充值后继续',
@@ -150,7 +158,10 @@ export const pointConsumptionMiddleware = (userId: number, itemKey: string, sess
                     })
                 }
 
-                logger.info('积分预检通过', { userId, available: check.available })
+                // 操作关联标识：优先用外部传入（多 sub-agent 共享聚合），否则自生成
+                const opId = state._billingOperationId || operationId || uuidv4()
+                logger.info('积分预检通过', { userId, operationId: opId, available: check.available })
+                return { _billingOperationId: opId }
             },
         },
 
@@ -160,11 +171,15 @@ export const pointConsumptionMiddleware = (userId: number, itemKey: string, sess
                 const pendingQuantity = state._pendingDeductQuantity ?? 0
                 if (pendingQuantity > 0) {
                     try {
-                        await consumePointsService(userId, itemKey, pendingQuantity)
+                        // 同时传 tokens 和 units=1，让管理后台可在 token/次 两种模式间自由切换
+                        await billDirectService(userId, itemKey, { tokens: pendingQuantity * 1000, units: 1 }, {
+                            operationId: state._billingOperationId || undefined,
+                            contextLabel,
+                        })
                         logger.info('补扣成功', { userId, quantity: pendingQuantity })
                     } catch {
                         // 补扣仍然失败，interrupt
-                        const check = await checkPointsService(userId, itemKey, 1)
+                        const check = await billCheckService(userId, itemKey, { tokens: 1000, units: 1 })
                         const membership = await getCurrentMembershipService(userId)
                         interrupt({
                             type: InterruptType.INSUFFICIENT_POINTS,
@@ -193,7 +208,11 @@ export const pointConsumptionMiddleware = (userId: number, itemKey: string, sess
 
                 // 3. 扣减积分
                 try {
-                    const result = await consumePointsService(userId, itemKey, quantity)
+                    // 同时传 tokens 和 units=1（每次模型调用记 1 次），让管理后台可在 token/次 两种模式间自由切换
+                    const result = await billDirectService(userId, itemKey, { tokens: totalTokens, units: 1 }, {
+                        operationId: state._billingOperationId || undefined,
+                        contextLabel,
+                    })
 
                     const newState = {
                         _totalTokensConsumed: (state._totalTokensConsumed ?? 0) + totalTokens,
@@ -214,7 +233,7 @@ export const pointConsumptionMiddleware = (userId: number, itemKey: string, sess
                         && error.message.includes('积分不足')
 
                     if (isInsufficientPoints) {
-                        const check = await checkPointsService(userId, itemKey, 1)
+                        const check = await billCheckService(userId, itemKey, { tokens: 1000, units: 1 })
                         const membership = await getCurrentMembershipService(userId)
 
                         interrupt({

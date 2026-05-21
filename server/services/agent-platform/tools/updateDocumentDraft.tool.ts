@@ -10,7 +10,7 @@
 
 import { z } from 'zod'
 import type { ToolContext, ToolDefinition } from './types'
-import { createSimpleTool } from './types'
+import { createSimpleTool, jsonRecord, normalizeJsonRecord } from './types'
 import { SSECustomEventType } from '#shared/types/agentEvent'
 import { publishCustomEvent } from '~~/server/services/agent/agentEventBridge'
 import {
@@ -23,12 +23,12 @@ const schema = z.object({
     // documentMain 在 system prompt 里把草稿 ID 渲染成"草稿 ID:90"文本注入，LLM 偶尔会原样
     // 把 "90" 字符串当 draftId 回传，用 coerce 自动转 number 增强鲁棒性（与 reviewContract.tool 对齐）。
     draftId: z.coerce.number().int().positive().describe('要更新的草稿 ID(从 save_document_draft 的返回值取)'),
-    fieldUpdates: z.record(z.string(), z.string().nullable()).describe(
+    fieldUpdates: jsonRecord(z.string().nullable()).describe(
         '只传要改的字段(占位符名 → 新值);超出模板字段范围的会被忽略。'
         + '不知道答案的字段**不要传**(留空即可),严禁回传"【待补充:xxx】"/"【未提供】"等'
         + '占位字符串(会被自动丢弃,不会写库)。要清空字段请显式传 null。',
     ),
-    suggestions: z.record(z.string(), z.string()).optional().describe(
+    suggestions: jsonRecord(z.string()).optional().describe(
         '追加/更新建议清单(写到 metadata.suggestions)',
     ),
     aiTitle: z.string().min(1).max(200).optional().describe(
@@ -52,15 +52,19 @@ export const createTool = createSimpleTool(
             throw new Error('update_document_draft: ToolContext 缺少 userId/sessionId')
         }
 
-        // 0. 兜底过滤 LLM 占位字符串("【待补充:xxx】"等):占位符直接丢弃,保持原值不变
+        // 0.a LLM 偶尔把对象 JSON.stringify 整段当字符串传(jsonRecord schema 的容错对应处理)
+        const rawFieldUpdates = normalizeJsonRecord(input.fieldUpdates) ?? {}
+        const rawSuggestions = normalizeJsonRecord(input.suggestions)
+
+        // 0.b 兜底过滤 LLM 占位字符串("【待补充:xxx】"等):占位符直接丢弃,保持原值不变
         //    (与 save_document_draft 的 normalizeAIInitialFieldValues 区别:save 是首写,占位转 null;
         //     update 是增量改,占位丢弃以免误清空原值)
-        const fieldUpdates = cleanAIFieldUpdates(input.fieldUpdates)
+        const fieldUpdates = cleanAIFieldUpdates(rawFieldUpdates)
 
         // 1. 复用 patchDraftService(行 158-196)字段过滤+merge+落库
         const patchResult = await patchDraftService(userId, input.draftId, {
             values: fieldUpdates,
-            metadata: input.suggestions ? { suggestions: input.suggestions } : undefined,
+            metadata: rawSuggestions ? { suggestions: rawSuggestions } : undefined,
         })
 
         if ('error' in patchResult) {

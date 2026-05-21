@@ -27,23 +27,24 @@ vi.mock('vue-sonner', () => ({
     },
 }))
 
-// ── mock lucide-vue-next ───────────────────────────────────────────────────────
+// ── mock lucide-vue-next（代理式自动 stub）──
+// 任意图标名按需自动生成 stub，覆盖全部传递依赖引入的图标，避免漏列导致测试文件无法收集。
 vi.mock('lucide-vue-next', () => {
+    const made = new Map<string, unknown>()
     const stub = (name: string) => defineComponent({
         name,
         setup: () => () => h('i', { 'data-stub': name }),
     })
-    return {
-        Loader2Icon: stub('Loader2Icon'),
-        SaveIcon: stub('SaveIcon'),
-        HistoryIcon: stub('HistoryIcon'),
-        UploadIcon: stub('UploadIcon'),
-        TrendingUpIcon: stub('TrendingUpIcon'),
-        XIcon: stub('XIcon'),
-        PinIcon: stub('PinIcon'),
-        MinusIcon: stub('MinusIcon'),
-        GripVertical: stub('GripVertical'),
-    }
+    return new Proxy({} as Record<string, unknown>, {
+        get(_t, prop: string | symbol) {
+            if (typeof prop !== 'string') return undefined
+            if (prop === '__esModule') return true
+            if (prop === 'default') return undefined
+            if (!made.has(prop)) made.set(prop, stub(prop))
+            return made.get(prop)
+        },
+        has: () => true,
+    })
 })
 
 // ── mock useContractReview ─────────────────────────────────────────────────────

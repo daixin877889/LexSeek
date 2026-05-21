@@ -2,7 +2,7 @@
 /**
  * 文书起草工具结果卡片（Mockup D）
  *
- * 由法律助手 chat panel 通过 AiToolRenderer.toolMap 注入。
+ * 由通用问答 chat panel 通过 AiToolRenderer.toolMap 注入。
  * - 执行中：spinner + "正在起草《XXX》..."
  * - 已完成：标题（书名号包裹的文书名）+ 字数 / 摘要 + 跳转按钮
  * - 失败：红色边框 + 错误信息
@@ -90,7 +90,7 @@ function handleOpen() {
 
 <template>
     <div
-        class="not-prose group my-2 w-full max-w-md rounded-lg border bg-card p-4 shadow-sm transition-colors"
+        class="not-prose group my-2 w-full max-w-md rounded-lg border bg-card p-4 transition-colors"
         :class="[
             isRunning && 'border-primary/40 bg-primary/5',
             isFailed && 'border-destructive/40 bg-destructive/5',

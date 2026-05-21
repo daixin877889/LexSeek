@@ -13,7 +13,10 @@
                     class="border rounded-lg p-4 hover:border-primary transition-colors cursor-pointer">
                     <div class="flex justify-between items-start mb-2">
                         <h4 class="font-semibold">{{ plan.name }}</h4>
-                        <Button size="sm" @click="emit('buy', plan)" :disabled="!localAgreed">
+                        <Button size="sm" class="bg-gradient-brand-button text-white"
+                            :disabled="!localAgreed || pendingProductId !== null"
+                            @click="emit('buy', plan)">
+                            <Loader2 v-if="pendingProductId === plan.id" class="h-3.5 w-3.5 mr-1 animate-spin" />
                             购买
                         </Button>
                     </div>
@@ -48,6 +51,8 @@
 </template>
 
 <script lang="ts" setup>
+import { Loader2 } from 'lucide-vue-next'
+
 // 类型定义
 interface MembershipPlan {
     id: number;
@@ -67,6 +72,8 @@ const props = defineProps<{
     open: boolean;
     productList: MembershipPlan[];
     agreeToAgreement: boolean;
+    /** 当前正在发起支付的商品 ID；非空时所有购买按钮禁用，当前按钮显示加载圈 */
+    pendingProductId?: number | null;
 }>();
 
 // 定义 emits

@@ -14,23 +14,40 @@
 import "vue-sonner/style.css";
 import GeneralAlertDialog from '~/components/general/AlertDialog.vue'
 import GeneralWxSupport from '~/components/general/WxSupport.vue'
-import { useTheme } from '~/composables/useTheme'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useAuthStore } from '~/store/auth'
 import { useRoleStore } from '~/store/role'
 import { useUserStore } from '~/store/user'
 import type { roles } from '~~/generated/prisma/client'
 import type { SafeUserInfo } from '~~/server/services/users/userResponse.service'
+import { organizationLd, websiteLd } from '#shared/utils/seo/jsonLd'
+
+// 全局 SEO：站长验证 meta + Organization / WebSite JSON-LD
+// 把 `seo.siteUrl` 显式传给 helper，消除 helper 默认值与 runtimeConfig 的双轨。
+const { seo } = useRuntimeConfig().public
+useHead({
+  meta: [
+    seo.baiduVerify ? { name: 'baidu-site-verification', content: seo.baiduVerify } : null,
+    seo.googleVerify ? { name: 'google-site-verification', content: seo.googleVerify } : null,
+    seo.bingVerify ? { name: 'msvalidate.01', content: seo.bingVerify } : null,
+    seo.sogouVerify ? { name: 'sogou_site_verification', content: seo.sogouVerify } : null,
+    seo.so360Verify ? { name: '360-site-verification', content: seo.so360Verify } : null,
+  ].filter(Boolean) as { name: string; content: string }[],
+  script: [
+    {
+      type: 'application/ld+json',
+      innerHTML: JSON.stringify(organizationLd(seo.siteUrl)).replace(/</g, '\\u003c'),
+    },
+    {
+      type: 'application/ld+json',
+      innerHTML: JSON.stringify(websiteLd(seo.siteUrl)).replace(/</g, '\\u003c'),
+    },
+  ],
+})
 
 const authStore = useAuthStore();
 const userStore = useUserStore();
 const roleStore = useRoleStore();
-
-// 初始化主题色
-const { initTheme } = useTheme();
-onMounted(() => {
-  initTheme();
-});
 
 // 同步初始化认证状态（从 cookie 读取，SSR 和客户端都安全执行）
 authStore.initAuth();

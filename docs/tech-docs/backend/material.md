@@ -29,7 +29,7 @@
 |------|------|
 | `fileDetect.service.ts` | 根据扩展名判断材料类型 |
 | `materialProcess.service.ts` | 编排函数：授权、状态校验、分发处理、结果更新 |
-| `materialPipeline.service.ts` | 批量就绪保障：识别 + 嵌入 + 上下文构建 |
+| `materialPipeline.service.ts` | 批量就绪保障：识别 + 嵌入 + 上下文构建 + 材料检索（`searchMaterialsService`） |
 | `materialEmbedding.service.ts` | 向量化：分块、存储、检索、状态查询 |
 | `materialSummary.service.ts` | LLM 摘要生成与缓存 |
 | `mineru.service.ts` | MinerU PDF 转换：提交、轮询、结果处理 |
@@ -54,7 +54,6 @@
 | `material.service.ts` | 材料基础 CRUD |
 | `material.dao.ts` | 材料数据访问 |
 | `materialConstants.ts` | 轮询配置、退避算法、常量 |
-| `materialSearch.tool.ts` | 材料检索工具（供 Agent 调用） |
 
 ## 数据模型
 

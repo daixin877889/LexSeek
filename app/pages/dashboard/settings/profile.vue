@@ -26,12 +26,17 @@
       </div>
 
       <div>
+        <label for="exportSignature" class="block text-sm font-medium mb-1">合同导出署名</label>
+        <Input id="exportSignature" v-model="userForm.contractExportSignature" type="text" maxlength="50" placeholder="导出合同审查 docx 时 AI 修订与批注以此署名显示；留空则使用姓名" class="w-full px-3 py-2 h-[42px] text-base border rounded-md bg-background" />
+      </div>
+
+      <div>
         <label for="bio" class="block text-sm font-medium mb-1">个人简介</label>
         <Textarea id="bio" v-model="userForm.profile" rows="4" class="w-full px-3 py-2 border rounded-md bg-background resize-none" placeholder="请简要介绍您自己（选填）"></Textarea>
       </div>
 
       <div class="flex justify-end">
-        <Button type="submit" class="h-10 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors flex items-center gap-2" :disabled="userStore.loading">
+        <Button type="submit" class="h-10 px-4 py-2 bg-gradient-brand-button text-white rounded-md transition-colors flex items-center gap-2" :disabled="userStore.loading">
           <loader-2-icon v-if="userStore.loading" class="h-4 w-4 animate-spin" />
           <save-icon v-else class="h-4 w-4" />
           保存修改
@@ -49,6 +54,7 @@ import { useUserStore } from '~/store/user'
 definePageMeta({
   layout: "dashboard-layout",
   title: "个人资料",
+  userMenu: { group: 'settings', title: '个人资料', icon: 'User', order: 1 },
 });
 
 const props = defineProps({
@@ -68,6 +74,7 @@ const userForm = computed({
     phone: userStore.userInfo?.phone || "",
     email: userStore.userInfo?.email || "",
     profile: userStore.userInfo?.profile || "",
+    contractExportSignature: userStore.userInfo?.contractExportSignature || "",
   }),
   set: (value) => {
     if (userStore.userInfo) {
@@ -76,6 +83,7 @@ const userForm = computed({
       userStore.userInfo.phone = value.phone;
       userStore.userInfo.email = value.email;
       userStore.userInfo.profile = value.profile;
+      userStore.userInfo.contractExportSignature = value.contractExportSignature;
     }
   },
 });
@@ -104,6 +112,7 @@ const saveProfile = async () => {
       phone: userForm.value.phone,
       company: userForm.value.company,
       profile: userForm.value.profile,
+      contractExportSignature: userForm.value.contractExportSignature,
     });
 
     if (success) {

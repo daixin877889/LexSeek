@@ -16,6 +16,8 @@ export interface UseArticleSearchReturn {
     query: Ref<string>
     filters: Ref<ArticleSearchFilters>
     total: Ref<number>
+    /** 检索耗时（秒） */
+    searchElapsed: Ref<number>
 
     // 方法
     searchArticles: (query: string, filters?: Partial<ArticleSearchFilters>) => Promise<void>
@@ -34,6 +36,7 @@ export function useArticleSearch(): UseArticleSearchReturn {
     const results = ref<LawSearchResultItem[]>([])
     const query = ref('')
     const total = ref(0)
+    const searchElapsed = ref(0)
 
     // 筛选条件
     const filters = ref<ArticleSearchFilters>({
@@ -68,6 +71,7 @@ export function useArticleSearch(): UseArticleSearchReturn {
         try {
             loading.value = true
             clearError()
+            const startTime = performance.now()
 
             // 更新查询和筛选条件
             query.value = searchQuery
@@ -97,6 +101,7 @@ export function useArticleSearch(): UseArticleSearchReturn {
                 // 更新状态
                 results.value = response.items
                 total.value = response.total
+                searchElapsed.value = (performance.now() - startTime) / 1000
             }
         } catch (err: any) {
             setError(err.message || '搜索失败')
@@ -152,6 +157,7 @@ export function useArticleSearch(): UseArticleSearchReturn {
         query: readonly(query),
         filters: readonly(filters),
         total: readonly(total),
+        searchElapsed: readonly(searchElapsed),
 
         // 方法
         searchArticles,

@@ -1,6 +1,6 @@
-# 通用法律助手 · 设计文档
+# 通用问答 · 设计文档
 
-| 项目 | 通用法律助手（对话 / 合同审查 / 文书生成） |
+| 项目 | 通用问答（对话 / 合同审查 / 文书生成） |
 |---|---|
 | 日期 | 2026-04-17 |
 | 状态 | 设计中（待评审） |
@@ -41,9 +41,9 @@ LexSeek 的全部 AI 能力——对话（`caseMainAgent`）、分析（`caseAna
 
 ### 1.4 与「小索子 Agent」的边界界定
 
-最近 commit `21d56d9` 引入了「小索子 Agent」的持久化与上下文复用。**小索子 Agent 仍绑定 caseId**，服务于案件内的子代理委派；本文的「通用法律助手」是**无 case 会话**，面向零上下文场景。两者关系：
+最近 commit `21d56d9` 引入了「小索子 Agent」的持久化与上下文复用。**小索子 Agent 仍绑定 caseId**，服务于案件内的子代理委派；本文的「通用问答」是**无 case 会话**，面向零上下文场景。两者关系：
 
-| 维度 | 小索子 Agent | 通用法律助手 |
+| 维度 | 小索子 Agent | 通用问答 |
 |---|---|---|
 | 上下文 | case 绑定 | 无 case |
 | 入口 | 案件详情页内的 AI 面板 | 侧边栏一级菜单 |
@@ -168,7 +168,7 @@ LexSeek 的全部 AI 能力——对话（`caseMainAgent`）、分析（`caseAna
 model caseSessions {
     id        Int       @id @default(autoincrement())
     sessionId String    @unique @map("session_id") @db.VarChar(100)
-    /// 会话归属域：case（案件内）/ assistant（通用法律助手）
+    /// 会话归属域：case（案件内）/ assistant（通用问答）
     scope     String    @default("case") @db.VarChar(20)
     /// 会话所有者用户ID
     /// - scope=assistant：必须存在（应用层校验）
@@ -249,7 +249,7 @@ model agentRuns {
 INSERT INTO nodes (name, title, description, type, priority, model_id, tools, status)
 VALUES (
   'assistantMain',
-  '通用法律助手主Agent',
+  '通用问答主Agent',
   '无案件上下文的法律问答与工具调用',
   'agent',
   10,
@@ -593,7 +593,7 @@ export async function runAssistantChat(
     const [checkpointer, store, mainConfig] = await Promise.all([
         getCheckpointer(),
         getStore(),
-        getValidNodeConfig(ASSISTANT_MAIN_NODE_NAME, '通用法律助手主Agent'),
+        getValidNodeConfig(ASSISTANT_MAIN_NODE_NAME, '通用问答主Agent'),
     ])
 
     const activeApiKey = mainConfig.modelApiKeys.find(k => k.status === 1)
@@ -667,7 +667,7 @@ export async function getAssistantThreadState(sessionId: string) {
 插入 `prompts` 表：`name='assistantMain_system'`, `type='system'`, `version='v1'`, `status=1`。
 
 ```text
-你是 LexSeek 的通用法律助手，服务于中国大陆法律场景下的律师、法务与普通用户。
+你是 LexSeek 的通用问答，服务于中国大陆法律场景下的律师、法务与普通用户。
 
 # 能力边界
 - 你可以回答法律知识问题、提供文书起草思路、做合同基础分析。
@@ -1547,15 +1547,15 @@ GET /api/v1/assistant/document/drafts?page=&pageSize=&caseId=
 // app/pages/dashboard/assistant/chat.vue
 definePageMeta({
   layout: 'dashboard-layout',
-  title: '法律助手 · 对话',
+  title: '通用问答 · 对话',
   icon: 'MessageSquare',
 })
 ```
 
 侧边栏 `navMain.vue` 通过 RBAC 路由系统注册三个菜单项：
-- `/dashboard/assistant/chat` - 法律助手 · 对话（第一期）
-- `/dashboard/assistant/contract` - 法律助手 · 合同审查（第二期，先占位 WIP 页）
-- `/dashboard/assistant/document` - 法律助手 · 文书生成（第二期，先占位 WIP 页）
+- `/dashboard/assistant/chat` - 通用问答 · 对话（第一期）
+- `/dashboard/assistant/contract` - 通用问答 · 合同审查（第二期，先占位 WIP 页）
+- `/dashboard/assistant/document` - 通用问答 · 文书生成（第二期，先占位 WIP 页）
 
 ### 8.2 对话页结构
 

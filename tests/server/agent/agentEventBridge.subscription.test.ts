@@ -10,6 +10,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { AgentStreamEvent, AgentStatusEvent } from '#shared/types/agentRun'
 
+// 队列上限通过 .env.testing 中 NUXT_AGENT_PENDING_QUEUE_MAX=1000 注入
+
 // Mock redis
 const mockPublish = vi.fn().mockResolvedValue(1)
 const mockXadd = vi.fn().mockResolvedValue('1-0')

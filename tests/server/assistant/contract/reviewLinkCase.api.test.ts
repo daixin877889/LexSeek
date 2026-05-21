@@ -1,7 +1,7 @@
 /**
  * PATCH /api/v1/assistant/contract/reviews/:id 关联案件 · service + handler 测试
  *
- * 阶段 5 · 法律助手「+ 关联案件」入口（合同审查工作台来源条）。
+ * 阶段 5 · 通用问答「+ 关联案件」入口（合同审查工作台来源条）。
  *
  * **Feature: ai-unify-stage-5**
  * **Validates: Task 7 · PATCH 合同审查关联案件 API**

@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-6">
+  <div class="theme-brand space-y-6">
     <!-- 页面标题 -->
     <div>
       <h1 class="text-2xl md:text-3xl font-bold mb-1">用户角色管理</h1>
@@ -8,17 +8,17 @@
 
     <!-- 搜索和筛选 -->
     <div class="flex flex-col md:flex-row gap-4">
-      <Input v-model="searchKeyword" placeholder="搜索用户名或手机号..." class="md:max-w-sm" @keyup.enter="handleSearch" />
+      <Input v-model="searchKeyword" placeholder="搜索用户名或手机号..." :class="['md:max-w-sm', adminBrandFocusClass]" @keyup.enter="handleSearch" />
       <Select v-model="roleFilter">
-        <SelectTrigger class="w-full md:w-40">
+        <SelectTrigger :class="['w-full md:w-40', adminBrandFocusClass]">
           <SelectValue placeholder="角色筛选" />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent class="theme-brand">
           <SelectItem value="all">全部角色</SelectItem>
           <SelectItem v-for="role in allRoles" :key="role.id" :value="String(role.id)">{{ role.name }}</SelectItem>
         </SelectContent>
       </Select>
-      <Button variant="outline" @click="handleSearch">
+      <Button variant="outline" :class="adminBrandFocusClass" @click="handleSearch">
         <Search class="h-4 w-4 mr-2" />
         搜索
       </Button>
@@ -40,48 +40,47 @@
     <template v-else>
       <!-- 桌面端表格 -->
       <div class="bg-card rounded-lg border overflow-hidden hidden md:block">
-        <div class="overflow-x-auto">
-          <table class="w-full">
-            <thead>
-              <tr class="border-b bg-muted/50">
-                <th class="px-4 py-3 text-left text-sm font-medium">用户名</th>
-                <th class="px-4 py-3 text-left text-sm font-medium">手机号</th>
-                <th class="px-4 py-3 text-left text-sm font-medium">角色</th>
-                <th class="px-4 py-3 text-center text-sm font-medium w-20">状态</th>
-                <th class="px-4 py-3 text-left text-sm font-medium w-40">注册时间</th>
-                <th class="px-4 py-3 text-center text-sm font-medium w-28">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="user in users" :key="user.id"
-                class="border-b last:border-b-0 hover:bg-muted/30 transition-colors">
-                <td class="px-4 py-3">
-                  <div class="flex items-center gap-2">
-                    <User class="h-4 w-4 text-muted-foreground" />
-                    <span class="font-medium">{{ user.name || '-' }}</span>
-                  </div>
-                </td>
-                <td class="px-4 py-3 text-sm">{{ user.phone }}</td>
-                <td class="px-4 py-3">
-                  <div class="flex flex-wrap gap-1">
-                    <Badge v-for="role in user.roles" :key="role.id" variant="outline">{{ role.name }}</Badge>
-                    <span v-if="!user.roles?.length" class="text-muted-foreground text-sm">-</span>
-                  </div>
-                </td>
-                <td class="px-4 py-3 text-center">
-                  <span :class="getStatusClass(user.status)">{{ user.status === 1 ? '正常' : '禁用' }}</span>
-                </td>
-                <td class="px-4 py-3 text-sm text-muted-foreground">{{ formatDate(user.createdAt) }}</td>
-                <td class="px-4 py-3 text-center">
-                  <Button variant="ghost" size="sm" @click="openRoleDialog(user)">
-                    <Shield class="h-4 w-4 mr-1" />
-                    分配角色
-                  </Button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <Table>
+          <TableHeader>
+            <TableRow class="bg-muted/50 hover:bg-muted/50">
+              <TableHead class="px-4 py-3">用户名</TableHead>
+              <TableHead class="px-4 py-3">手机号</TableHead>
+              <TableHead class="px-4 py-3">角色</TableHead>
+              <TableHead class="w-20 px-4 py-3 text-center">状态</TableHead>
+              <TableHead class="w-40 px-4 py-3">注册时间</TableHead>
+              <TableHead class="w-28 px-4 py-3 text-center">操作</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="user in users" :key="user.id" class="hover:bg-muted/30">
+              <TableCell class="px-4 py-3">
+                <div class="flex items-center gap-2">
+                  <User class="h-4 w-4 text-muted-foreground" />
+                  <span class="font-medium">{{ user.name || '-' }}</span>
+                </div>
+              </TableCell>
+              <TableCell class="px-4 py-3 text-sm">{{ user.phone }}</TableCell>
+              <TableCell class="px-4 py-3">
+                <div class="flex flex-wrap gap-1">
+                  <Badge v-for="role in user.roles" :key="role.id" variant="outline" :class="adminBrandChipClass">{{ role.name }}</Badge>
+                  <span v-if="!user.roles?.length" class="text-muted-foreground text-sm">-</span>
+                </div>
+              </TableCell>
+              <TableCell class="px-4 py-3 text-center">
+                <Badge variant="outline" :class="getAdminStatusBadgeClass(user.status === 1)">
+                  {{ user.status === 1 ? '正常' : '禁用' }}
+                </Badge>
+              </TableCell>
+              <TableCell class="px-4 py-3 text-sm text-muted-foreground">{{ formatDate(user.createdAt) }}</TableCell>
+              <TableCell class="px-4 py-3 text-center">
+                <Button variant="ghost" size="sm" :class="adminBrandFocusClass" @click="openRoleDialog(user)">
+                  <Shield class="h-4 w-4 mr-1" />
+                  分配角色
+                </Button>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
       </div>
 
       <!-- 移动端卡片 -->
@@ -92,16 +91,18 @@
               <User class="h-4 w-4 text-muted-foreground" />
               <span class="font-medium">{{ user.name || user.phone }}</span>
             </div>
-            <span :class="getStatusClass(user.status)">{{ user.status === 1 ? '正常' : '禁用' }}</span>
+            <Badge variant="outline" :class="getAdminStatusBadgeClass(user.status === 1)">
+              {{ user.status === 1 ? '正常' : '禁用' }}
+            </Badge>
           </div>
           <div class="text-sm text-muted-foreground">{{ user.phone }}</div>
           <div class="flex flex-wrap gap-1">
-            <Badge v-for="role in user.roles" :key="role.id" variant="outline">{{ role.name }}</Badge>
+            <Badge v-for="role in user.roles" :key="role.id" variant="outline" :class="adminBrandChipClass">{{ role.name }}</Badge>
             <span v-if="!user.roles?.length" class="text-muted-foreground text-sm">无角色</span>
           </div>
           <div class="text-xs text-muted-foreground">注册于 {{ formatDate(user.createdAt) }}</div>
           <div class="pt-2 border-t">
-            <Button variant="outline" size="sm" class="w-full" @click="openRoleDialog(user)">
+            <Button variant="outline" size="sm" :class="['w-full', adminBrandFocusClass]" @click="openRoleDialog(user)">
               <Shield class="h-3 w-3 mr-1" />
               分配角色
             </Button>
@@ -117,19 +118,22 @@
 
   <!-- 角色分配对话框 -->
   <Dialog v-model:open="roleDialogOpen">
-    <DialogContent class="max-h-[85vh] flex flex-col">
+    <DialogContent class="theme-brand max-h-[85vh] overflow-hidden flex flex-col">
       <DialogHeader class="shrink-0">
         <DialogTitle>分配角色</DialogTitle>
         <DialogDescription>为用户「{{ selectedUser?.name || selectedUser?.phone }}」分配角色</DialogDescription>
       </DialogHeader>
-      <div class="flex-1 overflow-y-auto space-y-4 py-4">
+      <div class="min-h-0 flex-1 overflow-y-auto space-y-4 py-4">
         <div class="space-y-2">
           <Label>选择角色</Label>
-          <div class="border rounded-md p-4 max-h-60 overflow-y-auto space-y-2">
-            <div v-for="role in allRoles" :key="role.id" class="flex items-center space-x-2">
+          <div class="border rounded-md p-2 max-h-60 overflow-y-auto space-y-1">
+            <div v-for="role in allRoles" :key="role.id"
+              class="flex items-center gap-2 rounded-md border-l-2 px-2 py-2 transition-colors"
+              :class="selectedRoleIds.includes(role.id) ? adminBrandSelectedListItemClass : adminBrandUnselectedListItemClass">
               <Checkbox :id="`role-${role.id}`" :model-value="selectedRoleIds.includes(role.id)"
+                :class="adminBrandCheckboxClass"
                 @update:model-value="(checked: boolean | 'indeterminate') => toggleRole(role.id, checked)" />
-              <Label :for="`role-${role.id}`" class="font-normal cursor-pointer">
+              <Label :for="`role-${role.id}`" class="flex-1 font-normal cursor-pointer">
                 {{ role.name }}
                 <span class="text-muted-foreground text-xs ml-1">({{ role.code }})</span>
               </Label>
@@ -138,8 +142,8 @@
         </div>
       </div>
       <DialogFooter class="shrink-0">
-        <Button variant="outline" @click="roleDialogOpen = false">取消</Button>
-        <Button @click="saveUserRoles" :disabled="savingRoles">
+        <Button variant="outline" :class="adminBrandFocusClass" @click="roleDialogOpen = false">取消</Button>
+        <Button :class="adminBrandPrimaryButtonClass" @click="saveUserRoles" :disabled="savingRoles">
           <Loader2 v-if="savingRoles" class="h-4 w-4 mr-2 animate-spin" />
           保存
         </Button>
@@ -150,12 +154,19 @@
 
 <script setup lang="ts">
 import { Search, Shield, Loader2, Users, User } from 'lucide-vue-next'
-import dayjs from 'dayjs'
 import { toast } from 'vue-sonner'
 import GeneralPagination from '~/components/general/pagination.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
 import { useFormatters } from '~/composables/useFormatters'
-import type { users } from '~~/generated/prisma/client'
+import {
+  adminBrandCheckboxClass,
+  adminBrandChipClass,
+  adminBrandFocusClass,
+  adminBrandPrimaryButtonClass,
+  adminBrandSelectedListItemClass,
+  adminBrandUnselectedListItemClass,
+  getAdminStatusBadgeClass,
+} from '~/utils/adminBrandStyles'
 
 definePageMeta({ layout: 'admin-layout', title: "用户角色管理" })
 
@@ -186,13 +197,6 @@ const selectedUser = ref<UserItem | null>(null)
 const selectedRoleIds = ref<number[]>([])
 
 const { formatDate } = useFormatters()
-
-const getStatusClass = (status: number): string => {
-  const baseClass = 'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium'
-  return status === 1
-    ? `${baseClass} bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400`
-    : `${baseClass} bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400`
-}
 
 const loadRoles = async () => {
   const data = await useApiFetch<{ items: Role[] }>('/api/v1/admin/roles', { query: { pageSize: 100 } })

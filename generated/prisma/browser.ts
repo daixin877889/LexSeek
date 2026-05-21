@@ -65,7 +65,7 @@ export type cases = Prisma.casesModel
 /**
  * Model caseSessions
  * 案件会话表 - 存储案件分析的会话上下文，对应 LangGraph 的 thread_id
- * 通过 scope 字段扩展为双域：case（案件内）与 assistant（通用法律助手）
+ * 通过 scope 字段扩展为双域：case（案件内）与 assistant（通用问答）
  */
 export type caseSessions = Prisma.caseSessionsModel
 /**
@@ -180,6 +180,11 @@ export type legalArticles = Prisma.legalArticlesModel
  */
 export type lawEmbeddings = Prisma.lawEmbeddingsModel
 /**
+ * Model legal_search_logs
+ * 法律法规检索日志（用于热搜聚合 + 后续数据分析）
+ */
+export type legal_search_logs = Prisma.legal_search_logsModel
+/**
  * Model textContentRecords
  * 文本内容记录表
  * 对齐 docRecognitionRecords 结构，为 CASE_CONTENT 类型材料提供独立存储
@@ -290,6 +295,26 @@ export type pointConsumptionRecords = Prisma.pointConsumptionRecordsModel
  * 商品表
  */
 export type products = Prisma.productsModel
+/**
+ * Model lprRates
+ * LPR 利率历史（央行每月公布）
+ */
+export type lprRates = Prisma.lprRatesModel
+/**
+ * Model pbocDepositRates
+ * 央行存款基准利率历史
+ */
+export type pbocDepositRates = Prisma.pbocDepositRatesModel
+/**
+ * Model pbocLoanRates
+ * 央行贷款基准利率历史
+ */
+export type pbocLoanRates = Prisma.pbocLoanRatesModel
+/**
+ * Model lprSyncLogs
+ * LPR 自动同步日志（每次执行一条，含手动 / 自动触发）
+ */
+export type lprSyncLogs = Prisma.lprSyncLogsModel
 /**
  * Model roles
  * 角色表

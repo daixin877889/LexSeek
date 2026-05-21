@@ -4,9 +4,12 @@ import { join } from 'node:path'
 import {
     parseOoxml,
     findAll,
+    findFirst,
     walk,
     tagOf,
     getAttr,
+    childrenOf,
+    paragraphText,
     findMaxSharedId,
 } from '~~/server/agents/contract/docx/xmlAst'
 import {
@@ -21,7 +24,7 @@ import { injectAnnotations, type ContractAnnotationForExport } from '~~/server/a
 import { parseContractDocx } from '~~/server/agents/contract/docx/parser'
 
 const SAMPLE = join(__dirname, '../../../../../prisma/seeds/contract-samples/labor.docx')
-const W_AUTHOR = 'LexSeek AI'
+const W_AUTHOR = '审查人'
 
 function makeRisk(overrides: Partial<RedlineRisk> & { id: number }): RedlineRisk {
     return {
@@ -183,7 +186,7 @@ describe('injectRedlineMarks 装配（同段 quote）', () => {
     })
 })
 
-describe('injectRedlineMarks 跨段 / 整段删除', () => {
+describe('injectRedlineMarks 跨段 / 整段替换', () => {
     async function buildFixtureBuffer(documentXml: string): Promise<Buffer> {
         const original = await readFile(SAMPLE)
         const zip = await loadDocxZip(original)
@@ -223,7 +226,7 @@ describe('injectRedlineMarks 跨段 / 整段删除', () => {
         expect(result.nextIdAfter).toBe(3)
     })
 
-    it('整段删除（quote 覆盖整段 textContent）：段落 pPr/rPr/del 同步加上', async () => {
+    it('整段替换（quote 覆盖整段 textContent）：只装 w:del+w:ins，不动段落标记符', async () => {
         const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:body>
@@ -245,10 +248,54 @@ describe('injectRedlineMarks 跨段 / 整段删除', () => {
         expect(result.skippedRiskIds).toEqual([])
         const zip = await loadDocxZip(result.buffer)
         const docXml = await readTextFromZip(zip, 'word/document.xml')
-        // 段落 pPr/rPr/del 加上
-        expect(docXml).toMatch(/<w:pPr><w:rPr><w:del[^/]*\/><\/w:rPr><\/w:pPr>/)
-        // 占用 3 个 ID（del + ins + pPr/del）
-        expect(result.nextIdAfter).toBe(3)
+        // 整段旧文字进 w:del、新文字进 w:ins
+        expect(docXml).toContain('<w:delText xml:space="preserve">这一整段都是问题。</w:delText>')
+        expect(docXml).toMatch(/<w:ins[^>]*>[\s\S]*建议改写后的整段。[\s\S]*<\/w:ins>/)
+        // 段落标记符（pilcrow）保留——不得加 <w:pPr><w:rPr><w:del/></w:rPr></w:pPr>
+        expect(docXml).not.toMatch(/<w:pPr><w:rPr><w:del[^/]*\/><\/w:rPr><\/w:pPr>/)
+        // 整段替换只占 2 个 ID（del + ins）
+        expect(result.nextIdAfter).toBe(2)
+    })
+
+    it('整段替换 quote：不加 deleted paragraph mark，下一段保持独立段落（修订版段落错乱回归）', async () => {
+        // 正文段 + 标题段两段；对正文段做整段替换 redline。
+        // bug：旧实现给正文段加 <w:pPr><w:rPr><w:del/></w:rPr></w:pPr>（删除段落标记符），
+        // Word 据 ECMA-376 §17.13.5.15 会把本段与下一段合并显示 → 下一条款标题被吸进正文末尾。
+        const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t xml:space="preserve">本条款内容存在严重问题。</w:t></w:r></w:p>
+    <w:p><w:r><w:t xml:space="preserve">第二条 工作内容与地点</w:t></w:r></w:p>
+  </w:body>
+</w:document>`
+        const buffer = await buildFixtureBuffer(xml)
+        const clauseText = '本条款内容存在严重问题。'
+        const result = await injectRedlineMarks(buffer, [{
+            id: 1,
+            clauseText,
+            clauseParagraphIndex: 0,
+            problematicQuote: clauseText,
+            quoteCharStart: 0,
+            quoteCharEnd: clauseText.length,
+            suggestedClauseText: '改写后的整段内容。',
+        }], { reviewId: 999, idStart: 0 })
+
+        expect(result.skippedRiskIds).toEqual([])
+        const zip = await loadDocxZip(result.buffer)
+        const docXml = await readTextFromZip(zip, 'word/document.xml')
+
+        // 段落标记符（pilcrow ¶）不可被标记删除——否则 Word 会把本段与下一段合并显示
+        expect(docXml).not.toMatch(/<w:pPr><w:rPr><w:del[^/]*\/><\/w:rPr><\/w:pPr>/)
+
+        // body 仍是两个独立 <w:p>，标题段文字完整保留在自己的段落里
+        const docAst = parseOoxml(docXml)
+        const body = findFirst(docAst, 'w:body')!
+        const paragraphs = childrenOf(body).filter(n => tagOf(n) === 'w:p')
+        expect(paragraphs).toHaveLength(2)
+        expect(paragraphText(paragraphs[1]!)).toBe('第二条 工作内容与地点')
+
+        // 整段替换只占 2 个 ID（w:del + w:ins）
+        expect(result.nextIdAfter).toBe(2)
     })
 })
 
@@ -346,6 +393,44 @@ describe('injectRedlineMarks · 完整 docx round-trip + spec §8.5 验证项', 
         expect(inter).toEqual([])
     })
 
+    it('spec §5 redlineRefs.xml 身份证：zip 含 word/customXml/redlineRefs.xml 且内容完整', async () => {
+        // 使用 fixture XML（与上方 buildFixtureBuffer 同模式）确保 paragraphs[0] 够长
+        const original = await readFile(SAMPLE)
+        const fixtureZip = await loadDocxZip(original)
+        fixtureZip.file('word/document.xml', `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">违约金按 0.05% 计算，逾期利率另行约定。</w:t></w:r></w:p>
+  </w:body>
+</w:document>`)
+        const fixtureBuffer = await fixtureZip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' })
+
+        const clauseText = '违约金按 0.05% 计算，逾期利率另行约定。'
+        const result = await injectRedlineMarks(fixtureBuffer, [{
+            id: 871,
+            clauseText,
+            clauseParagraphIndex: 0,
+            problematicQuote: '0.05%',
+            quoteCharStart: 5,
+            quoteCharEnd: 10,
+            suggestedClauseText: '修订建议内容',
+        }], { reviewId: 871, idStart: 100, signature: '王明远' })
+
+        expect(result.skippedRiskIds).toEqual([])
+        expect(result.spansByRiskId.size).toBe(1)
+        const zip = await loadDocxZip(result.buffer)
+
+        const refsXml = await readTextFromZip(zip, 'word/customXml/redlineRefs.xml')
+        expect(refsXml).toContain('reviewId="871"')
+        for (const riskId of result.spansByRiskId.keys()) {
+            expect(refsXml).toContain(`riskId="${riskId}"`)
+        }
+        expect(refsXml).toMatch(/paraIdxs="\d/)
+
+        const ct = await readTextFromZip(zip, '[Content_Types].xml')
+        expect(ct).toContain('PartName="/word/customXml/redlineRefs.xml"')
+    })
+
     it('spec §8.5 ⑤ 端到端：含控制字符的 suggestedClauseText 经 stripIllegalXmlChars 后产物 XML 不含 0x00-0x08/0x0B/0x0C/0x0E-0x1F', async () => {
         const original = await readFile(SAMPLE)
         const { paragraphs } = await parseContractDocx(original)
@@ -375,5 +460,137 @@ describe('injectRedlineMarks · 完整 docx round-trip + spec §8.5 验证项', 
         expect(docXml).not.toMatch(ILLEGAL)
         // 但合法部分仍然出现
         expect(docXml).toContain('ABCD')
+    })
+})
+
+// ===== M13：跨 run 修订注入保留区间内的非 run 结构节点 =====
+
+describe('applyRedlineToParagraph · M13 跨 run 保留非 run 结构节点', () => {
+    async function buildFixtureBuffer(documentXml: string): Promise<Buffer> {
+        const original = await readFile(SAMPLE)
+        const zip = await loadDocxZip(original)
+        zip.file('word/document.xml', documentXml)
+        return await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' })
+    }
+
+    it('quote 跨 run 且区间内夹 bookmarkStart/End 时，配对标记不被丢弃', async () => {
+        // 段落：run("违约金") + bookmarkStart + run("按月支付") + bookmarkEnd + run("逾期加收。")
+        // quote 跨三个 run，bookmarkStart/End 落在 (startRunIdx, endRunIdx) 区间内。
+        // 旧实现 .filter(tagOf==='w:r') 把它们删掉、splice 整段替换 → 配对标记悬空 → Word 报损坏。
+        const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t xml:space="preserve">违约金</w:t></w:r><w:bookmarkStart w:id="50" w:name="bk1"/><w:r><w:t xml:space="preserve">按月支付</w:t></w:r><w:bookmarkEnd w:id="50"/><w:r><w:t xml:space="preserve">逾期加收。</w:t></w:r></w:p>
+  </w:body>
+</w:document>`
+        const buffer = await buildFixtureBuffer(xml)
+        const clauseText = '违约金按月支付逾期加收。'
+        const result = await injectRedlineMarks(buffer, [{
+            id: 1,
+            clauseText,
+            clauseParagraphIndex: 0,
+            problematicQuote: '金按月支付逾',
+            quoteCharStart: 2,
+            quoteCharEnd: 8,
+            suggestedClauseText: '修订内容',
+        }], { reviewId: 999, idStart: 0 })
+
+        expect(result.skippedRiskIds).toEqual([])
+        const docXml = await readTextFromZip(await loadDocxZip(result.buffer), 'word/document.xml')
+        const docAst = parseOoxml(docXml)
+        // bookmarkStart / bookmarkEnd 都保留（配对完整，不悬空）
+        expect(findAll(docAst, 'w:bookmarkStart').length).toBe(1)
+        expect(findAll(docAst, 'w:bookmarkEnd').length).toBe(1)
+        // 中间 run 文字仍进了 w:del
+        expect(docXml).toContain('<w:delText')
+        expect(docXml).toContain('按月支付')
+    })
+})
+
+// ===== M15：导出前清理 base 残留的陈旧 redlineRefs.xml =====
+
+/** 先成功注入一轮 redline，得到一个带 redlineRefs.xml 的 docx（模拟客户回传件） */
+async function buildBufferWithRedlineRefs(): Promise<Buffer> {
+    const original = await readFile(SAMPLE)
+    const zip = await loadDocxZip(original)
+    zip.file('word/document.xml', `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body><w:p><w:r><w:t xml:space="preserve">违约金按 0.05% 计算。</w:t></w:r></w:p></w:body>
+</w:document>`)
+    const seedBuffer = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' })
+    const r = await injectRedlineMarks(seedBuffer, [{
+        id: 1, clauseText: '违约金按 0.05% 计算。', clauseParagraphIndex: 0,
+        problematicQuote: '0.05%', quoteCharStart: 5, quoteCharEnd: 10,
+        suggestedClauseText: '0.5%',
+    }], { reviewId: 871, idStart: 100 })
+    return Buffer.isBuffer(r.buffer) ? r.buffer : Buffer.from(r.buffer)
+}
+
+describe('injectRedlineMarks · M15 清理陈旧 redlineRefs.xml', () => {
+    it('本轮无 redline 候选（risk 全被前置跳过）时，清理 base 残留的陈旧 redlineRefs.xml', async () => {
+        const baseWithRefs = await buildBufferWithRedlineRefs()
+        expect((await loadDocxZip(baseWithRefs)).file('word/customXml/redlineRefs.xml')).not.toBeNull()
+
+        const result = await injectRedlineMarks(baseWithRefs, [
+            makeRisk({ id: 2 }), // 无 quote → 前置跳过 → candidates 为空
+        ], { reviewId: 871, idStart: 200 })
+        expect(result.spansByRiskId.size).toBe(0)
+
+        const zip = await loadDocxZip(result.buffer)
+        expect(zip.file('word/customXml/redlineRefs.xml')).toBeNull()
+        const ct = await readTextFromZip(zip, '[Content_Types].xml')
+        expect(ct).not.toContain('PartName="/word/customXml/redlineRefs.xml"')
+        const rels = await readTextFromZip(zip, 'word/_rels/document.xml.rels')
+        expect(rels).not.toContain('Target="customXml/redlineRefs.xml"')
+    })
+
+    it('候选存在但全部定位失败（spans 为空）时，也清理陈旧 redlineRefs.xml', async () => {
+        const baseWithRefs = await buildBufferWithRedlineRefs()
+        const result = await injectRedlineMarks(baseWithRefs, [
+            makeRisk({
+                id: 3,
+                clauseText: '与段落 textContent 完全不一致的条款文本',
+                clauseParagraphIndex: 0,
+                problematicQuote: '不一致',
+                quoteCharStart: 0,
+                quoteCharEnd: 3,
+                suggestedClauseText: '改写',
+            }),
+        ], { reviewId: 871, idStart: 200 })
+        expect(result.spansByRiskId.size).toBe(0)
+        expect(result.skippedRiskIds).toEqual([3])
+        expect((await loadDocxZip(result.buffer)).file('word/customXml/redlineRefs.xml')).toBeNull()
+    })
+
+})
+
+describe('injectAnnotations · M15 purgeRedlineRefs', () => {
+    function makeAnnotation(id: number): ContractAnnotationForExport {
+        return {
+            id,
+            riskId: id,
+            authorType: 'ai',
+            authorName: 'AI',
+            content: '审查意见',
+            parentAnnotationId: null,
+            anchorQuote: '违约金按 0.05% 计算。',
+            anchorParagraphIndex: 0,
+            wordCommentRef: null,
+        }
+    }
+
+    it('purgeRedlineRefs=true（comment 模式导出）时清理 base 残留的陈旧 redlineRefs.xml', async () => {
+        const baseWithRefs = await buildBufferWithRedlineRefs()
+        const result = await injectAnnotations(baseWithRefs, [makeAnnotation(1)], 871, { purgeRedlineRefs: true })
+        const zip = await loadDocxZip(result.buffer)
+        expect(zip.file('word/customXml/redlineRefs.xml')).toBeNull()
+        const ct = await readTextFromZip(zip, '[Content_Types].xml')
+        expect(ct).not.toContain('PartName="/word/customXml/redlineRefs.xml"')
+    })
+
+    it('不传 purgeRedlineRefs 时保留 redlineRefs.xml（both 模式 redline 已注入，不可误删）', async () => {
+        const baseWithRefs = await buildBufferWithRedlineRefs()
+        const result = await injectAnnotations(baseWithRefs, [makeAnnotation(1)], 871, {})
+        expect((await loadDocxZip(result.buffer)).file('word/customXml/redlineRefs.xml')).not.toBeNull()
     })
 })

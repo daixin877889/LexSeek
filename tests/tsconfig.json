@@ -1,0 +1,13 @@
+{
+  "extends": "../.nuxt/tsconfig.server.json",
+  "compilerOptions": {
+    "types": ["vitest/globals", "node"]
+  },
+  "include": [
+    "./**/*",
+    "../server/**/*",
+    "../shared/**/*",
+    "../generated/**/*"
+  ],
+  "exclude": ["../node_modules", "../.nuxt", "../dist"]
+}

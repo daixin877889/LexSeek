@@ -203,9 +203,42 @@ export interface StreamChatOptions {
     hydrateSubBucket?: (toolCallId: string) => Promise<{ messages: Record<string, unknown>[] } | null>
 }
 
+/** V3：开流前业务错误的标记 error name；shouldRetry 据此跳过重试 */
+const STREAM_PREFLIGHT_ERROR = 'StreamPreflightError'
+
+/**
+ * V3：SSE 接口在「流打开前」失败时，按项目约定走 resError → HTTP 200 + JSON body。
+ * FetchStreamTransport 把 HTTP 200 当成功、把 JSON 错误体当无效 SSE 内容丢弃 → 前端
+ * 永远等不到事件、静默卡死转圈。
+ *
+ * 这里检查响应 content-type：成功的 SSE 响应是 text/event-stream；HTTP 200 但响应体
+ * 是 JSON，即开流前的业务错误 → 主动抛 StreamPreflightError，让 useStream 进 failed
+ * 状态。真正的非 200（network / 5xx）原样返回，交给 transport 自身的 !response.ok 分支。
+ *
+ * 导出仅供单测。
+ */
+export async function ensureSseResponse(response: Response): Promise<Response> {
+    const contentType = response.headers.get('content-type') ?? ''
+    if (response.ok && !contentType.includes('text/event-stream')) {
+        let message = '请求失败，请稍后重试'
+        try {
+            const body = await response.json() as { message?: unknown }
+            if (typeof body?.message === 'string' && body.message) message = body.message
+        } catch {
+            // 响应体非 JSON，保留兜底文案
+        }
+        const err = new Error(message)
+        err.name = STREAM_PREFLIGHT_ERROR
+        throw err
+    }
+    return response
+}
+
 export function useStreamChat<T extends Record<string, unknown> = Record<string, unknown>>(options: StreamChatOptions) {
     const transport = new FetchStreamTransport({
         apiUrl: options.apiUrl,
+        // V3：包装 fetch，开流前失败（HTTP 200 + JSON 错误体）时主动抛错而非静默卡死
+        fetch: (input: RequestInfo | URL, init?: RequestInit) => fetch(input, init).then(ensureSseResponse),
     })
 
     // 代理 agent run 状态，用于 UI 失败反馈
@@ -231,6 +264,8 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
         const err = error as { name?: string; message?: string }
         // 用户主动 stop / unmount 引发的 abort，不重连
         if (err.name === 'AbortError') return false
+        // V3：开流前业务错误（review 不存在 / 无权限 / 限流等）是确定性失败，重试无意义
+        if (err.name === STREAM_PREFLIGHT_ERROR) return false
         if (typeof err.message === 'string' && err.message.toLowerCase().includes('aborted')) return false
         return true
     }

@@ -16,7 +16,7 @@
 import { findCaseBySessionIdService } from '~~/server/services/case/caseSession.service'
 import { enqueueRunService, getActiveRunService, getLatestRunService } from '~~/server/services/agent/agentRun.service'
 import { updateRunStatusDAO } from '~~/server/services/agent/agentRun.dao'
-import { createAgentSseStream } from '~~/server/services/sse/agentSseStream'
+import { createAgentSseStream, createEmptyAgentSseResponse } from '~~/server/services/sse/agentSseStream'
 import { scheduleConsolidation } from '~~/server/services/memory/consolidator.service'
 import { AGENT_RUN_STATUS } from '#shared/types/agentRun'
 import {
@@ -123,7 +123,9 @@ export default defineEventHandler(async (event) => {
         latestRunStatus = latestRun.status
       }
       else {
-        return resError(event, 400, '消息不能为空')
+        // 分支 6：会话从未运行过，前端 loadHistory()（submit(undefined)）拉历史时
+        // 无历史可回放——属正常状态而非错误，不报 400。
+        return createEmptyAgentSseResponse(event)
       }
     }
     else {

@@ -11,8 +11,10 @@
 
 import { z } from 'zod'
 import { embedDocumentService } from '~~/server/services/material/materialEmbedding.service'
+import { sanitizeRichHtml } from '~~/server/utils/htmlSanitizer'
 import { DocRecognitionStatus } from '#shared/types/recognition'
-import { createDocRecognitionRecordDao, findDocRecognitionByOssFileIdDao, updateDocRecognitionRecordDao } from '~~/server/services/material/mineru.dao'
+import { createDocRecognitionRecordDao, findDocRecognitionByOssFileIdDao, updateDocRecognitionRecordByIdAndUserIdDao } from '~~/server/services/material/mineru.dao'
+import { findOssFilesByIdsAndUserIdDao } from '~~/server/services/files/ossFiles.dao'
 
 // 请求体验证
 const bodySchema = z.object({
@@ -52,13 +54,14 @@ export default defineEventHandler(async (event) => {
         return resError(event, 400, bodyResult.error.issues[0]!?.message || '参数错误')
     }
 
-    const { ossFileId, htmlContent, markdownContent, fileName } = bodyResult.data
+    const { ossFileId, markdownContent, fileName } = bodyResult.data
+    // 净化客户端提交的 HTML，防止存储型 XSS
+    const htmlContent = sanitizeRichHtml(bodyResult.data.htmlContent)
 
     try {
-        // 查询 OSS 文件信息
-        const ossFile = await prisma.ossFiles.findFirst({
-            where: { id: ossFileId, deletedAt: null },
-        })
+        // owner-only：仅允许向属于当前用户的 OSS 文件写入识别结果
+        const ownedFiles = await findOssFilesByIdsAndUserIdDao([ossFileId], user.id)
+        const ossFile = ownedFiles[0]
 
         if (!ossFile) {
             return resError(event, 404, '文件不存在')
@@ -70,13 +73,30 @@ export default defineEventHandler(async (event) => {
         // 查询是否已有识别记录
         let record = await findDocRecognitionByOssFileIdDao(ossFileId)
 
+        if (record && record.userId !== user.id) {
+            logger.warn('文档识别记录归属异常，拒绝保存', {
+                ossFileId,
+                recordId: record.id,
+                recordUserId: record.userId,
+                requestUserId: user.id,
+            })
+            return resError(event, 409, '识别记录归属异常，请重新上传文件')
+        }
+
         if (record) {
             // 更新现有记录
-            record = await updateDocRecognitionRecordDao(record.id, {
+            record = await updateDocRecognitionRecordByIdAndUserIdDao(record.id, user.id, {
                 status: DocRecognitionStatus.SUCCESS,
                 htmlContent,
                 markdownContent,
             })
+            if (!record) {
+                logger.warn('文档识别记录归属异常，拒绝更新', {
+                    ossFileId,
+                    requestUserId: user.id,
+                })
+                return resError(event, 409, '识别记录归属异常，请重新上传文件')
+            }
         } else {
             // 创建新记录
             record = await createDocRecognitionRecordDao({
@@ -86,10 +106,17 @@ export default defineEventHandler(async (event) => {
             })
 
             // 更新内容
-            record = await updateDocRecognitionRecordDao(record.id, {
+            record = await updateDocRecognitionRecordByIdAndUserIdDao(record.id, user.id, {
                 htmlContent,
                 markdownContent,
             })
+            if (!record) {
+                logger.warn('文档识别记录创建后归属异常，拒绝保存', {
+                    ossFileId,
+                    requestUserId: user.id,
+                })
+                return resError(event, 409, '识别记录归属异常，请重新上传文件')
+            }
         }
 
         // 进行向量嵌入（使用新的通用元数据结构，不需要 caseId 和 sessionId）
@@ -108,10 +135,19 @@ export default defineEventHandler(async (event) => {
             lastEmbeddingAt = new Date(embeddingResult.lastEmbeddingAt)
 
             // 更新记录的向量信息
-            await updateDocRecognitionRecordDao(record.id, {
+            const embeddingRecord = await updateDocRecognitionRecordByIdAndUserIdDao(record.id, user.id, {
                 vectorIds,
                 lastEmbeddingAt,
             })
+            if (!embeddingRecord) {
+                logger.warn('文档识别记录归属异常，跳过向量信息更新', {
+                    ossFileId,
+                    recordId: record.id,
+                    requestUserId: user.id,
+                })
+                vectorIds = []
+                lastEmbeddingAt = null
+            }
 
             logger.info(`文档 ${ossFileId} 嵌入完成`, {
                 chunkCount: embeddingResult.chunkCount,

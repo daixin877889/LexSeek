@@ -1,6 +1,6 @@
 # 数据模型
 
-LexSeek 使用 Prisma ORM + PostgreSQL 管理数据，采用模块化 schema 拆分，共 28 个 `.prisma` 模型文件，覆盖用户、案件、会员、支付、权限、AI 模型、法律知识库、合同审查、文书起草、Agent skills 等核心业务域。
+LexSeek 使用 Prisma ORM + PostgreSQL 管理数据，采用模块化 schema 拆分，共 29 个 `.prisma` 模型文件，覆盖用户、案件、会员、支付、权限、AI 模型、法律知识库、合同审查、文书起草、利率数据、Agent skills 等核心业务域。
 
 ---
 
@@ -27,6 +27,7 @@ LexSeek 使用 Prisma ORM + PostgreSQL 管理数据，采用模块化 schema 拆
 | `storage.prisma` | `storageConfigs` | 存储配置 |
 | `campaign.prisma` | `campaigns` | 营销活动 |
 | `redemption.prisma` | `redemptionCodes`, `redemptionRecords` | 兑换码 |
+| `rates.prisma` | `lprRates`, `pbocDepositRates`, `pbocLoanRates`, `lprSyncLogs` | 利率数据（LPR / 央行存贷款基准利率 + 同步日志） |
 | `sms.prisma` | `smsRecords` | 短信验证码 |
 | `system.prisma` | `systemConfigs` | 系统配置 |
 | `legal.prisma` | `legalMain`, `legalArticles`, `lawEmbeddings` | 法律知识库 |
@@ -168,12 +169,13 @@ caseMaterialEmbeddings (独立向量表)
 
 ```
 users (1) ──> (N) contractReviews
+cases (1) ──> (N) contractReviews   (caseId 可空)
 ```
 
 关键关系说明：
 - `contractReviews.userId` -> `users.id`：用户发起合同审查
+- `contractReviews.caseId` -> `cases.id`（可空，`onDelete: SetNull`）：`null` 表示独立审查（assistant 入口），非 `null` 表示归属某案件（案件详情 Tab 入口）；建有 `idx_contract_reviews_case` 索引
 - `sessionId` 字段加 UNIQUE 约束（`idx_contract_reviews_session`），对应"合同审查会话 1:1 映射"——一次合同审查对应一个 LangGraph `thread_id`，重审即新建 review、新建 sessionId
-- MVP 阶段不含 `caseId` 列，M6+ 通过 `ALTER TABLE` 补齐案件页复用能力
 - `status` 状态机：`pending` → `reviewing` → `awaiting_stance` → `reviewing` → `completed` | `failed`
 
 ---

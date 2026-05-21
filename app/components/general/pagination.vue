@@ -9,14 +9,16 @@
         <!-- 页码导航 -->
         <div class="flex items-center justify-center gap-2">
             <!-- 上一页 -->
-            <Button variant="outline" size="sm" :disabled="currentPage <= 1" @click="handlePageChange(currentPage - 1)">
+            <Button variant="outline" size="sm" :class="pageButtonClass" :disabled="currentPage <= 1"
+                @click="handlePageChange(currentPage - 1)">
                 <ChevronLeft class="h-4 w-4" />
             </Button>
 
             <!-- 页码按钮 -->
             <div class="flex items-center gap-1">
                 <Button v-for="pageNum in pageNumbers" :key="pageNum"
-                    :variant="pageNum === currentPage ? 'default' : 'outline'" size="sm" class="w-8"
+                    :variant="pageNum === currentPage ? 'default' : 'outline'" size="sm"
+                    :class="pageNum === currentPage ? currentPageButtonClass : ['w-8', pageButtonClass]"
                     @click="handlePageChange(pageNum)">
                     {{ pageNum }}
                 </Button>
@@ -24,6 +26,7 @@
 
             <!-- 下一页 -->
             <Button variant="outline" size="sm" :disabled="currentPage >= totalPages"
+                :class="pageButtonClass"
                 @click="handlePageChange(currentPage + 1)">
                 <ChevronRight class="h-4 w-4" />
             </Button>
@@ -50,6 +53,18 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
     range: 2,
 });
+
+const pageButtonClass = 'brand-control-focus shadow-none';
+const currentPageButtonClass = [
+    'w-8',
+    'border-transparent',
+    'bg-gradient-brand-button',
+    'text-white',
+    'brand-control-focus',
+    'shadow-none',
+    'hover:brightness-105',
+    'hover:text-white',
+];
 
 // ==================== Emits 定义 ====================
 

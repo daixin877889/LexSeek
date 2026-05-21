@@ -21,7 +21,13 @@ export default defineEventHandler(async (event) => {
             pageSize: z.coerce.number({ message: '每页数量必须为数字' }).min(1, { message: '每页数量最小为1' }).max(100, { message: '每页数量最大为100' }).default(30),
             fileType: z.enum(FileType, { message: '文件类型值错误' }).optional(),
             fileName: z.string({ message: '文件名必须为字符串' }).optional(),
-            source: z.enum(FileSource, { message: '场景值错误' }).optional(),
+            source: z.union([
+                z.enum(FileSource, { message: '场景值错误' }),
+                z.array(z.enum(FileSource, { message: '场景值错误' })).min(1),
+            ]).optional().transform((value) => {
+                if (value === undefined) return undefined
+                return Array.isArray(value) ? value : [value]
+            }),
             sortField: z.enum(FileSortField, { message: '排序字段值错误' }).optional(),
             sortOrder: z.enum(SortOrder, { message: '排序顺序值错误' }).optional().default(SortOrder.DESC),
         }).parse(rawQuery)
@@ -32,7 +38,7 @@ export default defineEventHandler(async (event) => {
             pageSize: query.pageSize,
             fileType: query.fileType as FileType | undefined,
             fileName: query.fileName,
-            source: query.source as FileSource | undefined,
+            source: query.source,
             sortField: query.sortField as FileSortField,
             sortOrder: query.sortOrder as SortOrder,
         })

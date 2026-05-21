@@ -58,6 +58,8 @@ const routeTitles: Record<string, string> = {
   '/admin/campaigns': '营销活动',
   // 商品管理
   '/admin/products': '商品管理',
+  // 利率管理
+  '/admin/rates': '利率管理',
 }
 
 /** 计算面包屑 */

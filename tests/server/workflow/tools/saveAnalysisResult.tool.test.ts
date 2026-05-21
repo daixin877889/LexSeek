@@ -27,10 +27,12 @@ vi.stubGlobal('logger', {
 })
 
 // Mock crypto.randomUUID 让 toolCallId 可预测
-vi.stubGlobal('crypto', {
-    ...globalThis.crypto,
-    randomUUID: () => 'summary-tool-call-id-fixed',
-})
+// 注意：不能 vi.stubGlobal('crypto', {...globalThis.crypto, ...}) —— spread 仅复制 own enumerable
+// 属性，会丢失 Crypto.prototype 上的 getRandomValues / subtle 等方法，导致 LangChain 内部
+// 调用 crypto.getRandomValues() 报 TypeError。改用 vi.spyOn 只替换 randomUUID。
+vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(
+    'summary-tool-call-id-fixed' as ReturnType<Crypto['randomUUID']>,
+)
 
 // Mock analysis.service 中的 saveAndActivateAnalysisService + updateAndActivateAnalysisService
 const mockSaveAndActivate = vi.fn()

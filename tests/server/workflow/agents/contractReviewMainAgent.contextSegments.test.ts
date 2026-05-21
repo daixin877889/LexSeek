@@ -84,9 +84,10 @@ vi.mock('~~/server/services/workflow/middleware', () => ({
     createScopeGuardMiddleware: vi.fn(() => ({})),
     createAuditMiddleware: vi.fn(() => ({})),
     userInjectionMiddleware: vi.fn(() => ({})),
+    dateContextMiddleware: vi.fn(() => ({})),
     buildMiddlewareStack: vi.fn((items: unknown[]) => items.map(() => ({}))),
-    MIDDLEWARE_PRIORITY: { MESSAGE_INTEGRITY: 1, SCOPE_GUARD: 2, POINT_CONSUMPTION: 3, SUMMARIZATION: 4, SAFETY_TRIM: 5, USER_INJECTION: 6, RESULT_PERSISTENCE: 7, AUDIT: 8 },
-    MIDDLEWARE_NAMES: { MESSAGE_INTEGRITY: 'mi', SCOPE_GUARD: 'sg', POINT_CONSUMPTION: 'pc', SUMMARIZATION: 'sm', SAFETY_TRIM: 'st', USER_INJECTION: 'ui', REVIEW_RESULT_PERSISTENCE: 'rp', AUDIT: 'au' },
+    MIDDLEWARE_PRIORITY: { MESSAGE_INTEGRITY: 1, SCOPE_GUARD: 2, POINT_CONSUMPTION: 3, SUMMARIZATION: 4, SAFETY_TRIM: 5, DATE_CONTEXT: 6, USER_INJECTION: 7, RESULT_PERSISTENCE: 8, AUDIT: 9 },
+    MIDDLEWARE_NAMES: { MESSAGE_INTEGRITY: 'mi', SCOPE_GUARD: 'sg', POINT_CONSUMPTION: 'pc', SUMMARIZATION: 'sm', SAFETY_TRIM: 'st', DATE_CONTEXT: 'dc', USER_INJECTION: 'ui', REVIEW_RESULT_PERSISTENCE: 'rp', AUDIT: 'au' },
 }))
 vi.mock('~~/server/services/workflow/middleware/reviewResultPersistence.middleware', () => ({
     runAnnotateAndUpload: vi.fn(),

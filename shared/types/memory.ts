@@ -1,5 +1,5 @@
 /** 记忆类型 */
-export type MemoryKind = 'fact' | 'preference' | 'dialogue_note' | 'event' | 'decision' | 'note'
+export type MemoryKind = 'fact' | 'preference' | 'dialogue_note' | 'event' | 'decision' | 'note' | 'calculation'
 
 /** 记忆来源 */
 export type MemorySource = 'manual' | 'consolidator' | 'auto_extract' | 'manual_user'
@@ -24,6 +24,17 @@ export interface CaseMemoryMetadata {
     invalidatedAt?: string
     /** ISO 创建时间 */
     createdAt: string
+    /** 计算器历史详情，仅当 kind='calculation' 时填入 */
+    calculation?: {
+        /** 工具名称，如 'calculate_compensation' */
+        tool: string
+        /** 用户提交的输入参数 */
+        input: Record<string, unknown>
+        /** 计算输出结果 */
+        output: Record<string, unknown>
+        /** 计算完成时间（ISO 字符串） */
+        calculatedAt: string
+    }
 }
 
 /** 召回命中 */

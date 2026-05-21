@@ -1,6 +1,6 @@
 <template>
     <Sheet v-model:open="isOpen">
-        <SheetContent class="sm:max-w-2xl overflow-y-auto p-6">
+        <SheetContent class="theme-brand sm:max-w-2xl overflow-y-auto p-6">
             <SheetHeader>
                 <SheetTitle>审计记录详情</SheetTitle>
                 <SheetDescription class="font-mono text-xs">{{ record?.id }}</SheetDescription>
@@ -16,7 +16,11 @@
                     <div class="text-muted-foreground">案件</div>
                     <div>{{ record.caseId ?? '-' }}</div>
                     <div class="text-muted-foreground">判决</div>
-                    <div>{{ AgentAuditVerdictText[record.verdict] }}</div>
+                    <div>
+                        <Badge variant="outline" :class="getVerdictBadgeClass(record.verdict)">
+                            {{ AgentAuditVerdictText[record.verdict] }}
+                        </Badge>
+                    </div>
                     <div class="text-muted-foreground">拒绝原因</div>
                     <div>{{ record.denyReason ?? '-' }}</div>
                     <div class="text-muted-foreground">耗时</div>
@@ -35,14 +39,25 @@
 </template>
 
 <script setup lang="ts">
-import { AgentAuditVerdictText, type AgentAuditRecord } from '#shared/types/agentAudit'
+import { AgentAuditVerdictText, type AgentAuditRecord, type AgentAuditVerdict } from '#shared/types/agentAudit'
 import { useApiFetch } from '~/composables/useApiFetch'
+import {
+    adminBrandEnabledBadgeClass,
+    adminBrandErrorBadgeClass,
+    adminBrandWarningBadgeClass,
+} from '~/utils/adminBrandStyles'
 
 const isOpen = defineModel<boolean>('open', { default: false })
 const props = defineProps<{ recordId: string }>()
 
 const record = ref<AgentAuditRecord | null>(null)
 const loading = ref(false)
+
+function getVerdictBadgeClass(verdict: AgentAuditVerdict): string {
+    if (verdict === 'allowed') return adminBrandEnabledBadgeClass
+    if (verdict === 'denied') return adminBrandErrorBadgeClass
+    return adminBrandWarningBadgeClass
+}
 
 watch([() => props.recordId, isOpen], async ([id, open]) => {
     if (!open || !id) return

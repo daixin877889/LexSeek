@@ -20,7 +20,7 @@
 
 ### 1.2 前端现状（待改）
 
-- 统一底层：`app/composables/useStreamChat.ts` 是所有 SSE 业务（法律助手 / 合同审查 / 文档起草 / 案件分析对话 / 案件初始化分析）的共同入口（直接用或经 `app/composables/agent-platform/useDomainAgentSession.ts` 包装）
+- 统一底层：`app/composables/useStreamChat.ts` 是所有 SSE 业务（通用问答 / 合同审查 / 文档起草 / 案件分析对话 / 案件初始化分析）的共同入口（直接用或经 `app/composables/agent-platform/useDomainAgentSession.ts` 包装）
 - `useStreamChat.ts:408-417` 的 `onError` 一收到 fetch / 流错误就 `runStatus='failed' + runError`，不重试
 - 已有但未自动调用的 `reconnect()` 方法：`useStreamChat.ts:508-514`
 - **完全没有** `online` / `offline` / `visibilitychange` 监听

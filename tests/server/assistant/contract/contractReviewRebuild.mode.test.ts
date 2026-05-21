@@ -29,6 +29,11 @@ vi.mock('~~/server/agents/contract/contractRisk.dao', () => ({
 vi.mock('~~/server/agents/contract/contractReview.dao', () => ({
     setCompletedAfterRebuildDAO: vi.fn(),
 }))
+// 自定义署名功能：rebuildDocxService 新增调用 resolveContractExportSignatureService，
+// 其内部走真实 DAO → prisma。本 mock 单测未 mock 该链，故固定返回署名 '审查人'。
+vi.mock('~~/server/services/users/contractSignature.service', () => ({
+    resolveContractExportSignatureService: vi.fn().mockResolvedValue('审查人'),
+}))
 vi.mock('~~/server/agents/contract/docx', async () => {
     const actual = await vi.importActual<any>('~~/server/agents/contract/docx')
     return {
@@ -90,7 +95,8 @@ describe('rebuildDocxService 三模式协调（PR6 §8.2）', () => {
         const callArgs = (docx.injectAnnotations as any).mock.calls[0]
         expect(callArgs[1]).toHaveLength(1)
         expect(callArgs[1][0].riskId).toBe(42)
-        expect(callArgs[3]).toEqual({ idStart: 4 })
+        // 自定义署名功能：注入参数新增 signature（取自 resolveContractExportSignatureService）
+        expect(callArgs[3]).toEqual({ idStart: 4, signature: '审查人' })
     })
 
     it('mode=both：先调 injectRedlineMarks，全部 annotations 走 injectAnnotations 接力 nextIdAfter + 传 wrapTargetByRiskId（spec §8.3.6）', async () => {
@@ -110,7 +116,8 @@ describe('rebuildDocxService 三模式协调（PR6 §8.2）', () => {
         const callArgs = (docx.injectAnnotations as any).mock.calls[0]
         // both 模式 → 全部 annotations 都进 commentInjector
         expect(callArgs[1]).toHaveLength(1)
-        // both 模式必须把 spansByRiskId 透传给 commentInjector 让其精确包裹 redline
-        expect(callArgs[3]).toEqual({ idStart: 6, wrapTargetByRiskId: fakeSpans })
+        // both 模式必须把 spansByRiskId 透传给 commentInjector 让其精确包裹 redline；
+        // 自定义署名功能新增 signature 参数
+        expect(callArgs[3]).toEqual({ idStart: 6, wrapTargetByRiskId: fakeSpans, signature: '审查人' })
     })
 })

@@ -382,14 +382,20 @@ describe('exportDelayInterestToExcel - 额外分支覆盖', () => {
         expect(saveAs).toHaveBeenCalled()
     })
 
-    it('应处理跨越 2019-08-20 的 details 格式中数组元素缺失的情况（覆盖 lines 277-289）', () => {
-        // 覆盖 lines 277-289: details[3] ?? '' 等当数组元素不存在
+    it('应处理跨越 2019-08-20 的 details 中元素为 undefined 的情况（覆盖 lines 277-289 fallback）', () => {
+        // 覆盖 lines 277-289: details[3] ?? '' 等当数组元素为 undefined
+        // 通过填充 undefined 让数组长度 > 5 但元素为 nullish
         const result = {
             details: [
                 '第 0 项',
                 '第 1 项',
-                '跨越 2019 年 8 月 20 日'
-                // details[3] 到 details[8] 都不存在，触发 ?? '' 分支
+                '跨越 2019 年 8 月 20 日',
+                undefined as any,
+                undefined as any,
+                undefined as any,
+                undefined as any,
+                undefined as any,
+                undefined as any
             ],
             startDate: '2019-01-01',
             endDate: '2019-12-31',
@@ -420,5 +426,98 @@ describe('exportDelayInterestToExcel - 额外分支覆盖', () => {
 
         expect(() => exportDelayInterestToExcel(result)).not.toThrow()
         expect(saveAs).toHaveBeenCalled()
+    })
+
+    it('应处理 pbocResult 存在但 interestDetails 缺失的情况（覆盖 line 79）', () => {
+        // 覆盖 line 79: if (result.pbocResult.interestDetails) false 分支
+        const result: any = {
+            principal: 10000,
+            startDate: '2020-01-01',
+            endDate: '2020-12-31',
+            days: 366,
+            totalInterest: 100,
+            pbocResult: {},  // 没有 interestDetails
+            lprResult: { interestDetails: [{ startDate: '2020-01-01', endDate: '2020-06-30', days: 181, rate: 4.25, adjustedRate: 4.25, interest: 50 }] }
+        }
+        expect(() => exportInterestToExcel(result, 'lpr')).not.toThrow()
+    })
+
+    it('应处理 lprResult 存在但 interestDetails 缺失的情况（覆盖 line 93）', () => {
+        // 覆盖 line 93: if (result.lprResult.interestDetails) false 分支
+        const result: any = {
+            principal: 10000,
+            startDate: '2020-01-01',
+            endDate: '2020-12-31',
+            days: 366,
+            totalInterest: 100,
+            pbocResult: { interestDetails: [{ startDate: '2020-01-01', endDate: '2020-06-30', days: 181, rate: 4.25, adjustedRate: 4.25, interest: 50 }] },
+            lprResult: {}  // 没有 interestDetails
+        }
+        expect(() => exportInterestToExcel(result, 'lpr')).not.toThrow()
+    })
+
+    it('应处理 detail.adjustedRate 缺失时的 fallback 到 rate（覆盖 line 101）', () => {
+        // 覆盖 line 101: detail.adjustedRate || detail.rate 右分支
+        const result: any = {
+            principal: 10000,
+            startDate: '2020-01-01',
+            endDate: '2020-12-31',
+            days: 366,
+            totalInterest: 100,
+            pbocResult: {
+                interestDetails: [
+                    // 无 adjustedRate，回退到 detail.rate
+                    { startDate: '2020-01-01', endDate: '2020-06-30', days: 181, rate: 4.25, interest: 50 }
+                ]
+            },
+            lprResult: {
+                interestDetails: [
+                    { startDate: '2020-07-01', endDate: '2020-12-31', days: 184, rate: 3.85, interest: 50 }
+                ]
+            }
+        }
+        expect(() => exportInterestToExcel(result, 'lpr')).not.toThrow()
+    })
+
+    it('应处理 item 字段值非空的常规路径（覆盖 line 158 truthy 分支）', () => {
+        // 覆盖 line 158: item[header.key] ?? '' 的 ?? 右分支（用空值触发）
+        const result: any = {
+            principal: 10000,
+            startDate: '2020-01-01',
+            endDate: '2020-12-31',
+            days: 366,
+            totalInterest: 100,
+            interestDetails: [{
+                // 不传 baseRate 字段 → 触发 line 158 右分支
+                startDate: '2020-01-01',
+                endDate: '2020-12-31',
+                days: 366,
+                interest: 100
+            }]
+        }
+        expect(() => exportInterestToExcel(result, 'lpr')).not.toThrow()
+    })
+
+    it('旧格式 details 完整时（不缺失元素）应正确解析（覆盖 277-289 truthy 分支）', () => {
+        // 之前的测试 details 数组只有 3 项触发 ?? '' 右分支
+        // 这里提供完整 9 项 details，触发左分支（不 fallback）
+        const result = {
+            details: [
+                '本金：10000元',
+                '计算期间：2018-01-01 至 2020-12-31',
+                '跨越 2019 年 8 月 20 日',
+                '基准利率阶段计息天数：231天',
+                '基准利率：4.85%，迟延履行利率：8.85%',
+                '计算：10000 × 8.85% / 365 × 231 = 560.21元',
+                'LPR阶段计息天数：500天',
+                'LPR利率：3.85%，迟延履行利率：15.4%',
+                '计算：10000 × 15.4% / 365 × 500 = 2109.59元'
+            ],
+            startDate: '2018-01-01',
+            endDate: '2020-12-31',
+            days: 731,
+            totalInterest: 2669.8
+        }
+        expect(() => exportDelayInterestToExcel(result)).not.toThrow()
     })
 })

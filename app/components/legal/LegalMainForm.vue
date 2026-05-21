@@ -1,5 +1,5 @@
 <template>
-    <div class="bg-card rounded-lg border">
+    <div class="theme-brand bg-card rounded-lg border">
         <form @submit.prevent="handleSubmit">
             <!-- 可滚动内容区域 -->
             <div class="p-6 space-y-6">
@@ -11,13 +11,13 @@
                         <!-- 法律名称 -->
                         <div class="space-y-2">
                             <Label for="name">法律名称 <span class="text-destructive">*</span></Label>
-                            <Input id="name" v-model="form.name" placeholder="请输入法律名称" />
+                            <Input id="name" v-model="form.name" placeholder="请输入法律名称" :class="adminBrandFocusClass" />
                         </div>
 
                         <!-- 法律代码 -->
                         <div class="space-y-2">
                             <Label for="code">法律代码 <span class="text-destructive">*</span></Label>
-                            <Input id="code" v-model="form.code" placeholder="请输入唯一标识代码" />
+                            <Input id="code" v-model="form.code" placeholder="请输入唯一标识代码" :class="adminBrandFocusClass" />
                         </div>
                     </div>
 
@@ -26,10 +26,10 @@
                         <div class="space-y-2">
                             <Label for="type">法律类型 <span class="text-destructive">*</span></Label>
                             <Select v-model="form.type">
-                                <SelectTrigger class="w-full">
+                                <SelectTrigger :class="['w-full', adminBrandFocusClass]">
                                     <SelectValue placeholder="请选择法律类型" />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent class="theme-brand">
                                     <SelectItem value="law">法律</SelectItem>
                                     <SelectItem value="regulation">行政法规</SelectItem>
                                     <SelectItem value="judicial_interp">司法解释</SelectItem>
@@ -41,7 +41,7 @@
                         <!-- 分类 -->
                         <div class="space-y-2">
                             <Label for="category">分类</Label>
-                            <Input id="category" v-model="form.category" placeholder="请输入分类（可选）" />
+                            <Input id="category" v-model="form.category" placeholder="请输入分类（可选）" :class="adminBrandFocusClass" />
                         </div>
                     </div>
                 </div>
@@ -54,13 +54,13 @@
                         <!-- 发文机关 -->
                         <div class="space-y-2">
                             <Label for="issuingAuthority">发文机关</Label>
-                            <Input id="issuingAuthority" v-model="form.issuingAuthority" placeholder="请输入发文机关" />
+                            <Input id="issuingAuthority" v-model="form.issuingAuthority" placeholder="请输入发文机关" :class="adminBrandFocusClass" />
                         </div>
 
                         <!-- 文号 -->
                         <div class="space-y-2">
                             <Label for="documentNumber">文号</Label>
-                            <Input id="documentNumber" v-model="form.documentNumber" placeholder="请输入文号" />
+                            <Input id="documentNumber" v-model="form.documentNumber" placeholder="请输入文号" :class="adminBrandFocusClass" />
                         </div>
                     </div>
                 </div>
@@ -73,19 +73,19 @@
                         <!-- 发布日期 -->
                         <div class="space-y-2">
                             <Label>发布日期</Label>
-                            <GeneralDatePicker v-model="form.publishDate" placeholder="选择发布日期" />
+                            <GeneralDatePicker v-model="form.publishDate" placeholder="选择发布日期" :class="adminBrandFocusClass" />
                         </div>
 
                         <!-- 生效日期 -->
                         <div class="space-y-2">
                             <Label>生效日期</Label>
-                            <GeneralDatePicker v-model="form.effectiveDate" placeholder="选择生效日期" />
+                            <GeneralDatePicker v-model="form.effectiveDate" placeholder="选择生效日期" :class="adminBrandFocusClass" />
                         </div>
 
                         <!-- 失效日期 -->
                         <div class="space-y-2">
                             <Label>失效日期</Label>
-                            <GeneralDatePicker v-model="form.invalidDate" placeholder="选择失效日期" />
+                            <GeneralDatePicker v-model="form.invalidDate" placeholder="选择失效日期" :class="adminBrandFocusClass" />
                         </div>
                     </div>
                 </div>
@@ -94,7 +94,7 @@
                 <div class="space-y-4">
                     <div class="flex items-center justify-between">
                         <h3 class="text-lg font-medium">法律内容 <span class="text-destructive">*</span></h3>
-                        <Button v-if="initialData" type="button" variant="outline" size="sm" @click="handleFullUpdate">
+                        <Button v-if="initialData" type="button" variant="outline" size="sm" :class="adminBrandFocusClass" @click="handleFullUpdate">
                             <FileEdit class="h-4 w-4 mr-2" />
                             全量更新
                         </Button>
@@ -122,10 +122,10 @@
             <!-- 固定在底部的操作按钮 -->
             <div
                 class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-2 border-t bg-card/95 backdrop-blur supports-backdrop-filter:bg-card/80">
-                <Button type="button" variant="outline" size="sm" @click="$emit('cancel')">
+                <Button type="button" variant="outline" size="sm" :class="adminBrandFocusClass" @click="$emit('cancel')">
                     取消
                 </Button>
-                <Button type="submit" size="sm" :disabled="submitting">
+                <Button type="submit" size="sm" :class="adminBrandPrimaryButtonClass" :disabled="submitting">
                     <Loader2 v-if="submitting" class="h-4 w-4 mr-2 animate-spin" />
                     {{ initialData ? '保存修改' : '创建' }}
                 </Button>
@@ -143,6 +143,7 @@ import type { LegalMainInfo, CreateLegalMainRequest, UpdateLegalMainRequest, Leg
 import GeneralDatePicker from '~/components/general/DatePicker.vue'
 import GeneralRichTextEditor from '~/components/general/RichTextEditor.vue'
 import { useColorMode } from '~/composables/useColorMode'
+import { adminBrandFocusClass, adminBrandPrimaryButtonClass } from '~/utils/adminBrandStyles'
 
 // 启用 Mermaid 渲染（传入 mermaid 模块的动态导入函数）
 enableMermaid(() => import('mermaid'))

@@ -108,11 +108,12 @@ export default defineEventHandler(async (event) => {
         }
         const { id: mineruTokenId, token } = picked
 
-        // 2. 验证所有 OSS 文件存在
+        // 2. 验证所有 OSS 文件存在（owner-only：仅允许批量提交自己上传的文件）
         const ossFileIds = files.map(f => f.ossFileId)
         const ossFiles = await prisma.ossFiles.findMany({
             where: {
                 id: { in: ossFileIds },
+                userId: user.id,
                 deletedAt: null,
             },
         })

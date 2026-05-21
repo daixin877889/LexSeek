@@ -79,6 +79,12 @@ export interface ConsumeOptions {
     remark?: string
     /** 外部事务客户端 */
     tx?: TxClient
+    /** 操作关联标识（聚合展示用），透传落库 */
+    operationId?: string
+    /** 业务上下文快照（如「劳动合同纠纷案」），透传落库 */
+    contextLabel?: string
+    /** 计费用量（页/分钟/张），仅按次量场景透传，写第一条记录 */
+    usageAmount?: number
 }
 
 /**
@@ -91,6 +97,10 @@ export interface PreDeductOptions {
     remark?: string
     /** 外部事务客户端 */
     tx?: TxClient
+    /** 业务上下文快照 */
+    contextLabel?: string
+    /** 计费用量（页/分钟/张） */
+    usageAmount?: number
 }
 
 /**
@@ -203,15 +213,16 @@ export const consumePointsService = async (
     quantity: number,
     options?: ConsumeOptions
 ): Promise<SettleResult> => {
-    const { sourceId, remark, tx } = options || {}
+    const { sourceId, remark, tx, operationId, contextLabel, usageAmount } = options || {}
+    const extra = { operationId, contextLabel, usageAmount }
 
     // 如果传入了外部事务，直接使用；否则创建新事务
     if (tx) {
-        return executeConsume(userId, itemKey, quantity, sourceId, remark, tx)
+        return executeConsume(userId, itemKey, quantity, sourceId, remark, tx, extra)
     }
 
     return prisma.$transaction(async (txClient) => {
-        return executeConsume(userId, itemKey, quantity, sourceId, remark, txClient)
+        return executeConsume(userId, itemKey, quantity, sourceId, remark, txClient, extra)
     })
 }
 
@@ -224,7 +235,8 @@ const executeConsume = async (
     quantity: number,
     sourceId: number | undefined,
     remark: string | undefined,
-    tx: TxClient
+    tx: TxClient,
+    extra: { operationId?: string; contextLabel?: string; usageAmount?: number } = {}
 ): Promise<SettleResult> => {
     // 获取消耗项目配置
     const item = await getConsumptionItemByKeyService(itemKey, tx)
@@ -243,6 +255,8 @@ const executeConsume = async (
     // FIFO 消耗逻辑
     let remainingToConsume = consumeAmount
     const consumptionRecords: pointConsumptionRecords[] = []
+    // operationId/contextLabel 写每条；usageAmount 只写第一条，避免拆分到多条积分记录时被重复求和
+    let isFirstRecord = true
 
     for (const record of validRecords) {
         if (remainingToConsume <= 0) break
@@ -266,10 +280,14 @@ const executeConsume = async (
             status: PointConsumptionRecordStatus.SETTLED,
             sourceId,
             remark: remark || `消耗积分：${item.name}`,
+            operationId: extra.operationId ?? null,
+            contextLabel: extra.contextLabel ?? null,
+            usageAmount: isFirstRecord ? (extra.usageAmount ?? null) : null,
         }, tx)
 
         consumptionRecords.push(consumptionRecord)
         remainingToConsume -= consumeFromRecord
+        isFirstRecord = false
     }
 
     return {
@@ -297,14 +315,15 @@ export const preDeductPointsService = async (
     quantity: number,
     options?: PreDeductOptions
 ): Promise<PreDeductResult> => {
-    const { sourceId, remark, tx } = options || {}
+    const { sourceId, remark, tx, contextLabel, usageAmount } = options || {}
+    const extra = { contextLabel, usageAmount }
 
     if (tx) {
-        return executePreDeduct(userId, itemKey, quantity, sourceId, remark, tx)
+        return executePreDeduct(userId, itemKey, quantity, sourceId, remark, tx, extra)
     }
 
     return prisma.$transaction(async (txClient) => {
-        return executePreDeduct(userId, itemKey, quantity, sourceId, remark, txClient)
+        return executePreDeduct(userId, itemKey, quantity, sourceId, remark, txClient, extra)
     })
 }
 
@@ -317,7 +336,8 @@ const executePreDeduct = async (
     quantity: number,
     sourceId: number | undefined,
     remark: string | undefined,
-    tx: TxClient
+    tx: TxClient,
+    extra: { contextLabel?: string; usageAmount?: number } = {}
 ): Promise<PreDeductResult> => {
     // 获取消耗项目配置
     const item = await getConsumptionItemByKeyService(itemKey, tx)
@@ -338,6 +358,8 @@ const executePreDeduct = async (
 
     // FIFO 预扣逻辑
     let remainingToDeduct = preDeductAmount
+    // operationId 取 batchId 写每条；usageAmount 只写第一条
+    let isFirstRecord = true
 
     for (const record of validRecords) {
         if (remainingToDeduct <= 0) break
@@ -362,9 +384,13 @@ const executePreDeduct = async (
             status: PointConsumptionRecordStatus.PRE_DEDUCT,
             sourceId,
             remark: remark || `预扣积分：${item.name}`,
+            operationId: batchId,
+            contextLabel: extra.contextLabel ?? null,
+            usageAmount: isFirstRecord ? (extra.usageAmount ?? null) : null,
         }, tx)
 
         remainingToDeduct -= deductFromRecord
+        isFirstRecord = false
     }
 
     return {
@@ -459,7 +485,7 @@ const executeSettle = async (
                 tx
             )
 
-            // 创建补扣记录
+            // 创建补扣记录（继承原预扣批次的 operationId 与 contextLabel）
             await createConsumptionRecordDao({
                 userId,
                 pointRecordId: record.id,
@@ -468,6 +494,8 @@ const executeSettle = async (
                 pointAmount: deductFromRecord,
                 status: PointConsumptionRecordStatus.SETTLED,
                 remark: `结算补扣：${item.name}`,
+                operationId: batchId,
+                contextLabel: firstRecord.contextLabel ?? null,
             }, tx)
 
             remainingToDeduct -= deductFromRecord

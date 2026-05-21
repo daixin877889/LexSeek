@@ -7,15 +7,15 @@
                 <Input
                     v-model="field.name"
                     placeholder="字段名"
-                    class="font-mono text-sm"
+                    :class="['font-mono text-sm', adminBrandFocusClass]"
                     @input="syncToModel"
                 />
                 <Select v-model="field.type"
                     @update:model-value="(val: AcceptableValue) => onTypeChange(field, val)">
-                    <SelectTrigger>
+                    <SelectTrigger :class="['w-full', adminBrandFocusClass]">
                         <SelectValue placeholder="类型" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent class="theme-brand">
                         <SelectItem v-for="t in FIELD_TYPES" :key="t.value" :value="t.value">
                             {{ t.label }}
                         </SelectItem>
@@ -24,11 +24,11 @@
                 <Input
                     v-model="field.description"
                     placeholder="描述（可选）"
-                    class="text-sm"
+                    :class="['text-sm', adminBrandFocusClass]"
                     @input="syncToModel"
                 />
             </div>
-            <Button variant="ghost" size="icon" class="shrink-0"
+            <Button variant="ghost" size="icon" :class="['shrink-0', adminBrandFocusClass]"
                 @click="emit('remove', index)">
                 <X class="h-4 w-4" />
             </Button>
@@ -49,10 +49,10 @@
                 <span class="text-muted-foreground">元素类型:</span>
                 <Select v-model="field.itemsType"
                     @update:model-value="(val: AcceptableValue) => onItemsTypeChange(field, val)">
-                    <SelectTrigger class="w-28 h-8">
+                    <SelectTrigger :class="['w-28 h-8', adminBrandFocusClass]">
                         <SelectValue placeholder="类型" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent class="theme-brand">
                         <SelectItem v-for="t in ITEMS_TYPES" :key="t.value" :value="t.value">
                             {{ t.label }}
                         </SelectItem>
@@ -71,7 +71,7 @@
                 @update="syncToModel"
                 @remove="(i: number) => removeChild(field, i)"
             />
-            <Button variant="outline" size="sm" class="w-full" @click="addChild(field)">
+            <Button variant="outline" size="sm" :class="['w-full', adminBrandFocusClass]" @click="addChild(field)">
                 <Plus class="h-3 w-3 mr-1" />
                 添加子字段
             </Button>
@@ -83,6 +83,7 @@
 import { Plus, X } from 'lucide-vue-next'
 import type { AcceptableValue } from 'reka-ui'
 import AdminNodesSchemaFieldList from '~/components/admin/nodes/SchemaFieldList.vue'
+import { adminBrandFocusClass } from '~/utils/adminNodeBrandStyles'
 
 interface SchemaField {
     name: string

@@ -12,6 +12,7 @@
 import { randomUUID } from 'node:crypto'
 import { prisma } from '~~/server/utils/db'
 import { FileSource } from '#shared/types/file'
+import { buildStorageKey } from '~~/server/utils/storagePath'
 import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
 import { enqueueRunService } from '~~/server/services/agent/agentRun.service'
 import { textToDocxService } from './textToDocx.service'
@@ -105,7 +106,12 @@ export async function createAndStartContractReviewService(
         }
 
         const docxBuffer = await textToDocxService(text)
-        const ossPath = `contract-review/${userId}/${randomUUID()}.docx`
+        const ossPath = buildStorageKey({
+            scope: 'user',
+            userId,
+            source: FileSource.CASE_ANALYSIS,
+            fileName: `${randomUUID()}.docx`,
+        })
 
         // CORE-R3：上传 + 落 ossFiles + 失败清孤儿统一走 uploadAndRegisterOssFile。
         // CORE-M2：fileName 仍用粘贴文本头几字 + 时间戳，避免列表里多条粘贴 review
@@ -163,7 +169,7 @@ export async function createAndStartContractReviewService(
 /**
  * 关联 / 解绑合同审查到案件。
  *
- * 阶段 5 · 法律助手「+ 关联案件」入口：用户在合同审查工作台顶部"来源条"
+ * 阶段 5 · 通用问答「+ 关联案件」入口：用户在合同审查工作台顶部"来源条"
  * 点关联，选定案件后调用此接口写入 review.caseId；caseId=null 表示解绑。
  *
  * 校验：

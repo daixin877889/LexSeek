@@ -1,7 +1,7 @@
 <template>
     <!-- 案件类型创建/编辑对话框 -->
     <Dialog v-model:open="open">
-        <DialogContent class="max-w-lg max-h-[85vh] flex flex-col" @interactOutside="(e) => e.preventDefault()">
+        <DialogContent class="theme-brand max-w-lg max-h-[85vh] flex flex-col" @interactOutside="(e) => e.preventDefault()">
             <DialogHeader class="shrink-0">
                 <DialogTitle>{{ isEdit ? '编辑案件类型' : '新增案件类型' }}</DialogTitle>
                 <DialogDescription>{{ isEdit ? '修改案件类型配置' : '创建新的案件类型' }}</DialogDescription>
@@ -10,26 +10,26 @@
                 <!-- 类型名称 -->
                 <div class="space-y-2">
                     <Label>类型名称 <span class="text-destructive">*</span></Label>
-                    <Input v-model="form.name" placeholder="如：民事纠纷" />
+                    <Input v-model="form.name" placeholder="如：民事纠纷" :class="adminBrandFocusClass" />
                 </div>
 
                 <!-- 描述 -->
                 <div class="space-y-2">
                     <Label>描述</Label>
-                    <Textarea v-model="form.description" placeholder="案件类型的详细描述" rows="3" />
+                    <Textarea v-model="form.description" placeholder="案件类型的详细描述" rows="3" :class="adminBrandFocusClass" />
                 </div>
 
                 <!-- 图标 -->
                 <div class="space-y-2">
                     <Label>图标</Label>
-                    <Input v-model="form.icon" placeholder="图标名称或 URL" />
+                    <Input v-model="form.icon" placeholder="图标名称或 URL" :class="adminBrandFocusClass" />
                     <p class="text-xs text-muted-foreground">可选，用于前台展示</p>
                 </div>
 
                 <!-- 优先级 -->
                 <div class="space-y-2">
                     <Label>优先级</Label>
-                    <Input v-model.number="form.priority" type="number" min="0" placeholder="100" />
+                    <Input v-model.number="form.priority" type="number" min="0" placeholder="100" :class="adminBrandFocusClass" />
                     <p class="text-xs text-muted-foreground">数值越小排序越靠前，默认 100</p>
                 </div>
 
@@ -37,10 +37,10 @@
                 <div class="space-y-2">
                     <Label>状态</Label>
                     <Select v-model="form.status">
-                        <SelectTrigger class="w-full">
+                        <SelectTrigger :class="['w-full', adminBrandFocusClass]">
                             <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent class="theme-brand">
                             <SelectItem value="1">启用</SelectItem>
                             <SelectItem value="0">禁用</SelectItem>
                         </SelectContent>
@@ -48,8 +48,8 @@
                 </div>
             </div>
             <DialogFooter class="shrink-0">
-                <Button variant="outline" @click="open = false">取消</Button>
-                <Button @click="handleSubmit" :disabled="submitting">
+                <Button variant="outline" :class="adminBrandFocusClass" @click="open = false">取消</Button>
+                <Button :class="adminBrandPrimaryButtonClass" @click="handleSubmit" :disabled="submitting">
                     <Loader2 v-if="submitting" class="h-4 w-4 mr-2 animate-spin" />
                     {{ isEdit ? '保存' : '创建' }}
                 </Button>
@@ -62,6 +62,7 @@
 import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { adminBrandFocusClass, adminBrandPrimaryButtonClass } from '~/utils/adminBrandStyles'
 
 // 案件类型接口
 interface CaseType {

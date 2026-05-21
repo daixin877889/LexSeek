@@ -9,7 +9,7 @@
       <div class="flex gap-2 sm:shrink-0">
         <Button variant="outline" class="h-10 px-4 py-2 flex-1 sm:flex-initial" @click="showConsumptionStandard = true">
           积分消耗标准 </Button>
-        <Button class="h-10 px-4 py-2 flex-1 sm:flex-initial" @click="showPointProducts = true"> 购买积分 </Button>
+        <Button class="h-10 px-4 py-2 flex-1 sm:flex-initial bg-gradient-brand-button text-white" @click="showPointProducts = true"> 购买积分 </Button>
       </div>
     </div>
 
@@ -52,7 +52,8 @@
     </div>
 
     <!-- 购买积分弹框 -->
-    <PointsPointPurchaseDialog v-model:open="showPointProducts" :product-list="pointProductList" @buy="buyPoints" />
+    <PointsPointPurchaseDialog v-model:open="showPointProducts" :product-list="pointProductList"
+      :pending-product-id="pendingProductId" @buy="buyPoints" />
 
     <!-- 微信支付弹框（支持扫码和 JSAPI） -->
     <PointsPointQRCodeDialog v-model:open="showQRCode" :qr-code-url="qrCodeUrl" :loading="paymentLoading"
@@ -86,6 +87,7 @@ import { useWechatPayment } from '~/composables/useWechatPayment'
 definePageMeta({
   layout: "dashboard-layout",
   title: "我的积分",
+  userMenu: { group: 'membership', title: '我的积分', icon: 'Coins', order: 3 },
 });
 
 // ==================== 类型定义 ====================
@@ -104,14 +106,15 @@ interface PointHistoryRecord {
   remark?: string;
 }
 
-/** 积分使用记录 */
+/** 积分使用记录（按操作聚合后） */
 interface PointUsageRecord {
-  id: number;
-  itemDescription: string;
-  pointAmount: number;
+  key: string;
+  sceneName: string;
+  contextLabel: string | null;
+  totalPoints: number;
+  usageText: string | null;
   status: number;
-  createdAt: string;
-  remark?: string;
+  time: string;
 }
 
 /** 积分商品 */
@@ -358,17 +361,7 @@ const {
   status: usageStatus,
   execute: executeUsage,
 } = useApi<{
-  list: Array<{
-    id: number;
-    pointAmount: number;
-    status: number;
-    createdAt: string;
-    remark?: string;
-    pointConsumptionItems: {
-      name: string;
-      description?: string;
-    };
-  }>;
+  list: PointUsageRecord[];
   total: number;
   page: number;
   pageSize: number;
@@ -384,17 +377,9 @@ const {
 // 积分使用记录加载状态
 const usageLoading = computed(() => usageStatus.value === "pending");
 
-// 积分使用记录列表（转换格式）
+// 积分使用记录列表（接口已返回聚合后的最终形态，无需再映射）
 const usageList = computed<PointUsageRecord[]>(() => {
-  if (!usageData.value?.list) return [];
-  return usageData.value.list.map((item: any) => ({
-    id: item.id,
-    itemDescription: item.pointConsumptionItems?.description || item.pointConsumptionItems?.name || "未知消耗项",
-    pointAmount: item.pointAmount,
-    status: item.status,
-    createdAt: item.createdAt,
-    remark: item.remark,
-  }));
+  return usageData.value?.list ?? [];
 });
 
 // 积分使用记录分页信息
@@ -441,17 +426,7 @@ const loadMoreUsage = async () => {
 
   try {
     const data = await useApiFetch<{
-      list: Array<{
-        id: number;
-        pointAmount: number;
-        status: number;
-        createdAt: string;
-        remark?: string;
-        pointConsumptionItems: {
-          name: string;
-          description?: string;
-        };
-      }>;
+      list: PointUsageRecord[];
       total: number;
     }>("/api/v1/points/usage", {
       query: {
@@ -461,15 +436,7 @@ const loadMoreUsage = async () => {
     });
 
     if (data?.list) {
-      const newRecords = data.list.map((item) => ({
-        id: item.id,
-        itemDescription: item.pointConsumptionItems?.description || item.pointConsumptionItems?.name || "未知消耗项",
-        pointAmount: item.pointAmount,
-        status: item.status,
-        createdAt: item.createdAt,
-        remark: item.remark,
-      }));
-      usageMobileList.value = [...usageMobileList.value, ...newRecords];
+      usageMobileList.value = [...usageMobileList.value, ...data.list];
     }
   } catch (error) {
     // 加载失败，回退页码
@@ -491,17 +458,7 @@ const refreshUsage = async () => {
 
   try {
     const data = await useApiFetch<{
-      list: Array<{
-        id: number;
-        pointAmount: number;
-        status: number;
-        createdAt: string;
-        remark?: string;
-        pointConsumptionItems: {
-          name: string;
-          description?: string;
-        };
-      }>;
+      list: PointUsageRecord[];
       total: number;
     }>("/api/v1/points/usage", {
       query: {
@@ -511,14 +468,7 @@ const refreshUsage = async () => {
     });
 
     if (data?.list) {
-      usageMobileList.value = data.list.map((item) => ({
-        id: item.id,
-        itemDescription: item.pointConsumptionItems?.description || item.pointConsumptionItems?.name || "未知消耗项",
-        pointAmount: item.pointAmount,
-        status: item.status,
-        createdAt: item.createdAt,
-        remark: item.remark,
-      }));
+      usageMobileList.value = data.list;
     }
   } catch (error) {
     logger.error("刷新积分使用记录失败:", error);
@@ -538,6 +488,11 @@ const paymentLoading = ref(false);
 const paymentPaid = ref(false);
 const currentTransactionNo = ref("");
 let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+/**
+ * 正在发起支付请求的积分商品 ID，用于按钮 loading + 禁用，避免网络延迟期间用户重复点击下单。
+ */
+const pendingProductId = ref<number | null>(null);
 
 // JSAPI 支付相关状态
 const { isInWechat, openId, ensureOpenId, redirectToAuth } = useWechatPayment();
@@ -589,6 +544,20 @@ const onUsagePageChange = async (page: number) => {
  * 购买积分
  */
 const buyPoints = async (product: PointProduct) => {
+  // 已有正在发起的支付请求时，吞掉重复点击
+  if (pendingProductId.value !== null) return;
+  pendingProductId.value = product.id;
+  try {
+    await runBuyPoints(product);
+  } finally {
+    pendingProductId.value = null;
+  }
+};
+
+/**
+ * 实际发起积分商品支付请求，buyPoints 已用 pendingProductId 保护
+ */
+const runBuyPoints = async (product: PointProduct) => {
   // 关闭商品列表弹框
   showPointProducts.value = false;
 

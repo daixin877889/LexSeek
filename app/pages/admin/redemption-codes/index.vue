@@ -1,5 +1,5 @@
 <template>
-        <div class="space-y-6">
+        <div class="theme-brand space-y-6">
             <!-- 页面标题 -->
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
@@ -7,12 +7,13 @@
                     <p class="text-muted-foreground text-sm">管理兑换码的生成、查看和作废</p>
                 </div>
                 <div class="flex gap-2">
-                    <Button variant="outline" @click="exportDialogOpen = true" :disabled="exporting">
+                    <Button variant="outline" :class="adminBrandFocusClass" @click="exportDialogOpen = true"
+                        :disabled="exporting">
                         <Download v-if="!exporting" class="h-4 w-4 mr-2" />
                         <Loader2 v-else class="h-4 w-4 mr-2 animate-spin" />
                         导出
                     </Button>
-                    <Button @click="generateDialogOpen = true">
+                    <Button :class="adminBrandPrimaryButtonClass" @click="generateDialogOpen = true">
                         <Plus class="h-4 w-4 mr-2" />
                         生成兑换码
                     </Button>
@@ -21,13 +22,15 @@
 
             <!-- 搜索和筛选 -->
             <div class="flex flex-col md:flex-row gap-4">
-                <Input v-model="searchCode" placeholder="搜索兑换码..." class="md:max-w-xs" @keyup.enter="handleSearch" />
-                <Input v-model="searchRemark" placeholder="搜索备注..." class="md:max-w-xs" @keyup.enter="handleSearch" />
+                <Input v-model="searchCode" placeholder="搜索兑换码..." :class="['md:max-w-xs', adminBrandFocusClass]"
+                    @keyup.enter="handleSearch" />
+                <Input v-model="searchRemark" placeholder="搜索备注..." :class="['md:max-w-xs', adminBrandFocusClass]"
+                    @keyup.enter="handleSearch" />
                 <Select v-model="statusFilter">
-                    <SelectTrigger class="w-full md:w-32">
+                    <SelectTrigger :class="['w-full md:w-32', adminBrandFocusClass]">
                         <SelectValue placeholder="状态" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent class="theme-brand">
                         <SelectItem value="all">全部状态</SelectItem>
                         <SelectItem value="1">有效</SelectItem>
                         <SelectItem value="2">已使用</SelectItem>
@@ -36,30 +39,30 @@
                     </SelectContent>
                 </Select>
                 <Select v-model="typeFilter">
-                    <SelectTrigger class="w-full md:w-32">
+                    <SelectTrigger :class="['w-full md:w-32', adminBrandFocusClass]">
                         <SelectValue placeholder="类型" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent class="theme-brand">
                         <SelectItem value="all">全部类型</SelectItem>
                         <SelectItem value="1">仅会员</SelectItem>
                         <SelectItem value="2">仅积分</SelectItem>
                         <SelectItem value="3">会员和积分</SelectItem>
                     </SelectContent>
                 </Select>
-                <Button variant="outline" @click="handleSearch">
+                <Button variant="outline" :class="adminBrandFocusClass" @click="handleSearch">
                     <Search class="h-4 w-4 mr-2" />
                     搜索
                 </Button>
             </div>
 
             <!-- 批量操作栏 -->
-            <div v-if="selectedIds.length > 0" class="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
+            <div v-if="selectedIds.length > 0" class="flex items-center gap-4 rounded-lg border bg-muted/30 p-3">
                 <span class="text-sm">已选择 {{ selectedIds.length }} 项</span>
-                <Button variant="outline" size="sm" @click="exportSelected">
+                <Button variant="outline" size="sm" :class="adminBrandFocusClass" @click="exportSelected">
                     <Download class="h-4 w-4 mr-1" />
                     导出选中
                 </Button>
-                <Button variant="ghost" size="sm" @click="clearSelection">清除选择</Button>
+                <Button variant="ghost" size="sm" :class="adminBrandFocusClass" @click="clearSelection">清除选择</Button>
             </div>
 
             <!-- 加载状态 -->
@@ -97,7 +100,7 @@
 
         <!-- 生成成功对话框 -->
         <Dialog v-model:open="generateSuccessDialogOpen">
-            <DialogContent class="max-w-sm">
+            <DialogContent class="theme-brand max-w-sm">
                 <DialogHeader>
                     <DialogTitle>生成成功</DialogTitle>
                     <DialogDescription>
@@ -108,8 +111,9 @@
                     <p class="text-muted-foreground text-sm mb-4">是否立即下载生成的兑换码？</p>
                 </div>
                 <DialogFooter class="flex gap-2">
-                    <Button variant="outline" @click="generateSuccessDialogOpen = false" class="flex-1">稍后下载</Button>
-                    <Button @click="downloadGeneratedCodes" class="flex-1">
+                    <Button variant="outline" :class="['flex-1', adminBrandFocusClass]"
+                        @click="generateSuccessDialogOpen = false">稍后下载</Button>
+                    <Button :class="['flex-1', adminBrandPrimaryButtonClass]" @click="downloadGeneratedCodes">
                         <Download class="h-4 w-4 mr-2" />
                         立即下载
                     </Button>
@@ -124,7 +128,7 @@
 
         <!-- 作废确认对话框 -->
         <AlertDialog v-model:open="invalidateDialogOpen">
-            <AlertDialogContent>
+            <AlertDialogContent class="theme-brand">
                 <AlertDialogHeader>
                     <AlertDialogTitle>确认作废</AlertDialogTitle>
                     <AlertDialogDescription>
@@ -132,8 +136,9 @@
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>取消</AlertDialogCancel>
-                    <AlertDialogAction @click="confirmInvalidate" :disabled="invalidating">
+                    <AlertDialogCancel :class="adminBrandFocusClass">取消</AlertDialogCancel>
+                    <AlertDialogAction @click="confirmInvalidate" :disabled="invalidating"
+                        :class="adminBrandDestructiveActionClass">
                         <Loader2 v-if="invalidating" class="h-4 w-4 mr-2 animate-spin" />
                         确认作废
                     </AlertDialogAction>
@@ -152,7 +157,11 @@ import AdminRedemptionCodesRedemptionCodeMobile from '~/components/admin/redempt
 import AdminRedemptionCodesRedemptionCodeTable from '~/components/admin/redemption-codes/RedemptionCodeTable.vue'
 import GeneralPagination from '~/components/general/pagination.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
-import type { membershipLevels } from '~~/generated/prisma/client'
+import {
+    adminBrandDestructiveActionClass,
+    adminBrandFocusClass,
+    adminBrandPrimaryButtonClass,
+} from '~/utils/adminBrandStyles'
 
 definePageMeta({ layout: 'admin-layout', title: '兑换码管理' })
 

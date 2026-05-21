@@ -39,10 +39,10 @@
           <div class="shrink-0" @click="emit('toggleSelect', file.id)">
             <!-- 图片缩略图（仅非加密图片） -->
             <div v-if="isImageType(file.fileType) && !file.encrypted"
-              class="w-12 h-12 rounded-lg overflow-hidden bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+              class="w-12 h-12 rounded-lg overflow-hidden bg-violet-500/15 flex items-center justify-center">
               <img v-if="!thumbnailErrors[String(file.id)]" :src="file.url" :alt="file.fileName"
                 class="w-full h-full object-cover" @error="handleThumbnailError(String(file.id))" />
-              <ImageIcon v-else class="h-6 w-6 text-purple-600 dark:text-purple-400" />
+              <ImageIcon v-else class="h-6 w-6 text-violet-600 dark:text-violet-400" />
             </div>
             <!-- 其他文件类型图标 -->
             <div v-else class="w-12 h-12 rounded-lg flex items-center justify-center"

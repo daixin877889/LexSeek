@@ -73,6 +73,7 @@ vi.mock('~~/server/services/agent-platform/middleware/index', () => ({
         SUMMARIZATION: 40,
         SAFETY_TRIM: 50,
         SKILLS_DISCOVERY: 60,
+        DATE_CONTEXT: 65,
         AUDIT: 100,
     },
     MIDDLEWARE_NAMES: {
@@ -83,6 +84,7 @@ vi.mock('~~/server/services/agent-platform/middleware/index', () => ({
         SUMMARIZATION: 'summarization',
         SAFETY_TRIM: 'safetyTrim',
         SKILLS_DISCOVERY: 'skillsDiscovery',
+        DATE_CONTEXT: 'dateContext',
         AUDIT: 'audit',
     },
     pointConsumptionMiddleware: vi.fn().mockReturnValue({ _type: 'pointConsumption' }),
@@ -91,6 +93,7 @@ vi.mock('~~/server/services/agent-platform/middleware/index', () => ({
     createAuditMiddleware: vi.fn().mockReturnValue({ _type: 'audit' }),
     createToolCallLimitMiddlewares: vi.fn().mockReturnValue([{ _type: 'toolCallLimit' }]),
     createMessageIntegrityMiddleware: vi.fn().mockReturnValue({ _type: 'messageIntegrity' }),
+    dateContextMiddleware: vi.fn().mockReturnValue({ _type: 'dateContext' }),
 }))
 
 vi.mock('langchain', () => ({

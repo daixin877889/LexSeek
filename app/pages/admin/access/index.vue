@@ -1,5 +1,5 @@
 <template>
-    <div class="space-y-6">
+    <div class="theme-brand space-y-6">
         <!-- 页面标题 -->
         <div>
             <h1 class="text-2xl md:text-3xl font-bold mb-1">节点权限配置</h1>
@@ -24,10 +24,10 @@
             <!-- 会员级别选择 + 筛选 -->
             <div class="flex flex-col md:flex-row gap-4">
                 <Select v-model="selectedLevelId">
-                    <SelectTrigger class="w-full md:w-48">
+                    <SelectTrigger :class="['w-full md:w-48', adminBrandFocusClass]">
                         <SelectValue placeholder="选择会员级别" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent class="theme-brand">
                         <SelectItem v-for="level in matrix.levels" :key="level.id" :value="String(level.id)">
                             {{ level.name }}
                         </SelectItem>
@@ -35,28 +35,28 @@
                 </Select>
 
                 <Select v-model="typeFilter">
-                    <SelectTrigger class="w-full md:w-40">
+                    <SelectTrigger :class="['w-full md:w-40', adminBrandFocusClass]">
                         <SelectValue placeholder="节点类型" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent class="theme-brand">
                         <SelectItem value="all">全部类型</SelectItem>
-                        <SelectItem v-for="(label, value) in NodeTypeLabels" :key="value" :value="value">
+                        <SelectItem v-for="(label, value) in NodeTypeLabels" :key="value" :value="String(value)">
                             {{ label }}
                         </SelectItem>
                     </SelectContent>
                 </Select>
 
                 <div class="flex-1">
-                    <Input v-model="keyword" placeholder="搜索节点名称/标题..." class="w-full md:w-64" />
+                    <Input v-model="keyword" placeholder="搜索节点名称/标题..." :class="['w-full md:w-64', adminBrandFocusClass]" />
                 </div>
 
                 <div class="flex gap-2">
-                    <Button variant="outline" size="sm" @click="handleSelectAll"
+                    <Button variant="outline" size="sm" :class="adminBrandFocusClass" @click="handleSelectAll"
                         :disabled="!selectedLevelId || batchUpdating">
                         <CheckSquare class="h-4 w-4 mr-1" />
                         全选
                     </Button>
-                    <Button variant="outline" size="sm" @click="handleDeselectAll"
+                    <Button variant="outline" size="sm" :class="adminBrandFocusClass" @click="handleDeselectAll"
                         :disabled="!selectedLevelId || batchUpdating">
                         <Square class="h-4 w-4 mr-1" />
                         全不选
@@ -67,7 +67,7 @@
             <!-- 统计信息 -->
             <div v-if="selectedLevelId" class="flex items-center gap-4 text-sm text-muted-foreground">
                 <span>已授权: {{ accessCount }} / {{ filteredNodes.length }} 个节点</span>
-                <span class="text-xs">（点击复选框切换权限，修改自动保存）</span>
+                <span class="text-xs">（点击节点行或复选框切换权限，修改自动保存）</span>
             </div>
 
             <!-- 节点列表 -->
@@ -79,15 +79,29 @@
 
                 <div v-else class="divide-y">
                     <div v-for="node in filteredNodes" :key="node.nodeId"
-                        class="flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors">
+                        class="flex cursor-pointer items-center justify-between border-l-2 px-4 py-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-inset"
+                        :class="[
+                            node.hasAccess ? adminBrandSelectedListItemClass : adminBrandUnselectedListItemClass,
+                            { 'cursor-not-allowed opacity-70': isNodeUpdating(node.nodeId) },
+                        ]"
+                        role="button"
+                        tabindex="0"
+                        :aria-pressed="node.hasAccess"
+                        :aria-disabled="isNodeUpdating(node.nodeId)"
+                        @click="handleNodeItemToggle(node)"
+                        @keydown.enter.prevent="handleNodeItemToggle(node)"
+                        @keydown.space.prevent="handleNodeItemToggle(node)">
                         <div class="flex items-center gap-3 flex-1 min-w-0">
                             <Checkbox :model-value="node.hasAccess"
-                                :disabled="updating[`${selectedLevelId}-${node.nodeId}`]"
+                                :disabled="isNodeUpdating(node.nodeId)"
+                                :class="adminBrandCheckboxClass"
+                                @click.stop
+                                @keydown.stop
                                 @update:model-value="(checked: boolean | 'indeterminate') => handleToggleAccess(node.nodeId, !!checked)" />
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-2">
                                     <span class="font-medium truncate">{{ node.nodeTitle || node.nodeName }}</span>
-                                    <Badge :variant="NodeTypeVariants[node.nodeType as keyof typeof NodeTypeVariants] || 'default'" class="text-xs shrink-0">
+                                    <Badge variant="outline" class="text-xs shrink-0" :style="getAdminNodeTypeBadgeStyle(node.nodeType)">
                                         {{ NodeTypeLabels[node.nodeType as keyof typeof NodeTypeLabels] || node.nodeType }}
                                     </Badge>
                                 </div>
@@ -95,8 +109,9 @@
                             </div>
                         </div>
                         <div class="shrink-0 ml-4">
-                            <Badge v-if="node.hasAccess" variant="default" class="text-xs">已授权</Badge>
-                            <Badge v-else variant="outline" class="text-xs">未授权</Badge>
+                            <Badge variant="outline" class="text-xs" :class="getAdminStatusBadgeClass(node.hasAccess)">
+                                {{ node.hasAccess ? '已授权' : '未授权' }}
+                            </Badge>
                         </div>
                     </div>
                 </div>
@@ -115,9 +130,16 @@
 <script setup lang="ts">
 import { Loader2, Shield, CheckSquare, Square, Search, Users } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
-import { NodeTypeLabels, NodeTypeVariants } from '#shared/types/node'
+import { NodeTypeLabels } from '#shared/types/node'
 import { useApiFetch } from '~/composables/useApiFetch'
-import type { nodes } from '~~/generated/prisma/client'
+import {
+    adminBrandCheckboxClass,
+    adminBrandFocusClass,
+    adminBrandSelectedListItemClass,
+    adminBrandUnselectedListItemClass,
+    getAdminNodeTypeBadgeStyle,
+    getAdminStatusBadgeClass,
+} from '~/utils/adminBrandStyles'
 
 definePageMeta({ layout: 'admin-layout', title: '节点权限配置' })
 
@@ -138,6 +160,8 @@ interface AccessMatrix {
         }[]
     }[]
 }
+
+type AccessNode = AccessMatrix['matrix'][number]['nodes'][number]
 
 // 状态
 const loading = ref(false)
@@ -186,6 +210,10 @@ const accessCount = computed(() => {
     return filteredNodes.value.filter((n) => n.hasAccess).length
 })
 
+const getAccessKey = (nodeId: number) => `${selectedLevelId.value}-${nodeId}`
+
+const isNodeUpdating = (nodeId: number) => Boolean(updating.value[getAccessKey(nodeId)])
+
 // 加载权限矩阵
 const loadMatrix = async () => {
     loading.value = true
@@ -207,17 +235,18 @@ const loadMatrix = async () => {
 // 切换单个权限
 const handleToggleAccess = async (nodeId: number, checked: boolean) => {
     const levelId = parseInt(selectedLevelId.value)
-    const key = `${levelId}-${nodeId}`
+    const key = getAccessKey(nodeId)
     updating.value[key] = true
 
     try {
         const endpoint = checked ? '/api/v1/admin/access/grant' : '/api/v1/admin/access/revoke'
-        const result = await useApiFetch(endpoint, {
+        const result = await useApiFetch<boolean>(endpoint, {
             method: 'POST',
             body: { levelId, nodeId },
+            transform: (response) => response.success,
         })
 
-        if (result !== null) {
+        if (result) {
             // 更新本地状态
             const levelMatrix = matrix.value.matrix.find((l) => l.levelId === levelId)
             if (levelMatrix) {
@@ -230,6 +259,11 @@ const handleToggleAccess = async (nodeId: number, checked: boolean) => {
     } finally {
         updating.value[key] = false
     }
+}
+
+const handleNodeItemToggle = (node: AccessNode) => {
+    if (!selectedLevelId.value || isNodeUpdating(node.nodeId)) return
+    handleToggleAccess(node.nodeId, !node.hasAccess)
 }
 
 // 全选
@@ -248,14 +282,15 @@ const handleSelectAll = async () => {
         // 合并：保留已授权的 + 新增筛选后的
         const allNodeIds = [...new Set([...currentAccessIds, ...nodeIds])]
 
-        const result = await useApiFetch('/api/v1/admin/access/batch', {
+        const result = await useApiFetch<boolean>('/api/v1/admin/access/batch', {
             method: 'POST',
             body: { levelId, nodeIds: allNodeIds },
+            transform: (response) => response.success,
         })
 
-        if (result !== null) {
+        if (result) {
             toast.success('批量授权成功')
-            loadMatrix()
+            await loadMatrix()
         }
     } finally {
         batchUpdating.value = false
@@ -277,14 +312,15 @@ const handleDeselectAll = async () => {
             .filter((n) => n.hasAccess && !filteredNodeIds.has(n.nodeId))
             .map((n) => n.nodeId)
 
-        const result = await useApiFetch('/api/v1/admin/access/batch', {
+        const result = await useApiFetch<boolean>('/api/v1/admin/access/batch', {
             method: 'POST',
             body: { levelId, nodeIds: remainingNodeIds },
+            transform: (response) => response.success,
         })
 
-        if (result !== null) {
+        if (result) {
             toast.success('批量撤销成功')
-            loadMatrix()
+            await loadMatrix()
         }
     } finally {
         batchUpdating.value = false

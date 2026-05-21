@@ -4,7 +4,7 @@
 - 状态：待 review
 - 作者：戴鑫
 - 涉及 vertical：`case-main`（小索） / `case-module`（模块对话） / `document`（文书生成）
-- 不在范围：`legal-assistant`（法律助手）、子 Agent（`ask_*_expert`）、`contract`（合同审查）
+- 不在范围：`legal-assistant`（通用问答）、子 Agent（`ask_*_expert`）、`contract`（合同审查）
 
 ---
 
@@ -37,7 +37,7 @@ LexSeek 当前三个 Agent 的"案件相关上下文"机制完全不同，给排
 
 ### 2.2 非目标
 
-- 不改法律助手（`assistantMain`）。它没有案件维度上下文，本次不纳入；后续单独立项做"读文件"能力。
+- 不改通用问答（`assistantMain`）。它没有案件维度上下文，本次不纳入；后续单独立项做"读文件"能力。
 - 不改子 Agent（`ask_*_expert`）。每次工具调用启动独立 thread 单次执行，从数据库实时拉 4 段，无累积问题，改造收益小。
 - 不改合同审查 vertical。
 - 不引入新的 schema 字段或表。
@@ -79,7 +79,7 @@ LexSeek 当前三个 Agent 的"案件相关上下文"机制完全不同，给排
 |---|---|---|
 | 注入消息是否进入 checkpoint | **A：进入** | B（运行时旁路）实现复杂、易踩 LangGraph reducer 隐藏行为 |
 | 文书的"草稿字段+占位符"放哪里 | **A：合并到同一条上下文 HumanMessage** | B（拆两条）增加历史累积；C（保留 SystemMessage 内）违背"不破缓存"目标 |
-| 法律助手是否纳入 | **A：本次不动** | 法律助手的"读文件"是独立产品能力，不属于"上下文统一"范畴 |
+| 通用问答是否纳入 | **A：本次不动** | 通用问答的"读文件"是独立产品能力，不属于"上下文统一"范畴 |
 | 子 Agent 是否纳入 | **A：本次不动** | 子 Agent 单次 thread 无累积，改造收益小 |
 | Anthropic 路径的 cache_control | **保留 SystemMessage 顶层 1h cache** | Anthropic 没有前缀自动缓存（官方文档：No default caching），完全砍 cache_control 会导致每轮全量计费；保留稳定的 roleAndFlow 段单挂 cache_control，命中收益最大 |
 | 4+2 段动态内容 cache_control | **不挂** | 内容每轮变，cache_control 命中不了 |

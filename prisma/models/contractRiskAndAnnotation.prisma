@@ -2,7 +2,7 @@
 model contractRisks {
   id         Int    @id @default(autoincrement())
   reviewId   Int    @map("review_id")
-  /// 来源：Phase A 仅 ai；Phase B 扩展 external_new；Phase C 扩展 global_review
+  /// 来源：Phase A 仅 ai；Phase B 扩展 external_new；Phase C 扩展 global_review；manual 为律师手动新增
   source     String @db.VarChar(20)
   /// playbook code（仅 source=ai 有值）
   code       String? @db.VarChar(30)
@@ -14,6 +14,9 @@ model contractRisks {
   problem    String  @db.Text
   legalBasis String? @map("legal_basis") @db.Text
   analysis   String? @db.Text
+  /// M12：AI 生成的「对当前立场方的法律风险」分析（首次审查 source=ai 才填；
+  /// manual / global_review / external_new 来源的风险无此字段，留 null）。
+  risk       String? @db.Text
   suggestion String? @db.Text
   /// AI 生成的完整改写后条款（high/medium 必有；low 可空）；
   /// 前端 RiskClauseDiff 据此做字符级 diff 着色
@@ -60,6 +63,9 @@ model contractRisks {
   updatedAt DateTime @updatedAt @map("updated_at")
   /// Phase B：当前版本无法定位锚点（孤立批注区）
   orphaned            Boolean  @default(false) @map("orphaned")
+  /// 客户对该风险对应 AI 修订的处置（独立于律师 archivedStatus）：
+  /// accepted / rejected / untouched / ambiguous；null = 未以修订形式导出过 / 不适用。
+  clientRedlineDecision String?  @map("client_redline_decision") @db.VarChar(12)
 
   review      contractReviews       @relation(fields: [reviewId], references: [id], onDelete: Cascade)
   annotations contractAnnotations[]

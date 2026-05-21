@@ -151,11 +151,11 @@ describe('dashboard.service · 仪表板服务', () => {
       expect(Array.isArray(cases)).toBe(true)
     })
 
-    it('状态应该是 in_progress 或 completed', async () => {
+    it('状态应该是数字型案件状态', async () => {
       const cases = await getDashboardRecentCases(userId)
 
       cases.forEach((c) => {
-        expect(['in_progress', 'completed']).toContain(c.status)
+        expect(typeof c.status).toBe('number')
       })
     })
   })

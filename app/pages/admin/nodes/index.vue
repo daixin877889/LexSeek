@@ -1,12 +1,12 @@
 <template>
-    <div class="space-y-6">
+    <div class="theme-brand space-y-6">
         <!-- 页面标题 -->
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
                 <h1 class="text-2xl md:text-3xl font-bold mb-1">节点管理</h1>
                 <p class="text-muted-foreground text-sm">管理工作流分析节点配置</p>
             </div>
-            <Button @click="formDialogRef?.openCreate()">
+            <Button :class="adminBrandPrimaryButtonClass" @click="formDialogRef?.openCreate()">
                 <Plus class="h-4 w-4 mr-2" />
                 新增节点
             </Button>
@@ -15,10 +15,10 @@
         <!-- 筛选 -->
         <div class="flex flex-col md:flex-row gap-4">
             <Select v-model="groupFilter">
-                <SelectTrigger class="w-full md:w-48">
+                <SelectTrigger :class="['w-full md:w-48', adminBrandFocusClass]">
                     <SelectValue placeholder="选择分组" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent class="theme-brand">
                     <SelectItem value="all">全部分组</SelectItem>
                     <SelectItem v-for="g in groups" :key="g.id" :value="String(g.id)">
                         {{ g.name }}
@@ -26,10 +26,10 @@
                 </SelectContent>
             </Select>
             <Select v-model="typeFilter">
-                <SelectTrigger class="w-full md:w-40">
+                <SelectTrigger :class="['w-full md:w-40', adminBrandFocusClass]">
                     <SelectValue placeholder="节点类型" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent class="theme-brand">
                     <SelectItem value="all">全部类型</SelectItem>
                     <SelectItem v-for="(label, value) in NodeTypeLabels" :key="value" :value="value">
                         {{ label }}
@@ -37,20 +37,20 @@
                 </SelectContent>
             </Select>
             <Select v-model="statusFilter">
-                <SelectTrigger class="w-full md:w-32">
+                <SelectTrigger :class="['w-full md:w-32', adminBrandFocusClass]">
                     <SelectValue placeholder="状态" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent class="theme-brand">
                     <SelectItem value="all">全部状态</SelectItem>
                     <SelectItem value="1">启用</SelectItem>
                     <SelectItem value="0">禁用</SelectItem>
                 </SelectContent>
             </Select>
             <div class="flex-1">
-                <Input v-model="keyword" placeholder="搜索节点名称/标题..." class="w-full md:w-64"
+                <Input v-model="keyword" placeholder="搜索节点名称/标题..." :class="['w-full md:w-64', adminBrandFocusClass]"
                     @keyup.enter="handleSearch" />
             </div>
-            <Button variant="outline" @click="handleSearch">
+            <Button variant="outline" :class="adminBrandFocusClass" @click="handleSearch">
                 <Search class="h-4 w-4 mr-2" />
                 筛选
             </Button>
@@ -93,7 +93,7 @@
                             <TableCell>{{ node.title || '-' }}</TableCell>
                             <TableCell>{{ node.group?.name || '-' }}</TableCell>
                             <TableCell>
-                                <Badge :variant="NodeTypeVariants[node.type as keyof typeof NodeTypeVariants] || 'default'">
+                                <Badge variant="outline" :style="getAdminNodeTypeBadgeStyle(node.type)">
                                     {{ NodeTypeLabels[node.type as keyof typeof NodeTypeLabels] || node.type }}
                                 </Badge>
                             </TableCell>
@@ -101,13 +101,14 @@
                             <TableCell>{{ node.model?.displayName || '-' }}</TableCell>
                             <TableCell>
                                 <Badge v-if="node.model?.supportsThinking"
-                                    :variant="node.thinkingEnabled ? 'default' : 'secondary'">
+                                    variant="outline"
+                                    :class="getAdminThinkingBadgeClass(node.thinkingEnabled)">
                                     {{ node.thinkingEnabled ? '开启' : '关闭' }}
                                 </Badge>
                                 <span v-else class="text-muted-foreground">-</span>
                             </TableCell>
                             <TableCell>
-                                <Badge :variant="node.status === 1 ? 'default' : 'secondary'">
+                                <Badge variant="outline" :class="getAdminStatusBadgeClass(node.status === 1)">
                                     {{ node.status === 1 ? '启用' : '禁用' }}
                                 </Badge>
                             </TableCell>
@@ -118,7 +119,7 @@
                                             <MoreHorizontal class="h-4 w-4" />
                                         </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
+                                    <DropdownMenuContent align="end" class="theme-brand">
                                         <DropdownMenuItem @click="navigateTo(`/admin/nodes/${node.id}`)">
                                             <Eye class="h-4 w-4 mr-2" />
                                             查看详情
@@ -155,7 +156,7 @@
 
     <!-- 删除确认对话框 -->
     <AlertDialog v-model:open="deleteDialogOpen">
-        <AlertDialogContent>
+        <AlertDialogContent class="theme-brand">
             <AlertDialogHeader>
                 <AlertDialogTitle>确认删除</AlertDialogTitle>
                 <AlertDialogDescription>
@@ -164,7 +165,7 @@
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel>取消</AlertDialogCancel>
-                <AlertDialogAction @click="confirmDelete" :disabled="deleting">
+                <AlertDialogAction :class="adminBrandDestructiveActionClass" @click="confirmDelete" :disabled="deleting">
                     <Loader2 v-if="deleting" class="h-4 w-4 mr-2 animate-spin" />
                     确认删除
                 </AlertDialogAction>
@@ -176,12 +177,20 @@
 <script setup lang="ts">
 import { Plus, Loader2, Workflow, Search, MoreHorizontal, Pencil, Trash2, Eye, Power } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
-import { NodeTypeLabels, NodeTypeVariants } from '#shared/types/node'
+import { NodeTypeLabels } from '#shared/types/node'
 import type { NodeWithRelations, NodeGroup } from '#shared/types/node'
 import type { Model } from '#shared/types/model'
 import AdminNodesNodeFormDialog from '~/components/admin/nodes/NodeFormDialog.vue'
 import GeneralPagination from '~/components/general/pagination.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
+import {
+    adminBrandDestructiveActionClass,
+    adminBrandFocusClass,
+    adminBrandPrimaryButtonClass,
+    getAdminNodeTypeBadgeStyle,
+    getAdminStatusBadgeClass,
+    getAdminThinkingBadgeClass,
+} from '~/utils/adminNodeBrandStyles'
 import type { models, nodes } from '~~/generated/prisma/client'
 
 definePageMeta({ layout: 'admin-layout', title: '节点管理' })

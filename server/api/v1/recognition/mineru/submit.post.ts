@@ -91,10 +91,11 @@ export default defineEventHandler(async (event) => {
     const { ossFileId, fileName, encrypted, modelVersion, enableOcr, enableFormula, enableTable } = bodyResult.data
 
     try {
-        // 1. 验证 OSS 文件存在
+        // 1. 验证 OSS 文件存在（owner-only：仅允许提交自己上传的文件）
         const ossFile = await prisma.ossFiles.findFirst({
             where: {
                 id: ossFileId,
+                userId: user.id,
                 deletedAt: null,
             },
         })

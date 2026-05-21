@@ -2,7 +2,7 @@
 /**
  * 更新文书草稿工具结果卡片
  *
- * 由法律助手 / 小索 / 文书面板通过 AiToolRenderer.toolMap 注入。
+ * 由通用问答 / 小索 / 文书面板通过 AiToolRenderer.toolMap 注入。
  * update_document_draft 工具调用 patchDraftService 增量改字段并发 DRAFT_UPDATED SSE。
  *
  * 跟 RecommendTemplateCard / DraftDocumentCard 同理:历史会话回放兜底 + 让用户
@@ -70,7 +70,7 @@ function handleOpen() {
 
 <template>
     <div
-        class="not-prose group my-2 w-full max-w-md rounded-lg border bg-card p-4 shadow-sm transition-colors"
+        class="not-prose group my-2 w-full max-w-md rounded-lg border bg-card p-4 transition-colors"
         :class="[
             isRunning && 'border-primary/40 bg-primary/5',
             isFailed && 'border-destructive/40 bg-destructive/5',

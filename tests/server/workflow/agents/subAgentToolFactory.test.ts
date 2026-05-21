@@ -40,6 +40,7 @@ vi.mock('~~/server/services/agent-platform/middleware', () => ({
     createScopeGuardMiddleware: vi.fn(() => ({})),
     pointConsumptionMiddleware: vi.fn(() => ({})),
     userInjectionMiddleware: vi.fn(() => ({})),
+    dateContextMiddleware: vi.fn(() => ({})),
 }))
 
 vi.mock('~~/server/services/agent-platform/middleware/safetyTrim.middleware', () => ({

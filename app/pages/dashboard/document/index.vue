@@ -19,7 +19,7 @@ import { useApiFetch } from '~/composables/useApiFetch'
 
 definePageMeta({
     layout: 'dashboard-layout',
-    title: '文书生成',
+    title: '文书模板',
     icon: 'FileText',
 })
 
@@ -56,18 +56,13 @@ function goManageTemplates() {
         <!-- 页面标题行：标题 + 右上角 管理我的模板（移动端也保持右上角） -->
         <header class="flex items-start justify-between gap-3">
             <div class="min-w-0 flex-1">
-                <h1 class="text-2xl md:text-3xl font-bold mb-1">文书生成</h1>
+                <h1 class="text-2xl md:text-3xl font-bold mb-1">文书模板</h1>
                 <p class="text-muted-foreground text-sm">
                     根据模板生成标准的法律文书
                 </p>
             </div>
-            <Button
-                v-if="activeTab === 'new'"
-                variant="outline"
-                size="sm"
-                class="h-8 text-xs shrink-0"
-                @click="goManageTemplates"
-            >
+            <Button v-if="activeTab === 'new'" variant="outline" size="sm" class="h-8 text-xs shrink-0"
+                @click="goManageTemplates">
                 <FileUserIcon class="size-3.5 mr-1" />
                 我的模板
             </Button>
@@ -86,7 +81,7 @@ function goManageTemplates() {
                     <button v-for="opt in TEMPLATE_SCOPE_OPTIONS" :key="opt.value" type="button" :class="[
                         'px-3 h-7 rounded-full transition-colors',
                         scope === opt.value
-                            ? 'bg-background text-foreground shadow-sm'
+                            ? 'bg-background text-foreground'
                             : 'text-muted-foreground hover:text-foreground',
                     ]" @click="scope = opt.value">
                         {{ opt.label }}

@@ -5,17 +5,15 @@
  * 降级：浏览器不支持 CSS.highlights → 直接 return，不渲染字符级高亮
  *      （段落级浅色底由 ContractDocxPreview 段落级流程负责，仍生效）
  *
- * 三态命名 Highlight（spec § 7.6 矩阵）：
- *  - quote-default：idle / hovered / focused 衰减后（默认深黄 60%）
- *  - quote-focused：focusedRiskId 且 flash 窗口活跃（深橙 85%，1 秒后由调用方关闭 flashWindowActive 触发衰减）
- *  - quote-pinned：在 pinnedRiskIds 集合（棕黄 70%）
+ * 按风险等级命名 Highlight：quote-high / quote-medium / quote-low，
+ * 下划线颜色按等级染色（高=红 / 中=琥珀 / 低=天蓝），见全局 tailwind.css 的 ::highlight 规则。
  */
 
 import { findByParagraphIndex } from '#shared/utils/clauseLocator'
 import type { RiskDisplayPhaseB } from '#shared/types/contract'
 
-const HIGHLIGHT_NAMES = ['quote-default', 'quote-focused', 'quote-pinned'] as const
-export type QuoteHighlightState = typeof HIGHLIGHT_NAMES[number]
+const HIGHLIGHT_NAMES = ['quote-high', 'quote-medium', 'quote-low'] as const
+type QuoteHighlightName = typeof HIGHLIGHT_NAMES[number]
 
 function supportsCssHighlight(): boolean {
     return typeof CSS !== 'undefined' && 'highlights' in CSS && typeof globalThis.Highlight === 'function'
@@ -114,61 +112,29 @@ export function computeQuoteRange(risk: RiskDisplayPhaseB, container: HTMLElemen
 }
 
 /**
- * 派生一条 risk 当前应该归到哪个命名 Highlight。
+ * 把所有 risks 的 quote Range 按风险等级注册到命名 Highlight。
  *
- * 优先级（spec § 7.6 矩阵 + § 7.5 1 秒衰减）：
- *   focused + flashWindowActive → quote-focused（"闪一下"窗口内深橙 85%）
- *   focused + flash 已关闭 → quote-default（衰减为深黄 60%；段落级红边框继续亮维持焦点锚）
- *   pinned → quote-pinned（棕黄 70%）
- *   其他 → quote-default
- *
- * @internal 主要供组件 watcher 派系调用；export 是为了独立测试三态矩阵。
- */
-export function pickHighlightState(
-    riskId: string,
-    focusedRiskId: string | null,
-    pinnedRiskIds: Set<string>,
-    flashWindowActive: boolean,
-): QuoteHighlightState {
-    if (focusedRiskId === riskId) {
-        return flashWindowActive ? 'quote-focused' : (pinnedRiskIds.has(riskId) ? 'quote-pinned' : 'quote-default')
-    }
-    if (pinnedRiskIds.has(riskId)) return 'quote-pinned'
-    return 'quote-default'
-}
-
-/**
- * 把所有 risks 的 quote Range 注册到三个命名 Highlight。
- *
- * 调用时机：renderAsync 完成 + 段落级 decorateRisks 完成之后；
- * 以及 focusedRiskId / pinnedRiskIds / flashWindowActive 任一变化后由 watch 重画。
- *
+ * 调用时机：renderAsync 完成 + 段落级 decorateRisks 完成之后；以及 risks 变化后由 watch 重画。
  * 浏览器不支持 CSS.highlights → 静默早出（与 spec § 6.4 quote=null 降级视觉一致）。
  */
 export function decorateQuoteRanges(
     risks: RiskDisplayPhaseB[],
     container: HTMLElement,
-    state: {
-        focusedRiskId: string | null
-        pinnedRiskIds: Set<string>
-        flashWindowActive: boolean
-    },
 ): void {
     if (!supportsCssHighlight()) return
 
     clearAllQuoteHighlights()
 
-    const buckets: Record<QuoteHighlightState, Highlight> = {
-        'quote-default': new Highlight(),
-        'quote-focused': new Highlight(),
-        'quote-pinned': new Highlight(),
+    const buckets: Record<QuoteHighlightName, Highlight> = {
+        'quote-high': new Highlight(),
+        'quote-medium': new Highlight(),
+        'quote-low': new Highlight(),
     }
 
     for (const risk of risks) {
         const range = computeQuoteRange(risk, container)
         if (!range) continue
-        const stateName = pickHighlightState(risk.id, state.focusedRiskId, state.pinnedRiskIds, state.flashWindowActive)
-        buckets[stateName].add(range)
+        buckets[`quote-${risk.level}`].add(range)
     }
 
     for (const name of HIGHLIGHT_NAMES) {

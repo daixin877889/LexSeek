@@ -10,6 +10,7 @@
  */
 
 import { z } from 'zod'
+import { assertSafeOutboundUrl } from '~~/server/utils/outboundUrlGuard'
 
 // 请求体验证
 const bodySchema = z.object({
@@ -73,13 +74,14 @@ export default defineEventHandler(async (event) => {
 
     const { url } = bodyResult.data
 
+    // SSRF 防护：拒绝指向内网/保留地址或非 http(s) 的 URL
     try {
-        // 验证 URL 协议
-        const parsedUrl = new URL(url)
-        if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-            return resError(event, 400, '仅支持 HTTP/HTTPS 协议')
-        }
+        await assertSafeOutboundUrl(url)
+    } catch (guardError) {
+        return resError(event, 400, guardError instanceof Error ? guardError.message : 'URL 不被允许')
+    }
 
+    try {
         // 下载图片
         const response = await fetch(url, {
             headers: {

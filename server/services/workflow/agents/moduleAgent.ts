@@ -28,6 +28,7 @@ import {
     createScopeGuardMiddleware,
     pointConsumptionMiddleware,
     userInjectionMiddleware,
+    dateContextMiddleware,
 } from '../middleware'
 import { buildSystemPromptForAgent } from '../context/moduleContextBuilder'
 import { safetyTrimMiddleware } from '../middleware/safetyTrim.middleware'
@@ -47,6 +48,7 @@ import { createTool as createUploadWorkspaceFileTool } from '../tools/uploadWork
 import type { ToolContext } from '../tools/types'
 import { getSessionState } from '../state/storage'
 import { resolveContextWindow } from '../context/messageCompressor'
+import { prisma } from '~~/server/utils/db'
 
 interface ModuleAgentOptions {
     userId: number
@@ -173,6 +175,13 @@ async function runModuleChatInner(
         nodeConfig.modelMaxOutputTokens,
     )
 
+    // 取案件名作为计费消耗记录的业务上下文标签（best-effort，查不到则空）
+    const caseRow = await prisma.cases.findUnique({
+        where: { id: caseId },
+        select: { title: true },
+    }).catch(() => null)
+    const caseTitle = caseRow?.title ?? `案件_${caseId}`
+
     const agent: ReactAgent = createAgent({
         model,
         systemPrompt: systemMessage,
@@ -186,7 +195,7 @@ async function runModuleChatInner(
             // 消息完整性兜底必须最先：防止 orphan tool_use 引发 Provider 400
             createMessageIntegrityMiddleware(),
             createScopeGuardMiddleware(),
-            pointConsumptionMiddleware(userId, 'case_analysis_token', sessionId),
+            pointConsumptionMiddleware(userId, 'case_module_chat', sessionId, runId, caseTitle),
             summarizationMiddleware({
                 model,
                 trigger: [{ tokens: triggerTokens }],
@@ -206,6 +215,8 @@ async function runModuleChatInner(
                 prompts: nodeConfig.prompts,
                 context: { caseId, moduleName },
             }),
+            // 每轮注入"当前北京时间"，让模块对话理解"上周/今天/还剩几天"等相对时间
+            dateContextMiddleware(),
             afterAgentMemoryMiddleware({ caseId, sessionId, userId }),
             createAuditMiddleware(),
             // 末位兜底：beforeAgent 创建 IN_PROGRESS + 注入 _analysisRecordId；

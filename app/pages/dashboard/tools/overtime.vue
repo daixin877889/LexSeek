@@ -1,34 +1,17 @@
 <template>
   <div class="p-4">
-    <div class="flex items-center justify-between mb-2">
-      <h1 class="text-[22px] font-bold truncate">加班费/调休计算</h1>
-      <div class="relative">
-        <Button variant="ghost" size="icon" @click="isHelpOpen = !isHelpOpen" class="rounded-full">
-          <HelpCircle class="h-5 w-5" />
-          <span class="sr-only">帮助</span>
-        </Button>
-        <div v-if="isHelpOpen" class="absolute right-0 z-50 w-80 mt-2 p-4 bg-card rounded-lg border shadow-lg">
-          <div class="flex justify-between items-center mb-3">
-            <h3 class="font-semibold text-base">加班费计算指引</h3>
-            <Button variant="ghost" size="icon" @click="isHelpOpen = false" class="h-6 w-6">
-              <X class="h-5 w-5" />
-              <span class="sr-only">关闭</span>
-            </Button>
-          </div>
-
-          <div class="text-sm space-y-3 max-h-96 overflow-y-auto">
-            <div>
-              <h4 class="font-semibold mb-1">加班费计算标准：</h4>
-              <ul class="list-disc list-inside space-y-1">
-                <li>工作日加班：不低于工资的1.5倍</li>
-                <li>休息日加班：不低于工资的2倍</li>
-                <li>法定节假日加班：不低于工资的3倍</li>
-              </ul>
-            </div>
-          </div>
+    <ToolsCalculatorPageHeader title="加班费/调休计算" help-title="加班费计算指引">
+      <template #help>
+        <div>
+          <h4 class="font-semibold mb-1">加班费计算标准：</h4>
+          <ul class="list-disc list-inside space-y-1">
+            <li>工作日加班：不低于工资的1.5倍</li>
+            <li>休息日加班：不低于工资的2倍</li>
+            <li>法定节假日加班：不低于工资的3倍</li>
+          </ul>
         </div>
-      </div>
-    </div>
+      </template>
+    </ToolsCalculatorPageHeader>
 
     <div class="flex flex-col lg:flex-row gap-6">
       <!-- 左侧：信息输入区 -->
@@ -74,7 +57,7 @@
               </div>
 
               <div class="flex flex-col gap-3 pt-2">
-                <Button @click="calculatePay">计算加班费</Button>
+                <Button class="bg-gradient-brand-button text-white shadow-[0_10px_20px_-8px_rgba(30,158,237,0.42)]" @click="calculatePay">计算加班费</Button>
                 <Button variant="outline" @click="calculateTime">计算调休时间</Button>
               </div>
             </div>
@@ -85,33 +68,27 @@
       <!-- 右侧：计算结果区 -->
       <div class="w-full lg:w-7/12">
         <!-- 加班费计算结果 -->
-        <Card v-if="payResult" class="shadow-none border mb-6">
-          <CardHeader>
-            <CardTitle>加班费计算结果</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <ToolsResultCard v-if="payResult" title="加班费计算结果" :show-export="false" class="mb-6">
+          <template #summary>
             <Alert class="block">
               <div class="flex justify-between items-center">
                 <span>小时工资：</span>
                 <span class="font-semibold">{{ formatCurrency(payResult.hourlyRate) }} 元/小时</span>
               </div>
             </Alert>
-
-            <div class="mt-4 space-y-3">
+            <div class="space-y-3">
               <div v-if="workdayOvertimeHours > 0" class="p-3 bg-muted/30 rounded">
                 <div class="flex justify-between items-center">
                   <span>工作日加班费（1.5倍）：</span>
                   <span class="font-semibold">{{ formatCurrency(payResult.workdayOvertimePay) }} 元</span>
                 </div>
               </div>
-
               <div v-if="weekendOvertimeHours > 0" class="p-3 bg-muted/30 rounded">
                 <div class="flex justify-between items-center">
                   <span>休息日加班费（2倍）：</span>
                   <span class="font-semibold">{{ formatCurrency(payResult.weekendOvertimePay) }} 元</span>
                 </div>
               </div>
-
               <div v-if="holidayOvertimeHours > 0" class="p-3 bg-muted/30 rounded">
                 <div class="flex justify-between items-center">
                   <span>法定节假日加班费（3倍）：</span>
@@ -119,37 +96,23 @@
                 </div>
               </div>
             </div>
-
-            <Alert variant="success" class="mt-4 border border-primary block">
+            <Alert variant="success" class="border border-primary block">
               <div class="flex justify-between items-center">
                 <span class="text-lg font-bold">总加班费：</span>
                 <span class="text-lg font-bold">{{ formatCurrency(payResult.totalOvertimePay) }} 元</span>
               </div>
             </Alert>
-
-            <div class="mt-4">
-              <Accordion type="single" collapsible class="w-full space-y-2">
-                <AccordionItem value="calculation-details">
-                  <AccordionTrigger>
-                    <h3 class="text-base font-semibold">计算明细</h3>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div class="bg-muted/50 p-4 rounded text-sm space-y-1">
-                      <div v-for="(detail, index) in payResult.details" :key="index">{{ detail }}</div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
+          </template>
+          <template #details>
+            <div class="bg-muted/50 p-4 rounded text-sm space-y-1">
+              <div v-for="(detail, index) in payResult.details" :key="index">{{ detail }}</div>
             </div>
-          </CardContent>
-        </Card>
+          </template>
+        </ToolsResultCard>
 
         <!-- 调休时间计算结果 -->
-        <Card v-if="timeResult" class="shadow-none border mb-6">
-          <CardHeader>
-            <CardTitle>调休时间计算结果</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <ToolsResultCard v-if="timeResult" title="调休时间计算结果" :show-export="false" class="mb-6">
+          <template #summary>
             <div class="space-y-3">
               <div v-if="workdayOvertimeHours > 0" class="p-3 bg-muted/30 rounded">
                 <div class="flex justify-between items-center">
@@ -157,14 +120,12 @@
                   <span class="font-semibold">{{ timeResult.workdayCompensatoryHours }} 小时</span>
                 </div>
               </div>
-
               <div v-if="weekendOvertimeHours > 0" class="p-3 bg-muted/30 rounded">
                 <div class="flex justify-between items-center">
                   <span>休息日加班调休（1:1）：</span>
                   <span class="font-semibold">{{ timeResult.weekendCompensatoryHours }} 小时</span>
                 </div>
               </div>
-
               <div v-if="holidayOvertimeHours > 0" class="p-3 bg-muted/30 rounded">
                 <div class="flex justify-between items-center">
                   <span>法定节假日加班调休（1:3）：</span>
@@ -172,31 +133,20 @@
                 </div>
               </div>
             </div>
-
-            <Alert variant="success" class="mt-4 border border-primary block">
+            <Alert variant="success" class="border border-primary block">
               <div class="flex justify-between items-center">
                 <span class="text-lg font-bold">总调休时间：</span>
                 <span class="text-lg font-bold">{{ timeResult.totalCompensatoryHours }} 小时（约 {{
                   timeResult.totalCompensatoryDays }} 天）</span>
               </div>
             </Alert>
-
-            <div class="mt-4">
-              <Accordion type="single" collapsible class="w-full space-y-2">
-                <AccordionItem value="calculation-details">
-                  <AccordionTrigger>
-                    <h3 class="text-base font-semibold">计算明细</h3>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div class="bg-muted/50 p-4 rounded text-sm space-y-1">
-                      <div v-for="(detail, index) in timeResult.details" :key="index">{{ detail }}</div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
+          </template>
+          <template #details>
+            <div class="bg-muted/50 p-4 rounded text-sm space-y-1">
+              <div v-for="(detail, index) in timeResult.details" :key="index">{{ detail }}</div>
             </div>
-          </CardContent>
-        </Card>
+          </template>
+        </ToolsResultCard>
 
         <!-- 空状态 -->
         <div v-if="!payResult && !timeResult"
@@ -242,6 +192,8 @@
 </template>
 
 <script setup>
+import ToolsCalculatorPageHeader from '~/components/tools/CalculatorPageHeader.vue'
+import ToolsResultCard from '~/components/tools/ResultCard.vue'
 import toast from '#shared/utils/toast'
 import { useAlertDialogStore } from '~/store/alertDialog'
 definePageMeta({
@@ -255,7 +207,6 @@ import { calculateOvertimePay, calculateCompensatoryTime } from "#shared/utils/t
 const alertDialogStore = useAlertDialogStore();
 
 // 状态管理
-const isHelpOpen = ref(false);
 const baseSalary = ref(5000);
 const workdayOvertimeHours = ref(0);
 const weekendOvertimeHours = ref(0);
@@ -309,6 +260,4 @@ function calculateTime() {
 function formatCurrency(value) {
   return new Intl.NumberFormat("zh-CN").format(value);
 }
-
-import { X, HelpCircle } from "lucide-vue-next";
 </script>

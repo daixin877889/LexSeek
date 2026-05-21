@@ -33,6 +33,10 @@ export interface SafeUserInfo {
     profile: string | null
     /** 邀请码 */
     inviteCode: string | null
+    /** 合同导出署名 */
+    contractExportSignature: string | null
+    /** 对外 API Key（仅查询用户自己信息时返回，其它场景不下发） */
+    apiKey?: string | null
 }
 
 /**
@@ -56,5 +60,6 @@ export const formatUserResponseService = (user: users & { userRoles: (userRoles 
         company: user.company,
         profile: user.profile,
         inviteCode: user.inviteCode,
+        contractExportSignature: user.contractExportSignature,
     }
 }

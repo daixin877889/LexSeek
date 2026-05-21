@@ -7,6 +7,8 @@
 
 import { z } from 'zod'
 import { deleteNodeService } from '~~/server/services/node/node.service'
+import { invalidateNodeConfigCache } from '~~/server/services/agent-platform/nodeConfig/loader'
+import { prisma } from '~~/server/utils/db'
 
 /** 路由参数验证 */
 const paramsSchema = z.object({
@@ -17,11 +19,20 @@ export default defineEventHandler(async (event) => {
     const id = getRouterParam(event, 'id')
     const result = paramsSchema.safeParse({ id })
     if (!result.success) {
-        return resError(event, 400, '参数错误：' + result.error.issues[0]!!.message)
+        return resError(event, 400, '参数错误：' + result.error.issues[0]!.message)
     }
 
     try {
+        // 删除前取出 name —— invalidateNodeConfigCache 接节点名而非 id
+        const node = await prisma.nodes.findUnique({
+            where: { id: result.data.id },
+            select: { name: true },
+        })
+
         await deleteNodeService(result.data.id)
+
+        if (node) invalidateNodeConfigCache(node.name)
+
         return resSuccess(event, '删除节点成功', null)
     } catch (error: any) {
         // 处理业务逻辑错误

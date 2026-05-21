@@ -44,6 +44,15 @@ const bodySchema = z.object({
         .min(0, '状态值无效')
         .max(1, '状态值无效')
         .optional(),
+    billingMode: z.number()
+        .int('计费模式必须是整数')
+        .min(1, '计费模式无效')
+        .max(2, '计费模式无效')
+        .optional(),
+    displayName: z.string()
+        .max(100, '友好名不能超过100个字符')
+        .optional()
+        .nullable(),
 })
 
 export default defineEventHandler(async (event) => {

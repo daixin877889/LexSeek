@@ -249,6 +249,37 @@ export const restoreAccessDao = async (
     }
 }
 
+/**
+ * 批量恢复会员级别下已软删除的节点权限
+ * @param levelId 会员级别 ID
+ * @param nodeIds 节点 ID 列表
+ * @param tx 事务客户端（可选）
+ */
+export const restoreAccessByLevelAndNodesDao = async (
+    levelId: number,
+    nodeIds: number[],
+    tx?: PrismaClient
+): Promise<void> => {
+    if (nodeIds.length === 0) return
+
+    try {
+        await (tx || prisma).levelNodeAccess.updateMany({
+            where: {
+                levelId,
+                nodeId: { in: nodeIds },
+                deletedAt: { not: null },
+            },
+            data: {
+                deletedAt: null,
+                updatedAt: new Date(),
+            },
+        })
+    } catch (error) {
+        logger.error('批量恢复权限记录失败：', error)
+        throw error
+    }
+}
+
 // ==================== 删除操作 ====================
 
 /**

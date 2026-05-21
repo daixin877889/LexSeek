@@ -1,9 +1,8 @@
 <template>
   <Dialog v-model:open="open">
     <DialogContent
-      :class="['max-w-4xl min-w-[80vw] md:min-w-[70vw] h-[85vh] md:h-[90vh] z-[70]', 'grid grid-rows-[auto_1fr] overflow-hidden', isUploadMode ? '' : 'grid-rows-[auto_1fr_auto]']"
-      overlay-class="z-[70]"
-      @interactOutside="(e) => e.preventDefault()">
+      :class="['theme-brand max-w-4xl min-w-[80vw] md:min-w-[70vw] h-[85vh] md:h-[90vh] z-[70] rounded-2xl shadow-2xl', 'grid grid-rows-[auto_1fr] overflow-hidden', isUploadMode ? '' : 'grid-rows-[auto_1fr_auto]']"
+      overlay-class="z-[70]" @openAutoFocus="handleDialogAutoFocus" @interactOutside="(e) => e.preventDefault()">
       <DialogHeader>
         <DialogTitle>选择案情材料</DialogTitle>
         <DialogDescription class="hidden md:block">从已上传的文件中选择，或上传新的案情材料</DialogDescription>
@@ -13,12 +12,13 @@
       <div class="flex flex-col gap-3 min-h-0 flex-1 overflow-hidden">
         <!-- 操作栏：响应式布局 -->
         <div class="flex flex-wrap items-center gap-2 md:gap-3">
-          <!-- 左侧：文件类型筛选 -->
-          <div v-if="!isUploadMode" class="flex items-center gap-1.5">
+          <!-- 左侧：文件类型筛选（调用方限定扩展名时隐藏） -->
+          <div v-if="!isUploadMode && !hasExtensionRestriction" class="flex items-center gap-1.5">
             <Button v-for="option in fileTypeOptions" :key="option.value"
-              :variant="selectedFileType === option.value ? 'default' : 'outline'" size="sm"
-              @click="selectedFileType = option.value" class="h-9">
-              <component :is="option.icon" :class="['size-4', isSearchExpanded ? '' : 'md:mr-1.5', 'lg:mr-1.5']" />
+              :variant="selectedFileType === option.value ? 'default' : 'outline'" size="sm" :class="['h-9 shadow-none focus-visible:ring-0', selectedFileType === option.value
+                ? 'bg-gradient-brand-button text-white hover:text-white'
+                : '']" @click="selectedFileType = option.value">
+              <component :is="option.icon" :class="['size-4', isSearchExpanded ? '' : 'md:mr-0.5', 'lg:mr-0.5']" />
               <span :class="['hidden', isSearchExpanded ? 'lg:inline' : 'md:inline']">{{ option.label }}</span>
             </Button>
           </div>
@@ -28,7 +28,8 @@
             <!-- 搜索框容器（上传模式下隐藏） -->
             <div v-if="!isUploadMode" class="relative hidden md:flex items-center">
               <!-- 桌面端（lg+）：默认展开的搜索框 -->
-              <Input v-model="searchQuery" placeholder="搜索文件名..." class="h-9 w-64 hidden lg:block">
+              <Input v-model="searchQuery" placeholder="搜索文件名..."
+                class="h-9 w-64 hidden lg:block shadow-none focus-visible:ring-0">
               <template #prefix>
                 <SearchIcon class="size-4 text-muted-foreground" />
               </template>
@@ -42,7 +43,8 @@
 
               <!-- 中等屏幕（md-lg）：展开状态的搜索框（向左展开） -->
               <div v-if="isSearchExpanded" class="absolute right-0 z-10 lg:hidden" @mouseleave="handleSearchBlur">
-                <Input ref="searchInputRef" v-model="searchQuery" placeholder="搜索文件名..." class="h-9 w-64">
+                <Input ref="searchInputRef" v-model="searchQuery" placeholder="搜索文件名..."
+                  class="h-9 w-64 shadow-none focus-visible:ring-0">
                 <template #prefix>
                   <SearchIcon class="size-4 text-muted-foreground" />
                 </template>
@@ -51,7 +53,8 @@
             </div>
 
             <!-- 上传按钮 -->
-            <Button variant="default" size="sm" @click="toggleUploadMode" class="h-9">
+            <Button variant="default" size="sm" @click="toggleUploadMode"
+              class="h-9 bg-gradient-brand-button text-white">
               <component :is="isUploadMode ? ArrowLeftIcon : UploadIcon"
                 :class="['size-4', isSearchExpanded ? '' : 'md:mr-1.5', 'lg:mr-1.5']" />
               <span :class="['hidden', isSearchExpanded ? 'lg:inline' : 'md:inline']">{{ isUploadMode ? "返回列表" : "上传文件"
@@ -61,7 +64,7 @@
 
           <!-- 移动端：搜索框单独一行 -->
           <div class="w-full md:hidden">
-            <Input v-model="searchQuery" placeholder="搜索文件名..." class="h-9 w-full">
+            <Input v-model="searchQuery" placeholder="搜索文件名..." class="h-9 w-full shadow-none focus-visible:ring-0">
             <template #prefix>
               <SearchIcon class="size-4 text-muted-foreground" />
             </template>
@@ -94,7 +97,9 @@
             <!-- 空状态 -->
             <div v-if="filteredFiles.length === 0 && !loading"
               class="flex flex-col items-center justify-center h-full text-center">
-              <FileIcon class="size-12 text-muted-foreground/50 mb-4" />
+              <div class="flex size-14 items-center justify-center rounded-full bg-muted mb-4">
+                <FileIcon class="size-7 text-muted-foreground/50" />
+              </div>
               <p class="text-sm text-muted-foreground mb-2">
                 {{ searchQuery ? "未找到匹配的文件" : "暂无案情材料" }}
               </p>
@@ -107,17 +112,20 @@
             <!-- 文件列表 -->
             <div v-for="file in filteredFiles" :key="file.id" :class="[
               'flex items-center gap-3 p-4 transition-colors',
-              isFileDisabled(file.id)
+              isFileDisabled(file)
                 ? 'opacity-60 cursor-not-allowed bg-muted/30'
-                : 'hover:bg-accent/50 cursor-pointer'
-            ]" @click="!isFileDisabled(file.id) && toggleFileSelection(file.id)">
+                : selectedFiles.includes(file.id)
+                  ? 'bg-primary/5 cursor-pointer'
+                  : 'hover:bg-accent/50 cursor-pointer'
+            ]" @click="!isFileDisabled(file) && toggleFileSelection(file.id)">
               <!-- 复选框 -->
               <Checkbox :id="`file-${file.id}`" :model-value="selectedFiles.includes(file.id)"
-                :disabled="isFileDisabled(file.id)" class="cursor-pointer"
-                @update:model-value="handleCheckboxChange(file.id, $event as boolean)" />
+                :disabled="isFileDisabled(file)"
+                class="cursor-pointer shadow-none focus-visible:ring-0 data-[state=checked]:bg-gradient-brand-button data-[state=checked]:border-0"
+                @update:model-value="handleCheckboxChange(file, $event as boolean)" />
 
               <!-- 文件图标 -->
-              <div class="flex items-center justify-center size-10 rounded-md bg-muted">
+              <div class="flex items-center justify-center size-10 rounded-lg bg-muted">
                 <component :is="getFileIcon(file.fileType)" :class="['size-5', getFileIconColor(file.fileType)]" />
               </div>
 
@@ -125,7 +133,7 @@
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
                   <label :for="`file-${file.id}`"
-                    :class="['text-sm font-medium truncate', isFileDisabled(file.id) ? 'cursor-not-allowed' : 'cursor-pointer']">
+                    :class="['text-sm font-medium truncate', isFileDisabled(file) ? 'cursor-not-allowed' : 'cursor-pointer']">
                     {{ file.fileName }}
                   </label>
                   <Badge v-if="file.encrypted" variant="secondary" class="text-xs">
@@ -133,12 +141,17 @@
                     已加密
                   </Badge>
                   <!-- 已添加标识 -->
-                  <Badge v-if="isFileDisabled(file.id)" variant="outline" class="text-xs">
+                  <Badge v-if="disabledFileIds?.includes(file.id)" variant="outline" class="text-xs">
                     已添加
+                  </Badge>
+                  <!-- 超出大小上限标识 -->
+                  <Badge v-if="isFileOversized(file)" variant="outline"
+                    class="text-xs border-destructive/40 text-destructive">
+                    超过 {{ maxFileSizeLabel }}
                   </Badge>
                 </div>
                 <div class="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                  <span>{{ formatByteSize(file.fileSize) }}</span>
+                  <span>{{ formatByteSize(file.fileSize, 2) }}</span>
                   <span>•</span>
                   <span>{{ formatDateRelative(file.createdAt) }}</span>
                 </div>
@@ -171,7 +184,8 @@
         <!-- 右侧按钮组 -->
         <div class="flex items-center gap-2 ml-auto">
           <Button variant="outline" @click="closeDialog"> 取消 </Button>
-          <Button @click="confirmSelection" :disabled="selectedFiles.length === 0"> 确认选择 ({{ selectedFiles.length }})
+          <Button @click="confirmSelection" :disabled="selectedFiles.length === 0"
+            class="bg-gradient-brand-button text-white"> 确认选择 ({{ selectedFiles.length }})
           </Button>
         </div>
       </DialogFooter>
@@ -185,6 +199,7 @@ import { useDebounceFn } from "@vueuse/core";
 import { FileSource } from "#shared/types/file";
 import type { OssFileItem, FileListParams } from "~/store/file";
 import { formatByteSize } from "#shared/utils/unitConverision";
+import { getExtensionFromFileName } from "#shared/utils/file";
 import { getFileIcon, getFileIconColor } from "~/utils/file";
 import toast from '#shared/utils/toast'
 import GeneralFileUploader from '~/components/general/fileUploader.vue'
@@ -196,20 +211,40 @@ import { useFileStore } from '~/store/file'
 const props = defineProps<{
   // 禁止选择的文件 ID 列表（已添加到父组件的文件）
   disabledFileIds?: number[]
+  // 仅显示指定扩展名的文件（小写、不含点，如 ['docx']）；不传则不限制类型
+  acceptExtensions?: string[]
+  // 文件大小上限（字节）；超出的文件会被禁用、不可选；不传则不限制
+  maxFileSize?: number
 }>()
 
 // 使用格式化工具
 const { formatDateRelative } = useFormatters();
 
 /**
- * 判断文件是否被禁用（已添加到父组件）
+ * 文件是否超出调用方指定的大小上限
  */
-function isFileDisabled(fileId: number): boolean {
-  return props.disabledFileIds?.includes(fileId) ?? false
+function isFileOversized(file: OssFileItem): boolean {
+  return props.maxFileSize != null && file.fileSize > props.maxFileSize
+}
+
+/**
+ * 判断文件是否不可选（已添加到父组件，或超出大小上限）
+ */
+function isFileDisabled(file: OssFileItem): boolean {
+  return (props.disabledFileIds?.includes(file.id) ?? false) || isFileOversized(file)
 }
 
 // 对话框状态
 const open = defineModel<boolean>("open", { default: false });
+
+/**
+ * 弹窗打开时不自动聚焦搜索框（避免移动端弹起键盘），但必须把焦点移入弹窗容器本身——
+ * 否则触发按钮保留焦点，会与 Radix 给页面其余部分加的 aria-hidden 冲突（控制台 a11y 告警）。
+ */
+function handleDialogAutoFocus(e: Event) {
+  e.preventDefault();
+  (e.target as HTMLElement | null)?.focus();
+}
 
 // 文件 store
 const fileStore = useFileStore();
@@ -262,11 +297,12 @@ const loadingMore = ref(false);
 const hasMore = computed(() => allFiles.value.length < totalFiles.value);
 
 // 构建查询参数
+// 案件材料弹框允许选中"案件分析上传"+"云盘上传"两类来源；MinerU/文档识别生成的 DOC_EMBEDDED_IMAGE 不在白名单内，自动被排除
 const queryParams = computed<FileListParams>(() => ({
   page: currentPage.value,
   pageSize: pageSize.value,
   fileName: searchQuery.value || undefined,
-  source: FileSource.CASE_ANALYSIS,
+  source: [FileSource.CASE_ANALYSIS, FileSource.FILE],
   sortField: "createdAt",
   sortOrder: "desc",
 }));
@@ -328,6 +364,14 @@ async function loadFiles(append = false) {
   }
 }
 
+// 是否启用扩展名限制（调用方通过 acceptExtensions 指定）
+const hasExtensionRestriction = computed(() => (props.acceptExtensions?.length ?? 0) > 0);
+
+// 大小上限的可读文案（用于"文件过大"徽章）
+const maxFileSizeLabel = computed(() =>
+  props.maxFileSize != null ? formatByteSize(props.maxFileSize, 0) : ""
+);
+
 // 过滤后的文件列表
 const filteredFiles = computed(() => {
   let result = allFiles.value;
@@ -349,12 +393,18 @@ const filteredFiles = computed(() => {
     });
   }
 
+  // 按扩展名限制（调用方指定，如合同审查仅允许 .docx）
+  if (hasExtensionRestriction.value) {
+    const accepted = props.acceptExtensions!.map((e) => e.toLowerCase());
+    result = result.filter((file) => accepted.includes(getExtensionFromFileName(file.fileName)));
+  }
+
   return result;
 });
 
 // 可选择的文件列表（排除已禁用的文件）
 const selectableFiles = computed(() => {
-  return filteredFiles.value.filter(file => !isFileDisabled(file.id))
+  return filteredFiles.value.filter(file => !isFileDisabled(file))
 })
 
 // 是否全选（只考虑可选择的文件）
@@ -451,12 +501,12 @@ const toggleFileSelection = (fileId: number) => {
 };
 
 // 处理 checkbox 状态变化
-const handleCheckboxChange = (fileId: number, checked: boolean) => {
-  if (isFileDisabled(fileId)) return;
+const handleCheckboxChange = (file: OssFileItem, checked: boolean) => {
+  if (isFileDisabled(file)) return;
 
-  const index = selectedFiles.value.indexOf(fileId);
+  const index = selectedFiles.value.indexOf(file.id);
   if (checked && index === -1) {
-    selectedFiles.value.push(fileId);
+    selectedFiles.value.push(file.id);
   } else if (!checked && index > -1) {
     selectedFiles.value.splice(index, 1);
   }

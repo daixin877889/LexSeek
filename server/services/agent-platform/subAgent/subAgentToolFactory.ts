@@ -19,6 +19,7 @@ import {
     createScopeGuardMiddleware,
     pointConsumptionMiddleware,
     userInjectionMiddleware,
+    dateContextMiddleware,
 } from '~~/server/services/agent-platform/middleware'
 import { safetyTrimMiddleware } from '~~/server/services/agent-platform/middleware/safetyTrim.middleware'
 import { analysisResultPersistenceMiddleware } from '~~/server/services/workflow/middleware/analysisResultPersistence.middleware'
@@ -48,8 +49,10 @@ export interface SubAgentToolContext {
     caseId: number
     /** 会话 ID */
     sessionId: string
-    /** 主 Agent run id（agentRuns.id），供 callbacks 转发事件到同一 SSE 流 */
+    /** 主 Agent run id（agentRuns.id），供 callbacks 转发事件到同一 SSE 流，同时作为计费 operationId 使各子代理与主代理聚合到同一条消耗记录 */
     runId: string
+    /** 业务上下文标签（如案件名），透传给子代理的计费中间件供消耗记录展示 */
+    contextLabel?: string
 }
 
 /**
@@ -226,7 +229,7 @@ export async function createSubAgentTools(
                             // 消息完整性兜底必须最先：子 agent 独立 thread 同样会遗留 orphan tool_use
                             createMessageIntegrityMiddleware(),
                             createScopeGuardMiddleware(),
-                            pointConsumptionMiddleware(context.userId, 'case_analysis_token', context.sessionId),
+                            pointConsumptionMiddleware(context.userId, 'case_main_chat', context.sessionId, context.runId, context.contextLabel),
                             summarizationMiddleware({
                                 model,
                                 trigger: [{ tokens: triggerTokens }],
@@ -258,6 +261,8 @@ export async function createSubAgentTools(
                                 userId: context.userId,
                             }),
                             createAuditMiddleware(),
+                            // 每轮注入"当前北京时间"——子代理与主代理共享时间感知
+                            dateContextMiddleware(),
                         ],
                     })
 

@@ -1,12 +1,12 @@
 <template>
-        <div class="space-y-6">
+        <div class="theme-brand space-y-6">
             <!-- 页面标题 -->
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                     <h1 class="text-2xl md:text-3xl font-bold mb-1">提示词管理</h1>
                     <p class="text-muted-foreground text-sm">管理节点的提示词配置和版本</p>
                 </div>
-                <Button @click="formDialogRef?.openCreate()">
+                <Button :class="adminBrandPrimaryButtonClass" @click="formDialogRef?.openCreate()">
                     <Plus class="h-4 w-4 mr-2" />
                     新增提示词
                 </Button>
@@ -15,31 +15,31 @@
             <!-- 筛选 -->
             <div class="flex flex-col md:flex-row gap-4">
                 <Select v-model="typeFilter">
-                    <SelectTrigger class="w-full md:w-40">
+                    <SelectTrigger :class="['w-full md:w-40', adminBrandFocusClass]">
                         <SelectValue placeholder="提示词类型" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent class="theme-brand">
                         <SelectItem value="all">全部类型</SelectItem>
-                        <SelectItem value="system">系统提示词</SelectItem>
-                        <SelectItem value="user">用户提示词</SelectItem>
-                        <SelectItem value="assistant">助手提示词</SelectItem>
+                        <SelectItem v-for="(label, value) in PromptTypeLabels" :key="value" :value="String(value)">
+                            {{ label }}
+                        </SelectItem>
                     </SelectContent>
                 </Select>
                 <Select v-model="statusFilter">
-                    <SelectTrigger class="w-full md:w-32">
+                    <SelectTrigger :class="['w-full md:w-32', adminBrandFocusClass]">
                         <SelectValue placeholder="状态" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent class="theme-brand">
                         <SelectItem value="all">全部状态</SelectItem>
                         <SelectItem value="1">生效</SelectItem>
                         <SelectItem value="0">未生效</SelectItem>
                     </SelectContent>
                 </Select>
                 <div class="flex-1">
-                    <Input v-model="keyword" placeholder="搜索提示词名称/标题..." class="w-full md:w-64"
+                    <Input v-model="keyword" placeholder="搜索提示词名称/标题..." :class="['w-full md:w-64', adminBrandFocusClass]"
                         @keyup.enter="handleSearch" />
                 </div>
-                <Button variant="outline" @click="handleSearch">
+                <Button variant="outline" :class="adminBrandFocusClass" @click="handleSearch">
                     <Search class="h-4 w-4 mr-2" />
                     筛选
                 </Button>
@@ -81,13 +81,13 @@
                                 <TableCell>{{ prompt.title || '-' }}</TableCell>
                                 <TableCell>{{ prompt.referencedByCount ?? 0 }} 个节点</TableCell>
                                 <TableCell>
-                                    <Badge :variant="getTypeVariant(prompt.type)">
+                                    <Badge variant="outline" :style="getAdminPromptTypeBadgeStyle(prompt.type)">
                                         {{ getTypeLabel(prompt.type) }}
                                     </Badge>
                                 </TableCell>
                                 <TableCell class="font-mono text-sm">{{ prompt.version }}</TableCell>
                                 <TableCell>
-                                    <Badge :variant="prompt.status === 1 ? 'default' : 'secondary'">
+                                    <Badge variant="outline" :class="getAdminStatusBadgeClass(prompt.status === 1)">
                                         {{ prompt.status === 1 ? '生效' : '未生效' }}
                                     </Badge>
                                 </TableCell>
@@ -95,11 +95,11 @@
                                 <TableCell class="text-right">
                                     <DropdownMenu>
                                         <DropdownMenuTrigger as-child>
-                                            <Button variant="ghost" size="icon">
+                                            <Button variant="ghost" size="icon" :class="adminBrandFocusClass">
                                                 <MoreHorizontal class="h-4 w-4" />
                                             </Button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
+                                        <DropdownMenuContent align="end" class="theme-brand">
                                             <DropdownMenuItem @click="navigateTo(`/admin/prompts/${prompt.id}`)">
                                                 <Eye class="h-4 w-4 mr-2" />
                                                 查看详情
@@ -140,7 +140,7 @@
 
         <!-- 删除确认对话框 -->
         <AlertDialog v-model:open="deleteDialogOpen">
-            <AlertDialogContent>
+            <AlertDialogContent class="theme-brand">
                 <AlertDialogHeader>
                     <AlertDialogTitle>确认删除</AlertDialogTitle>
                     <AlertDialogDescription>
@@ -149,7 +149,7 @@
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>取消</AlertDialogCancel>
-                    <AlertDialogAction @click="confirmDelete" :disabled="deleting">
+                    <AlertDialogAction :class="adminBrandDestructiveActionClass" @click="confirmDelete" :disabled="deleting">
                         <Loader2 v-if="deleting" class="h-4 w-4 mr-2 animate-spin" />
                         确认删除
                     </AlertDialogAction>
@@ -162,11 +162,19 @@
 import { Plus, Loader2, FileText, Search, MoreHorizontal, Eye, Trash2, History, CheckCircle } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import dayjs from 'dayjs'
+import { PromptTypeLabels } from '#shared/types/node'
 import type { PromptWithRelations } from '#shared/types/node'
 import AdminPromptsPromptFormDialog from '~/components/admin/prompts/PromptFormDialog.vue'
 import AdminPromptsVersionHistoryDialog from '~/components/admin/prompts/VersionHistoryDialog.vue'
 import GeneralPagination from '~/components/general/pagination.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
+import {
+    adminBrandDestructiveActionClass,
+    adminBrandFocusClass,
+    adminBrandPrimaryButtonClass,
+    getAdminPromptTypeBadgeStyle,
+    getAdminStatusBadgeClass,
+} from '~/utils/adminBrandStyles'
 
 definePageMeta({ layout: 'admin-layout', title: '提示词管理' })
 
@@ -195,31 +203,14 @@ const formatDate = (date: string | Date | null | undefined) => {
 
 // 提示词类型标签
 const getTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
-        system: '系统提示词',
-        user: '用户提示词',
-        user_injection: '用户每轮注入',
-        assistant: '助手提示词',
-    }
-    return labels[type] || type
-}
-
-// 提示词类型样式
-const getTypeVariant = (type: string) => {
-    const variants: Record<string, 'default' | 'secondary' | 'outline'> = {
-        system: 'default',
-        user: 'secondary',
-        user_injection: 'secondary',
-        assistant: 'outline',
-    }
-    return variants[type] || 'default'
+    return PromptTypeLabels[type as keyof typeof PromptTypeLabels] || type
 }
 
 // 加载提示词列表
 const loadPrompts = async () => {
     loading.value = true
     try {
-        const params: Record<string, any> = {
+        const params: Record<string, string | number> = {
             page: pagination.value.page,
             pageSize: pagination.value.pageSize,
         }

@@ -19,6 +19,7 @@ import { interrupt, isGraphBubbleUp } from '@langchain/langgraph'
 import type { ToolContext, ToolDefinition } from './types'
 import { DOCUMENT_CATEGORY_KEYS, type DocumentCategoryKey } from '#shared/types/document'
 import { recommendDocumentTemplatesService } from '~~/server/agents/document/templateRecommend.service'
+import { rerankTemplatesService } from '~~/server/agents/document/templateRerank.service'
 import { getDocumentTemplateDAO } from '~~/server/agents/document/documentTemplate.dao'
 
 interface TemplateSelectResumeValue {
@@ -75,23 +76,58 @@ export function createTool(context: ToolContext) {
                     throw new Error('recommend_template: ToolContext 缺少 sessionId/userId')
                 }
 
-                // 1. 模板推荐
+                // 1. 粗筛：拿 30 条候选（足以让 rerank 有挑选空间）
                 const reco = await recommendDocumentTemplatesService({
                     userId,
                     intent: input.intent,
                     keywords: input.keywords,
                     categoryHint: input.category,
+                    limit: 30,
                 })
 
-                // 2. interrupt 弹卡片(沿用 TemplateSelectCard 既有 payload 形态)
+                // 2. LLM rerank：基于案件上下文挑出 top 5
+                const rerank = await rerankTemplatesService({
+                    userId,
+                    caseId: context.caseId ?? null,
+                    sessionId,
+                    userQuery: input.intent,
+                    intent: input.intent,
+                    candidates: reco.items.map(it => ({
+                        id: it.id,
+                        name: it.name,
+                        category: it.category,
+                        description: it.description,
+                        recentlyUsed: it.recentlyUsed,
+                    })),
+                    topN: 5,
+                })
+
+                logger.info('[recommend_template] 推荐完成', {
+                    sessionId,
+                    caseId: context.caseId,
+                    candidateCount: reco.items.length,
+                    rerankPicks: rerank.picks.map(p => p.templateId),
+                    rerankFallback: rerank.fallback,
+                    rerankFallbackReason: rerank.fallbackReason,
+                })
+
+                // 3. 按 rerank picks 顺序映射回完整 item（保留卡片需要的所有字段）
+                const itemMap = new Map(reco.items.map(it => [it.id, it]))
+                const finalRecommendations = rerank.picks
+                    .map(p => itemMap.get(p.templateId))
+                    .filter((it): it is NonNullable<typeof it> => it != null)
+
+                // 4. interrupt 弹卡片（payload 形态保持兼容，新增可选 rerankFallback 字段）
                 const resumed = interrupt({
                     type: 'template_select',
                     toolCallId,
                     intent: input.intent,
                     keywords: reco.usedKeywords,
-                    recommendations: reco.items,
+                    recommendations: finalRecommendations,
                     total: reco.total,
                     fallbackToRecency: reco.fallbackToRecency,
+                    rerankFallback: rerank.fallback,
+                    rerankFallbackReason: rerank.fallbackReason,
                 }) as unknown
 
                 // 3. 双层包装解包(同 draftDocument.tool.ts / reviewContract.tool.ts)

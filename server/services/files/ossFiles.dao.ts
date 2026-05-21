@@ -116,6 +116,36 @@ export async function findOssFileByIdsDao(id: number[], tx?: Prisma.TransactionC
 }
 
 /**
+ * 根据文件 ID 批量查找属于指定用户的 OSS 文件记录
+ *
+ * 用于用户端接口的归属校验：只返回 id 在列表中、属于该 userId、未删除的文件。
+ * 他人文件、不存在的 id、已软删除的文件均被静默过滤。
+ */
+export async function findOssFilesByIdsAndUserIdDao(
+    ids: number[],
+    userId: number,
+    tx?: Prisma.TransactionClient
+): Promise<ossFiles[]> {
+    try {
+        const result = await (tx || prisma).ossFiles.findMany({
+            where: {
+                id: { in: ids },
+                userId,
+                deletedAt: null
+            }
+        })
+
+        return result.map((file: ossFiles) => ({
+            ...file,
+            source: file.source as FileSource,
+        }))
+    } catch (error) {
+        logger.error(`根据文件 ID 与用户 ID 批量查找 OSS 文件记录失败: ${error}`)
+        throw error
+    }
+}
+
+/**
  * 软删除文件记录
  */
 export async function deleteFileDao(id: number, tx?: Prisma.TransactionClient): Promise<boolean> {
@@ -310,7 +340,7 @@ export async function findOssFilesByUserIdDao(userId: number, options: {
     pageSize: number
     fileType?: FileType
     fileName?: string
-    source?: FileSource
+    source?: FileSource[]
     sortField?: FileSortField
     sortOrder?: SortOrder
     tx?: Prisma.TransactionClient
@@ -333,9 +363,8 @@ export async function findOssFilesByUserIdDao(userId: number, options: {
             where.fileName = { contains: options.fileName, mode: 'insensitive' }
         }
 
-        // 按来源筛选
-        if (options.source) {
-            where.source = options.source
+        if (options.source?.length) {
+            where.source = { in: options.source }
         }
 
         // 构建排序条件：未传入排序参数时默认按 ID 降序
@@ -393,5 +422,29 @@ export async function markOssFileUploadedByVerifyDao(
             { fileId, source: 'confirm_upload', auditNote: options?.auditNote ?? null }
         )
     }
+    return result.count
+}
+
+/**
+ * 存储回调专用：仅在 status=PENDING 时标记为 UPLOADED 并写入加密元信息（条件更新，幂等防重放）
+ *
+ * @returns 实际改动行数（0 表示文件已非 PENDING——回调重放或已被兜底处理）
+ */
+export async function markOssFileUploadedByCallbackDao(
+    fileId: number,
+    data: { encrypted: boolean; originalMimeType: string | null }
+): Promise<number> {
+    const result = await prisma.ossFiles.updateMany({
+        where: {
+            id: fileId,
+            status: OssFileStatus.PENDING,
+            deletedAt: null,
+        },
+        data: {
+            status: OssFileStatus.UPLOADED,
+            encrypted: data.encrypted,
+            originalMimeType: data.originalMimeType,
+        },
+    })
     return result.count
 }

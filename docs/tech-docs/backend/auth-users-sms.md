@@ -15,6 +15,7 @@ server/
 │   │   ├── users.service.ts            # 用户业务逻辑层
 │   │   ├── users.dao.ts                # 用户数据访问层
 │   │   ├── userResponse.service.ts     # 用户响应格式化
+│   │   ├── contractSignature.service.ts # 用户合同签名服务
 │   │   └── tokenBlacklist.dao.ts       # Token 黑名单数据访问
 │   └── sms/
 │       ├── smsVerification.service.ts  # 验证码验证服务
@@ -22,7 +23,7 @@ server/
 ├── lib/
 │   └── aliSms.ts                       # 阿里云 SMS SDK 封装
 └── utils/
-    └── JwtUtil.ts                      # JWT 工具（自动导入）
+    └── jwt.ts                          # JWT 工具（class JwtUtil，自动导入）
 ```
 
 ## 1. JWT 认证
@@ -163,7 +164,7 @@ const user = await createUserService(userData, {
 执行流程：
 1. 验证角色是否存在（调用 `findRoleByIdsDao`）
 2. 创建用户记录（调用 `createUserDao`）
-3. 创建用户-角色关联（调用 `createUserRoleDao`）
+3. 创建用户-角色关联（调用 `createUserRolesDao`）
 4. 整个操作在事务中执行，保证一致性
 
 ### 2.2 用户数据访问层（users.dao.ts）
@@ -204,6 +205,8 @@ interface SafeUserInfo {
 ```
 
 **排除的字段**：`password`、`deletedAt`、`createdAt`、`updatedAt` 等敏感或内部字段。
+
+**扩展字段**：`users.contractExportSignature`（VARCHAR(50)，可空）存储用户在合同导出时的自定义署名，用于修订标记与批注气泡的 `w:author` 显示。`PUT /api/v1/users/profile` 已支持读写该字段；读取逻辑见 `server/services/users/contractSignature.service.ts` 的 `resolveContractExportSignatureService`（未设时回退账号姓名）。
 
 ## 3. 短信验证
 

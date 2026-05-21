@@ -1,9 +1,9 @@
 <template>
-    <div class="space-y-6">
+    <div class="theme-brand space-y-6">
         <!-- 页面标题和操作 -->
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div class="flex items-center gap-4">
-                <Button variant="ghost" size="icon" @click="navigateTo('/admin/nodes')">
+                <Button variant="ghost" size="icon" :class="adminBrandFocusClass" @click="navigateTo('/admin/nodes')">
                     <ArrowLeft class="h-4 w-4" />
                 </Button>
                 <div>
@@ -12,11 +12,11 @@
                 </div>
             </div>
             <div class="flex gap-2">
-                <Button v-if="node" variant="outline" @click="formDialogRef?.openEdit(node, activeTab)" :disabled="loading">
+                <Button v-if="node" variant="outline" :class="adminBrandFocusClass" @click="formDialogRef?.openEdit(node, activeTab)" :disabled="loading">
                     <Pencil class="h-4 w-4 mr-2" />
                     编辑
                 </Button>
-                <Button variant="outline" @click="handleToggleStatus" :disabled="loading">
+                <Button variant="outline" :class="adminBrandFocusClass" @click="handleToggleStatus" :disabled="loading">
                     <Power class="h-4 w-4 mr-2" />
                     {{ node?.status === 1 ? '禁用' : '启用' }}
                 </Button>
@@ -37,7 +37,7 @@
             <AlertCircle class="h-12 w-12 text-muted-foreground/50 mb-4" />
             <h3 class="text-lg font-medium mb-1">节点不存在</h3>
             <p class="text-muted-foreground text-sm mb-4">该节点可能已被删除</p>
-            <Button @click="navigateTo('/admin/nodes')">返回列表</Button>
+            <Button :class="adminBrandPrimaryButtonClass" @click="navigateTo('/admin/nodes')">返回列表</Button>
         </div>
 
         <!-- 节点详情 -->
@@ -68,13 +68,13 @@
                                 </div>
                                 <div class="space-y-1">
                                     <Label class="text-muted-foreground">节点类型</Label>
-                                    <Badge :variant="NodeTypeVariants[node.type as keyof typeof NodeTypeVariants] || 'default'">
+                                    <Badge variant="outline" :style="getAdminNodeTypeBadgeStyle(node.type)">
                                         {{ NodeTypeLabels[node.type as keyof typeof NodeTypeLabels] || node.type }}
                                     </Badge>
                                 </div>
                                 <div class="space-y-1">
                                     <Label class="text-muted-foreground">状态</Label>
-                                    <Badge :variant="node.status === 1 ? 'default' : 'secondary'">
+                                    <Badge variant="outline" :class="getAdminStatusBadgeClass(node.status === 1)">
                                         {{ node.status === 1 ? '启用' : '禁用' }}
                                     </Badge>
                                 </div>
@@ -152,10 +152,10 @@
                                                     {{ p.name }} · {{ p.version }} · 被 {{ p.referencedByCount }} 个节点引用
                                                 </div>
                                             </div>
-                                            <Badge variant="outline" class="shrink-0">
+                                            <Badge variant="outline" class="shrink-0" :class="adminBrandChipClass">
                                                 {{ getPromptTypeLabel(p.type) }}
                                             </Badge>
-                                            <Badge :variant="p.status === 1 ? 'default' : 'secondary'" class="shrink-0">
+                                            <Badge variant="outline" class="shrink-0" :class="getAdminStatusBadgeClass(p.status === 1)">
                                                 {{ p.status === 1 ? '生效' : '未生效' }}
                                             </Badge>
                                         </div>
@@ -327,7 +327,7 @@
                                             {{ skill.description }}
                                         </div>
                                     </div>
-                                    <Badge :variant="skill.status === 1 ? 'default' : 'secondary'" class="shrink-0">
+                                    <Badge variant="outline" class="shrink-0" :class="getAdminStatusBadgeClass(skill.status === 1)">
                                         {{ skill.status === 1 ? '生效' : '停用' }}
                                     </Badge>
                                 </div>
@@ -344,7 +344,7 @@
 
     <!-- 删除确认对话框 -->
     <AlertDialog v-model:open="deleteDialogOpen">
-        <AlertDialogContent>
+        <AlertDialogContent class="theme-brand">
             <AlertDialogHeader>
                 <AlertDialogTitle>确认删除</AlertDialogTitle>
                 <AlertDialogDescription>
@@ -353,7 +353,7 @@
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel>取消</AlertDialogCancel>
-                <AlertDialogAction @click="confirmDelete" :disabled="deleting">
+                <AlertDialogAction :class="adminBrandDestructiveActionClass" @click="confirmDelete" :disabled="deleting">
                     <Loader2 v-if="deleting" class="h-4 w-4 mr-2 animate-spin" />
                     确认删除
                 </AlertDialogAction>
@@ -368,11 +368,19 @@ import { toast } from 'vue-sonner'
 import dayjs from 'dayjs'
 import { Markdown } from 'vue-stream-markdown'
 import 'vue-stream-markdown/index.css'
-import { NodeTypeLabels, NodeTypeVariants } from '#shared/types/node'
+import { NodeTypeLabels } from '#shared/types/node'
 import type { NodePromptRef, NodePromptsPreview, NodeSkillRef, NodeToolDetailRef, NodeWithRelations, PromptType } from '#shared/types/node'
 import AdminNodesNodeFormDialog from '~/components/admin/nodes/NodeFormDialog.vue'
 import { useApi } from '~/composables/useApi'
 import { useApiFetch } from '~/composables/useApiFetch'
+import {
+    adminBrandChipClass,
+    adminBrandDestructiveActionClass,
+    adminBrandFocusClass,
+    adminBrandPrimaryButtonClass,
+    getAdminNodeTypeBadgeStyle,
+    getAdminStatusBadgeClass,
+} from '~/utils/adminNodeBrandStyles'
 
 definePageMeta({ layout: 'admin-layout', title: '节点详情' })
 

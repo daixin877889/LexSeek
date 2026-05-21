@@ -51,6 +51,15 @@ export default defineEventHandler(async (event) => {
 
         const { ossFileId } = paramsResult.data
 
+        // owner-only：仅允许查询自己拥有的 OSS 文件的识别状态
+        const ossFile = await prisma.ossFiles.findFirst({
+            where: { id: ossFileId, userId: user.id, deletedAt: null },
+            select: { id: true },
+        })
+        if (!ossFile) {
+            return resError(event, 404, '文件不存在')
+        }
+
         // 3. 依次查询四种识别相关表
         // 先查询 MinerU 任务表（文档识别的异步任务）
         const mineruTask = await getMineruTaskByOssFileIdService(ossFileId)

@@ -45,6 +45,20 @@ export const generateUniqueCode = (): string => {
 }
 
 /**
+ * 批量解析创建人用户 ID → 姓名。
+ * createdBy 不建外键，无法 include，故按 ID 批量回查 users。
+ */
+const resolveCreatorNames = async (createdByIds: (number | null)[]): Promise<Map<number, string>> => {
+    const ids = [...new Set(createdByIds.filter((id): id is number => id != null))]
+    if (ids.length === 0) return new Map()
+    const users = await prisma.users.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, name: true },
+    })
+    return new Map(users.map((u) => [u.id, u.name]))
+}
+
+/**
  * 批量生成兑换码
  * @param params 生成参数
  * @returns 生成结果
@@ -52,7 +66,7 @@ export const generateUniqueCode = (): string => {
 export const generateRedemptionCodesService = async (
     params: GenerateCodesParams
 ): Promise<GenerateCodesResult> => {
-    const { type, quantity, levelId, duration, pointAmount, expiredAt, remark } = params
+    const { type, quantity, levelId, duration, pointAmount, expiredAt, remark, createdBy } = params
 
     // 验证数量限制
     if (quantity <= 0 || quantity > 1000) {
@@ -99,6 +113,7 @@ export const generateRedemptionCodesService = async (
             expiredAt: expiredAt || null,
             status: RedemptionCodeStatus.ACTIVE,
             remark: remark || null,
+            createdBy: createdBy ?? null,
             createdAt: now,
             updatedAt: now,
         })
@@ -137,6 +152,7 @@ export const getRedemptionCodesAdminService = async (options: {
     const { page = 1, pageSize = 20 } = options
 
     const { list, total } = await findRedemptionCodesWithFiltersDao(options)
+    const creatorNames = await resolveCreatorNames(list.map((item) => item.createdBy))
 
     const items: RedemptionCodeAdminInfo[] = list.map((item) => ({
         id: item.id,
@@ -151,6 +167,8 @@ export const getRedemptionCodesAdminService = async (options: {
         status: item.status as RedemptionCodeStatus,
         statusName: getRedemptionCodeStatusName(item.status as RedemptionCodeStatus),
         remark: item.remark,
+        createdBy: item.createdBy,
+        createdByName: item.createdBy != null ? (creatorNames.get(item.createdBy) ?? null) : null,
         createdAt: dayjs(item.createdAt).format('YYYY-MM-DD HH:mm:ss'),
         updatedAt: dayjs(item.updatedAt).format('YYYY-MM-DD HH:mm:ss'),
     }))
@@ -253,9 +271,10 @@ export const exportRedemptionCodesService = async (options: {
     const { limit = 10000 } = options
 
     const list = await findRedemptionCodesForExportDao({ ...options, limit })
+    const creatorNames = await resolveCreatorNames(list.map((item) => item.createdBy))
 
     // 生成 CSV 内容
-    const headers = ['兑换码', '类型', '会员级别', '时长(天)', '积分数量', '状态', '过期时间', '备注', '创建时间']
+    const headers = ['兑换码', '类型', '会员级别', '时长(天)', '积分数量', '状态', '过期时间', '备注', '创建人', '创建时间']
     const rows = list.map((item) => [
         item.code,
         getRedemptionCodeTypeName(item.type as RedemptionCodeType),
@@ -265,6 +284,7 @@ export const exportRedemptionCodesService = async (options: {
         getRedemptionCodeStatusName(item.status as RedemptionCodeStatus),
         item.expiredAt ? dayjs(item.expiredAt).format('YYYY-MM-DD HH:mm:ss') : '',
         item.remark || '',
+        item.createdBy != null ? (creatorNames.get(item.createdBy) ?? '') : '',
         dayjs(item.createdAt).format('YYYY-MM-DD HH:mm:ss'),
     ])
 

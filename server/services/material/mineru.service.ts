@@ -6,6 +6,7 @@
  */
 
 import type { mineruTasks, docRecognitionRecords, Prisma } from '~~/generated/prisma/client'
+import { sanitizeRichHtml } from '~~/server/utils/htmlSanitizer'
 import {
     getActiveTokenValueService,
     getTokenForExistingTaskService,
@@ -26,6 +27,7 @@ import {
 } from './mineru.dao'
 import { generateSignedUrlService, uploadFileService } from '../storage/storage.service'
 import { checkPointsService, consumePointsService } from '../point/pointConsumption.service'
+import { billDirectService } from '../point/pointBilling.service'
 import {
     findOssFileByIdDao,
     findOssFileByIdIncludeDeletedDao,
@@ -35,6 +37,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { $fetch as ofetch } from 'ofetch'
 import { processUrlImagesInMarkdown } from './imageProcessor'
 import { FileSource, OssFileStatus } from '#shared/types/file'
+import { buildStorageKey } from '~~/server/utils/storagePath'
 import { getExtensionFromFileName } from '~~/shared/utils/file'
 import { calculateBackoffDelay, DEFAULT_POLLING_CONFIG } from './materialConstants'
 import type { PollingConfig } from './materialConstants'
@@ -144,7 +147,13 @@ async function uploadImageToOss(
 ): Promise<{ bucket: string; ossFileId: number } | null> {
     const ext = getExtensionFromFileName(imageName) || 'png'
     const uniqueName = `${uuidv4()}.${ext}`
-    const ossPath = `mineru/${taskId}/${uniqueName}`
+    const ossPath = buildStorageKey({
+        scope: 'user',
+        userId,
+        source: FileSource.DOC_EMBEDDED_IMAGE,
+        subDir: taskId,
+        fileName: uniqueName,
+    })
 
     const config = useRuntimeConfig()
     const storageConfig = config.storage
@@ -161,7 +170,7 @@ async function uploadImageToOss(
                 filePath: ossPath,
                 fileSize: imageBuffer.length,
                 fileType: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
-                source: FileSource.CASE_ANALYSIS,
+                source: FileSource.DOC_EMBEDDED_IMAGE,
                 status: OssFileStatus.UPLOADED,
                 encrypted: false,
             },
@@ -245,7 +254,8 @@ async function markdownToHtml(markdown: string): Promise<string> {
         breaks: true,     // 将换行符转换为 <br>
     })
 
-    return marked.parse(markdown)
+    // 净化 marked 输出，防止存储型 XSS
+    return sanitizeRichHtml(await marked.parse(markdown))
 }
 
 // ==================== 服务层 ====================
@@ -569,20 +579,22 @@ export const completeConversionService = async (
             }
         }
 
-        // 5. 扣减积分
+        // 5. 扣减积分（按真实页数；停用态自动跳过；失败不阻断已完成的解析）
         // Requirements: 3.1.17, 3.1.18
         try {
-            await consumePointsService(task.userId, DOC_PARSE_ITEM_KEY, pageCount, { sourceId: task.id })
+            await billDirectService(task.userId, DOC_PARSE_ITEM_KEY, { units: pageCount }, {
+                sourceId: task.id,
+                contextLabel: `文档_${task.ossFileId}`,
+            })
             logger.info(`PDF 转换积分扣减成功：userId=${task.userId}, pages=${pageCount}`)
         } catch (pointError) {
             // 积分扣减失败不影响转换结果，但需要记录日志
             // 识别已经完成，结果已经保存，不应该因为积分问题而标记为失败
             logger.error('PDF 转换积分扣减失败：', pointError)
-            // TODO: 可以考虑创建一个"待支付"记录，让用户充值后补扣积分
         }
 
         // 6. fire-and-forget 按 OssFile 触发摘要生成
-        // 不依赖 caseMaterials 行存在（小索/法律助手输入框上传场景下还没创建 caseMaterials）
+        // 不依赖 caseMaterials 行存在（小索/通用问答输入框上传场景下还没创建 caseMaterials）
         generateOssFileSummaryService(task.ossFileId).catch(() => { /* 已在内部 catch */ })
 
         logger.info(`PDF 转换完成：taskId=${taskId}`)

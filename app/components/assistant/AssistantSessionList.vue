@@ -1,9 +1,10 @@
 <script setup lang="ts">
 /**
- * 通用法律助手 · 会话列表
+ * 通用问答 · 会话列表
  *
- * 展示当前用户的 assistant 会话（scope=assistant），
- * 支持新建 / 重命名 / 软删 / 选中（v-model:selectedId）。
+ * 展示当前用户的 assistant 会话（scope=assistant），支持新建 / 选中
+ * （v-model:selectedId）/ 本地搜索。重命名与删除由对话顶栏发起，
+ * 本组件通过 defineExpose 暴露 renameSession / removeSession 供其调用。
  *
  * - 数据接口：/api/v1/assistant/sessions (GET/POST/PATCH/DELETE)
  * - useApiFetch 自动提取 data 字段，直接使用返回值
@@ -11,30 +12,35 @@
  *
  * 参见 spec §8.3.2。
  */
-import {
-    PlusIcon,
-    Trash2Icon,
-    PencilIcon,
-    CheckIcon,
-    XIcon,
-} from 'lucide-vue-next'
+import { PlusIcon, SearchIcon, ClockIcon } from 'lucide-vue-next'
 import type {
     AssistantSession,
     AssistantSessionListResponse,
     CreateAssistantSessionResponse,
 } from '#shared/types/assistant'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { useFormatters } from '~/composables/useFormatters'
 import { useAlertDialogStore } from '~/store/alertDialog'
+import AssistantSessionTitle from '~/components/assistant/AssistantSessionTitle.vue'
 
 const selectedId = defineModel<string | null>('selectedId')
+
+/** 点选会话时通知父级（用于关闭移动端抽屉，含点选当前会话的情况） */
+const emit = defineEmits<{ select: [] }>()
+
+const { formatDateRelative } = useFormatters()
 
 const sessions = ref<AssistantSession[]>([])
 const loading = ref(false)
 const creating = ref(false)
 
-/** 内联重命名状态 */
-const renamingId = ref<string | null>(null)
-const renameInput = ref('')
+/** 会话搜索关键词（纯前端过滤） */
+const search = ref('')
+const filteredSessions = computed(() => {
+    const q = search.value.trim()
+    if (!q) return sessions.value
+    return sessions.value.filter(s => (s.title ?? '未命名对话').includes(q))
+})
 
 async function loadSessions() {
     loading.value = true
@@ -66,35 +72,21 @@ async function createSession() {
     }
 }
 
-function startRename(session: AssistantSession, e: Event) {
-    e.stopPropagation()
-    renamingId.value = session.sessionId
-    renameInput.value = session.title ?? ''
-}
-
-function cancelRename(e?: Event) {
-    e?.stopPropagation()
-    renamingId.value = null
-    renameInput.value = ''
-}
-
-async function confirmRename(session: AssistantSession, e: Event) {
-    e.stopPropagation()
-    const next = renameInput.value.trim()
-    if (!next || next === (session.title ?? '')) {
-        cancelRename()
-        return
-    }
+/** 重命名会话（由对话顶栏调用），成功返回 true */
+async function renameSession(sessionId: string, title: string): Promise<boolean> {
+    const next = title.trim()
+    if (!next) return false
     const res = await useApiFetch<{ sessionId: string; title: string }>(
-        `/api/v1/assistant/sessions/${session.sessionId}`,
+        `/api/v1/assistant/sessions/${sessionId}`,
         { method: 'PATCH', body: { title: next } },
     )
-    cancelRename()
-    if (res) await loadSessions()
+    if (!res) return false
+    await loadSessions()
+    return true
 }
 
-function deleteSession(session: AssistantSession, e: Event) {
-    e.stopPropagation()
+/** 删除会话（由对话顶栏调用），带二次确认 */
+function removeSession(session: AssistantSession) {
     const label = session.title ?? '未命名对话'
     const alertDialogStore = useAlertDialogStore()
     alertDialogStore.showErrorDialog({
@@ -115,117 +107,85 @@ function deleteSession(session: AssistantSession, e: Event) {
     })
 }
 
-function handleSelect(session: AssistantSession) {
-    if (renamingId.value) return
+/** 选中会话；无论是否已是当前会话都 emit，便于父级关闭移动端抽屉 */
+function selectSession(session: AssistantSession) {
     selectedId.value = session.sessionId
+    emit('select')
 }
 
 onMounted(loadSessions)
 
-defineExpose({ refresh: loadSessions, createSession })
+defineExpose({ refresh: loadSessions, createSession, sessions, renameSession, removeSession })
 </script>
 
 <template>
-    <div class="flex h-full flex-col bg-muted/30 border-r border-border/60">
-        <!-- 新对话按钮：outline 风格，与列表项区分 -->
-        <div class="px-2 pt-3 pb-2">
+    <div class="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card">
+        <!-- 新会话按钮 -->
+        <div class="px-3 pb-2.5 pt-3.5">
             <Button
-                variant="outline"
-                size="sm"
-                class="w-full justify-start gap-2 h-9 bg-background/60 hover:bg-background"
-                :disabled="creating"
-                @click="createSession"
-            >
-                <PlusIcon class="size-4 text-primary" />
-                <span class="text-sm">新对话</span>
+                class="w-full gap-1.5 bg-gradient-brand-button text-white shadow-[0_8px_18px_-8px_rgba(30,158,237,0.4)]"
+                :disabled="creating" @click="createSession">
+                <PlusIcon class="size-4" />
+                <span class="text-[13.5px] font-semibold">新会话</span>
             </Button>
+        </div>
+
+        <!-- 搜索框 -->
+        <div class="px-3 pb-2.5">
+            <div class="flex items-center gap-1.5 rounded-lg border border-border bg-muted px-2.5 py-1.5">
+                <SearchIcon class="size-3.5 shrink-0 text-muted-foreground" />
+                <input v-model="search" placeholder="搜索会话..." aria-label="搜索会话"
+                    class="min-w-0 flex-1 border-none bg-transparent text-[12.5px] text-foreground outline-none placeholder:text-muted-foreground">
+            </div>
         </div>
 
         <!-- 列表区 -->
         <div class="flex-1 overflow-y-auto px-2 pb-3">
             <!-- loading 骨架 -->
             <div v-if="loading && sessions.length === 0" class="space-y-1.5 px-1 py-2">
-                <div
-                    v-for="i in 4"
-                    :key="i"
-                    class="h-8 rounded-md bg-muted/70 animate-pulse"
-                />
+                <div v-for="i in 5" :key="i" class="h-12 animate-pulse rounded-lg bg-muted" />
             </div>
 
-            <!-- 空状态：淡化提示 -->
-            <div
-                v-else-if="sessions.length === 0"
-                class="py-10 text-center text-xs text-muted-foreground/70"
-            >
-                暂无会话
+            <!-- 空状态 -->
+            <div v-else-if="filteredSessions.length === 0" class="py-10 text-center text-xs text-muted-foreground/70">
+                {{ sessions.length === 0 ? '暂无会话' : '没有匹配的会话' }}
             </div>
 
             <!-- 列表 -->
-            <ul v-else class="space-y-0.5">
-                <li
-                    v-for="s in sessions"
-                    :key="s.sessionId"
-                    class="group relative flex items-center gap-1 rounded-md px-2 py-2 cursor-pointer transition-colors"
-                    :class="[
-                        selectedId === s.sessionId
-                            ? 'bg-accent text-accent-foreground'
-                            : 'hover:bg-accent/60 text-foreground/80',
-                    ]"
-                    @click="handleSelect(s)"
-                >
-                    <!-- 重命名态 -->
-                    <template v-if="renamingId === s.sessionId">
-                        <input
-                            v-model="renameInput"
-                            class="flex-1 min-w-0 text-sm bg-background border border-border rounded px-2 py-0.5 outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                            autofocus
-                            maxlength="200"
-                            @click.stop
-                            @keyup.enter="confirmRename(s, $event)"
-                            @keyup.escape="cancelRename($event)"
-                        >
-                        <button
-                            type="button"
-                            class="shrink-0 size-6 rounded flex items-center justify-center text-primary hover:bg-primary/10"
-                            title="确认"
-                            @click="confirmRename(s, $event)"
-                        >
-                            <CheckIcon class="size-3.5" />
-                        </button>
-                        <button
-                            type="button"
-                            class="shrink-0 size-6 rounded flex items-center justify-center text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                            title="取消"
-                            @click="cancelRename($event)"
-                        >
-                            <XIcon class="size-3.5" />
-                        </button>
-                    </template>
-
-                    <!-- 正常态 -->
-                    <template v-else>
-                        <span class="flex-1 truncate text-sm">
-                            {{ s.title ?? '未命名对话' }}
-                        </span>
-                        <button
-                            type="button"
-                            class="shrink-0 size-6 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 text-muted-foreground hover:bg-background hover:text-foreground transition-opacity"
-                            title="重命名"
-                            @click="startRename(s, $event)"
-                        >
-                            <PencilIcon class="size-3.5" />
-                        </button>
-                        <button
-                            type="button"
-                            class="shrink-0 size-6 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-opacity"
-                            title="删除"
-                            @click="deleteSession(s, $event)"
-                        >
-                            <Trash2Icon class="size-3.5" />
-                        </button>
-                    </template>
-                </li>
-            </ul>
+            <template v-else>
+                <!-- <div class="px-2.5 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    历史会话
+                </div> -->
+                <ul class="space-y-0.5">
+                    <li v-for="s in filteredSessions" :key="s.sessionId"
+                        class="relative cursor-pointer rounded-lg px-2.5 py-2 transition-colors"
+                        :class="selectedId === s.sessionId ? 'session-active' : 'hover:bg-primary/[0.08]'"
+                        @click="selectSession(s)">
+                        <!-- 选中态左侧品牌色条 -->
+                        <span v-if="selectedId === s.sessionId" aria-hidden="true"
+                            class="absolute bottom-2 left-0 top-2 w-[3px] rounded-full bg-linear-to-b from-[var(--brand-mint)] via-[var(--brand-sky)] to-[var(--brand-navy)]" />
+                        <p class="truncate text-[13px] leading-snug" :class="selectedId === s.sessionId
+                            ? 'font-semibold text-primary'
+                            : 'font-medium text-foreground'">
+                            <AssistantSessionTitle :title="s.title" />
+                        </p>
+                        <p class="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+                            <ClockIcon class="size-3 shrink-0" />
+                            {{ formatDateRelative(s.updatedAt) }}
+                        </p>
+                    </li>
+                </ul>
+            </template>
         </div>
     </div>
 </template>
+
+<style scoped>
+/* 选中会话项的品牌色横向渐隐底纹（取自设计稿） */
+.session-active {
+    background-image: linear-gradient(90deg,
+            color-mix(in srgb, var(--brand-mint) 14%, transparent),
+            color-mix(in srgb, var(--brand-sky) 12%, transparent) 60%,
+            transparent);
+}
+</style>

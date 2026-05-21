@@ -1,12 +1,12 @@
 <template>
-    <div class="space-y-6">
+    <div class="theme-brand space-y-6">
       <!-- 页面标题 -->
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 class="text-2xl md:text-3xl font-bold mb-1">API 权限管理</h1>
           <p class="text-muted-foreground text-sm">管理 API 接口权限资源</p>
         </div>
-        <Button variant="outline" @click="handleScan" :disabled="scanning" class="w-full md:w-auto">
+        <Button variant="outline" :class="['w-full md:w-auto', adminBrandFocusClass]" @click="handleScan" :disabled="scanning">
           <Loader2 v-if="scanning" class="h-4 w-4 mr-2 animate-spin" />
           <RefreshCw v-else class="h-4 w-4 mr-2" />
           扫描 API
@@ -15,12 +15,12 @@
 
       <!-- 搜索和筛选 -->
       <div class="flex flex-col md:flex-row gap-4">
-        <Input v-model="searchKeyword" placeholder="搜索路径或名称..." class="md:max-w-sm" @keyup.enter="handleSearch" />
+        <Input v-model="searchKeyword" placeholder="搜索路径或名称..." :class="['md:max-w-sm', adminBrandFocusClass]" @keyup.enter="handleSearch" />
         <Select v-model="methodFilter">
-          <SelectTrigger class="w-full md:w-32">
+          <SelectTrigger :class="['w-full md:w-32', adminBrandFocusClass]">
             <SelectValue placeholder="请求方法" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent class="theme-brand">
             <SelectItem value="all">全部方法</SelectItem>
             <SelectItem value="GET">GET</SelectItem>
             <SelectItem value="POST">POST</SelectItem>
@@ -30,28 +30,28 @@
           </SelectContent>
         </Select>
         <Select v-model="publicFilter">
-          <SelectTrigger class="w-full md:w-32">
+          <SelectTrigger :class="['w-full md:w-32', adminBrandFocusClass]">
             <SelectValue placeholder="公开状态" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent class="theme-brand">
             <SelectItem value="all">全部</SelectItem>
             <SelectItem value="true">公开</SelectItem>
             <SelectItem value="false">非公开</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline" @click="handleSearch">
+        <Button variant="outline" :class="adminBrandFocusClass" @click="handleSearch">
           <Search class="h-4 w-4 mr-2" />
           搜索
         </Button>
       </div>
 
       <!-- 批量操作 -->
-      <div v-if="selectedIds.length > 0" class="flex items-center gap-4 p-4 bg-muted rounded-lg">
+      <div v-if="selectedIds.length > 0" class="flex flex-wrap items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
         <span class="text-sm font-medium">已选择 {{ selectedIds.length }} 项</span>
-        <Button size="sm" variant="outline" @click="handleBatchPublic(true)">设为公开</Button>
-        <Button size="sm" variant="outline" @click="handleBatchPublic(false)">设为非公开</Button>
-        <Button size="sm" variant="destructive" @click="handleBatchDelete">批量删除</Button>
-        <Button size="sm" variant="ghost" @click="selectedIds = []">取消选择</Button>
+        <Button size="sm" variant="outline" :class="adminBrandFocusClass" @click="handleBatchPublic(true)">设为公开</Button>
+        <Button size="sm" variant="outline" :class="adminBrandFocusClass" @click="handleBatchPublic(false)">设为非公开</Button>
+        <Button size="sm" variant="destructive" :class="adminBrandDestructiveActionClass" @click="handleBatchDelete">批量删除</Button>
+        <Button size="sm" variant="ghost" :class="adminBrandFocusClass" @click="selectedIds = []">取消选择</Button>
       </div>
 
       <!-- 加载状态 -->
@@ -69,52 +69,55 @@
       <!-- 权限列表 -->
       <template v-else>
         <div class="bg-card rounded-lg border overflow-hidden">
-          <div class="overflow-x-auto">
-            <table class="w-full">
-              <thead>
-                <tr class="border-b bg-muted/50">
-                  <th class="px-4 py-3 text-left text-sm font-medium w-12">
-                    <Checkbox :model-value="isAllSelected" @update:model-value="toggleSelectAll" />
-                  </th>
-                  <th class="px-4 py-3 text-left text-sm font-medium w-24">方法</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium">路径</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium">名称</th>
-                  <th class="px-4 py-3 text-center text-sm font-medium w-20">公开</th>
-                  <th class="px-4 py-3 text-center text-sm font-medium w-20">状态</th>
-                  <th class="px-4 py-3 text-center text-sm font-medium w-20">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="perm in permissions" :key="perm.id"
-                  class="border-b last:border-b-0 hover:bg-muted/30 transition-colors">
-                  <td class="px-4 py-3">
+          <Table>
+            <TableHeader>
+              <TableRow class="bg-muted/50 hover:bg-muted/50">
+                <TableHead class="w-12 px-4 py-3">
+                  <Checkbox :model-value="isAllSelected" :class="adminBrandCheckboxClass" @update:model-value="toggleSelectAll" />
+                </TableHead>
+                <TableHead class="w-24 px-4 py-3">方法</TableHead>
+                <TableHead class="px-4 py-3">路径</TableHead>
+                <TableHead class="px-4 py-3">名称</TableHead>
+                <TableHead class="w-20 px-4 py-3 text-center">公开</TableHead>
+                <TableHead class="w-20 px-4 py-3 text-center">状态</TableHead>
+                <TableHead class="w-20 px-4 py-3 text-center">操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow v-for="perm in permissions" :key="perm.id"
+                class="border-l-2"
+                :class="selectedIds.includes(perm.id) ? adminBrandSelectedListItemClass : adminBrandUnselectedListItemClass">
+                  <TableCell class="px-4 py-3">
                     <Checkbox :model-value="selectedIds.includes(perm.id)"
+                      :class="adminBrandCheckboxClass"
                       @update:model-value="(checked: boolean | 'indeterminate') => toggleSelect(perm.id, checked)" />
-                  </td>
-                  <td class="px-4 py-3">
-                    <Badge :variant="getMethodVariant(perm.method)">{{ perm.method }}</Badge>
-                  </td>
-                  <td class="px-4 py-3">
+                  </TableCell>
+                  <TableCell class="px-4 py-3">
+                    <Badge variant="outline" :class="getAdminHttpMethodBadgeClass(perm.method)">{{ perm.method }}</Badge>
+                  </TableCell>
+                  <TableCell class="px-4 py-3">
                     <code class="text-xs bg-muted px-1.5 py-0.5 rounded">{{ perm.path }}</code>
-                  </td>
-                  <td class="px-4 py-3 text-sm">{{ perm.name }}</td>
-                  <td class="px-4 py-3 text-center">
+                  </TableCell>
+                  <TableCell class="px-4 py-3 text-sm">{{ perm.name }}</TableCell>
+                  <TableCell class="px-4 py-3 text-center">
                     <Switch :model-value="perm.isPublic"
+                      :class="adminBrandSwitchClass"
                       @update:model-value="(checked: boolean) => handleTogglePublic(perm, checked)" />
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <span :class="getStatusClass(perm.status)">{{ perm.status === 1 ? '启用' : '禁用' }}</span>
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <Button variant="ghost" size="icon" class="h-8 w-8 text-destructive hover:text-destructive"
+                  </TableCell>
+                  <TableCell class="px-4 py-3 text-center">
+                    <Badge variant="outline" :class="getAdminStatusBadgeClass(perm.status === 1)">
+                      {{ perm.status === 1 ? '启用' : '禁用' }}
+                    </Badge>
+                  </TableCell>
+                  <TableCell class="px-4 py-3 text-center">
+                    <Button variant="ghost" size="icon" :class="['h-8 w-8 text-destructive hover:text-destructive', adminBrandFocusClass]"
                       @click="handleDelete(perm)">
                       <Trash2 class="h-4 w-4" />
                     </Button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+                  </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
         </div>
 
         <!-- 分页 -->
@@ -125,7 +128,7 @@
 
     <!-- 扫描结果对话框 -->
     <Dialog v-model:open="scanDialogOpen">
-      <DialogContent class="!max-w-5xl w-[95vw] max-h-[80vh] overflow-hidden flex flex-col">
+      <DialogContent class="theme-brand !max-w-5xl w-[95vw] max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>API 扫描结果</DialogTitle>
           <DialogDescription>发现 {{ scanResult?.stats.total }} 个 API，其中 {{ scanResult?.stats.new }} 个为新增
@@ -133,44 +136,44 @@
         </DialogHeader>
         <!-- 无新增 API -->
         <div v-if="newApiItems.length === 0" class="flex flex-col items-center justify-center py-8 text-center">
-          <CheckCircle class="h-12 w-12 text-green-500 mb-4" />
+          <CheckCircle class="h-12 w-12 text-emerald-500 mb-4" />
           <h3 class="text-lg font-medium mb-1">API 权限已同步</h3>
           <p class="text-muted-foreground text-sm">所有 API 接口都已添加到权限列表中</p>
         </div>
         <!-- 有新增 API -->
         <template v-else>
           <div class="flex-1 overflow-auto">
-            <div class="bg-card rounded-lg border overflow-x-auto">
-              <table class="w-full">
-                <thead>
-                  <tr class="border-b bg-muted/50">
-                    <th class="px-3 py-3 text-left text-sm font-medium w-20 whitespace-nowrap">方法</th>
-                    <th class="px-3 py-3 text-left text-sm font-medium min-w-[300px]">路径</th>
-                    <th class="px-3 py-3 text-left text-sm font-medium">名称</th>
-                    <th class="px-3 py-3 text-center text-sm font-medium w-16 whitespace-nowrap">状态</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="item in newApiItems" :key="`${item.method}:${item.path}`"
-                    class="border-b last:border-b-0 hover:bg-muted/30 transition-colors">
-                    <td class="px-3 py-2">
-                      <Badge :variant="getMethodVariant(item.method)">{{ item.method }}</Badge>
-                    </td>
-                    <td class="px-3 py-2"><code class="text-xs bg-muted px-1.5 py-0.5 rounded">{{ item.path }}</code>
-                    </td>
-                    <td class="px-3 py-2 text-sm text-muted-foreground">{{ item.name }}</td>
-                    <td class="px-3 py-2 text-center">
-                      <Badge variant="outline">新增</Badge>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+            <div class="bg-card rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow class="bg-muted/50 hover:bg-muted/50">
+                    <TableHead class="w-20 px-3 py-3 whitespace-nowrap">方法</TableHead>
+                    <TableHead class="min-w-[300px] px-3 py-3">路径</TableHead>
+                    <TableHead class="px-3 py-3">名称</TableHead>
+                    <TableHead class="w-16 px-3 py-3 text-center whitespace-nowrap">状态</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow v-for="item in newApiItems" :key="`${item.method}:${item.path}`" class="hover:bg-muted/30">
+                    <TableCell class="px-3 py-2">
+                      <Badge variant="outline" :class="getAdminHttpMethodBadgeClass(item.method)">{{ item.method }}</Badge>
+                    </TableCell>
+                    <TableCell class="px-3 py-2">
+                      <code class="text-xs bg-muted px-1.5 py-0.5 rounded">{{ item.path }}</code>
+                    </TableCell>
+                    <TableCell class="px-3 py-2 text-sm text-muted-foreground">{{ item.name }}</TableCell>
+                    <TableCell class="px-3 py-2 text-center">
+                      <Badge variant="outline" :class="adminBrandActiveBadgeClass">新增</Badge>
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
             </div>
           </div>
         </template>
         <DialogFooter>
-          <Button variant="outline" @click="scanDialogOpen = false">关闭</Button>
-          <Button v-if="newApiItems.length > 0" @click="handleImport" :disabled="importing">
+          <Button variant="outline" :class="adminBrandFocusClass" @click="scanDialogOpen = false">关闭</Button>
+          <Button v-if="newApiItems.length > 0" :class="adminBrandPrimaryButtonClass" @click="handleImport" :disabled="importing">
             <Loader2 v-if="importing" class="h-4 w-4 mr-2 animate-spin" />
             <Download v-else class="h-4 w-4 mr-2" />
             导入 {{ newApiItems.length }} 个新 API
@@ -181,14 +184,14 @@
 
     <!-- 删除确认对话框 -->
     <AlertDialog v-model:open="deleteDialogOpen">
-      <AlertDialogContent>
+      <AlertDialogContent class="theme-brand">
         <AlertDialogHeader>
           <AlertDialogTitle>确认删除</AlertDialogTitle>
           <AlertDialogDescription>确定要删除 API 权限「{{ permToDelete?.path }}」吗？</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>取消</AlertDialogCancel>
-          <AlertDialogAction @click="confirmDelete" class="bg-destructive text-white hover:bg-destructive/90">删除
+          <AlertDialogAction :class="adminBrandDestructiveActionClass" @click="confirmDelete">删除
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -196,14 +199,14 @@
 
     <!-- 批量删除确认对话框 -->
     <AlertDialog v-model:open="batchDeleteDialogOpen">
-      <AlertDialogContent>
+      <AlertDialogContent class="theme-brand">
         <AlertDialogHeader>
           <AlertDialogTitle>确认批量删除</AlertDialogTitle>
           <AlertDialogDescription>确定要删除选中的 {{ selectedIds.length }} 个 API 权限吗？此操作不可撤销。</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>取消</AlertDialogCancel>
-          <AlertDialogAction @click="confirmBatchDelete" class="bg-destructive text-white hover:bg-destructive/90">删除
+          <AlertDialogAction :class="adminBrandDestructiveActionClass" @click="confirmBatchDelete">删除
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -215,6 +218,18 @@ import { Search, RefreshCw, Trash2, Loader2, Key, Download, CheckCircle } from '
 import { toast } from 'vue-sonner'
 import GeneralPagination from '~/components/general/pagination.vue'
 import { useApiFetch } from '~/composables/useApiFetch'
+import {
+  adminBrandActiveBadgeClass,
+  adminBrandCheckboxClass,
+  adminBrandDestructiveActionClass,
+  adminBrandFocusClass,
+  adminBrandPrimaryButtonClass,
+  adminBrandSelectedListItemClass,
+  adminBrandSwitchClass,
+  adminBrandUnselectedListItemClass,
+  getAdminHttpMethodBadgeClass,
+  getAdminStatusBadgeClass,
+} from '~/utils/adminBrandStyles'
 
 definePageMeta({ layout: 'admin-layout', title: "API 权限管理" })
 
@@ -257,21 +272,6 @@ const isAllSelected = computed(() => {
 /** 新增的 API 列表 */
 const newApiItems = computed(() => scanResult.value?.items.filter(i => !i.exists) || [])
 
-/** 获取 HTTP 方法对应的 Badge 样式 */
-const getMethodVariant = (method: string) => {
-  const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-    GET: 'default', POST: 'secondary', PUT: 'outline', DELETE: 'destructive', PATCH: 'outline', '*': 'secondary'
-  }
-  return variants[method] || 'outline'
-}
-
-const getStatusClass = (status: number): string => {
-  const baseClass = 'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium'
-  return status === 1
-    ? `${baseClass} bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400`
-    : `${baseClass} bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400`
-}
-
 const loadPermissions = async () => {
   loading.value = true
   try {
@@ -291,7 +291,9 @@ const loadPermissions = async () => {
 const handleSearch = () => { pagination.value.page = 1; selectedIds.value = []; loadPermissions() }
 const changePage = (page: number) => { pagination.value.page = page; selectedIds.value = []; loadPermissions() }
 const toggleSelect = (id: number, checked: boolean | 'indeterminate') => {
-  if (checked === true) selectedIds.value.push(id)
+  if (checked === true) {
+    if (!selectedIds.value.includes(id)) selectedIds.value.push(id)
+  }
   else selectedIds.value = selectedIds.value.filter(i => i !== id)
 }
 const toggleSelectAll = (checked: boolean | 'indeterminate') => {

@@ -1,5 +1,5 @@
 <template>
-    <div class="space-y-6 max-w-2xl">
+    <div class="theme-brand space-y-6 max-w-2xl">
       <!-- 页面标题 -->
       <div>
         <h1 class="text-2xl font-bold">编辑角色</h1>
@@ -17,24 +17,24 @@
           <form @submit.prevent="handleSubmit" class="space-y-6">
             <div class="space-y-2">
               <Label for="name">角色名称 <span class="text-destructive">*</span></Label>
-              <Input id="name" v-model="form.name" placeholder="请输入角色名称" />
+              <Input id="name" v-model="form.name" placeholder="请输入角色名称" :class="adminBrandFocusClass" />
             </div>
 
             <div class="space-y-2">
               <Label for="code">角色标识</Label>
-              <Input id="code" :value="role.code" disabled class="bg-muted" />
+              <Input id="code" :value="role.code" disabled :class="['bg-muted', adminBrandFocusClass]" />
               <p class="text-xs text-muted-foreground">角色标识创建后不可修改</p>
             </div>
 
             <div class="space-y-2">
               <Label for="description">描述</Label>
-              <Textarea id="description" v-model="form.description" placeholder="请输入角色描述" rows="3" />
+              <Textarea id="description" v-model="form.description" placeholder="请输入角色描述" rows="3" :class="adminBrandFocusClass" />
             </div>
 
             <div class="space-y-2">
               <Label>状态</Label>
               <div class="flex items-center space-x-2">
-                <Switch id="status" v-model="statusEnabled" :disabled="role.code === 'super_admin'" />
+                <Switch id="status" v-model="statusEnabled" :class="adminBrandSwitchClass" :disabled="role.code === 'super_admin'" />
                 <Label for="status" class="font-normal">{{ statusEnabled ? '启用' : '禁用' }}</Label>
               </div>
               <p v-if="role.code === 'super_admin'" class="text-xs text-muted-foreground">
@@ -43,11 +43,11 @@
             </div>
 
             <div class="flex gap-4 pt-4">
-              <Button type="submit" :disabled="submitting">
+              <Button type="submit" :class="adminBrandPrimaryButtonClass" :disabled="submitting">
                 <Loader2 v-if="submitting" class="h-4 w-4 mr-2 animate-spin" />
                 保存修改
               </Button>
-              <Button type="button" variant="outline" @click="navigateTo('/admin/roles')">
+              <Button type="button" variant="outline" :class="adminBrandFocusClass" @click="navigateTo('/admin/roles')">
                 取消
               </Button>
             </div>
@@ -68,10 +68,11 @@
 import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useApiFetch } from '~/composables/useApiFetch'
+import { adminBrandFocusClass, adminBrandPrimaryButtonClass, adminBrandSwitchClass } from '~/utils/adminBrandStyles'
 
 definePageMeta({
   layout: 'admin-layout',
-  title: "权限分配"
+  title: "编辑角色"
 })
 
 const route = useRoute()

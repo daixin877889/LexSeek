@@ -38,6 +38,7 @@ vi.mock('~~/server/services/agent/agentRun.dao', () => ({
 }))
 vi.mock('~~/server/services/sse/agentSseStream', () => ({
     createAgentSseStream: vi.fn(() => new ReadableStream()),
+    createEmptyAgentSseResponse: vi.fn(() => new Response(new ReadableStream())),
 }))
 vi.mock('~~/server/services/memory/consolidator.service', () => ({
     scheduleConsolidation: vi.fn(async () => undefined),
@@ -272,7 +273,7 @@ describe('POST /api/v1/cases/analysis/chat deep', () => {
         expect(res).toBeDefined()
     })
 
-    it('无活跃 run + 无消息 + 无最新 run → 400', async () => {
+    it('无活跃 run + 无消息 + 无最新 run → 返回空 SSE 流（不报错）', async () => {
         ;(getActiveRunService as any).mockResolvedValue(null)
         ;(getLatestRunService as any).mockResolvedValue(null)
         const res: any = await chatHandler(makeEvent({
@@ -280,7 +281,8 @@ describe('POST /api/v1/cases/analysis/chat deep', () => {
                 config: { configurable: { thread_id: 'S' } },
             },
         }) as any)
-        expectError(res, 400)
+        // 全新空会话拉历史（loadHistory → submit(undefined)）：返回空 SSE 流而非报错
+        expect(res).toBeInstanceOf(Response)
     })
 
     it('enqueueRun 返回 error → 429', async () => {

@@ -312,7 +312,7 @@ describe('节点 DAO - 覆盖率补充', () => {
                 data: {
                     name: promptName,
                     title: '系统提示词',
-                    content: '你是一个法律助手',
+                    content: '你是一个通用问答',
                     variables: [],
                     version: '1.0.0',
                     type: 'system',
