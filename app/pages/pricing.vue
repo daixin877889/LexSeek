@@ -9,7 +9,7 @@
           灵活的<span class="bg-gradient-brand bg-clip-text text-transparent">定价方案</span>
         </h1>
         <p class="mx-auto max-w-[680px] text-[19px] leading-[1.6] text-muted-foreground">
-          按需选择，满足不同规模团队的需求 · 新用户注册即享 7 天全功能免费试用
+          按需选择，满足不同规模团队的需求 · 新用户注册即享 1 天全功能免费试用
         </p>
       </div>
     </section>
