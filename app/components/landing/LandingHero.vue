@@ -49,8 +49,9 @@
       <div
         class="relative rounded-[18px] bg-gradient-brand p-0.5 shadow-[0_25px_60px_-20px_rgba(9,3,128,0.4),0_10px_20px_-10px_rgba(30,158,237,0.3)]">
         <div class="aspect-video overflow-hidden rounded-2xl bg-card">
-          <video src="https://lexseek.cn/video/vcr.mp4" poster="https://lexseek.cn/video/cover.png" controls playsinline
-            webkit-playsinline preload="none" class="block h-full w-full bg-black object-cover" />
+          <video src="https://pb-files.lexseek.cn/website/vcr.mp4"
+            poster="https://pb-files.lexseek.cn/website/cover.png" controls playsinline webkit-playsinline
+            preload="none" class="block h-full w-full bg-black object-cover" />
         </div>
       </div>
     </div>
