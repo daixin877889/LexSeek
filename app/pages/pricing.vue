@@ -53,9 +53,7 @@
 
             <button type="button"
               class="inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-3 text-[14px] font-semibold transition hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
-              :class="BTN_CLASS[plan.variant]"
-              :disabled="pendingProductId !== null"
-              @click="buy(plan)">
+              :class="BTN_CLASS[plan.variant]" :disabled="pendingProductId !== null" @click="buy(plan)">
               <Loader2 v-if="pendingProductId === plan.productId" class="h-4 w-4 animate-spin" />
               {{ plan.cta }}
             </button>
@@ -145,7 +143,7 @@
     <LandingCta primary-text="免费注册" primary-to="/register" secondary-text="联系客服"
       :secondary-handler="() => wxSupportStore.showQrCode()">
       <template #title>开始免费试用</template>
-      <template #description>立即注册并获得 7 天全功能免费试用</template>
+      <template #description>立即注册并获得 1 天全功能免费试用</template>
     </LandingCta>
 
     <!-- 购买流程组件（包含认证弹框和支付二维码弹框） -->
