@@ -1,7 +1,9 @@
 /**
  * 最高人民法院民事诉讼文书样式 一次性导入脚本
  *
- * 数据来源：105 份官方 .docx 模板（路径由 --dir 参数指定）
+ * 数据来源：105 份官方 .docx 模板，默认随脚本一起入库到
+ *   server/scripts/importCourtTemplates/
+ * 也可用 --dir 覆盖到任意外部目录。
  *
  * 行为：
  *  1. 遍历目录下所有 .docx（自动过滤 Word 临时锁文件 .~*）
@@ -18,14 +20,14 @@
  *  - seedData.sql 不包含 ossFiles / documentTemplates 这类用户运行时数据
  *
  * 用法：
- *   npx tsx server/scripts/importCourtTemplates.ts \
- *     --dir "/Users/daixin/Downloads/最高人民法院民事诉讼文书样式_模板" \
- *     [--dry-run]
+ *   npx tsx server/scripts/importCourtTemplates.ts [--dry-run]
+ *   npx tsx server/scripts/importCourtTemplates.ts --dir <自定义目录> [--dry-run]
  */
 
 import 'dotenv/config'
 import { readFileSync, readdirSync } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import PizZip from 'pizzip'
 import Docxtemplater from 'docxtemplater'
 import type { DocumentCategoryKey } from '#shared/types/document'
@@ -40,6 +42,8 @@ const FILE_TO_CATEGORY: Record<string, DocumentCategoryKey> = {
     '4. 授权委托书（公民委托诉讼代理人用）.docx': 'general',
     '5. 授权委托书（法人或者其他组织委托诉讼代理人用）.docx': 'general',
     '6. 推荐函（推荐委托诉讼代理人用）.docx': 'general',
+    '1. 律师函.docx': 'general',
+    '1. 法律意见书.docx': 'general',
 
     // ---------- litigation 起诉·应诉·上诉（16）----------
     '1.口头起诉登记表（公民口头提起民事诉讼用）.docx': 'litigation',
@@ -224,7 +228,8 @@ interface CliArgs {
 
 function parseArgs(): CliArgs {
     const argv = process.argv.slice(2)
-    let dir = '/Users/daixin/Downloads/最高人民法院民事诉讼文书样式_模板'
+    const scriptDir = dirname(fileURLToPath(import.meta.url))
+    let dir = join(scriptDir, 'importCourtTemplates')
     let dryRun = false
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i]
